@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { getAdminCohorts } from '@/lib/admin-cohorts-api';
@@ -9,7 +10,6 @@ import {
   nextExamSection,
   normalizeExam,
   normalizeExamList,
-  normalizePickerList,
   normalizeProgress,
 } from '@/lib/admin-mock-exams-model.mjs';
 import { ExamContentLibrary } from './exam-content-library';
@@ -25,6 +25,7 @@ type Exam = {
 type Picker = { id: string; title?: string; test_id?: string; task_type?: string; name?: string; is_public?: boolean };
 type Progress = { activeSection: string; sections: Record<string, { submitted: number; total: number }> };
 type Notice = { kind: 'success' | 'error' | 'warning'; message: string };
+type Workspace = 'exams' | 'library';
 
 const SECTION_LABEL: Record<string, string> = {
   not_started: 'Chưa bắt đầu', listening: 'Listening', reading: 'Reading', writing: 'Writing', done: 'Đã xong',
@@ -32,19 +33,21 @@ const SECTION_LABEL: Record<string, string> = {
 
 export function AdminMockExams() {
   const profile = useAdminProfile();
+  const searchParams = useSearchParams();
+  const embedded = searchParams?.get('embed') === '1';
   const [exams, setExams] = useState<Exam[]>([]);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
-  const [readings, setReadings] = useState<Picker[]>([]);
-  const [listenings, setListenings] = useState<Picker[]>([]);
-  const [prompts, setPrompts] = useState<Picker[]>([]);
   const [cohorts, setCohorts] = useState<Picker[]>([]);
+  const [cohortsReady, setCohortsReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [examContractWarning, setExamContractWarning] = useState<string | null>(null);
-  const [pickerWarning, setPickerWarning] = useState<string | null>(null);
+  const [cohortWarning, setCohortWarning] = useState<string | null>(null);
   const [progressWarning, setProgressWarning] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState('');
   const [assignmentExam, setAssignmentExam] = useState<Exam | null>(null);
+  const [workspace, setWorkspace] = useState<Workspace>('exams');
+  const [creating, setCreating] = useState(false);
   const accountRef = useRef(profile.id);
   const requestRef = useRef(0);
   const loadingRef = useRef(false);
@@ -96,26 +99,21 @@ export function AdminMockExams() {
   useEffect(() => {
     let dead = false;
     const account = profile.id;
-    setExams([]); setProgress({}); setNotice(null); setExamContractWarning(null); setPickerWarning(null); setAssignmentExam(null);
+    setExams([]); setProgress({}); setCohorts([]); setCohortsReady(false); setNotice(null); setExamContractWarning(null); setCohortWarning(null); setAssignmentExam(null);
     (async () => {
-      const specs = [
-        ['Reading', () => window.api.get<unknown>('/admin/mock-exams/reading-tests'), ['items', 'tests'], setReadings],
-        ['Listening', () => window.api.get<unknown>('/admin/listening/tests?limit=100&status=published&test_type=exam'), ['items', 'tests'], setListenings],
-        ['Writing', () => window.api.get<unknown>('/admin/writing/prompts'), ['items', 'prompts'], setPrompts],
-        ['Lớp', () => getAdminCohorts({ isActive: true }), ['items', 'cohorts'], setCohorts],
-      ] as const;
-      const results = await Promise.allSettled(specs.map(async ([label, load, keys, setter]) => {
-        const rows = normalizePickerList(await load(), [...keys]);
-        if (!rows) throw new Error(`${label} sai contract`);
-        return { label, rows: rows as Picker[], setter };
-      }));
-      if (dead || accountRef.current !== account) return;
-      const failed: string[] = [];
-      for (const result of results) {
-        if (result.status === 'fulfilled') result.value.setter(result.value.rows);
-        else failed.push(messageOf(result.reason).replace(' sai contract', ''));
+      let rows: Picker[];
+      try {
+        const data = await getAdminCohorts({ isActive: true });
+        const source = (data as { cohorts?: unknown }).cohorts;
+        if (!Array.isArray(source) || !source.every((row) => row && typeof row.id === 'string')) throw new Error('Danh sách lớp sai contract');
+        rows = source as Picker[];
+      } catch (caught) {
+        if (!dead && accountRef.current === account) setCohortWarning(`Không tải được lớp: ${messageOf(caught)}. Không tạo đề cho tới khi tải lại đủ.`);
+        return;
       }
-      setPickerWarning(failed.length ? `Không tải được picker: ${failed.join(', ')}. Không tạo đề cho tới khi tải lại đủ.` : null);
+      if (dead || accountRef.current !== account) return;
+      setCohorts(rows);
+      setCohortsReady(true);
     })();
     void loadExams();
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void loadExams(true); }, 15_000);
@@ -123,6 +121,18 @@ export function AdminMockExams() {
     // loadExams intentionally follows the account lifecycle, not render identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
+
+  useEffect(() => {
+    const syncWorkspaceFromHash = () => {
+      if (window.location.hash === '#test-library') {
+        setWorkspace('library');
+        setCreating(false);
+      }
+    };
+    syncWorkspaceFromHash();
+    window.addEventListener('hashchange', syncWorkspaceFromHash);
+    return () => window.removeEventListener('hashchange', syncWorkspaceFromHash);
+  }, []);
 
   const cohortNames = useMemo(() => new Map(cohorts.map((row) => [row.id, row.name || row.id])), [cohorts]);
   const examCounts = useMemo(() => ({
@@ -152,7 +162,7 @@ export function AdminMockExams() {
   };
 
   const create = async (payload: Record<string, unknown>) => {
-    if (pickerWarning) { setNotice({ kind: 'error', message: 'Picker đang thiếu dữ liệu; tải lại trang trước khi tạo đề.' }); return false; }
+    if (!cohortsReady || cohortWarning) { setNotice({ kind: 'error', message: 'Danh sách lớp đang thiếu dữ liệu; tải lại trang trước khi tạo đề.' }); return false; }
     const before = new Set(examsRef.current.map((row) => row.id));
     const code = String(payload.code || '').trim();
     setBusyKey('create'); setNotice(null);
@@ -177,6 +187,14 @@ export function AdminMockExams() {
       setNotice({ kind: 'success', message: operationError ? `Đã xác nhận ${created.code} được tạo dù phản hồi ban đầu bị gián đoạn.` : 'Đã tạo đề nháp từ dữ liệu backend.' });
       return true;
     } finally { setBusyKey(''); }
+  };
+
+  const selectWorkspace = (next: Workspace) => {
+    setWorkspace(next);
+    setCreating(false);
+    const url = new URL(window.location.href);
+    url.hash = next === 'library' ? 'test-library' : '';
+    window.history.replaceState(window.history.state, '', url);
   };
 
   const publish = async (exam: Exam) => {
@@ -213,18 +231,31 @@ export function AdminMockExams() {
   };
 
   return (
-    <main className="mex-shell">
-      <header className="mex-hero"><div><p className="mex-kicker">Mock Test · Soạn & giao đề</p><h1>Quản lý đề thi</h1><p>Tạo bản nháp, gắn nội dung, giao đúng lớp và chuyển đề sang phòng thi live.</p></div><div className="mex-card-actions"><a className="adm-btn-secondary" href="/admin/mock-exams/corrections">Correction performance</a><a className="adm-btn-secondary" href="/admin/mock-tests">Trung tâm vận hành</a></div></header>
-      <section className="mex-overview" aria-label="Tổng quan quản lý đề"><div><span>Tổng đề</span><strong>{exams.length}</strong></div><div><span>Đang soạn</span><strong>{examCounts.drafts}</strong></div><div><span>Đã publish</span><strong>{examCounts.published}</strong></div><div className={examCounts.open ? 'is-live' : ''}><span>Phòng đang mở</span><strong>{examCounts.open}</strong></div><div><span>Đề test lại</span><strong>{examCounts.retakes}</strong></div></section>
-      <nav className="aop-workflow" aria-label="Quy trình vận hành đề thi"><div className="aop-workflow__step is-current"><b>01</b><span><strong>Soạn đề</strong><small>Nội dung & thời lượng</small></span></div><div className="aop-workflow__step is-current"><b>02</b><span><strong>Giao đề</strong><small>Publish & gán lớp</small></span></div><div className="aop-workflow__step"><b>03</b><span><strong>Phòng live</strong><small>Mở phần & theo dõi</small></span></div><div className="aop-workflow__step"><b>04</b><span><strong>Thu bài</strong><small>Sweep & đối chiếu</small></span></div><div className="aop-workflow__step"><b>05</b><span><strong>Chấm nháp</strong><small>Nhận hồ sơ & chốt band</small></span></div><div className="aop-workflow__step"><b>06</b><span><strong>Trả kết quả</strong><small>Công bố canonical</small></span></div></nav>
+    <main className={`mex-shell${embedded ? ' is-embedded' : ''}`}>
+      {!embedded && <>
+        <header className="mex-hero"><div><p className="mex-kicker">Mock Test · Soạn & giao đề</p><h1>Quản lý đề thi</h1><p>Tạo bản nháp, gắn nội dung, giao đúng lớp và chuyển đề sang phòng thi live.</p></div><div className="mex-card-actions"><a className="adm-btn-secondary" href="/admin/mock-exams/corrections">Correction performance</a><a className="adm-btn-secondary" href="/admin/mock-tests">Trung tâm vận hành</a></div></header>
+        <section className="mex-overview" aria-label="Tổng quan quản lý đề"><div><span>Tổng đề</span><strong>{exams.length}</strong></div><div><span>Đang soạn</span><strong>{examCounts.drafts}</strong></div><div><span>Đã publish</span><strong>{examCounts.published}</strong></div><div className={examCounts.open ? 'is-live' : ''}><span>Phòng đang mở</span><strong>{examCounts.open}</strong></div><div><span>Đề test lại</span><strong>{examCounts.retakes}</strong></div></section>
+        <nav className="aop-workflow" aria-label="Quy trình vận hành đề thi"><div className="aop-workflow__step is-current"><b>01</b><span><strong>Soạn đề</strong><small>Nội dung & thời lượng</small></span></div><div className="aop-workflow__step is-current"><b>02</b><span><strong>Giao đề</strong><small>Publish & gán lớp</small></span></div><div className="aop-workflow__step"><b>03</b><span><strong>Phòng live</strong><small>Mở phần & theo dõi</small></span></div><div className="aop-workflow__step"><b>04</b><span><strong>Thu bài</strong><small>Sweep & đối chiếu</small></span></div><div className="aop-workflow__step"><b>05</b><span><strong>Chấm nháp</strong><small>Nhận hồ sơ & chốt band</small></span></div><div className="aop-workflow__step"><b>06</b><span><strong>Trả kết quả</strong><small>Công bố canonical</small></span></div></nav>
+      </>}
       {notice && <div className={`mex-alert is-${notice.kind}`} role={notice.kind === 'success' ? 'status' : 'alert'}>{notice.message}</div>}
       {examContractWarning && <div className="mex-alert is-warning" role="alert">{examContractWarning}</div>}
-      {pickerWarning && <div className="mex-alert is-error" role="alert">{pickerWarning}</div>}
+      {cohortWarning && <div className="mex-alert is-error" role="alert">{cohortWarning}</div>}
       {progressWarning && <div className="mex-alert is-warning" role="alert">{progressWarning}</div>}
-      <ExamCreateForm readings={readings} listenings={listenings} prompts={prompts} cohorts={cohorts} disabled={busyKey === 'create' || Boolean(pickerWarning)} onCreate={create} onError={(message) => setNotice({ kind: 'error', message })} />
+      <nav className="mex-workspaces" role="tablist" aria-label="Không gian quản lý đề">
+        <button id="mex-exams-tab" className={workspace === 'exams' ? 'is-active' : ''} type="button" role="tab" aria-selected={workspace === 'exams'} aria-controls="mex-exams-workspace" onClick={() => selectWorkspace('exams')}>
+          <span><strong>Đề Mock Test</strong><small>Tạo, publish và quản lý đề đã tạo</small></span><b>{exams.length}</b>
+        </button>
+        <button id="mex-library-tab" className={workspace === 'library' ? 'is-active' : ''} type="button" role="tab" aria-selected={workspace === 'library'} aria-controls="test-library" onClick={() => selectWorkspace('library')}>
+          <span><strong>Kho đề nội dung</strong><small>Reading, Listening và Writing của toàn web</small></span>
+        </button>
+      </nav>
 
-      <section className="mex-list-section">
-        <div className="mex-section-head"><div><p className="mex-kicker">02 · Giao đề</p><h2>Kho đề vận hành</h2><p className="mex-section-copy">Chọn đúng hành động tiếp theo theo trạng thái canonical của từng đề.</p></div><button className="adm-btn-secondary" type="button" onClick={() => void loadExams()} disabled={loading}>Tải lại</button></div>
+      {workspace === 'exams' && <section className="mex-workspace-panel" id="mex-exams-workspace" role="tabpanel" aria-labelledby="mex-exams-tab">
+        {creating ? <>
+          <div className="mex-workspace-toolbar"><button className="adm-btn-secondary" type="button" onClick={() => setCreating(false)}>← Về danh sách đề</button></div>
+          <ExamCreateForm key={profile.id} cohorts={cohorts} disabled={busyKey === 'create' || !cohortsReady || Boolean(cohortWarning)} onCreate={async (payload) => { const created = await create(payload); if (created) setCreating(false); return created; }} onError={(message) => setNotice({ kind: 'error', message })} />
+        </> : <section className="mex-list-section">
+        <div className="mex-section-head"><div><p className="mex-kicker">Đề đã tạo</p><h2>Đề Mock Test</h2><p className="mex-section-copy">Publish, giao lớp và chuyển đề sang phòng thi từ danh sách canonical.</p></div><div className="mex-card-actions"><button className="adm-btn-secondary" type="button" onClick={() => void loadExams()} disabled={loading}>Tải lại</button><button className="adm-btn-primary" type="button" onClick={() => setCreating(true)}>Tạo đề mới</button></div></div>
         {loading && !exams.length ? <div className="mex-empty" role="status">Đang tải danh sách đề…</div> : !exams.length ? <div className="mex-empty">Chưa có đề nào.</div> : <div className="mex-exam-grid">{exams.map((exam) => {
           const snapshot = progress[exam.id];
           const active = snapshot?.activeSection || exam.activeSection;
@@ -255,9 +286,10 @@ export function AdminMockExams() {
             </div>
           </article>;
         })}</div>}
-      </section>
+      </section>}
+      </section>}
 
-      <ExamContentLibrary accountId={profile.id} cohorts={cohorts} />
+      {workspace === 'library' && <ExamContentLibrary accountId={profile.id} cohorts={cohorts} />}
       {assignmentExam && <RetakeAssignmentDialog exam={assignmentExam} exams={exams} cohorts={cohorts} onClose={() => setAssignmentExam(null)} onChanged={async () => { await loadExams(true, true); }} />}
     </main>
   );

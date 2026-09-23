@@ -4,7 +4,7 @@ from fastapi.routing import APIRoute
 from pydantic import ValidationError
 import pytest
 
-from models.admin_writing_queue import AdminWritingQueueRowOut
+from models.admin_writing_queue import AdminWritingQueuePageOut, AdminWritingQueueRowOut
 from routers.admin_writing import router
 
 
@@ -40,6 +40,14 @@ def test_writing_essay_list_publishes_concrete_response_model():
         and "GET" in item.methods
     )
     assert route.response_model == list[AdminWritingQueueRowOut]
+
+    page_route = next(
+        item for item in router.routes
+        if isinstance(item, APIRoute)
+        and item.path == "/admin/writing/essay-queue"
+        and "GET" in item.methods
+    )
+    assert page_route.response_model == AdminWritingQueuePageOut
 
 
 def test_queue_operational_truth_round_trips():

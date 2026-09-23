@@ -2027,8 +2027,40 @@ _EXAM_WRITABLE = {
 def admin_list_exams() -> list[dict]:
     resp = supabase_admin.table("mock_exams").select("*").order(
         "created_at", desc=True,
+    ).order(
+        "id", desc=True,
     ).execute()
-    return resp.data or []
+    rows = resp.data or []
+    if not rows:
+        return rows
+    # A completed exam clock does not prove review work remains. Query every
+    # mode from persisted sitting/review state; published sequential exams
+    # additionally need their shared clock to be closed and complete.
+    requested = {str(row["id"]) for row in rows}
+    if requested:
+        receipt = supabase_admin.rpc("fn_admin_mock_actionable_review_exam_ids", {
+            "p_exam_ids": sorted(requested),
+        }).execute().data
+        if isinstance(receipt, list) and len(receipt) == 1:
+            receipt = receipt[0]
+        if isinstance(receipt, dict) and set(receipt) == {"fn_admin_mock_actionable_review_exam_ids"}:
+            receipt = receipt["fn_admin_mock_actionable_review_exam_ids"]
+        if not isinstance(receipt, dict) or not isinstance(receipt.get("exam_ids"), list):
+            raise RuntimeError("Review eligibility receipt is unavailable.")
+        result_ids = receipt["exam_ids"]
+        if (any(not isinstance(value, str) or value not in requested for value in result_ids)
+                or len(result_ids) != len(set(result_ids))):
+            raise RuntimeError("Review eligibility receipt is malformed.")
+        actionable_ids = set(result_ids)
+    else:
+        actionable_ids = set()
+    for row in rows:
+        has_work = str(row.get("id")) in actionable_ids
+        sequential_gate = (
+            row.get("is_open") is False and row.get("active_section") == "done"
+        ) if row.get("status") == "published" and row.get("exam_mode") != "retake" else True
+        row["review_eligible"] = has_work and sequential_gate
+    return rows
 
 
 # Writing prompts retain the sealed-paper behavior from migration 170. Reading
@@ -4363,3 +4395,39 @@ def admin_available_reading_tests() -> list[dict]:
         .execute()
     )
     return res.data or []
+
+
+def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> dict:
+    """Page the canonical published/active source, before the UI selects it."""
+    from services.pg_search import ilike_or_filter
+
+    if kind == "reading":
+        table, columns = "reading_tests", "id,test_id,title,is_public"
+        search_columns = ["test_id", "title"]
+    elif kind == "listening":
+        table, columns = "listening_tests", "id,test_id,title,is_public"
+        search_columns = ["test_id", "title"]
+    else:
+        table, columns = "writing_prompts", "id,title,task_type"
+        search_columns = ["title"]
+
+    query = supabase_admin.table(table).select(columns, count="exact")
+    if kind == "reading":
+        query = query.eq("status", "published").eq("test_type", "full")
+    elif kind == "listening":
+        query = query.eq("status", "published").eq("test_type", "full")
+    else:
+        query = query.eq("is_active", True)
+        if kind == "writing-task1":
+            query = query.in_("task_type", ["task1_academic", "task1_general"])
+        else:
+            query = query.eq("task_type", "task2")
+    if search:
+        query = query.or_(ilike_or_filter(search_columns, search))
+    response = (
+        query.order("created_at", desc=True).order("id", desc=True)
+        .range(offset, offset + limit - 1).execute()
+    )
+    if response.count is None:
+        raise ValueError("Picker count is unavailable")
+    return {"items": response.data or [], "total": response.count, "limit": limit, "offset": offset}

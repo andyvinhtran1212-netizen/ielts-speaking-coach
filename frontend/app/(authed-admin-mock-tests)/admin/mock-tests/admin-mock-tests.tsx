@@ -5,11 +5,17 @@ import { useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { messageOf } from '@/components/admin-directory-ui';
+import type { ApiGetJson } from '@/lib/openapi-contract';
 import {
   filterMockExams,
+  mockReviewEligible,
+  mockReviewEligibilityUnknown,
+  mockSectionLabel,
   mockExamStage,
+  mockTestsExamForTab,
   mockTestsFrame,
   mockTestsHref,
+  mockTestsStageForTab,
   mockTestsTab,
   normalizeMockExamList,
 } from '@/lib/admin-mock-tests-model.mjs';
@@ -22,9 +28,11 @@ type Exam = {
   isOpen: boolean;
   activeSection: string;
   examMode: string;
+  reviewEligible: boolean | null;
 };
 type Tab = 'manage' | 'live' | 'review' | 'writing';
-type Stage = 'all' | 'draft' | 'live' | 'closed';
+type Stage = 'all' | 'draft' | 'live' | 'closed' | 'archived';
+type AdminMockExamListWire = ApiGetJson<'/admin/mock-exams'>;
 
 const TABS: { id: Tab; label: string; description: string; needsExam: boolean; legacy: boolean }[] = [
   { id: 'manage', label: 'Quản lý & giao đề', description: 'Soạn, publish, gán lớp', needsExam: false, legacy: false },
@@ -37,8 +45,9 @@ const STAGES: { id: Stage; label: string }[] = [
   { id: 'draft', label: 'Nháp' },
   { id: 'live', label: 'Đang thi' },
   { id: 'closed', label: 'Đã đóng' },
+  { id: 'archived', label: 'Lưu trữ' },
 ];
-const STAGE_LABEL: Record<string, string> = { draft: 'Nháp', live: 'Đang thi', closed: 'Đã đóng' };
+const STAGE_LABEL: Record<string, string> = { draft: 'Nháp', live: 'Đang thi', closed: 'Đã đóng', archived: 'Lưu trữ' };
 const FRAME_TITLE: Record<Tab, string> = {
   manage: 'Quản lý đề Mock Test',
   live: 'Phòng thi Mock Test trực tiếp',
@@ -66,7 +75,11 @@ export function AdminMockTests() {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   accountRef.current = profile.id;
 
-  useEffect(() => setTab(initialTab), [initialTab]);
+  useEffect(() => {
+    setTab(initialTab);
+    setStage(mockTestsStageForTab(initialTab) as Stage);
+    setSelectedId((current) => mockTestsExamForTab(exams, initialTab, current, requestedExam));
+  }, [initialTab]); // URL navigation owns the task scope; the list loader admits the requested exam later.
 
   useEffect(() => {
     let dead = false;
@@ -82,15 +95,14 @@ export function AdminMockTests() {
       const request = ++requestRef.current;
       if (!silent) setLoading(true);
       try {
-        const normalized = normalizeMockExamList(await window.api.get<unknown>('/admin/mock-exams'));
+        const normalized = normalizeMockExamList(await window.api.get<AdminMockExamListWire>('/admin/mock-exams'));
         if (dead || accountRef.current !== account || request !== requestRef.current) return;
         if (!normalized) throw new Error('Danh sách đề thi sai contract.');
         setExams(normalized.rows);
-        setSelectedId((current) => normalized.rows.some((row: Exam) => row.id === current)
-          ? current
-          : normalized.rows.some((row: Exam) => row.id === requestedExam)
-            ? requestedExam
-            : normalized.rows[0]?.id || '');
+        const currentUrl = new URL(window.location.href);
+        const activeTask = mockTestsTab(currentUrl.searchParams.get('tab')) as Tab;
+        const activeRequestedExam = currentUrl.searchParams.get('exam_id')?.trim() || '';
+        setSelectedId((current) => mockTestsExamForTab(normalized.rows, activeTask, current, activeRequestedExam));
         setNotice(normalized.malformedCount
           ? `${normalized.malformedCount} đề sai contract đã bị loại; danh sách có thể chưa đầy đủ.`
           : null);
@@ -134,8 +146,12 @@ export function AdminMockTests() {
   const selected = exams.find((exam) => exam.id === selectedId) || null;
   const selectionHidden = Boolean(selected && !shown.some((exam) => exam.id === selected.id));
   const activeTab = TABS.find((item) => item.id === tab) || TABS[0];
-  const liveDraftBlocked = tab === 'live' && selected?.status !== 'published';
+  const liveDraftBlocked = tab === 'live' && Boolean(selected) && selected?.status !== 'published';
   const frame = liveDraftBlocked ? null : mockTestsFrame(tab, selectedId);
+  const railVisible = tab !== 'writing';
+  const noOpenRoom = tab === 'live' && !selected && counts.live === 0;
+  const unknownReviewEligibility = exams.some(mockReviewEligibilityUnknown);
+  const noActionableReview = tab === 'review' && !selected && !unknownReviewEligibility && !exams.some(mockReviewEligible);
 
   useEffect(() => {
     const node = frameRef.current;
@@ -166,8 +182,15 @@ export function AdminMockTests() {
 
   const activateTab = (next: Tab) => {
     if (next === tab) setFrameEpoch((current) => current + 1);
+    // A URL exam_id is an explicit deep link only while entering that URL.
+    // Interactive tab changes must re-scope the current selection to the
+    // destination task instead of carrying a closed exam into Live (or vice versa).
+    const nextId = mockTestsExamForTab(exams, next, selectedId);
     setTab(next);
-    window.history.replaceState(window.history.state, '', mockTestsHref(next, selectedId));
+    setStage(mockTestsStageForTab(next) as Stage);
+    setQuery('');
+    setSelectedId(nextId);
+    window.history.replaceState(window.history.state, '', mockTestsHref(next, nextId));
   };
 
   const selectExam = (id: string) => {
@@ -217,9 +240,10 @@ export function AdminMockTests() {
 
       {error && <div className="mts-alert is-error" role="alert"><strong>{exams.length ? 'Không làm mới được; đang giữ snapshot cũ.' : 'Không tải được danh sách đề.'}</strong><span>{error}</span></div>}
       {notice && <div className="mts-alert is-warning" role="alert">{notice}</div>}
+      {tab === 'review' && unknownReviewEligibility && <div className="mts-alert is-warning" role="status">Trạng thái bài cần duyệt của một số đề chưa xác định. Bạn vẫn có thể chọn đề trong danh sách; hãy tải lại sau khi hệ thống cập nhật.</div>}
 
-      <div className="mts-cockpit">
-        <aside className="mts-rail" aria-label="Danh sách đề thi">
+      <div className={`mts-cockpit${railVisible ? '' : ' is-wide'}`}>
+        {railVisible && <aside className="mts-rail" aria-label="Danh sách đề thi">
           <div className="mts-rail__head">
             <div><span>Đề thi</span><small>{shown.length}/{exams.length}</small></div>
             <span className="mts-live-dot" aria-label="Tự làm mới mỗi 15 giây">LIVE</span>
@@ -235,9 +259,12 @@ export function AdminMockTests() {
               ? <div className="mts-rail__state">{exams.length ? 'Không có đề khớp bộ lọc.' : 'Chưa có đề nào.'}</div>
               : <ul className="mts-list">{shown.map((exam) => {
                 const examStage = mockExamStage(exam);
-                return <li key={exam.id}><button type="button" className={exam.id === selectedId ? 'is-active' : ''} aria-current={exam.id === selectedId ? 'true' : undefined} onClick={() => selectExam(exam.id)}><span className="mts-exam__top"><strong>{exam.code || 'Chưa có mã'}</strong><span className={`mts-stage is-${examStage}`}>{STAGE_LABEL[examStage]}</span></span><span className="mts-exam__title">{exam.title || 'Chưa có tiêu đề'}</span><small>{exam.examMode === 'retake' ? 'Retake theo học viên' : 'Sequential theo lớp'} · {exam.activeSection}</small></button></li>;
+                const reviewNote = tab === 'review'
+                  ? mockReviewEligibilityUnknown(exam) ? 'Chưa xác định bài cần duyệt' : mockReviewEligible(exam) ? 'Có bài cần duyệt' : 'Chưa có bài cần duyệt'
+                  : mockSectionLabel(exam.activeSection);
+                return <li key={exam.id}><button type="button" className={exam.id === selectedId ? 'is-active' : ''} aria-current={exam.id === selectedId ? 'true' : undefined} onClick={() => selectExam(exam.id)}><span className="mts-exam__top"><strong>{exam.code || 'Chưa có mã'}</strong><span className={`mts-stage is-${examStage}`}>{STAGE_LABEL[examStage]}</span></span><span className="mts-exam__title">{exam.title || 'Chưa có tiêu đề'}</span><small>{exam.examMode === 'retake' ? 'Thi lại theo học viên' : 'Thi tuần tự theo lớp'} · {reviewNote}</small></button></li>;
               })}</ul>}
-        </aside>
+        </aside>}
 
         <section className="mts-panel" aria-labelledby={`mts-tab-${tab}`}>
           <nav className="mts-tabs" role="tablist" aria-label="Không gian Mock Test">
@@ -247,7 +274,7 @@ export function AdminMockTests() {
           {activeTab.needsExam && selected && <div className="mts-context"><span>Đang thao tác trên</span><strong>{selected.code || selected.id}</strong><span>{selected.title}</span></div>}
           <div id="mts-panel" className="mts-frame-wrap" role="tabpanel" aria-labelledby={`mts-tab-${tab}`} tabIndex={0}>
             {!frame
-              ? <div className="mts-need-exam"><strong>{liveDraftBlocked ? 'Đề chưa được publish' : 'Chưa chọn đề thi'}</strong><span>{liveDraftBlocked ? 'Publish đề trong tab Quản lý trước khi mở phòng thi trực tiếp.' : `Chọn một đề ở danh sách bên trái để ${tab === 'live' ? 'mở phòng thi trực tiếp' : 'duyệt bài thi'}.`}</span></div>
+              ? <div className="mts-need-exam"><strong>{liveDraftBlocked ? 'Đề chưa được publish' : noOpenRoom ? 'Không có phòng thi đang mở' : noActionableReview ? 'Chưa có bài thi cần duyệt' : unknownReviewEligibility && tab === 'review' ? 'Chưa xác định bài thi cần duyệt' : 'Chưa chọn đề thi'}</strong><span>{liveDraftBlocked ? 'Publish đề trong tab Quản lý trước khi mở phòng thi trực tiếp.' : noOpenRoom ? 'Mở một kỳ thi từ không gian Quản lý & giao đề, sau đó quay lại đây để điều hành.' : noActionableReview ? 'Khi có bài thi hoàn tất cần chấm hoặc trả kết quả, đề sẽ xuất hiện tại đây.' : unknownReviewEligibility && tab === 'review' ? 'Hãy chọn đề trong danh sách hoặc tải lại sau khi hệ thống cập nhật.' : `Chọn một đề ở danh sách bên trái để ${tab === 'live' ? 'mở phòng thi trực tiếp' : 'duyệt bài thi'}.`}</span>{(noOpenRoom || noActionableReview) && <button className="adm-btn-primary" type="button" onClick={() => activateTab('manage')}>Đến Quản lý & giao đề</button>}</div>
               : <iframe ref={frameRef} key={`${frame}:${frameEpoch}`} className="mts-frame" src={frame} title={FRAME_TITLE[tab]} />}
           </div>
         </section>

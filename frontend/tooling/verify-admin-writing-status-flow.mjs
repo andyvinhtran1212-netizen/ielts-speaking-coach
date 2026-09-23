@@ -23,7 +23,7 @@ const payload = () => ({
 });
 
 const browser = await launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, bypassCSP: true });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 const page = await context.newPage();
 page.on('pageerror', (error) => pageErrors.push(String(error)));
@@ -43,6 +43,7 @@ await page.route('**/*', async (route) => {
     if (failNext) { failNext = false; return json({ detail: 'fixture poll failed' }, 503); }
     return json(payload());
   }
+  if (parsed.pathname === '/admin/writing/essays/error-detail') return json({ detail: 'fixture detail failed' }, 503);
   return json({});
 });
 
@@ -83,13 +84,20 @@ await page.getByRole('button', { name: 'Làm mới' }).click();
 await page.getByRole('heading', { name: 'Lượt chấm đã thất bại' }).waitFor();
 check('failed state hiện action vận hành và escape lỗi backend', await page.getByRole('link', { name: 'Mở Queue' }).count() === 1 && await page.locator('.aws-fatal img').count() === 0);
 
-await page.goto(`${BASE}/admin/writing/status?essay_id=e1&embed=1&mocklane=1`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/admin/writing/status?essay_id=e1&embed=1&mocklane=1&queue_status=pending&cohort_id=c1&overdue=1&q=Lan%20Anh`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Lượt chấm đã thất bại' }).waitFor();
-check('embedded Mock route không render chrome ngoài và giữ flags', await page.locator('.aws-header').count() === 0 && await page.getByRole('link', { name: 'Mở Queue' }).getAttribute('href') === '/admin/writing/queue?embed=1&mocklane=1');
+check('essay mở từ Pending giữ đúng trạng thái/lớp/quá hạn/tìm kiếm khi quay lại Queue', await page.locator('.aws-header').count() === 0 && await page.getByRole('link', { name: 'Mở Queue' }).getAttribute('href') === '/admin/writing/queue?embed=1&mocklane=1&queue_status=pending&cohort_id=c1&overdue=1&q=Lan+Anh');
 
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, timeline: getComputedStyle(document.querySelector('.aws-timeline')).gridTemplateColumns.split(' ').length, grid: getComputedStyle(document.querySelector('.aws-grid')).gridTemplateColumns.split(' ').length }));
 check('mobile một cột và không tràn viewport', !mobile.overflow && mobile.timeline === 1 && mobile.grid === 1, JSON.stringify(mobile));
+
+for (const queueStatus of ['pending', 'failed']) {
+  await page.goto(`${BASE}/admin/writing/grade?essay_id=error-detail&embed=1&mocklane=1&queue_status=${queueStatus}&cohort_id=c1&overdue=1&q=Lan%20Anh`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('heading', { name: 'Không tải được bài viết' }).waitFor();
+  const returnHref = await page.getByRole('link', { name: 'Quay lại queue' }).getAttribute('href');
+  check(`grade load lỗi giữ phạm vi ${queueStatus}/lớp/quá hạn/tìm kiếm`, returnHref === `/admin/writing/queue?embed=1&mocklane=1&queue_status=${queueStatus}&cohort_id=c1&overdue=1&q=Lan%20Anh`, returnHref || 'missing href');
+}
 
 await page.goto(`${BASE}/admin/writing/status`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Không biết cần theo dõi bài nào' }).waitFor();

@@ -404,6 +404,44 @@ def test_list_essays_no_filters_passes_none():
     assert kwargs["student_id"] is None
 
 
+def test_paginated_queue_passes_server_search_and_pagination():
+    payload = {"items": [_queue_row()], "total": 251, "limit": 25, "offset": 200, "total_complete": True}
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), patch(
+        "routers.admin_writing.essay_service.list_essays_page",
+        return_value=payload,
+    ) as mock_page:
+        r = _client().get(
+            "/admin/writing/essay-queue?status=graded&q=Nguyen&limit=25&offset=200&overdue=true",
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["total"] == 251
+    assert mock_page.call_args.kwargs == {
+        "status": "graded", "cohort_id": None, "mock": None,
+        "query": "Nguyen", "overdue": True, "limit": 25, "offset": 200,
+    }
+
+
+@pytest.mark.parametrize("suffix, expected_limit, expected_status", [
+    ("", 25, 200), ("?limit=100", 100, 200), ("?limit=101", None, 422),
+])
+def test_paginated_queue_enforces_bounded_page_size(suffix, expected_limit, expected_status):
+    payload = {"items": [], "total": 0, "limit": expected_limit or 25,
+               "offset": 0, "total_complete": True}
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), patch(
+        "routers.admin_writing.essay_service.list_essays_page",
+        return_value=payload,
+    ) as mock_page:
+        response = _client().get(f"/admin/writing/essay-queue{suffix}", headers=_ADMIN_AUTH)
+    assert response.status_code == expected_status
+    if expected_limit is None:
+        mock_page.assert_not_called()
+    else:
+        assert mock_page.call_args.kwargs["limit"] == expected_limit
+
+
 def test_get_essay_returns_detail():
     detail = {"id": _ESSAY_ID, "status": "graded", "feedback": {"overall_band_score": 7.0}}
     with patch("routers.admin_writing.require_admin",

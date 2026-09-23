@@ -18,11 +18,15 @@ export function normalizeWritingQueueFilters(raw = {}) {
   const requested = stringOf(source.status);
   let lane = mock ? 'mock' : supplied && (requested === '' || requested === 'all') ? 'all' : requested || 'graded';
   if (!LANES.has(lane)) lane = 'graded';
+  const requestedQueueStatus = stringOf(source.queueStatus || source.queue_status);
   return {
     lane,
+    page: Math.max(1, Number.parseInt(String(source.page || '1'), 10) || 1),
     cohortId: stringOf(source.cohortId || source.cohort_id),
     overdue: source.overdue === true || source.overdue === '1',
     embed: source.embed === true || source.embed === '1',
+    queueStatus: lane === 'mock' && STATUSES.has(requestedQueueStatus) ? requestedQueueStatus : '',
+    query: stringOf(source.query || source.q).slice(0, 100),
   };
 }
 
@@ -33,6 +37,9 @@ export function writingQueueSearch(filters) {
     cohortId: filters?.cohortId,
     overdue: filters?.overdue,
     embed: filters?.embed,
+    queueStatus: filters?.queueStatus,
+    query: filters?.query,
+    page: filters?.page,
   });
   const params = new URLSearchParams();
   if (normalized.lane === 'mock') params.set('mocklane', '1');
@@ -40,6 +47,9 @@ export function writingQueueSearch(filters) {
   if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
   if (normalized.overdue) params.set('overdue', '1');
   if (normalized.embed) params.set('embed', '1');
+  if (normalized.queueStatus) params.set('queue_status', normalized.queueStatus);
+  if (normalized.query) params.set('q', normalized.query);
+  if (normalized.page > 1) params.set('page', String(normalized.page));
   return params.toString();
 }
 
@@ -48,24 +58,74 @@ export function writingQueueFetchKey(filters) {
     status: filters?.lane === 'mock' ? undefined : filters?.lane,
     mocklane: filters?.lane === 'mock',
     cohortId: filters?.cohortId,
+    overdue: filters?.overdue,
+    queueStatus: filters?.queueStatus,
+    query: filters?.query,
+    page: filters?.page,
   });
-  return `${normalized.lane}\u0000${normalized.cohortId}`;
+  return `${normalized.lane}\u0000${normalized.cohortId}\u0000${normalized.queueStatus}\u0000${normalized.overdue ? '1' : '0'}\u0000${normalized.query}`;
 }
 
-export function writingQueueApiQuery(filters) {
+export function writingQueueApiQuery(filters, options = {}) {
   const normalized = normalizeWritingQueueFilters({
     status: filters?.lane === 'mock' ? undefined : filters?.lane,
     mocklane: filters?.lane === 'mock',
     cohortId: filters?.cohortId,
+    overdue: filters?.overdue,
+    queueStatus: filters?.queueStatus,
+    query: filters?.query,
   });
-  const params = new URLSearchParams({ limit: '200', mock: normalized.lane === 'mock' ? 'true' : 'false' });
-  if (!['all', 'mock'].includes(normalized.lane)) params.set('status', normalized.lane);
+  const limit = Math.min(100, Math.max(1, Number(options.limit) || 25));
+  const offset = Math.max(0, Number(options.offset) || 0);
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), mock: normalized.lane === 'mock' ? 'true' : 'false' });
+  if (normalized.queueStatus) params.set('status', normalized.queueStatus);
+  else if (!['all', 'mock'].includes(normalized.lane)) params.set('status', normalized.lane);
   if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
+  const query = options.query === undefined ? normalized.query : stringOf(options.query).slice(0, 100);
+  if (query) params.set('q', query);
+  if (normalized.overdue) params.set('overdue', 'true');
   return params;
 }
 
 export function writingQueueApiPath(filters) {
-  return `/admin/writing/essays?${writingQueueApiQuery(filters)}`;
+  return `/admin/writing/essay-queue?${writingQueueApiQuery(filters)}`;
+}
+
+export function legacyWritingQueuePage(raw, query, now = Date.now()) {
+  if (!Array.isArray(raw)) return null;
+  const needle = stringOf(query?.get('q')).slice(0, 100).toLocaleLowerCase();
+  const overdue = query?.get('overdue') === 'true';
+  const limit = Math.min(100, Math.max(1, Number(query?.get('limit')) || 25));
+  const offset = Math.max(0, Number(query?.get('offset')) || 0);
+  const matching = raw.filter((row) => {
+    if (!row || typeof row !== 'object') return false;
+    if (needle && ![row.student_full_name, row.student_code]
+      .some((field) => stringOf(field).toLocaleLowerCase().includes(needle))
+      && stringOf(row.student_id).toLocaleLowerCase() !== needle) return false;
+    return !overdue || isWritingEssayOverdue(row, now);
+  }).sort((left, right) => {
+    const leftCreated = stringOf(left.created_at);
+    const rightCreated = stringOf(right.created_at);
+    return leftCreated > rightCreated ? -1 : leftCreated < rightCreated ? 1
+      : stringOf(left.id) > stringOf(right.id) ? -1
+        : stringOf(left.id) < stringOf(right.id) ? 1 : 0;
+  });
+  return {
+    items: matching.slice(offset, offset + limit),
+    total: matching.length,
+    total_complete: false,
+    limit,
+    offset,
+  };
+}
+
+export function shouldPollWritingQueue(filters) {
+  const normalized = normalizeWritingQueueFilters({
+    status: filters?.lane === 'mock' ? undefined : filters?.lane,
+    mocklane: filters?.lane === 'mock',
+    queueStatus: filters?.queueStatus,
+  });
+  return normalized.lane === 'grading' || (normalized.lane === 'mock' && normalized.queueStatus === 'grading');
 }
 
 export function normalizeWritingQueueRow(raw) {
@@ -120,6 +180,20 @@ export function normalizeWritingQueueList(raw) {
   return { rows, malformedCount, returnedCount: raw.length };
 }
 
+export function normalizeWritingQueuePage(raw) {
+  const source = objectOf(raw);
+  if (!source || !Array.isArray(source.items)) return null;
+  const total = finiteOf(source.total);
+  const limit = finiteOf(source.limit);
+  const offset = finiteOf(source.offset);
+  if (total == null || limit == null || offset == null || !Number.isInteger(total) ||
+      !Number.isInteger(limit) || !Number.isInteger(offset) || total < 0 || limit < 1 || offset < 0) return null;
+  const normalized = normalizeWritingQueueList(source.items);
+  if (!normalized) return null;
+  if (typeof source.total_complete !== 'boolean') return null;
+  return { ...normalized, total, totalComplete: source.total_complete, limit, offset };
+}
+
 export function normalizeWritingQueueCohorts(raw) {
   const source = objectOf(raw);
   if (!source || !Array.isArray(source.cohorts)) return null;
@@ -167,6 +241,16 @@ export function normalizeStartGrading(raw, essayId) {
     : null;
 }
 
+export function normalizeWritingQueueStatusReadback(raw, essayId) {
+  const data = objectOf(raw);
+  const expected = stringOf(essayId);
+  const actual = stringOf(data?.essay_id);
+  const status = stringOf(data?.status);
+  return data && expected && actual === expected && STATUSES.has(status)
+    ? { essayId: actual, status }
+    : null;
+}
+
 export function normalizeSkipGrading(raw, essayId) {
   const data = objectOf(raw);
   return data && data.ok === true && data.grading_skipped === true && stringOf(data.essay_id) === stringOf(essayId)
@@ -175,10 +259,26 @@ export function normalizeSkipGrading(raw, essayId) {
 }
 
 export function writingQueueDestination(row, filters) {
+  const normalized = normalizeWritingQueueFilters({
+    status: filters?.lane === 'mock' ? undefined : filters?.lane,
+    mocklane: filters?.lane === 'mock',
+    cohortId: filters?.cohortId,
+    overdue: filters?.overdue,
+    embed: filters?.embed,
+    queueStatus: filters?.queueStatus,
+    query: filters?.query,
+    page: filters?.page,
+  });
   const params = new URLSearchParams();
   params.set('essay_id', row.id);
-  if (filters?.embed) params.set('embed', '1');
-  if (filters?.lane === 'mock') params.set('mocklane', '1');
+  if (normalized.embed) params.set('embed', '1');
+  if (normalized.lane === 'mock') params.set('mocklane', '1');
+  else params.set('status', normalized.lane);
+  if (normalized.queueStatus) params.set('queue_status', normalized.queueStatus);
+  if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
+  if (normalized.overdue) params.set('overdue', '1');
+  if (normalized.query) params.set('q', normalized.query);
+  if (normalized.page > 1) params.set('page', String(normalized.page));
   const path = (row.status === 'pending' && !row.gradingSkippedAt) || row.status === 'grading'
     ? '/admin/writing/status'
     : '/admin/writing/grade';

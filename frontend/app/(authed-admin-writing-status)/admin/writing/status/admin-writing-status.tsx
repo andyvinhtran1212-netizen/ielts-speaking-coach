@@ -61,6 +61,10 @@ export function AdminWritingStatus() {
   const query = useMemo(() => normalizeWritingStatusQuery({
     essay_id: params?.get('essay_id') || params?.get('id') || '',
     embed: params?.get('embed') || '', mocklane: params?.get('mocklane') || '',
+    queue_status: params?.get('queue_status') || '',
+    cohort_id: params?.get('cohort_id') || '', overdue: params?.get('overdue') || '',
+    q: params?.get('q') || '',
+    status: params?.get('status') || '', page: params?.get('page') || '',
   }), [params]);
   const key = `${profile.id}\u0000${query.essayId}`;
   const currentKey = useRef(key); currentKey.current = key;

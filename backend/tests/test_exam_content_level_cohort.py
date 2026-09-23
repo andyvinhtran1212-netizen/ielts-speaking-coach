@@ -9,11 +9,16 @@ class is a mistake nobody notices until the exam is under way.
 from __future__ import annotations
 
 import re
+import inspect
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
+from fastapi.routing import APIRoute
 
 import services.exam_content_service as svc
+from routers.admin_exam_content import router as content_router
 from services import mock_exam_service
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -121,6 +126,7 @@ class _Deferred:
 class _DB:
     def __init__(self):
         self.t: dict = {}
+        self.page_calls: list[dict] = []
 
     def table(self, name):
         return _Q(self, name)
@@ -130,6 +136,67 @@ class _DB:
     # complement), like the fakes for mig 163/168/169. A stub would make these
     # tests assert against a stub.
     def rpc(self, name, params):
+        if name == "fn_admin_exam_content_levels":
+            table, _ = svc._KINDS[params["p_kind"]]
+            return _Deferred(sorted({str(row["course_level"]).strip()
+                                     for row in self.t.get(table, [])
+                                     if row.get("course_level") and str(row["course_level"]).strip()}))
+        if name == "fn_admin_exam_content_page_ids":
+            self.page_calls.append(dict(params))
+            kind = params["p_kind"]
+            table, code_col = svc._KINDS[kind]
+            query = (params.get("p_query") or "").lower()
+            attention = params["p_attention"]
+            rows = []
+            for row in self.t.get(table, []):
+                cid = str(row["id"])
+                links = [link for link in self.t.get("exam_content_cohorts", [])
+                         if link["content_kind"] == kind and str(link["content_id"]) == cid]
+                in_mock = any(
+                    (kind == "reading" and exam.get("reading_test_id") == cid)
+                    or (kind == "listening" and exam.get("listening_test_id") == cid)
+                    or (kind == "writing" and cid in (
+                        exam.get("writing_task1_prompt_id"), exam.get("writing_task2_prompt_id")))
+                    for exam in self.t.get("mock_exams", [])
+                )
+                status = row.get("status") or ("published" if row.get("is_active") else "archived")
+                ready = svc.publication_readiness(kind, row)[0] if kind != "writing" else False
+                if params.get("p_course_level") is not None and (row.get("course_level") or "") != params["p_course_level"]:
+                    continue
+                if params.get("p_cohort_id") is not None and not any(
+                    link["cohort_id"] == params["p_cohort_id"] for link in links
+                ):
+                    continue
+                if params.get("p_exam_only") is not None and bool(row.get("exam_only")) != params["p_exam_only"]:
+                    continue
+                if params.get("p_is_public") is not None and (
+                    kind == "writing" or bool(row.get("is_public")) != params["p_is_public"]
+                ):
+                    continue
+                if query and not any(query in str(value or "").lower() for value in (
+                    cid, row.get(code_col) if code_col else None,
+                    row.get("title"), row.get("course_level"),
+                )):
+                    continue
+                if attention == "no-level" and row.get("course_level"):
+                    continue
+                if attention == "draft" and status != "draft":
+                    continue
+                if attention == "unassigned" and in_mock:
+                    continue
+                if attention == "action" and (status == "archived" or not (
+                    (kind != "writing" and (status != "published" or not ready))
+                    or not row.get("course_level") or not links
+                )):
+                    continue
+                rows.append(row)
+            rows.sort(key=lambda row: (
+                str((row.get(code_col) if code_col else None) or row.get("title") or "").lower(),
+                str(row["id"]),
+            ))
+            start = params["p_offset"]
+            return _Deferred({"ids": [str(row["id"]) for row in rows[start:start + params["p_limit"]]],
+                              "total": len(rows)})
         assert name == "fn_set_exam_content_cohorts", name
         kind, cid = params["p_kind"], str(params["p_content_id"])
         wanted = sorted({str(c) for c in (params.get("p_cohort_ids") or [])})
@@ -289,6 +356,7 @@ def test_known_levels_are_derived_from_the_data(db):
     db.t["listening_tests"] = [{"id": "l1", "course_level": "C4"}]
     db.t["writing_prompts"] = [{"id": "w1", "course_level": "C2"}]
     assert svc.known_course_levels() == ["C2", "C4"]
+    assert svc.known_course_levels_with_failures() == (["C2", "C4"], [])
 
 
 # ── Cohort assignment ─────────────────────────────────────────────────
@@ -420,6 +488,171 @@ def test_filters(db):
     assert svc.list_exam_content(cohort_id="nope")["items"] == []
 
 
+def test_catalog_search_attention_and_pagination_return_truthful_total(db):
+    _seed_three(db)
+    svc.set_cohorts("reading", "r1", ["c1"])
+    svc.set_cohorts("writing", "w1", ["c1"])
+
+    searched = svc.list_exam_content(q="r one", limit=25, offset=0)
+    assert [row["id"] for row in searched["items"]] == ["r1"]
+    assert searched["total"] == 1
+
+    missing_level = svc.list_exam_content(attention="no-level", limit=25, offset=0)
+    assert missing_level["items"] == []
+    assert missing_level["total"] == 0
+
+    unassigned = svc.list_exam_content(attention="unassigned", limit=1, offset=1)
+    assert unassigned["total"] == 3
+    assert len(unassigned["items"]) == 1
+
+    needs_action = svc.list_exam_content(attention="action")
+    assert "w1" not in {row["id"] for row in needs_action["items"]}
+
+    with pytest.raises(ValueError, match="attention"):
+        svc.list_exam_content(attention="invented")
+
+
+def test_catalog_tied_display_keys_have_stable_page_order(db):
+    db.t["writing_prompts"] = [
+        {"id": "w-b", "title": "Shared title", "is_active": True,
+         "exam_only": True, "course_level": "C2"},
+        {"id": "w-a", "title": "Shared title", "is_active": True,
+         "exam_only": True, "course_level": "C2"},
+    ]
+    first = svc.list_exam_content(kind="writing", limit=1, offset=0)
+    second = svc.list_exam_content(kind="writing", limit=1, offset=1)
+    assert first["total"] == second["total"] == 2
+    assert [first["items"][0]["id"], second["items"][0]["id"]] == ["w-a", "w-b"]
+    db.t["writing_prompts"].reverse()
+    assert [row["id"] for row in svc.list_exam_content(kind="writing")["items"]] == ["w-a", "w-b"]
+
+
+def test_catalog_page_crosses_kind_boundaries_without_scanning_source_rows(db, monkeypatch):
+    _seed_three(db)
+    monkeypatch.setattr(svc, "cohorts_for", lambda _kind, _ids: {})
+    monkeypatch.setattr(svc, "explanation_readiness_for", lambda _kind, _ids: {})
+    monkeypatch.setattr(svc, "_mock_refs_for", lambda _kind, _ids: {})
+    monkeypatch.setattr(svc, "_paged", lambda *_args, **_kwargs: pytest.fail("unbounded scan"))
+    first = svc.list_exam_content(limit=2, offset=0)
+    second = svc.list_exam_content(limit=2, offset=2)
+    assert first["total"] == second["total"] == 3
+    assert [(row["kind"], row["id"]) for row in first["items"]] == [
+        ("listening", "l1"), ("reading", "r1")]
+    assert [(row["kind"], row["id"]) for row in second["items"]] == [
+        ("writing", "w1")]
+    assert all(0 <= call["p_limit"] <= 2 for call in db.page_calls)
+
+
+@pytest.mark.parametrize("suffix, expected_limit, expected_status", [
+    ("", 25, 200), ("?limit=100", 100, 200), ("?limit=101", None, 422),
+])
+def test_catalog_page_enforces_bounded_page_size(suffix, expected_limit, expected_status):
+    from main import app
+
+    with patch("routers.admin_exam_content.require_admin",
+               new=AsyncMock(return_value={"id": "admin"})), patch(
+        "routers.admin_exam_content.svc.list_exam_content",
+        return_value={"items": [], "total": 0, "failed_kinds": [],
+                      "limit": expected_limit or 25, "offset": 0},
+    ) as mock_page, patch(
+        "routers.admin_exam_content.svc.known_course_levels_bounded_with_failures", return_value=([], []),
+    ):
+        response = TestClient(app).get(
+            f"/admin/exam-content/page{suffix}",
+            headers={"Authorization": "Bearer fake.admin.jwt"},
+        )
+    assert response.status_code == expected_status
+    if expected_limit is None:
+        mock_page.assert_not_called()
+    else:
+        assert mock_page.call_args.kwargs["limit"] == expected_limit
+
+
+def test_catalog_page_keeps_levels_found_only_beyond_first_page(db):
+    from main import app
+
+    db.t["writing_prompts"] = [{
+        "id": f"w-{index:03d}", "title": f"Prompt {index:03d}",
+        "is_active": True, "exam_only": True,
+        "course_level": "C9" if index == 30 else "C2",
+    } for index in range(31)]
+    with patch("routers.admin_exam_content.require_admin",
+               new=AsyncMock(return_value={"id": "admin"})):
+        response = TestClient(app).get(
+            "/admin/exam-content/page?kind=writing&limit=25",
+            headers={"Authorization": "Bearer fake.admin.jwt"},
+        )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload["items"]) == 25
+    assert "C9" not in {row["course_level"] for row in payload["items"]}
+    assert payload["levels"] == ["C2", "C9"]
+    assert payload["levels_complete"] is True
+    assert payload["failed_level_kinds"] == []
+
+
+def test_catalog_page_marks_level_scan_failure_separately_from_exact_total(db):
+    from main import app
+
+    db.t["writing_prompts"] = [{"id": "w-1", "title": "Prompt", "is_active": True}]
+    with patch("routers.admin_exam_content.require_admin",
+               new=AsyncMock(return_value={"id": "admin"})), patch(
+        "routers.admin_exam_content.svc.known_course_levels_bounded_with_failures",
+        return_value=(["C2"], ["listening"]),
+    ):
+        response = TestClient(app).get(
+            "/admin/exam-content/page?kind=writing",
+            headers={"Authorization": "Bearer fake.admin.jwt"},
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["total_complete"] is True
+    assert response.json()["levels_complete"] is False
+    assert response.json()["failed_level_kinds"] == ["listening"]
+
+
+def test_catalog_enriches_only_the_requested_page(db, monkeypatch):
+    db.t["reading_tests"] = [{
+        "id": f"r-{index:03d}", "test_id": f"R-{index:03d}", "title": f"Reading {index}",
+        "course_level": "C2", "exam_only": False, "is_public": True,
+        "status": "published", "passage_count": 3, "total_questions": 40,
+    } for index in range(240)]
+    seen: dict[str, list[list[str]]] = {"cohorts": [], "explanations": [], "mocks": []}
+
+    def capture(name, value):
+        ids = [str(item) for item in value]
+        seen[name].append(ids)
+        return {item: ({} if name == "explanations" else []) for item in ids}
+
+    monkeypatch.setattr(svc, "cohorts_for", lambda _kind, ids: capture("cohorts", ids))
+    monkeypatch.setattr(svc, "explanation_readiness_for", lambda _kind, ids: capture("explanations", ids))
+    monkeypatch.setattr(svc, "_mock_refs_for", lambda _kind, ids: capture("mocks", ids))
+
+    result = svc.list_exam_content(kind="reading", q="reading", limit=25, offset=100)
+
+    assert result["total"] == 240
+    assert len(result["items"]) == 25
+    assert all(len(batch) <= 25 for batches in seen.values() for batch in batches)
+    assert {item for batches in seen.values() for batch in batches for item in batch} == {
+        f"r-{index:03d}" for index in range(100, 125)
+    }
+
+
+def test_draft_attention_excludes_published_and_archived_content(db):
+    _seed_three(db)
+    db.t["reading_tests"][0]["status"] = "draft"
+    db.t["listening_tests"][0]["status"] = "archived"
+
+    result = svc.list_exam_content(attention="draft")
+
+    assert result["total"] == 1
+    assert [(row["kind"], row["id"], row["status"]) for row in result["items"]] == [
+        ("reading", "r1", "draft"),
+    ]
+    assert "l1" not in {
+        row["id"] for row in svc.list_exam_content(attention="action")["items"]
+    }
+
+
 def test_visibility_write_is_targeted_and_independent(db):
     _seed_three(db)
     row = svc.set_public_visibility("reading", "r1", True)
@@ -440,6 +673,36 @@ def test_list_surfaces_mock_usage_without_changing_visibility(db):
         "id": "m1", "code": "MOCK-1", "title": "Mock one",
         "status": "published",
     }]
+
+
+def test_writing_mock_usage_covers_both_slots_and_unassigned_filter(db):
+    _seed_three(db)
+    db.t["mock_exams"] = [{
+        "id": "m1", "code": "MOCK-1", "title": "Mock one",
+        "status": "published", "writing_task1_prompt_id": "w1",
+        "writing_task2_prompt_id": "w1",
+    }]
+
+    row = svc.list_exam_content(kind="writing")["items"][0]
+    assert row["mock_exams"] == [{
+        "id": "m1", "code": "MOCK-1", "title": "Mock one",
+        "status": "published",
+    }]
+    assert svc.list_exam_content(kind="writing", attention="unassigned")["items"] == []
+
+
+def test_writing_mock_reference_lookup_merges_task1_and_task2(db):
+    db.t["mock_exams"] = [
+        {"id": "m1", "code": "MOCK-1", "title": "Mock one", "status": "published",
+         "writing_task1_prompt_id": "w1", "writing_task2_prompt_id": None},
+        {"id": "m2", "code": "MOCK-2", "title": "Mock two", "status": "draft",
+         "writing_task1_prompt_id": None, "writing_task2_prompt_id": "w2"},
+    ]
+
+    refs = svc._mock_refs_for("writing", ["w1", "w2"])
+    assert {prompt_id: rows[0]["id"] for prompt_id, rows in refs.items()} == {
+        "w1": "m1", "w2": "m2",
+    }
 
 
 def test_mock_reference_lookup_chunks_ids_and_merges_every_result(db, monkeypatch):
@@ -560,14 +823,49 @@ def test_the_reverse_is_written_down():
 
 
 def test_every_route_is_admin_only():
-    src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
-    assert src.count("require_admin(authorization)") == 5
+    routes = [route for route in content_router.routes if isinstance(route, APIRoute)]
+    assert routes
+    assert all("await require_admin(authorization)" in inspect.getsource(route.endpoint)
+               for route in routes)
 
 
 def test_the_router_is_registered():
     main = (BACKEND / "main.py").read_text(encoding="utf-8")
     assert "admin_exam_content_router" in main
     assert "app.include_router(admin_exam_content_router)" in main
+
+
+def test_catalog_get_exposes_a_concrete_paginated_response_contract():
+    import main as app_main
+    from routers.admin_exam_content import ExamContentItem
+
+    response = app_main.app.openapi()["paths"]["/admin/exam-content"]["get"][
+        "responses"
+    ]["200"]["content"]["application/json"]["schema"]
+    assert response == {"$ref": "#/components/schemas/ExamContentListResponse"}
+    assert {
+        "kind", "id", "code", "title", "status", "exam_only", "is_public",
+        "public_practice_enabled", "web_explanation_mode", "course_level",
+        "cohort_ids", "mock_exams", "publish_ready", "readiness_reason",
+        "web_explanation_count", "web_explanation_ready_count",
+        "web_explanation_ready", "web_explanation_state",
+    } <= set(ExamContentItem.model_fields)
+
+
+def test_catalog_service_payload_satisfies_the_published_response_contract(db):
+    from routers.admin_exam_content import ExamContentListResponse
+
+    _seed_three(db)
+    result = svc.list_exam_content()
+    payload = ExamContentListResponse.model_validate({
+        **result,
+        "levels": svc.known_course_levels(),
+    }).model_dump()
+
+    assert payload["total"] == 3
+    assert {row["status"] for row in payload["items"]} == {"published"}
+    assert payload["failed_kinds"] == []
+    assert payload["levels"] == ["C2", "C4"]
 
 
 def test_replacing_the_cohort_set_is_not_a_post():

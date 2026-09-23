@@ -1,5 +1,5 @@
 export type QueueLane = 'grading' | 'graded' | 'reviewed' | 'delivered' | 'all' | 'mock';
-export type QueueFilters = { lane: QueueLane; cohortId: string; overdue: boolean; embed: boolean };
+export type QueueFilters = { lane: QueueLane; page: number; cohortId: string; overdue: boolean; embed: boolean; queueStatus: string; query: string };
 export type QueueRow = {
   id: string; studentId: string | null; studentName: string | null; studentCode: string | null;
   taskType: string; status: string; analysisLevel: number | null; selectedModel: string | null;
