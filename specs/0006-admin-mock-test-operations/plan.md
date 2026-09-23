@@ -7,7 +7,7 @@
 - Keep current exam, live, review, assignment, grading, and release mutation
   contracts unchanged.
 - Add backend-only PostgreSQL routines for canonical filtered Writing queue
-  IDs/total and actionable retake exam IDs, while services retain response
+  IDs/total and row-backed actionable Review exam IDs, while services retain response
   enrichment and schemas.
 - Keep embedded workspace composition for this release and make its compact
   contract explicit rather than introducing new route ownership.
@@ -86,15 +86,17 @@
   existing exam fields for older consumers; regenerate `api.d.ts` and use the
   typed GET contract in the new cockpit. Order the canonical admin exam list by
   `created_at DESC, id DESC` before both Live and Review selection.
-  Sequential eligibility uses published/closed/`active_section=done`; retake
-  eligibility uses a set-based, backend-only query joining persisted review
+  Published sequential eligibility uses closed/`active_section=done`;
+  row-backed eligibility uses a set-based, backend-only query joining persisted review
   statuses `queued`, `claimed`, `edited`, or `reviewed` to sittings in
   `all_submitted`, `under_review`, or `reviewed` state. Published retakes need
-  not be closed. Query failures fail the exam-list read instead of silently
+  not be closed; archived/draft exams with actionable rows qualify regardless
+  of mode or exam-level clock. Query failures fail the exam-list read instead of silently
   returning false; the frontend
   preserves a stale snapshot with an error. New frontend against an old backend
-  may retain the sequential predicate, but must mark retake eligibility as
-  unknown and must not claim that Review has no actionable work.
+  may retain the published sequential predicate, but must mark retake and
+  archived/draft row-backed eligibility as unknown and must not claim that
+  Review has no actionable work.
 - Keep the currently deployed backend compatible with the additive routine and
   index before dependent code is deployed. Verify both deployment orders for
   both domains: old frontends use the unchanged exam-content and Writing array
@@ -135,7 +137,7 @@
 
 - Apply both additive migrations to staging before merging dependent code,
   verify both routines' ownership/ACL plus representative Writing totals and
-  retake eligibility, then merge to
+  row-backed Review eligibility, then merge to
   staging and run exact-SHA integrated plus live browser checks.
 - Apply both advisory-locked migrations to production before promoting the
   exact staging SHA to main.
@@ -159,8 +161,9 @@
   default/maximum/oversized page limit validation in both routes, bounded
   enrichment, migration ACL,
   fixed `search_path`, and schema qualification.
-- Retake review tests cover queued/claimed/edited/reviewed versus released or
-  void sittings, open versus closed retakes, sequential `done` behavior,
+- Review tests cover queued/claimed/edited/reviewed versus released or
+  void sittings, open versus closed retakes, archived/draft sequential and
+  retake exams with actionable rows, sequential `done` behavior,
   equal-timestamp ordering for both Live and Review, typed exam-list response
   and older field preservation, backend lookup failure, and the routine's ACL and
   fixed search path. Frontend tests cover unknown old-backend retake

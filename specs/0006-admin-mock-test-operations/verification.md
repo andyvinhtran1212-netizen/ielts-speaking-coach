@@ -46,8 +46,9 @@
 - Immediate state versus full reload: pending content level save/cancel,
   queue/status/grade navigation, canonical grading readback, and Review default
   selection evidence covering newest-first completed sequential and actionable
-  open-retake eligibility, released-only/void exclusions, no eligible exam,
-  old-backend unknown eligibility, tied-timestamp Live/Review ordering, typed
+  open-retake and archived/draft row-backed eligibility across both exam modes,
+  released-only/void exclusions, no eligible exam, old-backend unknown
+  eligibility, tied-timestamp Live/Review ordering, typed
   `review_eligible` OpenAPI, older exam-field preservation, and a valid explicit
   deep link. Page
   correction requires a complete total; a forced 404 with an offset beyond

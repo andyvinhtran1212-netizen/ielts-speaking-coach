@@ -20,8 +20,9 @@
 - Dry-run and then apply migrations 296 and 297 with the advisory-locked repository runner.
 - Re-run the runner to prove ledger/idempotent behavior; inspect both routines'
   owners, ACLs, `pg_proc.proconfig`, schema-qualified bodies and indexes. Check
-  Writing exact total/order/zero-result and retake eligibility against direct
-  sitting/review rows, including open actionable and released-only exams.
+  Writing exact total/order/zero-result and Review eligibility against direct
+  sitting/review rows, including open actionable, archived actionable, and
+  released-only exams.
 - Verify a forced content-source failure marks its subtotal incomplete, and a
   forced page-route 404 activates the visible legacy compatibility warning.
   The content fallback must preserve `kind`, `course_level`, `cohort_id`,
@@ -41,7 +42,8 @@
   an exact complete total still corrects an invalid page.
 - Merge the implementation PR to `staging`, record its exact SHA, require
   integrated CI and live Staging E2E on that SHA, then exercise Manage/Create/
-  Content, Live empty/open, Review newest-first sequential/open-retake/empty/
+  Content, Live empty/open, Review newest-first sequential/open-retake/
+  archived-actionable/empty/
   old-backend-unknown/explicit-link,
   and Writing page-2 save-return journeys.
 
@@ -51,7 +53,7 @@
 - Dry-run and apply both migrations 296 and 297 with `ALLOW_PROD=1` through the
   advisory-locked runner before dependent code promotion. Verify the retake
   eligibility routine's owner, service-role-only ACL, fixed search path, and
-  representative actionable/released-only results in production.
+  representative actionable/archived-actionable/released-only results in production.
 - Open only the `staging` to `main` promotion PR, require the Staging promotion
   gate, merge without diverging feature commits, and verify deployed backend and
   frontend revisions equal the promoted SHA.
