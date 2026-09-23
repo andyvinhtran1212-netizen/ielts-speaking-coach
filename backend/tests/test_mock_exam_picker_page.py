@@ -10,7 +10,7 @@ from services import mock_exam_service as service
 
 @pytest.mark.parametrize("kind,table,field,value", [
     ("reading", "reading_tests", "test_type", "full"),
-    ("listening", "listening_tests", "status", "published"),
+    ("listening", "listening_tests", "test_type", "full"),
     ("writing-task1", "writing_prompts", "is_active", True),
     ("writing-task2", "writing_prompts", "task_type", "task2"),
 ])
@@ -33,6 +33,12 @@ def test_picker_search_and_page_are_database_scoped(kind, table, field, value):
     query.select.assert_called_once()
     assert query.select.call_args.kwargs["count"] == "exact"
     query.eq.assert_any_call(field, value)
+    if kind in {"reading", "listening"}:
+        query.eq.assert_any_call("status", "published")
+        query.eq.assert_any_call("test_type", "full")
+        query.in_.assert_not_called()
+    elif kind == "writing-task1":
+        query.in_.assert_called_once_with("task_type", ["task1_academic", "task1_general"])
     query.range.assert_called_once_with(100, 124)
     assert page == {"items": [{"id": "row-101", "title": "Target"}], "total": 101, "limit": 25, "offset": 100}
     assert '"%target,\\\\%\\\\_%"' in query.or_.call_args.args[0]

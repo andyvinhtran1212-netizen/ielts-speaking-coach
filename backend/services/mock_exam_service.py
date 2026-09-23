@@ -4418,7 +4418,7 @@ def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> d
     if kind == "reading":
         query = query.eq("status", "published").eq("test_type", "full")
     elif kind == "listening":
-        query = query.eq("status", "published").in_("test_type", ["full", "mini", "drill"])
+        query = query.eq("status", "published").eq("test_type", "full")
     else:
         query = query.eq("is_active", True)
         if kind == "writing-task1":
