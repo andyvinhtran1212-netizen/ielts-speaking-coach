@@ -143,14 +143,22 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     for (let oldVersion = 1; oldVersion < version; oldVersion += 1) {
       for (let order = 1; order <= MAX_VERSIONED_SENTENCES; order += 1) {
         const suffix = String(order).padStart(2, '0');
-        legacyIds.push(oldVersion === 1
-          ? `${prefix}-${suffix}` : `${prefix}-V${oldVersion}-${suffix}`);
+        if (oldVersion === 1) legacyIds.push(`${prefix}-${suffix}`);
+        legacyIds.push(`${prefix}-V${oldVersion}-${suffix}`);
       }
     }
     return {
-      marker: attemptKey(`migration:${prefix}-V${version}`),
+      marker: attemptKey(`migration:${prefix}-V${version}:explicit-v1-cleanup`),
       obsoleteKeys: legacyIds.map(cacheKey),
     };
+  }
+
+  function attemptUsesCurrentSentences(attempt) {
+    const attempted = attempt?.results?.sentences;
+    const current = sentences();
+    return Array.isArray(attempted) && attempted.length === current.length
+      && attempted.every((row, index) =>
+        String(row?.id || '') === String(current[index]?.id || ''));
   }
 
   async function migrateDraftCache() {
@@ -167,7 +175,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     const hasCurrentRecording = currentValues.some((value) =>
       value instanceof Blob && value.size > 0);
     const keys = [...migration.obsoleteKeys];
-    if (hasObsoleteRecording && !hasCurrentRecording) {
+    if (!hasCurrentRecording) {
       keys.push(attemptKey('active'), attemptKey('client-id'));
     }
     await draftStore.delete(keys);
@@ -428,7 +436,13 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
       activeTimer.reset();
       speed = Number(exercise?.playback_rates?.[0] || 0.85);
       if (exercise) {
+        const requiresSentenceCompatibility = !!draftMigration();
         await migrateDraftCache();
+        const latestUsesCurrentSentences = attemptUsesCurrentSentences(latest);
+        const latestIsIncompatible = requiresSentenceCompatibility && !!latest
+          && !latestUsesCurrentSentences;
+        if (requiresSentenceCompatibility && latest?.status !== 'completed'
+            && !latestUsesCurrentSentences) latest = null;
         const [cachedActive, cachedClientId] = await Promise.all([
           draftStore.get(attemptKey('active')),
           draftStore.get(attemptKey('client-id')),
@@ -437,6 +451,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
         const hasDraft = recordings.size > 0;
         if (cachedActive === true || hasDraft) {
           if (latest?.status === 'completed'
+              && (!requiresSentenceCompatibility || latestUsesCurrentSentences)
               && cachedClientId && latest.client_id === cachedClientId) {
             // The same request finished while this tab was away. Its server
             // result is canonical; the cached upload is no longer a new draft.
@@ -445,7 +460,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
             clientId = null;
           } else {
             // A newer local retry must win over an older completed result.
-            clientId = cachedClientId || uuid();
+            clientId = latestIsIncompatible ? uuid() : cachedClientId || uuid();
             await persistActiveAttempt();
             if (latest?.status === 'completed') latest = null;
           }
