@@ -60,3 +60,10 @@ def test_manifest_payloads_do_not_store_runtime_audio_paths():
     for path in sorted(CONTENT.glob("C1-B*.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
         assert all("audio_storage_path" not in row for row in data["sentences"])
+
+
+def test_b12_revision_uses_v2_ids_to_invalidate_cached_v1_recordings():
+    data = json.loads((CONTENT / "C1-B12.json").read_text(encoding="utf-8"))
+    assert [row["id"] for row in data["sentences"]] == [
+        f"C1-B12-PRON-V2-{order:02d}" for order in range(1, 16)
+    ]
