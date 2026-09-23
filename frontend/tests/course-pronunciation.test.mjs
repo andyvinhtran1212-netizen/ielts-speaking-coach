@@ -240,6 +240,54 @@ test('a versioned sentence set removes V1 drafts once without deleting V2 drafts
 });
 
 
+test('a processing V1 snapshot cannot lend its client id to a V2 submission', async () => {
+  browserShell();
+  const versionedExercise = {
+    ...exercise,
+    bank_id: 'bank-12',
+    sentences: exercise.sentences.map((sentence, index) => ({
+      ...sentence, id: `C1-B12-PRON-V2-${String(index + 1).padStart(2, '0')}`,
+    })),
+  };
+  const staleClientId = '22222222-2222-4222-8222-222222222222';
+  const freshClientId = '11111111-1111-4111-8111-111111111111';
+  const latest_attempt = {
+    client_id: staleClientId,
+    status: 'processing',
+    results: { sentences: exercise.sentences.map((sentence, index) => ({
+      ...sentence, id: `C1-B12-PRON-V1-${String(index + 1).padStart(2, '0')}`,
+    })) },
+  };
+  const draftStore = memoryDraftStore([
+    ['u1:bank-12:attempt:active', true],
+    ['u1:bank-12:attempt:client-id', staleClientId],
+  ]);
+  let submittedClientId = null;
+  const api = {
+    get: async () => ({ exercise: versionedExercise, latest_attempt }),
+    upload: async (_path, form) => {
+      submittedClientId = form.get('client_id');
+      return { status: 'completed', client_id: submittedClientId, results: { sentences: [] } };
+    },
+  };
+
+  const firstV2Page = createPronunciation({ api, userId: 'u1', draftStore });
+  await firstV2Page.load('bank-12');
+  assert.equal(draftStore.values.get('u1:bank-12:attempt:client-id'), freshClientId);
+  for (const sentence of versionedExercise.sentences) {
+    await draftStore.put(`u1:bank-12:${sentence.id}`,
+      new Blob([sentence.id], { type: 'audio/webm' }));
+  }
+
+  const reloadedV2Page = createPronunciation({ api, userId: 'u1', draftStore });
+  await reloadedV2Page.load('bank-12');
+  assert.match(reloadedV2Page.render(), /2<small>\/2 đã thu/);
+  assert.equal(await reloadedV2Page.submit(), true);
+  assert.equal(submittedClientId, freshClientId);
+  assert.notEqual(submittedClientId, staleClientId);
+});
+
+
 test('a V2 migration preserves client id when reconciling a completed V2 draft', async () => {
   browserShell();
   const clientId = 'completed-v2-client';
@@ -257,7 +305,7 @@ test('a V2 migration preserves client id when reconciling a completed V2 draft',
   ]);
   const api = { get: async () => ({ exercise: versionedExercise, latest_attempt: {
     client_id: clientId, status: 'completed', pronunciation_score: 88,
-    results: { sentences: [] },
+    results: { sentences: versionedExercise.sentences },
   } }) };
 
   const pronunciation = createPronunciation({ api, userId: 'u1', draftStore });
@@ -290,7 +338,7 @@ test('completed V2 reconciliation wins when V1 and V2 recordings coexist', async
   ]);
   const api = { get: async () => ({ exercise: versionedExercise, latest_attempt: {
     client_id: clientId, status: 'completed', pronunciation_score: 91,
-    results: { sentences: [] },
+    results: { sentences: versionedExercise.sentences },
   } }) };
 
   const pronunciation = createPronunciation({ api, userId: 'u1', draftStore });

@@ -153,6 +153,14 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     };
   }
 
+  function attemptUsesCurrentSentences(attempt) {
+    const attempted = attempt?.results?.sentences;
+    const current = sentences();
+    return Array.isArray(attempted) && attempted.length === current.length
+      && attempted.every((row, index) =>
+        String(row?.id || '') === String(current[index]?.id || ''));
+  }
+
   async function migrateDraftCache() {
     const migration = draftMigration();
     if (!migration || await draftStore.get(migration.marker) === true) return;
@@ -167,7 +175,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     const hasCurrentRecording = currentValues.some((value) =>
       value instanceof Blob && value.size > 0);
     const keys = [...migration.obsoleteKeys];
-    if (hasObsoleteRecording && !hasCurrentRecording) {
+    if (!hasCurrentRecording) {
       keys.push(attemptKey('active'), attemptKey('client-id'));
     }
     await draftStore.delete(keys);
@@ -428,7 +436,11 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
       activeTimer.reset();
       speed = Number(exercise?.playback_rates?.[0] || 0.85);
       if (exercise) {
+        const requiresSentenceCompatibility = !!draftMigration();
         await migrateDraftCache();
+        const latestUsesCurrentSentences = attemptUsesCurrentSentences(latest);
+        if (requiresSentenceCompatibility && latest?.status !== 'completed'
+            && !latestUsesCurrentSentences) latest = null;
         const [cachedActive, cachedClientId] = await Promise.all([
           draftStore.get(attemptKey('active')),
           draftStore.get(attemptKey('client-id')),
@@ -437,6 +449,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
         const hasDraft = recordings.size > 0;
         if (cachedActive === true || hasDraft) {
           if (latest?.status === 'completed'
+              && (!requiresSentenceCompatibility || latestUsesCurrentSentences)
               && cachedClientId && latest.client_id === cachedClientId) {
             // The same request finished while this tab was away. Its server
             // result is canonical; the cached upload is no longer a new draft.
