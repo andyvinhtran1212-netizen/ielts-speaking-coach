@@ -37,6 +37,13 @@ const WRITE_FLOW_NAMES = [
 ];
 
 describe('/admin/writing/grade — native ownership + admin boundary', () => {
+  test('sets iframe chrome mode in server markup before the custom element mounts', () => {
+    assert.match(PAGE, /const params = await searchParams/);
+    assert.match(PAGE, /const embed = params\.embed === '1'/);
+    assert.match(PAGE, /<aver-admin-chrome[^>]*embed=\{embed \? '' : undefined\}/);
+    assert.doesNotMatch(BEHAVIOR, /chrome\.(?:setAttribute|removeAttribute)\('embed'/);
+  });
+
   test('owns the canonical route and keeps an archived predecessor', () => {
     assert.match(PAGE, /AdminWritingGradeBehavior/);
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/grade['"]/);

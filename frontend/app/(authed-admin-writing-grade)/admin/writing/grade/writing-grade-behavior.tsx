@@ -335,13 +335,6 @@ export function AdminWritingGradeBehavior() {
     return () => { dead = true; };
   }, [admin.id, essayId, reloadToken, requestKey]);
 
-  useEffect(() => {
-    const chrome = document.querySelector('aver-admin-chrome');
-    if (!chrome) return;
-    if (params?.get('embed') === '1') chrome.setAttribute('embed', '');
-    else chrome.removeAttribute('embed');
-  }, [params]);
-
   const view = selectKeyedAdminState(gradeState, requestKey) as GradeView;
   const workspace = view.phase === 'ready' ? view.workspace : null;
   const navigation = normalizeWritingNavigation(params ?? undefined);
