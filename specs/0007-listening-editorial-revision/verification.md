@@ -11,6 +11,8 @@
 | FR-005 | kind=test; ref=frontend/tests/listening-programme-learning.test.mjs; new package-backed contract pending | PENDING |
 | FR-006 | kind=report; ref=new revision full package validation and dry-run pending | PENDING |
 | FR-007 | kind=journey; ref=staging unpublished import and explicit owner decision pending | PENDING |
+| FR-008 | kind=journey; ref=active v1.0 attempt cutover policy and archived-package resume test pending | PENDING |
+| FR-009 | kind=check; ref=two museum-map SVG source labels, accessibility and same-anchor visual comparison pending | PENDING |
 
 ## Contract evidence
 

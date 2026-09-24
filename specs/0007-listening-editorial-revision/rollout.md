@@ -5,6 +5,9 @@
 - Owner approves this spec, each content batch, and the exact release manifests.
 - No v1.0 package or release-index bytes are overwritten. New package IDs are
   unique and backward-compatible with existing attempt history.
+- Decide and verify what happens to in-progress v1.0 attempts before the
+  one-published-revision-per-programme status transition. Submitted review
+  paths and active resume paths require separate checks.
 - Any required migration reaches staging before dependent code; the deployed
   frontend/backend compatibility window is tested.
 
@@ -23,11 +26,15 @@
   are required; promote staging to main through the standard gate.
 - Publish one reviewed programme revision at a time and confirm canonical
   published rows and learner paths on the production SHA.
+- Treat archive-old/publish-new as a controlled cutover with a recovery path,
+  not as an atomic switch, unless a separately approved atomic contract exists.
 
 ## Rollback and repair
 
-- Archive only the newly published revision, preserving all attempts and v1.0
-  content. Restore the previous release-index binding if an index was moved.
+- Archive only the newly published revision, then re-publish the previously
+  attested v1.0 package; preserve all attempts and v1.0 assets. Restore the
+  previous release-index binding if an index was moved. Both status calls and
+  the temporary availability gap must be observed explicitly.
 - Do not delete old assets or reuse a package ID with different bytes.
 
 ## Observability
