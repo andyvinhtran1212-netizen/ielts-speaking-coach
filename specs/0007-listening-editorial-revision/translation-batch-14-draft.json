@@ -1,0 +1,20 @@
+{
+  "batch_id": "LISTENING-0007-B14",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "ielts-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete contrast-reversal form 05 (10 single-choice items). Preserve option-letter identity and final-choice wording; editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"G12.DRL.3274","source_prompt":"Which subject did Nina finally choose?","source_options":{"A":"economics","B":"psychology","C":"undecided","D":"nursing"},"prompt_vi":"Cuối cùng Nina chọn môn học nào?","options_vi":{"A":"kinh tế học","B":"tâm lý học","C":"chưa quyết định","D":"điều dưỡng"}},
+    {"id":"G12.DRL.3330","source_prompt":"Which subject did Emma finally choose?","source_options":{"A":"undecided","B":"biology","C":"statistics","D":"nursing"},"prompt_vi":"Cuối cùng Emma chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"sinh học","C":"thống kê","D":"điều dưỡng"}},
+    {"id":"G12.DRL2.257","source_prompt":"Which subject did David finally choose?","source_options":{"A":"engineering","B":"physics","C":"psychology","D":"undecided"},"prompt_vi":"Cuối cùng David chọn môn học nào?","options_vi":{"A":"kỹ thuật","B":"vật lý","C":"tâm lý học","D":"chưa quyết định"}},
+    {"id":"G12.DRL2.269","source_prompt":"Which subject did Kai finally choose?","source_options":{"A":"undecided","B":"psychology","C":"chemistry","D":"ecology"},"prompt_vi":"Cuối cùng Kai chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"tâm lý học","C":"hóa học","D":"sinh thái học"}},
+    {"id":"G12.DRL2.276","source_prompt":"Which subject did Leo finally choose?","source_options":{"A":"finance","B":"nursing","C":"undecided","D":"geography"},"prompt_vi":"Cuối cùng Leo chọn môn học nào?","options_vi":{"A":"tài chính","B":"điều dưỡng","C":"chưa quyết định","D":"địa lý"}},
+    {"id":"G12.DRL2.294","source_prompt":"Which subject did James finally choose?","source_options":{"A":"genetics","B":"biology","C":"undecided","D":"philosophy"},"prompt_vi":"Cuối cùng James chọn môn học nào?","options_vi":{"A":"di truyền học","B":"sinh học","C":"chưa quyết định","D":"triết học"}},
+    {"id":"G12.DRL2.302","source_prompt":"Which subject did Noah finally choose?","source_options":{"A":"genetics","B":"chemistry","C":"engineering","D":"undecided"},"prompt_vi":"Cuối cùng Noah chọn môn học nào?","options_vi":{"A":"di truyền học","B":"hóa học","C":"kỹ thuật","D":"chưa quyết định"}},
+    {"id":"G12.DRL2.304","source_prompt":"Which subject did Oliver finally choose?","source_options":{"A":"architecture","B":"undecided","C":"geography","D":"philosophy"},"prompt_vi":"Cuối cùng Oliver chọn môn học nào?","options_vi":{"A":"kiến trúc","B":"chưa quyết định","C":"địa lý","D":"triết học"}},
+    {"id":"G12.DRL2.313","source_prompt":"Which subject did Liam finally choose?","source_options":{"A":"undecided","B":"statistics","C":"marketing","D":"robotics"},"prompt_vi":"Cuối cùng Liam chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"thống kê","C":"tiếp thị","D":"robot học"}},
+    {"id":"G12.DRL2.316","source_prompt":"Which subject did Sarah finally choose?","source_options":{"A":"geography","B":"genetics","C":"architecture","D":"undecided"},"prompt_vi":"Cuối cùng Sarah chọn môn học nào?","options_vi":{"A":"địa lý","B":"di truyền học","C":"kiến trúc","D":"chưa quyết định"}}
+  ]
+}
