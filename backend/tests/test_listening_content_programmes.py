@@ -16,6 +16,7 @@ from services import listening_test_grader as grader
 from services.listening_editorial_validation import SOURCE_MANIFEST_LOCKS
 from services.listening_revision_compare import RevisionMismatch, compare_editorial_revision
 from scripts import build_listening_editorial_revision as revision_builder
+from scripts import compare_listening_editorial_revision as comparison_command
 from scripts import import_listening_content_package as import_command
 
 
@@ -271,6 +272,26 @@ def test_revision_builder_creates_new_manifest_bound_package_without_mutating_v1
     lesson_path = output / "general/packages/general-listening-practice-v1.1.0/learner/content/lessons/lesson-1.json"
     assert "titles" not in json.loads(lesson_path.read_text(encoding="utf-8"))
     assert revision.forms[0]["exercise_payload"]["questions"][0]["editorial_translation"]["prompt"] == "Chọn đáp án."
+
+
+def test_revision_comparison_cli_accepts_separate_source_and_revision_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    output = tmp_path / "revision"
+    revision_builder.build_revision(
+        release_root, draft_dir, output, revision_date="2026-09-24",
+    )
+    monkeypatch.setattr(comparison_command, "SOURCE_MANIFEST_LOCKS", revision_builder.SOURCE_MANIFEST_LOCKS)
+
+    assert comparison_command.main([
+        "--source-release-root", str(release_root),
+        "--release-root", str(output),
+        "--source-package", "general-listening-practice-v1.0.0",
+        "--revision-package", "general-listening-practice-v1.1.0",
+    ]) == 0
+    assert json.loads(capsys.readouterr().out)["protected_and_media_invariants"] == "pass"
 
 
 def test_revision_builder_rejects_pending_batch_without_output(

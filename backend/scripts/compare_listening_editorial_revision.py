@@ -23,12 +23,18 @@ from services.listening_revision_compare import RevisionMismatch, compare_editor
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--release-root", type=Path, required=True)
+    parser.add_argument("--release-root", type=Path, required=True, help="Revision release root")
+    parser.add_argument(
+        "--source-release-root", type=Path,
+        help="Locked v1.0 release root; defaults to --release-root.",
+    )
     parser.add_argument("--source-package", choices=sorted(SOURCE_MANIFEST_LOCKS), required=True)
     parser.add_argument("--revision-package", required=True)
     args = parser.parse_args(argv)
     try:
-        source = build_import_plan(select_package(args.release_root, args.source_package))
+        source = build_import_plan(select_package(
+            args.source_release_root or args.release_root, args.source_package,
+        ))
         revision = build_import_plan(select_package(args.release_root, args.revision_package))
         report = compare_editorial_revision(
             source, revision,
