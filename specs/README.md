@@ -68,5 +68,6 @@ draft -> approved -> implementing -> verified -> shipped
 | AI-0004 | AI model usage observability and controlled model rollout | approved | high | [spec](0004-ai-model-usage-observability/spec.md) |
 | LISTENING-0005 | Listening content programmes, import and learner hub | approved | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | approved | high | [spec](0006-listening-guided-feedback/spec.md) |
+| LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | approved | high | [spec](0007-listening-editorial-revision/spec.md) |
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | approved | high | [spec](0006-admin-mock-test-operations/spec.md) |
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | approved | high | [spec](0007-writing-navigation-contract/spec.md) |
