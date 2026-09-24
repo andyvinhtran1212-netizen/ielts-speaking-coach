@@ -81,7 +81,7 @@ describe('/listening/analytics — native React behavior', () => {
     assert.match(BEHAVIOR, /Math\.max\(4, Math\.round\(\(day\.count \/ maxCount\) \* 100\)\)/);
     assert.match(BEHAVIOR, /data-has-data=\{day\.count > 0 \? '1' : '0'\}/);
     assert.match(BEHAVIOR, /id="recent-list"/);
-    assert.match(BEHAVIOR, /Hoạt động report-only/);
+    assert.match(BEHAVIOR, /Hoạt động luyện theo bài/);
     assert.match(BEHAVIOR, /Không cộng vào điểm trung bình hoặc dạng yếu nhất/);
     assert.match(BEHAVIOR, /reportOnly\.reviewNeededCount/);
   });

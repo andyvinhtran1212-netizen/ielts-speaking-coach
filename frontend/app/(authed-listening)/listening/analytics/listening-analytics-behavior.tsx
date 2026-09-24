@@ -247,7 +247,7 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
       </section>
 
       <section className="section-card report-only-panel" aria-labelledby="report-only-heading">
-        <div className="analytics-section-head"><div><p>Luyện tập</p><h2 id="report-only-heading">Hoạt động report-only</h2></div><span>Không cộng vào điểm trung bình hoặc dạng yếu nhất</span></div>
+        <div className="analytics-section-head"><div><p>Luyện tập</p><h2 id="report-only-heading">Hoạt động luyện theo bài</h2></div><span>Không cộng vào điểm trung bình hoặc dạng yếu nhất</span></div>
         <div className="report-only-grid">
           <div><strong>{data.reportOnly.attemptsCount}</strong><span>Lượt bắt đầu</span></div>
           <div><strong>{data.reportOnly.completedCount}</strong><span>Lượt hoàn thành (tất cả)</span></div>
