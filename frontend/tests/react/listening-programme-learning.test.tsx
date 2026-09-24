@@ -65,6 +65,26 @@ it('keeps source language when a form has no complete reviewed translation', asy
   expect(screen.getByText(/Đang hiển thị bản gốc/)).toBeTruthy();
 });
 
+it('keeps a map in a keyboard-scrollable viewport without changing its answer flow', async () => {
+  const mapQuestion = [{
+    q_num: 1, source_item_id: 'map-1', prompt: 'Which room is at A?',
+    response_type: 'map_label', options: { A: 'Library', B: 'Archive' },
+    visual_url: '/map.svg', visual_accessibility: 'North is up; entrance is at the south.',
+  }];
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state')
+    ? { attempt_id: 'attempt-1', assisted: false, items: [] }
+    : { ...programmeTest, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: mapQuestion } }] }] });
+  render(<ProgrammeFormRunner testId="test-map" />);
+  await screen.findByText('Which room is at A?');
+  const viewport = screen.getByRole('region', { name: 'Sơ đồ câu 1, có thể cuộn ngang' });
+  expect(viewport.getAttribute('tabindex')).toBe('0');
+  expect(within(viewport).getByRole('img', { name: 'North is up; entrance is at the south.' }).getAttribute('src')).toBe('/map.svg');
+  expect(screen.getByText(/vuốt ngang hoặc dùng phím mũi tên/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('radio', { name: /Library/ }));
+  expect((screen.getByRole('radio', { name: /Library/ }) as HTMLInputElement).checked).toBe(true);
+  await waitFor(() => expect(window.api.patchWith).toHaveBeenCalled());
+});
+
 it('explains written-answer language and preserves a draft when switching bilingual prompts', async () => {
   const written = [{
     q_num: 1, source_item_id: 'written-1', prompt: 'Which word did you hear?',
