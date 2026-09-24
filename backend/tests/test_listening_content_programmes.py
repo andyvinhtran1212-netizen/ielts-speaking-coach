@@ -15,6 +15,7 @@ from services import listening_package_import as importer
 from services import listening_test_grader as grader
 from services.listening_editorial_validation import SOURCE_MANIFEST_LOCKS
 from services.listening_revision_compare import RevisionMismatch, compare_editorial_revision
+from scripts import build_listening_editorial_revision as revision_builder
 from scripts import import_listening_content_package as import_command
 
 
@@ -202,6 +203,106 @@ def _add_editorial_batch(release_root: Path, *, status: str = "approved_by_owner
     manifest["artifact_hashes"][relative] = "0" * 64
     _write_json(manifest_path, manifest)
     _rebind_manifest(release_root)
+
+
+def _builder_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["package_id"] = "general-listening-practice-v1.0.0"
+    _write_json(manifest_path, manifest)
+    index_path = release_root / "release-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["programmes"][0]["packages"][0]["package_id"] = manifest["package_id"]
+    _write_json(index_path, index)
+    _rebind_manifest(release_root)
+    source_manifest_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    monkeypatch.setattr(
+        revision_builder, "SOURCE_RELEASE_INDEX_SHA256",
+        hashlib.sha256(index_path.read_bytes()).hexdigest(),
+    )
+    monkeypatch.setattr(revision_builder, "SOURCE_MANIFEST_LOCKS", {manifest["package_id"]: source_manifest_sha})
+    monkeypatch.setattr(importer, "SOURCE_MANIFEST_LOCKS", {manifest["package_id"]: source_manifest_sha})
+    monkeypatch.setattr(revision_builder, "EXPECTED_METADATA_COUNTS", {
+        "instructions": 1, "titles": 1, "outcomes": 1,
+    })
+    draft_dir = tmp_path / "drafts"
+    _write_json(draft_dir / "lesson-metadata-draft.json", {
+        "status": "approved_by_owner_not_published",
+        "source_package_ids": [manifest["package_id"]],
+        "instructions": {"lesson-1": "Listen for the stated number, then compare your answer."},
+        "titles": {"lesson-1": "Stated numbers"},
+        "outcomes": {"lesson-1": ["Identify the number spoken in the clip."]},
+    })
+    _write_json(draft_dir / "translation-batch-01-draft.json", {
+        "batch_id": "fixture-batch-01",
+        "status": "approved_by_owner_not_published",
+        "source_package_id": manifest["package_id"],
+        "source_language": "en",
+        "target_language": "vi",
+        "items": [{
+            "id": "item-1", "source_prompt": "Choose the answer.",
+            "source_options": {"A": "One", "B": "Two"},
+            "prompt_vi": "Chọn đáp án.", "options_vi": {"A": "Một", "B": "Hai"},
+        }],
+    })
+    return release_root, draft_dir
+
+
+def test_revision_builder_creates_new_manifest_bound_package_without_mutating_v1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    before = _tree_hashes(release_root)
+    output = tmp_path / "revision"
+
+    report = revision_builder.build_revision(
+        release_root, draft_dir, output, revision_date="2026-09-24",
+    )
+
+    assert report["coverage"]["approved_items"] == 1
+    assert report["comparisons"][0]["protected_and_media_invariants"] == "pass"
+    assert _tree_hashes(release_root) == before
+    revision = importer.build_import_plan(
+        importer.select_package(output, "general-listening-practice-v1.1.0"),
+    )
+    assert revision.lessons[0]["title"] == "Stated numbers"
+    lesson_path = output / "general/packages/general-listening-practice-v1.1.0/learner/content/lessons/lesson-1.json"
+    assert "titles" not in json.loads(lesson_path.read_text(encoding="utf-8"))
+    assert revision.forms[0]["exercise_payload"]["questions"][0]["editorial_translation"]["prompt"] == "Chọn đáp án."
+
+
+def test_revision_builder_rejects_pending_batch_without_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    batch_path = draft_dir / "translation-batch-01-draft.json"
+    batch = json.loads(batch_path.read_text(encoding="utf-8"))
+    batch["status"] = "draft_pending_owner_review"
+    _write_json(batch_path, batch)
+    output = tmp_path / "revision"
+
+    with pytest.raises(importer.EditorialValidationError, match="Chưa đủ owner approval"):
+        revision_builder.build_revision(
+            release_root, draft_dir, output, revision_date="2026-09-24",
+        )
+    assert not output.exists()
+
+
+def test_revision_builder_rejects_output_inside_immutable_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    before = _tree_hashes(release_root)
+    output = release_root / "revision"
+
+    with pytest.raises(importer.PackageValidationError, match="không được nằm trong source"):
+        revision_builder.build_revision(
+            release_root, draft_dir, output, revision_date="2026-09-24",
+        )
+    assert not output.exists()
+    assert _tree_hashes(release_root) == before
 
 
 def test_new_revision_projects_only_manifest_bound_approved_text(tmp_path: Path):
