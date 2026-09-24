@@ -598,6 +598,104 @@ def _approved_editorial_projection(
     }, report
 
 
+def _approved_editorial_visuals(
+    location: PackageLocation,
+    manifest: dict[str, Any],
+    visuals: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Register manifest-bound localized SVGs without replacing source visuals."""
+    rows = manifest.get("editorial_visuals")
+    if rows is None:
+        if manifest.get("editorial_visual_review") is not None:
+            raise PackageValidationError("Visual review không có editorial_visuals")
+        return {}
+    if not isinstance(rows, list) or not rows or len(rows) > 20 or not manifest.get("editorial_batches"):
+        raise PackageValidationError("editorial_visuals không hợp lệ")
+    review_relative = _safe_relative_path(manifest.get("editorial_visual_review"), label="editorial_visual_review")
+    review_path = review_relative.as_posix()
+    if (not review_path.startswith("protected/editorial/") or review_relative.suffix != ".json"
+            or review_path not in manifest["artifact_hashes"]):
+        raise PackageValidationError("Visual review không thuộc protected inventory")
+    review = _load_json(_resolve_declared(location.package_root, review_path, label="editorial_visual_review"))
+    review_rows = review.get("visuals") if isinstance(review, dict) else None
+    if (not isinstance(review_rows, list) or len(review_rows) != len(rows)
+            or review.get("status") != "approved_by_owner_not_published"
+            or review.get("source_package_id") != manifest.get("editorial_source_package_id")):
+        raise PackageValidationError("Visual review chưa được duyệt hoặc không khớp source")
+    if any(not isinstance(item, dict) or not isinstance(item.get("source_path"), str)
+           for item in review_rows):
+        raise PackageValidationError("Visual review source ID không hợp lệ")
+    reviewed_by_source = {item["source_path"]: item for item in review_rows}
+    if len(reviewed_by_source) != len(rows):
+        raise PackageValidationError("Visual review source ID trùng hoặc thiếu")
+    source_assets = dict(visuals)
+    approved: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if (not isinstance(row, dict) or set(row) != {
+            "status", "source_path", "source_sha256", "target_path", "target_sha256",
+            "target_language", "visual_accessibility",
+        } or row["status"] != "approved" or row["target_language"] != "vi"):
+            raise PackageValidationError("Editorial visual review state không hợp lệ")
+        source_path = row["source_path"]
+        source = source_assets.get(source_path) if isinstance(source_path, str) else None
+        reviewed = reviewed_by_source.get(source_path) if isinstance(source_path, str) else None
+        if not source or source_path in approved or source["sha256"] != row["source_sha256"]:
+            raise PackageValidationError("Editorial visual source mismatch")
+        if (not isinstance(reviewed, dict) or reviewed.get("source_sha256") != row["source_sha256"]
+                or reviewed.get("draft_variant_sha256") != row["target_sha256"]
+                or reviewed.get("image_alt_vi") != row["visual_accessibility"]):
+            raise PackageValidationError("Editorial visual không khớp owner review")
+        relative = _safe_relative_path(row["target_path"], label="editorial_visual")
+        target_path = relative.as_posix()
+        expected_target = source_path.removesuffix(".v1.svg") + ".vi.v1.svg" if source_path.endswith(".v1.svg") else None
+        if (target_path != expected_target or not target_path.startswith("learner/visuals/")
+                or target_path in visuals or target_path not in manifest["artifact_hashes"]
+                or row["target_sha256"] != manifest["artifact_hashes"][target_path]
+                or row["target_sha256"] == row["source_sha256"]
+                or not isinstance(row["visual_accessibility"], str)
+                or not row["visual_accessibility"].strip()):
+            raise PackageValidationError("Editorial visual target/alt không hợp lệ")
+        target = _resolve_declared(location.package_root, target_path, label="editorial_visual")
+        _validate_svg(target)
+        if _sha256_file(target) != row["target_sha256"]:
+            raise PackageValidationError("Editorial visual target hash mismatch")
+        original = ET.parse(source["local_path"]).getroot()
+        translated = ET.parse(target).getroot()
+        original_elements = list(original.iter())
+        translated_elements = list(translated.iter())
+        if (len(original_elements) != len(translated_elements)
+                or any(a.tag != b.tag or a.attrib != b.attrib
+                       for a, b in zip(original_elements, translated_elements, strict=True))):
+            raise PackageValidationError("Editorial visual geometry changed")
+        source_labels = [(element.text or "").strip() for element in original_elements]
+        target_labels = [(element.text or "").strip() for element in translated_elements]
+        if any(source_labels.count(label) != target_labels.count(label)
+               for label in source_labels if re.fullmatch(r"[A-Z]", label)):
+            raise PackageValidationError("Editorial visual choice anchors changed")
+        visible = reviewed.get("visible_text")
+        if not isinstance(visible, list) or not all(isinstance(pair, dict) for pair in visible):
+            raise PackageValidationError("Editorial visual wording review thiếu")
+        actual_changes = [((a.text or "").strip(), (b.text or "").strip())
+                          for a, b in zip(original_elements, translated_elements, strict=True)
+                          if (a.text or "").strip() != (b.text or "").strip()]
+        expected_changes = [(reviewed.get("title_en"), reviewed.get("title_vi")),
+                            (reviewed.get("description_en"), reviewed.get("description_vi"))]
+        expected_changes.extend((pair.get("en"), pair.get("vi")) for pair in visible)
+        if actual_changes != expected_changes:
+            raise PackageValidationError("Editorial visual wording không khớp owner review")
+        asset = {
+            "source_path": target_path,
+            "local_path": str(target),
+            "storage_path": _visual_storage_path(location.package_id, location.manifest_sha256, target_path),
+            "sha256": row["target_sha256"],
+            "content_type": "image/svg+xml",
+            "visual_accessibility": row["visual_accessibility"],
+        }
+        visuals[target_path] = asset
+        approved[source_path] = asset
+    return approved
+
+
 def build_import_plan(location: PackageLocation, *, imported_by: str | None = None) -> ImportPlan:
     root = location.package_root
     manifest = _verify_manifest(location)
@@ -982,12 +1080,32 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
     editorial_projection, editorial_report = _approved_editorial_projection(
         location, manifest, forms,
     )
+    source_visual_paths = {asset["storage_path"]: path for path, asset in visuals.items()}
+    editorial_visuals = _approved_editorial_visuals(location, manifest, visuals)
+    used_editorial_visuals: set[str] = set()
     if editorial_projection:
         for form in forms:
             for question in form["exercise_payload"]["questions"]:
                 translation = editorial_projection.get(question["source_item_id"])
                 if translation:
+                    source_visual_storage = question.get("visual_storage_path")
+                    if source_visual_storage:
+                        source_visual_path = source_visual_paths.get(source_visual_storage)
+                        if not source_visual_path:
+                            raise PackageValidationError("Editorial visual source storage mismatch")
+                        visual = editorial_visuals.get(source_visual_path)
+                        if not visual:
+                            raise PackageValidationError(
+                                f"Editorial visual thiếu bản duyệt: {question['source_item_id']}"
+                            )
+                        if translation["target_language"] != "vi":
+                            raise PackageValidationError("Editorial visual target language mismatch")
+                        translation["visual_storage_path"] = visual["storage_path"]
+                        translation["visual_accessibility"] = visual["visual_accessibility"]
+                        used_editorial_visuals.add(source_visual_path)
                     question["editorial_translation"] = translation
+    if used_editorial_visuals != set(editorial_visuals):
+        raise PackageValidationError("Editorial visual không được dùng bởi câu đã duyệt")
 
     actual_counts = {
         "lessons": len(lessons),

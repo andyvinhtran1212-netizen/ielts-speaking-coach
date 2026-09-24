@@ -206,12 +206,31 @@ def _add_editorial_batch(release_root: Path, *, status: str = "approved_by_owner
     _rebind_manifest(release_root)
 
 
-def _builder_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+def _builder_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, with_visual: bool = False,
+) -> tuple[Path, Path]:
     release_root = _minimal_publish_ready_package(tmp_path)
     package_root = release_root / "general" / "fixture"
     manifest_path = package_root / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["package_id"] = "general-listening-practice-v1.0.0"
+    if with_visual:
+        visual_relative = "learner/visuals/map.v1.svg"
+        visual_path = package_root / visual_relative
+        visual_path.parent.mkdir(parents=True, exist_ok=True)
+        visual_path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 650">'
+            '<title>Source map</title><desc>North is up</desc>'
+            '<text x="10" y="10">Entrance</text><text x="50" y="50">N</text>'
+            '<text x="80" y="80">A</text></svg>', encoding="utf-8",
+        )
+        lesson_path = package_root / "learner/content/lessons/lesson-1.json"
+        lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+        lesson["stimuli"][0]["visual"] = visual_relative
+        lesson["stimuli"][0]["visual_accessibility"] = "Source map; north is up."
+        _write_json(lesson_path, lesson)
+        manifest["counts"]["visuals"] = 1
+        manifest["artifact_hashes"][visual_relative] = hashlib.sha256(visual_path.read_bytes()).hexdigest()
     _write_json(manifest_path, manifest)
     index_path = release_root / "release-index.json"
     index = json.loads(index_path.read_text(encoding="utf-8"))
@@ -248,6 +267,32 @@ def _builder_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[P
             "prompt_vi": "Chọn đáp án.", "options_vi": {"A": "Một", "B": "Hai"},
         }],
     })
+    if with_visual:
+        draft_path = draft_dir / "visuals-draft/map.vi.draft.svg"
+        draft_path.parent.mkdir(parents=True, exist_ok=True)
+        draft_path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 650">'
+            '<title>Sơ đồ nguồn</title><desc>Phía bắc ở trên</desc>'
+            '<text x="10" y="10">Lối vào</text><text x="50" y="50">N</text>'
+            '<text x="80" y="80">A</text></svg>', encoding="utf-8",
+        )
+        source_path = package_root / "learner/visuals/map.v1.svg"
+        _write_json(draft_dir / "visual-batch-01-draft.json", {
+            "batch_id": "fixture-visual-01",
+            "status": "draft_pending_owner_review",
+            "source_package_id": manifest["package_id"],
+            "visuals": [{
+                "source_path": "learner/visuals/map.v1.svg",
+                "source_sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+                "draft_variant_path": "visuals-draft/map.vi.draft.svg",
+                "draft_variant_sha256": hashlib.sha256(draft_path.read_bytes()).hexdigest(),
+                "title_en": "Source map", "title_vi": "Sơ đồ nguồn",
+                "description_en": "North is up", "description_vi": "Phía bắc ở trên",
+                "visible_text": [{"en": "Entrance", "vi": "Lối vào"}],
+                "image_alt_vi": "Sơ đồ nguồn; phía bắc ở trên.",
+                "unchanged_symbols": ["N", "A"],
+            }],
+        })
     return release_root, draft_dir
 
 
@@ -309,6 +354,113 @@ def test_revision_builder_rejects_pending_batch_without_output(
             release_root, draft_dir, output, revision_date="2026-09-24",
         )
     assert not output.exists()
+
+
+def test_revision_builder_requires_visual_owner_approval_then_projects_localized_asset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch, with_visual=True)
+    before = _tree_hashes(release_root)
+    output = tmp_path / "revision"
+    with pytest.raises(importer.PackageValidationError, match="Visual review chưa được owner duyệt"):
+        revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+    assert not output.exists()
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["status"] = "approved_by_owner_not_published"
+    _write_json(review_path, review)
+
+    report = revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+
+    assert _tree_hashes(release_root) == before
+    assert report["comparisons"][0]["protected_and_media_invariants"] == "pass"
+    plan = importer.build_import_plan(importer.select_package(output, "general-listening-practice-v1.1.0"))
+    question = plan.forms[0]["exercise_payload"]["questions"][0]
+    assert len(plan.visual_assets) == 2
+    assert question["editorial_translation"]["visual_accessibility"] == "Sơ đồ nguồn; phía bắc ở trên."
+    assert "map.vi.v1.svg" in question["editorial_translation"]["visual_storage_path"]
+    assert question["visual_storage_path"] != question["editorial_translation"]["visual_storage_path"]
+
+
+@pytest.mark.parametrize(("mutation", "message"), [
+    ("source_hash", "Visual source hash mismatch"),
+    ("draft_hash", "Visual draft hash mismatch"),
+    ("path", "Visual draft path"),
+    ("alt", "Visual accessibility thiếu"),
+    ("symbols", "Visual choice anchors changed"),
+    ("anchor", "Visual wording không khớp review"),
+    ("geometry", "Visual geometry changed"),
+])
+def test_revision_builder_rejects_unbound_or_changed_localized_svg(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str, message: str,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch, with_visual=True)
+    before = _tree_hashes(release_root)
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["status"] = "approved_by_owner_not_published"
+    row = review["visuals"][0]
+    if mutation == "source_hash":
+        row["source_sha256"] = "0" * 64
+    elif mutation == "draft_hash":
+        row["draft_variant_sha256"] = "0" * 64
+    elif mutation == "path":
+        row["draft_variant_path"] = "../map.svg"
+    elif mutation == "alt":
+        row["image_alt_vi"] = ""
+    elif mutation == "symbols":
+        row["unchanged_symbols"] = ["N"]
+    else:
+        draft_path = draft_dir / row["draft_variant_path"]
+        text = draft_path.read_text(encoding="utf-8")
+        text = text.replace(">A<", ">B<") if mutation == "anchor" else text.replace('x="80"', 'x="90"')
+        draft_path.write_text(text, encoding="utf-8")
+        row["draft_variant_sha256"] = hashlib.sha256(draft_path.read_bytes()).hexdigest()
+    _write_json(review_path, review)
+    output = tmp_path / "revision"
+
+    with pytest.raises(importer.PackageValidationError, match=message):
+        revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+    assert not output.exists()
+    assert _tree_hashes(release_root) == before
+
+
+@pytest.mark.parametrize(("mutation", "message"), [
+    ("status", "Visual review chưa được duyệt"),
+    ("alt", "Editorial visual không khớp owner review"),
+    ("wording", "Editorial visual wording không khớp owner review"),
+])
+def test_revision_importer_rechecks_protected_visual_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str, message: str,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch, with_visual=True)
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["status"] = "approved_by_owner_not_published"
+    _write_json(review_path, review)
+    output = tmp_path / "revision"
+    revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+    package_root = output / "general/packages/general-listening-practice-v1.1.0"
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    protected_path = package_root / manifest["editorial_visual_review"]
+    protected = json.loads(protected_path.read_text(encoding="utf-8"))
+    if mutation == "status":
+        protected["status"] = "draft_pending_owner_review"
+    elif mutation == "alt":
+        protected["visuals"][0]["image_alt_vi"] = "Changed alt"
+    else:
+        protected["visuals"][0]["visible_text"][0]["vi"] = "Sai chỉ dẫn"
+    _write_json(protected_path, protected)
+    manifest["artifact_hashes"][manifest["editorial_visual_review"]] = hashlib.sha256(protected_path.read_bytes()).hexdigest()
+    _write_json(manifest_path, manifest)
+    index_path = output / "release-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["programmes"][0]["packages"][0]["manifest_sha256"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _write_json(index_path, index)
+
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.build_import_plan(importer.select_package(output, "general-listening-practice-v1.1.0"))
 
 
 def test_revision_builder_rejects_output_inside_immutable_source(

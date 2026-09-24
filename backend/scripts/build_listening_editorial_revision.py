@@ -10,12 +10,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from copy import deepcopy
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 _BACKEND = Path(__file__).resolve().parent.parent
@@ -31,6 +33,7 @@ from services.listening_editorial_validation import (  # noqa: E402
 )
 from services.listening_package_import import (  # noqa: E402
     PackageValidationError,
+    _validate_svg,
     build_import_plan,
     discover_packages,
     select_package,
@@ -111,6 +114,101 @@ def _patch_lessons(package_root: Path, metadata: dict[str, dict[str, Any]]) -> N
         raise PackageValidationError("Metadata không khớp lesson files")
 
 
+def _reviewed_visuals(draft_dir: Path, source_plans: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Bind approved SVG wording to immutable source bytes and unchanged geometry."""
+    expected = {
+        (package_id, asset["source_path"]): asset
+        for package_id, plan in source_plans.items() for asset in plan.visual_assets
+    }
+    result: dict[str, list[dict[str, Any]]] = {package_id: [] for package_id in source_plans}
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    if not expected:
+        if review_path.exists():
+            raise PackageValidationError("Visual review không thuộc source packages")
+        return result
+    if not review_path.is_file() or review_path.is_symlink():
+        raise PackageValidationError("Thiếu visual review đã duyệt")
+    review = _read_json(review_path)
+    if review.get("status") != "approved_by_owner_not_published":
+        raise PackageValidationError("Visual review chưa được owner duyệt")
+    package_id = review.get("source_package_id")
+    rows = review.get("visuals")
+    if (not isinstance(package_id, str) or package_id not in source_plans
+            or not isinstance(rows, list) or len(rows) != len(expected)):
+        raise PackageValidationError("Visual review coverage không khớp source")
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            raise PackageValidationError("Visual review entry không hợp lệ")
+        source_path = row.get("source_path")
+        if not isinstance(source_path, str):
+            raise PackageValidationError("Visual review source ID không hợp lệ")
+        identity = (package_id, source_path)
+        if identity not in expected or identity in seen:
+            raise PackageValidationError("Visual review source ID trùng hoặc lạ")
+        seen.add(identity)
+        source = Path(expected[identity]["local_path"])
+        if _sha(source) != row.get("source_sha256"):
+            raise PackageValidationError(f"Visual source hash mismatch: {source_path}")
+        raw_draft_path = row.get("draft_variant_path")
+        if (not isinstance(raw_draft_path, str) or "\\" in raw_draft_path
+                or not raw_draft_path.startswith("visuals-draft/")):
+            raise PackageValidationError("Visual draft path không hợp lệ")
+        relative = PurePosixPath(raw_draft_path)
+        if relative.is_absolute() or any(part in {"", ".", ".."} for part in raw_draft_path.split("/")):
+            raise PackageValidationError("Visual draft path traversal bị từ chối")
+        draft = draft_dir.joinpath(*relative.parts)
+        if (draft.is_symlink() or not draft.is_file()
+                or not draft.resolve(strict=True).is_relative_to(draft_dir.resolve(strict=True))):
+            raise PackageValidationError("Visual draft nằm ngoài review directory")
+        _validate_svg(source)
+        _validate_svg(draft)
+        if _sha(draft) != row.get("draft_variant_sha256"):
+            raise PackageValidationError(f"Visual draft hash mismatch: {source_path}")
+        source_elements = list(ET.parse(source).getroot().iter())
+        draft_elements = list(ET.parse(draft).getroot().iter())
+        if (len(source_elements) != len(draft_elements)
+                or any(a.tag != b.tag or a.attrib != b.attrib for a, b in zip(source_elements, draft_elements, strict=True))):
+            raise PackageValidationError(f"Visual geometry changed: {source_path}")
+        changes = [((a.text or "").strip(), (b.text or "").strip())
+                   for a, b in zip(source_elements, draft_elements, strict=True)
+                   if (a.text or "").strip() != (b.text or "").strip()]
+        visible = row.get("visible_text")
+        if not isinstance(visible, list) or not all(isinstance(pair, dict) for pair in visible):
+            raise PackageValidationError("Visual wording review thiếu")
+        reviewed_changes = [(row.get("title_en"), row.get("title_vi")),
+                            (row.get("description_en"), row.get("description_vi"))]
+        reviewed_changes.extend((pair.get("en"), pair.get("vi")) for pair in visible)
+        if changes != reviewed_changes:
+            raise PackageValidationError(f"Visual wording không khớp review: {source_path}")
+        symbols = row.get("unchanged_symbols")
+        source_text = [(element.text or "").strip() for element in source_elements]
+        draft_text = [(element.text or "").strip() for element in draft_elements]
+        choice_anchors = {text for text in source_text if re.fullmatch(r"[A-Z]", text)}
+        if (not isinstance(symbols, list) or not all(isinstance(symbol, str) for symbol in symbols)
+                or set(symbols) != choice_anchors
+                or any(source_text.count(symbol) == 0
+                       or source_text.count(symbol) != draft_text.count(symbol) for symbol in symbols)):
+            raise PackageValidationError(f"Visual choice anchors changed: {source_path}")
+        alt = row.get("image_alt_vi")
+        if not isinstance(alt, str) or not alt.strip():
+            raise PackageValidationError(f"Visual accessibility thiếu: {source_path}")
+        if not source_path.endswith(".v1.svg"):
+            raise PackageValidationError(f"Visual source path bất ngờ: {source_path}")
+        target_path = source_path.removesuffix(".v1.svg") + ".vi.v1.svg"
+        result[package_id].append({
+            "source_path": source_path,
+            "source_sha256": row["source_sha256"],
+            "target_path": target_path,
+            "target_sha256": row["draft_variant_sha256"],
+            "visual_accessibility": alt,
+            "draft_path": draft,
+        })
+    if seen != set(expected):
+        raise PackageValidationError("Visual review source coverage thiếu")
+    return result
+
+
 def build_revision(
     source_root: Path,
     draft_dir: Path,
@@ -152,6 +250,7 @@ def build_revision(
         actual_manifest_sha256=source_shas,
         require_all_approved=True,
     )
+    reviewed_visuals = _reviewed_visuals(draft_dir, source_plans)
     batches_by_source: dict[str, list[tuple[Path, dict[str, Any]]]] = {
         package_id: [] for package_id in source_plans
     }
@@ -188,8 +287,29 @@ def build_revision(
                 manifest["status"] = REVISION_STATUS
                 manifest["editorial_source_package_id"] = source_id
                 manifest["editorial_source_manifest_sha256"] = source.location.manifest_sha256
+                if reviewed_visuals[source_id]:
+                    manifest["editorial_visuals"] = []
+                    for visual in reviewed_visuals[source_id]:
+                        target = destination / visual["target_path"]
+                        if target.exists():
+                            raise PackageValidationError(f"Visual target đã tồn tại: {visual['target_path']}")
+                        shutil.copy2(visual["draft_path"], target)
+                        manifest["editorial_visuals"].append({
+                            "status": "approved",
+                            "source_path": visual["source_path"],
+                            "source_sha256": visual["source_sha256"],
+                            "target_path": visual["target_path"],
+                            "target_sha256": visual["target_sha256"],
+                            "target_language": "vi",
+                            "visual_accessibility": visual["visual_accessibility"],
+                        })
+                    manifest["counts"]["visuals"] += len(reviewed_visuals[source_id])
                 editorial_dir = destination / "protected/editorial"
                 editorial_dir.mkdir()
+                if reviewed_visuals[source_id]:
+                    visual_review_path = "protected/editorial/visual-batch-01.json"
+                    _write_json(destination / visual_review_path, _read_json(draft_dir / "visual-batch-01-draft.json"))
+                    manifest["editorial_visual_review"] = visual_review_path
                 manifest["editorial_batches"] = []
                 for batch_path, batch in batches_by_source[source_id]:
                     relative = f"protected/editorial/{batch_path.name.removesuffix('-draft.json')}.json"
