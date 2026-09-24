@@ -5375,6 +5375,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
             questions = []
             for raw_question in payload.get("questions") or []:
                 question = dict(raw_question) if isinstance(raw_question, dict) else {}
+                question.pop("visual_url", None)
                 storage_path = question.pop("visual_storage_path", None)
                 if storage_path:
                     visual_url = _sign_programme_visual_url(storage_path)
@@ -5384,11 +5385,22 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                             "Không thể tải sơ đồ của bài nghe — vui lòng thử lại sau.",
                         )
                     question["visual_url"] = visual_url
-                translation = question.get("editorial_translation")
-                if isinstance(translation, dict):
-                    translation = dict(translation)
-                    translation.pop("visual_url", None)
-                    translated_storage_path = translation.pop("visual_storage_path", None)
+                raw_translation = question.pop("editorial_translation", None)
+                if isinstance(raw_translation, dict):
+                    # Only display fields cross the pre-submit boundary. The
+                    # importer controls this shape, but persisted JSONB may be
+                    # malformed or changed independently of an import.
+                    translation = {
+                        key: raw_translation[key]
+                        for key in (
+                            "status", "source_item_id", "source_language",
+                            "target_language", "source_prompt", "source_options",
+                            "prompt", "options", "unchanged_options_reviewed",
+                            "visual_accessibility",
+                        )
+                        if key in raw_translation
+                    }
+                    translated_storage_path = raw_translation.get("visual_storage_path")
                     if translated_storage_path:
                         translated_url = _sign_programme_visual_url(translated_storage_path)
                         if not translated_url:

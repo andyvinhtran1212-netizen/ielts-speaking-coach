@@ -1619,12 +1619,19 @@ def test_programme_translated_visual_is_signed_or_fails_closed(monkeypatch, tran
             "questions": [{
                 "q_num": 1, "prompt": "Label the map",
                 "visual_storage_path": "packages/pkg/visuals/map.en.svg",
+                "visual_url": "https://untrusted.test/original.svg",
                 "editorial_translation": {
                     "status": "approved", "prompt": "Gắn nhãn sơ đồ",
                     "visual_storage_path": "packages/pkg/visuals/map.vi.svg",
                     "visual_url": "https://untrusted.test/map.svg",
                     "visual_accessibility": "Sơ đồ tiếng Việt",
+                    "answers": ["protected"],
+                    "answer_idx": 1,
+                    "script": "protected transcript",
                 },
+            }, {
+                "q_num": 2, "prompt": "Another question",
+                "editorial_translation": "protected malformed translation",
             }],
         },
     })
@@ -1646,6 +1653,9 @@ def test_programme_translated_visual_is_signed_or_fails_closed(monkeypatch, tran
     assert "untrusted.test" not in json.dumps(question)
     assert question["editorial_translation"]["visual_accessibility"] == "Sơ đồ tiếng Việt"
     assert "visual_storage_path" not in json.dumps(question)
+    assert "protected" not in json.dumps(question)
+    assert "answer_idx" not in json.dumps(question)
+    assert "editorial_translation" not in out["sections"][0]["exercises"][0]["payload"]["questions"][1]
 
 
 def test_once_playback_is_attempt_scoped_and_blocks_a_second_browser(monkeypatch):
