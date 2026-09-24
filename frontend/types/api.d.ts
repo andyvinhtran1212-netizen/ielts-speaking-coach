@@ -15887,7 +15887,7 @@ export interface components {
             /** Web Explanation Access */
             web_explanation_access?: {
                 [key: string]: unknown;
-            };
+            } | null;
         } & {
             [key: string]: unknown;
         };
@@ -16403,7 +16403,7 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /** Section */
-            section?: number | null;
+            section?: string | number | null;
             /** Transcript Anchor */
             transcript_anchor?: number | null;
             /** Solution */
