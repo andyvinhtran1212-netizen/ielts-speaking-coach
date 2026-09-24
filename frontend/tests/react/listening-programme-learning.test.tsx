@@ -63,6 +63,27 @@ it('keeps source language when a form has no complete reviewed translation', asy
   expect(screen.getByText(/Đang hiển thị bản gốc/)).toBeTruthy();
 });
 
+it('explains written-answer language and preserves a draft when switching bilingual prompts', async () => {
+  const written = [{
+    q_num: 1, source_item_id: 'written-1', prompt: 'Which word did you hear?',
+    response_type: 'short_answer', options: {},
+    editorial_translation: {
+      status: 'approved', source_item_id: 'written-1', source_language: 'en', target_language: 'vi',
+      source_prompt: 'Which word did you hear?', source_options: {}, prompt: 'Bạn nghe từ nào?',
+    },
+  }];
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state')
+    ? { attempt_id: 'attempt-1', assisted: false, items: [] }
+    : { ...programmeTest, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: written } }] }] });
+  render(<ProgrammeFormRunner testId="test-written-bilingual" />);
+  await screen.findByText('Bạn nghe từ nào?');
+  expect(screen.getByText(/Đổi ngôn ngữ chỉ đổi câu hỏi/)).toBeTruthy();
+  fireEvent.change(screen.getByPlaceholderText('Nhập câu trả lời của bạn'), { target: { value: 'river' } });
+  fireEvent.click(screen.getByRole('button', { name: 'English' }));
+  expect(screen.getByText('Which word did you hear?')).toBeTruthy();
+  expect((screen.getByPlaceholderText('Nhập câu trả lời của bạn') as HTMLTextAreaElement).value).toBe('river');
+});
+
 it('does not partially translate a form when another question is still pending', async () => {
   const mixed = [
     {
