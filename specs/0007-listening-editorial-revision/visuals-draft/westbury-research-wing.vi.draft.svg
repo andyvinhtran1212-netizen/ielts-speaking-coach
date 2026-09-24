@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 650" role="img" aria-labelledby="title desc">
+<title id="title">Bảo tàng Westbury — sơ đồ trống khu nghiên cứu</title><desc id="desc">Phía bắc ở trên. Đi vào từ phía nam và nhìn về phía bắc. Ba phòng phía tây: A gần lối vào nhất, B ở giữa, C ở cuối. Ba phòng phía đông: D gần lối vào nhất, E ở giữa, F ở cuối. Tượng đồng nằm trong hành lang giữa các phòng ở giữa và ở cuối. Các chữ cái là lựa chọn vị trí, không phải tên phòng.</desc>
+<rect width="720" height="650" fill="white"/><g font-family="Arial, sans-serif" fill="#172b3a"><text x="40" y="44" font-size="24" font-weight="700">Bảo tàng Westbury — khu nghiên cứu</text><text x="40" y="76" font-size="16">Ghép các phòng được nghe với A–F. Sơ đồ không theo tỉ lệ.</text></g>
+<path d="M650 140V95m0 0-7 12m7-12 7 12" fill="none" stroke="#172b3a" stroke-width="3"/><text x="643" y="88" font-size="20" font-family="Arial">N</text>
+<rect x="320" y="100" width="80" height="475" fill="#f1f4f6" stroke="#172b3a" stroke-width="2"/>
+<g fill="white" stroke="#172b3a" stroke-width="3"><rect x="100" y="430" width="220" height="120"/><rect x="100" y="270" width="220" height="110"/><rect x="100" y="110" width="220" height="110"/><rect x="400" y="430" width="220" height="120"/><rect x="400" y="270" width="220" height="110"/><rect x="400" y="110" width="220" height="110"/></g>
+<g stroke="white" stroke-width="7"><path d="M320 472v36M320 307v36M320 147v36M400 472v36M400 307v36M400 147v36"/></g>
+<g font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="middle" fill="#172b3a"><text x="210" y="502">A</text><text x="210" y="337">B</text><text x="210" y="177">C</text><text x="510" y="502">D</text><text x="510" y="337">E</text><text x="510" y="177">F</text></g>
+<circle cx="360" cy="244" r="11" fill="#9b7653" stroke="#172b3a" stroke-width="2"/><path d="M347 244H260" stroke="#172b3a"/><text x="108" y="249" font-family="Arial" font-size="16">Tượng đồng</text>
+<path d="M360 617V557m0 0-8 14m8-14 8 14" fill="none" stroke="#172b3a" stroke-width="3"/><text x="380" y="609" font-family="Arial" font-size="17">Lối vào · nhìn về phía bắc</text>
+</svg>

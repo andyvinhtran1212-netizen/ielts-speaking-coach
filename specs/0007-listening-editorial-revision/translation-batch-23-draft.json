@@ -1,0 +1,19 @@
+{
+  "batch_id": "LISTENING-0007-B23",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.8-096 forms (eight analysis questions and one transfer synthesis). Preserve denominator, comparison, missing evidence, engineering/staffing/finance limits and scoped next action. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.8-096.v0.3.0.main.q01","source_prompt":"What population is the denominator?","prompt_vi":"Nhóm dân số nào được dùng làm mẫu số?"},
+    {"id":"manus:B2.8-096.v0.3.0.main.q02","source_prompt":"What comparison did the researcher report?","prompt_vi":"Nhà nghiên cứu đã báo cáo sự so sánh nào?"},
+    {"id":"manus:B2.8-096.v0.3.0.main.q03","source_prompt":"Which missing evidence limits the comparison?","prompt_vi":"Bằng chứng nào còn thiếu khiến phép so sánh bị giới hạn?"},
+    {"id":"manus:B2.8-096.v0.3.0.main.q04","source_prompt":"What engineering problem was logged?","prompt_vi":"Vấn đề kỹ thuật nào đã được ghi nhận?"},
+    {"id":"manus:B2.8-096.v0.3.0.main.q05","source_prompt":"Which staffing condition was not evaluated?","prompt_vi":"Điều kiện nào về nhân sự chưa được đánh giá?"},
+    {"id":"manus:B2.8-096.v0.3.0.main.q06","source_prompt":"What cost measure did finance use?","prompt_vi":"Bộ phận tài chính đã dùng thước đo chi phí nào?"},
+    {"id":"manus:B2.8-096.v0.3.0.main.q07","source_prompt":"Which group may not share the average benefit?","prompt_vi":"Nhóm nào có thể không nhận được mức lợi ích trung bình này?"},
+    {"id":"manus:B2.8-096.v0.3.0.main.q08","source_prompt":"What bounded next action does the chair support?","prompt_vi":"Người chủ trì ủng hộ bước tiếp theo nào với phạm vi giới hạn?"},
+    {"id":"manus:B2.8-096.v0.3.0.transfer.q01","source_prompt":"Report the observed result, one competing condition, the operational and funding limits, and the bounded next action with its owner.","prompt_vi":"Nêu kết quả quan sát được, một điều kiện có thể giải thích khác, các giới hạn về vận hành và kinh phí, cùng bước tiếp theo có phạm vi giới hạn và người phụ trách bước đó."}
+  ]
+}

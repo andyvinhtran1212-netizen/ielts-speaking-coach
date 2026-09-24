@@ -1,0 +1,19 @@
+{
+  "batch_id": "LISTENING-0007-B22",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "vi",
+  "target_language": "en",
+  "review_note": "Complete both manus:B2.6-001 forms (nine items) by editing the existing Vietnamese prompts/options into English. Keep Riverside, Room B, four-week/two-week durations and permission to answer the short response in Vietnamese. No answer or review-rule changes; editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.6-001.P1","source_prompt":"Cuộc họp đang bàn về chủ đề rộng nào?","source_options":{"A":"Mua vé tháng cho nhân viên","B":"Dịch vụ xe buýt buổi tối","C":"Chuyển điểm dừng Riverside"},"prompt_en":"What broad topic is the meeting discussing?","options_en":{"A":"Buying monthly passes for staff","B":"Evening bus service","C":"Moving the Riverside stop"}},
+    {"id":"manus:B2.6-001.P2","source_prompt":"Analyst đề xuất quyết định nào ngay lúc này?","source_options":{"A":"Thử bốn tuần trên tuyến Riverside từ thứ Hai đến thứ Năm","B":"Đổi giờ cả hai mươi tuyến ngay mùa thu này","C":"Chỉ mở dịch vụ thử vào cuối tuần"},"prompt_en":"What decision does the analyst propose for now?","options_en":{"A":"Run a four-week trial on the Riverside route from Monday to Thursday","B":"Change the timetable of all twenty routes this autumn","C":"Offer the trial service only at weekends"}},
+    {"id":"manus:B2.6-001.P3","source_prompt":"Nguồn thông tin nào được dùng để đề xuất chuyến sau sáu giờ?","source_options":{"A":"Chi phí của tất cả hai mươi tuyến","B":"Lượng khách của một thí điểm đã hoàn tất","C":"Ý kiến của tám mươi hành khách Riverside, phần lớn đi làm ngày thường"},"prompt_en":"Which information source supports the proposed trip after six o'clock?","options_en":{"A":"Costs for all twenty routes","B":"Ridership from a completed pilot","C":"Views of eighty Riverside passengers, mostly weekday commuters"}},
+    {"id":"manus:B2.6-001.P4","source_prompt":"Nêu hai nhóm hành khách chưa được khảo sát. Có thể trả lời bằng tiếng Việt.","prompt_en":"Name two passenger groups who were not surveyed. You may answer in Vietnamese."},
+    {"id":"manus:B2.6-001.P5","source_prompt":"Vì sao có thể thử dịch vụ trước khi quyết định mua xe mới?","source_options":{"A":"Tất cả các tuyến đã có xe trống","B":"Một xe dự phòng sẵn có vào những buổi tối được chọn","C":"Chi phí chạy thử đã được chứng minh bằng không"},"prompt_en":"Why can the service be trialled before deciding whether to buy a new bus?","options_en":{"A":"Every route already has a spare bus","B":"A spare bus is available on the selected evenings","C":"The trial has been proven to cost nothing"}},
+    {"id":"manus:B2.6-001.P6","source_prompt":"Sau bốn tuần, họ sẽ xem hai loại thông tin nào trước khi quyết định tiếp tục Riverside?","prompt_en":"After four weeks, which two kinds of information will they review before deciding whether to continue the Riverside service?"},
+    {"id":"manus:B2.6-001.T1","source_prompt":"Quyết định nào được chọn cho thời gian trước mắt?","source_options":{"A":"Mở phòng yên tĩnh cố định ở mọi tầng","B":"Đổi phòng làm việc của ca chiều","C":"Thử hai tuần tại Room B ở tầng trệt"},"prompt_en":"Which decision was chosen for the immediate term?","options_en":{"A":"Open a permanent quiet room on every floor","B":"Change the afternoon shift's workroom","C":"Run a two-week trial in Room B on the ground floor"}},
+    {"id":"manus:B2.6-001.T2","source_prompt":"Thông tin về nhóm nào còn thiếu nên chưa thể nói nhu cầu của các nhóm giống nhau?","prompt_en":"Information about which group is still missing, so they cannot say the groups have the same needs?"},
+    {"id":"manus:B2.6-001.T3","source_prompt":"Lý do thực tế nào khiến đề xuất thử một phòng có thể bắt đầu mà chưa cần mua sắm?","prompt_en":"What practical reason allows the one-room trial to start without buying anything first?"}
+  ]
+}

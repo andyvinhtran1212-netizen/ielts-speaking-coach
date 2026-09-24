@@ -1,0 +1,19 @@
+{
+  "batch_id": "LISTENING-0007-B25",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.8-098 forms (eight analysis questions and one cross-source comparison). Preserve board/director responsibility, dashboard limitations, media selection/omission and review timing. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.8-098.v0.3.0.main.q01","source_prompt":"What decision did the board make?","prompt_vi":"Hội đồng đã đưa ra quyết định gì?"},
+    {"id":"manus:B2.8-098.v0.3.0.main.q02","source_prompt":"Which two outcomes moved in different directions?","prompt_vi":"Hai kết quả nào biến động theo hai hướng khác nhau?"},
+    {"id":"manus:B2.8-098.v0.3.0.main.q03","source_prompt":"What duties are assigned to the service director, and who retains the final policy decision?","prompt_vi":"Giám đốc dịch vụ được giao những nhiệm vụ gì, và ai vẫn giữ quyền quyết định chính sách cuối cùng?"},
+    {"id":"manus:B2.8-098.v0.3.0.main.q04","source_prompt":"When will the board review the evidence?","prompt_vi":"Khi nào hội đồng sẽ rà soát bằng chứng?"},
+    {"id":"manus:B2.8-098.v0.3.0.main.q05","source_prompt":"What problem is foregrounded at the start of the report?","prompt_vi":"Vấn đề nào được đặt lên đầu bản tin?"},
+    {"id":"manus:B2.8-098.v0.3.0.main.q06","source_prompt":"What limitation does the reporter state about the dashboard?","prompt_vi":"Người đưa tin nêu hạn chế nào của bảng điều khiển dữ liệu?"},
+    {"id":"manus:B2.8-098.v0.3.0.main.q07","source_prompt":"How does the report describe the average?","prompt_vi":"Bản tin mô tả giá trị trung bình như thế nào?"},
+    {"id":"manus:B2.8-098.v0.3.0.main.q08","source_prompt":"Which responsibilities are attributed to the director and the board?","prompt_vi":"Bản tin quy những trách nhiệm nào cho giám đốc và hội đồng?"},
+    {"id":"manus:B2.8-098.v0.3.0.transfer.q01","source_prompt":"Compare the library statement and radio report: identify the evidence/access issue, one media selection or omission, the affected group and safeguard, and the owners/review point.","prompt_vi":"So sánh tuyên bố của thư viện với bản tin phát thanh: xác định vấn đề về bằng chứng hoặc khả năng tiếp cận, một chi tiết được bản tin chọn nhấn mạnh hoặc bỏ qua, nhóm bị ảnh hưởng và biện pháp bảo vệ, cùng những người chịu trách nhiệm và mốc rà soát."}
+  ]
+}

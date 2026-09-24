@@ -1,0 +1,21 @@
+{
+  "batch_id": "LISTENING-0007-B26",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.8-099 forms (10 analysis questions and one transfer synthesis). Preserve observation versus causal/design limit, denominator, staffing, finance, access, policy/implementation ownership and weekly metrics. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.8-099.v0.3.0.main.q01","source_prompt":"What result did the research lead report, and what design limit applies?","prompt_vi":"Trưởng nhóm nghiên cứu báo cáo kết quả gì, và thiết kế nghiên cứu có giới hạn nào?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q02","source_prompt":"What is the denominator?","prompt_vi":"Nhóm nào được dùng làm mẫu số?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q03","source_prompt":"What staffing uncertainty remains?","prompt_vi":"Điểm nào về nhân sự vẫn chưa chắc chắn?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q04","source_prompt":"Which finance measure is relevant?","prompt_vi":"Thước đo tài chính nào có liên quan?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q05","source_prompt":"Which group remains under-served?","prompt_vi":"Nhóm nào vẫn chưa được phục vụ đầy đủ?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q06","source_prompt":"What distinction does the chair use to repair the discussion?","prompt_vi":"Người chủ trì phân biệt hai điều gì để đưa cuộc thảo luận trở lại đúng hướng?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q07","source_prompt":"What condition makes the community representative support an extension?","prompt_vi":"Đại diện cộng đồng ủng hộ việc mở rộng với điều kiện nào?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q08","source_prompt":"How are policy and implementation ownership divided?","prompt_vi":"Trách nhiệm về chính sách và việc triển khai được phân chia như thế nào?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q09","source_prompt":"What recommendation is made?","prompt_vi":"Khuyến nghị được đưa ra là gì?"},
+    {"id":"manus:B2.8-099.v0.3.0.main.q10","source_prompt":"Which three measures will be reported weekly?","prompt_vi":"Ba chỉ số nào sẽ được báo cáo hằng tuần?"},
+    {"id":"manus:B2.8-099.v0.3.0.transfer.q01","source_prompt":"Give the observed result and complication, operational/access constraints, funding and ownership boundaries, and the bounded next decision.","prompt_vi":"Nêu kết quả quan sát được và yếu tố làm phức tạp kết quả đó, các giới hạn về vận hành và khả năng tiếp cận, ranh giới về kinh phí và trách nhiệm, cùng quyết định tiếp theo với phạm vi giới hạn."}
+  ]
+}
