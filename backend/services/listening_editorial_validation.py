@@ -1,7 +1,8 @@
 """Source-bound validation for proposed Listening question translations.
 
-This module validates review drafts only. It does not mark them approved,
-modify source packages, or project translations into learner payloads.
+This module validates review drafts and builds a pure, learner-safe projection
+of already approved entries. It never mutates a source package or marks a
+pending entry approved.
 """
 
 from __future__ import annotations
@@ -131,3 +132,70 @@ def validate_question_batches(
         "batch_count": len(batch_ids),
         "source_manifest_sha256": dict(actual_manifest_sha256),
     }
+
+
+def source_catalog_from_plans(plans: Iterable[Any]) -> dict[str, dict[str, dict[str, Any]]]:
+    """Index exact learner question text from verified immutable import plans."""
+    catalog: dict[str, dict[str, dict[str, Any]]] = {}
+    for plan in plans:
+        package_id = plan.location.package_id
+        if package_id in catalog:
+            raise EditorialValidationError(f"Trùng source package: {package_id}")
+        questions: dict[str, dict[str, Any]] = {}
+        for form in plan.forms:
+            for question in form["exercise_payload"]["questions"]:
+                item_id = question["source_item_id"]
+                if item_id in questions:
+                    raise EditorialValidationError(f"Item xuất hiện ở nhiều form: {item_id}")
+                questions[item_id] = {
+                    "prompt": question["prompt"],
+                    "options": question["options"],
+                }
+        if len(questions) != plan.package["source_counts"]["items"]:
+            raise EditorialValidationError(f"Source item/form coverage mismatch: {package_id}")
+        catalog[package_id] = questions
+    return catalog
+
+
+def build_approved_translation_projection(
+    source_questions: dict[str, dict[str, dict[str, Any]]],
+    batches: Iterable[dict[str, Any]],
+    *,
+    expected_manifest_sha256: dict[str, str],
+    actual_manifest_sha256: dict[str, str],
+    require_all_approved: bool = False,
+) -> tuple[dict[tuple[str, str], dict[str, Any]], dict[str, Any]]:
+    """Return approved display data only; no answer keys or source mutation.
+
+    The output is keyed by (source package ID, source item ID). A future
+    revision builder may embed it in a *new* package, never in published v1.0.
+    """
+    batch_list = list(batches)
+    report = validate_question_batches(
+        source_questions, batch_list,
+        expected_manifest_sha256=expected_manifest_sha256,
+        actual_manifest_sha256=actual_manifest_sha256,
+        require_all_approved=require_all_approved,
+    )
+    projection: dict[tuple[str, str], dict[str, Any]] = {}
+    for batch in batch_list:
+        if batch["status"] != "approved_by_owner_not_published":
+            continue
+        package_id = batch["source_package_id"]
+        target_language = batch["target_language"]
+        for entry in batch["items"]:
+            payload: dict[str, Any] = {
+                "status": "approved",
+                "source_item_id": entry["id"],
+                "source_language": batch["source_language"],
+                "target_language": target_language,
+                "source_prompt": entry["source_prompt"],
+                "source_options": (entry.get("source_options") or {}).copy(),
+                "prompt": entry[f"prompt_{target_language}"],
+            }
+            if entry.get("unchanged_options_reviewed") is True:
+                payload["unchanged_options_reviewed"] = True
+            elif f"options_{target_language}" in entry:
+                payload["options"] = entry[f"options_{target_language}"].copy()
+            projection[(package_id, entry["id"])] = payload
+    return projection, report

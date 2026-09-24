@@ -15,7 +15,8 @@ if str(_BACKEND) not in sys.path:
 
 from services.listening_editorial_validation import (  # noqa: E402
     EditorialValidationError,
-    validate_question_batches,
+    build_approved_translation_projection,
+    source_catalog_from_plans,
 )
 from services.listening_package_import import (  # noqa: E402
     PackageValidationError,
@@ -30,28 +31,6 @@ SOURCE_MANIFEST_LOCKS = {
     "general-listening-practice-v1.0.0": "c8686083b2843f8e1ddabd27cb1b351c6d3940e6c67ca297d5869e869b87506c",
     "ielts-listening-practice-v1.0.0": "209cb7e3eedd4f4935e264a57b4904aaa5f7c6ed841b238b4cbe40e5d0f6a7b5",
 }
-
-
-def source_catalog_from_plans(plans):
-    catalog = {}
-    for plan in plans:
-        package_id = plan.location.package_id
-        if package_id in catalog:
-            raise EditorialValidationError(f"Trùng source package: {package_id}")
-        questions = {}
-        for form in plan.forms:
-            for question in form["exercise_payload"]["questions"]:
-                item_id = question["source_item_id"]
-                if item_id in questions:
-                    raise EditorialValidationError(f"Item xuất hiện ở nhiều form: {item_id}")
-                questions[item_id] = {
-                    "prompt": question["prompt"],
-                    "options": question["options"],
-                }
-        if len(questions) != plan.package["source_counts"]["items"]:
-            raise EditorialValidationError(f"Source item/form coverage mismatch: {package_id}")
-        catalog[package_id] = questions
-    return catalog
 
 
 def main(argv=None) -> int:
@@ -78,12 +57,21 @@ def main(argv=None) -> int:
         if not paths:
             raise EditorialValidationError("Không tìm thấy translation batches")
         batches = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
-        report = validate_question_batches(
-            source_catalog_from_plans(plans), batches,
+        catalog = source_catalog_from_plans(plans)
+        projection, report = build_approved_translation_projection(
+            catalog, batches,
             expected_manifest_sha256=SOURCE_MANIFEST_LOCKS,
             actual_manifest_sha256=actual_sha,
-            require_all_drafted=True,
             require_all_approved=args.require_all_approved,
+        )
+        if report["missing_items"]:
+            raise EditorialValidationError(f"Thiếu {report['missing_items']} item draft")
+        report["projectable_approved_items"] = len(projection)
+        report["projectable_complete_forms_without_visual"] = sum(
+            all((plan.location.package_id, question["source_item_id"]) in projection
+                and not question.get("visual_storage_path")
+                for question in form["exercise_payload"]["questions"])
+            for plan in plans for form in plan.forms
         )
     except (EditorialValidationError, PackageValidationError, OSError, ValueError) as exc:
         print(f"FAIL CLOSED — {exc}", file=sys.stderr)

@@ -7,9 +7,10 @@ import pytest
 
 from services.listening_editorial_validation import (
     EditorialValidationError,
+    build_approved_translation_projection,
+    source_catalog_from_plans,
     validate_question_batches,
 )
-from scripts.validate_listening_editorial_revision import source_catalog_from_plans
 
 
 PACKAGE_ID = "general-listening-practice-v1.0.0"
@@ -132,3 +133,38 @@ def test_source_catalog_rejects_same_item_in_two_forms():
     plan.forms.append({"exercise_payload": {"questions": [question]}})
     with pytest.raises(EditorialValidationError, match="nhiều form"):
         source_catalog_from_plans([plan])
+
+
+def test_projection_contains_only_approved_learner_safe_display_fields():
+    approved = deepcopy(BATCH)
+    pending = deepcopy(BATCH)
+    approved["items"] = approved["items"][:1]
+    pending["batch_id"] = "LISTENING-0007-B02"
+    pending["status"] = "draft_pending_owner_review"
+    pending["items"] = pending["items"][1:]
+    projection, report = build_approved_translation_projection(
+        SOURCE, [approved, pending],
+        expected_manifest_sha256={PACKAGE_ID: MANIFEST_SHA},
+        actual_manifest_sha256={PACKAGE_ID: MANIFEST_SHA},
+    )
+    assert report["approved_items"] == 1
+    assert report["pending_items"] == 1
+    assert projection == {(PACKAGE_ID, "choice-1"): {
+        "status": "approved",
+        "source_item_id": "choice-1",
+        "source_language": "en",
+        "target_language": "vi",
+        "source_prompt": "Choose one.",
+        "source_options": {"A": "One", "B": "Two"},
+        "prompt": "Chọn một đáp án.",
+        "options": {"A": "Một", "B": "Hai"},
+    }}
+    projection[(PACKAGE_ID, "choice-1")]["options"]["A"] = "Modified locally"
+    assert approved["items"][0]["options_vi"]["A"] == "Một"
+    with pytest.raises(EditorialValidationError, match="owner approval"):
+        build_approved_translation_projection(
+            SOURCE, [approved, pending],
+            expected_manifest_sha256={PACKAGE_ID: MANIFEST_SHA},
+            actual_manifest_sha256={PACKAGE_ID: MANIFEST_SHA},
+            require_all_approved=True,
+        )
