@@ -13,6 +13,7 @@ import asyncio
 import pytest
 from fastapi import HTTPException
 
+from models.listening_programmes import ListeningAttemptReviewResponse
 from routers import listening as L
 
 
@@ -102,6 +103,9 @@ def test_review_joins_window_and_solution_per_question(monkeypatch):
     assert by_q[1]["correct"] is True
     assert by_q[1]["audio_window"] == {"start": 126.32, "end": 135.64, "section": "S1"}
     assert by_q[1]["section"] == "S1"
+    # FastAPI validates this response model after the handler returns. Imported
+    # audio windows use labels like "S1", so a numeric-only field causes a 500.
+    assert ListeningAttemptReviewResponse.model_validate(out).review[0].section == "S1"
     assert by_q[1]["solution"]["skills"] == "K1, K2"
     assert by_q[1]["prompt"] == "City:"
     # v1.2: per-question transcript paragraph anchor flows through to the review

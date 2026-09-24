@@ -215,7 +215,7 @@ class ListeningReviewItem(BaseModel):
     question_type: str | None = None
     prompt: str | None = None
     audio_window: dict[str, Any] | None = None
-    section: int | None = None
+    section: str | int | None = None
     transcript_anchor: int | None = None
     solution: dict[str, Any] = Field(default_factory=dict)
     self_review: dict[str, Any] = Field(default_factory=dict)
@@ -257,7 +257,7 @@ class ListeningAttemptReviewResponse(BaseModel):
     sections: list[dict[str, Any]] = Field(default_factory=list)
     review: list[ListeningReviewItem] = Field(default_factory=list)
     controlled_transcripts: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
-    web_explanation_access: dict[str, Any] = Field(default_factory=dict)
+    web_explanation_access: dict[str, Any] | None = None
 
 
 class ListeningPackageStatusRequest(BaseModel):
