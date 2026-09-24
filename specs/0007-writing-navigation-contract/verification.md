@@ -55,6 +55,9 @@ Queue from a frame-policy regression discovered during direct admin smoke.
   `next.config.ts` allowed same-origin framing only for the Queue; the Grade
   and Status destinations inherited `X-Frame-Options: DENY` and
   `frame-ancestors 'none'`. This is a production regression, not a passing
-  end-to-end Writing smoke. A narrowly scoped same-origin-only allowlist fix
-  for Grade and Status is verified locally but must pass staging, be promoted
-  by the release owner, and be rechecked on the resulting production SHA.
+  end-to-end Writing smoke. The same-origin-only allowlist for Grade and Status
+  reached staging in PR #1500 at `d31c22311e748e3e2f64e231e486b5bd8bb1fefc`,
+  but promotion review found that Grade applied `embed` after its admin chrome
+  mounted. This fix renders the Grade chrome's `embed` attribute from the
+  server query, before the custom element upgrades. Production verification
+  is required on the resulting promotion SHA.
