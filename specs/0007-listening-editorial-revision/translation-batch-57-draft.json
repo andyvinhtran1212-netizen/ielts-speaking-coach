@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B57",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete all four manus:B2.5-100 forms (10 main, one summary, one exam note, four transfer items). Preserve provisional funding decision, independent review condition and coverage, evidence strength, reconsideration point and corrected visit-date distractor. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.5-100.v0.3.0.main.q01","source_prompt":"What funding action does the committee support?","prompt_vi":"Ủy ban ủng hộ hành động cấp kinh phí nào?"},
+    {"id":"manus:B2.5-100.v0.3.0.main.q02","source_prompt":"What must the independent review confirm?","prompt_vi":"Đợt rà soát độc lập phải xác nhận điều gì?"},
+    {"id":"manus:B2.5-100.v0.3.0.main.q03","source_prompt":"How strong is the evidence?","prompt_vi":"Bằng chứng có độ vững chắc đến mức nào?"},
+    {"id":"manus:B2.5-100.v0.3.0.main.q04","source_prompt":"What is the decision status and review point?","prompt_vi":"Quyết định hiện ở trạng thái nào, và mốc rà soát là khi nào?"},
+    {"id":"manus:B2.5-100.v0.3.0.main.q05","source_prompt":"What is the main concern besides cost?","prompt_vi":"Ngoài chi phí, mối lo chính là gì?"},
+    {"id":"manus:B2.5-100.v0.3.0.main.q06","source_prompt":"Name the five note fields.","prompt_vi":"Nêu năm mục cần có trong ghi chú."},
+    {"id":"manus:B2.5-100.v0.3.0.main.q07","source_prompt":"What makes a summary misleading?","prompt_vi":"Điều gì khiến một bản tóm tắt gây hiểu lầm?"},
+    {"id":"manus:B2.5-100.v0.3.0.main.q08","source_prompt":"What coverage question should the independent review examine?","prompt_vi":"Đợt rà soát độc lập cần xem xét câu hỏi nào về phạm vi bao phủ?"},
+    {"id":"manus:B2.5-100.v0.3.0.main.q09","source_prompt":"What must a new policy briefing preserve?","prompt_vi":"Bản trình bày chính sách mới phải giữ rõ điều gì?"},
+    {"id":"manus:B2.5-100.v0.3.0.main.q10","source_prompt":"When and on what basis will the provisional increase be reconsidered?","prompt_vi":"Khi nào và dựa trên cơ sở nào mức tăng tạm thời sẽ được xem xét lại?"},
+    {"id":"manus:B2.5-100.v0.3.0.summary.q01","source_prompt":"Write a five-part summary of the funding decision.","prompt_vi":"Viết bản tóm tắt gồm năm phần về quyết định cấp kinh phí."},
+    {"id":"manus:B2.5-100.v0.3.0.exam.q01","source_prompt":"Complete the visit note: purpose, reviewer/role, corrected date and distractor boundary.","prompt_vi":"Hoàn thành ghi chú chuyến thăm: mục đích, người rà soát và vai trò của họ, ngày đã đính chính, cùng chi tiết gây nhiễu cần tách riêng."},
+    {"id":"manus:B2.5-100.v0.3.0.transfer.q01","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-100.v0.3.0.transfer.q02","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-100.v0.3.0.transfer.q03","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-100.v0.3.0.transfer.q04","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."}
+  ]
+}
