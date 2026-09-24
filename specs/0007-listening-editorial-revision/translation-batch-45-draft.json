@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B45",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.3-098 forms (12 main, four transfer items). Preserve accepted task ownership, scheduled check versus conditional notice, unrevised opening-date status, and each transfer dependency before notification/order. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.3-098.v0.3.0.main.q01","source_prompt":"Which heading should be at the top of the corrected note?","prompt_vi":"Tiêu đề nào cần đặt ở đầu ghi chú đã sửa?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q02","source_prompt":"Who accepts responsibility for coordinating the building inspection?","prompt_vi":"Ai nhận trách nhiệm điều phối việc kiểm tra tòa nhà?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q03","source_prompt":"Who accepts the public-notice update task?","prompt_vi":"Ai nhận nhiệm vụ cập nhật thông báo công khai?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q04","source_prompt":"Which check is scheduled for Thursday?","prompt_vi":"Hoạt động kiểm tra nào được lên lịch vào thứ Năm?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q05","source_prompt":"Which day is that check scheduled for?","prompt_vi":"Hoạt động kiểm tra đó được lên lịch vào ngày nào?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q06","source_prompt":"What must be available before a revised opening date can be confirmed?","prompt_vi":"Cần có gì trước khi xác nhận được ngày mở cửa đã điều chỉnh?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q07","source_prompt":"State when Ken will update the notice, including the condition about the revised date.","prompt_vi":"Nêu khi nào Ken sẽ cập nhật thông báo, kể cả điều kiện liên quan đến ngày đã điều chỉnh."},
+    {"id":"manus:B2.3-098.v0.3.0.main.q08","source_prompt":"Why should the original target not be copied into the current-date field?","prompt_vi":"Vì sao không nên sao chép ngày dự kiến ban đầu vào ô ghi ngày hiện hành?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q09","source_prompt":"Can the note say the notice will definitely be published on Thursday?","prompt_vi":"Ghi chú có thể khẳng định chắc chắn thông báo sẽ được công bố vào thứ Năm không?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q10","source_prompt":"What is the current status of the revised opening date?","prompt_vi":"Ngày mở cửa đã điều chỉnh hiện ở tình trạng nào?"},
+    {"id":"manus:B2.3-098.v0.3.0.main.q11","source_prompt":"Write two owner–action note rows: one for Priya and one for Ken. Keep their tasks separate.","prompt_vi":"Viết hai dòng ghi chú theo cặp người phụ trách–việc cần làm: một dòng cho Priya và một dòng cho Ken. Giữ nhiệm vụ của họ riêng biệt."},
+    {"id":"manus:B2.3-098.v0.3.0.main.q12","source_prompt":"Write a two-field status note: (1) the scheduled event and its day; (2) the later publication sequence and what is still unfixed.","prompt_vi":"Viết ghi chú tình trạng gồm hai phần: (1) sự kiện đã được lên lịch và ngày diễn ra; (2) trình tự công bố sau đó và điều vẫn chưa được chốt."},
+    {"id":"manus:B2.3-098.v0.3.0.transfer.q01","source_prompt":"Give three note fields: Tia’s accepted task; Omar’s accepted task; and the dependency that must be satisfied before Omar sends a new delivery slot.","prompt_vi":"Nêu ba mục ghi chú: việc Tia đã nhận; việc Omar đã nhận; và điều kiện phải được đáp ứng trước khi Omar gửi khung giờ giao hàng mới."},
+    {"id":"manus:B2.3-098.v0.3.0.transfer.q02","source_prompt":"Give three fields: Eva’s task and its scheduled meeting day; Dion’s task; and both confirmations required before families are notified.","prompt_vi":"Nêu ba phần: nhiệm vụ của Eva và ngày họp đã lên lịch; nhiệm vụ của Dion; và cả hai xác nhận cần có trước khi thông báo cho các gia đình."},
+    {"id":"manus:B2.3-098.v0.3.0.transfer.q03","source_prompt":"Give three fields: Leo’s accepted task and prerequisite; Sana’s task and prerequisite; and which delivery timing detail remains unknown.","prompt_vi":"Nêu ba phần: việc Leo đã nhận và điều kiện tiên quyết; việc của Sana và điều kiện tiên quyết; và chi tiết nào về thời gian giao hàng vẫn chưa rõ."},
+    {"id":"manus:B2.3-098.v0.3.0.transfer.q04","source_prompt":"Give three fields: Nisha’s accepted task and deadline; both checks before Ben orders; and whether Friday is an arrival deadline.","prompt_vi":"Nêu ba phần: việc Nisha đã nhận và hạn chót; cả hai bước kiểm tra trước khi Ben đặt hàng; và thứ Sáu có phải hạn hàng đến không."}
+  ]
+}

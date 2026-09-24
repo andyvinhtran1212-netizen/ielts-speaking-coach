@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B38",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.2-096 forms (10 main and four transfer items). Preserve measured pilot result versus vendor/developer forecast, frontline concern, usability/safety condition, review owner and two comparison measures. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.2-096.v0.3.0.main.q01","source_prompt":"What outcome did the ward pilot report measure?","prompt_vi":"Báo cáo thử nghiệm tại khoa đã đo kết quả nào?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q02","source_prompt":"What reduction did that report record?","prompt_vi":"Báo cáo đó ghi nhận mức giảm nào?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q03","source_prompt":"What operational problem did nurses report, and when did it occur?","prompt_vi":"Các điều dưỡng báo cáo vấn đề vận hành nào, và vấn đề đó xảy ra khi nào?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q04","source_prompt":"What additional reduction does the vendor forecast, and after what activity?","prompt_vi":"Nhà cung cấp dự báo mức giảm thêm bao nhiêu, và sau hoạt động nào?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q05","source_prompt":"Is the vendor figure an additional measured pilot result or a projection?","prompt_vi":"Con số của nhà cung cấp là kết quả đo thêm trong đợt thử nghiệm hay chỉ là dự báo?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q06","source_prompt":"What does the safety team require before expansion?","prompt_vi":"Nhóm phụ trách an toàn yêu cầu điều gì trước khi mở rộng?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q07","source_prompt":"What type of rollout proposal is before the board?","prompt_vi":"Hội đồng đang xem xét đề xuất triển khai theo hình thức nào?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q08","source_prompt":"What usability condition must be met before that phase proceeds?","prompt_vi":"Điều kiện nào về khả năng sử dụng phải được đáp ứng trước khi tiếp tục giai đoạn đó?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q09","source_prompt":"Who will own the review?","prompt_vi":"Ai sẽ chịu trách nhiệm cho đợt rà soát?"},
+    {"id":"manus:B2.2-096.v0.3.0.main.q10","source_prompt":"Which two effects will the review compare?","prompt_vi":"Đợt rà soát sẽ so sánh hai tác động nào?"},
+    {"id":"manus:B2.2-096.v0.3.0.transfer.q01","source_prompt":"Write a decision note for the museum: give the observed completion result and its sample; the attendants’ concern; what the supplier predicts and whether it is tested; and the expansion condition, review owner and two review measures.","prompt_vi":"Viết ghi chú quyết định cho bảo tàng: nêu kết quả hoàn thành quan sát được cùng mẫu; mối lo của nhân viên hỗ trợ; điều nhà cung cấp dự báo và dự báo đó đã được thử nghiệm hay chưa; cùng điều kiện mở rộng, người phụ trách rà soát và hai thước đo rà soát."},
+    {"id":"manus:B2.2-096.v0.3.0.transfer.q02","source_prompt":"For the college committee, separate the recorded result and scope, the tutor report, and the developer forecast. Then give the condition, owner and two comparison measures for adding workshops.","prompt_vi":"Đối với hội đồng trường, tách rõ kết quả đã ghi nhận và phạm vi của nó, báo cáo của giảng viên hướng dẫn và dự báo của nhà phát triển. Sau đó nêu điều kiện, người phụ trách và hai thước đo so sánh trước khi bổ sung hội thảo."},
+    {"id":"manus:B2.2-096.v0.3.0.transfer.q03","source_prompt":"Prepare a note about the reminder proposal. State the observed attendance and whether an earlier comparison is supplied; the staff concern; the company forecast and its untested change; and the extension condition, owner and comparison measures.","prompt_vi":"Viết ghi chú về đề xuất gửi lời nhắc. Nêu số người tham dự đã quan sát và có hay không dữ liệu để so sánh với giai đoạn trước; mối lo của nhân viên; dự báo của công ty và thay đổi chưa được kiểm nghiệm; cùng điều kiện mở rộng, người phụ trách và các thước đo so sánh."},
+    {"id":"manus:B2.2-096.v0.3.0.transfer.q04","source_prompt":"Write a short note retaining the two-evening result, the usher report, the developer’s conditional prediction, and the condition, owner and measures for extending the system.","prompt_vi":"Viết ghi chú ngắn, giữ rõ kết quả của hai buổi tối, báo cáo của nhân viên hướng dẫn chỗ ngồi, dự đoán có điều kiện của nhà phát triển, cùng điều kiện, người phụ trách và các thước đo để mở rộng hệ thống."}
+  ]
+}

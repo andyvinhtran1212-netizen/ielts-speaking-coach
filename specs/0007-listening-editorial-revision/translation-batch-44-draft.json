@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B44",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.3-097 forms (12 main, four transfer items). Preserve speaker intent versus acceptance, evidence scale, trial scope, 'subject to' condition, audience-specific wording without stronger promise, and speech-act distinction. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.3-097.v0.3.0.main.q01","source_prompt":"What positive assessment does Dr Hale make, and what sample limitation qualifies it?","prompt_vi":"Tiến sĩ Hale đưa ra đánh giá tích cực nào, và giới hạn nào của mẫu khiến cần thận trọng với đánh giá đó?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q02","source_prompt":"What wider scale does he say the evidence does not yet support?","prompt_vi":"Ông nói bằng chứng chưa đủ để áp dụng ở phạm vi rộng nào?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q03","source_prompt":"Which two rule topics does Rosa ask the museum to clarify?","prompt_vi":"Rosa yêu cầu bảo tàng làm rõ hai vấn đề nào trong quy định?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q04","source_prompt":"What must happen before Rosa’s group contributes photographs?","prompt_vi":"Điều gì phải xảy ra trước khi nhóm của Rosa đóng góp ảnh?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q05","source_prompt":"Which group does Arun say he can ask to draft the rules?","prompt_vi":"Arun nói anh có thể nhờ nhóm nào soạn quy định?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q06","source_prompt":"What geographical scope does Arun propose for the initial pilot?","prompt_vi":"Arun đề xuất phạm vi địa lý nào cho đợt thử nghiệm ban đầu?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q07","source_prompt":"Does Rosa’s thanks mean she has agreed to contribute before the rules are clear?","prompt_vi":"Việc Rosa cảm ơn có nghĩa cô đã đồng ý đóng góp trước khi quy định được làm rõ không?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q08","source_prompt":"In the committee wording, what does “subject to” make conditional?","prompt_vi":"Trong cách diễn đạt dành cho hội đồng, cụm ‘subject to’ đặt điều gì thành điều kiện?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q09","source_prompt":"Do the historian’s assessment, Rosa’s request and Arun’s proposal state an identical claim? Give the distinction, not a judgment about tone.","prompt_vi":"Đánh giá của nhà sử học, yêu cầu của Rosa và đề xuất của Arun có cùng một nội dung khẳng định không? Hãy phân biệt nội dung, không nhận xét giọng điệu."},
+    {"id":"manus:B2.3-097.v0.3.0.main.q10","source_prompt":"What shared limit is present despite those different contributions?","prompt_vi":"Dù các ý kiến khác nhau, chúng cùng giữ giới hạn nào?"},
+    {"id":"manus:B2.3-097.v0.3.0.main.q11","source_prompt":"Compare the committee and resident versions in two fields: (1) the scale and trial status both preserve; (2) the condition both preserve.","prompt_vi":"So sánh bản dành cho hội đồng và bản dành cho cư dân theo hai phần: (1) quy mô và tình trạng thử nghiệm mà cả hai đều giữ; (2) điều kiện mà cả hai đều giữ."},
+    {"id":"manus:B2.3-097.v0.3.0.main.q12","source_prompt":"Name the intended audience of each version, then quote or paraphrase one wording change that makes the resident version more accessible without strengthening the promise.","prompt_vi":"Nêu đối tượng của từng phiên bản, rồi trích dẫn hoặc diễn đạt lại một thay đổi về câu chữ giúp bản dành cho cư dân dễ hiểu hơn mà không biến lời hứa thành mạnh hơn."},
+    {"id":"manus:B2.3-097.v0.3.0.transfer.q01","source_prompt":"Give four fields: the evidence qualification; the vendor’s request; the proposed trial scale; and the condition retained in both announcement versions.","prompt_vi":"Nêu bốn phần: giới hạn kèm theo bằng chứng; yêu cầu của nhà cung cấp; quy mô thử nghiệm được đề xuất; và điều kiện được giữ trong cả hai phiên bản thông báo."},
+    {"id":"manus:B2.3-097.v0.3.0.transfer.q02","source_prompt":"Give four fields: the evidence limit; the parent’s request; the trial scale; and both steps that precede the trial in the formal and family versions.","prompt_vi":"Nêu bốn phần: giới hạn của bằng chứng; yêu cầu của phụ huynh; quy mô thử nghiệm; và cả hai bước phải diễn ra trước thử nghiệm trong bản trang trọng và bản dành cho gia đình."},
+    {"id":"manus:B2.3-097.v0.3.0.transfer.q03","source_prompt":"Give four fields: the population limit; the volunteer’s request; the scale/status proposed; and the condition shared by the two versions.","prompt_vi":"Nêu bốn phần: giới hạn về nhóm người được xét; yêu cầu của tình nguyện viên; quy mô và tình trạng được đề xuất; và điều kiện chung của hai phiên bản."},
+    {"id":"manus:B2.3-097.v0.3.0.transfer.q04","source_prompt":"Give four fields: the evidence scope/limit; the steward’s request; the commitment shared across audiences; and whether the director’s proposal and the analyst’s observation are the same speech act.","prompt_vi":"Nêu bốn phần: phạm vi và giới hạn bằng chứng; yêu cầu của người phụ trách; cam kết chung trong các bản dành cho những đối tượng khác nhau; và đề xuất của giám đốc với quan sát của nhà phân tích có phải cùng một hành vi ngôn ngữ không."}
+  ]
+}

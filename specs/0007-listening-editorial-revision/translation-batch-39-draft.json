@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B39",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.2-097 forms (10 main and four transfer items). Preserve unit/percentage/period/scope, exact safety triggers, both escalation actions, owner and event-based review point; do not infer universal safety from pilot. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.2-097.v0.3.0.main.q01","source_prompt":"What did the pilot reduce?","prompt_vi":"Đợt thử nghiệm đã làm giảm điều gì?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q02","source_prompt":"What percentage reduction was reported?","prompt_vi":"Mức giảm được báo cáo là bao nhiêu phần trăm?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q03","source_prompt":"What quantity was used to calculate the percentage reduction?","prompt_vi":"Đại lượng nào được dùng để tính mức giảm phần trăm đó?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q04","source_prompt":"How long did the pilot last, and under what demand conditions?","prompt_vi":"Đợt thử nghiệm kéo dài bao lâu, trong điều kiện nhu cầu sử dụng như thế nào?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q05","source_prompt":"What change could alter the risk profile?","prompt_vi":"Thay đổi nào có thể khiến mức độ rủi ro khác đi?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q06","source_prompt":"What control is required before expansion?","prompt_vi":"Cần có biện pháp kiểm soát nào trước khi mở rộng?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q07","source_prompt":"Who owns that plan?","prompt_vi":"Ai chịu trách nhiệm về kế hoạch đó?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q08","source_prompt":"When is the first review due?","prompt_vi":"Lần rà soát đầu tiên phải diễn ra khi nào?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q09","source_prompt":"If treatment quality crosses the stated threshold, what two actions are required?","prompt_vi":"Nếu chất lượng xử lý vượt ngưỡng đã nêu, cần thực hiện hai hành động nào?"},
+    {"id":"manus:B2.2-097.v0.3.0.main.q10","source_prompt":"What broad safety claim does the pilot fail to establish?","prompt_vi":"Đợt thử nghiệm chưa đủ để khẳng định điều gì về mức độ an toàn trên phạm vi rộng?"},
+    {"id":"manus:B2.2-097.v0.3.0.transfer.q01","source_prompt":"For the archive decision, record the reduction with quantity, scope and period; the exact humidity trigger; both escalation actions; and the monitoring owner and first review point.","prompt_vi":"Đối với quyết định về kho lưu trữ, ghi mức giảm cùng đại lượng, phạm vi và kỳ thời gian; ngưỡng độ ẩm chính xác; cả hai hành động xử lý khi vượt ngưỡng; và người phụ trách giám sát cùng mốc rà soát đầu tiên."},
+    {"id":"manus:B2.2-097.v0.3.0.transfer.q02","source_prompt":"Give the fuel result with both scope and period; the pickup trigger; the two required actions; and the person and event-based date for review.","prompt_vi":"Nêu kết quả về nhiên liệu kèm phạm vi và kỳ thời gian; điều kiện kích hoạt việc đón; hai hành động bắt buộc; cùng người phụ trách và mốc rà soát gắn với sự kiện được nêu."},
+    {"id":"manus:B2.2-097.v0.3.0.transfer.q03","source_prompt":"State the observed error count, checked population, lane scope and trial period. Then identify the night-shift trigger, both required actions, and the check owner and first review point.","prompt_vi":"Nêu số lỗi quan sát được, nhóm đã kiểm tra, phạm vi làn và thời gian thử nghiệm. Sau đó xác định điều kiện kích hoạt ở ca đêm, cả hai hành động bắt buộc, người phụ trách kiểm tra và mốc rà soát đầu tiên."},
+    {"id":"manus:B2.2-097.v0.3.0.transfer.q04","source_prompt":"Prepare the rollout note: retain the reduced quantity, percentage, trial scope and period; the full two-check queue trigger; the pause and notification actions; and the owner and review point.","prompt_vi":"Viết ghi chú triển khai, giữ rõ đại lượng đã giảm, tỷ lệ phần trăm, phạm vi và thời gian thử nghiệm; điều kiện kích hoạt đầy đủ liên quan đến hàng chờ qua hai lần kiểm tra; hành động tạm dừng và thông báo; cùng người phụ trách và mốc rà soát."}
+  ]
+}

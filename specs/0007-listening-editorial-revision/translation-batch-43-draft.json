@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B43",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.3-096 forms (12 main, four transfer items). Preserve pronoun/conjunction references, sensor weather scope, residents' preference versus runoff measurement, pilot/review sequence and bounded public claim. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.3-096.v0.3.0.main.q01","source_prompt":"What change to the empty lot is being reviewed?","prompt_vi":"Phương án thay đổi nào đối với lô đất trống đang được xem xét?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q02","source_prompt":"What effect does the planning team think the park could have, and near which place?","prompt_vi":"Nhóm quy hoạch cho rằng công viên có thể tạo ra tác động gì, ở gần địa điểm nào?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q03","source_prompt":"What source supports that claim, and for what storm conditions?","prompt_vi":"Nguồn nào ủng hộ nhận định đó, và trong những điều kiện mưa bão nào?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q04","source_prompt":"In “This evidence gives us a reason”, what does “this evidence” refer to?","prompt_vi":"Trong câu ‘This evidence gives us a reason’, cụm ‘this evidence’ chỉ điều gì?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q05","source_prompt":"What contrast does “although” introduce after the reason to test?","prompt_vi":"Sau lý do nên thử nghiệm, từ ‘although’ đưa vào sự tương phản nào?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q06","source_prompt":"Is residents’ preference a runoff measurement or a separate reason for wanting a park?","prompt_vi":"Mong muốn của cư dân là phép đo lượng nước chảy tràn, hay là một lý do riêng để muốn có công viên?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q07","source_prompt":"Which level of protection does Mina refuse to promise?","prompt_vi":"Mina không hứa hẹn mức độ bảo vệ nào?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q08","source_prompt":"What action does Mina recommend now?","prompt_vi":"Hiện Mina khuyến nghị hành động nào?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q09","source_prompt":"When should that pilot be reviewed?","prompt_vi":"Khi nào nên rà soát đợt thử nghiệm đó?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q10","source_prompt":"For the public notice, state both the invitation and the limit the chair wants included.","prompt_vi":"Đối với thông báo công khai, nêu cả lời mời và giới hạn mà người chủ trì muốn đưa vào."},
+    {"id":"manus:B2.3-096.v0.3.0.main.q11","source_prompt":"What must happen before a decision to extend the design?","prompt_vi":"Điều gì phải xảy ra trước khi quyết định mở rộng thiết kế?"},
+    {"id":"manus:B2.3-096.v0.3.0.main.q12","source_prompt":"Does the sensor evidence warrant testing or an all-storm guarantee?","prompt_vi":"Bằng chứng từ cảm biến đủ để thử nghiệm hay để bảo đảm hiệu quả trong mọi trận bão?"},
+    {"id":"manus:B2.3-096.v0.3.0.transfer.q01","source_prompt":"Give three fields: the measured result and its weather scope; the missing evidence; and the trial/review sequence before wider installation.","prompt_vi":"Nêu ba phần: kết quả đã đo và phạm vi điều kiện thời tiết; bằng chứng còn thiếu; và trình tự thử nghiệm rồi rà soát trước khi lắp đặt rộng hơn."},
+    {"id":"manus:B2.3-096.v0.3.0.transfer.q02","source_prompt":"Give three fields: what “this result” refers to; which coverage is missing; and what evidence review must precede a permanent change.","prompt_vi":"Nêu ba phần: cụm ‘this result’ chỉ kết quả nào; phạm vi bao phủ nào còn thiếu; và cần rà soát bằng chứng gì trước khi thay đổi lâu dài."},
+    {"id":"manus:B2.3-096.v0.3.0.transfer.q03","source_prompt":"Give three fields: the observed success, the number of participants and the group they belong to; the absent group; and the bounded public claim.","prompt_vi":"Nêu ba phần: kết quả thành công đã quan sát, số người tham gia và nhóm của họ; nhóm không có trong mẫu; và nhận định công khai có giới hạn."},
+    {"id":"manus:B2.3-096.v0.3.0.transfer.q04","source_prompt":"Give three fields: the recorded result with its duration; the outcome not measured; and the next test before wider purchase.","prompt_vi":"Nêu ba phần: kết quả đã ghi nhận cùng thời lượng; kết quả chưa được đo; và phép thử tiếp theo trước khi mua sắm rộng hơn."}
+  ]
+}
