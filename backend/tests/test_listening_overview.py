@@ -216,6 +216,15 @@ def test_overview_counts_published_audio_ready_tests():
     assert out["tests"] == {"full": 6, "mini": 4, "drill": 2, "practice": 0}
 
 
+def test_ielts_programme_description_explains_practice_without_internal_jargon():
+    from routers import listening as mod
+
+    description = mod._PROGRAMME_COPY["ielts-listening-practice"]["description"]
+    assert "đối chiếu từng câu" in description
+    assert "không tính band IELTS" in description
+    assert "report-only" not in description
+
+
 def test_explicit_programme_filter_returns_only_report_only_practice_forms():
     from routers import listening as mod
     import services.mock_exam_service as mes

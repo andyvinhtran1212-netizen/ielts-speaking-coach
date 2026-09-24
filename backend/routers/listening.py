@@ -4622,7 +4622,7 @@ _PROGRAMME_COPY = {
     },
     "ielts-listening-practice": {
         "title": "IELTS Listening Practice",
-        "description": "Bài luyện IELTS report-only, tách biệt với Full Test có chấm band.",
+        "description": "Nghe, trả lời và đối chiếu từng câu. Bài luyện này không tính band IELTS.",
     },
 }
 _PROGRAMME_ORDER = {
@@ -7482,7 +7482,7 @@ async def check_listening_practice_answer(
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         raise HTTPException(
             422,
-            "Bài report-only lưu toàn bộ câu trả lời và tự đối chiếu sau khi nộp.",
+            "Bài này đối chiếu từng câu ngay trong màn luyện tập. Chấm nhanh chỉ dành cho Luyện nhanh.",
         )
     if test_row.get("test_type") != "practice":
         raise HTTPException(
