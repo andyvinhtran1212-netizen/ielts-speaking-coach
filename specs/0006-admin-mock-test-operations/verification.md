@@ -84,8 +84,16 @@
   regression, and live Staging release smoke. The smoke verified matching
   frontend and backend deployment markers. Staging migrations 297–302 were
   applied and a second dry run found zero pending.
-- Production verification: advisory-locked migrations 297–302 applied; ledger
-  6/6, five admin routines present, and dry run zero pending. Promotion PR
-  #1497 has a passing Staging promotion gate. The main merge SHA, production
-  deployment markers, health checks, and admin journey smoke remain pending
-  until the promotion is merged and deployed; no production SHA is inferred.
+- Production verification (2026-09-24): advisory-locked migrations 297–302
+  applied; ledger 6/6, five admin routines present, and dry run zero pending.
+  Promotion PR #1497 merged at main SHA
+  `c28b7b637c738a90b924e5eaa69e78fa5e88470b` after a passing Staging
+  promotion gate. Vercel and Railway release markers were checked against that
+  SHA; all seven main push workflows succeeded on the same SHA. Read-only
+  admin smoke at `/admin/mock-tests` confirmed separate
+  `Đề Mock Test` and `Kho đề nội dung` workspaces, populated exam and content
+  lists, the no-open-room Live state, and Review's retake indicators. No exam,
+  grade, or learner result was changed. The embedded Writing Queue loaded,
+  but opening a Grade row was blocked by the deployed frame policy; see
+  WRITINGNAV-0007 production evidence. The new same-origin-only policy fix
+  requires a separate staging-first release and production recheck.
