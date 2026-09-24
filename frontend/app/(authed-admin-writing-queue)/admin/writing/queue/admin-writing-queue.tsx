@@ -6,16 +6,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { getAdminCohorts } from '@/lib/admin-cohorts-api';
-import { getAdminWritingQueue } from '@/lib/admin-writing-queue-api';
+import { getAdminWritingQueuePage } from '@/lib/admin-writing-queue-api';
 import { Dialog, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   isWritingEssayOverdue,
   normalizeBulkDelivery,
   normalizeSkipGrading,
   normalizeStartGrading,
+  normalizeWritingQueueStatusReadback,
   normalizeWritingQueueCohorts,
   normalizeWritingQueueFilters,
-  normalizeWritingQueueList,
+  normalizeWritingQueuePage,
+  shouldPollWritingQueue,
   writingMockMinimum,
   writingQueueApiQuery,
   writingQueueDestination,
@@ -59,7 +61,7 @@ function taskLabel(task: string) {
 }
 
 function statusLabel(status: string) {
-  return STATUS_LABELS[status] || status;
+  return STATUS_LABELS[status] || 'Không rõ trạng thái';
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -86,11 +88,15 @@ export function AdminWritingQueue() {
     overdue: params?.get('overdue') || '',
     mocklane: params?.get('mocklane') || '',
     embed: params?.get('embed') || '',
+    queue_status: params?.get('queue_status') || '',
+    q: params?.get('q') || '',
+    page: params?.get('page') || '',
+    page_size: params?.get('page_size') || '',
   }) as QueueFilters, [params]);
   const fetchKey = writingQueueFetchKey(filters);
   const keyedFetch = `${profile.id}\u0000${fetchKey}`;
-  const currentViewKey = useRef(keyedFetch); currentViewKey.current = keyedFetch;
-  const [snapshot, setSnapshot] = useState<{ key: string; rows: QueueRow[]; malformed: number; returned: number } | null>(null);
+  const currentViewKey = useRef('');
+  const [snapshot, setSnapshot] = useState<{ key: string; rows: QueueRow[]; malformed: number; returned: number; total: number; totalComplete: boolean } | null>(null);
   const [cohortSnapshot, setCohortSnapshot] = useState<{ account: string; rows: QueueCohort[]; malformed: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -99,29 +105,37 @@ export function AdminWritingQueue() {
   const [banner, setBanner] = useState<QueueBanner>(null);
   const [confirm, setConfirm] = useState<QueueConfirm>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [query, setQuery] = useState(filters.query);
+  const page = filters.page;
+  const pageSize = filters.pageSize;
   const queueSequences = useRef(new Map<string, number>());
   const cohortSequence = useRef(0);
   const mutationAccount = useRef('');
   const mutationSequence = useRef(0);
   const profileId = useRef(profile.id); profileId.current = profile.id;
-  const rows = snapshot?.key === keyedFetch ? snapshot.rows : [];
+  const viewKey = `${keyedFetch}\u0000${page}\u0000${pageSize}`;
+  currentViewKey.current = viewKey;
+  const rows = snapshot?.key === viewKey ? snapshot.rows : [];
   const cohorts = cohortSnapshot?.account === profile.id ? cohortSnapshot.rows : [];
-  const hasSnapshot = snapshot?.key === keyedFetch;
+  const hasSnapshot = snapshot?.key === viewKey;
 
-  const loadQueue = useCallback(async (target: QueueFilters, silent = false): Promise<QueueRow[] | null> => {
+  const loadQueue = useCallback(async (target: QueueFilters, silent = false, targetPage = page, targetPageSize = pageSize): Promise<QueueRow[] | null> => {
     const account = profile.id;
-    const key = `${account}\u0000${writingQueueFetchKey(target)}`;
+    const key = `${account}\u0000${writingQueueFetchKey(target)}\u0000${targetPage}\u0000${targetPageSize}`;
     const requestId = (queueSequences.current.get(key) || 0) + 1;
     queueSequences.current.set(key, requestId);
     const isCurrentView = () => currentViewKey.current === key && profileId.current === account;
     if (!silent && isCurrentView()) setLoading(true);
     if (isCurrentView()) setLoadError(null);
     try {
-      const normalized = normalizeWritingQueueList(await getAdminWritingQueue(writingQueueApiQuery(target))) as { rows: QueueRow[]; malformedCount: number; returnedCount: number } | null;
+      const normalized = normalizeWritingQueuePage(await getAdminWritingQueuePage(writingQueueApiQuery(target, {
+        limit: targetPageSize,
+        offset: (targetPage - 1) * targetPageSize,
+      }))) as { rows: QueueRow[]; malformedCount: number; returnedCount: number; total: number; totalComplete: boolean; limit: number; offset: number } | null;
       if (requestId !== queueSequences.current.get(key) || profileId.current !== account) return null;
       if (!normalized) throw new Error('Danh sách bài viết không đúng định dạng.');
       if (isCurrentView()) {
-        setSnapshot({ key, rows: normalized.rows, malformed: normalized.malformedCount, returned: normalized.returnedCount });
+        setSnapshot({ key, rows: normalized.rows, malformed: normalized.malformedCount, returned: normalized.returnedCount, total: normalized.total, totalComplete: normalized.totalComplete });
         setSelected(new Set());
       }
       return normalized.rows;
@@ -131,7 +145,7 @@ export function AdminWritingQueue() {
     } finally {
       if (requestId === queueSequences.current.get(key) && isCurrentView()) setLoading(false);
     }
-  }, [profile.id]);
+  }, [page, pageSize, profile.id]);
 
   const loadCohorts = useCallback(async () => {
     const account = profile.id;
@@ -158,10 +172,22 @@ export function AdminWritingQueue() {
 
   useEffect(() => {
     setConfirm(null);
-    setBanner(null);
     setSelected(new Set());
     void loadQueue(filters);
-  }, [keyedFetch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const nextQuery = query.trim().slice(0, 100);
+    if (nextQuery === filters.query) return;
+    const timer = window.setTimeout(() => {
+      setBanner(null);
+      const search = writingQueueSearch({ ...filters, query: nextQuery, page: 1 });
+      router.push(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [filters, query, router]);
+
+  useEffect(() => { setQuery(filters.query); }, [filters.query]);
 
   useEffect(() => {
     setCohortSnapshot(null);
@@ -172,32 +198,51 @@ export function AdminWritingQueue() {
   useEffect(() => { setSelected(new Set()); }, [filters.overdue]);
 
   useEffect(() => {
-    if (filters.lane !== 'grading') return;
+    if (!shouldPollWritingQueue(filters)) return;
     const timer = window.setInterval(() => {
       if (!document.hidden && mutationAccount.current !== profile.id) void loadQueue(filters, true);
     }, GRADING_POLL_MS);
     return () => window.clearInterval(timer);
   }, [filters, loadQueue]);
 
-  const visibleRows = useMemo(() => filters.overdue ? rows.filter((row) => isWritingEssayOverdue(row)) : rows, [filters.overdue, rows]);
+  // The page endpoint (or the bounded legacy adapter) already applied overdue
+  // before pagination. Re-filtering with the device clock can contradict the
+  // server's exact total and hide a valid row when that clock is behind.
+  const visibleRows = rows;
+  const total = hasSnapshot ? snapshot?.total || 0 : 0;
+  const totalComplete = hasSnapshot && snapshot?.totalComplete === true;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = totalComplete ? Math.min(page, pageCount) : page;
+  const pageRows = visibleRows;
   const bulkable = filters.lane === 'reviewed';
-  const selectedVisible = visibleRows.filter((row) => selected.has(row.id));
-  const allSelected = bulkable && visibleRows.length > 0 && selectedVisible.length === visibleRows.length;
+  const selectedVisible = pageRows.filter((row) => selected.has(row.id));
+  const allSelected = bulkable && pageRows.length > 0 && selectedVisible.length === pageRows.length;
   const stale = Boolean(loadError && hasSnapshot);
   const malformed = hasSnapshot ? snapshot?.malformed || 0 : 0;
-  const atCap = hasSnapshot && snapshot?.returned === 200;
   const activeLane = LANES.find((lane) => lane.id === filters.lane)!;
   const selectedCohortKnown = !filters.cohortId || cohorts.some((cohort) => cohort.id === filters.cohortId);
 
+  useEffect(() => { setSelected(new Set()); }, [filters.cohortId, filters.lane, filters.overdue, filters.queueStatus, filters.query]);
+  const changePage = (next: number, correction = false) => {
+    const safe = Math.max(1, next);
+    const search = writingQueueSearch({ ...filters, page: safe });
+    const destination = `/admin/writing/queue${search ? `?${search}` : ''}`;
+    if (correction) router.replace(destination, { scroll: false });
+    else router.push(destination, { scroll: false });
+  };
+  useEffect(() => { if (totalComplete && page > pageCount) changePage(pageCount, true); }, [totalComplete, page, pageCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const navigate = (next: QueueFilters) => {
     if (busyId) return;
-    const search = writingQueueSearch(next);
-    router.replace(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
+    setBanner(null);
+    const search = writingQueueSearch({ ...next, page: 1 });
+    router.push(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
   };
 
   const setLane = (lane: QueueLane) => navigate({ ...filters, lane, overdue: false });
   const setCohort = (cohortId: string) => navigate({ ...filters, cohortId });
   const setOverdue = (overdue: boolean) => navigate({ ...filters, overdue });
+  const setStatusFilter = (queueStatus: string) => navigate({ ...filters, queueStatus: queueStatus === 'all' ? '' : queueStatus });
 
   const openRow = (row: QueueRow) => {
     if (busyId) return;
@@ -205,7 +250,7 @@ export function AdminWritingQueue() {
     if (!live) {
       try {
         const ids = visibleRows.map((item) => item.id);
-        sessionStorage.setItem(QUEUE_KEY, JSON.stringify({ ids, i: ids.indexOf(row.id), status: filters.lane === 'all' || filters.lane === 'mock' ? '' : filters.lane }));
+        sessionStorage.setItem(QUEUE_KEY, JSON.stringify({ accountId: profile.id, contextKey: writingQueueSearch(filters), ids, i: ids.indexOf(row.id) }));
       } catch { /* grade workspace falls back to a single essay */ }
     }
     window.location.href = writingQueueDestination(row, filters);
@@ -216,13 +261,17 @@ export function AdminWritingQueue() {
     if (on) next.add(id); else next.delete(id);
     return next;
   });
-  const toggleAll = (on: boolean) => setSelected(on ? new Set(visibleRows.map((row) => row.id)) : new Set());
+  const toggleAll = (on: boolean) => setSelected((previous) => {
+    const next = new Set(previous);
+    for (const row of pageRows) { if (on) next.add(row.id); else next.delete(row.id); }
+    return next;
+  });
 
   const runMutation = async () => {
     const action = confirm;
     const account = profile.id;
     if (!action || mutationAccount.current === account) return;
-    const view = keyedFetch;
+    const view = viewKey;
     const operationId = ++mutationSequence.current;
     mutationAccount.current = account;
     setBusyId(action.kind === 'deliver' ? 'bulk' : action.row.id);
@@ -250,9 +299,12 @@ export function AdminWritingQueue() {
           action.row.id,
         );
         if (!acknowledged) throw new Error('Máy chủ không xác nhận đúng bài đã đưa vào hàng chấm.');
-        const canonical = await loadQueue(filters, true);
-        const current = canonical?.find((row) => row.id === action.row.id);
-        if (!canonical || !current || !['grading', 'graded', 'reviewed', 'delivered'].includes(current.status)) throw new Error('Đã gửi yêu cầu nhưng chưa xác minh được bài đã rời trạng thái Chờ chấm.');
+        const canonical = normalizeWritingQueueStatusReadback(
+          await window.api.get<unknown>(`/admin/writing/essays/${encodeURIComponent(action.row.id)}/status`),
+          action.row.id,
+        );
+        if (!canonical || !['grading', 'graded', 'reviewed', 'delivered'].includes(canonical.status)) throw new Error('Đã gửi yêu cầu nhưng chưa xác minh được bài đã rời trạng thái Chờ chấm.');
+        if (!await loadQueue(filters, true)) throw new Error('Đã xác minh bài chuyển trạng thái nhưng chưa làm mới được bộ lọc hiện tại. Hãy tải lại trước khi thao tác tiếp.');
         if (currentViewKey.current === view) setBanner({ kind: 'success', text: 'Đã đưa bài vào hàng chấm và đồng bộ lại từ máy chủ.' });
       } else {
         const acknowledged = normalizeSkipGrading(
@@ -289,6 +341,7 @@ export function AdminWritingQueue() {
 
     <StatusBanner banner={banner} />
     {loadError && <div className="awq-warning" role="alert"><strong>{stale ? 'Đang hiển thị snapshot gần nhất.' : 'Không tải được hàng chờ.'}</strong><span>{loadError}</span><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void loadQueue(filters)}>Tải lại</button></div>}
+    {hasSnapshot && !totalComplete && <div className="awq-warning" role="status"><strong>Số lượng chưa đầy đủ.</strong><span>Máy chủ đang dùng danh sách tương thích có giới hạn. Bộ lọc hiện tại vẫn được áp dụng cho dữ liệu đã đọc; hãy tải lại để có tổng chính xác.</span></div>}
     {cohortError && <div className="awq-warning" role="alert"><strong>Không đọc được danh sách lớp.</strong><span>Bộ lọc lớp có thể thiếu dữ liệu: {cohortError}</span><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void loadCohorts()}>Thử lại</button></div>}
     {(malformed > 0 || (cohortSnapshot?.account === profile.id && cohortSnapshot.malformed > 0)) && <div className="awq-warning" role="alert"><strong>Dữ liệu chưa đầy đủ.</strong><span>{malformed > 0 ? `${malformed} bài sai định dạng đã được loại khỏi bảng. ` : ''}{cohortSnapshot?.malformed ? `${cohortSnapshot.malformed} lớp sai định dạng đã được loại khỏi bộ lọc.` : ''}</span></div>}
 
@@ -298,21 +351,22 @@ export function AdminWritingQueue() {
 
     <section className="awq-workspace" aria-labelledby="awq-workspace-title">
       <header className="awq-workspace__head">
-        <div><p className="awq-eyebrow">Lane hiện tại</p><h2 id="awq-workspace-title">{activeLane.label}</h2><p>{activeLane.description}{filters.lane === 'grading' ? ' · tự làm mới mỗi 8 giây khi tab đang mở' : ''}</p></div>
-        <div className="awq-count"><strong>{visibleRows.length}</strong><span>{filters.overdue ? 'bài quá hạn' : 'bài hiển thị'}</span></div>
+        <div><p className="awq-eyebrow">Lane hiện tại</p><h2 id="awq-workspace-title">{activeLane.label}</h2><p>{activeLane.description}{shouldPollWritingQueue(filters) ? ' · tự làm mới mỗi 8 giây khi tab đang mở' : ''}</p></div>
+        <div className="awq-count"><strong>{totalComplete ? total : '—'}</strong><span>{totalComplete ? (filters.overdue ? 'bài quá hạn' : 'bài khớp bộ lọc') : 'tổng chưa xác nhận'}</span></div>
       </header>
 
-      {!filters.embed && <div className="awq-toolbar">
+      <div className={`awq-toolbar${filters.embed ? ' is-embedded' : ''}`}>
+        <label className="awq-search"><span>Tìm học viên</span><input type="search" maxLength={100} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tên hoặc mã học viên…" /></label>
         <label><span>Lớp học</span><select value={filters.cohortId} onChange={(event) => setCohort(event.target.value)} disabled={Boolean(busyId || (cohortError && !cohorts.length))}><option value="">Tất cả lớp</option>{!selectedCohortKnown && <option value={filters.cohortId}>Lớp không còn trong danh mục · {filters.cohortId}</option>}{cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label>
+        {filters.lane === 'mock' && <label><span>Trạng thái</span><select value={filters.queueStatus || 'all'} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">Tất cả</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
         <label className="awq-overdue"><input type="checkbox" checked={filters.overdue} disabled={Boolean(busyId)} onChange={(event) => setOverdue(event.target.checked)} /><span><strong>Chỉ bài quá hạn</strong><small>Deadline đã qua, chưa trả</small></span></label>
         <button type="button" className="adm-btn-secondary" disabled={Boolean(loading || busyId)} onClick={() => void loadQueue(filters)}>{loading ? 'Đang tải…' : 'Làm mới'}</button>
-      </div>}
+      </div>
 
       {bulkable && selected.size > 0 && <div className="awq-bulk"><span aria-live="polite"><strong>{selected.size} bài đã chọn</strong><small>Backend sẽ kiểm lại trạng thái từng bài.</small></span><button className="adm-btn-primary" type="button" disabled={Boolean(busyId)} onClick={() => setConfirm({ kind: 'deliver', ids: [...selected] })}>Trả bài đã chọn</button></div>}
-      {atCap && <div className="awq-cap" role="status">Đang hiển thị giới hạn 200 bài mới nhất. Hãy lọc theo lớp hoặc trạng thái để thu hẹp kết quả.</div>}
       {loading && !hasSnapshot && <div className="awq-state" role="status"><span className="awq-spinner" aria-hidden="true" /><strong>Đang tải hàng chờ…</strong><span>Đọc bài viết và trạng thái canonical từ máy chủ.</span></div>}
       {!loading && !hasSnapshot && loadError && <div className="awq-state is-error"><strong>Chưa có dữ liệu để hiển thị</strong><span>Khắc phục lỗi phía trên rồi thử tải lại.</span></div>}
-      {hasSnapshot && !visibleRows.length && <div className="awq-state"><strong>Lane này đang trống</strong><span>{filters.overdue ? 'Không có bài quá hạn trong phạm vi đã chọn.' : 'Không có bài nào khớp lớp và trạng thái hiện tại.'}</span></div>}
+      {hasSnapshot && !visibleRows.length && <div className="awq-state"><strong>{totalComplete ? 'Lane này đang trống' : 'Chưa thấy bài trong phần dữ liệu đã đọc'}</strong><span>{totalComplete ? (filters.overdue ? 'Không có bài quá hạn trong phạm vi đã chọn.' : 'Không có bài nào khớp lớp và trạng thái hiện tại.') : 'Trang yêu cầu có thể nằm ngoài danh sách tương thích. Giữ nguyên trang để thử lại khi máy chủ mới sẵn sàng.'}</span></div>}
 
       {hasSnapshot && visibleRows.length > 0 && <div className="awq-table-wrap">
         <table className="awq-table">
@@ -320,8 +374,8 @@ export function AdminWritingQueue() {
             {bulkable && <th className="awq-check"><input type="checkbox" aria-label="Chọn tất cả bài đang hiển thị" checked={allSelected} onChange={(event) => toggleAll(event.target.checked)} /></th>}
             <th>Học viên</th><th>Task</th><th>Trạng thái</th><th>Band</th><th>Đã nộp</th><th>Hạn trả</th><th>Thao tác</th>
           </tr></thead>
-          <tbody>{visibleRows.map((row) => {
-            const overdue = isWritingEssayOverdue(row);
+          <tbody>{pageRows.map((row) => {
+            const overdue = filters.overdue || isWritingEssayOverdue(row);
             const minimum = writingMockMinimum(row.taskType);
             const short = row.wordCount < minimum;
             return <tr key={row.id} className={overdue ? 'is-overdue' : ''}>
@@ -343,6 +397,7 @@ export function AdminWritingQueue() {
           })}</tbody>
         </table>
       </div>}
+      {hasSnapshot && (visibleRows.length > 0 || !totalComplete && page > 1) && <div className="awq-pagination" aria-label="Phân trang hàng chờ"><span>{totalComplete ? `Hiển thị ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} / ${total} bài` : `Trang ${page} · tổng chưa xác nhận`}</span><label><span>Số dòng</span><select value={pageSize} onChange={(event) => { setBanner(null); navigate({ ...filters, pageSize: Number(event.target.value) }); }}><option value={25}>25</option><option value={50}>50</option></select></label><div><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { setBanner(null); changePage(page - 1); }} disabled={page === 1}>Trang trước</button><span>Trang {page}{totalComplete ? `/${pageCount}` : ''}</span><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { setBanner(null); changePage(page + 1); }} disabled={totalComplete ? page === pageCount : rows.length < pageSize}>Trang sau</button></div></div>}
     </section>
 
     <Dialog open={Boolean(confirm && hasSnapshot)} title={confirmCopy.title} description={confirmCopy.description} busy={Boolean(busyId)} onClose={() => setConfirm(null)} actions={<>

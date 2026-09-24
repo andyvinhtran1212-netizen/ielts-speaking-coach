@@ -1,3 +1,5 @@
+import { writingNavigationHref } from './admin-writing-navigation-model.mjs';
+
 const STATUSES = new Set(['queued', 'claimed', 'edited', 'delivered', 'released']);
 const VIEWS = new Set(['all_active', 'queued', 'my_claims', 'delivered']);
 const TASKS = new Set(['task1_academic', 'task1_general', 'task2']);
@@ -48,11 +50,7 @@ export function instructorQueueFilters(raw = {}) {
 }
 
 export function instructorQueueHref(raw = {}) {
-  const filters = instructorQueueFilters(raw); const params = new URLSearchParams();
-  if (filters.view !== 'all_active') params.set('view', filters.view);
-  if (filters.embed) params.set('embed', '1');
-  if (filters.mocklane) params.set('mocklane', '1');
-  const query = params.toString(); return `/admin/writing/instructor-queue${query ? `?${query}` : ''}`;
+  return writingNavigationHref('queue', { ...instructorQueueFilters(raw), from: 'instructor' });
 }
 
 export function instructorQueuePath(view, adminId = '') {
@@ -72,10 +70,7 @@ export function instructorReconcilePath(operation) {
 
 export function instructorGradeHref(essayId, raw = {}) {
   const id = textOf(essayId); if (!id) return '';
-  const filters = instructorQueueFilters(raw); const params = new URLSearchParams({ essay_id: id });
-  if (filters.embed) params.set('embed', '1');
-  if (filters.mocklane) params.set('mocklane', '1');
-  return `/admin/writing/grade?${params}`;
+  return writingNavigationHref('grade', { ...instructorQueueFilters(raw), from: 'instructor', essayId: id });
 }
 
 export function normalizeClaimAck(raw, reviewId, adminId) {

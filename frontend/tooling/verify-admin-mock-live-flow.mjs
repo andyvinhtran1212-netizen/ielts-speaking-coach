@@ -83,7 +83,7 @@ const pacing = {
 };
 
 const browser = await launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 980 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 980 }, bypassCSP: true });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 const page = await context.newPage();
 page.on('pageerror', (error) => errors.push(String(error)));
@@ -139,6 +139,7 @@ await page.getByRole('heading', { name: 'Phòng thi live' }).waitFor();
 await page.getByText('LIVE-1', { exact: true }).first().waitFor();
 if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-live-redesign.png', fullPage: true });
 check('admin gate, published inventory và exact live snapshot chạy', ['/auth/me', '/admin/mock-exams', '/admin/mock-exams/exam-1/live'].every((path) => requests.some((item) => item.path === path)));
+check('trạng thái sitting live dùng đúng enum canonical', await page.getByText('Đang làm LRW', { exact: true }).count() === 1);
 check('blank persisted state lọt vào danh sách cần chú ý', await page.getByRole('button', { name: /Cần chú ý 1/ }).count() === 1 && await page.getByText('trắng', { exact: true }).count() >= 1);
 
 missedListening = 1;

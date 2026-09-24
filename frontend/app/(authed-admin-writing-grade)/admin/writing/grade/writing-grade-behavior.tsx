@@ -24,6 +24,7 @@ import {
   readAdminGradeQueue,
   selectKeyedAdminState,
 } from '@/lib/admin-writing-grade-model.mjs';
+import { normalizeWritingNavigation, writingNavigationHref, writingQueueSearch } from '@/lib/admin-writing-navigation-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type TabKey = 'tongquan' | 'loi' | 'nangcao' | 'baimau';
@@ -74,12 +75,12 @@ export function AdminWritingGradeLoading() {
   return <div className="flex items-center justify-center py-32" role="status"><p className="aw-state-loading__text text-sm">Đang tải bài viết…</p></div>;
 }
 
-function ErrorState({ message }: { message: string }) {
+function ErrorState({ message, returnHref }: { message: string; returnHref: string }) {
   return (
     <div className="max-w-xl mx-auto px-6 py-20 text-center" role="alert">
       <h2 className="aw-state-denied__title text-xl font-bold">Không tải được bài viết</h2>
       <p>{message}</p>
-      <a className="btn mt-4" href="/admin/writing/queue">← Quay lại queue</a>
+      <a className="btn mt-4" href={returnHref}>← Quay lại Writing</a>
     </div>
   );
 }
@@ -343,6 +344,8 @@ export function AdminWritingGradeBehavior() {
 
   const view = selectKeyedAdminState(gradeState, requestKey) as GradeView;
   const workspace = view.phase === 'ready' ? view.workspace : null;
+  const navigation = normalizeWritingNavigation(params ?? undefined);
+  const returnHref = navigation.source === 'direct' ? writingNavigationHref('workspace', navigation) : writingNavigationHref('queue', navigation);
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -381,20 +384,16 @@ export function AdminWritingGradeBehavior() {
   }, [essayId, runMutation, setMessage, updateWorkspace, workspace]);
 
   if (!requestKey || view.phase === 'loading') return <AdminWritingGradeLoading />;
-  if (view.phase === 'error') return <ErrorState message={view.message} />;
+  if (view.phase === 'error') return <ErrorState message={view.message} returnHref={returnHref} />;
 
   const { detail, feedback, dirty, instructor, instructorWarning } = view.workspace;
   const baseActions = adminGradeActionState(detail.status);
   const instructorWritable = instructor.kind === 'missing' || instructor.kind === 'mine';
   const actions = { ...baseActions, canSave: baseActions.canSave && instructorWritable };
   const sectionKeyMap = window.WritingRenderers?.SECTION_KEYS || {};
-  const queue = readAdminGradeQueue(sessionStorage.getItem(QUEUE_KEY), essayId);
-  const embed = params?.get('embed') === '1';
-  const mocklane = params?.get('mocklane') === '1';
-  const withEmbed = (url: string) => {
-    const extra = [embed ? 'embed=1' : '', mocklane ? 'mocklane=1' : ''].filter(Boolean).join('&');
-    return extra ? `${url}${url.includes('?') ? '&' : '?'}${extra}` : url;
-  };
+  const queue = navigation.source === 'queue' ? readAdminGradeQueue(sessionStorage.getItem(QUEUE_KEY), essayId, {
+    accountId: admin.id, contextKey: writingQueueSearch(navigation.queue),
+  }) : null;
 
   const openEditor = (section: any) => {
     const value = feedback[sectionKeyMap[section.key]];
@@ -487,7 +486,7 @@ export function AdminWritingGradeBehavior() {
     if (!review || !window.confirm('Release claim? Edits chưa lưu sẽ mất.')) return;
     try {
       await runMutation('instructor-release', () => window.api.post(`/admin/instructor/reviews/${encodeURIComponent(review.id)}/release`, {}));
-      window.location.href = withEmbed('/admin/writing/instructor-queue');
+      window.location.href = writingNavigationHref('queue', { ...navigation, from: 'instructor' });
     } catch (caught) {
       setMessage('error', `Lỗi release: ${messageOf(caught)}`);
     }
@@ -495,8 +494,8 @@ export function AdminWritingGradeBehavior() {
   const saveNext = async () => {
     if (!await saveAll()) return;
     window.location.href = queue?.nextId
-      ? withEmbed(`/admin/writing/grade?essay_id=${encodeURIComponent(queue.nextId)}`)
-      : withEmbed('/admin/writing/queue');
+      ? writingNavigationHref('grade', { ...navigation, essayId: queue.nextId })
+      : returnHref;
   };
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -515,9 +514,9 @@ export function AdminWritingGradeBehavior() {
       <header className="grade-header">
         <div className="header-left"><a href="/admin/writing" className="back-link">← Writing Coach</a><div className="essay-meta min-w-0"><h1 id="header-student">{student.student_code ? `${student.student_code} — ` : ''}{student.full_name || ''}</h1><p className="meta-line"><span>{adminGradeTaskLabel(detail.task_type)} · {formatDate(detail.created_at)}</span><span className="separator">·</span><span id="status-pill" className="pill" data-status={detail.status}>{detail.status || '—'}</span><span className="separator">·</span><span id="band-score" className="band-score">{band != null ? `Band ${band}` : 'Band —'}</span>{detail.is_manually_edited ? <><span className="separator">·</span><span className="badge-manual">✏ Đã sửa</span></> : null}{detail.regrade_count ? <><span className="separator">·</span><span className="badge-regraded">🔄 Đã chấm lại{detail.regrade_count > 1 ? ` (×${detail.regrade_count})` : ''}</span></> : null}{tier !== 'standard' ? <><span className="separator">·</span><span className={`tier-badge tier-${tier}`}>{tier[0].toUpperCase() + tier.slice(1)}</span></> : null}{detail.analysis_level ? <><span className="separator">·</span><span className="tier-badge">L{detail.analysis_level}</span></> : null}</p></div></div>
         <div className="header-actions">
-          {queue ? <a id="btn-back-queue" className="btn" href={withEmbed('/admin/writing/queue')}>← Quay lại queue</a> : null}
+          {navigation.source !== 'direct' ? <a id="btn-back-queue" className="btn" href={returnHref}>{navigation.source === 'instructor' ? '← Hàng chờ giảng viên' : '← Quay lại queue'}</a> : null}
           <button id="btn-save" className={`btn ${dirty ? 'btn-dirty' : 'btn-primary'}`} type="button" disabled={!actions.canSave} onClick={() => void saveAll()}>💾 Lưu &amp; duyệt{dirty ? ' *' : ''}</button>
-          {queue ? <button id="btn-save-next" className="btn btn-primary" type="button" disabled={!actions.canSave} onClick={() => void saveNext()}>💾 {queue.nextId ? 'Lưu & bài kế' : 'Lưu & về queue'}</button> : null}
+          {navigation.source === 'queue' ? <button id="btn-save-next" className="btn btn-primary" type="button" disabled={!actions.canSave} onClick={() => void saveNext()}>💾 {queue?.nextId ? 'Lưu & bài kế' : 'Lưu & về queue'}</button> : null}
           <button id="btn-copy" className="btn" type="button" onClick={() => void copyFeedback()}>📋 Sao chép</button>
           <button id="btn-download" className="btn" type="button" onClick={() => void downloadDocx()}>⬇ Tải .docx</button>
           <button id="btn-regrade" className="btn btn-warn" type="button" onClick={() => { if (!dirty || window.confirm('Regrade sẽ XÓA chỉnh sửa chưa lưu. Tiếp tục?')) setRegradeOpen(true); }}>🔄 Chấm lại</button>

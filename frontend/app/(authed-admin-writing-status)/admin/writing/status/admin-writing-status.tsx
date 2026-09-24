@@ -60,7 +60,13 @@ export function AdminWritingStatus() {
   const params = useSearchParams();
   const query = useMemo(() => normalizeWritingStatusQuery({
     essay_id: params?.get('essay_id') || params?.get('id') || '',
+    from: params?.get('from') || '',
     embed: params?.get('embed') || '', mocklane: params?.get('mocklane') || '',
+    queue_status: params?.get('queue_status') || '',
+    cohort_id: params?.get('cohort_id') || '', overdue: params?.get('overdue') || '',
+    q: params?.get('q') || '',
+    status: params?.has('status') ? params.get('status') : undefined,
+    page: params?.get('page') || '', page_size: params?.get('page_size') || '',
   }), [params]);
   const key = `${profile.id}\u0000${query.essayId}`;
   const currentKey = useRef(key); currentKey.current = key;
@@ -195,7 +201,7 @@ export function AdminWritingStatus() {
 
       {data.status === 'failed' && <section className="aws-fatal" role="alert"><div><p className="aws-eyebrow">Action required</p><h2>Lượt chấm đã thất bại</h2><p>{data.errorMessage || 'Backend không trả về thông điệp lỗi chi tiết. Mở Queue để kiểm tra và quyết định bước xử lý tiếp theo.'}</p></div><a className="adm-btn-secondary" href={writingStatusHref('queue', query)}>Mở Queue</a></section>}
 
-      <footer className="aws-actions"><div><strong>{terminalSuccess ? 'Feedback đã có thể mở trong workspace.' : 'Không cần giữ màn hình ở foreground.'}</strong><span>{terminalSuccess ? 'Kiểm tra nội dung trước khi trả bài.' : 'Polling tạm dừng khi tab bị ẩn và tiếp tục ngay khi quay lại.'}</span></div><div>{notification === 'default' && !isWritingStatusTerminal(data.status) && <button className="adm-btn-secondary" type="button" onClick={() => void enableNotifications()}>Bật thông báo</button>}{terminalSuccess && <a className="adm-btn-primary" href={writingStatusHref('grade', query)}>Mở workspace chấm →</a>}</div></footer>
+      <footer className="aws-actions"><div><strong>{terminalSuccess ? 'Feedback đã có thể mở trong workspace.' : 'Không cần giữ màn hình ở foreground.'}</strong><span>{terminalSuccess ? 'Kiểm tra nội dung trước khi trả bài.' : 'Polling tạm dừng khi tab bị ẩn và tiếp tục ngay khi quay lại.'}</span></div><div><a className="adm-btn-secondary" href={writingStatusHref('queue', query)}>← Quay lại Queue</a>{notification === 'default' && !isWritingStatusTerminal(data.status) && <button className="adm-btn-secondary" type="button" onClick={() => void enableNotifications()}>Bật thông báo</button>}{terminalSuccess && <a className="adm-btn-primary" href={writingStatusHref('grade', query)}>Mở workspace chấm →</a>}</div></footer>
     </>}
   </main>;
 }

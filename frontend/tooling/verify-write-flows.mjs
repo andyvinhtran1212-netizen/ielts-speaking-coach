@@ -194,6 +194,7 @@ async function step(page, s, observed) {
 async function runFlow(browser, flow) {
   const ctx = await browser.newContext({
     viewport: { width: 1280, height: 900 },
+    ...(flow.bypassCSP ? { bypassCSP: true } : {}),
     // Chỉ cấp quyền micro cho luồng KHAI cần — để một luồng khác lỡ xin quyền
     // thì vẫn đi đúng nhánh "bị từ chối" như người dùng thật chưa cho phép.
     ...(flow.fakeMedia ? { permissions: ['microphone'] } : {}),

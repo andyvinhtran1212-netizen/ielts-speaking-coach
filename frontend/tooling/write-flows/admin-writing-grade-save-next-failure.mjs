@@ -3,14 +3,16 @@
 const ESSAY = 'essay-admin-save-fail';
 const NEXT = 'essay-admin-next-must-not-open';
 const UPDATED = 'Draft này không được phép bị bỏ lại khi server từ chối lưu.';
+const ACCOUNT = '00000000-0000-0000-0000-000000000000';
 
 export default {
   name: 'admin Writing Grade — save-next dừng lại khi lưu lỗi',
-  route: `/admin/writing/grade?id=${ESSAY}`,
+  bypassCSP: true,
+  route: `/admin/writing/grade?essay_id=${ESSAY}&from=queue`,
   legacyRoute: `/pages/admin/writing/grade.html?id=${ESSAY}`,
-  expectFinalUrl: new RegExp(`/(?:admin/writing/grade|pages/admin/writing/grade\\.html)\\?(?:id|essay_id)=${ESSAY}$`),
+  expectFinalUrl: new RegExp(`/(?:admin/writing/grade|pages/admin/writing/grade\\.html)\\?(?:id|essay_id)=${ESSAY}(?:&from=queue)?$`),
   initSessionStorage: {
-    gradeQueue: JSON.stringify({ ids: [ESSAY, NEXT], i: 0 }),
+    gradeQueue: JSON.stringify({ accountId: ACCOUNT, contextKey: '', ids: [ESSAY, NEXT], i: 0 }),
   },
 
   canned: [
