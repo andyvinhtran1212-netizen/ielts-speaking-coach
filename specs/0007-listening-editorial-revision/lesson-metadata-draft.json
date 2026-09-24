@@ -1,5 +1,5 @@
 {
-  "status": "draft_pending_owner_review",
+  "status": "approved_by_owner_not_published",
   "source_package_ids": ["general-listening-practice-v1.0.0", "ielts-listening-practice-v1.0.0"],
   "instructions": {
     "manus:A0-38": "Nghe từ đơn trước, rồi theo dõi vật hoặc người và quan hệ vị trí in/on/at trong cụm từ, câu và hội thoại. Sau mỗi phần, đối chiếu đúng chi tiết đã nghe trước khi sửa câu trả lời.",

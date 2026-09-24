@@ -1,6 +1,6 @@
 # Tasks
 
-- [ ] T001 Review and approve 65 instructions, nine titles and five outcome sets. `owns: lesson-metadata-draft.json`
+- [x] T001 Review and approve 65 instructions, nine titles and five outcome sets. `owns: lesson-metadata-draft.json`
 - [ ] T002 Translate and review all 1,045 items in batches, including choice labels and answer-language guidance. `owns: translation-batch-*.json`; `depends: T001`
 - [ ] T003 Approve the high-risk spec on the staging base branch. `owns: spec.md, plan.md, ui-states.md, rollout.md`; `depends: T001`
 - [ ] T004 Implement the smallest source-bound package and import contract with validation tests. `owns: content builder, backend/services/listening_package_import.py, backend/tests`; `depends: T002, T003`

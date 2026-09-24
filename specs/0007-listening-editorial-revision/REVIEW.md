@@ -1,7 +1,11 @@
 # Listening editorial revision — review packet 1
 
-Status: **draft; no package has been rebuilt, imported or published**. This
-packet records proposed wording, not editorial approval.
+Status: **owner-approved editorial packet; no package has been rebuilt,
+imported or published**. The owner approved the 65/9/5 metadata proposals,
+batch 01's 44 items, and the implementation spec on 2026-09-24 against PR
+#1501 head `c19e7febb2b0a279c23b07d2d100799f6ffae93c`. Approval applies
+to this packet only; batches 02–68, cutover policy, package revision and
+publication require separate decisions.
 
 ## Source lock
 
@@ -50,11 +54,10 @@ contract and new package revision are implemented and released.
 5. Ask the owner to review the exact revision/manifests before publish. Do not
    move the release index or production content on the strength of this packet.
 
-## Review decisions needed
+## Review decisions recorded
 
-- Approve or request edits to the 65/9/5 metadata proposals.
-- Approve or request edits to batch 01's 44 question translations, including
-  whether “write only the noun” and “position (in/on/at)” are clear to A0
-  learners. This review is of text, not a confirmation that all 1,045 items
-  are translated.
-- Review and approve [spec.md](spec.md) before importer/player implementation.
+- The owner accepted the 65/9/5 metadata proposals and batch 01's 44 question
+  translations, including the A0 answer-language guidance. This is a text
+  approval, not confirmation of all 1,045 items or learner-side readiness.
+- The owner accepted [spec.md](spec.md). Runtime/importer work can begin only
+  after the approved spec lands on the `staging` base branch in a separate PR.

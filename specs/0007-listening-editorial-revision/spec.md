@@ -1,7 +1,7 @@
 ---
 id: LISTENING-0007
 title: Versioned Listening editorial revision and bilingual questions
-status: draft
+status: approved
 risk: high
 owner: product
 ---
@@ -124,7 +124,9 @@ answering.
 
 ## Open questions
 
-- Owner approval of the detailed contract and each editorial batch is pending.
+- The owner approved this contract, the 65/9/5 metadata packet, and batch 01's
+  44 items against PR #1501 head `c19e7febb2b0a279c23b07d2d100799f6ffae93c`
+  on 2026-09-24. Batches 02–68 and the final package/publication remain pending.
 - Should the full translation corpus ship in one new revision after all batches,
   or in independently versioned programme revisions? Decide before rollout;
   never republish an existing package ID with changed bytes.
