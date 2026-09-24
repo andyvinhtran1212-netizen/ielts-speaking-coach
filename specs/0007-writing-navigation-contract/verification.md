@@ -3,7 +3,8 @@
 ## Requirement coverage
 
 Implementation PR #1495 and its staging merge record the commands, browser
-evidence, and staging SHA. Production evidence is recorded only after deploy.
+evidence, and staging SHA. Production evidence below distinguishes the shipped
+Queue from a frame-policy regression discovered during direct admin smoke.
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
@@ -42,8 +43,18 @@ evidence, and staging SHA. Production evidence is recorded only after deploy.
   all exact-SHA staging workflows passed, including integrated CI, Next-native
   browser regression, and live Staging release smoke with matching frontend
   and backend deployment markers.
-- Production verification: parent-release migrations 297–302 applied via the
-  advisory-locked runner (ledger 6/6, five routines, zero pending). Promotion
-  PR #1497 passed its Staging promotion gate. Main merge SHA, production
-  deployment markers, health checks, and read-only Writing smoke remain
-  pending until merge and deploy; no production SHA is inferred.
+- Production verification (2026-09-24): parent-release migrations 297–302
+  applied via the advisory-locked runner (ledger 6/6, five routines, zero
+  pending). Promotion PR #1497 passed its Staging promotion gate and merged at
+  main SHA `c28b7b637c738a90b924e5eaa69e78fa5e88470b`; Vercel and Railway
+  release markers matched and all seven main push workflows succeeded. Read-only
+  `/admin/mock-tests?tab=writing` smoke
+  loaded the embedded Mock Writing Queue and its canonical rows. Opening a
+  Grade row then showed a browser “refused to connect” frame error. The Queue
+  navigates within the cockpit iframe to `/admin/writing/grade`, but
+  `next.config.ts` allowed same-origin framing only for the Queue; the Grade
+  and Status destinations inherited `X-Frame-Options: DENY` and
+  `frame-ancestors 'none'`. This is a production regression, not a passing
+  end-to-end Writing smoke. A narrowly scoped same-origin-only allowlist fix
+  for Grade and Status is verified locally but must pass staging, be promoted
+  by the release owner, and be rechecked on the resulting production SHA.

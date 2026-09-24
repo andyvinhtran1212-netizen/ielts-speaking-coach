@@ -24,8 +24,10 @@ test('all Next responses carry the permanent security header baseline', () => {
   assert.doesNotMatch(CONFIG, /cdn\.jsdelivr\.net|unpkg\.com/);
 });
 
-test('only the known exam workspaces can be framed by the same origin', () => {
-  for (const route of [
+test('only the known exam and Writing drill-down workspaces can be framed by the same origin', () => {
+  const allowlist = CONFIG.match(/const EMBEDDABLE_SAME_ORIGIN_ROUTES = \[([\s\S]*?)\] as const;/)?.[1];
+  assert.ok(allowlist);
+  assert.deepEqual([...allowlist.matchAll(/'([^']+)'/g)].map((match) => match[1]), [
     '/core-player/launch',
     '/listening/test/session',
     '/reading/exam/session',
@@ -33,7 +35,9 @@ test('only the known exam workspaces can be framed by the same origin', () => {
     '/admin/mock-live',
     '/admin/mock-reviews',
     '/admin/writing/queue',
-  ]) assert.match(CONFIG, new RegExp(`'${route.replaceAll('/', '\\/')}'`));
+    '/admin/writing/status',
+    '/admin/writing/grade',
+  ]);
   assert.match(CONFIG, /EMBEDDABLE_SAME_ORIGIN_ROUTES\.map/);
   assert.match(CONFIG, /value: 'SAMEORIGIN'/);
   assert.match(CONFIG, /"frame-ancestors 'self'"/);
