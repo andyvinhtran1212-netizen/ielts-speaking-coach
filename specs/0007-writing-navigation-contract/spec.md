@@ -1,5 +1,5 @@
 ---
-id: WRITING-NAV-0007
+id: WRITINGNAV-0007
 title: Canonical admin Writing navigation context
 status: approved
 risk: high

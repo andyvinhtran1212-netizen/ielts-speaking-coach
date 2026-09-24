@@ -69,4 +69,4 @@ draft -> approved -> implementing -> verified -> shipped
 | LISTENING-0005 | Listening content programmes, import and learner hub | approved | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | approved | high | [spec](0006-listening-guided-feedback/spec.md) |
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | approved | high | [spec](0006-admin-mock-test-operations/spec.md) |
-| WRITING-NAV-0007 | Canonical admin Writing navigation context | approved | high | [spec](0007-writing-navigation-contract/spec.md) |
+| WRITINGNAV-0007 | Canonical admin Writing navigation context | approved | high | [spec](0007-writing-navigation-contract/spec.md) |
