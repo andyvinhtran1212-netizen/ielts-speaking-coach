@@ -1019,6 +1019,7 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
     }
     if editorial_report:
         package["validation_summary"]["editorial_approved_items"] = editorial_report["approved_items"]
+        package["validation_summary"]["editorial_source_package_id"] = manifest["editorial_source_package_id"]
         package["validation_summary"]["editorial_source_manifest_sha256"] = manifest["editorial_source_manifest_sha256"]
     report = {
         "package_id": location.package_id,
@@ -1041,6 +1042,7 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
     if editorial_report:
         report["editorial_approved_items"] = editorial_report["approved_items"]
         report["editorial_missing_items"] = editorial_report["missing_items"]
+        report["editorial_source_package_id"] = manifest["editorial_source_package_id"]
         report["editorial_source_manifest_sha256"] = manifest["editorial_source_manifest_sha256"]
     return ImportPlan(location, package, lessons, stimuli, forms, list(visuals.values()), report)
 
@@ -1090,6 +1092,9 @@ def _ensure_immutable_object(bucket: Any, path: str, data: bytes, content_type: 
 
 def commit_import_plan(plan: ImportPlan, db: Any, *, bucket_name: str) -> dict[str, Any]:
     """Upload immutable assets, then transactionally persist the whole package."""
+    if (plan.report.get("editorial_source_package_id")
+            and plan.package.get("validation_summary", {}).get("revision_source_invariants_verified") is not True):
+        raise PackageValidationError("Revision chưa qua so sánh bất biến với source v1.0")
     bucket = db.storage.from_(bucket_name)
     created = 0
     reused = 0
@@ -1140,7 +1145,7 @@ def _verify_package_storage_assets(
     """
     package_rows = (
         db.table("listening_content_packages")
-        .select("id,manifest_sha256")
+        .select("id,manifest_sha256,source_counts,validation_summary")
         .eq("package_id", package_id)
         .limit(1)
         .execute().data or []
@@ -1150,6 +1155,15 @@ def _verify_package_storage_assets(
     package = package_rows[0]
     if package.get("manifest_sha256") != manifest_sha256:
         raise PackageValidationError("Package manifest không khớp")
+    validation = package.get("validation_summary") or {}
+    if validation.get("editorial_source_package_id"):
+        counts = package.get("source_counts") or {}
+        if validation.get("revision_source_invariants_verified") is not True:
+            raise PackageValidationError("Revision chưa qua so sánh bất biến với source v1.0")
+        if (not isinstance(counts.get("items"), int)
+                or counts["items"] < 1
+                or validation.get("editorial_approved_items") != counts["items"]):
+            raise PackageValidationError("Revision chưa đủ bản dịch được duyệt để publish")
     package_uuid = package.get("id")
     if not package_uuid:
         raise PackageValidationError("Package thiếu canonical id")

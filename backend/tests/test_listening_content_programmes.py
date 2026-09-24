@@ -225,7 +225,65 @@ def test_new_revision_projects_only_manifest_bound_approved_text(tmp_path: Path)
     assert "answer" not in question["editorial_translation"]
     assert plan.forms[0]["exercise_payload"]["answers"][0]["answer"] == "A"
     assert plan.report["editorial_approved_items"] == 1
+    assert plan.report["editorial_source_package_id"] == "general-listening-practice-v1.0.0"
+    assert plan.package["validation_summary"]["editorial_source_package_id"] == "general-listening-practice-v1.0.0"
     assert _tree_hashes(release_root) == before
+
+
+def test_editorial_commit_requires_source_invariant_comparison(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    _add_editorial_batch(release_root)
+    plan = importer.build_import_plan(importer.discover_packages(release_root)[0])
+
+    with pytest.raises(importer.PackageValidationError, match="so sánh bất biến"):
+        importer.commit_import_plan(
+            plan, object(), bucket_name="must-not-touch-storage",
+        )
+
+
+def test_editorial_cli_fails_before_db_without_source_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    _add_editorial_batch(release_root)
+    monkeypatch.setattr(
+        import_command, "_admin",
+        lambda: pytest.fail("source comparison must precede DB/Storage"),
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["import-listening", "--release-root", str(release_root), "--commit"],
+    )
+
+    with pytest.raises(importer.PackageValidationError, match="Không tìm thấy đúng một package"):
+        import_command.main()
+
+
+def test_editorial_cli_dry_run_compares_source_before_attesting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    source = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    revision = _revision_from_source_plan(source)
+    revision.report["editorial_source_package_id"] = source.location.package_id
+    monkeypatch.setattr(import_command, "discover_packages", lambda _root: [revision.location])
+    monkeypatch.setattr(import_command, "select_package", lambda _root, _id: source.location)
+    monkeypatch.setattr(
+        import_command, "build_import_plan",
+        lambda location, **_kwargs: source if location.package_id == source.location.package_id else revision,
+    )
+    monkeypatch.setattr(
+        import_command, "SOURCE_MANIFEST_LOCKS",
+        {source.location.package_id: source.location.manifest_sha256},
+    )
+    monkeypatch.setattr(import_command, "_admin", lambda: pytest.fail("dry run touched DB"))
+    monkeypatch.setattr(sys, "argv", ["import-listening", "--release-root", str(release_root)])
+
+    assert import_command.main() == 0
+    assert revision.package["validation_summary"]["revision_source_invariants_verified"] is True
+    assert revision.report["revision_comparison"]["items_compared"] == 1
+    assert "DRY RUN PASS" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(("mutation", "message"), [
@@ -935,6 +993,49 @@ def test_publish_verifies_every_storage_asset_before_status_rpc():
     assert [name for name, _params in db.rpc_calls] == [
         "set_listening_content_package_status",
     ]
+
+
+@pytest.mark.parametrize(("verified", "approved", "message"), [
+    (False, 1, "so sánh bất biến"),
+    (True, 0, "chưa đủ bản dịch"),
+])
+def test_editorial_publish_fails_before_rpc_without_complete_review(
+    verified: bool, approved: int, message: str,
+):
+    db, manifest = _publish_db()
+    db.tables["listening_content_packages"][0].update({
+        "source_counts": {"items": 1},
+        "validation_summary": {
+            "editorial_source_package_id": "general-listening-practice-v1.0.0",
+            "revision_source_invariants_verified": verified,
+            "editorial_approved_items": approved,
+        },
+    })
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.set_package_status(
+            db, package_id="pkg", manifest_sha256=manifest,
+            action="publish", actor=None, bucket_name="listening-audio",
+        )
+    assert db.rpc_calls == []
+
+
+def test_editorial_publish_reaches_rpc_after_complete_review_and_asset_check():
+    db, manifest = _publish_db()
+    db.tables["listening_content_packages"][0].update({
+        "source_counts": {"items": 1},
+        "validation_summary": {
+            "editorial_source_package_id": "general-listening-practice-v1.0.0",
+            "revision_source_invariants_verified": True,
+            "editorial_approved_items": 1,
+        },
+    })
+
+    result = importer.set_package_status(
+        db, package_id="pkg", manifest_sha256=manifest,
+        action="publish", actor=None, bucket_name="listening-audio",
+    )
+    assert result["status"] == "published"
+    assert len(db.rpc_calls) == 1
 
 
 @pytest.mark.parametrize("missing,corrupt", [(True, False), (False, True)])
