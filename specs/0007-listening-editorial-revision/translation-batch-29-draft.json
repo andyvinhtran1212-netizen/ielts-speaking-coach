@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B29",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.0-097 forms (14 short-answer items). Preserve sample/denominator, mean versus median, baseline/follow-up periods, association versus causation, and source authority. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.0-097.v0.3.0.main.q01","source_prompt":"What limited policy position does Maya support, and what employment claim does she avoid?","prompt_vi":"Maya ủng hộ quan điểm chính sách nào trong phạm vi giới hạn, và tránh khẳng định điều gì về việc làm?"},
+    {"id":"manus:B2.0-097.v0.3.0.main.q02","source_prompt":"Give the follow-up journey statistic, including its value, unit and whether it is a median or mean.","prompt_vi":"Nêu số liệu về hành trình ở lần theo dõi sau: giá trị, đơn vị, và đó là trung vị hay trung bình cộng."},
+    {"id":"manus:B2.0-097.v0.3.0.main.q03","source_prompt":"Describe the commute-survey sample: its size, districts and participation basis. Why should it not stand for every city worker?","prompt_vi":"Mô tả mẫu khảo sát việc đi làm: quy mô, các quận và cách thức tham gia khảo sát. Vì sao không thể xem mẫu này là đại diện cho mọi người lao động trong thành phố?"},
+    {"id":"manus:B2.0-097.v0.3.0.main.q04","source_prompt":"What percentage change do the city registration records show, and which employment outcome do they not establish?","prompt_vi":"Hồ sơ đăng ký của thành phố cho thấy mức thay đổi bao nhiêu phần trăm, và không chứng minh được kết quả nào về việc làm?"},
+    {"id":"manus:B2.0-097.v0.3.0.main.q05","source_prompt":"Name the baseline month and follow-up month, with their roles.","prompt_vi":"Nêu tháng làm mốc ban đầu và tháng theo dõi sau, cùng vai trò của từng tháng."},
+    {"id":"manus:B2.0-097.v0.3.0.main.q06","source_prompt":"What relationship does the survey support, and which missing comparison prevents a bus-only causal conclusion?","prompt_vi":"Khảo sát ủng hộ mối liên hệ nào, và còn thiếu phép so sánh nào nên chưa thể kết luận chỉ xe buýt là nguyên nhân?"},
+    {"id":"manus:B2.0-097.v0.3.0.main.q07","source_prompt":"Match each district with its registration percentage increase.","prompt_vi":"Ghép từng quận với mức tăng đăng ký tương ứng, tính theo phần trăm."},
+    {"id":"manus:B2.0-097.v0.3.0.main.q08","source_prompt":"Why is the city rate 6% rather than the unweighted average of the two district rates? Identify the relevant starting counts.","prompt_vi":"Vì sao tỷ lệ toàn thành phố là 6% chứ không phải trung bình không trọng số của tỷ lệ ở hai quận? Nêu số lượng ban đầu có liên quan."},
+    {"id":"manus:B2.0-097.v0.3.0.main.q09","source_prompt":"Which alternative explanation for the registration rise is mentioned, and in which follow-up month?","prompt_vi":"Cách giải thích nào khác cho mức tăng đăng ký được nhắc đến, và ở tháng theo dõi nào?"},
+    {"id":"manus:B2.0-097.v0.3.0.main.q10","source_prompt":"Write a bounded conclusion joining the volunteer-survey access finding with the limit on stable-employment claims.","prompt_vi":"Viết kết luận có giới hạn, kết hợp kết quả khảo sát người tham gia tự nguyện về khả năng tiếp cận với giới hạn của các nhận định về việc làm ổn định."},
+    {"id":"manus:B2.0-097.v0.3.0.transfer.q01","source_prompt":"Report the September measure with its denominator, then give one attendance limit.","prompt_vi":"Nêu chỉ số tháng Chín cùng nhóm dùng làm mẫu số, rồi nêu một giới hạn của dữ liệu tham dự."},
+    {"id":"manus:B2.0-097.v0.3.0.transfer.q02","source_prompt":"Report the changed statistic and population, then state why insulation alone is not proven to explain it.","prompt_vi":"Nêu chỉ số đã thay đổi và nhóm dân số được đo, rồi giải thích vì sao chưa thể chứng minh chỉ riêng lớp cách nhiệt gây ra thay đổi đó."},
+    {"id":"manus:B2.0-097.v0.3.0.transfer.q03","source_prompt":"Distinguish the forecast from the recorded count, retaining each period.","prompt_vi":"Phân biệt con số dự báo với số lượng đã được ghi nhận, giữ rõ kỳ thời gian của mỗi con số."},
+    {"id":"manus:B2.0-097.v0.3.0.transfer.q04","source_prompt":"Give the current application deadline and its authority, then state what the revised notice does not confirm.","prompt_vi":"Nêu hạn nộp đơn hiện hành và nguồn có thẩm quyền xác nhận hạn đó, rồi nói rõ thông báo đã sửa không xác nhận điều gì."}
+  ]
+}
