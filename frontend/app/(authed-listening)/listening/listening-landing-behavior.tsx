@@ -208,7 +208,7 @@ function IeltsNavigationCard() {
     <a className="listening-programme-card" href="/listening/ielts">
       <span className="listening-programme-card__eyebrow">IELTS Listening</span>
       <h3>Luyện tập và mô phỏng đề</h3>
-      <p>Quick Practice, Skills, Mini và Full Test luôn sẵn sàng; bài report-only xuất hiện tại đây sau khi được phát hành.</p>
+      <p>Quick Practice, Skills, Mini và Full Test luôn sẵn sàng; bài luyện theo chương trình xuất hiện tại đây sau khi được phát hành.</p>
       <div className="listening-programme-card__foot">
         <span>Quick · Skills · Mini · Full Test</span>
         <strong>Khám phá →</strong>
@@ -222,8 +222,8 @@ function ProgrammeFallbackLinks() {
     <section className="listening-programmes" aria-labelledby="programme-fallback-heading">
       <div className="listening-section-heading"><div><p className="listening-kicker">Thư viện</p><h2 id="programme-fallback-heading">Chọn chương trình luyện tập</h2></div></div>
       <div className="listening-programmes__grid">
-        <a className="listening-programme-card" href="/listening/general"><span className="listening-programme-card__eyebrow">General Listening</span><h3>Luyện nghe theo bài học</h3><p>Tình huống và mục tiêu nghe cụ thể; tự đối chiếu sau khi nộp.</p><div className="listening-programme-card__foot"><span>Số bài tạm thời chưa tải được</span><strong>Mở thư viện →</strong></div></a>
-        <a className="listening-programme-card" href="/listening/ielts"><span className="listening-programme-card__eyebrow">IELTS Listening</span><h3>Luyện tập và mô phỏng đề</h3><p>IELTS Practice report-only cùng các thư viện Quick, Skills, Mini và Full Test.</p><div className="listening-programme-card__foot"><span>Số bài tạm thời chưa tải được</span><strong>Mở thư viện →</strong></div></a>
+        <a className="listening-programme-card" href="/listening/general"><span className="listening-programme-card__eyebrow">General Listening</span><h3>Luyện nghe theo bài học</h3><p>Tình huống và mục tiêu nghe cụ thể; đối chiếu ngay từng câu.</p><div className="listening-programme-card__foot"><span>Số bài tạm thời chưa tải được</span><strong>Mở thư viện →</strong></div></a>
+        <a className="listening-programme-card" href="/listening/ielts"><span className="listening-programme-card__eyebrow">IELTS Listening</span><h3>Luyện tập và mô phỏng đề</h3><p>Bài luyện IELTS đối chiếu từng câu, bên cạnh Quick, Skills, Mini và Full Test.</p><div className="listening-programme-card__foot"><span>Số bài tạm thời chưa tải được</span><strong>Mở thư viện →</strong></div></a>
       </div>
     </section>
   );

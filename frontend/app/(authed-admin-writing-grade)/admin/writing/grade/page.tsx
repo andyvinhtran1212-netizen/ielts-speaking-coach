@@ -10,9 +10,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AdminWritingGradePage() {
+async function AdminWritingGradeBody({ searchParams }: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const embed = params.embed === '1';
   return (
-    <aver-admin-chrome active="writing" subsection="queue">
+    <aver-admin-chrome active="writing" subsection="queue" embed={embed ? '' : undefined}>
       <AdminAccessGate>
         <Suspense fallback={<AdminWritingGradeLoading />}>
           <AdminWritingGradeBehavior />
@@ -20,4 +24,10 @@ export default function AdminWritingGradePage() {
       </AdminAccessGate>
     </aver-admin-chrome>
   );
+}
+
+export default function AdminWritingGradePage({ searchParams }: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return <Suspense fallback={<AdminWritingGradeLoading />}><AdminWritingGradeBody searchParams={searchParams} /></Suspense>;
 }

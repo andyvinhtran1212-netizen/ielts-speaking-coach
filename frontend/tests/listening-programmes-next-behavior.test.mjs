@@ -22,6 +22,15 @@ test('listening hub is programme-first and uses the truthful title', () => {
   assert.match(behavior, /slice\(0, 3\)/);
 });
 
+test('programme copy describes per-question learning without internal scoring labels', () => {
+  const landing = read('app', '(authed-listening)', 'listening', 'listening-landing-behavior.tsx');
+  const ielts = read('app', '(authed-listening)', 'listening', 'ielts', 'page.tsx');
+  assert.match(landing, /đối chiếu ngay từng câu/);
+  assert.match(ielts, /đối chiếu từng câu/);
+  assert.match(ielts, /không tính band IELTS/);
+  assert.doesNotMatch(landing + ielts, /report-only/);
+});
+
 test('programme runner autosaves and routes to self-review', () => {
   const runner = read('app', '(authed-listening-player)', 'listening', 'programmes', 'form', '[testId]', 'programme-form-runner.tsx');
   assert.match(runner, /patchWith\(`\/api\/listening\/tests\/attempts\/\$\{attemptId\}\/answers`/);

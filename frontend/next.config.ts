@@ -37,6 +37,8 @@ const EMBEDDABLE_SAME_ORIGIN_ROUTES = [
   '/admin/mock-live',
   '/admin/mock-reviews',
   '/admin/writing/queue',
+  '/admin/writing/status',
+  '/admin/writing/grade',
 ] as const;
 
 const nextConfig: NextConfig = {
