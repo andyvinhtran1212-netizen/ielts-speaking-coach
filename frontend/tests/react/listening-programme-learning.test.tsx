@@ -65,6 +65,23 @@ it('keeps source language when a form has no complete reviewed translation', asy
   expect(screen.getByText(/Đang hiển thị bản gốc/)).toBeTruthy();
 });
 
+it('keeps heard English choice words tagged as English under a Vietnamese question', async () => {
+  const heardWord = [{
+    q_num: 1, source_item_id: 'manus:A0-38.v0.2.0.sounds.q01',
+    prompt: 'Nghe từ số1. Chọn từ tiếng Anh đã nghe.',
+    response_type: 'single_choice', options: { a: 'in', b: 'on', c: 'at' },
+  }];
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state')
+    ? { attempt_id: 'attempt-1', assisted: false, items: [] }
+    : { ...programmeTest, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: heardWord } }] }] });
+  render(<ProgrammeFormRunner testId="test-heard-word" />);
+  await screen.findByText(heardWord[0].prompt);
+  expect(screen.getByText(heardWord[0].prompt).getAttribute('lang')).toBe('vi');
+  expect(screen.getByText('in').closest('[lang="en"]')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'English' }));
+  expect(screen.getByText('in').closest('[lang="en"]')).toBeTruthy();
+});
+
 it('keeps a map in a keyboard-scrollable viewport without changing its answer flow', async () => {
   const mapQuestion = [{
     q_num: 1, source_item_id: 'map-1', prompt: 'Which room is at A?',

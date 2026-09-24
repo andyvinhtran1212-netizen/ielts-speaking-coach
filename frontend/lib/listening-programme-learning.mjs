@@ -25,6 +25,13 @@ const englishPilot = {
   'manus:A0.2-018.P6': { sourcePrompt: 'Ben có đồng ý không?', sourceOptions: { A: 'Có', B: 'Không' }, prompt: 'Does Ben agree?', options: { A: 'Yes', B: 'No' } },
 };
 
+// These seven source questions have Vietnamese prompts but intentionally English
+// heard-word labels. The seventh arrives from an approved editorial package.
+const englishHeardWordOptionIds = new Set([
+  ...Array.from({ length: 6 }, (_, index) => `manus:A0-38.v0.2.0.sounds.q${String(index + 1).padStart(2, '0')}`),
+  'manus:A0-38.v0.2.0.review.q01',
+]);
+
 function matchesSource(question, entry) {
   return entry?.sourcePrompt === question.prompt &&
     (!entry.sourceOptions || (
@@ -90,6 +97,13 @@ export function displayQuestion(question, language) {
     visual_url: entry.visual_url || question.visual_url,
     visual_accessibility: entry.visual_accessibility || question.visual_accessibility,
   };
+}
+
+export function displayOptionLanguage(question, language) {
+  const entry = reviewedTranslation(question);
+  if (!entry) return undefined;
+  if (language === entry.target_language && entry.options) return entry.target_language;
+  return englishHeardWordOptionIds.has(question.source_item_id) ? 'en' : entry.source_language;
 }
 
 export function groupProgrammeQuestions(questions) {

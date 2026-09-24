@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { availableQuestionLanguages, displayQuestion, groupProgrammeQuestions } from '../lib/listening-programme-learning.mjs';
+import { availableQuestionLanguages, displayOptionLanguage, displayQuestion, groupProgrammeQuestions } from '../lib/listening-programme-learning.mjs';
 
 test('guided mode stays per-question even when questions share a stimulus', () => {
   const questions = [
@@ -28,6 +28,8 @@ test('heard-word pilot also fails closed when original choice labels drift', () 
     options: { a: 'in', b: 'on', c: 'at' },
   };
   assert.deepEqual(availableQuestionLanguages([source]), ['vi', 'en']);
+  assert.equal(displayOptionLanguage(source, 'vi'), 'en');
+  assert.equal(displayOptionLanguage(source, 'en'), 'en');
   assert.deepEqual(availableQuestionLanguages([{ ...source, options: { a: 'in', b: 'on', c: 'to' } }]), []);
   assert.deepEqual(availableQuestionLanguages([{ ...source, visual_url: '/signed/new-visual.svg' }]), []);
 });
@@ -45,6 +47,8 @@ test('reviewed package translation switches an English-source question without c
   };
   assert.deepEqual(availableQuestionLanguages([source]), ['vi', 'en']);
   assert.equal(displayQuestion(source, 'en'), source);
+  assert.equal(displayOptionLanguage(source, 'en'), 'en');
+  assert.equal(displayOptionLanguage(source, 'vi'), 'vi');
   const translated = displayQuestion(source, 'vi');
   assert.equal(translated.prompt, 'Địa điểm nào được nhắc đến?');
   assert.deepEqual(translated.options, { A: 'Thư viện', B: 'Bảo tàng' });
@@ -67,8 +71,28 @@ test('unchanged heard-word labels need an explicit review flag', () => {
     },
   };
   assert.deepEqual(availableQuestionLanguages([source]), ['vi', 'en']);
+  assert.equal(displayOptionLanguage(source, 'vi'), 'en');
   assert.deepEqual(displayQuestion(source, 'vi').options, source.options);
   assert.deepEqual(availableQuestionLanguages([{ ...source, editorial_translation: { ...source.editorial_translation, unchanged_options_reviewed: false } }]), []);
+});
+
+test('approved Vietnamese-source review item retains English heard-word pronunciation', () => {
+  const source = {
+    source_item_id: 'manus:A0-38.v0.2.0.review.q01',
+    prompt: 'Nghe từ đầu tiên. Chọn từ đã nghe.',
+    options: { a: 'in', b: 'on', c: 'at' },
+    editorial_translation: {
+      status: 'approved', source_item_id: 'manus:A0-38.v0.2.0.review.q01',
+      source_language: 'vi', target_language: 'en',
+      source_prompt: 'Nghe từ đầu tiên. Chọn từ đã nghe.',
+      source_options: { a: 'in', b: 'on', c: 'at' },
+      prompt: 'Listen to the first word. Choose the word you hear.',
+      unchanged_options_reviewed: true,
+    },
+  };
+  assert.deepEqual(availableQuestionLanguages([source]), ['vi', 'en']);
+  assert.equal(displayOptionLanguage(source, 'vi'), 'en');
+  assert.equal(displayOptionLanguage(source, 'en'), 'en');
 });
 
 test('map form remains original-language until localized visual and accessible text are provided', () => {
