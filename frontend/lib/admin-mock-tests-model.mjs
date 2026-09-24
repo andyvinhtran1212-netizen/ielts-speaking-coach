@@ -1,7 +1,7 @@
 const TEXT = (value) => typeof value === 'string' ? value.trim() : '';
 
 export const MOCK_TEST_TABS = Object.freeze(['manage', 'live', 'review', 'writing']);
-export const MOCK_TEST_STAGES = Object.freeze(['all', 'draft', 'live', 'closed']);
+export const MOCK_TEST_STAGES = Object.freeze(['all', 'draft', 'live', 'closed', 'archived']);
 
 export function mockTestsTab(value) {
   const tab = TEXT(value);
@@ -25,6 +25,7 @@ export function normalizeMockExam(raw) {
     isOpen: raw.is_open === true,
     activeSection: TEXT(raw.active_section) || 'not_started',
     examMode: TEXT(raw.exam_mode) || 'sequential',
+    reviewEligible: typeof raw.review_eligible === 'boolean' ? raw.review_eligible : null,
   };
 }
 
@@ -51,13 +52,73 @@ export function normalizeMockExamList(raw) {
 }
 
 export function mockExamStage(exam) {
-  if (!exam || exam.status !== 'published') return 'draft';
+  if (!exam) return 'draft';
+  if (exam.status === 'archived') return 'archived';
+  if (exam.status !== 'published') return 'draft';
   return exam.isOpen ? 'live' : 'closed';
 }
 
 export function filterMockExams(exams, stage) {
   const canonical = mockTestsStage(stage);
   return canonical === 'all' ? exams : exams.filter((exam) => mockExamStage(exam) === canonical);
+}
+
+export function mockTestsStageForTab(tab) {
+  const canonical = mockTestsTab(tab);
+  if (canonical === 'live') return 'live';
+  return 'all';
+}
+
+export function mockReviewEligibilityUnknown(exam) {
+  return exam != null && exam.reviewEligible === null;
+}
+
+export function mockReviewEligible(exam) {
+  if (!exam) return false;
+  // A completed exam clock alone cannot distinguish queued from released work.
+  return exam.reviewEligible === true;
+}
+
+export function mockTestsExamForTab(exams, tab, currentId = '', requestedId = '') {
+  const rows = Array.isArray(exams) ? exams : [];
+  const canonical = mockTestsTab(tab);
+  const requested = TEXT(requestedId);
+  const current = TEXT(currentId);
+  if (requested && rows.some((exam) => exam.id === requested)) return requested;
+  if (canonical === 'writing') return '';
+  const allowed = canonical === 'live'
+    ? rows.filter((exam) => mockExamStage(exam) === 'live')
+    : canonical === 'review'
+      ? rows.filter(mockReviewEligible)
+      : rows;
+  return allowed.some((exam) => exam.id === current) ? current : allowed[0]?.id || '';
+}
+
+export function mockSectionLabel(value) {
+  const key = TEXT(value);
+  return ({
+    not_started: 'Chưa bắt đầu',
+    listening: 'Listening',
+    reading: 'Reading',
+    writing: 'Writing',
+    done: 'Đã xong',
+  })[key] || 'Không rõ trạng thái';
+}
+
+export function mockSittingStatusLabel(value) {
+  const key = TEXT(value);
+  return ({
+    'chưa vào': 'Chưa vào phòng',
+    registered: 'Đã đăng ký',
+    lrw_in_progress: 'Đang làm LRW',
+    lrw_submitted: 'Đã nộp LRW',
+    speaking_pending: 'Chờ thi Speaking',
+    all_submitted: 'Đã nộp đủ',
+    under_review: 'Đang chấm',
+    reviewed: 'Đã chấm',
+    released: 'Đã trả kết quả',
+    void: 'Đã huỷ lượt',
+  })[key] || 'Không rõ trạng thái';
 }
 
 export function mockTestsHref(tab, examId = '') {

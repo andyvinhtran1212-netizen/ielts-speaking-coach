@@ -5,20 +5,20 @@
 - Approved spec is merged to `staging` before any implementation commit in the
   release branch.
 - Affected local backend, contract, browser, TypeScript, and build suites pass.
-- Migrations 296 and 297 remain additive and compatible with currently deployed code.
+- Migrations 297–302 remain additive and compatible with currently deployed code.
 - The legacy exam-content and Writing array routes stay unchanged; new page
   routes do not collide with parameterized legacy paths. Deployment-order tests
   cover old frontend/new backend and new frontend/old backend fallback behavior.
-- Staging and production service roles exist; neither routine is executable by
+- Staging and production service roles exist; none of the five routines is executable by
   public, anon, or authenticated roles.
-- Both `SECURITY DEFINER` routines have fixed `pg_catalog, public` search paths and
+- All five `SECURITY DEFINER` routines have fixed `pg_catalog, public` search paths and
   schema-qualified relations/built-ins; Security Advisor reports no mutable
   search-path finding.
 
 ## Staging
 
-- Dry-run and then apply migrations 296 and 297 with the advisory-locked repository runner.
-- Re-run the runner to prove ledger/idempotent behavior; inspect both routines'
+- Dry-run and then apply migrations 297–302 with the advisory-locked repository runner.
+- Re-run the runner to prove ledger/idempotent behavior; inspect all routines'
   owners, ACLs, `pg_proc.proconfig`, schema-qualified bodies and indexes. Check
   Writing exact total/order/zero-result and Review eligibility against direct
   sitting/review rows, including open actionable, archived actionable, and
@@ -50,7 +50,7 @@
 ## Production
 
 - Confirm `staging` has not moved since the green exact-SHA evidence.
-- Dry-run and apply both migrations 296 and 297 with `ALLOW_PROD=1` through the
+- Dry-run and apply migrations 297–302 with `ALLOW_PROD=1` through the
   advisory-locked runner before dependent code promotion. Verify the retake
   eligibility routine's owner, service-role-only ACL, fixed search path, and
   representative actionable/archived-actionable/released-only results in production.
@@ -64,8 +64,8 @@
 ## Rollback and repair
 
 - Revert application code to the previous production SHA if a UI or service
-  regression occurs; both additive routines/indexes may remain safely installed.
-- Do not drop either routine or index in the same rollback. A later migration may
+  regression occurs; additive routines/indexes may remain safely installed.
+- Do not drop these routines or indexes in the same rollback. A later migration may
   remove them only after every deployed caller is absent.
 - If routine results disagree with direct canonical queries, block promotion,
   capture filter parameters plus ordered IDs/counts, fix the routine, rerun

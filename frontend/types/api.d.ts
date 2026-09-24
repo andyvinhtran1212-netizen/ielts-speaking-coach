@@ -2940,6 +2940,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/writing/essay-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Essay Queue
+         * @description Paginated operational queue with server-side student search.
+         *
+         *     Kept separate from the legacy list response so existing API consumers keep
+         *     their array contract while the admin queue gets a truthful total.
+         */
+        get: operations["list_essay_queue_admin_writing_essay_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/writing/essays/{essay_id}": {
         parameters: {
             query?: never;
@@ -10832,6 +10855,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/exam-content/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Exam Content Page
+         * @description Bounded catalog page. Legacy list callers retain the full response.
+         */
+        get: operations["list_exam_content_page_admin_exam_content_page_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/exam-content/{kind}/{content_id}/visibility": {
         parameters: {
             query?: never;
@@ -10944,6 +10987,23 @@ export interface paths {
          *     practice list, a reading test may be reused across several mock exams.
          */
         get: operations["available_reading_tests_admin_mock_exams_reading_tests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/picker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exam Picker Page */
+        get: operations["exam_picker_page_admin_mock_exams_picker_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12216,6 +12276,30 @@ export interface components {
             /** Last 7D */
             last_7d: number;
         };
+        /** AdminExamPickerPage */
+        AdminExamPickerPage: {
+            /** Items */
+            items: components["schemas"]["AdminExamPickerRow"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** AdminExamPickerRow */
+        AdminExamPickerRow: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Test Id */
+            test_id?: string | null;
+            /** Task Type */
+            task_type?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+        };
         /** AdminFeedbackGroupOut */
         AdminFeedbackGroupOut: {
             /** Test Id */
@@ -12318,6 +12402,43 @@ export interface components {
              * @default 10
              */
             count: number;
+        };
+        /** AdminMockExamListResponse */
+        AdminMockExamListResponse: {
+            /** Exams */
+            exams: components["schemas"]["AdminMockExamListRow"][];
+        };
+        /** AdminMockExamListRow */
+        AdminMockExamListRow: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+            /**
+             * Exam Mode
+             * @enum {string}
+             */
+            exam_mode: "sequential" | "retake";
+            /** Is Open */
+            is_open: boolean;
+            /**
+             * Active Section
+             * @enum {string}
+             */
+            active_section: "not_started" | "listening" | "reading" | "writing" | "done";
+            /** Created At */
+            created_at: string;
+            /** Review Eligible */
+            review_eligible: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /** AdminOverviewOut */
         AdminOverviewOut: {
@@ -12669,6 +12790,19 @@ export interface components {
             /** Cohort Lookup Failed */
             cohort_lookup_failed: boolean;
             code_summary: components["schemas"]["AdminUserCodeSummaryOut"];
+        };
+        /** AdminWritingQueuePageOut */
+        AdminWritingQueuePageOut: {
+            /** Items */
+            items: components["schemas"]["AdminWritingQueueRowOut"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total Complete */
+            total_complete: boolean;
         };
         /** AdminWritingQueueRowOut */
         AdminWritingQueueRowOut: {
@@ -14385,6 +14519,93 @@ export interface components {
              * @default
              */
             user_answer: string | null;
+        };
+        /**
+         * ExamContentItem
+         * @description Canonical cross-library row returned to the admin catalog.
+         */
+        ExamContentItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reading" | "listening" | "writing";
+            /** Id */
+            id: string;
+            /** Code */
+            code: string | null;
+            /** Title */
+            title: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+            /** Exam Only */
+            exam_only: boolean;
+            /** Is Public */
+            is_public: boolean;
+            /** Public Practice Enabled */
+            public_practice_enabled: boolean;
+            /** Web Explanation Mode */
+            web_explanation_mode: string | null;
+            /** Course Level */
+            course_level: string | null;
+            /** Cohort Ids */
+            cohort_ids: string[];
+            /** Mock Exams */
+            mock_exams: components["schemas"]["ExamContentMockReference"][];
+            /** Publish Ready */
+            publish_ready: boolean;
+            /** Readiness Reason */
+            readiness_reason: string | null;
+            /** Web Explanation Count */
+            web_explanation_count?: number | null;
+            /** Web Explanation Ready Count */
+            web_explanation_ready_count?: number | null;
+            /** Web Explanation Ready */
+            web_explanation_ready?: boolean | null;
+            /** Web Explanation State */
+            web_explanation_state?: ("none" | "incomplete" | "blocked" | "ready" | "unknown") | null;
+        };
+        /** ExamContentListResponse */
+        ExamContentListResponse: {
+            /** Items */
+            items: components["schemas"]["ExamContentItem"][];
+            /** Total */
+            total: number;
+            /** Failed Kinds */
+            failed_kinds: ("reading" | "listening" | "writing")[];
+            /** Levels */
+            levels: string[];
+        };
+        /** ExamContentMockReference */
+        ExamContentMockReference: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string | null;
+            /** Title */
+            title: string | null;
+            /** Status */
+            status: ("draft" | "published" | "archived") | null;
+        };
+        /** ExamContentPageResponse */
+        ExamContentPageResponse: {
+            /** Items */
+            items: components["schemas"]["ExamContentItem"][];
+            /** Total */
+            total: number;
+            /** Failed Kinds */
+            failed_kinds: ("reading" | "listening" | "writing")[];
+            /** Levels */
+            levels: string[];
+            /** Total Complete */
+            total_complete: boolean;
+            /** Levels Complete */
+            levels_complete: boolean;
+            /** Failed Level Kinds */
+            failed_level_kinds: ("reading" | "listening" | "writing")[];
         };
         /** ExamCreate */
         ExamCreate: {
@@ -23559,6 +23780,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_essay_queue_admin_writing_essay_queue_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                cohort_id?: string | null;
+                mock?: boolean | null;
+                q?: string | null;
+                overdue?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWritingQueuePageOut"];
                 };
             };
             /** @description Validation Error */
@@ -36740,7 +37000,48 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamContentListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_exam_content_page_admin_exam_content_page_get: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+                course_level?: string | null;
+                cohort_id?: string | null;
+                exam_only?: boolean | null;
+                is_public?: boolean | null;
+                q?: string | null;
+                attention?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamContentPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36923,7 +37224,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminMockExamListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36990,6 +37291,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exam_picker_page_admin_mock_exams_picker_get: {
+        parameters: {
+            query: {
+                kind: "reading" | "listening" | "writing-task1" | "writing-task2";
+                q?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminExamPickerPage"];
                 };
             };
             /** @description Validation Error */

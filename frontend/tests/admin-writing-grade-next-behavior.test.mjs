@@ -104,6 +104,11 @@ describe('/admin/writing/grade — state + persistence contract', () => {
     assert.match(BEHAVIOR, /\/admin\/instructor\/reviews\/\$\{encodeURIComponent\(review\.id\)\}\/release/);
     assert.match(BEHAVIOR, /if \(!await saveAll\(\)\) return/);
     assert.match(BEHAVIOR, /queue\?\.nextId/);
+    assert.match(BEHAVIOR, /normalizeWritingNavigation\(params \?\? undefined\)/);
+    assert.match(BEHAVIOR, /writingNavigationHref\('queue', navigation\)/);
+    assert.match(BEHAVIOR, /writingQueueSearch\(navigation\.queue\)/);
+    assert.match(BEHAVIOR, /<ErrorState message=\{view\.message\} returnHref=\{returnHref\}/);
+    assert.ok(BEHAVIOR.indexOf('const navigation') < BEHAVIOR.indexOf("view.phase === 'error'"));
     assert.match(BEHAVIOR, /instructor-context-warning/);
     assert.match(BEHAVIOR, /Không tải được trạng thái instructor/);
     assert.match(BEHAVIOR, /Lỗi deliver: \$\{messageOf\(caught\)\}/);
@@ -164,8 +169,12 @@ describe('admin Writing grade pure model', () => {
   });
 
   test('recomputes queue position from essay id instead of trusting a stale index', () => {
-    assert.deepEqual(readAdminGradeQueue(JSON.stringify({ ids: ['a', 'b'], i: 99 }), 'a'), { inQueue: true, nextId: 'b' });
-    assert.deepEqual(readAdminGradeQueue(JSON.stringify({ ids: ['a', 'b'] }), 'b'), { inQueue: true, nextId: null });
-    assert.equal(readAdminGradeQueue('{', 'a'), null);
+    const expected = { accountId: 'admin-1', contextKey: 'mocklane=1&page_size=50' };
+    const stored = { ...expected, ids: ['a', 'b'], i: 99 };
+    assert.deepEqual(readAdminGradeQueue(JSON.stringify(stored), 'a', expected), { inQueue: true, nextId: 'b' });
+    assert.deepEqual(readAdminGradeQueue(JSON.stringify(stored), 'b', expected), { inQueue: true, nextId: null });
+    assert.equal(readAdminGradeQueue(JSON.stringify(stored), 'a', { ...expected, accountId: 'admin-2' }), null);
+    assert.equal(readAdminGradeQueue(JSON.stringify(stored), 'a', { ...expected, contextKey: '' }), null);
+    assert.equal(readAdminGradeQueue('{', 'a', expected), null);
   });
 });

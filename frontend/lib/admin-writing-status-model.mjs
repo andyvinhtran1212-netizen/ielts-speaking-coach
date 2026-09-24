@@ -1,3 +1,5 @@
+import { normalizeWritingNavigation, writingNavigationHref } from './admin-writing-navigation-model.mjs';
+
 const STATUSES = new Set(['pending', 'grading', 'graded', 'reviewed', 'delivered', 'failed']);
 const TERMINAL = new Set(['graded', 'reviewed', 'delivered', 'failed']);
 const TIERS = new Set(['quick', 'standard', 'deep', 'instructor']);
@@ -16,11 +18,23 @@ const validDate = (value) => {
 };
 
 export function normalizeWritingStatusQuery(raw = {}) {
-  const source = objectOf(raw) || {};
+  const navigation = normalizeWritingNavigation(raw);
+  const legacyQueueContext = !raw?.from && !raw?.source &&
+    ['mocklane', 'status', 'queue_status', 'queueStatus', 'cohort_id', 'cohortId', 'overdue', 'q', 'query', 'page', 'page_size', 'pageSize']
+      .some((key) => raw?.[key] !== undefined && raw?.[key] !== null && raw?.[key] !== '' && raw?.[key] !== false);
+  const context = navigation.queue;
   return {
-    essayId: stringOf(source.essayId || source.essay_id || source.id),
-    embed: source.embed === true || source.embed === '1',
-    mocklane: source.mocklane === true || source.mocklane === '1',
+    essayId: navigation.essayId,
+    source: legacyQueueContext ? 'queue' : navigation.source,
+    embed: navigation.embed,
+    mocklane: navigation.mocklane,
+    lane: context.lane,
+    page: context.page,
+    pageSize: context.pageSize,
+    queueStatus: context.queueStatus,
+    cohortId: context.cohortId,
+    overdue: context.overdue,
+    query: context.query,
   };
 }
 
@@ -99,12 +113,5 @@ export function writingStatusPhase(status, tier, observedSeconds) {
 
 export function writingStatusHref(kind, query) {
   const normalized = normalizeWritingStatusQuery(query);
-  const params = new URLSearchParams();
-  if (kind === 'grade' && normalized.essayId) params.set('essay_id', normalized.essayId);
-  if (kind === 'queue' && !normalized.mocklane) params.set('status', 'grading');
-  if (normalized.embed) params.set('embed', '1');
-  if (normalized.mocklane) params.set('mocklane', '1');
-  const base = kind === 'grade' ? '/admin/writing/grade' : '/admin/writing/queue';
-  const search = params.toString();
-  return `${base}${search ? `?${search}` : ''}`;
+  return writingNavigationHref(kind === 'grade' ? 'grade' : 'queue', { ...normalized, from: normalized.source });
 }

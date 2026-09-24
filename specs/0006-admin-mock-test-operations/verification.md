@@ -4,18 +4,19 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=frontend/tests/admin-mock-exams-next-model.test.mjs | PENDING |
-| FR-002 | kind=test; ref=frontend/tests/admin-exam-content-openapi-contract.test.mjs | PENDING |
-| FR-003 | kind=test; ref=frontend/tests/admin-mock-exams-next-model.test.mjs | PENDING |
-| FR-004 | kind=test; ref=frontend/tests/admin-mock-tests-next-behavior.test.mjs | PENDING |
-| FR-005 | kind=test; ref=backend/tests/test_essay_service.py | PENDING |
-| FR-006 | kind=test; ref=frontend/tests/admin-writing-queue-next-behavior.test.mjs | PENDING |
-| FR-007 | kind=journey; ref=frontend/tooling/verify-admin-mock-tests-flow.mjs | PENDING |
+| FR-001 | kind=test; ref=frontend/tests/admin-mock-exams-next-model.test.mjs | PASS |
+| FR-002 | kind=command; ref=node tooling/run-contract-tests.mjs tests/admin-exam-content-openapi-contract.test.mjs | PASS |
+| FR-003 | kind=test; ref=frontend/tests/admin-mock-exams-next-model.test.mjs | PASS |
+| FR-004 | kind=test; ref=frontend/tests/admin-mock-tests-next-behavior.test.mjs | PASS |
+| FR-005 | kind=test; ref=backend/tests/test_essay_service.py | PASS |
+| FR-006 | kind=test; ref=frontend/tests/admin-writing-queue-next-behavior.test.mjs | PASS |
+| FR-007 | kind=journey; ref=frontend/tooling/verify-admin-mock-tests-flow.mjs | PASS |
 
 ## Contract evidence
 
-- OpenAPI/type drift: pending regenerated `frontend/types/api.d.ts`, response
-  model tests, strict TypeScript, and full frontend contract suite.
+- OpenAPI/type drift: regenerated `frontend/types/api.d.ts` matches live app
+  OpenAPI; response-model tests, strict and legacy TypeScript, and full frontend
+  contract suite pass locally.
 - Backward compatibility: pending tests that old exam-content and Writing array
   consumers work against the new backend, and both new page consumers turn an
   old-backend 404 into visibly incomplete locally filtered compatibility
@@ -38,11 +39,17 @@
 
 ## Data evidence
 
-- Migration/schema query: pending staging and production application of 296 and
-  297, second idempotent runner pass, both routine owners/ACL inspection,
-  `pg_proc.proconfig` fixed-search-path assertions, schema-qualified SQL audit,
-  representative Writing exact-total query, and retake actionable/released-only
-  eligibility query.
+- Migration/schema query: staging applied 297–302. The atomic content-catalog
+  page snapshot in 301 returned 39 Reading, 199 Listening, and 1 Writing row;
+  Reading draft returned 36 total with a filtered 25-row page, and every
+  sampled row matched the draft/unassigned predicate.
+  The new Mock list receipt returned an empty `exams` array on staging (which
+  currently has no Mock exams); populated mixed-mode eligibility is covered by
+  local fixtures. A second locked-runner dry run confirmed zero pending. Owner,
+  service-role-only ACL, and fixed search path are verified. Production
+  application remains pending. Staging currently has no Writing essays or Mock
+  exams, so populated exact-total and actionable/released-only cases are
+  covered by local backend fixtures rather than asserted from empty live data.
 - Immediate state versus full reload: pending content level save/cancel,
   queue/status/grade navigation, canonical grading readback, and Review default
   selection evidence covering completed sequential with actionable rows,
@@ -68,7 +75,8 @@
 
 ## Release evidence
 
-- Staging SHA and checks: pending spec merge, rebased implementation, staging
-  migrations 296 and 297, integrated CI, live Staging E2E, and exact-SHA browser smoke.
-- Production verification: pending advisory-locked migrations 296 and 297, staging-to-main
+- Staging SHA and checks: amended spec merged at `0aad1f0f`, implementation
+  based there, and staging migrations 297–302 applied. Exact-SHA staging deployment,
+  integrated CI, live Staging E2E, and exact-SHA browser smoke remain pending.
+- Production verification: pending advisory-locked migrations 297–302, staging-to-main
   promotion, production SHA match, health checks, and admin journey smoke.

@@ -39,7 +39,8 @@ describe('Admin Writing Instructor Queue native model', () => {
   test('pins URL state and forwards cockpit flags to native grade', () => {
     assert.deepEqual(instructorQueueFilters({ view: 'bad', embed: '1', mocklane: '1' }), { view: 'all_active', embed: '1', mocklane: '1' });
     assert.equal(instructorQueueHref({ view: 'my_claims', embed: '1', mocklane: '1' }), '/admin/writing/instructor-queue?view=my_claims&embed=1&mocklane=1');
-    assert.equal(instructorGradeHref('e1', { embed: '1', mocklane: '1' }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1');
+    assert.equal(instructorGradeHref('e1', { embed: '1', mocklane: '1' }), '/admin/writing/grade?essay_id=e1&from=instructor&embed=1&mocklane=1');
+    assert.equal(instructorGradeHref('e1', { view: 'my_claims', embed: '1' }), '/admin/writing/grade?essay_id=e1&from=instructor&view=my_claims&embed=1');
   });
 
   test('accepts only exact mutation ACKs and canonical readbacks', () => {

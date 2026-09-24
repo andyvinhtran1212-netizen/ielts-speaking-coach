@@ -65,11 +65,13 @@ export function adminGradeRequestKey(accountId, essayId) {
   return accountId ? `${accountId}:${essayId || '__missing__'}` : '';
 }
 
-export function readAdminGradeQueue(storageValue, essayId) {
-  if (!storageValue) return null;
+export function readAdminGradeQueue(storageValue, essayId, expected) {
+  if (!storageValue || !expected?.accountId || typeof expected?.contextKey !== 'string') return null;
   try {
     const queue = JSON.parse(storageValue);
-    if (!queue || !Array.isArray(queue.ids) || !queue.ids.length) return null;
+    if (!queue || queue.accountId !== expected.accountId || queue.contextKey !== expected.contextKey ||
+      !Array.isArray(queue.ids) || !queue.ids.length || queue.ids.length > 50 ||
+      queue.ids.some((id) => typeof id !== 'string' || !id)) return null;
     const index = queue.ids.indexOf(essayId);
     if (index < 0) return null;
     return {

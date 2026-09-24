@@ -2025,10 +2025,22 @@ _EXAM_WRITABLE = {
 
 
 def admin_list_exams() -> list[dict]:
-    resp = supabase_admin.table("mock_exams").select("*").order(
-        "created_at", desc=True,
-    ).execute()
-    return resp.data or []
+    """Read persisted exam rows and Review scope from one database snapshot."""
+    receipt = supabase_admin.rpc("fn_admin_mock_exams_with_review_eligibility", {}).execute().data
+    if isinstance(receipt, list) and len(receipt) == 1:
+        receipt = receipt[0]
+    if isinstance(receipt, dict) and set(receipt) == {"fn_admin_mock_exams_with_review_eligibility"}:
+        receipt = receipt["fn_admin_mock_exams_with_review_eligibility"]
+    if not isinstance(receipt, dict) or not isinstance(receipt.get("exams"), list):
+        raise RuntimeError("Review eligibility receipt is unavailable.")
+    rows = receipt["exams"]
+    ids = [row.get("id") for row in rows if isinstance(row, dict)]
+    if (len(ids) != len(rows)
+            or any(not isinstance(row.get("id"), str) or not row["id"]
+                   or not isinstance(row.get("review_eligible"), bool) for row in rows)
+            or len(ids) != len(set(ids))):
+        raise RuntimeError("Review eligibility receipt is malformed.")
+    return rows
 
 
 # Writing prompts retain the sealed-paper behavior from migration 170. Reading
@@ -4363,3 +4375,39 @@ def admin_available_reading_tests() -> list[dict]:
         .execute()
     )
     return res.data or []
+
+
+def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> dict:
+    """Page the canonical published/active source, before the UI selects it."""
+    from services.pg_search import ilike_or_filter
+
+    if kind == "reading":
+        table, columns = "reading_tests", "id,test_id,title,is_public"
+        search_columns = ["test_id", "title"]
+    elif kind == "listening":
+        table, columns = "listening_tests", "id,test_id,title,is_public"
+        search_columns = ["test_id", "title"]
+    else:
+        table, columns = "writing_prompts", "id,title,task_type"
+        search_columns = ["title"]
+
+    query = supabase_admin.table(table).select(columns, count="exact")
+    if kind == "reading":
+        query = query.eq("status", "published").eq("test_type", "full")
+    elif kind == "listening":
+        query = query.eq("status", "published").eq("test_type", "full")
+    else:
+        query = query.eq("is_active", True)
+        if kind == "writing-task1":
+            query = query.in_("task_type", ["task1_academic", "task1_general"])
+        else:
+            query = query.eq("task_type", "task2")
+    if search:
+        query = query.or_(ilike_or_filter(search_columns, search))
+    response = (
+        query.order("created_at", desc=True).order("id", desc=True)
+        .range(offset, offset + limit - 1).execute()
+    )
+    if response.count is None:
+        raise ValueError("Picker count is unavailable")
+    return {"items": response.data or [], "total": response.count, "limit": limit, "offset": offset}
