@@ -5,6 +5,8 @@ import io
 import json
 import sys
 import wave
+from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -12,6 +14,7 @@ import pytest
 from services import listening_package_import as importer
 from services import listening_test_grader as grader
 from services.listening_editorial_validation import SOURCE_MANIFEST_LOCKS
+from services.listening_revision_compare import RevisionMismatch, compare_editorial_revision
 from scripts import import_listening_content_package as import_command
 
 
@@ -264,6 +267,83 @@ def test_new_revision_editorial_fail_closed(tmp_path: Path, mutation: str, messa
     _rebind_manifest(release_root)
     with pytest.raises(importer.PackageValidationError, match=message):
         importer.build_import_plan(importer.discover_packages(release_root)[0])
+
+
+def _revision_from_source_plan(source: importer.ImportPlan) -> importer.ImportPlan:
+    revision = deepcopy(source)
+    revision.location = replace(
+        source.location, package_id="fixture-general-v1.1.0", manifest_sha256="f" * 64,
+    )
+    revision.package["package_id"] = revision.location.package_id
+    revision.package["manifest_sha256"] = revision.location.manifest_sha256
+    revision.lessons[0]["title"] = "A clearer lesson title"
+    revision.lessons[0]["instructions"] = "Listen, answer, and review one question."
+    revision.lessons[0]["outcomes"] = ["Identify the stated answer."]
+    form = revision.forms[0]
+    form["test_id"] = "revision-test-id"
+    form["title"] = "A clearer form title"
+    form["description"] = "Listen and review."
+    form["version"] = "1.1"
+    form["audio_storage_path"] = "packages/fixture-general-v1.1.0/new/audio.wav"
+    form["exercise_payload"]["questions"][0]["editorial_translation"] = {
+        "status": "approved", "source_item_id": "item-1", "prompt": "Chọn đáp án.",
+    }
+    return revision
+
+
+def test_editorial_revision_comparison_allows_copy_only_changes(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    source = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    revision = _revision_from_source_plan(source)
+    report = compare_editorial_revision(
+        source, revision, expected_source_manifest_sha256=source.location.manifest_sha256,
+    )
+    assert report["protected_and_media_invariants"] == "pass"
+    assert report["items_compared"] == 1
+
+
+@pytest.mark.parametrize(("mutation", "message"), [
+    ("reused_package_id", "new package ID"),
+    ("reused_manifest", "new manifest hash"),
+    ("reused_test_id", "reuses a v1.0 test ID"),
+    ("answer", "keys/feedback/windows/transcripts"),
+    ("audio", "source bytes/timing/transcript"),
+    ("timing", "source bytes/timing/transcript"),
+    ("transcript", "source bytes/timing/transcript"),
+    ("option", "source response/option mapping"),
+    ("response_type", "source response/option mapping"),
+    ("window", "keys/feedback/windows/transcripts"),
+    ("score_policy", "keys/feedback/windows/transcripts"),
+])
+def test_editorial_revision_comparison_rejects_protected_or_media_drift(
+    tmp_path: Path, mutation: str, message: str,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    source = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    revision = _revision_from_source_plan(source)
+    if mutation == "reused_package_id":
+        revision.location = replace(revision.location, package_id=source.location.package_id)
+    elif mutation == "reused_manifest":
+        revision.location = replace(revision.location, manifest_sha256=source.location.manifest_sha256)
+    elif mutation == "reused_test_id":
+        revision.forms[0]["test_id"] = source.forms[0]["test_id"]
+    elif mutation == "answer":
+        revision.forms[0]["exercise_payload"]["answers"][0]["answer"] = "B"
+    elif mutation in {"audio", "timing", "transcript"}:
+        key = {"audio": "source_audio_sha256", "timing": "source_timing_sha256", "transcript": "controlled_transcript_sha256"}[mutation]
+        revision.stimuli[0][key] = "0" * 64
+    elif mutation == "option":
+        revision.forms[0]["exercise_payload"]["questions"][0]["options"]["A"] = "Changed"
+    elif mutation == "response_type":
+        revision.forms[0]["exercise_payload"]["questions"][0]["response_type"] = "written"
+    elif mutation == "window":
+        revision.forms[0]["exercise_payload"]["audio_windows"]["1"]["end"] = 0.1
+    else:
+        revision.forms[0]["exercise_payload"]["scoring_policy"] = "diagnostic"
+    with pytest.raises(RevisionMismatch, match=message):
+        compare_editorial_revision(
+            source, revision, expected_source_manifest_sha256=source.location.manifest_sha256,
+        )
 
 
 def test_publish_ready_package_passes_all_fr001_gates_and_dry_run_is_pure(
