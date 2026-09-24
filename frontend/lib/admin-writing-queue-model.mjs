@@ -1,4 +1,7 @@
-const LANES = new Set(['grading', 'graded', 'reviewed', 'delivered', 'all', 'mock']);
+import { normalizeWritingQueueContext, writingNavigationHref, writingQueueSearch } from './admin-writing-navigation-model.mjs';
+
+export { writingQueueSearch };
+
 const STATUSES = new Set(['pending', 'grading', 'graded', 'reviewed', 'delivered', 'failed']);
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
@@ -12,45 +15,7 @@ const dateOf = (value) => {
 const hasValue = (value) => value !== undefined && value !== null && value !== '';
 
 export function normalizeWritingQueueFilters(raw = {}) {
-  const source = objectOf(raw) || {};
-  const mock = source.mocklane === true || source.mocklane === '1';
-  const supplied = source.status !== undefined && source.status !== null;
-  const requested = stringOf(source.status);
-  let lane = mock ? 'mock' : supplied && (requested === '' || requested === 'all') ? 'all' : requested || 'graded';
-  if (!LANES.has(lane)) lane = 'graded';
-  const requestedQueueStatus = stringOf(source.queueStatus || source.queue_status);
-  return {
-    lane,
-    page: Math.max(1, Number.parseInt(String(source.page || '1'), 10) || 1),
-    cohortId: stringOf(source.cohortId || source.cohort_id),
-    overdue: source.overdue === true || source.overdue === '1',
-    embed: source.embed === true || source.embed === '1',
-    queueStatus: lane === 'mock' && STATUSES.has(requestedQueueStatus) ? requestedQueueStatus : '',
-    query: stringOf(source.query || source.q).slice(0, 100),
-  };
-}
-
-export function writingQueueSearch(filters) {
-  const normalized = normalizeWritingQueueFilters({
-    status: filters?.lane === 'mock' ? undefined : filters?.lane,
-    mocklane: filters?.lane === 'mock',
-    cohortId: filters?.cohortId,
-    overdue: filters?.overdue,
-    embed: filters?.embed,
-    queueStatus: filters?.queueStatus,
-    query: filters?.query,
-    page: filters?.page,
-  });
-  const params = new URLSearchParams();
-  if (normalized.lane === 'mock') params.set('mocklane', '1');
-  else if (normalized.lane !== 'graded') params.set('status', normalized.lane);
-  if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
-  if (normalized.overdue) params.set('overdue', '1');
-  if (normalized.embed) params.set('embed', '1');
-  if (normalized.queueStatus) params.set('queue_status', normalized.queueStatus);
-  if (normalized.query) params.set('q', normalized.query);
-  if (normalized.page > 1) params.set('page', String(normalized.page));
-  return params.toString();
+  return normalizeWritingQueueContext(raw);
 }
 
 export function writingQueueFetchKey(filters) {
@@ -259,28 +224,7 @@ export function normalizeSkipGrading(raw, essayId) {
 }
 
 export function writingQueueDestination(row, filters) {
-  const normalized = normalizeWritingQueueFilters({
-    status: filters?.lane === 'mock' ? undefined : filters?.lane,
-    mocklane: filters?.lane === 'mock',
-    cohortId: filters?.cohortId,
-    overdue: filters?.overdue,
-    embed: filters?.embed,
-    queueStatus: filters?.queueStatus,
-    query: filters?.query,
-    page: filters?.page,
-  });
-  const params = new URLSearchParams();
-  params.set('essay_id', row.id);
-  if (normalized.embed) params.set('embed', '1');
-  if (normalized.lane === 'mock') params.set('mocklane', '1');
-  else params.set('status', normalized.lane);
-  if (normalized.queueStatus) params.set('queue_status', normalized.queueStatus);
-  if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
-  if (normalized.overdue) params.set('overdue', '1');
-  if (normalized.query) params.set('q', normalized.query);
-  if (normalized.page > 1) params.set('page', String(normalized.page));
   const path = (row.status === 'pending' && !row.gradingSkippedAt) || row.status === 'grading'
-    ? '/admin/writing/status'
-    : '/admin/writing/grade';
-  return `${path}?${params}`;
+    ? 'status' : 'grade';
+  return writingNavigationHref(path, { ...filters, from: 'queue', essayId: row.id, mocklane: filters?.lane === 'mock' });
 }

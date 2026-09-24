@@ -16,7 +16,7 @@ const now = '2026-08-13T00:00:00Z';
 const review = (id, essayId, status, claimedBy = null) => ({ id, essay_id: essayId, status, claimed_by: claimedBy, claimed_at: claimedBy ? now : null, delivered_at: status === 'delivered' ? now : null, instructor_note: null, created_at: now, updated_at: now });
 const item = (id, essayId, status, claimedBy = null, email = `${id}@local`) => ({ review: review(id, essayId, status, claimedBy), essay_id: essayId, student_email: email, student_level: 3, task_type: 'task2', submitted_at: now, age_hours: status === 'queued' ? 52 : 8, is_overdue: status === 'queued' });
 
-const browser = await launch(); const context = await browser.newContext({ viewport: { width: 1440, height: 920 } });
+const browser = await launch(); const context = await browser.newContext({ viewport: { width: 1440, height: 920 }, bypassCSP: true });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 
 async function fixturePage({ rows, onPost, failAfter = Infinity, shouldFail = () => false, pending = null }) {
@@ -50,9 +50,9 @@ check('edited review vẫn hiện ở active queue', await claimFx.page.getByTex
 check('hostile email hiển thị như text', await claimFx.page.evaluate(() => window.__instructorXss !== 1));
 check('embed mode được đặt trên admin chrome', await claimFx.page.locator('aver-admin-chrome').getAttribute('embed') === '');
 await claimFx.page.getByRole('button', { name: 'Claim & mở bài' }).click();
-await claimFx.page.waitForURL(/\/admin\/writing\/grade\?essay_id=e1&embed=1&mocklane=1/);
+await claimFx.page.waitForURL(/\/admin\/writing\/grade\?essay_id=e1&from=instructor&embed=1&mocklane=1/);
 check('claim chỉ POST một lần rồi GET readback giới hạn theo essay', claimFx.requests.filter((r) => r.method === 'POST' && r.path.endsWith('/r1/claim')).length === 1 && claimFx.requests.some((r) => r.path === '/admin/instructor/queue' && new URLSearchParams(r.query).get('essay_id') === 'e1'));
-check('claim mở grade canonical và giữ cockpit flags', new URL(claimFx.page.url()).pathname === '/admin/writing/grade' && new URL(claimFx.page.url()).searchParams.get('embed') === '1' && new URL(claimFx.page.url()).searchParams.get('mocklane') === '1');
+check('claim mở grade canonical, giữ nguồn Instructor và cockpit flags', new URL(claimFx.page.url()).pathname === '/admin/writing/grade' && new URL(claimFx.page.url()).searchParams.get('from') === 'instructor' && new URL(claimFx.page.url()).searchParams.get('embed') === '1' && new URL(claimFx.page.url()).searchParams.get('mocklane') === '1');
 await claimFx.page.close();
 
 // Release: accessible dialog, exact ACK and canonical readback before success.

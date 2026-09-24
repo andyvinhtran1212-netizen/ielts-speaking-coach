@@ -2,16 +2,13 @@
 // operator opens an essay, saves it, and explicitly returns to the queue.
 const ESSAY = 'essay-admin-filter-return';
 const UPDATED = 'Bản sửa dùng để xác minh quay lại đúng phạm vi Failed.';
+const CONTEXT = 'mocklane=1&cohort_id=c1&overdue=1&embed=1&queue_status=failed&q=Lan+Anh&page=2&page_size=50';
 
 export default {
-  name: 'admin Writing Grade — save-return giữ phạm vi Mock Failed/lớp/quá hạn',
+  name: 'admin Writing Grade — save-return không cần session queue, giữ phạm vi Mock Failed/lớp/quá hạn',
   bypassCSP: true,
-  route: `/admin/writing/grade?essay_id=${ESSAY}&embed=1&mocklane=1&queue_status=failed&cohort_id=c1&overdue=1&q=Lan%20Anh`,
-  expectFinalUrl: '/admin/writing/queue?embed=1&mocklane=1&queue_status=failed&cohort_id=c1&overdue=1&q=Lan%20Anh',
-  initSessionStorage: {
-    gradeQueue: JSON.stringify({ ids: [ESSAY], i: 0 }),
-  },
-
+  route: `/admin/writing/grade?essay_id=${ESSAY}&from=queue&${CONTEXT}`,
+  expectFinalUrl: `/admin/writing/queue?${CONTEXT}`,
   canned: [
     [/\/auth\/me$/, { id: '00000000-0000-0000-0000-000000000000', email: 'admin@local', role: 'admin' }],
     [new RegExp(`/admin/writing/essays/${ESSAY}$`), {

@@ -39,7 +39,7 @@ const row = { id: 'e1', student_id: 's1', student_full_name: '<img onerror=x>', 
 
 describe('Admin Writing Queue native model', () => {
   test('normalizes restorable filters and canonical API scope', () => {
-    assert.deepEqual(normalizeWritingQueueFilters({ status: 'reviewed', cohort_id: ' c1 ', overdue: '1', embed: '1', q: ' Lan ' }), { lane: 'reviewed', page: 1, cohortId: 'c1', overdue: true, embed: true, queueStatus: '', query: 'Lan' });
+    assert.deepEqual(normalizeWritingQueueFilters({ status: 'reviewed', cohort_id: ' c1 ', overdue: '1', embed: '1', q: ' Lan ' }), { lane: 'reviewed', page: 1, pageSize: 25, cohortId: 'c1', overdue: true, embed: true, queueStatus: '', query: 'Lan' });
     assert.equal(writingQueueSearch({ lane: 'reviewed', cohortId: 'c1', overdue: true, embed: false }), 'status=reviewed&cohort_id=c1&overdue=1');
     assert.equal(writingQueueSearch({ lane: 'reviewed', cohortId: 'c1', overdue: true, embed: false, query: 'Lan Anh' }), 'status=reviewed&cohort_id=c1&overdue=1&q=Lan+Anh');
     assert.equal(writingQueueSearch({ lane: 'mock', cohortId: '', overdue: false, embed: true }), 'mocklane=1&embed=1');
@@ -69,13 +69,13 @@ describe('Admin Writing Queue native model', () => {
     assert.equal(isWritingEssayOverdue(row, Date.parse('2026-08-13T00:00:00Z')), true);
     assert.equal(isWritingEssayOverdue({ ...row, status: 'delivered' }, Date.parse('2026-08-13T00:00:00Z')), false);
     assert.deepEqual([writingMockMinimum('task1_academic'), writingMockMinimum('task2')], [150, 250]);
-    assert.equal(writingQueueDestination({ ...row, status: 'grading' }, { lane: 'graded', embed: false }), '/admin/writing/status?essay_id=e1&status=graded');
-    assert.equal(writingQueueDestination({ ...row, status: 'pending', grading_skipped_at: '2026-08-13T00:00:00Z', gradingSkippedAt: '2026-08-13T00:00:00Z' }, { lane: 'mock', embed: false }), '/admin/writing/grade?essay_id=e1&mocklane=1');
-    assert.equal(writingQueueDestination(row, { lane: 'mock', embed: true }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1');
-    assert.equal(writingQueueDestination({ ...row, status: 'pending', gradingSkippedAt: null }, { lane: 'mock', embed: true, queueStatus: 'pending' }), '/admin/writing/status?essay_id=e1&embed=1&mocklane=1&queue_status=pending');
-    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, queueStatus: 'failed' }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1&queue_status=failed');
-    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, queueStatus: 'failed', cohortId: 'c/1', overdue: true }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1&queue_status=failed&cohort_id=c%2F1&overdue=1');
-    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, query: 'Lan Anh' }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1&q=Lan+Anh');
+    assert.equal(writingQueueDestination({ ...row, status: 'grading' }, { lane: 'graded', embed: false }), '/admin/writing/status?essay_id=e1&from=queue');
+    assert.equal(writingQueueDestination({ ...row, status: 'pending', grading_skipped_at: '2026-08-13T00:00:00Z', gradingSkippedAt: '2026-08-13T00:00:00Z' }, { lane: 'mock', embed: false }), '/admin/writing/grade?essay_id=e1&from=queue&mocklane=1');
+    assert.equal(writingQueueDestination(row, { lane: 'mock', embed: true }), '/admin/writing/grade?essay_id=e1&from=queue&mocklane=1&embed=1');
+    assert.equal(writingQueueDestination({ ...row, status: 'pending', gradingSkippedAt: null }, { lane: 'mock', embed: true, queueStatus: 'pending' }), '/admin/writing/status?essay_id=e1&from=queue&mocklane=1&embed=1&queue_status=pending');
+    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, queueStatus: 'failed' }), '/admin/writing/grade?essay_id=e1&from=queue&mocklane=1&embed=1&queue_status=failed');
+    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, queueStatus: 'failed', cohortId: 'c/1', overdue: true }), '/admin/writing/grade?essay_id=e1&from=queue&mocklane=1&cohort_id=c%2F1&overdue=1&embed=1&queue_status=failed');
+    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, query: 'Lan Anh' }), '/admin/writing/grade?essay_id=e1&from=queue&mocklane=1&embed=1&q=Lan+Anh');
     assert.equal(writingQueueDestination(row, { lane: 'mock', embed: true, queueStatus: 'hostile' }).includes('queue_status'), false);
     assert.equal(shouldPollWritingQueue({ lane: 'grading' }), true);
     assert.equal(shouldPollWritingQueue({ lane: 'mock', queueStatus: 'grading' }), true);

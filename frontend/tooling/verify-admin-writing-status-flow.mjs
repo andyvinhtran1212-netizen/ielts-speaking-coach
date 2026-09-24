@@ -86,17 +86,17 @@ check('failed state hiện action vận hành và escape lỗi backend', await p
 
 await page.goto(`${BASE}/admin/writing/status?essay_id=e1&embed=1&mocklane=1&queue_status=pending&cohort_id=c1&overdue=1&q=Lan%20Anh`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Lượt chấm đã thất bại' }).waitFor();
-check('essay mở từ Pending giữ đúng trạng thái/lớp/quá hạn/tìm kiếm khi quay lại Queue', await page.locator('.aws-header').count() === 0 && await page.getByRole('link', { name: 'Mở Queue' }).getAttribute('href') === '/admin/writing/queue?embed=1&mocklane=1&queue_status=pending&cohort_id=c1&overdue=1&q=Lan+Anh');
+check('essay mở từ Pending giữ đúng trạng thái/lớp/quá hạn/tìm kiếm khi quay lại Queue', await page.locator('.aws-header').count() === 0 && await page.getByRole('link', { name: 'Mở Queue' }).getAttribute('href') === '/admin/writing/queue?mocklane=1&cohort_id=c1&overdue=1&embed=1&queue_status=pending&q=Lan+Anh');
 
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, timeline: getComputedStyle(document.querySelector('.aws-timeline')).gridTemplateColumns.split(' ').length, grid: getComputedStyle(document.querySelector('.aws-grid')).gridTemplateColumns.split(' ').length }));
 check('mobile một cột và không tràn viewport', !mobile.overflow && mobile.timeline === 1 && mobile.grid === 1, JSON.stringify(mobile));
 
 for (const queueStatus of ['pending', 'failed']) {
-  await page.goto(`${BASE}/admin/writing/grade?essay_id=error-detail&embed=1&mocklane=1&queue_status=${queueStatus}&cohort_id=c1&overdue=1&q=Lan%20Anh`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${BASE}/admin/writing/grade?essay_id=error-detail&from=queue&embed=1&mocklane=1&queue_status=${queueStatus}&cohort_id=c1&overdue=1&q=Lan%20Anh&page=2&page_size=50`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: 'Không tải được bài viết' }).waitFor();
-  const returnHref = await page.getByRole('link', { name: 'Quay lại queue' }).getAttribute('href');
-  check(`grade load lỗi giữ phạm vi ${queueStatus}/lớp/quá hạn/tìm kiếm`, returnHref === `/admin/writing/queue?embed=1&mocklane=1&queue_status=${queueStatus}&cohort_id=c1&overdue=1&q=Lan%20Anh`, returnHref || 'missing href');
+  const returnHref = await page.getByRole('link', { name: 'Quay lại Writing' }).getAttribute('href');
+  check(`grade load lỗi giữ phạm vi ${queueStatus}/lớp/quá hạn/tìm kiếm/trang`, returnHref === `/admin/writing/queue?mocklane=1&cohort_id=c1&overdue=1&embed=1&queue_status=${queueStatus}&q=Lan+Anh&page=2&page_size=50`, returnHref || 'missing href');
 }
 
 await page.goto(`${BASE}/admin/writing/status`, { waitUntil: 'domcontentloaded' });

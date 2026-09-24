@@ -1,7 +1,8 @@
+import { normalizeWritingNavigation, writingNavigationHref } from './admin-writing-navigation-model.mjs';
+
 const STATUSES = new Set(['pending', 'grading', 'graded', 'reviewed', 'delivered', 'failed']);
 const TERMINAL = new Set(['graded', 'reviewed', 'delivered', 'failed']);
 const TIERS = new Set(['quick', 'standard', 'deep', 'instructor']);
-const LANES = new Set(['grading', 'graded', 'reviewed', 'delivered', 'all']);
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const stringOf = (value) => typeof value === 'string' ? value.trim() : '';
@@ -17,20 +18,23 @@ const validDate = (value) => {
 };
 
 export function normalizeWritingStatusQuery(raw = {}) {
-  const source = objectOf(raw) || {};
-  const mocklane = source.mocklane === true || source.mocklane === '1';
-  const queueStatus = stringOf(source.queueStatus || source.queue_status);
-  const lane = stringOf(source.status);
+  const navigation = normalizeWritingNavigation(raw);
+  const legacyQueueContext = !raw?.from && !raw?.source &&
+    ['mocklane', 'status', 'queue_status', 'queueStatus', 'cohort_id', 'cohortId', 'overdue', 'q', 'query', 'page', 'page_size', 'pageSize']
+      .some((key) => raw?.[key] !== undefined && raw?.[key] !== null && raw?.[key] !== '' && raw?.[key] !== false);
+  const context = navigation.queue;
   return {
-    essayId: stringOf(source.essayId || source.essay_id || source.id),
-    embed: source.embed === true || source.embed === '1',
-    mocklane,
-    lane: !mocklane && LANES.has(lane) ? lane : '',
-    page: Math.max(1, Number.parseInt(String(source.page || '1'), 10) || 1),
-    queueStatus: mocklane && STATUSES.has(queueStatus) ? queueStatus : '',
-    cohortId: stringOf(source.cohortId || source.cohort_id),
-    overdue: source.overdue === true || source.overdue === '1',
-    query: stringOf(source.query || source.q).slice(0, 100),
+    essayId: navigation.essayId,
+    source: legacyQueueContext ? 'queue' : navigation.source,
+    embed: navigation.embed,
+    mocklane: navigation.mocklane,
+    lane: context.lane,
+    page: context.page,
+    pageSize: context.pageSize,
+    queueStatus: context.queueStatus,
+    cohortId: context.cohortId,
+    overdue: context.overdue,
+    query: context.query,
   };
 }
 
@@ -109,18 +113,5 @@ export function writingStatusPhase(status, tier, observedSeconds) {
 
 export function writingStatusHref(kind, query) {
   const normalized = normalizeWritingStatusQuery(query);
-  const params = new URLSearchParams();
-  if (kind === 'grade' && normalized.essayId) params.set('essay_id', normalized.essayId);
-  if (!normalized.mocklane && normalized.lane && normalized.lane !== 'graded') params.set('status', normalized.lane);
-  else if (kind === 'queue' && !normalized.mocklane && !normalized.lane) params.set('status', 'grading');
-  if (normalized.embed) params.set('embed', '1');
-  if (normalized.mocklane) params.set('mocklane', '1');
-  if (normalized.queueStatus) params.set('queue_status', normalized.queueStatus);
-  if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
-  if (normalized.overdue) params.set('overdue', '1');
-  if (normalized.query) params.set('q', normalized.query);
-  if (normalized.page > 1) params.set('page', String(normalized.page));
-  const base = kind === 'grade' ? '/admin/writing/grade' : '/admin/writing/queue';
-  const search = params.toString();
-  return `${base}${search ? `?${search}` : ''}`;
+  return writingNavigationHref(kind === 'grade' ? 'grade' : 'queue', { ...normalized, from: normalized.source });
 }

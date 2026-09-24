@@ -91,6 +91,7 @@ export function AdminWritingQueue() {
     queue_status: params?.get('queue_status') || '',
     q: params?.get('q') || '',
     page: params?.get('page') || '',
+    page_size: params?.get('page_size') || '',
   }) as QueueFilters, [params]);
   const fetchKey = writingQueueFetchKey(filters);
   const keyedFetch = `${profile.id}\u0000${fetchKey}`;
@@ -105,9 +106,8 @@ export function AdminWritingQueue() {
   const [confirm, setConfirm] = useState<QueueConfirm>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [query, setQuery] = useState(filters.query);
-  const pageParam = filters.page;
-  const [page, setPage] = useState(pageParam);
-  const [pageSize, setPageSize] = useState(25);
+  const page = filters.page;
+  const pageSize = filters.pageSize;
   const queueSequences = useRef(new Map<string, number>());
   const cohortSequence = useRef(0);
   const mutationAccount = useRef('');
@@ -181,15 +181,13 @@ export function AdminWritingQueue() {
     if (nextQuery === filters.query) return;
     const timer = window.setTimeout(() => {
       setBanner(null);
-      const search = writingQueueSearch({ ...filters, query: nextQuery });
-      router.replace(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
+      const search = writingQueueSearch({ ...filters, query: nextQuery, page: 1 });
+      router.push(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
     }, 300);
     return () => window.clearTimeout(timer);
   }, [filters, query, router]);
 
   useEffect(() => { setQuery(filters.query); }, [filters.query]);
-
-  useEffect(() => { setPage(pageParam); }, [pageParam]);
 
   useEffect(() => {
     setCohortSnapshot(null);
@@ -225,20 +223,20 @@ export function AdminWritingQueue() {
   const selectedCohortKnown = !filters.cohortId || cohorts.some((cohort) => cohort.id === filters.cohortId);
 
   useEffect(() => { setSelected(new Set()); }, [filters.cohortId, filters.lane, filters.overdue, filters.queueStatus, filters.query]);
-  const changePage = (next: number) => {
+  const changePage = (next: number, correction = false) => {
     const safe = Math.max(1, next);
-    setPage(safe);
-    const search = new URLSearchParams(params?.toString() || '');
-    if (safe === 1) search.delete('page'); else search.set('page', String(safe));
-    router.replace(`/admin/writing/queue${search.size ? `?${search}` : ''}`, { scroll: false });
+    const search = writingQueueSearch({ ...filters, page: safe });
+    const destination = `/admin/writing/queue${search ? `?${search}` : ''}`;
+    if (correction) router.replace(destination, { scroll: false });
+    else router.push(destination, { scroll: false });
   };
-  useEffect(() => { if (totalComplete && page > pageCount) changePage(pageCount); }, [totalComplete, page, pageCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (totalComplete && page > pageCount) changePage(pageCount, true); }, [totalComplete, page, pageCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigate = (next: QueueFilters) => {
     if (busyId) return;
     setBanner(null);
     const search = writingQueueSearch({ ...next, page: 1 });
-    router.replace(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
+    router.push(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
   };
 
   const setLane = (lane: QueueLane) => navigate({ ...filters, lane, overdue: false });
@@ -252,10 +250,10 @@ export function AdminWritingQueue() {
     if (!live) {
       try {
         const ids = visibleRows.map((item) => item.id);
-        sessionStorage.setItem(QUEUE_KEY, JSON.stringify({ ids, i: ids.indexOf(row.id), status: filters.lane === 'all' || filters.lane === 'mock' ? '' : filters.lane }));
+        sessionStorage.setItem(QUEUE_KEY, JSON.stringify({ accountId: profile.id, contextKey: writingQueueSearch(filters), ids, i: ids.indexOf(row.id) }));
       } catch { /* grade workspace falls back to a single essay */ }
     }
-    window.location.href = writingQueueDestination(row, { ...filters, page });
+    window.location.href = writingQueueDestination(row, filters);
   };
 
   const toggleOne = (id: string, on: boolean) => setSelected((previous) => {
@@ -399,7 +397,7 @@ export function AdminWritingQueue() {
           })}</tbody>
         </table>
       </div>}
-      {hasSnapshot && (visibleRows.length > 0 || !totalComplete && page > 1) && <div className="awq-pagination" aria-label="Phân trang hàng chờ"><span>{totalComplete ? `Hiển thị ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} / ${total} bài` : `Trang ${page} · tổng chưa xác nhận`}</span><label><span>Số dòng</span><select value={pageSize} onChange={(event) => { setBanner(null); setPageSize(Number(event.target.value)); changePage(1); }}><option value={25}>25</option><option value={50}>50</option></select></label><div><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { setBanner(null); changePage(page - 1); }} disabled={page === 1}>Trang trước</button><span>Trang {page}{totalComplete ? `/${pageCount}` : ''}</span><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { setBanner(null); changePage(page + 1); }} disabled={totalComplete ? page === pageCount : rows.length < pageSize}>Trang sau</button></div></div>}
+      {hasSnapshot && (visibleRows.length > 0 || !totalComplete && page > 1) && <div className="awq-pagination" aria-label="Phân trang hàng chờ"><span>{totalComplete ? `Hiển thị ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} / ${total} bài` : `Trang ${page} · tổng chưa xác nhận`}</span><label><span>Số dòng</span><select value={pageSize} onChange={(event) => { setBanner(null); navigate({ ...filters, pageSize: Number(event.target.value) }); }}><option value={25}>25</option><option value={50}>50</option></select></label><div><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { setBanner(null); changePage(page - 1); }} disabled={page === 1}>Trang trước</button><span>Trang {page}{totalComplete ? `/${pageCount}` : ''}</span><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { setBanner(null); changePage(page + 1); }} disabled={totalComplete ? page === pageCount : rows.length < pageSize}>Trang sau</button></div></div>}
     </section>
 
     <Dialog open={Boolean(confirm && hasSnapshot)} title={confirmCopy.title} description={confirmCopy.description} busy={Boolean(busyId)} onClose={() => setConfirm(null)} actions={<>
