@@ -1,0 +1,13 @@
+{
+  "batch_id": "LISTENING-0007-B03",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "vi",
+  "target_language": "en",
+  "review_note": "Complete the three-item transfer form of manus:A0.2-018 after batch 01's six practice items. The same English audio, option keys and protected answers remain unchanged.",
+  "items": [
+    {"id":"manus:A0.2-018.T1","source_prompt":"Linh đang rủ hai người cùng làm hay bảo riêng Hoa làm?","source_options":{"A":"Bảo riêng Hoa làm","B":"Rủ hai người cùng làm"},"prompt_en":"Is Linh inviting both of them to do it together, or telling only Hoa to do it?","options_en":{"A":"Telling only Hoa to do it","B":"Inviting both to do it together"}},
+    {"id":"manus:A0.2-018.T2","source_prompt":"Linh muốn cùng làm gì?","source_options":{"A":"Đọc bảng thông báo","B":"Viết tên"},"prompt_en":"What does Linh want them to do together?","options_en":{"A":"Read the noticeboard","B":"Write names"}},
+    {"id":"manus:A0.2-018.T3","source_prompt":"Hoa phản hồi thế nào?","source_options":{"A":"Từ chối","B":"Đồng ý đọc cùng"},"prompt_en":"How does Hoa respond?","options_en":{"A":"She declines","B":"She agrees to read together"}}
+  ]
+}

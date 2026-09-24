@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B06",
+  "status": "draft_pending_owner_review",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Both complete manus:A2.0-067 forms (16 short-answer items). Keep the distinction between a stated cause and an event that happened later; display language does not change answer or self-review policy. Source-context and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:A2.0-067.v0.2.0.practice.q01","source_prompt":"What was Mai going to do, and what time did her class start?","prompt_vi":"Mai định làm gì, và lớp của cô ấy bắt đầu lúc mấy giờ?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q02","source_prompt":"Why did Mai leave early?","prompt_vi":"Vì sao Mai rời đi sớm?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q03","source_prompt":"Which material had she left behind, and where was it?","prompt_vi":"Mai đã bỏ quên tài liệu gì, và nó ở đâu?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q04","source_prompt":"Where was Mai when she noticed the missing notes?","prompt_vi":"Mai đang ở đâu khi nhận ra mình thiếu ghi chú?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q05","source_prompt":"What could her brother not do?","prompt_vi":"Anh/em trai của Mai đã không thể làm việc gì?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q06","source_prompt":"How did Mai travel home to collect the notes?","prompt_vi":"Mai về nhà lấy ghi chú bằng phương tiện gì?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q07","source_prompt":"Why was the taxi journey slow?","prompt_vi":"Vì sao chuyến taxi đi chậm?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q08","source_prompt":"How late did Mai arrive at class?","prompt_vi":"Mai đến lớp muộn bao lâu?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q09","source_prompt":"Who had already checked the projector when Mai arrived?","prompt_vi":"Ai đã kiểm tra máy chiếu trước khi Mai đến?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q10","source_prompt":"What two materials did Mai use to give her presentation?","prompt_vi":"Mai dùng hai loại tài liệu nào để thuyết trình?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q11","source_prompt":"What did the class do after the presentation?","prompt_vi":"Lớp đã làm gì sau bài thuyết trình?"},
+    {"id":"manus:A2.0-067.v0.2.0.practice.q12","source_prompt":"Summarise the missing-material problem, how Mai dealt with it, and whether the presentation went ahead.","prompt_vi":"Tóm tắt việc Mai thiếu tài liệu, cách cô ấy xử lý và bài thuyết trình có diễn ra hay không."},
+    {"id":"manus:A2.0-067.v0.2.0.transfer.q01","source_prompt":"What prevented the picnic from taking place at the riverside?","prompt_vi":"Điều gì khiến buổi dã ngoại không thể diễn ra bên bờ sông?"},
+    {"id":"manus:A2.0-067.v0.2.0.transfer.q02","source_prompt":"How did the speaker contact the friends, and which new meeting place did she suggest?","prompt_vi":"Người nói liên lạc với bạn bè bằng cách nào, và đề xuất địa điểm gặp mới ở đâu?"},
+    {"id":"manus:A2.0-067.v0.2.0.transfer.q03","source_prompt":"What information did she send to help her friends find the new place?","prompt_vi":"Cô ấy gửi thông tin gì để giúp bạn bè tìm địa điểm mới?"},
+    {"id":"manus:A2.0-067.v0.2.0.transfer.q04","source_prompt":"How late did the group meet, and did they still have the picnic together?","prompt_vi":"Nhóm gặp nhau muộn bao lâu, và họ vẫn dã ngoại cùng nhau chứ?"}
+  ]
+}
