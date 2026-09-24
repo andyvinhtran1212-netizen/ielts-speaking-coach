@@ -15,6 +15,7 @@ if str(_BACKEND) not in sys.path:
 
 from services.listening_editorial_validation import (  # noqa: E402
     EditorialValidationError,
+    SOURCE_MANIFEST_LOCKS,
     build_approved_translation_projection,
     source_catalog_from_plans,
 )
@@ -27,10 +28,6 @@ from services.listening_package_import import (  # noqa: E402
 
 # Owner-approved v1.0 source lock recorded in LISTENING-0007/REVIEW.md.
 SOURCE_RELEASE_INDEX_SHA256 = "05ade5ea7981a3dd4c1e5b34e6a1a8ad309aaa347ba6907a85df6b46f6de8d71"
-SOURCE_MANIFEST_LOCKS = {
-    "general-listening-practice-v1.0.0": "c8686083b2843f8e1ddabd27cb1b351c6d3940e6c67ca297d5869e869b87506c",
-    "ielts-listening-practice-v1.0.0": "209cb7e3eedd4f4935e264a57b4904aaa5f7c6ed841b238b4cbe40e5d0f6a7b5",
-}
 
 
 def main(argv=None) -> int:

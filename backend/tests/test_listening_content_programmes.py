@@ -11,6 +11,7 @@ import pytest
 
 from services import listening_package_import as importer
 from services import listening_test_grader as grader
+from services.listening_editorial_validation import SOURCE_MANIFEST_LOCKS
 from scripts import import_listening_content_package as import_command
 
 
@@ -171,6 +172,98 @@ def _tree_hashes(root: Path) -> dict[str, str]:
         for path in root.rglob("*")
         if path.is_file()
     }
+
+
+def _add_editorial_batch(release_root: Path, *, status: str = "approved_by_owner_not_published") -> None:
+    package_root = release_root / "general" / "fixture"
+    relative = "protected/editorial/translation-batch-01.json"
+    _write_json(package_root / relative, {
+        "batch_id": "LISTENING-0007-B01",
+        "status": status,
+        "source_package_id": "general-listening-practice-v1.0.0",
+        "source_language": "en",
+        "target_language": "vi",
+        "items": [{
+            "id": "item-1",
+            "source_prompt": "Choose the answer.",
+            "source_options": {"A": "One", "B": "Two"},
+            "prompt_vi": "Chọn đáp án.",
+            "options_vi": {"A": "Một", "B": "Hai"},
+        }],
+    })
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["editorial_batches"] = [relative]
+    manifest["editorial_source_package_id"] = "general-listening-practice-v1.0.0"
+    manifest["editorial_source_manifest_sha256"] = SOURCE_MANIFEST_LOCKS["general-listening-practice-v1.0.0"]
+    manifest["artifact_hashes"][relative] = "0" * 64
+    _write_json(manifest_path, manifest)
+    _rebind_manifest(release_root)
+
+
+def test_new_revision_projects_only_manifest_bound_approved_text(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    _add_editorial_batch(release_root)
+    before = _tree_hashes(release_root)
+    plan = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    question = plan.forms[0]["exercise_payload"]["questions"][0]
+    assert question["prompt"] == "Choose the answer."
+    assert question["options"] == {"A": "One", "B": "Two"}
+    assert question["editorial_translation"] == {
+        "status": "approved",
+        "source_item_id": "item-1",
+        "source_language": "en",
+        "target_language": "vi",
+        "source_prompt": "Choose the answer.",
+        "source_options": {"A": "One", "B": "Two"},
+        "prompt": "Chọn đáp án.",
+        "options": {"A": "Một", "B": "Hai"},
+    }
+    assert "answer" not in question["editorial_translation"]
+    assert plan.forms[0]["exercise_payload"]["answers"][0]["answer"] == "A"
+    assert plan.report["editorial_approved_items"] == 1
+    assert _tree_hashes(release_root) == before
+
+
+@pytest.mark.parametrize(("mutation", "message"), [
+    ("pending", "chưa được duyệt"),
+    ("source_prompt", "Source prompt mismatch"),
+    ("option_key", "Target option keys"),
+    ("source_hash", "source identity/hash"),
+    ("in_place_source_package", "source identity/hash"),
+    ("unlisted_path", "protected inventory"),
+])
+def test_new_revision_editorial_fail_closed(tmp_path: Path, mutation: str, message: str):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    _add_editorial_batch(release_root, status=(
+        "draft_pending_owner_review" if mutation == "pending" else "approved_by_owner_not_published"
+    ))
+    package_root = release_root / "general" / "fixture"
+    batch_path = package_root / "protected/editorial/translation-batch-01.json"
+    manifest_path = package_root / "manifest.json"
+    if mutation in {"source_prompt", "option_key"}:
+        batch = json.loads(batch_path.read_text(encoding="utf-8"))
+        if mutation == "source_prompt":
+            batch["items"][0]["source_prompt"] = "Changed."
+        else:
+            batch["items"][0]["options_vi"] = {"B": "Hai"}
+        _write_json(batch_path, batch)
+    elif mutation in {"source_hash", "in_place_source_package", "unlisted_path"}:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if mutation == "source_hash":
+            manifest["editorial_source_manifest_sha256"] = "f" * 64
+        elif mutation == "in_place_source_package":
+            manifest["package_id"] = "general-listening-practice-v1.0.0"
+            index_path = release_root / "release-index.json"
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+            index["programmes"][0]["packages"][0]["package_id"] = manifest["package_id"]
+            _write_json(index_path, index)
+        else:
+            manifest["editorial_batches"] = ["protected/source-lessons/lesson-1.json"]
+        _write_json(manifest_path, manifest)
+    _rebind_manifest(release_root)
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.build_import_plan(importer.discover_packages(release_root)[0])
 
 
 def test_publish_ready_package_passes_all_fr001_gates_and_dry_run_is_pure(

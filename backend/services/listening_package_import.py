@@ -20,6 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
+from services.listening_editorial_validation import (
+    EditorialValidationError,
+    SOURCE_MANIFEST_LOCKS,
+    SOURCE_PROGRAMMES,
+    build_approved_translation_projection,
+)
 from services.listening_test_grader import normalize_answer
 
 
@@ -541,6 +547,57 @@ def _visual_storage_path(package_id: str, manifest_sha: str, source_path: str) -
     return f"packages/{package_id}/{manifest_sha}/visuals/{suffix}-{name}"
 
 
+def _approved_editorial_projection(
+    location: PackageLocation,
+    manifest: dict[str, Any],
+    forms: list[dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """Load only manifest-hashed, owner-approved display data for a new revision."""
+    paths = manifest.get("editorial_batches")
+    source_package_id = manifest.get("editorial_source_package_id")
+    source_manifest_sha = manifest.get("editorial_source_manifest_sha256")
+    if paths is None:
+        if source_package_id is not None or source_manifest_sha is not None:
+            raise PackageValidationError("Editorial source thiếu editorial_batches")
+        return {}, {}
+    if not isinstance(paths, list) or not paths or len(paths) > 100 or len(paths) != len(set(map(str, paths))):
+        raise PackageValidationError("editorial_batches không hợp lệ")
+    if (not isinstance(source_package_id, str) or source_package_id == location.package_id
+            or SOURCE_PROGRAMMES.get(source_package_id) != location.programme_id
+            or source_manifest_sha != SOURCE_MANIFEST_LOCKS.get(source_package_id)):
+        raise PackageValidationError("Editorial source identity/hash không hợp lệ")
+    declared_hashes = manifest["artifact_hashes"]
+    batches = []
+    for raw_path in paths:
+        relative = _safe_relative_path(raw_path, label="editorial_batch")
+        normalized = relative.as_posix()
+        if (not normalized.startswith("protected/editorial/")
+                or normalized not in declared_hashes or relative.suffix != ".json"):
+            raise PackageValidationError(f"Editorial batch không thuộc protected inventory: {normalized}")
+        batches.append(_load_json(_resolve_declared(location.package_root, normalized, label="editorial_batch")))
+    catalog: dict[str, dict[str, Any]] = {}
+    for form in forms:
+        for question in form["exercise_payload"]["questions"]:
+            item_id = question["source_item_id"]
+            if item_id in catalog:
+                raise PackageValidationError(f"Editorial source item trùng form: {item_id}")
+            catalog[item_id] = {"prompt": question["prompt"], "options": question["options"]}
+    try:
+        projected, report = build_approved_translation_projection(
+            {source_package_id: catalog}, batches,
+            expected_manifest_sha256={source_package_id: SOURCE_MANIFEST_LOCKS[source_package_id]},
+            actual_manifest_sha256={source_package_id: source_manifest_sha},
+        )
+    except EditorialValidationError as exc:
+        raise PackageValidationError(f"Editorial projection không hợp lệ: {exc}") from exc
+    if report["pending_items"] or not report["approved_items"]:
+        raise PackageValidationError("Editorial package chứa batch chưa được duyệt hoặc rỗng")
+    return {
+        item_id: payload for (package_id, item_id), payload in projected.items()
+        if package_id == source_package_id
+    }, report
+
+
 def build_import_plan(location: PackageLocation, *, imported_by: str | None = None) -> ImportPlan:
     root = location.package_root
     manifest = _verify_manifest(location)
@@ -922,6 +979,16 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                 ],
             })
 
+    editorial_projection, editorial_report = _approved_editorial_projection(
+        location, manifest, forms,
+    )
+    if editorial_projection:
+        for form in forms:
+            for question in form["exercise_payload"]["questions"]:
+                translation = editorial_projection.get(question["source_item_id"])
+                if translation:
+                    question["editorial_translation"] = translation
+
     actual_counts = {
         "lessons": len(lessons),
         "forms": len(forms),
@@ -950,6 +1017,9 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
         "transform_version": TRANSFORM_VERSION,
         "imported_by": imported_by,
     }
+    if editorial_report:
+        package["validation_summary"]["editorial_approved_items"] = editorial_report["approved_items"]
+        package["validation_summary"]["editorial_source_manifest_sha256"] = manifest["editorial_source_manifest_sha256"]
     report = {
         "package_id": location.package_id,
         "programme_id": location.programme_id,
@@ -968,6 +1038,10 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
         "transform_version": TRANSFORM_VERSION,
         "dry_run_mutations": 0,
     }
+    if editorial_report:
+        report["editorial_approved_items"] = editorial_report["approved_items"]
+        report["editorial_missing_items"] = editorial_report["missing_items"]
+        report["editorial_source_manifest_sha256"] = manifest["editorial_source_manifest_sha256"]
     return ImportPlan(location, package, lessons, stimuli, forms, list(visuals.values()), report)
 
 

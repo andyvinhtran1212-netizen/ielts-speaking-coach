@@ -21,6 +21,18 @@ _ITEM_FIELDS = frozenset({
     "options_en", "options_vi", "unchanged_options_reviewed",
 })
 
+# Approved v1.0 source manifests for LISTENING-0007. A revision may carry
+# these identities, but the separate source-package validator still verifies
+# the actual v1.0 bytes and media before release.
+SOURCE_MANIFEST_LOCKS = {
+    "general-listening-practice-v1.0.0": "c8686083b2843f8e1ddabd27cb1b351c6d3940e6c67ca297d5869e869b87506c",
+    "ielts-listening-practice-v1.0.0": "209cb7e3eedd4f4935e264a57b4904aaa5f7c6ed841b238b4cbe40e5d0f6a7b5",
+}
+SOURCE_PROGRAMMES = {
+    "general-listening-practice-v1.0.0": "general-listening-practice",
+    "ielts-listening-practice-v1.0.0": "ielts-listening-practice",
+}
+
 
 def validate_question_batches(
     source_questions: dict[str, dict[str, dict[str, Any]]],
