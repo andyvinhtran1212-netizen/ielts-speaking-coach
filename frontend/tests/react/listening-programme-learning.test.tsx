@@ -47,7 +47,9 @@ it('lets a learner answer one question at a time, revise it, and change verified
   expect((screen.getByRole('radio', { name: /Rủ cả hai cùng làm/ }) as HTMLInputElement).checked).toBe(true);
 
   fireEvent.click(screen.getByRole('button', { name: 'English' }));
-  expect(screen.getByText(/Is Mai inviting both of them/)).toBeTruthy();
+  expect(screen.getByText(/Is Mai inviting both of them/).getAttribute('lang')).toBe('en');
+  expect(screen.getByText('Inviting both to act together').closest('[lang="en"]')).toBeTruthy();
+  expect(screen.getAllByRole('button', { name: 'Đối chiếu câu này' })[0].closest('[lang="en"]')).toBeNull();
   expect((screen.getByRole('radio', { name: /Inviting both to act together/ }) as HTMLInputElement).checked).toBe(true);
   expect(screen.queryByText(/Đáp án đối chiếu|Transcript tham khảo/)).toBeNull();
 });
@@ -122,6 +124,8 @@ it('shows only the revealed question, preserves the first answer, and allows a l
   expect(comparison.getByText('B')).toBeTruthy();
   expect(comparison.getAllByText('A')).toHaveLength(2);
   expect(screen.getByText(/Lượt học có hỗ trợ/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'English' }));
+  expect(screen.getByText('Mai đang rủ cả hai.').closest('[lang="en"]')).toBeNull();
 });
 
 it('does not request protected feedback when saving the first answer fails', async () => {
