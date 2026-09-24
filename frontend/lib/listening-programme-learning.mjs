@@ -3,8 +3,17 @@
 const englishPilot = {
   ...Object.fromEntries(Array.from({ length: 6 }, (_, index) => {
     const number = index + 1;
+    const sourceOptions = [
+      { a: 'in', b: 'on', c: 'at' },
+      { a: 'at', b: 'in', c: 'on' },
+      { a: 'on', b: 'at', c: 'in' },
+      { a: 'in', b: 'at', c: 'on' },
+      { a: 'at', b: 'on', c: 'in' },
+      { a: 'on', b: 'in', c: 'at' },
+    ][index];
     return [`manus:A0-38.v0.2.0.sounds.q${String(number).padStart(2, '0')}`, {
       sourcePrompt: `Nghe từ số${number}. Chọn từ tiếng Anh đã nghe.`,
+      sourceOptions,
       prompt: `Listen to word ${number}. Choose the English word you hear.`,
     }];
   })),
@@ -24,19 +33,63 @@ function matchesSource(question, entry) {
     ));
 }
 
+function exactOptions(source, candidate) {
+  if (!source || typeof source !== 'object' || Array.isArray(source) ||
+      !candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+  const keys = Object.keys(source);
+  return keys.length === Object.keys(candidate).length &&
+    keys.every((key) => candidate[key] === source[key]);
+}
+
+function translatedOptionsValid(source, translated) {
+  if (!translated || typeof translated !== 'object' || Array.isArray(translated)) return false;
+  const keys = Object.keys(source);
+  return keys.length === Object.keys(translated).length &&
+    keys.every((key) => typeof translated[key] === 'string' && translated[key].trim());
+}
+
+function reviewedTranslation(question) {
+  if (question.editorial_translation !== undefined) {
+    const entry = question.editorial_translation;
+    const sourceOptions = question.options || {};
+    if (!entry || entry.status !== 'approved' || entry.source_item_id !== question.source_item_id ||
+        !['en', 'vi'].includes(entry.source_language) || !['en', 'vi'].includes(entry.target_language) ||
+        entry.source_language === entry.target_language || entry.source_prompt !== question.prompt ||
+        !exactOptions(sourceOptions, entry.source_options) ||
+        typeof entry.prompt !== 'string' || !entry.prompt.trim()) return null;
+    const hasOptions = Object.keys(sourceOptions).length > 0;
+    if (hasOptions && (entry.unchanged_options_reviewed === true) === (entry.options !== undefined)) return null;
+    if (entry.options !== undefined && !translatedOptionsValid(sourceOptions, entry.options)) return null;
+    if (!hasOptions && (entry.options !== undefined || entry.unchanged_options_reviewed !== undefined)) return null;
+    if (question.visual_url && (
+      typeof entry.visual_url !== 'string' || !entry.visual_url ||
+      typeof entry.visual_accessibility !== 'string' || !entry.visual_accessibility.trim()
+    )) return null;
+    return entry;
+  }
+  const pilot = englishPilot[question.source_item_id];
+  if (question.visual_url) return null;
+  return matchesSource(question, pilot) ? {
+    status: 'approved', source_language: 'vi', target_language: 'en',
+    prompt: pilot.prompt, options: pilot.options,
+  } : null;
+}
+
 export function availableQuestionLanguages(questions) {
-  const translated = questions.length > 0 && questions.every((question) => {
-    const entry = englishPilot[question.source_item_id];
-    return matchesSource(question, entry);
-  });
+  const translated = questions.length > 0 && questions.every((question) => reviewedTranslation(question));
   return translated ? ['vi', 'en'] : [];
 }
 
 export function displayQuestion(question, language) {
-  if (language !== 'en') return question;
-  const entry = englishPilot[question.source_item_id];
-  if (!matchesSource(question, entry)) return question;
-  return { ...question, prompt: entry.prompt, options: entry.options ? { ...question.options, ...entry.options } : question.options };
+  const entry = reviewedTranslation(question);
+  if (!entry || language !== entry.target_language) return question;
+  return {
+    ...question,
+    prompt: entry.prompt,
+    options: entry.options ? { ...entry.options } : question.options,
+    visual_url: entry.visual_url || question.visual_url,
+    visual_accessibility: entry.visual_accessibility || question.visual_accessibility,
+  };
 }
 
 export function groupProgrammeQuestions(questions) {

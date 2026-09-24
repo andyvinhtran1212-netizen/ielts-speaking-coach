@@ -10,7 +10,7 @@ import { createProgrammeReplayController } from '@/lib/listening-programme-repla
 import type { ListeningGuidedStateWire, ListeningProgrammePlayerWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
-interface Question { q_num: number; source_item_id: string; prompt: string; response_type: string; options: Record<string, string>; visual_url?: string; visual_accessibility?: string }
+interface Question { q_num: number; source_item_id: string; prompt: string; response_type: string; options: Record<string, string>; visual_url?: string; visual_accessibility?: string; editorial_translation?: unknown }
 interface FormData { title: string; programmeId: string; lessonId: string; replayPolicy: string; audioUrl: string; questions: Question[]; guidanceAvailable: boolean }
 type FeedbackItem = NonNullable<ListeningGuidedStateWire['items']>[number];
 type LoadState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; form: FormData; attemptId: string };
@@ -70,7 +70,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       const payload = row(exercise?.payload);
       const questions = (Array.isArray(payload.questions) ? payload.questions : []).map((value) => {
         const question = row(value); const options = row(question.options);
-        return { q_num: Number(question.q_num), source_item_id: String(question.source_item_id || ''), prompt: String(question.prompt || ''), response_type: String(question.response_type || ''), options: Object.fromEntries(Object.entries(options).map(([key, option]) => [key, String(option)])), visual_url: question.visual_url ? String(question.visual_url) : undefined, visual_accessibility: question.visual_accessibility ? String(question.visual_accessibility) : undefined };
+        return { q_num: Number(question.q_num), source_item_id: String(question.source_item_id || ''), prompt: String(question.prompt || ''), response_type: String(question.response_type || ''), options: Object.fromEntries(Object.entries(options).map(([key, option]) => [key, String(option)])), visual_url: question.visual_url ? String(question.visual_url) : undefined, visual_accessibility: question.visual_accessibility ? String(question.visual_accessibility) : undefined, editorial_translation: question.editorial_translation };
       }).filter((question) => question.q_num > 0);
       const restored: Record<number, string> = {};
       for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
@@ -273,7 +273,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       <section className="programme-learning-stage" aria-label="Câu hỏi luyện nghe">
         <div className="programme-learning-stage__header"><h2 tabIndex={-1} ref={groupHeadingRef}>{mode === 'guided' ? `Tập trung vào câu ${visibleQuestions[0]?.q_num}` : 'Nghe và trả lời theo mạch'}</h2><p>{mode === 'guided' ? `Câu ${selectedGroup + 1}/${groups.length}` : 'Trả lời từng câu, đối chiếu ngay và sửa khi cần.'}</p></div>
         <div className="programme-questions">
-      {visibleQuestions.map((sourceQuestion) => { const question = displayQuestion(sourceQuestion, activeLanguage) as Question; const item = feedback[question.q_num]; const revealing = revealStatus[question.q_num] === 'revealing'; return <article className="programme-question" key={question.q_num}>
+      {visibleQuestions.map((sourceQuestion) => { const question = languages.length ? displayQuestion(sourceQuestion, activeLanguage) as Question : sourceQuestion; const item = feedback[question.q_num]; const revealing = revealStatus[question.q_num] === 'revealing'; return <article className="programme-question" key={question.q_num}>
         <span className="programme-question__number">{question.q_num}</span><div className="programme-question__body" lang={languages.length ? activeLanguage : undefined}><p>{question.prompt}</p>
         {question.visual_url ? <img src={question.visual_url} alt={question.visual_accessibility || 'Sơ đồ cho câu hỏi'} /> : null}
         {['single_choice', 'map_label'].includes(question.response_type) ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="radio" name={`q-${question.q_num}`} checked={answers[question.q_num] === key} disabled={submitting || revealing} onChange={() => update(question.q_num, key, true)} /><span><strong>{key}</strong>{label}</span></label>)}</div> : null}

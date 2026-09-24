@@ -63,6 +63,29 @@ it('keeps source language when a form has no complete reviewed translation', asy
   expect(screen.getByText(/Đang hiển thị bản gốc/)).toBeTruthy();
 });
 
+it('does not partially translate a form when another question is still pending', async () => {
+  const mixed = [
+    {
+      q_num: 1, source_item_id: 'place-1', prompt: 'Which place is mentioned?', response_type: 'single_choice',
+      options: { A: 'Library', B: 'Museum' },
+      editorial_translation: {
+        status: 'approved', source_item_id: 'place-1', source_language: 'en', target_language: 'vi',
+        source_prompt: 'Which place is mentioned?', source_options: { A: 'Library', B: 'Museum' },
+        prompt: 'Địa điểm nào được nhắc đến?', options: { A: 'Thư viện', B: 'Bảo tàng' },
+      },
+    },
+    { q_num: 2, source_item_id: 'place-2', prompt: 'What else is mentioned?', response_type: 'written', options: {} },
+  ];
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state')
+    ? { attempt_id: 'attempt-1', assisted: false, items: [] }
+    : { ...programmeTest, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: mixed } }] }] });
+  render(<ProgrammeFormRunner testId="test-mixed" />);
+  await screen.findByText('Which place is mentioned?');
+  expect(screen.getByText('What else is mentioned?')).toBeTruthy();
+  expect(screen.queryByText('Địa điểm nào được nhắc đến?')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'English' })).toBeNull();
+});
+
 it('shows only the revealed question, preserves the first answer, and allows a later revision', async () => {
   render(<ProgrammeFormRunner testId="test-1" />);
   await screen.findByText(questions[0].prompt);
