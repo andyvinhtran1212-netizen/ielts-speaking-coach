@@ -5384,6 +5384,20 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                             "Không thể tải sơ đồ của bài nghe — vui lòng thử lại sau.",
                         )
                     question["visual_url"] = visual_url
+                translation = question.get("editorial_translation")
+                if isinstance(translation, dict):
+                    translation = dict(translation)
+                    translation.pop("visual_url", None)
+                    translated_storage_path = translation.pop("visual_storage_path", None)
+                    if translated_storage_path:
+                        translated_url = _sign_programme_visual_url(translated_storage_path)
+                        if not translated_url:
+                            raise HTTPException(
+                                503,
+                                "Không thể tải sơ đồ của bài nghe — vui lòng thử lại sau.",
+                            )
+                        translation["visual_url"] = translated_url
+                    question["editorial_translation"] = translation
                 questions.append(question)
             payload["questions"] = questions
             exercise["payload"] = payload

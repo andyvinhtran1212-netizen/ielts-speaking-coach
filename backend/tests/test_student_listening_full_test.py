@@ -1603,6 +1603,51 @@ def test_programme_visual_signing_failure_fails_the_whole_player(monkeypatch):
     assert "sơ đồ" in str(exc.value.detail)
 
 
+@pytest.mark.parametrize("translation_signs", [True, False])
+def test_programme_translated_visual_is_signed_or_fails_closed(monkeypatch, translation_signs):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only")
+    fake.tables["listening_content"].append({
+        "id": "content-bilingual-map", "test_id": test["id"], "section_num": 1,
+        "title": "Map form", "transcript": "stub", "metadata": {},
+    })
+    fake.tables["listening_exercises"].append({
+        "id": "exercise-bilingual-map", "content_id": "content-bilingual-map",
+        "exercise_type": "mcq", "order_num": 1,
+        "payload": {
+            "variant": "programme_form_v1",
+            "questions": [{
+                "q_num": 1, "prompt": "Label the map",
+                "visual_storage_path": "packages/pkg/visuals/map.en.svg",
+                "editorial_translation": {
+                    "status": "approved", "prompt": "Gắn nhãn sơ đồ",
+                    "visual_storage_path": "packages/pkg/visuals/map.vi.svg",
+                    "visual_url": "https://untrusted.test/map.svg",
+                    "visual_accessibility": "Sơ đồ tiếng Việt",
+                },
+            }],
+        },
+    })
+    monkeypatch.setattr(
+        listening_router, "_sign_programme_visual_url",
+        lambda path: f"https://storage.test/{path}" if translation_signs or path.endswith("map.en.svg") else None,
+    )
+
+    if not translation_signs:
+        with pytest.raises(HTTPException) as exc:
+            _run(listening_router.get_published_listening_test(test["id"], authorization=authz))
+        assert exc.value.status_code == 503
+        return
+
+    out = _run(listening_router.get_published_listening_test(test["id"], authorization=authz))
+    question = out["sections"][0]["exercises"][0]["payload"]["questions"][0]
+    assert question["visual_url"].endswith("map.en.svg")
+    assert question["editorial_translation"]["visual_url"].endswith("map.vi.svg")
+    assert "untrusted.test" not in json.dumps(question)
+    assert question["editorial_translation"]["visual_accessibility"] == "Sơ đồ tiếng Việt"
+    assert "visual_storage_path" not in json.dumps(question)
+
+
 def test_once_playback_is_attempt_scoped_and_blocks_a_second_browser(monkeypatch):
     fake, authz = _patch(monkeypatch)
     test_row = _seed_test(
