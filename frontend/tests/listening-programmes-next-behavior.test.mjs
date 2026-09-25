@@ -79,6 +79,13 @@ test('report-only result never presents an IELTS band', () => {
   assert.match(result, /replayController\.current\?\.dispose\(\)/);
 });
 
+test('historical results return to the current programme library, not an archived lesson', () => {
+  const result = read('app', '(authed-listening-review)', 'listening', 'programmes', 'result', '[attemptId]', 'programme-result.tsx');
+  assert.match(result, /programmeLibraryPath = result\.programmeId === 'general-listening-practice' \? '\/listening\/general' : result\.programmeId === 'ielts-listening-practice' \? '\/listening\/ielts' : '\/listening'/);
+  assert.match(result, /href=\{programmeLibraryPath\}>← Thư viện chương trình/);
+  assert.doesNotMatch(result, /href=\{result\.lessonId/);
+});
+
 test('programme UI has complete loading error empty and partial-data states', () => {
   const library = read('app', '(authed-listening)', 'listening', 'programme-library.tsx');
   assert.match(library, /Đang tải bài học/);
