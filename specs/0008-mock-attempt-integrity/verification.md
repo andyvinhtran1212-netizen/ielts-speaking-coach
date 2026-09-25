@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | FR-001 | kind=test; ref=frontend/tests/mock-exam-next-behavior.test.mjs, frontend/tests/reading-exam-native-controller.test.mjs, frontend/tests/listening-test-native-controller.test.mjs; gap=bridge timeout and attach rejection journey | PENDING |
 | FR-002 | kind=test; ref=backend/tests/test_mock_exam_workflow.py, frontend/tests/mock-live-console-boot.test.mjs; local preflight, lookup-failure, late-orphan/repair and admin gate tests pass; gap=exact-SHA staging journey | PENDING |
-| FR-003 | kind=test; ref=backend/tests/test_mock_exam_workflow.py; local blank, linked, idempotent, and batch-query tests pass; gap=exact-SHA staging and production journey | PENDING |
+| FR-003 | kind=test; ref=backend/tests/test_mock_exam_workflow.py; local blank, linked, idempotent, missing/malformed clock, and batch-query tests pass; gap=exact-SHA staging and production journey | PENDING |
 
 ## Contract evidence
 

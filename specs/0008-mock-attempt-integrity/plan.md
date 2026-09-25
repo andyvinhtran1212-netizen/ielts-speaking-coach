@@ -15,7 +15,8 @@
   No route shape, database column, migration, or RLS policy changes.
 - The preflight reads only the configured test, learner, active status,
   nullable sitting link, and attempt start. It batches candidate reads by
-  learner set and pages the result; it does not mutate candidate rows.
+  learner set and pages the result; it does not mutate candidate rows. A missing
+  or malformed section start rejects a blank-paper decision.
 - Existing deployed clients remain compatible. Backend protection is additive;
   new clients wait for attachment before showing an attempt.
 

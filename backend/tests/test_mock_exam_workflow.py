@@ -1027,6 +1027,21 @@ def test_late_orphan_blocks_advance_until_scoped_repair_and_resweep(fake_db, svc
     svc.advance_section(exam["id"], "admin-1", expected_section="reading")
 
 
+@pytest.mark.parametrize("bad_clock", [None, "not-a-timestamp"])
+def test_sequential_missing_section_clock_cannot_collect_blank(fake_db, svc, bad_clock):
+    exam = _seed_exam(fake_db, listening=False)
+    sitting = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    fake_db.table("mock_exams").update({
+        "reading_started_at": bad_clock,
+    }).eq("id", exam["id"]).execute()
+
+    with pytest.raises(svc.MockExamError, match="chưa thu bài"):
+        svc.collect_preflight(exam["id"], "reading")
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+    assert svc.get_published_exam_by_id(exam["id"])["collected_section"] is None
+
+
 def test_force_collect_skips_already_submitted_attempt(fake_db, svc):
     """The client's own submit beat the sweep — force-collect must not
     re-grade (idempotent, no wasted work / no risk of overwriting)."""
@@ -4590,6 +4605,22 @@ def test_retake_reaper_batches_orphan_check_and_counts_only_collected(fake_db, s
     assert len(attempt_lookups) == 1
     assert svc.get_sitting(orphan_sitting["id"]).get("reading_submitted_at") is None
     assert svc.get_sitting(blank_sitting["id"])["reading_submitted_at"] is not None
+
+
+@pytest.mark.parametrize("bad_clock", [None, "not-a-timestamp"])
+def test_retake_missing_section_clock_cannot_collect_blank(fake_db, svc, bad_clock):
+    user_id = uuid4()
+    exam = _seed_retake(fake_db, user_id, ["reading"])
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    svc.start_section(sitting["id"], user_id, "reading")
+    _backdate_sitting(fake_db, sitting["id"],
+                      reading_started_at=bad_clock,
+                      retake_open_until=(datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat())
+
+    result = svc.reap_expired_retake_sittings(grace_seconds=0)
+    assert result["collected"] == 0
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+    assert svc.get_sitting(sitting["id"])["status"] != "all_submitted"
 
 
 def test_retake_reaper_skips_section_still_in_time(fake_db, svc):

@@ -2684,10 +2684,14 @@ def _unlinked_active_attempts_by_sitting(
             continue
         anchor = sitting if is_retake(exam) else exam
         started = _parse_ts(anchor.get(f"{section}_started_at"))
-        if started is not None:
-            by_user.setdefault(str(sitting["user_id"]), []).append(
-                (str(sitting["id"]), started),
+        if started is None:
+            raise MockExamError(
+                f"Thiếu mốc bắt đầu phần {section} cho sitting {sitting['id']} — "
+                "chưa thể xác nhận bài trắng."
             )
+        by_user.setdefault(str(sitting["user_id"]), []).append(
+            (str(sitting["id"]), started),
+        )
     if not by_user:
         return {}
 
