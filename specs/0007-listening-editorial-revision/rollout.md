@@ -31,7 +31,10 @@
 1. A named release operator confirms the delegated decision, exact v1.1
    manifest, unpublished import, Storage attestation and live release SHA.
    Do not use the synthetic DO-NOT-PUBLISH candidate.
-2. With service-role access, set the exact v1.0 package gate
+2. With the database-owner `DATABASE_URL` used by the advisory-locked migration
+   runner, first verify the intended Supabase project ref. Do not use the
+   Supabase `service_role`, which has no grant on this operator-only table.
+   In a transaction, set the exact v1.0 package gate
    `listening_programme_start_drain_gates.draining=true`. Read back the row;
    verify new starts are rejected while an owned existing attempt can still
    save and resume. The gate row lock orders in-flight inserts before the

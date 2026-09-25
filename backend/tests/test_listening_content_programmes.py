@@ -594,7 +594,10 @@ def test_editorial_cli_fails_before_db_without_source_package(
     )
     monkeypatch.setattr(
         sys, "argv",
-        ["import-listening", "--release-root", str(release_root), "--commit"],
+        [
+            "import-listening", "--release-root", str(release_root),
+            "--source-release-root", str(release_root), "--commit",
+        ],
     )
 
     with pytest.raises(importer.PackageValidationError, match="Không tìm thấy đúng một package"):
@@ -620,12 +623,34 @@ def test_editorial_cli_dry_run_compares_source_before_attesting(
         {source.location.package_id: source.location.manifest_sha256},
     )
     monkeypatch.setattr(import_command, "_admin", lambda: pytest.fail("dry run touched DB"))
-    monkeypatch.setattr(sys, "argv", ["import-listening", "--release-root", str(release_root)])
+    monkeypatch.setattr(sys, "argv", [
+        "import-listening", "--release-root", str(release_root),
+        "--source-release-root", str(release_root),
+    ])
 
     assert import_command.main() == 0
     assert revision.package["validation_summary"]["revision_source_invariants_verified"] is True
     assert revision.report["revision_comparison"]["items_compared"] == 1
     assert "DRY RUN PASS" in capsys.readouterr().out
+
+
+def test_editorial_cli_requires_source_root_before_db_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    source = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    revision = _revision_from_source_plan(source)
+    revision.report["editorial_source_package_id"] = source.location.package_id
+    monkeypatch.setattr(import_command, "discover_packages", lambda _root: [revision.location])
+    monkeypatch.setattr(import_command, "build_import_plan", lambda _location, **_kwargs: revision)
+    monkeypatch.setattr(import_command, "_admin", lambda: pytest.fail("missing source root touched DB"))
+    monkeypatch.setattr(sys, "argv", ["import-listening", "--release-root", str(release_root), "--commit"])
+
+    with pytest.raises(SystemExit) as exc:
+        import_command.main()
+    assert exc.value.code == 2
+    assert "--source-release-root là bắt buộc" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(("mutation", "message"), [
