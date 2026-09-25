@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(
@@ -64,5 +65,33 @@ describe('mock-live console — the recovery sweep is reachable', () => {
     // Sending only `section` 422'd before the preflight even ran, making the
     // advertised recovery path unusable whenever a sweep was interrupted.
     assert.match(JS, /'\/collect\?section=' \+ encodeURIComponent\(section\) \+\s*\n\s*'&from_section=' \+ encodeURIComponent\(ex\.active_section\)/);
+  });
+});
+
+describe('mock-live console — Advance follows the persisted sweep marker', () => {
+  const body = JS.slice(JS.indexOf('function sequentialActions(ex) {'),
+    JS.indexOf('function collectSection()'));
+  const actions = runInNewContext(
+    `(function (ex, working) { var S = { data: { sections: { listening: { working } } } }; ${body}; return sequentialActions(ex); })`);
+  const exam = { active_section: 'listening', is_open: true,
+    collected_section: null, collection_sweep_completed_section: null };
+
+  test('zero working still requires Collect before Advance', () => {
+    const html = actions(exam, 0);
+    assert.match(html, /id="btn-collect"/);
+    assert.match(html, /id="btn-advance" disabled/);
+  });
+
+  test('an unfinished sweep keeps Advance disabled', () => {
+    const html = actions({ ...exam, collected_section: 'listening' }, 1);
+    assert.match(html, /Đang thu bài/);
+    assert.match(html, /id="btn-advance" disabled/);
+  });
+
+  test('the matching completion marker enables Advance', () => {
+    const html = actions({ ...exam, collected_section: 'listening',
+      collection_sweep_completed_section: 'listening' }, 0);
+    assert.doesNotMatch(html, /id="btn-collect"/);
+    assert.match(html, /id="btn-advance">/);
   });
 });

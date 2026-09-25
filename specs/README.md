@@ -71,3 +71,4 @@ draft -> approved -> implementing -> verified -> shipped
 | LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | approved | high | [spec](0007-listening-editorial-revision/spec.md) |
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | approved | high | [spec](0006-admin-mock-test-operations/spec.md) |
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | approved | high | [spec](0007-writing-navigation-contract/spec.md) |
+| MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | approved | high | [spec](0008-mock-attempt-integrity/spec.md) |
