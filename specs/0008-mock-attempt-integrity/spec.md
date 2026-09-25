@@ -85,8 +85,10 @@ as a blank submission despite recoverable answers on the unlinked attempt.
 ## Edge cases
 
 - Retake uses the sitting's section start; a sequential exam uses the exam's
-  section start. Missing clock or failed attempt lookup blocks a destructive
-  blank-paper decision and is logged.
+  section start. A never-started retake whose assignment window has closed
+  uses the sitting's creation time as the earliest possible attempt boundary.
+  A malformed clock, missing fallback anchor, or failed attempt lookup blocks
+  a destructive blank-paper decision and is logged.
 - A failed attach can race the sweep. The sweep must not infer completion from
   a client-side start; the persisted link and attempt rows are authoritative.
 - A later ordinary attempt for the same test may need operator disambiguation;
@@ -108,3 +110,7 @@ as a blank submission despite recoverable answers on the unlinked attempt.
 Approval record: the product owner requested merging and promoting the scoped
 repairs in PR #1519 on 2026-09-25. This specification records that behavior
 before the implementation branch is rebased for release.
+
+Amendment approval record: the same owner instruction covers the review-required
+retake expiry repair. The closed-window creation-time boundary is approved here
+before its implementation is rebased for release.
