@@ -208,12 +208,19 @@ def _add_editorial_batch(release_root: Path, *, status: str = "approved_by_owner
 
 def _builder_fixture(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, with_visual: bool = False,
+    source_language: str = "en",
 ) -> tuple[Path, Path]:
     release_root = _minimal_publish_ready_package(tmp_path)
     package_root = release_root / "general" / "fixture"
     manifest_path = package_root / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["package_id"] = "general-listening-practice-v1.0.0"
+    if source_language == "vi":
+        lesson_path = package_root / "learner/content/lessons/lesson-1.json"
+        lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+        lesson["items"][0]["prompt"] = "Chọn đáp án."
+        lesson["items"][0]["options"] = {"A": "Một", "B": "Hai"}
+        _write_json(lesson_path, lesson)
     if with_visual:
         visual_relative = "learner/visuals/map.v1.svg"
         visual_path = package_root / visual_relative
@@ -255,16 +262,18 @@ def _builder_fixture(
         "titles": {"lesson-1": "Stated numbers"},
         "outcomes": {"lesson-1": ["Identify the number spoken in the clip."]},
     })
+    source_is_vi = source_language == "vi"
     _write_json(draft_dir / "translation-batch-01-draft.json", {
         "batch_id": "fixture-batch-01",
         "status": "approved_by_owner_not_published",
         "source_package_id": manifest["package_id"],
-        "source_language": "en",
-        "target_language": "vi",
+        "source_language": source_language,
+        "target_language": "en" if source_is_vi else "vi",
         "items": [{
-            "id": "item-1", "source_prompt": "Choose the answer.",
-            "source_options": {"A": "One", "B": "Two"},
-            "prompt_vi": "Chọn đáp án.", "options_vi": {"A": "Một", "B": "Hai"},
+            "id": "item-1", "source_prompt": "Chọn đáp án." if source_is_vi else "Choose the answer.",
+            "source_options": {"A": "Một", "B": "Hai"} if source_is_vi else {"A": "One", "B": "Two"},
+            **({"prompt_en": "Choose the answer.", "options_en": {"A": "One", "B": "Two"}}
+               if source_is_vi else {"prompt_vi": "Chọn đáp án.", "options_vi": {"A": "Một", "B": "Hai"}}),
         }],
     })
     if with_visual:
@@ -349,7 +358,7 @@ def test_revision_builder_rejects_pending_batch_without_output(
     _write_json(batch_path, batch)
     output = tmp_path / "revision"
 
-    with pytest.raises(importer.EditorialValidationError, match="Chưa đủ owner approval"):
+    with pytest.raises(importer.EditorialValidationError, match="Chưa đủ editorial approval"):
         revision_builder.build_revision(
             release_root, draft_dir, output, revision_date="2026-09-24",
         )
@@ -362,7 +371,7 @@ def test_revision_builder_requires_visual_owner_approval_then_projects_localized
     release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch, with_visual=True)
     before = _tree_hashes(release_root)
     output = tmp_path / "revision"
-    with pytest.raises(importer.PackageValidationError, match="Visual review chưa được owner duyệt"):
+    with pytest.raises(importer.PackageValidationError, match="Visual review chưa được duyệt"):
         revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
     assert not output.exists()
     review_path = draft_dir / "visual-batch-01-draft.json"
@@ -380,6 +389,32 @@ def test_revision_builder_requires_visual_owner_approval_then_projects_localized
     assert question["editorial_translation"]["visual_accessibility"] == "Sơ đồ nguồn; phía bắc ở trên."
     assert "map.vi.v1.svg" in question["editorial_translation"]["visual_storage_path"]
     assert question["visual_storage_path"] != question["editorial_translation"]["visual_storage_path"]
+
+
+def test_vietnamese_source_question_uses_vietnamese_visual_and_english_translation_uses_original(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(
+        tmp_path, monkeypatch, with_visual=True, source_language="vi",
+    )
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["status"] = "approved_by_owner_not_published"
+    _write_json(review_path, review)
+    output = tmp_path / "revision"
+
+    revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+
+    plan = importer.build_import_plan(importer.select_package(output, "general-listening-practice-v1.1.0"))
+    question = plan.forms[0]["exercise_payload"]["questions"][0]
+    translation = question["editorial_translation"]
+    assert question["prompt"] == "Chọn đáp án."
+    assert "map.vi.v1.svg" in question["visual_storage_path"]
+    assert question["visual_accessibility"] == "Sơ đồ nguồn; phía bắc ở trên."
+    assert translation["target_language"] == "en"
+    assert "map.v1.svg" in translation["visual_storage_path"]
+    assert "map.vi.v1.svg" not in translation["visual_storage_path"]
+    assert translation["visual_accessibility"] == "Source map. North is up"
 
 
 @pytest.mark.parametrize(("mutation", "message"), [
@@ -643,6 +678,7 @@ def test_editorial_revision_comparison_allows_copy_only_changes(tmp_path: Path):
     ("timing", "source bytes/timing/transcript"),
     ("transcript", "source bytes/timing/transcript"),
     ("option", "source response/option mapping"),
+    ("visual_alt", "source visual accessibility changed"),
     ("response_type", "source response/option mapping"),
     ("window", "keys/feedback/windows/transcripts"),
     ("score_policy", "keys/feedback/windows/transcripts"),
@@ -666,6 +702,8 @@ def test_editorial_revision_comparison_rejects_protected_or_media_drift(
         revision.stimuli[0][key] = "0" * 64
     elif mutation == "option":
         revision.forms[0]["exercise_payload"]["questions"][0]["options"]["A"] = "Changed"
+    elif mutation == "visual_alt":
+        revision.forms[0]["exercise_payload"]["questions"][0]["visual_accessibility"] = "Unreviewed alt"
     elif mutation == "response_type":
         revision.forms[0]["exercise_payload"]["questions"][0]["response_type"] = "written"
     elif mutation == "window":

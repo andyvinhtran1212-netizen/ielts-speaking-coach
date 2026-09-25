@@ -26,6 +26,7 @@ if str(_BACKEND) not in sys.path:
 
 from scripts.validate_listening_editorial_revision import SOURCE_RELEASE_INDEX_SHA256  # noqa: E402
 from services.listening_editorial_validation import (  # noqa: E402
+    APPROVED_STATUSES,
     EditorialValidationError,
     SOURCE_MANIFEST_LOCKS,
     build_approved_translation_projection,
@@ -65,8 +66,8 @@ def _sha(path: Path) -> str:
 
 def _reviewed_metadata(path: Path, lesson_ids: set[str]) -> dict[str, dict[str, Any]]:
     metadata = _read_json(path)
-    if metadata.get("status") != "approved_by_owner_not_published":
-        raise PackageValidationError("Lesson metadata chưa được owner duyệt")
+    if metadata.get("status") not in APPROVED_STATUSES:
+        raise PackageValidationError("Lesson metadata chưa được duyệt")
     if (not isinstance(metadata.get("source_package_ids"), list)
             or not all(isinstance(package_id, str) for package_id in metadata["source_package_ids"])
             or set(metadata["source_package_ids"]) != set(SOURCE_MANIFEST_LOCKS)
@@ -129,8 +130,8 @@ def _reviewed_visuals(draft_dir: Path, source_plans: dict[str, Any]) -> dict[str
     if not review_path.is_file() or review_path.is_symlink():
         raise PackageValidationError("Thiếu visual review đã duyệt")
     review = _read_json(review_path)
-    if review.get("status") != "approved_by_owner_not_published":
-        raise PackageValidationError("Visual review chưa được owner duyệt")
+    if review.get("status") not in APPROVED_STATUSES:
+        raise PackageValidationError("Visual review chưa được duyệt")
     package_id = review.get("source_package_id")
     rows = review.get("visuals")
     if (not isinstance(package_id, str) or package_id not in source_plans

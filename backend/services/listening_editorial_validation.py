@@ -15,7 +15,11 @@ class EditorialValidationError(ValueError):
 
 
 _LANGUAGES = frozenset({"en", "vi"})
-_STATUSES = frozenset({"approved_by_owner_not_published", "draft_pending_owner_review"})
+APPROVED_STATUSES = frozenset({
+    "approved_by_owner_not_published",
+    "approved_under_owner_delegation_not_published",
+})
+_STATUSES = APPROVED_STATUSES | {"draft_pending_owner_review"}
 _ITEM_FIELDS = frozenset({
     "id", "source_prompt", "source_options", "prompt_en", "prompt_vi",
     "options_en", "options_vi", "unchanged_options_reviewed",
@@ -125,7 +129,7 @@ def validate_question_batches(
                   or "unchanged_options_reviewed" in entry):
                 raise EditorialValidationError(f"Item không có options nhưng draft có: {item_id}")
             drafted += 1
-            approved += status == "approved_by_owner_not_published"
+            approved += status in APPROVED_STATUSES
 
     source_ids = {(package_id, item_id) for package_id, items in source_questions.items() for item_id in items}
     missing = source_ids - seen
@@ -133,7 +137,7 @@ def validate_question_batches(
         raise EditorialValidationError(f"Thiếu {len(missing)} item draft")
     if require_all_approved and (missing or approved != len(source_ids)):
         raise EditorialValidationError(
-            f"Chưa đủ owner approval: {approved}/{len(source_ids)} item"
+            f"Chưa đủ editorial approval: {approved}/{len(source_ids)} item"
         )
     return {
         "source_items": len(source_ids),
@@ -191,7 +195,7 @@ def build_approved_translation_projection(
     )
     projection: dict[tuple[str, str], dict[str, Any]] = {}
     for batch in batch_list:
-        if batch["status"] != "approved_by_owner_not_published":
+        if batch["status"] not in APPROVED_STATUSES:
             continue
         package_id = batch["source_package_id"]
         target_language = batch["target_language"]

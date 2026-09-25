@@ -36,7 +36,7 @@ def main(argv=None) -> int:
     parser.add_argument("--draft-dir", type=Path, required=True)
     parser.add_argument(
         "--require-all-approved", action="store_true",
-        help="Fail if any source item is pending owner editorial approval.",
+        help="Fail if any source item lacks direct or delegated editorial approval.",
     )
     args = parser.parse_args(argv)
     try:

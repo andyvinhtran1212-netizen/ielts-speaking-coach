@@ -21,6 +21,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 from services.listening_editorial_validation import (
+    APPROVED_STATUSES,
     EditorialValidationError,
     SOURCE_MANIFEST_LOCKS,
     SOURCE_PROGRAMMES,
@@ -619,7 +620,7 @@ def _approved_editorial_visuals(
     review = _load_json(_resolve_declared(location.package_root, review_path, label="editorial_visual_review"))
     review_rows = review.get("visuals") if isinstance(review, dict) else None
     if (not isinstance(review_rows, list) or len(review_rows) != len(rows)
-            or review.get("status") != "approved_by_owner_not_published"
+            or review.get("status") not in APPROVED_STATUSES
             or review.get("source_package_id") != manifest.get("editorial_source_package_id")):
         raise PackageValidationError("Visual review chưa được duyệt hoặc không khớp source")
     if any(not isinstance(item, dict) or not isinstance(item.get("source_path"), str)
@@ -690,6 +691,7 @@ def _approved_editorial_visuals(
             "sha256": row["target_sha256"],
             "content_type": "image/svg+xml",
             "visual_accessibility": row["visual_accessibility"],
+            "source_visual_accessibility": f"{reviewed['title_en']}. {reviewed['description_en']}",
         }
         visuals[target_path] = asset
         approved[source_path] = asset
@@ -1098,10 +1100,21 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                             raise PackageValidationError(
                                 f"Editorial visual thiếu bản duyệt: {question['source_item_id']}"
                             )
-                        if translation["target_language"] != "vi":
+                        if translation["target_language"] == "vi":
+                            translation["visual_storage_path"] = visual["storage_path"]
+                            translation["visual_accessibility"] = visual["visual_accessibility"]
+                        elif translation["target_language"] == "en":
+                            # These source prompts are Vietnamese, but the
+                            # immutable v1.0 plans themselves have English
+                            # labels. Keep the original SVG for English and
+                            # show the approved Vietnamese variant with the
+                            # source-language question.
+                            translation["visual_storage_path"] = source_visual_storage
+                            translation["visual_accessibility"] = visual["source_visual_accessibility"]
+                            question["visual_storage_path"] = visual["storage_path"]
+                            question["visual_accessibility"] = visual["visual_accessibility"]
+                        else:
                             raise PackageValidationError("Editorial visual target language mismatch")
-                        translation["visual_storage_path"] = visual["storage_path"]
-                        translation["visual_accessibility"] = visual["visual_accessibility"]
                         used_editorial_visuals.add(source_visual_path)
                     question["editorial_translation"] = translation
     if used_editorial_visuals != set(editorial_visuals):

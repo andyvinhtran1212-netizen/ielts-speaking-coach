@@ -66,6 +66,20 @@ def test_complete_owner_approved_batch_is_source_bound():
     }
 
 
+def test_delegated_editorial_approval_is_distinct_from_owner_review_but_projectable():
+    batch = deepcopy(BATCH)
+    batch["status"] = "approved_under_owner_delegation_not_published"
+    report = validate([batch], require_all_approved=True)
+    assert report["approved_items"] == 2
+    projection, _ = build_approved_translation_projection(
+        SOURCE, [batch],
+        expected_manifest_sha256={PACKAGE_ID: MANIFEST_SHA},
+        actual_manifest_sha256={PACKAGE_ID: MANIFEST_SHA},
+        require_all_approved=True,
+    )
+    assert len(projection) == 2
+
+
 @pytest.mark.parametrize("mutation, error", [
     (lambda b: b["items"][0].update(source_prompt="Changed"), "Source prompt mismatch"),
     (lambda b: b["items"][0]["source_options"].update(A="Changed"), "Source options mismatch"),
@@ -95,7 +109,7 @@ def test_pending_text_never_passes_release_approval_gate():
     batch = deepcopy(BATCH)
     batch["status"] = "draft_pending_owner_review"
     assert validate([batch], require_all_drafted=True)["approved_items"] == 0
-    with pytest.raises(EditorialValidationError, match="owner approval"):
+    with pytest.raises(EditorialValidationError, match="editorial approval"):
         validate([batch], require_all_approved=True)
 
 
@@ -161,7 +175,7 @@ def test_projection_contains_only_approved_learner_safe_display_fields():
     }}
     projection[(PACKAGE_ID, "choice-1")]["options"]["A"] = "Modified locally"
     assert approved["items"][0]["options_vi"]["A"] == "Một"
-    with pytest.raises(EditorialValidationError, match="owner approval"):
+    with pytest.raises(EditorialValidationError, match="editorial approval"):
         build_approved_translation_projection(
             SOURCE, [approved, pending],
             expected_manifest_sha256={PACKAGE_ID: MANIFEST_SHA},

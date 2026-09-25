@@ -102,10 +102,19 @@ def compare_editorial_revision(
         _same(f"form {form_id} question count", len(source_questions), len(revision_questions))
         for source_question, revision_question in zip(source_questions, revision_questions, strict=True):
             question_id = source_question["source_item_id"]
+            if source_question.get("visual_accessibility") != revision_question.get("visual_accessibility"):
+                translation = revision_question.get("editorial_translation") or {}
+                if (not source_question.get("visual_storage_path")
+                        or translation.get("source_language") != "vi"
+                        or translation.get("target_language") != "en"
+                        or revision_question.get("visual_storage_path") == source_question.get("visual_storage_path")
+                        or not isinstance(revision_question.get("visual_accessibility"), str)
+                        or not revision_question["visual_accessibility"].strip()):
+                    raise RevisionMismatch(f"question {question_id} source visual accessibility changed")
             _same(
                 f"question {question_id} source response/option mapping",
-                _without(source_question, "editorial_translation", "visual_storage_path"),
-                _without(revision_question, "editorial_translation", "visual_storage_path"),
+                _without(source_question, "editorial_translation", "visual_storage_path", "visual_accessibility"),
+                _without(revision_question, "editorial_translation", "visual_storage_path", "visual_accessibility"),
             )
 
     source_visuals = {asset["source_path"]: asset["sha256"] for asset in source_plan.visual_assets}
