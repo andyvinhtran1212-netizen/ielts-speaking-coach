@@ -161,8 +161,8 @@
   //          ↓  (đếm đủ, cho nghỉ)
   //   [Mở phần tiếp theo] → next section + its clock
   //
-  // Once collected, nobody is still working, so the collect button retires and
-  // advance becomes the only forward move.
+  // Advance is available only after the server confirms that its sweep ended.
+  // A zero "working" count alone cannot prove that orphan attempts were handled.
   function sequentialActions(ex) {
     // A FINISHED exam cannot be reopened — the server refuses it (409) and every
     // student gate rejects entry anyway. Offering the button meant the admin
@@ -180,12 +180,17 @@
     }
     var sec = S.data.sections[ex.active_section] || {};
     var stillWorking = sec.working || 0;
+    var collected = ex.collected_section === ex.active_section;
+    var ready = collected && ex.collection_sweep_completed_section === ex.active_section;
     return openBtn +
-      (stillWorking > 0
-        ? '<button type="button" class="av-btn av-btn--primary" id="btn-collect">Thu bài phần này (' + stillWorking + ' chưa nộp)</button>'
-        : '<span class="ml-pill ml-pill--live">Đã thu đủ bài</span>') +
-      '<button type="button" class="av-btn' + (stillWorking > 0 ? '' : ' av-btn--primary') +
-        '" id="btn-advance">Mở phần tiếp theo →</button>';
+      (collected
+        ? '<span class="ml-pill' + (ready ? ' ml-pill--live' : '') + '">' +
+          (ready ? 'Đã thu đủ bài' : 'Đang thu bài; kiểm tra bài chưa thu bên dưới') + '</span>'
+        : '<button type="button" class="av-btn av-btn--primary" id="btn-collect">' +
+          (stillWorking > 0 ? 'Thu bài phần này (' + stillWorking + ' chưa nộp)' : 'Xác nhận thu bài phần này') +
+          '</button>') +
+      '<button type="button" class="av-btn' + (ready ? ' av-btn--primary' : '') +
+        '" id="btn-advance"' + (ready ? '' : ' disabled') + '>Mở phần tiếp theo →</button>';
   }
 
   function collectSection() {

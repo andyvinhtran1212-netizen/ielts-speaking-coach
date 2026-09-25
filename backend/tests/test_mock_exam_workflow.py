@@ -82,6 +82,11 @@ class _Query:
         self.filters.append((field, "eq", value, True))   # negated eq
         return self
 
+    def gte(self, field, value):
+        self.filters.append((field, "gte", value, self._negate_next))
+        self._negate_next = False
+        return self
+
     def in_(self, field, values):
         self.in_filters.append((field, list(values), self._negate_next))
         self._negate_next = False
@@ -113,6 +118,11 @@ class _Query:
             if op == "is_":
                 is_null = row.get(field) is None
                 ok = is_null if value == "null" else (row.get(field) == value)
+            elif op == "gte":
+                left = row.get(field)
+                ok = left is not None and datetime.fromisoformat(
+                    str(left).replace("Z", "+00:00"),
+                ) >= datetime.fromisoformat(str(value).replace("Z", "+00:00"))
             else:
                 ok = row.get(field) == value
             if negate:
@@ -873,6 +883,163 @@ def test_force_collect_grades_the_straggler_reading_attempt(fake_db, svc):
     assert attempt["status"] == "submitted"
     assert attempt["score"] == 1   # actually graded, not just a blind status flip
     assert attempt["grading_details"]  # per-question breakdown populated
+
+
+def test_force_collect_refuses_to_orphan_an_unlinked_active_reading_attempt(fake_db, svc):
+    """A missed client attach must not become a terminal blank Reading paper.
+
+    Autosaves belong to the domain attempt, so the sitting link can still be
+    NULL even though the learner has a complete recoverable answer set.  Keep
+    the sitting claimable and surface the anomaly instead of stamping it in.
+    """
+    exam = _seed_exam(fake_db, listening=False)
+    u = uuid4()
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    # Historical rows may precede the current one in storage.  Detection must
+    # inspect the newest candidate, not truncate insertion order first.
+    for days_old in (3, 2):
+        fake_db.seed("reading_test_attempts", {
+            "id": str(uuid4()), "user_id": str(u), "test_id": exam["reading_test_id"],
+            "status": "in_progress", "sitting_id": None,
+            "started_at": (datetime.now(timezone.utc) - timedelta(days=days_old)).isoformat(),
+        })
+    attempt_id = str(uuid4())
+    fake_db.seed("reading_test_attempts", {
+        "id": attempt_id, "user_id": str(u), "test_id": exam["reading_test_id"],
+        "status": "in_progress", "sitting_id": None,
+        "started_at": _now_iso_for_test(),
+    })
+    fake_db.seed("reading_attempt_answers", {
+        "attempt_id": attempt_id, "q_num": 1, "user_answer": "TRUE",
+    })
+
+    assert svc._collect_section_for_sitting(
+        svc.get_sitting(sitting["id"]), "reading", exam,
+    ) is False
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+    current_attempt = next(
+        row for row in fake_db.rows("reading_test_attempts") if row["id"] == attempt_id
+    )
+    assert current_attempt["status"] == "in_progress"
+
+
+def test_force_collect_still_accepts_a_genuinely_blank_reading_paper(fake_db, svc):
+    """An old standalone attempt is not work from this mock section."""
+    exam = _seed_exam(fake_db, listening=False)
+    u = uuid4()
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    fake_db.seed("reading_test_attempts", {
+        "id": str(uuid4()), "user_id": str(u), "test_id": exam["reading_test_id"],
+        "status": "in_progress", "sitting_id": None,
+        "started_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+    })
+
+    assert svc._collect_section_for_sitting(
+        svc.get_sitting(sitting["id"]), "reading", exam,
+    ) is True
+    assert svc.get_sitting(sitting["id"])["reading_submitted_at"] is not None
+
+
+def test_force_collect_does_not_stamp_blank_when_attempt_lookup_fails(fake_db, svc):
+    """An unavailable attempt table cannot prove that the learner wrote nothing."""
+    exam = _seed_exam(fake_db, listening=False)
+    sitting = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    real_table = fake_db.table
+
+    def fail_attempt_lookup(name):
+        if name == "reading_test_attempts":
+            raise RuntimeError("attempt lookup unavailable")
+        return real_table(name)
+
+    fake_db.table = fail_attempt_lookup
+    try:
+        assert svc._collect_section_for_sitting(
+            svc.get_sitting(sitting["id"]), "reading", exam,
+        ) is False
+    finally:
+        fake_db.table = real_table
+
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+
+
+def test_collect_preflight_keeps_section_open_for_normal_orphan_attach(fake_db, svc):
+    """A known orphan must be repairable through the normal attach path."""
+    exam = _seed_exam(fake_db, listening=False)
+    user_id = uuid4()
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    attempt_id = str(uuid4())
+    fake_db.seed("reading_test_attempts", {
+        "id": attempt_id, "user_id": str(user_id),
+        "test_id": exam["reading_test_id"], "status": "in_progress",
+        "sitting_id": None, "started_at": _now_iso_for_test(),
+    })
+
+    with pytest.raises(svc.SittingConflictError, match="chưa gắn"):
+        svc.collect_preflight(exam["id"], "reading")
+    assert svc.get_published_exam_by_id(exam["id"]).get("collected_section") is None
+
+    svc.attach_attempt(sitting["id"], user_id, "reading", attempt_id)
+    assert svc.collect_section(exam["id"], "admin-1", "reading")["collected"] == 1
+    assert svc.get_sitting(sitting["id"])["reading_submitted_at"] is not None
+    assert svc.get_published_exam_by_id(exam["id"])[
+        "collection_sweep_completed_section"
+    ] == "reading"
+
+
+def test_late_orphan_blocks_advance_until_scoped_repair_and_resweep(fake_db, svc):
+    """The close/preflight race cannot publish a completed sweep token."""
+    exam = _seed_exam(fake_db, listening=False)
+    user_id = uuid4()
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    assert svc.mark_section_collected(exam["id"], "reading")
+    attempt_id = str(uuid4())
+    fake_db.seed("reading_test_attempts", {
+        "id": attempt_id, "user_id": str(user_id),
+        "test_id": exam["reading_test_id"], "status": "in_progress",
+        "sitting_id": None, "started_at": _now_iso_for_test(),
+    })
+
+    assert svc.collect_section(exam["id"], "admin-1", "reading")["collected"] == 0
+    paused = svc.get_published_exam_by_id(exam["id"])
+    assert paused["collected_section"] == "reading"
+    assert paused.get("collection_sweep_completed_section") is None
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+    with pytest.raises(svc.SittingConflictError, match="thu đủ bài"):
+        svc.advance_section(exam["id"], "admin-1", expected_section="reading")
+
+    # An operator validates the exact sitting/learner/test/attempt and repairs
+    # the two existing links; the next sweep, not the repair, owns collection.
+    fake_db.table("mock_exam_sittings").update({
+        "reading_attempt_id": attempt_id,
+    }).eq("id", sitting["id"]).execute()
+    fake_db.table("reading_test_attempts").update({
+        "sitting_id": sitting["id"],
+    }).eq("id", attempt_id).execute()
+    assert svc.collect_section(exam["id"], "admin-1", "reading")["collected"] == 1
+    assert svc.get_published_exam_by_id(exam["id"])[
+        "collection_sweep_completed_section"
+    ] == "reading"
+    svc.advance_section(exam["id"], "admin-1", expected_section="reading")
+
+
+@pytest.mark.parametrize("bad_clock", [None, "not-a-timestamp"])
+def test_sequential_missing_section_clock_cannot_collect_blank(fake_db, svc, bad_clock):
+    exam = _seed_exam(fake_db, listening=False)
+    sitting = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    fake_db.table("mock_exams").update({
+        "reading_started_at": bad_clock,
+    }).eq("id", exam["id"]).execute()
+
+    with pytest.raises(svc.MockExamError, match="chưa thu bài"):
+        svc.collect_preflight(exam["id"], "reading")
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+    assert svc.get_published_exam_by_id(exam["id"])["collected_section"] is None
 
 
 def test_force_collect_skips_already_submitted_attempt(fake_db, svc):
@@ -4400,6 +4567,62 @@ def test_retake_reaper_collects_expired_started_section(fake_db, svc, wf):
     assert len(fake_db.rows("mock_exam_reviews")) == 1
 
 
+def test_retake_reaper_batches_orphan_check_and_counts_only_collected(fake_db, svc):
+    """One orphan does not count as collected; blank peers share one lookup."""
+    orphan_user, blank_user = uuid4(), uuid4()
+    exam = _seed_retake(fake_db, orphan_user, ["reading"])
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(blank_user)})
+    fake_db.seed("mock_exam_assignments", {
+        "exam_id": exam["id"], "user_id": str(blank_user),
+        "skills": ["reading"], "open_from": None, "open_until": None,
+    })
+    orphan_sitting = svc.create_sitting(orphan_user, "MOCK-TEST-A")
+    blank_sitting = svc.create_sitting(blank_user, "MOCK-TEST-A")
+    past = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    for sitting, user in ((orphan_sitting, orphan_user), (blank_sitting, blank_user)):
+        svc.start_section(sitting["id"], user, "reading")
+        _backdate_sitting(fake_db, sitting["id"], reading_started_at=past)
+    fake_db.seed("reading_test_attempts", {
+        "id": str(uuid4()), "user_id": str(orphan_user),
+        "test_id": exam["reading_test_id"], "status": "in_progress",
+        "sitting_id": None,
+        "started_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+    })
+
+    real_table = fake_db.table
+    attempt_lookups = []
+    def counted_table(name):
+        if name == "reading_test_attempts":
+            attempt_lookups.append(name)
+        return real_table(name)
+    fake_db.table = counted_table
+    try:
+        out = svc.reap_expired_retake_sittings(grace_seconds=0)
+    finally:
+        fake_db.table = real_table
+
+    assert out["collected"] == 1
+    assert len(attempt_lookups) == 1
+    assert svc.get_sitting(orphan_sitting["id"]).get("reading_submitted_at") is None
+    assert svc.get_sitting(blank_sitting["id"])["reading_submitted_at"] is not None
+
+
+@pytest.mark.parametrize("bad_clock", [None, "not-a-timestamp"])
+def test_retake_missing_section_clock_cannot_collect_blank(fake_db, svc, bad_clock):
+    user_id = uuid4()
+    exam = _seed_retake(fake_db, user_id, ["reading"])
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    svc.start_section(sitting["id"], user_id, "reading")
+    _backdate_sitting(fake_db, sitting["id"],
+                      reading_started_at=bad_clock,
+                      retake_open_until=(datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat())
+
+    result = svc.reap_expired_retake_sittings(grace_seconds=0)
+    assert result["collected"] == 0
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+    assert svc.get_sitting(sitting["id"])["status"] != "all_submitted"
+
+
 def test_retake_reaper_skips_section_still_in_time(fake_db, svc):
     u = uuid4()
     _seed_retake(fake_db, u, ["writing"])
@@ -4809,19 +5032,28 @@ def test_the_sweep_loads_its_exam_once_however_big_the_class(fake_db, svc):
             svc.create_sitting(uuid4(), code)
         svc.advance_section(exam["id"], "admin-1")        # → listening
         calls = []
+        attempt_calls = []
         real = svc.get_published_exam_by_id
+        real_table = fake_db.table
         svc.get_published_exam_by_id = lambda eid: (calls.append(str(eid)), real(eid))[1]
+        def counted_table(name):
+            if name == "listening_test_attempts":
+                attempt_calls.append(name)
+            return real_table(name)
+        fake_db.table = counted_table
         try:
             assert svc._force_collect_section(exam["id"], "listening") == class_size
         finally:
             svc.get_published_exam_by_id = real
-        return len(calls)
+            fake_db.table = real_table
+        return len(calls), len(attempt_calls)
 
     # The number itself is an implementation detail (the sweep's own snapshot
     # plus the janitor's); what must hold is that it does not track the class.
     small, big = lookups_for(3, 'MOCK-SMALL'), lookups_for(9, 'MOCK-BIG')
     assert small == big, (
-        f"{small} exam lookups for 3 students but {big} for 9 — the sweep is back to N+1")
+        f"{small} lookups for 3 students but {big} for 9 — the sweep is back to N+1")
+    assert small[1] == 1, "blank sittings need one batched attempt lookup"
 
 
 def test_the_reaper_does_not_reload_the_exam_it_already_holds(fake_db, svc, monkeypatch):

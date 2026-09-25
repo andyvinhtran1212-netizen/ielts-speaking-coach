@@ -528,11 +528,21 @@ export function ListeningTestSession() {
     return null;
   }, [params?.sittingId]);
 
+  const attachMockAttempt = useCallback(async (attemptId: string) => {
+    if (!params?.sittingId) return;
+    // The route-script bridge and React hydrate independently.  Do not expose
+    // an attempt until the mock binding exists: otherwise autosaves succeed in
+    // the domain table while the sitting is later collected as a blank paper.
+    const hookReady = await whenGlobalReady(
+      () => typeof (window as any).MockHook?.attach === 'function',
+      'window.MockHook.attach (Listening mock)',
+    );
+    if (!hookReady) throw new Error('Không thể liên kết bài Listening với kỳ thi.');
+    await (window as any).MockHook.attach('listening', attemptId);
+  }, [params?.sittingId]);
+
   const enterAttempt = useCallback(async (nextAttempt: Attempt, restored: AnswerMap, attach = true) => {
-    const hook = (window as any).MockHook;
-    if (attach && params?.sittingId && typeof hook?.attach === 'function') {
-      await hook.attach('listening', nextAttempt.attempt_id);
-    }
+    if (attach) await attachMockAttempt(nextAttempt.attempt_id);
     const offset = await resolveAudioOffset(nextAttempt, testData);
     answersRef.current = restored;
     setAnswers(new Map(restored)); setAttempt(nextAttempt); setResumeAvailable(false);
@@ -545,7 +555,7 @@ export function ListeningTestSession() {
     // inside the iframe on the learner's behalf.
     setAudioPromptOpen(!!testData && !isPracticeListeningTest(testData));
     setPhase('inprogress');
-  }, [params?.sittingId, resolveAudioOffset, testData]);
+  }, [attachMockAttempt, resolveAudioOffset, testData]);
 
   const resume = useCallback(() => {
     if (!attempt) return;
@@ -566,14 +576,13 @@ export function ListeningTestSession() {
       }, (headers: Record<string, string>) => window.api.postWith(path, body, headers));
       const affinity = await claimNextRenderer(String(started.attempt_id));
       if (!affinity) return;
-      const hook = (window as any).MockHook;
-      if (params.sittingId && typeof hook?.attach === 'function') await hook.attach('listening', started.attempt_id);
+      await attachMockAttempt(String(started.attempt_id));
       const canonical = normalizeListeningResume(await window.api.get(resumePath(params)));
       if (!canonical || canonical.attempt_id !== String(started.attempt_id)) throw new Error('Không xác nhận được attempt vừa tạo.');
       const ownedAttempt = { ...canonical, renderer_affinity: affinity };
       await enterAttempt(ownedAttempt, new Map(), false);
     } catch (caught: any) { setError(`Không bắt đầu được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
-  }, [claimNextRenderer, enterAttempt, params, resumePath, resumeAvailable, user?.id]);
+  }, [attachMockAttempt, claimNextRenderer, enterAttempt, params, resumePath, resumeAvailable, user?.id]);
 
   useEffect(() => {
     if (phase !== 'prestart' || !params?.mockEmbed || autoEnteredMockRef.current) return;

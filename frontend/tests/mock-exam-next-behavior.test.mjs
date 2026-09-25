@@ -87,6 +87,27 @@ describe('/mock-exam native runner ownership', () => {
     assert.doesNotMatch(LEGACY_READING, /mock-flushed', section: 'reading' \},/);
   });
 
+  test('waits for the mock bridge before exposing a Reading attempt', () => {
+    const enter = READING_PLAYER.split('const enterAttempt')[1].split('const resume')[0];
+    assert.match(enter, /await whenGlobalReady\([\s\S]*MockHook\?\.attach/);
+    assert.match(enter, /if \(!hookReady\) throw new Error/);
+    assert.ok(enter.indexOf('await whenGlobalReady') < enter.indexOf("attach('reading'"));
+    assert.ok(enter.indexOf("attach('reading'") < enter.indexOf('setAttempt(nextAttempt)'));
+    assert.doesNotMatch(enter, /if \(params\?\.sittingId && typeof hook\?\.attach/);
+  });
+
+  test('waits for the mock bridge on both Listening start and resume', () => {
+    const attach = LISTENING_PLAYER.split('const attachMockAttempt')[1].split('const enterAttempt')[0];
+    const enter = LISTENING_PLAYER.split('const enterAttempt')[1].split('const resume')[0];
+    const start = LISTENING_PLAYER.split('const startFresh')[1].split('useEffect')[0];
+    assert.match(attach, /await whenGlobalReady\([\s\S]*MockHook\?\.attach/);
+    assert.match(attach, /if \(!hookReady\) throw new Error/);
+    assert.ok(attach.indexOf('await whenGlobalReady') < attach.indexOf("attach('listening'"));
+    assert.match(enter, /if \(attach\) await attachMockAttempt\(nextAttempt\.attempt_id\)/);
+    assert.match(start, /await attachMockAttempt\(String\(started\.attempt_id\)\)/);
+    assert.ok(start.indexOf('await attachMockAttempt') < start.indexOf('normalizeListeningResume'));
+  });
+
   test('serializes Writing autosave and reuses one immutable final payload', () => {
     assert.match(RUNNER, /if \(active\) \{ try \{ await active; \}/);
     assert.match(RUNNER, /finalWritingBodyRef\.current/);
