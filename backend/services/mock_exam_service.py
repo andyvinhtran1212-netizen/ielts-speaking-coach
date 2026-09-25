@@ -2650,8 +2650,10 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
     ).execute()
 
 
-def _unlinked_active_attempt_ids(sitting: dict, section: str, exam: dict) -> list[str]:
-    """Return active domain attempts that should have been bound to ``sitting``.
+def _unlinked_active_attempts_by_sitting(
+    sittings: list[dict], section: str, exam: dict,
+) -> dict[str, list[str]]:
+    """Read missed attachments once for a section sweep, keyed by sitting ID.
 
     A learner who never opened a section legitimately has no attempt and is
     collected as a blank paper.  That is different from an in-progress attempt
@@ -2660,45 +2662,74 @@ def _unlinked_active_attempt_ids(sitting: dict, section: str, exam: dict) -> lis
     The sweep must fail closed on that evidence instead of stamping the sitting
     submitted and orphaning saved answers behind a terminal review.
 
-    This is detection only.  Binding two rows is a cross-table mutation and is
-    deliberately left to the normal attach path (or an audited repair) rather
-    than guessed inside a timer-driven sweep.
+    This is detection only. Binding two rows is a cross-table mutation and is
+    left to the normal attach path before collection (or an audited repair).
+    Paging and filtering by the current learner set avoids one serialized
+    PostgREST request for every legitimately blank paper in a large class.
     """
     binding = _SECTION_ATTEMPT.get(section)
-    if not binding:
-        return []
+    if not binding or not sittings:
+        return {}
     link_col, domain_table, exam_test_col = binding
-    if sitting.get(link_col):
-        return []
     expected_test = exam.get(exam_test_col)
     if not expected_test:
-        return []
+        return {}
     # Scope the candidate to this section window.  A learner may have an old
     # standalone in-progress attempt for the same reusable test; that historical
     # row is not proof that the current mock attach failed and must not prevent a
     # genuinely blank paper from being collected.
-    anchor_source = sitting if is_retake(exam) else exam
-    section_started = _parse_ts(anchor_source.get(f"{section}_started_at"))
-    if section_started is None:
-        return []
-    rows = (
-        supabase_admin.table(domain_table)
-        .select("id,started_at")
-        .eq("user_id", str(sitting["user_id"]))
-        .eq("test_id", str(expected_test))
-        .eq("status", "in_progress")
-        .is_("sitting_id", "null")
-        .order("started_at", desc=True)
-        .limit(1)
-        .execute().data or []
-    )
-    return [
-        str(row["id"])
-        for row in rows
-        if row.get("id")
-        and (started_at := _parse_ts(row.get("started_at"))) is not None
-        and started_at >= section_started
-    ]
+    by_user: dict[str, list[tuple[str, datetime]]] = {}
+    for sitting in sittings:
+        if sitting.get(link_col) or section not in _sitting_sections(sitting, exam):
+            continue
+        anchor = sitting if is_retake(exam) else exam
+        started = _parse_ts(anchor.get(f"{section}_started_at"))
+        if started is not None:
+            by_user.setdefault(str(sitting["user_id"]), []).append(
+                (str(sitting["id"]), started),
+            )
+    if not by_user:
+        return {}
+
+    earliest = min(started for pairs in by_user.values() for _, started in pairs)
+    found: dict[str, list[str]] = {}
+    page_size = 500
+    user_ids = list(by_user)
+    for start in range(0, len(user_ids), _ID_CHUNK):
+        chunk = user_ids[start:start + _ID_CHUNK]
+        offset = 0
+        while True:
+            rows = (
+                supabase_admin.table(domain_table)
+                .select("id,user_id,started_at")
+                .in_("user_id", chunk)
+                .eq("test_id", str(expected_test))
+                .eq("status", "in_progress")
+                .is_("sitting_id", "null")
+                .gte("started_at", earliest.isoformat())
+                .order("started_at", desc=True)
+                .range(offset, offset + page_size - 1)
+                .execute().data or []
+            )
+            for row in rows:
+                attempt_id = row.get("id")
+                started = _parse_ts(row.get("started_at"))
+                if not attempt_id or started is None:
+                    continue
+                for sitting_id, section_started in by_user.get(str(row.get("user_id")), []):
+                    if started >= section_started:
+                        found.setdefault(sitting_id, []).append(str(attempt_id))
+            if len(rows) < page_size:
+                break
+            offset += page_size
+    return found
+
+
+def _unlinked_active_attempt_ids(sitting: dict, section: str, exam: dict) -> list[str]:
+    """Standalone/reaper lookup; the class sweep passes a batch result instead."""
+    return _unlinked_active_attempts_by_sitting(
+        [sitting], section, exam,
+    ).get(str(sitting["id"]), [])
 
 
 def _force_collect_section(exam_id: str, section: str, *, strict: bool = False) -> int:
@@ -2736,11 +2767,26 @@ def _force_collect_section(exam_id: str, section: str, *, strict: bool = False) 
             ) from exc
         return 0
 
-    # ONE lookup for the whole sweep — every row here belongs to `exam_id`.
+    # ONE exam lookup and one paged candidate read for the whole sweep.
     exam = get_published_exam_by_id(str(exam_id)) or {}
+    try:
+        unlinked = _unlinked_active_attempts_by_sitting(
+            rows.data or [], section, exam,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[mock-exam] orphan preflight failed exam=%s section=%s", exam_id, section)
+        if strict:
+            raise MockExamError(
+                "Không kiểm tra được bài làm chưa gắn với kỳ thi — chưa thu bài. "
+                "Thử lại sau giây lát."
+            ) from exc
+        return 0
     n = 0
     for row in (rows.data or []):
-        if _collect_section_for_sitting(row, section, exam):
+        if _collect_section_for_sitting(
+            row, section, exam,
+            unlinked_ids=unlinked.get(str(row["id"]), []),
+        ):
             n += 1
     # A sweep is exactly where a paper gets stranded — stamped, then a failure
     # before the status write or the review insert — and the stranded row is
@@ -2936,7 +2982,39 @@ def collect_preflight(exam_id: str, section: Optional[str] = None,
         raise SittingConflictError(
             f"Phần {target} chưa được mở — chưa có bài để thu."
         )
-    return {"section": target, "pending": pending_in_section(exam_id, target)}
+    pending = pending_in_section(exam_id, target)
+    # Catch an existing missed attachment BEFORE the router closes admissions.
+    # The learner can still reload and use the normal attach path at this point.
+    # A later race is handled by the sweep's incomplete token and scoped repair.
+    if (pending and target == current
+            and exam.get("collected_section") != target
+            and target in _SECTION_ATTEMPT):
+        col = _SUBMITTED_COL[target]
+        try:
+            rows = (
+                supabase_admin.table("mock_exam_sittings").select("*")
+                .eq("mock_exam_id", str(exam_id))
+                .is_(col, "null")
+                .not_.in_("status", ["released", "void"])
+                .execute().data or []
+            )
+            unlinked = _unlinked_active_attempts_by_sitting(rows, target, exam)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[mock-exam] collect preflight failed exam=%s section=%s", exam_id, target)
+            raise MockExamError(
+                "Không kiểm tra được bài làm chưa gắn với kỳ thi — chưa thu bài. "
+                "Thử lại sau giây lát."
+            ) from exc
+        if unlinked:
+            logger.error(
+                "[mock-exam] collection held exam=%s section=%s unlinked=%s",
+                exam_id, target, unlinked,
+            )
+            raise SittingConflictError(
+                "Có bài làm chưa gắn với kỳ thi. Yêu cầu học viên tải lại bài "
+                "để liên kết attempt, rồi thử thu bài lần nữa."
+            )
+    return {"section": target, "pending": pending}
 
 
 
@@ -2996,14 +3074,23 @@ def collect_section(exam_id: str, admin_id: str, section: Optional[str] = None,
     target = collect_preflight(exam_id, section, from_section)["section"]
     mark_section_collected(exam_id, target)
     collected = _force_collect_section(exam_id, target, strict=True)
-    mark_collection_sweep_completed(exam_id, target)
+    remaining = pending_in_section(exam_id, target)
+    if remaining == 0:
+        mark_collection_sweep_completed(exam_id, target)
+    else:
+        logger.error(
+            "[mock-exam] sweep incomplete exam=%s section=%s pending=%d; "
+            "advance remains blocked until repair and re-sweep",
+            exam_id, target, remaining,
+        )
     logger.info("[mock-exam] exam=%s section=%s COLLECTED %d by admin=%s",
                 exam_id, target, collected, admin_id)
     return {"section": target, "collected": collected}
 
 
 def _collect_section_for_sitting(sitting: dict, section: str,
-                                 exam: Optional[dict] = None) -> bool:
+                                 exam: Optional[dict] = None,
+                                 *, unlinked_ids: Optional[list[str]] = None) -> bool:
     """Force-collect ONE section of ONE sitting AS-IS (time's up / straggler /
     closed tab). Stamps the collected-at timestamp, grades the bound L/R attempt
     (or promotes Writing) if present, then re-checks terminal reconciliation on
@@ -3039,7 +3126,10 @@ def _collect_section_for_sitting(sitting: dict, section: str,
                 sitting["id"], section,
             )
             return False
-        orphan_ids = _unlinked_active_attempt_ids(sitting, section, exam_for_scope)
+        orphan_ids = (
+            unlinked_ids if unlinked_ids is not None
+            else _unlinked_active_attempt_ids(sitting, section, exam_for_scope)
+        )
         if orphan_ids:
             logger.error(
                 "[mock-exam] sitting=%s section=%s has unlinked active attempt(s)=%s "
@@ -3344,6 +3434,39 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         return _done(0, 0)
 
     now = _now()
+    # Retake has a clock per sitting, but all due papers for one exam/section
+    # share a configured test. Read possible missed attachments once per group
+    # rather than once for every blank learner in the timer-driven reaper.
+    due_groups: dict[tuple[str, str], list[dict]] = {}
+    for sitting in rows:
+        if not sitting.get("assigned_skills"):
+            continue
+        exam_id = str(sitting["mock_exam_id"])
+        exam = retake_exams.get(exam_id) or {}
+        if not exam:
+            continue
+        window_until = _parse_ts(sitting.get("retake_open_until"))
+        window_closed = bool(window_until and now > window_until)
+        for section in _sitting_sections(sitting, exam):
+            if not sitting.get(_SUBMITTED_COL[section]) and (
+                window_closed
+                or _retake_section_expired(sitting, exam, section, grace_seconds)
+            ):
+                due_groups.setdefault((exam_id, section), []).append(sitting)
+    unlinked_by_group: dict[tuple[str, str], dict[str, list[str]]] = {}
+    failed_groups: set[tuple[str, str]] = set()
+    for group, due_rows in due_groups.items():
+        try:
+            unlinked_by_group[group] = _unlinked_active_attempts_by_sitting(
+                due_rows, group[1], retake_exams[group[0]],
+            )
+        except Exception:  # noqa: BLE001 — one group must not stop another
+            logger.exception(
+                "[retake-reaper] orphan lookup failed exam=%s section=%s",
+                group[0], group[1],
+            )
+            failed_groups.add(group)
+
     collected = 0
     touched = 0
     for sitting in rows:
@@ -3362,10 +3485,18 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
             if sitting.get(_SUBMITTED_COL[section]):
                 continue
             if window_closed or _retake_section_expired(sitting, exam, section, grace_seconds):
-                _collect_section_for_sitting(sitting, section, exam)
-                collected += 1
-                did = True
-                sitting = get_sitting(sitting["id"]) or sitting   # refresh for next section's terminal check
+                group = (str(sitting["mock_exam_id"]), section)
+                if group in failed_groups:
+                    continue
+                if _collect_section_for_sitting(
+                    sitting, section, exam,
+                    unlinked_ids=unlinked_by_group.get(group, {}).get(
+                        str(sitting["id"]), [],
+                    ),
+                ):
+                    collected += 1
+                    did = True
+                    sitting = get_sitting(sitting["id"]) or sitting   # refresh for next section's terminal check
         if did:
             touched += 1
         # Retry-reconcile: if a PRIOR pass stamped every assigned section but

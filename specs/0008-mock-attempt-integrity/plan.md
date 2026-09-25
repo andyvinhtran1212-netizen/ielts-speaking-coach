@@ -4,14 +4,18 @@
 
 - Keep the existing MockHook route script and native Reading/Listening players.
 - Add an attach gate at player entry; do not redesign the players or orchestration.
-- Add a collection preflight in the existing Mock Test service.
+- Add a collection preflight in the existing Mock Test service. Before the
+  section closes, reject collection when a missed attachment can still use
+  the normal learner attach route. During the sweep, keep the completion token
+  unset while any sitting remains unsubmitted.
 
 ## Data and contracts
 
 - Existing attach API and attempt/sitting columns remain the source of truth.
   No route shape, database column, migration, or RLS policy changes.
 - The preflight reads only the configured test, learner, active status,
-  nullable sitting link, and attempt start. It does not mutate candidate rows.
+  nullable sitting link, and attempt start. It batches candidate reads by
+  learner set and pages the result; it does not mutate candidate rows.
 - Existing deployed clients remain compatible. Backend protection is additive;
   new clients wait for attachment before showing an attempt.
 
@@ -34,9 +38,11 @@
 
 - Merge the code only to staging, verify exact-SHA integrated CI and live E2E,
   then use a staging-to-main promotion PR.
-- If the new guard blocks collection, keep the sitting recoverable and inspect
-  its candidate attempt. Roll back code through a new staging fix and promotion;
-  no schema rollback is needed.
+- If the preflight blocks collection, leave the section open so the learner can
+  reload and attach normally. If a late orphan appears after the pause marker,
+  keep Advance blocked; inspect and repair the exact persisted links, then
+  re-sweep. Roll back code through a new staging fix and promotion; no schema
+  rollback is needed.
 
 ## Verification strategy
 
