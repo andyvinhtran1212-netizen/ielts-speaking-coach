@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B30",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.0-098 forms (14 short-answer items). Preserve corrected counts, sampling minima/maxima, deadlines, per-person/team unit, reserved versus confirmed places and distinct interview/task durations. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.0-098.v0.3.0.main.q01","source_prompt":"What is the corrected number of people who completed the survey?","prompt_vi":"Số người hoàn thành khảo sát sau khi được đính chính là bao nhiêu?"},
+    {"id":"manus:B2.0-098.v0.3.0.main.q09","source_prompt":"The seventy-percent figure concerns which group, and what did that proportion of the group do?","prompt_vi":"Con số 70% nói về nhóm nào, và 70% số người trong nhóm đó đã làm gì?"},
+    {"id":"manus:B2.0-098.v0.3.0.main.q02","source_prompt":"What is the minimum number of observations required for each route?","prompt_vi":"Mỗi tuyến cần tối thiểu bao nhiêu lượt quan sát?"},
+    {"id":"manus:B2.0-098.v0.3.0.main.q03","source_prompt":"What is the maximum number of observations allowed from one time block?","prompt_vi":"Một khung giờ được phép đóng góp tối đa bao nhiêu lượt quan sát?"},
+    {"id":"manus:B2.0-098.v0.3.0.main.q06","source_prompt":"Does travel time count in the observation total?","prompt_vi":"Thời gian di chuyển có được tính vào tổng số lượt quan sát không?"},
+    {"id":"manus:B2.0-098.v0.3.0.main.q04","source_prompt":"Give the revised day and the two deadlines: registration time and full-form time.","prompt_vi":"Nêu ngày đã được điều chỉnh và hai hạn chót: giờ đăng ký và giờ nộp biểu mẫu đầy đủ."},
+    {"id":"manus:B2.0-098.v0.3.0.main.q05","source_prompt":"What is the unit of the equipment allowance: each person or each team?","prompt_vi":"Khoản hỗ trợ thiết bị được tính cho mỗi người hay mỗi nhóm?"},
+    {"id":"manus:B2.0-098.v0.3.0.main.q07","source_prompt":"How many pilot places are there in total, how many are reserved, and does reservation guarantee a place?","prompt_vi":"Tổng cộng có bao nhiêu suất tham gia thử, bao nhiêu suất được dành riêng, và việc được dành suất có bảo đảm được tham gia không?"},
+    {"id":"manus:B2.0-098.v0.3.0.main.q08","source_prompt":"How long is the interview itself, and how long is the separate task immediately after it?","prompt_vi":"Riêng buổi phỏng vấn kéo dài bao lâu, và nhiệm vụ tách riêng ngay sau đó kéo dài bao lâu?"},
+    {"id":"manus:B2.0-098.v0.3.0.main.q10","source_prompt":"Which two contents belong in the combined report PDF?","prompt_vi":"Bản báo cáo PDF gộp cần có hai nội dung nào?"},
+    {"id":"manus:B2.0-098.v0.3.0.transfer.q01","source_prompt":"State both sampling limits: the minimum boxes per gallery and maximum trays per box.","prompt_vi":"Nêu cả hai giới hạn lấy mẫu: số hộp tối thiểu cho mỗi phòng trưng bày và số khay tối đa trong mỗi hộp."},
+    {"id":"manus:B2.0-098.v0.3.0.transfer.q02","source_prompt":"What is the new reservation deadline, and what is the payment deadline?","prompt_vi":"Hạn đặt chỗ mới là khi nào, và hạn thanh toán là khi nào?"},
+    {"id":"manus:B2.0-098.v0.3.0.transfer.q03","source_prompt":"What does the number sixty-two measure: give the unit and what was found in that group?","prompt_vi":"Con số 62 đo điều gì? Nêu đơn vị và điều được phát hiện trong nhóm đó."},
+    {"id":"manus:B2.0-098.v0.3.0.transfer.q04","source_prompt":"Are the six provisional places additional to the eighteen, and are they already confirmed?","prompt_vi":"Sáu suất tạm thời có nằm ngoài mười tám suất kia không, và chúng đã được xác nhận chưa?"}
+  ]
+}

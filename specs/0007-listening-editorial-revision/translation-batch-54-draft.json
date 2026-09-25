@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B54",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.5-097 forms (10 main, four transfer items). Preserve local expression versus ministerial/public register, stable claim/caveat, note-field separation and unmeasured content pending new audio. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.5-097.v0.3.0.main.q01","source_prompt":"How does the adviser classify the proposal?","prompt_vi":"Cố vấn xếp đề xuất vào loại nào?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q02","source_prompt":"What does “a decent first go” signal in this case, and what does it not prove?","prompt_vi":"Trong trường hợp này, cụm ‘a decent first go’ cho thấy điều gì, và không chứng minh được điều gì?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q03","source_prompt":"How is the ministerial version worded?","prompt_vi":"Bản dành cho bộ trưởng được diễn đạt như thế nào?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q04","source_prompt":"Which caveat remains?","prompt_vi":"Giới hạn nào vẫn được giữ?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q05","source_prompt":"What should the public version do with the local expression?","prompt_vi":"Bản dành cho công chúng nên xử lý cách nói địa phương như thế nào?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q06","source_prompt":"Which two controls remain cautious or limited?","prompt_vi":"Hai biện pháp kiểm soát nào vẫn mang tính thận trọng hoặc giới hạn?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q07","source_prompt":"What can change for a different audience?","prompt_vi":"Khi đổi sang nhóm đối tượng khác, điều gì có thể thay đổi?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q08","source_prompt":"What must a register shift not do?","prompt_vi":"Việc đổi văn phong không được làm gì?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q09","source_prompt":"Which four fields should notes keep separate?","prompt_vi":"Ghi chú cần tách riêng bốn mục nào?"},
+    {"id":"manus:B2.5-097.v0.3.0.main.q10","source_prompt":"What remains unmeasured until new audio is heard?","prompt_vi":"Điều gì vẫn chưa được đo cho đến khi nghe bản ghi âm mới?"},
+    {"id":"manus:B2.5-097.v0.3.0.transfer.q01","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-097.v0.3.0.transfer.q02","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-097.v0.3.0.transfer.q03","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-097.v0.3.0.transfer.q04","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."}
+  ]
+}

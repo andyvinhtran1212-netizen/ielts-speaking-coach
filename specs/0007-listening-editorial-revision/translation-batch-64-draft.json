@@ -1,0 +1,80 @@
+{
+  "batch_id": "LISTENING-0007-B64",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete authority request, accountable owner/evidence, resident audience need and public register boundary. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q01",
+      "source_prompt": "Who was asked to explain the missed milestone?",
+      "prompt_vi": "Ai được yêu cầu giải thích về mốc tiến độ đã bị lỡ?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q02",
+      "source_prompt": "What additional time did the contractor need?",
+      "prompt_vi": "Nhà thầu cần thêm bao nhiêu thời gian?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q03",
+      "source_prompt": "What two things did the chair require?",
+      "prompt_vi": "Chủ tọa yêu cầu hai điều gì?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q04",
+      "source_prompt": "When were they required?",
+      "prompt_vi": "Những điều đó phải được thực hiện khi nào?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q05",
+      "source_prompt": "Who accepted ownership of the operational explanation?",
+      "prompt_vi": "Ai nhận trách nhiệm giải thích về mặt vận hành?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q06",
+      "source_prompt": "What language should the public summary avoid?",
+      "prompt_vi": "Bản tóm tắt công khai cần tránh cách diễn đạt nào?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q07",
+      "source_prompt": "What protection information do residents need?",
+      "prompt_vi": "Người dân cần biết thông tin gì về các biện pháp bảo vệ?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q08",
+      "source_prompt": "What timing information do residents need?",
+      "prompt_vi": "Người dân cần biết thông tin gì về thời điểm thực hiện?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q09",
+      "source_prompt": "What evidence will the report contain?",
+      "prompt_vi": "Báo cáo sẽ gồm những bằng chứng gì?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.main.q10",
+      "source_prompt": "What distinction must the communication preserve?",
+      "prompt_vi": "Việc truyền đạt phải giữ rõ sự phân biệt nào?"
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.transfer.q01",
+      "source_prompt": "Identify the authority request, accountable owner/evidence, audience need and register boundary.",
+      "prompt_vi": "Xác định yêu cầu của bên có thẩm quyền, người chịu trách nhiệm và bằng chứng, nhu cầu của người nghe cùng giới hạn về cách diễn đạt."
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.transfer.q02",
+      "source_prompt": "Identify the authority request, accountable owner/evidence, audience need and register boundary.",
+      "prompt_vi": "Xác định yêu cầu của bên có thẩm quyền, người chịu trách nhiệm và bằng chứng, nhu cầu của người nghe cùng giới hạn về cách diễn đạt."
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.transfer.q03",
+      "source_prompt": "Identify the authority request, accountable owner/evidence, audience need and register boundary.",
+      "prompt_vi": "Xác định yêu cầu của bên có thẩm quyền, người chịu trách nhiệm và bằng chứng, nhu cầu của người nghe cùng giới hạn về cách diễn đạt."
+    },
+    {
+      "id": "manus:B2.7-097.v0.3.0.transfer.q04",
+      "source_prompt": "Identify the authority request, accountable owner/evidence, audience need and register boundary.",
+      "prompt_vi": "Xác định yêu cầu của bên có thẩm quyền, người chịu trách nhiệm và bằng chứng, nhu cầu của người nghe cùng giới hạn về cách diễn đạt."
+    }
+  ]
+}

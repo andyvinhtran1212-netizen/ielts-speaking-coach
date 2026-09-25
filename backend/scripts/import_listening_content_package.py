@@ -22,8 +22,11 @@ from services.listening_package_import import (  # noqa: E402
     build_import_plan,
     commit_import_plan,
     discover_packages,
+    select_package,
     set_package_status,
 )
+from services.listening_editorial_validation import SOURCE_MANIFEST_LOCKS  # noqa: E402
+from services.listening_revision_compare import RevisionMismatch, compare_editorial_revision  # noqa: E402
 
 
 def _admin():
@@ -40,6 +43,10 @@ def _release_root(raw: str | None) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-root", help="Thư mục 02_PUBLISH_READY")
+    parser.add_argument(
+        "--source-release-root",
+        help="Release root v1.0 để so sánh revision biên tập; bắt buộc khi package là revision.",
+    )
     parser.add_argument(
         "--package", action="append", dest="packages",
         help="Package ID; có thể lặp lại. Mặc định kiểm tra/import toàn bộ release-index.",
@@ -63,6 +70,23 @@ def main() -> int:
         parser.error("--publish/--archive yêu cầu đúng một --package")
 
     plans = [build_import_plan(location, imported_by=args.actor) for location in selected]
+    for plan in plans:
+        source_package_id = plan.report.get("editorial_source_package_id")
+        if not source_package_id:
+            continue
+        if not args.source_release_root:
+            parser.error("--source-release-root là bắt buộc cho editorial revision")
+        source_root = Path(args.source_release_root).resolve()
+        source_plan = build_import_plan(select_package(source_root, source_package_id))
+        try:
+            comparison = compare_editorial_revision(
+                source_plan, plan,
+                expected_source_manifest_sha256=SOURCE_MANIFEST_LOCKS[source_package_id],
+            )
+        except RevisionMismatch as exc:
+            raise PackageValidationError(f"Revision invariant mismatch: {exc}") from exc
+        plan.package["validation_summary"]["revision_source_invariants_verified"] = True
+        plan.report["revision_comparison"] = comparison
     for plan in plans:
         print(json.dumps(plan.report, ensure_ascii=False, sort_keys=True))
 

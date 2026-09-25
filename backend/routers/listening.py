@@ -5375,6 +5375,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
             questions = []
             for raw_question in payload.get("questions") or []:
                 question = dict(raw_question) if isinstance(raw_question, dict) else {}
+                question.pop("visual_url", None)
                 storage_path = question.pop("visual_storage_path", None)
                 if storage_path:
                     visual_url = _sign_programme_visual_url(storage_path)
@@ -5384,6 +5385,31 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                             "Không thể tải sơ đồ của bài nghe — vui lòng thử lại sau.",
                         )
                     question["visual_url"] = visual_url
+                raw_translation = question.pop("editorial_translation", None)
+                if isinstance(raw_translation, dict):
+                    # Only display fields cross the pre-submit boundary. The
+                    # importer controls this shape, but persisted JSONB may be
+                    # malformed or changed independently of an import.
+                    translation = {
+                        key: raw_translation[key]
+                        for key in (
+                            "status", "source_item_id", "source_language",
+                            "target_language", "source_prompt", "source_options",
+                            "prompt", "options", "unchanged_options_reviewed",
+                            "visual_accessibility",
+                        )
+                        if key in raw_translation
+                    }
+                    translated_storage_path = raw_translation.get("visual_storage_path")
+                    if translated_storage_path:
+                        translated_url = _sign_programme_visual_url(translated_storage_path)
+                        if not translated_url:
+                            raise HTTPException(
+                                503,
+                                "Không thể tải sơ đồ của bài nghe — vui lòng thử lại sau.",
+                            )
+                        translation["visual_url"] = translated_url
+                    question["editorial_translation"] = translation
                 questions.append(question)
             payload["questions"] = questions
             exercise["payload"] = payload
@@ -6854,7 +6880,7 @@ async def start_listening_test_attempt(
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
-                "assembled_audio_storage_path,scoring_policy")
+                "assembled_audio_storage_path,scoring_policy,content_package_id")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -6866,6 +6892,14 @@ async def start_listening_test_attempt(
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
+
+    # Imported programme forms have one canonical standalone resume-or-create
+    # path. The legacy start-over path abandons the previous row before its
+    # INSERT; a drain-trigger rejection there would erase a valid old attempt.
+    if (test_row.get("content_package_id")
+            and test_row.get("scoring_policy") == "report_only"
+            and not standalone):
+        raise HTTPException(422, "Bài trong chương trình Listening cần mở ở chế độ luyện tập.")
 
     if class_item:
         try:
@@ -6897,6 +6931,11 @@ async def start_listening_test_attempt(
                 },
             ).execute()
         except Exception as exc:
+            if "listening_programme_new_starts_paused" in str(exc):
+                raise HTTPException(
+                    409,
+                    "Chương trình đang chuyển phiên bản. Bạn vẫn có thể hoàn thành lượt đang dở.",
+                ) from exc
             logger.error(
                 "[listening-programme-attempt] acquire failed test=%s user=%s: %s",
                 test_id,

@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B08",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Both complete manus:A2.0-086 forms (16 short-answer items). Preserve the distinction between an explicit acceptance of responsibility and a request to pass on a message. Source-context pre-review is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:A2.0-086.v0.2.0.practice.q01","source_prompt":"Who will meet the volunteers, and where?","prompt_vi":"Ai sẽ gặp các tình nguyện viên, và gặp ở đâu?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q02","source_prompt":"What two tasks does Tom agree to do at the start?","prompt_vi":"Lúc đầu Tom đồng ý làm hai việc gì?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q03","source_prompt":"By what time should Tom count the boxes?","prompt_vi":"Tom cần đếm xong các thùng trước mấy giờ?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q04","source_prompt":"Who is driving the van?","prompt_vi":"Ai sẽ lái xe tải nhỏ?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q05","source_prompt":"How many boxes are there, and where are they before collection?","prompt_vi":"Có bao nhiêu thùng, và trước khi được lấy chúng ở đâu?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q06","source_prompt":"At what time will Lan collect the boxes, and by what time will she deliver them?","prompt_vi":"Lan sẽ lấy các thùng lúc mấy giờ, và giao chúng trước mấy giờ?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q07","source_prompt":"Who explicitly agrees to collect and deliver the boxes?","prompt_vi":"Ai nói rõ rằng mình đồng ý lấy và giao các thùng?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q08","source_prompt":"Which gate should Lan use?","prompt_vi":"Lan nên đi qua cổng nào?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q09","source_prompt":"What should Lan do if that gate is closed?","prompt_vi":"Nếu cổng đó đóng, Lan cần làm gì?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q10","source_prompt":"After Lan arrives, who will take the books from the gate to the library?","prompt_vi":"Sau khi Lan đến, ai sẽ mang sách từ cổng vào thư viện?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q11","source_prompt":"What time does the reading festival begin?","prompt_vi":"Lễ hội đọc sách bắt đầu lúc mấy giờ?"},
+    {"id":"manus:A2.0-086.v0.2.0.practice.q12","source_prompt":"State the two delivery stages: who takes the boxes to which first destination, and who takes the books to which next destination?","prompt_vi":"Nêu hai chặng giao hàng: ai đưa các thùng đến điểm đầu tiên nào, rồi ai đưa sách đến điểm tiếp theo nào?"},
+    {"id":"manus:A2.0-086.v0.2.0.transfer.q01","source_prompt":"Who explicitly accepts collecting and delivering the music stands?","prompt_vi":"Ai nói rõ rằng mình nhận lấy và giao các giá để bản nhạc?"},
+    {"id":"manus:A2.0-086.v0.2.0.transfer.q02","source_prompt":"How many stands will be delivered, and by what time must they reach the practice room?","prompt_vi":"Sẽ giao bao nhiêu giá để bản nhạc, và chúng phải đến phòng tập trước mấy giờ?"},
+    {"id":"manus:A2.0-086.v0.2.0.transfer.q03","source_prompt":"What should Priya do if the lift is out of order?","prompt_vi":"Nếu thang máy hỏng, Priya cần làm gì?"},
+    {"id":"manus:A2.0-086.v0.2.0.transfer.q04","source_prompt":"Who will position the stands after delivery, and where will that person put them?","prompt_vi":"Sau khi giao, ai sẽ xếp các giá để bản nhạc và đặt chúng ở đâu?"}
+  ]
+}

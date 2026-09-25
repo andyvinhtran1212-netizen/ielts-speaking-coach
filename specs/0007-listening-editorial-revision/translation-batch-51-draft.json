@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B51",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete all three manus:B2.4-099 forms (12 main, one evidence brief, three transfer items). Preserve survey versus usage-log sources, highest-uptake scope, causal boundary, implementation/review owners and redesign trigger. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.4-099.v0.3.0.main.q01","source_prompt":"What service is under review?","prompt_vi":"Dịch vụ nào đang được rà soát?"},
+    {"id":"manus:B2.4-099.v0.3.0.main.q02","source_prompt":"What does the resident survey report?","prompt_vi":"Khảo sát cư dân báo cáo điều gì?"},
+    {"id":"manus:B2.4-099.v0.3.0.main.q03","source_prompt":"Where do usage logs show the highest uptake?","prompt_vi":"Nhật ký sử dụng cho thấy mức sử dụng cao nhất ở đâu?"},
+    {"id":"manus:B2.4-099.v0.3.0.main.q04","source_prompt":"How does the evaluator qualify the pattern?","prompt_vi":"Người đánh giá diễn giải xu hướng đó với giới hạn nào?"},
+    {"id":"manus:B2.4-099.v0.3.0.main.q05","source_prompt":"What outcome has the service alone not established?","prompt_vi":"Chỉ riêng dịch vụ đó chưa chứng minh được kết quả nào?"},
+    {"id":"manus:B2.4-099.v0.3.0.main.q06","source_prompt":"What expansion is recommended?","prompt_vi":"Phương án mở rộng nào được khuyến nghị?"},
+    {"id":"manus:B2.4-099.v0.3.0.main.q07","source_prompt":"Give the name and role of the person who owns implementation.","prompt_vi":"Nêu tên và vai trò của người phụ trách triển khai."},
+    {"id":"manus:B2.4-099.v0.3.0.main.q08","source_prompt":"What can the public version report from the survey?","prompt_vi":"Bản dành cho công chúng có thể nêu điều gì từ khảo sát?"},
+    {"id":"manus:B2.4-099.v0.3.0.main.q09","source_prompt":"Name three elements the technical note must retain.","prompt_vi":"Nêu ba yếu tố bản ghi chú kỹ thuật phải giữ lại."},
+    {"id":"manus:B2.4-099.v0.3.0.main.q10","source_prompt":"Give the name and role of the person who reviews uptake.","prompt_vi":"Nêu tên và vai trò của người rà soát mức sử dụng."},
+    {"id":"manus:B2.4-099.v0.3.0.main.q11","source_prompt":"When is uptake reviewed?","prompt_vi":"Khi nào mức sử dụng sẽ được rà soát?"},
+    {"id":"manus:B2.4-099.v0.3.0.main.q12","source_prompt":"What triggers a redesign?","prompt_vi":"Điều gì kích hoạt việc thiết kế lại?"},
+    {"id":"manus:B2.4-099.v0.3.0.brief.q01","source_prompt":"Write a five-field evidence brief: sources/findings; causal boundary; public wording; implementation owner/decision; review time and redesign trigger.","prompt_vi":"Viết bản tóm tắt bằng chứng gồm năm phần: nguồn và kết quả; giới hạn khi kết luận nguyên nhân; cách diễn đạt dành cho công chúng; người phụ trách triển khai và quyết định; thời điểm rà soát và điều kiện kích hoạt thiết kế lại."},
+    {"id":"manus:B2.4-099.v0.3.0.transfer.q01","source_prompt":"Produce four fields: source pattern, causal limit, owner/decision, review trigger.","prompt_vi":"Trình bày bốn phần: xu hướng trong nguồn dữ liệu, giới hạn khi kết luận nguyên nhân, người phụ trách và quyết định, điều kiện kích hoạt rà soát."},
+    {"id":"manus:B2.4-099.v0.3.0.transfer.q02","source_prompt":"Give source pattern, health boundary, owner/action, and review/trigger.","prompt_vi":"Nêu xu hướng trong nguồn dữ liệu, giới hạn của nhận định về sức khỏe, người phụ trách và hành động, cùng mốc rà soát và điều kiện kích hoạt."},
+    {"id":"manus:B2.4-099.v0.3.0.transfer.q03","source_prompt":"Give findings, unsupported outcome, owner/decision and review trigger.","prompt_vi":"Nêu kết quả, kết quả chưa có đủ căn cứ, người phụ trách và quyết định, cùng điều kiện kích hoạt rà soát."}
+  ]
+}

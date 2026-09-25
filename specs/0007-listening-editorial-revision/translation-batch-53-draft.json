@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B53",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.5-096 forms (10 main, four transfer items). Preserve association versus causal claim, confounders, mechanism status, controlled-pilot purpose and bounded recommendation. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.5-096.v0.3.0.main.q01","source_prompt":"What association did the report observe?","prompt_vi":"Báo cáo đã quan sát thấy mối liên hệ nào?"},
+    {"id":"manus:B2.5-096.v0.3.0.main.q02","source_prompt":"Why does the association not establish the full causal claim?","prompt_vi":"Vì sao mối liên hệ đó chưa đủ chứng minh nhận định đầy đủ về quan hệ nhân quả?"},
+    {"id":"manus:B2.5-096.v0.3.0.main.q03","source_prompt":"Name the two plausible confounders.","prompt_vi":"Nêu hai yếu tố gây nhiễu có thể xảy ra."},
+    {"id":"manus:B2.5-096.v0.3.0.main.q04","source_prompt":"What action do the authors recommend?","prompt_vi":"Các tác giả khuyến nghị hành động gì?"},
+    {"id":"manus:B2.5-096.v0.3.0.main.q05","source_prompt":"Which three evidence boundaries should a critical account retain?","prompt_vi":"Một bản đánh giá phản biện cần giữ rõ ba giới hạn nào của bằng chứng?"},
+    {"id":"manus:B2.5-096.v0.3.0.main.q06","source_prompt":"What distinction should the listener preserve?","prompt_vi":"Người nghe cần giữ rõ sự phân biệt nào?"},
+    {"id":"manus:B2.5-096.v0.3.0.main.q07","source_prompt":"What can the controlled pilot test?","prompt_vi":"Đợt thử nghiệm có kiểm soát có thể kiểm tra điều gì?"},
+    {"id":"manus:B2.5-096.v0.3.0.main.q08","source_prompt":"What is the status of the proposed mechanism?","prompt_vi":"Cơ chế được đề xuất hiện đã được xác nhận đến mức nào?"},
+    {"id":"manus:B2.5-096.v0.3.0.main.q09","source_prompt":"What does the bounded conclusion avoid promising?","prompt_vi":"Kết luận có giới hạn tránh hứa hẹn điều gì?"},
+    {"id":"manus:B2.5-096.v0.3.0.main.q10","source_prompt":"Why is the recommendation useful?","prompt_vi":"Vì sao khuyến nghị đó hữu ích?"},
+    {"id":"manus:B2.5-096.v0.3.0.transfer.q01","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-096.v0.3.0.transfer.q02","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-096.v0.3.0.transfer.q03","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-096.v0.3.0.transfer.q04","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."}
+  ]
+}

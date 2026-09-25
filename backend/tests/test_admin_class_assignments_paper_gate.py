@@ -250,6 +250,26 @@ async def test_either_audio_path_is_enough(col):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("delivery_mode", ["standard", "assigned_practice"])
+async def test_programme_form_cannot_be_given_as_impossible_class_homework(delivery_mode):
+    with pytest.raises(HTTPException) as exc:
+        await _create(
+            _playable(content_package_id="package-1", scoring_policy="report_only"),
+            "listening", delivery_mode=delivery_mode,
+        )
+    assert exc.value.status_code == 400
+    assert "chưa hỗ trợ giao qua lớp" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_non_programme_report_only_paper_keeps_existing_class_path():
+    out = await _create(
+        _playable(content_package_id=None, scoring_policy="report_only"), "listening",
+    )
+    assert out["student_count"] == 3
+
+
+@pytest.mark.asyncio
 async def test_a_reading_paper_is_not_asked_for_audio():
     """Reading has no audio columns at all; requiring them would refuse every
     reading paper."""

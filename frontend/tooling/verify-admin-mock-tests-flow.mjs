@@ -73,7 +73,12 @@ await page.waitForFunction(() => {
   return frame?.contentWindow?.location.pathname === '/admin/mock-live'
     && frame.contentDocument?.readyState === 'complete';
 });
-await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+// The real theme toggle persists the preference before updating the parent.
+// Without that step, the iframe's anti-flash bootstrap can restore light.
+await page.evaluate(() => {
+  localStorage.setItem('av-theme', 'dark');
+  document.documentElement.setAttribute('data-theme', 'dark');
+});
 await page.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.documentElement?.getAttribute('data-theme') === 'dark');
 check('theme parent được đồng bộ sang workspace native', await page.locator('iframe').evaluate((node) => node.contentDocument?.documentElement?.getAttribute('data-theme') === 'dark'));
 

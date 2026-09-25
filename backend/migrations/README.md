@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-23 the highest is `302`, so the next new
-migration is `303`.
+sequence is dense. As of 2026-09-25 the highest is `303`, so the next new
+migration is `304`.
 
 ## Conventions
 

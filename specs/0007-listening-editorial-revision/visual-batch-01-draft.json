@@ -1,0 +1,45 @@
+{
+  "batch_id": "LISTENING-0007-V01",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "review_note": "Two unpublished Vietnamese SVG variants have delegated editorial approval. XML, geometry, wording and answer-letter anchors match the reviewed source mapping; static 360px light/dark renders were inspected. At 360px the text requires the learner UI horizontal pan to read at natural size. Authenticated mobile, keyboard and screen-reader verification remain release gates; the owner did not personally review the images. Preserve all coordinate paths, room-letter anchors and north arrows; no room names or answer locations may be added.",
+  "visuals": [
+    {
+      "source_path": "learner/visuals/westbury-research-wing.v1.svg",
+      "source_sha256": "c1899ed3533cf80632320db5d61d0e791b84b6f65ac1659b59d6601a508dec3d",
+      "draft_variant_path": "visuals-draft/westbury-research-wing.vi.draft.svg",
+      "draft_variant_sha256": "a25aa212a7a28d8e60ac47c3cf568e0835016d9ccc021bfbd5f54d5152a842ce",
+      "title_en": "Westbury Museum research wing — blank learner plan",
+      "title_vi": "Bảo tàng Westbury — sơ đồ trống khu nghiên cứu",
+      "description_en": "North is up. Enter from the south and face north. Three rooms on the west: A nearest the entrance, B in the middle, C at the far end. Three rooms on the east: D nearest, E in the middle, F at the far end. A bronze statue stands in the corridor between the middle and far rooms. Letters are location choices, not room names.",
+      "description_vi": "Phía bắc ở trên. Đi vào từ phía nam và nhìn về phía bắc. Ba phòng phía tây: A gần lối vào nhất, B ở giữa, C ở cuối. Ba phòng phía đông: D gần lối vào nhất, E ở giữa, F ở cuối. Tượng đồng nằm trong hành lang giữa các phòng ở giữa và ở cuối. Các chữ cái là lựa chọn vị trí, không phải tên phòng.",
+      "visible_text": [
+        {"en":"Westbury Museum — research wing","vi":"Bảo tàng Westbury — khu nghiên cứu"},
+        {"en":"Match the rooms you hear to A–F. Not to scale.","vi":"Ghép các phòng được nghe với A–F. Sơ đồ không theo tỉ lệ."},
+        {"en":"Bronze statue","vi":"Tượng đồng"},
+        {"en":"Entrance · face north","vi":"Lối vào · nhìn về phía bắc"}
+      ],
+      "image_alt_vi": "Sơ đồ khu nghiên cứu Bảo tàng Westbury: lối vào ở phía nam, nhìn về phía bắc. A, B, C ở phía tây từ gần đến xa; D, E, F ở phía đông từ gần đến xa. Tượng đồng trong hành lang giữa các phòng ở giữa và ở cuối.",
+      "unchanged_symbols": ["N", "A", "B", "C", "D", "E", "F"]
+    },
+    {
+      "source_path": "learner/visuals/westbury-annex-transfer.v1.svg",
+      "source_sha256": "b381046b811533444814b3a318a7562748c754f5e1bfaa8b31451c0cb4fb0660",
+      "draft_variant_path": "visuals-draft/westbury-annex-transfer.vi.draft.svg",
+      "draft_variant_sha256": "8c23ab27ab798b9204932197e219f7b6e45a7cf4e4bb786b59d502940d98b6be",
+      "title_en": "Westbury interview annex — blank learner plan",
+      "title_vi": "Westbury — sơ đồ trống khu phỏng vấn",
+      "description_en": "North is up. The entrance is on the west; enter facing east. Top rooms from west to east are P, Q, R. Bottom rooms from west to east are S, T, U. A display table is in the corridor between the middle and easternmost pairs of rooms. Letters are choices, not room names.",
+      "description_vi": "Phía bắc ở trên. Lối vào nằm ở phía tây; đi vào theo hướng đông. Hàng phòng phía trên từ tây sang đông là P, Q, R. Hàng phòng phía dưới từ tây sang đông là S, T, U. Bàn trưng bày nằm trong hành lang giữa cặp phòng ở giữa và cặp phòng xa nhất về phía đông. Các chữ cái là lựa chọn vị trí, không phải tên phòng.",
+      "visible_text": [
+        {"en":"Westbury — interview annex","vi":"Westbury — khu phỏng vấn"},
+        {"en":"New visit. Match locations to P–U. Not to scale.","vi":"Lượt tham quan mới. Ghép vị trí với P–U. Sơ đồ không theo tỉ lệ."},
+        {"en":"Display table","vi":"Bàn trưng bày"},
+        {"en":"Entrance · face east","vi":"Lối vào · nhìn về phía đông"},
+        {"en":"Use the visitor's direction of travel when deciding left and right.","vi":"Xác định trái/phải theo hướng di chuyển của khách tham quan."}
+      ],
+      "image_alt_vi": "Sơ đồ khu phỏng vấn Westbury: lối vào phía tây, nhìn về phía đông. Hàng trên P, Q, R từ tây sang đông; hàng dưới S, T, U từ tây sang đông. Bàn trưng bày trong hành lang giữa hai cặp phòng phía đông.",
+      "unchanged_symbols": ["N", "P", "Q", "R", "S", "T", "U"]
+    }
+  ]
+}

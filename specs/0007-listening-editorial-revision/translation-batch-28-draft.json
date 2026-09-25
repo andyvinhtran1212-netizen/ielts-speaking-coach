@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B28",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.0-096 forms (14 short-answer items). Preserve the distinction between request, acceptance, conditional support, task ownership, deadline and approval status. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.0-096.v0.3.0.main.q01","source_prompt":"What does Dana want Mara to do, and does Mara accept?","prompt_vi":"Dana muốn Mara làm gì, và Mara có nhận lời không?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q02","source_prompt":"Which action does Nico commit to, and what must happen before he supports using the proposal?","prompt_vi":"Nico cam kết làm việc gì, và điều gì phải xảy ra trước khi anh ấy ủng hộ việc sử dụng đề xuất?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q03","source_prompt":"What can Jules do now, and which action must wait until Friday?","prompt_vi":"Jules có thể làm gì ngay bây giờ, và việc gì phải đợi đến thứ Sáu?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q04","source_prompt":"Which file should Ben use, and for which stage only?","prompt_vi":"Ben nên dùng tệp nào, và chỉ dùng cho giai đoạn nào?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q05","source_prompt":"Who accepts responsibility for finishing the figures, and what information was Riya initially asking for?","prompt_vi":"Ai nhận trách nhiệm hoàn thiện các số liệu, và ban đầu Riya hỏi xin thông tin gì?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q06","source_prompt":"What goal does the panel member still support, and what additional evidence does the member request?","prompt_vi":"Thành viên hội đồng vẫn ủng hộ mục tiêu nào, và yêu cầu thêm bằng chứng gì?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q07","source_prompt":"Who will circulate the revised schedule, and by what time?","prompt_vi":"Ai sẽ gửi lịch trình đã chỉnh sửa, và trước mấy giờ?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q08","source_prompt":"What must happen before Omar checks the figures, and has the panel approved the funding amount?","prompt_vi":"Điều gì phải xảy ra trước khi Omar kiểm tra các số liệu, và hội đồng đã phê duyệt mức kinh phí chưa?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q09","source_prompt":"What must be confirmed before Ruth can send the announcement?","prompt_vi":"Điều gì phải được xác nhận trước khi Ruth có thể gửi thông báo?"},
+    {"id":"manus:B2.0-096.v0.3.0.main.q10","source_prompt":"Who has accepted responsibility for sending the signed report, and on which day will it be sent?","prompt_vi":"Ai đã nhận trách nhiệm gửi báo cáo có chữ ký, và báo cáo sẽ được gửi vào ngày nào?"},
+    {"id":"manus:B2.0-096.v0.3.0.transfer.q01","source_prompt":"Who may receive the opening-hours text notice?","prompt_vi":"Ai có thể nhận tin nhắn thông báo về giờ mở cửa?"},
+    {"id":"manus:B2.0-096.v0.3.0.transfer.q02","source_prompt":"Who accepts the task of posting the corrected notice, and which studio should the notice name?","prompt_vi":"Ai nhận nhiệm vụ đăng thông báo đã sửa, và thông báo cần nêu tên phòng studio nào?"},
+    {"id":"manus:B2.0-096.v0.3.0.transfer.q03","source_prompt":"Has the grant been awarded, and what review must happen before the award decision?","prompt_vi":"Khoản tài trợ đã được trao chưa, và cần có bước rà soát nào trước khi quyết định trao tài trợ?"},
+    {"id":"manus:B2.0-096.v0.3.0.transfer.q04","source_prompt":"By what day and time must the projector be collected?","prompt_vi":"Máy chiếu phải được nhận chậm nhất vào ngày nào, lúc mấy giờ?"}
+  ]
+}

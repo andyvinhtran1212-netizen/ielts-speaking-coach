@@ -34,6 +34,20 @@ export function createProgrammeAnswerWriteQueue(write) {
 }
 
 /**
+ * Submit only questions the learner actually touched. A present empty value
+ * must still be sent so clearing an earlier answer stays cleared on the same
+ * attempt; untouched questions need no redundant PATCH.
+ *
+ * @param {Array<{q_num: number}>} questions
+ * @param {Record<number, string>} answers
+ */
+export function programmeAnswerFlushEntries(questions, answers) {
+  return questions
+    .filter(({ q_num }) => Object.prototype.hasOwnProperty.call(answers, q_num))
+    .map(({ q_num }) => ({ qNum: q_num, value: answers[q_num] }));
+}
+
+/**
  * Keep the latest visible answer in synchronous browser storage until the
  * server confirms that exact value. This is the page-exit safety net for the
  * programme runner: a debounce timer or an in-flight PATCH may be interrupted
