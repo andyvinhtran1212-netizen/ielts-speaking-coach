@@ -22,7 +22,8 @@ answering.
 ## Scope
 
 - Prepare new package IDs/revisions, leaving both v1.0 package bytes and the
-  published release index untouched until explicit owner review and release.
+  published release index untouched until direct or recorded delegated review
+  and all release gates pass.
 - Edit the 65 instructions, nine titles, and five missing outcome sets as
   learner-facing editorial content, with no change to audio, timing, answer
   keys, scoring, or report-only claims.

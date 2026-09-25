@@ -31,4 +31,5 @@
 ## Release evidence
 
 - Staging SHA and checks: pending.
-- Production verification: not authorized; pending owner publish decision.
+- Production verification: delegated authority is recorded in REVIEW.md, but
+  exact-SHA staging, drain and promotion gates remain pending.
