@@ -313,7 +313,7 @@ describe('native Listening test route contract', () => {
   });
 
   test('preserves mock sealing, canonical resume and submit safety', () => {
-    assert.match(page, /hook\.attach\('listening', nextAttempt\.attempt_id\)/);
+    assert.match(page, /MockHook\.attach\('listening', attemptId\)/);
     assert.match(page, /hook\?\.isSealedResponse/);
     assert.match(page, /const clean = await coordinatorRef\.current\?\.flush/);
     assert.match(page, /if \(!clean\)/);

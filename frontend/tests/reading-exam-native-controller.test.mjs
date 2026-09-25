@@ -321,7 +321,7 @@ describe('native Reading exam route contract', () => {
   test('preserves anonymous capability, password and mock-sitting boundaries', () => {
     assert.match(page, /'X-Reading-Anon'/);
     assert.match(page, /'X-Reading-Password'/);
-    assert.match(page, /hook\.attach\('reading', nextAttempt\.attempt_id\)/);
+    assert.match(page, /MockHook\.attach\('reading', nextAttempt\.attempt_id\)/);
     assert.match(page, /hook\?\.isSealedResponse/);
     assert.match(page, /readingReviewHref\(attemptId, \{ anonId, from, sittingId \}\)/);
   });
