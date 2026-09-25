@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.3-097 forms (12 main, four transfer items). Preserve speaker intent versus acceptance, evidence scale, trial scope, 'subject to' condition, audience-specific wording without stronger promise, and speech-act distinction. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.3-097 forms (12 main, four transfer items). Preserve speaker intent versus acceptance, evidence scale, trial scope, 'subject to' condition, audience-specific wording without stronger promise, and speech-act distinction. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.3-097.v0.3.0.main.q01","source_prompt":"What positive assessment does Dr Hale make, and what sample limitation qualifies it?","prompt_vi":"Tiến sĩ Hale đưa ra đánh giá tích cực nào, và giới hạn nào của mẫu khiến cần thận trọng với đánh giá đó?"},
     {"id":"manus:B2.3-097.v0.3.0.main.q02","source_prompt":"What wider scale does he say the evidence does not yet support?","prompt_vi":"Ông nói bằng chứng chưa đủ để áp dụng ở phạm vi rộng nào?"},

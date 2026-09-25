@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all four manus:B2.6-100 forms (10 main, one summary, one exam explanation, four transfer items). Preserve improved versus stable/conditional areas, workload/accessibility continuation conditions, unapproved scope and five source-claim-evidence-boundary-caveat fields. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all four manus:B2.6-100 forms (10 main, one summary, one exam explanation, four transfer items). Preserve improved versus stable/conditional areas, workload/accessibility continuation conditions, unapproved scope and five source-claim-evidence-boundary-caveat fields. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.6-100.v0.3.0.main.q01","source_prompt":"What decision does the review recommend?","prompt_vi":"Đợt rà soát khuyến nghị quyết định nào?"},
     {"id":"manus:B2.6-100.v0.3.0.main.q02","source_prompt":"In which area did performance improve?","prompt_vi":"Hiệu quả đã cải thiện ở khía cạnh nào?"},

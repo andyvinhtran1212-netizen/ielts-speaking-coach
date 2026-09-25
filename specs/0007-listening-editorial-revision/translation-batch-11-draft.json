@@ -5,7 +5,7 @@
   "source_language": "vi",
   "target_language": "en",
   "visual_dependency": "LISTENING-0007-V01",
-  "review_note": "All nine questions of two museum-map forms are drafted here, but neither form counts as bilingual-ready until both language variants of the SVG diagrams and their accessible alternatives have been generated and reviewed. Preserve letter positions A–F and P–U; source-context and perceptual review remain pending.",
+  "review_note": "All nine questions and both Vietnamese SVG variants have delegated editorial approval with accessible alternatives. Preserve letter positions A–F and P–U; human perceptual listening was not performed. Authenticated mobile/theme/screen-reader verification remains a release gate.",
   "items": [
     {"id":"manus:B1.4-075.P1","source_prompt":"Reception nằm ở vị trí nào trên sơ đồ A–F?","source_options":{"A":"Vị trí A trên sơ đồ","B":"Vị trí B trên sơ đồ","C":"Vị trí C trên sơ đồ","D":"Vị trí D trên sơ đồ","E":"Vị trí E trên sơ đồ","F":"Vị trí F trên sơ đồ"},"prompt_en":"Where is Reception on the A–F plan?","options_en":{"A":"Position A on the plan","B":"Position B on the plan","C":"Position C on the plan","D":"Position D on the plan","E":"Position E on the plan","F":"Position F on the plan"}},
     {"id":"manus:B1.4-075.P2","source_prompt":"Archive nằm ở vị trí nào?","source_options":{"A":"Vị trí A trên sơ đồ","B":"Vị trí B trên sơ đồ","C":"Vị trí C trên sơ đồ","D":"Vị trí D trên sơ đồ","E":"Vị trí E trên sơ đồ","F":"Vị trí F trên sơ đồ"},"prompt_en":"Where is the Archive?","options_en":{"A":"Position A on the plan","B":"Position B on the plan","C":"Position C on the plan","D":"Position D on the plan","E":"Position E on the plan","F":"Position F on the plan"}},

@@ -2,7 +2,7 @@
   "batch_id": "LISTENING-0007-V01",
   "status": "approved_under_owner_delegation_not_published",
   "source_package_id": "general-listening-practice-v1.0.0",
-  "review_note": "Two unpublished Vietnamese SVG draft variants exist. XML parses, SVG element structure and attributes match v1.0 exactly, and nominal-size Quick Look renders were inspected. At 360px the secondary labels/instructions are too small to read without zoom; learner UI needs zoom/pan or separately readable instructions before these forms count as ready. Light/dark embedding, screen reader and owner review remain pending. Preserve all coordinate paths, room-letter anchors and north arrows; no room names or answer locations may be added.",
+  "review_note": "Two unpublished Vietnamese SVG variants have delegated editorial approval. XML, geometry, wording and answer-letter anchors match the reviewed source mapping; static 360px light/dark renders were inspected. At 360px the text requires the learner UI horizontal pan to read at natural size. Authenticated mobile, keyboard and screen-reader verification remain release gates; the owner did not personally review the images. Preserve all coordinate paths, room-letter anchors and north arrows; no room names or answer locations may be added.",
   "visuals": [
     {
       "source_path": "learner/visuals/westbury-research-wing.v1.svg",

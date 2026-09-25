@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all four manus:B2.0-100 forms (20 main, one summary, one application note, four transfer items). Preserve final versus earlier values, measurement versus forecast, source/denominator, authority, maximum versus exact limit, submission versus approval, owner/deadline/dependency and bounded conclusion. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all four manus:B2.0-100 forms (20 main, one summary, one application note, four transfer items). Preserve final versus earlier values, measurement versus forecast, source/denominator, authority, maximum versus exact limit, submission versus approval, owner/deadline/dependency and bounded conclusion. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.0-100.v0.3.0.main.q01","source_prompt":"What action is Carla indirectly requesting?","prompt_vi":"Carla đang gián tiếp đề nghị người khác làm việc gì?"},
     {"id":"manus:B2.0-100.v0.3.0.main.q02","source_prompt":"Who accepts the action, and by what time?","prompt_vi":"Ai nhận làm việc đó, và trước mấy giờ?"},

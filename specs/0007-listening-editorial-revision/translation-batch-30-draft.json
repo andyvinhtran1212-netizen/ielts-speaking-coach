@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.0-098 forms (14 short-answer items). Preserve corrected counts, sampling minima/maxima, deadlines, per-person/team unit, reserved versus confirmed places and distinct interview/task durations. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.0-098 forms (14 short-answer items). Preserve corrected counts, sampling minima/maxima, deadlines, per-person/team unit, reserved versus confirmed places and distinct interview/task durations. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.0-098.v0.3.0.main.q01","source_prompt":"What is the corrected number of people who completed the survey?","prompt_vi":"Số người hoàn thành khảo sát sau khi được đính chính là bao nhiêu?"},
     {"id":"manus:B2.0-098.v0.3.0.main.q09","source_prompt":"The seventy-percent figure concerns which group, and what did that proportion of the group do?","prompt_vi":"Con số 70% nói về nhóm nào, và 70% số người trong nhóm đó đã làm gì?"},

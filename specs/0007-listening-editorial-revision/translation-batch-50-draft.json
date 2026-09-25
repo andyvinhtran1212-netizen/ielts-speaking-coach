@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.4-098 forms (12 main, four transfer items). Preserve final urgent priority versus earlier mention, named role/task owner, generator/clinic dependencies, six-o'clock condition and no unconditional public promise. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.4-098 forms (12 main, four transfer items). Preserve final urgent priority versus earlier mention, named role/task owner, generator/clinic dependencies, six-o'clock condition and no unconditional public promise. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.4-098.v0.3.0.main.q01","source_prompt":"What emergency issue is the team planning for?","prompt_vi":"Nhóm đang lập kế hoạch ứng phó với tình huống khẩn cấp nào?"},
     {"id":"manus:B2.4-098.v0.3.0.main.q02","source_prompt":"Which households must be mapped first?","prompt_vi":"Cần xác định vị trí những hộ gia đình nào trước?"},

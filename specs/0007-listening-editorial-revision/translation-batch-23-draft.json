@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.8-096 forms (eight analysis questions and one transfer synthesis). Preserve denominator, comparison, missing evidence, engineering/staffing/finance limits and scoped next action. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.8-096 forms (eight analysis questions and one transfer synthesis). Preserve denominator, comparison, missing evidence, engineering/staffing/finance limits and scoped next action. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.8-096.v0.3.0.main.q01","source_prompt":"What population is the denominator?","prompt_vi":"Nhóm dân số nào được dùng làm mẫu số?"},
     {"id":"manus:B2.8-096.v0.3.0.main.q02","source_prompt":"What comparison did the researcher report?","prompt_vi":"Nhà nghiên cứu đã báo cáo sự so sánh nào?"},

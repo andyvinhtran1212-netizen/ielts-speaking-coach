@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.4-096 forms (12 main, four transfer items). Preserve contemporaneous price/selection explanations, observation versus causal claim, required comparison and bounded policy/review sequence. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.4-096 forms (12 main, four transfer items). Preserve contemporaneous price/selection explanations, observation versus causal claim, required comparison and bounded policy/review sequence. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.4-096.v0.3.0.main.q01","source_prompt":"What policy is under review, and which buildings does it target?","prompt_vi":"Chính sách nào đang được rà soát, và chính sách đó nhắm tới những tòa nhà nào?"},
     {"id":"manus:B2.4-096.v0.3.0.main.q02","source_prompt":"What change was observed in participating buildings?","prompt_vi":"Thay đổi nào được quan sát ở các tòa nhà tham gia?"},

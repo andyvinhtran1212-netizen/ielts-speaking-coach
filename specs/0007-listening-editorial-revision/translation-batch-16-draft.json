@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete contrast-reversal form 07 (five single-choice items). Preserve option-letter identity and final-choice wording; editorial and perceptual review remain pending.",
+  "review_note": "Complete contrast-reversal form 07 (five single-choice items). Preserve option-letter identity and final-choice wording; delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"G12.DRL2.380","source_prompt":"Which subject did Daniel finally choose?","source_options":{"A":"undecided","B":"marketing","C":"sociology","D":"philosophy"},"prompt_vi":"Cuối cùng Daniel chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"tiếp thị","C":"xã hội học","D":"triết học"}},
     {"id":"G12.DRL2.387","source_prompt":"Which subject did Chloe finally choose?","source_options":{"A":"undecided","B":"sociology","C":"marketing","D":"architecture"},"prompt_vi":"Cuối cùng Chloe chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"xã hội học","C":"tiếp thị","D":"kiến trúc"}},

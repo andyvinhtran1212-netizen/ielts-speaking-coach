@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all three manus:B2.5-099 forms (15 main, one synthesis, three transfer items). Preserve recommendation versus final approval, limited regional-trial population, qualification, review point and four essential relations when compressing. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all three manus:B2.5-099 forms (15 main, one synthesis, three transfer items). Preserve recommendation versus final approval, limited regional-trial population, qualification, review point and four essential relations when compressing. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.5-099.v0.3.0.main.q01","source_prompt":"What does the briefing recommend?","prompt_vi":"Bản tóm tắt khuyến nghị điều gì?"},
     {"id":"manus:B2.5-099.v0.3.0.main.q02","source_prompt":"What condition comes before approval?","prompt_vi":"Điều kiện nào phải được đáp ứng trước khi phê duyệt?"},

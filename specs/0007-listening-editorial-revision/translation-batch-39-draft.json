@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.2-097 forms (10 main and four transfer items). Preserve unit/percentage/period/scope, exact safety triggers, both escalation actions, owner and event-based review point; do not infer universal safety from pilot. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.2-097 forms (10 main and four transfer items). Preserve unit/percentage/period/scope, exact safety triggers, both escalation actions, owner and event-based review point; do not infer universal safety from pilot. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.2-097.v0.3.0.main.q01","source_prompt":"What did the pilot reduce?","prompt_vi":"Đợt thử nghiệm đã làm giảm điều gì?"},
     {"id":"manus:B2.2-097.v0.3.0.main.q02","source_prompt":"What percentage reduction was reported?","prompt_vi":"Mức giảm được báo cáo là bao nhiêu phần trăm?"},

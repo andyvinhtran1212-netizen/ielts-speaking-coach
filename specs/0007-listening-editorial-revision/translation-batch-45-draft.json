@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.3-098 forms (12 main, four transfer items). Preserve accepted task ownership, scheduled check versus conditional notice, unrevised opening-date status, and each transfer dependency before notification/order. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.3-098 forms (12 main, four transfer items). Preserve accepted task ownership, scheduled check versus conditional notice, unrevised opening-date status, and each transfer dependency before notification/order. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.3-098.v0.3.0.main.q01","source_prompt":"Which heading should be at the top of the corrected note?","prompt_vi":"Tiêu đề nào cần đặt ở đầu ghi chú đã sửa?"},
     {"id":"manus:B2.3-098.v0.3.0.main.q02","source_prompt":"Who accepts responsibility for coordinating the building inspection?","prompt_vi":"Ai nhận trách nhiệm điều phối việc kiểm tra tòa nhà?"},

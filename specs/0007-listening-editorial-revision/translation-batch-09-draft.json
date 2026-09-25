@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete contrast-reversal form 01 (10 single-choice items). The question asks for the final choice, not the first preference; letter keys remain unchanged. Editorial and perceptual review remain pending.",
+  "review_note": "Complete contrast-reversal form 01 (10 single-choice items). The question asks for the final choice, not the first preference; letter keys remain unchanged. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"G12.DRL.400","source_prompt":"Which subject did Raj finally choose?","source_options":{"A":"economics","B":"genetics","C":"undecided","D":"nursing"},"prompt_vi":"Cuối cùng Raj chọn môn học nào?","options_vi":{"A":"kinh tế học","B":"di truyền học","C":"chưa quyết định","D":"điều dưỡng"}},
     {"id":"G12.DRL.492","source_prompt":"Which subject did Zoe finally choose?","source_options":{"A":"undecided","B":"physics","C":"chemistry","D":"psychology"},"prompt_vi":"Cuối cùng Zoe chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"vật lý","C":"hóa học","D":"tâm lý học"}},

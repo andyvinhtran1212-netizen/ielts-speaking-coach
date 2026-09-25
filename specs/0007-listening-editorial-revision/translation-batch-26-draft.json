@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.8-099 forms (10 analysis questions and one transfer synthesis). Preserve observation versus causal/design limit, denominator, staffing, finance, access, policy/implementation ownership and weekly metrics. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.8-099 forms (10 analysis questions and one transfer synthesis). Preserve observation versus causal/design limit, denominator, staffing, finance, access, policy/implementation ownership and weekly metrics. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.8-099.v0.3.0.main.q01","source_prompt":"What result did the research lead report, and what design limit applies?","prompt_vi":"Trưởng nhóm nghiên cứu báo cáo kết quả gì, và thiết kế nghiên cứu có giới hạn nào?"},
     {"id":"manus:B2.8-099.v0.3.0.main.q02","source_prompt":"What is the denominator?","prompt_vi":"Nhóm nào được dùng làm mẫu số?"},

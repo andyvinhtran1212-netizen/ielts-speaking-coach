@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete reference:consumer:Level5_5d practice form (11 single-choice items). Preserve option-letter identity and conditional/final-decision meaning; editorial and perceptual review remain pending.",
+  "review_note": "Complete reference:consumer:Level5_5d practice form (11 single-choice items). Preserve option-letter identity and conditional/final-decision meaning; delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"reference:5.22","source_prompt":"Which topic will they choose?","source_options":{"A":"African art","B":"Asian art","C":"both","D":"neither, choose new"},"prompt_vi":"Họ sẽ chọn chủ đề nào?","options_vi":{"A":"nghệ thuật châu Phi","B":"nghệ thuật châu Á","C":"cả hai","D":"không chọn chủ đề nào trong hai chủ đề đó mà chọn chủ đề mới"}},
     {"id":"reference:5.23","source_prompt":"When will they travel?","source_options":{"A":"Friday evening","B":"Friday morning","C":"Saturday morning","D":"Saturday evening"},"prompt_vi":"Họ sẽ đi vào lúc nào?","options_vi":{"A":"tối thứ Sáu","B":"sáng thứ Sáu","C":"sáng thứ Bảy","D":"tối thứ Bảy"}},

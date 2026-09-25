@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.7-096 forms (10 main, four transfer items). Preserve pilot funding/provenance, organisational scope, uncertainty, limited management action, review condition and unsupported wider outcome. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.7-096 forms (10 main, four transfer items). Preserve pilot funding/provenance, organisational scope, uncertainty, limited management action, review condition and unsupported wider outcome. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.7-096.v0.3.0.main.q01","source_prompt":"What possible benefit did the pilot suggest?","prompt_vi":"Đợt thử nghiệm gợi ra lợi ích có thể có nào?"},
     {"id":"manus:B2.7-096.v0.3.0.main.q02","source_prompt":"Who funded the pilot?","prompt_vi":"Ai cấp kinh phí cho đợt thử nghiệm?"},

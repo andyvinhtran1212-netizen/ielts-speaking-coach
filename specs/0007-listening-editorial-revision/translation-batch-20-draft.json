@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete reference:consumer:Level7_L2_ClimateScience practice form (10 items). English audio, answer keys, English gap input and answer-review rules remain unchanged. Keep TWO selection and one-word/number constraints; editorial and perceptual review remain pending.",
+  "review_note": "Complete reference:consumer:Level7_L2_ClimateScience practice form (10 items). English audio, answer keys, English gap input and answer-review rules remain unchanged. Keep TWO selection and one-word/number constraints; delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"reference:L2.1","source_prompt":"What proportion of our CO2 emissions does the ocean absorb?","source_options":{"A":"about a half","B":"about a quarter","C":"about a tenth","D":"about three-quarters"},"prompt_vi":"Đại dương hấp thụ khoảng bao nhiêu phần trong lượng CO2 chúng ta thải ra?","options_vi":{"A":"khoảng một nửa","B":"khoảng một phần tư","C":"khoảng một phần mười","D":"khoảng ba phần tư"}},
     {"id":"reference:L2.2","source_prompt":"What drives the surface circulation of which the Gulf Stream is a part?","source_options":{"A":"prevailing winds","B":"tidal forces","C":"salinity and temperature differences","D":"the Earth's rotation"},"prompt_vi":"Yếu tố nào tạo ra dòng hoàn lưu bề mặt mà hải lưu Gulf Stream là một phần của nó?","options_vi":{"A":"gió thịnh hành","B":"lực thủy triều","C":"sự khác biệt về độ mặn và nhiệt độ","D":"sự tự quay của Trái Đất"}},

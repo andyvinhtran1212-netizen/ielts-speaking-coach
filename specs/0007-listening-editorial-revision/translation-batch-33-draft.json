@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.1-096 forms (10 main and four transfer items). Preserve sample/comparison design, self-selection, outcome measure, association versus causation, and limited generalisability. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.1-096 forms (10 main and four transfer items). Preserve sample/comparison design, self-selection, outcome measure, association versus causation, and limited generalisability. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.1-096.v0.3.0.main.q01","source_prompt":"How many teams participated in the remote-work trial, and what kind of roles did they have?","prompt_vi":"Có bao nhiêu nhóm tham gia thử nghiệm làm việc từ xa, và họ đảm nhiệm những loại công việc nào?"},
     {"id":"manus:B2.1-096.v0.3.0.main.q02","source_prompt":"What comparison group did the researchers use, and what schedule did that group follow?","prompt_vi":"Các nhà nghiên cứu dùng nhóm nào để so sánh, và nhóm đó làm việc theo lịch nào?"},

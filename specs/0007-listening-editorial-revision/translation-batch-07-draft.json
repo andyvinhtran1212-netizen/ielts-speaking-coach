@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Both complete manus:A2.0-070 forms (24 short-answer items). Preserve the spoken order, people, initial/final feelings and stated conditions; no answer or self-review rule changes. Editorial and perceptual review remain pending.",
+  "review_note": "Both complete manus:A2.0-070 forms (24 short-answer items). Preserve the spoken order, people, initial/final feelings and stated conditions; no answer or self-review rule changes. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"A2.0-070.v0.2.0.story.q1","source_prompt":"Why did Hoa take the early bus, and when was her help needed?","prompt_vi":"Vì sao Hoa đi chuyến xe buýt sớm, và cần cô ấy giúp vào lúc nào?"},
     {"id":"A2.0-070.v0.2.0.story.q2","source_prompt":"What was missing when the heavy boxes arrived?","prompt_vi":"Khi những thùng hàng nặng đến nơi, còn thiếu thứ gì?"},

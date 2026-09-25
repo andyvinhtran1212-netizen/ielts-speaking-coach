@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.0-099 forms (30 main and three transfer short-answer items). Preserve source/period/denominator, observed versus forecast status, approval versus pending status, owner/deadline/dependency and bounded health/access claims. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.0-099 forms (30 main and three transfer short-answer items). Preserve source/period/denominator, observed versus forecast status, approval versus pending status, owner/deadline/dependency and bounded health/access claims. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.0-099.v0.3.0.main.q01","source_prompt":"What unresolved arrangement does Leila want settled?","prompt_vi":"Leila muốn chốt việc sắp xếp nào vẫn chưa được giải quyết?"},
     {"id":"manus:B2.0-099.v0.3.0.main.q02","source_prompt":"Who accepts responsibility for contacting the hire company?","prompt_vi":"Ai nhận trách nhiệm liên hệ với công ty cho thuê?"},

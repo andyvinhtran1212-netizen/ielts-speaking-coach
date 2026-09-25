@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.2-096 forms (10 main and four transfer items). Preserve measured pilot result versus vendor/developer forecast, frontline concern, usability/safety condition, review owner and two comparison measures. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.2-096 forms (10 main and four transfer items). Preserve measured pilot result versus vendor/developer forecast, frontline concern, usability/safety condition, review owner and two comparison measures. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.2-096.v0.3.0.main.q01","source_prompt":"What outcome did the ward pilot report measure?","prompt_vi":"Báo cáo thử nghiệm tại khoa đã đo kết quả nào?"},
     {"id":"manus:B2.2-096.v0.3.0.main.q02","source_prompt":"What reduction did that report record?","prompt_vi":"Báo cáo đó ghi nhận mức giảm nào?"},

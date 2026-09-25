@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.5-097 forms (10 main, four transfer items). Preserve local expression versus ministerial/public register, stable claim/caveat, note-field separation and unmeasured content pending new audio. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.5-097 forms (10 main, four transfer items). Preserve local expression versus ministerial/public register, stable claim/caveat, note-field separation and unmeasured content pending new audio. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.5-097.v0.3.0.main.q01","source_prompt":"How does the adviser classify the proposal?","prompt_vi":"Cố vấn xếp đề xuất vào loại nào?"},
     {"id":"manus:B2.5-097.v0.3.0.main.q02","source_prompt":"What does “a decent first go” signal in this case, and what does it not prove?","prompt_vi":"Trong trường hợp này, cụm ‘a decent first go’ cho thấy điều gì, và không chứng minh được điều gì?"},

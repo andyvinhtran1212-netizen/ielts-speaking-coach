@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete contrast-reversal form 06 (10 single-choice items). Preserve option-letter identity and final-choice wording; editorial and perceptual review remain pending.",
+  "review_note": "Complete contrast-reversal form 06 (10 single-choice items). Preserve option-letter identity and final-choice wording; delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"G12.DRL2.327","source_prompt":"Which subject did Felix finally choose?","source_options":{"A":"marketing","B":"undecided","C":"chemistry","D":"linguistics"},"prompt_vi":"Cuối cùng Felix chọn môn học nào?","options_vi":{"A":"tiếp thị","B":"chưa quyết định","C":"hóa học","D":"ngôn ngữ học"}},
     {"id":"G12.DRL2.329","source_prompt":"Which subject did Grace finally choose?","source_options":{"A":"ecology","B":"robotics","C":"undecided","D":"biology"},"prompt_vi":"Cuối cùng Grace chọn môn học nào?","options_vi":{"A":"sinh thái học","B":"robot học","C":"chưa quyết định","D":"sinh học"}},

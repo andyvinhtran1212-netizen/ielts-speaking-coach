@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Both complete manus:A1.1-040 forms (24 short-answer items). Questions are shown in Vietnamese; learners answer from the English audio. The display switch does not change the existing English/Vietnamese equivalent-answer policy or the unscored self-review contract. No answer key, audio or scoring change; source-context and perceptual review remain pending.",
+  "review_note": "Both complete manus:A1.1-040 forms (24 short-answer items). Questions are shown in Vietnamese; learners answer from the English audio. The display switch does not change the existing English/Vietnamese equivalent-answer policy or the unscored self-review contract. No answer key, audio or scoring change; source-context pre-review is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:A1.1-040.v0.2.0.checkpoint.q01","source_prompt":"Which shirt will the customer buy, and why?","prompt_vi":"Khách sẽ mua chiếc áo sơ mi nào, và vì sao?"},
     {"id":"manus:A1.1-040.v0.2.0.checkpoint.q02","source_prompt":"Which bag is preferred, and why?","prompt_vi":"Khách thích chiếc túi nào hơn, và vì sao?"},

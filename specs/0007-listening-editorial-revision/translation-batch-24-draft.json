@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.8-097 forms (eight analysis questions and one transfer synthesis). Preserve denominator versus reach, excluded groups, privacy/access safeguards, pause trigger and review ownership. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.8-097 forms (eight analysis questions and one transfer synthesis). Preserve denominator versus reach, excluded groups, privacy/access safeguards, pause trigger and review ownership. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.8-097.v0.3.0.main.q01","source_prompt":"How many households were eligible?","prompt_vi":"Có bao nhiêu hộ gia đình đủ điều kiện tham gia?"},
     {"id":"manus:B2.8-097.v0.3.0.main.q02","source_prompt":"What completion comparison was reported?","prompt_vi":"Phép so sánh nào về mức độ hoàn thành đã được báo cáo?"},

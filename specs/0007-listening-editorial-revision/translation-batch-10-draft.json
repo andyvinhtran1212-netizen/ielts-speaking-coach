@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete contrast-reversal form 02 (10 single-choice items). Translate subject names, but retain source option letters and the final-choice requirement. Editorial and perceptual review remain pending.",
+  "review_note": "Complete contrast-reversal form 02 (10 single-choice items). Translate subject names, but retain source option letters and the final-choice requirement. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"G12.DRL.1079","source_prompt":"Which subject did Liam finally choose?","source_options":{"A":"robotics","B":"geography","C":"ecology","D":"undecided"},"prompt_vi":"Cuối cùng Liam chọn môn học nào?","options_vi":{"A":"robot học","B":"địa lý","C":"sinh thái học","D":"chưa quyết định"}},
     {"id":"G12.DRL.1149","source_prompt":"Which subject did David finally choose?","source_options":{"A":"architecture","B":"psychology","C":"finance","D":"undecided"},"prompt_vi":"Cuối cùng David chọn môn học nào?","options_vi":{"A":"kiến trúc","B":"tâm lý học","C":"tài chính","D":"chưa quyết định"}},

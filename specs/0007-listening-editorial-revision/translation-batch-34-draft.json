@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.1-097 forms (10 main and four transfer items). Preserve mean/median, headline framing versus measurement, missing comparison, affected population, physical consumption versus price, and requested two-check evidence. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.1-097 forms (10 main and four transfer items). Preserve mean/median, headline framing versus measurement, missing comparison, affected population, physical consumption versus price, and requested two-check evidence. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.1-097.v0.3.0.main.q01","source_prompt":"Report the baseline and follow-up mean energy-use index, and state the fall in index points.","prompt_vi":"Nêu chỉ số sử dụng năng lượng trung bình ở mốc ban đầu và lần theo dõi sau, rồi cho biết chỉ số giảm bao nhiêu điểm."},
     {"id":"manus:B2.1-097.v0.3.0.main.q02","source_prompt":"Does the mean index change show the same reduction in every home?","prompt_vi":"Mức thay đổi của chỉ số trung bình có cho thấy mọi ngôi nhà đều giảm như nhau không?"},

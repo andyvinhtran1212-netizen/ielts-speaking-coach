@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all three manus:B2.2-099 forms (14 main, one memo, three transfer items). Preserve distinct outcome/delivery/finance evidence roles, region caveat, phased action, named training owner, capacity trigger/fallback and three annual-review measures. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all three manus:B2.2-099 forms (14 main, one memo, three transfer items). Preserve distinct outcome/delivery/finance evidence roles, region caveat, phased action, named training owner, capacity trigger/fallback and three annual-review measures. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.2-099.v0.3.0.main.q01","source_prompt":"What outcome was higher among adults receiving evening support?","prompt_vi":"Kết quả nào cao hơn ở những người trưởng thành nhận hỗ trợ buổi tối?"},
     {"id":"manus:B2.2-099.v0.3.0.main.q02","source_prompt":"What rural constraint did the delivery report find?","prompt_vi":"Báo cáo triển khai phát hiện hạn chế nào ở vùng nông thôn?"},

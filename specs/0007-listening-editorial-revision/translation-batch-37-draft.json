@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all four manus:B2.1-100 forms (20 main, one summary, one exam note, four transfer items). Preserve evidence type, pilot scope, long-term health limit, cost sequence, community coverage, all three projection conditions/checks, and no-timer/no-fifth-criterion instruction. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all four manus:B2.1-100 forms (20 main, one summary, one exam note, four transfer items). Preserve evidence type, pilot scope, long-term health limit, cost sequence, community coverage, all three projection conditions/checks, and no-timer/no-fifth-criterion instruction. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.1-100.v0.3.0.main.q01","source_prompt":"State the duration and the number/type of sites in the pilot.","prompt_vi":"Nêu thời lượng thử nghiệm, cùng số lượng và loại địa điểm tham gia."},
     {"id":"manus:B2.1-100.v0.3.0.main.q02","source_prompt":"What change did the monitoring record, and where?","prompt_vi":"Việc giám sát ghi nhận thay đổi gì, ở đâu?"},

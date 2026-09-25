@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.4-097 forms (12 main, four transfer items). Preserve measured versus unmeasured outcome, coverage limits, register change without stronger proposition, justified public wording and next two-measure review. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.4-097 forms (12 main, four transfer items). Preserve measured versus unmeasured outcome, coverage limits, register change without stronger proposition, justified public wording and next two-measure review. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.4-097.v0.3.0.main.q01","source_prompt":"What material was tested, and where?","prompt_vi":"Vật liệu nào được thử nghiệm, và ở đâu?"},
     {"id":"manus:B2.4-097.v0.3.0.main.q02","source_prompt":"How are the early measurements qualified?","prompt_vi":"Các phép đo ban đầu được trình bày kèm giới hạn nào?"},

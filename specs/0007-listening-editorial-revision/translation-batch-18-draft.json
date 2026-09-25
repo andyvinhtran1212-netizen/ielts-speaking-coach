@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete reference:consumer:Level1_1a practice form (15 single-choice items). Preserve option-letter identity and source distractors even when their grammar is unusual; G2 option D ('melting rivers') is an unnatural source distractor retained literally and should receive owner review. Editorial and perceptual review remain pending.",
+  "review_note": "Complete reference:consumer:Level1_1a practice form (15 single-choice items). Preserve option-letter identity and source distractors even when their grammar is unusual; G2 option D ('melting rivers') is an unnatural v1.0 source distractor retained without changing the answer key. Delegated editorial approval is recorded; the owner did not personally review it and human perceptual listening was not performed.",
   "items": [
     {"id":"reference:1.1","source_prompt":"Who bought a new laptop?","source_options":{"A":"John","B":"yesterday","C":"a new laptop","D":"a friend"},"prompt_vi":"Ai đã mua một chiếc máy tính xách tay mới?","options_vi":{"A":"John","B":"hôm qua","C":"một chiếc máy tính xách tay mới","D":"một người bạn"}},
     {"id":"reference:1.2","source_prompt":"What did Sarah write?","source_options":{"A":"her boss","B":"a long email","C":"this morning","D":"a letter"},"prompt_vi":"Sarah đã viết gì?","options_vi":{"A":"sếp của cô ấy","B":"một email dài","C":"sáng nay","D":"một lá thư"}},

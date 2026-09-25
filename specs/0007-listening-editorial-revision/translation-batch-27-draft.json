@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.8-100 forms (seven analysis/synthesis questions and one transfer synthesis). Preserve source count, causal caution, support/access limit, ownership and review timing. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.8-100 forms (seven analysis/synthesis questions and one transfer synthesis). Preserve source count, causal caution, support/access limit, ownership and review timing. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.8-100.v0.3.0.main.q01","source_prompt":"What result and denominator did the researcher report?","prompt_vi":"Nhà nghiên cứu báo cáo kết quả nào và dùng nhóm nào làm mẫu số?"},
     {"id":"manus:B2.8-100.v0.3.0.main.q02","source_prompt":"Which two evidence limits prevent a causal claim?","prompt_vi":"Hai giới hạn nào của bằng chứng khiến chưa thể khẳng định quan hệ nhân quả?"},

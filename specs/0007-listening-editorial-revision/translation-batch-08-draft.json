@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Both complete manus:A2.0-086 forms (16 short-answer items). Preserve the distinction between an explicit acceptance of responsibility and a request to pass on a message. Source-context and perceptual review remain pending.",
+  "review_note": "Both complete manus:A2.0-086 forms (16 short-answer items). Preserve the distinction between an explicit acceptance of responsibility and a request to pass on a message. Source-context pre-review is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:A2.0-086.v0.2.0.practice.q01","source_prompt":"Who will meet the volunteers, and where?","prompt_vi":"Ai sẽ gặp các tình nguyện viên, và gặp ở đâu?"},
     {"id":"manus:A2.0-086.v0.2.0.practice.q02","source_prompt":"What two tasks does Tom agree to do at the start?","prompt_vi":"Lúc đầu Tom đồng ý làm hai việc gì?"},

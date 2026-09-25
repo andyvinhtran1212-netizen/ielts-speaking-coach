@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete contrast-reversal form 05 (10 single-choice items). Preserve option-letter identity and final-choice wording; editorial and perceptual review remain pending.",
+  "review_note": "Complete contrast-reversal form 05 (10 single-choice items). Preserve option-letter identity and final-choice wording; delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"G12.DRL.3274","source_prompt":"Which subject did Nina finally choose?","source_options":{"A":"economics","B":"psychology","C":"undecided","D":"nursing"},"prompt_vi":"Cuối cùng Nina chọn môn học nào?","options_vi":{"A":"kinh tế học","B":"tâm lý học","C":"chưa quyết định","D":"điều dưỡng"}},
     {"id":"G12.DRL.3330","source_prompt":"Which subject did Emma finally choose?","source_options":{"A":"undecided","B":"biology","C":"statistics","D":"nursing"},"prompt_vi":"Cuối cùng Emma chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"sinh học","C":"thống kê","D":"điều dưỡng"}},

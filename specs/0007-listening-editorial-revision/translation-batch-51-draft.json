@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all three manus:B2.4-099 forms (12 main, one evidence brief, three transfer items). Preserve survey versus usage-log sources, highest-uptake scope, causal boundary, implementation/review owners and redesign trigger. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all three manus:B2.4-099 forms (12 main, one evidence brief, three transfer items). Preserve survey versus usage-log sources, highest-uptake scope, causal boundary, implementation/review owners and redesign trigger. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.4-099.v0.3.0.main.q01","source_prompt":"What service is under review?","prompt_vi":"Dịch vụ nào đang được rà soát?"},
     {"id":"manus:B2.4-099.v0.3.0.main.q02","source_prompt":"What does the resident survey report?","prompt_vi":"Khảo sát cư dân báo cáo điều gì?"},

@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.6-096 forms (10 main, four transfer items). Preserve may/uncertainty, pilot scope and duration, management recommendation versus final decision, review condition and decision boundary. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.6-096 forms (10 main, four transfer items). Preserve may/uncertainty, pilot scope and duration, management recommendation versus final decision, review condition and decision boundary. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.6-096.v0.3.0.main.q01","source_prompt":"What may the pilot reduce?","prompt_vi":"Đợt thử nghiệm có thể làm giảm điều gì?"},
     {"id":"manus:B2.6-096.v0.3.0.main.q02","source_prompt":"Where was the evidence collected?","prompt_vi":"Bằng chứng được thu thập ở đâu?"},

@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.1-099 forms (16 main and three transfer items). Preserve measured/reported/projected distinctions, local capacity, staged funding/review order, health-outcome limit and the four-field transfer structure. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.1-099 forms (16 main and three transfer items). Preserve measured/reported/projected distinctions, local capacity, staged funding/review order, health-outcome limit and the four-field transfer structure. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.1-099.v0.3.0.main.q01","source_prompt":"Name the three parts of the regional proposal.","prompt_vi":"Nêu ba phần của đề xuất cho khu vực."},
     {"id":"manus:B2.1-099.v0.3.0.main.q02","source_prompt":"What did the cooling-centre records measure?","prompt_vi":"Hồ sơ của các trung tâm tránh nóng đã đo điều gì?"},

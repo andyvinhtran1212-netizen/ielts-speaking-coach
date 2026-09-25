@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all four manus:B2.3-100 forms (20 main, one summary, one exam note, four transfer items). Preserve preliminary geographically bounded evidence, pilot support versus future expansion, unresolved maintenance/evening access, six-month review timing and coordinator versus maintenance owner. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all four manus:B2.3-100 forms (20 main, one summary, one exam note, four transfer items). Preserve preliminary geographically bounded evidence, pilot support versus future expansion, unresolved maintenance/evening access, six-month review timing and coordinator versus maintenance owner. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.3-100.v0.3.0.main.q01","source_prompt":"What proposal is in the planning report?","prompt_vi":"Báo cáo quy hoạch đưa ra đề xuất gì?"},
     {"id":"manus:B2.3-100.v0.3.0.main.q02","source_prompt":"What two potential benefits does the preliminary evidence suggest?","prompt_vi":"Bằng chứng sơ bộ gợi ra hai lợi ích tiềm năng nào?"},

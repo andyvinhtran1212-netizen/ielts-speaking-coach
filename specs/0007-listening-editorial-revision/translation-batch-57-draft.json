@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all four manus:B2.5-100 forms (10 main, one summary, one exam note, four transfer items). Preserve provisional funding decision, independent review condition and coverage, evidence strength, reconsideration point and corrected visit-date distractor. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all four manus:B2.5-100 forms (10 main, one summary, one exam note, four transfer items). Preserve provisional funding decision, independent review condition and coverage, evidence strength, reconsideration point and corrected visit-date distractor. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.5-100.v0.3.0.main.q01","source_prompt":"What funding action does the committee support?","prompt_vi":"Ủy ban ủng hộ hành động cấp kinh phí nào?"},
     {"id":"manus:B2.5-100.v0.3.0.main.q02","source_prompt":"What must the independent review confirm?","prompt_vi":"Đợt rà soát độc lập phải xác nhận điều gì?"},

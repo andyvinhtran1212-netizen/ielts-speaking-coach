@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.8-098 forms (eight analysis questions and one cross-source comparison). Preserve board/director responsibility, dashboard limitations, media selection/omission and review timing. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.8-098 forms (eight analysis questions and one cross-source comparison). Preserve board/director responsibility, dashboard limitations, media selection/omission and review timing. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.8-098.v0.3.0.main.q01","source_prompt":"What decision did the board make?","prompt_vi":"Hội đồng đã đưa ra quyết định gì?"},
     {"id":"manus:B2.8-098.v0.3.0.main.q02","source_prompt":"Which two outcomes moved in different directions?","prompt_vi":"Hai kết quả nào biến động theo hai hướng khác nhau?"},

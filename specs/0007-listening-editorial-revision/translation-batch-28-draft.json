@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.0-096 forms (14 short-answer items). Preserve the distinction between request, acceptance, conditional support, task ownership, deadline and approval status. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.0-096 forms (14 short-answer items). Preserve the distinction between request, acceptance, conditional support, task ownership, deadline and approval status. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.0-096.v0.3.0.main.q01","source_prompt":"What does Dana want Mara to do, and does Mara accept?","prompt_vi":"Dana muốn Mara làm gì, và Mara có nhận lời không?"},
     {"id":"manus:B2.0-096.v0.3.0.main.q02","source_prompt":"Which action does Nico commit to, and what must happen before he supports using the proposal?","prompt_vi":"Nico cam kết làm việc gì, và điều gì phải xảy ra trước khi anh ấy ủng hộ việc sử dụng đề xuất?"},

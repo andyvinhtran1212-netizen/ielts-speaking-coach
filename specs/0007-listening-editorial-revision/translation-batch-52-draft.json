@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all four manus:B2.4-100 forms (11 main, one summary, one exam note, four transfer items). Preserve temporary pilot spaces, survey versus attendance logs, study-design/causal limit, named implementation owner, six-month point and redesign trigger. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all four manus:B2.4-100 forms (11 main, one summary, one exam note, four transfer items). Preserve temporary pilot spaces, survey versus attendance logs, study-design/causal limit, named implementation owner, six-month point and redesign trigger. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.4-100.v0.3.0.main.q01","source_prompt":"What physical spaces does the pilot use, and for what temporary purpose?","prompt_vi":"Đợt thử nghiệm sử dụng những không gian nào, và cho mục đích tạm thời gì?"},
     {"id":"manus:B2.4-100.v0.3.0.main.q02","source_prompt":"What does the resident survey report?","prompt_vi":"Khảo sát cư dân báo cáo điều gì?"},

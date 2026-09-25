@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete contrast-reversal form 04 (10 single-choice items). Translate each subject consistently and preserve option-letter identity and final-choice wording; editorial and perceptual review remain pending.",
+  "review_note": "Complete contrast-reversal form 04 (10 single-choice items). Translate each subject consistently and preserve option-letter identity and final-choice wording; delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"G12.DRL.2651","source_prompt":"Which subject did Isla finally choose?","source_options":{"A":"physics","B":"undecided","C":"marketing","D":"genetics"},"prompt_vi":"Cuối cùng Isla chọn môn học nào?","options_vi":{"A":"vật lý","B":"chưa quyết định","C":"tiếp thị","D":"di truyền học"}},
     {"id":"G12.DRL.2662","source_prompt":"Which subject did Priya finally choose?","source_options":{"A":"undecided","B":"chemistry","C":"finance","D":"philosophy"},"prompt_vi":"Cuối cùng Priya chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"hóa học","C":"tài chính","D":"triết học"}},

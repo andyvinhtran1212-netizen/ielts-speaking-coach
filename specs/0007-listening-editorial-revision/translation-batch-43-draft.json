@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.3-096 forms (12 main, four transfer items). Preserve pronoun/conjunction references, sensor weather scope, residents' preference versus runoff measurement, pilot/review sequence and bounded public claim. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.3-096 forms (12 main, four transfer items). Preserve pronoun/conjunction references, sensor weather scope, residents' preference versus runoff measurement, pilot/review sequence and bounded public claim. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.3-096.v0.3.0.main.q01","source_prompt":"What change to the empty lot is being reviewed?","prompt_vi":"Phương án thay đổi nào đối với lô đất trống đang được xem xét?"},
     {"id":"manus:B2.3-096.v0.3.0.main.q02","source_prompt":"What effect does the planning team think the park could have, and near which place?","prompt_vi":"Nhóm quy hoạch cho rằng công viên có thể tạo ra tác động gì, ở gần địa điểm nào?"},

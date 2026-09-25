@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "All five manus:A2.0-049 forms (20 short-answer items). The medical-office dialogue is fictional Listening content, not health guidance. Switching display language does not change the existing answer/self-review contract; source-context and perceptual review remain pending.",
+  "review_note": "All five manus:A2.0-049 forms (20 short-answer items). The medical-office dialogue is fictional Listening content, not health guidance. Switching display language does not change the existing answer/self-review contract; source-context pre-review is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:A2.0-049.v0.2.0.appointment-call.q01","source_prompt":"What new appointment day and time does the patient accept?","prompt_vi":"Bệnh nhân đồng ý với ngày và giờ hẹn mới nào?"},
     {"id":"manus:A2.0-049.v0.2.0.appointment-call.q02","source_prompt":"How does the receptionist ask the patient to confirm?","prompt_vi":"Lễ tân yêu cầu bệnh nhân xác nhận bằng cách nào?"},

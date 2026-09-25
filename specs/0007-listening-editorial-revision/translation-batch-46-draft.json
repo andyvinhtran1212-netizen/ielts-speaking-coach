@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all three manus:B2.3-099 forms (12 main, one public brief, three transfer items). Preserve pilot evidence versus universal coverage, interview caveat, unfilled local owner, testing/review sequence and no equal-performance promise. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all three manus:B2.3-099 forms (12 main, one public brief, three transfer items). Preserve pilot evidence versus universal coverage, interview caveat, unfilled local owner, testing/review sequence and no equal-performance promise. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.3-099.v0.3.0.main.q01","source_prompt":"What system is being proposed?","prompt_vi":"Hệ thống nào đang được đề xuất?"},
     {"id":"manus:B2.3-099.v0.3.0.main.q02","source_prompt":"Which source reports faster alerts?","prompt_vi":"Nguồn nào báo cáo việc cảnh báo nhanh hơn?"},

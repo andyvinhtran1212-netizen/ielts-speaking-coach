@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Both complete manus:A2.0-067 forms (16 short-answer items). Keep the distinction between a stated cause and an event that happened later; display language does not change answer or self-review policy. Source-context and perceptual review remain pending.",
+  "review_note": "Both complete manus:A2.0-067 forms (16 short-answer items). Keep the distinction between a stated cause and an event that happened later; display language does not change answer or self-review policy. Source-context pre-review is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:A2.0-067.v0.2.0.practice.q01","source_prompt":"What was Mai going to do, and what time did her class start?","prompt_vi":"Mai định làm gì, và lớp của cô ấy bắt đầu lúc mấy giờ?"},
     {"id":"manus:A2.0-067.v0.2.0.practice.q02","source_prompt":"Why did Mai leave early?","prompt_vi":"Vì sao Mai rời đi sớm?"},

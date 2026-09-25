@@ -22,7 +22,8 @@ answering.
 ## Scope
 
 - Prepare new package IDs/revisions, leaving both v1.0 package bytes and the
-  published release index untouched until explicit owner review and release.
+  published release index untouched until direct or recorded delegated review
+  and all release gates pass.
 - Edit the 65 instructions, nine titles, and five missing outcome sets as
   learner-facing editorial content, with no change to audio, timing, answer
   keys, scoring, or report-only claims.
@@ -145,11 +146,9 @@ answering.
 - The owner approved this contract, the 65/9/5 metadata packet, and batch 01's
   44 items against PR #1501 head `c19e7febb2b0a279c23b07d2d100799f6ffae93c`
   on 2026-09-24. The owner later delegated editorial validation and release
-  without personally reviewing the remaining items; see
-  [DELEGATED-RELEASE-DECISION.md](DELEGATED-RELEASE-DECISION.md). Publication
+  without personally reviewing the remaining items. Publication
   remains subject to all technical gates.
-- Should the full translation corpus ship in one new revision after all batches,
-  or in independently versioned programme revisions? Decide before rollout;
+- The full translation corpus will ship as one new v1.1 package per programme;
   never republish an existing package ID with changed bytes.
 - The owner chose to block new v1.0 starts and wait for active v1.0 attempts
   to finish or expire before the controlled cutover. The current unique

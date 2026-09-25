@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "vi",
   "target_language": "en",
-  "review_note": "Complete both manus:B2.6-001 forms (nine items) by editing the existing Vietnamese prompts/options into English. Keep Riverside, Room B, four-week/two-week durations and permission to answer the short response in Vietnamese. No answer or review-rule changes; editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.6-001 forms (nine items) by editing the existing Vietnamese prompts/options into English. Keep Riverside, Room B, four-week/two-week durations and permission to answer the short response in Vietnamese. No answer or review-rule changes; delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.6-001.P1","source_prompt":"Cuộc họp đang bàn về chủ đề rộng nào?","source_options":{"A":"Mua vé tháng cho nhân viên","B":"Dịch vụ xe buýt buổi tối","C":"Chuyển điểm dừng Riverside"},"prompt_en":"What broad topic is the meeting discussing?","options_en":{"A":"Buying monthly passes for staff","B":"Evening bus service","C":"Moving the Riverside stop"}},
     {"id":"manus:B2.6-001.P2","source_prompt":"Analyst đề xuất quyết định nào ngay lúc này?","source_options":{"A":"Thử bốn tuần trên tuyến Riverside từ thứ Hai đến thứ Năm","B":"Đổi giờ cả hai mươi tuyến ngay mùa thu này","C":"Chỉ mở dịch vụ thử vào cuối tuần"},"prompt_en":"What decision does the analyst propose for now?","options_en":{"A":"Run a four-week trial on the Riverside route from Monday to Thursday","B":"Change the timetable of all twenty routes this autumn","C":"Offer the trial service only at weekends"}},

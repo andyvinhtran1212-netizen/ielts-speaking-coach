@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all four manus:B2.2-100 forms (20 main, one summary, one exam note, four transfer items). Preserve reported experience versus direct measurement, site scope, district capacity, staged priority/training condition, maintenance-review/funding sequence, and corrected appointment versus installation date. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all four manus:B2.2-100 forms (20 main, one summary, one exam note, four transfer items). Preserve reported experience versus direct measurement, site scope, district capacity, staged priority/training condition, maintenance-review/funding sequence, and corrected appointment versus installation date. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.2-100.v0.3.0.main.q01","source_prompt":"What type of programme is under review?","prompt_vi":"Loại chương trình nào đang được rà soát?"},
     {"id":"manus:B2.2-100.v0.3.0.main.q02","source_prompt":"What benefit does the impact study report for users of shaded areas?","prompt_vi":"Nghiên cứu tác động báo cáo lợi ích gì đối với người sử dụng các khu vực có bóng mát?"},

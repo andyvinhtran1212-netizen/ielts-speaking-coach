@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.2-098 forms (10 main and four transfer items). Preserve corrected versus provisional names/times/quantities, authoritative source, relevant comparison dimension, award/booking condition and no assumed final approval. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.2-098 forms (10 main and four transfer items). Preserve corrected versus provisional names/times/quantities, authoritative source, relevant comparison dimension, award/booking condition and no assumed final approval. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.2-098.v0.3.0.main.q01","source_prompt":"Which bidder has the shortest construction schedule in the checked table?","prompt_vi":"Trong bảng đã được kiểm tra, nhà thầu nào có thời gian thi công ngắn nhất?"},
     {"id":"manus:B2.2-098.v0.3.0.main.q02","source_prompt":"What condition does the finance panel require before an award?","prompt_vi":"Hội đồng tài chính yêu cầu điều kiện gì trước khi trao hợp đồng?"},

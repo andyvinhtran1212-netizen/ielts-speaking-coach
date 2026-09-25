@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.5-098 forms (10 main, four transfer items). Preserve initial versus final owner/deadline, correction evidence, Wednesday as earlier distractor and five separate note fields. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.5-098 forms (10 main, four transfer items). Preserve initial versus final owner/deadline, correction evidence, Wednesday as earlier distractor and five separate note fields. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.5-098.v0.3.0.main.q01","source_prompt":"Who was the initial owner?","prompt_vi":"Ban đầu ai là người phụ trách?"},
     {"id":"manus:B2.5-098.v0.3.0.main.q02","source_prompt":"Who is the final owner?","prompt_vi":"Cuối cùng ai là người phụ trách?"},

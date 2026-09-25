@@ -4,7 +4,7 @@
   "source_package_id": "ielts-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete reference:consumer:Gen_P2_65c5e9c3 practice form (eight items). English audio, answer keys, gap input and answer-review rules remain unchanged; Vietnamese wording is only question guidance. Editorial and perceptual review remain pending.",
+  "review_note": "Complete reference:consumer:Gen_P2_65c5e9c3 practice form (eight items). English audio, answer keys, gap input and answer-review rules remain unchanged; Vietnamese wording is only question guidance. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"reference:G12.P2.897","source_prompt":"Year the centre opened: __________ (ONE WORD AND/OR A NUMBER)","source_options":null,"prompt_vi":"Năm trung tâm khai trương: __________ (MỘT TỪ VÀ/HOẶC MỘT CON SỐ)"},
     {"id":"reference:G12.P2.898","source_prompt":"Class offered: __________ (NO MORE THAN TWO WORDS)","source_options":null,"prompt_vi":"Lớp học được mở: __________ (KHÔNG QUÁ HAI TỪ)"},

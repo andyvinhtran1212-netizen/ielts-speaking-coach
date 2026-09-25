@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete both manus:B2.0-097 forms (14 short-answer items). Preserve sample/denominator, mean versus median, baseline/follow-up periods, association versus causation, and source authority. Editorial and perceptual review remain pending.",
+  "review_note": "Complete both manus:B2.0-097 forms (14 short-answer items). Preserve sample/denominator, mean versus median, baseline/follow-up periods, association versus causation, and source authority. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.0-097.v0.3.0.main.q01","source_prompt":"What limited policy position does Maya support, and what employment claim does she avoid?","prompt_vi":"Maya ủng hộ quan điểm chính sách nào trong phạm vi giới hạn, và tránh khẳng định điều gì về việc làm?"},
     {"id":"manus:B2.0-097.v0.3.0.main.q02","source_prompt":"Give the follow-up journey statistic, including its value, unit and whether it is a median or mean.","prompt_vi":"Nêu số liệu về hành trình ở lần theo dõi sau: giá trị, đơn vị, và đó là trung vị hay trung bình cộng."},

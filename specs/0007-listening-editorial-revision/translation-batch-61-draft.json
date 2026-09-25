@@ -4,7 +4,7 @@
   "source_package_id": "general-listening-practice-v1.0.0",
   "source_language": "en",
   "target_language": "vi",
-  "review_note": "Complete all three manus:B2.6-099 forms (12 main, one synthesis, three transfer items). Preserve core evidence source/strength, conditional cost estimates, staged expansion, review time, unapproved scope and claim-boundary-caveat relations when compressing. Editorial and perceptual review remain pending.",
+  "review_note": "Complete all three manus:B2.6-099 forms (12 main, one synthesis, three transfer items). Preserve core evidence source/strength, conditional cost estimates, staged expansion, review time, unapproved scope and claim-boundary-caveat relations when compressing. Delegated editorial approval is recorded; human perceptual listening was not performed.",
   "items": [
     {"id":"manus:B2.6-099.v0.3.0.main.q01","source_prompt":"What kind of expansion is recommended?","prompt_vi":"Hình thức mở rộng nào được khuyến nghị?"},
     {"id":"manus:B2.6-099.v0.3.0.main.q02","source_prompt":"How is the core evidence described?","prompt_vi":"Bằng chứng cốt lõi được mô tả như thế nào?"},
