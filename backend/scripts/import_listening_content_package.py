@@ -45,7 +45,7 @@ def main() -> int:
     parser.add_argument("--release-root", help="Thư mục 02_PUBLISH_READY")
     parser.add_argument(
         "--source-release-root",
-        help="Release root v1.0 để so sánh revision biên tập; mặc định dùng --release-root.",
+        help="Release root v1.0 để so sánh revision biên tập; bắt buộc khi package là revision.",
     )
     parser.add_argument(
         "--package", action="append", dest="packages",
@@ -74,7 +74,9 @@ def main() -> int:
         source_package_id = plan.report.get("editorial_source_package_id")
         if not source_package_id:
             continue
-        source_root = Path(args.source_release_root).resolve() if args.source_release_root else root
+        if not args.source_release_root:
+            parser.error("--source-release-root là bắt buộc cho editorial revision")
+        source_root = Path(args.source_release_root).resolve()
         source_plan = build_import_plan(select_package(source_root, source_package_id))
         try:
             comparison = compare_editorial_revision(

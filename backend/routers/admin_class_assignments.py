@@ -2543,7 +2543,8 @@ async def create_assignment(
             # Published is not the same as playable: a test whose assembled
             # audio was cleared (section audio replaced) still reads published,
             # but the student endpoint answers 422 "chưa có audio sẵn sàng".
-            cols += ", full_audio_storage_path, assembled_audio_storage_path"
+            cols += (", full_audio_storage_path, assembled_audio_storage_path, "
+                     "content_package_id, scoring_policy")
         rows = (
             supabase_admin.table(table).select(cols)
             .eq("id", body.content_id).limit(1).execute().data
@@ -2552,6 +2553,17 @@ async def create_assignment(
             raise HTTPException(404, "Không tìm thấy đề này.")
         if (rows[0].get("status") or "") != "published":
             raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
+        if (body.skill == "listening"
+                and rows[0].get("content_package_id")
+                and rows[0].get("scoring_policy") == "report_only"):
+            # Programme forms use the standalone learner flow. The class
+            # player cannot create a linked attempt for them; accepting the
+            # assignment would leave every recipient with impossible homework.
+            raise HTTPException(
+                400,
+                "Bài trong chương trình Luyện nghe hiện chưa hỗ trợ giao qua lớp. "
+                "Hãy chọn một đề nghe thông thường.",
+            )
         private_paper = (
             not bool(rows[0].get("is_public"))
             if "is_public" in rows[0]
