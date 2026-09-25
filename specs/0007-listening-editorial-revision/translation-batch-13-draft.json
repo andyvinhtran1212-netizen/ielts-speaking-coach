@@ -1,0 +1,20 @@
+{
+  "batch_id": "LISTENING-0007-B13",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "ielts-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete contrast-reversal form 04 (10 single-choice items). Translate each subject consistently and preserve option-letter identity and final-choice wording; editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"G12.DRL.2651","source_prompt":"Which subject did Isla finally choose?","source_options":{"A":"physics","B":"undecided","C":"marketing","D":"genetics"},"prompt_vi":"Cuối cùng Isla chọn môn học nào?","options_vi":{"A":"vật lý","B":"chưa quyết định","C":"tiếp thị","D":"di truyền học"}},
+    {"id":"G12.DRL.2662","source_prompt":"Which subject did Priya finally choose?","source_options":{"A":"undecided","B":"chemistry","C":"finance","D":"philosophy"},"prompt_vi":"Cuối cùng Priya chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"hóa học","C":"tài chính","D":"triết học"}},
+    {"id":"G12.DRL.2684","source_prompt":"Which subject did Yuki finally choose?","source_options":{"A":"architecture","B":"economics","C":"geography","D":"undecided"},"prompt_vi":"Cuối cùng Yuki chọn môn học nào?","options_vi":{"A":"kiến trúc","B":"kinh tế học","C":"địa lý","D":"chưa quyết định"}},
+    {"id":"G12.DRL.2730","source_prompt":"Which subject did Maya finally choose?","source_options":{"A":"undecided","B":"engineering","C":"law","D":"chemistry"},"prompt_vi":"Cuối cùng Maya chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"kỹ thuật","C":"luật","D":"hóa học"}},
+    {"id":"G12.DRL.2782","source_prompt":"Which subject did Beth finally choose?","source_options":{"A":"finance","B":"undecided","C":"biology","D":"architecture"},"prompt_vi":"Cuối cùng Beth chọn môn học nào?","options_vi":{"A":"tài chính","B":"chưa quyết định","C":"sinh học","D":"kiến trúc"}},
+    {"id":"G12.DRL.2836","source_prompt":"Which subject did Hannah finally choose?","source_options":{"A":"undecided","B":"ecology","C":"finance","D":"history"},"prompt_vi":"Cuối cùng Hannah chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"sinh thái học","C":"tài chính","D":"lịch sử"}},
+    {"id":"G12.DRL.2938","source_prompt":"Which subject did Amara finally choose?","source_options":{"A":"undecided","B":"marketing","C":"genetics","D":"geography"},"prompt_vi":"Cuối cùng Amara chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"tiếp thị","C":"di truyền học","D":"địa lý"}},
+    {"id":"G12.DRL.2941","source_prompt":"Which subject did Ivan finally choose?","source_options":{"A":"chemistry","B":"biology","C":"history","D":"undecided"},"prompt_vi":"Cuối cùng Ivan chọn môn học nào?","options_vi":{"A":"hóa học","B":"sinh học","C":"lịch sử","D":"chưa quyết định"}},
+    {"id":"G12.DRL.2957","source_prompt":"Which subject did Hannah finally choose?","source_options":{"A":"physics","B":"geography","C":"undecided","D":"philosophy"},"prompt_vi":"Cuối cùng Hannah chọn môn học nào?","options_vi":{"A":"vật lý","B":"địa lý","C":"chưa quyết định","D":"triết học"}},
+    {"id":"G12.DRL.3190","source_prompt":"Which subject did Isla finally choose?","source_options":{"A":"architecture","B":"undecided","C":"psychology","D":"genetics"},"prompt_vi":"Cuối cùng Isla chọn môn học nào?","options_vi":{"A":"kiến trúc","B":"chưa quyết định","C":"tâm lý học","D":"di truyền học"}}
+  ]
+}

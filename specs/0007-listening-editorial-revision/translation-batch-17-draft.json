@@ -1,0 +1,18 @@
+{
+  "batch_id": "LISTENING-0007-B17",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "ielts-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete reference:consumer:Gen_P2_65c5e9c3 practice form (eight items). English audio, answer keys, gap input and answer-review rules remain unchanged; Vietnamese wording is only question guidance. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"reference:G12.P2.897","source_prompt":"Year the centre opened: __________ (ONE WORD AND/OR A NUMBER)","source_options":null,"prompt_vi":"Năm trung tâm khai trương: __________ (MỘT TỪ VÀ/HOẶC MỘT CON SỐ)"},
+    {"id":"reference:G12.P2.898","source_prompt":"Class offered: __________ (NO MORE THAN TWO WORDS)","source_options":null,"prompt_vi":"Lớp học được mở: __________ (KHÔNG QUÁ HAI TỪ)"},
+    {"id":"reference:G12.P2.899","source_prompt":"Class day: __________ (ONE WORD ONLY)","source_options":null,"prompt_vi":"Ngày diễn ra lớp học: __________ (CHỈ MỘT TỪ)"},
+    {"id":"reference:G12.P2.900","source_prompt":"Item to bring: __________ (NO MORE THAN THREE WORDS)","source_options":null,"prompt_vi":"Vật cần mang theo: __________ (KHÔNG QUÁ BA TỪ)"},
+    {"id":"reference:G12.P2.901","source_prompt":"What time does it close at weekends?","source_options":{"A":"10","B":"5","C":"4","D":"12"},"prompt_vi":"Trung tâm đóng cửa lúc mấy giờ vào cuối tuần?","unchanged_options_reviewed":true},
+    {"id":"reference:G12.P2.902","source_prompt":"How much is day entry now?","source_options":{"A":"20","B":"21","C":"28","D":"13"},"prompt_vi":"Hiện vé vào cửa trong ngày có giá bao nhiêu?","unchanged_options_reviewed":true},
+    {"id":"reference:G12.P2.903","source_prompt":"Where must tickets be collected?","source_options":{"A":"by post","B":"online only","C":"from the shop","D":"at the door"},"prompt_vi":"Phải nhận vé ở đâu?","options_vi":{"A":"qua đường bưu điện","B":"chỉ qua mạng","C":"tại cửa hàng","D":"ngay lối vào"}},
+    {"id":"reference:G12.P2.904","source_prompt":"How much is annual membership? (£)","source_options":{"A":"35","B":"50","C":"47","D":"40"},"prompt_vi":"Phí hội viên hằng năm là bao nhiêu? (£)","unchanged_options_reviewed":true}
+  ]
+}

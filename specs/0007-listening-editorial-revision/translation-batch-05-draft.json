@@ -1,0 +1,30 @@
+{
+  "batch_id": "LISTENING-0007-B05",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "All five manus:A2.0-049 forms (20 short-answer items). The medical-office dialogue is fictional Listening content, not health guidance. Switching display language does not change the existing answer/self-review contract; source-context and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:A2.0-049.v0.2.0.appointment-call.q01","source_prompt":"What new appointment day and time does the patient accept?","prompt_vi":"Bệnh nhân đồng ý với ngày và giờ hẹn mới nào?"},
+    {"id":"manus:A2.0-049.v0.2.0.appointment-call.q02","source_prompt":"How does the receptionist ask the patient to confirm?","prompt_vi":"Lễ tân yêu cầu bệnh nhân xác nhận bằng cách nào?"},
+    {"id":"manus:A2.0-049.v0.2.0.appointment-call.q03","source_prompt":"When does the receptionist ask for the reply?","prompt_vi":"Lễ tân yêu cầu trả lời trước khi nào?"},
+    {"id":"manus:A2.0-049.v0.2.0.appointment-call.q04","source_prompt":"Why does the original appointment need to change?","prompt_vi":"Vì sao lịch hẹn ban đầu cần thay đổi?"},
+    {"id":"manus:A2.0-049.v0.2.0.form-help.q01","source_prompt":"Which three personal details does the receptionist first request?","prompt_vi":"Lễ tân hỏi ba thông tin cá nhân nào trước tiên?"},
+    {"id":"manus:A2.0-049.v0.2.0.form-help.q02","source_prompt":"What allergy does the fictional patient say they will record?","prompt_vi":"Bệnh nhân trong tình huống giả định nói sẽ ghi dị ứng nào vào biểu mẫu?"},
+    {"id":"manus:A2.0-049.v0.2.0.form-help.q03","source_prompt":"Who is the emergency contact?","prompt_vi":"Ai là người liên hệ khi khẩn cấp?"},
+    {"id":"manus:A2.0-049.v0.2.0.form-help.q04","source_prompt":"Whose phone number belongs in the emergency contact box?","prompt_vi":"Số điện thoại của ai cần ghi vào ô người liên hệ khi khẩn cấp?"},
+    {"id":"manus:A2.0-049.v0.2.0.clarification.q01","source_prompt":"Which desk is for checking in?","prompt_vi":"Khách cần đến quầy nào để làm thủ tục khi tới?"},
+    {"id":"manus:A2.0-049.v0.2.0.clarification.q02","source_prompt":"What does the white desk handle?","prompt_vi":"Quầy màu trắng phụ trách việc gì?"},
+    {"id":"manus:A2.0-049.v0.2.0.clarification.q03","source_prompt":"What does the visitor want to clarify about ID?","prompt_vi":"Khách muốn hỏi rõ điều gì về giấy tờ tùy thân?"},
+    {"id":"manus:A2.0-049.v0.2.0.clarification.q04","source_prompt":"Which team should the visitor ask to clarify this?","prompt_vi":"Khách nên hỏi bộ phận nào để làm rõ điều này?"},
+    {"id":"manus:A2.0-049.v0.2.0.changed-plan.q01","source_prompt":"What condition would move the session to the sports hall?","prompt_vi":"Điều kiện nào sẽ khiến buổi sinh hoạt chuyển sang nhà thể thao?"},
+    {"id":"manus:A2.0-049.v0.2.0.changed-plan.q02","source_prompt":"What venue does the group finally accept instead of the park?","prompt_vi":"Cuối cùng nhóm đồng ý chọn địa điểm nào thay cho công viên?"},
+    {"id":"manus:A2.0-049.v0.2.0.changed-plan.q03","source_prompt":"Where exactly and at what time will the group meet?","prompt_vi":"Nhóm sẽ gặp nhau chính xác ở đâu và lúc mấy giờ?"},
+    {"id":"manus:A2.0-049.v0.2.0.changed-plan.q04","source_prompt":"Which source tells the participant that the park will be closed on Friday?","prompt_vi":"Nguồn thông tin nào cho người tham gia biết công viên sẽ đóng cửa vào thứ Sáu?"},
+    {"id":"manus:A2.0-049.v0.2.0.transfer-library.q01","source_prompt":"What new day and time does the visitor accept?","prompt_vi":"Khách đồng ý với ngày và giờ mới nào?"},
+    {"id":"manus:A2.0-049.v0.2.0.transfer-library.q02","source_prompt":"How should the visitor confirm, and by what deadline?","prompt_vi":"Khách cần xác nhận bằng cách nào và trước hạn nào?"},
+    {"id":"manus:A2.0-049.v0.2.0.transfer-library.q03","source_prompt":"Who will replace the cousin as the contact?","prompt_vi":"Ai sẽ thay người anh/chị/em họ làm người liên hệ?"},
+    {"id":"manus:A2.0-049.v0.2.0.transfer-library.q04","source_prompt":"Because the main entrance will be closed, which gate will the visitor use and where will they go next?","prompt_vi":"Vì lối vào chính sẽ đóng, khách sẽ đi qua cổng nào rồi đến đâu tiếp theo?"}
+  ]
+}

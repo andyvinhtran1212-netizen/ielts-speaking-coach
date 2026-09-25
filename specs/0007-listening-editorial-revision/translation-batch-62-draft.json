@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B62",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete all four manus:B2.6-100 forms (10 main, one summary, one exam explanation, four transfer items). Preserve improved versus stable/conditional areas, workload/accessibility continuation conditions, unapproved scope and five source-claim-evidence-boundary-caveat fields. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.6-100.v0.3.0.main.q01","source_prompt":"What decision does the review recommend?","prompt_vi":"Đợt rà soát khuyến nghị quyết định nào?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q02","source_prompt":"In which area did performance improve?","prompt_vi":"Hiệu quả đã cải thiện ở khía cạnh nào?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q03","source_prompt":"What remained stable?","prompt_vi":"Điều gì vẫn ổn định?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q04","source_prompt":"Which two areas still have conditional evidence?","prompt_vi":"Bằng chứng ở hai khía cạnh nào vẫn chưa đủ chắc chắn?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q05","source_prompt":"Why is that evidence conditional?","prompt_vi":"Vì sao bằng chứng ở hai khía cạnh đó vẫn chưa đủ chắc chắn?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q06","source_prompt":"What has not been approved?","prompt_vi":"Điều gì chưa được phê duyệt?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q07","source_prompt":"What workload condition applies to continuation?","prompt_vi":"Việc tiếp tục phụ thuộc vào điều kiện nào về khối lượng công việc?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q08","source_prompt":"What accessibility condition applies?","prompt_vi":"Điều kiện nào về khả năng tiếp cận được áp dụng?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q09","source_prompt":"What is the evidence relation supporting the claim?","prompt_vi":"Mối liên hệ giữa bằng chứng và nhận định được ủng hộ là gì?"},
+    {"id":"manus:B2.6-100.v0.3.0.main.q10","source_prompt":"What caveat must remain in a summary?","prompt_vi":"Bản tóm tắt phải giữ lưu ý giới hạn nào?"},
+    {"id":"manus:B2.6-100.v0.3.0.summary.q01","source_prompt":"Write a five-part summary preserving source, claim, evidence, boundary and caveat.","prompt_vi":"Viết bản tóm tắt năm phần, giữ rõ nguồn, nhận định, bằng chứng, giới hạn quyết định và lưu ý kèm theo."},
+    {"id":"manus:B2.6-100.v0.3.0.exam.q01","source_prompt":"Give a five-part public explanation: source, claim, evidence, boundary and caveat.","prompt_vi":"Đưa ra phần giải thích cho công chúng gồm năm phần: nguồn, nhận định, bằng chứng, giới hạn quyết định và lưu ý kèm theo."},
+    {"id":"manus:B2.6-100.v0.3.0.transfer.q01","source_prompt":"Explain the new decision through source, claim, evidence, boundary and caveat.","prompt_vi":"Giải thích quyết định mới qua năm phần: nguồn, nhận định, bằng chứng, giới hạn quyết định và lưu ý kèm theo."},
+    {"id":"manus:B2.6-100.v0.3.0.transfer.q02","source_prompt":"Explain the new decision through source, claim, evidence, boundary and caveat.","prompt_vi":"Giải thích quyết định mới qua năm phần: nguồn, nhận định, bằng chứng, giới hạn quyết định và lưu ý kèm theo."},
+    {"id":"manus:B2.6-100.v0.3.0.transfer.q03","source_prompt":"Explain the new decision through source, claim, evidence, boundary and caveat.","prompt_vi":"Giải thích quyết định mới qua năm phần: nguồn, nhận định, bằng chứng, giới hạn quyết định và lưu ý kèm theo."},
+    {"id":"manus:B2.6-100.v0.3.0.transfer.q04","source_prompt":"Explain the new decision through source, claim, evidence, boundary and caveat.","prompt_vi":"Giải thích quyết định mới qua năm phần: nguồn, nhận định, bằng chứng, giới hạn quyết định và lưu ý kèm theo."}
+  ]
+}

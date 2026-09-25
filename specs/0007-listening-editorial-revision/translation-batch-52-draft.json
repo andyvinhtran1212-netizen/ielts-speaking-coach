@@ -1,0 +1,27 @@
+{
+  "batch_id": "LISTENING-0007-B52",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete all four manus:B2.4-100 forms (11 main, one summary, one exam note, four transfer items). Preserve temporary pilot spaces, survey versus attendance logs, study-design/causal limit, named implementation owner, six-month point and redesign trigger. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.4-100.v0.3.0.main.q01","source_prompt":"What physical spaces does the pilot use, and for what temporary purpose?","prompt_vi":"Đợt thử nghiệm sử dụng những không gian nào, và cho mục đích tạm thời gì?"},
+    {"id":"manus:B2.4-100.v0.3.0.main.q02","source_prompt":"What does the resident survey report?","prompt_vi":"Khảo sát cư dân báo cáo điều gì?"},
+    {"id":"manus:B2.4-100.v0.3.0.main.q03","source_prompt":"Where do attendance logs show highest use?","prompt_vi":"Sổ ghi số lượt đến cho thấy mức sử dụng cao nhất ở đâu?"},
+    {"id":"manus:B2.4-100.v0.3.0.main.q04","source_prompt":"Give the two design limits named by the evaluator.","prompt_vi":"Nêu hai giới hạn về thiết kế mà người đánh giá đã đề cập."},
+    {"id":"manus:B2.4-100.v0.3.0.main.q05","source_prompt":"What outcome was not measured comparatively?","prompt_vi":"Kết quả nào chưa được đo để so sánh?"},
+    {"id":"manus:B2.4-100.v0.3.0.main.q06","source_prompt":"Give the name and role of the person who owns implementation.","prompt_vi":"Nêu tên và vai trò của người phụ trách triển khai."},
+    {"id":"manus:B2.4-100.v0.3.0.main.q07","source_prompt":"What decision does Daniel recommend?","prompt_vi":"Daniel khuyến nghị quyết định nào?"},
+    {"id":"manus:B2.4-100.v0.3.0.main.q08","source_prompt":"What two limits must the public summary preserve?","prompt_vi":"Bản tóm tắt dành cho công chúng phải giữ hai giới hạn nào?"},
+    {"id":"manus:B2.4-100.v0.3.0.main.q09","source_prompt":"What must the technical brief retain?","prompt_vi":"Bản tóm tắt kỹ thuật phải giữ lại điều gì?"},
+    {"id":"manus:B2.4-100.v0.3.0.main.q10","source_prompt":"When is the expansion reviewed, and what triggers design review?","prompt_vi":"Khi nào việc mở rộng được rà soát, và điều gì kích hoạt việc rà soát thiết kế?"},
+    {"id":"manus:B2.4-100.v0.3.0.main.q11","source_prompt":"What does the chair say the six-month point is not?","prompt_vi":"Người chủ trì nói mốc sáu tháng không phải là điều gì?"},
+    {"id":"manus:B2.4-100.v0.3.0.summary.q01","source_prompt":"Write a five-part evidence summary: service/pilot; survey and log findings; uncertainty/causal boundary; recommendation and owner; six-month trigger.","prompt_vi":"Viết bản tóm tắt bằng chứng gồm năm phần: dịch vụ và thử nghiệm; kết quả khảo sát và sổ ghi chép; điểm chưa chắc chắn và giới hạn khi kết luận nguyên nhân; khuyến nghị và người phụ trách; điều kiện kích hoạt tại mốc sáu tháng."},
+    {"id":"manus:B2.4-100.v0.3.0.exam.q01","source_prompt":"Complete five content fields for a meeting note: proposal; two evidence sources/findings; causal boundary; owner/decision; review time/trigger. No response-time score is awarded.","prompt_vi":"Hoàn thành năm phần nội dung cho ghi chú cuộc họp: đề xuất; hai nguồn bằng chứng và kết quả; giới hạn khi kết luận nguyên nhân; người phụ trách và quyết định; thời điểm rà soát và điều kiện kích hoạt. Thời gian trả lời không được tính điểm."},
+    {"id":"manus:B2.4-100.v0.3.0.transfer.q01","source_prompt":"Give evidence pattern, limit, decision/owner and review trigger.","prompt_vi":"Nêu xu hướng của bằng chứng, giới hạn, quyết định và người phụ trách, cùng điều kiện kích hoạt rà soát."},
+    {"id":"manus:B2.4-100.v0.3.0.transfer.q02","source_prompt":"State sources, limits, decision owner and review trigger.","prompt_vi":"Nêu các nguồn, giới hạn, người phụ trách quyết định và điều kiện kích hoạt rà soát."},
+    {"id":"manus:B2.4-100.v0.3.0.transfer.q03","source_prompt":"Give findings, causal boundary, owner/action and trigger.","prompt_vi":"Nêu kết quả, giới hạn khi kết luận nguyên nhân, người phụ trách và hành động, cùng điều kiện kích hoạt."},
+    {"id":"manus:B2.4-100.v0.3.0.transfer.q04","source_prompt":"Give source pattern, unmeasured outcome, owner/decision and review trigger.","prompt_vi":"Nêu xu hướng trong nguồn dữ liệu, kết quả chưa được đo, người phụ trách và quyết định, cùng điều kiện kích hoạt rà soát."}
+  ]
+}

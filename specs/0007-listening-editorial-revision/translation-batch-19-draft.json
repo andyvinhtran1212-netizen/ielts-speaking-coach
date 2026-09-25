@@ -1,0 +1,21 @@
+{
+  "batch_id": "LISTENING-0007-B19",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "ielts-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete reference:consumer:Level5_5d practice form (11 single-choice items). Preserve option-letter identity and conditional/final-decision meaning; editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"reference:5.22","source_prompt":"Which topic will they choose?","source_options":{"A":"African art","B":"Asian art","C":"both","D":"neither, choose new"},"prompt_vi":"Họ sẽ chọn chủ đề nào?","options_vi":{"A":"nghệ thuật châu Phi","B":"nghệ thuật châu Á","C":"cả hai","D":"không chọn chủ đề nào trong hai chủ đề đó mà chọn chủ đề mới"}},
+    {"id":"reference:5.23","source_prompt":"When will they travel?","source_options":{"A":"Friday evening","B":"Friday morning","C":"Saturday morning","D":"Saturday evening"},"prompt_vi":"Họ sẽ đi vào lúc nào?","options_vi":{"A":"tối thứ Sáu","B":"sáng thứ Sáu","C":"sáng thứ Bảy","D":"tối thứ Bảy"}},
+    {"id":"reference:5.24","source_prompt":"Which topic will they write about?","source_options":{"A":"wind energy","B":"solar power","C":"hydropower","D":"all three"},"prompt_vi":"Họ sẽ viết về chủ đề nào?","options_vi":{"A":"năng lượng gió","B":"năng lượng mặt trời","C":"thủy điện","D":"cả ba chủ đề"}},
+    {"id":"reference:5.25","source_prompt":"What will they eat?","source_options":{"A":"Italian","B":"Indian","C":"haven't decided","D":"Chinese"},"prompt_vi":"Họ sẽ ăn món gì?","options_vi":{"A":"món Ý","B":"món Ấn Độ","C":"chưa quyết định","D":"món Trung Quốc"}},
+    {"id":"reference:5.26","source_prompt":"When will the customer travel?","source_options":{"A":"May","B":"June","C":"July","D":"August"},"prompt_vi":"Khách hàng sẽ đi vào tháng nào?","options_vi":{"A":"tháng 5","B":"tháng 6","C":"tháng 7","D":"tháng 8"}},
+    {"id":"reference:5.27","source_prompt":"When will the meeting be?","source_options":{"A":"Tuesday","B":"Wednesday","C":"Thursday","D":"Friday"},"prompt_vi":"Cuộc họp sẽ diễn ra vào ngày nào?","options_vi":{"A":"thứ Ba","B":"thứ Tư","C":"thứ Năm","D":"thứ Sáu"}},
+    {"id":"reference:5.28","source_prompt":"How many participants will the student include?","source_options":{"A":"50","B":"20","C":"30","D":"not decided"},"prompt_vi":"Học viên sẽ đưa bao nhiêu người tham gia vào nghiên cứu?","options_vi":{"A":"50","B":"20","C":"30","D":"chưa quyết định"}},
+    {"id":"reference:G20","source_prompt":"What will the woman write about?","source_options":{"A":"endangered birds","B":"urban foxes","C":"city research","D":"fresh topics"},"prompt_vi":"Người phụ nữ sẽ viết về điều gì?","options_vi":{"A":"các loài chim có nguy cơ tuyệt chủng","B":"cáo sống ở đô thị","C":"nghiên cứu về thành phố","D":"những chủ đề mới"}},
+    {"id":"reference:G45","source_prompt":"Which language will the woman use?","source_options":{"A":"Python","B":"R","C":"Java","D":"C++"},"prompt_vi":"Người phụ nữ sẽ dùng ngôn ngữ lập trình nào?","unchanged_options_reviewed":true},
+    {"id":"reference:G66","source_prompt":"What will the man do next year?","source_options":{"A":"stay in halls","B":"share a flat","C":"live with family","D":"rent a studio"},"prompt_vi":"Năm tới người đàn ông sẽ làm gì?","options_vi":{"A":"ở ký túc xá","B":"ở chung căn hộ","C":"sống cùng gia đình","D":"thuê căn hộ studio"}},
+    {"id":"reference:G86","source_prompt":"What will the man do?","source_options":{"A":"join the running club","B":"start cycling","C":"do yoga","D":"see a physio"},"prompt_vi":"Người đàn ông sẽ làm gì?","options_vi":{"A":"tham gia câu lạc bộ chạy bộ","B":"bắt đầu đạp xe","C":"tập yoga","D":"đến gặp chuyên viên vật lý trị liệu"}}
+  ]
+}

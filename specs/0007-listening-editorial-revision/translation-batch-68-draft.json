@@ -1,0 +1,140 @@
+{
+  "batch_id": "LISTENING-0007-B68",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete all B2.8-001 practice, gate and transfer prompts. Preserve observed-versus-reported evidence, inference, hypothesis, causal limits and bounded conclusion. Editorial and perceptual review remain pending.",
+  "items": [
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q01",
+      "source_prompt": "What did the field team measure, and over what period?",
+      "prompt_vi": "Nhóm khảo sát thực địa đã đo điều gì, trong khoảng thời gian nào?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q02",
+      "source_prompt": "Is this a firsthand measurement by the speaker or a report, and what access limit is stated?",
+      "prompt_vi": "Đây là phép đo trực tiếp của người nói hay là thông tin được thuật lại, và người nói nêu giới hạn tiếp cận nào?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q03",
+      "source_prompt": "What is inferred, and what observation is used as its basis?",
+      "prompt_vi": "Điều gì được suy ra, và quan sát nào làm cơ sở cho suy luận đó?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q04",
+      "source_prompt": "What is the working hypothesis?",
+      "prompt_vi": "Giả thuyết tạm thời là gì?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q05",
+      "source_prompt": "What evidence suggests a motivation change, and how certain is the interpretation?",
+      "prompt_vi": "Bằng chứng nào gợi ý động cơ đã thay đổi, và cách diễn giải đó chắc chắn đến mức nào?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q06",
+      "source_prompt": "What was observed, and what causal conclusion remains unavailable?",
+      "prompt_vi": "Điều gì đã được quan sát, và kết luận nhân quả nào vẫn chưa thể đưa ra?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q07",
+      "source_prompt": "Which verb presents the field measurements as direct evidence?",
+      "prompt_vi": "Động từ nào thể hiện các phép đo thực địa là bằng chứng trực tiếp?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q08",
+      "source_prompt": "Which verb marks the timing statement as tentative evidence?",
+      "prompt_vi": "Động từ nào cho thấy nhận định về thời điểm được nêu một cách dè dặt?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q09",
+      "source_prompt": "Which verb explicitly marks the shift in demand as an inference?",
+      "prompt_vi": "Động từ nào đánh dấu rõ sự thay đổi về nhu cầu là một suy luận?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q10",
+      "source_prompt": "Which word says the causal claim is too early?",
+      "prompt_vi": "Từ nào cho biết còn quá sớm để đưa ra nhận định nhân quả?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q11",
+      "source_prompt": "What has not been done to the alternative explanation?",
+      "prompt_vi": "Điều gì chưa được thực hiện đối với cách giải thích thay thế?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q12",
+      "source_prompt": "What status does the access-rather-than-price explanation have?",
+      "prompt_vi": "Cách giải thích dựa trên khả năng tiếp cận thay vì giá cả hiện có mức độ chắc chắn ra sao?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q13",
+      "source_prompt": "What recorded fact is stated?",
+      "prompt_vi": "Dữ kiện nào đã được ghi nhận?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q14",
+      "source_prompt": "Who reports the pattern, and whose observation is being reported?",
+      "prompt_vi": "Ai thuật lại xu hướng này, và quan sát được thuật lại là của ai?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q15",
+      "source_prompt": "What connection is inferred, and from what basis?",
+      "prompt_vi": "Mối liên hệ nào được suy ra, dựa trên điều gì?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q16",
+      "source_prompt": "What competing explanation is offered?",
+      "prompt_vi": "Cách giải thích cạnh tranh nào được đưa ra?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q17",
+      "source_prompt": "What is the status of that explanation, and what evidence has not tested it?",
+      "prompt_vi": "Cách giải thích đó đang ở mức độ chắc chắn nào, và bằng chứng nào chưa được dùng để kiểm chứng nó?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.practice.q18",
+      "source_prompt": "What stronger conclusion does the responsible summary avoid?",
+      "prompt_vi": "Bản tóm tắt có trách nhiệm tránh kết luận mạnh hơn nào?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.gate.q19",
+      "source_prompt": "What is Dr Patel’s position, what evidence does he accept, and what causal limit does he state?",
+      "prompt_vi": "Lập trường của Tiến sĩ Patel là gì, ông chấp nhận bằng chứng nào và nêu giới hạn nào về quan hệ nhân quả?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.gate.q20",
+      "source_prompt": "What is Ms Green’s evidence position and direct-access limit?",
+      "prompt_vi": "Bà Green đánh giá bằng chứng ra sao và có giới hạn nào về việc tiếp cận trực tiếp?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.gate.q21",
+      "source_prompt": "What does Dr Patel infer, and what observation supports that inference?",
+      "prompt_vi": "Tiến sĩ Patel suy ra điều gì, và quan sát nào ủng hộ suy luận đó?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.gate.q22",
+      "source_prompt": "What evidence is still needed, and what causal conclusion cannot yet be made?",
+      "prompt_vi": "Còn cần bằng chứng nào, và kết luận nhân quả nào chưa thể đưa ra?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.gate.q23",
+      "source_prompt": "What is the claim, stated without strengthening it into causation?",
+      "prompt_vi": "Nhận định là gì nếu không nâng nó thành khẳng định về quan hệ nhân quả?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.gate.q24",
+      "source_prompt": "What warrant is offered?",
+      "prompt_vi": "Lập luận làm căn cứ cho nhận định đó là gì?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.gate.q26",
+      "source_prompt": "What knowledge limit remains?",
+      "prompt_vi": "Vẫn còn giới hạn nào về những điều đã biết?"
+    },
+    {
+      "id": "manus:B2.8-001.v0.1.0.transfer.q01",
+      "source_prompt": "Summarise the hospital case by stating the observation, inference, causal limit and bounded conclusion.",
+      "prompt_vi": "Tóm tắt trường hợp bệnh viện bằng cách nêu quan sát, suy luận, giới hạn nhân quả và kết luận trong phạm vi bằng chứng cho phép."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "batch_id": "LISTENING-0007-B65",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete renewal-funding conditions and earlier-allocation distinction; retain lexical cue, audit scope and board decision boundary. Editorial and perceptual review pending.",
+  "items": [
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q01",
+      "source_prompt": "What was the programme’s initial allocation?",
+      "prompt_vi": "Khoản phân bổ ban đầu của chương trình là bao nhiêu?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q02",
+      "source_prompt": "What will this year’s renewal fund, and in how many centres?",
+      "prompt_vi": "Khoản gia hạn năm nay sẽ tài trợ cho việc gì, tại bao nhiêu trung tâm?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q03",
+      "source_prompt": "What is the first renewal condition?",
+      "prompt_vi": "Điều kiện thứ nhất để gia hạn là gì?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q04",
+      "source_prompt": "What is the second renewal condition?",
+      "prompt_vi": "Điều kiện thứ hai để gia hạn là gì?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q05",
+      "source_prompt": "Which lexical phrase immediately introduces the second condition?",
+      "prompt_vi": "Cụm từ nào mở đầu ngay điều kiện thứ hai?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q06",
+      "source_prompt": "What two things will the audit check?",
+      "prompt_vi": "Đợt kiểm toán sẽ kiểm tra hai điều gì?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q07",
+      "source_prompt": "What happens if either renewal condition is incomplete?",
+      "prompt_vi": "Điều gì xảy ra nếu một trong hai điều kiện gia hạn chưa được đáp ứng đầy đủ?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q08",
+      "source_prompt": "When will the board review the first six months of equipment use?",
+      "prompt_vi": "Khi nào hội đồng sẽ xem xét sáu tháng sử dụng thiết bị đầu tiên?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q09",
+      "source_prompt": "Who coordinates partner contributions, and who leads the audit?",
+      "prompt_vi": "Ai điều phối đóng góp của các đối tác, và ai chủ trì cuộc kiểm toán?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.main.q10",
+      "source_prompt": "Why is the two-million-pound figure not the amount under review this year?",
+      "prompt_vi": "Vì sao con số hai triệu bảng không phải là khoản được xem xét trong năm nay?"
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.transfer.q01",
+      "source_prompt": "State the earlier context, first condition, lexical cue plus second condition, and decision boundary.",
+      "prompt_vi": "Nêu bối cảnh trước đó, điều kiện thứ nhất, cụm từ báo hiệu cùng điều kiện thứ hai, và giới hạn của quyết định."
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.transfer.q02",
+      "source_prompt": "State the earlier context, first condition, lexical cue plus second condition, and decision boundary.",
+      "prompt_vi": "Nêu bối cảnh trước đó, điều kiện thứ nhất, cụm từ báo hiệu cùng điều kiện thứ hai, và giới hạn của quyết định."
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.transfer.q03",
+      "source_prompt": "State the earlier context, first condition, lexical cue plus second condition, and decision boundary.",
+      "prompt_vi": "Nêu bối cảnh trước đó, điều kiện thứ nhất, cụm từ báo hiệu cùng điều kiện thứ hai, và giới hạn của quyết định."
+    },
+    {
+      "id": "manus:B2.7-098.v0.3.0.transfer.q04",
+      "source_prompt": "State the earlier context, first condition, lexical cue plus second condition, and decision boundary.",
+      "prompt_vi": "Nêu bối cảnh trước đó, điều kiện thứ nhất, cụm từ báo hiệu cùng điều kiện thứ hai, và giới hạn của quyết định."
+    }
+  ]
+}

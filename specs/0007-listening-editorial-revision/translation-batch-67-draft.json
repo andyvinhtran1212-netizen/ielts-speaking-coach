@@ -1,0 +1,90 @@
+{
+  "batch_id": "LISTENING-0007-B67",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete source/scope and supported outcomes while preserving workload/accessibility caveats, decision condition and unsupported wider rollout claim. Editorial and perceptual review pending.",
+  "items": [
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q01",
+      "source_prompt": "What source produced the evidence?",
+      "prompt_vi": "Nguồn nào tạo ra bằng chứng này?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q02",
+      "source_prompt": "How many offices and how long?",
+      "prompt_vi": "Có bao nhiêu văn phòng tham gia, trong bao lâu?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q03",
+      "source_prompt": "Which two results improved?",
+      "prompt_vi": "Hai kết quả nào đã cải thiện?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q04",
+      "source_prompt": "What does the claim concern?",
+      "prompt_vi": "Nhận định này nói về điều gì?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q05",
+      "source_prompt": "Why is workload evidence conditional?",
+      "prompt_vi": "Vì sao bằng chứng về khối lượng công việc vẫn chưa đủ chắc chắn?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q06",
+      "source_prompt": "Why is accessibility evidence conditional?",
+      "prompt_vi": "Vì sao bằng chứng về khả năng tiếp cận vẫn chưa đủ chắc chắn?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q07",
+      "source_prompt": "What action is recommended?",
+      "prompt_vi": "Hành động nào được khuyến nghị?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q08",
+      "source_prompt": "What condition applies before wider rollout?",
+      "prompt_vi": "Cần đáp ứng điều kiện nào trước khi triển khai rộng hơn?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q09",
+      "source_prompt": "Where is the evidence strongest?",
+      "prompt_vi": "Bằng chứng vững nhất ở phạm vi nào?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.main.q10",
+      "source_prompt": "What broader conclusion is unsupported?",
+      "prompt_vi": "Kết luận rộng hơn nào chưa được bằng chứng ủng hộ?"
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.summary.q01",
+      "source_prompt": "Write a five-part summary: source, claim, evidence, boundary and caveat.",
+      "prompt_vi": "Viết bản tóm tắt năm phần: nguồn, nhận định, bằng chứng, giới hạn của bằng chứng và lưu ý kèm theo."
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.exam.q01",
+      "source_prompt": "Give the exam-bridge answer with the contrast, supported claim, evidence boundary and decision condition.",
+      "prompt_vi": "Đưa ra câu trả lời nối với dạng bài thi, nêu sự tương phản, nhận định có căn cứ, giới hạn của bằng chứng và điều kiện ra quyết định."
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.transfer.q01",
+      "source_prompt": "Report the source/scope, claim/evidence, caveat and bounded decision.",
+      "prompt_vi": "Báo cáo nguồn và phạm vi, nhận định và bằng chứng, lưu ý kèm theo cùng quyết định có giới hạn."
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.transfer.q02",
+      "source_prompt": "Report the source/scope, claim/evidence, caveat and bounded decision.",
+      "prompt_vi": "Báo cáo nguồn và phạm vi, nhận định và bằng chứng, lưu ý kèm theo cùng quyết định có giới hạn."
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.transfer.q03",
+      "source_prompt": "Report the source/scope, claim/evidence, caveat and bounded decision.",
+      "prompt_vi": "Báo cáo nguồn và phạm vi, nhận định và bằng chứng, lưu ý kèm theo cùng quyết định có giới hạn."
+    },
+    {
+      "id": "manus:B2.7-100.v0.3.0.transfer.q04",
+      "source_prompt": "Report the source/scope, claim/evidence, caveat and bounded decision.",
+      "prompt_vi": "Báo cáo nguồn và phạm vi, nhận định và bằng chứng, lưu ý kèm theo cùng quyết định có giới hạn."
+    }
+  ]
+}

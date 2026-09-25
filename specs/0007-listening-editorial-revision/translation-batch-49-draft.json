@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B49",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.4-097 forms (12 main, four transfer items). Preserve measured versus unmeasured outcome, coverage limits, register change without stronger proposition, justified public wording and next two-measure review. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.4-097.v0.3.0.main.q01","source_prompt":"What material was tested, and where?","prompt_vi":"Vật liệu nào được thử nghiệm, và ở đâu?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q02","source_prompt":"How are the early measurements qualified?","prompt_vi":"Các phép đo ban đầu được trình bày kèm giới hạn nào?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q03","source_prompt":"Give the two source limits on coverage.","prompt_vi":"Nêu hai giới hạn về phạm vi bao phủ từ nguồn thông tin."},
+    {"id":"manus:B2.4-097.v0.3.0.main.q04","source_prompt":"Which outcome was measured?","prompt_vi":"Kết quả nào đã được đo?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q05","source_prompt":"Which outcome must not be treated as identical to that measure?","prompt_vi":"Không được coi kết quả nào là tương đương với chỉ số đã đo đó?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q06","source_prompt":"How does the manager frame the finding, including the proposed next step?","prompt_vi":"Người quản lý trình bày kết quả theo cách nào, kể cả bước tiếp theo được đề xuất?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q07","source_prompt":"What universal claim does Shah reject?","prompt_vi":"Shah bác bỏ nhận định áp dụng cho tất cả nào?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q08","source_prompt":"What phrase does the public version use?","prompt_vi":"Bản dành cho công chúng dùng cụm từ nào?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q09","source_prompt":"Name three limits preserved in the simpler public wording.","prompt_vi":"Nêu ba giới hạn vẫn được giữ trong cách diễn đạt đơn giản hơn dành cho công chúng."},
+    {"id":"manus:B2.4-097.v0.3.0.main.q10","source_prompt":"What remains stable when register changes?","prompt_vi":"Khi văn phong thay đổi, điều gì vẫn phải giữ nguyên?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q11","source_prompt":"What two measures should the next review compare?","prompt_vi":"Đợt rà soát tiếp theo nên so sánh hai thước đo nào?"},
+    {"id":"manus:B2.4-097.v0.3.0.main.q12","source_prompt":"What must not be interpreted as stronger evidence?","prompt_vi":"Điều gì không được hiểu là bằng chứng mạnh hơn?"},
+    {"id":"manus:B2.4-097.v0.3.0.transfer.q01","source_prompt":"Give the finding, two retained limits and a public wording that does not strengthen the claim.","prompt_vi":"Nêu kết quả, hai giới hạn cần giữ và cách diễn đạt công khai không làm nhận định mạnh hơn."},
+    {"id":"manus:B2.4-097.v0.3.0.transfer.q02","source_prompt":"State the technical result, scope/limit and meaning-preserving public version.","prompt_vi":"Nêu kết quả kỹ thuật, phạm vi hoặc giới hạn, và phiên bản dành cho công chúng vẫn giữ nguyên ý nghĩa."},
+    {"id":"manus:B2.4-097.v0.3.0.transfer.q03","source_prompt":"Give the measured finding, the unmeasured outcome and the stable proposition across audiences.","prompt_vi":"Nêu kết quả đã đo, kết quả chưa đo và nhận định cốt lõi không đổi giữa các nhóm đối tượng."},
+    {"id":"manus:B2.4-097.v0.3.0.transfer.q04","source_prompt":"State the result/group, two limits and the public claim that remains justified.","prompt_vi":"Nêu kết quả và nhóm được đo, hai giới hạn và nhận định công khai vẫn có căn cứ."}
+  ]
+}

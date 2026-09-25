@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B40",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.2-098 forms (10 main and four transfer items). Preserve corrected versus provisional names/times/quantities, authoritative source, relevant comparison dimension, award/booking condition and no assumed final approval. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.2-098.v0.3.0.main.q01","source_prompt":"Which bidder has the shortest construction schedule in the checked table?","prompt_vi":"Trong bảng đã được kiểm tra, nhà thầu nào có thời gian thi công ngắn nhất?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q02","source_prompt":"What condition does the finance panel require before an award?","prompt_vi":"Hội đồng tài chính yêu cầu điều kiện gì trước khi trao hợp đồng?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q03","source_prompt":"What main technical difference does engineering identify?","prompt_vi":"Bộ phận kỹ thuật chỉ ra khác biệt kỹ thuật chính nào?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q04","source_prompt":"Which provisional bidder name must be replaced?","prompt_vi":"Tên nhà thầu ghi tạm nào phải được thay thế?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q05","source_prompt":"What feature of the offers is Tara trying to compare?","prompt_vi":"Tara đang cố so sánh đặc điểm nào của các hồ sơ chào thầu?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q06","source_prompt":"Why is battery capacity not the answer to the shortest-schedule question?","prompt_vi":"Vì sao dung lượng pin không phải câu trả lời cho câu hỏi về thời gian thi công ngắn nhất?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q07","source_prompt":"Which document should the public update use?","prompt_vi":"Thông báo công khai nên dựa trên tài liệu nào?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q08","source_prompt":"Why did Tara change the bidder entry?","prompt_vi":"Vì sao Tara sửa mục ghi tên nhà thầu?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q09","source_prompt":"Has a contract already been awarded?","prompt_vi":"Hợp đồng đã được trao chưa?"},
+    {"id":"manus:B2.2-098.v0.3.0.main.q10","source_prompt":"What two points must the public update retain about the bidder and the award condition?","prompt_vi":"Thông báo công khai phải giữ rõ hai điểm nào về nhà thầu và điều kiện trao hợp đồng?"},
+    {"id":"manus:B2.2-098.v0.3.0.transfer.q01","source_prompt":"Write the driver’s note: identify the coordinator who corrects the information; give the corrected entrance and the earlier entrance with the reason for the change; explain why Room Four does not answer the entrance question; and retain the arrival condition.","prompt_vi":"Viết ghi chú cho tài xế: xác định điều phối viên đã đính chính thông tin; nêu lối vào đã sửa và lối vào trước đó cùng lý do thay đổi; giải thích vì sao Room Four không trả lời câu hỏi về lối vào; và giữ rõ điều kiện khi đến nơi."},
+    {"id":"manus:B2.2-098.v0.3.0.transfer.q02","source_prompt":"Tell the applicant who confirmed the interview, its corrected and provisional times and why they differ, what the nine-o’clock detail refers to, and the condition that still applies at the interview.","prompt_vi":"Cho người nộp đơn biết ai đã xác nhận buổi phỏng vấn, giờ đã đính chính và giờ tạm ghi cùng lý do khác nhau, chi tiết chín giờ nói về việc gì, và điều kiện vẫn áp dụng khi phỏng vấn."},
+    {"id":"manus:B2.2-098.v0.3.0.transfer.q03","source_prompt":"Record who reports the invoice correction, the corrected and original scanner quantities and their difference in scope, why eight is not the scanner answer, and the remaining payment requirement.","prompt_vi":"Ghi rõ ai báo việc sửa hóa đơn, số lượng máy quét đã sửa và ban đầu cùng sự khác nhau về phạm vi, vì sao tám không phải đáp án về máy quét, và yêu cầu thanh toán còn lại."},
+    {"id":"manus:B2.2-098.v0.3.0.transfer.q04","source_prompt":"Complete the booking note: name the officer who checks the source, the corrected and earlier organisations with the cause of the error, what the small-hall detail answers, and the condition before the booking is confirmed.","prompt_vi":"Hoàn thiện ghi chú đặt chỗ: nêu tên nhân viên kiểm tra nguồn, tổ chức đã đính chính và tổ chức ghi trước đó cùng nguyên nhân sai sót, chi tiết về hội trường nhỏ trả lời câu hỏi nào, và điều kiện trước khi việc đặt chỗ được xác nhận."}
+  ]
+}

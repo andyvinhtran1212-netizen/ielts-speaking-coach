@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B35",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.1-098 forms (10 main and four transfer items). Preserve request/constraint/concession, pilot versus permanent adoption, approval dependency, timing and review sequence. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.1-098.v0.3.0.main.q01","source_prompt":"What specific change do the students request for the final paper?","prompt_vi":"Các sinh viên đề nghị thay đổi cụ thể nào đối với bài viết cuối kỳ?"},
+    {"id":"manus:B2.1-098.v0.3.0.main.q02","source_prompt":"What problem are the students trying to address with that request?","prompt_vi":"Qua đề nghị đó, các sinh viên muốn giải quyết vấn đề gì?"},
+    {"id":"manus:B2.1-098.v0.3.0.main.q03","source_prompt":"What timing constraint does the teaching team want to protect, and why?","prompt_vi":"Nhóm giảng dạy muốn giữ mốc thời gian ràng buộc nào, và vì sao?"},
+    {"id":"manus:B2.1-098.v0.3.0.main.q04","source_prompt":"What pilot does the chair propose: how long would it run, and how many deadlines would be extended?","prompt_vi":"Người chủ trì đề xuất thử nghiệm gì: kéo dài bao lâu và gia hạn bao nhiêu hạn nộp?"},
+    {"id":"manus:B2.1-098.v0.3.0.main.q05","source_prompt":"Does the proposal promise a permanent change? Explain its current status.","prompt_vi":"Đề xuất có hứa hẹn thay đổi vĩnh viễn không? Giải thích tình trạng hiện tại của đề xuất."},
+    {"id":"manus:B2.1-098.v0.3.0.main.q06","source_prompt":"Which two sets of data would be collected for the review?","prompt_vi":"Hai nhóm dữ liệu nào sẽ được thu thập để rà soát?"},
+    {"id":"manus:B2.1-098.v0.3.0.main.q07","source_prompt":"When will the teaching team consider a permanent revision, and is adoption then guaranteed?","prompt_vi":"Khi nào nhóm giảng dạy sẽ xem xét điều chỉnh lâu dài, và lúc đó việc áp dụng đã được bảo đảm chưa?"},
+    {"id":"manus:B2.1-098.v0.3.0.main.q08","source_prompt":"By what deadline must any timetable change be approved?","prompt_vi":"Mọi thay đổi thời khóa biểu phải được phê duyệt chậm nhất khi nào?"},
+    {"id":"manus:B2.1-098.v0.3.0.main.q09","source_prompt":"When would the pilot begin, and what must happen before it can begin?","prompt_vi":"Đợt thử nghiệm sẽ bắt đầu khi nào, và điều gì phải xảy ra trước khi bắt đầu?"},
+    {"id":"manus:B2.1-098.v0.3.0.main.q10","source_prompt":"Put the proposed stages in order, from approval through the review and consideration of a permanent revision.","prompt_vi":"Sắp xếp các giai đoạn đề xuất theo thứ tự, từ phê duyệt đến rà soát rồi xem xét điều chỉnh lâu dài."},
+    {"id":"manus:B2.1-098.v0.3.0.transfer.q01","source_prompt":"Summarise four parts of the rota negotiation: the team’s request and reason; the manager’s constraint; the offered concession and condition; and the sign-off/start/review sequence.","prompt_vi":"Tóm tắt bốn phần của cuộc thương lượng lịch phân ca: đề nghị và lý do của nhóm; ràng buộc của người quản lý; nhượng bộ được đề nghị và điều kiện đi kèm; cùng trình tự phê duyệt, bắt đầu và rà soát."},
+    {"id":"manus:B2.1-098.v0.3.0.transfer.q02","source_prompt":"Summarise four parts of the repair negotiation: the tenant’s request and reason; the scheduling constraint; the proposed number of visits, days and hours with their confirmation condition; and the required response/check/confirmation sequence.","prompt_vi":"Tóm tắt bốn phần của cuộc thương lượng sửa chữa: đề nghị và lý do của người thuê; ràng buộc về lịch; số lần đến, ngày và giờ được đề xuất cùng điều kiện xác nhận; và trình tự phản hồi, kiểm tra rồi xác nhận cần thực hiện."},
+    {"id":"manus:B2.1-098.v0.3.0.transfer.q03","source_prompt":"Summarise four parts of the software negotiation: the team’s request and purpose; procurement’s budget constraint; the limited offer and approval condition; and the clearance/trial/review sequence.","prompt_vi":"Tóm tắt bốn phần của cuộc thương lượng về phần mềm: đề nghị và mục đích của nhóm; ràng buộc ngân sách của bộ phận mua sắm; phương án giới hạn được đề nghị và điều kiện phê duyệt; cùng trình tự thông qua, thử nghiệm và rà soát."},
+    {"id":"manus:B2.1-098.v0.3.0.transfer.q04","source_prompt":"Summarise four parts of the event-budget negotiation: the request and purpose; the protected spending constraint; the conditional offer; and the pledge/budget/booking sequence.","prompt_vi":"Tóm tắt bốn phần của cuộc thương lượng ngân sách sự kiện: đề nghị và mục đích; khoản chi cần được bảo vệ; phương án có điều kiện; cùng trình tự cam kết đóng góp, chốt ngân sách rồi đặt chỗ."}
+  ]
+}

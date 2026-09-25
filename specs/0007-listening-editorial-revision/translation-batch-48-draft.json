@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B48",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.4-096 forms (12 main, four transfer items). Preserve contemporaneous price/selection explanations, observation versus causal claim, required comparison and bounded policy/review sequence. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.4-096.v0.3.0.main.q01","source_prompt":"What policy is under review, and which buildings does it target?","prompt_vi":"Chính sách nào đang được rà soát, và chính sách đó nhắm tới những tòa nhà nào?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q02","source_prompt":"What change was observed in participating buildings?","prompt_vi":"Thay đổi nào được quan sát ở các tòa nhà tham gia?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q03","source_prompt":"How long did the source pilot observation last?","prompt_vi":"Đợt quan sát thử nghiệm của nguồn thông tin đó kéo dài bao lâu?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q04","source_prompt":"How did residents/buildings enter the pilot?","prompt_vi":"Cư dân hoặc tòa nhà tham gia thử nghiệm bằng cách nào?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q05","source_prompt":"Name the contemporaneous price change that limits interpretation.","prompt_vi":"Nêu biến động giá xảy ra cùng thời điểm khiến việc diễn giải kết quả bị giới hạn."},
+    {"id":"manus:B2.4-096.v0.3.0.main.q06","source_prompt":"Give the two other alternative explanations named by the evaluator.","prompt_vi":"Nêu hai cách giải thích khác mà người đánh giá đã đề cập."},
+    {"id":"manus:B2.4-096.v0.3.0.main.q07","source_prompt":"What stronger claim does the chair explicitly reject?","prompt_vi":"Người chủ trì bác bỏ rõ ràng nhận định mạnh hơn nào?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q08","source_prompt":"What comparison is required?","prompt_vi":"Cần thực hiện phép so sánh nào?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q09","source_prompt":"What action does Maya recommend?","prompt_vi":"Maya khuyến nghị hành động gì?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q10","source_prompt":"What three factors should the next comparison consider?","prompt_vi":"Phép so sánh tiếp theo nên xem xét ba yếu tố nào?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q11","source_prompt":"What two limitations must the public note retain?","prompt_vi":"Ghi chú công khai phải giữ rõ hai giới hạn nào?"},
+    {"id":"manus:B2.4-096.v0.3.0.main.q12","source_prompt":"What event precedes a wider-expansion decision?","prompt_vi":"Sự kiện nào phải diễn ra trước quyết định mở rộng hơn?"},
+    {"id":"manus:B2.4-096.v0.3.0.transfer.q01","source_prompt":"State the observed result/scope, two interpretation limits, and the next decision sequence.","prompt_vi":"Nêu kết quả đã quan sát và phạm vi của nó, hai giới hạn khi diễn giải, cùng trình tự ra quyết định tiếp theo."},
+    {"id":"manus:B2.4-096.v0.3.0.transfer.q02","source_prompt":"Give the observed association, alternative/comparison gap, and bounded action.","prompt_vi":"Nêu mối liên hệ đã quan sát, cách giải thích khác hoặc phép so sánh còn thiếu, và hành động có phạm vi giới hạn."},
+    {"id":"manus:B2.4-096.v0.3.0.transfer.q03","source_prompt":"State the result/time, two causal limits, and required comparison before policy.","prompt_vi":"Nêu kết quả và thời gian, hai giới hạn khi kết luận nguyên nhân, cùng phép so sánh cần có trước quyết định chính sách."},
+    {"id":"manus:B2.4-096.v0.3.0.transfer.q04","source_prompt":"Give the result/group, alternatives/sample limit, and next test/review.","prompt_vi":"Nêu kết quả và nhóm được đo, các cách giải thích khác hoặc giới hạn của mẫu, cùng bước thử nghiệm và rà soát tiếp theo."}
+  ]
+}

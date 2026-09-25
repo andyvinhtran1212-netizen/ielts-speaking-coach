@@ -1,0 +1,18 @@
+{
+  "batch_id": "LISTENING-0007-B27",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.8-100 forms (seven analysis/synthesis questions and one transfer synthesis). Preserve source count, causal caution, support/access limit, ownership and review timing. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.8-100.v0.3.0.main.q01","source_prompt":"What result and denominator did the researcher report?","prompt_vi":"Nhà nghiên cứu báo cáo kết quả nào và dùng nhóm nào làm mẫu số?"},
+    {"id":"manus:B2.8-100.v0.3.0.main.q02","source_prompt":"Which two evidence limits prevent a causal claim?","prompt_vi":"Hai giới hạn nào của bằng chứng khiến chưa thể khẳng định quan hệ nhân quả?"},
+    {"id":"manus:B2.8-100.v0.3.0.main.q03","source_prompt":"Which staffing fact remains unresolved?","prompt_vi":"Thông tin nào về nhân sự vẫn chưa được xác định?"},
+    {"id":"manus:B2.8-100.v0.3.0.main.q04","source_prompt":"What access support was used?","prompt_vi":"Đã áp dụng biện pháp hỗ trợ tiếp cận nào?"},
+    {"id":"manus:B2.8-100.v0.3.0.main.q05","source_prompt":"Which group still faces an access gap?","prompt_vi":"Nhóm nào vẫn gặp trở ngại khi tiếp cận?"},
+    {"id":"manus:B2.8-100.v0.3.0.main.q06","source_prompt":"What option and duration does the director propose?","prompt_vi":"Giám đốc đề xuất phương án nào và trong bao lâu?"},
+    {"id":"manus:B2.8-100.v0.3.0.main.q07","source_prompt":"Using all four sources, write a concise decision summary with the bounded claim, evidence status and denominator, affected group/safeguard, decision conditions, and owners/review point.","prompt_vi":"Dựa trên cả bốn nguồn, viết bản tóm tắt quyết định ngắn gọn, gồm nhận định có giới hạn, tình trạng bằng chứng và nhóm làm mẫu số, nhóm bị ảnh hưởng và biện pháp bảo vệ, các điều kiện để ra quyết định, cùng người chịu trách nhiệm và mốc rà soát."},
+    {"id":"manus:B2.8-100.v0.3.0.transfer.q01","source_prompt":"Report the observed result and competing condition, access gap and support limit, funding and ownership boundaries, and the review before any wider decision.","prompt_vi":"Nêu kết quả quan sát được và điều kiện có thể giải thích khác, khoảng trống tiếp cận và giới hạn của biện pháp hỗ trợ, ranh giới về kinh phí và trách nhiệm, cùng lần rà soát cần có trước mọi quyết định mở rộng."}
+  ]
+}

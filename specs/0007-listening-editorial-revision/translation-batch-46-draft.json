@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B46",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete all three manus:B2.3-099 forms (12 main, one public brief, three transfer items). Preserve pilot evidence versus universal coverage, interview caveat, unfilled local owner, testing/review sequence and no equal-performance promise. Editorial and perceptual review remain pending.",
+  "items": [
+    {"id":"manus:B2.3-099.v0.3.0.main.q01","source_prompt":"What system is being proposed?","prompt_vi":"Hệ thống nào đang được đề xuất?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q02","source_prompt":"Which source reports faster alerts?","prompt_vi":"Nguồn nào báo cáo việc cảnh báo nhanh hơn?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q03","source_prompt":"What result does that study report?","prompt_vi":"Nghiên cứu đó báo cáo kết quả gì?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q04","source_prompt":"Which source raises the access problem?","prompt_vi":"Nguồn nào nêu vấn đề về khả năng tiếp cận?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q05","source_prompt":"What access problem do those interviews identify?","prompt_vi":"Các cuộc phỏng vấn đó xác định vấn đề gì về khả năng tiếp cận?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q06","source_prompt":"Can faster pilot alerts establish that every household can receive warnings?","prompt_vi":"Cảnh báo nhanh hơn trong thử nghiệm có đủ chứng minh mọi hộ gia đình đều nhận được cảnh báo không?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q07","source_prompt":"What should happen to testing now?","prompt_vi":"Hiện nên tiếp tục việc thử nghiệm như thế nào?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q08","source_prompt":"What local responsibility must still be assigned?","prompt_vi":"Trách nhiệm nào ở địa phương vẫn cần được giao?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q09","source_prompt":"Has a named person accepted that role in the proposal?","prompt_vi":"Trong đề xuất đã có người được nêu tên nhận vai trò đó chưa?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q10","source_prompt":"What must be reviewed before expansion?","prompt_vi":"Cần rà soát điều gì trước khi mở rộng?"},
+    {"id":"manus:B2.3-099.v0.3.0.main.q11","source_prompt":"Give the reason Lina should not automatically be entered as the local owner.","prompt_vi":"Nêu lý do không nên tự động ghi Lina là người phụ trách tại địa phương."},
+    {"id":"manus:B2.3-099.v0.3.0.main.q12","source_prompt":"Does the recommendation promise equal performance for everyone, or a cautious next step?","prompt_vi":"Khuyến nghị hứa hẹn hiệu quả như nhau cho mọi người, hay chỉ đề xuất bước tiếp theo một cách thận trọng?"},
+    {"id":"manus:B2.3-099.v0.3.0.brief.q01","source_prompt":"Write a concise public brief with five content fields: (1) proposal and pilot-study result; (2) interview finding; (3) proposed testing action; (4) local-owner status; (5) coverage-review sequence before expansion and the boundary on promising equal performance. No grammar or word-count score.","prompt_vi":"Viết bản thông tin công khai ngắn gọn với năm phần nội dung: (1) đề xuất và kết quả nghiên cứu thử nghiệm; (2) phát hiện từ phỏng vấn; (3) hành động thử nghiệm được đề xuất; (4) tình trạng người phụ trách tại địa phương; (5) trình tự rà soát phạm vi bao phủ trước khi mở rộng và giới hạn của lời hứa về hiệu quả như nhau. Ngữ pháp và số từ không được chấm điểm."},
+    {"id":"manus:B2.3-099.v0.3.0.transfer.q01","source_prompt":"Give four fields: the logged result and covered/excluded route times; the interview caveat; the proposed trial change; and the unfilled role plus review required before expansion.","prompt_vi":"Nêu bốn phần: kết quả đã ghi nhận và các khung giờ tuyến đường được bao phủ hoặc bị loại trừ; giới hạn từ phỏng vấn; thay đổi được đề xuất cho thử nghiệm; và vai trò chưa có người nhận cùng đợt rà soát cần có trước khi mở rộng."},
+    {"id":"manus:B2.3-099.v0.3.0.transfer.q02","source_prompt":"Give four fields: the recorded result and population; the interview-based access caveat; the proposed change and its unresolved agreement; and the review/expansion sequence.","prompt_vi":"Nêu bốn phần: kết quả đã ghi nhận và nhóm được đo; giới hạn về khả năng tiếp cận dựa trên phỏng vấn; thay đổi được đề xuất và sự đồng thuận vẫn chưa đạt; cùng trình tự rà soát rồi mở rộng."},
+    {"id":"manus:B2.3-099.v0.3.0.transfer.q03","source_prompt":"Give four fields: the observed storage result and missing transport evidence; the interview caveat; both proposed tests; and the accepted owner’s task versus the unapproved construction action.","prompt_vi":"Nêu bốn phần: kết quả quan sát được về lưu trữ và bằng chứng còn thiếu về vận chuyển; giới hạn từ phỏng vấn; cả hai phép thử được đề xuất; và nhiệm vụ người phụ trách đã nhận so với việc xây dựng chưa được phê duyệt."}
+  ]
+}
