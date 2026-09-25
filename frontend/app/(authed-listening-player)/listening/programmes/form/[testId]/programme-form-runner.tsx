@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '@/lib/listening-programme-answer-queue.mjs';
+import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker, programmeAnswerFlushEntries } from '@/lib/listening-programme-answer-queue.mjs';
 import { availableQuestionLanguages, displayOptionLanguage, displayQuestion, groupProgrammeQuestions } from '@/lib/listening-programme-learning.mjs';
 import { confirmProgrammeOncePlayback, startProgrammeOncePlayback } from '@/lib/listening-programme-once-playback.mjs';
 import { createProgrammeReplayController } from '@/lib/listening-programme-replay.mjs';
@@ -200,7 +200,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     try {
       Object.values(pending.current).forEach(window.clearTimeout);
       pending.current = {};
-      await queue.flush(state.form.questions.map((question) => ({ qNum: question.q_num, value: answers[question.q_num] || '' })));
+      await queue.flush(programmeAnswerFlushEntries(state.form.questions, answers));
       setSaveState(tracker.finishFlush(operation.token));
       await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {});
       draftStore.current?.clear();
