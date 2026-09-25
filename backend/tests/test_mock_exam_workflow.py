@@ -4607,20 +4607,81 @@ def test_retake_reaper_batches_orphan_check_and_counts_only_collected(fake_db, s
     assert svc.get_sitting(blank_sitting["id"])["reading_submitted_at"] is not None
 
 
-@pytest.mark.parametrize("bad_clock", [None, "not-a-timestamp"])
-def test_retake_missing_section_clock_cannot_collect_blank(fake_db, svc, bad_clock):
+def test_retake_malformed_section_clock_cannot_collect_blank(fake_db, svc):
     user_id = uuid4()
     exam = _seed_retake(fake_db, user_id, ["reading"])
     sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
     svc.start_section(sitting["id"], user_id, "reading")
     _backdate_sitting(fake_db, sitting["id"],
-                      reading_started_at=bad_clock,
+                      reading_started_at="not-a-timestamp",
                       retake_open_until=(datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat())
 
     result = svc.reap_expired_retake_sittings(grace_seconds=0)
     assert result["collected"] == 0
     assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
     assert svc.get_sitting(sitting["id"])["status"] != "all_submitted"
+
+
+def test_retake_window_closure_finalizes_never_starter_and_expired_peer(fake_db, svc):
+    """A null clock is normal when an assigned section was never opened."""
+    never_user, started_user = uuid4(), uuid4()
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    exam = _seed_retake(fake_db, never_user, ["reading"], open_until=future)
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(started_user)})
+    fake_db.seed("mock_exam_assignments", {
+        "exam_id": exam["id"], "user_id": str(started_user),
+        "skills": ["reading"], "open_from": None, "open_until": future,
+    })
+    never = svc.create_sitting(never_user, "MOCK-TEST-A")
+    started = svc.create_sitting(started_user, "MOCK-TEST-A")
+    svc.start_section(started["id"], started_user, "reading")
+    past = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    closed = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    _backdate_sitting(fake_db, never["id"], retake_open_until=closed)
+    _backdate_sitting(fake_db, started["id"],
+                      retake_open_until=closed, reading_started_at=past)
+
+    result = svc.reap_expired_retake_sittings(grace_seconds=0)
+    assert result == {"collected": 2, "sittings": 2}
+    for user_id, sitting in ((never_user, never), (started_user, started)):
+        final = svc.get_sitting(sitting["id"])
+        assert final["reading_submitted_at"] is not None
+        assert final["status"] == "all_submitted"
+        assert svc.live_sitting_for_user(user_id) is None
+
+
+def test_retake_never_started_orphan_uses_sitting_creation_anchor(fake_db, svc):
+    """Preserve a new orphan while a blank peer still releases their seat."""
+    user_id, blank_user = uuid4(), uuid4()
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    exam = _seed_retake(fake_db, user_id, ["reading"], open_until=future)
+    fake_db.seed("students", {"id": str(uuid4()), "user_id": str(blank_user)})
+    fake_db.seed("mock_exam_assignments", {
+        "exam_id": exam["id"], "user_id": str(blank_user),
+        "skills": ["reading"], "open_from": None, "open_until": future,
+    })
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    blank = svc.create_sitting(blank_user, "MOCK-TEST-A")
+    fake_db.seed("reading_test_attempts", {
+        "id": str(uuid4()), "user_id": str(user_id),
+        "test_id": exam["reading_test_id"], "status": "in_progress",
+        "sitting_id": None,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    })
+    fake_db.seed("reading_test_attempts", {
+        "id": str(uuid4()), "user_id": str(blank_user),
+        "test_id": exam["reading_test_id"], "status": "in_progress",
+        "sitting_id": None,
+        "started_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+    })
+    closed = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    _backdate_sitting(fake_db, sitting["id"], retake_open_until=closed)
+    _backdate_sitting(fake_db, blank["id"], retake_open_until=closed)
+
+    assert svc.reap_expired_retake_sittings(grace_seconds=0)["collected"] == 1
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+    assert svc.get_sitting(blank["id"])["status"] == "all_submitted"
+    assert svc.live_sitting_for_user(blank_user) is None
 
 
 def test_retake_reaper_skips_section_still_in_time(fake_db, svc):

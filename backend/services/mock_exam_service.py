@@ -2682,12 +2682,23 @@ def _unlinked_active_attempts_by_sitting(
     for sitting in sittings:
         if sitting.get(link_col) or section not in _sitting_sections(sitting, exam):
             continue
-        anchor = sitting if is_retake(exam) else exam
-        started = _parse_ts(anchor.get(f"{section}_started_at"))
+        retake = is_retake(exam)
+        anchor = sitting if retake else exam
+        raw_start = anchor.get(f"{section}_started_at")
+        started = _parse_ts(raw_start)
+        if started is None and retake and raw_start is None:
+            # A retake may expire before this learner ever opens an assigned
+            # section. Its null section clock is normal, and the reaper must
+            # still free the live seat. Sitting creation is the earliest point
+            # a mock domain attempt could belong to this sitting, so use that
+            # persisted boundary only after the assignment window has closed.
+            window_until = _parse_ts(sitting.get("retake_open_until"))
+            if window_until is not None and _now() > window_until:
+                started = _parse_ts(sitting.get("created_at"))
         if started is None:
             raise MockExamError(
-                f"Thiếu mốc bắt đầu phần {section} cho sitting {sitting['id']} — "
-                "chưa thể xác nhận bài trắng."
+                f"Thiếu mốc thời gian hợp lệ cho phần {section} của sitting "
+                f"{sitting['id']} — chưa thể xác nhận bài trắng."
             )
         by_user.setdefault(str(sitting["user_id"]), []).append(
             (str(sitting["id"]), started),

@@ -16,7 +16,9 @@
 - The preflight reads only the configured test, learner, active status,
   nullable sitting link, and attempt start. It batches candidate reads by
   learner set and pages the result; it does not mutate candidate rows. A missing
-  or malformed section start rejects a blank-paper decision.
+  or malformed section start rejects a blank-paper decision, except a retake
+  that never started before its assignment window closed can use the persisted
+  sitting creation time as its earliest attempt boundary.
 - Existing deployed clients remain compatible. Backend protection is additive;
   new clients wait for attachment before showing an attempt.
 
