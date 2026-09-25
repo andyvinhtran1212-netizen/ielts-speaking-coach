@@ -795,6 +795,47 @@ def test_report_only_standalone_start_atomically_reuses_the_active_attempt(monke
     assert len(fake.tables["listening_test_attempts"]) == 1
 
 
+def test_programme_drain_returns_conflict_without_abandoning_existing_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only", content_package_id=str(uuid4()))
+    existing = {
+        "id": "old-programme-attempt", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [{"q_num": 1, "user_answer": "kept"}],
+        "scoring_policy": "report_only",
+    }
+    fake.tables["listening_test_attempts"].append(existing)
+
+    def paused_acquire(_name, _params):
+        raise RuntimeError("listening_programme_new_starts_paused")
+
+    fake.rpc = paused_acquire
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.start_listening_test_attempt(
+            test_id=test["id"], authorization=authz, standalone=True,
+        ))
+    assert exc.value.status_code == 409
+    assert existing["status"] == "in_progress"
+    assert existing["answers"] == [{"q_num": 1, "user_answer": "kept"}]
+
+
+def test_programme_form_cannot_use_destructive_legacy_start_path(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only", content_package_id=str(uuid4()))
+    existing = {
+        "id": "old-programme-attempt", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [], "scoring_policy": "report_only",
+    }
+    fake.tables["listening_test_attempts"].append(existing)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.start_listening_test_attempt(
+            test_id=test["id"], authorization=authz,
+        ))
+    assert exc.value.status_code == 422
+    assert existing["status"] == "in_progress"
+    assert len(fake.tables["listening_test_attempts"]) == 1
+
+
 def test_standalone_start_rejects_a_class_scope(monkeypatch):
     _fake, authz = _patch(monkeypatch)
     with pytest.raises(HTTPException) as exc:

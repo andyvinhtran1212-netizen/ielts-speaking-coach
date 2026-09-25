@@ -6880,7 +6880,7 @@ async def start_listening_test_attempt(
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
-                "assembled_audio_storage_path,scoring_policy")
+                "assembled_audio_storage_path,scoring_policy,content_package_id")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -6892,6 +6892,14 @@ async def start_listening_test_attempt(
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
+
+    # Imported programme forms have one canonical standalone resume-or-create
+    # path. The legacy start-over path abandons the previous row before its
+    # INSERT; a drain-trigger rejection there would erase a valid old attempt.
+    if (test_row.get("content_package_id")
+            and test_row.get("scoring_policy") == "report_only"
+            and not standalone):
+        raise HTTPException(422, "Bài trong chương trình Listening cần mở ở chế độ luyện tập.")
 
     if class_item:
         try:
@@ -6923,6 +6931,11 @@ async def start_listening_test_attempt(
                 },
             ).execute()
         except Exception as exc:
+            if "listening_programme_new_starts_paused" in str(exc):
+                raise HTTPException(
+                    409,
+                    "Chương trình đang chuyển phiên bản. Bạn vẫn có thể hoàn thành lượt đang dở.",
+                ) from exc
             logger.error(
                 "[listening-programme-attempt] acquire failed test=%s user=%s: %s",
                 test_id,
