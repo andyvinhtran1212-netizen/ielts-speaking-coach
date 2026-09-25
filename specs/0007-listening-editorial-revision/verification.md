@@ -11,6 +11,8 @@
 | FR-005 | kind=test; ref=frontend/tests/listening-programme-learning.test.mjs; new package-backed contract pending | PENDING |
 | FR-006 | kind=report; ref=new revision full package validation and dry-run pending | PENDING |
 | FR-007 | kind=journey; ref=staging unpublished import and explicit owner decision pending | PENDING |
+| FR-008 | Owner selected new-start drain; migration and active-attempt staging query pending | PENDING |
+| FR-009 | Bilingual museum-map labels, accessible alternatives and theme/mobile journeys pending | PENDING |
 
 ## Contract evidence
 
@@ -29,4 +31,5 @@
 ## Release evidence
 
 - Staging SHA and checks: pending.
-- Production verification: not authorized; pending owner publish decision.
+- Production verification: delegated authority is recorded in REVIEW.md, but
+  exact-SHA staging, drain and promotion gates remain pending.

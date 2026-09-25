@@ -1,11 +1,34 @@
 # Listening editorial revision — review packet 1
 
-Status: **owner-approved editorial packet; no package has been rebuilt,
-imported or published**. The owner approved the 65/9/5 metadata proposals,
+This records the **2026-09-24 packet-1 decision**, not the final release
+authority. The owner subsequently delegated validation and publication of the
+remaining Listening content to the assistant; the delegated scope, evidence
+and technical gates are recorded in the later release packet. The owner did
+not personally review batches 02–68 or the localized maps. Follow the current
+[rollout.md](rollout.md) cutover, not the historical request in step 5 below.
+
+## Delegation recorded 2026-09-25
+
+- Delegator: product owner. Delegate: assistant operating this Listening
+  release task. Scope: validate and release the remaining 1,001 translations
+  (B02–B68) and two localized museum-map SVGs (V01), after the 44 directly
+  approved B01 questions. This is not a claim of personal owner review.
+- Evidence: the locked source hashes below; one-to-one source/option checks for
+  1,045 items; assistant text/transcript/protected-key review for 1,001 items;
+  technical checks of 390 WAV and 1,474 timing segments; offline ASR screen;
+  geometry/anchor checks for both SVGs; and a real v1.1 local build/import
+  dry-run with zero mutations. The content PR carries the detailed ledger.
+- Authority does not waive migration ordering, exact-SHA staging E2E,
+  authenticated learner/theme/accessibility checks, the zero-active-attempt
+  drain, production promotion gate or compensating rollback.
+
+Historical packet-1 status: **owner-approved editorial packet; no package had
+then been rebuilt, imported or published**. The owner approved the 65/9/5 metadata proposals,
 batch 01's 44 items, and the implementation spec on 2026-09-24 against PR
 #1501 head `c19e7febb2b0a279c23b07d2d100799f6ffae93c`. Approval applies
 to this packet only; batches 02–68, cutover policy, package revision and
-publication require separate decisions.
+publication required separate decisions at that time; the later delegation
+and cutover decision above supersede those pending requests.
 
 ## Source lock
 
@@ -51,8 +74,9 @@ contract and new package revision are implemented and released.
 4. Build new, unpublished General and IELTS package IDs. Compare every source
    answer key, media hash and timing artifact to v1.0, dry-run both, then
    verify representative bilingual forms in staging.
-5. Ask the owner to review the exact revision/manifests before publish. Do not
-   move the release index or production content on the strength of this packet.
+5. Historical step: ask the owner to review exact revision/manifests before
+   publish. The later delegation replaces that personal-review request, but
+   does not waive the gates in [rollout.md](rollout.md).
 
 ## Review decisions recorded
 
