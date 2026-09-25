@@ -1,9 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '../lib/listening-programme-answer-queue.mjs';
+import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker, programmeAnswerFlushEntries } from '../lib/listening-programme-answer-queue.mjs';
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+test('submit skips untouched questions but flushes a cleared answer in the same attempt', () => {
+  const questions = [{ q_num: 1 }, { q_num: 2 }, { q_num: 3 }];
+  assert.deepEqual(programmeAnswerFlushEntries(questions, {}), []);
+  assert.deepEqual(programmeAnswerFlushEntries(questions, { 1: 'B', 3: '' }), [
+    { qNum: 1, value: 'B' }, { qNum: 3, value: '' },
+  ]);
+  assert.deepEqual(programmeAnswerFlushEntries(questions, { 2: 'C', 99: 'stale' }), [
+    { qNum: 2, value: 'C' },
+  ]);
+});
 
 function memoryStorage() {
   const values = new Map();
