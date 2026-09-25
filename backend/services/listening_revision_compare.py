@@ -53,6 +53,9 @@ def compare_editorial_revision(
     source_lessons = _by_id(source_plan.lessons, "source_lesson_id", "source lessons")
     revision_lessons = _by_id(revision_plan.lessons, "source_lesson_id", "revision lessons")
     _same("lesson IDs", set(source_lessons), set(revision_lessons))
+    approved_copy_ids = revision_plan.package.get("validation_summary", {}).get(
+        "editorial_lesson_metadata_changed_ids", {}
+    )
     for lesson_id, source in source_lessons.items():
         revision = revision_lessons[lesson_id]
         _same(f"lesson {lesson_id} sequence", source["sequence_num"], revision["sequence_num"])
@@ -61,6 +64,12 @@ def compare_editorial_revision(
             _without(source["metadata"], "version"),
             _without(revision["metadata"], "version"),
         )
+        learner_id = source["metadata"]["learner_lesson_id"]
+        for packet_field, lesson_field in (
+            ("instructions", "instructions"), ("titles", "title"), ("outcomes", "outcomes"),
+        ):
+            if source[lesson_field] != revision[lesson_field] and learner_id not in approved_copy_ids.get(packet_field, []):
+                raise RevisionMismatch(f"lesson {lesson_id} {lesson_field} lacks approved metadata")
 
     source_stimuli = _by_id(source_plan.stimuli, "source_stimulus_id", "source stimuli")
     revision_stimuli = _by_id(revision_plan.stimuli, "source_stimulus_id", "revision stimuli")

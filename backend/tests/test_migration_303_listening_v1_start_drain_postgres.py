@@ -10,10 +10,7 @@ import asyncpg
 import pytest
 
 from test_migration_240_core_attempt_evidence import psql
-from test_migration_295_listening_content_programmes_postgres import DB
-
-
-pytest_plugins = ("test_migration_295_listening_content_programmes_postgres",)
+from test_migration_295_listening_content_programmes_postgres import DB, programme_probe
 
 
 SQL = (

@@ -307,6 +307,9 @@ def build_revision(
                     manifest["counts"]["visuals"] += len(reviewed_visuals[source_id])
                 editorial_dir = destination / "protected/editorial"
                 editorial_dir.mkdir()
+                metadata_path = "protected/editorial/lesson-metadata.json"
+                _write_json(destination / metadata_path, _read_json(draft_dir / "lesson-metadata-draft.json"))
+                manifest["editorial_lesson_metadata"] = metadata_path
                 if reviewed_visuals[source_id]:
                     visual_review_path = "protected/editorial/visual-batch-01.json"
                     _write_json(destination / visual_review_path, _read_json(draft_dir / "visual-batch-01-draft.json"))

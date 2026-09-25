@@ -599,6 +599,57 @@ def _approved_editorial_projection(
     }, report
 
 
+def _approved_editorial_metadata(
+    location: PackageLocation,
+    manifest: dict[str, Any],
+    lessons: list[dict[str, Any]],
+) -> dict[str, list[str]]:
+    """Bind revised learner copy to the protected, manifest-hashed review packet."""
+    raw_path = manifest.get("editorial_lesson_metadata")
+    if manifest.get("editorial_batches") is None:
+        if raw_path is not None:
+            raise PackageValidationError("Editorial metadata không có editorial batches")
+        return {}
+    relative = _safe_relative_path(raw_path, label="editorial_lesson_metadata")
+    path = relative.as_posix()
+    if (path != "protected/editorial/lesson-metadata.json"
+            or path not in manifest["artifact_hashes"]):
+        raise PackageValidationError("Editorial metadata không thuộc protected inventory")
+    packet = _load_json(_resolve_declared(location.package_root, path, label="editorial_lesson_metadata"))
+    if (not isinstance(packet, dict)
+            or packet.get("status") not in APPROVED_STATUSES
+            or not isinstance(packet.get("source_package_ids"), list)
+            or set(packet["source_package_ids"]) != set(SOURCE_MANIFEST_LOCKS)
+            or len(packet["source_package_ids"]) != len(SOURCE_MANIFEST_LOCKS)):
+        raise PackageValidationError("Editorial metadata review/source không hợp lệ")
+    by_learner_id = {lesson["metadata"]["learner_lesson_id"]: lesson for lesson in lessons}
+    changed: dict[str, list[str]] = {}
+    for packet_field, lesson_field in (
+        ("instructions", "instructions"), ("titles", "title"), ("outcomes", "outcomes"),
+    ):
+        replacements = packet.get(packet_field)
+        if not isinstance(replacements, dict):
+            raise PackageValidationError(f"Editorial metadata thiếu {packet_field}")
+        changed[packet_field] = []
+        for lesson_id, value in replacements.items():
+            if packet_field == "outcomes":
+                valid_value = (
+                    isinstance(value, list) and bool(value)
+                    and all(isinstance(line, str) and bool(line.strip()) for line in value)
+                )
+            else:
+                valid_value = isinstance(value, str) and bool(value.strip())
+            if not isinstance(lesson_id, str) or not lesson_id or not valid_value:
+                raise PackageValidationError(f"Editorial metadata value không hợp lệ: {packet_field}")
+            if lesson_id not in by_learner_id:
+                continue  # The same approved packet covers both source packages.
+            if by_learner_id[lesson_id][lesson_field] != value:
+                raise PackageValidationError(f"Editorial lesson copy không khớp review: {lesson_id}:{packet_field}")
+            changed[packet_field].append(lesson_id)
+        changed[packet_field].sort()
+    return changed
+
+
 def _approved_editorial_visuals(
     location: PackageLocation,
     manifest: dict[str, Any],
@@ -1079,6 +1130,7 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                 ],
             })
 
+    editorial_metadata_changes = _approved_editorial_metadata(location, manifest, lessons)
     editorial_projection, editorial_report = _approved_editorial_projection(
         location, manifest, forms,
     )
@@ -1152,6 +1204,12 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
         package["validation_summary"]["editorial_approved_items"] = editorial_report["approved_items"]
         package["validation_summary"]["editorial_source_package_id"] = manifest["editorial_source_package_id"]
         package["validation_summary"]["editorial_source_manifest_sha256"] = manifest["editorial_source_manifest_sha256"]
+        package["validation_summary"]["editorial_lesson_metadata_changed_ids"] = editorial_metadata_changes
+        package["validation_summary"]["editorial_lesson_metadata_sha256"] = manifest["artifact_hashes"][manifest["editorial_lesson_metadata"]]
+        package["validation_summary"]["editorial_visual_assets"] = [
+            {"storage_path": asset["storage_path"], "sha256": asset["sha256"]}
+            for asset in editorial_visuals.values()
+        ]
     report = {
         "package_id": location.package_id,
         "programme_id": location.programme_id,
@@ -1338,10 +1396,30 @@ def _verify_package_storage_assets(
         .eq("package_id", package_uuid)
         .execute().data or []
     )
+    source_visual_paths: set[str] = set()
     for row in stimuli:
         metadata = row.get("metadata") or {}
         if metadata.get("visual_source_path"):
             add(metadata.get("visual_storage_path"), metadata.get("visual_sha256"))
+            source_visual_paths.add(metadata["visual_storage_path"])
+
+    if validation.get("editorial_source_package_id"):
+        localized = validation.get("editorial_visual_assets")
+        visual_count = (package.get("source_counts") or {}).get("visuals")
+        if (not isinstance(localized, list) or not isinstance(visual_count, int)
+                or visual_count != len(source_visual_paths) + len(localized)):
+            raise PackageValidationError("Editorial visual storage attestation thiếu hoặc sai count")
+        localized_paths: set[str] = set()
+        for asset in localized:
+            if not isinstance(asset, dict) or set(asset) != {"storage_path", "sha256"}:
+                raise PackageValidationError("Editorial visual storage attestation không hợp lệ")
+            path = asset["storage_path"]
+            if not isinstance(path, str):
+                raise PackageValidationError("Editorial visual storage attestation path không hợp lệ")
+            if path in source_visual_paths or path in localized_paths:
+                raise PackageValidationError("Editorial visual storage attestation trùng source/path")
+            add(path, asset["sha256"])
+            localized_paths.add(path)
 
     bucket = db.storage.from_(bucket_name)
     for storage_path, (sha256, expected_size) in expected.items():

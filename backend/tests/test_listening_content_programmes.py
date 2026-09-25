@@ -199,9 +199,17 @@ def _add_editorial_batch(release_root: Path, *, status: str = "approved_by_owner
     manifest_path = package_root / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["editorial_batches"] = [relative]
+    metadata_relative = "protected/editorial/lesson-metadata.json"
+    _write_json(package_root / metadata_relative, {
+        "status": "approved_by_owner_not_published",
+        "source_package_ids": sorted(SOURCE_MANIFEST_LOCKS),
+        "instructions": {}, "titles": {}, "outcomes": {},
+    })
+    manifest["editorial_lesson_metadata"] = metadata_relative
     manifest["editorial_source_package_id"] = "general-listening-practice-v1.0.0"
     manifest["editorial_source_manifest_sha256"] = SOURCE_MANIFEST_LOCKS["general-listening-practice-v1.0.0"]
     manifest["artifact_hashes"][relative] = "0" * 64
+    manifest["artifact_hashes"][metadata_relative] = "0" * 64
     _write_json(manifest_path, manifest)
     _rebind_manifest(release_root)
 
@@ -326,6 +334,31 @@ def test_revision_builder_creates_new_manifest_bound_package_without_mutating_v1
     lesson_path = output / "general/packages/general-listening-practice-v1.1.0/learner/content/lessons/lesson-1.json"
     assert "titles" not in json.loads(lesson_path.read_text(encoding="utf-8"))
     assert revision.forms[0]["exercise_payload"]["questions"][0]["editorial_translation"]["prompt"] == "Chọn đáp án."
+
+
+def test_revision_import_rejects_rehashed_lesson_copy_not_in_approved_packet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    output = tmp_path / "revision"
+    revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+    package_root = output / "general/packages/general-listening-practice-v1.1.0"
+    lesson_relative = "learner/content/lessons/lesson-1.json"
+    lesson_path = package_root / lesson_relative
+    lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+    lesson["title"] = "Unreviewed title"
+    _write_json(lesson_path, lesson)
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifact_hashes"][lesson_relative] = hashlib.sha256(lesson_path.read_bytes()).hexdigest()
+    _write_json(manifest_path, manifest)
+    index_path = output / "release-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["programmes"][0]["packages"][0]["manifest_sha256"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _write_json(index_path, index)
+
+    with pytest.raises(importer.PackageValidationError, match="Editorial lesson copy không khớp review"):
+        importer.build_import_plan(importer.select_package(output, "general-listening-practice-v1.1.0"))
 
 
 def test_revision_comparison_cli_accepts_separate_source_and_revision_roots(
@@ -643,6 +676,10 @@ def _revision_from_source_plan(source: importer.ImportPlan) -> importer.ImportPl
     )
     revision.package["package_id"] = revision.location.package_id
     revision.package["manifest_sha256"] = revision.location.manifest_sha256
+    learner_id = source.lessons[0]["metadata"]["learner_lesson_id"]
+    revision.package["validation_summary"]["editorial_lesson_metadata_changed_ids"] = {
+        "instructions": [learner_id], "titles": [learner_id], "outcomes": [learner_id],
+    }
     revision.lessons[0]["title"] = "A clearer lesson title"
     revision.lessons[0]["instructions"] = "Listen, answer, and review one question."
     revision.lessons[0]["outcomes"] = ["Identify the stated answer."]
@@ -679,6 +716,7 @@ def test_editorial_revision_comparison_allows_copy_only_changes(tmp_path: Path):
     ("transcript", "source bytes/timing/transcript"),
     ("option", "source response/option mapping"),
     ("visual_alt", "source visual accessibility changed"),
+    ("unapproved_lesson_title", "lacks approved metadata"),
     ("response_type", "source response/option mapping"),
     ("window", "keys/feedback/windows/transcripts"),
     ("score_policy", "keys/feedback/windows/transcripts"),
@@ -704,6 +742,8 @@ def test_editorial_revision_comparison_rejects_protected_or_media_drift(
         revision.forms[0]["exercise_payload"]["questions"][0]["options"]["A"] = "Changed"
     elif mutation == "visual_alt":
         revision.forms[0]["exercise_payload"]["questions"][0]["visual_accessibility"] = "Unreviewed alt"
+    elif mutation == "unapproved_lesson_title":
+        revision.package["validation_summary"]["editorial_lesson_metadata_changed_ids"]["titles"] = []
     elif mutation == "response_type":
         revision.forms[0]["exercise_payload"]["questions"][0]["response_type"] = "written"
     elif mutation == "window":
@@ -1316,11 +1356,12 @@ def test_editorial_publish_fails_before_rpc_without_complete_review(
 ):
     db, manifest = _publish_db()
     db.tables["listening_content_packages"][0].update({
-        "source_counts": {"items": 1},
+        "source_counts": {"items": 1, "visuals": 1},
         "validation_summary": {
             "editorial_source_package_id": "general-listening-practice-v1.0.0",
             "revision_source_invariants_verified": verified,
             "editorial_approved_items": approved,
+            "editorial_visual_assets": [],
         },
     })
     with pytest.raises(importer.PackageValidationError, match=message):
@@ -1334,11 +1375,12 @@ def test_editorial_publish_fails_before_rpc_without_complete_review(
 def test_editorial_publish_reaches_rpc_after_complete_review_and_asset_check():
     db, manifest = _publish_db()
     db.tables["listening_content_packages"][0].update({
-        "source_counts": {"items": 1},
+        "source_counts": {"items": 1, "visuals": 1},
         "validation_summary": {
             "editorial_source_package_id": "general-listening-practice-v1.0.0",
             "revision_source_invariants_verified": True,
             "editorial_approved_items": 1,
+            "editorial_visual_assets": [],
         },
     })
 
@@ -1348,6 +1390,40 @@ def test_editorial_publish_reaches_rpc_after_complete_review_and_asset_check():
     )
     assert result["status"] == "published"
     assert len(db.rpc_calls) == 1
+
+
+@pytest.mark.parametrize("state", ["present", "missing", "corrupt", "unattested"])
+def test_editorial_publish_attests_localized_svg_before_status_rpc(state: str):
+    db, manifest = _publish_db()
+    localized_path = f"packages/pkg/{manifest}/visuals/map.vi.svg"
+    localized = b"<svg><text>Ban do</text></svg>"
+    if state != "missing":
+        db.storage.objects[localized_path] = b"tampered" if state == "corrupt" else localized
+    db.tables["listening_content_packages"][0].update({
+        "source_counts": {"items": 1, "visuals": 2},
+        "validation_summary": {
+            "editorial_source_package_id": "general-listening-practice-v1.0.0",
+            "revision_source_invariants_verified": True,
+            "editorial_approved_items": 1,
+            "editorial_visual_assets": ([] if state == "unattested" else [{
+                "storage_path": localized_path,
+                "sha256": hashlib.sha256(localized).hexdigest(),
+            }]),
+        },
+    })
+    if state == "present":
+        assert importer.set_package_status(
+            db, package_id="pkg", manifest_sha256=manifest,
+            action="publish", actor=None, bucket_name="listening-audio",
+        )["status"] == "published"
+        assert len(db.rpc_calls) == 1
+    else:
+        with pytest.raises(importer.PackageValidationError, match="visual storage attestation|Storage object"):
+            importer.set_package_status(
+                db, package_id="pkg", manifest_sha256=manifest,
+                action="publish", actor=None, bucket_name="listening-audio",
+            )
+        assert db.rpc_calls == []
 
 
 @pytest.mark.parametrize("missing,corrupt", [(True, False), (False, True)])
