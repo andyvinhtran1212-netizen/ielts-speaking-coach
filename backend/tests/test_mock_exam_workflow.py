@@ -932,6 +932,29 @@ def test_force_collect_still_accepts_a_genuinely_blank_reading_paper(fake_db, sv
     assert svc.get_sitting(sitting["id"])["reading_submitted_at"] is not None
 
 
+def test_force_collect_does_not_stamp_blank_when_attempt_lookup_fails(fake_db, svc):
+    """An unavailable attempt table cannot prove that the learner wrote nothing."""
+    exam = _seed_exam(fake_db, listening=False)
+    sitting = svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    real_table = fake_db.table
+
+    def fail_attempt_lookup(name):
+        if name == "reading_test_attempts":
+            raise RuntimeError("attempt lookup unavailable")
+        return real_table(name)
+
+    fake_db.table = fail_attempt_lookup
+    try:
+        assert svc._collect_section_for_sitting(
+            svc.get_sitting(sitting["id"]), "reading", exam,
+        ) is False
+    finally:
+        fake_db.table = real_table
+
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+
+
 def test_force_collect_skips_already_submitted_attempt(fake_db, svc):
     """The client's own submit beat the sweep — force-collect must not
     re-grade (idempotent, no wasted work / no risk of overwriting)."""
