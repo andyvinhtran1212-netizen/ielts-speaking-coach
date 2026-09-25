@@ -5,6 +5,22 @@ owner delegated editorial validation and release but did not personally read
 the 1,001 remaining question translations. See
 [DELEGATED-RELEASE-DECISION.md](DELEGATED-RELEASE-DECISION.md).
 
+## Requirement coverage
+
+| Requirement | Evidence | Result |
+| --- | --- | --- |
+| FR-001 | kind=report; ref=specs/0007-listening-editorial-revision/DELEGATED-RELEASE-DECISION.md | PASS |
+| FR-002 | kind=report; ref=specs/0007-listening-editorial-revision/DELEGATED-RELEASE-DECISION.md | PASS |
+| FR-003 | kind=assertion; ref=specs/0007-listening-editorial-revision/lesson-metadata-draft.json | PASS |
+| FR-004 | kind=report; ref=specs/0007-listening-editorial-revision/TRANSCRIPT-REVIEW-LEDGER.md | PASS |
+| FR-005 | Exact-SHA staging form switch/reload journey not yet run | PENDING |
+| FR-006 | kind=report; ref=specs/0007-listening-editorial-revision/DELEGATED-RELEASE-DECISION.md | PASS |
+| FR-007 | Staging import and production promotion not yet run | PENDING |
+| FR-008 | Active-attempt drain migration and live query not yet run | PENDING |
+| FR-009 | Authenticated mobile/theme/screen-reader check not yet run | PENDING |
+
+## Local boundary evidence
+
 | Boundary | Evidence | State |
 | --- | --- | --- |
 | Source identity | v1.0 release-index SHA and both manifest SHA locks match; 1,045/1,045 IDs, prompts and options source-bind with zero missing or duplicates | PASS locally |
