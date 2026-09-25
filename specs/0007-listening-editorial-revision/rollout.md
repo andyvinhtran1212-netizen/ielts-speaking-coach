@@ -7,6 +7,9 @@
   approval of batch 01 is not misreported as approval of later batches.
 - No v1.0 package or release-index bytes are overwritten. New package IDs are
   unique and backward-compatible with existing attempt history.
+- Decide and verify what happens to in-progress v1.0 attempts before the
+  one-published-revision-per-programme status transition. Submitted review
+  paths and active resume paths require separate checks.
 - Any required migration reaches staging before dependent code; the deployed
   frontend/backend compatibility window is tested.
 - Migration 303 is applied and verified on staging before code deployment;

@@ -1,0 +1,80 @@
+{
+  "batch_id": "LISTENING-0007-B66",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete recommendation/source, outcome, conditional signals, executive summary and public register. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q01",
+      "source_prompt": "What source made the recommendation?",
+      "prompt_vi": "Nguồn nào đưa ra khuyến nghị?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q02",
+      "source_prompt": "What action was recommended?",
+      "prompt_vi": "Hành động nào được khuyến nghị?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q03",
+      "source_prompt": "What outcome improved?",
+      "prompt_vi": "Kết quả nào đã cải thiện?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q04",
+      "source_prompt": "What was the scope and duration?",
+      "prompt_vi": "Phạm vi và thời gian thực hiện là gì?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q05",
+      "source_prompt": "Which three signals remain conditional?",
+      "prompt_vi": "Ba dấu hiệu nào vẫn chưa đủ chắc chắn?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q06",
+      "source_prompt": "Why is the result not universal?",
+      "prompt_vi": "Vì sao kết quả này không thể áp dụng cho mọi trường hợp?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q07",
+      "source_prompt": "Which four fields belong in the executive summary?",
+      "prompt_vi": "Bốn thành phần nào cần có trong bản tóm tắt điều hành?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q08",
+      "source_prompt": "What should a meeting update foreground?",
+      "prompt_vi": "Phần cập nhật trong cuộc họp nên nhấn mạnh điều gì?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q09",
+      "source_prompt": "What should a public explanation avoid?",
+      "prompt_vi": "Phần giải thích công khai nên tránh điều gì?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.main.q10",
+      "source_prompt": "What decision is supported?",
+      "prompt_vi": "Bằng chứng hiện ủng hộ quyết định nào?"
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.synthesis.q01",
+      "source_prompt": "Write a four-part synthesis that names the source, claim, evidence boundary and caveat.",
+      "prompt_vi": "Viết bản tổng hợp bốn phần, nêu nguồn, nhận định, giới hạn của bằng chứng và lưu ý kèm theo."
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.transfer.q01",
+      "source_prompt": "Produce the requested form while preserving source, claim/observation, evidence boundary and caveat.",
+      "prompt_vi": "Tạo dạng trình bày được yêu cầu, giữ rõ nguồn, nhận định hoặc quan sát, giới hạn của bằng chứng và lưu ý kèm theo."
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.transfer.q02",
+      "source_prompt": "Produce the requested form while preserving source, claim/observation, evidence boundary and caveat.",
+      "prompt_vi": "Tạo dạng trình bày được yêu cầu, giữ rõ nguồn, nhận định hoặc quan sát, giới hạn của bằng chứng và lưu ý kèm theo."
+    },
+    {
+      "id": "manus:B2.7-099.v0.3.0.transfer.q03",
+      "source_prompt": "Produce the requested form while preserving source, claim/observation, evidence boundary and caveat.",
+      "prompt_vi": "Tạo dạng trình bày được yêu cầu, giữ rõ nguồn, nhận định hoặc quan sát, giới hạn của bằng chứng và lưu ý kèm theo."
+    }
+  ]
+}

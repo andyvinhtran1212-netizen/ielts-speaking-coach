@@ -1,0 +1,26 @@
+{
+  "batch_id": "LISTENING-0007-B50",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.4-098 forms (12 main, four transfer items). Preserve final urgent priority versus earlier mention, named role/task owner, generator/clinic dependencies, six-o'clock condition and no unconditional public promise. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.4-098.v0.3.0.main.q01","source_prompt":"What emergency issue is the team planning for?","prompt_vi":"Nhóm đang lập kế hoạch ứng phó với tình huống khẩn cấp nào?"},
+    {"id":"manus:B2.4-098.v0.3.0.main.q02","source_prompt":"Which households must be mapped first?","prompt_vi":"Cần xác định vị trí những hộ gia đình nào trước?"},
+    {"id":"manus:B2.4-098.v0.3.0.main.q03","source_prompt":"Who drafts the public message, and what is that person’s role?","prompt_vi":"Ai soạn thông điệp công khai, và vai trò của người đó là gì?"},
+    {"id":"manus:B2.4-098.v0.3.0.main.q04","source_prompt":"What time is the current public update planned for?","prompt_vi":"Bản cập nhật công khai hiện dự kiến được đưa ra lúc mấy giờ?"},
+    {"id":"manus:B2.4-098.v0.3.0.main.q05","source_prompt":"Give the name and role of the person who owns the generator inventory.","prompt_vi":"Nêu tên và vai trò của người phụ trách kiểm kê máy phát điện."},
+    {"id":"manus:B2.4-098.v0.3.0.main.q06","source_prompt":"What must Ravi confirm?","prompt_vi":"Ravi phải xác nhận điều gì?"},
+    {"id":"manus:B2.4-098.v0.3.0.main.q07","source_prompt":"Give the name and role of the person who contacts clinics requiring continuous power.","prompt_vi":"Nêu tên và vai trò của người liên hệ các phòng khám cần nguồn điện liên tục."},
+    {"id":"manus:B2.4-098.v0.3.0.main.q08","source_prompt":"What location category is mentioned earlier but is not the final urgent category?","prompt_vi":"Loại địa điểm nào được nhắc đến trước nhưng không phải nhóm ưu tiên khẩn cấp cuối cùng?"},
+    {"id":"manus:B2.4-098.v0.3.0.main.q09","source_prompt":"Which category later becomes urgent?","prompt_vi":"Sau đó loại địa điểm nào trở thành ưu tiên khẩn cấp?"},
+    {"id":"manus:B2.4-098.v0.3.0.main.q10","source_prompt":"State the condition on the six-o’clock update.","prompt_vi":"Nêu điều kiện đi kèm bản cập nhật lúc sáu giờ."},
+    {"id":"manus:B2.4-098.v0.3.0.main.q11","source_prompt":"What must Leon’s draft avoid promising?","prompt_vi":"Bản nháp của Leon phải tránh hứa hẹn điều gì?"},
+    {"id":"manus:B2.4-098.v0.3.0.main.q12","source_prompt":"List the five linked note fields the chair requests.","prompt_vi":"Liệt kê năm mục ghi chú liên kết với nhau mà người chủ trì yêu cầu."},
+    {"id":"manus:B2.4-098.v0.3.0.transfer.q01","source_prompt":"Give owner fields, final priority versus first mention, and the timed announcement condition.","prompt_vi":"Nêu các mục về người phụ trách, ưu tiên cuối cùng so với điều được nhắc trước, và điều kiện cho thông báo vào thời điểm đã định."},
+    {"id":"manus:B2.4-098.v0.3.0.transfer.q02","source_prompt":"Record the vulnerable group/task, owner/final site and condition on the update.","prompt_vi":"Ghi nhóm dễ bị tổn thương và việc cần làm, người phụ trách và địa điểm cuối cùng, cùng điều kiện của bản cập nhật."},
+    {"id":"manus:B2.4-098.v0.3.0.transfer.q03","source_prompt":"Give the mapped group, ownership/final priority and message condition.","prompt_vi":"Nêu nhóm đã được xác định vị trí, người phụ trách và ưu tiên cuối cùng, cùng điều kiện cho thông điệp."},
+    {"id":"manus:B2.4-098.v0.3.0.transfer.q04","source_prompt":"Record the group, owner/final delivery and publication condition.","prompt_vi":"Ghi nhóm đối tượng, người phụ trách và cách triển khai cuối cùng, cùng điều kiện để công bố."}
+  ]
+}

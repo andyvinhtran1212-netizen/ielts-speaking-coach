@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B58",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.6-096 forms (10 main, four transfer items). Preserve may/uncertainty, pilot scope and duration, management recommendation versus final decision, review condition and decision boundary. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.6-096.v0.3.0.main.q01","source_prompt":"What may the pilot reduce?","prompt_vi":"Đợt thử nghiệm có thể làm giảm điều gì?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q02","source_prompt":"Where was the evidence collected?","prompt_vi":"Bằng chứng được thu thập ở đâu?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q03","source_prompt":"How long was the observation period?","prompt_vi":"Thời gian quan sát kéo dài bao lâu?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q04","source_prompt":"How certain is the reported reduction?","prompt_vi":"Mức giảm được báo cáo chắc chắn đến mức nào?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q05","source_prompt":"What action may management recommend?","prompt_vi":"Ban quản lý có thể khuyến nghị hành động nào?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q06","source_prompt":"What condition must the next review confirm?","prompt_vi":"Lần rà soát tiếp theo phải xác nhận điều kiện nào?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q07","source_prompt":"What is the decision boundary?","prompt_vi":"Giới hạn của quyết định là gì?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q08","source_prompt":"Why must the recommendation remain limited?","prompt_vi":"Vì sao khuyến nghị phải giữ phạm vi giới hạn?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q09","source_prompt":"What two things will the next review examine?","prompt_vi":"Lần rà soát tiếp theo sẽ xem xét hai điều gì?"},
+    {"id":"manus:B2.6-096.v0.3.0.main.q10","source_prompt":"What remains promising rather than certain?","prompt_vi":"Điều gì vẫn mới chỉ có triển vọng, chưa thể chắc chắn?"},
+    {"id":"manus:B2.6-096.v0.3.0.transfer.q01","source_prompt":"Map the claim, evidence scope, uncertainty and decision boundary.","prompt_vi":"Trình bày theo bốn mục: nhận định, phạm vi bằng chứng, điều chưa chắc chắn và giới hạn của quyết định."},
+    {"id":"manus:B2.6-096.v0.3.0.transfer.q02","source_prompt":"Map the claim, evidence scope, uncertainty and decision boundary.","prompt_vi":"Trình bày theo bốn mục: nhận định, phạm vi bằng chứng, điều chưa chắc chắn và giới hạn của quyết định."},
+    {"id":"manus:B2.6-096.v0.3.0.transfer.q03","source_prompt":"Map the claim, evidence scope, uncertainty and decision boundary.","prompt_vi":"Trình bày theo bốn mục: nhận định, phạm vi bằng chứng, điều chưa chắc chắn và giới hạn của quyết định."},
+    {"id":"manus:B2.6-096.v0.3.0.transfer.q04","source_prompt":"Map the claim, evidence scope, uncertainty and decision boundary.","prompt_vi":"Trình bày theo bốn mục: nhận định, phạm vi bằng chứng, điều chưa chắc chắn và giới hạn của quyết định."}
+  ]
+}

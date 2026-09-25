@@ -1,0 +1,20 @@
+{
+  "batch_id": "LISTENING-0007-B10",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "ielts-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete contrast-reversal form 02 (10 single-choice items). Translate subject names, but retain source option letters and the final-choice requirement. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"G12.DRL.1079","source_prompt":"Which subject did Liam finally choose?","source_options":{"A":"robotics","B":"geography","C":"ecology","D":"undecided"},"prompt_vi":"Cuối cùng Liam chọn môn học nào?","options_vi":{"A":"robot học","B":"địa lý","C":"sinh thái học","D":"chưa quyết định"}},
+    {"id":"G12.DRL.1149","source_prompt":"Which subject did David finally choose?","source_options":{"A":"architecture","B":"psychology","C":"finance","D":"undecided"},"prompt_vi":"Cuối cùng David chọn môn học nào?","options_vi":{"A":"kiến trúc","B":"tâm lý học","C":"tài chính","D":"chưa quyết định"}},
+    {"id":"G12.DRL.1428","source_prompt":"Which subject did Priya finally choose?","source_options":{"A":"undecided","B":"law","C":"philosophy","D":"finance"},"prompt_vi":"Cuối cùng Priya chọn môn học nào?","options_vi":{"A":"chưa quyết định","B":"luật","C":"triết học","D":"tài chính"}},
+    {"id":"G12.DRL.1497","source_prompt":"Which subject did Maya finally choose?","source_options":{"A":"history","B":"philosophy","C":"physics","D":"undecided"},"prompt_vi":"Cuối cùng Maya chọn môn học nào?","options_vi":{"A":"lịch sử","B":"triết học","C":"vật lý","D":"chưa quyết định"}},
+    {"id":"G12.DRL.1628","source_prompt":"Which subject did Grace finally choose?","source_options":{"A":"robotics","B":"linguistics","C":"undecided","D":"biology"},"prompt_vi":"Cuối cùng Grace chọn môn học nào?","options_vi":{"A":"robot học","B":"ngôn ngữ học","C":"chưa quyết định","D":"sinh học"}},
+    {"id":"G12.DRL.1722","source_prompt":"Which subject did Ethan finally choose?","source_options":{"A":"biology","B":"undecided","C":"engineering","D":"statistics"},"prompt_vi":"Cuối cùng Ethan chọn môn học nào?","options_vi":{"A":"sinh học","B":"chưa quyết định","C":"kỹ thuật","D":"thống kê"}},
+    {"id":"G12.DRL.1726","source_prompt":"Which subject did Yuki finally choose?","source_options":{"A":"genetics","B":"undecided","C":"biology","D":"marketing"},"prompt_vi":"Cuối cùng Yuki chọn môn học nào?","options_vi":{"A":"di truyền học","B":"chưa quyết định","C":"sinh học","D":"tiếp thị"}},
+    {"id":"G12.DRL.1807","source_prompt":"Which subject did Beth finally choose?","source_options":{"A":"physics","B":"sociology","C":"economics","D":"undecided"},"prompt_vi":"Cuối cùng Beth chọn môn học nào?","options_vi":{"A":"vật lý","B":"xã hội học","C":"kinh tế học","D":"chưa quyết định"}},
+    {"id":"G12.DRL.1809","source_prompt":"Which subject did Noah finally choose?","source_options":{"A":"statistics","B":"undecided","C":"psychology","D":"engineering"},"prompt_vi":"Cuối cùng Noah chọn môn học nào?","options_vi":{"A":"thống kê","B":"chưa quyết định","C":"tâm lý học","D":"kỹ thuật"}},
+    {"id":"G12.DRL.1836","source_prompt":"Which subject did Ben finally choose?","source_options":{"A":"history","B":"genetics","C":"undecided","D":"biology"},"prompt_vi":"Cuối cùng Ben chọn môn học nào?","options_vi":{"A":"lịch sử","B":"di truyền học","C":"chưa quyết định","D":"sinh học"}}
+  ]
+}

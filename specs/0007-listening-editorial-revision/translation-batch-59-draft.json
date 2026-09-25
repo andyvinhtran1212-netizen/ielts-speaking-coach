@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B59",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.6-097 forms (10 main, four transfer items). Preserve polite phrasing versus actual request, accepted revision owner/deadline, client-facing audience need and register boundary without altering commitment. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.6-097.v0.3.0.main.q01","source_prompt":"What does the facilitator ask Priya to circulate?","prompt_vi":"Người điều phối nhờ Priya gửi cho mọi người tài liệu gì?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q02","source_prompt":"Who owns the revision?","prompt_vi":"Ai chịu trách nhiệm chỉnh sửa?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q03","source_prompt":"When must Priya send it?","prompt_vi":"Priya phải gửi tài liệu đó khi nào?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q04","source_prompt":"Before what event is it needed?","prompt_vi":"Tài liệu đó cần có trước sự kiện nào?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q05","source_prompt":"How does Priya show that she accepts the action?","prompt_vi":"Priya thể hiện việc mình nhận làm nhiệm vụ bằng cách nào?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q06","source_prompt":"What does the external audience need?","prompt_vi":"Nhóm đối tượng bên ngoài cần điều gì?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q07","source_prompt":"What should the client-facing summary avoid?","prompt_vi":"Bản tóm tắt dành cho khách hàng cần tránh điều gì?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q08","source_prompt":"Who will present the change to the client?","prompt_vi":"Ai sẽ trình bày thay đổi với khách hàng?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q09","source_prompt":"What two things does Marco need?","prompt_vi":"Marco cần hai thứ gì?"},
+    {"id":"manus:B2.6-097.v0.3.0.main.q10","source_prompt":"Why is the request not optional despite its courteous opening?","prompt_vi":"Vì sao đây không phải yêu cầu tùy chọn dù phần mở đầu rất lịch sự?"},
+    {"id":"manus:B2.6-097.v0.3.0.transfer.q01","source_prompt":"Map the enacted request: action, accepted owner, audience need and register boundary.","prompt_vi":"Phân tích yêu cầu thực tế theo bốn phần: hành động, người đã nhận trách nhiệm, nhu cầu của người nghe và giới hạn khi đổi cách diễn đạt."},
+    {"id":"manus:B2.6-097.v0.3.0.transfer.q02","source_prompt":"Map the enacted request: action, accepted owner, audience need and register boundary.","prompt_vi":"Phân tích yêu cầu thực tế theo bốn phần: hành động, người đã nhận trách nhiệm, nhu cầu của người nghe và giới hạn khi đổi cách diễn đạt."},
+    {"id":"manus:B2.6-097.v0.3.0.transfer.q03","source_prompt":"Map the enacted request: action, accepted owner, audience need and register boundary.","prompt_vi":"Phân tích yêu cầu thực tế theo bốn phần: hành động, người đã nhận trách nhiệm, nhu cầu của người nghe và giới hạn khi đổi cách diễn đạt."},
+    {"id":"manus:B2.6-097.v0.3.0.transfer.q04","source_prompt":"Map the enacted request: action, accepted owner, audience need and register boundary.","prompt_vi":"Phân tích yêu cầu thực tế theo bốn phần: hành động, người đã nhận trách nhiệm, nhu cầu của người nghe và giới hạn khi đổi cách diễn đạt."}
+  ]
+}

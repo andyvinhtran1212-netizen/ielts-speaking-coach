@@ -1,0 +1,25 @@
+{
+  "batch_id": "LISTENING-0007-B18",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "ielts-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete reference:consumer:Level1_1a practice form (15 single-choice items). Preserve option-letter identity and source distractors even when their grammar is unusual; G2 option D ('melting rivers') is an unnatural v1.0 source distractor retained without changing the answer key. Delegated editorial approval is recorded; the owner did not personally review it and human perceptual listening was not performed.",
+  "items": [
+    {"id":"reference:1.1","source_prompt":"Who bought a new laptop?","source_options":{"A":"John","B":"yesterday","C":"a new laptop","D":"a friend"},"prompt_vi":"Ai đã mua một chiếc máy tính xách tay mới?","options_vi":{"A":"John","B":"hôm qua","C":"một chiếc máy tính xách tay mới","D":"một người bạn"}},
+    {"id":"reference:1.2","source_prompt":"What did Sarah write?","source_options":{"A":"her boss","B":"a long email","C":"this morning","D":"a letter"},"prompt_vi":"Sarah đã viết gì?","options_vi":{"A":"sếp của cô ấy","B":"một email dài","C":"sáng nay","D":"một lá thư"}},
+    {"id":"reference:1.3","source_prompt":"Where did the students gather?","source_options":{"A":"after school","B":"the students","C":"in the library","D":"at home"},"prompt_vi":"Các học sinh đã tập trung ở đâu?","options_vi":{"A":"sau giờ học","B":"các học sinh","C":"trong thư viện","D":"ở nhà"}},
+    {"id":"reference:1.4","source_prompt":"When will they start the project?","source_options":{"A":"next Tuesday","B":"next Monday","C":"next Wednesday","D":"next Friday"},"prompt_vi":"Họ sẽ bắt đầu dự án vào khi nào?","options_vi":{"A":"thứ Ba tuần tới","B":"thứ Hai tuần tới","C":"thứ Tư tuần tới","D":"thứ Sáu tuần tới"}},
+    {"id":"reference:1.5","source_prompt":"Why did Mary cancel the meeting?","source_options":{"A":"the storm","B":"Mary was sick","C":"the meeting","D":"the rain"},"prompt_vi":"Vì sao Mary hủy cuộc họp?","options_vi":{"A":"cơn bão","B":"Mary bị ốm","C":"cuộc họp","D":"trời mưa"}},
+    {"id":"reference:1.6","source_prompt":"How did Tom travel to Paris?","source_options":{"A":"by plane","B":"by train","C":"by car","D":"alone"},"prompt_vi":"Tom đi đến Paris bằng phương tiện gì?","options_vi":{"A":"máy bay","B":"tàu hỏa","C":"ô tô","D":"một mình"}},
+    {"id":"reference:1.7","source_prompt":"When does the shop close on weekdays?","source_options":{"A":"8 pm","B":"6 pm","C":"7 pm","D":"9 pm"},"prompt_vi":"Cửa hàng đóng cửa lúc mấy giờ vào các ngày trong tuần?","options_vi":{"A":"8 giờ tối","B":"6 giờ tối","C":"7 giờ tối","D":"9 giờ tối"}},
+    {"id":"reference:1.8","source_prompt":"What does Emma love doing?","source_options":{"A":"watching TV","B":"writing novels","C":"reading novels","D":"studying"},"prompt_vi":"Emma thích làm gì?","options_vi":{"A":"xem TV","B":"viết tiểu thuyết","C":"đọc tiểu thuyết","D":"học bài"}},
+    {"id":"reference:1.9","source_prompt":"Who gave the test?","source_options":{"A":"the students","B":"the teacher","C":"Friday","D":"the principal"},"prompt_vi":"Ai đã tổ chức bài kiểm tra?","options_vi":{"A":"các học sinh","B":"giáo viên","C":"thứ Sáu","D":"hiệu trưởng"}},
+    {"id":"reference:1.10","source_prompt":"When does the speaker NOT drink coffee?","source_options":{"A":"in the morning","B":"in the evening","C":"all day","D":"before bed"},"prompt_vi":"Khi nào người nói KHÔNG uống cà phê?","options_vi":{"A":"vào buổi sáng","B":"vào buổi tối","C":"cả ngày","D":"trước khi đi ngủ"}},
+    {"id":"reference:G2","source_prompt":"Why are sea levels rising?","source_options":{"A":"heavy rainfall","B":"ocean currents","C":"global warming","D":"melting rivers"},"prompt_vi":"Vì sao mực nước biển đang dâng lên?","options_vi":{"A":"mưa lớn","B":"các dòng hải lưu","C":"sự nóng lên toàn cầu","D":"các dòng sông tan chảy"}},
+    {"id":"reference:G27","source_prompt":"Who uses the AI tool?","source_options":{"A":"my brother","B":"my sister","C":"my teacher","D":"my friend"},"prompt_vi":"Ai sử dụng công cụ AI?","options_vi":{"A":"anh/em trai của tôi","B":"chị/em gái của tôi","C":"giáo viên của tôi","D":"bạn của tôi"}},
+    {"id":"reference:G52","source_prompt":"Who left the keys?","source_options":{"A":"my landlord","B":"my flatmate","C":"my neighbour","D":"my brother"},"prompt_vi":"Ai đã để lại chìa khóa?","options_vi":{"A":"chủ nhà của tôi","B":"người ở cùng căn hộ với tôi","C":"hàng xóm của tôi","D":"anh/em trai của tôi"}},
+    {"id":"reference:G72","source_prompt":"Who phoned the surgery?","source_options":{"A":"my father","B":"my grandfather","C":"my brother","D":"my mother"},"prompt_vi":"Ai đã gọi điện đến phòng khám?","options_vi":{"A":"bố tôi","B":"ông tôi","C":"anh/em trai tôi","D":"mẹ tôi"}},
+    {"id":"reference:G92","source_prompt":"Who discovered penicillin?","source_options":{"A":"Marie Curie","B":"Alexander Fleming","C":"Louis Pasteur","D":"Charles Darwin"},"prompt_vi":"Ai đã phát hiện ra penicillin?","unchanged_options_reviewed":true}
+  ]
+}

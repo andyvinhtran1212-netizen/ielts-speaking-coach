@@ -1,0 +1,24 @@
+{
+  "batch_id": "LISTENING-0007-B55",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.5-098 forms (10 main, four transfer items). Preserve initial versus final owner/deadline, correction evidence, Wednesday as earlier distractor and five separate note fields. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.5-098.v0.3.0.main.q01","source_prompt":"Who was the initial owner?","prompt_vi":"Ban đầu ai là người phụ trách?"},
+    {"id":"manus:B2.5-098.v0.3.0.main.q02","source_prompt":"Who is the final owner?","prompt_vi":"Cuối cùng ai là người phụ trách?"},
+    {"id":"manus:B2.5-098.v0.3.0.main.q03","source_prompt":"What was the original deadline?","prompt_vi":"Hạn chót ban đầu là khi nào?"},
+    {"id":"manus:B2.5-098.v0.3.0.main.q04","source_prompt":"What is the revised deadline and why did it change?","prompt_vi":"Hạn chót sau khi điều chỉnh là khi nào, và vì sao nó thay đổi?"},
+    {"id":"manus:B2.5-098.v0.3.0.main.q05","source_prompt":"How should notes treat the original owner and deadline?","prompt_vi":"Ghi chú nên xử lý người phụ trách và hạn chót ban đầu như thế nào?"},
+    {"id":"manus:B2.5-098.v0.3.0.main.q06","source_prompt":"When can the first plausible answer be a distractor?","prompt_vi":"Khi nào đáp án đầu tiên nghe có vẻ hợp lý lại có thể là phương án gây nhiễu?"},
+    {"id":"manus:B2.5-098.v0.3.0.main.q07","source_prompt":"Name the five separate note fields.","prompt_vi":"Nêu năm mục ghi chú cần tách riêng."},
+    {"id":"manus:B2.5-098.v0.3.0.main.q08","source_prompt":"What belongs in the evidence field here?","prompt_vi":"Trong trường hợp này, mục bằng chứng cần ghi điều gì?"},
+    {"id":"manus:B2.5-098.v0.3.0.main.q09","source_prompt":"State the confirmed owner and submission deadline together.","prompt_vi":"Nêu cùng lúc người phụ trách đã được xác nhận và hạn nộp."},
+    {"id":"manus:B2.5-098.v0.3.0.main.q10","source_prompt":"What evidence supports the revised deadline, and how should Wednesday be treated?","prompt_vi":"Bằng chứng nào ủng hộ hạn chót đã điều chỉnh, và nên xem thứ Tư là mốc gì?"},
+    {"id":"manus:B2.5-098.v0.3.0.transfer.q01","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-098.v0.3.0.transfer.q02","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-098.v0.3.0.transfer.q03","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."},
+    {"id":"manus:B2.5-098.v0.3.0.transfer.q04","source_prompt":"Give a four-part note: evidence/decision, limit, conditional action and review boundary.","prompt_vi":"Viết ghi chú gồm bốn phần: bằng chứng và quyết định, giới hạn, hành động có điều kiện, và ranh giới cần giữ khi rà soát."}
+  ]
+}

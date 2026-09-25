@@ -1,0 +1,19 @@
+{
+  "batch_id": "LISTENING-0007-B24",
+  "status": "approved_under_owner_delegation_not_published",
+  "source_package_id": "general-listening-practice-v1.0.0",
+  "source_language": "en",
+  "target_language": "vi",
+  "review_note": "Complete both manus:B2.8-097 forms (eight analysis questions and one transfer synthesis). Preserve denominator versus reach, excluded groups, privacy/access safeguards, pause trigger and review ownership. Delegated editorial approval is recorded; human perceptual listening was not performed.",
+  "items": [
+    {"id":"manus:B2.8-097.v0.3.0.main.q01","source_prompt":"How many households were eligible?","prompt_vi":"Có bao nhiêu hộ gia đình đủ điều kiện tham gia?"},
+    {"id":"manus:B2.8-097.v0.3.0.main.q02","source_prompt":"What completion comparison was reported?","prompt_vi":"Phép so sánh nào về mức độ hoàn thành đã được báo cáo?"},
+    {"id":"manus:B2.8-097.v0.3.0.main.q03","source_prompt":"Which follow-up group is missing from the evidence?","prompt_vi":"Nhóm nào trong giai đoạn theo dõi tiếp chưa có trong bằng chứng?"},
+    {"id":"manus:B2.8-097.v0.3.0.main.q04","source_prompt":"What access burden did some residents report?","prompt_vi":"Một số cư dân cho biết họ gặp khó khăn gì khi tiếp cận dịch vụ?"},
+    {"id":"manus:B2.8-097.v0.3.0.main.q05","source_prompt":"Why is a privacy review required?","prompt_vi":"Vì sao cần rà soát về quyền riêng tư?"},
+    {"id":"manus:B2.8-097.v0.3.0.main.q06","source_prompt":"What service must every expansion district keep open?","prompt_vi":"Mỗi khu vực được mở rộng phải tiếp tục duy trì dịch vụ nào?"},
+    {"id":"manus:B2.8-097.v0.3.0.main.q07","source_prompt":"What triggers a pause?","prompt_vi":"Điều gì sẽ khiến chương trình phải tạm dừng?"},
+    {"id":"manus:B2.8-097.v0.3.0.main.q08","source_prompt":"Who owns the safeguard and when is the review?","prompt_vi":"Ai chịu trách nhiệm về biện pháp bảo vệ, và khi nào sẽ rà soát?"},
+    {"id":"manus:B2.8-097.v0.3.0.transfer.q01","source_prompt":"Report the denominator and observed reach, excluded groups, safeguard and pause condition, and the named owner/review point.","prompt_vi":"Nêu nhóm dùng làm mẫu số và phạm vi tiếp cận quan sát được, các nhóm bị loại trừ, biện pháp bảo vệ và điều kiện tạm dừng, cùng người chịu trách nhiệm và mốc rà soát được nêu tên."}
+  ]
+}
