@@ -795,6 +795,47 @@ def test_report_only_standalone_start_atomically_reuses_the_active_attempt(monke
     assert len(fake.tables["listening_test_attempts"]) == 1
 
 
+def test_programme_drain_returns_conflict_without_abandoning_existing_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only", content_package_id=str(uuid4()))
+    existing = {
+        "id": "old-programme-attempt", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [{"q_num": 1, "user_answer": "kept"}],
+        "scoring_policy": "report_only",
+    }
+    fake.tables["listening_test_attempts"].append(existing)
+
+    def paused_acquire(_name, _params):
+        raise RuntimeError("listening_programme_new_starts_paused")
+
+    fake.rpc = paused_acquire
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.start_listening_test_attempt(
+            test_id=test["id"], authorization=authz, standalone=True,
+        ))
+    assert exc.value.status_code == 409
+    assert existing["status"] == "in_progress"
+    assert existing["answers"] == [{"q_num": 1, "user_answer": "kept"}]
+
+
+def test_programme_form_cannot_use_destructive_legacy_start_path(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only", content_package_id=str(uuid4()))
+    existing = {
+        "id": "old-programme-attempt", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "answers": [], "scoring_policy": "report_only",
+    }
+    fake.tables["listening_test_attempts"].append(existing)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.start_listening_test_attempt(
+            test_id=test["id"], authorization=authz,
+        ))
+    assert exc.value.status_code == 422
+    assert existing["status"] == "in_progress"
+    assert len(fake.tables["listening_test_attempts"]) == 1
+
+
 def test_standalone_start_rejects_a_class_scope(monkeypatch):
     _fake, authz = _patch(monkeypatch)
     with pytest.raises(HTTPException) as exc:
@@ -1601,6 +1642,61 @@ def test_programme_visual_signing_failure_fails_the_whole_player(monkeypatch):
         ))
     assert exc.value.status_code == 503
     assert "sơ đồ" in str(exc.value.detail)
+
+
+@pytest.mark.parametrize("translation_signs", [True, False])
+def test_programme_translated_visual_is_signed_or_fails_closed(monkeypatch, translation_signs):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only")
+    fake.tables["listening_content"].append({
+        "id": "content-bilingual-map", "test_id": test["id"], "section_num": 1,
+        "title": "Map form", "transcript": "stub", "metadata": {},
+    })
+    fake.tables["listening_exercises"].append({
+        "id": "exercise-bilingual-map", "content_id": "content-bilingual-map",
+        "exercise_type": "mcq", "order_num": 1,
+        "payload": {
+            "variant": "programme_form_v1",
+            "questions": [{
+                "q_num": 1, "prompt": "Label the map",
+                "visual_storage_path": "packages/pkg/visuals/map.en.svg",
+                "visual_url": "https://untrusted.test/original.svg",
+                "editorial_translation": {
+                    "status": "approved", "prompt": "Gắn nhãn sơ đồ",
+                    "visual_storage_path": "packages/pkg/visuals/map.vi.svg",
+                    "visual_url": "https://untrusted.test/map.svg",
+                    "visual_accessibility": "Sơ đồ tiếng Việt",
+                    "answers": ["protected"],
+                    "answer_idx": 1,
+                    "script": "protected transcript",
+                },
+            }, {
+                "q_num": 2, "prompt": "Another question",
+                "editorial_translation": "protected malformed translation",
+            }],
+        },
+    })
+    monkeypatch.setattr(
+        listening_router, "_sign_programme_visual_url",
+        lambda path: f"https://storage.test/{path}" if translation_signs or path.endswith("map.en.svg") else None,
+    )
+
+    if not translation_signs:
+        with pytest.raises(HTTPException) as exc:
+            _run(listening_router.get_published_listening_test(test["id"], authorization=authz))
+        assert exc.value.status_code == 503
+        return
+
+    out = _run(listening_router.get_published_listening_test(test["id"], authorization=authz))
+    question = out["sections"][0]["exercises"][0]["payload"]["questions"][0]
+    assert question["visual_url"].endswith("map.en.svg")
+    assert question["editorial_translation"]["visual_url"].endswith("map.vi.svg")
+    assert "untrusted.test" not in json.dumps(question)
+    assert question["editorial_translation"]["visual_accessibility"] == "Sơ đồ tiếng Việt"
+    assert "visual_storage_path" not in json.dumps(question)
+    assert "protected" not in json.dumps(question)
+    assert "answer_idx" not in json.dumps(question)
+    assert "editorial_translation" not in out["sections"][0]["exercises"][0]["payload"]["questions"][1]
 
 
 def test_once_playback_is_attempt_scoped_and_blocks_a_second_browser(monkeypatch):

@@ -5,12 +5,18 @@ import io
 import json
 import sys
 import wave
+from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from services import listening_package_import as importer
 from services import listening_test_grader as grader
+from services.listening_editorial_validation import SOURCE_MANIFEST_LOCKS
+from services.listening_revision_compare import RevisionMismatch, compare_editorial_revision
+from scripts import build_listening_editorial_revision as revision_builder
+from scripts import compare_listening_editorial_revision as comparison_command
 from scripts import import_listening_content_package as import_command
 
 
@@ -171,6 +177,583 @@ def _tree_hashes(root: Path) -> dict[str, str]:
         for path in root.rglob("*")
         if path.is_file()
     }
+
+
+def _add_editorial_batch(release_root: Path, *, status: str = "approved_by_owner_not_published") -> None:
+    package_root = release_root / "general" / "fixture"
+    relative = "protected/editorial/translation-batch-01.json"
+    _write_json(package_root / relative, {
+        "batch_id": "LISTENING-0007-B01",
+        "status": status,
+        "source_package_id": "general-listening-practice-v1.0.0",
+        "source_language": "en",
+        "target_language": "vi",
+        "items": [{
+            "id": "item-1",
+            "source_prompt": "Choose the answer.",
+            "source_options": {"A": "One", "B": "Two"},
+            "prompt_vi": "Chọn đáp án.",
+            "options_vi": {"A": "Một", "B": "Hai"},
+        }],
+    })
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["editorial_batches"] = [relative]
+    metadata_relative = "protected/editorial/lesson-metadata.json"
+    _write_json(package_root / metadata_relative, {
+        "status": "approved_by_owner_not_published",
+        "source_package_ids": sorted(SOURCE_MANIFEST_LOCKS),
+        "instructions": {}, "titles": {}, "outcomes": {},
+    })
+    manifest["editorial_lesson_metadata"] = metadata_relative
+    manifest["editorial_source_package_id"] = "general-listening-practice-v1.0.0"
+    manifest["editorial_source_manifest_sha256"] = SOURCE_MANIFEST_LOCKS["general-listening-practice-v1.0.0"]
+    manifest["artifact_hashes"][relative] = "0" * 64
+    manifest["artifact_hashes"][metadata_relative] = "0" * 64
+    _write_json(manifest_path, manifest)
+    _rebind_manifest(release_root)
+
+
+def _builder_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, with_visual: bool = False,
+    source_language: str = "en",
+) -> tuple[Path, Path]:
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["package_id"] = "general-listening-practice-v1.0.0"
+    if source_language == "vi":
+        lesson_path = package_root / "learner/content/lessons/lesson-1.json"
+        lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+        lesson["items"][0]["prompt"] = "Chọn đáp án."
+        lesson["items"][0]["options"] = {"A": "Một", "B": "Hai"}
+        _write_json(lesson_path, lesson)
+    if with_visual:
+        visual_relative = "learner/visuals/map.v1.svg"
+        visual_path = package_root / visual_relative
+        visual_path.parent.mkdir(parents=True, exist_ok=True)
+        visual_path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 650">'
+            '<title>Source map</title><desc>North is up</desc>'
+            '<text x="10" y="10">Entrance</text><text x="50" y="50">N</text>'
+            '<text x="80" y="80">A</text></svg>', encoding="utf-8",
+        )
+        lesson_path = package_root / "learner/content/lessons/lesson-1.json"
+        lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+        lesson["stimuli"][0]["visual"] = visual_relative
+        lesson["stimuli"][0]["visual_accessibility"] = "Source map; north is up."
+        _write_json(lesson_path, lesson)
+        manifest["counts"]["visuals"] = 1
+        manifest["artifact_hashes"][visual_relative] = hashlib.sha256(visual_path.read_bytes()).hexdigest()
+    _write_json(manifest_path, manifest)
+    index_path = release_root / "release-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["programmes"][0]["packages"][0]["package_id"] = manifest["package_id"]
+    _write_json(index_path, index)
+    _rebind_manifest(release_root)
+    source_manifest_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    monkeypatch.setattr(
+        revision_builder, "SOURCE_RELEASE_INDEX_SHA256",
+        hashlib.sha256(index_path.read_bytes()).hexdigest(),
+    )
+    monkeypatch.setattr(revision_builder, "SOURCE_MANIFEST_LOCKS", {manifest["package_id"]: source_manifest_sha})
+    monkeypatch.setattr(importer, "SOURCE_MANIFEST_LOCKS", {manifest["package_id"]: source_manifest_sha})
+    monkeypatch.setattr(revision_builder, "EXPECTED_METADATA_COUNTS", {
+        "instructions": 1, "titles": 1, "outcomes": 1,
+    })
+    draft_dir = tmp_path / "drafts"
+    _write_json(draft_dir / "lesson-metadata-draft.json", {
+        "status": "approved_by_owner_not_published",
+        "source_package_ids": [manifest["package_id"]],
+        "instructions": {"lesson-1": "Listen for the stated number, then compare your answer."},
+        "titles": {"lesson-1": "Stated numbers"},
+        "outcomes": {"lesson-1": ["Identify the number spoken in the clip."]},
+    })
+    source_is_vi = source_language == "vi"
+    _write_json(draft_dir / "translation-batch-01-draft.json", {
+        "batch_id": "fixture-batch-01",
+        "status": "approved_by_owner_not_published",
+        "source_package_id": manifest["package_id"],
+        "source_language": source_language,
+        "target_language": "en" if source_is_vi else "vi",
+        "items": [{
+            "id": "item-1", "source_prompt": "Chọn đáp án." if source_is_vi else "Choose the answer.",
+            "source_options": {"A": "Một", "B": "Hai"} if source_is_vi else {"A": "One", "B": "Two"},
+            **({"prompt_en": "Choose the answer.", "options_en": {"A": "One", "B": "Two"}}
+               if source_is_vi else {"prompt_vi": "Chọn đáp án.", "options_vi": {"A": "Một", "B": "Hai"}}),
+        }],
+    })
+    if with_visual:
+        draft_path = draft_dir / "visuals-draft/map.vi.draft.svg"
+        draft_path.parent.mkdir(parents=True, exist_ok=True)
+        draft_path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 650">'
+            '<title>Sơ đồ nguồn</title><desc>Phía bắc ở trên</desc>'
+            '<text x="10" y="10">Lối vào</text><text x="50" y="50">N</text>'
+            '<text x="80" y="80">A</text></svg>', encoding="utf-8",
+        )
+        source_path = package_root / "learner/visuals/map.v1.svg"
+        _write_json(draft_dir / "visual-batch-01-draft.json", {
+            "batch_id": "fixture-visual-01",
+            "status": "draft_pending_owner_review",
+            "source_package_id": manifest["package_id"],
+            "visuals": [{
+                "source_path": "learner/visuals/map.v1.svg",
+                "source_sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+                "draft_variant_path": "visuals-draft/map.vi.draft.svg",
+                "draft_variant_sha256": hashlib.sha256(draft_path.read_bytes()).hexdigest(),
+                "title_en": "Source map", "title_vi": "Sơ đồ nguồn",
+                "description_en": "North is up", "description_vi": "Phía bắc ở trên",
+                "visible_text": [{"en": "Entrance", "vi": "Lối vào"}],
+                "image_alt_vi": "Sơ đồ nguồn; phía bắc ở trên.",
+                "unchanged_symbols": ["N", "A"],
+            }],
+        })
+    return release_root, draft_dir
+
+
+def test_revision_builder_creates_new_manifest_bound_package_without_mutating_v1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    before = _tree_hashes(release_root)
+    output = tmp_path / "revision"
+
+    report = revision_builder.build_revision(
+        release_root, draft_dir, output, revision_date="2026-09-24",
+    )
+
+    assert report["coverage"]["approved_items"] == 1
+    assert report["comparisons"][0]["protected_and_media_invariants"] == "pass"
+    assert _tree_hashes(release_root) == before
+    revision = importer.build_import_plan(
+        importer.select_package(output, "general-listening-practice-v1.1.0"),
+    )
+    assert revision.lessons[0]["title"] == "Stated numbers"
+    lesson_path = output / "general/packages/general-listening-practice-v1.1.0/learner/content/lessons/lesson-1.json"
+    assert "titles" not in json.loads(lesson_path.read_text(encoding="utf-8"))
+    assert revision.forms[0]["exercise_payload"]["questions"][0]["editorial_translation"]["prompt"] == "Chọn đáp án."
+
+
+def test_revision_import_rejects_rehashed_lesson_copy_not_in_approved_packet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    output = tmp_path / "revision"
+    revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+    package_root = output / "general/packages/general-listening-practice-v1.1.0"
+    lesson_relative = "learner/content/lessons/lesson-1.json"
+    lesson_path = package_root / lesson_relative
+    lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+    lesson["title"] = "Unreviewed title"
+    _write_json(lesson_path, lesson)
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifact_hashes"][lesson_relative] = hashlib.sha256(lesson_path.read_bytes()).hexdigest()
+    _write_json(manifest_path, manifest)
+    index_path = output / "release-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["programmes"][0]["packages"][0]["manifest_sha256"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _write_json(index_path, index)
+
+    with pytest.raises(importer.PackageValidationError, match="Editorial lesson copy không khớp review"):
+        importer.build_import_plan(importer.select_package(output, "general-listening-practice-v1.1.0"))
+
+
+def test_revision_comparison_cli_accepts_separate_source_and_revision_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    output = tmp_path / "revision"
+    revision_builder.build_revision(
+        release_root, draft_dir, output, revision_date="2026-09-24",
+    )
+    monkeypatch.setattr(comparison_command, "SOURCE_MANIFEST_LOCKS", revision_builder.SOURCE_MANIFEST_LOCKS)
+
+    assert comparison_command.main([
+        "--source-release-root", str(release_root),
+        "--release-root", str(output),
+        "--source-package", "general-listening-practice-v1.0.0",
+        "--revision-package", "general-listening-practice-v1.1.0",
+    ]) == 0
+    assert json.loads(capsys.readouterr().out)["protected_and_media_invariants"] == "pass"
+
+
+def test_revision_builder_rejects_pending_batch_without_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    batch_path = draft_dir / "translation-batch-01-draft.json"
+    batch = json.loads(batch_path.read_text(encoding="utf-8"))
+    batch["status"] = "draft_pending_owner_review"
+    _write_json(batch_path, batch)
+    output = tmp_path / "revision"
+
+    with pytest.raises(importer.EditorialValidationError, match="Chưa đủ editorial approval"):
+        revision_builder.build_revision(
+            release_root, draft_dir, output, revision_date="2026-09-24",
+        )
+    assert not output.exists()
+
+
+def test_revision_builder_requires_visual_owner_approval_then_projects_localized_asset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch, with_visual=True)
+    before = _tree_hashes(release_root)
+    output = tmp_path / "revision"
+    with pytest.raises(importer.PackageValidationError, match="Visual review chưa được duyệt"):
+        revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+    assert not output.exists()
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["status"] = "approved_by_owner_not_published"
+    _write_json(review_path, review)
+
+    report = revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+
+    assert _tree_hashes(release_root) == before
+    assert report["comparisons"][0]["protected_and_media_invariants"] == "pass"
+    plan = importer.build_import_plan(importer.select_package(output, "general-listening-practice-v1.1.0"))
+    question = plan.forms[0]["exercise_payload"]["questions"][0]
+    assert len(plan.visual_assets) == 2
+    assert question["editorial_translation"]["visual_accessibility"] == "Sơ đồ nguồn; phía bắc ở trên."
+    assert "map.vi.v1.svg" in question["editorial_translation"]["visual_storage_path"]
+    assert question["visual_storage_path"] != question["editorial_translation"]["visual_storage_path"]
+
+
+def test_vietnamese_source_question_uses_vietnamese_visual_and_english_translation_uses_original(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(
+        tmp_path, monkeypatch, with_visual=True, source_language="vi",
+    )
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["status"] = "approved_by_owner_not_published"
+    _write_json(review_path, review)
+    output = tmp_path / "revision"
+
+    revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+
+    plan = importer.build_import_plan(importer.select_package(output, "general-listening-practice-v1.1.0"))
+    question = plan.forms[0]["exercise_payload"]["questions"][0]
+    translation = question["editorial_translation"]
+    assert question["prompt"] == "Chọn đáp án."
+    assert "map.vi.v1.svg" in question["visual_storage_path"]
+    assert question["visual_accessibility"] == "Sơ đồ nguồn; phía bắc ở trên."
+    assert translation["target_language"] == "en"
+    assert "map.v1.svg" in translation["visual_storage_path"]
+    assert "map.vi.v1.svg" not in translation["visual_storage_path"]
+    assert translation["visual_accessibility"] == "Source map. North is up"
+
+
+@pytest.mark.parametrize(("mutation", "message"), [
+    ("source_hash", "Visual source hash mismatch"),
+    ("draft_hash", "Visual draft hash mismatch"),
+    ("path", "Visual draft path"),
+    ("alt", "Visual accessibility thiếu"),
+    ("symbols", "Visual choice anchors changed"),
+    ("anchor", "Visual wording không khớp review"),
+    ("geometry", "Visual geometry changed"),
+])
+def test_revision_builder_rejects_unbound_or_changed_localized_svg(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str, message: str,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch, with_visual=True)
+    before = _tree_hashes(release_root)
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["status"] = "approved_by_owner_not_published"
+    row = review["visuals"][0]
+    if mutation == "source_hash":
+        row["source_sha256"] = "0" * 64
+    elif mutation == "draft_hash":
+        row["draft_variant_sha256"] = "0" * 64
+    elif mutation == "path":
+        row["draft_variant_path"] = "../map.svg"
+    elif mutation == "alt":
+        row["image_alt_vi"] = ""
+    elif mutation == "symbols":
+        row["unchanged_symbols"] = ["N"]
+    else:
+        draft_path = draft_dir / row["draft_variant_path"]
+        text = draft_path.read_text(encoding="utf-8")
+        text = text.replace(">A<", ">B<") if mutation == "anchor" else text.replace('x="80"', 'x="90"')
+        draft_path.write_text(text, encoding="utf-8")
+        row["draft_variant_sha256"] = hashlib.sha256(draft_path.read_bytes()).hexdigest()
+    _write_json(review_path, review)
+    output = tmp_path / "revision"
+
+    with pytest.raises(importer.PackageValidationError, match=message):
+        revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+    assert not output.exists()
+    assert _tree_hashes(release_root) == before
+
+
+@pytest.mark.parametrize(("mutation", "message"), [
+    ("status", "Visual review chưa được duyệt"),
+    ("alt", "Editorial visual không khớp owner review"),
+    ("wording", "Editorial visual wording không khớp owner review"),
+])
+def test_revision_importer_rechecks_protected_visual_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str, message: str,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch, with_visual=True)
+    review_path = draft_dir / "visual-batch-01-draft.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["status"] = "approved_by_owner_not_published"
+    _write_json(review_path, review)
+    output = tmp_path / "revision"
+    revision_builder.build_revision(release_root, draft_dir, output, revision_date="2026-09-24")
+    package_root = output / "general/packages/general-listening-practice-v1.1.0"
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    protected_path = package_root / manifest["editorial_visual_review"]
+    protected = json.loads(protected_path.read_text(encoding="utf-8"))
+    if mutation == "status":
+        protected["status"] = "draft_pending_owner_review"
+    elif mutation == "alt":
+        protected["visuals"][0]["image_alt_vi"] = "Changed alt"
+    else:
+        protected["visuals"][0]["visible_text"][0]["vi"] = "Sai chỉ dẫn"
+    _write_json(protected_path, protected)
+    manifest["artifact_hashes"][manifest["editorial_visual_review"]] = hashlib.sha256(protected_path.read_bytes()).hexdigest()
+    _write_json(manifest_path, manifest)
+    index_path = output / "release-index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["programmes"][0]["packages"][0]["manifest_sha256"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _write_json(index_path, index)
+
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.build_import_plan(importer.select_package(output, "general-listening-practice-v1.1.0"))
+
+
+def test_revision_builder_rejects_output_inside_immutable_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root, draft_dir = _builder_fixture(tmp_path, monkeypatch)
+    before = _tree_hashes(release_root)
+    output = release_root / "revision"
+
+    with pytest.raises(importer.PackageValidationError, match="không được nằm trong source"):
+        revision_builder.build_revision(
+            release_root, draft_dir, output, revision_date="2026-09-24",
+        )
+    assert not output.exists()
+    assert _tree_hashes(release_root) == before
+
+
+def test_new_revision_projects_only_manifest_bound_approved_text(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    _add_editorial_batch(release_root)
+    before = _tree_hashes(release_root)
+    plan = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    question = plan.forms[0]["exercise_payload"]["questions"][0]
+    assert question["prompt"] == "Choose the answer."
+    assert question["options"] == {"A": "One", "B": "Two"}
+    assert question["editorial_translation"] == {
+        "status": "approved",
+        "source_item_id": "item-1",
+        "source_language": "en",
+        "target_language": "vi",
+        "source_prompt": "Choose the answer.",
+        "source_options": {"A": "One", "B": "Two"},
+        "prompt": "Chọn đáp án.",
+        "options": {"A": "Một", "B": "Hai"},
+    }
+    assert "answer" not in question["editorial_translation"]
+    assert plan.forms[0]["exercise_payload"]["answers"][0]["answer"] == "A"
+    assert plan.report["editorial_approved_items"] == 1
+    assert plan.report["editorial_source_package_id"] == "general-listening-practice-v1.0.0"
+    assert plan.package["validation_summary"]["editorial_source_package_id"] == "general-listening-practice-v1.0.0"
+    assert _tree_hashes(release_root) == before
+
+
+def test_editorial_commit_requires_source_invariant_comparison(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    _add_editorial_batch(release_root)
+    plan = importer.build_import_plan(importer.discover_packages(release_root)[0])
+
+    with pytest.raises(importer.PackageValidationError, match="so sánh bất biến"):
+        importer.commit_import_plan(
+            plan, object(), bucket_name="must-not-touch-storage",
+        )
+
+
+def test_editorial_cli_fails_before_db_without_source_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    _add_editorial_batch(release_root)
+    monkeypatch.setattr(
+        import_command, "_admin",
+        lambda: pytest.fail("source comparison must precede DB/Storage"),
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["import-listening", "--release-root", str(release_root), "--commit"],
+    )
+
+    with pytest.raises(importer.PackageValidationError, match="Không tìm thấy đúng một package"):
+        import_command.main()
+
+
+def test_editorial_cli_dry_run_compares_source_before_attesting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    source = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    revision = _revision_from_source_plan(source)
+    revision.report["editorial_source_package_id"] = source.location.package_id
+    monkeypatch.setattr(import_command, "discover_packages", lambda _root: [revision.location])
+    monkeypatch.setattr(import_command, "select_package", lambda _root, _id: source.location)
+    monkeypatch.setattr(
+        import_command, "build_import_plan",
+        lambda location, **_kwargs: source if location.package_id == source.location.package_id else revision,
+    )
+    monkeypatch.setattr(
+        import_command, "SOURCE_MANIFEST_LOCKS",
+        {source.location.package_id: source.location.manifest_sha256},
+    )
+    monkeypatch.setattr(import_command, "_admin", lambda: pytest.fail("dry run touched DB"))
+    monkeypatch.setattr(sys, "argv", ["import-listening", "--release-root", str(release_root)])
+
+    assert import_command.main() == 0
+    assert revision.package["validation_summary"]["revision_source_invariants_verified"] is True
+    assert revision.report["revision_comparison"]["items_compared"] == 1
+    assert "DRY RUN PASS" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(("mutation", "message"), [
+    ("pending", "chưa được duyệt"),
+    ("source_prompt", "Source prompt mismatch"),
+    ("option_key", "Target option keys"),
+    ("source_hash", "source identity/hash"),
+    ("in_place_source_package", "source identity/hash"),
+    ("unlisted_path", "protected inventory"),
+])
+def test_new_revision_editorial_fail_closed(tmp_path: Path, mutation: str, message: str):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    _add_editorial_batch(release_root, status=(
+        "draft_pending_owner_review" if mutation == "pending" else "approved_by_owner_not_published"
+    ))
+    package_root = release_root / "general" / "fixture"
+    batch_path = package_root / "protected/editorial/translation-batch-01.json"
+    manifest_path = package_root / "manifest.json"
+    if mutation in {"source_prompt", "option_key"}:
+        batch = json.loads(batch_path.read_text(encoding="utf-8"))
+        if mutation == "source_prompt":
+            batch["items"][0]["source_prompt"] = "Changed."
+        else:
+            batch["items"][0]["options_vi"] = {"B": "Hai"}
+        _write_json(batch_path, batch)
+    elif mutation in {"source_hash", "in_place_source_package", "unlisted_path"}:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if mutation == "source_hash":
+            manifest["editorial_source_manifest_sha256"] = "f" * 64
+        elif mutation == "in_place_source_package":
+            manifest["package_id"] = "general-listening-practice-v1.0.0"
+            index_path = release_root / "release-index.json"
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+            index["programmes"][0]["packages"][0]["package_id"] = manifest["package_id"]
+            _write_json(index_path, index)
+        else:
+            manifest["editorial_batches"] = ["protected/source-lessons/lesson-1.json"]
+        _write_json(manifest_path, manifest)
+    _rebind_manifest(release_root)
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.build_import_plan(importer.discover_packages(release_root)[0])
+
+
+def _revision_from_source_plan(source: importer.ImportPlan) -> importer.ImportPlan:
+    revision = deepcopy(source)
+    revision.location = replace(
+        source.location, package_id="fixture-general-v1.1.0", manifest_sha256="f" * 64,
+    )
+    revision.package["package_id"] = revision.location.package_id
+    revision.package["manifest_sha256"] = revision.location.manifest_sha256
+    learner_id = source.lessons[0]["metadata"]["learner_lesson_id"]
+    revision.package["validation_summary"]["editorial_lesson_metadata_changed_ids"] = {
+        "instructions": [learner_id], "titles": [learner_id], "outcomes": [learner_id],
+    }
+    revision.lessons[0]["title"] = "A clearer lesson title"
+    revision.lessons[0]["instructions"] = "Listen, answer, and review one question."
+    revision.lessons[0]["outcomes"] = ["Identify the stated answer."]
+    form = revision.forms[0]
+    form["test_id"] = "revision-test-id"
+    form["title"] = "A clearer form title"
+    form["description"] = "Listen and review."
+    form["version"] = "1.1"
+    form["audio_storage_path"] = "packages/fixture-general-v1.1.0/new/audio.wav"
+    form["exercise_payload"]["questions"][0]["editorial_translation"] = {
+        "status": "approved", "source_item_id": "item-1", "prompt": "Chọn đáp án.",
+    }
+    return revision
+
+
+def test_editorial_revision_comparison_allows_copy_only_changes(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    source = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    revision = _revision_from_source_plan(source)
+    report = compare_editorial_revision(
+        source, revision, expected_source_manifest_sha256=source.location.manifest_sha256,
+    )
+    assert report["protected_and_media_invariants"] == "pass"
+    assert report["items_compared"] == 1
+
+
+@pytest.mark.parametrize(("mutation", "message"), [
+    ("reused_package_id", "new package ID"),
+    ("reused_manifest", "new manifest hash"),
+    ("reused_test_id", "reuses a v1.0 test ID"),
+    ("answer", "keys/feedback/windows/transcripts"),
+    ("audio", "source bytes/timing/transcript"),
+    ("timing", "source bytes/timing/transcript"),
+    ("transcript", "source bytes/timing/transcript"),
+    ("option", "source response/option mapping"),
+    ("visual_alt", "source visual accessibility changed"),
+    ("unapproved_lesson_title", "lacks approved metadata"),
+    ("response_type", "source response/option mapping"),
+    ("window", "keys/feedback/windows/transcripts"),
+    ("score_policy", "keys/feedback/windows/transcripts"),
+])
+def test_editorial_revision_comparison_rejects_protected_or_media_drift(
+    tmp_path: Path, mutation: str, message: str,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    source = importer.build_import_plan(importer.discover_packages(release_root)[0])
+    revision = _revision_from_source_plan(source)
+    if mutation == "reused_package_id":
+        revision.location = replace(revision.location, package_id=source.location.package_id)
+    elif mutation == "reused_manifest":
+        revision.location = replace(revision.location, manifest_sha256=source.location.manifest_sha256)
+    elif mutation == "reused_test_id":
+        revision.forms[0]["test_id"] = source.forms[0]["test_id"]
+    elif mutation == "answer":
+        revision.forms[0]["exercise_payload"]["answers"][0]["answer"] = "B"
+    elif mutation in {"audio", "timing", "transcript"}:
+        key = {"audio": "source_audio_sha256", "timing": "source_timing_sha256", "transcript": "controlled_transcript_sha256"}[mutation]
+        revision.stimuli[0][key] = "0" * 64
+    elif mutation == "option":
+        revision.forms[0]["exercise_payload"]["questions"][0]["options"]["A"] = "Changed"
+    elif mutation == "visual_alt":
+        revision.forms[0]["exercise_payload"]["questions"][0]["visual_accessibility"] = "Unreviewed alt"
+    elif mutation == "unapproved_lesson_title":
+        revision.package["validation_summary"]["editorial_lesson_metadata_changed_ids"]["titles"] = []
+    elif mutation == "response_type":
+        revision.forms[0]["exercise_payload"]["questions"][0]["response_type"] = "written"
+    elif mutation == "window":
+        revision.forms[0]["exercise_payload"]["audio_windows"]["1"]["end"] = 0.1
+    else:
+        revision.forms[0]["exercise_payload"]["scoring_policy"] = "diagnostic"
+    with pytest.raises(RevisionMismatch, match=message):
+        compare_editorial_revision(
+            source, revision, expected_source_manifest_sha256=source.location.manifest_sha256,
+        )
 
 
 def test_publish_ready_package_passes_all_fr001_gates_and_dry_run_is_pure(
@@ -762,6 +1345,85 @@ def test_publish_verifies_every_storage_asset_before_status_rpc():
     assert [name for name, _params in db.rpc_calls] == [
         "set_listening_content_package_status",
     ]
+
+
+@pytest.mark.parametrize(("verified", "approved", "message"), [
+    (False, 1, "so sánh bất biến"),
+    (True, 0, "chưa đủ bản dịch"),
+])
+def test_editorial_publish_fails_before_rpc_without_complete_review(
+    verified: bool, approved: int, message: str,
+):
+    db, manifest = _publish_db()
+    db.tables["listening_content_packages"][0].update({
+        "source_counts": {"items": 1, "visuals": 1},
+        "validation_summary": {
+            "editorial_source_package_id": "general-listening-practice-v1.0.0",
+            "revision_source_invariants_verified": verified,
+            "editorial_approved_items": approved,
+            "editorial_visual_assets": [],
+        },
+    })
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.set_package_status(
+            db, package_id="pkg", manifest_sha256=manifest,
+            action="publish", actor=None, bucket_name="listening-audio",
+        )
+    assert db.rpc_calls == []
+
+
+def test_editorial_publish_reaches_rpc_after_complete_review_and_asset_check():
+    db, manifest = _publish_db()
+    db.tables["listening_content_packages"][0].update({
+        "source_counts": {"items": 1, "visuals": 1},
+        "validation_summary": {
+            "editorial_source_package_id": "general-listening-practice-v1.0.0",
+            "revision_source_invariants_verified": True,
+            "editorial_approved_items": 1,
+            "editorial_visual_assets": [],
+        },
+    })
+
+    result = importer.set_package_status(
+        db, package_id="pkg", manifest_sha256=manifest,
+        action="publish", actor=None, bucket_name="listening-audio",
+    )
+    assert result["status"] == "published"
+    assert len(db.rpc_calls) == 1
+
+
+@pytest.mark.parametrize("state", ["present", "missing", "corrupt", "unattested"])
+def test_editorial_publish_attests_localized_svg_before_status_rpc(state: str):
+    db, manifest = _publish_db()
+    localized_path = f"packages/pkg/{manifest}/visuals/map.vi.svg"
+    localized = b"<svg><text>Ban do</text></svg>"
+    if state != "missing":
+        db.storage.objects[localized_path] = b"tampered" if state == "corrupt" else localized
+    db.tables["listening_content_packages"][0].update({
+        "source_counts": {"items": 1, "visuals": 2},
+        "validation_summary": {
+            "editorial_source_package_id": "general-listening-practice-v1.0.0",
+            "revision_source_invariants_verified": True,
+            "editorial_approved_items": 1,
+            "editorial_visual_assets": ([] if state == "unattested" else [{
+                "storage_path": localized_path,
+                "sha256": hashlib.sha256(localized).hexdigest(),
+            }]),
+        },
+    })
+    if state == "present":
+        assert importer.set_package_status(
+            db, package_id="pkg", manifest_sha256=manifest,
+            action="publish", actor=None, bucket_name="listening-audio",
+        )["status"] == "published"
+        assert len(db.rpc_calls) == 1
+    else:
+        with pytest.raises(importer.PackageValidationError, match="visual storage attestation|Storage object"):
+            importer.set_package_status(
+                db, package_id="pkg", manifest_sha256=manifest,
+                action="publish", actor=None, bucket_name="listening-audio",
+            )
+        assert db.rpc_calls == []
 
 
 @pytest.mark.parametrize("missing,corrupt", [(True, False), (False, True)])

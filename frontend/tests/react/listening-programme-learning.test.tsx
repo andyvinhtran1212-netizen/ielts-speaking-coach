@@ -47,7 +47,9 @@ it('lets a learner answer one question at a time, revise it, and change verified
   expect((screen.getByRole('radio', { name: /Rủ cả hai cùng làm/ }) as HTMLInputElement).checked).toBe(true);
 
   fireEvent.click(screen.getByRole('button', { name: 'English' }));
-  expect(screen.getByText(/Is Mai inviting both of them/)).toBeTruthy();
+  expect(screen.getByText(/Is Mai inviting both of them/).getAttribute('lang')).toBe('en');
+  expect(screen.getByText('Inviting both to act together').closest('[lang="en"]')).toBeTruthy();
+  expect(screen.getAllByRole('button', { name: 'Đối chiếu câu này' })[0].closest('[lang="en"]')).toBeNull();
   expect((screen.getByRole('radio', { name: /Inviting both to act together/ }) as HTMLInputElement).checked).toBe(true);
   expect(screen.queryByText(/Đáp án đối chiếu|Transcript tham khảo/)).toBeNull();
 });
@@ -61,6 +63,87 @@ it('keeps source language when a form has no complete reviewed translation', asy
   await screen.findByText('Original question');
   expect(screen.queryByRole('button', { name: 'English' })).toBeNull();
   expect(screen.getByText(/Đang hiển thị bản gốc/)).toBeTruthy();
+});
+
+it('keeps heard English choice words tagged as English under a Vietnamese question', async () => {
+  const heardWord = [{
+    q_num: 1, source_item_id: 'manus:A0-38.v0.2.0.sounds.q01',
+    prompt: 'Nghe từ số1. Chọn từ tiếng Anh đã nghe.',
+    response_type: 'single_choice', options: { a: 'in', b: 'on', c: 'at' },
+  }];
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state')
+    ? { attempt_id: 'attempt-1', assisted: false, items: [] }
+    : { ...programmeTest, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: heardWord } }] }] });
+  render(<ProgrammeFormRunner testId="test-heard-word" />);
+  await screen.findByText(heardWord[0].prompt);
+  expect(screen.getByText(heardWord[0].prompt).getAttribute('lang')).toBe('vi');
+  expect(screen.getByText('in').closest('[lang="en"]')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'English' }));
+  expect(screen.getByText('in').closest('[lang="en"]')).toBeTruthy();
+});
+
+it('keeps a map in a keyboard-scrollable viewport without changing its answer flow', async () => {
+  const mapQuestion = [{
+    q_num: 1, source_item_id: 'map-1', prompt: 'Which room is at A?',
+    response_type: 'map_label', options: { A: 'Library', B: 'Archive' },
+    visual_url: '/map.svg', visual_accessibility: 'North is up; entrance is at the south.',
+  }];
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state')
+    ? { attempt_id: 'attempt-1', assisted: false, items: [] }
+    : { ...programmeTest, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: mapQuestion } }] }] });
+  render(<ProgrammeFormRunner testId="test-map" />);
+  await screen.findByText('Which room is at A?');
+  const viewport = screen.getByRole('region', { name: 'Sơ đồ câu 1, có thể cuộn ngang' });
+  expect(viewport.getAttribute('tabindex')).toBe('0');
+  expect(within(viewport).getByRole('img', { name: 'North is up; entrance is at the south.' }).getAttribute('src')).toBe('/map.svg');
+  expect(screen.getByText(/vuốt ngang hoặc dùng phím mũi tên/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('radio', { name: /Library/ }));
+  expect((screen.getByRole('radio', { name: /Library/ }) as HTMLInputElement).checked).toBe(true);
+  await waitFor(() => expect(window.api.patchWith).toHaveBeenCalled());
+});
+
+it('explains written-answer language and preserves a draft when switching bilingual prompts', async () => {
+  const written = [{
+    q_num: 1, source_item_id: 'written-1', prompt: 'Which word did you hear?',
+    response_type: 'short_answer', options: {},
+    editorial_translation: {
+      status: 'approved', source_item_id: 'written-1', source_language: 'en', target_language: 'vi',
+      source_prompt: 'Which word did you hear?', source_options: {}, prompt: 'Bạn nghe từ nào?',
+    },
+  }];
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state')
+    ? { attempt_id: 'attempt-1', assisted: false, items: [] }
+    : { ...programmeTest, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: written } }] }] });
+  render(<ProgrammeFormRunner testId="test-written-bilingual" />);
+  await screen.findByText('Bạn nghe từ nào?');
+  expect(screen.getByText(/Đổi ngôn ngữ chỉ đổi câu hỏi/)).toBeTruthy();
+  fireEvent.change(screen.getByPlaceholderText('Nhập câu trả lời của bạn'), { target: { value: 'river' } });
+  fireEvent.click(screen.getByRole('button', { name: 'English' }));
+  expect(screen.getByText('Which word did you hear?')).toBeTruthy();
+  expect((screen.getByPlaceholderText('Nhập câu trả lời của bạn') as HTMLTextAreaElement).value).toBe('river');
+});
+
+it('does not partially translate a form when another question is still pending', async () => {
+  const mixed = [
+    {
+      q_num: 1, source_item_id: 'place-1', prompt: 'Which place is mentioned?', response_type: 'single_choice',
+      options: { A: 'Library', B: 'Museum' },
+      editorial_translation: {
+        status: 'approved', source_item_id: 'place-1', source_language: 'en', target_language: 'vi',
+        source_prompt: 'Which place is mentioned?', source_options: { A: 'Library', B: 'Museum' },
+        prompt: 'Địa điểm nào được nhắc đến?', options: { A: 'Thư viện', B: 'Bảo tàng' },
+      },
+    },
+    { q_num: 2, source_item_id: 'place-2', prompt: 'What else is mentioned?', response_type: 'written', options: {} },
+  ];
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state')
+    ? { attempt_id: 'attempt-1', assisted: false, items: [] }
+    : { ...programmeTest, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: mixed } }] }] });
+  render(<ProgrammeFormRunner testId="test-mixed" />);
+  await screen.findByText('Which place is mentioned?');
+  expect(screen.getByText('What else is mentioned?')).toBeTruthy();
+  expect(screen.queryByText('Địa điểm nào được nhắc đến?')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'English' })).toBeNull();
 });
 
 it('shows only the revealed question, preserves the first answer, and allows a later revision', async () => {
@@ -78,6 +161,8 @@ it('shows only the revealed question, preserves the first answer, and allows a l
   expect(comparison.getByText('B')).toBeTruthy();
   expect(comparison.getAllByText('A')).toHaveLength(2);
   expect(screen.getByText(/Lượt học có hỗ trợ/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'English' }));
+  expect(screen.getByText('Mai đang rủ cả hai.').closest('[lang="en"]')).toBeNull();
 });
 
 it('does not request protected feedback when saving the first answer fails', async () => {
