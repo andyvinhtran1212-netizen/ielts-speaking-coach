@@ -1,4 +1,4 @@
-# Implementation plan (pending spec and batch approval)
+# Implementation plan (approved contract; delegated editorial review)
 
 ## Architecture impact
 
@@ -37,21 +37,21 @@
 
 ## Work decomposition
 
-1. Finish all editorial batches and owner review ledger. Owns only this spec's
+1. Finish all editorial batches and the editorial review ledger. Owns only this spec's
    content drafts; no runtime or live package mutation.
 2. Obtain approval of this spec on `staging` before implementation.
 3. Implement source-bound package/validator/importer contract and tests.
 4. Implement player language consumption and UI regression tests.
-5. Build new unpublished packages, dry-run, verify staging, then request owner
-   publish approval.
+5. Build new unpublished packages, dry-run and verify staging. Record direct or
+   delegated publish authority and follow the ordered drain/cutover in
+   [rollout.md](rollout.md).
 
 ## Rollout and rollback
 
-- Release each new package independently after exact-SHA staging checks.
-- Archive only the new revision if rollback is needed, then re-publish the
-  attested v1.0 package; retain its rows, assets and all learner attempts.
-- Do not claim an archive/publish sequence is atomic while it consists of two
-  calls. Record the transition and recovery path before production cutover.
+- Release each new package independently after exact-SHA staging checks and
+  a zero-active-attempt drain query.
+- A failed archive→publish sequence must re-publish v1.0 and reopen starts;
+  retain all historical learner attempts. See [rollout.md](rollout.md).
 
 ## Verification strategy
 
