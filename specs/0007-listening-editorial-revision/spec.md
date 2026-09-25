@@ -53,7 +53,8 @@ answering.
 - A learner chooses English or Vietnamese on a completely reviewed form,
   answers and revises normally, and can return to the original language.
 - An operator validates and imports new package IDs as non-public content,
-  inspects a complete diff, and seeks owner approval before publish.
+  inspects a complete diff, and records direct owner or explicitly delegated
+  editorial approval before publish.
 
 ## Requirements
 
@@ -78,7 +79,16 @@ answering.
   metadata counts, and translation coverage before import. Dry-run stays pure.
 - **FR-007:** Import/publish remains package-scoped and idempotent. New revisions
   stage unpublished first; exact-SHA staging and representative learner review
-  in both themes precede an explicit owner publish decision.
+  in both themes precede an explicit owner publish decision or a documented
+  owner delegation of that decision.
+- **FR-008:** Revision cutover must account for in-progress v1.0 attempts. A
+  learner must not silently lose saved answers or be shown an unusable resume
+  link; the selected cutover policy and any interruption window are explicit
+  before direct or delegated publish approval.
+- **FR-009:** A form using a learner visual offers a language switch only when
+  its visible labels, title/description and accessible alternative are also
+  reviewed in both languages. Localized visual variants preserve the same
+  geometry, answer-letter anchors and protected-answer boundary.
 
 ## Review and release gates
 
@@ -89,7 +99,8 @@ answering.
 3. Validate and dry-run new packages without changing the current release
    index. Compare old/new IDs, counts, hashes, answers, media and timing.
 4. Import the approved revision as non-public, check representative forms and
-   existing attempts, then request explicit owner approval before publish.
+   existing attempts, then publish only under direct owner approval or the
+   recorded owner delegation, with all technical gates passing.
 
 ## Acceptance scenarios
 
@@ -100,7 +111,8 @@ answering.
 - A fully reviewed form switches all prompts and choice labels between English
   and Vietnamese while answers, immediate feedback, and resume remain stable.
 - Existing v1.0 attempts remain viewable if the new revision is unpublished,
-  published, or rolled back.
+  published, or rolled back; submitted attempt review is preserved, and the
+  chosen policy for in-progress attempts is verified separately.
 - Loading, empty, error/retry, permission, mobile/desktop, keyboard, reduced
   motion, and light/dark states remain usable on affected learner surfaces.
 
@@ -108,10 +120,16 @@ answering.
 
 - A corrected source prompt, changed choice label, stale translation ID,
   incomplete option set, or unreviewed form remains original-language only.
+- A translated map question with an untranslated English diagram remains
+  original-language only; a reviewed visual variant preserves the same A–F
+  or P–U positions and remains legible in light/dark themes.
 - A learner switching language after a saved or revealed answer retains the
   same selected option key and feedback; no duplicate attempt is created.
 - A failed import, interrupted publish, or archived new revision leaves v1.0
   available and preserves existing attempt history.
+- The current database permits only one published package per programme. A
+  cutover must verify the old/new status transition and active-attempt policy
+  rather than treating two independent status calls as atomic.
 
 ## Success criteria
 
@@ -120,13 +138,17 @@ answering.
 - All 1,045 items are covered by reviewed bilingual text and choice labels,
   with zero source mismatches or missing/duplicate IDs.
 - Full package validation, import dry-run, exact-SHA staging checks, and
-  representative bilingual learner journeys pass before a publish request.
+  representative bilingual learner journeys pass before publication.
 
-## Open questions
+## Decisions and remaining gates
 
 - The owner approved this contract, the 65/9/5 metadata packet, and batch 01's
   44 items against PR #1501 head `c19e7febb2b0a279c23b07d2d100799f6ffae93c`
-  on 2026-09-24. Batches 02–68 and the final package/publication remain pending.
-- Should the full translation corpus ship in one new revision after all batches,
-  or in independently versioned programme revisions? Decide before rollout;
+  on 2026-09-24. The owner later delegated editorial validation and release
+  without personally reviewing the remaining items. Publication
+  remains subject to all technical gates.
+- The full translation corpus will ship as one new v1.1 package per programme;
   never republish an existing package ID with changed bytes.
+- The owner chose to block new v1.0 starts and wait for active v1.0 attempts
+  to finish or expire before the controlled cutover. The current unique
+  published-package index rules out simultaneous v1.0/v1.1 publication.
