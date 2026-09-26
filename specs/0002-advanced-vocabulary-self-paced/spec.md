@@ -1,7 +1,7 @@
 ---
 id: AVOC-0002
 title: Advanced Vocabulary self-paced core 30
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

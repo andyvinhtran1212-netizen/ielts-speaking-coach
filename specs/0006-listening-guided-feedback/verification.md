@@ -27,6 +27,9 @@ After the owner clarified the deletion policy, the changed migration and its
 regression test passed a 658-test Listening/migration-policy suite on disposable
 PostgreSQL; direct ledger DELETE was rejected and parent attempt DELETE cascaded.
 
-Exact staging and production SHA, staging migration ledger, live route contract,
-protected-content sentinel, and production smoke journey remain pending.
-Local checks do not establish that implementation or production promotion is complete.
+Implementation PR #1490 merged at staging
+`a51514f0e58cb43ef1580b792688d3c5fa9df922` and is included in the production
+revision recorded in the [2026-09-26 status ledger](../IMPLEMENTATION_STATUS.md).
+Feature-specific hosted migration ledger, live route contract, protected-content
+sentinel and authenticated production smoke evidence remain pending. The code
+is integrated; those acceptance items still keep T009 open.

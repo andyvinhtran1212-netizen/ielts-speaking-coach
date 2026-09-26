@@ -99,6 +99,19 @@ Database setup depends on the target's schema and migration ledger. Follow the
 numbered directory with a shell loop or baseline an existing database to hide
 drift. Migrations are separate from application auto-deploys.
 
+When changing the committed static Tailwind CSS, install its separate locked
+toolchain in the current checkout before rebuilding:
+
+```bash
+cd frontend
+npm run build:css:setup
+npm run build:css
+```
+
+Dependency directories stay ignored. Do not commit a `node_modules` symlink or
+an absolute path to another checkout. CI installs this same isolated toolchain
+and checks that the generated CSS matches the committed files.
+
 ## Development and verification
 
 1. Inspect the working tree, applicable agent instructions and existing
@@ -137,3 +150,9 @@ executes a task. Personal settings, credentials, generated graphs and local
 verification artifacts stay ignored.
 
 Internal project; not currently open-source.
+
+## Documentation navigation
+
+Use the [documentation map](docs/README.md) for current runbooks and historical
+context, and the [implementation status ledger](specs/IMPLEMENTATION_STATUS.md)
+for outstanding feature acceptance.

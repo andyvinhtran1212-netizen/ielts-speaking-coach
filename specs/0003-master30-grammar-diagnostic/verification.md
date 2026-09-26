@@ -65,10 +65,12 @@ verified.
 
 ## Remaining production activation gate
 
-- Merge promotion PR only after its current-head CI and exact-SHA promotion gate
-  pass.
-- Record the resulting main merge SHA, then wait for both production frontend and
-  backend release markers to match it and pass live smoke.
-- Only then enable `master30_grammar_diagnostic`; keep
-  `master30_grammar_self_serve=false`, re-query the release/count/flag invariants,
-  and retain the database flag as the immediate rollback switch.
+- Promotion #1449 merged as `23bce5451aee23cf39566ecee5728b4073906e27`.
+  The [2026-09-26 integration snapshot](../IMPLEMENTATION_STATUS.md) records a
+  later verified deployment containing it. Code promotion is complete.
+- The dark-launch flag readback above is historical; re-query current flags and
+  obtain the feature activation decision before changing them.
+- After the remaining feature-specific smoke and activation authorization, enable
+  `master30_grammar_diagnostic`; keep `master30_grammar_self_serve=false`,
+  re-query release/count/flag invariants, and retain the database flag as the
+  immediate rollback switch.

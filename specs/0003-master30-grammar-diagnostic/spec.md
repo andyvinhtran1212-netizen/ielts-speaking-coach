@@ -1,7 +1,7 @@
 ---
 id: MASTER30-0003
 title: MASTER30 Grammar Diagnostic and Adaptive Review
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

@@ -1,7 +1,7 @@
 ---
 id: LISTENING-0007
 title: Versioned Listening editorial revision and bilingual questions
-status: approved
+status: implementing
 risk: high
 owner: product
 ---
