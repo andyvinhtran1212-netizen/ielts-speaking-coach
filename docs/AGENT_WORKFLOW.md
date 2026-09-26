@@ -102,8 +102,11 @@ An intentional behavior change may update its tests with the contract change.
 
 GitHub CI verifies the consolidated patch. Preserve the three-round reset and
 five-round limit in `AGENTS.md`; do not use successive pushes as a debugging
-loop. Use the repository hook in `scripts/hooks/` when configuring pre-push
-checks; personal stop hooks are not the authoritative verification record.
+loop. Install the repository pre-push gate with `./scripts/hooks/install.sh`.
+The shared wrapper resolves the checkout being pushed and clears Git's
+repository-local environment before running tests that create temporary repos.
+It remains usable after the worktree used to install it is removed. Personal
+stop hooks are not the authoritative verification record.
 
 ## Review, release and completion
 
