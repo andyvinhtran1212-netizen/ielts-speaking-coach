@@ -81,9 +81,12 @@
 
 ## Release evidence
 
-- Staging SHA and checks: pending approved spec, implementation merge, migration,
-  targeted and full relevant suites, exact package manifest hashes, import
-  reconciliation, publish/rollback drill, and observation.
-- Production verification: pending owner-authorized staging-to-main promotion,
-  production migration, non-public import, sequential package publication, exact
-  SHA, public counts, protected-field sentinel, null-band query, and smoke journeys.
+- Implementation is integrated. The current package publication and migration
+  readback is maintained in the [Listening v1.1 verification record](../0007-listening-editorial-revision/verification.md).
+  Both programmes are published; earlier pre-import expectations in this file
+  are acceptance requirements, not a claim that deployment has not happened.
+- Reconcile T011 against the published manifests and source/database/object counts.
+  T012 protected-field sentinel, null-band query, publish/rollback drill,
+  authenticated journeys and observation evidence remain open.
+- The [2026-09-26 status ledger](../IMPLEMENTATION_STATUS.md) records the later
+  integrated code deployment separately from those feature acceptance gates.

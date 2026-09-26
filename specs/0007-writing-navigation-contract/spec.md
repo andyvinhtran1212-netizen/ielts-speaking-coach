@@ -1,7 +1,7 @@
 ---
 id: WRITINGNAV-0007
 title: Canonical admin Writing navigation context
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

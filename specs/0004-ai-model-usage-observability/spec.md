@@ -1,7 +1,7 @@
 ---
 id: AI-0004
 title: AI model usage observability and controlled model rollout
-status: approved
+status: implementing
 risk: high
 owner: product
 ---
