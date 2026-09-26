@@ -7,102 +7,24 @@
   "provider": "azure",
   "voice_engine": "kokoro",
   "voice": "bf_emma",
-  "playback_rates": [
-    0.85,
-    1.0
-  ],
-  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
-  "selection_seed": 20260914,
+  "playback_rates": [0.85, 1.0],
+  "source_document": "B13_Non-finite pronunciation list (user attachment, 2026-09-26)",
+  "selection_seed": 20260926,
   "sentences": [
-    {
-      "id": "C1-B13-PRON-V1-01",
-      "order": 1,
-      "source_section": "Ving postmodifier",
-      "text": "Rising sea levels threaten the communities living in the Mekong Delta."
-    },
-    {
-      "id": "C1-B13-PRON-V1-02",
-      "order": 2,
-      "source_section": "V3ed postmodifier",
-      "text": "The measures introduced last year have reduced traffic congestion in central Hanoi."
-    },
-    {
-      "id": "C1-B13-PRON-V1-03",
-      "order": 3,
-      "source_section": "emotion adjective",
-      "text": "Most first-year students find online lectures confusing."
-    },
-    {
-      "id": "C1-B13-PRON-V1-04",
-      "order": 4,
-      "source_section": "Ving subject and modifier",
-      "text": "Working from home suits employees caring for young children."
-    },
-    {
-      "id": "C1-B13-PRON-V1-05",
-      "order": 5,
-      "source_section": "to infinitive purpose",
-      "text": "Da Nang has built new lanes to encourage cycling."
-    },
-    {
-      "id": "C1-B13-PRON-V1-06",
-      "order": 6,
-      "source_section": "to infinitive adjective role",
-      "text": "The country urgently needs a policy to control industrial waste."
-    },
-    {
-      "id": "C1-B13-PRON-V1-07",
-      "order": 7,
-      "source_section": "verb plus to infinitive",
-      "text": "The city council plans to expand the metro network next year."
-    },
-    {
-      "id": "C1-B13-PRON-V1-08",
-      "order": 8,
-      "source_section": "verb plus gerund",
-      "text": "Students should avoid relying on machine translation."
-    },
-    {
-      "id": "C1-B13-PRON-V1-09",
-      "order": 9,
-      "source_section": "object plus to infinitive",
-      "text": "Many companies now allow employees to work remotely two days a week."
-    },
-    {
-      "id": "C1-B13-PRON-V1-10",
-      "order": 10,
-      "source_section": "object plus to infinitive",
-      "text": "Rising rents have forced many young workers to leave the city centre."
-    },
-    {
-      "id": "C1-B13-PRON-V1-11",
-      "order": 11,
-      "source_section": "Ving subject",
-      "text": "Reading English books regularly helps me learn new vocabulary."
-    },
-    {
-      "id": "C1-B13-PRON-V1-12",
-      "order": 12,
-      "source_section": "to infinitive subject",
-      "text": "To master a second language takes years of steady work."
-    },
-    {
-      "id": "C1-B13-PRON-V1-13",
-      "order": 13,
-      "source_section": "to infinitive subject",
-      "text": "To speak three languages fluently requires years of practice."
-    },
-    {
-      "id": "C1-B13-PRON-V1-14",
-      "order": 14,
-      "source_section": "wh plus infinitive",
-      "text": "Nobody has explained how to fund the programme."
-    },
-    {
-      "id": "C1-B13-PRON-V1-15",
-      "order": 15,
-      "source_section": "dummy it",
-      "text": "It is very difficult to make everyone happy."
-    }
+    {"id": "C1-B13-PRON-V2-01", "order": 1, "source_section": "V-ing modifier", "text": "A burning candle lit the table during our evening study session."},
+    {"id": "C1-B13-PRON-V2-02", "order": 2, "source_section": "V-ing modifier", "text": "The boiling water spilled onto the kitchen floor this morning."},
+    {"id": "C1-B13-PRON-V2-03", "order": 3, "source_section": "V3/-ed modifier", "text": "The broken cup lay on the kitchen floor beside the table."},
+    {"id": "C1-B13-PRON-V2-04", "order": 4, "source_section": "V3/-ed modifier", "text": "The damaged road was repaired before the school term began after several weeks of heavy rain."},
+    {"id": "C1-B13-PRON-V2-05", "order": 5, "source_section": "Emotion adjectives -ing/-ed", "text": "The students felt bored during the long lesson on local history."},
+    {"id": "C1-B13-PRON-V2-06", "order": 6, "source_section": "Emotion adjectives -ing/-ed", "text": "The examination results have been surprising for many teachers and parents across the district this year."},
+    {"id": "C1-B13-PRON-V2-07", "order": 7, "source_section": "Gerund V-ing", "text": "I enjoy cooking simple meals with my family at weekends."},
+    {"id": "C1-B13-PRON-V2-08", "order": 8, "source_section": "Gerund V-ing", "text": "The students are interested in practising with the new software before their first group project begins."},
+    {"id": "C1-B13-PRON-V2-09", "order": 9, "source_section": "to V0 noun role", "text": "I want to rest after a long day at school."},
+    {"id": "C1-B13-PRON-V2-10", "order": 10, "source_section": "Noun plus to V0", "text": "She needs a quiet place to stay during the university entrance exam."},
+    {"id": "C1-B13-PRON-V2-11", "order": 11, "source_section": "Noun plus to V0", "text": "They have a practical plan to reduce waste across the school campus."},
+    {"id": "C1-B13-PRON-V2-12", "order": 12, "source_section": "to V0 purpose", "text": "He studies every evening to pass the important entrance test next month."},
+    {"id": "C1-B13-PRON-V2-13", "order": 13, "source_section": "to V0 purpose", "text": "We left home early to avoid the heavy traffic on the main road."},
+    {"id": "C1-B13-PRON-V2-14", "order": 14, "source_section": "Bare V0 after modal", "text": "They should wait near the school gate for their teacher."},
+    {"id": "C1-B13-PRON-V2-15", "order": 15, "source_section": "Bare V0 after let", "text": "Please let me help you with the difficult science project."}
   ]
 }
