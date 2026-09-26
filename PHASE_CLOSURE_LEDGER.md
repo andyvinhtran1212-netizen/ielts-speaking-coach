@@ -1,6 +1,9 @@
 # Phase Closure Ledger
 
-Single source-of-truth tracking page redesigns + PR refs + closure status across Phases 1-4.
+Historical evidence tracking page redesigns, PR refs and recorded closure status.
+For current work, use [active specs](specs/README.md), source/tests and exact-SHA
+release evidence under [the release flow](docs/STAGING_FIRST_RELEASE_FLOW.md).
+The dated entries below are not a live backlog or proof of today's deploy state.
 
 **Last updated:** Sprint 10.0 (2026-05-15) — vocabulary workflow discovery audit (no production code changes)
 **Last updated:** Sprint 10.1.5-hotfix (2026-05-15) — backend pytest realignment to Sprint 10.1.5 capture-re-architecture intent

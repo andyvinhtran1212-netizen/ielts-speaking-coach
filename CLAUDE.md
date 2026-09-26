@@ -1,5 +1,10 @@
 # IELTS Speaking Coach — Project Guide for Claude
 
+Read `AGENTS.md` for the shared working agreement and domain invariants.
+`docs/AGENT_WORKFLOW.md` covers worktrees, authorization, verification and
+completion evidence; this file provides implementation context. Tool-specific
+guidance follows that agreement.
+
 ## What this project is
 
 IELTS Speaking Coach **began** as a Speaking practice app and is now a
@@ -25,7 +30,9 @@ deployed.
 - Full procedure: `docs/STAGING_FIRST_RELEASE_FLOW.md`.
 
 ### Product direction (pivot — 2026-06-27)
-- **Scope is no longer Speaking-only.** Writing is now first-class; Reading/Listening follow. Build out **both Speaking and Writing** content (grammar articles, exercises, sample answers).
+- **Scope is no longer Speaking-only.** Speaking, Writing, Reading and Listening
+  are live product areas. Grammar content may support any of these skills;
+  consult the active spec for the scope of a particular change.
 - This **supersedes the "FREEZE non-Speaking content" gate** in `docs/GRAMMAR_HANDOFF_consolidated_2026-06-27.md` §I.3, which was written for the Speaking-only era. Grammar Wiki articles targeting Writing (e.g. Task 1 / Task 2 grammar) are valid, intended content — not scope-creep.
 - The pivot **widens scope without lowering quality bars**: truthful feedback, canonical admin data, no silent failures, and internally-consistent Grammar Wiki metadata all still hold.
 
@@ -214,13 +221,17 @@ Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 5
 
 ## Skills (invoke with /skill-name)
 
+Canonical files are versioned under `.agents/skills/`; `.claude/skills` is a
+relative symlink to the same directory. Personal settings remain ignored.
+
 | Skill | Path | When to use |
 |-------|------|-------------|
-| `/new-feature` | `.claude/skills/new-feature/SKILL.md` | Add a new feature: migration + service + router + frontend |
-| `/db-migrate` | `.claude/skills/db-migrate/SKILL.md` | Create a new SQL migration, auto-detect sequence number |
-| `/api-route` | `.claude/skills/api-route/SKILL.md` | Scaffold FastAPI route with correct auth/Supabase pattern |
-| `/review` | `.claude/skills/review/SKILL.md` | Review code before commit/deploy: security, schema, AI calls |
-| `/ui-review` | `.claude/skills/ui-review/SKILL.md` | Review UI/UX theo design system --av-*: token compliance, layout shell, theme, typography, chrome spacing, a11y |
+| `/new-feature` | `.agents/skills/new-feature/SKILL.md` | Implement an approved feature using the existing product contracts |
+| `/db-migrate` | `.agents/skills/db-migrate/SKILL.md` | Create a forward migration with ledger and staging checks |
+| `/api-route` | `.agents/skills/api-route/SKILL.md` | Add a FastAPI route with the domain's auth and data boundary |
+| `/review` | `.agents/skills/review/SKILL.md` | Review contracts, security, schema and release evidence |
+| `/ui-review` | `.agents/skills/ui-review/SKILL.md` | Review Next UI, design tokens, theme and accessibility |
+| `/test` | `.agents/skills/test/SKILL.md` | Run relevant verification in the current worktree |
 
 ---
 
@@ -230,14 +241,19 @@ Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 5
   verify the complete session chain and persisted finalization contract.
 - PDF export: `GET /sessions/{session_id}/export/pdf` — works. Uses ReportLab (`backend/services/pdf_generator.py`), pure Python, zero system deps (`fonts-dejavu-core` installed via `backend/nixpacks.toml` for Vietnamese glyphs). Migrated off WeasyPrint in commit `a1208a2b`; keep its content aligned with the current Next result surface.
 - Grammar recommendations: server-side (`grammar_recommendations` table, persisted per practice response); frontend keyword matching in `frontend/public/js/practice.js` is fallback only
-- Progress tracking: none — no band trend charts, no weakness tracking across sessions
+- Progress surfaces differ by domain; inspect the relevant dashboard/progress
+  route and persisted aggregates before claiming a feature is absent.
 - `sessions.tokens_used` column must exist in Supabase for token tracking to work
-- `audio-responses` bucket must be public in Supabase Storage for audio replay to work
+- `audio-responses` is private. Authorized playback uses short-lived signed URLs
+  from `backend/services/recording_audio.py`; never restore public-bucket access
+  or use a persisted public URL as an error fallback.
 
 ---
 
 ## Definition of Done (trước khi báo "xong")
-- Chạy backend: `cd backend && python -m pytest tests/ -q`
-- Chạy frontend: `node --test` cho các test liên quan trong frontend/tests/
-- KHÔNG sửa/skip/xfail/--ignore test để ép xanh. Test đỏ → sửa CODE.
+- Chạy kiểm tra theo lớp bị ảnh hưởng và lệnh chuẩn trong
+  `docs/AGENT_WORKFLOW.md`, trên đúng worktree/commit đang thay đổi.
+- Ghi rõ test pass/fail/skip và phần chưa kiểm chứng; release phải gắn đúng SHA.
+- Không sửa/skip/xfail/--ignore test để che lỗi. Nếu contract thay đổi có chủ ý,
+  cập nhật test cùng thay đổi đó và giải thích.
 - Trong Plan Mode: nêu thay đổi người-dùng-thấy bằng tiếng Việt TRƯỚC, rồi mới tới phần kỹ thuật.

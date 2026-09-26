@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend-next",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd frontend && AVER_ENVIRONMENT=test AVER_API_BASE=http://localhost:8000 npm run dev -- --port 3000"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "backend-api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd backend && venv/bin/python -m uvicorn main:app --port 8000"
+      ],
+      "port": 8000
+    }
+  ]
+}

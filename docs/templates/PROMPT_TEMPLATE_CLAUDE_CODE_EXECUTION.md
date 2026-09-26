@@ -1,77 +1,37 @@
-# Template: Claude Code Execution Prompt
+# Template: implementation prompt
 
-Use khi gửi Claude Code thực thi `PHASE_*_PLAN.md`.
+Use with Claude Code or another implementation agent.
 
-## Header bắt buộc
+## Prompt
 
-```
-Branch: feature/<descriptive-name>
-Base: main (verify trước khi start)
-Spec: <PLAN_FILE>.md (authoritative)
-```
+Task: <requested outcome>
+Branch: codex/<descriptive-name>
+Base and PR target: staging (start from freshly fetched origin/staging)
+Change class: <hotfix | small | content | feature | high-risk>
+Spec: <approved spec ID or N/A where permitted>
 
-## Anti-pattern alerts MUST include
+Read `AGENTS.md`, `docs/AGENT_WORKFLOW.md`, the applicable directory instructions
+and approved spec. Inspect worktree status and preserve unrelated work.
 
-```markdown
-## Anti-pattern alerts (lessons từ all previous phases)
+Implement the smallest complete change. Verify backend/frontend shapes, resource
+ownership and persisted truth together. Use Next App Router for frontend work;
+retired HTML fixtures are regression evidence. Follow the existing domain's
+authenticated DB boundary; a service-role query requires explicit authorization
+and ownership checks because it bypasses RLS.
 
-⚠️ **Cross-file dependency check:**
-\```bash
-grep -rn "<feature_keyword>" frontend/ backend/
-\```
-Update TẤT CẢ entry points.
+Apply these task-specific requirements:
+<acceptance criteria and explicit boundaries>
 
-⚠️ **Page template parity:**
-Khi tạo HTML page mới, copy init scripts từ reference page.
-Run `bash backend/scripts/verify_page_parity.sh` sau khi tạo.
+Before pushing, inspect the complete diff, consolidate related findings, and run
+targeted checks followed by the affected local suites from
+`docs/AGENT_WORKFLOW.md`. Report skips and missing prerequisites honestly.
+Do not push after every numbered step or use CI to discover known local failures.
+Observe the three-round reset and five-round limit in `AGENTS.md`.
 
-⚠️ **RLS WITH CHECK:**
-Mỗi UPDATE policy phải có CẢ USING + WITH CHECK.
+Continue already authorized routine work. Ask when a material scope decision,
+missing prerequisite or unauthorized action blocks completion; do not add a
+checkpoint solely because this is an agent task.
 
-⚠️ **Service role chỉ trong admin/background:**
-User-facing routes dùng `_user_sb` (RLS-scoped), KHÔNG `supabase_admin`.
-
-⚠️ **Default-deny feature flag:**
-Strict `is True` check, exception → False, default OFF.
-
-⚠️ **Migration rollback:**
-Comment `-- ROLLBACK SCRIPT (commented):` ở cuối mỗi migration.
-
-⚠️ **Hardcoded URL:**
-Frontend dùng `window.api.base`, KHÔNG duplicate fallback logic.
-
-⚠️ **Live test infra day 1:**
-Setup script + test skeletons TRƯỚC code feature.
-```
-
-## Step-by-step pattern
-
-Yêu cầu Claude Code:
-- Commit + push sau mỗi numbered step
-- Pause checkpoint sau steps có RLS hoặc cross-phase impact
-- Wait user confirm trước khi tiếp
-
-## Verify pre-push
-
-```markdown
-\```bash
-cd backend
-pytest tests/<new_test_files> -v
-pytest tests/<regression_test_files> -v
-bash scripts/verify_page_parity.sh
-
-# Live RLS (không skip)
-set -a; source backend/.env.staging; source backend/.env.staging.test; set +a
-pytest tests/<live_test_file> -v
-\```
-
-All pass.
-```
-
-## Red flags — STOP và hỏi
-
-- Migration conflict với schema hiện có
-- Pattern `feature_flags` không support extend
-- Schema thiếu field plan reference (verify với Rule 1)
-- Performance issue khi query
-- Bất kỳ uncertainty
+Open the PR against staging. If production release is included in the user's
+authorization, follow `docs/STAGING_FIRST_RELEASE_FLOW.md` and verify each exact
+SHA. Report changed files, verification, PR/SHA, remaining work and retained WIP.
