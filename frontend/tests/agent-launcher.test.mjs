@@ -60,11 +60,45 @@ test('launcher accepts an explicit development Supabase pair', () => {
 });
 
 test('production auth override fails before Next starts', () => {
-  launch({ VERCEL_ENV: 'production', AVER_SUPABASE_URL: 'https://huwsmtubwulikhlmcirx.supabase.co' },
+  launch({ VERCEL_ENV: 'production', AVER_SUPABASE_URL: 'https://huwsmtubwulikhlmcirx.supabase.co', AVER_SUPABASE_ANON_KEY: 'production-public-key' },
     (result, config, started) => {
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /REFUSING to build/);
       assert.equal(config, undefined);
       assert.equal(started, false);
     });
+});
+
+for (const overrides of [
+  { AVER_SUPABASE_URL: 'https://dev-project.supabase.co' },
+  { AVER_SUPABASE_ANON_KEY: 'dev-public-key' },
+  { AVER_SUPABASE_URL: 'https://dev-project.supabase.co', AVER_SUPABASE_ANON_KEY: '' },
+  { AVER_SUPABASE_URL: '', AVER_SUPABASE_ANON_KEY: 'dev-public-key' },
+]) {
+  test('partial Supabase override fails before Next: ' + JSON.stringify(overrides), () => {
+    launch(overrides, (result, config, started) => {
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /Set both AVER_SUPABASE_URL and AVER_SUPABASE_ANON_KEY/);
+      assert.equal(config, undefined);
+      assert.equal(started, false);
+    });
+  });
+}
+
+test('empty override pair uses the staging preset', () => {
+  launch({ AVER_SUPABASE_URL: '', AVER_SUPABASE_ANON_KEY: '' }, (result, config, started) => {
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(started);
+    assert.equal(config.supabaseUrl, 'https://zjphffoujxkpltixsbzj.supabase.co');
+    assert.ok(config.supabaseAnonKey);
+  });
+});
+
+test('inherited output override cannot leave served runtime config unconfigured', () => {
+  launch({ AVER_RUNTIME_CONFIG_OUT: '/dev/null' }, (result, config, started) => {
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(started);
+    assert.equal(config.apiBase, 'http://localhost:8000');
+    assert.equal(config.supabaseUrl, 'https://zjphffoujxkpltixsbzj.supabase.co');
+  });
 });

@@ -125,7 +125,9 @@ The installed Next launcher generates runtime config before starting the server.
 It defaults to the canonical staging Supabase project and the local backend;
 configure that backend for the same project. To use a different development
 project, provide both `AVER_SUPABASE_URL` and `AVER_SUPABASE_ANON_KEY` in the
-launcher environment. Known production origins are rejected by the generator.
+launcher environment. A partial pair is rejected before startup. The launcher
+always writes the served runtime file, ignoring AVER_RUNTIME_CONFIG_OUT. Known
+production origins are rejected by the generator.
 
 Project skills cover `/new-feature`, `/api-route`, `/db-migrate`, `/review`,
 `/ui-review` and `/test`. Shared instructions apply regardless of which agent

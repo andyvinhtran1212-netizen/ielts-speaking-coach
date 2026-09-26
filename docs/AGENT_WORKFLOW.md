@@ -157,6 +157,8 @@ starting Next it generates runtime config with the canonical staging Supabase
 preset, local API and test environment; the generator rejects known production
 origins. Set both `AVER_SUPABASE_URL` and `AVER_SUPABASE_ANON_KEY` in the launch
 environment to use another non-production project, and match the backend to it.
+Partial pairs fail before startup; AVER_RUNTIME_CONFIG_OUT is cleared so the
+launcher always updates the served runtime file.
 Environment files, caches and generated knowledge graphs remain outside version
 control.
 
