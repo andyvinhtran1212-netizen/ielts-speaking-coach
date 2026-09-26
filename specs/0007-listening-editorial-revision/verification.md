@@ -15,8 +15,8 @@ production at 2026-09-25 06:31 UTC.
 The release used staging SHA `8323f57256a4fbfa599bba389d7b7608fb16a0ac`
 and promotion PR [#1517](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1517),
 merged as `3c252fa8486da41fe58eca23e12b81327d804eb9`. All seven push
-workflows for each SHA completed successfully. The current production runtime
-marker reports `e72967d90743f0706d4fe731276184dbbb28c8f4`, which contains
+workflows for each SHA completed successfully. At that readback, the production runtime
+marker reported `e72967d90743f0706d4fe731276184dbbb28c8f4`, which contains
 that promotion commit. The production package readback showed one active
 General v1.1 attempt; no active v1.0 attempt appeared in either database at
 the time of this check. These counts are a point-in-time observation.

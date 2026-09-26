@@ -58,6 +58,15 @@ Queue from a frame-policy regression discovered during direct admin smoke.
   end-to-end Writing smoke. The same-origin-only allowlist for Grade and Status
   reached staging in PR #1500 at `d31c22311e748e3e2f64e231e486b5bd8bb1fefc`,
   but promotion review found that Grade applied `embed` after its admin chrome
-  mounted. This fix renders the Grade chrome's `embed` attribute from the
-  server query, before the custom element upgrades. Production verification
-  is required on the resulting promotion SHA.
+  mounted. PR #1503 rendered that attribute from the server query before the
+  custom element upgrades, and promotion #1502 merged at
+  `ba690e2c0`. Both fixes are included in the later production deployment in
+  the [integration ledger](../IMPLEMENTATION_STATUS.md). This closes the release
+  task T004; it does not establish the direct authenticated journey passed.
+
+## Remaining production acceptance — T005
+
+Record the deployed SHA and authenticated Mock Writing Queue → Status/Grade →
+Queue journey after the frame/embed fixes, preserved filters/page context,
+immediate state versus reload and the existing FR-004/FR-005 UI matrix.
+The task checklist and implementation ledger keep this acceptance open.

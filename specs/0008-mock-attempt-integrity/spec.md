@@ -1,7 +1,7 @@
 ---
 id: MOCKATTACH-0008
 title: Mock Reading and Listening attempt integrity
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

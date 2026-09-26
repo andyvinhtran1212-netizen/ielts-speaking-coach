@@ -41,8 +41,10 @@
   regression, and live Staging release smoke. The smoke verified matching
   frontend and backend deployment markers. This is the completed T001–T005
   evidence for the original implementation.
-- Promotion review found a retake expiry regression. This focused follow-up
-  must pass its own PR checks and produce a new exact staging SHA with the same
-  integrated and live smoke evidence before promotion. Its final SHA belongs
-  in the promotion PR and CI record; the earlier SHA above remains historical.
-- Promotion gate, production marker, and focused learner/operator smoke: PENDING.
+- Promotion review found a retake expiry regression that was subsequently fixed
+  and integrated. The later production promotion #1525 merged as
+  `dc74331dcaa82f85f25c709ccc6b730fa9cb7d55`; the
+  [2026-09-26 integration snapshot](../IMPLEMENTATION_STATUS.md) records a later
+  successful exact-SHA release. The earlier staging SHA above is historical.
+- Promotion and deployment are recorded. Focused learner/operator persisted-link,
+  collect/advance and reload acceptance remains PENDING, keeping T006 open.

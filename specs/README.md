@@ -62,13 +62,15 @@ draft -> approved -> implementing -> verified -> shipped
 | ID | Feature | Status | Risk | Spec |
 | --- | --- | --- | --- | --- |
 | SDD-0000 | Lean spec-driven development foundation | shipped | medium | [spec](0000-sdd-foundation/spec.md) |
-| GRAMMAR-0001 | Timed grammar midterm assessment banks | approved | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |
-| AVOC-0002 | Advanced Vocabulary self-paced core 30 | approved | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
-| MASTER30-0003 | MASTER30 Grammar Diagnostic and Adaptive Review | approved | high | [spec](0003-master30-grammar-diagnostic/spec.md) |
-| AI-0004 | AI model usage observability and controlled model rollout | approved | high | [spec](0004-ai-model-usage-observability/spec.md) |
-| LISTENING-0005 | Listening content programmes, import and learner hub | approved | high | [spec](0005-listening-content-programmes/spec.md) |
-| LISTENING-0006 | Guided per-question Listening feedback | approved | high | [spec](0006-listening-guided-feedback/spec.md) |
-| LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | approved | high | [spec](0007-listening-editorial-revision/spec.md) |
-| MOCKOPS-0006 | Admin Mock Test operations workspace at scale | approved | high | [spec](0006-admin-mock-test-operations/spec.md) |
-| WRITINGNAV-0007 | Canonical admin Writing navigation context | approved | high | [spec](0007-writing-navigation-contract/spec.md) |
-| MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | approved | high | [spec](0008-mock-attempt-integrity/spec.md) |
+| GRAMMAR-0001 | Timed grammar midterm assessment banks | implementing | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |
+| AVOC-0002 | Advanced Vocabulary self-paced core 30 | implementing | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
+| MASTER30-0003 | MASTER30 Grammar Diagnostic and Adaptive Review | implementing | high | [spec](0003-master30-grammar-diagnostic/spec.md) |
+| AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
+| LISTENING-0005 | Listening content programmes, import and learner hub | implementing | high | [spec](0005-listening-content-programmes/spec.md) |
+| LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |
+| LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | implementing | high | [spec](0007-listening-editorial-revision/spec.md) |
+| MOCKOPS-0006 | Admin Mock Test operations workspace at scale | implementing | high | [spec](0006-admin-mock-test-operations/spec.md) |
+| WRITINGNAV-0007 | Canonical admin Writing navigation context | implementing | high | [spec](0007-writing-navigation-contract/spec.md) |
+| MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
+
+Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.

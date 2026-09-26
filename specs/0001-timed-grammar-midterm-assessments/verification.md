@@ -41,6 +41,8 @@
 
 ## Release evidence
 
-- Staging SHA and required checks: pending implementation PR.
-- Production migration, deployment, and two-bank invariant queries: pending
-  authorized promotion.
+- Implementation is present in the integrated tree recorded in the
+  [2026-09-26 status ledger](../IMPLEMENTATION_STATUS.md). Reconcile each task
+  against its approved revision before marking it complete.
+- Feature-specific hosted migration, two-bank invariant queries and authenticated
+  behavior evidence remain pending; integration CI does not close these gates.
