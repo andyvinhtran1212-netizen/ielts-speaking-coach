@@ -1,12 +1,14 @@
-# Listening v1.0 → v1.1 cutover decision (local draft)
+# Listening v1.0 → v1.1 cutover decision (historical preflight)
 
-Status: owner selected choice A (drain then cut over). A gate implementation
-exists only as uncommitted work in the separate Listening runtime worktree
-(`303_listening_v1_start_drain_gate.sql` plus route/tests); it has not been
-applied or enabled on staging/production. No package status or learner attempt
-has been changed, and v1.1 is not approved for publication. The owner clarified
-that no further translated question, SVG or audio content has been approved;
-permission was only to continue preparation.
+Current status as of 2026-09-26: choice A (drain then cut over) was used.
+Migration 303 is recorded in both database ledgers; both v1.0 packages are
+archived, both v1.1 packages are published, and both v1.0 start-drain gates
+are `true`. The delegated editorial decision is recorded in
+[DELEGATED-RELEASE-DECISION.md](DELEGATED-RELEASE-DECISION.md). See
+[verification.md](verification.md) for the read-only release check and its
+remaining evidence limits. The contract analysis and operator choices below
+were written before cutover; they are retained as historical preflight, not
+instructions to repeat the completed publication.
 
 Code evidence below was audited against `origin/staging` at
 `87c8b535b624e3c0d712db5d48f95f34c18f5784`; re-audit if that head moves.
