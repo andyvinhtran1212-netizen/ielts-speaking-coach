@@ -29,8 +29,14 @@ def test_all_twenty_lessons_have_exactly_fifteen_medium_length_sentences():
         assert data["bank_code"] == f"C1-B{lesson:02d}"
         assert data["requirement_id"] == f"TM20-B{lesson:02d}-PHAT-AM"
         assert data["role"] == "bài luyện phát âm — nghe và nhắc lại"
-        assert data["source_document"] == SOURCE_DOCUMENT
-        assert data["selection_seed"] == 20260914
+        if lesson == 13:
+            assert data["source_document"] == (
+                "B13_Non-finite pronunciation list (user attachment, 2026-09-26)"
+            )
+            assert data["selection_seed"] == 20260926
+        else:
+            assert data["source_document"] == SOURCE_DOCUMENT
+            assert data["selection_seed"] == 20260914
         assert len(sentences) == 15
         assert [row["order"] for row in sentences] == list(range(1, 16))
         assert len({row["id"] for row in sentences}) == 15
@@ -67,3 +73,15 @@ def test_b12_revision_uses_v2_ids_to_invalidate_cached_v1_recordings():
     assert [row["id"] for row in data["sentences"]] == [
         f"C1-B12-PRON-V2-{order:02d}" for order in range(1, 16)
     ]
+
+
+def test_b13_revision_covers_all_eight_non_finite_topics():
+    data = json.loads((CONTENT / "C1-B13.json").read_text(encoding="utf-8"))
+    assert [row["id"] for row in data["sentences"]] == [
+        f"C1-B13-PRON-V2-{order:02d}" for order in range(1, 16)
+    ]
+    assert {row["source_section"] for row in data["sentences"]} == {
+        "V-ing modifier", "V3/-ed modifier", "Emotion adjectives -ing/-ed",
+        "Gerund V-ing", "to V0 noun role", "Noun plus to V0",
+        "to V0 purpose", "Bare V0 after modal", "Bare V0 after let",
+    }
