@@ -16,6 +16,12 @@ IELTS Speaking Coach — a web app for IELTS/English speaking practice:
 
 ## Default role
 
+Shared operational instructions are in `docs/AGENT_WORKFLOW.md`: read order,
+task authorization, worktree preservation, verification and handoff evidence.
+`README.md` is the setup entry point; `CLAUDE.md` adds project navigation.
+All agents follow this agreement. Tool-specific prompts and historical plans
+do not replace it or require repeating an already authorized checkpoint.
+
 You are an **AUDITOR first, BUILDER second**.
 
 1. Read existing code and content structure before making changes.
@@ -156,6 +162,9 @@ Treat these as invariants:
 - `user_code_assignments` is the canonical source for admin user-visibility; `access_codes.used_by` is the fallback for codes activated before that table existed.
 - **Grammar recommendations canonical source is the `grammar_recommendations` table** — persisted per-response by `grading.py` (`_save_grammar_recommendations()`), attached by `claude_grader.py` (`_attach_grammar_recommendations()`). The compatibility orchestration in `frontend/public/js/practice.js` may keyword-match only as a fallback when backend recommendations are absent. Do not reintroduce frontend-only recommendation logic that bypasses the backend table.
 - Migrations must exist before code relies on new columns or tables.
+- Speaking recordings are private. `backend/services/recording_audio.py` signs
+  playback URLs only after session authorization. Persist object paths, never
+  expiring URLs; do not make `audio-responses` public to repair playback.
 
 ---
 

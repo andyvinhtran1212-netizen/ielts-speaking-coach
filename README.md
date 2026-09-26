@@ -1,152 +1,139 @@
-# IELTS Speaking Coach
+# Aver Learning · IELTS Speaking Coach
 
-AI-powered IELTS Speaking practice platform — record answers, get Whisper +
-Claude grading, build a personal vocab bank, and reinforce retention with
-SRS flashcards and fill-blank exercises.
+IELTS and English practice across Speaking, Writing, Reading, Listening,
+Vocabulary, Grammar Wiki, Courses and Mock Tests. The repository retains its
+original Speaking Coach name.
 
 - **Production:** [averlearning.com](https://averlearning.com)
-- **Stack:** Vanilla JS + Tailwind CDN · FastAPI · Supabase (Postgres +
-  Auth + Storage) · Railway (backend) · Vercel (frontend) ·
-  Anthropic Claude · OpenAI Whisper · Google Gemini · Azure Speech (PA)
+- **Staging:** [staging.averlearning.com](https://staging.averlearning.com)
+- **Stack:** Next.js 16 App Router + React 19 + TypeScript on Vercel; FastAPI
+  on Railway; Supabase PostgreSQL, Auth and Storage.
+- **Product map:** [docs/SITE_OVERVIEW.md](docs/SITE_OVERVIEW.md).
 
-> Day-to-day collaboration rules live in `CLAUDE.md` (project guide for
-> Claude Code).  This README is the high-level orientation.
->
-> For the full product map — every module, how they relate, and what each
-> sub-page does (purpose · audience · operation) — see
-> [`docs/SITE_OVERVIEW.md`](docs/SITE_OVERVIEW.md).
+## Start here
 
----
+| Document | Purpose |
+| --- | --- |
+| [AGENTS.md](AGENTS.md) | Shared working agreement and domain invariants for every agent |
+| [CLAUDE.md](CLAUDE.md) | Project navigation and implementation context |
+| [docs/AGENT_WORKFLOW.md](docs/AGENT_WORKFLOW.md) | Worktrees, verification, handoff and completion evidence |
+| [specs/README.md](specs/README.md) | Active feature intent, change classes and spec lifecycle |
+| [docs/STAGING_FIRST_RELEASE_FLOW.md](docs/STAGING_FIRST_RELEASE_FLOW.md) | Staging verification and production promotion |
+| [backend/migrations/README.md](backend/migrations/README.md) | Migration numbering, forward policy and ledger |
 
-## What it includes
+Historical plans and audits explain earlier decisions. Current instructions,
+active specs, code and executable tests govern new work; a historical checklist
+does not prove that a release is pending or complete.
 
-A multi-skill IELTS prep platform. Each skill follows the same shape — admin
-authors content, students (or, via shared reading links, anonymous visitors)
-practice, the system grades / auto-scores, students review, and admins see
-analytics.
+## Repository layout
 
-- **Speaking** — record → Whisper STT → Claude band grading + per-criterion
-  feedback + grammar recommendations; single-question and full 3-part test;
-  Azure pronunciation.
-- **Writing** — Gemini-graded essays (levels × tiers); instructor grade
-  workflow, prompts, assignments, cohorts.
-- **Listening** — dictation / gist / true-false / MCQ / mini- and full tests
-  with AI-rendered audio.
-- **Reading** — L1 vocab passages + L2 skill exercises (glossary · VI
-  translation · grammar toggle) + L3 full tests (auto-scored, band + skill
-  breakdown, solution review); per-test lock + shareable links + anonymous take.
-- **Vocabulary** — personal bank, SRS flashcards, fill-blank exercises.
-- **Grammar Wiki** — articles, compare pairs, roadmap, search; feeds the
-  speaking grammar recommendations.
-- **Admin + dashboards** — per-skill content authoring, access-code / cohort
-  management, ops + reading-attempts dashboards.
-
-> **Full detail lives in [`docs/SITE_OVERVIEW.md`](docs/SITE_OVERVIEW.md)** — the
-> single source of truth for every module, how they relate, and what each
-> sub-page does (purpose · audience · operation + key endpoints). This README
-> stays a thin intro on purpose: per-page / feature detail belongs in
-> SITE_OVERVIEW so it can't drift in two competing places.
-
----
-
-## Repo layout
-
-- `backend/` — FastAPI app (`main.py`); one router per domain under `routers/`,
-  AI + domain logic under `services/`, numbered SQL in `migrations/`, pytest in
-  `tests/`.
-- `frontend/` — static HTML/CSS/JS, no build step; pages under `pages/`, one
-  controller per page in `js/`, `js/api.js` holds the single localhost↔Railway
-  base-URL switch, `aver-design` tokens in `css/`.
-
-For the current router + per-sub-page inventory, see `docs/SITE_OVERVIEW.md`
-(§ "Backend router map" + the per-sub-page tables).
-
----
+- `frontend/app/` — deployed App Router pages and route groups.
+- `frontend/components/`, `frontend/lib/`, `frontend/types/` — shared React UI,
+  API/auth boundaries and generated OpenAPI types.
+- `frontend/public/` — static assets and remaining compatibility controllers.
+  Retired HTML under `frontend/tests/fixtures/legacy-html-retired/` is test
+  evidence; root HTML aliases are not deployment sources.
+- `backend/main.py`, `backend/routers/`, `backend/services/` — FastAPI entry,
+  authenticated domain APIs and business logic.
+- `backend/content/`, `backend/migrations/`, `backend/tests/` — content, schema
+  changes and backend tests.
+- `specs/` — active specifications; `docs/` — runbooks, product map and history.
+- `backend/scripts/agent-config/` — versioned project skills and local config templates.
+  Install them explicitly to the ignored agent paths; existing files are backed up.
 
 ## Local setup
 
-Prerequisites: Python 3.11+, Node 18+ (only for tooling — frontend is
-served as static files), a Supabase project, and a Railway env file.
+Use **Node.js 24+** (`frontend/package.json`). Backend CI uses **Python 3.11**;
+Railway pins **Python 3.12** (`backend/nixpacks.toml`). Use either of those
+Python versions locally. Audio processing also requires `ffmpeg`; the Railway
+config lists the production font/JRE dependencies.
+
+Configure a development or staging Supabase project and the provider keys
+needed for the flow you are exercising. Keep service credentials in ignored
+environment files. The browser receives only the Supabase public/anon key.
+
+Backend, from the repository root:
 
 ```bash
-# Clone + venv
-git clone <repo>
-cd ielts-speaking-coach/backend
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-
-# Configure
-cp .env.example .env   # fill SUPABASE_URL/KEYS, ANTHROPIC_API_KEY,
-                       # OPENAI_API_KEY, GEMINI_API_KEY, AZURE keys, …
-
-# Apply migrations against your Supabase Postgres
-psql "$DATABASE_URL" -f migrations/001_add_audio_storage_path.sql
-# (… continue through the latest numbered migration; see DEPLOY_CHECKLIST
-#  for which migrations are required for which phase)
-
-# Run
-uvicorn main:app --reload --port 8000
+python3 -m venv backend/venv
+source backend/venv/bin/activate
+python -m pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env
+# Edit backend/.env for the intended non-production environment.
+cd backend
+python -m uvicorn main:app --reload --port 8000
 ```
 
-Frontend runs as plain static files — open `frontend/index.html` directly,
-serve with `python3 -m http.server` from the `frontend/` directory, or
-just point Vercel at the directory.  `frontend/js/api.js`
-auto-detects localhost vs production and points fetches accordingly; do
-not hardcode an API base URL anywhere else.
+Frontend, in a separate terminal from the repository root:
 
----
+```bash
+cd frontend
+npm ci
+export VERCEL_ENV=development
+export AVER_ENVIRONMENT=test
+export AVER_API_BASE=http://localhost:8000
+export AVER_SUPABASE_URL=https://YOUR-DEV-PROJECT.supabase.co
+export AVER_SUPABASE_ANON_KEY=YOUR-DEV-PUBLIC-KEY
+unset AVER_RUNTIME_CONFIG_OUT
+node tooling/generate-runtime-config.mjs && npm run dev
+```
 
-## Development workflow
+Open `http://localhost:3000`. `VERCEL_ENV=development` enables the generator's
+production-origin guard. `AVER_ENVIRONMENT=test` admits the local API origin
+in the development CSP. The generator receives shell variables; it does not
+load `.env.local` itself. Use the same Supabase project as the backend. `predev`
+copies vendor bundles but does not regenerate runtime config. After local use,
+restore the committed unconfigured default before committing:
 
-The team uses a four-stage pattern that has hardened across Phase B and
-Phase D:
+```bash
+env -u VERCEL_ENV -u VERCEL_GIT_COMMIT_SHA -u VERCEL_GIT_COMMIT_REF \
+  -u AVER_ENVIRONMENT -u AVER_API_BASE -u AVER_SUPABASE_URL \
+  -u AVER_SUPABASE_ANON_KEY -u AVER_CORE_OPERATION_CORRELATION_ENABLED \
+  -u AVER_WRITING_ADMISSION_ENABLED -u AVER_RUNTIME_CONFIG_OUT \
+  node tooling/generate-runtime-config.mjs
+```
 
-1. **Plan** — Antigravity drafts a step-by-step plan (`*_PLAN.md`).
-   Prompt template: [`docs/templates/PROMPT_TEMPLATE_ANTIGRAVITY_PLAN.md`](docs/templates/PROMPT_TEMPLATE_ANTIGRAVITY_PLAN.md).
-2. **Execute** — Claude Code implements step-by-step with per-step
-   commits and explicit checkpoints; the user reviews before unblocking
-   the next step.
-   Prompt template: [`docs/templates/PROMPT_TEMPLATE_CLAUDE_CODE_EXECUTION.md`](docs/templates/PROMPT_TEMPLATE_CLAUDE_CODE_EXECUTION.md).
-3. **Audit** — Codex audits the full diff (looking for cross-file
-   forgets, RLS WITH CHECK, hardcoded URLs, default-deny strictness).
-   Prompt template: [`docs/templates/PROMPT_TEMPLATE_CODEX_AUDIT.md`](docs/templates/PROMPT_TEMPLATE_CODEX_AUDIT.md).
-4. **Deploy + dogfood** — Migrations apply manually against production
-   Postgres after a backup; the feature ships behind a default-OFF flag;
-   one admin dogfoods for ≥1 day before broader rollout.
-   Checklist: [`DEPLOY_CHECKLIST.md`](DEPLOY_CHECKLIST.md).
+Database setup depends on the target's schema and migration ledger. Follow the
+[migration guide](backend/migrations/README.md) and use
+`backend/scripts/apply_migrations.sh` for forward changes. Do not replay the
+numbered directory with a shell loop or baseline an existing database to hide
+drift. Migrations are separate from application auto-deploys.
 
-Hard rules (also in `CLAUDE.md`):
+## Development and verification
 
-- Migrations are **always manual** — auto-deploy never touches the DB.
-  Backup → migrate → deploy in that order.
-- Live test infrastructure (`backend/scripts/setup_*_test_env.sh` +
-  `tests/test_*_rls.py`) ships **before** the feature code.
-- Patches stay scoped to their stated task; mixed cleanups land in
-  separate PRs.
-- Default-deny strictness — `is True` / `=== true`, exception → False,
-  default OFF in env.
+1. Inspect the working tree, applicable agent instructions and existing
+   implementation before editing. Start normal work from `origin/staging` on a
+   scoped `codex/<task>` branch.
+2. Classify the change using [specs/README.md](specs/README.md). Feature/high-risk
+   implementation requires the approved spec on the base branch first.
+3. Make a focused patch and run the affected local checks. Commands and test
+   boundaries are in [docs/AGENT_WORKFLOW.md](docs/AGENT_WORKFLOW.md).
+4. Consolidate review findings before pushing. Open the PR against `staging`.
+5. For an authorized production release, verify the merged staging SHA, then
+   promote `staging` to `main` and verify production using the release runbook.
 
----
+Install shared agent files from the repository root:
 
-## Reference docs
+```bash
+python3 backend/scripts/agent-config/install.py
+```
 
-| Doc | What |
-|---|---|
-| `docs/SITE_OVERVIEW.md` | **Product map** — modules, relations, every sub-page (single source of truth). |
-| `CLAUDE.md` | Project source-of-truth + standing rules for Claude Code. |
-| `DEPLOY_CHECKLIST.md` | Per-phase production deploy + rollback steps. |
-| `TECH_DEBT.md` | Current debt + improvement opportunities, prioritised. |
-| `PHASE_A_V3_PLAN.md` | Speaking + Grammar core (shipped). |
-| `PHASE_B_V3_PLAN.md` | Personal Vocab Bank (shipped). |
-| `PHASE_D_V3_PLAN.md` | Vocabulary Exercises Wave 1 + the deferred D3. |
-| `PHASE_D_WAVE_2_PLAN.md` | Flashcard system + SRS (shipped). |
-| `AUDIT_*.md` | Frozen audit reports, kept for traceability. |
-| `frontend/CLAUDE.md` | Frontend-specific conventions + graphify pointer. |
-| `frontend/known_bugs_and_failures.md` | Current frontend bug log. |
+The installer saves existing targets under ignored `.agent-config-backups/`
+before linking the skills and copying the launcher/frontend guide. Git checkout
+and pull do not replace your ignored agent files. Review local differences in
+the backup before reusing them.
 
----
+The installed Next launcher generates runtime config before starting the server.
+It defaults to the canonical staging Supabase project and the local backend;
+configure that backend for the same project. To use a different development
+project, provide both `AVER_SUPABASE_URL` and `AVER_SUPABASE_ANON_KEY` in the
+launcher environment. A partial pair is rejected before startup. The launcher
+always writes the served runtime file, ignoring AVER_RUNTIME_CONFIG_OUT. Known
+production origins are rejected by the generator.
 
-## License + status
+Project skills cover `/new-feature`, `/api-route`, `/db-migrate`, `/review`,
+`/ui-review` and `/test`. Shared instructions apply regardless of which agent
+executes a task. Personal settings, credentials, generated graphs and local
+verification artifacts stay ignored.
 
-Internal project; not currently open-source.  See `AGENTS.md` for the
-list of agent personas + their scopes if you're collaborating via tooling.
+Internal project; not currently open-source.

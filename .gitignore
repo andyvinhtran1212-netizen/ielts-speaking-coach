@@ -18,6 +18,7 @@ Thumbs.db
 
 .agents/
 .claude/
+.agent-config-backups/
 .obsidian/
 frontend/.claude/
 graphify-out/

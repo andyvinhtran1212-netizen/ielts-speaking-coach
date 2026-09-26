@@ -1,11 +1,20 @@
 # Backend Tests
 
-## Unit tests (no external deps)
+Run in the current worktree with its configured Python environment. The complete
+local backend command is `cd backend && python -m pytest tests/ -q`; CI setup is
+in `.github/workflows/backend-tests.yml`. See
+[../../docs/AGENT_WORKFLOW.md](../../docs/AGENT_WORKFLOW.md) for cross-layer checks.
+
+Paid provider smoke tests are gated by `--run-smoke`; live integration tests
+need explicit environment configuration. Report skips separately from passes.
+Do not enable paid calls or mutate a shared database merely to eliminate skips.
+
+## Focused examples (mocked external services)
 
 ```bash
 cd backend
-pytest tests/test_vocab_guards.py -v       # 23 tests — vocab guard logic
-pytest tests/test_grammar_smoke.py -v      # 4  tests — grammar content smoke
+python -m pytest tests/test_vocab_guards.py -v
+python -m pytest tests/test_grammar_smoke.py -v
 ```
 
 ## RLS Integration Tests
@@ -14,7 +23,10 @@ Verifies cross-user isolation for `user_vocabulary` at the DB layer using 2 real
 
 ### Prerequisites
 
-1. Apply Phase B migrations:
+1. Use a disposable/staging test target with the required vocabulary schema.
+   The historical Phase B setup helper below applies migrations directly and
+   must not be used as a general forward runner for an existing hosted database;
+   use [../migrations/README.md](../migrations/README.md) for hosted changes.
    ```bash
    bash backend/scripts/setup_phase_b_test_env.sh
    ```

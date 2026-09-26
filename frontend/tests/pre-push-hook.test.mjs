@@ -17,8 +17,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
-  chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, statSync,
-  symlinkSync, writeFileSync,
+  chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync,
+  readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -213,10 +213,105 @@ describe('hook pre-push của repo', () => {
       'phải trỏ về lib trong repo, không phải cạnh symlink');
   });
 
-  test('installer trỏ vào --git-common-dir (worktree dùng chung hook)', () => {
-    const src = readFileSync(INSTALL, 'utf8');
-    assert.match(src, /git-common-dir/,
-      'dùng --show-toplevel sẽ cài hook vào worktree, nơi git không đọc');
-    assert.match(src, /ln -sf/, 'symlink để sửa hook trong repo là có hiệu lực ngay');
+  test('repeated hook installation at one timestamp preserves the original backup', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'hook-backups-'));
+    try {
+      execFileSync('git', ['init', '-q', root]);
+      const hooks = path.join(root, 'scripts/hooks');
+      mkdirSync(path.join(hooks, 'lib'), { recursive: true });
+      copyFileSync(INSTALL, path.join(hooks, 'install.sh'));
+      writeFileSync(path.join(hooks, 'pre-push'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(path.join(hooks, 'lib/resolve-python.sh'), '#!/bin/sh\nexit 0\n');
+      const original = '#!/bin/sh\n# personal hook to preserve\nexit 0\n';
+      writeFileSync(path.join(root, '.git/hooks/pre-push'), original);
+      const bin = path.join(root, 'bin');
+      mkdirSync(bin);
+      writeFileSync(path.join(bin, 'date'), '#!/bin/sh\necho 1234567890\n');
+      chmodSync(path.join(bin, 'date'), 0o755);
+      const env = { ...process.env, PATH: bin + path.delimiter + process.env.PATH };
+      for (let i = 0; i < 2; i++) {
+        execFileSync('bash', [path.join(hooks, 'install.sh')], { cwd: root, env });
+      }
+      const backups = readdirSync(path.join(root, '.git/hooks')).filter((name) => name.startsWith('pre-push.backup-'));
+      assert.equal(backups.length, 2);
+      assert.ok(backups.some((name) => readFileSync(path.join(root, '.git/hooks', name), 'utf8') === original));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
+
+  for (const linked of [false, true]) {
+    test(`installed hook isolates nested Git repos during a real ${linked ? 'worktree' : 'main checkout'} push`, () => {
+      const temp = mkdtempSync(path.join(tmpdir(), 'installed-hook-'));
+      const main = path.join(temp, 'main');
+      const remote = path.join(temp, 'remote.git');
+      const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+      for (const key of Object.keys(env)) {
+        if (key.startsWith('GIT_') && !['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM'].includes(key)) delete env[key];
+      }
+      const git = (cwd, ...args) => execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+      try {
+        mkdirSync(main);
+        git(temp, 'init', '--bare', '-q', remote);
+        git(main, 'init', '-q');
+        git(main, 'config', 'user.name', 'Hook Owner');
+        git(main, 'config', 'user.email', 'hook-owner@example.test');
+        git(main, 'remote', 'add', 'origin', remote);
+        const hookDir = path.join(main, 'scripts/hooks');
+        mkdirSync(path.join(hookDir, 'lib'), { recursive: true });
+        for (const [source, relative] of [[HOOK, 'pre-push'], [INSTALL, 'install.sh'], [RESOLVER, 'lib/resolve-python.sh']]) {
+          copyFileSync(source, path.join(hookDir, relative));
+          chmodSync(path.join(hookDir, relative), 0o755);
+        }
+        mkdirSync(path.join(main, 'backend'));
+        writeFileSync(path.join(main, 'backend/.gitkeep'), '');
+        git(main, 'add', '.');
+        git(main, 'commit', '-qm', 'hook fixture');
+        // Install from a disposable worktree, then delete it. The installed
+        // entry point must still resolve the checkout being pushed.
+        const installerTree = path.join(temp, 'installer');
+        git(main, 'worktree', 'add', '-qb', 'installer', installerTree);
+        execFileSync('bash', [path.join(installerTree, 'scripts/hooks/install.sh')], { cwd: installerTree, env });
+        git(main, 'worktree', 'remove', installerTree);
+        const cwd = linked ? path.join(temp, 'topic') : main;
+        if (linked) git(main, 'worktree', 'add', '-qb', 'topic', cwd);
+        const pyDir = path.join(main, 'backend/venv/bin');
+        mkdirSync(pyDir, { recursive: true });
+        const python = path.join(pyDir, 'python');
+        writeFileSync(python, [
+          '#!/usr/bin/env bash', 'set -euo pipefail',
+          'if [ "${1:-}" = "-c" ]; then exit 0; fi',
+          // Behave like a test that creates and commits a foreign repository.
+          'pwd > "$HOOK_TEST_CWD"',
+          'git init -q "$HOOK_TEST_NESTED"',
+          'git -C "$HOOK_TEST_NESTED" config user.name "Nested Tests"',
+          'git -C "$HOOK_TEST_NESTED" config user.email "nested@example.test"',
+          'git -C "$HOOK_TEST_NESTED" commit -qm nested --allow-empty',
+          'exit "${HOOK_TEST_EXIT:-0}"',
+        ].join('\n'));
+        chmodSync(python, 0o755);
+        env.HOOK_TEST_CWD = path.join(temp, 'pytest-cwd');
+        env.HOOK_TEST_NESTED = path.join(temp, 'nested');
+        const head = git(cwd, 'rev-parse', 'HEAD');
+        git(cwd, 'push', 'origin', 'HEAD:refs/heads/verified');
+        assert.equal(git(remote, 'rev-parse', 'refs/heads/verified'), head);
+        assert.equal(realpathSync(readFileSync(env.HOOK_TEST_CWD, 'utf8').trim()), realpathSync(path.join(cwd, 'backend')));
+        assert.equal(git(main, 'config', '--local', 'core.bare'), 'false');
+        assert.equal(git(main, 'config', '--local', 'user.name'), 'Hook Owner');
+        assert.equal(git(main, 'config', '--local', 'user.email'), 'hook-owner@example.test');
+        assert.equal(git(cwd, 'rev-parse', 'HEAD'), head);
+        assert.equal(git(env.HOOK_TEST_NESTED, 'log', '-1', '--format=%s'), 'nested');
+        // Isolation must preserve the verification gate: a failing test still
+        // prevents the remote branch from being created.
+        env.HOOK_TEST_EXIT = '1';
+        assert.throws(() => git(cwd, 'push', 'origin', 'HEAD:refs/heads/rejected'), (error) => {
+          assert.match(String(error.stdout), /BLOCKED: backend tests red/);
+          return true;
+        });
+        assert.equal(git(remote, 'for-each-ref', '--format=%(refname)', 'refs/heads/rejected'), '');
+      } finally {
+        rmSync(temp, { recursive: true, force: true });
+      }
+    });
+  }
 });

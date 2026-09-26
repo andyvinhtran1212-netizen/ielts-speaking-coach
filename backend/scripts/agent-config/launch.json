@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend-next",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd frontend || exit 1; if [[ -n ${AVER_SUPABASE_URL:-} && -z ${AVER_SUPABASE_ANON_KEY:-} || -z ${AVER_SUPABASE_URL:-} && -n ${AVER_SUPABASE_ANON_KEY:-} ]]; then echo \"Set both AVER_SUPABASE_URL and AVER_SUPABASE_ANON_KEY, or neither.\" >&2; exit 1; fi; export VERCEL_ENV=development AVER_ENVIRONMENT=test AVER_API_BASE=http://localhost:8000 && unset AVER_RUNTIME_CONFIG_OUT && node tooling/generate-runtime-config.mjs && npm run dev -- --port 3000"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "backend-api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd backend && venv/bin/python -m uvicorn main:app --port 8000"
+      ],
+      "port": 8000
+    }
+  ]
+}
