@@ -38,8 +38,8 @@ does not prove that a release is pending or complete.
 - `backend/content/`, `backend/migrations/`, `backend/tests/` — content, schema
   changes and backend tests.
 - `specs/` — active specifications; `docs/` — runbooks, product map and history.
-- `.agents/skills/` — versioned project skills; `.claude/skills` points to the
-  same files so the two agent entry points share one source.
+- `backend/scripts/agent-config/` — versioned project skills and local config templates.
+  Install them explicitly to the ignored agent paths; existing files are backed up.
 
 ## Local setup
 
@@ -109,6 +109,17 @@ drift. Migrations are separate from application auto-deploys.
 4. Consolidate review findings before pushing. Open the PR against `staging`.
 5. For an authorized production release, verify the merged staging SHA, then
    promote `staging` to `main` and verify production using the release runbook.
+
+Install shared agent files from the repository root:
+
+```bash
+python3 backend/scripts/agent-config/install.py
+```
+
+The installer saves existing targets under ignored `.agent-config-backups/`
+before linking the skills and copying the launcher/frontend guide. Git checkout
+and pull do not replace your ignored agent files. Review local differences in
+the backup before reusing them.
 
 Project skills cover `/new-feature`, `/api-route`, `/db-migrate`, `/review`,
 `/ui-review` and `/test`. Shared instructions apply regardless of which agent

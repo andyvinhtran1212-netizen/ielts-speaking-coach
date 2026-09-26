@@ -221,17 +221,18 @@ Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 5
 
 ## Skills (invoke with /skill-name)
 
-Canonical files are versioned under `.agents/skills/`; `.claude/skills` is a
-relative symlink to the same directory. Personal settings remain ignored.
+Canonical files are versioned under `backend/scripts/agent-config/skills/`. Run
+`python3 backend/scripts/agent-config/install.py` to back up local customizations and
+install both ignored agent entry points. Personal settings remain ignored.
 
 | Skill | Path | When to use |
 |-------|------|-------------|
-| `/new-feature` | `.agents/skills/new-feature/SKILL.md` | Implement an approved feature using the existing product contracts |
-| `/db-migrate` | `.agents/skills/db-migrate/SKILL.md` | Create a forward migration with ledger and staging checks |
-| `/api-route` | `.agents/skills/api-route/SKILL.md` | Add a FastAPI route with the domain's auth and data boundary |
-| `/review` | `.agents/skills/review/SKILL.md` | Review contracts, security, schema and release evidence |
-| `/ui-review` | `.agents/skills/ui-review/SKILL.md` | Review Next UI, design tokens, theme and accessibility |
-| `/test` | `.agents/skills/test/SKILL.md` | Run relevant verification in the current worktree |
+| `/new-feature` | `backend/scripts/agent-config/skills/new-feature/SKILL.md` | Implement an approved feature using the existing product contracts |
+| `/db-migrate` | `backend/scripts/agent-config/skills/db-migrate/SKILL.md` | Create a forward migration with ledger and staging checks |
+| `/api-route` | `backend/scripts/agent-config/skills/api-route/SKILL.md` | Add a FastAPI route with the domain's auth and data boundary |
+| `/review` | `backend/scripts/agent-config/skills/review/SKILL.md` | Review contracts, security, schema and release evidence |
+| `/ui-review` | `backend/scripts/agent-config/skills/ui-review/SKILL.md` | Review Next UI, design tokens, theme and accessibility |
+| `/test` | `backend/scripts/agent-config/skills/test/SKILL.md` | Run relevant verification in the current worktree |
 
 ---
 

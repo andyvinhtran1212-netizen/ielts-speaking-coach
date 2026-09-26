@@ -1,9 +1,8 @@
 # Frontend context for Claude
 
-Read [AGENTS.md](AGENTS.md) for current frontend conventions and
-[../AGENTS.md](../AGENTS.md) for the shared agreement. Setup and verification are
-documented in [../README.md](../README.md) and
-[../docs/AGENT_WORKFLOW.md](../docs/AGENT_WORKFLOW.md).
+Paths below are relative to the repository root. Read `frontend/AGENTS.md`
+for frontend conventions and `AGENTS.md` for the shared agreement. Setup and
+verification are documented in `README.md` and `docs/AGENT_WORKFLOW.md`.
 
 A local `graphify-out/` directory, if present, is optional generated context.
 Its absence does not block work; current source and tests remain authoritative.

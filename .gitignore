@@ -16,12 +16,9 @@ Thumbs.db
 ## Claude Code local config (per-machine, not project-wide)
 .claude/settings.local.json
 
-# Version shared skills; keep other per-machine agent data private.
-.agents/*
-!.agents/skills/
-.claude/*
-!.claude/skills
-!.claude/launch.json
+.agents/
+.claude/
+.agent-config-backups/
 .obsidian/
 frontend/.claude/
 graphify-out/
@@ -34,6 +31,7 @@ grammar-audit/
 # Local-only archive of retired/personal docs (e.g. the former
 # CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md, superseded by docs/SITE_OVERVIEW.md).
 /_archive/
+frontend/CLAUDE.md
 frontend/app_rules_master.md
 frontend/known_bugs_and_failures.md
 .env.staging

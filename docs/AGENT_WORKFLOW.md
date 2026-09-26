@@ -137,16 +137,24 @@ and stashes. Verify the final working-tree status and report any retained work.
 
 `AGENTS.md` owns shared rules; `CLAUDE.md` provides project context;
 `frontend/AGENTS.md` owns frontend-specific guidance. Keep those roles distinct.
-Project skills live in `.agents/skills/`; `.claude/skills` is a relative symlink
-to that directory. Edit the canonical file once. Personal settings, environment
-files, caches and generated knowledge graphs remain outside version control.
+Shared skills and templates live in `backend/scripts/agent-config/`. The legacy local
+paths `.agents/`, `.claude/` and `frontend/CLAUDE.md` remain ignored and are
+never adopted as tracked files, so checkout/pull preserves local customizations.
 
-For an older clone with ignored local skill directories, back up
-`.agents/skills/`, `.claude/skills/`, `.claude/launch.json` and
-`frontend/CLAUDE.md` before adopting the versioned files. Preserve local
-differences before replacing the old `.claude/skills` directory with the shared
-symlink; do not recursively discard it. The launcher assumes the backend venv
-and frontend runtime config have been prepared using `README.md`.
+Run `python3 backend/scripts/agent-config/install.py` explicitly from a prepared checkout.
+It first moves every displaced target into a unique ignored
+`.agent-config-backups/install-*/` directory, then links both skills directories
+to the shared source and copies the launcher/frontend guide. It preserves
+unrelated settings and does nothing on an unchanged repeat run. Inspect backed
+up differences before reapplying personal customizations. To restore a prior
+file, move its saved copy back to the original path after removing only the
+installed replacement. Keep backups until those differences are reconciled.
+
+The installer refuses symlinked target parents or backup directories instead of
+writing through them. Resolve such a local layout explicitly before installing.
+The launcher assumes the backend venv and frontend runtime config have been
+prepared using `README.md`. Environment files, caches and generated knowledge
+graphs remain outside version control.
 
 Prompt templates in `docs/templates/` are entry points into this workflow, not
 independent release policies. Generated Next.js instruction blocks in frontend
