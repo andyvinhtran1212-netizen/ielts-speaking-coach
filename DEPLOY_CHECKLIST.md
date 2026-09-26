@@ -1,10 +1,12 @@
-# IELTS Speaking Coach — Production Deploy Checklist
+# IELTS Speaking Coach — Historical Phase Deploy Checklists
 
-Use this checklist EVERY TIME deploying changes to production.  Each
-phase has its own section; the steps within follow the same pattern
-(pre-deploy → backup + migrations → backend env → frontend → rollout →
-smoke + dogfood → rollback).  Default-OFF feature flags mean shipping
-code is safe; the rollout step gates real exposure to users.
+These phase checklists are retained as historical rollout evidence. For every
+current release, use [docs/STAGING_FIRST_RELEASE_FLOW.md](docs/STAGING_FIRST_RELEASE_FLOW.md)
+and [backend/migrations/README.md](backend/migrations/README.md).
+Old direct-to-main, static-frontend and manual SQL steps below do not override
+the current staging/promotion and advisory-locked migration procedure. Validate
+any phase-specific smoke or rollback step against today's implementation before
+reusing it; an unchecked historical item is not a current release status.
 
 > **Phases shipped (in order applied):**
 > 1. Phase A — Core speaking + grammar (no checklist section here; pre-dates this doc)

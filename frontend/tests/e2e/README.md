@@ -1,12 +1,10 @@
-# Frontend E2E smoke tests (F4)
+# Fixture modal smoke tests
 
-Minimal **browser** smoke tests (Playwright + headless chromium) that exercise
-real runtime behaviour the source-scan / `node --test` sentinels cannot — the
-gap that let Sprint 15.1.1 (silent save failure) and 15.1.2 (modal positioning)
-ship CI-green. Sprint 15.2 ships the **frontend modal** half; the persistence
-half (needs a Supabase-local backend stack) is Sprint 15.4.
+Playwright browser tests for the pronunciation drilldown modal's rendering and
+dismissal behavior. These retained fixture checks exercise browser behavior
+that source scans cannot establish. They do not cover application persistence.
 
-## Scope (2 spec files, 3 tests)
+## Scope
 - `modal_renders.spec.js` — weak-word badge → modal opens **centered + visible** (guards the 15.1.2 bottom-left regression).
 - `modal_dismisses.spec.js` — ESC and the close button dismiss the modal.
 
@@ -17,18 +15,29 @@ seeds a stub weak-word registry, and clicks the public badge.
 ## Run locally
 ```bash
 cd frontend
-npm install
+npm ci
 npx playwright install chromium   # one-time, ~90MB
 npx playwright test               # or: npm run test:e2e
 ```
 Failure artifacts (screenshots, traces) land in `playwright-report/` + `test-results/`.
 
 ## CI
-Runs on every PR via `.github/workflows/e2e.yml` as an **advisory** check — it
-annotates but does **not** block merge (not in branch protection). Promote to
-required once it proves stable (Andy decision).
+Runs for matching frontend/workflow PR changes and pushes to main via
+`.github/workflows/e2e.yml`, whose check is named **E2E modal smoke (advisory)**.
+That workflow also runs the separately configured Next Speaking regression.
+Check current branch protection when determining required merge checks.
 
 ## Convention boundary
-Playwright + `node_modules` are **bounded to `frontend/tests/e2e/`**. The rest of
-the frontend stays zero-dependency (`node --test`, source-scan). Do NOT import
-`@playwright` outside this directory.
+This directory is the isolated static modal harness, not the full frontend.
+The application is Next.js/React and dependencies are managed by
+`frontend/package-lock.json`.
+
+- Node contract tests use the retired-fixture loader specified in
+  [../../../docs/AGENT_WORKFLOW.md](../../../docs/AGENT_WORKFLOW.md).
+- React interaction tests run with `npm run test:react`.
+- Next browser journeys are configured in
+  `.github/workflows/next-native-browser.yml` and `frontend/tooling/`.
+- Live staging release tests use `playwright.staging.config.js` and
+  `tests/staging-e2e/`; they require synthetic identities and staging access.
+
+Passing this harness alone does not establish Next route or live release health.

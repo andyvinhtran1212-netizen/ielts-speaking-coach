@@ -3,9 +3,8 @@
 #
 #   ./scripts/hooks/install.sh
 #
-# Dùng SYMLINK chứ không copy: sửa hook trong repo là có hiệu lực ngay, không
-# ai phải nhớ cài lại. Trỏ vào `--git-common-dir` nên worktree dùng chung hook
-# với clone chính (git vốn thiết kế như vậy).
+# Cài wrapper vào `--git-common-dir` để mọi worktree dùng chung. Wrapper tìm
+# script trong checkout ĐANG PUSH, không giữ đường dẫn của worktree tạm.
 set -euo pipefail
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -15,13 +14,26 @@ mkdir -p "$HOOKS"
 for h in pre-push; do
   src="$REPO/scripts/hooks/$h"
   dst="$HOOKS/$h"
-  if [ -e "$dst" ] && [ ! -L "$dst" ]; then
-    cp "$dst" "$dst.backup-$(date +%s)"
-    echo "  đã sao lưu hook cũ → $(basename "$dst").backup-…"
+  if [ -e "$dst" ] || [ -L "$dst" ]; then
+    backup=$(mktemp "$dst.backup-XXXXXXXX")
+    cp -P "$dst" "$backup"
+    echo "  đã sao lưu hook cũ → $(basename "$backup")"
   fi
-  ln -sf "$src" "$dst"
-  chmod +x "$src"
-  echo "  ✓ $h → $src"
+  cat > "$dst.new" <<'HOOK'
+#!/usr/bin/env bash
+set -euo pipefail
+REPO=$(git rev-parse --show-toplevel)
+# Git exports repository-local variables to hooks. Tests create foreign repos;
+# inheriting GIT_DIR can write their config into the real repository.
+# https://git-scm.com/docs/githooks#_description
+while IFS= read -r git_var; do
+  unset "$git_var"
+done < <(git rev-parse --local-env-vars)
+exec "$REPO/scripts/hooks/pre-push" "$@"
+HOOK
+  chmod +x "$dst.new" "$src"
+  mv -f "$dst.new" "$dst"
+  echo "  ✓ $h → script trong checkout đang push"
 done
 chmod +x "$REPO/scripts/hooks/lib/resolve-python.sh"
 echo "Xong. Kiểm: git push --dry-run"
