@@ -1,4 +1,34 @@
-# Verification — 2026-09-25 local release candidate
+# Verification — Listening v1.1 release status
+
+## Current readback — 2026-09-26
+
+Listening v1.1 is published in staging and production for both programmes.
+This status was checked read-only against the migration ledger, package rows and
+start-drain gate rows in each database. The v1.0 packages are archived and
+their package-specific start-drain gates are `true`. The published v1.1
+manifest SHA-256 values are the same as the real local candidate recorded below:
+General `275f9fbbf6becb83bfc83428b1b8ed824f64fb29f246d4fe3280e89a87fa32be`
+and IELTS `2a261931ab6fcce2629d8002b782fc07255345f874b8aa656b4ed850c2c245c9`.
+Migration 303 is recorded as applied in staging at 2026-09-25 04:19 UTC and
+production at 2026-09-25 06:31 UTC.
+
+The release used staging SHA `8323f57256a4fbfa599bba389d7b7608fb16a0ac`
+and promotion PR [#1517](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1517),
+merged as `3c252fa8486da41fe58eca23e12b81327d804eb9`. All seven push
+workflows for each SHA completed successfully. The current production runtime
+marker reports `e72967d90743f0706d4fe731276184dbbb28c8f4`, which contains
+that promotion commit. The production package readback showed one active
+General v1.1 attempt; no active v1.0 attempt appeared in either database at
+the time of this check. These counts are a point-in-time observation.
+
+The historical checklist below has not been reconciled item by item with the
+release. In particular, the repository does not yet contain direct evidence
+for the deliberately failed-publish rollback rehearsal in T008 or a complete
+authenticated mobile and screen-reader sign-off in FR-009. Publication and
+those outstanding evidence items must be reported separately; do not mark the
+whole spec `verified` from the package status alone.
+
+## Historical local candidate — 2026-09-25
 
 This is local evidence, not evidence of a staging or production release. The
 owner delegated editorial validation and release but did not personally read
@@ -6,6 +36,9 @@ the 1,001 remaining question translations. See
 [DELEGATED-RELEASE-DECISION.md](DELEGATED-RELEASE-DECISION.md).
 
 ## Requirement coverage
+
+The following results are the historical local-candidate snapshot, not the
+current publication readback above.
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
@@ -41,5 +74,6 @@ manifest SHA-256 values are
 The separately marked synthetic DO-NOT-PUBLISH candidate must never be
 imported.
 
-No staging or production publication is claimed here. Stop on a failed gate;
-do not substitute this local report for exact-SHA live evidence.
+This historical local-candidate section did not claim staging or production
+publication. Use the current readback above for release state and retain the
+per-gate evidence limits stated there.
