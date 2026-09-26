@@ -1,4 +1,10 @@
-# Tasks
+# Tasks — pre-release checklist
+
+The checkboxes below capture the 2026-09-25 local-candidate stage and have not
+been reconciled item by item with the subsequent Listening v1.1 publication.
+For current package, migration and gate state, see [verification.md](verification.md).
+An unchecked box here is an outstanding evidence/reconciliation item, not proof
+that the corresponding package remains unpublished.
 
 - [x] T001 Review and approve 65 instructions, nine titles and five outcome sets. `owns: lesson-metadata-draft.json`
 - [ ] T002 Translate and review all 1,045 items in batches, including choice labels and answer-language guidance. `owns: translation-batch-*.json`; `depends: T001`
