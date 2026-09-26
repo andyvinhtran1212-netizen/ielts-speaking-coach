@@ -11,7 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const launcher = JSON.parse(readFileSync(path.join(ROOT, 'backend/scripts/agent-config/launch.json'), 'utf8'))
   .configurations.find(({ name }) => name === 'frontend-next');
 
-function launch(overrides, check) {
+function launch(overrides, check, command = launcher.runtimeArgs) {
   const root = mkdtempSync(path.join(tmpdir(), 'agent-launcher-'));
   try {
     const frontend = path.join(root, 'frontend');
@@ -23,12 +23,12 @@ function launch(overrides, check) {
     mkdirSync(bin);
     symlinkSync(process.execPath, path.join(bin, 'node'));
     const marker = path.join(root, 'next-started');
-    writeFileSync(path.join(bin, 'npm'), '#!/bin/sh\nprintf "%s\\n" "$AVER_API_BASE" "$VERCEL_ENV" > "$LAUNCH_MARKER"\n');
+    writeFileSync(path.join(bin, 'npm'), '#!/bin/sh\nif [ "$1" != "run" ]; then exit 0; fi\nprintf "%s\\n" "$AVER_API_BASE" "$VERCEL_ENV" > "$LAUNCH_MARKER"\n');
     chmodSync(path.join(bin, 'npm'), 0o755);
     const env = Object.fromEntries(Object.entries(process.env)
       .filter(([key]) => !key.startsWith('AVER_') && !key.startsWith('VERCEL_')));
     Object.assign(env, { PATH: bin + path.delimiter + env.PATH, LAUNCH_MARKER: marker }, overrides);
-    const result = spawnSync(launcher.runtimeExecutable, launcher.runtimeArgs, { cwd: root, env, encoding: 'utf8' });
+    const result = spawnSync(launcher.runtimeExecutable, command, { cwd: root, env, encoding: 'utf8' });
     const configPath = path.join(frontend, 'public/js/runtime-config.js');
     const window = {};
     if (existsSync(configPath)) vm.runInNewContext(readFileSync(configPath, 'utf8'), { window });
@@ -102,3 +102,30 @@ test('inherited output override cannot leave served runtime config unconfigured'
     assert.equal(config.supabaseUrl, 'https://zjphffoujxkpltixsbzj.supabase.co');
   });
 });
+
+const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+const manualSetup = readme.match(/Frontend, in a separate terminal[\s\S]*?```bash\n([\s\S]*?)```/)[1];
+
+test('documented manual setup generates local development config before startup', () => {
+  launch({ VERCEL_ENV: 'production', AVER_RUNTIME_CONFIG_OUT: '/dev/null' }, (result, config, started) => {
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(started);
+    assert.equal(config.environment, 'test');
+    assert.equal(config.apiBase, 'http://localhost:8000');
+    assert.equal(config.supabaseUrl, 'https://YOUR-DEV-PROJECT.supabase.co');
+  }, ['-c', manualSetup]);
+});
+
+for (const [from, production] of [
+  ['http://localhost:8000', 'https://ielts-speaking-coach-production.up.railway.app'],
+  ['https://YOUR-DEV-PROJECT.supabase.co', 'https://huwsmtubwulikhlmcirx.supabase.co'],
+]) {
+  test('documented manual setup rejects production origin: ' + production, () => {
+    launch({}, (result, config, started) => {
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /REFUSING to build/);
+      assert.equal(config, undefined);
+      assert.equal(started, false);
+    }, ['-c', manualSetup.replace(from, production)]);
+  });
+}

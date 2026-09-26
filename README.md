@@ -69,15 +69,17 @@ Frontend, in a separate terminal from the repository root:
 ```bash
 cd frontend
 npm ci
+export VERCEL_ENV=development
 export AVER_ENVIRONMENT=test
 export AVER_API_BASE=http://localhost:8000
 export AVER_SUPABASE_URL=https://YOUR-DEV-PROJECT.supabase.co
 export AVER_SUPABASE_ANON_KEY=YOUR-DEV-PUBLIC-KEY
-node tooling/generate-runtime-config.mjs
-npm run dev
+unset AVER_RUNTIME_CONFIG_OUT
+node tooling/generate-runtime-config.mjs && npm run dev
 ```
 
-Open `http://localhost:3000`. `AVER_ENVIRONMENT=test` admits the local API origin
+Open `http://localhost:3000`. `VERCEL_ENV=development` enables the generator's
+production-origin guard. `AVER_ENVIRONMENT=test` admits the local API origin
 in the development CSP. The generator receives shell variables; it does not
 load `.env.local` itself. Use the same Supabase project as the backend. `predev`
 copies vendor bundles but does not regenerate runtime config. After local use,
