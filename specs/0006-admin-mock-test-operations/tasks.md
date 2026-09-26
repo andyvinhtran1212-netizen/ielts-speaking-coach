@@ -8,4 +8,9 @@ implementation branch base (`0aad1f0f`).
 - [x] T003 Separate Manage, Create, and Content Bank workspaces and make Live, Review, and Writing task scope truthful. `depends: T001; owns: frontend/app/(authed-admin-mock-*)/admin/`
 - [x] T004 Implement bounded content/queue controls, canonical readback, and query-context round trips. `depends: T001,T002,T003; owns: frontend/lib/admin-*-model.mjs, frontend/public/css/admin-*-next.css`
 - [x] T005 Add requirement-linked backend, frontend contract, and fixture-backed browser coverage; run TypeScript and production build. `depends: T002,T004`
-- [ ] T006 Apply and verify migrations 297–302 on staging and production, complete independent review and exact-SHA staging evidence, then promote through the staging-first flow. `depends: T005`
+- [x] T006 Apply and verify migrations 297–302 on staging and production, complete independent review and exact-SHA staging evidence, then promote through the staging-first flow. `depends: T005`
+- [ ] T007 Complete the existing authenticated operator acceptance after the Writing frame/embed fixes, including Mock Writing drill-down, return context and canonical state after reload; record the tested production SHA. `depends: T006`
+
+T006 migration, staging and promotion evidence is recorded in verification.md.
+T007 maps the outstanding operator journey already required there; this split
+does not change approved feature requirements.

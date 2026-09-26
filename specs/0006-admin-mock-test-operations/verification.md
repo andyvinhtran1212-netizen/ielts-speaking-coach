@@ -95,5 +95,15 @@
   lists, the no-open-room Live state, and Review's retake indicators. No exam,
   grade, or learner result was changed. The embedded Writing Queue loaded,
   but opening a Grade row was blocked by the deployed frame policy; see
-  WRITINGNAV-0007 production evidence. The new same-origin-only policy fix
-  requires a separate staging-first release and production recheck.
+  WRITINGNAV-0007 production evidence. The policy fix #1500 and server-rendered
+  embed fix #1503 subsequently shipped through promotion #1502
+  (`ba690e2c0`) and are included in the later
+  [integration snapshot](../IMPLEMENTATION_STATUS.md). T006 migration and release
+  work is complete.
+
+## Remaining operator acceptance — T007
+
+The post-fix authenticated production operator journey still needs direct
+evidence: Mock Writing drill-down, return context and canonical state after
+reload. Record the tested production SHA. T007 maps this existing acceptance
+gate separately from the completed migration/promotion task.

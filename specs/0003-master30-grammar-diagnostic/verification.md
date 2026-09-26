@@ -63,11 +63,11 @@ verified.
 - During assigned-only beta, report actions return to My Class and do not route
   learners to the disabled self-serve entry.
 
-## Remaining production activation gate
+## Remaining production activation gate — T007
 
 - Promotion #1449 merged as `23bce5451aee23cf39566ecee5728b4073906e27`.
   The [2026-09-26 integration snapshot](../IMPLEMENTATION_STATUS.md) records a
-  later verified deployment containing it. Code promotion is complete.
+  later verified deployment containing it. Code promotion is complete, closing T006.
 - The dark-launch flag readback above is historical; re-query current flags and
   obtain the feature activation decision before changing them.
 - After the remaining feature-specific smoke and activation authorization, enable
