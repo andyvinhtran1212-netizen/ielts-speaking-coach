@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
   chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync,
-  realpathSync, rmSync, statSync, symlinkSync, writeFileSync,
+  readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -211,6 +211,33 @@ describe('hook pre-push của repo', () => {
       `qua symlink, hook trỏ vào lib KHÔNG tồn tại: ${out}`);
     assert.equal(realpathSync(out), realpathSync(RESOLVER),
       'phải trỏ về lib trong repo, không phải cạnh symlink');
+  });
+
+  test('repeated hook installation at one timestamp preserves the original backup', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'hook-backups-'));
+    try {
+      execFileSync('git', ['init', '-q', root]);
+      const hooks = path.join(root, 'scripts/hooks');
+      mkdirSync(path.join(hooks, 'lib'), { recursive: true });
+      copyFileSync(INSTALL, path.join(hooks, 'install.sh'));
+      writeFileSync(path.join(hooks, 'pre-push'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(path.join(hooks, 'lib/resolve-python.sh'), '#!/bin/sh\nexit 0\n');
+      const original = '#!/bin/sh\n# personal hook to preserve\nexit 0\n';
+      writeFileSync(path.join(root, '.git/hooks/pre-push'), original);
+      const bin = path.join(root, 'bin');
+      mkdirSync(bin);
+      writeFileSync(path.join(bin, 'date'), '#!/bin/sh\necho 1234567890\n');
+      chmodSync(path.join(bin, 'date'), 0o755);
+      const env = { ...process.env, PATH: bin + path.delimiter + process.env.PATH };
+      for (let i = 0; i < 2; i++) {
+        execFileSync('bash', [path.join(hooks, 'install.sh')], { cwd: root, env });
+      }
+      const backups = readdirSync(path.join(root, '.git/hooks')).filter((name) => name.startsWith('pre-push.backup-'));
+      assert.equal(backups.length, 2);
+      assert.ok(backups.some((name) => readFileSync(path.join(root, '.git/hooks', name), 'utf8') === original));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   for (const linked of [false, true]) {

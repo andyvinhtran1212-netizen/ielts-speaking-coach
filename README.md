@@ -121,6 +121,12 @@ before linking the skills and copying the launcher/frontend guide. Git checkout
 and pull do not replace your ignored agent files. Review local differences in
 the backup before reusing them.
 
+The installed Next launcher generates runtime config before starting the server.
+It defaults to the canonical staging Supabase project and the local backend;
+configure that backend for the same project. To use a different development
+project, provide both `AVER_SUPABASE_URL` and `AVER_SUPABASE_ANON_KEY` in the
+launcher environment. Known production origins are rejected by the generator.
+
 Project skills cover `/new-feature`, `/api-route`, `/db-migrate`, `/review`,
 `/ui-review` and `/test`. Shared instructions apply regardless of which agent
 executes a task. Personal settings, credentials, generated graphs and local

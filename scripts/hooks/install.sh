@@ -15,8 +15,9 @@ for h in pre-push; do
   src="$REPO/scripts/hooks/$h"
   dst="$HOOKS/$h"
   if [ -e "$dst" ] || [ -L "$dst" ]; then
-    cp -P "$dst" "$dst.backup-$(date +%s)"
-    echo "  đã sao lưu hook cũ → $(basename "$dst").backup-…"
+    backup=$(mktemp "$dst.backup-XXXXXXXX")
+    cp -P "$dst" "$backup"
+    echo "  đã sao lưu hook cũ → $(basename "$backup")"
   fi
   cat > "$dst.new" <<'HOOK'
 #!/usr/bin/env bash

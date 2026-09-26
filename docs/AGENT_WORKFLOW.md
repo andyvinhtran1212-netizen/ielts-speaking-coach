@@ -152,9 +152,13 @@ installed replacement. Keep backups until those differences are reconciled.
 
 The installer refuses symlinked target parents or backup directories instead of
 writing through them. Resolve such a local layout explicitly before installing.
-The launcher assumes the backend venv and frontend runtime config have been
-prepared using `README.md`. Environment files, caches and generated knowledge
-graphs remain outside version control.
+The launcher assumes the backend venv is prepared using `README.md`. Before
+starting Next it generates runtime config with the canonical staging Supabase
+preset, local API and test environment; the generator rejects known production
+origins. Set both `AVER_SUPABASE_URL` and `AVER_SUPABASE_ANON_KEY` in the launch
+environment to use another non-production project, and match the backend to it.
+Environment files, caches and generated knowledge graphs remain outside version
+control.
 
 Prompt templates in `docs/templates/` are entry points into this workflow, not
 independent release policies. Generated Next.js instruction blocks in frontend
