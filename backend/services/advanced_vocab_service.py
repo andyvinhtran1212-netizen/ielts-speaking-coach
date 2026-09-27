@@ -1039,8 +1039,8 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
                                          persisted_qids)
     selected = [authored_by_id[selected_qid] for selected_qid in public_qids]
     aliases = [_practice_public_id(stage, index) for index in range(len(selected))]
-    index = next((index for index, row in enumerate(selected)
-                  if qid in (aliases[index], row.get("item_id"))), None)
+    index = next((index for index, alias in enumerate(aliases)
+                  if qid == alias), None)
     if index is None:
         raise HTTPException(404, "Câu hỏi không thuộc phần luyện tập này")
     item = selected[index]

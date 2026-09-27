@@ -511,6 +511,15 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
     assert saved_rows[0]["is_correct"] is True
     assert service._correct(indexed, "B") is False
 
+    before_authored_id = len(saved_rows)
+    with pytest.raises(HTTPException) as exc:
+        service.answer_practice(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+            stage="practice_1", qid="indexed-mcq", answer="A",
+        )
+    assert exc.value.status_code == 404
+    assert len(saved_rows) == before_authored_id
+
     case_sensitive = {
         "item_id": "case-sensitive-text", "type": "gap_text", "input": "text",
         "prompt": "Enter the abbreviation.", "accept": ["US"],
@@ -519,7 +528,7 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
     practice_items.append(case_sensitive)
     wrong_case = service.answer_practice(
         user_id="user-1", bank_id="bank-1", item_id="item-1",
-        stage="practice_1", qid="case-sensitive-text", answer="us",
+        stage="practice_1", qid="practice_1-02", answer="us",
     )
 
     assert wrong_case["is_correct"] is False
@@ -534,7 +543,7 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         service.answer_practice(
             user_id="user-1", bank_id="bank-1", item_id="item-1",
-            stage="practice_1", qid="blank-text", answer=" \n\t ",
+            stage="practice_1", qid="practice_1-03", answer=" \n\t ",
         )
     assert exc.value.status_code == 422
     assert len(saved_rows) == before_blank
@@ -551,11 +560,11 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
     practice_items.extend([boolean_false, syllable_zero])
     assert service.answer_practice(
         user_id="user-1", bank_id="bank-1", item_id="item-1",
-        stage="practice_1", qid="boolean-false", answer=False,
+        stage="practice_1", qid="practice_1-04", answer=False,
     )["is_correct"] is True
     assert service.answer_practice(
         user_id="user-1", bank_id="bank-1", item_id="item-1",
-        stage="practice_1", qid="syllable-zero", answer=0,
+        stage="practice_1", qid="practice_1-05", answer=0,
     )["is_correct"] is True
 
 
