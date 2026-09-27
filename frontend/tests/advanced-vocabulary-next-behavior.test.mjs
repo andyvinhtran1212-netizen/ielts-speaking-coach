@@ -40,6 +40,8 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
   });
 
   test('renders every selected practice input with a compatible answer shape', () => {
+    const practiceStage = UI.slice(UI.indexOf('function PracticeStage'), UI.indexOf('function PracticeStart'));
+    assert.doesNotMatch(practiceStage, /question\.headword|question\.hint|question\.lexeme_id/);
     assert.match(UI, /question\.input === 'syllable'/);
     assert.match(UI, /onChange\(index\)/);
     assert.match(UI, /question\.input === 'boolean'/);

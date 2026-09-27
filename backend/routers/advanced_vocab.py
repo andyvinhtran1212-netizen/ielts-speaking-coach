@@ -91,10 +91,7 @@ class AdvancedVocabProgressResponse(BaseModel):
 class PracticeQuestionResponse(BaseModel):
     item_id: str
     prompt: str
-    headword: str | None = None
-    hint: str | None = None
     input: str | None = None
-    lexeme_id: str | None = None
     options: list[Any] | None = None
     segments: list[str] | None = None
     skill: str | None = None

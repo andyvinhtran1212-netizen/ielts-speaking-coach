@@ -190,7 +190,7 @@ function PracticeStage({ stage, data, onAnswer, onDone }: { stage: 'practice_1' 
   return <div className="avx-question-card">
     <div className="avx-question-meta"><span>{stage === 'practice_1' ? 'Nhận diện' : 'Vận dụng'}</span><strong>{Math.min(doneCount + 1, questions.length)} / {questions.length}</strong></div>
     <div className="avx-meter"><span style={{ width: `${(doneCount / questions.length) * 100}%` }} /></div>
-    <p className="avx-kicker">{question.headword} · {question.skill}</p>
+    <p className="avx-kicker">{question.skill}</p>
     <h3><InlineText text={question.prompt} /></h3>
     {question.audio_url && <AudioButton src={question.audio_url} label="Nghe từ" />}
     <QuestionInput question={question} value={answer} onChange={setAnswer} disabled={!!feedback || busy} />

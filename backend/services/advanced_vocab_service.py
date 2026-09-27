@@ -331,13 +331,65 @@ def controlled_rewrite_parts(lesson: dict) -> dict:
     }
 
 
-def _safe_question(item: dict, *, answered: bool = False,
+def _practice_public_id(stage: str, index: int) -> str:
+    """Stable learner ID for a persisted question position, without its headword."""
+    return f"{stage}-{index + 1:02d}"
+
+
+def _public_practice_qids(lesson_id: str, stage: str, authored: list[dict],
+                          saved_qids: list[str]) -> list[str]:
+    """Order saved questions independently of the visible vocabulary cards.
+
+    Keep recognition and production alternating, but place neither question at
+    its vocabulary-card position or beside its own paired question.  The
+    matching is deterministic for a frozen lesson and works with old saved
+    selections in any order.
+    """
+    by_id = {str(row["item_id"]): row for row in authored}
+    if len(saved_qids) != len(authored) or set(saved_qids) != set(by_id):
+        raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+    vocabulary_order = [str(row["lexeme_id"]) for row in authored[::2]]
+    recognition = [by_id[qid] for qid in saved_qids if _choice(by_id[qid])]
+    production = [by_id[qid] for qid in saved_qids if not _choice(by_id[qid])]
+    if len(recognition) != len(vocabulary_order) or len(production) != len(vocabulary_order):
+        raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+
+    def arrange(rows: list[dict], forbidden: list[set[str]]) -> list[dict]:
+        ordered = sorted(rows, key=lambda row: hashlib.sha256(
+            f"{lesson_id}:{stage}:{row['item_id']}".encode("utf-8")
+        ).digest())
+        assigned: dict[int, dict] = {}
+
+        def place(row: dict, visited: set[int]) -> bool:
+            for slot, blocked in enumerate(forbidden):
+                if slot in visited or str(row["lexeme_id"]) in blocked:
+                    continue
+                visited.add(slot)
+                if slot not in assigned or place(assigned[slot], visited):
+                    assigned[slot] = row
+                    return True
+            return False
+
+        if not all(place(row, set()) for row in ordered):
+            raise HTTPException(409, "Không sắp được bộ câu luyện tập đã lưu")
+        return [assigned[slot] for slot in range(len(rows))]
+
+    recognition = arrange(recognition, [{word} for word in vocabulary_order])
+    production = arrange(production, [
+        {word, str(recognition[index]["lexeme_id"])}
+        for index, word in enumerate(vocabulary_order)
+    ])
+    return [str(row["item_id"]) for pair in zip(recognition, production) for row in pair]
+
+
+def _safe_question(item: dict, *, public_id: str, answered: bool = False,
                    audio_url: str | None = None) -> dict:
     public_fields = {
-        "headword", "hint", "input", "item_id", "lexeme_id", "options",
-        "prompt", "segments", "skill", "subtype", "type", "question_type",
+        "input", "options", "prompt", "segments", "skill", "subtype",
+        "type", "question_type",
     }
     safe = {key: item.get(key) for key in public_fields if key in item}
+    safe["item_id"] = public_id
     if "options" in safe:
         safe["options"] = [
             ({key: option.get(key) for key in ("key", "letter", "text") if key in option}
@@ -611,6 +663,43 @@ def _learner_practice_qids(
     return persisted
 
 
+def _public_progress(progress: dict, lesson: dict) -> dict:
+    """Translate stored authored IDs at the learner response boundary."""
+    if not (progress.get("practice_selections") or progress.get("answers")
+            or set(progress.get("completed_stages") or []) & set(_PRACTICE_COUNTS)):
+        return progress
+    selection = practice_selection(lesson)
+    aliases: dict[tuple[str, str], str] = {}
+    public_selections = []
+    for stage, authored in selection.items():
+        qids = _learner_practice_qids(
+            practice_stage=stage, authored_rows=authored, progress=progress,
+        )
+        if qids is None:
+            continue
+        authored_ids = {str(row.get("item_id")) for row in authored}
+        if any(qid not in authored_ids for qid in qids):
+            raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+        qids = _public_practice_qids(lesson["lesson_id"], stage, authored, qids)
+        for index, qid in enumerate(qids):
+            aliases[(stage, qid)] = _practice_public_id(stage, index)
+        if any(row.get("stage") == stage
+               for row in progress.get("practice_selections") or []):
+            public_selections.append({
+                "stage": stage,
+                "qids": [_practice_public_id(stage, index)
+                         for index in range(len(qids))],
+            })
+    public_answers = []
+    for row in progress.get("answers") or []:
+        alias = aliases.get((row.get("stage"), row.get("qid")))
+        if alias is None:
+            raise HTTPException(409, "Câu đã trả lời không khớp bộ câu luyện tập")
+        public_answers.append({**row, "qid": alias})
+    return {**progress, "practice_selections": public_selections,
+            "answers": public_answers}
+
+
 def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     bank, item, lesson = _assigned_lesson(
         bank_id=bank_id, user_id=user_id, item_id=item_id, review=True,
@@ -627,6 +716,8 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
         if qids is None:
             selected[practice_stage] = []
             continue
+        qids = _public_practice_qids(lesson["lesson_id"], practice_stage,
+                                     authored_rows, qids)
         by_id = {row.get("item_id"): row for row in authored_rows}
         try:
             selected[practice_stage] = [by_id[qid] for qid in qids]
@@ -761,7 +852,8 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
             "topic_code": lesson.get("topic_code"), "objectives": lesson.get("objectives") or [],
             "vocabulary": vocabulary,
             "practice": {stage: [_safe_question(
-                                      row, answered=row["item_id"] in answered,
+                                      row, public_id=_practice_public_id(stage, index),
+                                      answered=row["item_id"] in answered,
                                       audio_url=_asset_url(
                                           lesson["lesson_id"],
                                           next((word.get("audio_headword")
@@ -770,11 +862,11 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
                                           content_checksum,
                                       ),
                                   )
-                                  for row in rows]
+                                  for index, row in enumerate(rows)]
                          for stage, rows in selected.items()},
             "activities": activities,
         },
-        "progress": progress,
+        "progress": _public_progress(progress, lesson),
     }
 
 
@@ -822,7 +914,7 @@ def complete_vocabulary(*, user_id: str, bank_id: str, item_id: str,
         raise HTTPException(422, {"message": "Chưa xem đủ thẻ từ", "missing": missing})
     _upsert_stage(bank_id=bank_id, user_id=user_id, item_id=item_id,
                   stage="vocabulary", evidence={"seen_lexeme_ids": sorted(expected)})
-    return _progress(item_id)
+    return _public_progress(_progress(item_id), lesson)
 
 
 def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> dict:
@@ -867,9 +959,10 @@ def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> d
     content_checksum = str(
         (lesson.get("provenance") or {}).get("content_checksum") or ""
     ) or None
+    public_qids = _public_practice_qids(lesson["lesson_id"], stage, authored, saved_qids)
     questions = [
         _safe_question(
-            by_id[qid],
+            by_id[qid], public_id=_practice_public_id(stage, index),
             audio_url=_asset_url(
                 lesson["lesson_id"],
                 next((word.get("audio_headword")
@@ -878,9 +971,10 @@ def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> d
                 content_checksum,
             ),
         )
-        for qid in saved_qids
+        for index, qid in enumerate(public_qids)
     ]
-    return {"stage": stage, "questions": questions, "progress": _progress(item_id)}
+    return {"stage": stage, "questions": questions,
+            "progress": _public_progress(_progress(item_id), lesson)}
 
 
 def _normal(value: Any, *, case_sensitive: bool = False) -> str:
@@ -941,10 +1035,17 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
     authored_by_id = {str(row.get("item_id")): row for row in authored}
     if any(selected_qid not in authored_by_id for selected_qid in persisted_qids):
         raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
-    selected = [authored_by_id[selected_qid] for selected_qid in persisted_qids]
-    item = next((row for row in selected if row.get("item_id") == qid), None)
-    if not item:
+    public_qids = _public_practice_qids(lesson["lesson_id"], stage, authored,
+                                         persisted_qids)
+    selected = [authored_by_id[selected_qid] for selected_qid in public_qids]
+    aliases = [_practice_public_id(stage, index) for index in range(len(selected))]
+    index = next((index for index, alias in enumerate(aliases)
+                  if qid == alias), None)
+    if index is None:
         raise HTTPException(404, "Câu hỏi không thuộc phần luyện tập này")
+    item = selected[index]
+    public_qid = aliases[index]
+    qid = str(item["item_id"])
     if not _normal(answer, case_sensitive=item.get("case_sensitive") is True):
         raise HTTPException(422, "Hãy nhập hoặc chọn câu trả lời trước khi kiểm tra")
     is_correct = _correct(item, answer)
@@ -989,10 +1090,11 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
         _upsert_stage(bank_id=bank_id, user_id=user_id, item_id=item_id,
                       stage=stage, evidence={"question_count": len(selected)})
     return {
-        "qid": qid, "answer": saved.get("answer_given"),
+        "qid": public_qid, "answer": saved.get("answer_given"),
         "is_correct": bool(saved.get("is_correct")),
         "explanation": item.get("explain"), "note": item.get("note"),
-        "completed": completed, "progress": _progress(item_id),
+        "completed": completed,
+        "progress": _public_progress(_progress(item_id), lesson),
     }
 
 
@@ -1044,7 +1146,7 @@ async def complete_controlled_rewrite(*, user_id: str, bank_id: str, item_id: st
         return {
             "solutions": parts["solutions"],
             "submission": _safe_rewrite_submission(submission),
-            "progress": _progress(item_id),
+            "progress": _public_progress(_progress(item_id), lesson),
         }
     grading_items = [{
         "item_id": item_id_value,
@@ -1077,7 +1179,7 @@ async def complete_controlled_rewrite(*, user_id: str, bank_id: str, item_id: st
     return {
         "solutions": parts["solutions"],
         "submission": _safe_rewrite_submission(submission),
-        "progress": _progress(item_id),
+        "progress": _public_progress(_progress(item_id), lesson),
     }
 
 
@@ -1225,7 +1327,7 @@ def submit_listening(*, user_id: str, bank_id: str, item_id: str,
             section="listening", answers=answers,
             duration_sec=duration_sec, content=content,
         )
-        result["progress"] = _progress(item_id)
+        result["progress"] = _public_progress(_progress(item_id), lesson)
         return result
     key = _answer_rows(content)
     expected = [row["id"] for row in key]
@@ -1271,7 +1373,7 @@ def submit_listening(*, user_id: str, bank_id: str, item_id: str,
         "requires_guided_retry": activity.get("reveal_policy") == "after_guided_retry",
     }
     result["assignment"] = {"completed": False, "pct": None}
-    result["progress"] = _progress(item_id)
+    result["progress"] = _public_progress(_progress(item_id), lesson)
     return result
 
 
@@ -1358,7 +1460,7 @@ def complete_listening_guided_retry(*, user_id: str, bank_id: str, item_id: str,
         "initial_answer_results": initial_results,
         "guided_retry": canonical_retry, "answers": key,
         "assignment": {"completed": progress["required_completed"], "pct": None},
-        "progress": progress,
+        "progress": _public_progress(progress, lesson),
     }
 
 
