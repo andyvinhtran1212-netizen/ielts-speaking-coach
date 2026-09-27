@@ -334,6 +334,30 @@ def test_deterministic_practice_uses_one_recognition_and_one_production_per_word
         assert service.practice_selection(lesson) == selected
 
 
+def test_public_practice_order_breaks_vocab_position_and_pair_cues():
+    for lesson_id in LESSON_IDS:
+        lesson = service.load_lesson(lesson_id)
+        for stage, authored in service.practice_selection(lesson).items():
+            source_qids = [row["item_id"] for row in authored]
+            public_qids = service._public_practice_qids(
+                lesson_id, stage, authored, source_qids,
+            )
+            by_id = {row["item_id"]: row for row in authored}
+            assert public_qids == service._public_practice_qids(
+                lesson_id, stage, authored, list(reversed(source_qids)),
+            )
+            assert set(public_qids) == set(source_qids)
+            assert all(
+                by_id[qid]["lexeme_id"] != authored[index]["lexeme_id"]
+                for index, qid in enumerate(public_qids)
+            )
+            assert all(
+                by_id[public_qids[index]]["lexeme_id"]
+                != by_id[public_qids[index + 1]]["lexeme_id"]
+                for index in range(0, len(public_qids), 2)
+            )
+
+
 def test_quiz_import_rows_keep_text_keys_out_of_integer_answer_column():
     rows = service.build_quiz_rows(_lesson())
 
@@ -463,6 +487,10 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
         service, "_selection_qids",
         lambda _item_id, _stage: [row["item_id"] for row in practice_items],
     )
+    monkeypatch.setattr(
+        service, "_public_practice_qids",
+        lambda _lesson_id, _stage, _authored, qids: qids,
+    )
     monkeypatch.setattr(service, "_upsert_stage", lambda **_kwargs: None)
     monkeypatch.setattr(service, "_progress", lambda _item_id: {
         "completed_stages": [], "required_completed": False,
@@ -569,6 +597,14 @@ def test_practice_start_persists_and_returns_the_database_selection(monkeypatch)
     assert [row["item_id"] for row in result["questions"]] == [
         service._practice_public_id("practice_1", index)
         for index in range(len(canonical_qids))
+    ]
+    public_order = service._public_practice_qids(
+        lesson["lesson_id"], "practice_1", authored, list(reversed(canonical_qids)),
+    )
+    by_id = {row["item_id"]: row for row in authored}
+    assert [row["prompt"] for row in result["questions"]] == [
+        service._safe_question(by_id[qid], public_id="test")["prompt"]
+        for qid in public_order
     ]
     assert all("answer" not in row and "accept" not in row
                for row in result["questions"])
@@ -743,7 +779,13 @@ def test_learner_progress_uses_the_same_opaque_ids_after_reload():
         service._practice_public_id("practice_1", index)
         for index in range(len(original_qids))
     ]
-    assert public["answers"][0]["qid"] == "practice_1-01"
+    public_order = service._public_practice_qids(
+        lesson["lesson_id"], "practice_1", authored, original_qids,
+    )
+    expected_qid = service._practice_public_id(
+        "practice_1", public_order.index(original_qids[0]),
+    )
+    assert public["answers"][0]["qid"] == expected_qid
     assert original_qids[0] not in json.dumps(public)
     assert progress["answers"][0]["qid"] == original_qids[0]
 
@@ -751,14 +793,16 @@ def test_learner_progress_uses_the_same_opaque_ids_after_reload():
               "practice_selections": []}
     legacy_public = service._public_progress(legacy, lesson)
     assert legacy_public["practice_selections"] == []
-    assert legacy_public["answers"][0]["qid"] == "practice_1-01"
+    assert legacy_public["answers"][0]["qid"] == expected_qid
 
     reversed_progress = {**progress,
                          "practice_selections": [{"stage": "practice_1",
                                                   "qids": list(reversed(original_qids))}],
                          "answers": [{"stage": "practice_1",
                                       "qid": original_qids[-1]}]}
-    assert service._public_progress(reversed_progress, lesson)["answers"][0]["qid"] == "practice_1-01"
+    assert service._public_progress(reversed_progress, lesson)["answers"][0]["qid"] == service._practice_public_id(
+        "practice_1", public_order.index(original_qids[-1]),
+    )
 
 
 @pytest.mark.parametrize("activity_type", ["reading_lab", "listening_lab"])

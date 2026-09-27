@@ -336,6 +336,52 @@ def _practice_public_id(stage: str, index: int) -> str:
     return f"{stage}-{index + 1:02d}"
 
 
+def _public_practice_qids(lesson_id: str, stage: str, authored: list[dict],
+                          saved_qids: list[str]) -> list[str]:
+    """Order saved questions independently of the visible vocabulary cards.
+
+    Keep recognition and production alternating, but place neither question at
+    its vocabulary-card position or beside its own paired question.  The
+    matching is deterministic for a frozen lesson and works with old saved
+    selections in any order.
+    """
+    by_id = {str(row["item_id"]): row for row in authored}
+    if len(saved_qids) != len(authored) or set(saved_qids) != set(by_id):
+        raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+    vocabulary_order = [str(row["lexeme_id"]) for row in authored[::2]]
+    recognition = [by_id[qid] for qid in saved_qids if _choice(by_id[qid])]
+    production = [by_id[qid] for qid in saved_qids if not _choice(by_id[qid])]
+    if len(recognition) != len(vocabulary_order) or len(production) != len(vocabulary_order):
+        raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+
+    def arrange(rows: list[dict], forbidden: list[set[str]]) -> list[dict]:
+        ordered = sorted(rows, key=lambda row: hashlib.sha256(
+            f"{lesson_id}:{stage}:{row['item_id']}".encode("utf-8")
+        ).digest())
+        assigned: dict[int, dict] = {}
+
+        def place(row: dict, visited: set[int]) -> bool:
+            for slot, blocked in enumerate(forbidden):
+                if slot in visited or str(row["lexeme_id"]) in blocked:
+                    continue
+                visited.add(slot)
+                if slot not in assigned or place(assigned[slot], visited):
+                    assigned[slot] = row
+                    return True
+            return False
+
+        if not all(place(row, set()) for row in ordered):
+            raise HTTPException(409, "Không sắp được bộ câu luyện tập đã lưu")
+        return [assigned[slot] for slot in range(len(rows))]
+
+    recognition = arrange(recognition, [{word} for word in vocabulary_order])
+    production = arrange(production, [
+        {word, str(recognition[index]["lexeme_id"])}
+        for index, word in enumerate(vocabulary_order)
+    ])
+    return [str(row["item_id"]) for pair in zip(recognition, production) for row in pair]
+
+
 def _safe_question(item: dict, *, public_id: str, answered: bool = False,
                    audio_url: str | None = None) -> dict:
     public_fields = {
@@ -634,6 +680,7 @@ def _public_progress(progress: dict, lesson: dict) -> dict:
         authored_ids = {str(row.get("item_id")) for row in authored}
         if any(qid not in authored_ids for qid in qids):
             raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+        qids = _public_practice_qids(lesson["lesson_id"], stage, authored, qids)
         for index, qid in enumerate(qids):
             aliases[(stage, qid)] = _practice_public_id(stage, index)
         if any(row.get("stage") == stage
@@ -669,6 +716,8 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
         if qids is None:
             selected[practice_stage] = []
             continue
+        qids = _public_practice_qids(lesson["lesson_id"], practice_stage,
+                                     authored_rows, qids)
         by_id = {row.get("item_id"): row for row in authored_rows}
         try:
             selected[practice_stage] = [by_id[qid] for qid in qids]
@@ -910,6 +959,7 @@ def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> d
     content_checksum = str(
         (lesson.get("provenance") or {}).get("content_checksum") or ""
     ) or None
+    public_qids = _public_practice_qids(lesson["lesson_id"], stage, authored, saved_qids)
     questions = [
         _safe_question(
             by_id[qid], public_id=_practice_public_id(stage, index),
@@ -921,7 +971,7 @@ def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> d
                 content_checksum,
             ),
         )
-        for index, qid in enumerate(saved_qids)
+        for index, qid in enumerate(public_qids)
     ]
     return {"stage": stage, "questions": questions,
             "progress": _public_progress(_progress(item_id), lesson)}
@@ -985,7 +1035,9 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
     authored_by_id = {str(row.get("item_id")): row for row in authored}
     if any(selected_qid not in authored_by_id for selected_qid in persisted_qids):
         raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
-    selected = [authored_by_id[selected_qid] for selected_qid in persisted_qids]
+    public_qids = _public_practice_qids(lesson["lesson_id"], stage, authored,
+                                         persisted_qids)
+    selected = [authored_by_id[selected_qid] for selected_qid in public_qids]
     aliases = [_practice_public_id(stage, index) for index in range(len(selected))]
     index = next((index for index, row in enumerate(selected)
                   if qid in (aliases[index], row.get("item_id"))), None)
