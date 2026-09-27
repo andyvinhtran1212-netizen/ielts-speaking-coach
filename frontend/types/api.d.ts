@@ -16853,14 +16853,8 @@ export interface components {
             item_id: string;
             /** Prompt */
             prompt: string;
-            /** Headword */
-            headword?: string | null;
-            /** Hint */
-            hint?: string | null;
             /** Input */
             input?: string | null;
-            /** Lexeme Id */
-            lexeme_id?: string | null;
             /** Options */
             options?: unknown[] | null;
             /** Segments */

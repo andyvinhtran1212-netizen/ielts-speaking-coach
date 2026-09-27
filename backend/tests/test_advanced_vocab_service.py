@@ -388,7 +388,7 @@ def test_answer_index_is_canonicalized_and_never_exposed_to_learner():
 
     assert imported["answer"] == 1
     assert service._correct(imported, 1) is True
-    assert "answer_index" not in service._safe_question(authored)
+    assert "answer_index" not in service._safe_question(authored, public_id="practice_1-01")
 
 
 def test_boolean_syllable_and_text_contracts_grade_correctly():
@@ -465,7 +465,7 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
     )
     monkeypatch.setattr(service, "_upsert_stage", lambda **_kwargs: None)
     monkeypatch.setattr(service, "_progress", lambda _item_id: {
-        "completed_stages": ["practice_1"], "required_completed": False,
+        "completed_stages": [], "required_completed": False,
     })
     monkeypatch.setattr(
         service, "_admin",
@@ -474,10 +474,12 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
 
     result = service.answer_practice(
         user_id="user-1", bank_id="bank-1", item_id="item-1",
-        stage="practice_1", qid="indexed-mcq", answer="A",
+        stage="practice_1", qid="practice_1-01", answer="A",
     )
 
     assert result["is_correct"] is True
+    assert result["qid"] == "practice_1-01"
+    assert saved_rows[0]["qid"] == "indexed-mcq"
     assert saved_rows[0]["is_correct"] is True
     assert service._correct(indexed, "B") is False
 
@@ -564,9 +566,10 @@ def test_practice_start_persists_and_returns_the_database_selection(monkeypatch)
         "p_item_id": "item-1", "p_user_id": "user-1", "p_bank_id": "bank-1",
         "p_stage": "practice_1", "p_qids": canonical_qids,
     })]
-    assert [row["item_id"] for row in result["questions"]] == list(
-        reversed(canonical_qids)
-    )
+    assert [row["item_id"] for row in result["questions"]] == [
+        service._practice_public_id("practice_1", index)
+        for index in range(len(canonical_qids))
+    ]
     assert all("answer" not in row and "accept" not in row
                for row in result["questions"])
 
@@ -670,17 +673,19 @@ def test_practice_start_route_has_safe_concrete_openapi_response():
 def test_learner_question_projection_never_contains_answer_material():
     source = {
         "item_id": "q1", "prompt": "Question", "answer": 2,
+        "headword": "secret", "hint": "secret", "lexeme_id": "lex_secret",
         "accept": ["secret"], "explain": "secret", "why_wrong": {"0": "secret"},
         "note": "secret", "correct_answer": "secret", "solution": "secret",
         "feedback": "secret", "options": ["A", "B", "C"],
     }
 
-    safe = service._safe_question(source)
+    safe = service._safe_question(source, public_id="practice_1-01")
 
-    assert safe == {"item_id": "q1", "prompt": "Question", "options": ["A", "B", "C"]}
+    assert safe == {"item_id": "practice_1-01", "prompt": "Question", "options": ["A", "B", "C"]}
 
     with_audio = service._safe_question(
         {**source, "prompt": "Type the word {{audio}}"},
+        public_id="practice_1-01",
         audio_url="/assets/advanced-vocab/ADV-T01/vocab/word.mp3",
     )
     assert with_audio["prompt"] == "Type the word"
@@ -690,17 +695,70 @@ def test_learner_question_projection_never_contains_answer_material():
     safe_option = service._safe_question({
         "item_id": "q2", "prompt": "Question",
         "options": [{"key": "A", "text": "Visible", "correct": True}],
-    })
+    }, public_id="practice_1-02")
     assert safe_option["options"] == [{"key": "A", "text": "Visible"}]
 
     unsafe_segments = service._safe_question({
         "item_id": "q3", "prompt": "Question",
         "segments": {"answer": "secret"},
-    })
+    }, public_id="practice_1-03")
     assert "segments" not in unsafe_segments
     assert "secret" not in json.dumps(unsafe_segments)
-    assert service._safe_question({"item_id": "q4", "prompt": 42})["prompt"] == "42"
-    assert service._safe_question({"item_id": "q5"})["prompt"] == ""
+    assert service._safe_question({"item_id": "q4", "prompt": 42}, public_id="practice_1-04")["prompt"] == "42"
+    assert service._safe_question({"item_id": "q5"}, public_id="practice_1-05")["prompt"] == ""
+
+
+def test_all_core_practice_questions_hide_target_metadata_before_answer():
+    text_questions = 0
+    for lesson_id in LESSON_IDS:
+        selection = service.practice_selection(service.load_lesson(lesson_id))
+        for stage, rows in selection.items():
+            for index, authored in enumerate(rows):
+                public = service._safe_question(
+                    authored, public_id=service._practice_public_id(stage, index),
+                )
+                assert {"headword", "hint", "lexeme_id", "answer", "accept"}.isdisjoint(public)
+                assert public["item_id"] != authored["item_id"]
+                assert str(authored.get("headword") or "").casefold() not in public["item_id"].casefold()
+                if authored.get("input") == "text":
+                    text_questions += 1
+                    assert str(authored["accept"][0]).casefold() not in public["prompt"].casefold()
+    assert text_questions == 720
+
+
+def test_learner_progress_uses_the_same_opaque_ids_after_reload():
+    lesson = _lesson()
+    authored = service.practice_selection(lesson)["practice_1"]
+    original_qids = [row["item_id"] for row in authored]
+    progress = {
+        "completed_stages": ["vocabulary"],
+        "practice_selections": [{"stage": "practice_1", "qids": original_qids}],
+        "answers": [{"stage": "practice_1", "qid": original_qids[0],
+                     "answer": "given", "is_correct": False}],
+    }
+
+    public = service._public_progress(progress, lesson)
+
+    assert public["practice_selections"][0]["qids"] == [
+        service._practice_public_id("practice_1", index)
+        for index in range(len(original_qids))
+    ]
+    assert public["answers"][0]["qid"] == "practice_1-01"
+    assert original_qids[0] not in json.dumps(public)
+    assert progress["answers"][0]["qid"] == original_qids[0]
+
+    legacy = {**progress, "completed_stages": ["practice_1"],
+              "practice_selections": []}
+    legacy_public = service._public_progress(legacy, lesson)
+    assert legacy_public["practice_selections"] == []
+    assert legacy_public["answers"][0]["qid"] == "practice_1-01"
+
+    reversed_progress = {**progress,
+                         "practice_selections": [{"stage": "practice_1",
+                                                  "qids": list(reversed(original_qids))}],
+                         "answers": [{"stage": "practice_1",
+                                      "qid": original_qids[-1]}]}
+    assert service._public_progress(reversed_progress, lesson)["answers"][0]["qid"] == "practice_1-01"
 
 
 @pytest.mark.parametrize("activity_type", ["reading_lab", "listening_lab"])
