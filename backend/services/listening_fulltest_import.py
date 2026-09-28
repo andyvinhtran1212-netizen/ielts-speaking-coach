@@ -183,13 +183,15 @@ def _classify_field(label: str) -> str | None:
         ("translation_vi",  lambda: "dịch" in low),
         ("vocab_focus",     lambda: "trọng tâm" in low),
         ("vocab",           lambda: "từ vựng" in low or low.startswith("vocab")),
+        # A valid explanation label may include "keyword-free". Classify its
+        # purpose before the broad keyword/paraphrase mapping rule below.
+        ("why_correct",     lambda: "why correct" in low or "vì sao" in low),
         ("paraphrase_map",  lambda: "keyword" in low or "mapping" in low),
         ("paraphrase",      lambda: "paraphrase" in low),
         ("trap_mechanisms", lambda: "mechanism" in low or "cơ chế" in low),
         ("trap",            lambda: "bẫy" in low or "trap" in low),
         ("skills",          lambda: "kĩ năng" in low or "kỹ năng" in low or "skill" in low),
         ("script",          lambda: "script" in low or "đoạn audio" in low or "trích" in low),
-        ("why_correct",     lambda: "why correct" in low or "vì sao" in low),
     ]
     for key, pred in rules:
         if pred():
