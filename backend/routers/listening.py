@@ -3229,6 +3229,20 @@ async def admin_sync_drill(
         "full_audio_duration_seconds": av["duration_seconds"],
         "full_audio_size_bytes": av["size_bytes"], "metadata": new_test_metadata,
     }).eq("id", identifier).execute()
+    checked_test = (supabase_admin.table("listening_tests").select("metadata,full_audio_storage_path")
+                    .eq("id", identifier).limit(1).execute().data or [])
+    checked_content = (supabase_admin.table("listening_content").select("transcript,metadata")
+                       .eq("id", content["id"]).limit(1).execute().data or [])
+    checked_exercises = (supabase_admin.table("listening_exercises")
+                         .select("id,payload,order_num").eq("content_id", content["id"]).execute().data or [])
+    expected_payloads = {by_order[row["order_num"]]["id"]: row["payload"] for row in parsed.exercise_rows}
+    if (not checked_test or (checked_test[0].get("metadata") or {}).get("source_hashes") != new_test_metadata["source_hashes"]
+            or checked_test[0].get("full_audio_storage_path") != new_path
+            or not checked_content or checked_content[0].get("transcript") != new_content["transcript"]
+            or checked_content[0].get("metadata") != new_content["metadata"]
+            or len(checked_exercises) != len(expected_payloads)
+            or any(row.get("payload") != expected_payloads.get(row.get("id")) for row in checked_exercises)):
+        raise HTTPException(503, "Cập nhật drill chưa khớp nguồn; thử lại cùng UUID trước khi phát hành.")
     published = await admin_publish_drill(drill_id, authorization)
     return {**published, "audio_sha256": audio_hash, "source_hashes": new_test_metadata["source_hashes"]}
 

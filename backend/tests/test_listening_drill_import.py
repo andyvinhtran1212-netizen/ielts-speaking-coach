@@ -10,6 +10,7 @@ The importer is pure — no DB — so these run fast and offline.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import pathlib
@@ -517,6 +518,7 @@ def test_sync_drill_keeps_uuids_and_refreshes_audio_and_rich_answers(monkeypatch
         audio=_upload("S1.mp3", b"x" * 5000), authorization="x"))
     assert out["status"] == "published"
     assert out["answer_count"] == 10
+    assert out["source_hashes"]["source_json"] == hashlib.sha256(_bytes("FORM")).hexdigest()
     assert {row["id"] for row in db.rows["listening_exercises"]} == old_ids
     assert db.rows["listening_content"][0]["transcript"] != "Old transcript"
     assert len(uploaded) == 1 and uploaded[0][0].startswith(f"drills/{test_id}/sync-")
