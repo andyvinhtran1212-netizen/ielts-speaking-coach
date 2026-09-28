@@ -3143,6 +3143,11 @@ async def admin_publish_drill(
     drill_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
+    """Publish an imported drill only after its audio and every rich answer
+    are present. The test row is flipped last so incomplete child rows never
+    become visible in the learner library during a partial failure. Retrying
+    the same UUID is safe after a transient PostgREST error.
+    """
     return await _publish_drill(drill_id, authorization)
 
 
