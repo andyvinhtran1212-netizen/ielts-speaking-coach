@@ -14,6 +14,7 @@ import io
 import json
 import pathlib
 import re
+import uuid
 
 import pytest
 from fastapi import HTTPException, UploadFile
@@ -357,6 +358,7 @@ def test_drill_dry_run_preview(monkeypatch):
     out = _run(listening_module.admin_import_drill_dry_run(
         source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),
         timings=_upload("timings.json", _timings_bytes("MCQ")),
+        solution=None,
         authorization="x"))
     assert out["ok"] is True
     assert out["drill_type"] == "mcq"
@@ -381,6 +383,7 @@ def test_drill_commit_persists_with_audio(monkeypatch):
     out = _run(listening_module.admin_import_drill_commit(
         source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),
         timings=_upload("timings.json", _timings_bytes("MCQ")),
+        solution=None,
         audio=_upload("full.mp3", b"x" * 5000),
         authorization="x"))
     assert out["test_id"] == "ILR-LIS-DRL-MCQ-L2-T1"
@@ -396,6 +399,28 @@ def test_drill_commit_persists_with_audio(monkeypatch):
     assert len(content_rows) == 1
 
 
+def test_drill_commit_persists_rich_solution_fields(monkeypatch):
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    stub = _CommitStub()
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda p, b: None)
+    monkeypatch.setattr(listening_audio, "validate_section_audio", lambda b, test_type=None: {
+        "duration_seconds": 281, "size_bytes": len(b), "errors": [], "warnings": []})
+    out = _run(listening_module.admin_import_drill_commit(
+        source_json=_upload("ILR-LIS-DRL-FORM-L2-T1.json", _bytes("FORM")),
+        timings=_upload("timings.json", json.dumps(_rich_form_timings()).encode()),
+        solution=_upload("ILR-LIS-DRL-FORM-L2-T1_Solution.md", _rich_form_solution().encode()),
+        audio=_upload("S2.mp3", b"x" * 5000), authorization="x"))
+    assert out["exercises_created"] >= 1
+    exercises = [p for (t, p) in stub.inserts if t == "listening_exercises"]
+    solution = next(p["payload"]["solutions"]["1"] for p in exercises if "1" in p["payload"]["solutions"])
+    assert solution["translation_vi"] == "Bản dịch cho câu 1."
+    assert solution["why_correct"] == "Bằng chứng cho câu 1."
+    assert "Spoken evidence" in solution["script"]
+
+
 def test_drill_commit_without_audio_imports_draft(monkeypatch):
     async def _ok(_a): return {"id": "admin", "role": "admin"}
     monkeypatch.setattr(listening_module, "require_admin", _ok)
@@ -403,11 +428,63 @@ def test_drill_commit_without_audio_imports_draft(monkeypatch):
     monkeypatch.setattr(listening_module, "supabase_admin", stub)
     out = _run(listening_module.admin_import_drill_commit(
         source_json=_upload("ILR-LIS-DRL-FLOW-L2-T1.json", _bytes("FLOW")),
-        timings=None, audio=None, authorization="x"))
+        timings=None, solution=None, audio=None, authorization="x"))
     assert out["has_audio"] is False
     assert out["status"] == "draft"
     tr = [p for (t, p) in stub.inserts if t == "listening_tests"][0]
     assert "full_audio_storage_path" not in tr   # no audio → no path
+
+
+class _PublishDB:
+    def __init__(self):
+        self.rows = {
+            "listening_tests": [{"id": "00000000-0000-4000-8000-000000000001", "test_id": "ILR-LIS-DRL-FORM-L2-T1",
+                                 "test_type": "drill", "status": "draft", "is_public": False}],
+            "listening_content": [{"id": "content-1", "test_id": "00000000-0000-4000-8000-000000000001",
+                                   "status": "draft", "transcript": "Spoken words.", "metadata": {}}],
+            "listening_exercises": [{"id": "exercise-1", "content_id": "content-1", "status": "draft",
+                                     "exercise_type": "mcq", "payload": {"answers": [{"q_num": 1}],
+                                     "solutions": {"1": {"why_correct": "Because", "script": "Spoken words.",
+                                                         "translation_vi": "Lời thoại."}},
+                                     "audio_windows": {"1": {"start": 0, "end": 2}}}}],
+        }
+        self.writes = []
+
+    def table(self, name):
+        owner = self
+        class Query:
+            def __init__(self): self.filters = {}; self.update_value = None
+            def select(self, *a, **k): return self
+            def eq(self, key, value): self.filters[key] = value; return self
+            def limit(self, *a): return self
+            def update(self, value): self.update_value = value; return self
+            def execute(self):
+                result = [r for r in owner.rows[name] if all(r.get(k) == v for k, v in self.filters.items())]
+                if self.update_value:
+                    for row in result: row.update(self.update_value)
+                    owner.writes.append((name, dict(self.update_value)))
+                return type("Result", (), {"data": [dict(r) for r in result]})()
+        return Query()
+
+
+def test_publish_drill_checks_rich_answers_and_publishes_children_first(monkeypatch):
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_audio, "can_publish", lambda _test: (True, None))
+    db = _PublishDB()
+    monkeypatch.setattr(listening_module, "supabase_admin", db)
+    drill_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+    db.rows["listening_exercises"][0]["payload"]["solutions"]["1"]["script"] = ""
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_module.admin_publish_drill(drill_id, authorization="x"))
+    assert exc.value.status_code == 422
+    assert db.writes == []
+    db.rows["listening_exercises"][0]["payload"]["solutions"]["1"]["script"] = "Spoken words."
+    out = _run(listening_module.admin_publish_drill(drill_id, authorization="x"))
+    assert out["answer_count"] == 1
+    assert [name for name, _ in db.writes] == ["listening_exercises", "listening_content", "listening_tests"]
+    assert all(rows[0]["status"] == "published" for rows in db.rows.values())
 
 
 # ── student list endpoint: drill segregation ───────────────────────────────
@@ -500,6 +577,7 @@ def test_drill_commit_audio_without_timings_rejected(monkeypatch):
         _run(listening_module.admin_import_drill_commit(
             source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),
             timings=None,
+            solution=None,
             audio=_upload("full.mp3", b"x" * 5000),
             authorization="x"))
     assert e.value.status_code == 422

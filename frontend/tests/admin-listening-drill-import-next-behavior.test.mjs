@@ -40,11 +40,14 @@ describe('drill file inventory is deterministic', () => {
       file(`${id}.json`, `11_Skill_Drills_Web/Source_JSON/${id}.json`),
       file('timings.json', `11_Skill_Drills_Web/audio_output/${id}/timings.json`),
       file('full_test.mp3', `11_Skill_Drills_Web/audio_output/${id}/full_test.mp3`, 2_000),
+      file('S2.mp3', `11_Skill_Drills_Web/audio_output/${id}/S2.mp3`, 2_000),
+      file(`${id}_Solution.md`, `11_Skill_Drills_Web/Answer_Keys_Full/${id}_Solution.md`),
       file('ILR-LIS-DRL-NOTE-L2-T1.json', '11_Skill_Drills_Web/Source_JSON/ILR-LIS-DRL-NOTE-L2-T1.json'),
     ]);
     assert.equal(grouped.errors.length, 0);
     assert.equal(grouped.bundles.length, 2);
-    assert.equal(grouped.bundles[0].audio.name, 'full_test.mp3');
+    assert.equal(grouped.bundles[0].audio.name, 'S2.mp3');
+    assert.equal(grouped.bundles[0].solution.name, `${id}_Solution.md`);
     assert.equal(grouped.bundles[1].audio, null);
     assert.equal(validateDrillBundle(grouped.bundles[1]).ok, true);
   });
@@ -93,8 +96,8 @@ describe('drill file inventory is deterministic', () => {
 
   test('fingerprint binds source, optional timings and audio identity', () => {
     const hash = 'a'.repeat(64);
-    assert.equal(drillDescriptorFingerprint({ source: { name: `${id}.json`, size: 10, digest: hash }, timings: null, audio: null }),
-      `source:${id}.json:10:${hash}|timings:none|audio:none`);
+    assert.equal(drillDescriptorFingerprint({ source: { name: `${id}.json`, size: 10, digest: hash }, timings: null, solution: null, audio: null }),
+      `source:${id}.json:10:${hash}|timings:none|solution:none|audio:none`);
     assert.equal(drillDescriptorFingerprint({ source: { name: `${id}.json`, size: 10, digest: 'bad' } }), null);
     assert.equal(formatDrillBytes(0), '0 KB');
   });

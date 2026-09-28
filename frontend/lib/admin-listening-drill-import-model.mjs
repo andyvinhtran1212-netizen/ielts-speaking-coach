@@ -27,15 +27,16 @@ function relativePath(file) {
 function fileError(file, kind) {
   const size = integer(file?.size);
   if (size == null || size <= 0) return `${kind} đang rỗng.`;
-  if ((kind === 'Source JSON' || kind === 'timings.json') && size > DRILL_MAX_TEXT_BYTES) return `${kind} vượt giới hạn 2 MB.`;
-  if (kind === 'full_test.mp3' && size > DRILL_MAX_AUDIO_BYTES) return `${kind} vượt giới hạn 30 MB.`;
+  if (['Source JSON', 'timings.json', 'Solution.md'].includes(kind) && size > DRILL_MAX_TEXT_BYTES) return `${kind} vượt giới hạn 2 MB.`;
+  if (kind === 'audio MP3' && size > DRILL_MAX_AUDIO_BYTES) return `${kind} vượt giới hạn 30 MB.`;
   return null;
 }
 
 /**
  * Group a browser FileList without guessing ownership. Directory selections
- * must use Source_JSON/<TEST_ID>.json and
- * audio_output/<TEST_ID>/{timings.json,full_test.mp3}; loose accessories attach
+ * must use Source_JSON/<TEST_ID>.json,
+ * Answer_Keys_Full/<TEST_ID>_Solution.md and
+ * audio_output/<TEST_ID>/{timings.json,Sx.mp3}; loose accessories attach
  * only when there is exactly one loose source JSON in the same selection.
  */
 export function groupDrillFiles(input) {
@@ -60,14 +61,21 @@ export function groupDrillFiles(input) {
       continue;
     }
     const audioIndex = parts.findIndex((part) => part.toLocaleLowerCase('en') === 'audio_output');
+    const solutionIndex = parts.findIndex((part) => part.toLocaleLowerCase('en') === 'answer_keys_full');
     const lower = name.toLocaleLowerCase('en');
+    const solutionId = name.match(/^(ILR-LIS-DRL-[A-Z0-9_-]+)_Solution\.md$/i)?.[1];
+    const canonicalSolutionPath = solutionIndex >= 0 && parts.length === solutionIndex + 2 && parts[solutionIndex + 1] === name;
     const canonicalAccessoryPath = audioIndex >= 0 && parts[audioIndex + 1]
       && parts.length === audioIndex + 3 && parts[audioIndex + 2] === name;
-    if (canonicalAccessoryPath && ['timings.json', 'full_test.mp3'].includes(lower)) {
-      routed.push({ id: parts[audioIndex + 1], kind: lower === 'timings.json' ? 'timings' : 'audio', file });
-    } else if (!textOf(file?.webkitRelativePath) && ['timings.json', 'full_test.mp3'].includes(lower)) {
-      loose.push({ kind: lower === 'timings.json' ? 'timings' : 'audio', file });
-    } else if (['timings.json', 'full_test.mp3'].includes(lower)) {
+    const audioKind = /^s[1-4]\.mp3$/.test(lower) ? 'audio' : lower === 'full_test.mp3' ? 'fallbackAudio' : null;
+    if (solutionId && (!hasDirectoryPath || canonicalSolutionPath)) {
+      if (hasDirectoryPath) routed.push({ id: solutionId, kind: 'solution', file });
+      else loose.push({ kind: 'solution', file });
+    } else if (canonicalAccessoryPath && (lower === 'timings.json' || audioKind)) {
+      routed.push({ id: parts[audioIndex + 1], kind: lower === 'timings.json' ? 'timings' : audioKind, file });
+    } else if (!hasDirectoryPath && (lower === 'timings.json' || audioKind)) {
+      loose.push({ kind: lower === 'timings.json' ? 'timings' : audioKind, file });
+    } else if (lower === 'timings.json' || audioKind || solutionId) {
       unassigned.push(path);
     } else ignored.push(name || '(không tên)');
   }
@@ -75,7 +83,7 @@ export function groupDrillFiles(input) {
   const byId = new Map();
   for (const source of sources) {
     const key = source.id.toLocaleUpperCase('en');
-    const current = byId.get(key) || { testId: source.id, source: null, timings: null, audio: null, errors: [] };
+    const current = byId.get(key) || { testId: source.id, source: null, timings: null, solution: null, audio: null, fallbackAudio: null, errors: [] };
     if (current.source) current.errors.push(`Có nhiều Source JSON cho ${source.id}; chưa thể chọn bản đúng.`);
     else current.source = source.file;
     byId.set(key, current);
@@ -84,7 +92,7 @@ export function groupDrillFiles(input) {
   for (const item of routed) {
     const current = byId.get(item.id.toLocaleUpperCase('en'));
     if (!current) { unassigned.push(relativePath(item.file)); continue; }
-    if (current[item.kind]) current.errors.push(`Có nhiều ${item.kind === 'timings' ? 'timings.json' : 'full_test.mp3'} cho ${current.testId}.`);
+    if (current[item.kind]) current.errors.push(`Có nhiều ${item.kind} cho ${current.testId}.`);
     else current[item.kind] = item.file;
   }
 
@@ -92,26 +100,27 @@ export function groupDrillFiles(input) {
   if (loose.length && sources.length !== 1) {
     globalErrors.push(`Có ${loose.length} file phụ chọn rời nhưng ${sources.length} Source JSON; không thể ghép theo Test ID mà không đoán.`);
     unassigned.push(...loose.map((item) => textOf(item.file?.name)));
-  } else if (loose.length === 1 || loose.length === 2) {
+  } else if (sources.length === 1) {
     const current = byId.values().next().value;
     for (const item of loose) {
-      if (current[item.kind]) current.errors.push(`Có nhiều ${item.kind === 'timings' ? 'timings.json' : 'full_test.mp3'} cho ${current.testId}.`);
+      if (current[item.kind]) current.errors.push(`Có nhiều ${item.kind} cho ${current.testId}.`);
       else current[item.kind] = item.file;
     }
-  } else if (loose.length > 2) {
-    globalErrors.push('Có nhiều file phụ cùng loại trong lựa chọn rời; hãy chọn một thư mục có cấu trúc audio_output/<TEST_ID>/.');
-    unassigned.push(...loose.map((item) => textOf(item.file?.name)));
   }
 
   const bundles = Array.from(byId.values()).sort((left, right) => left.testId.localeCompare(right.testId, 'en'));
   for (const bundle of bundles) {
+    bundle.audio = bundle.audio || bundle.fallbackAudio;
+    delete bundle.fallbackAudio;
     const sourceError = fileError(bundle.source, 'Source JSON');
     const timingsError = bundle.timings ? fileError(bundle.timings, 'timings.json') : null;
-    const audioError = bundle.audio ? fileError(bundle.audio, 'full_test.mp3') : null;
+    const solutionError = bundle.solution ? fileError(bundle.solution, 'Solution.md') : null;
+    const audioError = bundle.audio ? fileError(bundle.audio, 'audio MP3') : null;
     if (sourceError) bundle.errors.push(sourceError);
     if (timingsError) bundle.errors.push(timingsError);
+    if (solutionError) bundle.errors.push(solutionError);
     if (audioError) bundle.errors.push(audioError);
-    if (bundle.audio && !bundle.timings) bundle.errors.push('Có full_test.mp3 nhưng thiếu timings.json; audio không được phép bị bỏ qua âm thầm.');
+    if (bundle.audio && !bundle.timings) bundle.errors.push('Có audio MP3 nhưng thiếu timings.json; audio không được phép bị bỏ qua âm thầm.');
   }
   if (!bundles.length) globalErrors.push('Không tìm thấy Source JSON có tên ILR-LIS-DRL-*.json.');
   return { bundles, errors: globalErrors, unassigned, ignored };
@@ -127,7 +136,7 @@ export function drillDescriptorFingerprint(descriptors) {
   const value = objectOf(descriptors);
   if (!value) return null;
   const parts = [];
-  for (const field of ['source', 'timings', 'audio']) {
+  for (const field of ['source', 'timings', 'solution', 'audio']) {
     const row = objectOf(value[field]);
     if (!row) { if (field === 'source') return null; parts.push(`${field}:none`); continue; }
     const name = textOf(row.name);
