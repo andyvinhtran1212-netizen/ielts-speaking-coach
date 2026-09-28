@@ -3212,6 +3212,16 @@ async def admin_sync_drill(
             or set(by_order) != set(new_orders)):
         raise HTTPException(409, "Cấu trúc exercise cũ khác nguồn; không thay UUID đang được attempt tham chiếu.")
 
+    # PostgREST updates below are separate requests. Hide the parent first so
+    # learner GETs cannot assemble old/new children during a partial sync.
+    # A failed sync stays draft; the same UUID can be retried and published only
+    # after the exact source/readback gate at the end.
+    supabase_admin.table("listening_tests").update({"status": "draft", "is_public": False}).eq("id", identifier).execute()
+    hidden = (supabase_admin.table("listening_tests").select("status,is_public")
+              .eq("id", identifier).limit(1).execute().data or [])
+    if not hidden or hidden[0].get("status") != "draft" or hidden[0].get("is_public") is not False:
+        raise HTTPException(503, "Chưa xác nhận ẩn drill trước khi cập nhật; chưa ghi nội dung.")
+
     audio_hash = hashlib.sha256(audio_bytes).hexdigest()
     new_path = f"drills/{identifier}/sync-{audio_hash[:16]}.mp3"
     if current.get("full_audio_storage_path") != new_path:

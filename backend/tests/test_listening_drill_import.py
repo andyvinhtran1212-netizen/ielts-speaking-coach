@@ -456,6 +456,8 @@ class _PublishDB:
                                      "audio_windows": {"1": {"start": 0, "end": 2}}}}],
         }
         self.writes = []
+        self.fail_on_exercise_update = None
+        self.exercise_update_count = 0
 
     def table(self, name):
         owner = self
@@ -468,6 +470,10 @@ class _PublishDB:
             def execute(self):
                 result = [r for r in owner.rows[name] if all(r.get(k) == v for k, v in self.filters.items())]
                 if self.update_value:
+                    if name == "listening_exercises":
+                        owner.exercise_update_count += 1
+                        if owner.exercise_update_count == owner.fail_on_exercise_update:
+                            raise RuntimeError("injected second exercise write failure")
                     for row in result: row.update(self.update_value)
                     owner.writes.append((name, dict(self.update_value)))
                 return type("Result", (), {"data": [dict(r) for r in result]})()
@@ -542,6 +548,59 @@ def test_sync_drill_keeps_uuids_and_refreshes_audio_and_rich_answers(monkeypatch
     assert {row["id"] for row in db.rows["listening_exercises"]} == old_ids
     assert db.rows["listening_content"][0]["transcript"] != "Old transcript"
     assert len(uploaded) == 1 and uploaded[0][0].startswith(f"drills/{test_id}/sync-")
+
+
+def test_sync_hides_published_parent_during_partial_write_then_retries(monkeypatch):
+    from services import listening_audio
+    async def _admin(_a): return {"id": "admin", "role": "admin"}
+    async def _user(_a): return {"id": "student"}
+    monkeypatch.setattr(listening_module, "require_admin", _admin)
+    monkeypatch.setattr(listening_module, "_require_auth", _user)
+    monkeypatch.setattr(listening_audio, "can_publish", lambda _test: (True, None))
+    monkeypatch.setattr(listening_audio, "validate_section_audio", lambda _audio, test_type=None: {
+        "duration_seconds": 200, "size_bytes": 5000, "errors": [], "warnings": []})
+    monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda _path, _data: None)
+    timings = _rich_form_timings()
+    timings["sections"][0]["file"] = "S1.mp3"
+    parsed = imp.parse_drill(_load("FORM"), timings, _rich_form_solution())
+    drill_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+    db = _PublishDB()
+    db.rows["listening_tests"][0].update({"status": "published", "is_public": True,
+                                           "full_audio_storage_path": "drills/old/full.mp3"})
+    db.rows["listening_exercises"] = [
+        {"id": f"old-exercise-{i}", "content_id": "content-1", "order_num": ex["order_num"],
+         "exercise_type": ex["exercise_type"], "payload": {"answers": [{"q_num": 999}]}, "status": "published"}
+        for i, ex in enumerate(parsed.exercise_rows)
+    ]
+    assert len(db.rows["listening_exercises"]) >= 2
+    db.fail_on_exercise_update = 2
+    monkeypatch.setattr(listening_module, "supabase_admin", db)
+
+    def sync():
+        return _run(listening_module.admin_sync_drill(
+            drill_id, source_json=_upload("ILR-LIS-DRL-FORM-L2-T1.json", _bytes("FORM")),
+            solution=_upload("ILR-LIS-DRL-FORM-L2-T1_Solution.md", _rich_form_solution().encode()),
+            timings=_upload("timings.json", json.dumps(timings).encode()),
+            audio=_upload("S1.mp3", b"x" * 5000), authorization="x"))
+
+    with pytest.raises(RuntimeError, match="second exercise"):
+        sync()
+    assert db.rows["listening_tests"][0]["status"] == "draft"
+    assert db.rows["listening_tests"][0]["is_public"] is False
+    assert db.rows["listening_exercises"][0]["payload"] != db.rows["listening_exercises"][1]["payload"]
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_module.get_published_listening_test(drill_id, class_item=None, attempt_id=None, authorization="x"))
+    assert exc.value.status_code == 404
+
+    db.fail_on_exercise_update = None
+    result = sync()
+    assert result["status"] == "published"
+    assert db.rows["listening_tests"][0]["is_public"] is True
+    assert db.rows["listening_tests"][0]["full_audio_storage_path"] != "drills/old/full.mp3"
+    assert {row["id"] for row in db.rows["listening_exercises"]} == {
+        f"old-exercise-{i}" for i in range(len(parsed.exercise_rows))}
+    assert all(row["payload"] == parsed.exercise_rows[i]["payload"]
+               for i, row in enumerate(db.rows["listening_exercises"]))
 
 
 # ── student list endpoint: drill segregation ───────────────────────────────
