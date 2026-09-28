@@ -195,6 +195,14 @@ describe('native route, queue boundary and responsive contract', () => {
     assert.doesNotMatch(CLIENT.slice(CLIENT.indexOf('const reconcile = async'), CLIENT.indexOf('const discardReceipt')), /uploadDrill\(/, 'reconcile must remain GET-only');
   });
 
+  test('existing drills use exact UUID sync and require a full rich bundle', () => {
+    assert.match(CLIENT, /preview\.duplicate/);
+    assert.match(CLIENT, /bundle\.solution && bundle\.timings && bundle\.audio/);
+    assert.match(CLIENT, /\/admin\/listening\/drills\/\$\{encodeURIComponent\(active\[0\]\.id\)\}\/sync/);
+    assert.match(CLIENT, /active\.length !== 1 \|\| active\[0\]\.type !== 'drill'/);
+    assert.match(CLIENT, /Đã cập nhật và xác nhận Published/);
+  });
+
   test('account switching aborts old XHR and resets local UI while receipts stay account-scoped', () => {
     assert.match(CLIENT, /const activeAccount = useRef\(profile\.id\)/);
     assert.match(CLIENT, /activeUpload\.current\?\.abort\(\)/);

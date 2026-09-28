@@ -3133,6 +3133,106 @@ async def admin_publish_drill(
 _DRILL_MAX_AUDIO_BYTES = 30 * 1024 * 1024   # a single section is minutes, not 30m
 
 
+@admin_router.post("/drills/{drill_id}/sync")
+async def admin_sync_drill(
+    drill_id: uuid.UUID,
+    source_json: UploadFile = File(...),
+    solution: UploadFile = File(...),
+    timings: UploadFile = File(...),
+    audio: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """Refresh one existing drill in place, preserving UUIDs and attempts.
+
+    The uploaded section MP3 is reused verbatim; a content-addressed path
+    leaves the previous object available for rollback. Each write is safe to
+    retry for the same bundle if a network response is lost.
+    """
+    from services import listening_audio
+
+    await require_admin(authorization)
+    sj = _read_json_upload(source_json, "Source JSON")
+    source_json.file.seek(0)
+    source_hash = hashlib.sha256(source_json.file.read()).hexdigest()
+    timing_dict = _read_json_upload(timings, "timings.json")
+    timings.file.seek(0)
+    timing_hash = hashlib.sha256(timings.file.read()).hexdigest()
+    solution_bytes = _read_text_upload(solution, "Solution.md", exts=(".md", ".markdown"))
+    if not (audio.filename or "").lower().endswith(".mp3"):
+        raise HTTPException(422, "Audio phải là .mp3.")
+    audio_bytes = audio.file.read()
+    if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
+        raise HTTPException(422, "Audio vượt giới hạn 30 MB.")
+    av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
+    if av["errors"]:
+        raise HTTPException(422, "; ".join(av["errors"]))
+    sections = timing_dict.get("sections") or []
+    if len(sections) != 1 or sections[0].get("file") != audio.filename:
+        raise HTTPException(422, "MP3 không khớp section file trong timings.json.")
+    if abs(float(sections[0].get("duration") or 0) - float(av["duration_seconds"])) > 1.0:
+        raise HTTPException(422, "Thời lượng audio section khác timings.json hơn 1 giây.")
+
+    try:
+        parsed = listening_drill_import.parse_drill(sj, timing_dict, solution_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise HTTPException(422, f"Không phân tích được nguồn drill: {exc}") from exc
+    if parsed.errors:
+        raise HTTPException(422, {"message": "Drill không hợp lệ.", "errors": parsed.errors})
+
+    identifier = str(drill_id)
+    rows = (supabase_admin.table("listening_tests").select("*")
+            .eq("id", identifier).limit(1).execute().data or [])
+    if not rows or rows[0].get("test_type") != "drill":
+        raise HTTPException(404, "Skill drill not found")
+    current = rows[0]
+    if current.get("status") == "archived" or current.get("test_id") != parsed.test_metadata.get("test_id"):
+        raise HTTPException(409, "UUID, Test ID hoặc trạng thái drill không khớp nguồn.")
+    contents = (supabase_admin.table("listening_content").select("*")
+                .eq("test_id", identifier).execute().data or [])
+    if len(contents) != 1:
+        raise HTTPException(409, "Drill cũ không có đúng một section; cần sửa thủ công.")
+    content = contents[0]
+    existing_exercises = (supabase_admin.table("listening_exercises")
+                          .select("id,content_id,order_num,exercise_type")
+                          .eq("content_id", content["id"]).execute().data or [])
+    by_order = {row.get("order_num"): row for row in existing_exercises}
+    new_orders = [row.get("order_num") for row in parsed.exercise_rows]
+    if (len(by_order) != len(existing_exercises) or len(by_order) != len(new_orders)
+            or set(by_order) != set(new_orders)):
+        raise HTTPException(409, "Cấu trúc exercise cũ khác nguồn; không thay UUID đang được attempt tham chiếu.")
+
+    audio_hash = hashlib.sha256(audio_bytes).hexdigest()
+    new_path = f"drills/{identifier}/sync-{audio_hash[:16]}.mp3"
+    if current.get("full_audio_storage_path") != new_path:
+        _upload_audio_to_bucket(new_path, audio_bytes)
+    tm = parsed.test_metadata
+    new_test_metadata = {**(current.get("metadata") or {}), **(tm.get("metadata") or {}),
+                         "source_hashes": {"source_json": source_hash,
+                                           "solution_md": hashlib.sha256(solution_bytes).hexdigest(),
+                                           "timings_json": timing_hash, "audio_mp3": audio_hash}}
+    new_content = {key: value for key, value in parsed.content_row.items()
+                   if key not in {"id", "test_id", "status"}}
+    new_content["metadata"] = {**(content.get("metadata") or {}), **new_content["metadata"]}
+    for fresh in parsed.exercise_rows:
+        old = by_order[fresh["order_num"]]
+        supabase_admin.table("listening_exercises").update({
+            "exercise_type": fresh["exercise_type"], "payload": fresh["payload"],
+            "order_num": fresh["order_num"], "cefr_level": parsed.content_row.get("cefr_level"),
+        }).eq("id", old["id"]).execute()
+    supabase_admin.table("listening_content").update(new_content).eq("id", content["id"]).execute()
+    supabase_admin.table("listening_tests").update({
+        "title": tm.get("title") or current.get("title"),
+        "band_target": tm.get("band_target"),
+        "accent_profile": list(tm.get("accent_profile") or []),
+        "themes": dict(tm.get("themes") or {}), "cue_points": parsed.cue_points,
+        "audio_assembly_mode": "full_premixed", "full_audio_storage_path": new_path,
+        "full_audio_duration_seconds": av["duration_seconds"],
+        "full_audio_size_bytes": av["size_bytes"], "metadata": new_test_metadata,
+    }).eq("id", identifier).execute()
+    published = await admin_publish_drill(drill_id, authorization)
+    return {**published, "audio_sha256": audio_hash, "source_hashes": new_test_metadata["source_hashes"]}
+
+
 @admin_router.post("/drills/import")
 async def admin_import_drill_dry_run(
     source_json:   UploadFile = File(...),
@@ -3257,6 +3357,15 @@ async def admin_import_drill_commit(
     test_uuid = str(uuid.uuid4())
     storage_path = f"drills/{test_uuid}/full.mp3" if audio_bytes else None
     tm = res.test_metadata
+    source_json.file.seek(0)
+    source_hashes = {"source_json": hashlib.sha256(source_json.file.read()).hexdigest()}
+    if timings is not None:
+        timings.file.seek(0)
+        source_hashes["timings_json"] = hashlib.sha256(timings.file.read()).hexdigest()
+    if solution_text is not None:
+        source_hashes["solution_md"] = hashlib.sha256(solution_text.encode("utf-8")).hexdigest()
+    if audio_bytes:
+        source_hashes["audio_mp3"] = hashlib.sha256(audio_bytes).hexdigest()
     test_payload = {
         "id":              test_uuid,
         "test_id":         test_id_external,
@@ -3266,7 +3375,7 @@ async def admin_import_drill_commit(
         "themes":          dict(tm.get("themes") or {}),
         "cue_points":      res.cue_points,
         "audio_assembly_mode": "full_premixed",
-        "metadata":        tm.get("metadata") or {},
+        "metadata":        {**(tm.get("metadata") or {}), "source_hashes": source_hashes},
         # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
         "test_type":       tm.get("test_type") or "drill",
         "status":          "draft",

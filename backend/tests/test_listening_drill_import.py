@@ -487,6 +487,41 @@ def test_publish_drill_checks_rich_answers_and_publishes_children_first(monkeypa
     assert all(rows[0]["status"] == "published" for rows in db.rows.values())
 
 
+def test_sync_drill_keeps_uuids_and_refreshes_audio_and_rich_answers(monkeypatch):
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_audio, "can_publish", lambda _test: (True, None))
+    monkeypatch.setattr(listening_audio, "validate_section_audio", lambda _audio, test_type=None: {
+        "duration_seconds": 200, "size_bytes": 5000, "errors": [], "warnings": []})
+    uploaded = []
+    monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda path, data: uploaded.append((path, data)))
+    timings = _rich_form_timings()
+    timings["sections"][0]["file"] = "S1.mp3"
+    parsed = imp.parse_drill(_load("FORM"), timings, _rich_form_solution())
+    assert not parsed.errors
+    test_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+    db = _PublishDB()
+    db.rows["listening_tests"][0].update({"full_audio_storage_path": "drills/old/full.mp3", "metadata": {}})
+    db.rows["listening_content"][0].update({"transcript": "Old transcript", "metadata": {}})
+    db.rows["listening_exercises"] = [{"id": f"old-exercise-{i}", "content_id": "content-1",
+                                       "order_num": ex["order_num"], "exercise_type": ex["exercise_type"],
+                                       "payload": {"answers": [{"q_num": 999}]}, "status": "draft"}
+                                      for i, ex in enumerate(parsed.exercise_rows)]
+    old_ids = {row["id"] for row in db.rows["listening_exercises"]}
+    monkeypatch.setattr(listening_module, "supabase_admin", db)
+    out = _run(listening_module.admin_sync_drill(
+        test_id, source_json=_upload("ILR-LIS-DRL-FORM-L2-T1.json", _bytes("FORM")),
+        solution=_upload("ILR-LIS-DRL-FORM-L2-T1_Solution.md", _rich_form_solution().encode()),
+        timings=_upload("timings.json", json.dumps(timings).encode()),
+        audio=_upload("S1.mp3", b"x" * 5000), authorization="x"))
+    assert out["status"] == "published"
+    assert out["answer_count"] == 10
+    assert {row["id"] for row in db.rows["listening_exercises"]} == old_ids
+    assert db.rows["listening_content"][0]["transcript"] != "Old transcript"
+    assert len(uploaded) == 1 and uploaded[0][0].startswith(f"drills/{test_id}/sync-")
+
+
 # ── student list endpoint: drill segregation ───────────────────────────────
 
 class _ListStub:

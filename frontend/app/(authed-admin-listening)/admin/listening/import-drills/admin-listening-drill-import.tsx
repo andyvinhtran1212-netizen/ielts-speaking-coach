@@ -20,7 +20,7 @@ import {
   validateDrillBundle,
 } from '@/lib/admin-listening-drill-import-model.mjs';
 
-type Busy = 'scanning' | 'committing' | 'reconciling' | 'publishing' | null;
+type Busy = 'scanning' | 'committing' | 'reconciling' | 'publishing' | 'syncing' | null;
 type Preview = { ok: boolean; duplicate: boolean; testId: string; title: string; drillType: string; level: string; task: string; questionCount: number; timingReady: boolean; errors: string[]; warnings: string[] };
 type Canonical = { id: string; testId: string; title: string; status: 'draft' | 'published' | 'archived'; drillType: string; level: string; hasAudio: boolean; sectionNum: number; exerciseCount: number };
 type CommitAck = { id: string; testId: string; status: 'draft'; drillType: string; level: string; hasAudio: boolean; exercisesCreated: number; warnings: string[] };
@@ -36,6 +36,7 @@ const messageOf = (caught: unknown) => caught instanceof Error ? caught.message 
 const busyLabel: Record<Exclude<Busy, null>, string> = {
   scanning: 'Đang dry-run từng drill…', committing: 'Đang ghi queue tuần tự…', reconciling: 'Đang đối chiếu canonical…',
   publishing: 'Đang phát hành từng drill…',
+  syncing: 'Đang cập nhật drill đã có…',
 };
 
 class UploadHttpError extends Error { constructor(message: string, readonly status: number) { super(message); } }
@@ -122,7 +123,7 @@ export function AdminListeningDrillImport() {
   const [pending, setPending] = useState<Receipt | null>(null);
   const [recovered, setRecovered] = useState<Canonical | null>(null);
   const [receiptReady, setReceiptReady] = useState(false);
-  const [dialog, setDialog] = useState<'commit' | 'discard' | null>(null);
+  const [dialog, setDialog] = useState<'commit' | 'discard' | 'sync' | null>(null);
   const [progress, setProgress] = useState({ testId: '', loaded: 0, total: 0 });
   const [pickerEpoch, setPickerEpoch] = useState(0);
   const receiptOwner = useRef<string | null>(null);
@@ -141,6 +142,8 @@ export function AdminListeningDrillImport() {
   const canonicalCount = bundles.filter((bundle) => bundle.canonical).length;
   const publishQueue = bundles.filter((bundle) => bundle.canonical?.status === 'draft');
   const publishedCount = bundles.filter((bundle) => bundle.canonical?.status === 'published').length;
+  const syncQueue = bundles.filter((bundle) => bundle.status === 'blocked' && bundle.preview?.duplicate
+    && bundle.preview.ok && bundle.solution && bundle.timings && bundle.audio);
   const scannableCount = bundles.filter((bundle) => !bundle.canonical).length;
 
   useEffect(() => {
@@ -418,6 +421,43 @@ export function AdminListeningDrillImport() {
     }
   };
 
+  const syncAll = async () => {
+    if (busy || pending || !syncQueue.length) return;
+    const account = profile.id;
+    setDialog(null); setBusy('syncing'); setError(null); setNotice(null);
+    let confirmed = 0;
+    try {
+      for (const bundle of syncQueue) {
+        if (activeAccount.current !== account) return;
+        const found = await searchExact(bundle.testId, []);
+        const active = found.matches.filter((row) => row.status !== 'archived');
+        if (active.length !== 1 || active[0].type !== 'drill') throw new Error(`${bundle.testId}: không có đúng một drill đang active.`);
+        const form = new FormData();
+        form.append('source_json', bundle.source, bundle.source.name);
+        form.append('solution', bundle.solution!, bundle.solution!.name);
+        form.append('timings', bundle.timings!, 'timings.json');
+        form.append('audio', bundle.audio!, bundle.audio!.name);
+        const raw = await window.api.upload<unknown>(`/admin/listening/drills/${encodeURIComponent(active[0].id)}/sync`, form);
+        const ack = raw as { id?: string; test_id?: string; status?: string; answer_count?: number; exercise_count?: number };
+        if (ack.id !== active[0].id || ack.test_id !== bundle.testId || ack.status !== 'published'
+          || !Number.isInteger(ack.answer_count) || (ack.answer_count || 0) < 1
+          || !Number.isInteger(ack.exercise_count) || (ack.exercise_count || 0) < 1) {
+          throw new Error(`${bundle.testId}: ACK cập nhật sai contract; kiểm tra UUID trước khi gửi lại.`);
+        }
+        const canonical = await readCanonical({ id: active[0].id, testId: bundle.testId,
+          drillType: bundle.preview!.drillType, level: bundle.preview!.level, hasAudio: true, status: 'published' });
+        updateBundle(bundle.testId, { canonical, status: 'canonical', message: 'Đã cập nhật và xác nhận Published.' });
+        confirmed += 1;
+        setNotice(`Đã cập nhật ${confirmed}/${syncQueue.length} drill hiện hữu.`);
+      }
+      setNotice(`Đã cập nhật và xác nhận ${confirmed} drill hiện hữu.`);
+    } catch (caught) {
+      setError(`Đã xác nhận ${confirmed}/${syncQueue.length} drill trước khi dừng. ${messageOf(caught)}`);
+    } finally {
+      if (activeAccount.current === account) setBusy(null);
+    }
+  };
+
   const discardReceipt = () => {
     setDialog(null);
     try { clearReceipt(); setNotice('Đã bỏ receipt cục bộ; dữ liệu backend không thay đổi.'); }
@@ -482,7 +522,7 @@ export function AdminListeningDrillImport() {
       <aside className="aldi-side" aria-label="Điều khiển import">
         <section className="aldi-side-card"><p className="alc-eyebrow">Readiness gate</p><h2>{busy === 'committing' ? 'Queue đang ghi tuần tự' : pending ? 'Queue đang khóa' : readyCount ? `${selected.length} drill được chọn` : bundles.length ? 'Cần dry-run' : 'Chưa có inventory'}</h2><ul><li className={bundles.length > 0 && !inventoryErrors.length && !unassigned.length ? 'is-done' : ''}>Bundle có chủ sở hữu rõ ràng</li><li className={readyCount ? 'is-done' : ''}>Parser và duplicate gate đã qua</li><li className={selected.length ? 'is-done' : ''}>Có hàng đủ điều kiện được chọn</li><li className={canonicalCount || recovered ? 'is-done' : ''}>Canonical GET xác nhận kết quả</li></ul></section>
         <section className="aldi-side-card"><p className="alc-eyebrow">Queue truth</p><dl><div><dt>Tổng bundle</dt><dd>{bundles.length}</dd></div><div><dt>Audio-ready</dt><dd>{bundles.filter((bundle) => bundle.audio && bundle.timings).length}</dd></div><div><dt>Metadata-only</dt><dd>{bundles.filter((bundle) => !bundle.audio && !bundle.errors.length).length}</dd></div><div><dt>Đã xác nhận</dt><dd>{canonicalCount}</dd></div></dl></section>
-        <section className="aldi-action-card"><button className="adm-btn-secondary" type="button" disabled={Boolean(busy || pending) || !accountReady || !scannableCount || inventoryBlocked} onClick={() => void scanAll()}>{busy === 'scanning' ? 'Đang dry-run…' : bundles.some((bundle) => bundle.preview) ? 'Dry-run lại các hàng chưa ghi' : 'Dry-run tất cả'}</button><button className="adm-btn-primary" type="button" disabled={Boolean(busy || pending) || !accountReady || !selected.length || inventoryBlocked} onClick={() => setDialog('commit')}>Ghi {selected.length || 0} Draft đã chọn…</button>{busy === 'committing' && <div className="aldi-progress"><strong>{progress.testId}</strong><div role="progressbar" aria-label={`Tiến độ upload ${progress.testId}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.total ? Math.min(100, Math.round(progress.loaded / progress.total * 100)) : 0} aria-valuetext={`${formatDrillBytes(progress.loaded)} trên ${formatDrillBytes(progress.total)}`}><span style={{ width: `${progress.total ? Math.min(100, Math.round(progress.loaded / progress.total * 100)) : 0}%` }} /></div><small aria-hidden="true">{formatDrillBytes(progress.loaded)} / {formatDrillBytes(progress.total)}</small></div>}<p>Commit chạy tuần tự. Lỗi 4xx dừng hàng đó; lỗi mơ hồ giữ receipt và dừng toàn queue.</p></section>
+        <section className="aldi-action-card"><button className="adm-btn-secondary" type="button" disabled={Boolean(busy || pending) || !accountReady || !scannableCount || inventoryBlocked} onClick={() => void scanAll()}>{busy === 'scanning' ? 'Đang dry-run…' : bundles.some((bundle) => bundle.preview) ? 'Dry-run lại các hàng chưa ghi' : 'Dry-run tất cả'}</button><button className="adm-btn-primary" type="button" disabled={Boolean(busy || pending) || !accountReady || !selected.length || inventoryBlocked} onClick={() => setDialog('commit')}>Ghi {selected.length || 0} Draft đã chọn…</button>{syncQueue.length > 0 && <button className="adm-btn-secondary" type="button" disabled={Boolean(busy || pending)} onClick={() => setDialog('sync')}>Cập nhật {syncQueue.length} bài đã có…</button>}{busy === 'committing' && <div className="aldi-progress"><strong>{progress.testId}</strong><div role="progressbar" aria-label={`Tiến độ upload ${progress.testId}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.total ? Math.min(100, Math.round(progress.loaded / progress.total * 100)) : 0} aria-valuetext={`${formatDrillBytes(progress.loaded)} trên ${formatDrillBytes(progress.total)}`}><span style={{ width: `${progress.total ? Math.min(100, Math.round(progress.loaded / progress.total * 100)) : 0}%` }} /></div><small aria-hidden="true">{formatDrillBytes(progress.loaded)} / {formatDrillBytes(progress.total)}</small></div>}<p>Commit chạy tuần tự. Lỗi 4xx dừng hàng đó; lỗi mơ hồ giữ receipt và dừng toàn queue.</p></section>
         {(canonicalCount > 0 || recovered) && <button className="adm-btn-secondary aldi-reset" type="button" disabled={Boolean(busy || pending)} onClick={reset}>Import batch khác</button>}
       </aside>
     </div>
@@ -490,6 +530,7 @@ export function AdminListeningDrillImport() {
     <Dialog open={dialog === 'commit'} title={`Ghi ${selected.length} skill drill thành Draft?`} description="Queue sẽ ghi tuần tự và tạo receipt trước mỗi POST. Không drill nào được coi là thành công trước canonical GET." onClose={() => setDialog(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setDialog(null)}>Rà lại lựa chọn</button><button className="adm-btn-primary" type="button" onClick={() => void runCommit()}>Xác nhận ghi {selected.length} Draft</button></>}>
       <dl className="aldi-dialog-summary"><div><dt>Audio-ready</dt><dd>{selected.filter((bundle) => bundle.audio).length}</dd></div><div><dt>Metadata-only</dt><dd>{selected.filter((bundle) => !bundle.audio).length}</dd></div></dl>
     </Dialog>
+    <Dialog open={dialog === 'sync'} title={`Cập nhật ${syncQueue.length} drill hiện hữu?`} description="Giữ nguyên UUID và lịch sử làm bài; cập nhật nội dung, lời giải và audio section theo bundle, rồi xác nhận Published từng bài." onClose={() => setDialog(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setDialog(null)}>Rà lại</button><button className="adm-btn-primary" type="button" onClick={() => void syncAll()}>Xác nhận cập nhật {syncQueue.length} bài</button></>} />
     <Dialog open={dialog === 'discard'} title="Bỏ receipt cục bộ?" description="Thao tác này không hủy request backend. Chỉ bỏ sau khi đã kiểm tra Kho test và chắc chắn không có lượt ghi đang hoàn tất." onClose={() => setDialog(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setDialog(null)}>Tiếp tục đối chiếu</button><button className="adm-btn-danger" type="button" onClick={discardReceipt}>Tôi đã kiểm tra, bỏ receipt</button></>} />
   </main>;
 }
