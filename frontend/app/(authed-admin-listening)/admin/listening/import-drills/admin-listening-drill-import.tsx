@@ -140,7 +140,7 @@ export function AdminListeningDrillImport() {
   const selected = bundles.filter((bundle) => bundle.selected && bundle.status === 'ready');
   const readyCount = bundles.filter((bundle) => bundle.status === 'ready').length;
   const canonicalCount = bundles.filter((bundle) => bundle.canonical).length;
-  const publishQueue = bundles.filter((bundle) => bundle.canonical?.status === 'draft');
+  const publishQueue = bundles.filter((bundle) => bundle.canonical?.status === 'draft' && bundle.canonical.hasAudio);
   const publishedCount = bundles.filter((bundle) => bundle.canonical?.status === 'published').length;
   const syncQueue = bundles.filter((bundle) => bundle.status === 'blocked' && bundle.preview?.duplicate
     && bundle.preview.ok && bundle.solution && bundle.timings && bundle.audio);

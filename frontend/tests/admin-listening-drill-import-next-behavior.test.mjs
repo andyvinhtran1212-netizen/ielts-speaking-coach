@@ -61,6 +61,14 @@ describe('drill file inventory is deterministic', () => {
     assert.equal(grouped.bundles.every((bundle) => !bundle.timings && !bundle.audio), true);
   });
 
+  test('loose solution must name the same Test ID as its source', () => {
+    const other = 'ILR-LIS-DRL-NOTE-L2-T1';
+    const grouped = groupDrillFiles([file(`${id}.json`), file(`${other}_Solution.md`)]);
+    assert.equal(grouped.bundles.length, 1);
+    assert.equal(grouped.bundles[0].solution, null);
+    assert.deepEqual(grouped.unassigned, [`${other}_Solution.md`]);
+  });
+
   test('recognized accessories in a noncanonical directory are blocking unassigned evidence', () => {
     const grouped = groupDrillFiles([
       file(`${id}.json`, `wrong/${id}.json`),
@@ -172,6 +180,10 @@ describe('native route, queue boundary and responsive contract', () => {
     assert.match(CLIENT, /Audio thiếu timings/);
     assert.match(CLIENT, /Không đoán quan hệ file/);
     assert.match(CLIENT, /preview\.duplicate/);
+  });
+
+  test('publish batch includes only canonical drafts with audio', () => {
+    assert.match(CLIENT, /const publishQueue = bundles\.filter\(\(bundle\) => bundle\.canonical\?\.status === 'draft' && bundle\.canonical\.hasAudio\)/);
   });
 
   test('writes one account receipt before each sequential POST and stops on ambiguity', () => {

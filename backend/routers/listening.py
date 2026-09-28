@@ -3082,11 +3082,22 @@ async def admin_publish_drill(
     answer_count = 0
     for exercise in exercises:
         payload = exercise.get("payload") or {}
+        questions = payload.get("questions") or []
         answers = payload.get("answers") or []
         solutions = payload.get("solutions") or {}
         windows = payload.get("audio_windows") or {}
-        if not answers or not isinstance(solutions, dict) or not isinstance(windows, dict):
-            raise HTTPException(422, "Bài tập thiếu đáp án, lời giải hoặc mốc nghe lại.")
+        if not isinstance(questions, list) or not isinstance(answers, list) or not isinstance(solutions, dict) or not isinstance(windows, dict):
+            raise HTTPException(422, "Bài tập có cấu trúc câu hỏi/đáp án/lời giải không hợp lệ.")
+        question_ids = [str(question.get("q_num") or question.get("qnum") or "") for question in questions if isinstance(question, dict)]
+        answer_ids = [str(answer.get("q_num") or answer.get("qnum") or "") for answer in answers if isinstance(answer, dict)]
+        if (not question_ids or len(question_ids) != len(questions)
+                or len(answer_ids) != len(answers) or "" in question_ids + answer_ids
+                or len(set(question_ids)) != len(question_ids)
+                or len(set(answer_ids)) != len(answer_ids)
+                or set(question_ids) != set(answer_ids)
+                or set(question_ids) != set(solutions)
+                or set(question_ids) != set(windows)):
+            raise HTTPException(422, "Câu hỏi, đáp án, lời giải và mốc nghe lại phải khớp từng số câu.")
         for answer in answers:
             q = str(answer.get("q_num") or answer.get("qnum") or "")
             detail = solutions.get(q) or {}

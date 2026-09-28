@@ -28,6 +28,7 @@ from typing import Any
 from . import listening_convert as lc
 from .listening_fulltest_import import parse_solution_blocks
 from .listening_grader import build_turn_segments
+from .listening_test_grader import normalize_answer
 
 
 # ── render → (q_type, template_kind) ───────────────────────────────────────
@@ -192,6 +193,16 @@ def _answer_entry(a: dict[str, Any]) -> dict[str, Any] | None:
         "notes":           a.get("notes") or "",
         "trap_mechanisms": list(a.get("trap_mechanisms") or []),
     }
+
+
+def _solution_answer_key(value: str, canonical: str) -> str:
+    """Remove display-only annotations without discarding the keyed answer."""
+    answer = re.sub(r"\s*\*\(accept [\s\S]*?\)\*\s*$", "", value.strip(), flags=re.I)
+    if re.fullmatch(r"[A-Z]", canonical, flags=re.I):
+        match = re.match(r"^(?:\*\*([A-Z])\*\*|([A-Z])(?=\s*[—(-]))", answer, flags=re.I)
+        if match:
+            return match.group(1) or match.group(2)
+    return answer
 
 
 # ── per-render internal-block builders ─────────────────────────────────────
@@ -458,6 +469,13 @@ def parse_drill(source_json: dict[str, Any], timings: dict[str, Any] | None = No
         for q, details in rich.items():
             if q not in solutions_by_q:
                 continue
+            source_answer = next(a for a in flat_answers if a["q_num"] == q)
+            solution_answer = _solution_answer_key(str(details.get("answer") or ""), source_answer["answer"])
+            accepted = [source_answer["answer"], *source_answer["alternatives"]]
+            if not solution_answer or normalize_answer(solution_answer) not in {
+                normalize_answer(str(answer)) for answer in accepted
+            }:
+                res.errors.append(f"Q{q}: Solution.md answer differs from Source JSON.")
             solution_window = details.get("audio_window")
             timing_window = q_windows.get(q)
             if solution_window and timing_window and any(

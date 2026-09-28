@@ -144,6 +144,12 @@ def test_rich_solution_rejects_missing_question():
     assert any("missing=[10]" in error for error in result.errors)
 
 
+def test_rich_solution_rejects_answer_that_disagrees_with_source():
+    solution = _rich_form_solution().replace("**Answer / Đáp án:** Halewood-Birch", "**Answer / Đáp án:** Other name", 1)
+    result = imp.parse_drill(_load("FORM"), _rich_form_timings(), solution)
+    assert any("Q1" in error and "answer differs" in error for error in result.errors)
+
+
 @pytest.mark.parametrize("code", _ALL)
 def test_answer_key_grades_perfectly(code):
     """Feeding the canonical answers back through the real grader must score
@@ -444,7 +450,7 @@ class _PublishDB:
             "listening_content": [{"id": "content-1", "test_id": "00000000-0000-4000-8000-000000000001",
                                    "status": "draft", "transcript": "Spoken words.", "metadata": {}}],
             "listening_exercises": [{"id": "exercise-1", "content_id": "content-1", "status": "draft",
-                                     "exercise_type": "mcq", "payload": {"answers": [{"q_num": 1}],
+                                     "exercise_type": "mcq", "payload": {"questions": [{"q_num": 1}], "answers": [{"q_num": 1}],
                                      "solutions": {"1": {"why_correct": "Because", "script": "Spoken words.",
                                                          "translation_vi": "Lời thoại."}},
                                      "audio_windows": {"1": {"start": 0, "end": 2}}}}],
@@ -486,6 +492,20 @@ def test_publish_drill_checks_rich_answers_and_publishes_children_first(monkeypa
     assert out["answer_count"] == 1
     assert [name for name, _ in db.writes] == ["listening_exercises", "listening_content", "listening_tests"]
     assert all(rows[0]["status"] == "published" for rows in db.rows.values())
+
+
+def test_publish_drill_rejects_question_without_answer(monkeypatch):
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_audio, "can_publish", lambda _test: (True, None))
+    db = _PublishDB()
+    db.rows["listening_exercises"][0]["payload"]["questions"].append({"q_num": 2})
+    monkeypatch.setattr(listening_module, "supabase_admin", db)
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_module.admin_publish_drill(uuid.UUID("00000000-0000-4000-8000-000000000001"), authorization="x"))
+    assert exc.value.status_code == 422
+    assert db.writes == []
 
 
 def test_sync_drill_keeps_uuids_and_refreshes_audio_and_rich_answers(monkeypatch):

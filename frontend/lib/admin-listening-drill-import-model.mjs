@@ -70,7 +70,7 @@ export function groupDrillFiles(input) {
     const audioKind = /^s[1-4]\.mp3$/.test(lower) ? 'audio' : lower === 'full_test.mp3' ? 'fallbackAudio' : null;
     if (solutionId && (!hasDirectoryPath || canonicalSolutionPath)) {
       if (hasDirectoryPath) routed.push({ id: solutionId, kind: 'solution', file });
-      else loose.push({ kind: 'solution', file });
+      else loose.push({ id: solutionId, kind: 'solution', file });
     } else if (canonicalAccessoryPath && (lower === 'timings.json' || audioKind)) {
       routed.push({ id: parts[audioIndex + 1], kind: lower === 'timings.json' ? 'timings' : audioKind, file });
     } else if (!hasDirectoryPath && (lower === 'timings.json' || audioKind)) {
@@ -103,6 +103,10 @@ export function groupDrillFiles(input) {
   } else if (sources.length === 1) {
     const current = byId.values().next().value;
     for (const item of loose) {
+      if (item.id && item.id.toLocaleUpperCase('en') !== current.testId.toLocaleUpperCase('en')) {
+        unassigned.push(relativePath(item.file));
+        continue;
+      }
       if (current[item.kind]) current.errors.push(`Có nhiều ${item.kind} cho ${current.testId}.`);
       else current[item.kind] = item.file;
     }
