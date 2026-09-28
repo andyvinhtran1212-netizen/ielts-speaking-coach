@@ -78,6 +78,70 @@ def test_parse_each_type_clean(code):
         assert ex["payload"]["template_kind"] == _EXPECT_TK[code], code
 
 
+def _rich_form_timings() -> dict:
+    section = _load("FORM")["sections"][0]
+    sid = f"S{section['section_number']}"
+    return {"sections": [{
+        "id": sid,
+        "duration": 200,
+        "questions": {str(q): {"start": q * 10, "end": q * 10 + 5}
+                      for q in range(1, 11)},
+        "turns": [{"start": i * 2, "end": i * 2 + 1.5}
+                  for i in range(len(section["audio_script"]))],
+    }]}
+
+
+def _rich_form_solution(*, first_window_shift: float = 0.0) -> str:
+    source = _load("FORM")
+    windows = imp._question_windows(_rich_form_timings())
+    sid = f"S{source['sections'][0]['section_number']}"
+    answers = {int(a["qnum"]): a["answer"]
+               for block in source["sections"][0]["question_blocks"]
+               for a in block["answers"]}
+    parts = []
+    for q in sorted(answers):
+        window = windows[q]
+        start = window["start"] + (first_window_shift if q == 1 else 0)
+        parts.append(
+            f"### Q{q}\n"
+            f"**🔊 Nghe lại:** [{sid}](audio://full_test.mp3?start={start}&end={window['end']}&q={q}&section={sid})\n"
+            f"**Answer / Đáp án:** {answers[q]}\n"
+            f"**📝 Dịch sát đoạn chứa đáp án (VN):** Bản dịch cho câu {q}.\n"
+            f"**Vì sao đúng:** Bằng chứng cho câu {q}.\n"
+            f"**Script extract / Đoạn audio:** Spoken evidence for question {q}.\n"
+            f"**⚠️ Bẫy:** Lựa chọn khác không đúng.\n"
+        )
+    return "\n".join(parts)
+
+
+def test_rich_solution_reaches_review_payload_without_changing_answer_key():
+    source = _load("FORM")
+    result = imp.parse_drill(source, _rich_form_timings(), _rich_form_solution())
+    assert not result.errors
+    solutions = {int(q): details for ex in result.exercise_rows
+                 for q, details in ex["payload"]["solutions"].items()}
+    assert len(solutions) == 10
+    assert solutions[1]["translation_vi"] == "Bản dịch cho câu 1."
+    assert solutions[1]["why_correct"] == "Bằng chứng cho câu 1."
+    assert "Spoken evidence" in solutions[1]["script"]
+    assert solutions[1]["answer"] == next(
+        a["answer"] for block in source["sections"][0]["question_blocks"]
+        for a in block["answers"] if a["qnum"] == "1")
+    assert result.content_row["metadata"]["dictation_segments"]
+
+
+def test_rich_solution_rejects_audio_window_drift():
+    result = imp.parse_drill(_load("FORM"), _rich_form_timings(),
+                             _rich_form_solution(first_window_shift=1.0))
+    assert any("Q1" in error and "audio window" in error for error in result.errors)
+
+
+def test_rich_solution_rejects_missing_question():
+    solution = _rich_form_solution().split("### Q10")[0]
+    result = imp.parse_drill(_load("FORM"), _rich_form_timings(), solution)
+    assert any("missing=[10]" in error for error in result.errors)
+
+
 @pytest.mark.parametrize("code", _ALL)
 def test_answer_key_grades_perfectly(code):
     """Feeding the canonical answers back through the real grader must score

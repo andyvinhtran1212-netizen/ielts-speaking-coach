@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import listening_convert as lc
+from .listening_fulltest_import import parse_solution_blocks
 from .listening_grader import build_turn_segments
 
 
@@ -379,8 +380,9 @@ def _build_transcript(section: dict) -> tuple[str, dict[int, int]]:
 
 # ── main entry ─────────────────────────────────────────────────────────────
 
-def parse_drill(source_json: dict[str, Any], timings: dict[str, Any] | None = None) -> DrillParseResult:
-    """Parse one drill Source_JSON (+ optional timings.json) into persistable
+def parse_drill(source_json: dict[str, Any], timings: dict[str, Any] | None = None,
+                solution_text: str | None = None) -> DrillParseResult:
+    """Parse one drill Source_JSON (+ optional timings and rich Solution.md) into persistable
     rows. Pure/deterministic. Collects errors (block/import invalid) and
     warnings (missing audio → publishable metadata but not student-ready)."""
     res = DrillParseResult()
@@ -446,6 +448,28 @@ def parse_drill(source_json: dict[str, Any], timings: dict[str, Any] | None = No
     solutions_by_q = {a["q_num"]: {"answer": a["answer"], "why_correct": a["notes"],
                                    "trap": ", ".join(a["trap_mechanisms"])}
                       for a in flat_answers}
+    if solution_text is not None:
+        rich = parse_solution_blocks(solution_text)
+        expected = set(solutions_by_q)
+        if set(rich) != expected:
+            res.errors.append(
+                f"Solution.md questions differ from Source JSON: "
+                f"missing={sorted(expected - set(rich))}, extra={sorted(set(rich) - expected)}")
+        for q, details in rich.items():
+            if q not in solutions_by_q:
+                continue
+            solution_window = details.get("audio_window")
+            timing_window = q_windows.get(q)
+            if solution_window and timing_window and any(
+                abs(float(solution_window[k]) - float(timing_window[k])) > 0.1
+                for k in ("start", "end")
+            ):
+                res.errors.append(f"Q{q}: Solution.md audio window differs from timings.json.")
+            for field in ("translation_vi", "vocab_focus", "vocab", "paraphrase",
+                          "paraphrase_map", "why_correct", "script", "trap",
+                          "skills", "relisten"):
+                if details.get(field):
+                    solutions_by_q[q][field] = details[field]
     for ex in exercises:
         lo, hi = ex["q_range"]
         rng = range(lo, hi + 1)
