@@ -107,6 +107,7 @@ async function chooseDirectory(items) {
 }
 
 const source = (testId) => ({ name: `${testId}.json`, path: `11_Skill_Drills_Web/Source_JSON/${testId}.json`, type: 'application/json', buffer: bytes(JSON.stringify({ test_id: testId })) });
+const solution = (testId) => ({ name: `${testId}_Solution.md`, path: `11_Skill_Drills_Web/Answer_Keys_Full/${testId}_Solution.md`, type: 'text/markdown', buffer: bytes(`### Q1\n**Vì sao đúng:** ${testId}`) });
 const timings = (testId) => ({ name: 'timings.json', path: `11_Skill_Drills_Web/audio_output/${testId}/timings.json`, type: 'application/json', buffer: bytes(JSON.stringify({ full_test: { duration: 84 } })) });
 const audio = (testId) => ({ name: 'full_test.mp3', path: `11_Skill_Drills_Web/audio_output/${testId}/full_test.mp3`, type: 'audio/mpeg', buffer: bytes(`fixture-audio-${testId}`) });
 
@@ -118,8 +119,8 @@ const focusOutline = await page.locator('.aldi-picker input').first().evaluate((
 check('directory picker có focus ring nhìn thấy', focusOutline >= 2, String(focusOutline));
 
 await chooseDirectory([
-  source(T1), timings(T1), audio(T1),
-  source(T2),
+  source(T1), solution(T1), timings(T1), audio(T1),
+  source(T2), solution(T2),
   source(T3), timings(T3), audio(T3),
   source(T4), audio(T4),
   source(T6), timings(T6),
@@ -172,7 +173,7 @@ check('mất ACK giữ receipt để review thủ công dù chỉ có một row 
 await page.getByRole('button', { name: 'Bỏ receipt…' }).click();
 await page.getByRole('button', { name: 'Tôi đã kiểm tra, bỏ receipt' }).click();
 scenario = 'happy';
-await chooseDirectory([source(T5)]);
+await chooseDirectory([source(T5), solution(T5)]);
 await page.getByRole('button', { name: 'Dry-run tất cả' }).click();
 await page.getByText('Dry-run hoàn tất.', { exact: false }).waitFor();
 await page.evaluate(() => {

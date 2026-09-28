@@ -3043,6 +3043,114 @@ async def admin_import_fulltest_commit(
     }
 
 
+async def _publish_drill(
+    drill_id: uuid.UUID,
+    authorization: str | None,
+    *,
+    sync_owner: str | None = None,
+):
+    """Publish an imported drill only after its audio and every rich answer
+    are present. The test row is flipped last so incomplete child rows never
+    become visible in the learner library during a partial failure. Retrying
+    the same UUID is safe after a transient PostgREST error.
+    """
+    from services import listening_audio
+
+    await require_admin(authorization)
+    identifier = str(drill_id)
+    tests = (supabase_admin.table("listening_tests").select("*")
+             .eq("id", identifier).limit(1).execute().data or [])
+    if not tests or tests[0].get("test_type") != "drill":
+        raise HTTPException(404, "Skill drill not found")
+    test = tests[0]
+    if test.get("status") not in {"draft", "published"}:
+        raise HTTPException(409, "Skill drill is archived")
+    held_owner = (test.get("metadata") or {}).get("sync_owner")
+    if held_owner != sync_owner:
+        raise HTTPException(409, "Drill đang được đồng bộ bởi yêu cầu khác.")
+    allowed, reason = listening_audio.can_publish(test)
+    if not allowed:
+        raise HTTPException(422, reason or "Audio chưa sẵn sàng.")
+
+    contents = (supabase_admin.table("listening_content")
+                .select("id,status,transcript,metadata")
+                .eq("test_id", identifier).execute().data or [])
+    if len(contents) != 1 or not (contents[0].get("transcript") or "").strip():
+        raise HTTPException(422, "Drill phải có đúng một section và transcript.")
+    content_id = str(contents[0]["id"])
+    exercises = (supabase_admin.table("listening_exercises")
+                 .select("id,status,payload,exercise_type")
+                 .eq("content_id", content_id).execute().data or [])
+    if not exercises:
+        raise HTTPException(422, "Drill chưa có bài tập.")
+    answer_count = 0
+    for exercise in exercises:
+        payload = exercise.get("payload") or {}
+        questions = payload.get("questions") or []
+        answers = payload.get("answers") or []
+        solutions = payload.get("solutions") or {}
+        windows = payload.get("audio_windows") or {}
+        if not isinstance(questions, list) or not isinstance(answers, list) or not isinstance(solutions, dict) or not isinstance(windows, dict):
+            raise HTTPException(422, "Bài tập có cấu trúc câu hỏi/đáp án/lời giải không hợp lệ.")
+        question_ids = [str(question.get("q_num") or question.get("qnum") or "") for question in questions if isinstance(question, dict)]
+        answer_ids = [str(answer.get("q_num") or answer.get("qnum") or "") for answer in answers if isinstance(answer, dict)]
+        if (not question_ids or len(question_ids) != len(questions)
+                or len(answer_ids) != len(answers) or "" in question_ids + answer_ids
+                or len(set(question_ids)) != len(question_ids)
+                or len(set(answer_ids)) != len(answer_ids)
+                or set(question_ids) != set(answer_ids)
+                or set(question_ids) != set(solutions)
+                or set(question_ids) != set(windows)):
+            raise HTTPException(422, "Câu hỏi, đáp án, lời giải và mốc nghe lại phải khớp từng số câu.")
+        for answer in answers:
+            q = str(answer.get("q_num") or answer.get("qnum") or "")
+            detail = solutions.get(q) or {}
+            if not q or q not in windows or not all(
+                (detail.get(key) or "").strip()
+                for key in ("why_correct", "script", "translation_vi")
+            ):
+                raise HTTPException(422, f"Câu {q or '?'} thiếu lời giải/script/audio window.")
+            answer_count += 1
+
+    # Publish descendants first. A retry converges after any interrupted write.
+    for exercise in exercises:
+        if exercise.get("status") != "published":
+            supabase_admin.table("listening_exercises").update({"status": "published"}).eq("id", exercise["id"]).execute()
+    if contents[0].get("status") != "published":
+        supabase_admin.table("listening_content").update({"status": "published"}).eq("id", content_id).execute()
+    if test.get("status") != "published" or test.get("is_public") is not True:
+        supabase_admin.table("listening_tests").update({"status": "published", "is_public": True}).eq("id", identifier).execute()
+
+    checked_test = (supabase_admin.table("listening_tests").select("id,status,is_public")
+                    .eq("id", identifier).limit(1).execute().data or [])
+    checked_content = (supabase_admin.table("listening_content").select("id,status")
+                       .eq("id", content_id).limit(1).execute().data or [])
+    checked_exercises = (supabase_admin.table("listening_exercises").select("id,status")
+                        .eq("content_id", content_id).execute().data or [])
+    if (not checked_test or checked_test[0].get("status") != "published"
+            or checked_test[0].get("is_public") is not True
+            or not checked_content or checked_content[0].get("status") != "published"
+            or len(checked_exercises) != len(exercises)
+            or any(row.get("status") != "published" for row in checked_exercises)):
+        raise HTTPException(503, "Publish chưa được xác nhận đầy đủ; thử lại cùng UUID.")
+    return {"id": identifier, "test_id": test["test_id"], "status": "published",
+            "is_public": True, "content_count": 1, "exercise_count": len(exercises),
+            "answer_count": answer_count}
+
+
+@admin_router.post("/drills/{drill_id}/publish")
+async def admin_publish_drill(
+    drill_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+):
+    """Publish an imported drill only after its audio and every rich answer
+    are present. The test row is flipped last so incomplete child rows never
+    become visible in the learner library during a partial failure. Retrying
+    the same UUID is safe after a transient PostgREST error.
+    """
+    return await _publish_drill(drill_id, authorization)
+
+
 # ── Skill-drill import (Skills Practice) ─────────────────────────────────────
 # A drill = a 1-section mini test isolating ONE question type. Imported one
 # drill per request (JSON + optional timings.json + optional mp3); the admin
@@ -3053,10 +3161,172 @@ async def admin_import_fulltest_commit(
 _DRILL_MAX_AUDIO_BYTES = 30 * 1024 * 1024   # a single section is minutes, not 30m
 
 
+@admin_router.post("/drills/{drill_id}/sync")
+async def admin_sync_drill(
+    drill_id: uuid.UUID,
+    source_json: UploadFile = File(...),
+    solution: UploadFile = File(...),
+    timings: UploadFile = File(...),
+    audio: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """Refresh one existing drill in place, preserving UUIDs and attempts.
+
+    The uploaded section MP3 is reused verbatim; a content-addressed path
+    leaves the previous object available for rollback. Each write is safe to
+    retry for the same bundle if a network response is lost.
+    """
+    from services import listening_audio
+
+    await require_admin(authorization)
+    sj = _read_json_upload(source_json, "Source JSON")
+    source_json.file.seek(0)
+    source_hash = hashlib.sha256(source_json.file.read()).hexdigest()
+    timing_dict = _read_json_upload(timings, "timings.json")
+    timings.file.seek(0)
+    timing_hash = hashlib.sha256(timings.file.read()).hexdigest()
+    solution_bytes = _read_text_upload(solution, "Solution.md", exts=(".md", ".markdown"))
+    if not (audio.filename or "").lower().endswith(".mp3"):
+        raise HTTPException(422, "Audio phải là .mp3.")
+    audio_bytes = audio.file.read()
+    if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
+        raise HTTPException(422, "Audio vượt giới hạn 30 MB.")
+    av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
+    if av["errors"]:
+        raise HTTPException(422, "; ".join(av["errors"]))
+    sections = timing_dict.get("sections") or []
+    if len(sections) != 1 or sections[0].get("file") != audio.filename:
+        raise HTTPException(422, "MP3 không khớp section file trong timings.json.")
+    if abs(float(sections[0].get("duration") or 0) - float(av["duration_seconds"])) > 1.0:
+        raise HTTPException(422, "Thời lượng audio section khác timings.json hơn 1 giây.")
+
+    try:
+        parsed = listening_drill_import.parse_drill(sj, timing_dict, solution_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise HTTPException(422, f"Không phân tích được nguồn drill: {exc}") from exc
+    if parsed.errors:
+        raise HTTPException(422, {"message": "Drill không hợp lệ.", "errors": parsed.errors})
+
+    identifier = str(drill_id)
+    rows = (supabase_admin.table("listening_tests").select("*")
+            .eq("id", identifier).limit(1).execute().data or [])
+    if not rows or rows[0].get("test_type") != "drill":
+        raise HTTPException(404, "Skill drill not found")
+    current = rows[0]
+    if current.get("status") == "archived" or current.get("test_id") != parsed.test_metadata.get("test_id"):
+        raise HTTPException(409, "UUID, Test ID hoặc trạng thái drill không khớp nguồn.")
+    if (current.get("metadata") or {}).get("sync_owner"):
+        raise HTTPException(409, "Drill đang được đồng bộ bởi yêu cầu khác.")
+    contents = (supabase_admin.table("listening_content").select("*")
+                .eq("test_id", identifier).execute().data or [])
+    if len(contents) != 1:
+        raise HTTPException(409, "Drill cũ không có đúng một section; cần sửa thủ công.")
+    content = contents[0]
+    existing_exercises = (supabase_admin.table("listening_exercises")
+                          .select("id,content_id,order_num,exercise_type")
+                          .eq("content_id", content["id"]).execute().data or [])
+    by_order = {row.get("order_num"): row for row in existing_exercises}
+    new_orders = [row.get("order_num") for row in parsed.exercise_rows]
+    if (len(by_order) != len(existing_exercises) or len(by_order) != len(new_orders)
+            or set(by_order) != set(new_orders)):
+        raise HTTPException(409, "Cấu trúc exercise cũ khác nguồn; không thay UUID đang được attempt tham chiếu.")
+
+    # Claim the JSONB row atomically before touching any public child. The
+    # metadata-path predicate is checked by Postgres inside the UPDATE, so a
+    # second admin cannot acquire the same drill after it becomes draft.
+    owner = uuid.uuid4().hex
+    claimed_metadata = {**(current.get("metadata") or {}), "sync_owner": owner}
+    (supabase_admin.table("listening_tests")
+     .update({"status": "draft", "is_public": False, "metadata": claimed_metadata})
+     .eq("id", identifier).eq("status", current["status"])
+     .is_("metadata->>sync_owner", None).execute())
+    hidden = (supabase_admin.table("listening_tests").select("status,is_public,metadata")
+              .eq("id", identifier).limit(1).execute().data or [])
+    if (not hidden or hidden[0].get("status") != "draft" or hidden[0].get("is_public") is not False
+            or (hidden[0].get("metadata") or {}).get("sync_owner") != owner):
+        raise HTTPException(409, "Không chiếm được quyền đồng bộ độc quyền; chưa ghi nội dung.")
+
+    def release_owner() -> None:
+        latest = (supabase_admin.table("listening_tests").select("metadata")
+                  .eq("id", identifier).limit(1).execute().data or [])
+        metadata = dict((latest[0].get("metadata") or {}) if latest else {})
+        if metadata.get("sync_owner") != owner:
+            raise HTTPException(503, "Quyền đồng bộ đã đổi; chưa thể xác nhận giải phóng khóa.")
+        metadata.pop("sync_owner")
+        (supabase_admin.table("listening_tests").update({"metadata": metadata})
+         .eq("id", identifier).eq("metadata->>sync_owner", owner).execute())
+        checked = (supabase_admin.table("listening_tests").select("metadata")
+                   .eq("id", identifier).limit(1).execute().data or [])
+        if not checked or (checked[0].get("metadata") or {}).get("sync_owner"):
+            raise HTTPException(503, "Chưa xác nhận giải phóng quyền đồng bộ.")
+
+    succeeded = False
+    try:
+        audio_hash = hashlib.sha256(audio_bytes).hexdigest()
+        new_path = f"drills/{identifier}/sync-{audio_hash[:16]}.mp3"
+        if current.get("full_audio_storage_path") != new_path:
+            _upload_audio_to_bucket(new_path, audio_bytes)
+        tm = parsed.test_metadata
+        new_test_metadata = {**claimed_metadata, **(tm.get("metadata") or {}),
+                             "source_hashes": {"source_json": source_hash,
+                                               "solution_md": hashlib.sha256(solution_bytes).hexdigest(),
+                                               "timings_json": timing_hash, "audio_mp3": audio_hash}}
+        new_content = {key: value for key, value in parsed.content_row.items()
+                       if key not in {"id", "test_id", "status"}}
+        new_content["metadata"] = {**(content.get("metadata") or {}), **new_content["metadata"]}
+        for fresh in parsed.exercise_rows:
+            old = by_order[fresh["order_num"]]
+            supabase_admin.table("listening_exercises").update({
+                "exercise_type": fresh["exercise_type"], "payload": fresh["payload"],
+                "order_num": fresh["order_num"], "cefr_level": parsed.content_row.get("cefr_level"),
+            }).eq("id", old["id"]).execute()
+        supabase_admin.table("listening_content").update(new_content).eq("id", content["id"]).execute()
+        supabase_admin.table("listening_tests").update({
+            "title": tm.get("title") or current.get("title"),
+            "band_target": tm.get("band_target"),
+            "accent_profile": list(tm.get("accent_profile") or []),
+            "themes": dict(tm.get("themes") or {}), "cue_points": parsed.cue_points,
+            "audio_assembly_mode": "full_premixed", "full_audio_storage_path": new_path,
+            "full_audio_duration_seconds": av["duration_seconds"],
+            "full_audio_size_bytes": av["size_bytes"], "metadata": new_test_metadata,
+        }).eq("id", identifier).execute()
+        checked_test = (supabase_admin.table("listening_tests").select("metadata,full_audio_storage_path")
+                        .eq("id", identifier).limit(1).execute().data or [])
+        checked_content = (supabase_admin.table("listening_content").select("transcript,metadata")
+                           .eq("id", content["id"]).limit(1).execute().data or [])
+        checked_exercises = (supabase_admin.table("listening_exercises")
+                             .select("id,payload,order_num").eq("content_id", content["id"]).execute().data or [])
+        expected_payloads = {by_order[row["order_num"]]["id"]: row["payload"] for row in parsed.exercise_rows}
+        if (not checked_test or (checked_test[0].get("metadata") or {}).get("source_hashes") != new_test_metadata["source_hashes"]
+                or checked_test[0].get("full_audio_storage_path") != new_path
+                or not checked_content or checked_content[0].get("transcript") != new_content["transcript"]
+                or checked_content[0].get("metadata") != new_content["metadata"]
+                or len(checked_exercises) != len(expected_payloads)
+                or any(row.get("payload") != expected_payloads.get(row.get("id")) for row in checked_exercises)):
+            raise HTTPException(503, "Cập nhật drill chưa khớp nguồn; thử lại cùng UUID trước khi phát hành.")
+        published = await _publish_drill(drill_id, authorization, sync_owner=owner)
+        succeeded = True
+        return {**published, "audio_sha256": audio_hash, "source_hashes": new_test_metadata["source_hashes"]}
+    finally:
+        if not succeeded:
+            try:
+                (supabase_admin.table("listening_tests").update({"status": "draft", "is_public": False})
+                 .eq("id", identifier).eq("metadata->>sync_owner", owner).execute())
+            except Exception:
+                logger.exception("[drill-sync] failed to hide incomplete drill %s", identifier)
+        try:
+            release_owner()
+        except Exception:
+            logger.exception("[drill-sync] failed to release owner for %s", identifier)
+            if succeeded:
+                raise
+
+
 @admin_router.post("/drills/import")
 async def admin_import_drill_dry_run(
     source_json:   UploadFile = File(...),
     timings:       UploadFile | None = File(default=None),
+    solution:      UploadFile | None = File(default=None),
     authorization: str | None = Header(default=None),
 ):
     """ADDITIVE dry-run parse of one skill-drill Source JSON (+ optional
@@ -3066,9 +3336,11 @@ async def admin_import_drill_dry_run(
 
     sj = _read_json_upload(source_json, "Source JSON")
     timings_dict = _read_json_upload(timings, "timings.json") if timings is not None else None
+    solution_text = (_read_text_upload(solution, "Solution.md", exts=(".md", ".markdown")).decode("utf-8")
+                     if solution is not None else None)
 
     try:
-        res = listening_drill_import.parse_drill(sj, timings_dict)
+        res = listening_drill_import.parse_drill(sj, timings_dict, solution_text)
     except Exception as exc:
         logger.exception("Drill import dry-run failed")
         raise HTTPException(422, f"Lỗi khi phân tích drill JSON: {exc}") from exc
@@ -3106,6 +3378,7 @@ async def admin_import_drill_dry_run(
 async def admin_import_drill_commit(
     source_json:   UploadFile = File(...),
     timings:       UploadFile | None = File(default=None),
+    solution:      UploadFile | None = File(default=None),
     audio:         UploadFile | None = File(default=None),
     authorization: str | None = Header(default=None),
 ):
@@ -3121,6 +3394,8 @@ async def admin_import_drill_commit(
 
     sj = _read_json_upload(source_json, "Source JSON")
     timings_dict = _read_json_upload(timings, "timings.json") if timings is not None else None
+    solution_text = (_read_text_upload(solution, "Solution.md", exts=(".md", ".markdown")).decode("utf-8")
+                     if solution is not None else None)
 
     audio_bytes: bytes | None = None
     av: dict | None = None
@@ -3146,7 +3421,7 @@ async def admin_import_drill_commit(
             raise HTTPException(422, "; ".join(av["errors"]))
 
     try:
-        res = listening_drill_import.parse_drill(sj, timings_dict)
+        res = listening_drill_import.parse_drill(sj, timings_dict, solution_text)
     except Exception as exc:
         logger.exception("Drill commit parse failed")
         raise HTTPException(422, f"Lỗi khi phân tích drill JSON: {exc}") from exc
@@ -3171,6 +3446,15 @@ async def admin_import_drill_commit(
     test_uuid = str(uuid.uuid4())
     storage_path = f"drills/{test_uuid}/full.mp3" if audio_bytes else None
     tm = res.test_metadata
+    source_json.file.seek(0)
+    source_hashes = {"source_json": hashlib.sha256(source_json.file.read()).hexdigest()}
+    if timings is not None:
+        timings.file.seek(0)
+        source_hashes["timings_json"] = hashlib.sha256(timings.file.read()).hexdigest()
+    if solution_text is not None:
+        source_hashes["solution_md"] = hashlib.sha256(solution_text.encode("utf-8")).hexdigest()
+    if audio_bytes:
+        source_hashes["audio_mp3"] = hashlib.sha256(audio_bytes).hexdigest()
     test_payload = {
         "id":              test_uuid,
         "test_id":         test_id_external,
@@ -3180,7 +3464,7 @@ async def admin_import_drill_commit(
         "themes":          dict(tm.get("themes") or {}),
         "cue_points":      res.cue_points,
         "audio_assembly_mode": "full_premixed",
-        "metadata":        tm.get("metadata") or {},
+        "metadata":        {**(tm.get("metadata") or {}), "source_hashes": source_hashes},
         # Mig 157 — test_type là cột thật (CHECK full|mini|drill).
         "test_type":       tm.get("test_type") or "drill",
         "status":          "draft",
