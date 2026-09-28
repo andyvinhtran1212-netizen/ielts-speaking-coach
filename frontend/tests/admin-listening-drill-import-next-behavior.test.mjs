@@ -40,11 +40,14 @@ describe('drill file inventory is deterministic', () => {
       file(`${id}.json`, `11_Skill_Drills_Web/Source_JSON/${id}.json`),
       file('timings.json', `11_Skill_Drills_Web/audio_output/${id}/timings.json`),
       file('full_test.mp3', `11_Skill_Drills_Web/audio_output/${id}/full_test.mp3`, 2_000),
+      file('S2.mp3', `11_Skill_Drills_Web/audio_output/${id}/S2.mp3`, 2_000),
+      file(`${id}_Solution.md`, `11_Skill_Drills_Web/Answer_Keys_Full/${id}_Solution.md`),
       file('ILR-LIS-DRL-NOTE-L2-T1.json', '11_Skill_Drills_Web/Source_JSON/ILR-LIS-DRL-NOTE-L2-T1.json'),
     ]);
     assert.equal(grouped.errors.length, 0);
     assert.equal(grouped.bundles.length, 2);
-    assert.equal(grouped.bundles[0].audio.name, 'full_test.mp3');
+    assert.equal(grouped.bundles[0].audio.name, 'S2.mp3');
+    assert.equal(grouped.bundles[0].solution.name, `${id}_Solution.md`);
     assert.equal(grouped.bundles[1].audio, null);
     assert.equal(validateDrillBundle(grouped.bundles[1]).ok, true);
   });
@@ -56,6 +59,14 @@ describe('drill file inventory is deterministic', () => {
     assert.equal(grouped.errors.length, 1);
     assert.equal(grouped.unassigned.length, 2);
     assert.equal(grouped.bundles.every((bundle) => !bundle.timings && !bundle.audio), true);
+  });
+
+  test('loose solution must name the same Test ID as its source', () => {
+    const other = 'ILR-LIS-DRL-NOTE-L2-T1';
+    const grouped = groupDrillFiles([file(`${id}.json`), file(`${other}_Solution.md`)]);
+    assert.equal(grouped.bundles.length, 1);
+    assert.equal(grouped.bundles[0].solution, null);
+    assert.deepEqual(grouped.unassigned, [`${other}_Solution.md`]);
   });
 
   test('recognized accessories in a noncanonical directory are blocking unassigned evidence', () => {
@@ -93,8 +104,8 @@ describe('drill file inventory is deterministic', () => {
 
   test('fingerprint binds source, optional timings and audio identity', () => {
     const hash = 'a'.repeat(64);
-    assert.equal(drillDescriptorFingerprint({ source: { name: `${id}.json`, size: 10, digest: hash }, timings: null, audio: null }),
-      `source:${id}.json:10:${hash}|timings:none|audio:none`);
+    assert.equal(drillDescriptorFingerprint({ source: { name: `${id}.json`, size: 10, digest: hash }, timings: null, solution: null, audio: null }),
+      `source:${id}.json:10:${hash}|timings:none|solution:none|audio:none`);
     assert.equal(drillDescriptorFingerprint({ source: { name: `${id}.json`, size: 10, digest: 'bad' } }), null);
     assert.equal(formatDrillBytes(0), '0 KB');
   });
@@ -171,6 +182,10 @@ describe('native route, queue boundary and responsive contract', () => {
     assert.match(CLIENT, /preview\.duplicate/);
   });
 
+  test('publish batch includes only canonical drafts with audio', () => {
+    assert.match(CLIENT, /const publishQueue = bundles\.filter\(\(bundle\) => bundle\.canonical\?\.status === 'draft' && bundle\.canonical\.hasAudio\)/);
+  });
+
   test('writes one account receipt before each sequential POST and stops on ambiguity', () => {
     assert.match(CLIENT, /for \(const bundle of queue\)/);
     assert.match(CLIENT, /localStorage\.getItem\(receiptKey\) !== serialized/);
@@ -190,6 +205,14 @@ describe('native route, queue boundary and responsive contract', () => {
     assert.match(queueLoop, /const token = await accessToken\(\)/);
     assert.match(queueLoop, /caught\.status === 401/);
     assert.doesNotMatch(CLIENT.slice(CLIENT.indexOf('const reconcile = async'), CLIENT.indexOf('const discardReceipt')), /uploadDrill\(/, 'reconcile must remain GET-only');
+  });
+
+  test('existing drills use exact UUID sync and require a full rich bundle', () => {
+    assert.match(CLIENT, /preview\.duplicate/);
+    assert.match(CLIENT, /bundle\.solution && bundle\.timings && bundle\.audio/);
+    assert.match(CLIENT, /\/admin\/listening\/drills\/\$\{encodeURIComponent\(active\[0\]\.id\)\}\/sync/);
+    assert.match(CLIENT, /active\.length !== 1 \|\| active\[0\]\.type !== 'drill'/);
+    assert.match(CLIENT, /Đã cập nhật và xác nhận Published/);
   });
 
   test('account switching aborts old XHR and resets local UI while receipts stay account-scoped', () => {

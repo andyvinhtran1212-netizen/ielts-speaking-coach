@@ -10,10 +10,12 @@ The importer is pure — no DB — so these run fast and offline.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import pathlib
 import re
+import uuid
 
 import pytest
 from fastapi import HTTPException, UploadFile
@@ -76,6 +78,76 @@ def test_parse_each_type_clean(code):
     # every exercise uses the expected template_kind
     for ex in res.exercise_rows:
         assert ex["payload"]["template_kind"] == _EXPECT_TK[code], code
+
+
+def _rich_form_timings() -> dict:
+    section = _load("FORM")["sections"][0]
+    sid = f"S{section['section_number']}"
+    return {"sections": [{
+        "id": sid,
+        "duration": 200,
+        "questions": {str(q): {"start": q * 10, "end": q * 10 + 5}
+                      for q in range(1, 11)},
+        "turns": [{"start": i * 2, "end": i * 2 + 1.5}
+                  for i in range(len(section["audio_script"]))],
+    }]}
+
+
+def _rich_form_solution(*, first_window_shift: float = 0.0) -> str:
+    source = _load("FORM")
+    windows = imp._question_windows(_rich_form_timings())
+    sid = f"S{source['sections'][0]['section_number']}"
+    answers = {int(a["qnum"]): a["answer"]
+               for block in source["sections"][0]["question_blocks"]
+               for a in block["answers"]}
+    parts = []
+    for q in sorted(answers):
+        window = windows[q]
+        start = window["start"] + (first_window_shift if q == 1 else 0)
+        parts.append(
+            f"### Q{q}\n"
+            f"**🔊 Nghe lại:** [{sid}](audio://full_test.mp3?start={start}&end={window['end']}&q={q}&section={sid})\n"
+            f"**Answer / Đáp án:** {answers[q]}\n"
+            f"**📝 Dịch sát đoạn chứa đáp án (VN):** Bản dịch cho câu {q}.\n"
+            f"**Vì sao đúng:** Bằng chứng cho câu {q}.\n"
+            f"**Script extract / Đoạn audio:** Spoken evidence for question {q}.\n"
+            f"**⚠️ Bẫy:** Lựa chọn khác không đúng.\n"
+        )
+    return "\n".join(parts)
+
+
+def test_rich_solution_reaches_review_payload_without_changing_answer_key():
+    source = _load("FORM")
+    result = imp.parse_drill(source, _rich_form_timings(), _rich_form_solution())
+    assert not result.errors
+    solutions = {int(q): details for ex in result.exercise_rows
+                 for q, details in ex["payload"]["solutions"].items()}
+    assert len(solutions) == 10
+    assert solutions[1]["translation_vi"] == "Bản dịch cho câu 1."
+    assert solutions[1]["why_correct"] == "Bằng chứng cho câu 1."
+    assert "Spoken evidence" in solutions[1]["script"]
+    assert solutions[1]["answer"] == next(
+        a["answer"] for block in source["sections"][0]["question_blocks"]
+        for a in block["answers"] if a["qnum"] == "1")
+    assert result.content_row["metadata"]["dictation_segments"]
+
+
+def test_rich_solution_rejects_audio_window_drift():
+    result = imp.parse_drill(_load("FORM"), _rich_form_timings(),
+                             _rich_form_solution(first_window_shift=1.0))
+    assert any("Q1" in error and "audio window" in error for error in result.errors)
+
+
+def test_rich_solution_rejects_missing_question():
+    solution = _rich_form_solution().split("### Q10")[0]
+    result = imp.parse_drill(_load("FORM"), _rich_form_timings(), solution)
+    assert any("missing=[10]" in error for error in result.errors)
+
+
+def test_rich_solution_rejects_answer_that_disagrees_with_source():
+    solution = _rich_form_solution().replace("**Answer / Đáp án:** Halewood-Birch", "**Answer / Đáp án:** Other name", 1)
+    result = imp.parse_drill(_load("FORM"), _rich_form_timings(), solution)
+    assert any("Q1" in error and "answer differs" in error for error in result.errors)
 
 
 @pytest.mark.parametrize("code", _ALL)
@@ -293,6 +365,7 @@ def test_drill_dry_run_preview(monkeypatch):
     out = _run(listening_module.admin_import_drill_dry_run(
         source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),
         timings=_upload("timings.json", _timings_bytes("MCQ")),
+        solution=None,
         authorization="x"))
     assert out["ok"] is True
     assert out["drill_type"] == "mcq"
@@ -317,6 +390,7 @@ def test_drill_commit_persists_with_audio(monkeypatch):
     out = _run(listening_module.admin_import_drill_commit(
         source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),
         timings=_upload("timings.json", _timings_bytes("MCQ")),
+        solution=None,
         audio=_upload("full.mp3", b"x" * 5000),
         authorization="x"))
     assert out["test_id"] == "ILR-LIS-DRL-MCQ-L2-T1"
@@ -332,6 +406,28 @@ def test_drill_commit_persists_with_audio(monkeypatch):
     assert len(content_rows) == 1
 
 
+def test_drill_commit_persists_rich_solution_fields(monkeypatch):
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    stub = _CommitStub()
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda p, b: None)
+    monkeypatch.setattr(listening_audio, "validate_section_audio", lambda b, test_type=None: {
+        "duration_seconds": 281, "size_bytes": len(b), "errors": [], "warnings": []})
+    out = _run(listening_module.admin_import_drill_commit(
+        source_json=_upload("ILR-LIS-DRL-FORM-L2-T1.json", _bytes("FORM")),
+        timings=_upload("timings.json", json.dumps(_rich_form_timings()).encode()),
+        solution=_upload("ILR-LIS-DRL-FORM-L2-T1_Solution.md", _rich_form_solution().encode()),
+        audio=_upload("S2.mp3", b"x" * 5000), authorization="x"))
+    assert out["exercises_created"] >= 1
+    exercises = [p for (t, p) in stub.inserts if t == "listening_exercises"]
+    solution = next(p["payload"]["solutions"]["1"] for p in exercises if "1" in p["payload"]["solutions"])
+    assert solution["translation_vi"] == "Bản dịch cho câu 1."
+    assert solution["why_correct"] == "Bằng chứng cho câu 1."
+    assert "Spoken evidence" in solution["script"]
+
+
 def test_drill_commit_without_audio_imports_draft(monkeypatch):
     async def _ok(_a): return {"id": "admin", "role": "admin"}
     monkeypatch.setattr(listening_module, "require_admin", _ok)
@@ -339,11 +435,113 @@ def test_drill_commit_without_audio_imports_draft(monkeypatch):
     monkeypatch.setattr(listening_module, "supabase_admin", stub)
     out = _run(listening_module.admin_import_drill_commit(
         source_json=_upload("ILR-LIS-DRL-FLOW-L2-T1.json", _bytes("FLOW")),
-        timings=None, audio=None, authorization="x"))
+        timings=None, solution=None, audio=None, authorization="x"))
     assert out["has_audio"] is False
     assert out["status"] == "draft"
     tr = [p for (t, p) in stub.inserts if t == "listening_tests"][0]
     assert "full_audio_storage_path" not in tr   # no audio → no path
+
+
+class _PublishDB:
+    def __init__(self):
+        self.rows = {
+            "listening_tests": [{"id": "00000000-0000-4000-8000-000000000001", "test_id": "ILR-LIS-DRL-FORM-L2-T1",
+                                 "test_type": "drill", "status": "draft", "is_public": False}],
+            "listening_content": [{"id": "content-1", "test_id": "00000000-0000-4000-8000-000000000001",
+                                   "status": "draft", "transcript": "Spoken words.", "metadata": {}}],
+            "listening_exercises": [{"id": "exercise-1", "content_id": "content-1", "status": "draft",
+                                     "exercise_type": "mcq", "payload": {"questions": [{"q_num": 1}], "answers": [{"q_num": 1}],
+                                     "solutions": {"1": {"why_correct": "Because", "script": "Spoken words.",
+                                                         "translation_vi": "Lời thoại."}},
+                                     "audio_windows": {"1": {"start": 0, "end": 2}}}}],
+        }
+        self.writes = []
+
+    def table(self, name):
+        owner = self
+        class Query:
+            def __init__(self): self.filters = {}; self.update_value = None
+            def select(self, *a, **k): return self
+            def eq(self, key, value): self.filters[key] = value; return self
+            def limit(self, *a): return self
+            def update(self, value): self.update_value = value; return self
+            def execute(self):
+                result = [r for r in owner.rows[name] if all(r.get(k) == v for k, v in self.filters.items())]
+                if self.update_value:
+                    for row in result: row.update(self.update_value)
+                    owner.writes.append((name, dict(self.update_value)))
+                return type("Result", (), {"data": [dict(r) for r in result]})()
+        return Query()
+
+
+def test_publish_drill_checks_rich_answers_and_publishes_children_first(monkeypatch):
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_audio, "can_publish", lambda _test: (True, None))
+    db = _PublishDB()
+    monkeypatch.setattr(listening_module, "supabase_admin", db)
+    drill_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+    db.rows["listening_exercises"][0]["payload"]["solutions"]["1"]["script"] = ""
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_module.admin_publish_drill(drill_id, authorization="x"))
+    assert exc.value.status_code == 422
+    assert db.writes == []
+    db.rows["listening_exercises"][0]["payload"]["solutions"]["1"]["script"] = "Spoken words."
+    out = _run(listening_module.admin_publish_drill(drill_id, authorization="x"))
+    assert out["answer_count"] == 1
+    assert [name for name, _ in db.writes] == ["listening_exercises", "listening_content", "listening_tests"]
+    assert all(rows[0]["status"] == "published" for rows in db.rows.values())
+
+
+def test_publish_drill_rejects_question_without_answer(monkeypatch):
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_audio, "can_publish", lambda _test: (True, None))
+    db = _PublishDB()
+    db.rows["listening_exercises"][0]["payload"]["questions"].append({"q_num": 2})
+    monkeypatch.setattr(listening_module, "supabase_admin", db)
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_module.admin_publish_drill(uuid.UUID("00000000-0000-4000-8000-000000000001"), authorization="x"))
+    assert exc.value.status_code == 422
+    assert db.writes == []
+
+
+def test_sync_drill_keeps_uuids_and_refreshes_audio_and_rich_answers(monkeypatch):
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    monkeypatch.setattr(listening_audio, "can_publish", lambda _test: (True, None))
+    monkeypatch.setattr(listening_audio, "validate_section_audio", lambda _audio, test_type=None: {
+        "duration_seconds": 200, "size_bytes": 5000, "errors": [], "warnings": []})
+    uploaded = []
+    monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda path, data: uploaded.append((path, data)))
+    timings = _rich_form_timings()
+    timings["sections"][0]["file"] = "S1.mp3"
+    parsed = imp.parse_drill(_load("FORM"), timings, _rich_form_solution())
+    assert not parsed.errors
+    test_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+    db = _PublishDB()
+    db.rows["listening_tests"][0].update({"full_audio_storage_path": "drills/old/full.mp3", "metadata": {}})
+    db.rows["listening_content"][0].update({"transcript": "Old transcript", "metadata": {}})
+    db.rows["listening_exercises"] = [{"id": f"old-exercise-{i}", "content_id": "content-1",
+                                       "order_num": ex["order_num"], "exercise_type": ex["exercise_type"],
+                                       "payload": {"answers": [{"q_num": 999}]}, "status": "draft"}
+                                      for i, ex in enumerate(parsed.exercise_rows)]
+    old_ids = {row["id"] for row in db.rows["listening_exercises"]}
+    monkeypatch.setattr(listening_module, "supabase_admin", db)
+    out = _run(listening_module.admin_sync_drill(
+        test_id, source_json=_upload("ILR-LIS-DRL-FORM-L2-T1.json", _bytes("FORM")),
+        solution=_upload("ILR-LIS-DRL-FORM-L2-T1_Solution.md", _rich_form_solution().encode()),
+        timings=_upload("timings.json", json.dumps(timings).encode()),
+        audio=_upload("S1.mp3", b"x" * 5000), authorization="x"))
+    assert out["status"] == "published"
+    assert out["answer_count"] == 10
+    assert out["source_hashes"]["source_json"] == hashlib.sha256(_bytes("FORM")).hexdigest()
+    assert {row["id"] for row in db.rows["listening_exercises"]} == old_ids
+    assert db.rows["listening_content"][0]["transcript"] != "Old transcript"
+    assert len(uploaded) == 1 and uploaded[0][0].startswith(f"drills/{test_id}/sync-")
 
 
 # ── student list endpoint: drill segregation ───────────────────────────────
@@ -436,6 +634,7 @@ def test_drill_commit_audio_without_timings_rejected(monkeypatch):
         _run(listening_module.admin_import_drill_commit(
             source_json=_upload("ILR-LIS-DRL-MCQ-L2-T1.json", _bytes("MCQ")),
             timings=None,
+            solution=None,
             audio=_upload("full.mp3", b"x" * 5000),
             authorization="x"))
     assert e.value.status_code == 422

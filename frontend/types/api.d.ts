@@ -8223,6 +8223,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/listening/drills/{drill_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Publish Drill
+         * @description Publish an imported drill only after its audio and every rich answer
+         *     are present. The test row is flipped last so incomplete child rows never
+         *     become visible in the learner library during a partial failure. Retrying
+         *     the same UUID is safe after a transient PostgREST error.
+         */
+        post: operations["admin_publish_drill_admin_listening_drills__drill_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/drills/{drill_id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Sync Drill
+         * @description Refresh one existing drill in place, preserving UUIDs and attempts.
+         *
+         *     The uploaded section MP3 is reused verbatim; a content-addressed path
+         *     leaves the previous object available for rollback. Each write is safe to
+         *     retry for the same bundle if a network response is lost.
+         */
+        post: operations["admin_sync_drill_admin_listening_drills__drill_id__sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/listening/drills/import": {
         parameters: {
             query?: never;
@@ -13267,6 +13314,8 @@ export interface components {
             source_json: string;
             /** Timings */
             timings?: string | null;
+            /** Solution */
+            solution?: string | null;
             /** Audio */
             audio?: string | null;
         };
@@ -13279,6 +13328,8 @@ export interface components {
             source_json: string;
             /** Timings */
             timings?: string | null;
+            /** Solution */
+            solution?: string | null;
         };
         /** Body_admin_import_exam_admin_exams_import_post */
         Body_admin_import_exam_admin_exams_import_post: {
@@ -13328,6 +13379,29 @@ export interface components {
              * Format: binary
              */
             timings: string;
+        };
+        /** Body_admin_sync_drill_admin_listening_drills__drill_id__sync_post */
+        Body_admin_sync_drill_admin_listening_drills__drill_id__sync_post: {
+            /**
+             * Source Json
+             * Format: binary
+             */
+            source_json: string;
+            /**
+             * Solution
+             * Format: binary
+             */
+            solution: string;
+            /**
+             * Timings
+             * Format: binary
+             */
+            timings: string;
+            /**
+             * Audio
+             * Format: binary
+             */
+            audio: string;
         };
         /** Body_admin_upload_diagram_image_admin_reading_questions__question_id__upload_diagram_image_post */
         Body_admin_upload_diagram_image_admin_reading_questions__question_id__upload_diagram_image_post: {
@@ -32587,6 +32661,76 @@ export interface operations {
         requestBody: {
             content: {
                 "multipart/form-data": components["schemas"]["Body_admin_import_fulltest_commit_admin_listening_import_fulltest_commit_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_publish_drill_admin_listening_drills__drill_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                drill_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_sync_drill_admin_listening_drills__drill_id__sync_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                drill_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_admin_sync_drill_admin_listening_drills__drill_id__sync_post"];
             };
         };
         responses: {

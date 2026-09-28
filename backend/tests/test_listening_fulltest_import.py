@@ -112,6 +112,16 @@ def test_parse_rich_solution_fields_captured():
     assert s21.get("why_correct") and s21.get("script")
 
 
+def test_keyword_free_why_label_is_an_explanation_not_a_paraphrase_map():
+    blocks = imp.parse_solution_blocks(
+        "### Q5\n"
+        "**Vì sao đúng (Tier-3, keyword-free):** Bằng chứng trong audio.\n"
+        "**🔁 Paraphrase:** Cách diễn đạt khác.\n")
+    assert blocks[5]["why_correct"] == "Bằng chứng trong audio."
+    assert blocks[5]["paraphrase"] == "Cách diễn đạt khác."
+    assert "paraphrase_map" not in blocks[5]
+
+
 def test_parse_audio_link_unit():
     link = imp.parse_audio_link("audio://full_test.mp3?start=126.32&end=135.64&q=1&section=S1")
     assert link == {"file": "full_test.mp3", "start": 126.32, "end": 135.64, "q": 1, "section": "S1"}
