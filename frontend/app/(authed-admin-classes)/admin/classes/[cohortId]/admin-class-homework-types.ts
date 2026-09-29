@@ -31,6 +31,7 @@ export type AssignmentPayload = {
 export type CatalogOption = {
   id: string;
   title: string;
+  category?: string | null;
   code: string | null;
   part: number | null;
   lesson_no: number | null;

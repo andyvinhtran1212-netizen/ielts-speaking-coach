@@ -18,6 +18,7 @@ from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 import uuid as _uuid
 from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
@@ -39,6 +40,7 @@ from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard, ai_usage_logger
+from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
 from services.access_code_permissions import (
@@ -466,6 +468,7 @@ class CreateTopicRequest(BaseModel):
     title:    str
     category: str | None = ""   # nullable for legacy clients; persisted as ""
     part:     int = Field(ge=1, le=3)
+    is_active: bool = True
 
 
 class PatchTopicRequest(BaseModel):
@@ -523,22 +526,34 @@ def _serialize_topics_with_metadata(topics: list[dict]) -> list[dict]:
 
     if topic_ids:
         try:
-            q_res = (
-                supabase_admin.table("topic_questions")
-                .select("topic_id, created_at")
-                .in_("topic_id", topic_ids)
-                .eq("is_active", True)
-                .execute()
-            )
-            for q in (q_res.data or []):
-                topic_id = q.get("topic_id")
-                if not topic_id:
-                    continue
-                question_counts[topic_id] = question_counts.get(topic_id, 0) + 1
-                latest_question_at[topic_id] = _max_iso(
-                    latest_question_at.get(topic_id),
-                    q.get("created_at"),
-                ) or latest_question_at.get(topic_id)
+            # A single PostgREST read stops at the server's row cap. The dated
+            # Speaking bank exceeds 1,000 questions, so paginate on a stable ID
+            # order and keep topic-ID filters short enough for request URLs.
+            for start in range(0, len(topic_ids), 50):
+                chunk = topic_ids[start:start + 50]
+                offset = 0
+                while True:
+                    q_res = (
+                        supabase_admin.table("topic_questions")
+                        .select("id, topic_id, created_at")
+                        .in_("topic_id", chunk)
+                        .eq("is_active", True)
+                        .order("id")
+                        .range(offset, offset + 499)
+                        .execute()
+                    )
+                    questions = q_res.data or []
+                    for q in questions:
+                        topic_id = q.get("topic_id")
+                        if not topic_id:
+                            continue
+                        question_counts[topic_id] = question_counts.get(topic_id, 0) + 1
+                        latest_question_at[topic_id] = _max_iso(
+                            latest_question_at.get(topic_id), q.get("created_at"),
+                        ) or latest_question_at.get(topic_id)
+                    if len(questions) < 500:
+                        break
+                    offset += 500
         except Exception:
             question_metadata_lookup_failed = True
             logger.warning("[admin.topics] failed to aggregate question metadata", exc_info=True)
@@ -2768,7 +2783,7 @@ async def create_topic(
                 "title":     title,
                 "category":  (body.category or "").strip(),
                 "part":      body.part,
-                "is_active": True,
+                "is_active": body.is_active,
             })
             .execute()
         )
@@ -3113,6 +3128,58 @@ async def update_topic_question(
 
 
 # ── DELETE /admin/topics/{topic_id}/questions/{question_id} ───────────────────
+
+@router.post("/topics/{topic_id}/questions/{question_id}/render-audio")
+async def render_topic_question_audio(
+    topic_id: str,
+    question_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Make one Part 1/3 bank question assignable after an editorial review.
+
+    Rendering runs off the event loop. Recheck the topic title and conditionally
+    update the question so an edit during synthesis cannot attach stale audio.
+    """
+    await require_admin(authorization)
+    try:
+        topic_rows = (supabase_admin.table("topics").select("id, title")
+                      .eq("id", topic_id).limit(1).execute().data or [])
+        question_rows = (supabase_admin.table("topic_questions")
+                         .select("id, topic_id, part, question_text, is_active")
+                         .eq("id", question_id).eq("topic_id", topic_id)
+                         .limit(1).execute().data or [])
+    except Exception as exc:
+        raise HTTPException(500, f"Không đọc được câu hỏi: {exc}") from exc
+    if not topic_rows or not question_rows:
+        raise HTTPException(404, "Topic hoặc câu hỏi không tồn tại")
+    question = dict(question_rows[0])
+    if question.get("is_active") is not True or question.get("part") not in (1, 3):
+        raise HTTPException(400, "Chỉ tạo audio cho câu Part 1/3 đang bật")
+    topic_title = topic_rows[0]["title"]
+    try:
+        audio = await run_in_threadpool(
+            speaking_audio.render_question_audio, question, topic_title
+        )
+        current_topic_rows = (supabase_admin.table("topics").select("id, title")
+                              .eq("id", topic_id).limit(1).execute().data or [])
+    except Exception as exc:
+        raise HTTPException(502, f"Không tạo được audio: {exc}") from exc
+    if not current_topic_rows or current_topic_rows[0]["title"] != topic_title:
+        raise HTTPException(409, "Tên topic đã đổi trong lúc tạo audio; tải lại rồi thử lại")
+    try:
+        updated = (supabase_admin.table("topic_questions")
+                   .update({"audio_url": audio["audio_url"], "audio_path": audio["audio_path"]})
+                   .eq("id", question_id).eq("topic_id", topic_id)
+                   .eq("part", question["part"])
+                   .eq("question_text", question["question_text"])
+                   .eq("is_active", True).execute().data or [])
+    except Exception as exc:
+        raise HTTPException(502, f"Không tạo được audio: {exc}") from exc
+    if not updated:
+        raise HTTPException(409, "Câu hỏi đã đổi trong lúc tạo audio; tải lại rồi thử lại")
+    return {"id": question_id, "topic_id": topic_id,
+            "audio_ready": True, "synthesized": audio["synthesized"]}
+
 
 @router.delete("/topics/{topic_id}/questions/{question_id}", status_code=204)
 async def delete_topic_question(

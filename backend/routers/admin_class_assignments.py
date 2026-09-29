@@ -1242,7 +1242,7 @@ async def list_speaking_topics(
     _require_cohort(cohort_id)
 
     topics = (
-        supabase_admin.table("topics").select("id, title, part")
+        supabase_admin.table("topics").select("id, title, part, category")
         .eq("part", part).eq("is_active", True).order("title").execute().data
     ) or []
     if not topics:
@@ -1307,6 +1307,7 @@ async def list_speaking_topics(
         items.append({
             "id": t["id"],
             "title": t["title"],
+            "category": t.get("category") or "",
             "question_count": counts.get(t["id"], 0),
             "already_given": t["id"] in given,
             "ready": enough and voiced,
