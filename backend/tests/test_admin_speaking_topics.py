@@ -106,7 +106,7 @@ def test_audio_render_does_not_attach_stale_audio_after_question_edit(monkeypatc
     monkeypatch.setattr(admin, "supabase_admin", db)
     monkeypatch.setattr(admin, "require_admin", _admin)
 
-    def render(_question, _title):
+    def render(_question, _title, **_kwargs):
         question["question_text"] = "Where did you grow up?"
         return {"audio_url": "https://example.test/audio.mp3", "audio_path": "old-script", "synthesized": True}
 
@@ -126,7 +126,7 @@ def test_audio_render_does_not_attach_stale_audio_after_topic_rename(monkeypatch
     monkeypatch.setattr(admin, "supabase_admin", db)
     monkeypatch.setattr(admin, "require_admin", _admin)
 
-    def render(_question, _title):
+    def render(_question, _title, **_kwargs):
         topic["title"] = "Where I live"
         return {"audio_url": "https://example.test/audio.mp3", "audio_path": "old-title",
                 "synthesized": True}
@@ -145,14 +145,18 @@ def test_audio_render_attaches_current_question_audio(monkeypatch):
     db = _DB(topics=[{"id": "t1", "title": "Travel"}], questions=[question])
     monkeypatch.setattr(admin, "supabase_admin", db)
     monkeypatch.setattr(admin, "require_admin", _admin)
-    monkeypatch.setattr(admin.speaking_audio, "render_question_audio",
-                        lambda *_: {"audio_url": "https://example.test/audio.mp3",
-                                    "audio_path": "current-script", "synthesized": True})
+    render_calls = []
+    def render(*args, **kwargs):
+        render_calls.append(kwargs)
+        return {"audio_url": "https://example.test/audio.mp3",
+                "audio_path": "current-script", "synthesized": True}
+    monkeypatch.setattr(admin.speaking_audio, "render_question_audio", render)
 
     result = asyncio.run(admin.render_topic_question_audio("t1", "q1", authorization="Bearer test"))
 
     assert result["audio_ready"] is True
     assert question["audio_path"] == "current-script"
+    assert render_calls == [{"engine": "openai", "voice": "nova"}]
 
 
 def test_topic_rename_marks_audio_stale_until_rerendered(monkeypatch):
@@ -181,7 +185,7 @@ def test_topic_rename_marks_audio_stale_until_rerendered(monkeypatch):
     assert admin_class_assignments._audio_matches(question, topic["title"]) is False
 
     monkeypatch.setattr(admin.speaking_audio, "render_question_audio",
-                        lambda *_: {"audio_url": "https://example.test/new.mp3",
+                        lambda *_, **_kwargs: {"audio_url": "https://example.test/new.mp3",
                                     "audio_path": path_for(topic["title"]), "synthesized": True})
     result = asyncio.run(admin.render_topic_question_audio("t1", "q1", authorization="Bearer test"))
     assert result["audio_ready"] is True

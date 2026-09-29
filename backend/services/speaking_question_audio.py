@@ -29,6 +29,11 @@ AUDIO_PARTS = (1, 3)
 
 ENGINE = "kokoro"
 VOICE = tts_audio.KOKORO_DEFAULT_VOICE
+# The admin HTTP renderer runs on Railway, where Kokoro's local model is not
+# installed. Use the existing production TTS service for new admin renders;
+# previously generated Kokoro clips retain their original fingerprints.
+ADMIN_ENGINE = "openai"
+ADMIN_VOICE = tts_audio.DEFAULT_VOICE
 
 
 def _spoken_topic(title: str) -> str:
@@ -136,7 +141,10 @@ def audio_matches_question(question: Dict[str, Any], topic_title: str) -> bool:
         script = script_fingerprint(build_script(
             part=question["part"], topic_title=topic_title,
             question_text=question.get("question_text") or ""))
-        return stored == tts_audio.audio_path(script, VOICE, ENGINE)
+        return stored in {
+            tts_audio.audio_path(script, VOICE, ENGINE),
+            tts_audio.audio_path(script, ADMIN_VOICE, ADMIN_ENGINE),
+        }
     except Exception as exc:
         logger.warning("Audio path check failed for question %s: %s", question.get("id"), exc)
         return False
