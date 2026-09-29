@@ -468,6 +468,7 @@ class CreateTopicRequest(BaseModel):
     title:    str
     category: str | None = ""   # nullable for legacy clients; persisted as ""
     part:     int = Field(ge=1, le=3)
+    is_active: bool = True
 
 
 class PatchTopicRequest(BaseModel):
@@ -2782,7 +2783,7 @@ async def create_topic(
                 "title":     title,
                 "category":  (body.category or "").strip(),
                 "part":      body.part,
-                "is_active": True,
+                "is_active": body.is_active,
             })
             .execute()
         )
@@ -3136,9 +3137,8 @@ async def render_topic_question_audio(
 ):
     """Make one Part 1/3 bank question assignable after an editorial review.
 
-    Rendering runs off the event loop. The update is conditional on the wording
-    and Part read before synthesis, so a concurrent edit cannot point a new
-    question at audio spoken for the old wording.
+    Rendering runs off the event loop. Recheck the topic title and conditionally
+    update the question so an edit during synthesis cannot attach stale audio.
     """
     await require_admin(authorization)
     try:
@@ -3155,10 +3155,18 @@ async def render_topic_question_audio(
     question = dict(question_rows[0])
     if question.get("is_active") is not True or question.get("part") not in (1, 3):
         raise HTTPException(400, "Chỉ tạo audio cho câu Part 1/3 đang bật")
+    topic_title = topic_rows[0]["title"]
     try:
         audio = await run_in_threadpool(
-            speaking_audio.render_question_audio, question, topic_rows[0]["title"]
+            speaking_audio.render_question_audio, question, topic_title
         )
+        current_topic_rows = (supabase_admin.table("topics").select("id, title")
+                              .eq("id", topic_id).limit(1).execute().data or [])
+    except Exception as exc:
+        raise HTTPException(502, f"Không tạo được audio: {exc}") from exc
+    if not current_topic_rows or current_topic_rows[0]["title"] != topic_title:
+        raise HTTPException(409, "Tên topic đã đổi trong lúc tạo audio; tải lại rồi thử lại")
+    try:
         updated = (supabase_admin.table("topic_questions")
                    .update({"audio_url": audio["audio_url"], "audio_path": audio["audio_path"]})
                    .eq("id", question_id).eq("topic_id", topic_id)

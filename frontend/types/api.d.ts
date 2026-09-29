@@ -1023,9 +1023,8 @@ export interface paths {
          * Render Topic Question Audio
          * @description Make one Part 1/3 bank question assignable after an editorial review.
          *
-         *     Rendering runs off the event loop. The update is conditional on the wording
-         *     and Part read before synthesis, so a concurrent edit cannot point a new
-         *     question at audio spoken for the old wording.
+         *     Rendering runs off the event loop. Recheck the topic title and conditionally
+         *     update the question so an edit during synthesis cannot attach stale audio.
          */
         post: operations["render_topic_question_audio_admin_topics__topic_id__questions__question_id__render_audio_post"];
         delete?: never;
@@ -14231,6 +14230,11 @@ export interface components {
             category: string | null;
             /** Part */
             part: number;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
         };
         /** CueCardQuestion */
         CueCardQuestion: {

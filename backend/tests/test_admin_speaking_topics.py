@@ -45,7 +45,7 @@ class _Query:
             matches = matches[self.page[0]:self.page[1] + 1]
         self.db.calls.append((self.table, self.action, self.payload, tuple(self.equals)))
         if self.action == "select":
-            return SimpleNamespace(data=matches, count=len(matches))
+            return SimpleNamespace(data=[dict(row) for row in matches], count=len(matches))
         if self.action == "insert":
             inserted = self.payload if isinstance(self.payload, list) else [self.payload]
             inserted = [{"id": f"new-{index}", **row} for index, row in enumerate(inserted, 1)]
@@ -116,6 +116,27 @@ def test_audio_render_does_not_attach_stale_audio_after_question_edit(monkeypatc
     assert "audio_url" not in question
 
 
+def test_audio_render_does_not_attach_stale_audio_after_topic_rename(monkeypatch):
+    topic = {"id": "t1", "title": "Home"}
+    question = {"id": "q1", "topic_id": "t1", "part": 1,
+                "question_text": "Where do you live?", "is_active": True}
+    db = _DB(topics=[topic], questions=[question])
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    def render(_question, _title):
+        topic["title"] = "Where I live"
+        return {"audio_url": "https://example.test/audio.mp3", "audio_path": "old-title",
+                "synthesized": True}
+
+    monkeypatch.setattr(admin.speaking_audio, "render_question_audio", render)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(admin.render_topic_question_audio("t1", "q1", authorization="Bearer test"))
+
+    assert error.value.status_code == 409
+    assert "audio_url" not in question
+
+
 def test_audio_render_attaches_current_question_audio(monkeypatch):
     question = {"id": "q1", "topic_id": "t1", "part": 3,
                 "question_text": "Why do people travel?", "is_active": True}
@@ -130,6 +151,20 @@ def test_audio_render_attaches_current_question_audio(monkeypatch):
 
     assert result["audio_ready"] is True
     assert question["audio_path"] == "current-script"
+
+
+def test_create_topic_can_be_hidden_atomically_for_import(monkeypatch):
+    db = _DB()
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    result = asyncio.run(admin.create_topic(
+        admin.CreateTopicRequest(title="Travel", part=2, is_active=False),
+        authorization="Bearer test",
+    ))
+
+    assert result["is_active"] is False
+    assert db.calls[0][2]["is_active"] is False
 
 
 def test_generate_without_body_uses_safe_missing_only_mode(monkeypatch):

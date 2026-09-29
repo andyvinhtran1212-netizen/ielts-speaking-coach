@@ -70,14 +70,14 @@ def import_bank(session, api_base: str, bank: dict, *, parts: set[int],
         if topic is None:
             topic = _request(session, "POST", root, json={
                 "title": item["title"], "part": part, "category": category,
+                "is_active": False,
             })
             if not isinstance(topic, dict) or not topic.get("id"):
                 raise ValueError(f"Topic creation not acknowledged: {item['source_id']}")
             by_key[key] = topic
             stats["created"] += 1
-            # The API creates active by default. Hide incomplete imports now.
-            _request(session, "PATCH", f"{root}/{topic['id']}", json={"is_active": False})
-            topic["is_active"] = False
+            if topic.get("is_active") is not False:
+                raise ValueError(f"Topic was not created inactive: {item['source_id']}")
         question_url = f"{root}/{topic['id']}/questions"
         stored = _request(session, "GET", question_url)
         if not isinstance(stored, list):
@@ -104,8 +104,6 @@ def import_bank(session, api_base: str, bank: dict, *, parts: set[int],
         if activate and part in (1, 3):
             for place in expected:
                 stored = actual[place]
-                if stored.get("audio_url") and stored.get("audio_path"):
-                    continue
                 result = _request(session, "POST",
                                   f"{question_url}/{stored['id']}/render-audio", json={})
                 if result.get("id") != stored["id"] or result.get("audio_ready") is not True:

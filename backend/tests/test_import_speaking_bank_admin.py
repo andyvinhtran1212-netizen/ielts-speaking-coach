@@ -5,6 +5,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.import_speaking_bank_admin import import_bank  # noqa: E402
@@ -36,7 +38,7 @@ class _Session:
         if not path:
             if method == "GET":
                 return _Response([dict(topic) for topic in self.topics])
-            topic = {**body, "id": f"topic-{len(self.topics) + 1}", "is_active": True}
+            topic = {"id": f"topic-{len(self.topics) + 1}", "is_active": True, **body}
             self.topics.append(topic)
             return _Response(dict(topic))
         topic_id, *remainder = path.split("/")
@@ -71,6 +73,10 @@ def test_current_cue_card_activates_after_verified_questions_and_old_card_stays_
                       "activated": 1, "unchanged": 1}
     assert session.topics[0]["is_active"] is True
     assert session.topics[1]["is_active"] is False
+    assert all(body["is_active"] is False for method, path, body in session.actions
+               if method == "POST" and path == "")
+    assert not any(method == "PATCH" and body == {"is_active": False}
+                   for method, _, body in session.actions)
     first_activation = next(index for index, (method, path, body) in enumerate(session.actions)
                             if method == "PATCH" and body == {"is_active": True})
     assert sum(method == "GET" and path == "topic-1/questions"
@@ -94,3 +100,29 @@ def test_part_one_requires_explicit_approval_and_verified_audio_before_activatio
                 approved_source_ids={"p1-004"}, progress=lambda _: None)
     assert session.topics[0]["is_active"] is True
     assert sum(path.endswith("render-audio") for _, path, _ in session.actions) == 7
+
+    session.questions["topic-1"][0]["audio_path"] = "stale-script"
+    import_bank(session, "https://example.test", bank, parts={1}, commit=True,
+                today=date(2026, 9, 29), render_audio=True,
+                approved_source_ids={"p1-004"}, progress=lambda _: None)
+    assert session.questions["topic-1"][0]["audio_path"] == "matching-script"
+    assert sum(path.endswith("render-audio") for _, path, _ in session.actions) == 14
+
+
+def test_failed_import_never_exposes_an_incomplete_topic():
+    source = Path(__file__).parent.parent / "content/speaking_bank/2026-09-source.json"
+    bank = json.loads(source.read_text(encoding="utf-8"))
+    bank["topics"] = [next(row for row in bank["topics"] if row["source_id"] == "p2-001")]
+
+    class _InterruptedSession(_Session):
+        def request(self, method, url, **kwargs):
+            if method == "GET" and "/questions" in url:
+                raise RuntimeError("question readback unavailable")
+            return super().request(method, url, **kwargs)
+
+    session = _InterruptedSession()
+    with pytest.raises(RuntimeError, match="readback unavailable"):
+        import_bank(session, "https://example.test", bank, parts={2}, commit=True,
+                    today=date(2026, 9, 29), progress=lambda _: None)
+    assert len(session.topics) == 1
+    assert session.topics[0]["is_active"] is False
