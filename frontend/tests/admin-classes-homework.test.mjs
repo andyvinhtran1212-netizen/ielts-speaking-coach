@@ -35,6 +35,36 @@ function loadHelpers() {
 
 const { dueLabel, progressCell } = loadHelpers();
 
+function loadSpeakingTopicPicker(items) {
+  const start = SRC.indexOf('async function loadSpeakingTopics()');
+  const end = SRC.indexOf('\n}\n\n/**', start);
+  assert.ok(start !== -1 && end > start, 'speaking topic picker not found');
+  const elements = {
+    'hf-part': { value: '1' },
+    'hf-skill': { value: 'speaking' },
+    'hf-topic': { innerHTML: '' },
+    'hf-topic-note': { textContent: '' },
+  };
+  const api = { get: async () => ({ items }) };
+  const picker = new Function('$', 'api', 'esc', '_cohortId',
+    `let _topicsByPart = {}; ${SRC.slice(start, end + 2)}\nreturn loadSpeakingTopics;`)(
+    (id) => elements[id], api, (value) => String(value), 'co-1');
+  return { picker, elements };
+}
+
+test('legacy Speaking picker names voice conflicts separately from missing audio', async () => {
+  const { picker, elements } = loadSpeakingTopicPicker([
+    { id: 'mixed', title: 'Mixed', ready: false, voice_conflict: true, missing_audio: false },
+    { id: 'unvoiced', title: 'Unvoiced', ready: false, missing_audio: true },
+    { id: 'ready', title: 'Ready', ready: true },
+  ]);
+  await picker();
+  assert.match(elements['hf-topic-note'].textContent, /1 chủ đề cần đồng bộ giọng đọc/);
+  assert.match(elements['hf-topic-note'].textContent, /1 chủ đề chưa có bản đọc đề/);
+  assert.match(elements['hf-topic'].innerHTML, /value="ready"/);
+  assert.doesNotMatch(elements['hf-topic'].innerHTML, /value="mixed"|value="unvoiced"/);
+});
+
 /**
  * Strip `//` comments before asserting a symbol is ABSENT from code.
  *

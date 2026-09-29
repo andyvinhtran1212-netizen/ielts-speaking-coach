@@ -12,6 +12,7 @@ import {
   normalizeActionLog,
   normalizeAssignmentsPayload,
   normalizeCatalog,
+  normalizeQuestions,
   selectAssignments,
   validateHomeworkDraft,
 } from '../lib/admin-class-homework-model.mjs';
@@ -29,6 +30,24 @@ const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given: false, single_attempt_ready: true }];
 
 describe('admin class homework model — canonical truth', () => {
+  test('explains when a valid clip has a different voice from the topic group', () => {
+    const topics = normalizeCatalog({ items: [
+      { id: 'mixed', title: 'Hometown', ready: false, missing_audio: false, voice_conflict: true },
+    ] }, 'speaking');
+    assert.equal(topics[0].reason, 'Cần đồng bộ giọng đọc của chủ đề');
+    const missing = normalizeCatalog({ items: [
+      { id: 'missing', title: 'Hometown', ready: false, missing_audio: true, voice_conflict: false },
+    ] }, 'speaking');
+    assert.equal(missing[0].reason, 'Chủ đề chưa đủ bản đọc đề');
+    const questions = normalizeQuestions({ questions_per_give: 2, items: [
+      { id: 'q1', question_text: 'Where?', giveable: false, blocked_by: 'voice' },
+      { id: 'q2', question_text: 'When?', giveable: false, blocked_by: 'audio' },
+    ] });
+    assert.deepEqual(questions.items.map((row) => [row.id, row.ready, row.blocked_by]), [
+      ['q1', false, 'voice'], ['q2', false, 'audio'],
+    ]);
+    assert.match(UI, /Cần đồng bộ giọng đọc của chủ đề/);
+  });
   test('preview uses generated API types and drops stale bank responses', () => {
     assert.match(TYPES, /components\['schemas'\]\['CourseBankPreviewResponse'\]/);
     assert.match(UI, /coursePreviewSequence/);

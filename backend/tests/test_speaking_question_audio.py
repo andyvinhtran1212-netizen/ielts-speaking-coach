@@ -166,12 +166,14 @@ def test_admin_render_uses_available_tts_without_invalidating_kokoro_audio(monke
     assert calls[0][1]["engine"] == "openai"
     assert calls[0][1]["voice"] == "nova"
     assert mod.audio_matches_question({**question, **rendered}, "Home") is True
+    assert mod.audio_provider({**question, **rendered}, "Home") == "openai"
 
     script = mod.script_fingerprint(mod.build_script(
         part=1, topic_title="Home", question_text=question["question_text"]))
     legacy = {**question, "audio_url": "https://cdn/legacy.mp3",
               "audio_path": mod.tts_audio.audio_path(script, mod.VOICE, mod.ENGINE)}
     assert mod.audio_matches_question(legacy, "Home") is True
+    assert mod.audio_provider(legacy, "Home") == "kokoro"
     assert mod.audio_matches_question(legacy, "New home") is False
 
 

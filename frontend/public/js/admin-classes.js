@@ -1798,12 +1798,15 @@ async function loadSpeakingTopics() {
     const html = '<option value="">— Chọn chủ đề —</option>' + free.map((i) =>
       `<option value="${esc(i.id)}">${esc(i.title)}</option>`).join('');
     const given = items.filter((i) => i.already_given).length;
-    const notReady = items.filter((i) => !i.already_given && !i.ready).length;
+    const unavailable = items.filter((i) => !i.already_given && !i.ready);
+    const voiceConflicts = unavailable.filter((i) => i.voice_conflict).length;
+    const missingAudio = unavailable.filter((i) => !i.voice_conflict && i.missing_audio).length;
+    const otherUnavailable = unavailable.length - voiceConflicts - missingAudio;
     const bits = [];
     if (given) bits.push(`${given} chủ đề lớp này đã làm`);
-    // "Chưa có bản đọc đề" là một việc admin LÀM ĐƯỢC (chạy mẻ render), khác hẳn
-    // "đã giao rồi" là việc đã xong — nên phải nói tách ra.
-    if (notReady) bits.push(`${notReady} chủ đề chưa có bản đọc đề`);
+    if (voiceConflicts) bits.push(`${voiceConflicts} chủ đề cần đồng bộ giọng đọc`);
+    if (missingAudio) bits.push(`${missingAudio} chủ đề chưa có bản đọc đề`);
+    if (otherUnavailable) bits.push(`${otherUnavailable} chủ đề chưa sẵn sàng`);
     _topicsByPart[key] = {
       html,
       note: bits.length ? `Đã ẩn: ${bits.join(', ')}.` : '',
@@ -1931,7 +1934,7 @@ function renderQpick() {
     // Câu chưa giao được: MỜ nhưng không ẩn, và nói rõ cách mở khoá. Ẩn đi thì
     // giáo viên thấy danh sách ngắn không rõ vì sao ngắn.
     const blocked = q.giveable ? ''
-      : '<span class="av-qpick__blocked">chưa có bản đọc</span>';
+      : `<span class="av-qpick__blocked">${q.blocked_by === 'voice' ? 'cần đồng bộ giọng đọc' : 'chưa có bản đọc'}</span>`;
     // Nghe thử: học viên chỉ có audio này, nên giáo viên phải nghe được ĐÚNG
     // thứ các em sẽ nghe trước khi giao. Nút riêng, không lồng trong nút chọn —
     // nút trong nút là HTML không hợp lệ và bấm nghe sẽ chọn nhầm câu.

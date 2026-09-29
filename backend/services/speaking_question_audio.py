@@ -129,25 +129,31 @@ def script_fingerprint(script: str) -> str:
     return _WS.sub(" ", (script or "").strip())
 
 
-def audio_matches_question(question: Dict[str, Any], topic_title: str) -> bool:
-    """Whether stored audio still speaks this question under the current title."""
+def audio_provider(question: Dict[str, Any], topic_title: Optional[str]) -> Optional[str]:
+    """Identify a current clip's voice so one assignment can use one provider."""
     if not (question.get("audio_url") or "").strip():
-        return False
+        return None
     stored = (question.get("audio_path") or "").strip()
     if not stored:
         # Legacy audio predating audio_path remains usable by the assignment API.
-        return True
+        # Keep it in its own group; its provider cannot be proved from the URL.
+        return "legacy"
     try:
         script = script_fingerprint(build_script(
             part=question["part"], topic_title=topic_title,
             question_text=question.get("question_text") or ""))
-        return stored in {
-            tts_audio.audio_path(script, VOICE, ENGINE),
-            tts_audio.audio_path(script, ADMIN_VOICE, ADMIN_ENGINE),
-        }
+        if stored == tts_audio.audio_path(script, VOICE, ENGINE):
+            return "kokoro"
+        if stored == tts_audio.audio_path(script, ADMIN_VOICE, ADMIN_ENGINE):
+            return "openai"
     except Exception as exc:
         logger.warning("Audio path check failed for question %s: %s", question.get("id"), exc)
-        return False
+    return None
+
+
+def audio_matches_question(question: Dict[str, Any], topic_title: Optional[str]) -> bool:
+    """Whether stored audio still speaks this question under the current title."""
+    return audio_provider(question, topic_title) is not None
 
 
 def render_question_audio(
