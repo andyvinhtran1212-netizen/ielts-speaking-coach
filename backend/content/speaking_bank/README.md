@@ -6,6 +6,13 @@ The converter rejects changed section shapes and expects 57 Part 1 topics,
 84 Part 2 cue cards, and 69 Part 3 discussion groups (1,203 stored questions
 when the two rounding-off prompts on each cue card are included).
 
+`2026-09-part1-reviewed.txt` and `2026-09-part3-reviewed.txt` contain four
+edited practice prompts per topic. Run `python backend/scripts/build_reviewed_speaking_bank.py`
+from the repository root to regenerate `2026-09-reviewed.json` (126 topics,
+504 questions). The reviewed manifest retains each source ID, source document
+hash and supplied date window; editorial file hashes record the exact wording.
+The raw extraction remains unchanged for comparison.
+
 The date ranges are **claims in the supplied document**, not verified IELTS
 question releases or a promise about an exam. The
 [official IELTS Speaking format](https://www.ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-speaking)
@@ -23,17 +30,14 @@ routine, but are not prioritised as current-period practice.
 - Keep historical rows inactive. A current Part 2 cue card becomes active only
   after all three rows are read back. On 2026-09-29, 54 current-window cards
   were activated and 30 historical cards were held inactive in production.
-- Part 1 and Part 3 need content review and audio that matches the current
-  wording before the topic is activated or assigned. Do not turn on a topic
-  merely because its text has been imported. The backend assignment gate
-  verifies audio for Part 1 and Part 3. The importer requires both
-  `render_audio=True` and an explicit `approved_source_ids` set before it asks
-  the admin audio endpoint to render a current Part 1/3 topic and activate it.
-- The source has templated wording that requires editorial review, especially
-  Part 3 subject-verb agreement and some generic cue-card follow-ups. Keep
-  these parts inactive until reviewed. Preserve the extraction as provenance;
-  put reviewed wording in an explicit revision rather than silently altering
-  source text.
+- Use `2026-09-reviewed.json` for Part 1/3 imports. The source has templated
+  wording, including malformed Part 3 questions; do not import its Part 1/3
+  questions directly. Keep the source extraction as provenance.
+- Part 1 and Part 3 require audio matching the reviewed wording and topic title
+  before activation or assignment. The importer requires both `render_audio=True`
+  and an explicit `approved_source_ids` set before asking the admin audio endpoint
+  to render a current topic and activate it. The endpoint verifies its output;
+  the assignment gate checks the audio fingerprint again at handoff.
 
 The source windows should be revisited when a learner's actual test date falls
 outside them. Questions from an older range can still train Speaking skills;
