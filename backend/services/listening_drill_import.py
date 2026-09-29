@@ -453,6 +453,21 @@ def parse_drill(source_json: dict[str, Any], timings: dict[str, Any] | None = No
 
     exercises = lc.build_exercises(internal_blocks, flat_answers, section_num)
 
+    # The standalone Listening editors allow only one published gist, T/F or
+    # MCQ block per content/type (migration 209). A skill drill is played as a
+    # test, where separate blocks must remain separate for their instructions
+    # and visuals (MAP drills have two different SVGs). Store repeated blocks
+    # as test exercises; the player and grader use payload.template_kind and
+    # payload.variant, so their question behavior and source UUIDs are kept.
+    standalone_types = {"gist", "true_false", "mcq"}
+    repeated_types = {
+        kind for kind in standalone_types
+        if sum(ex["exercise_type"] == kind for ex in exercises) > 1
+    }
+    for ex in exercises:
+        if ex["exercise_type"] in repeated_types:
+            ex["exercise_type"] = "mini_test"
+
     # Enrich payloads: audio_windows + solutions + transcript_anchors + map_svg.
     transcript, anchors = _build_transcript(section)
     q_windows = _question_windows(timings)

@@ -254,9 +254,22 @@ def test_map_keeps_inline_svg():
     res = imp.parse_drill(_load("MAP"), None)
     svgs = [ex["payload"].get("map_svg") for ex in res.exercise_rows]
     assert any(s and s.strip().startswith("<svg") for s in svgs), "map_svg not carried inline"
+    assert len(svgs) == len(set(svgs)) == 2, "both map visuals must remain separate"
     # plan_label letter_options derived for the dropdown
     ex = res.exercise_rows[0]
     assert ex["payload"]["metadata"]["letter_options"], "no letter_options for plan_label"
+
+
+@pytest.mark.parametrize("code", ["MAP", "MCQ"])
+def test_repeated_mcq_drill_blocks_publish_without_standalone_index_conflict(code):
+    res = imp.parse_drill(_load(code), _timings(code))
+    assert not res.errors
+    assert len(res.exercise_rows) == 2
+    assert [ex["exercise_type"] for ex in res.exercise_rows] == ["mini_test", "mini_test"]
+    assert [ex["order_num"] for ex in res.exercise_rows] == [1, 2]
+    assert [len(ex["payload"]["questions"]) for ex in res.exercise_rows] == [5, 5]
+    assert len(grader.collect_answer_key(res.exercise_rows)) == 10
+    assert {ex["payload"]["template_kind"] for ex in res.exercise_rows} == {_EXPECT_TK[code]}
 
 
 def test_audio_windows_from_timings():
