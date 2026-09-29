@@ -124,6 +124,24 @@ def script_fingerprint(script: str) -> str:
     return _WS.sub(" ", (script or "").strip())
 
 
+def audio_matches_question(question: Dict[str, Any], topic_title: str) -> bool:
+    """Whether stored audio still speaks this question under the current title."""
+    if not (question.get("audio_url") or "").strip():
+        return False
+    stored = (question.get("audio_path") or "").strip()
+    if not stored:
+        # Legacy audio predating audio_path remains usable by the assignment API.
+        return True
+    try:
+        script = script_fingerprint(build_script(
+            part=question["part"], topic_title=topic_title,
+            question_text=question.get("question_text") or ""))
+        return stored == tts_audio.audio_path(script, VOICE, ENGINE)
+    except Exception as exc:
+        logger.warning("Audio path check failed for question %s: %s", question.get("id"), exc)
+        return False
+
+
 def render_question_audio(
     question: Dict[str, Any],
     topic_title: Optional[str] = None,

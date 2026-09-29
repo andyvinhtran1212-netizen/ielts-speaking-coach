@@ -1,0 +1,4423 @@
+{
+  "schema_version": 1,
+  "source_document": "Ngan_hang_de_IELTS_Speaking_Day_du.docx",
+  "source_sha256": "3dea0a4c7cc1f96b6643b140413ef5a1011e818230e658a681dd143a5636e8ad",
+  "source_window_policy": "Dates are transcribed from the supplied document. They describe suggested practice relevance, not verified live IELTS questions or an official exam schedule.",
+  "editorial_revision": "2026-09-29",
+  "editorial_files_sha256": {
+    "2026-09-part1-reviewed.txt": "bff93995d20ec9f550177939bdf27afa17fdd22a7b393270c1afdce7af53e95b",
+    "2026-09-part3-reviewed.txt": "4377ecdae25f892fae3a8c3cff90778b657a7799c91082f5d3d09372da5552d9"
+  },
+  "topics": [
+    {
+      "source_id": "p1-001",
+      "part": 1,
+      "title": "Work and studies, schools and workplaces",
+      "source_window": "Always in use",
+      "window_start": null,
+      "window_end": null,
+      "window_kind": "evergreen",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you work, or are you a student?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you enjoy most about your work or studies?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "What is your workplace or place of study like?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to change anything about your work or studies?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-002",
+      "part": 1,
+      "title": "Hometown and the area you live in",
+      "source_window": "Always in use",
+      "window_start": null,
+      "window_end": null,
+      "window_kind": "evergreen",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Where is your hometown?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you like most about your hometown?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Has your hometown changed much in recent years?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to live there in the future?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-003",
+      "part": 1,
+      "title": "Home and accommodation",
+      "source_window": "Always in use",
+      "window_start": null,
+      "window_end": null,
+      "window_kind": "evergreen",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you live in a house or an apartment?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Who do you live with?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Which room do you spend the most time in?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there anything you would like to change about your home?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-004",
+      "part": 1,
+      "title": "Street markets",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you often visit street markets?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you usually buy at a street market?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you visit street markets when you were a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "What do you like most about street markets?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-005",
+      "part": 1,
+      "title": "Travelling",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy travelling?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Where do you usually go when you travel?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you travel much when you were younger?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer travelling alone or with other people?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-006",
+      "part": 1,
+      "title": "Collecting things",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Have you ever collected anything?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What kinds of things do people collect in your country?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you collect anything as a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to start a collection in the future?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-007",
+      "part": 1,
+      "title": "Computers and tablets",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "How often do you use a computer or tablet?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you mainly use it for?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you use computers much when you were a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer using a computer or a tablet?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-008",
+      "part": 1,
+      "title": "Shoes",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What kind of shoes do you usually wear?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "How often do you buy new shoes?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you choose shoes for comfort or appearance?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Have your preferences in shoes changed over time?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-009",
+      "part": 1,
+      "title": "Recycling and rubbish",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you recycle anything at home?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Is it easy to recycle in the area where you live?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you learn about recycling at school?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to change any of your habits around waste?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-010",
+      "part": 1,
+      "title": "Politeness",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What is considered polite in your country?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Who taught you how to be polite?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Are you more careful about politeness in formal situations?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Has your idea of politeness changed as you have grown older?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-011",
+      "part": 1,
+      "title": "Names",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Does your name have a special meaning?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Do you like your name?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Is your name common where you live?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Are you good at remembering other people's names?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-012",
+      "part": 1,
+      "title": "Being bored",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "When do you usually feel bored?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you do when you are bored?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Were you often bored as a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Can boredom sometimes lead you to try something new?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-013",
+      "part": 1,
+      "title": "Teachers",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Is there a teacher you remember well?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What qualities do you appreciate in a teacher?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did a teacher ever encourage you to learn something new?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to teach someone a skill one day?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-014",
+      "part": 1,
+      "title": "Social media",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Which social media platforms do you use?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "How often do you use social media?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "What do you usually do on social media?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Has the way you use social media changed over time?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-015",
+      "part": 1,
+      "title": "Dreams and ambitions",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What is one goal you would like to achieve?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Did you have a different ambition when you were a child?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Who encourages you to work towards your goals?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer to share your ambitions with other people?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-016",
+      "part": 1,
+      "title": "Mirrors",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "How often do you look in a mirror?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Where is the mirror you use most often?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you have a favourite mirror at home?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever bought a mirror for yourself?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-017",
+      "part": 1,
+      "title": "Music",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What kind of music do you enjoy?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "When do you usually listen to music?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you listen to the same kind of music as a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer listening to music alone or with friends?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-018",
+      "part": 1,
+      "title": "Tidiness",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you like to keep your room or workspace tidy?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "When do you usually tidy it?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Were you tidy when you were younger?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there anything you find difficult to keep organised?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-019",
+      "part": 1,
+      "title": "Websites",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What kinds of websites do you visit most often?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "How do you usually find a useful website?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Is there a website you use for learning?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Have your favourite websites changed over time?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-020",
+      "part": 1,
+      "title": "Watches",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you usually wear a watch?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you use to check the time?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever received a watch as a gift?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you choose a watch for its appearance or its features?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-021",
+      "part": 1,
+      "title": "Shopping",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy shopping?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you usually buy when you go shopping?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer shopping online or in a store?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Has the way you shop changed in recent years?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-022",
+      "part": 1,
+      "title": "Cars",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "How often do you travel by car?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer being a driver or a passenger?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "What do you like about travelling by car?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to own a car in the future?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-023",
+      "part": 1,
+      "title": "Parks",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "How often do you visit a park?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you usually do there?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you go to parks as a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there a park near your home that you particularly like?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-024",
+      "part": 1,
+      "title": "Science",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Did you enjoy science at school?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Which area of science interests you most?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "How do you learn about new scientific discoveries?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to learn more about science?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-025",
+      "part": 1,
+      "title": "Outer space and stars",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy looking at the night sky?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever learned about stars or planets?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Can you see many stars from where you live?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to visit a place with a clearer night sky?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-026",
+      "part": 1,
+      "title": "Headphones",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "How often do you use headphones?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you usually listen to through them?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer headphones or speakers at home?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Have your headphones changed the way you listen to music?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-027",
+      "part": 1,
+      "title": "Singing",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy singing?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "When do you usually sing?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you sing much as a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you feel comfortable singing in front of other people?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-028",
+      "part": 1,
+      "title": "Art",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy looking at art?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Did you make art when you were a child?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Is there an artist or artwork you particularly like?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to visit an art exhibition?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-029",
+      "part": 1,
+      "title": "Clothes",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What kinds of clothes do you usually wear?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "How often do you buy new clothes?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer comfortable or fashionable clothes?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Has your style changed over time?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-030",
+      "part": 1,
+      "title": "Jokes",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy telling jokes?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Who makes you laugh most often?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you have a favourite joke when you were a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you think the same jokes are funny to everyone?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-031",
+      "part": 1,
+      "title": "Morning routines",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What do you usually do first in the morning?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Is your morning routine different at weekends?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Which part of your morning routine do you enjoy?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to change anything about your mornings?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-032",
+      "part": 1,
+      "title": "Evening time",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What do you usually do in the evening?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Are your evenings different on weekdays and weekends?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer a quiet or a busy evening?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there anything you would like to do more often in the evening?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-033",
+      "part": 1,
+      "title": "History",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Did you enjoy learning history at school?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Which period of history interests you most?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever visited a historical place?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "How do you usually learn about history now?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-034",
+      "part": 1,
+      "title": "Old buildings",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Are there many old buildings where you live?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Have you visited an old building recently?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "What do you like about old buildings?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there an old building in your area that you would like to see preserved?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-035",
+      "part": 1,
+      "title": "Films",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "How often do you watch films?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What kinds of films do you enjoy?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer watching films at home or at the cinema?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Has your taste in films changed since childhood?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-036",
+      "part": 1,
+      "title": "Sports programs",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you watch sports programmes?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Which sports do you enjoy watching?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you usually watch sports alone or with others?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever watched a live sports event on television?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-037",
+      "part": 1,
+      "title": "Crowded places",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you often go to crowded places?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What crowded place do you visit most often?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you enjoy being in a crowd?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "How do you feel after spending time in a crowded place?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-038",
+      "part": 1,
+      "title": "Memory",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Are you good at remembering names?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you find easiest to remember?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you make notes to help you remember things?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Has your memory changed as you have grown older?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-039",
+      "part": 1,
+      "title": "Spare time",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What do you like doing in your spare time?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Do you usually spend your spare time alone or with others?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you have more spare time when you were younger?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there a new activity you would like to try?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-040",
+      "part": 1,
+      "title": "Animals and pets",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you like animals?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Did you have a pet when you were a child?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "What animals do you often see where you live?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to have a pet in the future?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-041",
+      "part": 1,
+      "title": "Days off",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What do you usually do on a day off?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer to plan your days off?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Who do you like spending a day off with?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there a place you would like to visit on your next day off?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-042",
+      "part": 1,
+      "title": "Food",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What food do you enjoy eating most?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer eating at home or at a restaurant?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you like the same foods when you were a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there a food you would like to learn to cook?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-043",
+      "part": 1,
+      "title": "Keys",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "How many keys do you usually carry?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever lost a key?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Where do you keep your keys at home?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you prefer to use a digital key if you could?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-044",
+      "part": 1,
+      "title": "Dreams",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you often remember your dreams when you wake up?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever had a dream that stayed in your mind?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you tell other people about your dreams?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you think dreams can influence your mood?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-045",
+      "part": 1,
+      "title": "Reading",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy reading?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you usually read?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you read much when you were a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer reading on paper or on a screen?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-046",
+      "part": 1,
+      "title": "Gifts",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy giving gifts?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What kinds of gifts do you usually give?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Have you received a gift that you still remember?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer useful gifts or surprising ones?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-047",
+      "part": 1,
+      "title": "Morning time",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Are you usually busy in the morning?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What time do you normally get up?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer mornings or evenings?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Has your morning schedule changed over time?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-048",
+      "part": 1,
+      "title": "Hobby",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What hobby do you enjoy most?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "How did you become interested in it?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer hobbies you can do alone or with others?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Is there a hobby you would like to learn?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-049",
+      "part": 1,
+      "title": "Sports teams",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you support a sports team?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "How did you become interested in that team?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer watching a team live or on television?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever played on a sports team?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-050",
+      "part": 1,
+      "title": "Typing",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "How often do you type on a keyboard?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What do you usually type?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer typing on a phone or a computer?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Has the way you type changed since you were younger?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-051",
+      "part": 1,
+      "title": "Walking",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Do you enjoy walking?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Where do you usually go for a walk?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer walking alone or with someone?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Do you walk more or less than you did in the past?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-052",
+      "part": 1,
+      "title": "Buildings",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What kinds of buildings are common where you live?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Is there a building in your area that you like?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you notice the design of buildings when you travel?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you prefer to live in a tall building or a small one?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-053",
+      "part": 1,
+      "title": "Views",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Is there a view you particularly enjoy?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Where can you see that view?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you prefer views of nature or of a city?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Have you ever taken a photograph because you liked a view?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-054",
+      "part": 1,
+      "title": "Scenery",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What kind of scenery do you like most?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Is there beautiful scenery near your home?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Did you often visit natural places as a child?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Where would you go to enjoy the scenery on a day off?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-055",
+      "part": 1,
+      "title": "Childhood activities",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What did you enjoy doing after school as a child?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Did you usually play indoors or outdoors?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Who did you spend most of your time with?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like children today to try any of those activities?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-056",
+      "part": 1,
+      "title": "Stages in life",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "Which stage of your life have you enjoyed most so far?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "What was important to you when you were younger?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Do you enjoy learning new things as you get older?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "What are you looking forward to in the next stage of your life?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p1-057",
+      "part": 1,
+      "title": "Daily routine",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 1,
+          "question_text": "What is a typical day like for you?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 1,
+          "question_text": "Which part of your daily routine do you enjoy most?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 1,
+          "question_text": "Is your routine different at weekends?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 1,
+          "question_text": "Would you like to change anything about your routine?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-001",
+      "part": 3,
+      "title": "Cities",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people prefer living in large cities?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How does rapid city growth affect the quality of everyday life?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What should city planners prioritise when neighbourhoods become more crowded?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How might cities change as more people work from home?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-002",
+      "part": 3,
+      "title": "Gifts",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why are gifts important in some relationships?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can an expensive gift sometimes create social pressure?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How do gift-giving customs differ across generations or cultures?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Has online shopping changed the way people choose gifts?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-003",
+      "part": 3,
+      "title": "Making friends and meeting people",
+      "source_window": "September 2026 to April 2027",
+      "window_start": "2026-09-01",
+      "window_end": "2027-04-30",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why can it be difficult for adults to make new friends?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Are friendships formed online different from those formed in person?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How can communities help newcomers feel included?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Do people expect different things from friends at different ages?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-004",
+      "part": 3,
+      "title": "Travelling and rest",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people choose different ways to rest during a holiday?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can travel be as tiring as work for some people?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How have working patterns changed the amount of time people can take off?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should employers encourage staff to take regular breaks?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-005",
+      "part": 3,
+      "title": "Food and cooking",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people cook regularly while others rely on prepared food?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can cooking at home affect family relationships?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Has technology made it easier for people to learn to cook?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools teach children practical cooking skills?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-006",
+      "part": 3,
+      "title": "Tall buildings",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "What are the advantages of building upwards in a crowded city?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What problems can tall buildings create for nearby residents?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should planners balance housing needs with green space?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Will tall buildings become more common outside major cities?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-007",
+      "part": 3,
+      "title": "Getting up early",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people find it easier than others to get up early?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can an early start affect a person's work or studies?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools and workplaces allow more flexible starting times?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Has modern technology changed people's sleeping habits?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-008",
+      "part": 3,
+      "title": "Rules and laws",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why are rules necessary in public places?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What makes people more willing to follow a rule?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should authorities respond when a rule is unfair?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Are laws becoming harder to enforce in the digital world?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-009",
+      "part": 3,
+      "title": "Growing plants",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why has growing plants become popular in some cities?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What can children learn from looking after a plant?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How can cities make room for more gardens or trees?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Can home gardening make a meaningful difference to the environment?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-010",
+      "part": 3,
+      "title": "Friendship and social media",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Can social media help people maintain close friendships?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What misunderstandings can arise when friends communicate mainly online?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Do younger and older people use social media differently to keep in touch?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How can people protect time for face-to-face friendships?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-011",
+      "part": 3,
+      "title": "Planning",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people plan carefully while others prefer to be spontaneous?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "When can detailed plans become unhelpful?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How do families and workplaces benefit from planning ahead?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Has technology made planning easier or more stressful?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-012",
+      "part": 3,
+      "title": "Food",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How have eating habits changed over the last generation?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Why do many people choose convenient food even when healthier options exist?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What role should schools play in teaching children about food?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How can communities make healthy food more accessible?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-013",
+      "part": 3,
+      "title": "Sports events and competition",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do large sports events attract so much attention?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can hosting a sports event benefit a local community?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What problems can arise when sport becomes highly commercial?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should public money be spent on major sports events?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-014",
+      "part": 3,
+      "title": "Holidays",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people value holidays away from their normal routine?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Do people of different ages want different things from a holiday?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How can tourism benefit and harm local communities?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should everyone have access to paid time off work?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-015",
+      "part": 3,
+      "title": "Making decisions",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people find major decisions difficult?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How much advice should young people seek before making a career choice?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Can having too many options make decision-making harder?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Are people more likely to regret decisions they made quickly?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-016",
+      "part": 3,
+      "title": "Teamwork and leadership",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "What makes a team work well together?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "When is a strong leader especially important?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Can digital tools replace some face-to-face teamwork?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How should a leader handle disagreement within a team?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-017",
+      "part": 3,
+      "title": "Success in business",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "What does business success mean beyond making a profit?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can small businesses compete with larger companies?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What responsibilities do successful businesses have towards employees?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Has technology changed the qualities needed to run a business?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-018",
+      "part": 3,
+      "title": "Visiting others and accommodation",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do customs around visiting someone's home differ between cultures?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can hosts make visitors feel comfortable?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What should travellers consider when staying in someone else's home?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Has short-term rental accommodation changed local communities?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-019",
+      "part": 3,
+      "title": "Rivers and lakes",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why are rivers and lakes important to nearby communities?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What activities can damage the quality of freshwater?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Who should be responsible for protecting rivers and lakes?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How can cities make waterfront areas useful without harming nature?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-020",
+      "part": 3,
+      "title": "Learning languages",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why are some people more motivated to learn a new language than others?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can speaking with native users help language learners?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Can translation technology replace the need to learn languages?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools place more emphasis on communication than grammar rules?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-021",
+      "part": 3,
+      "title": "Rules and punishment",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "What makes a punishment fair?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can strict punishment sometimes make bad behaviour worse?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should schools respond when children break rules?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Are education and punishment equally important in preventing crime?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-022",
+      "part": 3,
+      "title": "Leisure time",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people choose different leisure activities?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Has screen-based entertainment changed the way families spend free time?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What can communities do to make leisure activities accessible to everyone?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Is it important to have free time without a planned activity?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-023",
+      "part": 3,
+      "title": "Organising things and being organised",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why are some people more organised than others?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can being organised help people at work or school?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Can too much planning reduce creativity?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Have digital tools made personal organisation easier?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-024",
+      "part": 3,
+      "title": "Public transport and traffic jams",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some commuters avoid public transport?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How do traffic jams affect people's daily lives?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What would make public transport more attractive in a city?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should governments invest more in buses and trains than in roads?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-025",
+      "part": 3,
+      "title": "Goals",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people set long-term goals?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can young people stay motivated when a goal takes years to reach?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "When might changing a goal be a sensible decision?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Do social expectations influence the goals people choose?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-026",
+      "part": 3,
+      "title": "Success",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How do different people define personal success?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can someone be successful without earning a high income?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What effect can pressure to succeed have on young people?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Do societies give enough recognition to people who help others?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-027",
+      "part": 3,
+      "title": "Artificial intelligence",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How can artificial intelligence help people at work or school?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What risks arise when people rely on AI for important decisions?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Who should teach students to evaluate AI-generated information?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "In which areas should AI use be limited by law?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-028",
+      "part": 3,
+      "title": "Intelligence",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Can intelligence be developed through practice and education?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Why do schools tend to value some abilities more than others?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Is emotional intelligence as useful as academic ability at work?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How should teachers support students with different strengths?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-029",
+      "part": 3,
+      "title": "Opinions and ideas",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people sometimes hesitate to express an unpopular opinion?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can a group discuss opposing ideas respectfully?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Has social media made public debate more open or more hostile?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools teach students how to evaluate other people's arguments?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-030",
+      "part": 3,
+      "title": "Messages",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "When are written messages better than a phone call?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can short digital messages lead to misunderstandings?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Have messaging apps changed expectations about how quickly people should reply?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should workplaces set rules for messages sent outside working hours?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-031",
+      "part": 3,
+      "title": "Advertising",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How does advertising influence what people buy?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Why are children especially vulnerable to some advertisements?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Should companies be required to make online advertising more transparent?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Can advertising ever encourage positive social behaviour?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-032",
+      "part": 3,
+      "title": "Boredom",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people become bored in different situations?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can boredom sometimes encourage creativity?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Has constant access to entertainment made it harder to tolerate boredom?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should children always have structured activities in their free time?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-033",
+      "part": 3,
+      "title": "Videos",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why are short online videos so popular?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can educational videos be as effective as a teacher?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What problems can arise when people trust videos without checking their source?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How have video platforms changed opportunities for creators?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-034",
+      "part": 3,
+      "title": "Animals",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people have different attitudes towards animals?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What can children learn from caring for an animal?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should cities protect wildlife as they expand?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "What responsibilities do businesses have for animal welfare?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-035",
+      "part": 3,
+      "title": "Doctors, biology and medical research",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why is public trust important in medical research?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How should doctors explain uncertain information to patients?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Who should benefit from discoveries funded by public money?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "What ethical questions can arise when medical technology advances quickly?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-036",
+      "part": 3,
+      "title": "Companies and customer satisfaction",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "What makes customers trust a company?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How should businesses respond to a dissatisfied customer?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Do online reviews give a fair picture of product quality?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should companies prioritise customer satisfaction over short-term profit?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-037",
+      "part": 3,
+      "title": "News and national identity",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How can news shape a person's view of their country?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Why might people in the same country interpret a news story differently?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How can schools help students recognise unreliable news?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Can international news strengthen or weaken national identity?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-038",
+      "part": 3,
+      "title": "Foreign languages",
+      "source_window": "May to December 2026",
+      "window_start": "2026-05-01",
+      "window_end": "2026-12-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people decide to learn a foreign language?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What opportunities can foreign-language skills create at work?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Are language-learning apps enough without real conversations?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools introduce foreign languages at an earlier age?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-039",
+      "part": 3,
+      "title": "Cities",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do many people move from smaller places to large cities?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can city growth affect housing costs?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What should governments do to keep city neighbourhoods liveable?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How might cities change if more jobs can be done remotely?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-040",
+      "part": 3,
+      "title": "Being proud",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people feel proud of different achievements?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can praise from others change a person's motivation?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should parents respond when a child succeeds or fails?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Is pride in a group's success different from pride in personal success?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-041",
+      "part": 3,
+      "title": "Jobs",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "What influences young people's choice of career?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How has technology changed the jobs available to workers?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Should employers provide more opportunities to retrain?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "What makes a job valuable to society even if it is not highly paid?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-042",
+      "part": 3,
+      "title": "Mobile phones",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How have mobile phones changed the way people communicate?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What are the disadvantages of checking a phone too often?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools limit pupils' use of mobile phones?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How can people protect their privacy when using phone apps?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-043",
+      "part": 3,
+      "title": "Fame and children",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why might children want to become famous?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can public attention affect a child's development?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What responsibilities do adults have when sharing images of children online?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools teach children about the pressures of fame?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-044",
+      "part": 3,
+      "title": "Having a rest and doing exercise",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people struggle to balance rest and exercise?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can regular exercise affect mental well-being?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Should employers help staff be more physically active?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Do older adults face different barriers to exercise than younger adults?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-045",
+      "part": 3,
+      "title": "New and old things and toys",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do children sometimes prefer a new toy to an older one?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What can traditional toys offer that digital toys cannot?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How can families encourage children to look after their possessions?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should toys be designed to last longer rather than follow trends?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-046",
+      "part": 3,
+      "title": "Smiling",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why is smiling important in some social situations?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can a smile have different meanings in different cultures?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How can people show friendliness when they do not speak the same language?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Is it reasonable to expect service workers to smile all the time?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-047",
+      "part": 3,
+      "title": "Advice",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people sometimes give advice that was not requested?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What makes advice helpful rather than intrusive?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Are people more likely to trust advice from a friend or an expert?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Has the internet changed the way people look for advice?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-048",
+      "part": 3,
+      "title": "Apps and programs",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "What makes an app genuinely useful in everyday life?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Why do some people find new software difficult to use?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should app developers protect users' personal information?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools teach students how to assess the reliability of apps?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-049",
+      "part": 3,
+      "title": "Working abroad and travelling",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people choose to work abroad?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "What difficulties can someone face when adapting to a new country?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How can employers support workers who move from overseas?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Will remote work reduce the need to move abroad for a job?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-050",
+      "part": 3,
+      "title": "Old things and museums",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people visit museums that display old objects?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can museums make history interesting to young visitors?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Should museums return objects obtained unfairly from other countries?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Can digital exhibitions offer the same experience as seeing objects in person?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-051",
+      "part": 3,
+      "title": "Transportation and air pollution",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How does road traffic contribute to air pollution?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Why do some people continue to drive when public transport is available?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What can cities do to improve air quality without restricting mobility?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should governments offer incentives for cleaner forms of transport?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-052",
+      "part": 3,
+      "title": "Shopping",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people sometimes buy things they do not need?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How has online shopping changed consumer habits?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What responsibilities do retailers have for the waste their products create?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools teach young people how to make careful spending decisions?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-053",
+      "part": 3,
+      "title": "Imagination",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why is imagination important in a child's learning?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can creative skills be taught, or do they develop naturally?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Does technology help people be creative or distract them?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How can workplaces make better use of employees' ideas?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-054",
+      "part": 3,
+      "title": "Films",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do films appeal to people of different ages?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can films change the way people understand another culture?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How have streaming services affected cinemas?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should governments support films made in local languages?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-055",
+      "part": 3,
+      "title": "Stories",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people enjoy hearing stories about other people's lives?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can stories help children understand difficult ideas?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Have digital platforms changed who gets to tell stories?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Is preserving traditional stories important for a community?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-056",
+      "part": 3,
+      "title": "Intelligence",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How should schools recognise different kinds of intelligence?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can problem-solving skills improve with practice?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Is it better to solve a difficult problem alone or with a team?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How might AI change the skills people need at work?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-057",
+      "part": 3,
+      "title": "Environmental protection",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why can it be difficult to persuade people to protect the environment?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Which everyday changes could reduce household waste?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What responsibilities should companies have for environmental damage?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should governments use incentives or penalties to encourage greener behaviour?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-058",
+      "part": 3,
+      "title": "Spending and saving money",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people find it easier to save money than others?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How have digital payment methods changed spending habits?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Should schools teach practical money management?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "What can governments do to help people prepare for financial emergencies?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-059",
+      "part": 3,
+      "title": "Helping others",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people volunteer to help strangers?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can a small act of help have a lasting effect on a community?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should schools encourage children to help others?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Are online fundraising campaigns as valuable as helping in person?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-060",
+      "part": 3,
+      "title": "Technology and communication",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How has digital technology changed communication within families?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Why do some people prefer speaking face to face?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What problems can arise when important conversations happen online?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How can communities help people who lack access to digital communication?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-061",
+      "part": 3,
+      "title": "Music events",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do live music events attract large audiences?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can a music festival benefit a local area?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "What problems can large events create for nearby residents?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should public money support live music venues?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-062",
+      "part": 3,
+      "title": "Encouraging others",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "What kinds of encouragement help people keep learning a difficult skill?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can too much praise reduce a person's motivation?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should teachers encourage students who have lost confidence?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Is encouragement from friends different from encouragement from family?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-063",
+      "part": 3,
+      "title": "Learning new things",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do adults decide to learn new things later in life?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can a person make time for learning while working?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Are online courses as effective as face-to-face classes?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should employers pay for staff to develop new skills?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-064",
+      "part": 3,
+      "title": "Making plans",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people prefer detailed plans while others do not?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "When can an unexpected change improve a plan?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How can families make plans without limiting individual freedom?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Has technology changed the way people organise future events?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-065",
+      "part": 3,
+      "title": "Drawing and museums",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why should children have opportunities to draw and make art?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can museums attract people who do not usually visit them?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Can seeing art online replace visiting an art museum?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Should public money support local artists and museums?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-066",
+      "part": 3,
+      "title": "Quiet places",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do people need quiet places in a busy city?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How can noise affect people's ability to work or rest?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Should local authorities create more quiet public spaces?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Can technology help people find peace without leaving home?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-067",
+      "part": 3,
+      "title": "TV programmes and videos",
+      "source_window": "January to August 2026",
+      "window_start": "2026-01-01",
+      "window_end": "2026-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How do people decide which television programmes or videos to watch?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Can educational videos improve the way children learn?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Why is it important to check whether online videos are reliable?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "How have streaming platforms changed traditional television?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-068",
+      "part": 3,
+      "title": "Buildings and architecture",
+      "source_window": "January to August 2025",
+      "window_start": "2025-01-01",
+      "window_end": "2025-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "How does the design of a building affect the people who use it?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "Why do some communities want to preserve older buildings?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "How should architects balance appearance, cost and environmental impact?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "Will buildings need to change as the climate changes?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    },
+    {
+      "source_id": "p3-069",
+      "part": 3,
+      "title": "Watching TV",
+      "source_window": "January to August 2025",
+      "window_start": "2025-01-01",
+      "window_end": "2025-08-31",
+      "window_kind": "dated",
+      "questions": [
+        {
+          "part": 3,
+          "question_text": "Why do some people watch more television than others?",
+          "question_type": "",
+          "order_num": 1
+        },
+        {
+          "part": 3,
+          "question_text": "How has on-demand viewing changed family routines?",
+          "question_type": "",
+          "order_num": 2
+        },
+        {
+          "part": 3,
+          "question_text": "Can television programmes influence people's opinions about society?",
+          "question_type": "",
+          "order_num": 3
+        },
+        {
+          "part": 3,
+          "question_text": "What role might traditional television have in the future?",
+          "question_type": "",
+          "order_num": 4
+        }
+      ]
+    }
+  ]
+}

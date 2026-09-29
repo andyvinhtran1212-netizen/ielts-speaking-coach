@@ -206,8 +206,17 @@ export function AdminSpeakingTopics() {
       const canonical = await readTopics();
       const saved = canonical.rows.find((row) => row.id === acknowledged.id);
       if (!saved || saved.title !== title || saved.part !== topicDraft.part || saved.category !== body.category) throw new Error('Đọc lại không khớp topic vừa lưu.');
+      // A title change changes the spoken lead-in. Refresh canonical readiness
+      // even when the selected topic ID (and therefore its effect) stays the same.
+      const refreshSelectedQuestions = Boolean(editing && selectedId === saved.id);
+      const questionRequestId = refreshSelectedQuestions ? ++questionSequence.current : null;
+      const canonicalQuestions = refreshSelectedQuestions ? await readQuestions(saved.id) : null;
       if (profileRef.current !== account) return;
       setSnapshot({ account, rows: canonical.rows, malformed: canonical.malformedCount });
+      if (canonicalQuestions && questionRequestId === questionSequence.current) {
+        setQuestions({ account, topicId: saved.id, rows: canonicalQuestions.rows, malformed: canonicalQuestions.malformedCount });
+        setQuestionsError(null);
+      }
       setListError(null);
       setTopicEditor(null); setBanner({ kind: 'success', text: `${editing ? 'Đã cập nhật' : 'Đã tạo'} topic và đối chiếu lại từ máy chủ.` });
       navigate(saved.part, search, saved.id);
@@ -275,6 +284,26 @@ export function AdminSpeakingTopics() {
       setBanner({ kind: 'success', text: `${editing ? 'Đã cập nhật' : 'Đã thêm'} câu hỏi và đối chiếu lại từ máy chủ.${invalidatesAudio ? ' Audio cũ đã được gỡ để tránh đọc sai đề.' : ''}` });
     } catch (caught) { if (profileRef.current === account) setQuestionFormError(messageOf(caught)); }
     finally { mutationLock.current = false; setBusy(false); }
+  };
+
+  const renderQuestionAudio = async (question: SpeakingQuestion) => {
+    if (!selectedTopic || mutationLock.current || question.part === 2) return;
+    mutationLock.current = true; setBusy(true); setBanner(null);
+    const account = profile.id;
+    try {
+      const result = await window.api.post<{ id?: string; audio_ready?: boolean }>(
+        `/admin/topics/${encodeURIComponent(selectedTopic.id)}/questions/${encodeURIComponent(question.id)}/render-audio`, {}
+      );
+      if (result?.id !== question.id || result?.audio_ready !== true) throw new Error('Máy chủ chưa xác nhận audio.');
+      const canonical = await readQuestions(selectedTopic.id);
+      if (!canonical.rows.find((row) => row.id === question.id)?.audioReady) throw new Error('Đọc lại chưa thấy audio mới.');
+      if (profileRef.current !== account) return;
+      setQuestions({ account, topicId: selectedTopic.id, rows: canonical.rows, malformed: canonical.malformedCount });
+      setQuestionsError(null);
+      setBanner({ kind: 'success', text: 'Đã tạo audio và đối chiếu lại câu hỏi từ máy chủ.' });
+    } catch (caught) {
+      if (profileRef.current === account) setBanner({ kind: 'error', text: `Không tạo được audio: ${messageOf(caught)}` });
+    } finally { mutationLock.current = false; setBusy(false); }
   };
 
   const createBulk = async () => {
@@ -378,6 +407,20 @@ export function AdminSpeakingTopics() {
   const copy = actionCopy(confirming);
   const displayedQuestions = questions?.account === profile.id && questions.topicId === selectedId ? questions.rows : [];
   const metadataFailure = rows.some((row) => row.questionMetadataLookupFailed);
+  const now = new Date();
+  const dateParts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+  const datePart = (type: string) => dateParts.find((value) => value.type === type)?.value || '';
+  const today = `${datePart('year')}-${datePart('month')}-${datePart('day')}`;
+  const year = Number(today.slice(0, 4));
+  const quarter = Math.floor((Number(today.slice(5, 7)) - 1) / 3) + 1;
+  const datedSourceRows = rows.filter((row) => row.category.startsWith('Mốc tham khảo ') || row.category.startsWith('Mốc cũ '));
+  const inSourceWindow = datedSourceRows.filter((row) => {
+    const window = row.category.startsWith('Mốc tham khảo 09/2026–04/2027')
+      ? ['2026-09-01', '2027-04-30']
+      : row.category.startsWith('Mốc tham khảo 05–12/2026')
+        ? ['2026-05-01', '2026-12-31'] : null;
+    return row.isActive && window !== null && today >= window[0] && today <= window[1];
+  }).length;
 
   return <main className="ast-shell">
     <header className="ast-header"><div><p className="acd-eyebrow">Speaking · Content operations</p><h1>Topics & questions</h1><p>Quản lý thư viện câu hỏi theo Part, kiểm soát AI và giữ mọi trạng thái khớp dữ liệu máy chủ.</p></div><a className="adm-btn-secondary" href="/admin/speaking">← Speaking workspace</a></header>
@@ -387,6 +430,7 @@ export function AdminSpeakingTopics() {
       <div><span>Part hiện tại</span><strong>{PART_COPY[part].title}</strong><small>{visibleRows.length} kết quả</small></div>
       <div><span>Topic đã chọn</span><strong>{selectedRows.length}</strong><small>Dùng cho thao tác hàng loạt</small></div>
     </section>
+    {datedSourceRows.length > 0 && <div className="ast-warning" role="note"><strong>Kho đề tham khảo · quý {quarter}/{year}</strong><span>{inSourceWindow} topic đang bật có mốc trong tài liệu bao phủ ngày hiện tại. Các mốc này giúp ưu tiên luyện tập, không xác nhận câu hỏi sẽ xuất hiện trong kỳ thi. Chủ đề mốc cũ vẫn có ích để luyện cách trả lời và phát triển ý.</span></div>}
 
     <nav className="ast-tabs" role="tablist" aria-label="Speaking Part">
       {([1, 2, 3] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={part === value} className={part === value ? 'is-active' : ''} onClick={() => changePart(value)}><strong>{PART_COPY[value].title}</strong><span>{PART_COPY[value].subtitle}</span></button>)}
@@ -420,7 +464,7 @@ export function AdminSpeakingTopics() {
         {questionsLoading && !questions && <div className="acd-state"><strong>Đang tải câu hỏi…</strong><span>Không giả dữ liệu lỗi thành danh sách trống.</span></div>}
         {questions?.account === profile.id && questions.topicId === selectedTopic.id && questions.malformed > 0 && <div className="ast-warning" role="alert"><strong>Có câu hỏi sai định dạng.</strong><span>{questions.malformed} bản ghi đã bị loại.</span></div>}
         {!questionsLoading && !questionsError && questions?.account === profile.id && questions.topicId === selectedTopic.id && displayedQuestions.length === 0 && <div className="acd-state"><strong>Topic chưa có câu hỏi</strong><span>Thêm thủ công hoặc dùng “AI sinh khi trống”.</span></div>}
-        <div className="ast-question-list">{displayedQuestions.map((question) => <article className="ast-question" key={question.id}><header><span>Part {question.part} · #{question.orderNum || 'auto'}</span>{question.questionType && <span>{question.questionType}</span>}{question.audioReady && <span>Audio sẵn sàng</span>}</header><h3>{question.text}</h3>{question.cueCardBullets.length > 0 && <ul>{question.cueCardBullets.map((bullet, index) => <li key={index}>{bullet}</li>)}</ul>}{question.cueCardReflection && <p className="ast-reflection"><strong>Reflection:</strong> {question.cueCardReflection}</p>}<footer><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => openQuestionEditor(question)}>Sửa</button><button className="adm-btn-danger adm-btn-sm" type="button" onClick={() => setConfirming({ kind: 'delete-question', topic: selectedTopic, question })}>Xoá</button></footer></article>)}</div>
+        <div className="ast-question-list">{displayedQuestions.map((question) => <article className="ast-question" key={question.id}><header><span>Part {question.part} · #{question.orderNum || 'auto'}</span>{question.questionType && <span>{question.questionType}</span>}{question.audioReady && <span>Audio sẵn sàng</span>}</header><h3>{question.text}</h3>{question.cueCardBullets.length > 0 && <ul>{question.cueCardBullets.map((bullet, index) => <li key={index}>{bullet}</li>)}</ul>}{question.cueCardReflection && <p className="ast-reflection"><strong>Reflection:</strong> {question.cueCardReflection}</p>}<footer>{question.part !== 2 && !question.audioReady && <button className="adm-btn-secondary adm-btn-sm" type="button" disabled={busy} onClick={() => void renderQuestionAudio(question)}>Tạo audio</button>}<button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => openQuestionEditor(question)}>Sửa</button><button className="adm-btn-danger adm-btn-sm" type="button" onClick={() => setConfirming({ kind: 'delete-question', topic: selectedTopic, question })}>Xoá</button></footer></article>)}</div>
       </aside>}
     </div>
 

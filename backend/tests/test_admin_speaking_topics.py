@@ -11,6 +11,8 @@ from fastapi import HTTPException
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from routers import admin  # noqa: E402
+from routers import admin_class_assignments  # noqa: E402
+from services import speaking_question_audio, tts_audio  # noqa: E402
 
 
 async def _admin(_authorization):
@@ -24,6 +26,7 @@ class _Query:
         self.action = "select"
         self.payload = None
         self.equals = []
+        self.page = None
 
     def select(self, *_args, **_kwargs): self.action = "select"; return self
     def insert(self, payload, *_args, **_kwargs): self.action = "insert"; self.payload = payload; return self
@@ -32,6 +35,7 @@ class _Query:
     def eq(self, column, value, *_args, **_kwargs): self.equals.append((column, value)); return self
     def in_(self, *_args, **_kwargs): return self
     def order(self, *_args, **_kwargs): return self
+    def range(self, start, end, *_args, **_kwargs): self.page = (start, end); return self
     def limit(self, *_args, **_kwargs): return self
 
     def execute(self):
@@ -39,9 +43,11 @@ class _Query:
             raise RuntimeError("question metadata unavailable")
         rows = self.db.tables.setdefault(self.table, [])
         matches = [row for row in rows if all(row.get(key) == value for key, value in self.equals)]
+        if self.page is not None and self.action == "select":
+            matches = matches[self.page[0]:self.page[1] + 1]
         self.db.calls.append((self.table, self.action, self.payload, tuple(self.equals)))
         if self.action == "select":
-            return SimpleNamespace(data=matches, count=len(matches))
+            return SimpleNamespace(data=[dict(row) for row in matches], count=len(matches))
         if self.action == "insert":
             inserted = self.payload if isinstance(self.payload, list) else [self.payload]
             inserted = [{"id": f"new-{index}", **row} for index, row in enumerate(inserted, 1)]
@@ -78,6 +84,123 @@ def test_topic_metadata_lookup_failure_is_unknown_not_zero(monkeypatch):
     assert rows[0]["question_count"] is None
     assert rows[0]["question_metadata_lookup_failed"] is True
     assert rows[0]["status"] == "metadata_unavailable"
+
+
+def test_topic_metadata_counts_all_pages(monkeypatch):
+    questions = [{"id": f"q{i:04}", "topic_id": "t1", "is_active": True,
+                  "created_at": "2026-09-01T00:00:00+00:00"} for i in range(501)]
+    db = _DB(questions=questions)
+    monkeypatch.setattr(admin, "supabase_admin", db)
+
+    rows = admin._serialize_topics_with_metadata([{"id": "t1", "title": "Travel", "part": 1}])
+
+    assert rows[0]["question_count"] == 501
+    assert sum(table == "topic_questions" and action == "select"
+               for table, action, _, _ in db.calls) == 2
+
+
+def test_audio_render_does_not_attach_stale_audio_after_question_edit(monkeypatch):
+    question = {"id": "q1", "topic_id": "t1", "part": 1,
+                "question_text": "Where do you live?", "is_active": True}
+    db = _DB(topics=[{"id": "t1", "title": "Home"}], questions=[question])
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    def render(_question, _title):
+        question["question_text"] = "Where did you grow up?"
+        return {"audio_url": "https://example.test/audio.mp3", "audio_path": "old-script", "synthesized": True}
+
+    monkeypatch.setattr(admin.speaking_audio, "render_question_audio", render)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(admin.render_topic_question_audio("t1", "q1", authorization="Bearer test"))
+
+    assert error.value.status_code == 409
+    assert "audio_url" not in question
+
+
+def test_audio_render_does_not_attach_stale_audio_after_topic_rename(monkeypatch):
+    topic = {"id": "t1", "title": "Home"}
+    question = {"id": "q1", "topic_id": "t1", "part": 1,
+                "question_text": "Where do you live?", "is_active": True}
+    db = _DB(topics=[topic], questions=[question])
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    def render(_question, _title):
+        topic["title"] = "Where I live"
+        return {"audio_url": "https://example.test/audio.mp3", "audio_path": "old-title",
+                "synthesized": True}
+
+    monkeypatch.setattr(admin.speaking_audio, "render_question_audio", render)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(admin.render_topic_question_audio("t1", "q1", authorization="Bearer test"))
+
+    assert error.value.status_code == 409
+    assert "audio_url" not in question
+
+
+def test_audio_render_attaches_current_question_audio(monkeypatch):
+    question = {"id": "q1", "topic_id": "t1", "part": 3,
+                "question_text": "Why do people travel?", "is_active": True}
+    db = _DB(topics=[{"id": "t1", "title": "Travel"}], questions=[question])
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+    monkeypatch.setattr(admin.speaking_audio, "render_question_audio",
+                        lambda *_: {"audio_url": "https://example.test/audio.mp3",
+                                    "audio_path": "current-script", "synthesized": True})
+
+    result = asyncio.run(admin.render_topic_question_audio("t1", "q1", authorization="Bearer test"))
+
+    assert result["audio_ready"] is True
+    assert question["audio_path"] == "current-script"
+
+
+def test_topic_rename_marks_audio_stale_until_rerendered(monkeypatch):
+    topic = {"id": "t1", "title": "Home"}
+    question = {"id": "q1", "topic_id": "t1", "part": 1,
+                "question_text": "Where do you live?", "is_active": True,
+                "audio_url": "https://example.test/audio.mp3"}
+
+    def path_for(title):
+        script = speaking_question_audio.script_fingerprint(
+            speaking_question_audio.build_script(
+                part=1, topic_title=title, question_text=question["question_text"]))
+        return tts_audio.audio_path(script, speaking_question_audio.VOICE,
+                                    speaking_question_audio.ENGINE)
+
+    question["audio_path"] = path_for("Home")
+    db = _DB(topics=[topic], questions=[question])
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    assert asyncio.run(admin.list_topic_questions("t1", authorization="Bearer test"))[0]["audio_ready"] is True
+    topic["title"] = "Where I live"
+    listed = asyncio.run(admin.list_topic_questions("t1", authorization="Bearer test"))
+    assert listed[0]["audio_url"]
+    assert listed[0]["audio_ready"] is False
+    assert admin_class_assignments._audio_matches(question, topic["title"]) is False
+
+    monkeypatch.setattr(admin.speaking_audio, "render_question_audio",
+                        lambda *_: {"audio_url": "https://example.test/new.mp3",
+                                    "audio_path": path_for(topic["title"]), "synthesized": True})
+    result = asyncio.run(admin.render_topic_question_audio("t1", "q1", authorization="Bearer test"))
+    assert result["audio_ready"] is True
+    assert asyncio.run(admin.list_topic_questions("t1", authorization="Bearer test"))[0]["audio_ready"] is True
+    assert admin_class_assignments._audio_matches(question, topic["title"]) is True
+
+
+def test_create_topic_can_be_hidden_atomically_for_import(monkeypatch):
+    db = _DB()
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    result = asyncio.run(admin.create_topic(
+        admin.CreateTopicRequest(title="Travel", part=2, is_active=False),
+        authorization="Bearer test",
+    ))
+
+    assert result["is_active"] is False
+    assert db.calls[0][2]["is_active"] is False
 
 
 def test_generate_without_body_uses_safe_missing_only_mode(monkeypatch):

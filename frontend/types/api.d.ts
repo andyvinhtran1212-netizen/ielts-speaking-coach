@@ -1010,6 +1010,29 @@ export interface paths {
         patch: operations["update_topic_question_admin_topics__topic_id__questions__question_id__patch"];
         trace?: never;
     };
+    "/admin/topics/{topic_id}/questions/{question_id}/render-audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Render Topic Question Audio
+         * @description Make one Part 1/3 bank question assignable after an editorial review.
+         *
+         *     Rendering runs off the event loop. Recheck the topic title and conditionally
+         *     update the question so an edit during synthesis cannot attach stale audio.
+         */
+        post: operations["render_topic_question_audio_admin_topics__topic_id__questions__question_id__render_audio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/topics/{topic_id}/generate-questions": {
         parameters: {
             query?: never;
@@ -14207,6 +14230,11 @@ export interface components {
             category: string | null;
             /** Part */
             part: number;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
         };
         /** CueCardQuestion */
         CueCardQuestion: {
@@ -20683,6 +20711,40 @@ export interface operations {
                 "application/json": components["schemas"]["UpdateTopicQuestionRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    render_topic_question_audio_admin_topics__topic_id__questions__question_id__render_audio_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                topic_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

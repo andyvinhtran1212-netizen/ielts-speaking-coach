@@ -1,0 +1,417 @@
+# Reviewed Part 3 prompts
+
+Each source ID retains the date window from the supplied document. These are authored discussion prompts, not verified live IELTS questions.
+
+## p3-001
+- Why do some people prefer living in large cities?
+- How does rapid city growth affect the quality of everyday life?
+- What should city planners prioritise when neighbourhoods become more crowded?
+- How might cities change as more people work from home?
+
+## p3-002
+- Why are gifts important in some relationships?
+- Can an expensive gift sometimes create social pressure?
+- How do gift-giving customs differ across generations or cultures?
+- Has online shopping changed the way people choose gifts?
+
+## p3-003
+- Why can it be difficult for adults to make new friends?
+- Are friendships formed online different from those formed in person?
+- How can communities help newcomers feel included?
+- Do people expect different things from friends at different ages?
+
+## p3-004
+- Why do people choose different ways to rest during a holiday?
+- Can travel be as tiring as work for some people?
+- How have working patterns changed the amount of time people can take off?
+- Should employers encourage staff to take regular breaks?
+
+## p3-005
+- Why do some people cook regularly while others rely on prepared food?
+- How can cooking at home affect family relationships?
+- Has technology made it easier for people to learn to cook?
+- Should schools teach children practical cooking skills?
+
+## p3-006
+- What are the advantages of building upwards in a crowded city?
+- What problems can tall buildings create for nearby residents?
+- How should planners balance housing needs with green space?
+- Will tall buildings become more common outside major cities?
+
+## p3-007
+- Why do some people find it easier than others to get up early?
+- How can an early start affect a person's work or studies?
+- Should schools and workplaces allow more flexible starting times?
+- Has modern technology changed people's sleeping habits?
+
+## p3-008
+- Why are rules necessary in public places?
+- What makes people more willing to follow a rule?
+- How should authorities respond when a rule is unfair?
+- Are laws becoming harder to enforce in the digital world?
+
+## p3-009
+- Why has growing plants become popular in some cities?
+- What can children learn from looking after a plant?
+- How can cities make room for more gardens or trees?
+- Can home gardening make a meaningful difference to the environment?
+
+## p3-010
+- Can social media help people maintain close friendships?
+- What misunderstandings can arise when friends communicate mainly online?
+- Do younger and older people use social media differently to keep in touch?
+- How can people protect time for face-to-face friendships?
+
+## p3-011
+- Why do some people plan carefully while others prefer to be spontaneous?
+- When can detailed plans become unhelpful?
+- How do families and workplaces benefit from planning ahead?
+- Has technology made planning easier or more stressful?
+
+## p3-012
+- How have eating habits changed over the last generation?
+- Why do many people choose convenient food even when healthier options exist?
+- What role should schools play in teaching children about food?
+- How can communities make healthy food more accessible?
+
+## p3-013
+- Why do large sports events attract so much attention?
+- How can hosting a sports event benefit a local community?
+- What problems can arise when sport becomes highly commercial?
+- Should public money be spent on major sports events?
+
+## p3-014
+- Why do people value holidays away from their normal routine?
+- Do people of different ages want different things from a holiday?
+- How can tourism benefit and harm local communities?
+- Should everyone have access to paid time off work?
+
+## p3-015
+- Why do some people find major decisions difficult?
+- How much advice should young people seek before making a career choice?
+- Can having too many options make decision-making harder?
+- Are people more likely to regret decisions they made quickly?
+
+## p3-016
+- What makes a team work well together?
+- When is a strong leader especially important?
+- Can digital tools replace some face-to-face teamwork?
+- How should a leader handle disagreement within a team?
+
+## p3-017
+- What does business success mean beyond making a profit?
+- How can small businesses compete with larger companies?
+- What responsibilities do successful businesses have towards employees?
+- Has technology changed the qualities needed to run a business?
+
+## p3-018
+- Why do customs around visiting someone's home differ between cultures?
+- How can hosts make visitors feel comfortable?
+- What should travellers consider when staying in someone else's home?
+- Has short-term rental accommodation changed local communities?
+
+## p3-019
+- Why are rivers and lakes important to nearby communities?
+- What activities can damage the quality of freshwater?
+- Who should be responsible for protecting rivers and lakes?
+- How can cities make waterfront areas useful without harming nature?
+
+## p3-020
+- Why are some people more motivated to learn a new language than others?
+- How can speaking with native users help language learners?
+- Can translation technology replace the need to learn languages?
+- Should schools place more emphasis on communication than grammar rules?
+
+## p3-021
+- What makes a punishment fair?
+- Can strict punishment sometimes make bad behaviour worse?
+- How should schools respond when children break rules?
+- Are education and punishment equally important in preventing crime?
+
+## p3-022
+- Why do people choose different leisure activities?
+- Has screen-based entertainment changed the way families spend free time?
+- What can communities do to make leisure activities accessible to everyone?
+- Is it important to have free time without a planned activity?
+
+## p3-023
+- Why are some people more organised than others?
+- How can being organised help people at work or school?
+- Can too much planning reduce creativity?
+- Have digital tools made personal organisation easier?
+
+## p3-024
+- Why do some commuters avoid public transport?
+- How do traffic jams affect people's daily lives?
+- What would make public transport more attractive in a city?
+- Should governments invest more in buses and trains than in roads?
+
+## p3-025
+- Why do people set long-term goals?
+- How can young people stay motivated when a goal takes years to reach?
+- When might changing a goal be a sensible decision?
+- Do social expectations influence the goals people choose?
+
+## p3-026
+- How do different people define personal success?
+- Can someone be successful without earning a high income?
+- What effect can pressure to succeed have on young people?
+- Do societies give enough recognition to people who help others?
+
+## p3-027
+- How can artificial intelligence help people at work or school?
+- What risks arise when people rely on AI for important decisions?
+- Who should teach students to evaluate AI-generated information?
+- In which areas should AI use be limited by law?
+
+## p3-028
+- Can intelligence be developed through practice and education?
+- Why do schools tend to value some abilities more than others?
+- Is emotional intelligence as useful as academic ability at work?
+- How should teachers support students with different strengths?
+
+## p3-029
+- Why do people sometimes hesitate to express an unpopular opinion?
+- How can a group discuss opposing ideas respectfully?
+- Has social media made public debate more open or more hostile?
+- Should schools teach students how to evaluate other people's arguments?
+
+## p3-030
+- When are written messages better than a phone call?
+- How can short digital messages lead to misunderstandings?
+- Have messaging apps changed expectations about how quickly people should reply?
+- Should workplaces set rules for messages sent outside working hours?
+
+## p3-031
+- How does advertising influence what people buy?
+- Why are children especially vulnerable to some advertisements?
+- Should companies be required to make online advertising more transparent?
+- Can advertising ever encourage positive social behaviour?
+
+## p3-032
+- Why do people become bored in different situations?
+- Can boredom sometimes encourage creativity?
+- Has constant access to entertainment made it harder to tolerate boredom?
+- Should children always have structured activities in their free time?
+
+## p3-033
+- Why are short online videos so popular?
+- Can educational videos be as effective as a teacher?
+- What problems can arise when people trust videos without checking their source?
+- How have video platforms changed opportunities for creators?
+
+## p3-034
+- Why do people have different attitudes towards animals?
+- What can children learn from caring for an animal?
+- How should cities protect wildlife as they expand?
+- What responsibilities do businesses have for animal welfare?
+
+## p3-035
+- Why is public trust important in medical research?
+- How should doctors explain uncertain information to patients?
+- Who should benefit from discoveries funded by public money?
+- What ethical questions can arise when medical technology advances quickly?
+
+## p3-036
+- What makes customers trust a company?
+- How should businesses respond to a dissatisfied customer?
+- Do online reviews give a fair picture of product quality?
+- Should companies prioritise customer satisfaction over short-term profit?
+
+## p3-037
+- How can news shape a person's view of their country?
+- Why might people in the same country interpret a news story differently?
+- How can schools help students recognise unreliable news?
+- Can international news strengthen or weaken national identity?
+
+## p3-038
+- Why do people decide to learn a foreign language?
+- What opportunities can foreign-language skills create at work?
+- Are language-learning apps enough without real conversations?
+- Should schools introduce foreign languages at an earlier age?
+
+## p3-039
+- Why do many people move from smaller places to large cities?
+- How can city growth affect housing costs?
+- What should governments do to keep city neighbourhoods liveable?
+- How might cities change if more jobs can be done remotely?
+
+## p3-040
+- Why do people feel proud of different achievements?
+- Can praise from others change a person's motivation?
+- How should parents respond when a child succeeds or fails?
+- Is pride in a group's success different from pride in personal success?
+
+## p3-041
+- What influences young people's choice of career?
+- How has technology changed the jobs available to workers?
+- Should employers provide more opportunities to retrain?
+- What makes a job valuable to society even if it is not highly paid?
+
+## p3-042
+- How have mobile phones changed the way people communicate?
+- What are the disadvantages of checking a phone too often?
+- Should schools limit pupils' use of mobile phones?
+- How can people protect their privacy when using phone apps?
+
+## p3-043
+- Why might children want to become famous?
+- How can public attention affect a child's development?
+- What responsibilities do adults have when sharing images of children online?
+- Should schools teach children about the pressures of fame?
+
+## p3-044
+- Why do some people struggle to balance rest and exercise?
+- How can regular exercise affect mental well-being?
+- Should employers help staff be more physically active?
+- Do older adults face different barriers to exercise than younger adults?
+
+## p3-045
+- Why do children sometimes prefer a new toy to an older one?
+- What can traditional toys offer that digital toys cannot?
+- How can families encourage children to look after their possessions?
+- Should toys be designed to last longer rather than follow trends?
+
+## p3-046
+- Why is smiling important in some social situations?
+- Can a smile have different meanings in different cultures?
+- How can people show friendliness when they do not speak the same language?
+- Is it reasonable to expect service workers to smile all the time?
+
+## p3-047
+- Why do people sometimes give advice that was not requested?
+- What makes advice helpful rather than intrusive?
+- Are people more likely to trust advice from a friend or an expert?
+- Has the internet changed the way people look for advice?
+
+## p3-048
+- What makes an app genuinely useful in everyday life?
+- Why do some people find new software difficult to use?
+- How should app developers protect users' personal information?
+- Should schools teach students how to assess the reliability of apps?
+
+## p3-049
+- Why do people choose to work abroad?
+- What difficulties can someone face when adapting to a new country?
+- How can employers support workers who move from overseas?
+- Will remote work reduce the need to move abroad for a job?
+
+## p3-050
+- Why do people visit museums that display old objects?
+- How can museums make history interesting to young visitors?
+- Should museums return objects obtained unfairly from other countries?
+- Can digital exhibitions offer the same experience as seeing objects in person?
+
+## p3-051
+- How does road traffic contribute to air pollution?
+- Why do some people continue to drive when public transport is available?
+- What can cities do to improve air quality without restricting mobility?
+- Should governments offer incentives for cleaner forms of transport?
+
+## p3-052
+- Why do people sometimes buy things they do not need?
+- How has online shopping changed consumer habits?
+- What responsibilities do retailers have for the waste their products create?
+- Should schools teach young people how to make careful spending decisions?
+
+## p3-053
+- Why is imagination important in a child's learning?
+- Can creative skills be taught, or do they develop naturally?
+- Does technology help people be creative or distract them?
+- How can workplaces make better use of employees' ideas?
+
+## p3-054
+- Why do films appeal to people of different ages?
+- Can films change the way people understand another culture?
+- How have streaming services affected cinemas?
+- Should governments support films made in local languages?
+
+## p3-055
+- Why do people enjoy hearing stories about other people's lives?
+- How can stories help children understand difficult ideas?
+- Have digital platforms changed who gets to tell stories?
+- Is preserving traditional stories important for a community?
+
+## p3-056
+- How should schools recognise different kinds of intelligence?
+- Can problem-solving skills improve with practice?
+- Is it better to solve a difficult problem alone or with a team?
+- How might AI change the skills people need at work?
+
+## p3-057
+- Why can it be difficult to persuade people to protect the environment?
+- Which everyday changes could reduce household waste?
+- What responsibilities should companies have for environmental damage?
+- Should governments use incentives or penalties to encourage greener behaviour?
+
+## p3-058
+- Why do some people find it easier to save money than others?
+- How have digital payment methods changed spending habits?
+- Should schools teach practical money management?
+- What can governments do to help people prepare for financial emergencies?
+
+## p3-059
+- Why do people volunteer to help strangers?
+- Can a small act of help have a lasting effect on a community?
+- How should schools encourage children to help others?
+- Are online fundraising campaigns as valuable as helping in person?
+
+## p3-060
+- How has digital technology changed communication within families?
+- Why do some people prefer speaking face to face?
+- What problems can arise when important conversations happen online?
+- How can communities help people who lack access to digital communication?
+
+## p3-061
+- Why do live music events attract large audiences?
+- How can a music festival benefit a local area?
+- What problems can large events create for nearby residents?
+- Should public money support live music venues?
+
+## p3-062
+- What kinds of encouragement help people keep learning a difficult skill?
+- Can too much praise reduce a person's motivation?
+- How should teachers encourage students who have lost confidence?
+- Is encouragement from friends different from encouragement from family?
+
+## p3-063
+- Why do adults decide to learn new things later in life?
+- How can a person make time for learning while working?
+- Are online courses as effective as face-to-face classes?
+- Should employers pay for staff to develop new skills?
+
+## p3-064
+- Why do some people prefer detailed plans while others do not?
+- When can an unexpected change improve a plan?
+- How can families make plans without limiting individual freedom?
+- Has technology changed the way people organise future events?
+
+## p3-065
+- Why should children have opportunities to draw and make art?
+- How can museums attract people who do not usually visit them?
+- Can seeing art online replace visiting an art museum?
+- Should public money support local artists and museums?
+
+## p3-066
+- Why do people need quiet places in a busy city?
+- How can noise affect people's ability to work or rest?
+- Should local authorities create more quiet public spaces?
+- Can technology help people find peace without leaving home?
+
+## p3-067
+- How do people decide which television programmes or videos to watch?
+- Can educational videos improve the way children learn?
+- Why is it important to check whether online videos are reliable?
+- How have streaming platforms changed traditional television?
+
+## p3-068
+- How does the design of a building affect the people who use it?
+- Why do some communities want to preserve older buildings?
+- How should architects balance appearance, cost and environmental impact?
+- Will buildings need to change as the climate changes?
+
+## p3-069
+- Why do some people watch more television than others?
+- How has on-demand viewing changed family routines?
+- Can television programmes influence people's opinions about society?
+- What role might traditional television have in the future?

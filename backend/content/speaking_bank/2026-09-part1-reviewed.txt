@@ -1,0 +1,345 @@
+# Reviewed Part 1 prompts
+
+Each source ID retains the date window from the supplied document. These are authored practice questions, not verified live IELTS questions.
+
+## p1-001
+- Do you work, or are you a student?
+- What do you enjoy most about your work or studies?
+- What is your workplace or place of study like?
+- Would you like to change anything about your work or studies?
+
+## p1-002
+- Where is your hometown?
+- What do you like most about your hometown?
+- Has your hometown changed much in recent years?
+- Would you like to live there in the future?
+
+## p1-003
+- Do you live in a house or an apartment?
+- Who do you live with?
+- Which room do you spend the most time in?
+- Is there anything you would like to change about your home?
+
+## p1-004
+- Do you often visit street markets?
+- What do you usually buy at a street market?
+- Did you visit street markets when you were a child?
+- What do you like most about street markets?
+
+## p1-005
+- Do you enjoy travelling?
+- Where do you usually go when you travel?
+- Did you travel much when you were younger?
+- Do you prefer travelling alone or with other people?
+
+## p1-006
+- Have you ever collected anything?
+- What kinds of things do people collect in your country?
+- Did you collect anything as a child?
+- Would you like to start a collection in the future?
+
+## p1-007
+- How often do you use a computer or tablet?
+- What do you mainly use it for?
+- Did you use computers much when you were a child?
+- Do you prefer using a computer or a tablet?
+
+## p1-008
+- What kind of shoes do you usually wear?
+- How often do you buy new shoes?
+- Do you choose shoes for comfort or appearance?
+- Have your preferences in shoes changed over time?
+
+## p1-009
+- Do you recycle anything at home?
+- Is it easy to recycle in the area where you live?
+- Did you learn about recycling at school?
+- Would you like to change any of your habits around waste?
+
+## p1-010
+- What is considered polite in your country?
+- Who taught you how to be polite?
+- Are you more careful about politeness in formal situations?
+- Has your idea of politeness changed as you have grown older?
+
+## p1-011
+- Does your name have a special meaning?
+- Do you like your name?
+- Is your name common where you live?
+- Are you good at remembering other people's names?
+
+## p1-012
+- When do you usually feel bored?
+- What do you do when you are bored?
+- Were you often bored as a child?
+- Can boredom sometimes lead you to try something new?
+
+## p1-013
+- Is there a teacher you remember well?
+- What qualities do you appreciate in a teacher?
+- Did a teacher ever encourage you to learn something new?
+- Would you like to teach someone a skill one day?
+
+## p1-014
+- Which social media platforms do you use?
+- How often do you use social media?
+- What do you usually do on social media?
+- Has the way you use social media changed over time?
+
+## p1-015
+- What is one goal you would like to achieve?
+- Did you have a different ambition when you were a child?
+- Who encourages you to work towards your goals?
+- Do you prefer to share your ambitions with other people?
+
+## p1-016
+- How often do you look in a mirror?
+- Where is the mirror you use most often?
+- Do you have a favourite mirror at home?
+- Have you ever bought a mirror for yourself?
+
+## p1-017
+- What kind of music do you enjoy?
+- When do you usually listen to music?
+- Did you listen to the same kind of music as a child?
+- Do you prefer listening to music alone or with friends?
+
+## p1-018
+- Do you like to keep your room or workspace tidy?
+- When do you usually tidy it?
+- Were you tidy when you were younger?
+- Is there anything you find difficult to keep organised?
+
+## p1-019
+- What kinds of websites do you visit most often?
+- How do you usually find a useful website?
+- Is there a website you use for learning?
+- Have your favourite websites changed over time?
+
+## p1-020
+- Do you usually wear a watch?
+- What do you use to check the time?
+- Have you ever received a watch as a gift?
+- Would you choose a watch for its appearance or its features?
+
+## p1-021
+- Do you enjoy shopping?
+- What do you usually buy when you go shopping?
+- Do you prefer shopping online or in a store?
+- Has the way you shop changed in recent years?
+
+## p1-022
+- How often do you travel by car?
+- Do you prefer being a driver or a passenger?
+- What do you like about travelling by car?
+- Would you like to own a car in the future?
+
+## p1-023
+- How often do you visit a park?
+- What do you usually do there?
+- Did you go to parks as a child?
+- Is there a park near your home that you particularly like?
+
+## p1-024
+- Did you enjoy science at school?
+- Which area of science interests you most?
+- How do you learn about new scientific discoveries?
+- Would you like to learn more about science?
+
+## p1-025
+- Do you enjoy looking at the night sky?
+- Have you ever learned about stars or planets?
+- Can you see many stars from where you live?
+- Would you like to visit a place with a clearer night sky?
+
+## p1-026
+- How often do you use headphones?
+- What do you usually listen to through them?
+- Do you prefer headphones or speakers at home?
+- Have your headphones changed the way you listen to music?
+
+## p1-027
+- Do you enjoy singing?
+- When do you usually sing?
+- Did you sing much as a child?
+- Would you feel comfortable singing in front of other people?
+
+## p1-028
+- Do you enjoy looking at art?
+- Did you make art when you were a child?
+- Is there an artist or artwork you particularly like?
+- Would you like to visit an art exhibition?
+
+## p1-029
+- What kinds of clothes do you usually wear?
+- How often do you buy new clothes?
+- Do you prefer comfortable or fashionable clothes?
+- Has your style changed over time?
+
+## p1-030
+- Do you enjoy telling jokes?
+- Who makes you laugh most often?
+- Did you have a favourite joke when you were a child?
+- Do you think the same jokes are funny to everyone?
+
+## p1-031
+- What do you usually do first in the morning?
+- Is your morning routine different at weekends?
+- Which part of your morning routine do you enjoy?
+- Would you like to change anything about your mornings?
+
+## p1-032
+- What do you usually do in the evening?
+- Are your evenings different on weekdays and weekends?
+- Do you prefer a quiet or a busy evening?
+- Is there anything you would like to do more often in the evening?
+
+## p1-033
+- Did you enjoy learning history at school?
+- Which period of history interests you most?
+- Have you ever visited a historical place?
+- How do you usually learn about history now?
+
+## p1-034
+- Are there many old buildings where you live?
+- Have you visited an old building recently?
+- What do you like about old buildings?
+- Is there an old building in your area that you would like to see preserved?
+
+## p1-035
+- How often do you watch films?
+- What kinds of films do you enjoy?
+- Do you prefer watching films at home or at the cinema?
+- Has your taste in films changed since childhood?
+
+## p1-036
+- Do you watch sports programmes?
+- Which sports do you enjoy watching?
+- Do you usually watch sports alone or with others?
+- Have you ever watched a live sports event on television?
+
+## p1-037
+- Do you often go to crowded places?
+- What crowded place do you visit most often?
+- Do you enjoy being in a crowd?
+- How do you feel after spending time in a crowded place?
+
+## p1-038
+- Are you good at remembering names?
+- What do you find easiest to remember?
+- Do you make notes to help you remember things?
+- Has your memory changed as you have grown older?
+
+## p1-039
+- What do you like doing in your spare time?
+- Do you usually spend your spare time alone or with others?
+- Did you have more spare time when you were younger?
+- Is there a new activity you would like to try?
+
+## p1-040
+- Do you like animals?
+- Did you have a pet when you were a child?
+- What animals do you often see where you live?
+- Would you like to have a pet in the future?
+
+## p1-041
+- What do you usually do on a day off?
+- Do you prefer to plan your days off?
+- Who do you like spending a day off with?
+- Is there a place you would like to visit on your next day off?
+
+## p1-042
+- What food do you enjoy eating most?
+- Do you prefer eating at home or at a restaurant?
+- Did you like the same foods when you were a child?
+- Is there a food you would like to learn to cook?
+
+## p1-043
+- How many keys do you usually carry?
+- Have you ever lost a key?
+- Where do you keep your keys at home?
+- Would you prefer to use a digital key if you could?
+
+## p1-044
+- Do you often remember your dreams when you wake up?
+- Have you ever had a dream that stayed in your mind?
+- Do you tell other people about your dreams?
+- Do you think dreams can influence your mood?
+
+## p1-045
+- Do you enjoy reading?
+- What do you usually read?
+- Did you read much when you were a child?
+- Do you prefer reading on paper or on a screen?
+
+## p1-046
+- Do you enjoy giving gifts?
+- What kinds of gifts do you usually give?
+- Have you received a gift that you still remember?
+- Do you prefer useful gifts or surprising ones?
+
+## p1-047
+- Are you usually busy in the morning?
+- What time do you normally get up?
+- Do you prefer mornings or evenings?
+- Has your morning schedule changed over time?
+
+## p1-048
+- What hobby do you enjoy most?
+- How did you become interested in it?
+- Do you prefer hobbies you can do alone or with others?
+- Is there a hobby you would like to learn?
+
+## p1-049
+- Do you support a sports team?
+- How did you become interested in that team?
+- Do you prefer watching a team live or on television?
+- Have you ever played on a sports team?
+
+## p1-050
+- How often do you type on a keyboard?
+- What do you usually type?
+- Do you prefer typing on a phone or a computer?
+- Has the way you type changed since you were younger?
+
+## p1-051
+- Do you enjoy walking?
+- Where do you usually go for a walk?
+- Do you prefer walking alone or with someone?
+- Do you walk more or less than you did in the past?
+
+## p1-052
+- What kinds of buildings are common where you live?
+- Is there a building in your area that you like?
+- Do you notice the design of buildings when you travel?
+- Would you prefer to live in a tall building or a small one?
+
+## p1-053
+- Is there a view you particularly enjoy?
+- Where can you see that view?
+- Do you prefer views of nature or of a city?
+- Have you ever taken a photograph because you liked a view?
+
+## p1-054
+- What kind of scenery do you like most?
+- Is there beautiful scenery near your home?
+- Did you often visit natural places as a child?
+- Where would you go to enjoy the scenery on a day off?
+
+## p1-055
+- What did you enjoy doing after school as a child?
+- Did you usually play indoors or outdoors?
+- Who did you spend most of your time with?
+- Would you like children today to try any of those activities?
+
+## p1-056
+- Which stage of your life have you enjoyed most so far?
+- What was important to you when you were younger?
+- Do you enjoy learning new things as you get older?
+- What are you looking forward to in the next stage of your life?
+
+## p1-057
+- What is a typical day like for you?
+- Which part of your daily routine do you enjoy most?
+- Is your routine different at weekends?
+- Would you like to change anything about your routine?
