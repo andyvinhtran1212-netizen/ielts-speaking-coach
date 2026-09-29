@@ -3171,7 +3171,8 @@ async def render_topic_question_audio(
     topic_title = topic_rows[0]["title"]
     try:
         audio = await run_in_threadpool(
-            speaking_audio.render_question_audio, question, topic_title
+            speaking_audio.render_question_audio, question, topic_title,
+            engine=speaking_audio.ADMIN_ENGINE, voice=speaking_audio.ADMIN_VOICE,
         )
         current_topic_rows = (supabase_admin.table("topics").select("id, title")
                               .eq("id", topic_id).limit(1).execute().data or [])
