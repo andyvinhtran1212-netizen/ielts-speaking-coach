@@ -73,6 +73,19 @@ def _q(qid, part, *, audio=True, order=0):
             "cue_card_bullets": None, "cue_card_reflection": None}
 
 
+def _provider_q(qid: str, provider: str, *, order: int = 0, topic_id: str = "top-1"):
+    from services import speaking_question_audio as sqa, tts_audio
+
+    question = _q(qid, 1, order=order)
+    question["topic_id"] = topic_id
+    script = sqa.script_fingerprint(sqa.build_script(
+        part=1, topic_title="Hometown", question_text=question["question_text"]))
+    voice, engine = ((sqa.VOICE, sqa.ENGINE) if provider == "kokoro"
+                     else (sqa.ADMIN_VOICE, sqa.ADMIN_ENGINE))
+    question["audio_path"] = tts_audio.audio_path(script, voice, engine)
+    return question
+
+
 def _db(*, topic=None, questions=(), dupes=()):
     tables = {
         "topics": [topic] if topic else [],
@@ -108,6 +121,41 @@ def test_part_1_pins_exactly_two_questions():
     _cid, cfg = _resolve(db)
     assert len(cfg["question_ids"]) == 2
     assert set(cfg["question_ids"]) <= {f"q{i}" for i in range(6)}
+
+
+def test_part_one_never_mixes_valid_kokoro_and_openai_clips():
+    questions = [_provider_q("k1", "kokoro"), _provider_q("k2", "kokoro", order=1),
+                 _provider_q("o1", "openai", order=2)]
+    db = _db(topic=_TOPIC, questions=questions)
+
+    for _ in range(10):
+        assert _resolve(db)[1]["question_ids"] == ["k1", "k2"]
+    with pytest.raises(Exception) as error:
+        _resolve(db, question_ids=["k1", "o1"])
+    assert getattr(error.value, "status_code", None) == 400
+    assert "giọng đọc" in str(error.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_mixed_provider_topic_picker_matches_the_assignment_gate():
+    topics = [{"id": "t0", "title": "Hometown", "part": 1, "is_active": True}]
+    mixed = [_provider_q("k1", "kokoro", topic_id="t0"),
+             _provider_q("o1", "openai", order=1, topic_id="t0")]
+    out = await _topics(_TopicsDB(topics, mixed, []))
+    assert out["items"][0]["ready"] is False
+    assert out["items"][0]["missing_audio"] is False
+    assert out["items"][0]["voice_conflict"] is True
+    with pytest.raises(Exception) as error:
+        _resolve(_db(topic=_TOPIC, questions=[
+            _provider_q("k1", "kokoro"), _provider_q("o1", "openai", order=1)]))
+    assert getattr(error.value, "status_code", None) == 400
+
+    with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(mod, "_require_cohort", lambda _cohort: None), \
+         patch.object(mod, "supabase_admin", _TopicsDB(topics, mixed, [])):
+        listed = await mod.list_topic_questions("co-1", "t0", part=1, authorization=None)
+    assert all(not item["giveable"] and item["blocked_by"] == "voice"
+               for item in listed["items"])
 
 
 def test_random_picks_are_not_always_the_first_ones():
@@ -472,6 +520,7 @@ async def test_missing_audio_is_reported_SEPARATELY_from_already_given():
     for i in out["items"]:
         assert i["ready"] is False
         assert i["missing_audio"] is True
+        assert i["voice_conflict"] is False
         assert i["already_given"] is False
 
 
@@ -481,6 +530,7 @@ async def test_a_topic_with_too_few_questions_is_not_ready_but_not_blamed_on_aud
     for i in out["items"]:
         assert i["ready"] is False
         assert i["missing_audio"] is False, "thiếu CÂU, không phải thiếu audio"
+        assert i["voice_conflict"] is False
 
 
 @pytest.mark.asyncio

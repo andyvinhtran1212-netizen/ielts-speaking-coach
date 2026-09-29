@@ -151,6 +151,32 @@ def test_kokoro_is_the_engine_and_the_voice_is_british():
     assert mod.VOICE.startswith("b"), "voice id bắt đầu bằng 'b' = British English"
 
 
+def test_admin_render_uses_available_tts_without_invalidating_kokoro_audio(monkeypatch):
+    calls = []
+    monkeypatch.setattr(mod.tts_audio, "audio_exists", lambda _path: False)
+    monkeypatch.setattr(mod.tts_audio, "synth_sync",
+                        lambda *args, **kwargs: calls.append((args, kwargs)) or b"mp3")
+    monkeypatch.setattr(mod.tts_audio, "pad_silence_mp3", lambda data: data)
+    monkeypatch.setattr(mod.tts_audio, "upload_mp3", lambda *_args: None)
+    monkeypatch.setattr(mod.tts_audio, "public_url", lambda path: f"https://cdn/{path}")
+    question = {"part": 1, "question_text": "Where do you live?"}
+
+    rendered = mod.render_question_audio(
+        question, "Home", engine=mod.ADMIN_ENGINE, voice=mod.ADMIN_VOICE)
+    assert calls[0][1]["engine"] == "openai"
+    assert calls[0][1]["voice"] == "nova"
+    assert mod.audio_matches_question({**question, **rendered}, "Home") is True
+    assert mod.audio_provider({**question, **rendered}, "Home") == "openai"
+
+    script = mod.script_fingerprint(mod.build_script(
+        part=1, topic_title="Home", question_text=question["question_text"]))
+    legacy = {**question, "audio_url": "https://cdn/legacy.mp3",
+              "audio_path": mod.tts_audio.audio_path(script, mod.VOICE, mod.ENGINE)}
+    assert mod.audio_matches_question(legacy, "Home") is True
+    assert mod.audio_provider(legacy, "Home") == "kokoro"
+    assert mod.audio_matches_question(legacy, "New home") is False
+
+
 def test_a_missing_kokoro_package_says_so_instead_of_switching_voice():
     """Rơi thầm sang engine khác sẽ trộn hai giọng trong cùng một đề thi —
     không ai nhìn ra."""

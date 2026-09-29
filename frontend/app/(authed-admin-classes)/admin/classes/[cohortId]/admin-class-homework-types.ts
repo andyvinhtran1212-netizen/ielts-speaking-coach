@@ -53,6 +53,7 @@ export type QuestionOption = {
   id: string;
   text: string;
   ready: boolean;
+  blocked_by: 'voice' | 'audio' | null;
   audio_url: string | null;
 };
 
