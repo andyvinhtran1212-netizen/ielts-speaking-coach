@@ -206,8 +206,17 @@ export function AdminSpeakingTopics() {
       const canonical = await readTopics();
       const saved = canonical.rows.find((row) => row.id === acknowledged.id);
       if (!saved || saved.title !== title || saved.part !== topicDraft.part || saved.category !== body.category) throw new Error('Đọc lại không khớp topic vừa lưu.');
+      // A title change changes the spoken lead-in. Refresh canonical readiness
+      // even when the selected topic ID (and therefore its effect) stays the same.
+      const refreshSelectedQuestions = Boolean(editing && selectedId === saved.id);
+      const questionRequestId = refreshSelectedQuestions ? ++questionSequence.current : null;
+      const canonicalQuestions = refreshSelectedQuestions ? await readQuestions(saved.id) : null;
       if (profileRef.current !== account) return;
       setSnapshot({ account, rows: canonical.rows, malformed: canonical.malformedCount });
+      if (canonicalQuestions && questionRequestId === questionSequence.current) {
+        setQuestions({ account, topicId: saved.id, rows: canonicalQuestions.rows, malformed: canonicalQuestions.malformedCount });
+        setQuestionsError(null);
+      }
       setListError(null);
       setTopicEditor(null); setBanner({ kind: 'success', text: `${editing ? 'Đã cập nhật' : 'Đã tạo'} topic và đối chiếu lại từ máy chủ.` });
       navigate(saved.part, search, saved.id);

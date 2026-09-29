@@ -2985,9 +2985,22 @@ async def list_topic_questions(
             .order("order_num")
             .execute()
         )
+        rows = res.data or []
+        if not rows:
+            return rows
+        topic = (supabase_admin.table("topics")
+                 .select("title").eq("id", topic_id).limit(1).execute()).data or []
+        if not topic:
+            raise HTTPException(404, "Topic không tồn tại")
+        title = topic[0]["title"]
+        return [{**row, "audio_ready": (
+            speaking_audio.audio_matches_question(row, title)
+            if row.get("part") in speaking_audio.AUDIO_PARTS else False)}
+                for row in rows]
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải questions: {exc}")
-    return res.data or []
 
 
 # ── POST /admin/topics/{topic_id}/questions ────────────────────────────────────

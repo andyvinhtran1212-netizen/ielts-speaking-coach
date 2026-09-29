@@ -48,15 +48,17 @@ describe('admin Speaking Topics model', () => {
     assert.equal(questions.malformedCount, 1);
   });
 
-  test('marks audio ready only when a public URL exists', () => {
+  test('uses the server fingerprint verdict after a topic title changes', () => {
     const questions = normalizeSpeakingQuestionList([
-      { id: 'path-only', topic_id: 't1', part: 1, question_text: 'Path only?', audio_path: 'questions/path.mp3' },
-      { id: 'url-only', topic_id: 't1', part: 1, question_text: 'Legacy URL?', audio_url: 'https://audio.test/legacy.mp3' },
-      { id: 'url-path', topic_id: 't1', part: 1, question_text: 'Current?', audio_url: 'https://audio.test/current.mp3', audio_path: 'questions/current.mp3' },
+      { id: 'path-only', topic_id: 't1', part: 1, question_text: 'Path only?', audio_path: 'questions/path.mp3', audio_ready: true },
+      { id: 'url-only', topic_id: 't1', part: 1, question_text: 'Legacy URL?', audio_url: 'https://audio.test/legacy.mp3', audio_ready: true },
+      { id: 'stale-title', topic_id: 't1', part: 1, question_text: 'Current?', audio_url: 'https://audio.test/old-title.mp3', audio_path: 'questions/old-title.mp3', audio_ready: false },
+      { id: 'url-path', topic_id: 't1', part: 1, question_text: 'Current?', audio_url: 'https://audio.test/current.mp3', audio_path: 'questions/current.mp3', audio_ready: true },
     ], 't1');
 
     assert.deepEqual(questions.rows.map((row) => [row.id, row.audioReady]), [
       ['path-only', false],
+      ['stale-title', false],
       ['url-only', true],
       ['url-path', true],
     ]);
@@ -110,6 +112,7 @@ describe('/admin/speaking/topics native ownership and UX contract', () => {
     assert.match(COMPONENT, /mutationLock\.current/);
     assert.match(COMPONENT, /const canonical = await readTopics\(\)/);
     assert.match(COMPONENT, /const canonicalQuestions = await readQuestions/);
+    assert.match(COMPONENT, /const canonicalQuestions = refreshSelectedQuestions \? await readQuestions\(saved\.id\) : null/);
     assert.match(COMPONENT, /saved\.category !== body\.category/);
     assert.match(COMPONENT, /saved\.cueCardBullets\.some/);
     assert.match(COMPONENT, /saved\.audioReady !== editing\.audioReady/);
