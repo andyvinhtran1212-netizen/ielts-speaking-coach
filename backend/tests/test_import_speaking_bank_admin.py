@@ -70,7 +70,7 @@ def test_current_cue_card_activates_after_verified_questions_and_old_card_stays_
                          commit=True, today=date(2026, 9, 29), progress=lambda _: None)
 
     assert result == {"planned": 2, "created": 2, "questions_added": 6,
-                      "activated": 1, "unchanged": 1}
+                      "activated": 1, "deactivated": 0, "unchanged": 1}
     assert session.topics[0]["is_active"] is True
     assert session.topics[1]["is_active"] is False
     assert all(body["is_active"] is False for method, path, body in session.actions
@@ -83,6 +83,27 @@ def test_current_cue_card_activates_after_verified_questions_and_old_card_stays_
                for method, path, _ in session.actions[:first_activation]) == 2
     assert import_bank(session, "https://example.test", bank, parts={2},
                        commit=True, today=date(2026, 9, 29), progress=lambda _: None)["questions_added"] == 0
+
+
+def test_expired_imported_topic_is_deactivated_on_rerun():
+    source = Path(__file__).parent.parent / "content/speaking_bank/2026-09-source.json"
+    bank = json.loads(source.read_text(encoding="utf-8"))
+    bank["topics"] = [next(row for row in bank["topics"] if row["source_id"] == "p2-001")]
+    session = _Session()
+    import_bank(session, "https://example.test", bank, parts={2},
+                commit=True, today=date(2026, 9, 29), progress=lambda _: None)
+    assert session.topics[0]["is_active"] is True
+
+    progress = []
+    result = import_bank(session, "https://example.test", bank, parts={2},
+                         commit=True, today=date(2028, 1, 1), progress=progress.append)
+
+    assert result == {"planned": 1, "created": 0, "questions_added": 0,
+                      "activated": 0, "deactivated": 1, "unchanged": 0}
+    assert session.topics[0]["is_active"] is False
+    assert any(method == "PATCH" and body == {"is_active": False}
+               for method, _, body in session.actions)
+    assert progress == ["OK p2-001 Part 2: 3 questions; inactive (outside source window)"]
 
 
 def test_part_one_requires_explicit_approval_and_verified_audio_before_activation():

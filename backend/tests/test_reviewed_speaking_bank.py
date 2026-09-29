@@ -45,6 +45,6 @@ def test_all_reviewed_topics_can_be_imported_with_historical_rows_held():
                          approved_source_ids=approved, progress=lambda _: None)
 
     assert result == {"planned": 126, "created": 126, "questions_added": 504,
-                      "activated": 74, "unchanged": 52}
+                      "activated": 74, "deactivated": 0, "unchanged": 52}
     assert sum(topic["is_active"] for topic in session.topics) == 74
     assert sum(path.endswith("render-audio") for _, path, _ in session.actions) == 296

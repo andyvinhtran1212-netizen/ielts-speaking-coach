@@ -29,7 +29,6 @@ from pydantic import BaseModel, Field, model_validator
 from database import supabase_admin
 from services import speaking_flags
 from services import speaking_question_audio as sqa
-from services import tts_audio
 from routers.admin import require_admin
 from services.course_pronunciation_manifest import pronunciation_content_hash
 from services.quiz_service import (
@@ -402,21 +401,7 @@ def _audio_matches(q: dict, topic_title: str) -> bool:
     sàng (admin chạy lại mẻ render là xong) còn hơn giao một bài mà học viên nghe
     một đằng bị chấm một nẻo.
     """
-    if not (q.get("audio_url") or "").strip():
-        return False
-    stored = (q.get("audio_path") or "").strip()
-    if not stored:
-        # Hàng render trước khi có cột `audio_path`: không đối chiếu được, nhưng
-        # cũng không có bằng chứng là lệch. Tin nó — mẻ render sau sẽ điền vào.
-        return True
-    try:
-        script = sqa.script_fingerprint(sqa.build_script(
-            part=q["part"], topic_title=topic_title,
-            question_text=q.get("question_text") or ""))
-        return stored == tts_audio.audio_path(script, sqa.VOICE, sqa.ENGINE)
-    except Exception as exc:
-        logger.warning("[class] audio-path check failed q=%s: %s", q.get("id"), exc)
-        return False
+    return sqa.audio_matches_question(q, topic_title)
 
 
 def _not_enough(part: int, n_eligible: int, n_total: int, want: int) -> HTTPException:

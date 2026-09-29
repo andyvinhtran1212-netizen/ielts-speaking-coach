@@ -47,7 +47,7 @@ def import_bank(session, api_base: str, bank: dict, *, parts: set[int],
     by_key = {(row["part"], row["title"], row.get("category") or ""): row
               for row in live}
     stats = {"planned": 0, "created": 0, "questions_added": 0,
-             "activated": 0, "unchanged": 0}
+             "activated": 0, "deactivated": 0, "unchanged": 0}
     for item in bank["topics"]:
         part = item["part"]
         if part not in parts:
@@ -63,9 +63,16 @@ def import_bank(session, api_base: str, bank: dict, *, parts: set[int],
                                 (render_audio and item["source_id"] in approved_source_ids))
         stats["planned"] += 1
         topic = by_key.get(key)
+        was_deactivated = False
         if not commit:
+            if not current and topic and topic.get("is_active"):
+                plan_status = "deactivate outside source window"
+            elif activate or topic and topic.get("is_active"):
+                plan_status = "active"
+            else:
+                plan_status = "held"
             progress(f"PLAN {item['source_id']} Part {part}: "
-                     f"{'existing' if topic else 'new'}; {'active' if activate else 'held'}")
+                     f"{'existing' if topic else 'new'}; {plan_status}")
             continue
         if topic is None:
             topic = _request(session, "POST", root, json={
@@ -78,6 +85,15 @@ def import_bank(session, api_base: str, bank: dict, *, parts: set[int],
             stats["created"] += 1
             if topic.get("is_active") is not False:
                 raise ValueError(f"Topic was not created inactive: {item['source_id']}")
+        if not current and topic.get("is_active") is True:
+            acknowledged = _request(session, "PATCH", f"{root}/{topic['id']}",
+                                    json={"is_active": False})
+            if acknowledged.get("is_active") is not False:
+                raise ValueError(f"Window deactivation not acknowledged: {item['source_id']}")
+            topic = acknowledged
+            by_key[key] = topic
+            stats["deactivated"] += 1
+            was_deactivated = True
         question_url = f"{root}/{topic['id']}/questions"
         stored = _request(session, "GET", question_url)
         if not isinstance(stored, list):
@@ -120,8 +136,14 @@ def import_bank(session, api_base: str, bank: dict, *, parts: set[int],
             if acknowledged.get("is_active") is not True:
                 raise ValueError(f"Activation not acknowledged: {item['source_id']}")
             stats["activated"] += 1
-        else:
+        elif not was_deactivated:
             stats["unchanged"] += 1
+        if activate or topic.get("is_active"):
+            final_status = "active"
+        elif not current:
+            final_status = "inactive (outside source window)"
+        else:
+            final_status = "held"
         progress(f"OK {item['source_id']} Part {part}: {len(expected)} questions; "
-                 f"{'active' if activate else 'held'}")
+                 f"{final_status}")
     return stats

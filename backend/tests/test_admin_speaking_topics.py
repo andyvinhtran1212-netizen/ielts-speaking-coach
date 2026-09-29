@@ -11,6 +11,8 @@ from fastapi import HTTPException
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from routers import admin  # noqa: E402
+from routers import admin_class_assignments  # noqa: E402
+from services import speaking_question_audio, tts_audio  # noqa: E402
 
 
 async def _admin(_authorization):
@@ -151,6 +153,40 @@ def test_audio_render_attaches_current_question_audio(monkeypatch):
 
     assert result["audio_ready"] is True
     assert question["audio_path"] == "current-script"
+
+
+def test_topic_rename_marks_audio_stale_until_rerendered(monkeypatch):
+    topic = {"id": "t1", "title": "Home"}
+    question = {"id": "q1", "topic_id": "t1", "part": 1,
+                "question_text": "Where do you live?", "is_active": True,
+                "audio_url": "https://example.test/audio.mp3"}
+
+    def path_for(title):
+        script = speaking_question_audio.script_fingerprint(
+            speaking_question_audio.build_script(
+                part=1, topic_title=title, question_text=question["question_text"]))
+        return tts_audio.audio_path(script, speaking_question_audio.VOICE,
+                                    speaking_question_audio.ENGINE)
+
+    question["audio_path"] = path_for("Home")
+    db = _DB(topics=[topic], questions=[question])
+    monkeypatch.setattr(admin, "supabase_admin", db)
+    monkeypatch.setattr(admin, "require_admin", _admin)
+
+    assert asyncio.run(admin.list_topic_questions("t1", authorization="Bearer test"))[0]["audio_ready"] is True
+    topic["title"] = "Where I live"
+    listed = asyncio.run(admin.list_topic_questions("t1", authorization="Bearer test"))
+    assert listed[0]["audio_url"]
+    assert listed[0]["audio_ready"] is False
+    assert admin_class_assignments._audio_matches(question, topic["title"]) is False
+
+    monkeypatch.setattr(admin.speaking_audio, "render_question_audio",
+                        lambda *_: {"audio_url": "https://example.test/new.mp3",
+                                    "audio_path": path_for(topic["title"]), "synthesized": True})
+    result = asyncio.run(admin.render_topic_question_audio("t1", "q1", authorization="Bearer test"))
+    assert result["audio_ready"] is True
+    assert asyncio.run(admin.list_topic_questions("t1", authorization="Bearer test"))[0]["audio_ready"] is True
+    assert admin_class_assignments._audio_matches(question, topic["title"]) is True
 
 
 def test_create_topic_can_be_hidden_atomically_for_import(monkeypatch):
