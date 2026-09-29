@@ -1,6 +1,7 @@
 # Listening — Module Architecture
 
 **Last measured:** 2026-06-08 (after the full-test import work #397–#408 + pack v1.2).
+**Skill-drill storage update:** 2026-09-29.
 **Scope:** how the Listening module is built today, and a proposed convergence direction.
 
 > **How to read this doc.** Every claim is tagged:
@@ -23,11 +24,12 @@
 | **True/False/Not-Given** | ✅ Production | `/admin/listening/tf` (native; `pages/admin/listening/tf.html` rollback) → versioned `POST /admin/listening/exercises` + canonical GET readback | `payload {statements:[{idx,text,answer:T/F/NG}]}` | exact per-statement match; complete only at 100%, `listening_grader.grade_true_false` |
 | **MCQ** (trắc nghiệm) | ✅ Production | native `/admin/listening/mcq` (`pages/admin/listening/mcq.html` rollback) → versioned `POST /admin/listening/exercises` | `payload {questions:[{idx,stem,options[4],answer_idx}]}` | index match, `listening_grader.grade_mcq` |
 | **Mini-test** | ✅ Production (graded **1-section test**) | served at `pages/listening-mini-test.html` → played via `pages/listening-test.html` | `listening_tests` `test_type=mini` (reuses the full-test pipeline) | per-question, `listening_test_grader` |
+| **Skill drill** | ✅ Production (graded **1-section test**) | `/admin/listening/drills/import[/commit]` and `/admin/listening/drills/{drill_id}/sync` | `listening_tests` `test_type=drill` → block-shaped `listening_exercises`; repeated standalone-constrained blocks use `exercise_type=mini_test` | per-question, `listening_test_grader` |
 | **Full-test** (Cambridge-style) | ✅ Production | **4-file pack upload** `/admin/listening/import-fulltest` (HTML rollback retained) → `POST /admin/listening/import-fulltest[/commit]` | `listening_tests` bundle → 4 `listening_content` → block-shaped `listening_exercises` | per-question, `listening_test_grader` |
 
 **Two important nuances [MEASURED]:**
-- `mini_test` is a value in the `exercise_type` CHECK, but no admin path creates an individual `mini_test` exercise. **The original Mini-Test session-mixer (admin `/sessions` composer + user session runner) was removed** — the "Mini Test" slot is now a graded 1-section `listening_tests` row (`test_type=mini`) served through the full-test player. The `listening_sessions` table + `listening_attempts.listening_session_id` column are retained for data (no longer written by any live path).
-- The four single-exercise types (dictation/gist/tf/mcq) are **authored through interactive admin forms** — one exercise at a time. **Only the full-test path uses a file-pack upload.** (This is the gap the convergence proposal in §7 addresses.)
+- The skill-drill import/sync path creates individual `mini_test` exercises when a section has multiple blocks of the same standalone-constrained type (`gist`, `true_false`, or `mcq`). Their payload `template_kind` and `variant` still drive the test player and grader, so separate Map visuals and instructions remain intact. **The original Mini-Test session-mixer (admin `/sessions` composer + user session runner) was removed** — the "Mini Test" slot is now a graded 1-section `listening_tests` row (`test_type=mini`) served through the full-test player. The `listening_sessions` table + `listening_attempts.listening_session_id` column are retained for data (no longer written by any live path).
+- Standalone dictation/gist/tf/mcq exercises are authored through interactive admin forms, one at a time. Full tests and skill drills also have separate file-upload import paths; the drill importer stores repeated standalone-constrained blocks as test exercises so the standalone one-published-block index remains enforced for standalone content.
 
 ---
 
@@ -162,7 +164,7 @@ The HTML detail stays available as watchdog/manual rollback.
 
 ## 6. Known gaps — [MEASURED] (documented, NOT fixed here)
 
-1. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
+1. The original session-mixer's `listening_sessions` table and `listening_attempts.listening_session_id` column are retired but retained for historical data. The `mini_test` exercise type is now used by the skill-drill import/sync path for repeated test blocks; it does not revive the session-mixer.
 
 ---
 
