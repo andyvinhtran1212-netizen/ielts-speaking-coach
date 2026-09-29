@@ -2026,10 +2026,8 @@ export interface paths {
          *     Hai lý do khác hẳn nhau và admin làm được hai việc khác nhau:
          *
          *       * `already_given` — lớp này đã làm rồi. Việc đã xong, chọn chủ đề khác.
-         *       * `ready: false`  — chưa có bản đọc đề. Việc CHƯA làm: chạy mẻ render
-         *                           (`scripts/pregen_speaking_question_audio.py`) là dùng
-         *                           được. Gộp hai thứ vào một chữ "không khả dụng" sẽ giấu
-         *                           mất một việc đang chờ người làm.
+         *       * `missing_audio` — chưa đủ bản đọc đề hợp lệ.
+         *       * `voice_conflict` — đã đủ bản đọc nhưng chưa đủ câu cùng một giọng.
          */
         get: operations["list_speaking_topics_admin_cohorts__cohort_id__speaking_topics_get"];
         put?: never;
