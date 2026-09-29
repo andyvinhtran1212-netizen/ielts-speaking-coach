@@ -259,7 +259,7 @@ export function normalizeQuestions(value) {
     items: payload.items.map((item) => {
       const row = object(item);
       const id = text(row.id);
-      return id ? { id, text: text(row.question_text) || 'Câu hỏi chưa có nội dung', ready: row.giveable !== false && row.ready !== false, audio_url: nullableText(row.audio_url) } : null;
+      return id ? { id, text: text(row.question_text) || 'Câu hỏi chưa có nội dung', ready: row.giveable !== false && row.ready !== false, blocked_by: row.blocked_by === 'voice' ? 'voice' : row.blocked_by === 'audio' ? 'audio' : null, audio_url: nullableText(row.audio_url) } : null;
     }).filter(Boolean),
   };
 }

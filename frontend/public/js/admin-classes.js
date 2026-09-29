@@ -1931,7 +1931,7 @@ function renderQpick() {
     // Câu chưa giao được: MỜ nhưng không ẩn, và nói rõ cách mở khoá. Ẩn đi thì
     // giáo viên thấy danh sách ngắn không rõ vì sao ngắn.
     const blocked = q.giveable ? ''
-      : '<span class="av-qpick__blocked">chưa có bản đọc</span>';
+      : `<span class="av-qpick__blocked">${q.blocked_by === 'voice' ? 'cần đồng bộ giọng đọc' : 'chưa có bản đọc'}</span>`;
     // Nghe thử: học viên chỉ có audio này, nên giáo viên phải nghe được ĐÚNG
     // thứ các em sẽ nghe trước khi giao. Nút riêng, không lồng trong nút chọn —
     // nút trong nút là HTML không hợp lệ và bấm nghe sẽ chọn nhầm câu.

@@ -404,6 +404,25 @@ def _audio_matches(q: dict, topic_title: str) -> bool:
     return sqa.audio_matches_question(q, topic_title)
 
 
+def _single_voice_questions(qs: list[dict], topic_title: str,
+                            want: int) -> tuple[str | None, list[dict]]:
+    """Return the largest valid voice group for a single topic assignment.
+
+    Ties prefer existing Kokoro clips. Unknown pre-fingerprint clips stay in
+    their own group, so they cannot be mixed with a known provider.
+    One-question Part 3 assignments can use any current clip.
+    """
+    if want <= 1:
+        return None, [q for q in qs if _audio_matches(q, topic_title)]
+    groups: dict[str, list[dict]] = {"kokoro": [], "openai": [], "legacy": []}
+    for q in qs:
+        provider = sqa.audio_provider(q, topic_title)
+        if provider:
+            groups[provider].append(q)
+    preferred = max(groups, key=lambda provider: len(groups[provider]))
+    return preferred, groups[preferred]
+
+
 def _not_enough(part: int, n_eligible: int, n_total: int, want: int) -> HTTPException:
     """Câu báo lỗi phân biệt THIẾU CÂU với THIẾU AUDIO — hai việc admin làm khác
     nhau: một cái phải soạn thêm đề, một cái chỉ cần chạy mẻ render."""
@@ -411,14 +430,14 @@ def _not_enough(part: int, n_eligible: int, n_total: int, want: int) -> HTTPExce
         return HTTPException(
             400,
             f"Chủ đề này có {n_total} câu Part {part} nhưng chỉ {n_eligible} câu "
-            f"đã có bản đọc đề, cần {want}. Hãy tạo audio trước khi giao.",
+            f"có bản đọc đề cùng một giọng, cần {want}. Hãy tạo audio trước khi giao.",
         )
     return HTTPException(
         400, f"Chủ đề này chỉ có {n_total} câu Part {part}, cần {want}.")
 
 
 def _pick_chosen_questions(body: "AssignmentCreate", eligible: list, qs: list,
-                           want: int) -> list:
+                           want: int, topic_title: str | None = None) -> list:
     """Giáo viên tự chọn câu — kiểm rồi mới nhận.
 
     Danh sách đến từ trình duyệt, nên mọi điều kiện phải kiểm lại ở đây: một tab
@@ -441,6 +460,12 @@ def _pick_chosen_questions(body: "AssignmentCreate", eligible: list, qs: list,
     ok = {q["id"] for q in eligible}
     no_audio = [i for i in ids if i not in ok]
     if no_audio:
+        if topic_title is not None and any(
+            sqa.audio_provider(in_topic[i], topic_title) for i in no_audio
+        ):
+            raise HTTPException(
+                400, "Các câu đã chọn không cùng giọng đọc đang dùng cho chủ đề. "
+                     "Hãy tạo lại audio để đồng bộ giọng rồi chọn lại.")
         raise HTTPException(
             400,
             f"{len(no_audio)} câu bạn chọn chưa có bản đọc đề khớp với lời hiện "
@@ -498,15 +523,17 @@ def _resolve_speaking_topic(cohort_id: str, body: "AssignmentCreate") -> tuple[s
         .eq("is_active", True).order("order_num").execute().data
     ) or []
 
-    # GIAO ĐƯỢC = còn bật, VÀ (với Part 1/3) có bản đọc KHỚP lời hiện tại.
+    # GIAO ĐƯỢC = còn bật, VÀ (với Part 1/3) có đủ bản đọc KHỚP lời hiện tại
+    # trong CÙNG một nhóm giọng đọc.
     # Lọc trước khi chọn, thay vì chọn rồi mới kiểm: bản cũ lấy N câu đầu rồi báo
     # lỗi nếu chúng thiếu audio — nên một chủ đề có 7 câu mà đúng câu số 1 chưa
     # render sẽ không giao được, dù 6 câu còn lại sẵn sàng.
-    eligible = ([q for q in qs if _audio_matches(q, topic["title"])]
+    eligible = (_single_voice_questions(qs, topic["title"], want)[1]
                 if body.part in (1, 3) else qs)
 
     if body.question_ids:
-        chosen = _pick_chosen_questions(body, eligible, qs, want)
+        chosen = _pick_chosen_questions(body, eligible, qs, want,
+                                        topic["title"] if body.part in (1, 3) else None)
     else:
         if len(eligible) < want:
             raise _not_enough(body.part, len(eligible), len(qs), want)
@@ -1242,13 +1269,8 @@ async def list_speaking_topics(
     }
 
     want = _QUESTIONS_PER_PART.get(part, 1)
-    # ĐÚNG NHỮNG CÂU SẼ ĐƯỢC CHỌN, không phải "đủ số câu có audio".
-    #
-    # Lệnh giao lấy `want` câu ĐẦU theo `order_num` và đòi CHÍNH chúng có audio.
-    # Nếu ở đây chỉ đếm tổng số câu có audio thì một chủ đề mà câu 1 chưa render
-    # xong nhưng câu 3, 4 đã có sẽ hiện là "sẵn sàng" — admin chọn rồi bị 400.
-    # Hai đường phải chọn giống hệt nhau, nên cùng đọc `order_num` và cùng cắt
-    # tiền tố.
+    # Dùng cùng nhóm giọng với lệnh giao. Đủ audio rải giữa Kokoro và OpenAI
+    # vẫn CHƯA sẵn sàng cho một lượt Part 1 cần hai câu cùng giọng.
     by_topic: dict[str, list] = {}
     titles = {t["id"]: t["title"] for t in topics}
     ids = [t["id"] for t in topics]
@@ -1270,19 +1292,8 @@ async def list_speaking_topics(
         # một giả định không cần thiết phải tin.
         rows.sort(key=lambda r: (r.get("order_num") or 0))
         counts[tid] = len(rows)
-        # ĐẾM TRÊN CẢ CHỦ ĐỀ, không phải trên `want` câu đầu.
-        #
-        # Lệnh giao nay LỌC trước rồi mới bốc/chọn trong số câu đã có bản đọc —
-        # nên một chủ đề mà hai câu đầu chưa render nhưng hai câu sau đã xong
-        # VẪN giao được. Đếm theo tiền tố ở đây sẽ báo "chưa sẵn sàng" và ẩn nó
-        # khỏi ô chọn, trong khi POST hoàn toàn nhận.
-        #
-        # (Ở vòng review trước tôi sửa NGƯỢC lại — bắt chỗ này dùng tiền tố cho
-        # khớp lệnh giao. Rồi lệnh giao đổi cách chọn, và hai bên lại lệch từ
-        # phía kia. Hai đường quyết định cùng một việc thì phải cùng một luật,
-        # không phải cùng một dòng mã.)
-        audio_ok[tid] = sum(1 for r in rows
-                            if _audio_matches(r, titles.get(tid, "")))
+        # Đếm trên cả chủ đề, sau khi chọn nhóm giọng; lệnh giao dùng cùng hàm.
+        audio_ok[tid] = len(_single_voice_questions(rows, titles.get(tid, ""), want)[1])
 
     needs_audio = part in (1, 3)
     items = []
@@ -1338,9 +1349,17 @@ async def list_topic_questions(
     ) or []
 
     needs_audio = part in (1, 3)
+    want = _QUESTIONS_PER_PART.get(part, 1)
+    _, eligible = (_single_voice_questions(rows, topic["title"], want)
+                   if needs_audio else (None, rows))
+    giveable_ids = {q["id"] for q in eligible} if len(eligible) >= want else set()
+    providers = ({q["id"]: sqa.audio_provider(q, topic["title"]) for q in rows}
+                 if needs_audio else {})
+    mixed_voices = len({provider for provider in providers.values() if provider}) > 1
     items = []
     for q in rows:
-        voiced = _audio_matches(q, topic["title"]) if needs_audio else True
+        voiced = q["id"] in giveable_ids
+        has_current_audio = providers.get(q["id"])
         items.append({
             "id":            q["id"],
             "order_num":     q.get("order_num"),
@@ -1349,7 +1368,7 @@ async def list_topic_questions(
             "level":         q.get("level"),
             "giveable":      voiced,
             # Giáo viên ĐƯỢC xem chữ — đây là màn admin. Chỉ học viên bị giấu.
-            "blocked_by":    None if voiced else "audio",
+            "blocked_by":    None if voiced else "voice" if has_current_audio and mixed_voices else "audio",
             "audio_url":     q.get("audio_url") if voiced else None,
             "cue_card_bullets": q.get("cue_card_bullets"),
             "cue_card_reflection": q.get("cue_card_reflection"),
