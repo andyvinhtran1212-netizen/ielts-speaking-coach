@@ -237,6 +237,7 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
     else if (kind === 'exam' && privatePaper) reason = 'Kho đề admin';
     return {
       id, title: text(row.title) || 'Nội dung chưa đặt tên', code: nullableText(row.code),
+      category: kind === 'speaking' ? nullableText(row.category) : null,
       part: finite(row.part), lesson_no: finite(row.lesson_no), ready, already_given: already,
       reason, exam_only: privatePaper, is_public: !privatePaper, cohort_ids: cohortIds,
       explanation_ready: row.web_explanation_ready === true,
