@@ -31,6 +31,14 @@ const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given:
 
 describe('admin class homework model — canonical truth', () => {
   test('explains when a valid clip has a different voice from the topic group', () => {
+    const topics = normalizeCatalog({ items: [
+      { id: 'mixed', title: 'Hometown', ready: false, missing_audio: false, voice_conflict: true },
+    ] }, 'speaking');
+    assert.equal(topics[0].reason, 'Cần đồng bộ giọng đọc của chủ đề');
+    const missing = normalizeCatalog({ items: [
+      { id: 'missing', title: 'Hometown', ready: false, missing_audio: true, voice_conflict: false },
+    ] }, 'speaking');
+    assert.equal(missing[0].reason, 'Chủ đề chưa đủ bản đọc đề');
     const questions = normalizeQuestions({ questions_per_give: 2, items: [
       { id: 'q1', question_text: 'Where?', giveable: false, blocked_by: 'voice' },
       { id: 'q2', question_text: 'When?', giveable: false, blocked_by: 'audio' },

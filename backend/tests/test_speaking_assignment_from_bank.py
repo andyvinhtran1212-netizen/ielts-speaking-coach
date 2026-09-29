@@ -143,7 +143,8 @@ async def test_mixed_provider_topic_picker_matches_the_assignment_gate():
              _provider_q("o1", "openai", order=1, topic_id="t0")]
     out = await _topics(_TopicsDB(topics, mixed, []))
     assert out["items"][0]["ready"] is False
-    assert out["items"][0]["missing_audio"] is True
+    assert out["items"][0]["missing_audio"] is False
+    assert out["items"][0]["voice_conflict"] is True
     with pytest.raises(Exception) as error:
         _resolve(_db(topic=_TOPIC, questions=[
             _provider_q("k1", "kokoro"), _provider_q("o1", "openai", order=1)]))
@@ -519,6 +520,7 @@ async def test_missing_audio_is_reported_SEPARATELY_from_already_given():
     for i in out["items"]:
         assert i["ready"] is False
         assert i["missing_audio"] is True
+        assert i["voice_conflict"] is False
         assert i["already_given"] is False
 
 
@@ -528,6 +530,7 @@ async def test_a_topic_with_too_few_questions_is_not_ready_but_not_blamed_on_aud
     for i in out["items"]:
         assert i["ready"] is False
         assert i["missing_audio"] is False, "thiếu CÂU, không phải thiếu audio"
+        assert i["voice_conflict"] is False
 
 
 @pytest.mark.asyncio

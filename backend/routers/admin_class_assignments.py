@@ -1245,10 +1245,8 @@ async def list_speaking_topics(
     Hai lý do khác hẳn nhau và admin làm được hai việc khác nhau:
 
       * `already_given` — lớp này đã làm rồi. Việc đã xong, chọn chủ đề khác.
-      * `ready: false`  — chưa có bản đọc đề. Việc CHƯA làm: chạy mẻ render
-                          (`scripts/pregen_speaking_question_audio.py`) là dùng
-                          được. Gộp hai thứ vào một chữ "không khả dụng" sẽ giấu
-                          mất một việc đang chờ người làm.
+      * `missing_audio` — chưa đủ bản đọc đề hợp lệ.
+      * `voice_conflict` — đã đủ bản đọc nhưng chưa đủ câu cùng một giọng.
     """
     await require_admin(authorization)
     _require_cohort(cohort_id)
@@ -1286,6 +1284,7 @@ async def list_speaking_topics(
 
     counts: dict[str, int] = {}
     audio_ok: dict[str, int] = {}
+    current_audio: dict[str, int] = {}
     for tid, rows in by_topic.items():
         # Sắp lại ở Python: `.order()` áp cho cả truy vấn, còn ta gom theo chủ đề
         # nên thứ tự trong mỗi nhóm chỉ đúng nếu không có chủ đề nào xen kẽ —
@@ -1294,12 +1293,15 @@ async def list_speaking_topics(
         counts[tid] = len(rows)
         # Đếm trên cả chủ đề, sau khi chọn nhóm giọng; lệnh giao dùng cùng hàm.
         audio_ok[tid] = len(_single_voice_questions(rows, titles.get(tid, ""), want)[1])
+        current_audio[tid] = sum(_audio_matches(q, titles.get(tid, "")) for q in rows)
 
     needs_audio = part in (1, 3)
     items = []
     for t in topics:
         enough = counts.get(t["id"], 0) >= want
         voiced = (not needs_audio) or audio_ok.get(t["id"], 0) >= want
+        voice_conflict = (needs_audio and enough and not voiced
+                          and current_audio.get(t["id"], 0) >= want)
         items.append({
             "id": t["id"],
             "title": t["title"],
@@ -1307,7 +1309,8 @@ async def list_speaking_topics(
             "question_count": counts.get(t["id"], 0),
             "already_given": t["id"] in given,
             "ready": enough and voiced,
-            "missing_audio": needs_audio and enough and not voiced,
+            "missing_audio": needs_audio and enough and not voiced and not voice_conflict,
+            "voice_conflict": voice_conflict,
         })
     return {"items": items, "part": part, "questions_per_give": want}
 

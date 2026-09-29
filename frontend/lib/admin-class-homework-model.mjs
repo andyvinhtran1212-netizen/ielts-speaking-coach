@@ -232,7 +232,11 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
     let reason = null;
     if (already) reason = 'Đã giao cho lớp này';
     else if (runtime === 'advanced_vocab' && !published) reason = 'Chưa xuất bản để giao';
-    else if (!ready) reason = row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Đề đang draft hoặc chưa sẵn sàng';
+    else if (!ready) reason = kind === 'speaking' && row.voice_conflict === true
+      ? 'Cần đồng bộ giọng đọc của chủ đề'
+      : kind === 'speaking' && row.missing_audio === true
+        ? 'Chủ đề chưa đủ bản đọc đề'
+        : row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Đề đang draft hoặc chưa sẵn sàng';
     else if (scopeBlocked) reason = 'Sẽ gán phạm vi lớp khi giao';
     else if (kind === 'exam' && privatePaper) reason = 'Kho đề admin';
     return {

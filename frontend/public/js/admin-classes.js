@@ -1798,12 +1798,15 @@ async function loadSpeakingTopics() {
     const html = '<option value="">— Chọn chủ đề —</option>' + free.map((i) =>
       `<option value="${esc(i.id)}">${esc(i.title)}</option>`).join('');
     const given = items.filter((i) => i.already_given).length;
-    const notReady = items.filter((i) => !i.already_given && !i.ready).length;
+    const unavailable = items.filter((i) => !i.already_given && !i.ready);
+    const voiceConflicts = unavailable.filter((i) => i.voice_conflict).length;
+    const missingAudio = unavailable.filter((i) => !i.voice_conflict && i.missing_audio).length;
+    const otherUnavailable = unavailable.length - voiceConflicts - missingAudio;
     const bits = [];
     if (given) bits.push(`${given} chủ đề lớp này đã làm`);
-    // "Chưa có bản đọc đề" là một việc admin LÀM ĐƯỢC (chạy mẻ render), khác hẳn
-    // "đã giao rồi" là việc đã xong — nên phải nói tách ra.
-    if (notReady) bits.push(`${notReady} chủ đề chưa có bản đọc đề`);
+    if (voiceConflicts) bits.push(`${voiceConflicts} chủ đề cần đồng bộ giọng đọc`);
+    if (missingAudio) bits.push(`${missingAudio} chủ đề chưa có bản đọc đề`);
+    if (otherUnavailable) bits.push(`${otherUnavailable} chủ đề chưa sẵn sàng`);
     _topicsByPart[key] = {
       html,
       note: bits.length ? `Đã ẩn: ${bits.join(', ')}.` : '',
