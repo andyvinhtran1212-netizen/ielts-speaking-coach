@@ -76,4 +76,6 @@ draft -> approved -> implementing -> verified -> shipped
 
 | DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | approved | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
 
+| READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | approved | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
+
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
