@@ -74,4 +74,6 @@ draft -> approved -> implementing -> verified -> shipped
 | MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
 | LISTENING80-0009 | Source-faithful 80-day Listening practice collection | approved | high | [spec](0009-listening-80-days/spec.md) |
 
+| DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | approved | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
+
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
