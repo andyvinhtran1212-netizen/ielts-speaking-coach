@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from models.listening_source_collection import (
     SOURCE_COLLECTION, SOURCE_CONTRACT, SOURCE_PROGRAMME, SourceBlock,
-    SourceStudyBlock, SourceExplanation,
+    SourceStudyBlock, SourceExplanation, SourcePosition,
 )
 from services.listening_package_import import PackageValidationError
 
@@ -17,6 +17,12 @@ GROUP_TITLES = {
     "vocabulary": "Từ vựng · Day 61–70",
     "mock": "Đề mô phỏng từ sách · Day 71–80",
 }
+
+SOURCE_ONLY_UNRESOLVED = "Chưa đủ căn cứ từ nguồn để mở câu này thành bài luyện. Xem tài liệu tự học để đối chiếu."
+SOURCE_ONLY_MISSING_AUDIO = "Phần này chưa có audio trong nguồn. Bạn có thể xem tài liệu tự học."
+SOURCE_ONLY_STUDY = "Câu này được giữ trong tài liệu tự học để đối chiếu."
+UNOPENED_STUDY_DESCRIPTION = "Tài liệu tự học từ nguồn. Mở để xem nội dung đối chiếu."
+UNOPENED_STUDY_INSTRUCTION = "Đây là tài liệu tự học; mở nội dung sẽ chuyển sang chế độ có hỗ trợ."
 
 
 def published_package(db: Any) -> dict:
@@ -55,8 +61,14 @@ def source_metadata(lesson: dict) -> dict:
     return metadata
 
 
-def safe_source_block_metadata(block: dict) -> dict:
+def safe_source_block_metadata(block: dict, *, study_opened: bool = False) -> dict:
     from models.listening_source_collection import SourceInstruction, SourceOption, SourceImage
+    if block.get("display_kind") == "source_study" and not study_opened:
+        # Resource titles/headings can themselves contain solved keys. Preserve
+        # their full authoring only after the deliberate study request.
+        block = {**block, "description": UNOPENED_STUDY_DESCRIPTION,
+                 "instruction": {"source_en": "", "student_vi": UNOPENED_STUDY_INSTRUCTION},
+                 "shared_options": [], "images": []}
     allowed = {key: block[key] for key in ("block_id", "part_id", "kind", "item_ids", "source_question_numbers", "description", "display_kind", "study_available") if key in block}
     allowed = {key: value for key, value in allowed.items() if not isinstance(value, dict)}
     allowed["instruction"] = SourceInstruction.model_validate(block.get("instruction") or {}).model_dump()
@@ -69,10 +81,10 @@ def safe_source_block_metadata(block: dict) -> dict:
     return allowed
 
 
-def sign_source_block(block: dict, signer: Callable[[str], str | None]) -> dict:
+def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study_opened: bool = False) -> dict:
     """Build a new block from safe fields; never echo raw nested authoring JSON."""
     try:
-        block = safe_source_block_metadata(block)
+        block = safe_source_block_metadata(block, study_opened=study_opened)
     except (ValidationError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
     images = []
@@ -112,6 +124,20 @@ def day_card(lesson: dict, forms: list[dict], states: dict) -> dict:
     }
 
 
+def public_source_position(position: dict, parts: list[dict]) -> dict:
+    """Limitations are public states, not excerpts from protected explanations."""
+    try:
+        safe = SourcePosition.model_validate({key: position[key] for key in (
+            "item_id", "source_display_number", "part_id", "block_id", "review_status")}).model_dump()
+        part = next(part for part in parts if part["part_id"] == safe["part_id"])
+        safe["reason_vi"] = (SOURCE_ONLY_UNRESOLVED if safe["review_status"] == "UNRESOLVED"
+                             else SOURCE_ONLY_MISSING_AUDIO if part["audio_status"] == "missing"
+                             else SOURCE_ONLY_STUDY)
+        return safe
+    except (ValidationError, KeyError, TypeError, StopIteration) as exc:
+        raise HTTPException(503, "Thông tin vị trí nguồn chưa hợp lệ.") from exc
+
+
 def day_response(package: dict, lesson: dict, forms: list[dict], states: dict,
                  signer: Callable[[str], str | None], partial: bool) -> dict:
     meta = source_metadata(lesson)
@@ -138,11 +164,10 @@ def day_response(package: dict, lesson: dict, forms: list[dict], states: dict,
     return {"collection_id": SOURCE_COLLECTION, "package_id": package["package_id"],
         "manifest_sha256": package["manifest_sha256"], **{key: card[key] for key in (
             "day", "lesson_id", "title", "group", "availability", "source_position_count", "practice_item_count", "source_only_count")},
-        "parts": parts, "blocks": [sign_source_block(
-            block if block.get("display_kind") != "source_study" else {**block, "images": []}, signer)
-            for block in meta["blocks"]],
+        "parts": parts, "blocks": [sign_source_block(block, signer) for block in meta["blocks"]],
         "vocabulary_groups": meta.get("vocabulary_groups") or [],
-        "source_only_positions": meta.get("source_only_positions") or [], "partial_data": partial}
+        "source_only_positions": [public_source_position(position, parts)
+                                  for position in meta.get("source_only_positions") or []], "partial_data": partial}
 
 
 def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], str | None]) -> dict:
@@ -171,7 +196,7 @@ def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], s
         if resource:
             safe_block["description"] = str(raw.get("description") or "")
         try:
-            selected.append(SourceStudyBlock.model_validate(sign_source_block(safe_block, signer) | {
+            selected.append(SourceStudyBlock.model_validate(sign_source_block(safe_block, signer, study_opened=True) | {
                 "items": raw.get("items") or [], "transcript": [] if mixed else raw.get("transcript") or [],
             }).model_dump())
         except ValidationError as exc:

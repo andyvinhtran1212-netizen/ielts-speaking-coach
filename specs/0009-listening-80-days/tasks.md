@@ -26,4 +26,4 @@
 
 ## Release checkpoint — full source package (2026-09-30)
 
-T003–T006 cover completed source preparation, independent content review and locally verified implementation. Hosted schema/import, exact staging deployment/journeys and production publication remain T007–T010. The actual full80 native dry-run and disposable PostgreSQL import/reuse/invalid-provenance rollback passed; these are not hosted service or browser evidence.
+T003–T004 cover completed source preparation and independent content review; T005–T006 cover the implemented runtime and UI. The consolidated public-boundary correction R11/R12 passed local suites and independent round4 review. Staging migration304 is applied, but the immutable asset upload stopped on a Storage timeout before the package RPC. Hosted import/readback, exact staging deployment/journeys and production publication remain T007–T010. The actual full80 native dry-run and disposable PostgreSQL import/reuse/invalid-provenance rollback passed; these are not hosted service or browser evidence.

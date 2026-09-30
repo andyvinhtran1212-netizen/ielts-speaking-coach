@@ -40,12 +40,24 @@ for preparation only, not published content or completed semantic review.
   `c93b637b84a93153172f70a78dcd9b0a49a7e806`. Local validator contract tests:
   88 passed. Pre-push backend baseline: 8,884 passed, 355 skipped; skipped
   provider/live/PostgreSQL tests do not certify those contracts.
-- Implementation PR and exact hosted checks: pending. Independent runtime review
-  closed R1–R10 at the accepted 47-file snapshot. All 45 implementation/test
-  files remain byte-identical after rebase; this task/verification evidence update
-  is separate. Existing bound local logs: backend 8,942 passed / 358 skipped;
-  frontend contracts 9,210 passed / 1 skipped; React 27 passed; strict and legacy
-  type checks plus build passed. Skips do not certify live service contracts.
+- Implementation PR #1558 targets staging. Its first head was
+  `46dc942219fd0724220af0afe5d1129aff14bd11`; its checks do not certify the
+  subsequent consolidated correction. Independent runtime review closed
+  R1–R10, then found R11/R12: protected warning prose and solved resource titles
+  leaked through public day metadata. The shared public projection now emits
+  neutral state copy and unopened-study descriptors; explicit study retains
+  protected explanations and resource content. Stored release/importer/schema
+  bytes are unchanged. Round4 independent review accepted the correction and
+  actual80-day/195-form scan: all104 study positions and110 unopened study blocks
+  are neutral; all104 protected items and93 zero-item resources retain their
+  original explicit-study content. New exact-head CI remains pending;
+  merge/publication are held.
+- Consolidated correction local gates: source boundary 49 passed; complete
+  backend 9,024 passed / 358 skipped; frontend contracts 9,271 passed; React
+  27 passed; strict/legacy type checks and production build passed. The initial
+  sandbox frontend run failed on localhost binding; the permitted rerun passed.
+  Skips do not certify live service contracts. Logs are bound in the external
+  runtime reset audit, not treated as staging or production evidence.
 - Full80 local package and independent source/projection/package review: PASS.
   Package `80-days-listening-source-v1`, manifest SHA-256
   `29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841`.
@@ -59,9 +71,14 @@ for preparation only, not published content or completed semantic review.
   and exact80/195/1572/69 counts; invalid missing controlled-transcript source
   provenance was rejected with no partial package rows. No hosted or Storage
   writes; local PG does not certify Supabase Auth/PostgREST/Storage.
-- Staging read-only readiness: private listening-audio bucket, 292 migration
-  ledger entries, four existing packages; only task-owned304 pending. Canonical
-  advisory-locked304 dry-run reports would-apply. Hosted import remains pending.
+- Staging schema: canonical advisory-locked migration304 applied, followed by
+  readback confirming293 ledger entries and the source namespace/nullable timing
+  contract. Four prior package metadata fingerprints and19 attempt ID/status
+  fingerprints were unchanged; this limited snapshot does not prove every
+  historical answer/reveal/timestamp field. The private listening-audio upload
+  stopped on a client timeout before the package RPC. Genuine complete-row
+  baseline, completed unpublished import/retry and663 asset readbacks remain
+  pending; partial uploads are not a package completion certificate.
 - Staging SHA, integrated checks and live source-collection journeys: pending.
 - Production promotion SHA, deployed markers and package publication: pending.
 

@@ -180,6 +180,81 @@ def test_source_study_never_returns_practice_answers(release):
     assert response['independent_practice'] is False and response['blocks'][0]['items'][0]['explanation']['answer']=='A'
 
 
+def test_public_limitations_hide_evidence_and_keep_it_in_explicit_study(release):
+    path=release/'days/day-01.json';day=json.loads(path.read_text());item=day['items'][0]
+    warning='Đề hỏi 1990, transcript ghi 1900; số one kilogram không trả lời đúng năm được hỏi.'
+    item['independent_review']['verdict']='UNRESOLVED'
+    item['explanation_vi'].update(answer=None,source_answer_warning_vi=warning,next_action_vi='Cần kiểm tra năm.')
+    _dump(path,day);_bind(release);plan=importer.build_source_import_plan(release)
+    lesson=plan.lessons[0]|{'id':'lesson'};meta=lesson['metadata']['source_book']
+    meta['source_only_positions'][0]['extra_private']={'answer':'SECRET_CANDIDATE'}
+    original=deepcopy(lesson)
+    before=service.day_response(plan.package,lesson,[],{},lambda _:'signed',False)
+    position=before['source_only_positions'][0]
+    assert position['reason_vi']==service.SOURCE_ONLY_UNRESOLVED
+    assert warning not in str(before) and 'SECRET_CANDIDATE' not in str(before)
+    assert set(position)=={'item_id','source_display_number','part_id','block_id','review_status','reason_vi'}
+    study=service.study_response(lesson,[item['block_id']],lambda _:pytest.fail('mixed crop must remain private'))
+    assert study['blocks'][0]['items'][0]['explanation']['source_answer_warning_vi']==warning
+    assert [{key: row[key] for key in ('source_kind','pdf_page','quote')}
+            for row in study['blocks'][0]['items'][0]['explanation']['evidence']]==item['explanation_vi']['evidence']
+    assert lesson==original
+
+
+def test_public_limitations_use_part_state_and_unresolved_precedence(release):
+    plan=importer.build_source_import_plan(release)
+    lesson=next(row for row in plan.lessons if row['sequence_num']==77)|{'id':'missing-audio'}
+    meta=lesson['metadata']['source_book'];position=meta['source_only_positions'][0]
+    position['reason_vi']='The printed key is A; One supports it.'
+    for verdict,audio,expected in [
+        ('CONFIRMED','missing',service.SOURCE_ONLY_MISSING_AUDIO),
+        ('UNRESOLVED','missing',service.SOURCE_ONLY_UNRESOLVED),
+        ('UNRESOLVED','available',service.SOURCE_ONLY_UNRESOLVED),
+        ('AMBIGUOUS','available',service.SOURCE_ONLY_STUDY),
+    ]:
+        position['review_status']=verdict;meta['parts'][0]['audio_status']=audio
+        before=service.day_response(plan.package,lesson,[],{},lambda _:pytest.fail('unopened image signed'),False)
+        assert before['source_only_positions'][0]['reason_vi']==expected
+        assert position['reason_vi'] not in str(before)
+
+
+@pytest.mark.parametrize('mutation',[
+    lambda position:position.update(review_status='UNKNOWN'),
+    lambda position:position.update(part_id='unknown-part'),
+    lambda position:position.pop('item_id'),
+])
+def test_invalid_public_source_position_is_a_visible_technical_error(release,mutation):
+    plan=importer.build_source_import_plan(release)
+    lesson=next(row for row in plan.lessons if row['sequence_num']==77)|{'id':'lesson'}
+    mutation(lesson['metadata']['source_book']['source_only_positions'][0])
+    with pytest.raises(HTTPException) as error:service.day_response(plan.package,lesson,[],{},lambda _:'signed',False)
+    assert error.value.status_code==503
+
+
+@pytest.mark.parametrize('title',['Lời giảng và bảng key E / H','Sơ đồ và key nguồn có lỗi spay tube'])
+def test_unopened_study_metadata_hides_solved_titles_across_public_projections(release,title):
+    plan=importer.build_source_import_plan(release)
+    lesson=next(row for row in plan.lessons if row['sequence_num']==77)|{'id':'lesson'}
+    block=lesson['metadata']['source_book']['blocks'][0]
+    block.update(description=title,instruction={'source_en':'KEY A', 'student_vi':'One is the answer.',
+        'word_limit':3,'select_count':1},shared_options=[{'id':'A','label':'SOLVED_RESOURCE_OPTION'}])
+    original=deepcopy(lesson)
+    before=service.day_response(plan.package,lesson,[],{},lambda _:pytest.fail('unopened image signed'),False)
+    public=before['blocks'][0]
+    assert public['description']==service.UNOPENED_STUDY_DESCRIPTION
+    assert public['instruction']=={'source_en':'','student_vi':service.UNOPENED_STUDY_INSTRUCTION,
+        'word_limit':None,'select_count':None}
+    assert public['shared_options']==[] and public['images']==[]
+    stripped=grader.strip_answer_keys([{'payload':{'source_contract':SOURCE_CONTRACT,'source_blocks':[block]}}])
+    for protected in [title,'KEY A','One is the answer.','SOLVED_RESOURCE_OPTION']:
+        assert protected not in str(before) and protected not in str(stripped)
+    study=service.study_response(lesson,[block['block_id']],lambda _:'signed')
+    opened=study['blocks'][0]
+    assert opened['description']==title and opened['instruction']==block['instruction']
+    assert opened['shared_options']==block['shared_options'] and opened['items'][0]['explanation']['answer']=='A'
+    assert lesson==original
+
+
 def test_safe_day_shapes_with_zero_forms_and_no_study_solution(release):
     plan=importer.build_source_import_plan(release)
     lesson=next(lesson for lesson in plan.lessons if lesson['sequence_num']==77)|{'id':'lesson-77'}
