@@ -72,8 +72,28 @@ reviewed complete bounded dry-run and staging restore evidence before writes.
 
 - Approved behavior landed separately at9e548f3d. Implementation base is
   2b7fa5b6a2da43012586cc158395bf4d5715b70a; implementation commit
-  91a3cd68e575a10583773de53f97aa73b87aaf2f; final PR/head pending.
-- Staging migration ledger and frontend/backend deployed SHAs: PENDING.
+  91a3cd68e575a10583773de53f97aa73b87aaf2f; PR1561 targets staging.
+- PR1561 first head a7e0d504d817dbdd6c87fff569f44bab030ef51c passed the
+  backend/frontend/type/OpenAPI/build/spec gates but failed one N-1 browser
+  assertion. Independent diagnostics observed the saved-to-loading-to-owned-read
+  lifecycle; five targeted runs passed the old predicate, so exact CI failure
+  reproduction is not claimed. The historical red run is retained.
+- Round2 verification commit c8c8b5315bdc19f4fd1c761f0e2058097ee4a406 changes only
+  the runner and its failure artifact. It awaits the final owned GET and rendered
+  report before the unchanged score-count/reference-count/zero-POST predicate.
+  Independent source-bound review passed20 workflow checks; root production-Next
+  browser47/47 with0JS errors and whole Node9341 passed/2 existing skips passed.
+  The preceding sandbox run's two socket EPERM failures are retained; permitted
+  localhost sockets resolved those failures without changing assertions.
+- Migration305 was applied with the canonical advisory-locked runner to staging
+  only after a one-migration dry-run. Ledger294 records checksum
+  5e2921c62b973638c718a7bc1e2c35bf02fe471a8db8ea5e6e6e86556be7f8af.
+  Hosted verification matched all six SQL function bodies, eight nullable columns,
+  validated constraints/triggers/private role grants and six Unicode controls.
+  Old-field fingerprints of four existing attempts and zero answer/report rows
+  were unchanged. This small staging population does not prove production history
+  preservation. No flag enablement or historical data write occurred.
+- Round2 GitHub CI, staging frontend/backend deployed SHAs: PENDING.
 - Staged classification/new-write/rollback/unchanged history evidence: PENDING.
 - Exact verified staging promotion and production front/backend SHAs: PENDING.
 - Enabled scope, observation counters and version-specific rollback: PENDING.
