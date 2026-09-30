@@ -26,11 +26,13 @@ Tests use an owned synthetic PostgreSQL database, never production records.
   key deletion boundaries, immutable answers/reports and real SQL lexical parity.
 - Whole backend on the integrated base:9402 passed,355 unrelated optional/live/smoke
   skips,13 warnings. Required Dictation and Reading PG tests actually ran.
-- Final root whole Node contracts:9341 passed,2 existing skips. Affected Dictation
-  Node:102/102; React:18/18 after independent report-mean/count verification.
+- Final R3 root whole Node contracts:9531 passed,2 existing skips. Affected Dictation
+  Node:218/218; React:28/28. Both TypeScript boundaries and production Next build passed.
+  Final intercepted browser116/116 across48 scenarios with0JavaScript errors,
+  including canonical raw labels and long-label wrapping at390/1440px.
 - Offline current FastAPI OpenAPI regenerated with pinned openapi-typescript7.13.0
   is byte-identical to frontend/types/api.d.ts. Both main/legacy TypeScript and production Next build passed sequentially.
-  Final intercepted browser47/47 with0JS errors; learner12/12, admin20/20 and
+  Prior round1/2 intercepted browser47/47 with0JS errors; learner12/12, admin20/20 and
   standalone16/16 compatibility gates passed on that build.
 - Independent frontend review preserves null historical sentence/summary values,
   raw source text, P04 extra-full-credit policy and four-decimal score rounding.
@@ -93,7 +95,18 @@ reviewed complete bounded dry-run and staging restore evidence before writes.
   Old-field fingerprints of four existing attempts and zero answer/report rows
   were unchanged. This small staging population does not prove production history
   preservation. No flag enablement or historical data write occurred.
-- Round2 GitHub CI, staging frontend/backend deployed SHAs: PENDING.
+- Round2 current head c75baa4b22fb04fcca18a16187707524cd152794 passed relevant
+  backend/frontend/type/OpenAPI/build/browser gates and the later corrected
+  spec-metadata run. The earlier same-head metadata failure remains historical.
+- Round3 consolidated code commit3b861436f67d4da9c3ea0030e6175f4c28580f4d fixes
+  expected-side filler and0/0 verification, independent nested evidence, complete
+  Admin summary/hash/operation proof and exact-null owned-history parent erasure.
+  A finite298-entry filler adapter matches actual Python UCD14/15 membership;
+  canonical trend keys are preserved exactly, including newer Unicode/FEFF/long
+  labels. Backend grading, schema, original53 gold and rollout flags are unchanged.
+  Independent engineering2164checks and affected218tests pass; learner source
+  review is bound separately. Current R3 exact-head CI remains PENDING.
+- Staging frontend/backend deployed SHAs: PENDING.
 - Staged classification/new-write/rollback/unchanged history evidence: PENDING.
 - Exact verified staging promotion and production front/backend SHAs: PENDING.
 - Enabled scope, observation counters and version-specific rollback: PENDING.
