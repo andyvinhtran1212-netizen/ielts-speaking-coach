@@ -46,7 +46,7 @@ export default function LoginPage() {
         </div>
         <div className="lx-stat">
           <span className="lx-stat-number" id="pitch-stat">—</span>
-          <span className="lx-stat-label">buổi luyện đã hoàn thành<br />trên nền tảng</span>
+          <span className="lx-stat-label">buổi Speaking đã hoàn thành<br />trên nền tảng</span>
         </div>
       </aside>
 

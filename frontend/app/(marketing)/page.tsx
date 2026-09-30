@@ -341,8 +341,9 @@ export default function LandingPreviewPage() {
               <p className="ix-skill-card__eyebrow">Phản hồi Speaking bằng AI</p>
               <h3 className="ix-skill-card__title">Speaking</h3>
               <p className="ix-skill-card__body">
-                Luyện Part 1, 2, 3 và Full Test cùng AI — phản hồi sau mỗi
-                câu trả lời về phát âm, lưu loát, từ vựng, ngữ pháp.
+                Chế độ Luyện tập có phản hồi sau từng câu. Luyện từng Part và
+                Full Test có đánh giá tổng hợp cuối buổi về phát âm, lưu loát,
+                từ vựng và ngữ pháp.
               </p>
               <ul className="ix-skill-card__feats">
                 <li>4 chế độ luyện: Part 1, 2, 3, Full Test</li>
@@ -481,12 +482,12 @@ export default function LandingPreviewPage() {
               <p className="ix-skill-card__eyebrow">SRS thông minh</p>
               <h3 className="ix-skill-card__title">Từ vựng</h3>
               <p className="ix-skill-card__body">
-                Flashcards lặp lại theo lịch tự động, tự thêm từ vựng sau mỗi
-                buổi Speaking, exercises ôn tập theo chủ đề.
+                Học từ vựng theo chủ đề, ôn flashcards theo lịch SRS và luyện
+                exercises với nội dung trong thư viện.
               </p>
               <ul className="ix-skill-card__feats">
                 <li>SRS rating: Quên · Khó · Dễ · Đã thuộc</li>
-                <li>Tự lưu từ "used well" sau buổi Speaking</li>
+                <li>Thư viện từ vựng theo chủ đề</li>
                 <li>Exercises ôn tập theo chủ đề</li>
               </ul>
               <Link href="/login" className="ix-skill-card__cta">
@@ -1105,7 +1106,7 @@ export default function LandingPreviewPage() {
               © 2026 averlearning. Mọi quyền được bảo lưu.
             </p>
             <p className="ix-footer__powered text-xs">
-              Powered by Claude AI · Gemini AI · Whisper STT · Azure Pronunciation
+              Phản hồi AI cho Speaking và Writing
             </p>
           </div>
         </div>
