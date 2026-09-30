@@ -20,6 +20,12 @@ know/is-want errors. Baseline source evidence: grammar-linked-bank-audit.json,
 production-grammar-bank-footprint.json and grammar-linked-bank-remediation.md.
 These read-only/offline artifacts are not feature or canonical-cutover proof.
 
+Actual-PG erasure acceptance for FR004/005/007 additionally proves the existing
+auth.users cascade, absence-only FK deletion/link-clearing exception, rejection
+of live-owner child deletion or link clearing, unchanged other owners/content/
+private receipt and serialized erasure/cutover. A retained pseudonymous receipt
+does not restore an erased owner or deleted history. These are pending gates.
+
 Before/after DB verification reconciles old bank/question IDs/source hashes,
 historical session/attempt references and stored scores. Ordinary concurrent
 learner progress may change legitimately; verify that the cutover itself writes
