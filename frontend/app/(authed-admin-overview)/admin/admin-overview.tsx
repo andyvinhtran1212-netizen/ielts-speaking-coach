@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+
+import { adminOverviewContext, adminOverviewHref } from '@/lib/admin-overview-context.mjs';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
@@ -64,14 +67,15 @@ function moveTabFocus<T extends string>(
 ) {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
-  const currentIndex = Math.max(0, keys.indexOf(current));
+  const focusedIndex = keys.findIndex((key) => event.currentTarget.id === `${idPrefix}${key}`);
+  const currentIndex = focusedIndex >= 0 ? focusedIndex : Math.max(0, keys.indexOf(current));
   const nextIndex = event.key === 'Home' ? 0
     : event.key === 'End' ? keys.length - 1
       : event.key === 'ArrowRight' ? (currentIndex + 1) % keys.length
         : (currentIndex - 1 + keys.length) % keys.length;
   const next = keys[nextIndex];
   select(next);
-  requestAnimationFrame(() => document.getElementById(`${idPrefix}${next}`)?.focus());
+  document.getElementById(`${idPrefix}${next}`)?.focus();
 }
 
 function Sparkline({ values }: { values: unknown[] }) {
@@ -243,8 +247,20 @@ function ActivityFeed({ data, error }: { data: any[]; error: string | null }) {
 
 export function AdminOverview() {
   const profile = useAdminProfile();
-  const [windowDays, setWindowDays] = useState<WindowDays>(30);
-  const [pane, setPane] = useState<Pane>('ops');
+  const params = useSearchParams();
+  const context = adminOverviewContext(params || undefined);
+  const windowDays = context.windowDays as WindowDays;
+  const pane = context.pane as Pane;
+  // Native replaceState is integrated with Next useSearchParams. Commit the
+  // query synchronously so a second control cannot overwrite a pending change.
+  const setWindowDays = (days: WindowDays) => {
+    const latest = adminOverviewContext(new URLSearchParams(window.location.search));
+    window.history.replaceState(null, '', adminOverviewHref({ window: days, pane: latest.pane }));
+  };
+  const setPane = (next: Pane) => {
+    const latest = adminOverviewContext(new URLSearchParams(window.location.search));
+    window.history.replaceState(null, '', adminOverviewHref({ window: latest.windowDays, pane: next }));
+  };
   const [seriesKey, setSeriesKey] = useState<SeriesKey>('practices');
   const [ops, setOps] = useState<any>(null);
   const [trends, setTrends] = useState<any>(null);
@@ -258,8 +274,8 @@ export function AdminOverview() {
   const opsSequence = useRef(0);
   const contentSequence = useRef(0);
   const loadedAccount = useRef('');
-  const selectedWindow = useRef<WindowDays>(30);
-  const loadedWindow = useRef<WindowDays>(30);
+  const selectedWindow = useRef<WindowDays>(windowDays);
+  const loadedWindow = useRef<WindowDays>(windowDays);
   const lastContentAt = useRef(0);
 
   const loadOps = useCallback(async (days: WindowDays, scope: Exclude<LoadingScope, null>) => {
@@ -428,8 +444,8 @@ export function AdminOverview() {
           <Link className="db-attn-card" href="/admin/writing/instructor-queue">
             <span className="db-attn-card__count">{formatInteger(ops?.attention?.writingPending)}</span>
             <span className="db-attn-card__body">
-              <span className="db-attn-card__label">Bài viết chờ chấm</span>
-              <span className="db-attn-card__sub">writing_essays chưa trả kết quả</span>
+              <span className="db-attn-card__label">Bài cần duyệt/trả</span>
+              <span className="db-attn-card__sub">Hàng chờ giáo viên</span>
             </span>
           </Link>
         </div>
@@ -571,7 +587,7 @@ export function AdminOverview() {
             <SkillCard name="writing">
               <SkillStat label="7 ngày" value={skills.writing?.essays_7d} />
               <SkillStat label="Tổng" value={skills.writing?.essays_total} />
-              <SkillStat label="Chờ chấm" value={skills.writing?.feedback_pending} />
+              <SkillStat label="Chưa trả kết quả" value={skills.writing?.feedback_pending} />
             </SkillCard>
             <SkillCard name="reading">
               <SkillStat label="7 ngày" value={skills.reading?.attempts_7d} />

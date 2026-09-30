@@ -12540,6 +12540,134 @@ export interface components {
              */
             count: number;
         };
+        /** AdminListeningAttemptDetailResponse */
+        AdminListeningAttemptDetailResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "submitted" | "abandoned";
+            /**
+             * Scoring Policy
+             * @enum {string}
+             */
+            scoring_policy: "diagnostic" | "report_only";
+            /** Score */
+            score: number | null;
+            /** Total Questions */
+            total_questions: number | null;
+            /** Accuracy */
+            accuracy: number | null;
+            /** Duration Seconds */
+            duration_seconds: number | null;
+            /** Started At */
+            started_at: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Created At */
+            created_at: string | null;
+            user: components["schemas"]["AdminListeningAttemptUser"];
+            test: components["schemas"]["AdminListeningAttemptTest"];
+            /** Grading Details */
+            grading_details: components["schemas"]["AdminListeningQuestionRead"][];
+            /** Trap Analytics */
+            trap_analytics: {
+                [key: string]: unknown;
+            };
+            /** Band Estimate */
+            band_estimate: number | null;
+            /** Association Lookup Failed */
+            association_lookup_failed: boolean;
+            /** Association Lookup Failures */
+            association_lookup_failures: ("users" | "listening_tests")[];
+        };
+        /** AdminListeningAttemptItem */
+        AdminListeningAttemptItem: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "submitted" | "abandoned";
+            /**
+             * Scoring Policy
+             * @enum {string}
+             */
+            scoring_policy: "diagnostic" | "report_only";
+            /** Score */
+            score: number | null;
+            /** Total Questions */
+            total_questions: number | null;
+            /** Accuracy */
+            accuracy: number | null;
+            /** Duration Seconds */
+            duration_seconds: number | null;
+            /** Started At */
+            started_at: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Created At */
+            created_at: string | null;
+            user: components["schemas"]["AdminListeningAttemptUser"];
+            test: components["schemas"]["AdminListeningAttemptTest"];
+        };
+        /** AdminListeningAttemptListResponse */
+        AdminListeningAttemptListResponse: {
+            /** Items */
+            items: components["schemas"]["AdminListeningAttemptItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Association Lookup Failed */
+            association_lookup_failed: boolean;
+            /** Association Lookup Failures */
+            association_lookup_failures: ("users" | "listening_tests")[];
+        };
+        /** AdminListeningAttemptTest */
+        AdminListeningAttemptTest: {
+            /** Id */
+            id: string | null;
+            /** Test Id */
+            test_id: string | null;
+            /** Title */
+            title: string | null;
+            /** Test Type */
+            test_type: string | null;
+        };
+        /** AdminListeningAttemptUser */
+        AdminListeningAttemptUser: {
+            /** Id */
+            id: string | null;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+        };
+        /** AdminListeningQuestionRead */
+        AdminListeningQuestionRead: {
+            /** Q Num */
+            q_num: number;
+            /** Correct */
+            correct: boolean | null;
+            /** User Answer */
+            user_answer?: string | number | boolean | string[] | null;
+            /** Expected */
+            expected?: string | number | boolean | string[] | null;
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Response Type */
+            response_type?: string | null;
+            /** State */
+            state?: ("blank" | "checked" | "unscored" | "technical_error") | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** AdminMockExamListResponse */
         AdminMockExamListResponse: {
             /** Exams */
@@ -14436,6 +14564,43 @@ export interface components {
             /** Instructor Note */
             instructor_note?: string | null;
         };
+        /** DictationAggregateResponse */
+        DictationAggregateResponse: {
+            /** Session Count */
+            session_count: number;
+            /** Mean Accuracy */
+            mean_accuracy: number;
+            /**
+             * Mean Accuracy Basis
+             * @constant
+             */
+            mean_accuracy_basis: "mean_of_session_sentence_scores";
+            /**
+             * Trend Classification
+             * @constant
+             */
+            trend_classification: "lexical-v1";
+            /** Trend Complete Session Count */
+            trend_complete_session_count: number;
+            /** Trend Unavailable Session Count */
+            trend_unavailable_session_count: number;
+            /** Top Missed */
+            top_missed: components["schemas"]["DictationMissedWord"][];
+            /** Top Wrong */
+            top_wrong: components["schemas"]["DictationWrongWord"][];
+            /** Punctuation Missed */
+            punctuation_missed: components["schemas"]["DictationPunctuationTrend"][];
+            /** Punctuation Wrong */
+            punctuation_wrong: components["schemas"]["DictationPunctuationTrend"][];
+            /** Punctuation Missed Total */
+            punctuation_missed_total: number;
+            /** Punctuation Wrong Total */
+            punctuation_wrong_total: number;
+            /** Missing Token Missed Total */
+            missing_token_missed_total: number;
+            /** Missing Token Wrong Total */
+            missing_token_wrong_total: number;
+        };
         /** DictationAttemptAnswerRequest */
         DictationAttemptAnswerRequest: {
             /**
@@ -14477,6 +14642,20 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** DictationMissedWord */
+        DictationMissedWord: {
+            /** Word */
+            word: string;
+            /** Count */
+            count: number;
+        };
+        /** DictationPunctuationTrend */
+        DictationPunctuationTrend: {
+            /** Token */
+            token: string;
+            /** Count */
+            count: number;
+        };
         /** DictationSentenceSubmit */
         DictationSentenceSubmit: {
             /** Sentence Idx */
@@ -14510,6 +14689,13 @@ export interface components {
             total_time_seconds?: number | null;
             /** Sentences */
             sentences?: components["schemas"]["DictationSentenceSubmit"][];
+        };
+        /** DictationWrongWord */
+        DictationWrongWord: {
+            /** Expected */
+            expected: string;
+            /** Count */
+            count: number;
         };
         /** DiscardImageRequest */
         DiscardImageRequest: {
@@ -22332,7 +22518,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarArticleDocument"];
                 };
             };
             /** @description Validation Error */
@@ -34396,7 +34582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationAggregateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34467,7 +34653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminListeningAttemptListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34500,7 +34686,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminListeningAttemptDetailResponse"];
                 };
             };
             /** @description Validation Error */

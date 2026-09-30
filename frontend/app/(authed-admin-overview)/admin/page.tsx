@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 
 import { AdminAccessGate } from '@/components/admin-access-gate';
 
@@ -13,7 +14,7 @@ export default function AdminOverviewPage() {
   return (
     <aver-admin-chrome active="overview">
       <AdminAccessGate>
-        <AdminOverview />
+        <Suspense fallback={<div role="status">Đang khôi phục lựa chọn…</div>}><AdminOverview /></Suspense>
       </AdminAccessGate>
     </aver-admin-chrome>
   );

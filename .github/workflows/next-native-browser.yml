@@ -46,6 +46,9 @@ on:
       - 'frontend/public/css/mock-hub.css'
       - 'frontend/app/(authed-writing)/**'
       - 'frontend/tooling/verify-writing-admission-flow.mjs'
+      - 'frontend/tooling/verify-learning-context-flow.mjs'
+      - 'frontend/tooling/verify-grammar-navigation-flow.mjs'
+      - 'frontend/tooling/grammar-navigation-fixtures.mjs'
       - 'frontend/public/pages/writing-dashboard.html'
       - 'frontend/public/css/writing-dashboard.css'
       - 'frontend/app/(authed-writing-result)/**'
@@ -772,6 +775,15 @@ jobs:
       - name: Kiểm luồng Writing learner native
         run: node tooling/verify-writing-admission-flow.mjs "http://localhost:$TEST_PORT"
 
+      - name: Kiểm context Reading và Listening
+        run: node tooling/verify-learning-context-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm lifecycle Listening programme
+        run: node tooling/verify-listening-programme-context-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm context Grammar
+        run: node tooling/verify-grammar-navigation-flow.mjs "http://localhost:$TEST_PORT"
+
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$TEST_PORT"
 
@@ -1149,6 +1161,22 @@ jobs:
       # pins URL filters, analytics availability, sandboxed previews and layout.
       - name: Kiểm luồng Admin Grammar Articles native
         run: node tooling/verify-admin-grammar-articles-flow.mjs "http://localhost:$TEST_PORT"
+
+      # PDF findings 18–22 span the shared learner/admin feedback renderer,
+      # rating lifecycle, preview retry and truthful failed/stale read states.
+      # The only write is an explicitly clicked rating Save intercepted locally.
+      - name: Kiểm khắc phục feedback và trạng thái đọc admin
+        run: node tooling/verify-admin-remediation-flow.mjs "http://localhost:$TEST_PORT"
+
+      # Inline detail panels keep keyboard focus without a modal trap. Fixture
+      # journeys also cover the PDF viewport and dynamic Mock iframe sizing.
+      - name: Kiểm Escape, focus và bố cục admin
+        run: node tooling/verify-admin-accessibility-remediation-flow.mjs "http://localhost:$TEST_PORT"
+
+      # Frozen report-only policies preserve null scores and question states;
+      # Published tabs select a view, and audio counts state their section scope.
+      - name: Kiểm nhãn vận hành và phạm vi dữ liệu admin
+        run: node tooling/verify-admin-clarity-remediation-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/grammar/analytics` is read-only canonical aggregation. The fixture
       # pins URL windows, stale snapshots, degraded sources and responsive tables.

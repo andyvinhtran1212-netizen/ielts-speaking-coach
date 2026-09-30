@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { curatedReadFailure } from '@/lib/admin-curated-read-state.mjs';
 import {
   REVIEW_TYPES,
   buildEditorialDiff,
@@ -100,6 +101,7 @@ export function AdminVocabEditorial() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [tab, setTab] = useState<Tab>('preview');
   const [loading, setLoading] = useState(true);
+  const [catalogPhase, setCatalogPhase] = useState<'loading' | 'ready' | 'error' | 'unavailable'>('loading');
   const [detailLoading, setDetailLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,13 +156,13 @@ export function AdminVocabEditorial() {
     if (!query) { setError('Bộ lọc catalog không hợp lệ.'); setLoading(false); return 'error'; }
     const requestId = ++catalogSequence.current;
     const account = profile.id;
-    setLoading(true); setError(null);
+    setLoading(true); setCatalogPhase('loading'); setError(null);
     try {
       const raw = await window.api.get<unknown>(`/admin/vocabulary/editorial/units?${query}`);
       const payload = normalizeEditorialListPayload(raw) as { items: UnitRow[]; total: number } | null;
       if (!payload) throw new Error('Backend trả về catalog không đúng contract.');
       if (requestId !== catalogSequence.current || account !== accountRef.current) return 'stale';
-      setUnits(payload.items); setTotal(payload.total);
+      setUnits(payload.items); setTotal(payload.total); setCatalogPhase('ready');
       const selected = payload.items.find((unit) => unit.id === preferredUnitId) || payload.items[0];
       if (selected) {
         const detailResult = await loadDetail(selected.id, selected.id === preferredUnitId ? preferredVersionId : '');
@@ -172,8 +174,10 @@ export function AdminVocabEditorial() {
       return 'ok';
     } catch (caught) {
       if (requestId === catalogSequence.current && account === accountRef.current) {
+        const failure = curatedReadFailure(caught);
         setUnits([]); setTotal(0); setDetail(null);
-        setError(`Không tải được Curated editorial catalog: ${messageOf(caught)}`);
+        setCatalogPhase(failure.phase as 'error' | 'unavailable');
+        setError(`Không tải được Curated editorial catalog: ${failure.message}`);
       }
       return requestId === catalogSequence.current && account === accountRef.current ? 'error' : 'stale';
     } finally {
@@ -228,7 +232,7 @@ export function AdminVocabEditorial() {
     const result = await loadCatalog(status, offset, selectedUnitId, selectedVersionId);
     if (result !== 'ok') {
       if (profile.id === accountRef.current) {
-        setNotice({ kind: 'warning', message: 'Mutation đã được backend nhận nhưng canonical readback chưa hoàn tất. Hãy tải lại trước khi thao tác tiếp.' });
+        setNotice({ kind: 'warning', message: 'Máy chủ đã nhận thay đổi nhưng chưa đối chiếu được dữ liệu đã lưu. Hãy tải lại trước khi thao tác tiếp.' });
       }
       return result;
     }
@@ -243,7 +247,7 @@ export function AdminVocabEditorial() {
       const raw = await window.api.post<unknown>(`/admin/vocabulary/versions/${encodeURIComponent(selectedVersion.id)}/validate`, {});
       const value = raw as Record<string, unknown>;
       if (!value || value.version_id !== selectedVersion.id || typeof value.valid !== 'boolean' || !Array.isArray(value.errors)) {
-        throw new Error('Validation ACK không đúng contract.');
+        throw new Error('Kết quả xác nhận kiểm tra nội dung không hợp lệ.');
       }
       const result = { versionId: selectedVersion.id, valid: value.valid, errors: value.errors.filter((item): item is string => typeof item === 'string') };
       setValidation(result);
@@ -303,8 +307,8 @@ export function AdminVocabEditorial() {
 
   return <main className="avv-shell avv-console-shell avv-editorial-shell">
     <header className="avv-stats-hero">
-      <div><a href="/admin/vocab">← Vocabulary workspace</a><p className="avv-eyebrow">Curated content operations</p><h1>Learning-unit editorial</h1><p>Review inbox, preview và diff của immutable versions. Mọi mutation chỉ được coi là thành công sau canonical readback.</p></div>
-      <div className="avv-console-count"><span>Trang hiện tại</span><strong>{visibleUnits.length}/{units.length}</strong><small>{total} unit toàn catalog</small></div>
+      <div><a href="/admin/vocab">← Vocabulary workspace</a><p className="avv-eyebrow">Curated content operations</p><h1>Learning-unit editorial</h1><p>Review inbox, preview và diff của immutable versions. Chỉ báo thay đổi thành công sau khi đối chiếu dữ liệu đã lưu.</p></div>
+      <div className="avv-console-count"><span>Trang hiện tại</span><strong>{catalogPhase === 'ready' ? `${visibleUnits.length}/${units.length}` : '—'}</strong><small>{catalogPhase === 'ready' ? `${total} unit toàn catalog` : catalogPhase === 'unavailable' ? 'Chưa khả dụng trên môi trường này' : catalogPhase === 'error' ? 'Chưa đọc được catalog' : 'Đang xác nhận catalog'}</small></div>
     </header>
 
     <section className="avv-editorial-toolbar" aria-label="Bộ lọc editorial">
@@ -312,15 +316,15 @@ export function AdminVocabEditorial() {
       <label>Unit status<select value={status} disabled={loading || busy} onChange={(event) => { setOffset(0); setStatus(event.target.value); }}><option value="">Tất cả</option><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label>
       <div className="avv-editorial-filter"><label>Reviewer inbox<select value={inbox} aria-describedby={total > units.length ? 'avv-editorial-inbox-scope' : undefined} onChange={(event) => setInbox(event.target.value)}><option value="all">Tất cả unit</option><option value="language">Chờ Language</option><option value="pedagogy">Chờ Pedagogy</option><option value="assessment">Chờ Assessment</option><option value="ready">Đủ review gates</option></select></label>{total > units.length ? <small id="avv-editorial-inbox-scope">Lọc inbox áp dụng cho trang đang tải.</small> : null}</div>
       <button className="btn-secondary" type="button" disabled={loading || busy} onClick={() => void loadCatalog()}>{loading ? 'Đang tải…' : 'Làm mới'}</button>
-      <div className="avv-editorial-pager" aria-label="Phân trang catalog"><button className="btn-secondary" type="button" disabled={loading || busy || offset === 0} onClick={() => setOffset(Math.max(0, offset - CATALOG_PAGE_SIZE))}>← Trước</button><span>{total ? `${offset + 1}–${Math.min(offset + units.length, total)} / ${total}` : '0 / 0'}</span><button className="btn-secondary" type="button" disabled={loading || busy || offset + units.length >= total} onClick={() => setOffset(offset + CATALOG_PAGE_SIZE)}>Sau →</button></div>
+      <div className="avv-editorial-pager" aria-label="Phân trang catalog"><button className="btn-secondary" type="button" disabled={catalogPhase !== 'ready' || loading || busy || offset === 0} onClick={() => setOffset(Math.max(0, offset - CATALOG_PAGE_SIZE))}>← Trước</button><span>{catalogPhase !== 'ready' ? '—' : total ? `${offset + 1}–${Math.min(offset + units.length, total)} / ${total}` : '0 / 0'}</span><button className="btn-secondary" type="button" disabled={catalogPhase !== 'ready' || loading || busy || offset + units.length >= total} onClick={() => setOffset(offset + CATALOG_PAGE_SIZE)}>Sau →</button></div>
     </section>
     {notice ? <p className={`avv-banner is-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.message}</p> : null}
     {error ? <p className="avv-banner is-error" role="alert">{error}</p> : null}
 
     <div className="avv-editorial-layout">
       <aside className="avv-editorial-list" aria-label="Danh sách learning units">
-        <header><div><p className="avv-eyebrow">Reviewer inbox</p><h2>Learning units</h2></div><span>{visibleUnits.length}</span></header>
-        {loading && !units.length ? <div className="avv-state">Đang tải catalog…</div> : visibleUnits.length === 0 ? <div className="avv-state">Không có unit phù hợp.</div> : visibleUnits.map((unit) => {
+        <header><div><p className="avv-eyebrow">Reviewer inbox</p><h2>Learning units</h2></div><span>{catalogPhase === 'ready' ? visibleUnits.length : '—'}</span></header>
+        {catalogPhase === 'loading' ? <div className="avv-state" role="status">Đang tải catalog…</div> : catalogPhase !== 'ready' ? <div className="avv-state"><strong>{catalogPhase === 'unavailable' ? 'Curated Editorial chưa khả dụng' : 'Không đọc được catalog'}</strong><p>Chưa xác định số unit. Thử lại để xác nhận trạng thái từ máy chủ.</p><button className="btn-secondary" type="button" onClick={() => void loadCatalog()} disabled={busy}>Thử lại catalog</button></div> : visibleUnits.length === 0 ? <div className="avv-state">Không có unit phù hợp.</div> : visibleUnits.map((unit) => {
           const candidate = unit.versions.find((version) => ['draft', 'in_review'].includes(version.status)) || unit.versions[0];
           return <button className={unit.id === selectedUnitId ? 'is-active' : ''} aria-pressed={unit.id === selectedUnitId} disabled={busy} type="button" key={unit.id} onClick={() => chooseUnit(unit)}>
             <span className="avv-editorial-list__title"><strong>{unit.displayHeadword}</strong><small>{unit.slug} · {unit.targetLevel}</small></span>
@@ -331,7 +335,7 @@ export function AdminVocabEditorial() {
       </aside>
 
       <section className="avv-editorial-detail">
-        {detailLoading ? <div className="avv-state">Đang tải canonical editorial bundle…</div> : !detail || !selectedVersion ? <div className="avv-state">Chọn một unit để xem version, diff và review gates.</div> : <>
+        {catalogPhase !== 'ready' ? <div className="avv-state">Nội dung xem trước sẽ có sau khi đọc được catalog.</div> : detailLoading ? <div className="avv-state">Đang tải nội dung biên tập đã lưu…</div> : !detail || !selectedVersion ? <div className="avv-state">{error ? 'Không đọc được nội dung unit đã chọn. Chọn lại unit để thử lại.' : 'Chọn một unit để xem version, diff và review gates.'}</div> : <>
           <header className="avv-editorial-detail__head"><div><p className="avv-eyebrow">{detail.unit.slug}</p><h2 ref={detailHeadingRef} tabIndex={-1}>{detail.unit.displayHeadword}</h2><p>{String(detail.unit.sense_key || '')} · {String(detail.unit.construction_key || '')}</p></div><div><label>Version<select value={selectedVersionId} disabled={busy} onChange={(event) => { setSelectedVersionId(event.target.value); setValidation(null); setRollbackVersion(null); setReviewNotes(''); setReviewType('language'); }}>{detail.versions.map((version) => <option key={version.id} value={version.id}>v{version.versionNumber} · {STATE_LABELS[version.status] || version.status}</option>)}</select></label><span className={`adm-status-pill is-${selectedVersion.status === 'published' ? 'live' : selectedVersion.status === 'in_review' ? 'warning' : 'inactive'}`}>{STATE_LABELS[selectedVersion.status] || selectedVersion.status}</span></div></header>
           <div className="avv-editorial-version-meta"><span>Change note<strong>{selectedVersion.changeNote || 'Không có ghi chú'}</strong></span><span>Cập nhật<strong>{formatDate(selectedVersion.updatedAt)}</strong></span><span>Task<strong>{selectedVersion.tasks.filter((task) => task.status === 'active').length}</strong></span></div>
           <GatePills gate={selectedVersion.reviewGate} />

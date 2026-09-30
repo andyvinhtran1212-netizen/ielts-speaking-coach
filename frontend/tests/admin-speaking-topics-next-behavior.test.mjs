@@ -123,7 +123,7 @@ describe('/admin/speaking/topics native ownership and UX contract', () => {
     assert.match(COMPONENT, /partialFailure[\s\S]+kind: 'error'/);
     assert.match(COMPONENT, /questions\?\.account === profile\.id/);
     assert.match(COMPONENT, /saved\.title !== created\.title/);
-    assert.match(COMPONENT, /Đã đồng bộ trạng thái canonical/);
+    assert.match(COMPONENT, /Đã đối chiếu trạng thái đã lưu/);
     assert.doesNotMatch(COMPONENT, /\bconfirm\s*\(/);
     assert.match(COMPONENT, /<Dialog open=\{confirming !== null\}/);
   });

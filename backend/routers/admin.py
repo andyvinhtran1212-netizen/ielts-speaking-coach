@@ -35,6 +35,7 @@ from models.admin_speaking import (
 )
 from models.admin_overview import DashboardOverviewOut, DashboardTrendsOut
 from models.admin_users import AdminUserDirectoryRowOut
+from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
@@ -5551,7 +5552,7 @@ async def admin_list_grammar_articles(
     }
 
 
-@router.get("/grammar/articles/{slug}/preview")
+@router.get("/grammar/articles/{slug}/preview", response_model=GrammarArticleDocument)
 async def admin_preview_grammar_article(
     slug: str,
     authorization: str | None = Header(default=None),
@@ -5566,7 +5567,10 @@ async def admin_preview_grammar_article(
     except Exception as exc:
         raise HTTPException(500, f"grammar service unavailable: {exc}")
 
-    article = grammar_service.get_article_by_slug(slug)
+    summary = grammar_service.get_article_by_slug(slug)
+    if not summary:
+        raise HTTPException(404, f"Article '{slug}' not found")
+    article = grammar_service.get_article(summary["category"], slug)
     if not article:
         raise HTTPException(404, f"Article '{slug}' not found")
     return article

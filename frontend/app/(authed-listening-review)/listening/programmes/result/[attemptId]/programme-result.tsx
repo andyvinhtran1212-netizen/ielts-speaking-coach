@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { ListeningSourceExplanation } from '@/components/listening-source-explanation';
 import { displaySourceAnswer } from '@/lib/listening-source-responses.mjs';
 import { programmeLibraryPath } from '@/lib/listening-programme-navigation.mjs';
 import type { ListeningSourceExplanationWire } from '@/lib/listening-source-collection-api';
+import { listeningProgrammeReturnHref } from '@/lib/listening-library-context.mjs';
 import { createProgrammeReplayController } from '@/lib/listening-programme-replay.mjs';
 import type { ListeningProgrammeReviewWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -18,6 +20,7 @@ function row(value: unknown): Record<string, unknown> { return value && typeof v
 function list(value: unknown): string[] { return Array.isArray(value) ? value.map(String).filter(Boolean) : []; }
 
 export function ProgrammeResult({ attemptId }: { attemptId: string }) {
+  const params = useSearchParams();
   const { status, user } = useAuth(); const [state, setState] = useState<State>({ status: 'loading' }); const [audioError, setAudioError] = useState(''); const audio = useRef<HTMLAudioElement>(null);
   const replayController = useRef<ReturnType<typeof createProgrammeReplayController> | null>(null);
   if (!replayController.current) replayController.current = createProgrammeReplayController(() => audio.current);
@@ -39,7 +42,10 @@ export function ProgrammeResult({ attemptId }: { attemptId: string }) {
   function replay(item: ReviewItem) { setAudioError(''); void replayController.current?.replay(item.audioWindow).then((started) => { if (!started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại.'); }); }
   if (state.status === 'loading') return <main className="programme-result programme-result-state" role="status">Đang tải phần tự đối chiếu…</main>;
   if (state.status === 'error') return <main className="programme-result programme-result-state is-error" role="alert"><p>Không tải được kết quả.</p><a href="/listening">Về trang Luyện nghe</a></main>;
-  const { result } = state; const summary = result.summary; const libraryPath = programmeLibraryPath(result.programmeId);
+  const { result } = state; const summary = result.summary;
+  const libraryPath = result.programmeId === 'ielts-80-days-listening'
+    ? programmeLibraryPath(result.programmeId)
+    : listeningProgrammeReturnHref(result.programmeId, params || undefined);
   return <main className="programme-result">
     {result.programmeId === 'ielts-80-days-listening' ? <link rel="stylesheet" href="/css/listening-source-collection.css" /> : null}
     <audio ref={audio} src={result.audioUrl} preload="metadata" onError={() => setAudioError('Không tải được audio. Hãy thử lại sau.')} />

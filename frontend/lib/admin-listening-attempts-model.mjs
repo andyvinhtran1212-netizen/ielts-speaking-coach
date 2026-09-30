@@ -3,6 +3,8 @@ const ROW_STATUS_SET = new Set(['submitted', 'in_progress', 'abandoned']);
 const TYPE_SET = new Set(['all', 'full', 'mini', 'drill', 'practice']);
 const ROW_TYPE_SET = new Set(['full', 'mini', 'drill', 'practice']);
 const LOOKUP_TABLES = new Set(['users', 'listening_tests']);
+const SCORING_POLICIES = new Set(['diagnostic', 'report_only']);
+const REPORT_STATES = new Set(['checked', 'blank', 'unscored', 'technical_error']);
 const ACCURACY_ROUNDING_TOLERANCE = 5e-5 + Number.EPSILON;
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
@@ -83,19 +85,26 @@ export function normalizeListeningAttemptItem(raw) {
   const durationSeconds = finiteNumber(value?.duration_seconds);
   const user = normalizeIdentity(value?.user, 'user');
   const test = normalizeIdentity(value?.test, 'test');
+  const scoringPolicy = value?.scoring_policy == null ? null : textOf(value.scoring_policy);
   if (!value || !id || !ROW_STATUS_SET.has(status) || !user || !test
+    || (scoringPolicy !== null && !SCORING_POLICIES.has(scoringPolicy))
     || (score != null && score < 0) || (totalQuestions != null && totalQuestions < 1)
     || (score != null && totalQuestions != null && score > totalQuestions)
     || (accuracy != null && (accuracy < 0 || accuracy > 1))
     || (durationSeconds != null && durationSeconds < 0)) return null;
+  const reportOnly = scoringPolicy === 'report_only';
   const graded = score != null && totalQuestions != null;
-  if ((score == null) !== (totalQuestions == null) || (graded !== (accuracy != null))) return null;
+  if (reportOnly) {
+    // A persisted report-only attempt intentionally keeps score/accuracy null
+    // while retaining its known question count. Do not infer this from type.
+    if (value.score !== null || value.accuracy !== null) return null;
+  } else if ((score == null) !== (totalQuestions == null) || (graded !== (accuracy != null))) return null;
   // Backend transmits round(score / total, 4). Compare to the exact ratio
   // within half of one four-decimal unit so Python ties-to-even values such
   // as 1/32 -> 0.0312 remain canonical in JavaScript.
   if (graded && Math.abs(accuracy - (score / totalQuestions)) > ACCURACY_ROUNDING_TOLERANCE) return null;
   return {
-    id, status, score, totalQuestions, accuracy, durationSeconds, user, test,
+    id, status, score, totalQuestions, accuracy, durationSeconds, user, test, scoringPolicy,
     startedAt: nullableText(value.started_at), submittedAt: nullableText(value.submitted_at),
     createdAt: nullableText(value.created_at),
   };
@@ -126,7 +135,24 @@ export function normalizeListeningAttemptList(raw, expected = {}) {
     if (row && typeMatches && statusMatches) rows.push(row);
     else malformedCount += 1;
   }
-  return { rows, malformedCount, limit, offset, total, ...lookup };
+  return { rows, malformedCount, legacyPolicyCount: rows.filter((row) => row.scoringPolicy === null).length,
+    limit, offset, total, ...lookup };
+}
+
+function normalizeReportQuestion(raw) {
+  const value = objectOf(raw);
+  const qNum = integer(value?.q_num);
+  const state = textOf(value?.state);
+  if (!value || qNum == null || qNum < 1 || !REPORT_STATES.has(state)
+    || typeof value.user_answer !== 'string') return null;
+  let expected = null;
+  if (state === 'checked') {
+    if (typeof value.correct !== 'boolean' || !Array.isArray(value.expected)
+      || !value.expected.length || value.expected.some((item) => typeof item !== 'string' || !item.trim())) return null;
+    expected = value.expected.join(' / ');
+  } else if (value.correct !== null || value.expected != null) return null;
+  return { qNum, state, correct: value.correct, userAnswer: value.user_answer, expected,
+    trapCaught: false, trapMissed: false };
 }
 
 function normalizeQuestion(raw) {
@@ -152,7 +178,7 @@ export function normalizeListeningAttemptDetail(raw, expectedId) {
   const questionNumbers = new Set();
   let malformedQuestionCount = 0;
   for (const candidate of value.grading_details) {
-    const row = normalizeQuestion(candidate);
+    const row = base.scoringPolicy === 'report_only' ? normalizeReportQuestion(candidate) : normalizeQuestion(candidate);
     if (row && !questionNumbers.has(row.qNum)) {
       questionNumbers.add(row.qNum);
       questions.push(row);
@@ -168,6 +194,7 @@ export function normalizeListeningAttemptDetail(raw, expectedId) {
   const band = finiteNumber(value.band_estimate);
   if (value.band_estimate != null && (band == null || band < 0 || band > 9)) return null;
   const bandEstimate = band != null && band >= 0 && band <= 9 ? band : null;
+  if (base.scoringPolicy === 'report_only' && (bandEstimate !== null || trapSummary !== null)) return null;
   return { ...base, ...lookup, questions, malformedQuestionCount, trapSummary, bandEstimate };
 }
 

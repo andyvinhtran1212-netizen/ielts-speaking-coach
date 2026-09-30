@@ -729,63 +729,87 @@ await page.getByText('adapt<script>', { exact: true }).first().waitFor();
 check('Content import một combined commit và canonical list readback', requests.filter((item) => item.method === 'POST' && item.path === '/admin/vocabulary/import' && item.search === '?dry_run=false').length === 1 && vocabRows[0]?.id === importedVocabCardId && contentReads >= 4);
 check('Content mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
+const exerciseStatusLabels = { draft: 'Bản nháp', published: 'Đã phát hành', rejected: 'Đã từ chối' };
+const exerciseTab = (status) => page.getByRole('tab', { name: new RegExp(`^${exerciseStatusLabels[status]}`) });
+const exerciseCountsMatch = async (expected) => (await Promise.all(Object.entries(expected).map(async ([status, count]) =>
+  await exerciseTab(status).getByText(String(count), { exact: true }).count() === 1))).every(Boolean);
+const exerciseQueuesRead = (items) => ['draft', 'published', 'rejected'].every((status) => items.some((item) =>
+  item.method === 'GET' && item.path === '/admin/exercises' && item.search === `?status=${status}&exercise_type=D1&limit=200`));
 const exerciseRequestStart = requests.length;
 await page.goto(`${BASE}/admin/vocab/exercises?status=unknown`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Vocab Exercises', exact: true }).waitFor();
 await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).waitFor();
 const exerciseRequests = requests.slice(exerciseRequestStart);
-check('Exercises canonicalize status sai và đọc đủ ba queue', new URL(page.url()).searchParams.get('status') === 'draft' && ['draft', 'published', 'rejected'].every((item) => exerciseRequests.some((request) => request.path === '/admin/exercises' && request.search === `?status=${item}&exercise_type=D1&limit=200`)));
+check('Exercises canonicalize status sai và đọc đủ ba queue', new URL(page.url()).searchParams.get('status') === 'draft' && exerciseQueuesRead(exerciseRequests));
 check('Exercises escape prompt/answer độc hại', await page.locator('.avv-exercises-console script, .avv-exercises-console img').count() === 0 && await page.getByText('mitigate<script>', { exact: true }).count() === 1);
-check('Exercises counts phản ánh ba canonical queues', await page.getByRole('tab', { name: /Draft/ }).getByText('1', { exact: true }).count() === 1 && await page.getByRole('tab', { name: /Published/ }).getByText('1', { exact: true }).count() === 1);
+check('Exercises counts phản ánh ba canonical queues', await exerciseCountsMatch({ draft: 1, published: 1, rejected: 0 }));
+await exerciseTab('published').click();
+await page.getByText('People must ___ to change.', { exact: true }).waitFor();
+check('Exercises tab Đã phát hành chỉ xem queue, không thực hiện publish', new URL(page.url()).searchParams.get('status') === 'published'
+  && await exerciseCountsMatch({ draft: 1, published: 1, rejected: 0 })
+  && !requests.slice(exerciseRequestStart).some((item) => item.path.startsWith('/admin/exercises') && !['GET', 'HEAD', 'OPTIONS'].includes(item.method)));
+await exerciseTab('draft').click();
 
 await page.getByLabel(`Chọn exercise ${exerciseDraftId}`).check();
 delayedExerciseReads = 3;
 await page.getByRole('button', { name: '↻ Làm mới' }).click();
 await page.waitForTimeout(40);
-check('Exercises khoá moderation trong lúc refresh canonical đang chờ', await page.getByRole('button', { name: 'Publish (1)' }).isDisabled() && requests.filter((item) => item.method === 'PATCH' && item.path.includes('/admin/exercises/')).length === 0);
+check('Exercises khoá moderation trong lúc refresh canonical đang chờ', await page.getByRole('button', { name: 'Phát hành bài (1)' }).isDisabled() && requests.filter((item) => item.method === 'PATCH' && item.path.includes('/admin/exercises/')).length === 0);
 await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).waitFor();
 
 await page.getByLabel(`Chọn exercise ${exerciseDraftId}`).check();
 failNextExerciseRead = true;
 await page.getByRole('button', { name: '↻ Làm mới' }).click();
 await page.getByText(/Không tải được exercise queues/).waitFor();
-check('Exercises xoá rows và selection cũ khi canonical refresh lỗi', await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Publish (0)' }).isDisabled());
+check('Exercises xoá rows và selection cũ khi canonical refresh lỗi', await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Phát hành bài (0)' }).isDisabled() && await exerciseCountsMatch({ draft: 0, published: 0, rejected: 0 }));
 await page.getByRole('button', { name: '↻ Làm mới' }).click();
 await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).waitFor();
 
-await page.getByRole('button', { name: 'Publish', exact: true }).click();
-const publishDialog = page.getByRole('dialog', { name: 'Publish 1 exercise?' });
+const publishRequestStart = requests.length;
+await page.getByRole('button', { name: 'Phát hành bài', exact: true }).click();
+const publishDialog = page.getByRole('dialog', { name: 'Phát hành bài 1 exercise?' });
 await publishDialog.getByRole('button', { name: 'Xác nhận' }).click();
 await page.waitForTimeout(40);
 check('Exercises single transition khoá dialog khi chờ ACK', exerciseWritePending && await publishDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
-await page.getByText(/Đã publish 1 exercise và tải lại cả ba queue/).waitFor();
-check('Exercises PATCH đúng id/action và canonical readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/exercises/${exerciseDraftId}/publish`) && exerciseRows.published.some((row) => row.id === exerciseDraftId) && exerciseReads >= 6);
+await page.getByText(/Đã phát hành bài 1 exercise và tải lại cả ba queue/).waitFor();
+const publishRequests = requests.slice(publishRequestStart);
+check('Exercises PATCH đúng id/action và canonical readback', publishRequests.filter((item) => item.method === 'PATCH' && item.path === `/admin/exercises/${exerciseDraftId}/publish` && JSON.stringify(item.body) === '{}').length === 1
+  && exerciseRows.published.some((row) => row.id === exerciseDraftId) && exerciseReads >= 6
+  && exerciseQueuesRead(publishRequests) && await exerciseCountsMatch({ draft: 0, published: 2, rejected: 0 }));
 
-await page.getByRole('tab', { name: /Published/ }).click();
+await exerciseTab('published').click();
 await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).waitFor();
 await page.getByLabel('Chọn toàn bộ queue đang hiển thị').check();
-await page.getByRole('button', { name: 'Reject (2)' }).click();
-const rejectDialog = page.getByRole('dialog', { name: 'Reject 2 exercise?' });
+const rejectRequestStart = requests.length;
+await page.getByRole('button', { name: 'Từ chối bài (2)' }).click();
+const rejectDialog = page.getByRole('dialog', { name: 'Từ chối bài 2 exercise?' });
 await rejectDialog.getByRole('button', { name: 'Xác nhận' }).click();
 await page.waitForTimeout(40);
 check('Exercises bulk transition khoá dialog khi chờ ACK', exerciseWritePending && await rejectDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
-await page.getByText(/Đã reject 2 exercise và tải lại cả ba queue/).waitFor();
-check('Exercises bulk ACK phủ đúng selection và canonical queues', requests.some((item) => item.method === 'POST' && item.path === '/admin/exercises/bulk' && item.body?.action === 'reject' && item.body?.ids?.length === 2) && exerciseRows.published.length === 0 && exerciseRows.rejected.length === 2);
+await page.getByText(/Đã từ chối bài 2 exercise và tải lại cả ba queue/).waitFor();
+const rejectRequests = requests.slice(rejectRequestStart);
+check('Exercises bulk ACK phủ đúng selection và canonical queues', rejectRequests.filter((item) => item.method === 'POST' && item.path === '/admin/exercises/bulk' && item.body?.action === 'reject'
+  && JSON.stringify([...(item.body?.ids || [])].sort()) === JSON.stringify([exerciseDraftId, exercisePublishedId].sort())).length === 1
+  && exerciseRows.published.length === 0 && exerciseRows.rejected.length === 2
+  && exerciseQueuesRead(rejectRequests) && await exerciseCountsMatch({ draft: 0, published: 0, rejected: 2 }));
 
 await page.getByRole('button', { name: '+ Generate batch' }).click();
 const generateDialog = page.getByRole('dialog', { name: 'Generate D1 drafts' });
 await generateDialog.getByLabel('Target words').fill('adapt, thrive, persist');
 check('Exercises generation nói đúng synchronous/paid contract', await generateDialog.getByText(/có thể mất gần 120 giây/).count() === 1 && await generateDialog.getByText(/Không tự động retry/).count() === 1);
+const generateRequestStart = requests.length;
 await generateDialog.getByRole('button', { name: 'Generate và chờ kết quả' }).click();
 await page.waitForTimeout(40);
 check('Exercises generation khoá request trong lúc chờ Gemini', exerciseGeneratePending && await generateDialog.getByRole('button', { name: 'Đang chờ Gemini…' }).isDisabled());
 await page.getByText(/3 draft\(s\) inserted across 1 chunk\(s\)/).waitFor();
-check('Exercises cho batch ba từ dùng count mặc định và canonical readback đúng', requests.filter((item) => item.method === 'POST' && item.path === '/admin/exercises/d1/generate-batch' && item.body?.count === 10 && item.body?.words?.join(',') === 'adapt,thrive,persist').length === 1 && exerciseRows.draft.length === 3 && exerciseReads >= 18);
-await page.getByRole('tab', { name: /Draft/ }).click();
+check('Exercises cho batch ba từ dùng count mặc định và canonical readback đúng', requests.filter((item) => item.method === 'POST' && item.path === '/admin/exercises/d1/generate-batch' && item.body?.count === 10 && item.body?.words?.join(',') === 'adapt,thrive,persist').length === 1 && exerciseRows.draft.length === 3 && exerciseReads >= 18
+  && exerciseQueuesRead(requests.slice(generateRequestStart)) && await exerciseCountsMatch({ draft: 3, published: 0, rejected: 2 }));
+await exerciseTab('draft').click();
 await page.getByText('thrive belongs in ___.', { exact: true }).waitFor();
-await page.getByRole('tab', { name: /Draft/ }).press('ArrowRight');
-check('Exercises tabs hỗ trợ bàn phím và giữ URL canonical', new URL(page.url()).searchParams.get('status') === 'published' && await page.getByRole('tab', { name: /Published/ }).getAttribute('aria-selected') === 'true');
+await exerciseTab('draft').press('ArrowRight');
+check('Exercises tabs hỗ trợ bàn phím và giữ URL canonical', new URL(page.url()).searchParams.get('status') === 'published' && await exerciseTab('published').getAttribute('aria-selected') === 'true');
 check('Exercises mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+console.log(JSON.stringify({ exerciseRequests: requests.slice(exerciseRequestStart).filter((item) => item.path.startsWith('/admin/exercises')), finalExerciseCounts: Object.fromEntries(Object.entries(exerciseRows).map(([status, rows]) => [status, rows.length])) }, null, 2));
 
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.goto(`${BASE}/admin/vocab`, { waitUntil: 'domcontentloaded' });

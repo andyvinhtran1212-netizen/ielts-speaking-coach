@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+import { readingVocabArticleHref, readingVocabContext, readingVocabHref } from '@/lib/reading-vocab-context.mjs';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -31,7 +34,7 @@ interface Passage {
 
 type LoadState =
   | { status: 'loading' }
-  | { status: 'ready'; passages: Passage[]; total: number }
+  | { status: 'ready'; passages: Passage[]; total: number; view: string }
   | { status: 'error' };
 
 const DIFFICULTY_LABELS: Record<string, string> = {
@@ -96,11 +99,26 @@ export function ReadingVocabBehavior() {
 }
 
 function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
-  const [difficulty, setDifficulty] = useState('');
-  const [tag, setTag] = useState('');
+  const params = useSearchParams();
+  const context = readingVocabContext(params || undefined);
+  const { difficulty, tag, batches } = context;
+  const contextHref = readingVocabHref(context);
+  const cached = useRef<{ key: string; batches: number; passages: Passage[]; total: number } | null>(null);
+  const scrollKey = accountKey ? `aver:reading-vocab-scroll:v1:${accountKey}:${contextHref}` : null;
+  const changeFilters = (update: { difficulty?: string; tag?: string }) => {
+    const latest = readingVocabContext(new URLSearchParams(window.location.search));
+    window.history.replaceState(null, '', readingVocabHref({ ...latest, ...update, batches: 1 }));
+  };
+  const loadMore = () => {
+    const latest = readingVocabContext(new URLSearchParams(window.location.search));
+    window.history.replaceState(null, '', readingVocabHref({ ...latest, batches: latest.batches + 1 }));
+  };
+  const rememberScroll = () => {
+    if (!scrollKey) return;
+    try { window.sessionStorage.setItem(scrollKey, String(window.scrollY)); } catch { /* navigation stays usable */ }
+  };
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
@@ -113,7 +131,9 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
 
     const controller = new AbortController();
     let disposed = false;
-    if (offset === 0) setState({ status: 'loading' });
+    const filterKey = `${accountKey}:${difficulty}:${tag}`;
+    const prior = cached.current?.key === filterKey && cached.current.batches < batches ? cached.current : null;
+    if (!prior) setState({ status: 'loading' });
     else setLoadingMore(true);
     setLoadMoreError(false);
 
@@ -122,52 +142,63 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
         () => !!window.api?.getWith,
         'window.api (reading vocab)',
       );
-      if (!ready || disposed) {
-        if (!disposed) {
-          if (offset > 0) setLoadMoreError(true);
-          else setState({ status: 'error' });
-          setLoadingMore(false);
-        }
-        return;
-      }
-
-      const query = new URLSearchParams();
-      if (difficulty) query.set('difficulty', difficulty);
-      if (tag) query.set('tag', tag);
-      query.set('limit', String(PAGE_SIZE));
-      query.set('offset', String(offset));
-
-      try {
-        const payload = await window.api.getWith<unknown>(
-          `/api/reading/vocab?${query.toString()}`,
-          undefined,
-          { signal: controller.signal },
+      if (!ready || disposed) throw new Error('api-unavailable');
+      let passages = prior?.passages || [];
+      let total = prior?.total || 0;
+      let loaded = prior?.batches || 0;
+      // Restore every batch, rather than treating the final offset as a page.
+      for (let batch = loaded; batch < batches; batch += 1) {
+        const offset = batch * PAGE_SIZE;
+        const query = new URLSearchParams();
+        if (difficulty) query.set('difficulty', difficulty);
+        if (tag) query.set('tag', tag);
+        query.set('limit', String(PAGE_SIZE));
+        query.set('offset', String(offset));
+        const payload = await window.api!.getWith<unknown>(
+          `/api/reading/vocab?${query.toString()}`, undefined, { signal: controller.signal },
         );
         if (disposed) return;
-        const passages = normalizePassages(payload);
-        setAvailableTags((current) => [...new Set([
-          ...current, ...passages.flatMap((passage) => passage.tags),
-        ])].sort());
-        setState((current) => {
-          const prior = offset > 0 && current.status === 'ready' ? current.passages : [];
-          const merged = [...prior, ...passages].filter((passage, index, all) =>
-            all.findIndex((candidate) => candidate.slug === passage.slug) === index);
-          return { status: 'ready', passages: merged, total: normalizeTotal(payload, offset + passages.length) };
-        });
-      } catch (caught: unknown) {
-        if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        if (offset > 0) setLoadMoreError(true);
-        else setState({ status: 'error' });
-      } finally {
-        if (!disposed) setLoadingMore(false);
+        const next = normalizePassages(payload);
+        total = normalizeTotal(payload, offset + next.length);
+        passages = [...passages, ...next].filter((passage, index, all) =>
+          all.findIndex((candidate) => candidate.slug === passage.slug) === index);
+        loaded = batch + 1;
+        if (!next.length || offset + next.length >= total) break;
       }
-    })();
+      if (disposed) return;
+      cached.current = { key: filterKey, batches: loaded, passages, total };
+      setAvailableTags((current) => [...new Set([
+        ...current, ...passages.flatMap((passage) => passage.tags), ...(tag ? [tag] : []),
+      ])].sort());
+      setState({ status: 'ready', passages, total, view: contextHref });
+    })().catch((caught: unknown) => {
+      if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
+      if (prior) setLoadMoreError(true);
+      else setState({ status: 'error' });
+    }).finally(() => { if (!disposed) setLoadingMore(false); });
 
+    return () => { disposed = true; controller.abort(); };
+  }, [accountKey, difficulty, tag, batches, retryToken]);
+
+  useEffect(() => {
+    if (state.status !== 'ready' || state.view !== contextHref || !scrollKey || loadingMore) return;
+    let savedTop: number | null = null;
+    try {
+      const raw = window.sessionStorage.getItem(scrollKey);
+      const top = Number(raw);
+      if (raw !== null && Number.isFinite(top) && top >= 0) savedTop = top;
+    } catch { /* storage is optional for scroll */ }
+    const frame = requestAnimationFrame(() => {
+      if (savedTop !== null) window.scrollTo({ top: savedTop, behavior: 'instant' });
+    });
+    window.addEventListener('scroll', rememberScroll, { passive: true });
+    window.addEventListener('pagehide', rememberScroll);
     return () => {
-      disposed = true;
-      controller.abort();
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', rememberScroll);
+      window.removeEventListener('pagehide', rememberScroll);
     };
-  }, [accountKey, difficulty, tag, offset, retryToken]);
+  }, [state.status, state.status === 'ready' ? state.view : null, scrollKey, loadingMore]);
 
   const shown = state.status === 'ready' ? state.passages.length : 0;
   const total = state.status === 'ready' ? state.total : null;
@@ -197,7 +228,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
               <select
                 id="filter-difficulty"
                 value={difficulty}
-                onChange={(event) => { setDifficulty(event.target.value); setOffset(0); }}
+                onChange={(event) => changeFilters({ difficulty: event.target.value })}
               >
                 <option value="">Tất cả</option>
                 <option value="foundation">Foundation</option>
@@ -207,9 +238,9 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
             </label>
             <label>
               Chủ đề
-              <select id="filter-tag" value={tag} onChange={(event) => { setTag(event.target.value); setOffset(0); }}>
+              <select id="filter-tag" value={tag} onChange={(event) => changeFilters({ tag: event.target.value })}>
                 <option value="">Tất cả</option>
-                {availableTags.map((value) => <option value={value} key={value}>{value}</option>)}
+                {[...new Set([...availableTags, ...(tag ? [tag] : [])])].map((value) => <option value={value} key={value}>{value}</option>)}
               </select>
             </label>
             <button
@@ -218,9 +249,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
               type="button"
               hidden={!hasFilters}
               onClick={() => {
-                setDifficulty('');
-                setTag('');
-                setOffset(0);
+                changeFilters({ difficulty: '', tag: '' });
               }}
             >
               Xóa lọc
@@ -247,7 +276,8 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
                 <a
                   aria-label={`Đọc bài ${passage.title}`}
                   className="rv-card"
-                  href={`/reading/vocab/${encodeURIComponent(passage.slug)}`}
+                  href={readingVocabArticleHref(passage.slug, context)}
+                  onClick={rememberScroll}
                   key={passage.key}
                 >
                   <div className="rv-card__top">
@@ -280,7 +310,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
                 disabled={loadingMore}
                 onClick={() => loadMoreError
                   ? setRetryToken((value) => value + 1)
-                  : setOffset((current) => current + PAGE_SIZE)}
+                  : loadMore()}
               >
                 {loadingMore ? 'Đang tải…' : loadMoreError ? 'Thử lại' : `Xem thêm (${shown}/${total})`}
               </button>

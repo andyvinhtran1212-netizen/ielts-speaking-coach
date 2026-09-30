@@ -115,12 +115,36 @@ export function normalizeDictationAggregate(raw) {
   const meanAccuracy = finiteNumber(value?.mean_accuracy);
   const missed = normalizeWordRows(value?.top_missed, 'word');
   const wrong = normalizeWordRows(value?.top_wrong, 'expected');
+  const classified = value?.trend_classification === 'lexical-v1';
+  const completeSessions = classified ? integer(value.trend_complete_session_count) : null;
+  const unavailableSessions = classified ? integer(value.trend_unavailable_session_count) : null;
+  const punctuationMissed = normalizeWordRows(classified ? value.punctuation_missed : [], 'token');
+  const punctuationWrong = normalizeWordRows(classified ? value.punctuation_wrong : [], 'token');
+  const totals = classified ? [value.punctuation_missed_total, value.punctuation_wrong_total,
+    value.missing_token_missed_total, value.missing_token_wrong_total].map(integer) : [0, 0, 0, 0];
   if (!value || sessionCount == null || sessionCount < 0 || meanAccuracy == null
     || meanAccuracy < 0 || meanAccuracy > 1 || !missed || !wrong
-    || (sessionCount === 0 && (meanAccuracy !== 0 || missed.rows.length || wrong.rows.length))) return null;
+    || !punctuationMissed || !punctuationWrong || totals.some((count) => count == null || count < 0)
+    || (classified && (value.mean_accuracy_basis !== 'mean_of_session_sentence_scores'
+      || completeSessions == null || unavailableSessions == null || completeSessions < 0 || unavailableSessions < 0
+      || completeSessions + unavailableSessions !== sessionCount
+      || (completeSessions === 0 && (missed.rows.length || wrong.rows.length || totals.some(Boolean)))
+      || punctuationMissed.malformedCount || punctuationWrong.malformedCount
+      || missed.rows.some((row) => !/[\p{L}\p{N}]/u.test(row.label))
+      || wrong.rows.some((row) => !/[\p{L}\p{N}]/u.test(row.label))
+      || [...punctuationMissed.rows, ...punctuationWrong.rows].some((row) => /[\p{L}\p{N}]/u.test(row.label))
+      || punctuationMissed.rows.reduce((sum, row) => sum + row.count, 0) > totals[0]
+      || punctuationWrong.rows.reduce((sum, row) => sum + row.count, 0) > totals[1]))
+    || (sessionCount === 0 && (meanAccuracy !== 0 || missed.rows.length || wrong.rows.length
+      || punctuationMissed.rows.length || punctuationWrong.rows.length || totals.some(Boolean)))) return null;
   return {
     sessionCount, meanAccuracy, topMissed: missed.rows, topWrong: wrong.rows,
     malformedWordCount: missed.malformedCount + wrong.malformedCount,
+    punctuationClassified: classified,
+    trendCompleteSessions: completeSessions, trendUnavailableSessions: unavailableSessions,
+    punctuationMissed: punctuationMissed.rows, punctuationWrong: punctuationWrong.rows,
+    punctuationMissedTotal: totals[0], punctuationWrongTotal: totals[1],
+    missingTokenMissedTotal: totals[2], missingTokenWrongTotal: totals[3],
   };
 }
 

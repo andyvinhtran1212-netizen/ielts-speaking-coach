@@ -27,6 +27,10 @@ const questions = new Map([
   ['t3', []],
 ]);
 let listReads = 0; let questionReads = 0; let metadataFails = false; let listFails = false;
+let generationPending = false;
+let acknowledgeGeneration;
+let announceGeneration;
+const generationStarted = new Promise((resolve) => { announceGeneration = resolve; });
 const requests = []; const unexpectedWrites = []; const pageErrors = [];
 const allowedWrites = [/^POST \/admin\/topics(?:\/bulk|\/bulk-delete|\/bulk-generate-questions|\/[^/]+\/questions|\/[^/]+\/generate-questions)$/, /^PATCH \/admin\/topics\/[^/]+(?:\/questions\/[^/]+)?$/, /^DELETE \/admin\/topics\/[^/]+(?:\/questions\/[^/]+)?$/, /^POST \/api\/(analytics\/events|error-logs)$/];
 
@@ -76,7 +80,11 @@ await page.route('**/*', async (route) => {
   }
   const generate = parsed.pathname.match(/^\/admin\/topics\/([^/]+)\/generate-questions$/);
   if (generate && method === 'POST') {
+    generationPending = true;
+    announceGeneration();
+    await new Promise((resolve) => { acknowledgeGeneration = resolve; });
     const topic = topics.find((item) => item.id === generate[1]); const mode = request.postDataJSON().mode;
+    generationPending = false;
     if (!topic) return json({ detail: 'not found' }, 404);
     if (mode === 'missing_only' && (questions.get(topic.id) || []).length) return json({ detail: 'already has questions' }, 409);
     const rows = generatedRows(topic, mode); return json({ topic_id: topic.id, topic_title: topic.title, mode, replaced_existing: mode === 'replace_all', question_count: rows.length, questions: rows });
@@ -110,7 +118,41 @@ await page.waitForURL((url) => url.searchParams.get('part') === '2' && !url.sear
 await page.getByRole('button', { name: /Travel and tourism/ }).click();
 await page.getByRole('heading', { name: 'Travel and tourism', exact: true }).waitFor();
 check('Part 2 topic hiển thị cả Part 2 và follow-up Part 3', await page.getByText('Part 2 · #1', { exact: true }).count() === 1 && await page.getByText('Part 3 · #1', { exact: true }).count() === 1);
+const topicTrigger = page.getByRole('button', { name: /Travel and tourism/ });
+const detailHeading = page.locator('#ast-detail-title');
+await detailHeading.focus();
+const detailCloseStart = requests.length;
+await page.keyboard.press('Escape');
+await page.waitForURL((url) => !url.searchParams.has('topic'));
+check('Escape đóng chi tiết, trả focus về topic và không tạo write', await topicTrigger.evaluate((node) => node === document.activeElement)
+  && !requests.slice(detailCloseStart).some((item) => item.path.startsWith('/admin/topics') && !['GET', 'HEAD', 'OPTIONS'].includes(item.method)));
+await topicTrigger.click();
+await detailHeading.waitFor();
 
+async function cancelEditorWithFocus(trigger, title, fieldLabel) {
+  const start = requests.length;
+  const originalUrl = page.url();
+  await trigger.click();
+  const editor = page.getByRole('dialog', { name: title, exact: true });
+  await editor.waitFor();
+  const focusedPanel = await editor.evaluate((node) => node === document.activeElement);
+  const close = editor.getByRole('button', { name: 'Đóng', exact: true });
+  const last = editor.getByRole('button').last();
+  await last.focus();
+  await page.keyboard.press('Tab');
+  const wrapsForward = await close.evaluate((node) => node === document.activeElement);
+  await page.keyboard.press('Shift+Tab');
+  const wrapsBackward = await last.evaluate((node) => node === document.activeElement);
+  await editor.getByLabel(fieldLabel).focus();
+  await page.keyboard.press('Escape');
+  await editor.waitFor({ state: 'hidden' });
+  check(`${title}: focus trong panel, Tab giữ bên trong, Escape trả đúng nút và không ghi`, focusedPanel && wrapsForward && wrapsBackward
+    && await trigger.evaluate((node) => node === document.activeElement) && page.url() === originalUrl
+    && !requests.slice(start).some((item) => item.path.startsWith('/admin/topics') && !['GET', 'HEAD', 'OPTIONS'].includes(item.method)));
+}
+
+await cancelEditorWithFocus(page.getByRole('button', { name: '+ Thêm topic', exact: true }), 'Thêm topic', 'Tên topic');
+await cancelEditorWithFocus(page.getByRole('button', { name: '+ Thêm câu hỏi', exact: true }), 'Thêm câu hỏi', 'Nội dung câu hỏi');
 const readsBeforeCreate = { list: listReads, questions: questionReads };
 await page.getByRole('button', { name: '+ Thêm câu hỏi' }).click();
 await page.getByLabel('Nội dung câu hỏi').fill('What makes a journey memorable?');
@@ -122,6 +164,7 @@ const createWrite = requests.find((item) => item.method === 'POST' && item.path 
 check('create question gửi đủ Part/type/order rồi canonical readback', createWrite?.body?.part === 3 && createWrite.body.question_type === 'opinion' && createWrite.body.order_num === 0 && listReads > readsBeforeCreate.list && questionReads > readsBeforeCreate.questions);
 
 const cueCard = page.locator('.ast-question').filter({ has: page.getByRole('heading', { name: 'Describe a memorable journey.' }) });
+await cancelEditorWithFocus(cueCard.getByRole('button', { name: 'Sửa', exact: true }), 'Sửa câu hỏi', 'Nội dung câu hỏi');
 await cueCard.getByRole('button', { name: 'Sửa' }).click();
 await page.getByLabel('Part thực tế').selectOption('3');
 await page.getByRole('button', { name: 'Lưu câu hỏi' }).click();
@@ -129,14 +172,38 @@ await page.getByText(/Đã cập nhật câu hỏi và đối chiếu lại từ
 const clearCueWrite = requests.find((item) => item.method === 'PATCH' && item.path === '/admin/topics/t2/questions/q2');
 check('đổi Part xoá cue-card metadata và audio cũ', clearCueWrite?.body?.part === 3 && !Object.hasOwn(clearCueWrite.body, 'question_text') && clearCueWrite.body.cue_card_bullets === null && clearCueWrite.body.cue_card_reflection === null && questions.get('t2')?.find((row) => row.id === 'q2')?.audio_path === null);
 
+const rotateTrigger = page.locator('.ast-detail__actions').getByRole('button', { name: 'AI thay toàn bộ', exact: true });
+const rotateDialog = page.getByRole('dialog', { name: 'Thay toàn bộ bộ câu hỏi?', exact: true });
+const cancelRotateStart = requests.length;
+await rotateTrigger.click();
+await rotateDialog.waitFor();
+const dialogFocused = await rotateDialog.evaluate((node) => node.contains(document.activeElement));
+await page.keyboard.press('Escape');
+await rotateDialog.waitFor({ state: 'hidden' });
+check('AI confirmation nhận focus; Escape huỷ, trả focus và không gọi AI', dialogFocused && await rotateTrigger.evaluate((node) => node === document.activeElement)
+  && !requests.slice(cancelRotateStart).some((item) => item.path.startsWith('/admin/topics') && !['GET', 'HEAD', 'OPTIONS'].includes(item.method)));
 const readsBeforeRotate = { list: listReads, questions: questionReads };
-await page.getByRole('button', { name: 'AI thay toàn bộ' }).first().click();
-await page.getByRole('dialog', { name: 'Thay toàn bộ bộ câu hỏi?' }).waitFor();
-await page.getByRole('button', { name: 'Thay toàn bộ', exact: true }).last().click();
-await page.getByText(/Đã thay toàn bộ bộ câu hỏi.*Đã đồng bộ trạng thái canonical/).waitFor();
-const rotateWrite = requests.find((item) => item.method === 'POST' && item.path === '/admin/topics/t2/generate-questions' && item.body?.mode === 'replace_all');
-check('destructive AI cần dialog, gửi replace_all và đọc lại hai nguồn', Boolean(rotateWrite) && listReads > readsBeforeRotate.list && questionReads > readsBeforeRotate.questions);
+const rotateRequestStart = requests.length;
+await rotateTrigger.click();
+await rotateDialog.waitFor();
+await rotateDialog.getByRole('button', { name: 'Thay toàn bộ', exact: true }).click();
+await generationStarted;
+await rotateDialog.getByRole('button', { name: 'Đang xử lý…', exact: true }).waitFor();
+await page.keyboard.press('Escape');
+check('AI đang chờ ACK khoá nút và Escape không đóng confirmation', generationPending && await rotateDialog.isVisible()
+  && await rotateDialog.getByRole('button', { name: 'Đang xử lý…', exact: true }).isDisabled());
+acknowledgeGeneration();
+await page.getByText(/Đã thay toàn bộ bộ câu hỏi.*Đã đối chiếu trạng thái đã lưu/).waitFor();
+const rotateRequests = requests.slice(rotateRequestStart);
+const rotateWrites = rotateRequests.filter((item) => item.method === 'POST' && item.path === '/admin/topics/t2/generate-questions' && item.body?.mode === 'replace_all');
+check('destructive AI cần dialog, gửi replace_all và đọc lại hai nguồn', rotateWrites.length === 1 && listReads > readsBeforeRotate.list && questionReads > readsBeforeRotate.questions
+  && rotateRequests.some((item) => item.method === 'GET' && item.path === '/admin/topics')
+  && rotateRequests.some((item) => item.method === 'GET' && item.path === '/admin/topics/t2/questions')
+  && await page.locator('.ast-question').count() === 2
+  && await page.getByRole('heading', { name: 'Describe a generated topic.', exact: true }).count() === 1
+  && await page.getByRole('heading', { name: 'What is the wider impact?', exact: true }).count() === 1);
 
+await cancelEditorWithFocus(page.getByRole('button', { name: 'Thêm hàng loạt', exact: true }), 'Thêm nhiều topic · Part 2', 'Danh sách topic');
 const readsBeforeBulkCreate = listReads;
 await page.getByRole('button', { name: 'Thêm hàng loạt' }).click();
 await page.getByLabel('Danh sách topic').fill('Environment\nPublic services');
@@ -161,9 +228,11 @@ const readsBeforeBulkDelete = listReads;
 await page.locator('.ast-bulkbar').getByRole('button', { name: 'Xoá', exact: true }).click();
 await page.getByRole('dialog', { name: 'Xoá 2 topic?' }).waitFor();
 await page.getByRole('button', { name: 'Xoá các topic' }).click();
-await page.getByText(/Đã xoá 2\/2 topic.*Đã đồng bộ trạng thái canonical/).waitFor();
+await page.getByText(/Đã xoá 2\/2 topic.*Đã đối chiếu trạng thái đã lưu/).waitFor();
 const bulkDeleteWrite = requests.find((item) => item.method === 'POST' && item.path === '/admin/topics/bulk-delete');
-check('bulk delete cần dialog và xác nhận biến mất qua GET', bulkDeleteWrite?.body?.topic_ids.includes('bulk-0') && bulkDeleteWrite.body.topic_ids.includes('bulk-1') && listReads > readsBeforeBulkDelete && !topics.some((topic) => topic.id === 'bulk-0' || topic.id === 'bulk-1'));
+check('bulk delete cần dialog và xác nhận biến mất qua GET', bulkDeleteWrite?.body?.topic_ids.includes('bulk-0') && bulkDeleteWrite.body.topic_ids.includes('bulk-1') && listReads > readsBeforeBulkDelete && !topics.some((topic) => topic.id === 'bulk-0' || topic.id === 'bulk-1')
+  && await page.getByRole('button', { name: /^Environment/ }).count() === 0
+  && await page.getByRole('button', { name: /^Public services/ }).count() === 0);
 
 metadataFails = true;
 await page.getByRole('button', { name: 'Làm mới' }).click();
@@ -183,6 +252,7 @@ await page.locator('.ast-table').first().waitFor({ state: 'visible' });
 check('desktop dùng bảng, detail hai cột và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.ast-table')).display === 'table' && getComputedStyle(document.querySelector('.ast-workspace')).gridTemplateColumns.split(' ').length === 2 && document.documentElement.scrollWidth <= innerWidth));
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
+console.log(JSON.stringify({ topicWrites: requests.filter((item) => item.path.startsWith('/admin/topics') && !['GET', 'HEAD', 'OPTIONS'].includes(item.method)), listReads, questionReads, unexpectedWrites }, null, 2));
 
 await browser.close();
 const failed = results.filter((item) => !item.ok);

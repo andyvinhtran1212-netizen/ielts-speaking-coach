@@ -34,7 +34,7 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, difficulty, tag, offset, retryToken\]/);
+    assert.match(BEHAVIOR, /\[accountKey, difficulty, tag, batches, retryToken\]/);
   });
 
   test('preserves the canonical filtered read with abort cleanup', () => {
@@ -42,15 +42,15 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /query\.set\('tag', tag\)/);
     assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_SIZE\)\)/);
     assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
-    assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
+    assert.match(BEHAVIOR, /window\.api!?\.getWith<unknown>/);
     assert.match(BEHAVIOR, /`\/api\/reading\/vocab\?\$\{query\.toString\(\)\}`/);
     assert.match(BEHAVIOR, /new AbortController\(\)/);
     assert.match(BEHAVIOR, /signal: controller\.signal/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
-    assert.match(BEHAVIOR, /normalizeTotal\(payload, offset \+ passages\.length\)/);
+    assert.match(BEHAVIOR, /normalizeTotal\(payload, offset \+ next\.length\)/);
     assert.match(BEHAVIOR, /total > shown[\s\S]*đang hiển thị/);
     assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{total\}\)/);
-    assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_SIZE\)/);
+    assert.match(BEHAVIOR, /readingVocabHref\(\{ \.\.\.latest, batches: latest\.batches \+ 1 \}\)/);
     assert.match(BEHAVIOR, /Chưa tải được trang tiếp theo/);
     assert.match(LEGACY_BEHAVIOR, /const PAGE_SIZE = 24/);
     assert.match(LEGACY_BEHAVIOR, /qs\.set\('offset', String\(STATE\.offset\)\)/);
@@ -61,7 +61,7 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /if \(!Array\.isArray\(items\)\) return \[\]/);
     assert.match(BEHAVIOR, /if \(!slug\) return \[\]/);
     assert.match(BEHAVIOR, /new Set\(raw\.topic_tags\.map\(textValue\)\.filter\(Boolean\)\)/);
-    assert.match(BEHAVIOR, /encodeURIComponent\(passage\.slug\)/);
+    assert.match(BEHAVIOR, /readingVocabArticleHref\(passage\.slug, context\)/);
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
 
@@ -82,8 +82,8 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /id="rv-result-count"[^>]*aria-live="polite"/);
     assert.match(BEHAVIOR, /id="clear-filters"/);
     assert.match(BEHAVIOR, /hidden=\{!hasFilters\}/);
-    assert.match(BEHAVIOR, /setDifficulty\(''\)[\s\S]*setTag\(''\)/);
-    assert.match(BEHAVIOR, /\/reading\/vocab\/\$\{encodeURIComponent\(passage\.slug\)\}/);
+    assert.match(BEHAVIOR, /changeFilters\(\{ difficulty: '', tag: '' \}\)/);
+    assert.match(BEHAVIOR, /readingVocabArticleHref\(passage\.slug, context\)/);
     assert.doesNotMatch(BEHAVIOR, /\/pages\/reading-vocab-passage\.html\?slug=/);
   });
 

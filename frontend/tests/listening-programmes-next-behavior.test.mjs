@@ -40,7 +40,7 @@ test('programme runner autosaves and routes to self-review', () => {
   assert.ok(runner.includes('/guided-state'));
   assert.ok(runner.includes('/reveal'));
   assert.match(runner, /await queue\.flush\(\[\{ qNum, value \}\]\)/);
-  assert.match(runner, /\/listening\/programmes\/result\/\$\{state\.attemptId\}/);
+  assert.match(runner, /window\.location\.assign\(listeningProgrammeResultHref\(state\.form\.programmeId, state\.attemptId, params \|\| undefined\)\)/);
   assert.match(runner, /createProgrammeAnswerWriteQueue/);
   assert.match(runner, /createProgrammeAnswerDraftStore/);
   assert.match(runner, /draftStore\.current\?\.remember\(qNum, value\)/);
@@ -82,7 +82,7 @@ test('report-only result never presents an IELTS band', () => {
 
 test('historical results return to the current programme library, not an archived lesson', () => {
   const result = read('app', '(authed-listening-review)', 'listening', 'programmes', 'result', '[attemptId]', 'programme-result.tsx');
-  assert.match(result, /const libraryPath = programmeLibraryPath\(result\.programmeId\)/);
+  assert.match(result, /libraryPath = result\.programmeId === 'ielts-80-days-listening'\s*\? programmeLibraryPath\(result\.programmeId\)\s*: listeningProgrammeReturnHref\(result\.programmeId, params \|\| undefined\)/);
   assert.match(result, /href=\{libraryPath\}>← Thư viện chương trình/);
   assert.equal(programmeLibraryPath('general-listening-practice'), '/listening/general');
   assert.equal(programmeLibraryPath('ielts-listening-practice'), '/listening/ielts');
@@ -97,7 +97,7 @@ test('programme UI has complete loading error empty and partial-data states', ()
   assert.match(library, /Không tải được thư viện/);
   assert.match(library, /Chưa có bài học ở trạng thái này/);
   assert.match(library, /Tiến độ có thể chưa đầy đủ/);
-  assert.match(library, /`\/listening\/\$\{programmePath\}\/\$\{lesson\.id\}`/);
+  assert.match(library, /listeningLessonHref\(programmePath, lesson\.id, \{ filter \}\)/);
   assert.match(library, /showIeltsModes/);
   assert.match(library, /IELTS_MODES/);
   assert.match(library, /lessonError/);

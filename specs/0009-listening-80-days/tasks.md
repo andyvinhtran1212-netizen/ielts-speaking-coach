@@ -36,14 +36,18 @@ consolidation is prepared in a separate CI checkout with observed staging
 preserving the app and the immutable source release. The unchanged whole
 migration256 module passed all26 cases on the same Linux VM clock, with zero
 skips and six strict Python/SQL clock brackets. Final review and exact-head CI
-are still required. Staging subsequently advanced to `2b7fa5b6`; its accepted
-Listening navigation/admin changes require integration before the final push.
+are still required. Accepted staging `2b7fa5b6` has now been integrated while
+retaining source-day links and generic library context. Final local frontend
+9331, React65, types/build and native Mock36/guided6/context86 pass. The host
+backend full result9513/38/3 retains the same clock-sensitive failures; the
+actual same-clock26 supplement does not certify a full Ubuntu backend run.
 
 Staging migration304, the genuine complete-row pre-import baseline and two fresh
 synthetic learner accounts have been verified. The V3 bounded immutable transfer
 terminated after two network failures: 44 new assets were verified, bringing the
 receipt total to 484 of 663; 179 remain unconfirmed in that terminal receipt.
-The independently accepted V4 remainder uploader is now running; its partial
+The independently accepted V4 remainder uploader has reported a failure and
+is draining already submitted workers; it has not been restarted. Its partial
 progress does not replace a terminal asset receipt. Partial asset receipts do
 not prove a completed package. Hosted
 canonical import/readback/retry, exact staging

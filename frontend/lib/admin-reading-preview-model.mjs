@@ -1,3 +1,5 @@
+import { adminReadingSearch } from './admin-reading-navigation.mjs';
+
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
 const optionalText = (value) => textOf(value) || null;
@@ -141,8 +143,14 @@ export function normalizeReadingImageDeleteAck(raw, questionId) {
   return value && textOf(value.question_id) === questionId && typeof value.deleted === 'boolean' ? { deleted: value.deleted } : null;
 }
 
-export function readingPreviewHref(testId, questionNumber = null) {
+/** @param {unknown} testId @param {unknown} questionNumber @param {object | null} context */
+export function readingPreviewHref(testId, questionNumber = null, context = null) {
   const qNum = integerOf(questionNumber);
   const anchor = qNum != null && qNum >= 1 ? `#q${qNum}` : '';
-  return `/admin/reading/preview?test_id=${encodeURIComponent(textOf(testId))}${anchor}`;
+  const query = new URLSearchParams({ test_id: textOf(testId) });
+  if (context) {
+    query.set('from', 'reading-content');
+    for (const [key, value] of new URLSearchParams(adminReadingSearch(context))) query.set(key, value);
+  }
+  return `/admin/reading/preview?${query.toString().replace(/\+/g, '%20')}${anchor}`;
 }

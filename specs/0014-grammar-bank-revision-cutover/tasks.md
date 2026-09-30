@@ -13,6 +13,9 @@
 - [ ] Add backward-compatible migration and actual PostgreSQL race/restore tests.
 - [ ] Implement bounded admin preview/CAS/cutover/readback models/service/routes.
 - [ ] Add managed-bank safeguards at all actual write boundaries.
+- [ ] Preserve migration119 canonical account erasure under the cutover scope;
+      prove absent-owner-only child FK exceptions, live-owner refusal, no other
+      owner/content/receipt changes and concurrent erasure/cutover serialization.
 - [ ] Prove cohort classification and immutable new-session provenance on PG;
       block unknown cohorts before publication, atomically consume admission at
       first canonical all-mastery progress, retain parallel attempt history

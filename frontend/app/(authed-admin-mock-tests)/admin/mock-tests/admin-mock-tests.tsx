@@ -180,6 +180,40 @@ export function AdminMockTests() {
     };
   }, [frame]);
 
+  useEffect(() => {
+    if (tab !== 'review') return;
+    const node = frameRef.current;
+    if (!node) return;
+    let resize: ResizeObserver | null = null;
+    let pendingContent: MutationObserver | null = null;
+    const observeReview = () => {
+      resize?.disconnect(); pendingContent?.disconnect();
+      try {
+        const document = node.contentDocument;
+        if (!document) return;
+        const attach = () => {
+          const main = document.querySelector<HTMLElement>('.mrr-shell');
+          if (!main) return false;
+          pendingContent?.disconnect();
+          const syncHeight = () => {
+            // Native review grows with its roster/detail; the outer page owns
+            // vertical scrolling after the child admin gate has finished.
+            node.style.height = `${Math.ceil(main.offsetTop + main.scrollHeight + 16)}px`;
+          };
+          resize = new ResizeObserver(syncHeight);
+          resize.observe(main); syncHeight();
+          return true;
+        };
+        if (!attach()) {
+          pendingContent = new MutationObserver(attach);
+          pendingContent.observe(document.documentElement, { childList: true, subtree: true });
+        }
+      } catch { /* Only same-origin native review content can be measured. */ }
+    };
+    node.addEventListener('load', observeReview); observeReview();
+    return () => { resize?.disconnect(); pendingContent?.disconnect(); node.removeEventListener('load', observeReview); node.style.height = ''; };
+  }, [frame, frameEpoch, tab]);
+
   const activateTab = (next: Tab) => {
     if (next === tab) setFrameEpoch((current) => current + 1);
     // A URL exam_id is an explicit deep link only while entering that URL.
@@ -234,7 +268,7 @@ export function AdminMockTests() {
           ['03', 'Phòng live', 'Mở phần & theo dõi', 'live'],
           ['04', 'Thu bài', 'Sweep & đối chiếu', 'live'],
           ['05', 'Chấm nháp', 'Nhận hồ sơ & chốt band', 'review'],
-          ['06', 'Trả kết quả', 'Công bố canonical', 'review'],
+          ['06', 'Trả kết quả', 'Công bố kết quả đã duyệt', 'review'],
         ].map(([number, label, description, owner]) => <div className={`aop-workflow__step${tab === owner ? ' is-current' : ''}`} key={number}><b>{number}</b><span><strong>{label}</strong><small>{description}</small></span></div>)}
       </nav>
 

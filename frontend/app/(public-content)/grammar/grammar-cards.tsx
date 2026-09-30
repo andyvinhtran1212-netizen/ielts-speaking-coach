@@ -10,6 +10,7 @@
 // (search, roadmap, compare, exercises) dùng lại chính các thẻ này.
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { grammarArticleHref } from '@/lib/grammar-navigation-context.mjs';
 import type {
   GrammarGroupsWire,
   GrammarHomeWire,
@@ -26,8 +27,8 @@ export type Group = GrammarGroupsWire[number];
 const GROUP_ARTICLE_PREVIEW = 5;
 
 /** URL sạch của bài viết — nay là route Next canonical (pilot 2, 28/07). */
-export const articleUrl = (category: string, slug: string) =>
-  `/grammar/${encodeURIComponent(category)}/${encodeURIComponent(slug)}`;
+export const articleUrl = (category: string, slug: string, source = '') =>
+  grammarArticleHref(category, slug, source);
 
 // Bảng màu nhóm: cố ý dùng inline style, y như legacy — Tailwind JIT không
 // sinh được class từ dữ liệu runtime.

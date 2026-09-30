@@ -63,11 +63,18 @@ export function normalizeGrammarArticlesPayload(value) {
 }
 
 export function normalizeGrammarPreview(value, expectedSlug) {
+  if (grammarPreviewError(value, expectedSlug)) return null;
   const payload = record(value);
   const slug = text(payload?.slug);
-  const html = typeof payload?.html === 'string' ? payload.html : null;
-  if (!slug || slug !== expectedSlug || html == null) return null;
-  return { slug, html };
+  return { slug, html: payload.html };
+}
+
+export function grammarPreviewError(value, expectedSlug) {
+  const payload = record(value);
+  if (!payload) return 'Phản hồi xem trước không hợp lệ.';
+  if (text(payload.slug) !== expectedSlug) return 'Preview không đúng bài đang chọn.';
+  if (typeof payload.html !== 'string') return 'Phản hồi xem trước thiếu nội dung HTML của bài.';
+  return null;
 }
 
 export function grammarStudentHref(category, slug) {

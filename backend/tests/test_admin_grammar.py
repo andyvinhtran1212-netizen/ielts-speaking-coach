@@ -90,7 +90,22 @@ class _FakeGrammarService:
         self.articles_by_slug = {a["slug"]: a for a in articles}
 
     def get_article_by_slug(self, slug: str):
-        return self.articles_by_slug.get(slug)
+        article = self.articles_by_slug.get(slug)
+        return {key: value for key, value in article.items() if key != 'html'} if article else None
+
+    def get_article(self, category: str, slug: str):
+        article = self.articles_by_slug.get(slug)
+        if not article or article['category'] != category:
+            return None
+        from models.grammar_content import GrammarArticleDocument
+        return GrammarArticleDocument.model_validate({
+            'level': '', 'difficulty': '', 'band_relevance': [],
+            'speaking_relevance': '', 'writing_relevance': '', 'pathways': [],
+            'common_error_tags': [], 'reading_time': 1, 'last_updated': '',
+            'status': 'complete', 'word_count': 4, 'toc': [], 'anchors': [],
+            'learning_blocks': [], 'prerequisites': [], 'compare_with': [],
+            'related_pages': [], 'next_articles': [], **article,
+        }).model_dump()
 
     def find_best_match(self, issue: str):
         # Trivial deterministic matcher for tests: exact substring on title.
@@ -259,6 +274,33 @@ class TestArticlePreview:
     def test_preview_missing_slug_returns_404(self, client):
         r = client.get("/admin/grammar/articles/does-not-exist/preview", headers=_ADMIN_AUTH)
         assert r.status_code == 404
+
+    def test_preview_reads_full_document_from_real_markdown_service(self, client, tmp_path, monkeypatch):
+        from services import grammar_content
+        from models.grammar_content import GrammarArticleDocument
+
+        category = tmp_path / 'tenses'
+        category.mkdir()
+        (category / 'past-perfect.md').write_text(
+            '---\nslug: past-perfect\ncategory: tenses\ntitle: Past Perfect\n'
+            'summary: Reference article\nstatus: complete\n---\n'
+            '# Past Perfect\n\nA real Markdown body with **had finished**.\n',
+            encoding='utf-8',
+        )
+        groups = tmp_path / '_groups.yaml'
+        groups.write_text('groups:\n  - id: tenses\n    title: Tenses\n    articles:\n      - slug: past-perfect\n        category: tenses\n', encoding='utf-8')
+        monkeypatch.setattr(grammar_content, 'CONTENT_DIR', tmp_path)
+        monkeypatch.setattr(grammar_content, 'GROUPS_FILE', groups)
+        monkeypatch.setattr(grammar_content, 'MAPPING_FILE', tmp_path / 'absent-mapping.yaml')
+        service = grammar_content.GrammarContentService()
+        assert 'html' not in service.get_article_by_slug('past-perfect')
+        monkeypatch.setattr(grammar_content, 'grammar_service', service)
+
+        response = client.get('/admin/grammar/articles/past-perfect/preview', headers=_ADMIN_AUTH)
+        assert response.status_code == 200, response.text
+        document = GrammarArticleDocument.model_validate(response.json())
+        assert document.slug == 'past-perfect' and document.category == 'tenses'
+        assert '<strong>had finished</strong>' in document.html
 
 
 # ── GET /admin/grammar/analytics ──────────────────────────────────

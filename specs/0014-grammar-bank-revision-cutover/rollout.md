@@ -9,7 +9,10 @@
 
 2. Apply additive migration on staging with unmanaged default fields. Do not
    cut over or rewrite content during migration. Verify N-1 ordinary quiz writes
-   and reads unchanged, then managed safeguards in synthetic tests.
+   and reads unchanged, then managed safeguards in synthetic tests. Verify real
+   canonical account erasure, live-owner direct-delete rejection and concurrent
+   erasure/cutover serialization. Bank/questions, other owners and private
+   receipt hashes must remain unchanged; erased ownership grants no continuation.
 3. Deploy compatible backend/frontend to staging. Actual PostgreSQL races,
    old open/paused continuation, preserved completed history, loss/retry and
    current-article resolution must pass on exact deployed SHAs.

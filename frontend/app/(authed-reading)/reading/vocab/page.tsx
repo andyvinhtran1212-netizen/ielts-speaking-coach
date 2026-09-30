@@ -1,5 +1,6 @@
 // Trang Vocab Reading trên Next — `/reading/vocab`.
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 
 import { ReadingVocabBehavior } from './reading-vocab-behavior';
 
@@ -15,7 +16,7 @@ export default function ReadingVocabPage() {
       {/* Chrome chung. Layout chỉ NẠP script; phần tử phải do từng trang dựng. */}
       {/* @ts-ignore */}
       <aver-chrome active="reading" />
-      <ReadingVocabBehavior />
+      <Suspense fallback={<div role="status">Đang khôi phục lựa chọn…</div>}><ReadingVocabBehavior /></Suspense>
     </>
   );
 }

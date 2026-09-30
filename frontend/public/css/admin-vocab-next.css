@@ -157,6 +157,7 @@
 .avv-scope-control select, .avv-create-card input, .avv-topic-form input, .avv-topic-form textarea, .avv-import-card select { width: 100%; min-height: 42px; box-sizing: border-box; padding: 9px 11px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); background: var(--av-surface-card); color: var(--av-text-primary); font: inherit; letter-spacing: normal; text-transform: none; }
 .avv-topic-layout { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 22px; align-items: start; }
 .avv-topic-rail { display: grid; gap: 18px; }
+.avv-topic-rail, .avv-topic-detail, .avv-topic-form label { min-width: 0; }
 .avv-create-card, .avv-topic-detail, .avv-import-card, .avv-preview-card { padding: 20px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg); background: var(--av-surface-card); }
 .avv-create-card { display: grid; gap: 14px; }
 .avv-create-card h2, .avv-topic-list h2, .avv-topic-detail h2, .avv-import-card h2, .avv-preview-card h2, .avv-bank-catalog h2 { margin: 3px 0 0; font-size: 1.2rem; letter-spacing: -.02em; }
@@ -187,7 +188,8 @@
 .avv-linked-section h3 { margin: 3px 0 0; font-size: 1rem; }
 .avv-linked-section a.btn-secondary { text-decoration: none; }
 .avv-bank-list { display: grid; gap: 9px; }
-.avv-bank-list article { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); background: var(--av-surface-sunken); }
+.avv-bank-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); background: var(--av-surface-sunken); }
+.avv-bank-list article > div:first-child { min-width: 0; overflow-wrap: anywhere; }
 .avv-bank-list article > div:first-child strong, .avv-bank-list article > div:first-child span { display: block; }
 .avv-bank-list article > div:first-child span { margin-top: 3px; color: var(--av-text-muted); font-size: .76rem; }
 .avv-bank-list article > div:last-child { display: flex; gap: 6px; }

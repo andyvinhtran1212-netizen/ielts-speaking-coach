@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, RefObject } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { components } from '@/types/api';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import {
@@ -17,7 +18,8 @@ type User = { id: string; email: string | null; displayName: string | null };
 type Row = { id: string; user: User; totalSentences: number; correctCount: number; accuracy: number; sectionNumber: number | null; durationSeconds: number | null; testId: string | null; sectionTitle: string | null; completedAt: string | null; createdAt: string | null };
 type Sentence = { index: number; reference: string; userText: string; score: number; correctWords: number; totalWords: number; listenCount: number | null; timeSeconds: number | null; ops: { miss: number; wrong: number; extra: number } };
 type Detail = Row & { totalWords: number; correctWords: number; sentences: Sentence[]; malformedSentenceCount: number; missingSentenceCount: number; opCounts: { miss: number; wrong: number; extra: number } | null; associationLookupFailed: boolean; associationLookupFailures: string[] };
-type Aggregate = { sessionCount: number; meanAccuracy: number; topMissed: Array<{ label: string; count: number }>; topWrong: Array<{ label: string; count: number }>; malformedWordCount: number };
+type AggregateWire = components['schemas']['DictationAggregateResponse'];
+type Aggregate = NonNullable<ReturnType<typeof normalizeDictationAggregate>>;
 type ListSnapshot = { key: string; rows: Row[]; total: number; malformedCount: number; associationLookupFailed: boolean; associationLookupFailures: string[]; readAt: string };
 type AggregateState = { key: string; phase: 'loading' } | { key: string; phase: 'ready'; value: Aggregate } | { key: string; phase: 'error'; message: string };
 type DetailState = { key: string; phase: 'loading' } | { key: string; phase: 'ready'; value: Detail } | { key: string; phase: 'error'; message: string };
@@ -86,7 +88,7 @@ export function AdminListeningDictation() {
     const owner = aggregateKey;
     setAggregate({ key: owner, phase: 'loading' });
     try {
-      const normalized = normalizeDictationAggregate(await window.api.get<unknown>(`/admin/listening/dictation-reports/aggregate?${queryForScope(false)}`)) as Aggregate | null;
+      const normalized = normalizeDictationAggregate(await window.api.get<AggregateWire>(`/admin/listening/dictation-reports/aggregate?${queryForScope(false)}`));
       if (!normalized) throw new Error('Phản hồi tổng hợp không đúng contract canonical.');
       if (request !== aggregateSequence.current || aggregateScope.current !== owner) return;
       setAggregate({ key: owner, phase: 'ready', value: normalized });
@@ -171,16 +173,26 @@ function AggregatePanel({ state, expectedKey, onRetry }: { state: AggregateState
   if (!current || current.phase === 'loading') return <section className="aldict-aggregate" aria-label="Tổng hợp dictation"><div className="aldict-state" role="status">Đang tính tổng hợp cùng phạm vi lọc…</div></section>;
   if (current.phase === 'error') return <section className="aldict-aggregate" aria-label="Tổng hợp dictation"><div className="alc-banner is-error" role="alert"><strong>Không tải được tổng hợp</strong><span>{current.message}</span><button className="adm-btn-secondary" type="button" onClick={onRetry}>Thử lại tổng hợp</button></div></section>;
   const value = current.value;
+  const emptyTrend = value.trendUnavailableSessions
+    ? (value.trendCompleteSessions ? 'Chưa ghi nhận trong các phiên đủ dữ liệu lỗi.' : 'Chưa có dữ liệu lỗi đầy đủ để kết luận.')
+    : 'Chưa ghi nhận lỗi loại này trong bảng đếm đã lưu.';
   return <section className="aldict-aggregate" aria-labelledby="aldict-aggregate-title">
     <div className="aldict-aggregate__head"><div><p className="alc-eyebrow">Aggregate</p><h3 id="aldict-aggregate-title">Tín hiệu trong phạm vi hiện tại</h3></div><span>Không lấy mẫu; backend đọc hết các trang dữ liệu.</span></div>
     {!!value.malformedWordCount && <div className="alc-banner is-warning" role="status"><strong>Từ lỗi sai contract</strong><span>Đã loại {value.malformedWordCount} mục trend không hợp lệ.</span></div>}
     <div className="aldict-kpis"><article><span>Số phiên</span><strong>{value.sessionCount}</strong><small>phiên hoàn tất</small></article><article><span>Chính xác trung bình</span><strong>{value.sessionCount ? `${Math.round(value.meanAccuracy * 100)}%` : '—'}</strong><small>{value.sessionCount ? accuracyLabel(value.meanAccuracy) : 'Chưa có dữ liệu'}</small></article></div>
-    <div className="aldict-trends"><WordTrend title="Từ hay bỏ sót" rows={value.topMissed} /><WordTrend title="Từ hay viết sai" rows={value.topWrong} /></div>
+    <p>Trung bình điểm các câu trong từng phiên, rồi trung bình các phiên. Không phải tỷ lệ tổng số từ đúng.</p>
+    {!!value.trendUnavailableSessions && <p role="status">{value.trendUnavailableSessions}/{value.sessionCount} phiên thiếu bảng lỗi đầy đủ. Danh sách từ và dấu câu chỉ tổng hợp {value.trendCompleteSessions} phiên đủ dữ liệu; điểm trung bình vẫn dùng toàn bộ các phiên.</p>}
+    <div className="aldict-trends"><WordTrend title="Từ hay bỏ sót" rows={value.topMissed} emptyNote={emptyTrend} /><WordTrend title="Từ hay viết sai" rows={value.topWrong} emptyNote={emptyTrend} /></div>
+    {value.punctuationClassified ? <details><summary>Dấu câu trong dữ liệu chấm cũ · {value.punctuationMissedTotal} bỏ sót / {value.punctuationWrongTotal} viết sai</summary>
+      <p>Dấu câu được tách khỏi danh sách từ cần luyện. Số đếm lấy từ bảng lỗi đã lưu, có thể không gồm dấu câu mà cách chấm cũ bỏ qua. Điểm và báo cáo từng phiên được giữ nguyên.</p>
+      <div className="aldict-trends"><WordTrend title="Dấu câu bỏ sót" rows={value.punctuationMissed} emptyNote={emptyTrend} /><WordTrend title="Dấu câu viết sai" rows={value.punctuationWrong} emptyNote={emptyTrend} /></div>
+      {!!(value.missingTokenMissedTotal || value.missingTokenWrongTotal) && <p role="status">Bảng đếm có token trống: {value.missingTokenMissedTotal} bỏ sót / {value.missingTokenWrongTotal} viết sai; cần kiểm tra dữ liệu nguồn.</p>}
+    </details> : <p role="status">Máy chủ chưa cung cấp phân loại từ và dấu câu; danh sách đang hiển thị số liệu theo cách chấm cũ.</p>}
   </section>;
 }
 
-function WordTrend({ title, rows }: { title: string; rows: Array<{ label: string; count: number }> }) {
-  return <article><h4>{title}</h4>{rows.length ? <ul>{rows.map((row) => <li key={row.label}><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul> : <p>Chưa có lỗi loại này trong phạm vi.</p>}</article>;
+function WordTrend({ title, rows, emptyNote }: { title: string; rows: Array<{ label: string; count: number }>; emptyNote: string }) {
+  return <article><h4>{title}</h4>{rows.length ? <ul>{rows.map((row) => <li key={row.label}><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul> : <p>{emptyNote}</p>}</article>;
 }
 
 function ReportRow({ row, lookupFailed, selected, onSelect }: { row: Row; lookupFailed: boolean; selected: boolean; onSelect: (id: string) => void }) {

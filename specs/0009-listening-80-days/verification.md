@@ -53,7 +53,7 @@ for preparation only, not published content or completed semantic review.
   original explicit-study content. Actual CI at `e694fa57` failed because
   Ubuntu lacked `ffprobe`, and a pre-existing Mock browser fixture mixed
   countdown with intentional canonical-poll recovery. The final consolidation
-  in a separate checkout integrates observed staging `d276085e`, adds the real
+  in a separate checkout integrates accepted staging `2b7fa5b6`, adds the real
   OS audio dependency and isolates the fixture's recovery signals. It changes
   neither the Mock app nor the frozen release. Final independent review and
   exact-head CI remain required; merge/publication are held.
@@ -63,29 +63,31 @@ for preparation only, not published content or completed semantic review.
   sandbox frontend run failed on localhost binding; the permitted rerun passed.
   Skips do not certify live service contracts. Logs are bound in the external
   runtime reset audit, not treated as staging or production evidence.
-- Final consolidation local evidence: actual merged OpenAPI generation is
-  byte-identical to the automatically merged types, and all35 Listening path
-  blocks retain their accepted bytes. Strict/legacy types, React39 and the
-  production build pass. The final Mock verifier passes36 cases, retaining its
-  original35 assertions plus explicit canonical-poll recovery; a paused-clock
-  trace separates countdown, online and poll signals. The existing generic
-  programme player passes all6 light/dark and375/768/1440 browser cases. These
-  are isolated local fixtures, not authenticated source-collection journeys.
-  The host full backend run is9494 passed /38 skipped /3 failed in unchanged
-  migration256 tests; an observed DB clock ahead of the Python host invalidates
-  their common-clock premise. The unchanged whole module subsequently passed
-  all26 cases with zero failures/errors/skips on the same Linux VM clock, with
-  six strict Python/SQL brackets and identical1631 source hashes before/after.
-  The exact owned runner was removed. This does not convert that full run into PASS;
-  complete exact-head Ubuntu CI must pass. Final frontend verification is
-  passed9293 cases with0 skips after restoring the build-generated fixture
-  config to its committed unconfigured default; no generated test endpoint
-  belongs in the patch. The earlier run's two default-config assertions failed
-  solely because the local build had generated fixture endpoints; that failure
-  and the actual restored rerun are retained in separate logs. These final
-  candidate gates bind the `d276085e` integration. Staging then advanced to
-  `2b7fa5b6`, including accepted Listening navigation/admin changes; its
-  integration and affected final gates remain pending before the final push.
+- Final consolidation local evidence now binds accepted staging `2b7fa5b6`.
+  Three navigation conflicts were resolved by retaining canonical source-day
+  and source-collection links while preserving incoming General/IELTS library
+  context. Two appended React cases prove foreign query parameters cannot
+  change source links or create extra admission/save/reveal/read operations.
+  Targeted Node38 and React20 pass. Actual merged OpenAPI generation is
+  byte-identical to the automatically merged types, SHA-256
+  `e0a4d89ce9afe8942c043550fcd59f746c60e0e9789866d664c557734836cd2a`.
+  Full frontend9331/zero skips, React65, strict/legacy types and build pass.
+  Final native browser fixtures pass Mock36, guided programme6 and incoming
+  programme-context86. Their dedicated servers were stopped, unrelated
+  sessions preserved, and generated runtime config restored to the exact
+  committed unconfigured default. These are local synthetic fixtures, not
+  authenticated source-collection journeys.
+  The final host full backend run is9513 passed /38 skipped /3 failed in the
+  same unchanged migration256 clock-sensitive cases. Its earlier `d276085e`
+  run was9494/38/3. The unchanged whole module passed26/zero failures/errors/
+  skips on the same Linux VM clock, with six strict Python/SQL brackets and
+  identical1631 source hashes before/after; the exact owned runner was removed.
+  This supplemental module does not convert either full host run into PASS;
+  complete exact-head Ubuntu CI must pass. Earlier `d276085e` frontend9293,
+  React39 and build/native evidence remains historical. Its two default-config
+  assertions failed only while fixture endpoints were generated; the failure
+  and the restored rerun remain recorded. Final Round5 acceptance and exact-head
+  CI are still required before merge/publication.
 - Full80 local package and independent source/projection/package review: PASS.
   Package `80-days-listening-source-v1`, manifest SHA-256
   `29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841`.
@@ -117,7 +119,9 @@ for preparation only, not published content or completed semantic review.
   `not_found` with an underlying HTTP400, which the V3 retry classifier rejected.
   No package RPC was called. The independently accepted V4 uploader now handles
   the exact179 remainder, including the two failures, with at most3 workers and
-  two canonical calls per asset. Partial live counters are not terminal receipts.
+  two canonical calls per asset. V4 has reported one failure and is draining
+  already submitted workers; no new submission or restart is inferred. Partial
+  live counters are not terminal receipts.
   Completed unpublished
   import/retry and fresh all663 asset/full-row readbacks remain pending;
   partial receipts are not a package completion certificate.
@@ -129,6 +133,7 @@ for preparation only, not published content or completed semantic review.
 - `80-days-listening-preview/phase-2-review/full80-independent-package-review.json`: independent actual full80/native package acceptance, SHA-256 `2bb1e65b72d890ecefa1e12a02593870cb004324d6d7dc7875967f78f7a35a4e`.
 - `80-days-listening-releases/source-v1-20260930`: frozen local release; external `source-v1-20260930-dry-run.json` records actual pure importer result.
 - `80-days-listening-preview/phase-2-review/full80-local-postgres-projection.json`: actual complete local RPC created/reused/rollback evidence.
+- `80-days-listening-preview/phase-2-review/round5-2b7-native-browser-evidence.json`: actual final local Mock36/guided6/context86 evidence and owned stop receipts, SHA-256 `1d3352fb4d64ac452c69e322af21e367e6094f1ab5c920278abfed9280af57f3`.
 - `80-days-listening-qa/round5-module256-vm-root-r2-20260930/module256-root-result.json`: actual unchanged26-case local same-clock module evidence, SHA-256 `1c75906a7fd56c2d030d547ec86cae1aafd612e7cf56daa88a299828bcb999c6`; independent review `module256-actual-same-clock-independent-review.json`, SHA-256 `771a8a89bc8df3c5bf41dd388e28fd57df65f3069ca117c70d0bf0476927b1f6`.
 - `80-days-listening-preview/phase-2-review/release-projection-extension-78-80-review.json` plus revision3 `release-projection-extension-26-74-review.json`: final exact normalized tuples, with the original Day53 typed-prompt correction and review-hash rebinding explicitly superseded.
 

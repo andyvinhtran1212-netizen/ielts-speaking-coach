@@ -76,7 +76,7 @@ test('sample readiness is deliberately conservative', () => {
 
 test('cohort mutation requires canonical readback and exposes failures as alerts', () => {
   assert.match(PAGE, /if \(!await load\(days\)\)/);
-  assert.match(PAGE, /Backend đã xác nhận thay đổi nhưng chưa đọc lại được cohort canonical/);
+  assert.match(PAGE, /Máy chủ đã xác nhận thay đổi nhưng chưa đọc lại được nhóm thử nghiệm/);
   assert.match(PAGE, /role=\{notice\.kind === 'error' \? 'alert' : 'status'\}/);
   assert.match(PAGE, /Chỉ cohort đã đi hết toàn bộ cửa sổ/);
 });
