@@ -20,8 +20,12 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-25 the highest is `303`, so the next new
-migration is `304`.
+sequence is dense. As of 2026-09-30 the highest is `305`, so the next new
+migration is `306`.
+
+Migration `305` adds frozen Dictation grading versions/references and their
+ownership/immutability guards. It does not enable lexical-v2 starts or regrade
+historical results; compatible code and explicit staged enablement are separate.
 
 ## Conventions
 

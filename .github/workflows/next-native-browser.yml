@@ -904,6 +904,13 @@ jobs:
       - name: Kiểm luồng Listening Dictation native
         run: node tooling/verify-listening-dictation-session-flow.mjs "http://localhost:$TEST_PORT"
 
+      # Frozen v1/v2 receipts, raw Unicode spans and owned report reloads use
+      # intercepted contracts; this runner performs no live backend writes.
+      - name: Kiểm chính sách Dictation v1 và v2 native
+        env:
+          DICTATION_BROWSER_EVIDENCE: /tmp/dictation-versioned-browser.json
+        run: node tooling/verify-dictation-versioned-flow.mjs "http://localhost:$TEST_PORT"
+
       # `/admin` cần role admin nên snapshot parity bằng probe thường không thể
       # chứng minh dashboard thật. Runner này fixture `/auth/me` + ba read API,
       # kiểm race/refresh/escaping/responsive và fail nếu có mutation nghiệp vụ.
@@ -1242,6 +1249,7 @@ jobs:
           path: |
             /tmp/next-native-browser.log
             /tmp/next-native-fixture-api.log
+            /tmp/dictation-versioned-browser.json
 
       - name: Dừng Next
         if: ${{ always() }}
