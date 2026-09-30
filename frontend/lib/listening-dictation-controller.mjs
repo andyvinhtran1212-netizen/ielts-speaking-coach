@@ -1,5 +1,6 @@
 import { corePlayerUrl } from './core-player-affinity.mjs';
 import { coreInputDigest } from './core-operation-intent.mjs';
+import { isPureFiller } from './dictation-filler-policy.mjs';
 
 const SAFE_AUDIO_PROTOCOLS = new Set(['https:', 'http:']);
 const DICTATION_RENDERERS = new Set(['legacy', 'next']);
@@ -67,7 +68,7 @@ function normalizedSegments(raw, segments) {
   return Object.freeze(normalized);
 }
 
-function verifyReferenceHash(texts, policy) {
+export function verifyReferenceHash(texts, policy) {
   if (policy.reference_sha256 !== null
       && coreInputDigest('dictation-texts-v1\n' + texts.map(coreInputDigest).join('')) !== policy.reference_sha256) {
     throw new Error('invalid-dictation-frozen-reference');
@@ -177,15 +178,10 @@ export function normalizeDictationAttempt(payload) {
     const sentenceIdx = Number(answer?.sentence_idx);
     if (!Number.isInteger(sentenceIdx) || sentenceIdx < 0) return null;
     if (sentenceIdx >= units.length) throw new Error('invalid-dictation-answer-index');
-    const grade = normalizeDictationGrade({
-      ...answer.grading_evidence,
+    const grade = normalizeDictationSavedGrade({
+      ...answer,
       ...savedSentencePolicy(answer, policy),
-      sentence_reference_sha256: answer.sentence_reference_sha256,
-      score: answer.score,
-      is_correct: Number(answer.score) >= 1,
-      correct_words: answer.correct_words,
-      total_words: answer.total_words,
-      diff: answer.diff,
+      user_text: answer.user_transcript,
     }, policy, { reference: units[sentenceIdx].text, user_text: answer.user_transcript });
     return Object.freeze({
       ...grade,
@@ -286,18 +282,29 @@ export function normalizeDictationGrade(payload, expectedPolicy = /** @type {any
     }
     const referenceSegments = normalizedSegments(payload.reference, payload.reference_segments);
     const userSegments = normalizedSegments(payload.user_text, payload.user_segments);
-    if (!totalWords || referenceSegments.filter((segment) => segment.kind === 'lexical').length !== totalWords
+    if (payload.diff.some((op) => !op || typeof op !== 'object' || Array.isArray(op)
+        || !['match', 'miss', 'wrong', 'extra'].includes(op.op)
+        || (op.expected != null && typeof op.expected !== 'string')
+        || (op.actual != null && typeof op.actual !== 'string')
+        || (op.filler != null && typeof op.filler !== 'boolean'))) throw new Error('invalid-dictation-lexical-alignment');
+    const referenceWords = referenceSegments.filter((segment) => segment.kind === 'lexical').length;
+    const forgivenWords = diff.filter((op) => op.filler && ['miss', 'wrong'].includes(op.op)).length;
+    if (!referenceWords || referenceWords - forgivenWords !== totalWords
         || diff.length !== payload.diff.length || diff.filter((op) => op.op === 'match').length !== correctWords) {
       throw new Error('invalid-dictation-lexical-counts');
     }
     // API scores are rounded to four decimals; extras remain error evidence,
     // while the approved score uses matched reference words as numerator.
-    if (Math.abs(score - correctWords / totalWords) > .00005001) throw new Error('invalid-dictation-lexical-score');
-    if (payload.is_correct !== (score === 1) || diff.some((op) =>
-      (['match', 'wrong'].includes(op.op) && (!op.expected || !op.actual))
-      || (op.op === 'miss' && (!op.expected || op.actual || op.filler))
-      || (op.op === 'extra' && (op.expected || !op.actual))
-      || (op.filler && op.op !== 'extra'))) throw new Error('invalid-dictation-lexical-alignment');
+    if (Math.abs(score - correctWords / Math.max(totalWords, 1)) > .00005001) throw new Error('invalid-dictation-lexical-score');
+    if (payload.is_correct !== (score === 1) || diff.some((op) => {
+      const filler = (op.op === 'miss' && isPureFiller(op.expected))
+        || (op.op === 'extra' && isPureFiller(op.actual))
+        || (op.op === 'wrong' && isPureFiller(op.expected) && isPureFiller(op.actual));
+      return (['match', 'wrong'].includes(op.op) && (!op.expected || !op.actual))
+        || (op.op === 'miss' && (!op.expected || op.actual))
+        || (op.op === 'extra' && (op.expected || !op.actual))
+        || op.filler !== filler;
+    })) throw new Error('invalid-dictation-lexical-alignment');
     for (const [key, segments, wordKey] of [['expected_span', referenceSegments, 'expected'], ['actual_span', userSegments, 'actual']]) {
       const seen = new Set();
       let previous = -1;
@@ -317,10 +324,37 @@ export function normalizeDictationGrade(payload, expectedPolicy = /** @type {any
       reference_segments: referenceSegments, user_segments: userSegments,
       sentence_reference_sha256: payload.sentence_reference_sha256 };
   }
-  return Object.freeze({ ...policy, ...evidence, score, is_correct: payload.is_correct === true, correct_words: correctWords, total_words: totalWords, diff: Object.freeze(diff) });
+  const grade = Object.freeze({ ...policy, ...evidence, score, is_correct: payload.is_correct === true, correct_words: correctWords, total_words: totalWords, diff: Object.freeze(diff) });
+  if (policy.grading_version === LEXICAL_DICTATION_POLICY && payload.grading_evidence != null) {
+    const nested = payload.grading_evidence;
+    if (typeof nested !== 'object' || Array.isArray(nested) || nested.grading_evidence != null
+        || !sameGradeEvidence(normalizeDictationGrade(nested, policy, expectedText), grade)) throw new Error('invalid-dictation-reference-evidence');
+  }
+  return grade;
 }
 
-export function normalizeDictationReport(payload, expectedRequestId = null, expectedPolicy = /** @type {any} */ (null)) {
+function sameGradeEvidence(left, right) {
+  if (left === right) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object'
+      || Array.isArray(left) !== Array.isArray(right)) return false;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every((key) =>
+    Object.prototype.hasOwnProperty.call(right, key) && sameGradeEvidence(left[key], right[key]));
+}
+
+export function normalizeDictationSavedGrade(row, policy, expectedText) {
+  const evidence = row.grading_evidence;
+  if (policy.grading_version === LEXICAL_DICTATION_POLICY && evidence != null
+      && (typeof evidence !== 'object' || Array.isArray(evidence))) throw new Error('invalid-dictation-report-evidence');
+  const isCorrect = policy.grading_version === LEGACY_DICTATION_POLICY ? Number(row.score) >= 1
+    : row.is_correct === undefined ? evidence?.is_correct ?? row.score === 1 : row.is_correct;
+  const grade = normalizeDictationGrade({ ...evidence, ...row, is_correct: isCorrect }, policy, expectedText);
+  // normalizeDictationGrade checks both complete nested evidence and the merged
+  // outer fields, including direct grade replies before any learner ACK.
+  return grade;
+}
+
+function normalizedReport(payload, expectedRequestId, expectedPolicy, ownedStored = false) {
   if (!payload || typeof payload !== 'object') throw new Error('invalid-dictation-report');
   const sessionId = text(payload.session_id || payload.id);
   const attemptId = text(payload.attempt_id);
@@ -342,14 +376,15 @@ export function normalizeDictationReport(payload, expectedRequestId = null, expe
   const results = Array.isArray(payload.results) ? payload.results : [];
   const normalizedResults = policy.grading_version === LEXICAL_DICTATION_POLICY ? results.map((row, index) => {
     if (row.sentence_idx !== index || typeof row.reference !== 'string' || typeof row.user_text !== 'string') throw new Error('invalid-dictation-report-evidence');
-    const grade = normalizeDictationGrade({ ...row.grading_evidence, ...row, is_correct: row.score >= 1 }, policy,
+    const grade = normalizeDictationSavedGrade(row, policy,
       { reference: row.reference, user_text: row.user_text });
     return Object.freeze({ ...row, ...grade });
   }) : results;
   if (policy.grading_version === LEXICAL_DICTATION_POLICY && normalizedResults.length !== totalSentences) throw new Error('invalid-dictation-report-evidence');
   if (policy.grading_version === LEXICAL_DICTATION_POLICY) {
     if (['total_sentences', 'correct_count', 'total_words', 'correct_words', 'accuracy'].some((key) => typeof payload[key] !== 'number')
-        || !totalSentences || !attemptId || normalizedResults.reduce((sum, row) => sum + row.total_words, 0) !== totalWords
+        || !totalSentences || (!attemptId && !(ownedStored && payload.attempt_id === null))
+        || normalizedResults.reduce((sum, row) => sum + row.total_words, 0) !== totalWords
         || normalizedResults.reduce((sum, row) => sum + row.correct_words, 0) !== correctWords
         || normalizedResults.filter((row) => row.score === 1).length !== correctCount) throw new Error('invalid-dictation-report-counts');
     if (Math.abs(accuracy - normalizedResults.reduce((sum, row) => sum + row.score, 0) / totalSentences) > .00005001) throw new Error('invalid-dictation-report-score');
@@ -374,6 +409,10 @@ export function normalizeDictationReport(payload, expectedRequestId = null, expe
     error_trends: payload.error_trends && typeof payload.error_trends === 'object' ? payload.error_trends : {},
     results: normalizedResults,
   });
+}
+
+export function normalizeDictationReport(payload, expectedRequestId = null, expectedPolicy = /** @type {any} */ (null)) {
+  return normalizedReport(payload, expectedRequestId, expectedPolicy);
 }
 
 export function normalizeDictationAttemptReport(payload, expectedAttemptId, expectedPolicy = /** @type {any} */ (null)) {
@@ -422,7 +461,9 @@ export function normalizeDictationStoredReport(payload, expectedSessionId) {
   if (payload.session_id != null && payload.session_id !== payload.id) throw new Error('invalid-dictation-stored-receipt');
   const policy = normalizeDictationPolicy(payload);
   if (policy.grading_version === LEXICAL_DICTATION_POLICY) return Object.freeze({
-    ...payload, ...normalizeDictationReport(payload, null, policy),
+    // Canonical FK erasure may unlink a stored report's parent. The owned report
+    // identity and every frozen reference/grade remain independently verified.
+    ...payload, ...normalizedReport(payload, null, policy, true),
   });
   // Older records may have absent summaries or references. Keep that absence
   // visible; neither current content nor reconstructed diff replaces originals.

@@ -8,6 +8,8 @@ import { coreInputDigest } from '../lib/core-operation-intent.mjs';
 const BASE = process.argv[2] || 'http://localhost:3131';
 const SB = process.env.SUPABASE_URL || 'https://zjphffoujxkpltixsbzj.supabase.co';
 const gold = JSON.parse(readFileSync(new URL('../tests/fixtures/dictation-versioned.json', import.meta.url)));
+const fillerFixture = JSON.parse(readFileSync(new URL('../tests/fixtures/dictation-filler-gold.json', import.meta.url)));
+const fillerGold = fillerFixture.cases;
 const g = gold[0].grade;
 const user = '00000000-0000-4000-8000-000000000456';
 const aid = '00000000-0000-4000-8000-000000000789';
@@ -28,14 +30,15 @@ try { browser = await chromium.launch(); } catch (error) {
   browser = await chromium.launch({ executablePath: chrome });
 }
 
-function report(requestId = null, legacy = false, submitted = null) {
+function report(requestId = null, legacy = false, submitted = null, grade = g) {
   const row = legacy ? { sentence_idx: 0, reference: '— Hello there.', user_text: 'Hello there.', score: .6667, correct_words: 2, total_words: 3,
     diff: [{ op: 'miss', expected: '—' }], listen_count: 0, time_seconds: 5, ops: { miss: 1, wrong: 0, extra: 0 } }
-    : { ...g, sentence_idx: 0, grading_evidence: g, listen_count: 0, time_seconds: 5, ops: { miss: 0, wrong: 0, extra: 0 } };
+    : { ...grade, sentence_idx: 0, grading_evidence: grade, listen_count: 0, time_seconds: 5,
+      ops: Object.fromEntries(['miss', 'wrong', 'extra'].map((op) => [op, grade.diff.filter((d) => d.op === op && !d.filler).length])) };
   if (submitted) { row.listen_count = submitted[0].listen_count; row.time_seconds = submitted[0].time_seconds; }
   return { id: sid, session_id: sid, attempt_id: aid, client_request_id: requestId, test_id: 'test-1', test_id_external: 'Synthetic', section_num: 1,
-    section_title: 'Section 1', total_sentences: 1, correct_count: legacy ? 0 : 1, accuracy: row.score, total_words: row.total_words, correct_words: row.correct_words,
-    grading_version: legacy ? 'legacy-whitespace-v1' : 'lexical-v2', reference_sha256: legacy ? null : g.reference_sha256,
+    section_title: 'Section 1', total_sentences: 1, correct_count: row.score === 1 ? 1 : 0, accuracy: row.score, total_words: row.total_words, correct_words: row.correct_words,
+    grading_version: legacy ? 'legacy-whitespace-v1' : 'lexical-v2', reference_sha256: legacy ? null : grade.reference_sha256,
     results: [row], error_trends: { op_counts: row.ops, missed: legacy ? { '—': 1 } : {}, wrong: {} } };
 }
 
@@ -45,9 +48,11 @@ async function scenario(name, options, run) {
   if (options.pendingN1) await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [`av:dictation:v1:${user}:test-1:1`, JSON.stringify(n1Receipt)]);
   const page = await context.newPage(); page.setDefaultTimeout(12000);
   const state = { calls: [], stored: null, ...options };
-  const scenarioGold = state.extra ? gold.find((row) => row.name === 'extra-full-credit') : gold[0];
+  const scenarioGold = state.filler ? fillerGold.find((row) => row.name === state.filler)
+    : state.extra ? gold.find((row) => row.name === 'extra-full-credit') : gold[0];
   const scenarioGrade = scenarioGold.grade;
   const scenarioPolicy = { grading_version: 'lexical-v2', reference_sha256: scenarioGrade.reference_sha256 };
+  if (state.erasedParent) state.stored = { ...report(), attempt_id: null, test_id: null };
   if (state.ownerNullable) state.stored = { id: sid, session_id: sid, grading_version: 'legacy-whitespace-v1', reference_sha256: null,
     results: [{ sentence_idx: 0, user_text: 'hello', reference: null, score: null, correct_words: null, total_words: null }] };
   if (state.pendingN1) {
@@ -71,7 +76,7 @@ async function scenario(name, options, run) {
     if (url.pathname.endsWith('/dictation/attempts/in-progress')) return json({ attempt: state.resume ? {
       attempt_id: aid, test_id: 'test-1', section_num: 1, status: 'in_progress', renderer_affinity: 'next',
       started_at: new Date().toISOString(), units: state.legacy ? [{ text: '— Hello there.' }] : scenarioGold.units,
-      answers: state.saved ? report(null, state.legacy).results.map((row) => ({ ...row, user_transcript: row.user_text })) : [],
+      answers: state.saved ? report(null, state.legacy, null, scenarioGrade).results.map((row) => ({ ...row, user_transcript: row.user_text })) : [],
       ...(state.legacy ? { grading_version: 'legacy-whitespace-v1', reference_sha256: state.legacyDigest ? legacyHash : null } : scenarioPolicy),
     } : null });
     if (url.pathname.endsWith('/dictation/capabilities')) return json({ new_start_versions: state.flagOff ? ['legacy-whitespace-v1'] : ['legacy-whitespace-v1', 'lexical-v2'], readable_versions: ['legacy-whitespace-v1', 'lexical-v2'] });
@@ -84,29 +89,32 @@ async function scenario(name, options, run) {
       if (state.badGrade === 'version') value.grading_version = 'legacy-whitespace-v1';
       if (state.badGrade === 'identity') value.attempt_id = 'another-attempt';
       if (state.badGrade === 'score') { value.score = 0; value.is_correct = false; }
+      if (state.badGrade === 'evidence') value.grading_evidence = { ...scenarioGrade, is_correct: false };
       return json(value);
     }
     if (url.pathname.includes('/session/by-request/')) return state.stored ? json(state.stored) : json({ detail: 'Not found' }, 404);
     if (url.pathname.endsWith('/dictation/session') && method === 'POST') {
-      state.stored = report(body.client_request_id, state.legacy, body.sentences);
+      state.stored = report(body.client_request_id, state.legacy, body.sentences, scenarioGrade);
       if (state.legacyDigest) state.stored.reference_sha256 = legacyHash;
-      if (state.wrongComplete === 'mean') state.stored.accuracy = 0;
+      if (state.wrongComplete === 'evidence') { state.stored = structuredClone(state.stored); state.stored.results[0].grading_evidence.is_correct = false; }
+      else if (state.wrongComplete === 'mean') state.stored.accuracy = 0;
       else if (state.wrongComplete) state.stored = { ...state.stored, grading_version: 'legacy-whitespace-v1', reference_sha256: null };
       if (state.lostAck) return route.abort('connectionreset');
       return json(state.stored);
     }
-    if (url.pathname === `/api/listening/tests/dictation/session/${sid}`) return state.ownerError ? json({ detail: state.ownerError === 403 ? 'Phiên này thuộc người dùng khác.' : 'Không tìm thấy phiên chép chính tả.' }, state.ownerError) : json(state.stored || report(null, state.legacy));
+    if (url.pathname === `/api/listening/tests/dictation/session/${sid}`) return state.ownerError ? json({ detail: state.ownerError === 403 ? 'Phiên này thuộc người dùng khác.' : 'Không tìm thấy phiên chép chính tả.' }, state.ownerError) : json(state.stored || report(null, state.legacy, null, scenarioGrade));
     if (url.pathname.endsWith('/dictation-reports/aggregate') && state.legacyMissing) return json({ detail: 'Chưa xác minh được điểm Dictation đã lưu.' }, 503);
+    if (url.pathname.endsWith('/dictation-reports/aggregate') && state.canonicalAggregate) return json(fillerFixture.canonical_admin_trends.cases.find((row) => row.name === state.canonicalAggregate).payload);
     if (url.pathname.endsWith('/dictation-reports/aggregate')) return json({ session_count: 2, mean_accuracy: .83335, mean_accuracy_basis: 'mean_of_session_sentence_scores', trend_classification: 'lexical-v1',
       trend_complete_session_count: 2, trend_unavailable_session_count: 0, top_missed: [], top_wrong: [], punctuation_missed: [{ token: '—', count: 1 }], punctuation_wrong: [],
       punctuation_missed_total: 1, punctuation_wrong_total: 0, missing_token_missed_total: 0, missing_token_wrong_total: 0,
       versions: [{ grading_version: 'legacy-whitespace-v1', session_count: 1, mean_accuracy: .6667 }, { grading_version: 'lexical-v2', session_count: 1, mean_accuracy: 1 }] });
-    const adminRow = (legacy) => ({ ...report(null, legacy), id: legacy ? 'old-1' : sid, user: { id: user, display_name: 'Synthetic learner' }, association_lookup_failed: false, association_lookup_failures: [] });
+    const adminRow = (legacy) => ({ ...report(null, legacy, null, scenarioGrade), id: legacy ? 'old-1' : sid, user: { id: user, display_name: 'Synthetic learner' }, association_lookup_failed: false, association_lookup_failures: [] });
     const optionalLegacy = { ...adminRow(true), id: sid, total_sentences: null, correct_count: null, accuracy: null, total_words: null, correct_words: null, results: [{ ...report(null, true).results[0], reference: null, ops: null, score: null, correct_words: null, total_words: null }] };
     if (url.pathname === '/admin/listening/dictation-reports' && state.legacyMissing) return json({ items: [optionalLegacy], total: 1, limit: 50, offset: 0, association_lookup_failed: false, association_lookup_failures: [] });
     if (url.pathname === `/admin/listening/dictation-reports/${sid}` && state.legacyMissing) return json(optionalLegacy);
     if (url.pathname === '/admin/listening/dictation-reports') return json({ items: [adminRow(true), adminRow(false)], total: 2, limit: 50, offset: 0, association_lookup_failed: false, association_lookup_failures: [] });
-    if (url.pathname === `/admin/listening/dictation-reports/${sid}`) return json(adminRow(false));
+    if (url.pathname === `/admin/listening/dictation-reports/${sid}`) return json(state.badAdmin ? { ...adminRow(false), accuracy: 0 } : adminRow(false));
     return json({ detail: 'Synthetic fixture: request blocked' }, 404);
   });
   try { await run(page, state); } finally { traces.push({ name, calls: state.calls }); await context.close(); }
@@ -130,7 +138,7 @@ try {
     check('completed reload keeps raw v2 source despite current source edits', await page.locator('[data-dictation-side="reference"]').textContent() === g.reference);
     check('mobile report has no horizontal page overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   });
-  for (const badGrade of ['hash', 'version', 'identity', 'score']) await scenario(`bad-grade-${badGrade}`, { resume: true, badGrade }, async (page) => {
+  for (const badGrade of ['hash', 'version', 'identity', 'score', 'evidence']) await scenario(`bad-grade-${badGrade}`, { resume: true, badGrade }, async (page) => {
     await page.goto(learner); await grade(page); await page.getByText(/^Không chấm được câu trả lời\./).waitFor();
     const preserved = await page.getByLabel('Câu trả lời câu 1').inputValue();
     const editable = await page.getByLabel('Câu trả lời câu 1').isEditable();
@@ -140,7 +148,35 @@ try {
     const extra = gold.find((row) => row.name === 'extra-full-credit').grade;
     await page.goto(learner); await grade(page, extra.user_text); await page.getByText('100% · 1/1 từ được chấm').waitFor();
     check('P04 extra word is error evidence without a fabricated score penalty', await page.locator('[data-dictation-side="user"] [data-op="extra"]').textContent() === 'tomorrow'
-      && await page.getByText(/Từ thừa được ghi trong mẫu lỗi; điểm tính theo số từ đúng trên tổng từ của transcript/).count() === 1);
+      && await page.getByText(/Từ thừa được ghi trong mẫu lỗi; điểm tính theo số từ đúng trên tổng từ được chấm của transcript/).count() === 1);
+  });
+  for (const filler of ['F01', 'F02', 'F05', 'F06', 'unicode15-outline-u-miss', 'unicode15-bom-wrong', 'unicode15-square-mm-miss']) await scenario(`filler-${filler}-grade-resume-owned`, { filler, resume: true, saved: filler === 'F05' }, async (page, state) => {
+    const value = fillerGold.find((row) => row.name === filler).grade;
+    await page.goto(learner); if (filler !== 'F05') await grade(page, value.user_text);
+    await page.getByText(`${Math.round(value.score * 100)}% · ${value.correct_words}/${value.total_words} từ được chấm`).waitFor();
+    const operation = value.diff.find((op) => op.op !== 'match');
+    const reference = page.locator('[data-dictation-side="reference"]');
+    check(`${filler} raw evidence keeps canonical filler/error classification`, await reference.textContent() === value.reference
+      && (operation.filler ? await reference.locator('.is-filler[data-kind="lexical"]').textContent() === operation.expected
+        && await reference.locator('.is-miss, .is-wrong').count() === 0
+        : await reference.locator('.is-filler').count() === 0 && await reference.locator('.is-miss, .is-wrong').textContent() === operation.expected));
+    await page.getByRole('button', { name: 'Xem tổng kết' }).click(); await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
+    check(`${filler} completion verifies canonical score and denominator`, await page.locator('.dict-next-stats').getByText(`${Math.round(value.score * 100)}%`, { exact: true }).count() === 1
+      && await page.locator('.dict-next-stats').getByText(`${value.correct_words}/${value.total_words}`, { exact: true }).count() >= 1
+      && !await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith('av:dictation:v1:'))));
+    const before = state.calls.length; await page.reload(); await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
+    check(`${filler} owned reload is GET-only and keeps frozen evidence`, state.calls.slice(before).filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET' && c.path === `/api/listening/tests/dictation/session/${sid}`)
+      && await page.locator('[data-dictation-side="reference"]').textContent() === value.reference
+      && await page.locator('.dict-next-stats').getByText(`${Math.round(value.score * 100)}%`, { exact: true }).count() === 1);
+  });
+  for (const filler of ['F01', 'F02', 'F06', 'unicode15-outline-u-miss', 'unicode15-bom-wrong', 'unicode15-square-mm-miss']) await scenario(`admin-filler-${filler}`, { filler, admin: true }, async (page, state) => {
+    const value = fillerGold.find((row) => row.name === filler).grade;
+    await page.goto(`${BASE}/admin/listening/dictation`); await page.getByRole('region', { name: 'Bảng phiên chép chính tả' }).waitFor();
+    await page.getByRole('button', { name: 'Xem từng câu' }).nth(1).click(); await page.locator('.aldict-detail [data-dictation-side="reference"]').waitFor();
+    const operation = value.diff.find((op) => op.op !== 'match');
+    check(`Admin ${filler} raw evidence retains canonical classification without missing evidence`, await page.locator('.aldict-detail [data-dictation-side="reference"]').textContent() === value.reference
+      && await page.locator('.aldict-detail [data-dictation-side="reference"] .is-filler[data-kind="lexical"]').count() === (operation.filler ? 1 : 0)
+      && await page.getByText(/Đã loại 1 câu/).count() === 0 && state.calls.filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET'));
   });
   await scenario('owned-legacy-nullable-sentence', { ownerNullable: true }, async (page, state) => {
     await page.goto(`${BASE}/listening/dictation/session?session_id=${sid}`); await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
@@ -178,19 +214,20 @@ try {
     await page.reload(); await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
     check('pending receipt reload confirms frozen policy without creating/regrading', state.calls.slice(before).filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET'));
   });
-  await scenario('wrong-completion-mean-reload', { resume: true, wrongComplete: 'mean' }, async (page, state) => {
+  for (const wrongComplete of ['mean', 'evidence']) await scenario(`wrong-completion-${wrongComplete}-reload`, { resume: true, wrongComplete }, async (page, state) => {
     await page.goto(learner); await grade(page); await page.getByText('100% · 4/4 từ được chấm').waitFor();
     await page.getByRole('button', { name: 'Xem tổng kết' }).click(); await page.getByText('Kết quả chưa được xác nhận.', { exact: true }).waitFor();
-    check('contradictory v2 mean cannot confirm or clear the durable receipt', await page.getByRole('button', { name: 'Làm lại section' }).isDisabled()
+    check(`contradictory v2 ${wrongComplete} cannot confirm or clear the durable receipt`, await page.getByRole('button', { name: 'Làm lại section' }).isDisabled()
       && await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith('av:dictation:v1:'))));
     const receipt = await page.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith('av:dictation:v1:')))));
     state.stored = report(receipt.requestId, false, receipt.submission.sentences); const before = state.calls.length;
     await page.reload(); await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
-    check('corrected canonical v2 mean confirms after GET-only receipt reload', state.calls.slice(before).filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET')
+    check(`corrected canonical v2 ${wrongComplete} confirms after GET-only receipt reload`, state.calls.slice(before).filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET')
       && state.calls.filter((c) => c.path.endsWith('/dictation/session') && c.method === 'POST').length === 1);
   });
   for (const [name, options, query] of [
     ['owned-legacy', { legacy: true, flagOff: true }, `session_id=${sid}`], ['owned-v2', { flagOff: true }, `session_id=${sid}`],
+    ['owned-v2-erased-parent', { erasedParent: true }, `session_id=${sid}`],
     ['wrong-owner', { ownerError: 403 }, `session_id=${sid}`], ['missing-report', { ownerError: 404 }, `session_id=${sid}`],
     ['invalid-query', {}, 'session_id=bad'], ['duplicate-query', {}, `session_id=${sid}&session_id=${sid}`],
   ]) await scenario(name, options, async (page, state) => {
@@ -223,6 +260,25 @@ try {
     check('admin v2 detail renders saved raw/codepoint spans', await page.locator('.aldict-detail [data-dictation-side="reference"]').textContent() === g.reference);
     check('admin read-only reporting never mutates grades', state.calls.filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET'));
     await page.setViewportSize({ width: 1440, height: 900 }); check('admin desktop has no horizontal page overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  });
+  for (const row of fillerFixture.canonical_admin_trends.cases) await scenario(`admin-canonical-keys-${row.name}`, { admin: true, canonicalAggregate: row.name }, async (page, state) => {
+    await page.goto(`${BASE}/admin/listening/dictation`); await page.getByRole('region', { name: 'Bảng phiên chép chính tả' }).waitFor();
+    await page.getByText(/Dấu câu trong dữ liệu chấm cũ/).click();
+    const panels = page.locator('.aldict-trends article');
+    for (const [index, key, label] of [[0, 'top_missed', 'word'], [1, 'top_wrong', 'expected'], [2, 'punctuation_missed', 'token'], [3, 'punctuation_wrong', 'token']]) {
+      check(`Admin ${row.name} ${key} keeps exact raw keys`, JSON.stringify(await panels.nth(index).locator('li span').allTextContents()) === JSON.stringify(row.payload[key].map((entry) => entry[label])));
+    }
+    check(`Admin ${row.name} mobile keeps complete canonical aggregate without overflow`, await page.getByText('Không tải được tổng hợp', { exact: true }).count() === 0
+      && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+      && state.calls.filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET'));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    check(`Admin ${row.name} desktop keeps long canonical labels within page`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  });
+  await scenario('admin-inconsistent-detail-summary', { admin: true, badAdmin: true }, async (page, state) => {
+    await page.goto(`${BASE}/admin/listening/dictation`); await page.getByRole('region', { name: 'Bảng phiên chép chính tả' }).waitFor();
+    await page.getByRole('button', { name: 'Xem từng câu' }).nth(1).click(); await page.getByText('Không tải được chi tiết', { exact: true }).waitFor();
+    check('Admin contradictory complete summary fails visibly without showing a verified zero score', await page.locator('.aldict-detail [data-dictation-side="reference"]').count() === 0
+      && state.calls.filter((c) => c.path.includes('dictation')).every((c) => c.method === 'GET'));
   });
   await scenario('admin-legacy-optional-data', { admin: true, legacyMissing: true }, async (page) => {
     await page.goto(`${BASE}/admin/listening/dictation`); await page.getByRole('region', { name: 'Bảng phiên chép chính tả' }).waitFor();

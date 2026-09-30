@@ -21,7 +21,7 @@ export function DictationComparison({ grade }: { grade: any }) {
   if (grade.grading_version === LEXICAL_DICTATION_POLICY) return <div>
     <p className="dict-next-reference"><span>Transcript</span><DictationRawText grade={grade} side="reference" /></p>
     <p className="dict-next-user-answer"><span>Bạn đã gõ</span><DictationRawText grade={grade} side="user" /></p>
-    <small>Dấu và ký hiệu không tính điểm được hiển thị riêng; chỉ từ được đánh dấu thiếu, sai hoặc thừa. Từ thừa được ghi trong mẫu lỗi; điểm tính theo số từ đúng trên tổng từ của transcript.</small>
+    <small>Dấu và ký hiệu không tính điểm được hiển thị riêng; chỉ từ được đánh dấu thiếu, sai hoặc thừa. Từ ngập ngừng được miễn tính điểm khi bỏ sót hoặc thay bằng từ ngập ngừng khác. Từ thừa được ghi trong mẫu lỗi; điểm tính theo số từ đúng trên tổng từ được chấm của transcript.</small>
   </div>;
   return <span className="dict-next-diff">{grade.diff.map((operation: any, index: number) => {
     const word = operation.op === 'miss' ? operation.expected : (operation.actual || operation.expected || '');

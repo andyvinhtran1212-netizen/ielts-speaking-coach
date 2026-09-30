@@ -1,4 +1,6 @@
 const LOOKUP_TABLES = new Set(['users']);
+// Python strip whitespace used by the canonical persisted-counter classifier.
+const NON_WHITESPACE_TOKEN = /[^\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/u;
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
@@ -60,7 +62,7 @@ export function normalizeDictationReportItem(raw) {
   let policy;
   try { policy = normalizeDictationPolicy(value); } catch { return null; }
   const lexical = policy.grading_version === LEXICAL_DICTATION_POLICY;
-  if (!value || !id || !user || (lexical && (totalSentences == null || correctCount == null || accuracy == null))
+  if (!value || !id || !user || (lexical && ['total_sentences', 'correct_count', 'accuracy'].some((key) => typeof value[key] !== 'number'))
     || (value.total_sentences != null && (totalSentences == null || totalSentences < 0))
     || (value.correct_count != null && (correctCount == null || correctCount < 0))
     || (correctCount != null && totalSentences != null && correctCount > totalSentences)
@@ -96,21 +98,24 @@ export function normalizeDictationReportList(raw, expected = {}) {
   return { rows, malformedCount, limit, offset, total, ...lookup };
 }
 
-function normalizeWordRows(raw, key) {
+function normalizeWordRows(raw, key, canonical = false) {
   if (!Array.isArray(raw)) return null;
   const rows = [];
   const seen = new Set();
   let malformedCount = 0;
   for (const candidate of raw) {
     const value = objectOf(candidate);
-    const label = textOf(value?.[key]);
+    // Classified counters already have server-owned keys. Preserve their raw
+    // spelling; host trim/case tables can erase or merge valid historical keys.
+    const label = canonical ? typeof value?.[key] === 'string' ? value[key] : '' : textOf(value?.[key]);
     const count = integer(value?.count);
-    const folded = label.toLocaleLowerCase('vi-VN');
-    if (!value || !label || label.length > 200 || count == null || count < 1 || seen.has(folded)) {
+    const identity = canonical ? label : label.toLocaleLowerCase('vi-VN');
+    if (!value || !label || (canonical && !NON_WHITESPACE_TOKEN.test(label))
+        || (!canonical && label.length > 200) || count == null || count < 1 || seen.has(identity)) {
       malformedCount += 1;
       continue;
     }
-    seen.add(folded); rows.push({ label, count });
+    seen.add(identity); rows.push({ label, count });
   }
   return { rows, malformedCount };
 }
@@ -119,13 +124,14 @@ export function normalizeDictationAggregate(raw) {
   const value = objectOf(raw);
   const sessionCount = integer(value?.session_count);
   const meanAccuracy = finiteNumber(value?.mean_accuracy);
-  const missed = normalizeWordRows(value?.top_missed, 'word');
-  const wrong = normalizeWordRows(value?.top_wrong, 'expected');
   const classified = value?.trend_classification === 'lexical-v1';
+  const missed = normalizeWordRows(value?.top_missed, 'word', classified);
+  const wrong = normalizeWordRows(value?.top_wrong, 'expected', classified);
   const completeSessions = classified ? integer(value.trend_complete_session_count) : null;
   const unavailableSessions = classified ? integer(value.trend_unavailable_session_count) : null;
-  const punctuationMissed = normalizeWordRows(classified ? value.punctuation_missed : [], 'token');
-  const punctuationWrong = normalizeWordRows(classified ? value.punctuation_wrong : [], 'token');
+  const punctuationMissed = normalizeWordRows(classified ? value.punctuation_missed : [], 'token', classified);
+  const punctuationWrong = normalizeWordRows(classified ? value.punctuation_wrong : [], 'token', classified);
+  const lexicalLabels = new Set([...(missed?.rows ?? []), ...(wrong?.rows ?? [])].map((row) => row.label));
   const totals = classified ? [value.punctuation_missed_total, value.punctuation_wrong_total,
     value.missing_token_missed_total, value.missing_token_wrong_total].map(integer) : [0, 0, 0, 0];
   let versions = null;
@@ -149,9 +155,10 @@ export function normalizeDictationAggregate(raw) {
       || completeSessions + unavailableSessions !== sessionCount
       || (completeSessions === 0 && (missed.rows.length || wrong.rows.length || totals.some(Boolean)))
       || punctuationMissed.malformedCount || punctuationWrong.malformedCount
-      || missed.rows.some((row) => !/[\p{L}\p{N}]/u.test(row.label))
-      || wrong.rows.some((row) => !/[\p{L}\p{N}]/u.test(row.label))
-      || [...punctuationMissed.rows, ...punctuationWrong.rows].some((row) => /[\p{L}\p{N}]/u.test(row.label))
+      // The server owns lexical-v1 classification. Browser Unicode tables can
+      // recognize newer letters than the grading runtime, so reclassifying a
+      // canonical token here would reject valid stored analytics.
+      || [...punctuationMissed.rows, ...punctuationWrong.rows].some((row) => lexicalLabels.has(row.label))
       || punctuationMissed.rows.reduce((sum, row) => sum + row.count, 0) > totals[0]
       || punctuationWrong.rows.reduce((sum, row) => sum + row.count, 0) > totals[1]))
     || (sessionCount === 0 && (meanAccuracy !== 0 || missed.rows.length || wrong.rows.length
@@ -192,7 +199,7 @@ function normalizeSentence(raw, policy) {
   let gradingEvidence = null;
   try {
     if (policy.grading_version === LEXICAL_DICTATION_POLICY) {
-      gradingEvidence = normalizeDictationGrade({ ...value.grading_evidence, ...value, is_correct: score === 1 }, policy,
+      gradingEvidence = normalizeDictationSavedGrade(value, policy,
         { reference, user_text: value.user_text });
       for (const key of ['miss', 'wrong', 'extra']) if (gradingEvidence.diff.filter((op) => op.op === key && !op.filler).length !== ops[key]) return null;
     } else if ((value.grading_version != null && value.grading_version !== LEGACY_DICTATION_POLICY) || value.reference_sha256 != null) normalizeDictationPolicy(value, policy);
@@ -211,7 +218,7 @@ export function normalizeDictationReportDetail(raw, expectedId) {
   const totalWords = integer(value?.total_words);
   const correctWords = integer(value?.correct_words);
   if (!base || base.id !== expectedId || !lookup || !Array.isArray(value.results)
-    || (base.gradingVersion === LEXICAL_DICTATION_POLICY && (totalWords == null || correctWords == null))
+    || (base.gradingVersion === LEXICAL_DICTATION_POLICY && ['total_words', 'correct_words'].some((key) => typeof value[key] !== 'number'))
     || (value.total_words != null && (totalWords == null || totalWords < 0))
     || (value.correct_words != null && (correctWords == null || correctWords < 0))
     || (correctWords != null && totalWords != null && correctWords > totalWords)) return null;
@@ -229,6 +236,17 @@ export function normalizeDictationReportDetail(raw, expectedId) {
   const opCounts = objectOf(counts) && ['miss', 'wrong', 'extra'].every((key) => integer(counts[key]) != null && integer(counts[key]) >= 0)
     ? { miss: integer(counts.miss), wrong: integer(counts.wrong), extra: integer(counts.extra) }
     : null;
+  if (base.gradingVersion === LEXICAL_DICTATION_POLICY && !malformedSentenceCount && missingSentenceCount === 0) {
+    if (objectOf(value.error_trends) && Object.prototype.hasOwnProperty.call(value.error_trends, 'op_counts')
+        && (!opCounts || ['miss', 'wrong', 'extra'].some((key) => typeof counts[key] !== 'number'))) return null;
+    try { verifyReferenceHash(sentences.map((row) => row.reference), { reference_sha256: base.referenceSha256 }); }
+    catch { return null; }
+    if (!base.totalSentences || sentences.reduce((sum, row) => sum + row.totalWords, 0) !== totalWords
+        || sentences.reduce((sum, row) => sum + row.correctWords, 0) !== correctWords
+        || sentences.filter((row) => row.score === 1).length !== base.correctCount
+        || Math.abs(sentences.reduce((sum, row) => sum + row.score, 0) / base.totalSentences - base.accuracy) > .00005001
+        || (opCounts && ['miss', 'wrong', 'extra'].some((key) => sentences.reduce((sum, row) => sum + row.ops[key], 0) !== opCounts[key]))) return null;
+  }
   return { ...base, ...lookup, totalWords, correctWords, sentences, malformedSentenceCount, missingSentenceCount, opCounts };
 }
 
@@ -246,4 +264,4 @@ export function formatDictationDuration(value) {
   const remainder = seconds % 60;
   return minutes ? `${minutes} phút ${remainder} giây` : `${remainder} giây`;
 }
-import { normalizeDictationPolicy, normalizeDictationGrade, LEGACY_DICTATION_POLICY, LEXICAL_DICTATION_POLICY } from './listening-dictation-controller.mjs';
+import { normalizeDictationPolicy, normalizeDictationSavedGrade, verifyReferenceHash, LEGACY_DICTATION_POLICY, LEXICAL_DICTATION_POLICY } from './listening-dictation-controller.mjs';

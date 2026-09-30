@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ListeningDictationSession } from '@/app/(authed-listening-dictation)/listening/dictation/session/listening-dictation-session';
 import gold from '../fixtures/dictation-versioned.json';
+import fillerGold from '../fixtures/dictation-filler-gold.json';
 import { coreInputDigest } from '@/lib/core-operation-intent.mjs';
 
 const route = vi.hoisted(() => ({ params: new URLSearchParams('test_id=test-1&section=1') }));
@@ -67,12 +68,53 @@ it('resumes frozen v2 while new starts are disabled; grades/complete ACK and cod
   expect(localStorage.getItem('av:dictation:v1:00000000-0000-0000-0000-000000000456:test-1:1')).toBeNull();
 });
 
-it.each(['version', 'hash', 'identity', 'source', 'score'])('rejects stale/wrong %s ACK and keeps the learner input editable', async (fault) => {
+it.each(['F01', 'F02', 'F05', 'F06', 'unicode15-outline-u-miss', 'unicode15-bom-wrong', 'unicode15-square-mm-miss'])('canonical filler boundary %s keeps raw evidence, scored denominator and receipt across resume and owned reload', async (name) => {
+  const row = fillerGold.cases.find((row) => row.name === name)!;
+  const grade = row.grade;
+  const frozen = { grading_version: grade.grading_version, reference_sha256: grade.reference_sha256 };
+  active = { ...current, ...frozen, units: row.units,
+    answers: name === 'F05' ? [{ ...grade, sentence_idx: 0, user_transcript: grade.user_text, grading_evidence: grade }] : [] };
+  reply = { ...grade, attempt_id: 'attempt-1', sentence_idx: 0 };
+  window.api.postWith = vi.fn(async (path: string, body: any) => {
+    calls.push({ method: 'POST', path, body });
+    if (path.includes('/sentences/')) return reply;
+    stored = { ...canonical(body.client_request_id, body.sentences), ...frozen,
+      correct_count: grade.score === 1 ? 1 : 0, accuracy: grade.score, total_words: grade.total_words, correct_words: grade.correct_words,
+      results: [{ ...grade, sentence_idx: 0, grading_evidence: grade, listen_count: body.sentences[0].listen_count, time_seconds: body.sentences[0].time_seconds }] };
+    return stored;
+  });
+  let view = render(<ListeningDictationSession />);
+  if (name !== 'F05') {
+    fireEvent.change(await screen.findByLabelText('Câu trả lời câu 1'), { target: { value: grade.user_text } });
+    fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra câu' }));
+  }
+  await screen.findByText(`${Math.round(grade.score * 100)}% · ${grade.correct_words}/${grade.total_words} từ được chấm`);
+  expect(view.container.querySelector('[data-dictation-side="reference"]')?.textContent).toBe(grade.reference);
+  const operation = grade.diff.find((op) => op.op !== 'match')!;
+  if (operation.filler) {
+    expect(view.container.querySelector('[data-dictation-side="reference"] .is-filler[data-kind="lexical"]')?.textContent).toBe(operation.expected);
+    expect(view.container.querySelector('[data-dictation-side="reference"] .is-miss, [data-dictation-side="reference"] .is-wrong')).toBeNull();
+  } else {
+    expect(view.container.querySelector('[data-dictation-side="reference"] .is-filler')).toBeNull();
+    expect(view.container.querySelector('[data-dictation-side="reference"] .is-miss, [data-dictation-side="reference"] .is-wrong')?.textContent).toBe(operation.expected);
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Xem tổng kết' })); await screen.findByText('✓ Đã lưu & xác nhận');
+  expect(calls.find((call) => call.path.endsWith('/dictation/session'))?.body).toMatchObject(frozen);
+  expect(localStorage.getItem('av:dictation:v1:00000000-0000-0000-0000-000000000456:test-1:1')).toBeNull();
+  view.unmount(); route.params = new URLSearchParams(`session_id=${stored.session_id}`); const before = calls.length;
+  view = render(<ListeningDictationSession />); await screen.findByText('✓ Đã lưu & xác nhận');
+  expect(screen.getByText(`${Math.round(grade.score * 100)}%`, { exact: true })).toBeTruthy();
+  expect(view.container.querySelector('[data-dictation-side="reference"]')?.textContent).toBe(grade.reference);
+  expect(calls.slice(before)).toHaveLength(1); expect(calls[before].method).toBe('GET');
+});
+
+it.each(['version', 'hash', 'identity', 'source', 'score', 'evidence'])('rejects stale/wrong %s ACK and keeps the learner input editable', async (fault) => {
   if (fault === 'version') reply.grading_version = 'legacy-whitespace-v1';
   if (fault === 'hash') reply.reference_sha256 = 'a'.repeat(64);
   if (fault === 'identity') reply.sentence_idx = 9;
   if (fault === 'source') reply.reference = 'changed';
   if (fault === 'score') { reply.score = 0; reply.is_correct = false; }
+  if (fault === 'evidence') reply.grading_evidence = { ...g, is_correct: false };
   render(<ListeningDictationSession />); await answer();
   await screen.findByRole('alert');
   expect((screen.getByLabelText('Câu trả lời câu 1') as HTMLTextAreaElement).value).toBe(g.user_text);
@@ -97,12 +139,14 @@ it('legacy in-progress keeps punctuation denominator and saved score without cap
   expect(screen.getByText(/Chấm cũ v1/)).toBeTruthy();
 });
 
-it.each(['policy', 'mean'])('wrong-%s completion keeps receipt pending; reload confirms canonical v2 without regrading', async (fault) => {
+it.each(['policy', 'mean', 'evidence'])('wrong-%s completion keeps receipt pending; reload confirms canonical v2 without regrading', async (fault) => {
   window.api.postWith = vi.fn(async (path: string, body: any) => {
     calls.push({ method: 'POST', path, body });
     if (path.includes('/sentences/')) return reply;
-    stored = fault === 'mean' ? { ...canonical(body.client_request_id, body.sentences), accuracy: 0 }
+    stored = fault === 'evidence' ? structuredClone(canonical(body.client_request_id, body.sentences))
+      : fault === 'mean' ? { ...canonical(body.client_request_id, body.sentences), accuracy: 0 }
       : { ...canonical(body.client_request_id, body.sentences), grading_version: 'legacy-whitespace-v1', reference_sha256: null };
+    if (fault === 'evidence') stored.results[0].grading_evidence.is_correct = false;
     return stored;
   });
   let view = render(<ListeningDictationSession />); await answer(); await screen.findByText('100% · 4/4 từ được chấm');
@@ -126,6 +170,16 @@ it.each(['legacy', 'v2'])('reads owned stored %s reports only, with no capabilit
   render(<ListeningDictationSession />); await screen.findByText('✓ Đã lưu & xác nhận');
   expect(calls).toHaveLength(1); expect(calls[0].path).toBe(`/api/listening/tests/dictation/session/${id}`);
   expect(screen.getByText(version === 'legacy' ? '67%' : '100%', { exact: true })).toBeTruthy();
+});
+
+it('owned v2 report with erased canonical parent retains frozen evidence and remains GET-only', async () => {
+  const id = '00000000-0000-4000-8000-000000000123';
+  route.params = new URLSearchParams(`session_id=${id}`);
+  stored = { ...canonical('request-1'), session_id: id, attempt_id: null, test_id: null };
+  const view = render(<ListeningDictationSession />); await screen.findByText('✓ Đã lưu & xác nhận');
+  expect(screen.getByText('100%', { exact: true })).toBeTruthy();
+  expect(view.container.querySelector('[data-dictation-side="reference"]')?.textContent).toBe(g.reference);
+  expect(calls).toHaveLength(1); expect(calls[0]).toMatchObject({ method: 'GET', path: `/api/listening/tests/dictation/session/${id}` });
 });
 
 it('owned legacy nullable sentence values stay unavailable without current-source substitution or writes', async () => {
