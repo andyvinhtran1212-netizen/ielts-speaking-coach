@@ -353,7 +353,7 @@ export function AdminVocabContent() {
       <div className="avv-filterbar avv-content-filters">
         <label>Chủ đề<select value={category} disabled={busy} onChange={(event) => chooseCategory(event.target.value)}><option value="">Tất cả chủ đề</option>{topics.map((topic) => <option key={topic.id} value={topic.slug}>{topic.titleVi || topic.title} · {topic.slug}</option>)}</select></label>
         <form className="avv-searchbar" onSubmit={(event) => { event.preventDefault(); applySearch(); }}><label><span className="sr-only">Tìm headword</span><input type="search" value={searchInput} disabled={busy} placeholder="Tìm theo headword…" onChange={(event) => setSearchInput(event.target.value)} /></label><button className="btn-primary" type="submit" disabled={busy}>Tìm</button><button className="btn-secondary" type="button" disabled={busy || (!category && !query)} onClick={() => { setSearchInput(''); setQuery(''); setCategory(''); setUrl('', ''); void loadPage(0, '', ''); }}>Đặt lại</button></form>
-        <span className="avv-console-count">{total} từ</span>
+        <span className="avv-console-count">{total} mục từ trong thư viện theo bộ lọc</span>
       </div>
 
       <div className="avv-content-bulk">

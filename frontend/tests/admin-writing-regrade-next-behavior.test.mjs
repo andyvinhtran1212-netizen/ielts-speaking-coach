@@ -56,7 +56,7 @@ describe('/admin/writing/regrade-requests native ownership and safety', () => {
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/regrade-requests['"]/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'regrade-requests.html')));
     assert.match(CHROME, /slug:\s*'regrade-requests'[^\n]+href:\s*'\/admin\/writing\/regrade-requests'/);
-    assert.match(HUB, /Yêu cầu chấm lại[^\n]+NATIVE/);
+    assert.match(HUB, /Yêu cầu chấm lại[^\n]+href: '\/admin\/writing\/regrade-requests'[^\n]+status: 'Quản lý'/);
     assert.match(LEDGER, /`\/admin\/writing\/regrade-requests`[^\n]+authed-admin-writing-regrade[^\n]+native React ownership/);
   });
 

@@ -15,9 +15,9 @@ const groups = [
     title: 'Chuẩn hóa đầu vào',
     description: 'Tạo bài viết, quản lý prompt và biên tập mẹo trước khi nội dung đến học viên.',
     items: [
-      { title: 'Gửi bài chấm', detail: 'Nhập bài thay học viên · ACK an toàn', href: '/admin/writing/new', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Thư viện prompt', detail: 'Prompt · Hình Task 1 · Answer key', href: '/admin/writing/prompts', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Mẹo viết', detail: 'Markdown · Publish · Import có readback', href: '/admin/writing/tips', status: 'NATIVE', statusClass: 'is-live' },
+      { title: 'Gửi bài chấm', detail: 'Nhập bài thay học viên · Đối chiếu kết quả gửi', href: '/admin/writing/new', status: 'Quản lý', statusClass: 'is-live' },
+      { title: 'Thư viện prompt', detail: 'Đề bài · Hình Task 1 · Đáp án', href: '/admin/writing/prompts', status: 'Quản lý', statusClass: 'is-live' },
+      { title: 'Mẹo viết', detail: 'Markdown · Phát hành · Đối chiếu sau import', href: '/admin/writing/tips', status: 'Quản lý', statusClass: 'is-live' },
     ],
   },
   {
@@ -26,10 +26,10 @@ const groups = [
     title: 'Kiểm soát chất lượng',
     description: 'Đưa bài qua đúng lane, xử lý yêu cầu chấm lại và chỉ phát feedback đã được kiểm tra.',
     items: [
-      { title: 'Hàng chờ chấm', detail: 'Duyệt · Chấm · Trả bài', href: '/admin/writing/queue', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Yêu cầu chấm lại', detail: 'Quyết định atomic · Canonical readback', href: '/admin/writing/regrade-requests', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Hàng đợi Instructor', detail: 'Claim atomic · Readback canonical', href: '/admin/writing/instructor-queue', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Workspace chấm bài', detail: '13 phần · Deliver · Regrade', href: '/admin/writing/grade', status: 'NATIVE', statusClass: 'is-live' },
+      { title: 'Hàng chờ chấm', detail: 'Duyệt · Chấm · Trả bài', href: '/admin/writing/queue', status: 'Quản lý', statusClass: 'is-live' },
+      { title: 'Yêu cầu chấm lại', detail: 'Duyệt yêu cầu · Đối chiếu quyết định', href: '/admin/writing/regrade-requests', status: 'Quản lý', statusClass: 'is-live' },
+      { title: 'Hàng đợi Instructor', detail: 'Nhận bài chấm · Đối chiếu người phụ trách', href: '/admin/writing/instructor-queue', status: 'Quản lý', statusClass: 'is-live' },
+      { title: 'Workspace chấm bài', detail: '13 phần · Trả bài · Chấm lại', href: '/admin/writing/grade', status: 'Quản lý', statusClass: 'is-live' },
     ],
   },
   {
@@ -38,9 +38,9 @@ const groups = [
     title: 'Đóng vòng học tập',
     description: 'Giao đúng đề, theo dõi theo lớp và mở hồ sơ học viên từ cùng một luồng vận hành.',
     items: [
-      { title: 'Gán bài tập', detail: 'Receipt · Fan-out · Canonical readback', href: '/admin/writing/assignments', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Lớp học', detail: 'Từng lượt giao · Stale truth · Mở bài canonical', href: '/admin/writing/cohorts', status: 'NATIVE', statusClass: 'is-live' },
-      { title: 'Học viên', detail: 'Hồ sơ và lịch sử bài viết', href: '/admin/students', status: 'NATIVE', statusClass: 'is-live' },
+      { title: 'Gán bài tập', detail: 'Giao bài cho lớp · Theo dõi kết quả từng lượt', href: '/admin/writing/assignments', status: 'Quản lý', statusClass: 'is-live' },
+      { title: 'Lớp học', detail: 'Từng lượt giao · Trạng thái cập nhật · Lịch sử bài', href: '/admin/writing/cohorts', status: 'Quản lý', statusClass: 'is-live' },
+      { title: 'Học viên', detail: 'Hồ sơ và lịch sử bài viết', href: '/admin/students', status: 'Quản lý', statusClass: 'is-live' },
     ],
   },
 ] as const;
@@ -65,10 +65,10 @@ export default function AdminWritingPage() {
           </header>
 
           <section className="wth-principle" aria-labelledby="writing-principle-title">
-            <span className="adm-status-pill is-live">CANONICAL FLOW</span>
+            <span className="adm-status-pill is-live">LUỒNG VẬN HÀNH</span>
             <div>
               <h2 id="writing-principle-title">Chuẩn bị → Chấm → Giao & theo dõi</h2>
-              <p>Mỗi workspace giữ một trách nhiệm rõ ràng; trạng thái NATIVE/MIGRATING phản ánh đúng route đang sở hữu giao diện.</p>
+              <p>Chọn workspace theo công việc cần làm; kiểm tra kết quả đã lưu trước khi chuyển sang bước tiếp theo.</p>
             </div>
           </section>
 

@@ -114,7 +114,7 @@ test('native route owns QA without a retired HTML rollback and retains student-l
   assert.match(LAYOUT, /markdown\.js/);
   assert.doesNotMatch(CLIENT, /\/pages\/admin\/reading\/preview\.html/);
   assert.match(CLIENT, /\/reading\/review\?admin_test_id=/);
-  assert.match(CONTENT, /readingPreviewHref\(row\.slug\)/);
+  assert.match(CONTENT, /readingPreviewHref\(row\.slug, null, context\)/);
   assert.match(FEEDBACK_MODEL, /return readingPreviewHref\(item\.testId, item\.questionNumber\)/);
   assert.doesNotMatch(CLIENT, /window\.confirm|window\.alert/);
 });

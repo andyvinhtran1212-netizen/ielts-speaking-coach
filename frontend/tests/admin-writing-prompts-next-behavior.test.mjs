@@ -100,7 +100,7 @@ describe('/admin/writing/prompts native ownership and safety contract', () => {
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/prompts['"]/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'prompts.html')));
     assert.match(CHROME, /slug:\s*'prompts'[^\n]+href:\s*'\/admin\/writing\/prompts'/);
-    assert.match(HUB, /Thư viện prompt[^\n]+NATIVE/);
+    assert.match(HUB, /Thư viện prompt[^\n]+href: '\/admin\/writing\/prompts'[^\n]+status: 'Quản lý'/);
     assert.match(LEDGER, /`\/admin\/writing\/prompts`[^\n]+authed-admin-writing-prompts[^\n]+native React ownership/);
   });
 

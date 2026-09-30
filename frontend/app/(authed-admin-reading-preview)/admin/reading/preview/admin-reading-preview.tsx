@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { adminReadingPreviewReturnHref } from '@/lib/admin-reading-navigation.mjs';
+
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, messageOf } from '@/components/admin-directory-ui';
 import {
@@ -78,6 +80,7 @@ function QuestionCard({ question, passageQuestions, index, passage, busy, onUplo
 export function AdminReadingPreview() {
   const profile = useAdminProfile(); const params = useSearchParams(); const testId = (params?.get('test_id') || '').trim(); const key = `${profile.id}:${testId}`;
   const scope = useRef(key); const sequence = useRef(0); const [snapshot, setSnapshot] = useState<Snapshot | null>(null); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState<string | null>(null); const [banner, setBanner] = useState<Banner | null>(null); const [activePassage, setActivePassage] = useState<string | null>(null); const [busyQuestion, setBusyQuestion] = useState<string | null>(null); const [deleteAction, setDeleteAction] = useState<DeleteAction>(null);
+  const returnHref = adminReadingPreviewReturnHref(params || undefined);
   const current = snapshot?.key === key ? snapshot : null; const test = current?.test || null; const passage = test?.passages.find((item) => item.id === activePassage) || test?.passages[0] || null;
   const passageQuestions = useMemo(() => passage && test ? questionsByPassage(test, passage.id) as Question[] : [], [passage, test]);
 
@@ -159,9 +162,9 @@ export function AdminReadingPreview() {
     } finally { if (scope.current === owner) setBusyQuestion(null); }
   };
 
-  if (!testId) return <main className="arp-shell"><div className="arp-state is-error" role="alert"><strong>Không có đề để xem trước</strong><p>URL cần tham số <code>test_id</code>. Hãy quay lại thư viện và chọn “Xem trước”.</p><a className="adm-btn-primary" href="/admin/reading/content">Về thư viện Reading</a></div></main>;
+  if (!testId) return <main className="arp-shell"><div className="arp-state is-error" role="alert"><strong>Không có đề để xem trước</strong><p>URL cần tham số <code>test_id</code>. Hãy quay lại thư viện và chọn “Xem trước”.</p><a className="adm-btn-primary" href={returnHref}>Về thư viện Reading</a></div></main>;
   return <main className="arp-shell">
-    <header className="arp-hero"><div><p className="arp-eyebrow">Reading · Paper QA</p><h1>{test?.title || 'Kiểm định đề Reading'}</h1><p>{test ? `${test.testId} · ${test.module || 'module chưa đặt'}` : `Đang đọc ${testId}`}</p></div><div className="arp-hero__actions"><a className="adm-btn-primary" href="/admin/reading/content">Về thư viện</a></div></header>
+    <header className="arp-hero"><div><p className="arp-eyebrow">Reading · Paper QA</p><h1>{test?.title || 'Kiểm định đề Reading'}</h1><p>{test ? `${test.testId} · ${test.module || 'module chưa đặt'}` : `Đang đọc ${testId}`}</p></div><div className="arp-hero__actions"><a className="adm-btn-primary" href={returnHref}>Về thư viện</a></div></header>
     <div className="arp-mode-note"><strong>Chế độ kiểm định admin</strong><span>Đáp án, alternatives và lời giải được mở để rà nội dung. Đây không phải mô phỏng lượt làm của học viên.</span></div>
     {banner && <div className={`arp-banner is-${banner.kind}`} role={banner.kind === 'error' ? 'alert' : 'status'}><div><strong>{banner.title}</strong><span>{banner.detail}</span></div><button type="button" aria-label="Đóng thông báo" onClick={() => setBanner(null)}>×</button></div>}
     {loadError && <div className="arp-banner is-error" role="alert"><div><strong>{current ? 'Đang giữ snapshot cũ' : 'Không tải được đề'}</strong><span>{loadError}{current ? ` · đọc lúc ${timeText(current.readAt)}` : ''}</span></div><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void load()} disabled={loading}>Thử lại</button></div>}
