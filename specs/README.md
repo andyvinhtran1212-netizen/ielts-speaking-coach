@@ -76,7 +76,7 @@ draft -> approved -> implementing -> verified -> shipped
 
 | DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | approved | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
 
-| READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | approved | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
+| READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | implementing | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
 
 | WRITINGMODAL-0013 | Make Writing content dialogs follow browser history and keyboard focus | implementing | medium | [spec](0013-writing-content-modal-history/spec.md) |
 

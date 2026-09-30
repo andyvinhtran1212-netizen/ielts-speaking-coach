@@ -8825,6 +8825,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/reading/content/passages/{slug}/grammar-focus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reading Grammar Focus */
+        get: operations["get_reading_grammar_focus_admin_reading_content_passages__slug__grammar_focus_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Reading Grammar Focus */
+        patch: operations["patch_reading_grammar_focus_admin_reading_content_passages__slug__grammar_focus_patch"];
+        trace?: never;
+    };
     "/admin/reading/content": {
         parameters: {
             query?: never;
@@ -17295,6 +17313,161 @@ export interface components {
             band: number;
             /** Count */
             count: number;
+        };
+        /** ReadingGrammarFocusEditItem */
+        ReadingGrammarFocusEditItem: {
+            /** Point */
+            point: string;
+            /** Example */
+            example?: string;
+            /** Analysis */
+            analysis?: string;
+            /** Review */
+            review?: string;
+            /** Tip */
+            tip?: string;
+        };
+        /** ReadingGrammarFocusEditRequest */
+        ReadingGrammarFocusEditRequest: {
+            /** Expected Revision */
+            expected_revision: string;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Grammar Focus */
+            grammar_focus: components["schemas"]["ReadingGrammarFocusEditItem"][];
+        };
+        /** ReadingGrammarFocusEditResult */
+        ReadingGrammarFocusEditResult: {
+            /**
+             * Passage Id
+             * Format: uuid
+             */
+            passage_id: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Library
+             * @constant
+             */
+            library: "l1_vocab";
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "updated" | "unchanged" | "already_applied";
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Committed Revision */
+            committed_revision: string;
+            /** Current Revision */
+            current_revision: string;
+            /** Current Matches Committed */
+            current_matches_committed: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Grammar Focus */
+            grammar_focus: components["schemas"]["ReadingGrammarFocusItem"][];
+            /**
+             * Source Sha256
+             * @description Committed operation source fingerprint, retained in its receipt.
+             */
+            source_sha256: string;
+            /**
+             * Unrelated Metadata Sha256
+             * @description Committed operation unrelated-metadata fingerprint.
+             */
+            unrelated_metadata_sha256: string;
+            /**
+             * Questions Sha256
+             * @description Committed operation question fingerprint; never raw answers.
+             */
+            questions_sha256: string;
+            /** Current Source Sha256 */
+            current_source_sha256: string;
+            /** Current Unrelated Metadata Sha256 */
+            current_unrelated_metadata_sha256: string;
+            /** Current Questions Sha256 */
+            current_questions_sha256: string;
+        };
+        /** ReadingGrammarFocusErrorDetail */
+        ReadingGrammarFocusErrorDetail: {
+            /**
+             * Error Code
+             * @enum {string}
+             */
+            error_code: "reading_grammar_focus_not_found" | "reading_grammar_focus_invalid_state" | "reading_grammar_focus_unavailable" | "reading_grammar_focus_lock_unavailable" | "reading_grammar_focus_revision_conflict" | "reading_grammar_focus_operation_conflict" | "reading_grammar_focus_receipt_invalid" | "reading_grammar_focus_request_invalid";
+            /** Message */
+            message: string;
+            /** Current Revision */
+            current_revision?: string | null;
+        };
+        /** ReadingGrammarFocusErrorResponse */
+        ReadingGrammarFocusErrorResponse: {
+            detail: components["schemas"]["ReadingGrammarFocusErrorDetail"];
+        };
+        /**
+         * ReadingGrammarFocusItem
+         * @description Legacy reads preserve omitted keys and do not invent empty strings.
+         */
+        ReadingGrammarFocusItem: {
+            /** Point */
+            point: string;
+            /** Example */
+            example?: string;
+            /** Analysis */
+            analysis?: string;
+            /** Review */
+            review?: string;
+            /** Tip */
+            tip?: string;
+        };
+        /** ReadingGrammarFocusRead */
+        ReadingGrammarFocusRead: {
+            /**
+             * Passage Id
+             * Format: uuid
+             */
+            passage_id: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Library
+             * @constant
+             */
+            library: "l1_vocab";
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+            /** Body Markdown */
+            body_markdown: string;
+            /** Grammar Focus */
+            grammar_focus: components["schemas"]["ReadingGrammarFocusItem"][];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Revision */
+            revision: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Unrelated Metadata Sha256 */
+            unrelated_metadata_sha256: string;
+            /** Questions Sha256 */
+            questions_sha256: string;
         };
         /** ReadingOverviewOut */
         ReadingOverviewOut: {
@@ -33628,6 +33801,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reading_grammar_focus_admin_reading_content_passages__slug__grammar_focus_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_reading_grammar_focus_admin_reading_content_passages__slug__grammar_focus_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadingGrammarFocusEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusEditResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
                 };
             };
         };

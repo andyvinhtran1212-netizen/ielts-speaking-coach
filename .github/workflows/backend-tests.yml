@@ -89,6 +89,7 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aver_ux_ci
         ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready --health-interval 5s
@@ -100,6 +101,10 @@ jobs:
       # một lời miễn trừ.
       TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
       REQUIRE_PG: '1'
+      # Run Reading CAS/receipt/import races against the same real service.
+      # Its fixture requires an explicit loopback aver_ux_ test database and
+      # creates/drops only its own random schema; configured failures are red.
+      READING_GRAMMAR_FOCUS_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aver_ux_ci
 
     steps:
       - name: Checkout
