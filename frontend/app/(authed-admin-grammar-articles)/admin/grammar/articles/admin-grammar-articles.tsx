@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAdminProfile } from '@/components/admin-access-gate';
 import {
   formatGrammarMetric,
+  grammarPreviewError,
   grammarStudentHref,
   normalizeGrammarArticlesPayload,
   normalizeGrammarPreview,
@@ -44,6 +45,7 @@ export function AdminGrammarArticles() {
   const [previews, setPreviews] = useState<Record<string, PreviewState>>({});
   const sequence = useRef(0);
   const previewSequence = useRef<Record<string, number>>({});
+  const nextPreviewRequest = useRef(0);
   const keyOf = (nextCategory: string, nextSearch: string) => `${profile.id}:${nextCategory}:${nextSearch}`;
   const currentKey = keyOf(urlCategory, urlSearch);
   const payload = snapshot?.key === currentKey ? snapshot.value : null;
@@ -51,6 +53,7 @@ export function AdminGrammarArticles() {
   const load = useCallback(async (nextCategory = urlCategory, nextSearch = urlSearch) => {
     const requestId = ++sequence.current;
     setLoading(true); setError(null); setExpandedSlug(null);
+    previewSequence.current = {}; setPreviews({});
     try {
       const query = new URLSearchParams();
       if (nextCategory) query.set('category', nextCategory);
@@ -83,29 +86,32 @@ export function AdminGrammarArticles() {
 
   const reset = () => { setCategory(''); setSearch(''); apply('', ''); };
 
-  const togglePreview = async (article: Article) => {
-    if (expandedSlug === article.slug) { setExpandedSlug(null); return; }
-    setExpandedSlug(article.slug);
-    if (previews[article.slug]) return;
-    const requestId = (previewSequence.current[article.slug] || 0) + 1;
+  const loadPreview = async (article: Article) => {
+    const requestId = ++nextPreviewRequest.current;
     previewSequence.current[article.slug] = requestId;
     setPreviews((current) => ({ ...current, [article.slug]: { phase: 'loading' } }));
     try {
-      const normalized = normalizeGrammarPreview(
-        await window.api.get<unknown>(`/admin/grammar/articles/${encodeURIComponent(article.slug)}/preview`), article.slug,
-      );
-      if (!normalized) throw new Error('Preview không đúng bài đang chọn.');
+      const raw = await window.api.get<unknown>(`/admin/grammar/articles/${encodeURIComponent(article.slug)}/preview`);
+      const normalized = normalizeGrammarPreview(raw, article.slug);
+      if (!normalized) throw new Error(grammarPreviewError(raw, article.slug) || 'Phản hồi xem trước không hợp lệ.');
       if (requestId === previewSequence.current[article.slug]) setPreviews((current) => ({ ...current, [article.slug]: { phase: 'ready', html: normalized.html } }));
     } catch (caught) {
       if (requestId === previewSequence.current[article.slug]) setPreviews((current) => ({ ...current, [article.slug]: { phase: 'error', message: messageOf(caught) } }));
     }
   };
 
+  const togglePreview = (article: Article) => {
+    if (expandedSlug === article.slug) { setExpandedSlug(null); return; }
+    setExpandedSlug(article.slug);
+    const cached = previews[article.slug];
+    if (!cached || cached.phase === 'error') void loadPreview(article);
+  };
+
   const metricsUnavailable = payload && (payload.analyticsStatus.views === 'unavailable' || payload.analyticsStatus.saves === 'unavailable');
   return <main className="gaa-shell">
     <header className="gaa-header"><div><p className="gaa-eyebrow">Grammar · Kho nội dung</p><h1>Articles browser</h1><p className="gaa-subtitle">Tra cứu bản Markdown đã phát hành, kiểm đường dẫn nguồn và xem tín hiệu sử dụng. Màn hình này không chỉnh sửa nội dung.</p></div><div className="gaa-header-actions"><a className="btn-secondary" href="/admin/grammar">← Grammar workspace</a><button className="btn-secondary" type="button" onClick={() => void load()} disabled={loading}>{loading ? 'Đang làm mới…' : 'Làm mới'}</button></div></header>
 
-    <section className="gaa-source" aria-labelledby="gaa-source-title"><span className="adm-status-pill is-readonly">READ-ONLY</span><div><h2 id="gaa-source-title">Repository là nguồn xuất bản canonical</h2><p>Chỉnh sửa tại <code>backend/content/&lt;category&gt;/&lt;slug&gt;.md</code>, sau đó review và commit. Không có thao tác ghi nội dung trên trang này.</p></div></section>
+    <section className="gaa-source" aria-labelledby="gaa-source-title"><span className="adm-status-pill is-readonly">CHỈ ĐỌC</span><div><h2 id="gaa-source-title">Bài được xuất bản từ kho nội dung</h2><p>Chỉnh sửa tại <code>backend/content/&lt;category&gt;/&lt;slug&gt;.md</code>, sau đó review và commit. Không có thao tác ghi nội dung trên trang này.</p></div></section>
 
     <form className="gaa-filters" aria-label="Bộ lọc articles" onSubmit={(event) => { event.preventDefault(); apply(); }}>
       <label>Danh mục<select value={category} onChange={(event) => { const value = event.target.value; setCategory(value); apply(value, search.trim()); }}><option value="">Tất cả danh mục</option>{(payload?.categories || []).map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
@@ -121,7 +127,7 @@ export function AdminGrammarArticles() {
     {payload && <section className="gaa-library" aria-labelledby="gaa-library-title"><div className="gaa-section-head"><div><p className="gaa-eyebrow">Thư viện đã phát hành</p><h2 id="gaa-library-title">{payload.total === payload.availableTotal ? `${payload.total} articles` : `${payload.total}/${payload.availableTotal} articles`}</h2></div><span>Chọn một bài để preview</span></div>
       {payload.items.length ? <div className="gaa-table-wrap" role="region" aria-label="Danh sách Grammar articles" tabIndex={0}><table className="gaa-table"><thead><tr><th scope="col">Article</th><th scope="col">Category</th><th scope="col">Band</th><th scope="col">Views</th><th scope="col">Saves</th><th scope="col">Source</th><th scope="col"><span className="gaa-sr-only">Preview</span></th></tr></thead><tbody>{payload.items.map((article) => {
         const preview = previews[article.slug]; const expanded = expandedSlug === article.slug;
-        return <Fragment key={article.slug}><tr className={expanded ? 'is-expanded' : ''}><td data-label="Article"><strong>{article.title}</strong><code>{article.slug}</code>{article.summary && <small>{article.summary}</small>}</td><td data-label="Category"><span className="gaa-chip">{article.category}</span></td><td data-label="Band">{article.band || '—'}</td><td data-label="Views" className="is-number">{formatGrammarMetric(article.viewCount)}</td><td data-label="Saves" className="is-number">{formatGrammarMetric(article.saveCount)}</td><td data-label="Source"><code className="gaa-source-path">{article.sourcePath}</code></td><td data-label="Preview"><button className="gaa-preview-toggle" type="button" aria-expanded={expanded} aria-controls={`preview-${article.slug}`} onClick={() => void togglePreview(article)}>{expanded ? 'Đóng' : 'Xem trước'}</button></td></tr>{expanded && <tr className="gaa-preview-row"><td colSpan={7}><div className="gaa-preview" id={`preview-${article.slug}`}><div className="gaa-preview-head"><div><strong>{article.title}</strong><span>Bản render hiện đang phục vụ học viên</span></div><a href={grammarStudentHref(article.category, article.slug)} target="_blank" rel="noopener noreferrer">Mở student view ↗</a></div>{!preview || preview.phase === 'loading' ? <div className="gaa-preview-state" role="status">Đang tải preview…</div> : preview.phase === 'error' ? <div className="gaa-preview-state is-error" role="alert">Không tải được preview: {preview.message}</div> : <iframe title={`Preview ${article.title}`} sandbox="" srcDoc={previewDocument(preview.html)} />}</div></td></tr>}</Fragment>;
+        return <Fragment key={article.slug}><tr className={expanded ? 'is-expanded' : ''}><td data-label="Article"><strong>{article.title}</strong><code>{article.slug}</code>{article.summary && <small>{article.summary}</small>}</td><td data-label="Category"><span className="gaa-chip">{article.category}</span></td><td data-label="Band">{article.band || '—'}</td><td data-label="Views" className="is-number">{formatGrammarMetric(article.viewCount)}</td><td data-label="Saves" className="is-number">{formatGrammarMetric(article.saveCount)}</td><td data-label="Source"><code className="gaa-source-path">{article.sourcePath}</code></td><td data-label="Preview"><button className="gaa-preview-toggle" type="button" aria-expanded={expanded} aria-controls={`preview-${article.slug}`} onClick={() => void togglePreview(article)}>{expanded ? 'Đóng' : 'Xem trước'}</button></td></tr>{expanded && <tr className="gaa-preview-row"><td colSpan={7}><div className="gaa-preview" id={`preview-${article.slug}`}><div className="gaa-preview-head"><div><strong>{article.title}</strong><span>Bản render hiện đang phục vụ học viên</span></div><a href={grammarStudentHref(article.category, article.slug)} target="_blank" rel="noopener noreferrer">Mở student view ↗</a></div>{!preview || preview.phase === 'loading' ? <div className="gaa-preview-state" role="status">Đang tải preview…</div> : preview.phase === 'error' ? <div className="gaa-preview-state is-error" role="alert"><p>Không tải được preview: {preview.message}</p><button className="btn-secondary" type="button" onClick={() => void loadPreview(article)}>Thử lại xem trước</button></div> : <iframe title={`Preview ${article.title}`} sandbox="" srcDoc={previewDocument(preview.html)} />}</div></td></tr>}</Fragment>;
       })}</tbody></table></div> : <div className="gaa-empty"><strong>Không có article khớp bộ lọc</strong><span>Thử bỏ danh mục hoặc rút ngắn từ khóa tìm kiếm.</span><button className="btn-secondary" type="button" onClick={reset}>Xóa bộ lọc</button></div>}
     </section>}
   </main>;
