@@ -9,11 +9,17 @@ Loaded once at import time (module-level singleton `grammar_service`).
 
 import logging
 import re
+import unicodedata
+from collections import Counter
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
 import markdown
 import yaml
+from pydantic import ValidationError
+
+from models.grammar_content import GrammarSourceArticleDocument
 
 from services.grammar_learning_blocks import inject_learning_blocks, validate_learning_blocks
 
@@ -22,6 +28,37 @@ logger = logging.getLogger(__name__)
 CONTENT_DIR  = Path(__file__).parent.parent / "content"
 GROUPS_FILE  = CONTENT_DIR / "_groups.yaml"
 MAPPING_FILE = CONTENT_DIR / "feedback-anchor-mapping.yaml"
+
+_SLUG_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+_ARTICLE_STATUSES = frozenset({"complete", "updating", "draft"})
+_DOCUMENT_STEMS = frozenset({"readme", "manifest", "changelog"})
+
+
+def _grammar_categories() -> frozenset[str]:
+    """The curated Grammar manifest owns the allowed public content folders."""
+    try:
+        manifest = yaml.safe_load(GROUPS_FILE.read_text(encoding="utf-8"))
+        if not isinstance(manifest, dict) or not isinstance(manifest.get("groups"), list):
+            raise ValueError("groups must be a list")
+        categories = {
+            article["category"]
+            for group in manifest["groups"]
+            for article in group.get("articles", [])
+            if isinstance(article, dict)
+            and isinstance(article.get("category"), str)
+            and _SLUG_RE.fullmatch(article["category"])
+        }
+        return frozenset(categories)
+    except (OSError, ValueError, TypeError, AttributeError, yaml.YAMLError) as exc:
+        logger.error("[grammar] invalid groups manifest; no public categories: %s", exc)
+        return frozenset()
+
+
+def _normalise_search(text: str) -> str:
+    """Fold Vietnamese accents/đ and Unicode variants without changing display text."""
+    decomposed = unicodedata.normalize("NFKD", text.casefold()).replace("đ", "d")
+    folded = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return " ".join(folded.split())
 
 _MD_EXTENSIONS   = ["tables", "fenced_code", "toc", "attr_list"]
 _MD_EXT_CONFIGS  = {
@@ -99,6 +136,7 @@ class GrammarContentService:
         self.articles_by_pathway:   dict[str, list[dict]] = {}  # pathway → [article, …]
         self.all_categories:        list[dict]            = []
         self.search_index:          list[dict]            = []
+        self.grammar_categories = _grammar_categories()
         self._load_all()
 
     # ── Loader ───────────────────────────────────────────────────────────────
@@ -110,7 +148,12 @@ class GrammarContentService:
 
         articles: list[dict] = []
         for md_file in sorted(CONTENT_DIR.rglob("*.md")):
-            if "_archive" in md_file.parts:
+            # Only category/<slug>.md is lesson source. Nested/internal folders,
+            # other domains and symlinks cannot become public via metadata alone.
+            relative = md_file.relative_to(CONTENT_DIR)
+            if (len(relative.parts) != 2
+                    or relative.parts[0] not in self.grammar_categories
+                    or md_file.is_symlink()):
                 continue
             try:
                 article = self._parse_file(md_file)
@@ -118,6 +161,14 @@ class GrammarContentService:
                     articles.append(article)
             except Exception as exc:
                 logger.error("[grammar] failed to parse %s: %s", md_file, exc)
+
+        # A slug owns one detail route and one recommendation identity. Do not
+        # silently select one of two sources or disagree with category indexes.
+        counts = Counter(a["slug"] for a in articles)
+        duplicates = {slug for slug, count in counts.items() if count > 1}
+        if duplicates:
+            logger.error("[grammar] duplicate public slugs excluded: %s", ", ".join(sorted(duplicates)))
+            articles = [article for article in articles if article["slug"] not in duplicates]
 
         # slug, category, error_tag, and pathway indexes
         for a in articles:
@@ -160,6 +211,10 @@ class GrammarContentService:
                 "writing_relevance": a.get("writing_relevance", ""),
                 "tags":     a.get("tags", []),
                 "text":     plain.lower(),
+                "search_title": _normalise_search(a["title"]),
+                "search_summary": _normalise_search(a.get("summary", "")),
+                "search_tags": [_normalise_search(str(tag)) for tag in a.get("tags", [])],
+                "search_text": _normalise_search(plain),
             })
 
         logger.info(
@@ -188,29 +243,54 @@ class GrammarContentService:
     def _parse_file(self, path: Path) -> Optional[dict]:
         raw = path.read_text(encoding="utf-8")
 
-        # Split YAML frontmatter from Markdown body
-        if raw.startswith("---"):
-            parts = raw.split("---", 2)
-            fm_str = parts[1] if len(parts) >= 3 else ""
-            body   = parts[2].strip() if len(parts) >= 3 else raw
-        else:
-            fm_str = ""
-            body   = raw
-
-        fm: dict = yaml.safe_load(fm_str) or {}
-
-        # D1 (audit 2026-07-03): _load_all rglobs ALL of content/, so Reading
-        # passages/tests and Listening files (which live under content/reading,
-        # content/listening) would otherwise be indexed as Grammar Wiki articles.
-        # Skip anything whose content_type marks it as non-grammar — the runtime
-        # loader must match test_grammar_audit_scope.py's exclusion.
-        content_type = str(fm.get("content_type") or "")
-        if content_type.startswith(("reading", "listening", "exam")):
+        # Missing/invalid lesson identity must never default to a published
+        # article. Operational Markdown has no authority to infer metadata.
+        frontmatter = re.match(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|\Z)(.*)\Z", raw, re.DOTALL)
+        if not frontmatter:
+            logger.warning("[grammar] excluded source without lesson frontmatter: %s", path)
+            return None
+        fm = yaml.safe_load(frontmatter.group(1))
+        body = frontmatter.group(2).strip()
+        if not isinstance(fm, dict) or not body:
+            logger.warning("[grammar] excluded invalid lesson frontmatter/body: %s", path)
             return None
 
-        slug     = fm.get("slug") or path.stem
-        category = fm.get("category") or path.parent.name
-        title    = fm.get("title") or _prettify(slug)
+        # Existing Grammar lessons omit content_type. Other domain/document
+        # types remain excluded even when they imitate Grammar metadata.
+        if fm.get("content_type") not in (None, "grammar"):
+            logger.warning("[grammar] excluded non-grammar source in lesson folder: %s", path)
+            return None
+        slug, category, title, status = (fm.get(key) for key in ("slug", "category", "title", "status"))
+        categories = getattr(self, "grammar_categories", None)
+        if categories is None:
+            categories = _grammar_categories()
+        if (not isinstance(slug, str) or not _SLUG_RE.fullmatch(slug)
+                or slug != path.stem
+                or slug in _DOCUMENT_STEMS
+                or not isinstance(category, str) or category not in categories
+                or not isinstance(title, str) or not title.strip()
+                or not isinstance(status, str) or status not in _ARTICLE_STATUSES):
+            logger.warning("[grammar] excluded invalid lesson identity/status: %s", path)
+            return None
+        # Enforce directory identity for deployed source while allowing direct
+        # parser fixtures outside CONTENT_DIR to exercise metadata contracts.
+        if path.is_relative_to(CONTENT_DIR) and path.parent != CONTENT_DIR / category:
+            logger.warning("[grammar] excluded mismatched lesson category/path: %s", path)
+            return None
+
+        # Do not turn a scalar tag string into individual character tags or
+        # coerce malformed metadata into a superficially valid public payload.
+        for field in ("band_relevance", "common_error_tags", "next_articles", "pathways",
+                      "tags", "prerequisites", "related_pages", "compare_with"):
+            value = fm.get(field)
+            if value is not None and (not isinstance(value, list)
+                    or any(item is not None and not isinstance(item, str) for item in value)):
+                logger.warning("[grammar] excluded invalid lesson list metadata: %s; field=%s", path, field)
+                return None
+        updated = fm.get("last_updated")
+        if updated is not None and not isinstance(updated, (str, date)):
+            logger.warning("[grammar] excluded invalid lesson date metadata: %s", path)
+            return None
 
         learning_blocks, learning_block_errors = validate_learning_blocks(
             fm.get("learning_blocks"), body,
@@ -242,13 +322,7 @@ class GrammarContentService:
         word_count   = len(re.sub(r"<[^>]+>", " ", html).split())
         reading_time = max(1, round(word_count / 200))
 
-        status = str(fm.get("status", "complete") or "complete").strip().lower()
-        # Preserve canonical editorial states so downstream callers can make
-        # honest visibility decisions (e.g. avoid recommending draft content).
-        if status not in ("complete", "updating", "draft"):
-            status = "complete"
-
-        return {
+        article = {
             "slug":              slug,
             "category":          category,
             "title":             title,
@@ -282,6 +356,18 @@ class GrammarContentService:
             ],
             "learning_blocks":   learning_blocks,
         }
+        try:
+            # Dates/defaults are already projected above; strict wire validation
+            # occurs before sorting/indexing so malformed order/scalars cannot
+            # crash the shared catalog or reach cache-aware public responses.
+            GrammarSourceArticleDocument.model_validate(article, strict=True)
+        except ValidationError as exc:
+            fields = sorted({".".join(str(part) for part in error["loc"])
+                             for error in exc.errors(include_input=False)})
+            logger.warning("[grammar] excluded invalid lesson wire metadata: %s; fields=%s",
+                           path, ",".join(fields))
+            return None
+        return article
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
@@ -300,7 +386,7 @@ class GrammarContentService:
             "pathways":         a.get("pathways") or [],
             "common_error_tags": a.get("common_error_tags") or [],
             "tags":             a["tags"],
-            "next_articles":    a.get("next_articles") or [],
+            "next_articles":    [slug for slug in (a.get("next_articles") or []) if slug in self.articles_by_slug],
             "order":            a["order"],
             "reading_time":     a["reading_time"],
             "last_updated":     a["last_updated"],
@@ -319,6 +405,16 @@ class GrammarContentService:
                 out.append({"slug": a["slug"], "title": a["title"], "category": a["category"]})
             # else: skip — unresolved slugs have no valid category and cannot be linked
         return out
+
+    def _public_source_article(self, article: dict) -> dict:
+        """Keep unresolved source refs available to audits, out of public links."""
+        return {
+            **article,
+            **{
+                field: [slug for slug in (article.get(field) or []) if slug in self.articles_by_slug]
+                for field in ("related_pages", "next_articles", "compare_with", "prerequisites")
+            },
+        }
 
     # ── Public API ───────────────────────────────────────────────────────────
 
@@ -353,7 +449,7 @@ class GrammarContentService:
         next_art = self._summary(cat_list[idx + 1]) if idx < len(cat_list) - 1 else None
 
         return {
-            **a,
+            **self._public_source_article(a),
             "related_pages":  related,
             "next_articles":  next_articles,
             "prev_article":   prev_art,
@@ -378,17 +474,21 @@ class GrammarContentService:
 
     def search(self, query: str) -> list[dict]:
         """Keyword search across title, summary, tags, and body text."""
-        q = query.lower().strip()
+        q = _normalise_search(query)
         if len(q) < 2:
             return []
 
         results = []
         for item in self.search_index:
             score = 0
-            if q in item["title"].lower():                               score += 10
-            if q in item["summary"].lower():                             score += 5
-            if any(q in str(tag).lower() for tag in item.get("tags", []) if tag is not None):   score += 3
-            if q in item["text"]:                                        score += 1
+            if q in item["search_title"]:
+                score += 10
+            if q in item["search_summary"]:
+                score += 5
+            if any(q in tag for tag in item["search_tags"]):
+                score += 3
+            if q in item["search_text"]:
+                score += 1
             if score:
                 results.append((score, item))
 
@@ -979,7 +1079,7 @@ class GrammarContentService:
             a1 = self.articles_by_slug.get(left_slug)
             a2 = self.articles_by_slug.get(right_slug)
             if a1 and a2:
-                return {"slug": slug, "left": a1, "right": a2}
+                return {"slug": slug, "left": self._public_source_article(a1), "right": self._public_source_article(a2)}
 
         # Fallback: scan compare_with fields
         for a in self.articles_by_slug.values():
@@ -989,7 +1089,7 @@ class GrammarContentService:
                     slug == f"{a['slug']}-vs-{compare_slug}"
                     or slug == f"{compare_slug}-vs-{a['slug']}"
                 ):
-                    return {"slug": slug, "left": a, "right": other}
+                    return {"slug": slug, "left": self._public_source_article(a), "right": self._public_source_article(other)}
 
         return None
 

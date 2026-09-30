@@ -32,7 +32,7 @@ compare_with:
 - past-perfect
 order: 7
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-09-30
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -180,12 +180,12 @@ Past Continuous + while + Past Continuous
 
 ### Lỗi 3: Dùng state verbs (stative verbs) với Past Continuous
 
-Các động từ chỉ trạng thái **không dùng** với continuous tenses: know, believe, understand, want, need, like, love, hate, have (sở hữu), see (nhìn thấy), hear...
+Khi nói trạng thái nói chung, các động từ như know, believe, understand, want, need, like, love, hate, have (sở hữu), see (nhìn thấy), hear... **thường dùng thì đơn**, không dùng tiếp diễn. Một số động từ có nghĩa hành động hoặc sắc thái nhấn mạnh trải nghiệm tạm thời nên cần xét ngữ cảnh.
 
 - ❌ I was knowing the answer.
 - ✅ I **knew** the answer.
-- ❌ She was loving the film.
-- ✅ She **loved** the film.
+- **Cảm nhận chung:** She **loved** the film.
+- **Trải nghiệm đang diễn ra, thân mật:** She **was loving** the film until her phone rang. Không tự xem "was loving" là sai khi ngữ cảnh này phù hợp.
 
 ### Lỗi 4: Nhầm khi dùng "when" và "while"
 
@@ -275,5 +275,5 @@ Các động từ chỉ trạng thái **không dùng** với continuous tenses: 
 **Quy tắc vàng:**
 - **was** = I / he / she / it
 - **were** = you / we / they
-- Stative verbs (know, want, love...) **không dùng** Past Continuous
+- Stative verbs thường dùng Past Simple khi nói trạng thái; một số nghĩa/ngữ cảnh cho phép Past Continuous.
 - Past Continuous = **nền/bối cảnh**; Past Simple = **sự kiện xảy đến**

@@ -32,7 +32,7 @@ related_pages:
 compare_with: []
 order: 3
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-09-30
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -225,10 +225,10 @@ Subject + is/are + V3 + to-infinitive
 - Câu yếu: The report was written **by someone**.
 - Câu tốt: The report was written. (bỏ agent không rõ ràng)
 
-### Lỗi 3: Dùng động từ trạng thái (stative verb) ở dạng bị động tiếp diễn
+### Lỗi 3: Dùng bị động tiếp diễn cho một trạng thái không mang nghĩa diễn tiến
 
 - ❌ The truth is being known by everyone.
-- ✅ The truth is known by everyone. (know = stative → không dùng -ing)
+- ✅ The truth is known by everyone. (know chỉ trạng thái biết trong câu này, nên dùng bị động đơn; với động từ khác, cần xét nghĩa và ngữ cảnh trước khi chọn tiếp diễn.)
 
 ### Lỗi 4: Nhầm active và passive với "born"
 
@@ -322,7 +322,7 @@ Subject + is/are + V3 + to-infinitive
 
 **Khi nào dùng:** không biết ai làm / người làm không quan trọng / nhấn mạnh kết quả / văn học thuật
 
-**Khi nào KHÔNG dùng:** động từ nội động (happen, occur, arrive...) / stative verbs ở continuous passive
+**Khi nào KHÔNG dùng:** động từ nội động (happen, occur, arrive...) / bị động tiếp diễn khi động từ chỉ một trạng thái ổn định, như know trong ví dụ trên; không áp dụng thành lệnh cấm cho mọi nghĩa của mọi stative verb.
 
 **Reporting passive phổ biến trong IELTS:**
 - It is believed / reported / suggested / known that...

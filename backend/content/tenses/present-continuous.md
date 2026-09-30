@@ -26,7 +26,7 @@ compare_with:
 - present-simple
 order: 2
 status: complete
-last_updated: 2026-04-10
+last_updated: 2026-09-30
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -240,10 +240,9 @@ Khác với Present Simple (thói quen bình thường), Present Continuous + al
 
 - ❌ SAI: I **am knowing** the answer.
 - ✅ ĐÚNG: I **know** the answer.
-- ❌ SAI: She **is loving** coffee.
-- ✅ ĐÚNG: She **loves** coffee.
-- **TẠI SAO:** Stative verbs (know, believe, love, hate, want, need, own, contain, seem...) diễn tả trạng thái — KHÔNG dùng với continuous tenses.
-- **Ngoại lệ:** *I'm loving it!* (slogan McDonald's — không chuẩn ngữ pháp nhưng được chấp nhận trong quảng cáo)
+- **Sở thích nói chung:** She **loves** coffee.
+- **TẠI SAO:** Khi diễn tả trạng thái nói chung, stative verbs (know, believe, love, hate, want, need, own, contain, seem...) thường dùng thì đơn, không dùng tiếp diễn.
+- **Lưu ý về ngữ cảnh:** *I'm loving this coffee!* có thể dùng trong lời nói thân mật để nhấn mạnh trải nghiệm hiện tại. Một số động từ cũng đổi nghĩa khi dùng tiếp diễn: *I think it's good* (ý kiến) nhưng *I'm thinking about it* (đang suy nghĩ). Không gắn mọi dạng -ing của stative verbs là sai.
 
 ### Lỗi 4: Nhầm -ing spelling
 
@@ -266,7 +265,7 @@ Khác với Present Simple (thói quen bình thường), Present Continuous + al
 |---|---|---|
 | **Dùng cho** | Thói quen, sự thật, lịch trình | Đang xảy ra, tạm thời, xu hướng |
 | **Dấu hiệu** | always, usually, every day | now, at the moment, currently |
-| **Stative verbs** | ✅ Dùng được | ❌ Không dùng |
+| **Stative verbs** | Thường dùng để nói trạng thái nói chung | Thường tránh; có ngoại lệ theo nghĩa và ngữ cảnh |
 | **Ví dụ** | I **work** at a hospital. | I **'m working** from home this week. |
 | **Câu hỏi** | **Do** you **live** here? | **Are** you **living** here now? |
 
@@ -320,7 +319,7 @@ Tiếng Việt dùng phó từ thời gian ("đang", "vừa", "sắp") để di�
 1. I am know the answer to this question.
 2. She studying very hard for her exam.
 3. They are always go to bed late — it's so annoying!
-4. He is wanting a new phone for his birthday.
+4. He is owning a red car. (Nói việc sở hữu.)
 
 ### Đáp án
 
@@ -340,11 +339,11 @@ Tiếng Việt dùng phó từ thời gian ("đang", "vừa", "sắp") để di�
 1. I **know** (stative verb — không dùng continuous)
 2. She **is studying** (thiếu "is")
 3. They are always **going** (V-ing, không phải V nguyên thể)
-4. He **wants** (stative verb — không dùng continuous)
+4. He **owns** a red car. (own với nghĩa sở hữu thường dùng thì đơn)
 
 ## Tóm tắt nhanh
 1. Cấu trúc: Subject + **am/is/are** + **V-ing**
 2. Dùng cho: hành động đang xảy ra / tình huống tạm thời / xu hướng thay đổi / kế hoạch cố định
-3. KHÔNG dùng với stative verbs: know, love, want, need, believe, seem...
+3. Stative verbs thường dùng thì đơn khi nói trạng thái nói chung; kiểm nghĩa và ngữ cảnh trước khi chọn tiếp diễn.
 4. Nhớ quy tắc -ing: nhân đôi phụ âm (sit→sitting), bỏ -e (make→making), đổi -ie→-y (lie→lying)
 5. Phân biệt với Present Simple: tạm thời vs. cố định; đang xảy ra vs. thói quen

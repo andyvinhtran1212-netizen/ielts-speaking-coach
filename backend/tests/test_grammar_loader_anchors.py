@@ -33,9 +33,9 @@ def test_loader_returns_empty_anchors_for_articles_without(tmp_path):
     `.get('anchors', [])` callsites. Content-independent: exercises the loader
     default (`fm.get("anchors") or []`) directly, since the anchor backfill left
     no live grammar article un-anchored to sample."""
-    p = tmp_path / "no-anchors.md"
+    p = tmp_path / "sample-no-anchors.md"
     p.write_text(
-        "---\ntitle: Sample\nslug: sample-no-anchors\ncategory: tenses\n---\nBody text.\n",
+        "---\ntitle: Sample\nslug: sample-no-anchors\ncategory: tenses\nstatus: complete\n---\nBody text.\n",
         encoding="utf-8",
     )
     parsed = grammar_service._parse_file(p)
