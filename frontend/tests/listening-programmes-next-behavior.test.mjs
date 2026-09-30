@@ -92,7 +92,7 @@ test('programme UI has complete loading error empty and partial-data states', ()
   assert.match(library, /Không tải được thư viện/);
   assert.match(library, /Chưa có bài học ở trạng thái này/);
   assert.match(library, /Tiến độ có thể chưa đầy đủ/);
-  assert.match(library, /`\/listening\/\$\{programmePath\}\/\$\{lesson\.id\}`/);
+  assert.match(library, /listeningLessonHref\(programmePath, lesson\.id, \{ filter \}\)/);
   assert.match(library, /showIeltsModes/);
   assert.match(library, /IELTS_MODES/);
   assert.match(library, /lessonError/);

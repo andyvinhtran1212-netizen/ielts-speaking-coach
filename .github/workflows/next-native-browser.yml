@@ -46,6 +46,9 @@ on:
       - 'frontend/public/css/mock-hub.css'
       - 'frontend/app/(authed-writing)/**'
       - 'frontend/tooling/verify-writing-admission-flow.mjs'
+      - 'frontend/tooling/verify-learning-context-flow.mjs'
+      - 'frontend/tooling/verify-grammar-navigation-flow.mjs'
+      - 'frontend/tooling/grammar-navigation-fixtures.mjs'
       - 'frontend/public/pages/writing-dashboard.html'
       - 'frontend/public/css/writing-dashboard.css'
       - 'frontend/app/(authed-writing-result)/**'
@@ -768,6 +771,12 @@ jobs:
 
       - name: Kiểm luồng Writing learner native
         run: node tooling/verify-writing-admission-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm context Reading và Listening
+        run: node tooling/verify-learning-context-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm context Grammar
+        run: node tooling/verify-grammar-navigation-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$TEST_PORT"

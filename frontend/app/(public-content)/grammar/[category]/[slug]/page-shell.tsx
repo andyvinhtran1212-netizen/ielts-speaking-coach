@@ -5,6 +5,7 @@
  */
 import Link from 'next/link';
 import type { GrammarArticleWire } from '@/lib/grammar-api';
+import { grammarArticleHref, grammarReturnHref } from '@/lib/grammar-navigation-context.mjs';
 
 export type GrammarArticle = GrammarArticleWire;
 type TOCItem = GrammarArticle['toc'][number];
@@ -64,24 +65,24 @@ function renderTOC(items: TOCItem[]): string {
   return `<nav><p class="text-xs font-semibold uppercase tracking-widest text-white/30 mb-3">Nội dung</p><ul class="space-y-1">${listItems}</ul></nav>`;
 }
 
-function renderRelatedPages(pages: RelatedPage[]): string {
+function renderRelatedPages(pages: RelatedPage[], source = ''): string {
   if (!pages || pages.length === 0) return '';
   return pages
     .map((p) => {
-      const url = `/grammar/${encodeURIComponent(p.category)}/${encodeURIComponent(p.slug)}`;
+      const url = grammarArticleHref(p.category, p.slug, source);
       return `<a href="${url}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.04] text-sm text-white/70 hover:border-teal/40 hover:text-teal-light transition-all">${escapeHtml(p.title)}</a>`;
     })
     .join('');
 }
 
-function renderPrevNext(prev: ArticleLink | null | undefined, next: ArticleLink | null | undefined): string {
+function renderPrevNext(prev: ArticleLink | null | undefined, next: ArticleLink | null | undefined, source = ''): string {
   let html = '<div class="flex gap-3">';
   if (prev) {
-    const url = `/grammar/${encodeURIComponent(prev.category)}/${encodeURIComponent(prev.slug)}`;
+    const url = grammarArticleHref(prev.category, prev.slug, source);
     html += `<a href="${url}" class="flex-1 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all group"><p class="text-xs text-white/30 mb-1">← Bài trước</p><p class="text-sm font-medium text-white/80 group-hover:text-white">${escapeHtml(prev.title)}</p></a>`;
   }
   if (next) {
-    const url = `/grammar/${encodeURIComponent(next.category)}/${encodeURIComponent(next.slug)}`;
+    const url = grammarArticleHref(next.category, next.slug, source);
     html += `<a href="${url}" class="flex-1 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all group text-right"><p class="text-xs text-white/30 mb-1">Bài tiếp →</p><p class="text-sm font-medium text-white/80 group-hover:text-white">${escapeHtml(next.title)}</p></a>`;
   }
   html += '</div>';
@@ -100,12 +101,12 @@ function renderCompareLinks(compareWith: string[], slug: string): string {
     .join('');
 }
 
-function renderNextArticles(articles: ArticleLink[]): string {
+function renderNextArticles(articles: ArticleLink[], source = ''): string {
   if (!articles || articles.length === 0) return '';
   const items = articles.slice(0, 3);
   return items
     .map((a) => {
-      const url = `/grammar/${encodeURIComponent(a.category)}/${encodeURIComponent(a.slug)}`;
+      const url = grammarArticleHref(a.category, a.slug, source);
       const categoryDisplay = (a.category || '').replace(/-/g, ' ');
       return `<a href="${url}" class="flex items-center gap-4 p-4 rounded-xl border border-white/8 bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all group"><div class="flex-shrink-0 w-9 h-9 rounded-xl bg-teal/12 border border-teal/20 flex items-center justify-center"><svg class="w-4 h-4 text-teal-light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg></div><div class="flex-1 min-w-0"><p class="text-sm font-semibold text-white/85 group-hover:text-white truncate">${escapeHtml(a.title)}</p><p class="text-xs text-white/35 capitalize">${escapeHtml(categoryDisplay)}</p></div><span class="text-xs text-teal-light opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">Học ngay →</span></a>`;
     })
@@ -117,7 +118,8 @@ function renderNextArticles(articles: ArticleLink[]): string {
  * Renders grammar article page with SSR data filling runtime elements.
  * Structure transcribed verbatim from legacy grammar-article.html.
  */
-export function ArticleShell({ article }: { article: GrammarArticle }) {
+export function ArticleShell({ article, source = '' }: { article: GrammarArticle; source?: string }) {
+  const returnHref = grammarReturnHref({ from: source });
   const isUpdating = article.status === 'updating';
   const hasTOC = !isUpdating && Boolean(article.toc?.length);
 
@@ -156,6 +158,12 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
           />
         </div>
       </nav>
+
+      {returnHref && (
+        <div className="av-w-page pt-4">
+          <Link href={returnHref} className="text-sm text-teal-light hover:underline">← Quay lại Học &amp; luyện</Link>
+        </div>
+      )}
 
       {/* Article container (no hidden class for SSR — content is ready) */}
       <div id="article-container" className="av-w-page py-8 ds-fadein">
@@ -251,7 +259,7 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
               <div
                 id="next-articles-list"
                 className="flex flex-col gap-3"
-                dangerouslySetInnerHTML={{ __html: renderNextArticles(article.next_articles || []) }}
+                dangerouslySetInnerHTML={{ __html: renderNextArticles(article.next_articles || [], source) }}
               />
             </section>
 
@@ -261,7 +269,7 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
               <div
                 id="related-pages"
                 className="flex flex-wrap gap-2"
-                dangerouslySetInnerHTML={{ __html: renderRelatedPages(article.related_pages || []) }}
+                dangerouslySetInnerHTML={{ __html: renderRelatedPages(article.related_pages || [], source) }}
               />
             </section>
 
@@ -269,7 +277,7 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
             <div
               id="prev-next"
               className="border-t border-white/6 pt-6"
-              dangerouslySetInnerHTML={{ __html: renderPrevNext(article.prev_article, article.next_article) }}
+              dangerouslySetInnerHTML={{ __html: renderPrevNext(article.prev_article, article.next_article, source) }}
             />
           </article>
 

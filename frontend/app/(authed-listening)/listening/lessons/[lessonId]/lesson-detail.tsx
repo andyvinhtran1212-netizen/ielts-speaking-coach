@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+import { listeningLessonReturnHref } from '@/lib/listening-library-context.mjs';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import type { ListeningLessonDetailWire } from '@/lib/listening-programmes-api';
@@ -14,6 +17,7 @@ const PURPOSE: Record<string, string> = { practice: 'Luyện tập', transfer: '
 
 export function ListeningLessonDetail({ lessonId }: { lessonId: string }) {
   const { status, user } = useAuth();
+  const params = useSearchParams();
   const [state, setState] = useState<State>({ status: 'loading' });
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');
@@ -32,7 +36,8 @@ export function ListeningLessonDetail({ lessonId }: { lessonId: string }) {
     return () => { active = false; controller.abort(); };
   }, [lessonId, status, user?.id]);
 
-  const programmeHref = state.status === 'ready' && state.lesson.programmeId === 'general-listening-practice' ? '/listening/general' : '/listening/ielts';
+  const programmePath = state.status === 'ready' && state.lesson.programmeId === 'general-listening-practice' ? 'general' : 'ielts';
+  const programmeHref = listeningLessonReturnHref(programmePath, params || undefined);
   return <main className="shell listening-lesson-detail">
     <a className="listening-back" href={programmeHref}>← Thư viện chương trình</a>
     {state.status === 'loading' ? <div className="listening-state" role="status">Đang tải bài học…</div> : null}
