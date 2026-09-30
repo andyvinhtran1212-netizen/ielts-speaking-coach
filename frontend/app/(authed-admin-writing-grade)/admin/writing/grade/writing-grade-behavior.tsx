@@ -522,8 +522,8 @@ export function AdminWritingGradeBehavior() {
 
       {instructorWarning ? <div id="instructor-context-warning" className="aw-alert aw-alert--warn" role="status">{instructorWarning}</div> : null}
       {notice ? <div id="alert-area" className={`aw-alert aw-alert--${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>{notice.message}</div> : null}
-      <RatingPanel key={detail.id} detail={detail} onSave={async (rating, note) => { await runMutation('rating', () => window.api.post(`/admin/writing/essays/${encodeURIComponent(essayId)}/grade-rating`, { rating, note })); }} />
-      <InstructorPanel key={(instructor as any).review?.id || detail.id} state={instructor} dirty={dirty} onDeliver={instructorDeliver} onRelease={instructorRelease} />
+      <RatingPanel key={`rating:${detail.id}`} detail={detail} onSave={async (rating, note) => { await runMutation('rating', () => window.api.post(`/admin/writing/essays/${encodeURIComponent(essayId)}/grade-rating`, { rating, note })); }} />
+      <InstructorPanel key={`instructor:${(instructor as any).review?.id || detail.id}`} state={instructor} dirty={dirty} onDeliver={instructorDeliver} onRelease={instructorRelease} />
 
       <div className="grade-body">
         <nav className="grade-tabs" role="tablist" aria-label="Section tabs">
