@@ -46,7 +46,8 @@ skill/topic/code uniqueness constraint. Do not repurpose topics as archives.
 
 - A general content editor, revision platform, background job or regrade system.
 - Changing quiz scoring, mastery/filler policy, IELTS bands, RLS or role grants.
-- Editing, deleting or regrading any real historical attempt/session.
+- Editing, deleting or regrading historical work as part of remediation or
+  cutover. Existing canonical account erasure remains supported as below.
 - Migrating learner mastery to the corrected bank or pretending it was earned
   under the corrected question set.
 - Replacing the six source corrections with weaker UI-only explanations.
@@ -92,7 +93,10 @@ new work, without a silent mastery reset or credit transfer.
   while eligibility is frozen or consumed; a content/start lock alone cannot
   prove a stable carryover snapshot. A start before
   cutover retains the old bank; a start after cutover cannot accidentally create
-  unrelated new legacy work. No partial publication or two current banks.
+  unrelated new legacy work. Canonical account erasure also serializes at this
+  scope before parent deletion and its child FK actions, so classification
+  cannot freeze an owner while the same transaction erases that owner's work.
+  No partial publication or two current banks.
 - **FR-005:** Freeze the old bank as immutable legacy evidence and define
   continuation eligibility from provably owned unfinished canonical work at
   cutover. Compute mastery with the existing engine's supported-input item pools,
@@ -130,6 +134,15 @@ new work, without a silent mastery reset or credit transfer.
   users retain historical reads and may start corrected content as new work.
   Cutover itself does not edit original sessions/results/progress, and never
   changes the existing scoring/credit/mastery formula.
+  Preserve the existing migration119 account-erasure boundary: deletion of an
+  auth.users owner may cascade that owner's sessions/attempts/stats. The narrow
+  exception applies only when the canonical auth.users parent is already absent
+  inside its FK action; a direct child delete with a live owner remains blocked.
+  Allow an associated last_session_id to become NULL only under that same erased
+  owner condition, preserving all other fields except the existing timestamp
+  trigger. Never permit owner transfer, another owner's deletion, bank/question
+  changes or receipt mutation through this exception. Erased owners cannot gain
+  new continuation or have their deleted history reconstructed from proof.
 - **FR-006:** Compatible new starts explicitly bind the returned current bank
   and revision fingerprint. Freeze that identity in the session contract and
   use it for reads/progress/completion/history. Older/default clients on
@@ -153,6 +166,10 @@ new work, without a silent mastery reset or credit transfer.
   No TTL/purge or generic audit-maintenance deletion may remove this bounded
   required proof. Protect its append-only retention at the actual write boundary;
   missing-proof503 does not substitute for promised retention.
+  Account erasure does not delete or rewrite the private operation receipt,
+  following migration107's existing no-FK audit survival. Its pseudonymous
+  admission references confer no ownership after the canonical owner is erased.
+  This clarification adds no TTL, retention platform or new erasure service.
 - **FR-008:** Generic bank import, direct replacement, question mutation, bank
   deletion and destructive admin updates reject managed current/legacy banks.
   Keep old/default import of unmanaged banks unchanged. Safeguards operate at
@@ -227,6 +244,11 @@ bounded to this operation; no new general-purpose table or public user list.
   fixtures; preserved historical scores and question hashes are unchanged.
 - Disable new starts after some corrected activity: both old and corrected
   active work still finishes under its frozen bank; no historical regrade.
+- Erase one canonical account through the existing auth.users deletion: only
+  its FK-bound progress disappears, other owners and all bank/question/receipt
+  hashes remain unchanged. Direct child deletes and link clearing while the
+  owner exists are rejected. Concurrent erasure/cutover has one serialized
+  outcome; an erased owner cannot resume from a retained private receipt.
 
 ## Success criteria
 
@@ -244,6 +266,14 @@ remediation with controlled agents and independent review. Root approves this
 bounded product contract and each independent cap: 128 actors, 2048 sessions,
 8192 stats, 32768 attempts per bank and 1MiB encoded private proof/receipt.
 Any exceeded cap or unknown cohort blocks that bank before publication.
+
+Clarification approved2026-09-30 under the same authorized remediation: preserve
+existing migration119 canonical account erasure while retaining migration107
+private audit proof. This is a narrow FK exception to learner-history retention,
+not authorization for remediation to delete historical work. Independent
+engineering actual-PG probes confirmed that canonical parent absence separates
+the FK cascade from direct child deletion. Implementation and erasure/cutover
+race acceptance remain required after this separately landed clarification.
 
 Content council and root independently reviewed the 26 affected stative-family
 items, with 23 authored changes across the six sources. Admin engineering

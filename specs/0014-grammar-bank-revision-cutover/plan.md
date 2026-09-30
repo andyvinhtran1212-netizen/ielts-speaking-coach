@@ -53,6 +53,12 @@ the separately landed spec; implement only after that approval is on the base.
 Receipt identity is action+actor+canonical_code+operation_UUID, not UUID alone.
 Retain immutable cutover/cohort proof while any old admitted/continuable/history
 dependency exists, including rollback; no TTL or generic audit purge bypass.
+Preserve migration119 auth.users erasure under that same statement-level scope
+gate. Only absent canonical-owner FK actions may delete the erased owner's
+progress or clear its last_session_id; live-owner direct writes remain blocked.
+The existing no-FK migration107 private receipt survives unchanged and cannot
+restore ownership/history. No erasure service or general retention mechanism
+is introduced.
 
 ## Existing-write safeguards
 
