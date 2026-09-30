@@ -45,6 +45,7 @@ class _Chain:
     def eq(self, *a, **k): self.eq_args.append(a); return self
     def gte(self, *a, **k): self.gte_args.append(a); return self
     def is_(self, *a, **k): return self   # attention counts filter delivered_at/dismissed_at IS NULL
+    def in_(self, *a, **k): return self
 
     def execute(self):
         if isinstance(self._result, Exception):
@@ -102,7 +103,7 @@ def _default_results():
         ]),
         # admin-dashboard-redesign — "Cần chú ý" cheap COUNT metrics.
         "error_logs": _Result(count=3),
-        "writing_essays": _Result(count=5),
+        "instructor_reviews": _Result(count=5),
     }
 
 
@@ -221,7 +222,7 @@ def test_dashboard_overview_no_n_plus_1(monkeypatch):
     assert sorted(set(stub.table_calls)) == sorted([
         "users", "access_codes", "analytics_events",
         "sessions", "responses", "ai_usage_logs",
-        "error_logs", "writing_essays",
+        "error_logs", "instructor_reviews",
     ])
 
 

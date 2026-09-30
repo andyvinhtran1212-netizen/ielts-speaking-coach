@@ -45,6 +45,50 @@ describe('Admin Listening attempts model', () => {
     assert.equal(normalized.total, 75);
   });
 
+  test('keeps known question counts only for explicitly frozen report-only attempts', () => {
+    const rows = [6, 3, 6, 10, 6].map((total, index) => baseRow({ id: `report-${index}`,
+      scoring_policy: 'report_only', score: null, accuracy: null, total_questions: total,
+      test: { id: 'practice-1', test_type: 'practice', title: 'Practice' } }));
+    const list = normalizeListeningAttemptList(listPayload({ items: rows, total: 5 }));
+    assert.equal(list.rows.length, 5);
+    assert.equal(list.malformedCount, 0);
+    assert.equal(list.legacyPolicyCount, 0);
+    assert.deepEqual(list.rows.map((row) => [row.scoringPolicy, row.score, row.accuracy, row.totalQuestions]),
+      [6, 3, 6, 10, 6].map((total) => ['report_only', null, null, total]));
+    for (const scoring_policy of [undefined, 'diagnostic', 'unknown']) {
+      const invalid = normalizeListeningAttemptList(listPayload({ items: [{ ...rows[0], scoring_policy }] }));
+      assert.equal(invalid.rows.length, 0);
+      assert.equal(invalid.malformedCount, 1);
+    }
+    assert.equal(normalizeListeningAttemptList(listPayload({ items: [baseRow({ scoring_policy: 'report_only' })] })).rows.length, 0);
+    const legacy = normalizeListeningAttemptList(listPayload({ items: [baseRow()] }));
+    assert.equal(legacy.rows.length, 1);
+    assert.equal(legacy.legacyPolicyCount, 1);
+  });
+
+  test('report-only detail preserves checked answers and null correctness for other states', () => {
+    const payload = { ...baseRow({ scoring_policy: 'report_only', score: null, accuracy: null, total_questions: 4 }),
+      grading_details: [
+        { q_num: 1, state: 'checked', correct: true, user_answer: 'A', expected: ['A', 'alternative'] },
+        { q_num: 2, state: 'blank', correct: null, user_answer: '' },
+        { q_num: 3, state: 'unscored', correct: null, user_answer: 'Written reflection' },
+        { q_num: 4, state: 'technical_error', correct: null, user_answer: 'B' },
+      ], band_estimate: null, trap_analytics: {}, association_lookup_failed: false, association_lookup_failures: [] };
+    const detail = normalizeListeningAttemptDetail(payload, 'attempt-1');
+    assert.equal(detail.questions.length, 4);
+    assert.equal(detail.malformedQuestionCount, 0);
+    assert.deepEqual(detail.questions.map((row) => [row.state, row.correct]),
+      [['checked', true], ['blank', null], ['unscored', null], ['technical_error', null]]);
+    assert.equal(detail.questions[0].expected, 'A / alternative');
+    assert.equal(detail.bandEstimate, null);
+    assert.equal(normalizeListeningAttemptDetail({ ...payload, band_estimate: 7 }, 'attempt-1'), null);
+    const malformed = normalizeListeningAttemptDetail({ ...payload,
+      grading_details: [...payload.grading_details, { q_num: 5, state: 'blank', correct: false, user_answer: '' }] }, 'attempt-1');
+    assert.equal(malformed.questions.length, 4);
+    assert.equal(malformed.malformedQuestionCount, 1);
+    assert.equal(normalizeListeningAttemptDetail({ ...payload, scoring_policy: 'diagnostic' }, 'attempt-1'), null);
+  });
+
   test('rejects inconsistent association lookup truth', () => {
     assert.equal(normalizeListeningAttemptList(listPayload({ association_lookup_failed: true })), null);
     const normalized = normalizeListeningAttemptList(listPayload({ association_lookup_failed: true, association_lookup_failures: ['users'] }));
@@ -103,7 +147,7 @@ describe('native route ownership and operational behavior', () => {
     assert.match(CLIENT, /sequence\.current/);
     assert.match(CLIENT, /scope\.current !== owner/);
     assert.match(CLIENT, /normalizeListeningAttemptDetail/);
-    assert.match(CLIENT, /Lookup association thất bại/);
+    assert.match(CLIENT, /Không đọc được thông tin liên kết/);
     assert.match(CLIENT, /Không đồng nghĩa|không bị diễn giải thành dữ liệu trống/i);
   });
 

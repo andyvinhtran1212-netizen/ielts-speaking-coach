@@ -11,7 +11,7 @@ const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
 async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
 
-const errors = []; const listQueries = []; const aggregateQueries = []; const detailReads = [];
+const errors = []; const listQueries = []; const aggregateQueries = []; const detailReads = []; const businessWrites = [];
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
@@ -22,6 +22,7 @@ await page.route('**/*', async (route) => {
   if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('about:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
   const parsed = new URL(url); const method = request.method();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !['/api/analytics/events', '/api/error-logs'].includes(parsed.pathname)) businessWrites.push(`${method} ${parsed.pathname}`);
   const json = (body, code = 200) => route.fulfill({ status: code, contentType: 'application/json', body: JSON.stringify(body) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'listening-dictation@local', role: 'admin' });
   if (parsed.pathname === '/admin/listening/dictation-reports/aggregate' && method === 'GET') {
@@ -31,6 +32,16 @@ await page.route('**/*', async (route) => {
       return json({ session_count: 1, mean_accuracy: .1, top_missed: [{ word: 'old aggregate', count: 1 }], top_wrong: [] });
     }
     if (parsed.searchParams.get('test_id') === 'agg-fail') return json({ detail: 'aggregate unavailable' }, 503);
+    if (['classified', 'trend-missing'].includes(parsed.searchParams.get('test_id'))) {
+      const unknown = parsed.searchParams.get('test_id') === 'trend-missing';
+      return json({ session_count: 303, mean_accuracy: .9349,
+        mean_accuracy_basis: 'mean_of_session_sentence_scores', trend_classification: 'lexical-v1',
+        trend_complete_session_count: unknown ? 0 : 303, trend_unavailable_session_count: unknown ? 303 : 0,
+        top_missed: unknown ? [] : [{ word: 'the', count: 533 }], top_wrong: unknown ? [] : [{ expected: 'a', count: 156 }],
+        punctuation_missed: unknown ? [] : [{ token: '—', count: 2684 }], punctuation_wrong: unknown ? [] : [{ token: '—', count: 412 }],
+        punctuation_missed_total: unknown ? 0 : 2684, punctuation_wrong_total: unknown ? 0 : 412,
+        missing_token_missed_total: 0, missing_token_wrong_total: 0 });
+    }
     return json({ session_count: 3, mean_accuracy: .625, top_missed: [{ word: 'Brighton', count: 4 }, { word: '', count: 1 }], top_wrong: [{ expected: 'address', count: 2 }] });
   }
   if (parsed.pathname === '/admin/listening/dictation-reports' && method === 'GET') {
@@ -80,6 +91,26 @@ await page.getByRole('button', { name: 'Sau →' }).click();
 await page.getByText('session-51', { exact: true }).waitFor();
 check('pagination dùng canonical offset và URL page', listQueries.at(-1)?.includes('offset=50') === true && new URL(page.url()).searchParams.get('page') === '2');
 
+await page.getByRole('searchbox', { name: 'Test ID' }).fill('classified');
+await page.getByRole('button', { name: 'Áp dụng' }).click();
+await page.getByText('the', { exact: true }).waitFor();
+check('lexical word rankings exclude dash while retaining historical 93% mean',
+  await page.locator('.aldict-aggregate > .aldict-trends').getByText('—', { exact: true }).count() === 0
+  && await page.getByText('93%', { exact: true }).count() >= 1
+  && await page.getByText(/Không phải tỷ lệ tổng số từ đúng/).count() === 1);
+await page.locator('.aldict-aggregate summary').focus();
+await page.keyboard.press('Enter');
+check('keyboard opens retained historical punctuation counts separately',
+  await page.locator('.aldict-aggregate details').getByText('2684', { exact: true }).isVisible()
+  && await page.locator('.aldict-aggregate details').getByText('412', { exact: true }).isVisible());
+
+await page.getByRole('searchbox', { name: 'Test ID' }).fill('trend-missing');
+await page.getByRole('button', { name: 'Áp dụng' }).click();
+await page.getByText(/303\/303 phiên thiếu bảng lỗi đầy đủ/).waitFor();
+check('missing trend maps are unknown, never a clean empty result or zero accuracy',
+  await page.getByText('Chưa có dữ liệu lỗi đầy đủ để kết luận.', { exact: true }).count() >= 2
+  && await page.getByText('93%', { exact: true }).count() >= 1);
+
 await page.getByRole('searchbox', { name: 'Test ID' }).fill('agg-fail');
 await page.getByRole('button', { name: 'Áp dụng' }).click();
 await page.getByText('agg-fail', { exact: true }).waitFor();
@@ -89,6 +120,7 @@ check('aggregate lỗi không xóa list canonical độc lập', await page.getB
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop tables không tràn trang', await page.evaluate(() => getComputedStyle(document.querySelector('.aldict-table thead')).display !== 'none' && document.documentElement.scrollWidth <= innerWidth));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));
+check('read-only analytics never writes a learner/admin business record', businessWrites.length === 0, businessWrites.join(' | '));
 
 await browser.close();
 const failed = results.filter((item) => !item.ok);

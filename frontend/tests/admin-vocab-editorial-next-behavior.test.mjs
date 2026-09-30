@@ -24,7 +24,7 @@ describe('native curated editorial workspace', () => {
     assert.match(CLIENT, /\/admin\/vocabulary\/editorial\/units\/\$\{encodeURIComponent\(unitId\)\}/);
     for (const path of ['/validate', '/reviews', '/publish', '/rollback']) assert.ok(CLIENT.includes(path), path);
     assert.match(CLIENT, /await refreshCanonical\(/);
-    assert.match(CLIENT, /Mutation đã được backend nhận nhưng canonical readback chưa hoàn tất/);
+    assert.match(CLIENT, /Máy chủ đã nhận thay đổi nhưng chưa đối chiếu được dữ liệu đã lưu/);
     assert.match(CLIENT, /if \(detailResult !== 'ok'\) return detailResult/);
     assert.match(CLIENT, /result !== 'ok'/);
   });

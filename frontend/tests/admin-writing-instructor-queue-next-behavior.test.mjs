@@ -73,7 +73,7 @@ describe('/admin/writing/instructor-queue native ownership and safety', () => {
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/instructor-queue['"]/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'instructor-queue.html')));
     assert.match(CHROME, /slug:\s*'instructor-queue'[^\n]+href:\s*'\/admin\/writing\/instructor-queue'/);
-    assert.match(HUB, /Hàng đợi Instructor[^\n]+NATIVE/); assert.match(LEDGER, /`\/admin\/writing\/instructor-queue`[^\n]+authed-admin-writing-instructor-queue[^\n]+native React ownership/);
+    assert.match(HUB, /Hàng đợi Instructor[^\n]+href: '\/admin\/writing\/instructor-queue'[^\n]+status: 'Quản lý'/); assert.match(LEDGER, /`\/admin\/writing\/instructor-queue`[^\n]+authed-admin-writing-instructor-queue[^\n]+native React ownership/);
   });
 
   test('never replays POST during reconciliation and keeps stale truth visible', () => {

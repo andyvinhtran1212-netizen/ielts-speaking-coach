@@ -82,7 +82,7 @@ describe('/admin/writing/assignments native ownership and safety', () => {
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/assignments['"]/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'assignments.html')));
     assert.match(CHROME, /slug:\s*'assignments'[^\n]+href:\s*'\/admin\/writing\/assignments'/);
-    assert.match(HUB, /Gán bài tập[^\n]+NATIVE/); assert.match(LEDGER, /`\/admin\/writing\/assignments`[^\n]+authed-admin-writing-assignments[^\n]+native React ownership/);
+    assert.match(HUB, /Gán bài tập[^\n]+href: '\/admin\/writing\/assignments'[^\n]+status: 'Quản lý'/); assert.match(LEDGER, /`\/admin\/writing\/assignments`[^\n]+authed-admin-writing-assignments[^\n]+native React ownership/);
   });
 
   test('uses source-specific errors and readback-only retry after exact ACK', () => {

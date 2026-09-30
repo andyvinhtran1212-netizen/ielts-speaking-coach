@@ -42,7 +42,7 @@ describe('/admin/writing native operations hub', () => {
     assert.doesNotMatch(PAGE, /window\.api\.|\bfetch\(|onClick=|<form/);
   });
 
-  test('states ownership truth for all ten operational destinations', () => {
+  test('labels all ten operational destinations with their canonical links', () => {
     for (const href of [
       '/admin/writing/new', '/admin/writing/prompts', '/admin/writing/tips',
       '/admin/writing/queue', '/admin/writing/regrade-requests',
@@ -51,7 +51,7 @@ describe('/admin/writing native operations hub', () => {
       '/writing/dashboard',
     ]) assert.ok(PAGE.includes(`href: '${href}'`) || PAGE.includes(`href="${href}"`), href);
     assert.equal((PAGE.match(/href: '/g) || []).length, 10);
-    assert.equal((PAGE.match(/status: 'NATIVE'/g) || []).length, 10);
+    assert.equal((PAGE.match(/status: 'Quản lý'/g) || []).length, 10);
     assert.equal((PAGE.match(/status: 'MIGRATING'/g) || []).length, 0);
     assert.match(PAGE, /Chuẩn bị → Chấm → Giao & theo dõi/);
     assert.doesNotMatch(PAGE, /<span[^>]*>[^<]*(?:✍|📚|💡|📥|🔄|👤|📌|👥|🎓)/);

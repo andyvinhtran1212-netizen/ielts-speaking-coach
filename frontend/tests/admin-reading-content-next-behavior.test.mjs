@@ -49,7 +49,7 @@ test('native route preserves admin gate, contracts, rollback and responsive layo
   assert.match(PAGE, /AdminAccessGate/);
   assert.match(LAYOUT, /admin-reading-content-next\.css/);
   for (const contract of ['dry_run=true', 'dry_run=false', 'import-bundle', '/visibility', '/lock', '/share', 'findCanonical']) assert.match(CLIENT, new RegExp(contract.replace('/', '\\/')));
-  assert.match(CLIENT, /readingPreviewHref\(row\.slug\)/);
+  assert.match(CLIENT, /readingPreviewHref\(row\.slug, null, context\)/);
   assert.match(CLIENT, /`\/reading\/vocab\/\$\{encodeURIComponent\(row\.slug\)\}`/);
   assert.match(CLIENT, /`\/reading\/skill\/\$\{encodeURIComponent\(row\.slug\)\}`/);
   assert.doesNotMatch(CLIENT, /pages\/(?:reading-vocab-passage|reading-skill-exercise)\.html/);

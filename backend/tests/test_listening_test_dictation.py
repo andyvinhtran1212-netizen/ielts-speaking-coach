@@ -951,8 +951,11 @@ def test_admin_list_and_aggregate_dictation_reports(monkeypatch):
     assert agg_u1["mean_accuracy"] == 0.8
     agg_none = _run(listening_router.admin_dictation_reports_aggregate(
         test_id=None, user_query="khong-ai-ca", authorization=authz))
-    assert agg_none == {"session_count": 0, "mean_accuracy": 0.0,
-                        "top_missed": [], "top_wrong": []}
+    assert agg_none["session_count"] == 0 and agg_none["mean_accuracy"] == 0.0
+    assert agg_none["top_missed"] == [] and agg_none["top_wrong"] == []
+    assert agg_none["trend_classification"] == "lexical-v1"
+    assert agg_none["punctuation_missed_total"] == 0
+    assert agg_none["punctuation_wrong_total"] == 0
 
 
 def test_admin_dictation_list_and_detail_expose_user_lookup_failure(monkeypatch):
