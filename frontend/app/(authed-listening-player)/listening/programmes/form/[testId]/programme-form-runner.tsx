@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { listeningProgrammeLessonHref, listeningProgrammeResultHref } from '@/lib/listening-library-context.mjs';
 import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker, programmeAnswerFlushEntries } from '@/lib/listening-programme-answer-queue.mjs';
 import { availableQuestionLanguages, displayOptionLanguage, displayQuestion, groupProgrammeQuestions } from '@/lib/listening-programme-learning.mjs';
 import { confirmProgrammeOncePlayback, startProgrammeOncePlayback } from '@/lib/listening-programme-once-playback.mjs';
@@ -18,6 +20,7 @@ function row(value: unknown): Record<string, unknown> { return value && typeof v
 
 export function ProgrammeFormRunner({ testId }: { testId: string }) {
   const { status, user } = useAuth();
+  const params = useSearchParams();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [feedback, setFeedback] = useState<Record<number, FeedbackItem>>({});
@@ -204,7 +207,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       setSaveState(tracker.finishFlush(operation.token));
       await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {});
       draftStore.current?.clear();
-      window.location.assign(`/listening/programmes/result/${state.attemptId}`);
+      window.location.assign(listeningProgrammeResultHref(state.form.programmeId, state.attemptId, params || undefined));
     } catch {
       tracker.fail(operation.token);
       setSaveState('error');
@@ -255,9 +258,9 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
 
   if (state.status === 'loading') return <main className="programme-runner programme-state shell" role="status">Đang chuẩn bị bài nghe…</main>;
   if (state.status === 'error') return <main className="programme-runner programme-state shell is-error" role="alert"><p>{state.message}</p><a href="/listening">Về trang Luyện nghe</a></main>;
-  const lessonProgrammePath = state.form.programmeId === 'general-listening-practice' ? 'general' : 'ielts';
+  const lessonHref = listeningProgrammeLessonHref(state.form.programmeId, state.form.lessonId, params || undefined);
   return <main className="programme-runner shell">
-    <header className="programme-runner__header"><a href={`/listening/${lessonProgrammePath}/${state.form.lessonId}`}>← Bài học</a><div><p>Luyện nghe theo nhịp của bạn</p><h1>{state.form.title}</h1><span>Nghe, thử trả lời và sửa lại. Đây không phải bài tính band IELTS.</span></div><span>{answeredCount}/{state.form.questions.length} câu đã thử</span></header>
+    <header className="programme-runner__header"><a href={lessonHref}>← Bài học</a><div><p>Luyện nghe theo nhịp của bạn</p><h1>{state.form.title}</h1><span>Nghe, thử trả lời và sửa lại. Đây không phải bài tính band IELTS.</span></div><span>{answeredCount}/{state.form.questions.length} câu đã thử</span></header>
     <section className="programme-learning-controls" aria-label="Tùy chọn luyện nghe">
       <div><span>Cách luyện</span><div className="programme-segmented" role="group" aria-label="Cách luyện"><button type="button" aria-pressed={mode === 'continuous'} onClick={() => chooseMode('continuous')}>Làm liền mạch</button><button type="button" aria-pressed={mode === 'guided'} onClick={() => chooseMode('guided')}>Luyện từng bước</button></div></div>
       <div><span>Ngôn ngữ câu hỏi</span>{languages.length ? <div className="programme-segmented" role="group" aria-label="Ngôn ngữ câu hỏi"><button type="button" aria-pressed={activeLanguage === 'vi'} onClick={() => chooseLanguage('vi')}>Tiếng Việt</button><button type="button" aria-pressed={activeLanguage === 'en'} onClick={() => chooseLanguage('en')}>English</button></div> : <p className="programme-language-note">Đang hiển thị bản gốc; bản dịch được biên tập dần theo bài.</p>}{bilingualWritten ? <p className="programme-language-note">Đổi ngôn ngữ chỉ đổi câu hỏi, không đổi cách đối chiếu đáp án. Với câu điền, hãy ghi từ hoặc cụm từ nghe được trong audio.</p> : null}</div>

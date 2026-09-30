@@ -39,7 +39,7 @@ test('programme runner autosaves and routes to self-review', () => {
   assert.ok(runner.includes('/guided-state'));
   assert.ok(runner.includes('/reveal'));
   assert.match(runner, /await queue\.flush\(\[\{ qNum, value \}\]\)/);
-  assert.match(runner, /\/listening\/programmes\/result\/\$\{state\.attemptId\}/);
+  assert.match(runner, /window\.location\.assign\(listeningProgrammeResultHref\(state\.form\.programmeId, state\.attemptId, params \|\| undefined\)\)/);
   assert.match(runner, /createProgrammeAnswerWriteQueue/);
   assert.match(runner, /createProgrammeAnswerDraftStore/);
   assert.match(runner, /draftStore\.current\?\.remember\(qNum, value\)/);
@@ -81,7 +81,7 @@ test('report-only result never presents an IELTS band', () => {
 
 test('historical results return to the current programme library, not an archived lesson', () => {
   const result = read('app', '(authed-listening-review)', 'listening', 'programmes', 'result', '[attemptId]', 'programme-result.tsx');
-  assert.match(result, /programmeLibraryPath = result\.programmeId === 'general-listening-practice' \? '\/listening\/general' : result\.programmeId === 'ielts-listening-practice' \? '\/listening\/ielts' : '\/listening'/);
+  assert.match(result, /programmeLibraryPath = listeningProgrammeReturnHref\(result\.programmeId, params \|\| undefined\)/);
   assert.match(result, /href=\{programmeLibraryPath\}>← Thư viện chương trình/);
   assert.doesNotMatch(result, /href=\{result\.lessonId/);
 });

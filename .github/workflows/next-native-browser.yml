@@ -775,6 +775,9 @@ jobs:
       - name: Kiểm context Reading và Listening
         run: node tooling/verify-learning-context-flow.mjs "http://localhost:$TEST_PORT"
 
+      - name: Kiểm lifecycle Listening programme
+        run: node tooling/verify-listening-programme-context-flow.mjs "http://localhost:$TEST_PORT"
+
       - name: Kiểm context Grammar
         run: node tooling/verify-grammar-navigation-flow.mjs "http://localhost:$TEST_PORT"
 
