@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+import { readingVocabReturnHref } from '@/lib/reading-vocab-context.mjs';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
@@ -217,6 +220,7 @@ function ReadingWorkspace({ accountKey, detail, library }: {
   detail: NonNullable<Detail>;
   library: Library;
 }) {
+  const params = useSearchParams();
   const articleRef = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -279,7 +283,7 @@ function ReadingWorkspace({ accountKey, detail, library }: {
     };
   }, [accountKey, detail.glossary]);
 
-  const backHref = library === 'vocab' ? '/reading/vocab' : '/reading/skill';
+  const backHref = library === 'vocab' ? readingVocabReturnHref(params || undefined) : '/reading/skill';
   const kicker = library === 'vocab' ? 'READING LAB · VOCAB' : 'READING LAB · SKILL PRACTICE';
   const heading = library === 'vocab' ? 'Kiểm tra mức độ hiểu' : 'Luyện đúng kỹ năng';
   const description = library === 'vocab'
