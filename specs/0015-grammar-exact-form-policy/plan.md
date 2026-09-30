@@ -150,12 +150,15 @@ matrix. No new policy toggle/editor or cosmetic substitute for canonical correct
 
 ## Work decomposition
 
-1. Approve0015 and explicit0014 amendments on base, then independently review final
-   authored bytes/map/raw hashes. Content-only authoring is separate from feature code.
+1. Land approved0015 and explicit0014 amendments on base using the final18 authored
+   bytes/map/raw hashes already reviewed by Root and independent Content and bound in
+   source-scope. Content-only authoring is separate from feature code; fresh canonical
+   preflight and publication gates remain required.
 2. Parser/META validation and concrete wire/admission contracts with unit/route tests.
 3. Additive PG scope/signature/context checks, safe old-call compatibility/grants and
    metadata copy/readback with actual PG races/rollback/idempotency tests.
-4. Real engine policy and legacy/gold coverage; keep duplicate source copies in sync.
+4. Real engine policy and legacy/gold coverage; verify both imports of the shared
+   tracked engine and its symlink alias.
 5. Native payload/start/state/outbox/history integration, generated types and actual
    production-Next fixture journeys. Do not use fake q-level flags or scorer doubles.
 6. Full local suites, independent full-contract audit, exact-head CI/staging gates,
@@ -183,8 +186,9 @@ matrix. No new policy toggle/editor or cosmetic substitute for canonical correct
 - **D4 footprint:** Read actual twelve canonical code/topic/bank associations and
   source/history hashes. Absent optional bank is a blocked/not-present outcome, not
   zero footprint or authorization to invent original predecessor/import it silently.
-- **D5 reviewed source:** The49 exact candidates/root wording decisions are recorded,
-  but final authored source/map bytes and hash manifest still require root review.
+- **D5 authored source approved; canonical preflight pending:** Root and independent
+  Content completed the final18 authored source/map review bound by manifest
+  `004ce84fab271f98d2ae9c5d89c2e958b1038890cc2a931129cd529d50125b3e`.
   No hardcoded source allowlist may be guessed or approved by its implementation.
   A single final12 bundle and actual prior-cutover/why_wrong read-only preflight are
   required. Missing/conflicting canonical extras cannot be guessed zero or edited.
