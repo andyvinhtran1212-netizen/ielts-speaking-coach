@@ -78,4 +78,6 @@ draft -> approved -> implementing -> verified -> shipped
 
 | READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | approved | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
 
+| WRITINGMODAL-0013 | Make Writing content dialogs follow browser history and keyboard focus | approved | medium | [spec](0013-writing-content-modal-history/spec.md) |
+
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
