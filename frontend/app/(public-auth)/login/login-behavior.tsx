@@ -263,10 +263,10 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
 
       <div className="lx-access-hint">
         <svg className="lx-access-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-        <span>Nhập <strong>access code</strong> từ lớp/trung tâm để mở toàn bộ 6 kỹ năng</span>
+        <span>Nhập <strong>access code</strong> từ lớp/trung tâm để mở các bài luyện được cấp quyền</span>
       </div>
 
-      <p className="lx-fine-print">Bằng cách đăng nhập, bạn đồng ý với Điều khoản sử dụng.<br />Chưa có access code? Liên hệ lớp học hoặc trung tâm của bạn.</p>
+      <p className="lx-fine-print">Quyền học phụ thuộc vào mã kích hoạt được cấp cho tài khoản.<br />Chưa có mã kích hoạt? Liên hệ lớp học hoặc trung tâm của bạn.</p>
 
       {activationOpen && (
         <div className="lx-dialog-backdrop" role="presentation">

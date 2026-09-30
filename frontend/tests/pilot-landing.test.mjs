@@ -37,12 +37,12 @@ test('layout giữ legacy chrome: OAuth recovery + anti-flash + 4 stylesheet + r
   assert.doesNotMatch(readFileSync(PAGE, 'utf8'), /data-lucide/, 'Lucide must not mutate the React tree');
 });
 
-test('parity: các marker nội dung chính của index.html có mặt trong page.tsx', () => {
+test('landing retains canonical entry points after reviewed content corrections', () => {
   const page = readFileSync(PAGE, 'utf8');
   for (const marker of [
     'Luyện thi IELTS', 'AI Coach', 'Bắt đầu miễn phí',
     'data-stat="total_users"', 'data-stat="sessions_completed"',
-    '3 bước đơn giản', 'Kết quả thực tế',
+    '3 bước đơn giản', 'Sẵn sàng bắt đầu',
   ]) {
     assert.ok(page.includes(marker), `missing content marker: ${marker}`);
   }
