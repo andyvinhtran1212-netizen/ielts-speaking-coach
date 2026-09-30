@@ -11,6 +11,17 @@ test('guided mode stays per-question even when questions share a stimulus', () =
   assert.deepEqual(groupProgrammeQuestions(questions).map((group) => group.questions.map((q) => q.q_num)), [[1], [2], [3], [4]]);
 });
 
+test('source book keeps shared matching/table blocks together without reordering source positions', () => {
+  const questions = [
+    { q_num: 1, source_block_id: 'matching' }, { q_num: 2, source_block_id: 'matching' },
+    { q_num: 3, source_block_id: 'table' }, { q_num: 4, source_block_id: 'matching' },
+    { q_num: 5 }, { q_num: 6 },
+  ];
+  const groups = groupProgrammeQuestions(questions);
+  assert.deepEqual(groups.map((group) => group.questions.map((question) => question.q_num)), [[1, 2], [3], [4], [5], [6]]);
+  assert.equal(new Set(groups.map((group) => group.key)).size, groups.length);
+});
+
 test('only complete, source-matched editorial translation unlocks the language switch', () => {
   const pilot = { source_item_id: 'manus:A0.2-018.P1', prompt: 'Mai đang rủ cả hai cùng làm hay yêu cầu riêng Ben làm?', options: { A: 'Rủ cả hai cùng làm', B: 'Chỉ yêu cầu Ben làm' } };
   assert.deepEqual(availableQuestionLanguages([pilot]), ['vi', 'en']);

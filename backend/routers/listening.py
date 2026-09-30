@@ -67,6 +67,7 @@ from services.active_player_lifecycle import (
     require_resume_active,
     resume_expires_at,
 )
+from models.listening_source_collection import SOURCE_PROGRAMME, SOURCE_CONTRACT
 from models.listening_programmes import (
     ListeningAttemptReviewResponse,
     ListeningGuidedStateResponse,
@@ -4900,6 +4901,7 @@ def _published_content_ids() -> list[str]:
 
 
 _PROGRAMME_COPY = {
+    SOURCE_PROGRAMME: {"title": "80 ngày luyện Listening", "description": "Bài luyện và tài liệu nguồn theo 80 ngày; không tính band IELTS."},
     "general-listening-practice": {
         "title": "General Listening",
         "description": "Luyện nghe theo bài học, tình huống và mục tiêu cụ thể.",
@@ -4910,6 +4912,7 @@ _PROGRAMME_COPY = {
     },
 }
 _PROGRAMME_ORDER = {
+    SOURCE_PROGRAMME: 2,
     "general-listening-practice": 0,
     "ielts-listening-practice": 1,
 }
@@ -5648,10 +5651,22 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
         .in_("content_id", section_ids).order("order_num").execute()
         if section_ids else None
     )
-    exercises = grader.strip_answer_keys([
-        exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
-        if not _is_standalone_authoring_exercise(exercise)
-    ])
+    raw_exercises = [exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
+                     if not _is_standalone_authoring_exercise(exercise)]
+    source_required = test.get("programme_id") == SOURCE_PROGRAMME
+    if source_required and (not raw_exercises or any((exercise.get("payload") or {}).get("source_contract") != SOURCE_CONTRACT for exercise in raw_exercises)):
+        raise HTTPException(503, "Hợp đồng nội dung nguồn chưa hợp lệ.")
+    exercises = grader.strip_answer_keys(raw_exercises)
+    source_fields = {}
+    if source_required:
+        from services.listening_source_collection import sign_source_block
+        for exercise in exercises:
+            payload = exercise["payload"]
+            payload["source_blocks"] = [sign_source_block(block, _sign_programme_visual_url) for block in payload.get("source_blocks") or []]
+            source_fields = {"source_collection_id": "80-days", "source_day": payload.get("source_day"),
+                "source_part_label": payload.get("source_part_label"), "audio_granularity": (test.get("metadata") or {}).get("timing_granularity", "whole_day"),
+                "source_blocks": payload["source_blocks"]}
+
     for exercise in exercises:
         payload = exercise.get("payload") or {}
         if payload.get("variant") == "programme_form_v1":
@@ -5730,6 +5745,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
             "exercises": by_content.get(section["id"], []),
         })
     return {
+        **source_fields,
         "id": test["id"],
         "test_id": test.get("test_id"),
         "title": test.get("title"),
@@ -7548,6 +7564,14 @@ def _attempt_test_type(attempt: dict) -> str:
     return kind
 
 
+def _source_required_for_test(test_id: str) -> bool:
+    rows = (supabase_admin.table("listening_tests").select("programme_id")
+            .eq("id", test_id).limit(1).execute().data or [])
+    if len(rows) != 1:
+        raise HTTPException(503, "Không xác định được chương trình của lượt làm; hãy thử lại.")
+    return rows[0].get("programme_id") == SOURCE_PROGRAMME
+
+
 def _practice_exercise_payloads(test_id: str, *, published_only: bool = False) -> list[dict]:
     """Every exercise payload belonging to a test, via its section rows."""
     sections = supabase_admin.table("listening_content").select("id").eq("test_id", test_id)
@@ -7583,7 +7607,7 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
             or not test.get("is_public")
             or test.get("scoring_policy") != "report_only"
             or test.get("programme_id") not in {
-                "general-listening-practice", "ielts-listening-practice",
+                "general-listening-practice", "ielts-listening-practice", SOURCE_PROGRAMME,
             }
             or not test.get("content_package_id")):
         raise HTTPException(422, "Bài luyện này chưa hỗ trợ đối chiếu từng câu.")
@@ -7598,7 +7622,7 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
 
 
 def _programme_guided_item(
-    reveal: dict, exercise_rows: list[dict], replay_policy: str,
+    reveal: dict, exercise_rows: list[dict], replay_policy: str, *, source_required: bool = False,
 ) -> dict:
     from services.listening_programme_feedback import (
         FeedbackUnavailable, build_guided_feedback,
@@ -7607,7 +7631,7 @@ def _programme_guided_item(
     try:
         feedback = build_guided_feedback(
             int(reveal["q_num"]), str(reveal["first_answer"]),
-            exercise_rows, replay_policy,
+            exercise_rows, replay_policy, source_required=source_required,
         )
     except FeedbackUnavailable:
         logger.error("[listening-programmes] revealed item has no review material")
@@ -7634,7 +7658,7 @@ async def get_listening_programme_guided_state(
         .eq("attempt_id", attempt_id_str).order("q_num").execute()
     )
     items = [
-        _programme_guided_item(row, exercise_rows, test.get("replay_policy") or "allowed")
+        _programme_guided_item(row, exercise_rows, test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME)
         for row in (result.data or [])
     ]
     return {"attempt_id": attempt_id_str, "assisted": bool(items), "items": items}
@@ -7665,7 +7689,7 @@ async def reveal_listening_programme_question(
     try:
         build_guided_feedback(
             q_num, "content-check", exercise_rows,
-            test.get("replay_policy") or "allowed",
+            test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME,
         )
     except FeedbackUnavailable:
         raise HTTPException(503, "Câu này chưa có nội dung đối chiếu hợp lệ.") from None
@@ -7692,7 +7716,7 @@ async def reveal_listening_programme_question(
         raise HTTPException(503, "Chưa xác minh được câu trả lời đã lưu. Hãy thử lại.")
     item = _programme_guided_item(
         {"q_num": q_num, **reveal}, exercise_rows,
-        test.get("replay_policy") or "allowed",
+        test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME,
     )
     return {"attempt_id": attempt_id_str, "assisted": True, "items": [item]}
 
@@ -7933,7 +7957,7 @@ async def submit_listening_test_attempt(
         if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
             exercise_rows = _practice_exercise_payloads(attempt["test_id"])
             report = grader.grade_report_only_attempt(
-                attempt.get("answers") or [], exercise_rows,
+                attempt.get("answers") or [], exercise_rows, source_required=_source_required_for_test(attempt["test_id"]),
             )
             stored_summary = attempt.get("result_summary") or {}
             stored_details = attempt.get("grading_details") or []
@@ -7986,7 +8010,7 @@ async def submit_listening_test_attempt(
     )
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         report = grader.grade_report_only_attempt(
-            attempt.get("answers") or [], ex_res.data or [],
+            attempt.get("answers") or [], ex_res.data or [], source_required=_source_required_for_test(test_id),
         )
         summary = {
             key: report[key] for key in (
@@ -8202,6 +8226,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     anchors_by_q: dict[int, int] = {}
     prompt_by_q: dict[int, str] = {}
     type_by_q: dict[int, str] = {}
+    source_questions_by_q: dict[int, dict] = {}
     self_review_by_q: dict[int, dict] = {}
     controlled_transcripts: dict[str, list] = {}
     if section_ids:
@@ -8221,12 +8246,16 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
                 self_review_by_q[int(q)] = value
             for stimulus_id, value in (p.get("controlled_transcripts") or {}).items():
                 if isinstance(value, list):
+                    if test_row.get("programme_id") == SOURCE_PROGRAMME:
+                        from services.listening_source_collection import safe_source_transcript
+                        value = safe_source_transcript(value)
                     controlled_transcripts[str(stimulus_id)] = value
             variant = p.get("variant")
             for qq in (p.get("questions") or []):
                 if qq.get("q_num") is not None:
                     prompt_by_q[qq["q_num"]] = qq.get("prompt")
                     type_by_q[qq["q_num"]] = qq.get("response_type") or variant
+                    source_questions_by_q[qq["q_num"]] = qq
 
     # A mini test's audio is its SINGLE section premixed alone (the mp3 starts at
     # ~0), but the stored audio_window is full-test-ABSOLUTE (= section-relative +
@@ -8257,7 +8286,17 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     for g in (attempt.get("grading_details") or []):
         q = g.get("q_num")
         win = _rebase_audio_window(windows_by_q.get(q), is_mini, sec_offsets)
+        source_fields = {}
+        if test_row.get("programme_id") == SOURCE_PROGRAMME:
+            from services.listening_source_collection import source_explanation
+            question = source_questions_by_q.get(q) or {}
+            protected = solutions_by_q.get(q) or self_review_by_q.get(q)
+            protected = protected or {}
+            source_fields = {"source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
+                "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
+                "explanation": source_explanation(protected.get("explanation")), "audio_granularity": (win or {}).get("granularity") or (test_row.get("metadata") or {}).get("timing_granularity", "whole_day")}
         review.append({
+            **source_fields,
             "q_num":         q,
             "state":         g.get("state"),
             "correct":       g.get("correct"),
@@ -8268,8 +8307,10 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
             "section":       (win or {}).get("section"),
             "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
-            "solution":      solutions_by_q.get(q) or {},
-            "self_review":   self_review_by_q.get(q) or g.get("self_review") or {},
+            "solution":      ({key: value for key, value in (solutions_by_q.get(q) or {}).items() if key in {"expected", "rationale"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else solutions_by_q.get(q) or {}),
+            "self_review":   ({key: value for key, value in (self_review_by_q.get(q) or {}).items() if key in {"reference_answers", "rationale", "required_facts", "optional_facts"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else self_review_by_q.get(q) or g.get("self_review") or {}),
             "first_answer":  first_answers_by_q.get(q),
         })
 

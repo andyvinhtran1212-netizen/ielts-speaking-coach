@@ -107,7 +107,14 @@ export function displayOptionLanguage(question, language) {
 }
 
 export function groupProgrammeQuestions(questions) {
-  // One step per question even when six questions share one source recording.
-  // Audio remains whole-form because pre-submit answer windows are protected.
-  return questions.map((question) => ({ key: `question:${question.q_num}`, questions: [question] }));
+  // Source-book instructions/tables belong to a shared block. Generic forms
+  // retain their existing one-question steps. Keep original order throughout.
+  const groups = [];
+  for (const question of questions) {
+    const blockId = typeof question.source_block_id === 'string' && question.source_block_id ? question.source_block_id : null;
+    const previous = groups.at(-1);
+    if (blockId && previous?.sourceBlockId === blockId) previous.questions.push(question);
+    else groups.push({ key: blockId ? `block:${blockId}:${question.q_num}` : `question:${question.q_num}`, sourceBlockId: blockId, questions: [question] });
+  }
+  return groups;
 }

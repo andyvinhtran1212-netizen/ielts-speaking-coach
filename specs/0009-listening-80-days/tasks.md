@@ -2,7 +2,9 @@
 
 - [x] T001 Inspect source, existing web contracts and isolate the task worktree.
   `owns: source review artifacts outside repository`
-- [ ] T002 Independently review and land approved source collection spec on staging.
+- [x] T002 Independently review and land approved source collection spec on staging.
+  Approved through specification-only PR #1547, merged as
+  `018c2c6702f541a21c59a626bb19c815eab205a1` on 2026-09-30.
   `owns: specs/0009-listening-80-days/; depends: T001`
 - [ ] T003 Build normalized day/block/item inventory and faithful question assets.
   Read-only external inventory and candidate assets can continue before spec

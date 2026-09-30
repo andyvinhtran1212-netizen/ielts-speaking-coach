@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
+import { programmeLibraryPath } from '../lib/listening-programme-navigation.mjs';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -81,8 +82,12 @@ test('report-only result never presents an IELTS band', () => {
 
 test('historical results return to the current programme library, not an archived lesson', () => {
   const result = read('app', '(authed-listening-review)', 'listening', 'programmes', 'result', '[attemptId]', 'programme-result.tsx');
-  assert.match(result, /programmeLibraryPath = result\.programmeId === 'general-listening-practice' \? '\/listening\/general' : result\.programmeId === 'ielts-listening-practice' \? '\/listening\/ielts' : '\/listening'/);
-  assert.match(result, /href=\{programmeLibraryPath\}>← Thư viện chương trình/);
+  assert.match(result, /const libraryPath = programmeLibraryPath\(result\.programmeId\)/);
+  assert.match(result, /href=\{libraryPath\}>← Thư viện chương trình/);
+  assert.equal(programmeLibraryPath('general-listening-practice'), '/listening/general');
+  assert.equal(programmeLibraryPath('ielts-listening-practice'), '/listening/ielts');
+  assert.equal(programmeLibraryPath('ielts-80-days-listening'), '/listening/ielts/80-days');
+  assert.equal(programmeLibraryPath('unknown-programme'), '/listening');
   assert.doesNotMatch(result, /href=\{result\.lessonId/);
 });
 

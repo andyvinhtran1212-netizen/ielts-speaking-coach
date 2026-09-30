@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from models.listening_source_collection import SourceBlock, SourceExplanation, ReviewVerdict
 
 
 class ListeningProgrammeCard(BaseModel):
@@ -126,6 +127,11 @@ class ListeningPlayerResponse(BaseModel):
     audio_url: str | None = None
     audio_storage_path: str | None = None
     audio_duration_seconds: int | float | None = None
+    source_collection_id: str | None = None
+    source_day: int | None = None
+    source_part_label: str | None = None
+    audio_granularity: str | None = None
+    source_blocks: list[SourceBlock] = Field(default_factory=list)
     cue_points: list[Any] = Field(default_factory=list)
     sections: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -182,6 +188,12 @@ class ListeningReportOnlyResult(BaseModel):
 
 
 class ListeningGuidedFeedbackItem(BaseModel):
+    source_item_id: str | None = None
+    source_display_number: str | None = None
+    review_status: ReviewVerdict | None = None
+    answer_provenance: str | None = None
+    explanation: SourceExplanation | None = None
+    audio_granularity: str | None = None
     q_num: int
     first_answer: str
     revealed_at: str
@@ -205,6 +217,12 @@ class ListeningGuidedStateResponse(BaseModel):
 
 
 class ListeningReviewItem(BaseModel):
+    source_item_id: str | None = None
+    source_display_number: str | None = None
+    review_status: ReviewVerdict | None = None
+    answer_provenance: str | None = None
+    explanation: SourceExplanation | None = None
+    audio_granularity: str | None = None
     model_config = ConfigDict(extra="allow")
 
     q_num: int

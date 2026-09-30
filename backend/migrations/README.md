@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-25 the highest is `303`, so the next new
-migration is `304`.
+sequence is dense. As of 2026-09-30 the highest is `304`, so the next new
+migration is `305`.
 
 ## Conventions
 
@@ -291,6 +291,10 @@ migration 299 remains immutable after staging application.
 Migration 302 adds a separate backend-only Mock exam list routine that snapshots
 each persisted exam row together with its actionable Review decision; migration
 298 remains immutable for already deployed callers.
+Migration 304 extends the existing Listening package contract for the 80-day
+source collection: lessons may have zero practice forms and transcript timings
+may be absent. It keeps controlled transcript hashes required and preserves the
+existing atomic import, publication and service-role boundaries.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
