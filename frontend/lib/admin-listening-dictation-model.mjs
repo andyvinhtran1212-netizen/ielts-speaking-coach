@@ -187,7 +187,7 @@ function normalizeSentence(raw, policy) {
   const miss = integer(ops?.miss); const wrong = integer(ops?.wrong); const extra = integer(ops?.extra);
   const lexical = policy.grading_version === LEXICAL_DICTATION_POLICY;
   const reference = lexical ? value?.reference : typeof value?.reference === 'string' && value.reference.trim() ? value.reference : null;
-  if (!value || index == null || index < 0 || (lexical && !reference) || (reference != null && reference.length > 10_000)
+  if (!value || index == null || index < 0 || (lexical && !reference) || (!lexical && reference != null && reference.length > 10_000)
     || (value.reference != null && typeof value.reference !== 'string')
     || typeof value.user_text !== 'string' || (lexical && (score == null || correctWords == null || totalWords == null))
     || (value.score != null && (score == null || score < 0 || score > 1))

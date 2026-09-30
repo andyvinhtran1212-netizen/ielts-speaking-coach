@@ -354,3 +354,17 @@ test('admin v2 sentence uses persisted raw evidence and exposes missing/corrupt 
   assert.equal(normalizeDictationReportDetail(corrupted, 'session-1').missingSentenceCount, 1);
   assert.equal(normalizeDictationReportItem({ ...raw, grading_version: 'future' }), null);
 });
+
+test('owned stored feedback context keeps nullable absence and rejects coerced FK/section types for both policies', () => {
+  for (const raw of [
+    { id: 'session-1', results: [{ sentence_idx: 4, user_text: 'saved answer', reference: '\uFEFF  Raw reference  ', score: null }] },
+    { ...report(), id: 'session-1' },
+  ]) {
+    const nullable = normalizeDictationStoredReport({ ...raw, test_id: null, section_num: null }, 'session-1');
+    assert.equal(nullable.test_id, null); assert.equal(nullable.section_num, null);
+    const verified = normalizeDictationStoredReport({ ...raw, test_id: 'original-fk', section_num: 3 }, 'session-1');
+    assert.equal(verified.test_id, 'original-fk'); assert.equal(verified.section_num, 3);
+    for (const test_id of [false, 7, {}, []]) assert.throws(() => normalizeDictationStoredReport({ ...raw, test_id }, 'session-1'), /stored-context/);
+    for (const section_num of [true, '3', 0, -1, 1.5, {}, []]) assert.throws(() => normalizeDictationStoredReport({ ...raw, section_num }, 'session-1'), /stored-context/);
+  }
+});

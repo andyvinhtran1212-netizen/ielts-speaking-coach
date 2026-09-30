@@ -182,34 +182,42 @@ export function ListeningDictationSession() {
     if (localStorage.getItem(key) !== serialized) throw new Error('receipt-readback-failed');
   }, [receiptIdentity]);
 
+  const clearConfirmedReceipt = useCallback((receipt: any) => {
+    try {
+      const key = dictationReceiptKey(receipt.accountId, receipt.testId, receipt.sectionNum);
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const current = normalizeDictationReceipt(JSON.parse(raw), receipt);
+      if (current?.requestId === receipt.requestId) localStorage.removeItem(key);
+    } catch {}
+  }, []);
+
   const confirmReceipt = useCallback(async (receipt: any, selected: any, run: number) => {
     const canonical = normalizeDictationReceiptReport(
       await window.api.get(`/api/listening/tests/dictation/session/by-request/${encodeURIComponent(receipt.requestId)}`),
       receipt,
     );
-    try { localStorage.removeItem(dictationReceiptKey(receipt.accountId, receipt.testId, selected.section_num)); }
-    catch {}
+    clearConfirmedReceipt(receipt);
     if (accountRef.current !== receipt.accountId || sectionRunRef.current !== run) return canonical;
     setSection(reportSection(selected, canonical));
     setReport(canonical); setResults(resultsFromReport(canonical, canonical.total_sentences));
     setSaveState('saved'); setPendingReceipt(null);
     retainReportUrl(canonical.session_id);
     return canonical;
-  }, []);
+  }, [clearConfirmedReceipt]);
 
   const confirmAttemptReport = useCallback((payload: any, receipt: any, selected: any, run: number) => {
     const canonical = normalizeDictationReceiptReport(payload, receipt, false);
-    try { localStorage.removeItem(dictationReceiptKey(receipt.accountId, receipt.testId, selected.section_num)); }
-    catch {}
+    clearConfirmedReceipt(receipt);
     if (accountRef.current !== receipt.accountId || sectionRunRef.current !== run) return canonical;
     setSection(reportSection(selected, canonical));
     setReport(canonical); setResults(resultsFromReport(canonical, canonical.total_sentences));
     setSaveState('saved'); setPendingReceipt(null);
     retainReportUrl(canonical.session_id);
     return canonical;
-  }, []);
+  }, [clearConfirmedReceipt]);
 
-  const recoverReceiptFromCanonicalAttempt = useCallback(async (receipt: any, selected: any) => {
+  const recoverReceiptFromCanonicalAttempt = useCallback(async (receipt: any, selected: any, run: number) => {
     const submission = receipt?.submission;
     const testId = String(submission?.test_id || '');
     const sectionNum = Number(submission?.section_num);
@@ -220,6 +228,7 @@ export function ListeningDictationSession() {
     const canonicalAttempt = normalizeDictationAttempt(await window.api.get(
       `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts/in-progress?${query}`,
     ));
+    if (sectionRunRef.current !== run || accountRef.current !== receipt.accountId) throw new Error('dictation-reconciliation-scope-ended');
     const recovered = reconcileDictationReceiptWithAttempt(receipt, canonicalAttempt);
     if (!recovered) throw new Error('Dữ liệu đã lưu trên máy chủ chưa đủ để xác nhận kết quả.');
     persistReceipt(recovered, selected);
@@ -229,24 +238,30 @@ export function ListeningDictationSession() {
 
   const reconcile = useCallback(async (receipt: any, selected: any) => {
     const run = sectionRunRef.current;
-    if (accountRef.current !== receipt.accountId) return;
+    const currentScope = () => sectionRunRef.current === run && accountRef.current === receipt.accountId;
+    if (!currentScope()) return;
     setSaveState('saving'); setPendingReceipt(receipt);
     try {
       let activeReceipt = receipt;
       try { await confirmReceipt(receipt, selected, run); return; }
-      catch (caught) { if (!isMissingReceipt(caught)) throw caught; }
+      catch (caught) { if (!currentScope()) return; if (!isMissingReceipt(caught)) throw caught; }
       try {
         const posted = await window.api.postWith('/api/listening/tests/dictation/session', receipt.submission, coreOperationHeaders(receipt.requestId));
+        if (!currentScope()) return;
         confirmAttemptReport(posted, receipt, selected, run);
         return;
       } catch (postError) {
+        if (!currentScope()) return;
         if (isDictationCanonicalMismatch(postError)) {
-          activeReceipt = await recoverReceiptFromCanonicalAttempt(receipt, selected);
+          activeReceipt = await recoverReceiptFromCanonicalAttempt(receipt, selected, run);
+          if (!currentScope()) return;
           try {
             const posted = await window.api.postWith('/api/listening/tests/dictation/session', activeReceipt.submission, coreOperationHeaders(activeReceipt.requestId));
+            if (!currentScope()) return;
             confirmAttemptReport(posted, activeReceipt, selected, run);
             return;
           } catch (recoveryPostError) {
+            if (!currentScope()) return;
             try { await confirmReceipt(activeReceipt, selected, run); return; }
             catch { throw recoveryPostError; }
           }
@@ -272,6 +287,7 @@ export function ListeningDictationSession() {
     setResults(new Array(selected.sentences.length).fill(null));
     setReport(null); setError(''); setInlineError(''); setSaveState('idle');
     setPendingReceipt(null); setFlagged(new Set());
+    setFlagIndex(null); setFlagCategory(''); setFlagNote(''); setFlagError(''); setFlagging(false);
     startedAtRef.current = Date.now(); sentenceStartedAtRef.current = Date.now(); listenCountRef.current = 0;
     setPhase('ready');
     const receipt = readReceipt(selected);
@@ -302,14 +318,22 @@ export function ListeningDictationSession() {
       // An owned active attempt determines policy. Capabilities are consulted
       // only for fresh admission, including after the new-start flag is off.
       let startVersion = LEGACY_DICTATION_POLICY;
+      let startCapabilitiesAvailable = false;
       if (!inProgress) {
-        try { startVersion = dictationStartPolicy(await window.api.get<components['schemas']['DictationCapabilities']>('/api/listening/tests/dictation/capabilities')); }
+        try {
+          startVersion = dictationStartPolicy(await window.api.get<components['schemas']['DictationCapabilities']>('/api/listening/tests/dictation/capabilities'));
+          startCapabilitiesAvailable = true;
+        }
         catch (caught) { if (!isMissingReceipt(caught)) throw caught; }
       }
       if (sectionRunRef.current !== run || accountRef.current !== user?.id) return;
       const startBody = { renderer_affinity_protocol: 'claim-v1', grading_version: startVersion };
       const validateStart = (reply: any) => {
+        if ((startCapabilitiesAvailable || Object.prototype.hasOwnProperty.call(reply || {}, 'created'))
+            && typeof reply?.created !== 'boolean') throw new Error('Máy chủ chưa xác nhận lượt mới hay lượt đã có.');
         const normalized = normalizeDictationAttempt(reply);
+        if (!startCapabilitiesAvailable && reply?.created === undefined
+            && normalized?.grading_version !== LEGACY_DICTATION_POLICY) throw new Error('Máy chủ chưa xác nhận khả năng dùng chính sách mới.');
         if (reply.created === true && normalized?.grading_version !== startVersion) throw new Error('Lượt mới không dùng chính sách đã yêu cầu.');
         if (normalized && (normalized.test_id !== testId || normalized.section_num !== selected.section_num)) throw new Error('Lượt làm bài không đúng bài và section.');
         return normalized;
@@ -325,6 +349,7 @@ export function ListeningDictationSession() {
         `/api/listening/tests/dictation/attempts/${encodeURIComponent(canonicalAttempt.attempt_id)}/renderer-affinity`,
         { renderer_affinity: 'next' },
       );
+      if (sectionRunRef.current !== run || accountRef.current !== user?.id) return;
       const affinity = String(claim?.renderer_affinity || '');
       if (!['legacy', 'next'].includes(affinity)) throw new Error('Renderer của lượt làm bài không hợp lệ.');
       if (affinity !== 'next') {
@@ -332,7 +357,6 @@ export function ListeningDictationSession() {
         window.location.replace(dictationRendererHref(affinity, `?test_id=${encodeURIComponent(testId)}&section=${selected.section_num}`));
         return;
       }
-      if (sectionRunRef.current !== run || accountRef.current !== user?.id) return;
       const pinnedSection = {
         ...selected,
         sentences: canonicalAttempt.units.map((unit: any) => unit.text),
@@ -395,12 +419,21 @@ export function ListeningDictationSession() {
     if (!user?.id) return;
     const key = `${user.id}:${searchParams?.toString() || ''}`;
     if (bootKeyRef.current === key) return;
+    // Every query/account boot invalidates work from the previous live or
+    // stored scope, including late grade/receipt ACKs in this same component.
+    sectionRunRef.current += 1;
+    setFlagIndex(null); setFlagCategory(''); setFlagNote(''); setFlagError(''); setFlagging(false); setFlagged(new Set());
     bootKeyRef.current = key; setPhase('loading'); setError('');
     const sequence = ++bootSequenceRef.current;
     void boot(sequence, user.id).catch((caught: any) => {
       if (bootSequenceRef.current !== sequence || accountRef.current !== user.id) return;
       setError(`Không tải được bài chép chính tả. ${dictationErrorMessage(caught)}`); setPhase('error');
     });
+    return () => {
+      sectionRunRef.current += 1;
+      bootSequenceRef.current += 1;
+      bootKeyRef.current = '';
+    };
   }, [boot, searchParams, status, user?.id]);
 
   useEffect(() => {
@@ -514,22 +547,35 @@ export function ListeningDictationSession() {
     }
   };
 
+  const flagContext = useCallback((index: number) => {
+    const row = results[index] as any;
+    if (saveState !== 'saved' || !params?.sessionId || report?.session_id !== params.sessionId
+        || typeof report.test_id !== 'string' || !report.test_id.length
+        || !Number.isInteger(report.section_num) || report.section_num < 1
+        || row?.sentence_idx !== index || typeof row.reference !== 'string') return null;
+    return { test_id: report.test_id, section_num: report.section_num, sentence_idx: row.sentence_idx, reference: row.reference };
+  }, [params?.sessionId, report, results, saveState]);
+
   const submitFlag = useCallback(async () => {
-    if (params?.sessionId || flagIndex == null || !section || (!flagCategory && !flagNote.trim())) {
+    if (flagging) return;
+    const target = flagIndex == null ? null : flagContext(flagIndex);
+    if (!target) { setFlagError('Bản lưu thiếu thông tin nguồn để gửi báo lỗi cho câu này.'); return; }
+    if (!flagCategory && !flagNote.trim()) {
       setFlagError('Chọn loại lỗi hoặc nhập mô tả.'); return;
     }
     const run = sectionRunRef.current;
+    const accountId = user?.id;
     setFlagging(true); setFlagError('');
     try {
       await window.api.post('/api/listening/tests/dictation/flag', {
-        test_id: params?.testId, section_num: section.section_num, sentence_idx: flagIndex,
+        test_id: target.test_id, section_num: target.section_num, sentence_idx: target.sentence_idx,
         category: flagCategory || null, note: flagNote.trim() || null,
       });
-      if (sectionRunRef.current !== run) return;
-      setFlagged((previous) => new Set(previous).add(flagIndex)); setFlagIndex(null);
-    } catch (caught: any) { if (sectionRunRef.current === run) setFlagError(`Không gửi được báo lỗi. ${dictationErrorMessage(caught)}`); }
-    finally { if (sectionRunRef.current === run) setFlagging(false); }
-  }, [flagCategory, flagIndex, flagNote, params?.testId, params?.sessionId, section]);
+      if (sectionRunRef.current !== run || accountRef.current !== accountId) return;
+      setFlagged((previous) => new Set(previous).add(target.sentence_idx)); setFlagIndex(null);
+    } catch (caught: any) { if (sectionRunRef.current === run && accountRef.current === accountId) setFlagError(`Không gửi được báo lỗi. ${dictationErrorMessage(caught)}`); }
+    finally { if (sectionRunRef.current === run && accountRef.current === accountId) setFlagging(false); }
+  }, [flagCategory, flagContext, flagIndex, flagNote, flagging, user?.id]);
 
   if (phase === 'loading') return <main className="dict-next-shell"><p className="dict-next-state">Đang tải bài chép chính tả…</p></main>;
   if (phase === 'error') return <main className="dict-next-shell"><section className="dict-next-state is-error"><h1>Không mở được bài</h1><p>{error}</p><button type="button" onClick={() => { bootKeyRef.current = ''; if (user?.id) { const sequence = ++bootSequenceRef.current; setPhase('loading'); void boot(sequence, user.id).catch((caught: any) => { if (bootSequenceRef.current === sequence) { setError(dictationErrorMessage(caught) || 'Không xác minh được dữ liệu.'); setPhase('error'); } }); } }}>Thử lại</button></section></main>;
@@ -570,10 +616,10 @@ export function ListeningDictationSession() {
       {saveState === 'pending' ? <div className="dict-next-recovery" role="alert"><strong>Kết quả chưa được xác nhận.</strong><p>{error || 'Receipt bền vững vẫn được giữ và có thể gửi lại an toàn, không tạo phiên trùng.'}</p><button type="button" onClick={() => { if (!pendingReceipt) return; try { persistReceipt(pendingReceipt, section); setError(''); void reconcile(pendingReceipt, section); } catch { setError('Vẫn chưa tạo được receipt bền vững; chưa gửi POST. Hãy đóng tab trùng hoặc giải phóng bộ nhớ trình duyệt.'); } }}>Gửi lại và xác nhận</button></div> : null}
       <div className="dict-next-stats"><article><span>Độ chính xác</span><strong>{percentage(visibleReport.accuracy)}</strong></article><article><span>Câu đúng hoàn toàn</span><strong>{visibleReport.correct_count ?? '—'}/{visibleReport.total_sentences ?? '—'}</strong></article><article><span>{policyVersion === LEXICAL_DICTATION_POLICY ? 'Từ đúng' : 'Token đúng theo cách chấm cũ'}</span><strong>{visibleReport.correct_words ?? '—'}/{visibleReport.total_words ?? '—'}</strong></article><article><span>Thời gian</span><strong>{formatDictationTime(visibleReport.total_time_seconds)}</strong></article></div>
       <div className="dict-next-trends"><h3>Mẫu lỗi</h3><div><span>Thiếu <b>{opCounts.miss ?? '—'}</b></span><span>Sai <b>{opCounts.wrong ?? '—'}</b></span><span>Thừa <b>{opCounts.extra ?? '—'}</b></span></div>{topDictationWords(visibleReport.error_trends?.missed).length ? <p>Từ hay thiếu: {topDictationWords(visibleReport.error_trends.missed).map((item: any) => `${item.word} (${item.count})`).join(', ')}</p> : null}</div>
-      <div className="dict-next-review"><h3>Đối chiếu từng câu</h3>{section.sentences.map((sentence: string, index: number) => { const result = results[index] as any; return <article key={index}><header><strong>Câu {index + 1}</strong><span>{result ? `${percentage(result.score)} · ${result.correct_words ?? '—'}/${result.total_words ?? '—'}` : params?.sessionId ? 'Không có bằng chứng câu trong bản lưu' : 'Đang khôi phục từ máy chủ'}</span><button type="button" disabled={!!params?.sessionId || flagged.has(index)} onClick={() => { setFlagIndex(index); setFlagCategory(''); setFlagNote(''); setFlagError(''); }}>{flagged.has(index) ? '✓ Đã báo lỗi' : '⚑ Báo lỗi'}</button></header>{result?.grading_version === LEXICAL_DICTATION_POLICY ? result.reference_segments ? <DictationComparison grade={result} /> : <p>Đang xác nhận nguyên văn và đối chiếu đã lưu từ máy chủ.</p> : <><p className="dict-next-reference"><span>Transcript</span>{sentence ?? 'Nguyên văn transcript không có trong bản lưu.'}</p>{result ? <><p className="dict-next-user-answer"><span>Bạn đã gõ</span>{result.user_text || '—'}</p><DictationComparison grade={result} /></> : null}</>}</article>; })}</div>
+      <div className="dict-next-review"><h3>Đối chiếu từng câu</h3>{section.sentences.map((sentence: string, index: number) => { const result = results[index] as any; return <article key={index}><header><strong>Câu {index + 1}</strong><span>{result ? `${percentage(result.score)} · ${result.correct_words ?? '—'}/${result.total_words ?? '—'}` : params?.sessionId ? 'Không có bằng chứng câu trong bản lưu' : 'Đang khôi phục từ máy chủ'}</span><button type="button" disabled={!flagContext(index) || flagged.has(index)} title={!flagContext(index) ? "Bản lưu thiếu thông tin nguồn để gửi báo lỗi cho câu này." : undefined} onClick={() => { setFlagIndex(index); setFlagCategory(''); setFlagNote(''); setFlagError(''); }}>{flagged.has(index) ? '✓ Đã báo lỗi' : '⚑ Báo lỗi'}</button></header>{result?.grading_version === LEXICAL_DICTATION_POLICY ? result.reference_segments ? <DictationComparison grade={result} /> : <p>Đang xác nhận nguyên văn và đối chiếu đã lưu từ máy chủ.</p> : <><p className="dict-next-reference"><span>Transcript</span>{sentence ?? 'Nguyên văn transcript không có trong bản lưu.'}</p>{result ? <><p className="dict-next-user-answer"><span>Bạn đã gõ</span>{result.user_text || '—'}</p><DictationComparison grade={result} /></> : null}</>}</article>; })}</div>
       <div className="dict-next-actions"><button type="button" disabled={!canRestartSection || (!params?.testId && !report?.test_id)} onClick={() => { if (!canRestartSection) return; clearReceipt(section); if (params?.sessionId) { const url = new URL(window.location.href); url.searchParams.delete('session_id'); if (report?.test_id) url.searchParams.set('test_id', report.test_id); if (section.section_num) url.searchParams.set('section', String(section.section_num)); window.location.assign(url); } else selectSection(section); }}>Làm lại section</button>{bundle.sections.length > 1 ? <button type="button" onClick={() => setPhase('picker')}>Chọn section khác</button> : null}<a href="/listening">Về Listening</a></div>
     </section> : null}
 
-    {flagIndex != null ? <div className="dict-next-modal" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFlagIndex(null); }}><section role="dialog" aria-modal="true" aria-labelledby="flag-title"><h2 id="flag-title">Báo lỗi — câu {flagIndex + 1}</h2><p>Chọn loại lỗi hoặc mô tả cụ thể để đội nội dung kiểm tra.</p><div className="dict-next-flag-options">{[['audio_unclear', 'Audio khó nghe'], ['transcript_wrong', 'Transcript sai'], ['timing_wrong', 'Cắt đoạn sai']].map(([value, label]) => <button className={flagCategory === value ? 'is-selected' : ''} type="button" onClick={() => setFlagCategory(value)} key={value}>{label}</button>)}</div><textarea autoFocus aria-label="Mô tả lỗi" value={flagNote} onChange={(event) => setFlagNote(event.target.value)} placeholder="Mô tả thêm…" />{flagError ? <p role="alert" className="dict-next-inline-error">{flagError}</p> : null}<div className="dict-next-actions"><button type="button" onClick={() => setFlagIndex(null)}>Hủy</button><button className="is-primary" type="button" disabled={flagging} onClick={() => void submitFlag()}>{flagging ? 'Đang gửi…' : 'Gửi báo lỗi'}</button></div></section></div> : null}
+    {flagIndex != null ? <div className="dict-next-modal" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFlagIndex(null); }}><section role="dialog" aria-modal="true" aria-labelledby="flag-title"><h2 id="flag-title">Báo lỗi — câu {flagIndex + 1}</h2><p>Chọn loại lỗi hoặc mô tả cụ thể để đội nội dung kiểm tra.</p><p className="dict-next-reference"><span>Transcript đã lưu</span>{flagContext(flagIndex)?.reference}</p><div className="dict-next-flag-options">{[['audio_unclear', 'Audio khó nghe'], ['transcript_wrong', 'Transcript sai'], ['timing_wrong', 'Cắt đoạn sai']].map(([value, label]) => <button className={flagCategory === value ? 'is-selected' : ''} type="button" onClick={() => setFlagCategory(value)} key={value}>{label}</button>)}</div><textarea autoFocus aria-label="Mô tả lỗi" value={flagNote} onChange={(event) => setFlagNote(event.target.value)} placeholder="Mô tả thêm…" />{flagError ? <p role="alert" className="dict-next-inline-error">{flagError}</p> : null}<div className="dict-next-actions"><button type="button" onClick={() => setFlagIndex(null)}>Hủy</button><button className="is-primary" type="button" disabled={flagging} onClick={() => void submitFlag()}>{flagging ? 'Đang gửi…' : 'Gửi báo lỗi'}</button></div></section></div> : null}
   </main>;
 }

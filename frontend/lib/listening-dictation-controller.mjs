@@ -459,6 +459,10 @@ export function normalizeDictationReceiptReport(payload, receipt, byRequest = tr
 export function normalizeDictationStoredReport(payload, expectedSessionId) {
   if (!payload || payload.id !== expectedSessionId) throw new Error('invalid-dictation-stored-receipt');
   if (payload.session_id != null && payload.session_id !== payload.id) throw new Error('invalid-dictation-stored-receipt');
+  // Preserve nullable historical context; malformed FK/section types cannot be
+  // coerced into an explicit content-feedback target from this owned report.
+  if ((payload.test_id != null && typeof payload.test_id !== 'string')
+      || (payload.section_num != null && (!Number.isInteger(payload.section_num) || payload.section_num < 1))) throw new Error('invalid-dictation-stored-context');
   const policy = normalizeDictationPolicy(payload);
   if (policy.grading_version === LEXICAL_DICTATION_POLICY) return Object.freeze({
     // Canonical FK erasure may unlink a stored report's parent. The owned report

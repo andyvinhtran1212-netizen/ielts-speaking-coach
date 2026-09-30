@@ -26,10 +26,15 @@ Tests use an owned synthetic PostgreSQL database, never production records.
   key deletion boundaries, immutable answers/reports and real SQL lexical parity.
 - Whole backend on the integrated base:9402 passed,355 unrelated optional/live/smoke
   skips,13 warnings. Required Dictation and Reading PG tests actually ran.
-- Final R3 root whole Node contracts:9531 passed,2 existing skips. Affected Dictation
+- Historical R3 root whole Node contracts:9531 passed,2 existing skips. Affected Dictation
   Node:218/218; React:28/28. Both TypeScript boundaries and production Next build passed.
   Final intercepted browser116/116 across48 scenarios with0JavaScript errors,
   including canonical raw labels and long-label wrapping at390/1440px.
+- Consolidated R4 whole Node contracts:9539 passed,2 existing skips;54 actual
+  React interactions passed. Both TypeScript boundaries and final production
+  Next build passed. Intercepted browser135/135 across56 scenarios and the
+  separate legacy journey17/17 passed with0JavaScript errors. Seven actual-wire
+  Admin length controls are included in the whole Node count, not added to it.
 - Offline current FastAPI OpenAPI regenerated with pinned openapi-typescript7.13.0
   is byte-identical to frontend/types/api.d.ts. Both main/legacy TypeScript and production Next build passed sequentially.
   Prior round1/2 intercepted browser47/47 with0JS errors; learner12/12, admin20/20 and
@@ -105,7 +110,27 @@ reviewed complete bounded dry-run and staging restore evidence before writes.
   canonical trend keys are preserved exactly, including newer Unicode/FEFF/long
   labels. Backend grading, schema, original53 gold and rollout flags are unchanged.
   Independent engineering2164checks and affected218tests pass; learner source
-  review is bound separately. Current R3 exact-head CI remains PENDING.
+  review is bound separately. R3 exact pushed HEAD2cfe08402befa26a2752b12bd3beb4946a3fe710
+  failed browser35/36 at square-mm completion statistics; all other relevant
+  checks passed. The actual CI failure artifact is retained. A held owned-report
+  GET proves the loading boundary, not the exact CI interleaving.
+- The mandatory third-round whole-contract reset produced one consolidated R4
+  candidate. Account/query/unmount epochs fence late ACKs, renderer redirects
+  and subsequent reconciliation dispatches. Confirmation clears only its own
+  matching receipt, preserving a newer request in the same storage slot.
+  Advertised fresh admission requires boolean created; compatible legacy404
+  capability responses keep their bounded fallback. Explicit feedback uses
+  verified stored FK/section/sentence context, including sparse owned history.
+- R4 Admin retains valid v2 references beyond the legacy10000UTF16 guard while
+  preserving every hash/span/nested-proof/summary check and legacy behavior.
+  Six exact synthetic Admin responses come from50actual offline ASGI requests;
+  the baseline reproduced two dropped valid v2 rows. No grade, raw reference,
+  source hash or span was transplanted. Scoped CSS keeps full raw text and
+  visible aggregate errors within390/1440px; actual built-page/reload checks pass.
+- Independent whole-source reviews bind final R4 page/controller/Admin models,
+  both browser runners, tests/fixture and scoped CSS. Historical red CI, socket,
+  harness and layout runs are retained. Current R4 commit-head CI, staging and
+  production acceptance remain PENDING; local fixtures do not certify release.
 - Staging frontend/backend deployed SHAs: PENDING.
 - Staged classification/new-write/rollback/unchanged history evidence: PENDING.
 - Exact verified staging promotion and production front/backend SHAs: PENDING.

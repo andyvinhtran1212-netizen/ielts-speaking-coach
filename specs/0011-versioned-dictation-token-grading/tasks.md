@@ -17,3 +17,11 @@ T006 records local deterministic gold/owner/real-PG compatibility gates, not dep
 acceptance. T007 records the reviewed decision to leave historical repair disabled;
 no historical write run is authorized. T008–T009 remain open for final independent
 PR/CI review, staged migrations/live acceptance and production release/observation.
+
+R4 local completion includes the whole-contract reset after R3 browser CI failed:
+9539 Node/54 React/both TypeScript/build,135 browser checks across56 scenarios
+and17 legacy checks pass. Source review includes late ACK/reconcile/unmount,
+boolean admission, explicit stored feedback, newer-receipt preservation and
+actual-wire long-reference Admin retention/wrapping. T008 remains open for the
+exact pushed head, integrated staging and required accessibility/live matrix;
+T009 remains open for production enablement/observation/rollback.
