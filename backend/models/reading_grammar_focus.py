@@ -19,10 +19,12 @@ class ReadingGrammarFocusItem(BaseModel):
     """Legacy reads preserve omitted keys and do not invent empty strings."""
     model_config = ConfigDict(extra='forbid')
     point: StrictStr
-    example: StrictStr = ''
-    analysis: StrictStr = ''
-    review: StrictStr = ''
-    tip: StrictStr = ''
+    # Keep internal empty defaults without advertising a wire default. The
+    # pinned OpenAPI generator makes fields with schema defaults required.
+    example: StrictStr = Field(default_factory=str)
+    analysis: StrictStr = Field(default_factory=str)
+    review: StrictStr = Field(default_factory=str)
+    tip: StrictStr = Field(default_factory=str)
 
     @field_validator('point')
     @classmethod
@@ -39,10 +41,10 @@ class ReadingGrammarFocusItem(BaseModel):
 
 class ReadingGrammarFocusEditItem(ReadingGrammarFocusItem):
     point: StrictStr = Field(max_length=500)
-    example: StrictStr = Field(default='', max_length=5000)
-    analysis: StrictStr = Field(default='', max_length=10000)
-    review: StrictStr = Field(default='', max_length=5000)
-    tip: StrictStr = Field(default='', max_length=3000)
+    example: StrictStr = Field(default_factory=str, max_length=5000)
+    analysis: StrictStr = Field(default_factory=str, max_length=10000)
+    review: StrictStr = Field(default_factory=str, max_length=5000)
+    tip: StrictStr = Field(default_factory=str, max_length=3000)
 
 
 class ReadingGrammarFocusEditRequest(BaseModel):

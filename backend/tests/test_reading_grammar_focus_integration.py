@@ -372,7 +372,11 @@ async def test_audit_failure_rolls_back_content_and_uses_safe_error(pg):
     assert await snapshot(engine, passage) == before
 
 
-@pytest.mark.parametrize('corrupt', ['duplicate', 'invalid_json', 'hash', 'outcome', 'payload_fingerprint'])
+@pytest.mark.parametrize('corrupt', ['duplicate', 'invalid_json', 'hash', 'outcome', 'payload_fingerprint',
+    'after_revision', 'source_sha256', 'unrelated_metadata_sha256', 'questions_sha256',
+    'before_revision', 'before_focus_sha256', 'committed_updated_at', 'integrity_sha256',
+    'duplicate_json_source_sha256', 'duplicate_json_committed_updated_at',
+    'duplicate_json_new_focus', 'duplicate_json_nested_point', 'duplicate_json_same_value'])
 async def test_duplicate_corrupt_matching_receipts_fail_closed_without_rewriting_content(pg, corrupt):
     engine, _ = pg
     passage, _ = await seed(engine)
@@ -387,8 +391,29 @@ async def test_duplicate_corrupt_matching_receipts_fail_closed_without_rewriting
         else:
             if corrupt == 'invalid_json':
                 raw = '{"passage_id":"' + str(passage) + '","operation_id":"' + str(operation.operation_id) + '",INVALID'
+            elif corrupt.startswith('duplicate_json_'):
+                # A conflicting value BEFORE the correct saved field used to
+                # disappear through last-key-wins decoding and pass integrity.
+                field = corrupt.removeprefix('duplicate_json_')
+                raw = json_text(detail)
+                if field == 'nested_point':
+                    needle = '"point": ' + json.dumps(detail['new_focus'][0]['point'], ensure_ascii=False)
+                    location = raw.index(needle, raw.index('"new_focus":'))
+                    raw = raw[:location] + '"point": "Conflicting nested point", ' + raw[location:]
+                else:
+                    key = 'source_sha256' if field == 'same_value' else field
+                    bad = (detail[key] if field == 'same_value' else
+                           [{'point': 'Conflicting focus'}] if key == 'new_focus' else
+                           '2025-01-01T00:00:00Z' if key == 'committed_updated_at' else 'f' * 64)
+                    raw = '{' + json.dumps(key) + ':' + json.dumps(bad) + ',' + raw[1:]
             else:
-                if corrupt == 'payload_fingerprint':
+                if corrupt in ('after_revision', 'source_sha256', 'unrelated_metadata_sha256',
+                                'questions_sha256', 'before_revision', 'before_focus_sha256',
+                                'integrity_sha256'):
+                    detail[corrupt] = 'f' * 64 if detail[corrupt] != 'f' * 64 else 'e' * 64
+                elif corrupt == 'committed_updated_at':
+                    detail[corrupt] = '2025-01-01T00:00:00Z'
+                elif corrupt == 'payload_fingerprint':
                     detail['new_focus'] = [{'point': 'Corrupted committed payload'}]
                     detail['after_focus_sha256'] = service._hash(detail['new_focus'])
                 else:
@@ -412,6 +437,26 @@ async def test_other_action_non_json_logs_are_never_cast_or_misinterpreted(pg):
             {'action': 'impersonate', 'actor': actor, 'detail': 'NOT JSON "passage_id":"' + str(passage) + '","operation_id":"' + str(operation.operation_id) + '"'})
     assert (await service.edit_focus(engine, 'synthetic-reading', actor, operation)).outcome == 'updated'
     assert (await service.edit_focus(engine, 'synthetic-reading', actor, operation)).outcome == 'already_applied'
+
+
+async def test_receipt_replay_accepts_unique_keys_in_different_order_with_json_whitespace(pg):
+    engine, _ = pg
+    passage, _ = await seed(engine)
+    actor, read = uuid4(), await service.read_focus(engine, 'synthetic-reading')
+    operation = req(read.revision)
+    committed = await service.edit_focus(engine, 'synthetic-reading', actor, operation)
+    _, _, audits = await snapshot(engine, passage)
+    detail = json.loads(audits[0]['detail'])
+    reordered = json.dumps(dict(reversed(list(detail.items()))), ensure_ascii=False, indent=2)
+    async with engine.begin() as connection:
+        await connection.execute(text('UPDATE governance_audit SET detail=:detail WHERE id=:id'),
+                                 {'id': audits[0]['id'], 'detail': reordered})
+    before = await snapshot(engine, passage)
+    replay = await service.edit_focus(engine, 'synthetic-reading', actor, operation)
+    assert replay.outcome == 'already_applied'
+    assert replay.committed_revision == committed.committed_revision
+    assert replay.source_sha256 == committed.source_sha256
+    assert await snapshot(engine, passage) == before
 
 
 async def test_large_metadata_survives_without_rest_transport_caps(pg):
@@ -461,3 +506,49 @@ async def test_deferrable_fk_is_unavailable_before_any_edit(pg):
         await service.edit_focus(engine, 'synthetic-reading', uuid4(), req(read.revision))
     assert error.value.status_code == 503 and error.value.error_code.endswith('lock_unavailable')
     assert await snapshot(engine, passage) == before
+
+
+@pytest.mark.parametrize('location', ['metadata', 'glossary', 'question'])
+async def test_high_precision_jsonb_survives_one_field_edit_and_detects_sub_float_drifts(pg, location):
+    engine, _ = pg
+    passage, questions = await seed(engine)
+    first = '0.1234567890123456789012345678901'
+    second = '0.1234567890123456789012345678902'
+    assert float(first) == float(second)
+
+    async def write_number(number):
+        async with engine.begin() as connection:
+            if location == 'metadata':
+                await connection.execute(text("UPDATE reading_passages SET metadata = jsonb_set(metadata, '{precision}', CAST(:number AS jsonb)) WHERE id=:id"), {'id': passage, 'number': number})
+            elif location == 'glossary':
+                await connection.execute(text("UPDATE reading_passages SET glossary = CAST(:value AS jsonb) WHERE id=:id"), {'id': passage, 'value': '[{"term":"commons","weight":' + number + '}]'})
+            else:
+                await connection.execute(text("UPDATE reading_questions SET payload = jsonb_set(payload, '{precision}', CAST(:number AS jsonb)) WHERE id=:id"), {'id': questions[0], 'number': number})
+
+    async def exact_snapshot():
+        async with engine.connect() as connection:
+            row = (await connection.execute(text("SELECT (metadata - 'grammar_focus')::text AS unrelated, glossary::text AS glossary, updated_at FROM reading_passages WHERE id=:id"), {'id': passage})).mappings().one()
+            raw_questions = (await connection.execute(text('SELECT to_jsonb(q)::text FROM reading_questions q WHERE passage_id=:id ORDER BY id'), {'id': passage})).scalars().all()
+            return dict(row), raw_questions
+
+    await write_number(first)
+    original = await exact_snapshot()
+    read = await service.read_focus(engine, 'synthetic-reading')
+    applied = await service.edit_focus(engine, 'synthetic-reading', uuid4(), req(read.revision))
+    after = await exact_snapshot()
+    assert applied.outcome == 'updated'
+    assert {key: value for key, value in original[0].items() if key != 'updated_at'} == {
+        key: value for key, value in after[0].items() if key != 'updated_at'}
+    assert original[1] == after[1]
+    current = await service.read_focus(engine, 'synthetic-reading')
+    await write_number(second)
+    drift = await service.read_focus(engine, 'synthetic-reading')
+    assert drift.revision != current.revision
+    assert (await exact_snapshot())[0]['updated_at'] == after[0]['updated_at']
+    fingerprint = 'questions_sha256' if location == 'question' else 'source_sha256' if location == 'glossary' else 'unrelated_metadata_sha256'
+    assert getattr(drift, fingerprint) != getattr(current, fingerprint)
+    before_rejected = await exact_snapshot()
+    with pytest.raises(service.ReadingGrammarFocusError) as error:
+        await service.edit_focus(engine, 'synthetic-reading', uuid4(), req(current.revision, [{'point': 'Unreviewed stale change'}]))
+    assert error.value.status_code == 409
+    assert await exact_snapshot() == before_rejected

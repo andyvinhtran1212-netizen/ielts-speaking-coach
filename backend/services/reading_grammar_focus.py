@@ -71,7 +71,9 @@ def _canonical_value(value: Any) -> Any:
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, Decimal):
-        return str(value)
+        if not value.is_finite():
+            raise ValueError('non-finite JSON number')
+        return value
     if isinstance(value, dict):
         if any(not isinstance(key, str) for key in value):
             raise ValueError('non-string JSON key')
@@ -82,8 +84,34 @@ def _canonical_value(value: Any) -> Any:
 
 
 def _json(value: Any) -> str:
-    return json.dumps(_canonical_value(value), ensure_ascii=False, sort_keys=True,
-                      separators=(',', ':'), allow_nan=False)
+    def encode(item: Any) -> str:
+        # JSONB numbers are arbitrary-precision decimals. Retain their numeric
+        # type as well as every digit; converting them to float OR quoted text
+        # can alias distinct canonical values and invalidate whole-state CAS.
+        if isinstance(item, Decimal):
+            return format(item, 'f')
+        if isinstance(item, dict):
+            return '{' + ','.join(encode(key) + ':' + encode(item[key])
+                                  for key in sorted(item)) + '}'
+        if isinstance(item, list):
+            return '[' + ','.join(encode(element) for element in item) + ']'
+        return json.dumps(item, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
+    return encode(_canonical_value(value))
+
+
+def _exact_row(row: Any) -> dict[str, Any]:
+    values = dict(row)
+    try:
+        # The ordinary asyncpg JSONB decoder has already converted fractions
+        # to floats. Parse PostgreSQL's full row text separately, then retain
+        # native UUID/timestamp scalars needed by parameterized SQL writes.
+        raw = json.loads(values.pop('_canonical_row_json'), parse_float=Decimal)
+        if not isinstance(raw, dict) or raw.keys() != values.keys():
+            raise ValueError('incomplete canonical row')
+        return {key: raw[key] if isinstance(raw[key], (dict, list, Decimal)) else value
+                for key, value in values.items()}
+    except (KeyError, TypeError, ValueError):
+        raise _invalid_state() from None
 
 
 def _hash(value: Any) -> str:
@@ -162,16 +190,18 @@ async def _load_state(connection: AsyncConnection, slug: str, *, write: bool) ->
     # self-inflicted row-lock order differences across concurrent editors.
     parent_lock = 'FOR UPDATE' if write else 'FOR SHARE'
     result = await connection.execute(text(
-        "SELECT * FROM reading_passages WHERE slug = :slug AND library = 'l1_vocab' "
+        "SELECT p.*, to_jsonb(p)::text AS _canonical_row_json FROM reading_passages p "
+        "WHERE slug = :slug AND library = 'l1_vocab' "
         + parent_lock), {'slug': slug})
     row = result.mappings().one_or_none()
     if row is None:
         raise ReadingGrammarFocusError(404, 'reading_grammar_focus_not_found',
                                       'Không tìm thấy đoạn Reading L1 này.')
     questions = await connection.execute(text(
-        'SELECT * FROM reading_questions WHERE passage_id = :passage_id '
+        'SELECT q.*, to_jsonb(q)::text AS _canonical_row_json FROM reading_questions q '
+        'WHERE passage_id = :passage_id '
         'ORDER BY id FOR SHARE'), {'passage_id': row['id']})
-    return _state(dict(row), [dict(item) for item in questions.mappings().all()])
+    return _state(_exact_row(row), [_exact_row(item) for item in questions.mappings().all()])
 
 
 async def _require_insert_fence(connection: AsyncConnection) -> None:
@@ -213,6 +243,7 @@ class _Receipt(BaseModel):
     unrelated_metadata_sha256: Sha256
     questions_sha256: Sha256
     committed_updated_at: AwareDatetime
+    integrity_sha256: Sha256
 
     @field_validator('schema_version', mode='before')
     @classmethod
@@ -220,6 +251,15 @@ class _Receipt(BaseModel):
         if type(value) is not int or value != 1:
             raise ValueError('invalid receipt version')
         return value
+
+
+def _unique_receipt_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError('ambiguous receipt object')
+        value[key] = item
+    return value
 
 
 async def _receipt(connection: AsyncConnection, state: _State, actor: UUID,
@@ -242,7 +282,10 @@ async def _receipt(connection: AsyncConnection, state: _State, actor: UUID,
         raise _receipt_invalid()
     row = rows[0]
     try:
-        receipt = _Receipt.model_validate_json(row['detail'])
+        # Reject duplicate keys at every depth before a decoder can discard
+        # conflicting evidence. Key order and JSON whitespace are immaterial.
+        receipt = _Receipt.model_validate(json.loads(
+            row['detail'], object_pairs_hook=_unique_receipt_object))
         original = [item.model_dump() for item in receipt.original_focus]
         new = [item.model_dump() for item in receipt.new_focus]
         saved_payload_hash = _hash({'passage_id': receipt.passage_id,
@@ -257,6 +300,8 @@ async def _receipt(connection: AsyncConnection, state: _State, actor: UUID,
                 or receipt.expected_revision != receipt.before_revision
                 or receipt.before_focus_sha256 != _hash(original)
                 or receipt.after_focus_sha256 != _hash(new)
+                or receipt.integrity_sha256 != _hash(receipt.model_dump(
+                    mode='json', exclude={'integrity_sha256'}))
                 or (receipt.outcome == 'unchanged' and
                     (receipt.before_revision != receipt.after_revision or original != new))
                 or (receipt.outcome == 'updated' and
@@ -336,16 +381,17 @@ async def edit_focus(engine: AsyncEngine | None, slug: str, actor_id: UUID | str
             outcome = 'unchanged' if replacement == before.focus else 'updated'
             after = before
             if outcome == 'updated':
-                metadata = {**before.row['metadata'], 'grammar_focus': replacement}
                 updated = await connection.execute(text("""
-                    UPDATE reading_passages SET metadata = CAST(:new_metadata AS jsonb),
+                    UPDATE reading_passages SET metadata = jsonb_set(
+                        metadata, '{grammar_focus}', CAST(:new_focus AS jsonb), true),
                         updated_at = clock_timestamp()
                     WHERE id = :passage_id AND slug = :slug AND library = 'l1_vocab'
                       AND metadata = CAST(:old_metadata AS jsonb)
                       AND updated_at = :old_updated_at AND title = :title
                       AND body_markdown = :body AND status = :status
-                    RETURNING *
-                """), {'new_metadata': _json(metadata),
+                    RETURNING reading_passages.*,
+                        to_jsonb(reading_passages)::text AS _canonical_row_json
+                """), {'new_focus': _json(replacement),
                        'old_metadata': _json(before.row['metadata']),
                        'passage_id': before.row['id'], 'slug': before.row['slug'],
                        'old_updated_at': before.row['updated_at'], 'title': before.row['title'],
@@ -355,9 +401,10 @@ async def edit_focus(engine: AsyncEngine | None, slug: str, actor_id: UUID | str
                     raise ReadingGrammarFocusError(409, 'reading_grammar_focus_revision_conflict',
                                                   'Reading đã thay đổi. Chưa lưu correction.', before.revision)
                 questions = await connection.execute(text(
-                    'SELECT * FROM reading_questions WHERE passage_id = :passage_id '
+                    'SELECT q.*, to_jsonb(q)::text AS _canonical_row_json FROM reading_questions q '
+                    'WHERE passage_id = :passage_id '
                     'ORDER BY id FOR SHARE'), {'passage_id': before.row['id']})
-                after = _state(dict(row), [dict(item) for item in questions.mappings().all()])
+                after = _state(_exact_row(row), [_exact_row(item) for item in questions.mappings().all()])
                 if (after.focus != replacement or after.source_sha256 != before.source_sha256
                         or after.unrelated_metadata_sha256 != before.unrelated_metadata_sha256
                         or after.questions_sha256 != before.questions_sha256
@@ -374,7 +421,10 @@ async def edit_focus(engine: AsyncEngine | None, slug: str, actor_id: UUID | str
                 unrelated_metadata_sha256=after.unrelated_metadata_sha256,
                 questions_sha256=after.questions_sha256,
                 committed_updated_at=after.row['updated_at'],
+                integrity_sha256='0' * 64,
             )
+            receipt = receipt.model_copy(update={'integrity_sha256': _hash(
+                receipt.model_dump(mode='json', exclude={'integrity_sha256'}))})
             await connection.execute(text("""
                 INSERT INTO governance_audit (action, admin_id, target_instructor, detail)
                 VALUES (:action, :actor, NULL, :detail)

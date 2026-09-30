@@ -17318,26 +17318,14 @@ export interface components {
         ReadingGrammarFocusEditItem: {
             /** Point */
             point: string;
-            /**
-             * Example
-             * @default
-             */
-            example: string;
-            /**
-             * Analysis
-             * @default
-             */
-            analysis: string;
-            /**
-             * Review
-             * @default
-             */
-            review: string;
-            /**
-             * Tip
-             * @default
-             */
-            tip: string;
+            /** Example */
+            example?: string;
+            /** Analysis */
+            analysis?: string;
+            /** Review */
+            review?: string;
+            /** Tip */
+            tip?: string;
         };
         /** ReadingGrammarFocusEditRequest */
         ReadingGrammarFocusEditRequest: {
@@ -17433,26 +17421,14 @@ export interface components {
         ReadingGrammarFocusItem: {
             /** Point */
             point: string;
-            /**
-             * Example
-             * @default
-             */
-            example: string;
-            /**
-             * Analysis
-             * @default
-             */
-            analysis: string;
-            /**
-             * Review
-             * @default
-             */
-            review: string;
-            /**
-             * Tip
-             * @default
-             */
-            tip: string;
+            /** Example */
+            example?: string;
+            /** Analysis */
+            analysis?: string;
+            /** Review */
+            review?: string;
+            /** Tip */
+            tip?: string;
         };
         /** ReadingGrammarFocusRead */
         ReadingGrammarFocusRead: {
