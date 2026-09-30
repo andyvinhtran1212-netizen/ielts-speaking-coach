@@ -42,7 +42,11 @@ credential discovery belongs in the specification approval change.
   Use the established configured SQL transaction boundary with bound JSONB
   values, tested against production-shaped large metadata. If unavailable,
   report explicit503 and block rollout rather than weaken CAS/add schema.
-- Receipt details retain original/new focus and hashes only. No unrelated
+- Receipt details retain original/new focus, revisions and focus hashes, plus
+  committed source/unrelated-metadata/question fingerprints. An already-applied
+  retry projects these saved component fingerprints separately from the current
+  canonical fingerprints, including after an import changes source/questions.
+  No unrelated
   metadata, question key, credential or client-claimed actor is logged.
 - Empty metadata/absent or null focus is a valid legacy empty state. Optional
   item fields may be omitted/empty strings; malformed present fields are not

@@ -12,7 +12,7 @@ No endpoint implementation, canonical repair or release evidence is claimed.
 | FR-004 | Competing edits and unchanged-timestamp source/metadata import tests | PENDING |
 | FR-005 | No-op, lost ACK, operation reuse and concurrent retry receipt tests | PENDING |
 | FR-006 | Atomic audit failure, bounded receipt lookup and unrelated non-JSON log tests | PENDING |
-| FR-007 | OpenAPI/error/read-after/runtime contract checks | PENDING |
+| FR-007 | OpenAPI/error/read-after/runtime checks; lost-ACK retry after source/question import distinguishes receipt component fingerprints from current fingerprints | PENDING |
 | FR-008 | Independent source parse, reviewed one-analysis diff and canonical read-after | PENDING |
 | FR-009 | Separate approval, exact-SHA staging/release and bounded production/restore evidence | PENDING |
 

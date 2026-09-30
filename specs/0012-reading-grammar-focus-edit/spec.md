@@ -117,7 +117,10 @@ database and audit boundaries. It introduces no schema or scoring change.
   row in the same transaction, action `reading_grammar_focus_edit`, server
   actor ID, no target instructor, and structured detail with passage identity,
   operation ID/fingerprint/outcome, before/after revision and focus hashes, original
-  focus and committed new focus. No bearer token, credential, raw unrelated
+  focus and committed new focus. The receipt also retains the committed
+  `source_sha256`, `unrelated_metadata_sha256` and `questions_sha256`, so a
+  later source/import change cannot erase the component evidence of this
+  operation. No bearer token, credential, raw unrelated
   metadata or question key enters the log. Failure to commit the receipt leaves
   content unchanged. An unchanged operation records its receipt without
   updating the passage; identical retries append no second row. Existing
@@ -205,6 +208,9 @@ database and audit boundaries. It introduces no schema or scoring change.
   concurrent identical/different retries, lost ACK and no-op requests.
 - Large translated metadata, database transport limits, missing configured
   transactional connection, audit failure and late edits before restore.
+- Lost-ACK retry after a later source or question import: committed component
+  fingerprints come from the receipt; current fingerprints come from the new
+  canonical read. An aggregate revision cannot reconstruct old components.
 - Legacy import can subsequently replace metadata/questions as it does today;
   this narrow editor neither invokes that route nor silently changes its contract.
 
