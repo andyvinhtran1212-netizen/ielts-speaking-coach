@@ -5,6 +5,7 @@ import type { FormEvent, RefObject } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { useDisclosureFocus } from '@/lib/use-disclosure-focus';
 import {
   LISTENING_ATTEMPT_STATUS_LABEL, LISTENING_ATTEMPT_TYPE_LABEL,
   formatListeningAttemptDate, formatListeningAttemptDuration,
@@ -18,9 +19,9 @@ type TestType = 'all' | 'full' | 'mini' | 'drill' | 'practice';
 type Filters = { user: string; test: string; type: TestType; status: Status; page: number; attempt: string };
 type IdentityUser = { id: string; email: string | null; displayName: string | null };
 type IdentityTest = { id: string; testId: string | null; title: string | null; type: Exclude<TestType, 'all'> | null };
-type Row = { id: string; status: Exclude<Status, 'all'>; score: number | null; totalQuestions: number | null; accuracy: number | null; durationSeconds: number | null; user: IdentityUser; test: IdentityTest; startedAt: string | null; submittedAt: string | null; createdAt: string | null };
-type Detail = Row & { questions: Array<{ qNum: number; correct: boolean; userAnswer: string | null; expected: string | null; trapCaught: boolean; trapMissed: boolean }>; malformedQuestionCount: number; trapSummary: { caught: number; missed: number } | null; bandEstimate: number | null; associationLookupFailed: boolean; associationLookupFailures: string[] };
-type Snapshot = { key: string; rows: Row[]; total: number; malformedCount: number; readAt: string; associationLookupFailed: boolean; associationLookupFailures: string[] };
+type Row = { id: string; status: Exclude<Status, 'all'>; score: number | null; totalQuestions: number | null; accuracy: number | null; durationSeconds: number | null; scoringPolicy: 'diagnostic' | 'report_only' | null; user: IdentityUser; test: IdentityTest; startedAt: string | null; submittedAt: string | null; createdAt: string | null };
+type Detail = Row & { questions: Array<{ qNum: number; state?: 'checked' | 'blank' | 'unscored' | 'technical_error'; correct: boolean | null; userAnswer: string | null; expected: string | null; trapCaught: boolean; trapMissed: boolean }>; malformedQuestionCount: number; trapSummary: { caught: number; missed: number } | null; bandEstimate: number | null; associationLookupFailed: boolean; associationLookupFailures: string[] };
+type Snapshot = { key: string; rows: Row[]; total: number; malformedCount: number; legacyPolicyCount: number; readAt: string; associationLookupFailed: boolean; associationLookupFailures: string[] };
 type DetailState = { key: string; phase: 'loading' } | { key: string; phase: 'ready'; value: Detail } | { key: string; phase: 'error'; message: string };
 
 const PAGE_SIZE = 50;
@@ -29,6 +30,7 @@ const TYPE_OPTIONS = Object.entries(LISTENING_ATTEMPT_TYPE_LABEL) as Array<[Test
 const messageOf = (caught: unknown) => caught instanceof Error ? caught.message : String(caught || 'Lỗi không xác định');
 const statusClass = (status: string) => status === 'submitted' ? 'is-live' : status === 'abandoned' ? 'is-failed' : 'is-new';
 const accuracyClass = (accuracy: number | null) => accuracy == null ? '' : accuracy >= 0.85 ? 'is-high' : accuracy >= 0.6 ? 'is-mid' : 'is-low';
+const reportStateLabel = (state: string | undefined) => ({ blank: 'Bỏ trống', unscored: 'Tự đối chiếu', technical_error: 'Lỗi kiểm tra' })[state as 'blank' | 'unscored' | 'technical_error'] || 'Chưa kiểm tra';
 const lookupLabel = (tables: string[]) => tables.map((table) => table === 'users' ? 'học viên' : 'test').join(' và ');
 
 export function AdminListeningAttempts() {
@@ -65,7 +67,7 @@ export function AdminListeningAttempts() {
     if (filters.status !== 'all') query.set('status', filters.status);
     try {
       const normalized = normalizeListeningAttemptList(await window.api.get<unknown>(`/admin/listening/attempts?${query}`), { limit: PAGE_SIZE, offset, type: filters.type, status: filters.status }) as Omit<Snapshot, 'key' | 'readAt'> | null;
-      if (!normalized) throw new Error('Phản hồi danh sách không đúng contract canonical.');
+      if (!normalized) throw new Error('Dữ liệu danh sách trả về không hợp lệ.');
       if (request !== sequence.current || scope.current !== owner) return;
       const lastPage = Math.max(1, Math.ceil(normalized.total / PAGE_SIZE));
       if (!normalized.rows.length && filters.page > lastPage) {
@@ -97,7 +99,6 @@ export function AdminListeningAttempts() {
         if (!normalized) throw new Error('Phản hồi chi tiết không đúng identity hoặc contract.');
         if (request !== detailSequence.current) return;
         setDetail({ key: detailKey, phase: 'ready', value: normalized });
-        window.requestAnimationFrame(() => detailHeading.current?.focus());
       } catch (caught) {
         if (request === detailSequence.current) setDetail({ key: detailKey, phase: 'error', message: messageOf(caught) });
       }
@@ -111,6 +112,11 @@ export function AdminListeningAttempts() {
   };
   const selectAttempt = (attempt: string) => router.push(listeningAttemptsHref({ ...filters, attempt }));
   const closeDetail = () => router.push(listeningAttemptsHref({ ...filters, attempt: '' }));
+  const detailKeyDown = useDisclosureFocus({
+    identity: filters.attempt ? `${profile.id}:${filters.attempt}` : null,
+    headingRef: detailHeading,
+    onClose: closeDetail,
+  });
   const maxPage = current ? Math.max(1, Math.ceil(current.total / PAGE_SIZE)) : 1;
   const activeFilterCount = [filters.user, filters.test, filters.type !== 'all', filters.status !== 'all'].filter(Boolean).length;
 
@@ -120,10 +126,10 @@ export function AdminListeningAttempts() {
       <div className="ala-hero__actions"><a className="adm-btn-secondary" href="/admin/listening/tests">Kho test</a><a className="adm-btn-secondary" href="/admin/listening/dictation">Báo cáo dictation</a></div>
     </header>
 
-    <section className="ala-context" aria-labelledby="ala-context-title"><div><p className="alc-eyebrow">Canonical read boundary</p><h2 id="ala-context-title">Một attempt, ba lớp bằng chứng</h2></div><ol><li><span>1</span><strong>Danh tính</strong><small>user + test association</small></li><li><span>2</span><strong>Kết quả</strong><small>điểm, tỉ lệ, thời lượng</small></li><li><span>3</span><strong>Từng câu</strong><small>trả lời, đáp án, trap</small></li></ol></section>
+    <section className="ala-context" aria-labelledby="ala-context-title"><div><p className="alc-eyebrow">Dữ liệu đã lưu</p><h2 id="ala-context-title">Một lượt làm bài, ba lớp bằng chứng</h2></div><ol><li><span>1</span><strong>Danh tính</strong><small>học viên và bài được liên kết</small></li><li><span>2</span><strong>Kết quả</strong><small>điểm, tỉ lệ, thời lượng</small></li><li><span>3</span><strong>Từng câu</strong><small>trả lời, đáp án, bẫy</small></li></ol></section>
 
     <section className="ala-library" aria-labelledby="ala-list-title">
-      <div className="ala-section-head"><div><p>Attempt inventory</p><h2 id="ala-list-title">Lịch sử đã lưu</h2><span>{current ? `${current.total} lượt · ${activeFilterCount} bộ lọc · đọc lúc ${formatListeningAttemptDate(current.readAt)}` : 'Đang đọc từ backend…'}</span></div><button className="adm-btn-secondary" type="button" disabled={loading} onClick={() => void load()}>{loading ? 'Đang tải…' : 'Làm mới'}</button></div>
+      <div className="ala-section-head"><div><p>Lượt làm bài theo bộ lọc</p><h2 id="ala-list-title">Lịch sử đã lưu</h2><span>{current ? `${current.total} lượt theo bộ lọc · ${current.rows.length} lượt hiển thị trên trang · ${activeFilterCount} bộ lọc · đọc lúc ${formatListeningAttemptDate(current.readAt)}` : 'Đang đọc từ máy chủ…'}</span></div><button className="adm-btn-secondary" type="button" disabled={loading} onClick={() => void load()}>{loading ? 'Đang tải…' : 'Làm mới'}</button></div>
       <form className="ala-filters" onSubmit={applyFilters}>
         <label><span>Học viên</span><input type="search" value={draft.user} placeholder="Email hoặc tên" onChange={(event) => setDraft((value) => ({ ...value, user: event.target.value }))} /></label>
         <label><span>Bài Listening</span><input type="search" value={draft.test} placeholder="Test ID hoặc tiêu đề" onChange={(event) => setDraft((value) => ({ ...value, test: event.target.value }))} /></label>
@@ -132,16 +138,17 @@ export function AdminListeningAttempts() {
         <div className="ala-filter-actions"><button className="adm-btn-primary" type="submit">Áp dụng</button>{activeFilterCount > 0 && <button className="adm-btn-secondary" type="button" onClick={() => router.push('/admin/listening/attempts')}>Xóa lọc</button>}</div>
       </form>
 
-      {loadError && <div className="alc-banner is-error" role="alert"><strong>Không tải được attempt inventory</strong><span>{loadError}</span></div>}
-      {current?.associationLookupFailed && <div className="alc-banner is-warning" role="alert"><strong>Lookup association thất bại</strong><span>Không đọc được {lookupLabel(current.associationLookupFailures)}. Các ô liên quan được đánh dấu lỗi, không bị diễn giải thành dữ liệu trống.</span></div>}
-      {!!current?.malformedCount && <div className="alc-banner is-warning" role="status"><strong>Dữ liệu cần kiểm tra</strong><span>Đã loại {current.malformedCount} dòng sai contract; tổng backend vẫn giữ nguyên.</span></div>}
+      {loadError && <div className="alc-banner is-error" role="alert"><strong>Không tải được lịch sử làm bài</strong><span>{loadError}</span></div>}
+      {current?.associationLookupFailed && <div className="alc-banner is-warning" role="alert"><strong>Không đọc được thông tin liên kết</strong><span>Không đọc được {lookupLabel(current.associationLookupFailures)}. Các ô liên quan được đánh dấu lỗi, không bị diễn giải thành dữ liệu trống.</span></div>}
+      {!!current?.malformedCount && <div className="alc-banner is-warning" role="status"><strong>Dữ liệu cần kiểm tra</strong><span>Chưa hiển thị {current.malformedCount} dòng trên trang này vì dữ liệu không hợp lệ hoặc không khớp bộ lọc. Tổng lượt từ máy chủ vẫn giữ nguyên; các dòng này chưa bị xóa.</span></div>}
+      {!!current?.legacyPolicyCount && <div className="alc-banner is-warning" role="status"><strong>Chưa xác minh chính sách tính điểm</strong><span>{current.legacyPolicyCount} lượt hiển thị chưa có chính sách tính điểm trong dữ liệu trả về. Không suy ra “Không tính điểm” từ loại bài hoặc điểm trống.</span></div>}
       {loading && !current && <div className="ala-state" role="status">Đang đọc lịch sử làm bài…</div>}
-      {current && !current.rows.length && <div className="ala-state"><strong>Không có attempt phù hợp</strong><span>Thử bỏ bớt bộ lọc hoặc kiểm tra lại Test ID.</span></div>}
+      {current && !current.rows.length && <div className="ala-state"><strong>{current.malformedCount ? 'Chưa hiển thị được lượt nào trên trang này' : 'Không có lượt làm bài phù hợp'}</strong><span>{current.malformedCount ? 'Cần kiểm tra các dòng dữ liệu bị bỏ qua trước khi kết luận lịch sử trống.' : 'Thử bỏ bớt bộ lọc hoặc kiểm tra lại Test ID.'}</span></div>}
       {!!current?.rows.length && <div className="ala-table-wrap" role="region" aria-label="Bảng lượt làm bài Listening" tabIndex={0}><table className="ala-table"><thead><tr><th>Thời điểm</th><th>Học viên</th><th>Bài</th><th>Trạng thái</th><th>Kết quả</th><th>Thời lượng</th><th></th></tr></thead><tbody>{current.rows.map((row) => <AttemptRow key={row.id} row={row} failedLookups={current.associationLookupFailures} selected={filters.attempt === row.id} onSelect={selectAttempt} />)}</tbody></table></div>}
       {current && current.total > PAGE_SIZE && <nav className="ala-pagination" aria-label="Phân trang lượt làm bài"><button type="button" disabled={loading || filters.page === 1} onClick={() => router.push(listeningAttemptsHref({ ...filters, page: filters.page - 1 }))}>← Trước</button><span>Trang {filters.page}/{maxPage} · {current.total} lượt</span><button type="button" disabled={loading || offset + PAGE_SIZE >= current.total} onClick={() => router.push(listeningAttemptsHref({ ...filters, page: filters.page + 1 }))}>Sau →</button></nav>}
     </section>
 
-    {filters.attempt && <AttemptDetail state={detail} expectedKey={`${profile.id}:${filters.attempt}`} headingRef={detailHeading} onClose={closeDetail} />}
+    {filters.attempt && <AttemptDetail state={detail} expectedKey={`${profile.id}:${filters.attempt}`} headingRef={detailHeading} onClose={closeDetail} onKeyDown={detailKeyDown} />}
   </main>;
 }
 
@@ -150,18 +157,18 @@ function AttemptRow({ row, failedLookups, selected, onSelect }: { row: Row; fail
   const testFailed = failedLookups.includes('listening_tests');
   return <tr data-attempt-id={row.id} aria-current={selected ? 'true' : undefined}>
     <td data-label="Thời điểm"><time dateTime={row.submittedAt || row.createdAt || undefined}>{formatListeningAttemptDate(row.submittedAt || row.createdAt)}</time><code>{row.id}</code></td>
-    <td data-label="Học viên"><strong>{userFailed ? '⚠ Lookup failed' : row.user.displayName || row.user.email || 'Association không còn'}</strong><small>{userFailed ? row.user.id : row.user.email || row.user.id}</small></td>
-    <td data-label="Bài"><strong>{testFailed ? '⚠ Lookup failed' : row.test.title || row.test.testId || 'Association không còn'}</strong><small>{testFailed ? row.test.id : [row.test.testId, row.test.type ? LISTENING_ATTEMPT_TYPE_LABEL[row.test.type] : null].filter(Boolean).join(' · ') || row.test.id}</small></td>
+    <td data-label="Học viên"><strong>{userFailed ? '⚠ Lỗi đọc thông tin' : row.user.displayName || row.user.email || 'Không còn thông tin liên kết'}</strong><small>{userFailed ? row.user.id : row.user.email || row.user.id}</small></td>
+    <td data-label="Bài"><strong>{testFailed ? '⚠ Lỗi đọc thông tin' : row.test.title || row.test.testId || 'Không còn thông tin liên kết'}</strong><small>{testFailed ? row.test.id : [row.test.testId, row.test.type ? LISTENING_ATTEMPT_TYPE_LABEL[row.test.type] : null].filter(Boolean).join(' · ') || row.test.id}</small></td>
     <td data-label="Trạng thái"><span className={`adm-status-pill ${statusClass(row.status)}`}>{LISTENING_ATTEMPT_STATUS_LABEL[row.status]}</span></td>
-    <td data-label="Kết quả">{row.score == null || row.totalQuestions == null ? <span>—</span> : <><strong>{row.score}/{row.totalQuestions}</strong><small className={`ala-accuracy ${accuracyClass(row.accuracy)}`}>{Math.round((row.accuracy || 0) * 100)}%</small></>}</td>
+    <td data-label="Kết quả">{row.scoringPolicy === 'report_only' ? <><strong>Không tính điểm</strong><small>{row.totalQuestions == null ? 'Chưa có số câu' : `${row.totalQuestions} câu`}</small></> : row.score == null || row.totalQuestions == null ? <span>—</span> : <><strong>{row.score}/{row.totalQuestions}</strong><small className={`ala-accuracy ${accuracyClass(row.accuracy)}`}>{Math.round((row.accuracy || 0) * 100)}%</small></>}</td>
     <td data-label="Thời lượng"><span>{formatListeningAttemptDuration(row.durationSeconds)}</span></td>
     <td data-label="Thao tác"><button type="button" className="ala-open" aria-pressed={selected} onClick={() => onSelect(row.id)}>Xem từng câu</button></td>
   </tr>;
 }
 
-function AttemptDetail({ state, expectedKey, headingRef, onClose }: { state: DetailState | null; expectedKey: string; headingRef: RefObject<HTMLHeadingElement | null>; onClose: () => void }) {
+function AttemptDetail({ state, expectedKey, headingRef, onClose, onKeyDown }: { state: DetailState | null; expectedKey: string; headingRef: RefObject<HTMLHeadingElement | null>; onClose: () => void; onKeyDown: ReturnType<typeof useDisclosureFocus> }) {
   const current = state?.key === expectedKey ? state : null;
-  return <section className="ala-detail" aria-labelledby="ala-detail-title">
+  return <section className="ala-detail" aria-labelledby="ala-detail-title" onKeyDown={onKeyDown}>
     <div className="ala-detail__head"><div><p className="alc-eyebrow">Per-question evidence</p><h2 id="ala-detail-title" tabIndex={-1} ref={headingRef}>Chi tiết lượt làm bài</h2></div><button className="adm-btn-secondary" type="button" onClick={onClose}>Đóng</button></div>
     {(!current || current.phase === 'loading') && <div className="ala-state" role="status">Đang đọc chi tiết attempt…</div>}
     {current?.phase === 'error' && <div className="alc-banner is-error" role="alert"><strong>Không tải được chi tiết</strong><span>{current.message}</span></div>}
@@ -170,10 +177,13 @@ function AttemptDetail({ state, expectedKey, headingRef, onClose }: { state: Det
 }
 
 function DetailBody({ detail }: { detail: Detail }) {
+  const reportOnly = detail.scoringPolicy === 'report_only';
   return <>
-    {detail.associationLookupFailed && <div className="alc-banner is-warning" role="alert"><strong>Lookup association thất bại</strong><span>Không đọc được {lookupLabel(detail.associationLookupFailures)} cho attempt này.</span></div>}
-    {!!detail.malformedQuestionCount && <div className="alc-banner is-warning" role="status"><strong>Chi tiết cần kiểm tra</strong><span>Đã loại {detail.malformedQuestionCount} dòng chấm sai contract.</span></div>}
-    <div className="ala-detail__summary"><div><span>Học viên</span><strong>{detail.user.displayName || detail.user.email || detail.user.id}</strong></div><div><span>Bài</span><strong>{detail.test.title || detail.test.testId || detail.test.id}</strong></div><div><span>Điểm</span><strong>{detail.score == null ? '—' : `${detail.score}/${detail.totalQuestions}`}</strong></div><div><span>Band ước lượng</span><strong>{detail.bandEstimate ?? '—'}</strong></div><div><span>Thời lượng</span><strong>{formatListeningAttemptDuration(detail.durationSeconds)}</strong></div><div><span>Trap</span><strong>{detail.trapSummary ? `${detail.trapSummary.caught} tránh · ${detail.trapSummary.missed} dính` : '—'}</strong></div></div>
-    {!detail.questions.length ? <div className="ala-state"><strong>Chưa có chấm điểm từng câu</strong><span>Attempt đang làm hoặc đã bỏ dở có thể chưa tạo grading details.</span></div> : <div className="ala-question-wrap" role="region" aria-label="Đáp án từng câu" tabIndex={0}><table className="ala-question-table"><thead><tr><th>Kết quả</th><th>Câu</th><th>Học viên trả lời</th><th>Đáp án</th><th>Trap</th></tr></thead><tbody>{detail.questions.map((question) => <tr key={question.qNum} className={question.correct ? 'is-correct' : 'is-wrong'}><td data-label="Kết quả"><span aria-label={question.correct ? 'Đúng' : 'Sai'}>{question.correct ? '✓' : '✕'}</span></td><td data-label="Câu"><strong>{question.qNum}</strong></td><td data-label="Học viên trả lời">{question.userAnswer || <em>(bỏ trống)</em>}</td><td data-label="Đáp án">{question.expected ?? '—'}</td><td data-label="Trap">{question.trapCaught ? 'Tránh được' : question.trapMissed ? 'Đã dính' : '—'}</td></tr>)}</tbody></table></div>}
+    {reportOnly && <p className="ala-state" role="status">Không tính điểm: kết quả từng câu phục vụ đối chiếu, không tạo tổng điểm hoặc quy đổi band.</p>}
+    {detail.scoringPolicy === null && <p className="alc-banner is-warning" role="status">Dữ liệu trả về chưa có chính sách tính điểm cho lượt này; kết quả được giữ theo hợp đồng chấm cũ.</p>}
+    {detail.associationLookupFailed && <div className="alc-banner is-warning" role="alert"><strong>Không đọc được thông tin liên kết</strong><span>Không đọc được {lookupLabel(detail.associationLookupFailures)} cho lượt làm bài này.</span></div>}
+    {!!detail.malformedQuestionCount && <div className="alc-banner is-warning" role="status"><strong>Chi tiết cần kiểm tra</strong><span>Chưa hiển thị {detail.malformedQuestionCount} dòng chấm vì dữ liệu không hợp lệ.</span></div>}
+    <div className="ala-detail__summary"><div><span>Học viên</span><strong>{detail.user.displayName || detail.user.email || detail.user.id}</strong></div><div><span>Bài</span><strong>{detail.test.title || detail.test.testId || detail.test.id}</strong></div><div><span>Điểm</span><strong>{reportOnly ? 'Không tính điểm' : detail.score == null ? '—' : `${detail.score}/${detail.totalQuestions}`}</strong></div><div><span>Band ước lượng</span><strong>{reportOnly ? 'Không quy đổi' : detail.bandEstimate ?? '—'}</strong></div><div><span>Thời lượng</span><strong>{formatListeningAttemptDuration(detail.durationSeconds)}</strong></div><div><span>Trap</span><strong>{detail.trapSummary ? `${detail.trapSummary.caught} tránh · ${detail.trapSummary.missed} dính` : '—'}</strong></div></div>
+    {!detail.questions.length ? <div className="ala-state"><strong>{detail.malformedQuestionCount ? 'Chưa hiển thị được chấm điểm từng câu' : 'Chưa có chấm điểm từng câu'}</strong><span>{detail.malformedQuestionCount ? 'Cần kiểm tra các dòng chấm bị bỏ qua.' : 'Lượt đang làm hoặc đã bỏ dở có thể chưa có kết quả từng câu.'}</span></div> : <div className="ala-question-wrap" role="region" aria-label="Đáp án từng câu" tabIndex={0}><table className="ala-question-table"><thead><tr><th>Kết quả</th><th>Câu</th><th>Học viên trả lời</th><th>Đáp án</th><th>Trap</th></tr></thead><tbody>{detail.questions.map((question) => <tr key={question.qNum} className={question.correct === true ? 'is-correct' : question.correct === false ? 'is-wrong' : ''}><td data-label="Kết quả"><span aria-label={question.correct === true ? 'Đúng' : question.correct === false ? 'Sai' : reportStateLabel(question.state)}>{question.correct === true ? '✓' : question.correct === false ? '✕' : reportStateLabel(question.state)}</span></td><td data-label="Câu"><strong>{question.qNum}</strong></td><td data-label="Học viên trả lời">{question.userAnswer || <em>(bỏ trống)</em>}</td><td data-label="Đáp án">{question.expected ?? '—'}</td><td data-label="Trap">{question.trapCaught ? 'Tránh được' : question.trapMissed ? 'Đã dính' : '—'}</td></tr>)}</tbody></table></div>}
   </>;
 }

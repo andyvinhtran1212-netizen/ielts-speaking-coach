@@ -50,6 +50,12 @@ from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
 from services.pg_search import ilike_or_filter
+from services.dictation_trends import classify_trends
+from models.listening_dictation import DictationAggregateResponse
+from models.admin_listening_attempts import (
+    AdminListeningAttemptDetailResponse,
+    AdminListeningAttemptListResponse,
+)
 from services.listening_grader import (
     aggregate_dictation_report,
     grade_dictation,
@@ -2278,6 +2284,7 @@ async def admin_list_listening_tests(
         supabase_admin.table("listening_tests")
         .select("*", count="exact")
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
     if test_type == "exam":
@@ -2290,6 +2297,9 @@ async def admin_list_listening_tests(
         q = q.ilike("test_id", f"%{search.strip()}%")
 
     res = q.execute()
+    total = getattr(res, "count", None)
+    if not isinstance(total, int) or isinstance(total, bool) or total < 0:
+        raise HTTPException(503, "Không xác định được tổng số đề Listening. Vui lòng tải lại.")
     items = res.data or []
 
     # Annotate each test with audio-readiness counts. One round-trip per
@@ -2318,7 +2328,7 @@ async def admin_list_listening_tests(
 
     return {
         "items":  items,
-        "total":  getattr(res, "count", None) or 0,
+        "total":  total,
         "limit":  limit,
         "offset": offset,
     }
@@ -6792,7 +6802,7 @@ def _all_dictation_aggregate_rows(test_id: str | None, user_ids: list | None) ->
     return rows
 
 
-@admin_router.get("/dictation-reports/aggregate")
+@admin_router.get("/dictation-reports/aggregate", response_model=DictationAggregateResponse)
 async def admin_dictation_reports_aggregate(
     test_id: str | None = Query(default=None),
     user_query: str | None = Query(default=None),
@@ -6808,31 +6818,23 @@ async def admin_dictation_reports_aggregate(
         user_ids = _all_dictation_user_ids(user_query)
         if not user_ids:
             return {"session_count": 0, "mean_accuracy": 0.0,
-                    "top_missed": [], "top_wrong": []}
+                    "mean_accuracy_basis": "mean_of_session_sentence_scores",
+                    **classify_trends([])}
     rows = _all_dictation_aggregate_rows(test_id, user_ids)
 
-    # Sum the FULL per-session word counters (error_trends.missed/.wrong maps),
-    # not a truncated top list — a word below any single session's top-N would
-    # otherwise vanish from the cross-session view even if it's the most common.
-    missed: dict[str, int] = {}
-    wronged: dict[str, int] = {}
-    for r in rows:
-        et = r.get("error_trends") or {}
-        for w, c in (et.get("missed") or {}).items():
-            missed[w] = missed.get(w, 0) + int(c or 0)
-        for w, c in (et.get("wrong") or {}).items():
-            wronged[w] = wronged.get(w, 0) + int(c or 0)
+    # Classify the complete persisted counters before top-N truncation. This
+    # changes only the analytics projection, never reference diffs or grades.
+    try:
+        classified = classify_trends(rows)
+    except ValueError:
+        raise HTTPException(503, "Dữ liệu lỗi Dictation cần kiểm tra. Không thể tổng hợp chính xác.")
     accs = [float(r.get("accuracy") or 0) for r in rows]
-
-    def _top(counter, label, n=15):
-        return [{label: w, "count": c}
-                for w, c in sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
 
     return {
         "session_count": len(rows),
         "mean_accuracy": round(sum(accs) / len(accs), 4) if accs else 0.0,
-        "top_missed":    _top(missed, "word"),
-        "top_wrong":     _top(wronged, "expected"),
+        "mean_accuracy_basis": "mean_of_session_sentence_scores",
+        **classified,
     }
 
 
@@ -6914,9 +6916,15 @@ def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
     score = r.get("score")
     u = users.get(r.get("user_id")) or {}
     t = tests.get(r.get("test_id")) or {}
+    # Never infer a historical attempt's policy from an edited current test.
+    # Unversioned legacy rows use the same diagnostic default as submit/review.
+    scoring_policy = r.get("scoring_policy") or "diagnostic"
+    if scoring_policy not in {"diagnostic", "report_only"}:
+        raise HTTPException(503, "Không đọc được chế độ tính điểm đã lưu của lượt làm bài.")
     return {
         "id":               r.get("id"),
         "status":           r.get("status"),
+        "scoring_policy":   scoring_policy,
         "score":            score,
         "total_questions":  total_q,
         "accuracy":         (round(score / total_q, 4)
@@ -6935,7 +6943,7 @@ def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
     }
 
 
-@admin_router.get("/attempts")
+@admin_router.get("/attempts", response_model=AdminListeningAttemptListResponse)
 async def admin_list_listening_attempts(
     user_query: str | None = Query(default=None),
     test_query: str | None = Query(default=None),
@@ -6994,7 +7002,7 @@ async def admin_list_listening_attempts(
 
     q = (supabase_admin.table("listening_test_attempts")
          .select("id,user_id,test_id,status,score,grading_details,started_at,"
-                 "submitted_at,created_at", count="exact"))
+                 "submitted_at,created_at,scoring_policy", count="exact"))
     if status:
         q = q.eq("status", status)
     if user_ids is not None:
@@ -7020,7 +7028,7 @@ async def admin_list_listening_attempts(
     }
 
 
-@admin_router.get("/attempts/{attempt_id}")
+@admin_router.get("/attempts/{attempt_id}", response_model=AdminListeningAttemptDetailResponse)
 async def admin_get_listening_attempt(
     attempt_id: str,
     authorization: str | None = Header(default=None),

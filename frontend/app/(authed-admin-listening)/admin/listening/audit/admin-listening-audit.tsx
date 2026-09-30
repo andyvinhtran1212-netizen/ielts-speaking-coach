@@ -136,14 +136,14 @@ export function AdminListeningAudit() {
       await scan(rows, owner);
     } catch (caught) {
       if (request === inventorySequence.current && activeAccount.current === owner) {
-        setInventoryError(`${preserve && tests.length ? 'Không thể làm mới — đang giữ snapshot trước. ' : ''}${messageOf(caught)}`);
+        setInventoryError(`${preserve && inventoryAt ? 'Không thể làm mới — đang giữ snapshot trước. ' : ''}${messageOf(caught)}`);
       }
     } finally {
       if (request === inventorySequence.current && activeAccount.current === owner) {
         inventoryLock.current = false; setInventoryLoading(false);
       }
     }
-  }, [profile.id, scan, tests.length]);
+  }, [profile.id, scan, inventoryAt]);
 
   useEffect(() => {
     const owner = profile.id;
@@ -164,6 +164,12 @@ export function AdminListeningAudit() {
   const retryFailed = () => void scan(failedTests, profile.id);
   const retryOne = (test: TestRow) => void scan([test], profile.id);
   const progressPercent = progress.total ? Math.round(progress.complete / progress.total * 100) : 0;
+  const hasInventory = inventoryAt !== null;
+  const healthComplete = hasInventory && summary.loading === 0;
+  const inventoryLabel = inventoryError ? hasInventory ? 'Snapshot trước · chưa làm mới được' : 'Không hoàn tất'
+    : inventoryLoading ? hasInventory ? 'Đang làm mới snapshot' : 'Đang đọc…' : 'Đã đọc đủ inventory';
+  const healthHint = !hasInventory ? 'Chưa có inventory hoàn tất'
+    : !healthComplete ? 'Chưa đọc xong live health' : inventoryError ? 'Theo snapshot trước' : 'Theo lần đọc live hiện tại';
 
   return <main className="alqa-shell">
     <header className="alqa-hero">
@@ -178,14 +184,14 @@ export function AdminListeningAudit() {
     </section>
 
     <section className="alqa-summary" aria-label="Tổng quan audit">
-      <div><span>Inventory canonical</span><strong>{summary.total}</strong><small>{inventoryAt ? `Đọc ${formatListeningAuditDate(inventoryAt)}` : 'Đang đọc…'}</small></div>
-      <div className={summary.error ? 'is-error' : ''}><span>Test có lỗi live</span><strong>{summary.error}</strong><small>Phải xử lý trước publish</small></div>
-      <div className={summary.warning ? 'is-warning' : ''}><span>Test có cảnh báo</span><strong>{summary.warning}</strong><small>Không có error live</small></div>
-      <div className={summary.lookup ? 'is-lookup' : ''}><span>Lookup failed</span><strong>{summary.lookup}</strong><small>Không kết luận health</small></div>
+      <div><span>Tổng đề đã đọc</span><strong>{hasInventory ? summary.total : '—'}</strong><small>{inventoryLabel}{inventoryAt ? ` · Đọc ${formatListeningAuditDate(inventoryAt)}` : ''}</small></div>
+      <div className={summary.error ? 'is-error' : ''}><span>Test có lỗi live</span><strong>{healthComplete ? summary.error : '—'}</strong><small>{healthHint}</small></div>
+      <div className={summary.warning ? 'is-warning' : ''}><span>Test có cảnh báo</span><strong>{healthComplete ? summary.warning : '—'}</strong><small>{healthHint}</small></div>
+      <div className={summary.lookup ? 'is-lookup' : ''}><span>Lookup failed</span><strong>{healthComplete ? summary.lookup : '—'}</strong><small>{healthComplete ? 'Không kết luận health cho các lookup thất bại' : healthHint}</small></div>
     </section>
 
     <section className="alqa-library" aria-labelledby="alqa-list-title" aria-busy={inventoryLoading || scanning}>
-      <div className="alqa-section-head"><div><p>Canonical coverage</p><h2 id="alqa-list-title">Test health inventory</h2><span>{tests.length ? `${visible.length}/${summary.total} test · ${activeFilterCount} bộ lọc · ${summary.savedPending} chưa full audit` : 'Đang đọc từ backend…'}</span></div><div><button className="adm-btn-secondary" type="button" disabled={inventoryLoading || scanning} onClick={() => void load()}>{inventoryLoading ? 'Đang tải…' : 'Làm mới toàn bộ'}</button>{failedTests.length > 0 && <button className="adm-btn-secondary" type="button" disabled={inventoryLoading || scanning} onClick={retryFailed}>Retry {failedTests.length} lookup failed</button>}</div></div>
+      <div className="alqa-section-head"><div><p>Phạm vi đã đọc</p><h2 id="alqa-list-title">Test health inventory</h2><span>{hasInventory ? `${visible.length}/${summary.total} test · ${activeFilterCount} bộ lọc · ${summary.savedPending} chưa full audit` : inventoryLoading ? 'Đang đọc từ backend…' : 'Chưa có snapshot inventory hoàn tất'}</span></div><div><button className="adm-btn-secondary" type="button" disabled={inventoryLoading || scanning} onClick={() => void load()}>{inventoryLoading ? 'Đang tải…' : inventoryError ? 'Thử lại inventory' : 'Làm mới toàn bộ'}</button>{failedTests.length > 0 && <button className="adm-btn-secondary" type="button" disabled={inventoryLoading || scanning} onClick={retryFailed}>Retry {failedTests.length} lookup failed</button>}</div></div>
 
       <form className="alqa-filters" onSubmit={applyFilters}>
         <label><span>Test</span><input type="search" value={draft.search} placeholder="Test ID hoặc tiêu đề" onChange={(event) => setDraft((value) => ({ ...value, search: event.target.value }))} /></label>
@@ -215,7 +221,7 @@ function AuditRow({ row, busy, onRetry }: { row: CombinedRow; busy: boolean; onR
   const saved = audit.phase === 'ready' ? audit.value.saved : null;
   return <tr data-test-id={test.id}>
     <td data-label="Test"><a className="alqa-test" href={`/admin/listening/tests/${encodeURIComponent(test.id)}`}>{test.testId}</a><strong>{test.title}</strong><small><span className={`adm-status-pill ${testStatusClass(test.status)}`}>{testStatusLabel[test.status]}</span> · {LISTENING_AUDIT_TYPE_LABEL[test.type]}</small></td>
-    <td data-label="Cấu trúc"><strong>{audit.phase === 'ready' ? `${audit.value.questionCount} câu` : `${test.sectionCount} section`}</strong><small>{audit.phase === 'ready' ? `${audit.value.sectionCount} section canonical` : `${test.audioReadyCount}/${test.sectionCount} section có audio`}</small></td>
+    <td data-label="Cấu trúc"><strong>{audit.phase === 'ready' ? `${audit.value.questionCount} câu` : `${test.sectionCount} section`}</strong><small>{audit.phase === 'ready' ? `${audit.value.sectionCount} section đã lưu` : `${test.audioReadyCount}/${test.sectionCount} section có audio`}</small></td>
     <td data-label="Live structural"><span className={`adm-status-pill ${healthClass}`}>{healthLabel}</span>{audit.phase === 'ready' && <small>{audit.value.live.errorCount} error · {audit.value.live.warningCount} warning</small>}{audit.phase === 'error' && <small>{audit.message}</small>}</td>
     <td data-label="Saved full audit">{saved ? <><span className={`adm-status-pill ${savedStatusClass(saved.status)}`}>{LISTENING_AUDIT_SAVED_LABEL[saved.status]}</span><small>{saved.auditedAt ? `Chạy ${formatListeningAuditDate(saved.auditedAt)}` : saved.status === 'pending' ? 'Chưa có full run đã lưu' : 'Đã chạy · không rõ thời điểm'}</small></> : <><span className="adm-status-pill is-muted">Chưa xác định</span><small>Chờ live GET</small></>}</td>
     <td data-label="Thao tác"><div className="alqa-actions"><a href={listeningAuditDetailHref(test.id)}>Mở audit detail ↗</a><a href={`/admin/listening/tests/${encodeURIComponent(test.id)}`}>Mở test</a><button type="button" disabled={busy} onClick={() => onRetry(test)}>Đọc lại GET</button></div></td>
