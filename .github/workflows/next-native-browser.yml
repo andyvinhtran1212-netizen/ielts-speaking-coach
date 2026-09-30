@@ -907,6 +907,8 @@ jobs:
       # Frozen v1/v2 receipts, raw Unicode spans and owned report reloads use
       # intercepted contracts; this runner performs no live backend writes.
       - name: Kiểm chính sách Dictation v1 và v2 native
+        env:
+          DICTATION_BROWSER_EVIDENCE: /tmp/dictation-versioned-browser.json
         run: node tooling/verify-dictation-versioned-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin` cần role admin nên snapshot parity bằng probe thường không thể
@@ -1247,6 +1249,7 @@ jobs:
           path: |
             /tmp/next-native-browser.log
             /tmp/next-native-fixture-api.log
+            /tmp/dictation-versioned-browser.json
 
       - name: Dừng Next
         if: ${{ always() }}

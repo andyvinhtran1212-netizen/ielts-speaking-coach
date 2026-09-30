@@ -201,8 +201,16 @@ try {
     if (!failure) { await page.reload(); await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor(); check(`${name} report reload remains policy-specific`, await page.locator(`[data-dictation-policy="${options.legacy ? 'legacy-whitespace-v1' : 'lexical-v2'}"]`).count() === 1); }
   });
   await scenario('N-1-missing-both-authoritative-v1', { pendingN1: true }, async (page, state) => {
-    await page.goto(learner); await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
-    check('N-1 missing both ACK fields restores explicit v1 nonnull hash, original reference and 2/3 score', await page.getByText('67%', { exact: true }).count() === 1 && await page.getByText('— Hello there.', { exact: false }).count() >= 1 && !state.calls.some((c) => c.method === 'POST' && c.path.includes('dictation')));
+    // Receipt confirmation updates the URL; the owned-report effect then reloads
+    // canonical data. Observe that final read before asserting its rendered value.
+    const ownedReport = page.waitForResponse((response) => response.request().method() === 'GET'
+      && new URL(response.url()).pathname === `/api/listening/tests/dictation/session/${sid}` && response.status() === 200);
+    await page.goto(learner); await ownedReport;
+    await page.locator('.dict-next-stats').getByText('67%', { exact: true }).waitFor();
+    await page.getByText('— Hello there.', { exact: false }).first().waitFor();
+    await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
+    const observed = { scoreCount: await page.getByText('67%', { exact: true }).count(), referenceCount: await page.getByText('— Hello there.', { exact: false }).count(), posts: state.calls.filter((c) => c.method === 'POST' && c.path.includes('dictation')), url: page.url() };
+    check('N-1 missing both ACK fields restores explicit v1 nonnull hash, original reference and 2/3 score', observed.scoreCount === 1 && observed.referenceCount >= 1 && observed.posts.length === 0, JSON.stringify(observed));
   });
   for (const n1Fault of ['v2', 'attempt', 'payload', 'receipt']) await scenario(`N-1-reject-${n1Fault}`, { pendingN1: true, n1Fault }, async (page) => {
     await page.goto(learner); await page.getByText('Kết quả chưa được xác nhận.', { exact: true }).waitFor();
