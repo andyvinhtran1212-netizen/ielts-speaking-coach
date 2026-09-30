@@ -4,16 +4,16 @@
 
 | Requirement | Evidence required | Result |
 | --- | --- | --- |
-| FR-001 | exact6 allowlist/strict request/parser/mastery/link/source-hash tests; independent academic labels | PENDING |
+| FR-001 | exact12/one-final-bundle source/map/raw-META/mastery/link/hash; academic why_wrong extras read-only preflight; missing/already-cutover bank blocks | PENDING |
 | FR-002 | old bank/question UUID and raw prompt/key/review hash preservation; deterministic current mapping; uniqueness/invalid duplicate states | PENDING |
 | FR-003 | OpenAPI models/generated types, auth/error shape tests; bounded preview/footprint and canonical readback | PENDING |
 | FR-004 | actual PG concurrent start/progress/reset/finalize/cutover/generic import/child insert-delete-update; serialized order/CAS/audit rollback | PENDING |
 | FR-005 | open zero-attempt, paused, completed-with-carryover, true mastered/stale empty open, reset-versus-review unknown blocks before writes; missing/orphan/malformed/capped evidence; N-1 proven reload; first-progress completion watermark despite lost endACK; parallel attempt history retained without mastery regression; row/byte bounds, owned proof/retention and no public IDs | PENDING |
-| FR-006 | compatible new start frozen revision, old/default client continuation, unsupported/stale starts rejected before insert; unmanaged controls | PENDING |
+| FR-006 | frozen bank_id/revision/policy ACK; pure preflight vs activated engine; non-idempotent lost ACK/reopen; terminal stored NULL/nonNULL identity; N-1/unsupported starts and unmanaged controls | PENDING |
 | FR-007 | lostACK/retry scoped action+actor+code+UUID tuple, changed same-tuple payload409, other actor/code auth/CAS independently; bounded lookup/nonJSON unrelated logs; duplicate/corrupt/missing proof failclosed; no TTL/purge while any legacy dependency exists inclrollback | PENDING |
 | FR-008 | actual write-boundary mutation/delete/import refusal for managed current/legacy; unchanged unmanaged imports | PENDING |
 | FR-009 | browser full states, history old rawsource/key/result, keyboard/focus/themes/motion/width matrix | PENDING |
-| FR-010 | staging-first additive migration/N-1 compatibility, exact deploy SHAs, explicit six-operation logs/backups/new-start-disable rollback | PENDING |
+| FR-010 | staging-first additive migration/N-1 compatibility, exact deploy SHAs, explicit final twelve-bundle operations/backups/new-start-disable compatible rollback; no interim six/second cutover | PENDING |
 
 Academic gold covers contextual love/want correctness and preserved genuine
 know/is-want errors. Baseline source evidence: grammar-linked-bank-audit.json,
@@ -49,4 +49,56 @@ records scripts/results and scope. This is classifier feasibility evidence,
 not actual feature transaction/lock/provenance/retention or live cohort proof.
 Authoritative live counts and every feature/release gate above remain pending.
 
-Status: approved contract; no feature tests or deployed acceptance yet.
+Status: synchronized technical amendment and final18 academic/source bytes approved as bound in0015 approval.md/source-scope.md/json. Base landing and all feature/deployed acceptance remain PENDING.
+
+## Current reset/continuation and identity gates (FR004/005/006/008/009)
+
+Actual PG: mark every prior owned-current admission NULL→transaction timestamp under
+existing reset locks BEFORE stats DELETE; preserve prior nonNULL markers, attempts,
+history/results/completion watermarks. Repeat reset preserves old timestamp and marks
+only newly prior NULL rows. Fresh post-reset rows are unmarked. Eligible paused
+current continuation uses owned unmarked same-bank/revision run|continuation predecessor,
+canonicalremaining>0 and no completion marker anywhere in its matching unmarked group.
+Readonly review, marked, wrong-owner/bank/revision, forged predecessor or absent stats
+alone never qualifies. Current reset permits fresh current work while legacy permanent
+completion fence/forbidden reset remains unchanged. Preserve all cap/privacy/receipt/
+erasure/FK proof. Direct clear/set/transfer and concurrent reset/start/progress/end/
+cutover/erasure tests are mandatory; source-string/mock lock assertions are not proof.
+
+Actual schema/Next: grammar.bank_id is frozen b.id, current_bank_id is mapping.
+Pure engine preflight derives exact existing remaining with no submits/business writes;
+activation waits for validated real start ACK identity. Delayed/stale/wrong/lost ACK
+creates no live engine/outbox/progress/end/optimistic ready; one POST per start action.
+Explicit reopen performs GET then native create under authoritative carryover, not
+same-session/start receipt recovery. Repeated terminal owned end may omit grammar;
+stored bank_id/grammar_revision verified exactly, original NULL retained, mapped/new
+revision nonNULL; no current lookup/backfill and no start/progress bypass.
+
+Single final12 source bundle hashes include maps; raw multiple META/conflicting delivered
+META fail closed. Read actual canonical question extras/why_wrong; changed-key conflict,
+missing read, prior cutover or unapproved raw source blocks without auto-edit or
+interim old-six publication. Feature evidence for every gate above remains PENDING.
+
+## Mandatory reset-stale acceptance — all PENDING
+
+On actual PG, commit a current start and drop ACK, explicitly reopen/new-session,
+finish that work, then reset while the orphan first row remains open. Reset succeeds
+under existing locks and marks EVERY prior owned-current admission before stats
+DELETE; it does not auto-close rows or alter saved answers/results/completion/prior
+marks. Direct set/clear/transfer remain forbidden. Replay/new progress for any marked
+row returns typed409 error_code=grammar_reset_stale after verified owner/frozen scope and locks, before
+ANY attempts/stats/completion/KP/telemetry; no mastery resurrection. Applicable direct
+attempt/stat writes cannot bypass it; reset stats deletion and absent-owner canonical
+FK erasure remain accepted. Test both serialized outcomes of progress/reset and
+start/reset, plus end/reset/cutover/erasure. Marked owned-open end terminalizes only
+its original frozen row and normal summary; saved identities/markers/answers remain,
+mastery/KP/new eligibility do not change, repeated terminal end is exact/no-write.
+Current paused predecessor/proof/completion group filters ALL exclude marked rows,
+readonly review cannot qualify, and original legacy cohort/fence/forbidden reset plus
+unmanaged behavior remain unchanged.
+
+Actual delivered Next oldtab receives reset-stale and shows explicit stale/reopen,
+no automatic progress resubmission/retry or optimistic saved/mastered. Explicit reopen
+reads current canonical state and performs existing create/carryover only if allowed.
+Use the real engine/outbox and inspect intercepted calls/DB effect, not a scorer double.
+Lost-start-ACK plus reset must not leave a permanent reset-lock or imply recovered UUID.
