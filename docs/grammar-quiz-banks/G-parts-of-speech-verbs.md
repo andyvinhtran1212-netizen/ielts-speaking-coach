@@ -15,7 +15,7 @@ words_count: 4
 source: "authored-2026-07"
 ---
 
-# ===== item_key 1 · Stative vs Action verbs (không dùng -ing với stative) =====
+# ===== item_key 1 · Stative vs Action verbs (xét nghĩa và ngữ cảnh) =====
 
 ---
 id: "verb_stat_b1"
@@ -28,7 +28,7 @@ prompt: "I ____ the answer, so please don't tell me."
 options: ["know", "am knowing", "knows", "am know"]
 answer: 0
 grammar_article_slug: "verbs"
-explain: "'know' là stative verb (nhận thức) — không dùng với thì tiếp diễn (-ing). Chỉ dùng dạng đơn giản: I know."
+explain: "'know the answer' diễn tả trạng thái biết trong câu này, thường dùng dạng đơn: I know."
 ---
 
 ---
@@ -38,11 +38,11 @@ input: "choice"
 headword: "verb-stative-action"
 skill: "form"
 subtype: "basic"
-prompt: "She ____ a new laptop; it's very expensive."
+prompt: "She ____ a new laptop; it's very expensive. (chọn Present Simple)"
 options: ["wants", "is wanting", "want", "wanted (right now)"]
 answer: 0
 grammar_article_slug: "verbs"
-explain: "'want' là stative verb (cảm xúc/mong muốn) — không chia -ing dù đang nói về hiện tại."
+explain: "Câu hỏi yêu cầu Present Simple; chủ ngữ 'she' dùng 'wants'. Dạng đơn thường nêu mong muốn như một trạng thái; continuous với 'want' không tự động sai trong mọi ngữ cảnh."
 ---
 
 ---
@@ -71,7 +71,7 @@ hint: "chia động từ cho đúng"
 accept: ["understand"]
 case_sensitive: false
 grammar_article_slug: "verbs"
-explain: "'understand' là stative verb (nhận thức) — không chia -ing, dùng nguyên dạng hiện tại đơn."
+explain: "'completely understand your concerns' nêu trạng thái hiểu rõ trong câu này, thường dùng Present Simple: understand."
 ---
 
 ---
@@ -81,10 +81,10 @@ input: "boolean"
 headword: "verb-stative-action"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'She is wanting to improve her English pronunciation before the exam.'"
-answer: false
+prompt: "Đúng hay Sai: 'She has been wanting to improve her English pronunciation for months.' có thể nhấn mạnh mong muốn kéo dài."
+answer: true
 grammar_article_slug: "verbs"
-explain: "SAI — 'want' là stative verb, không dùng dạng tiếp diễn. Sửa: 'She wants to improve her English pronunciation before the exam.'"
+explain: "ĐÚNG — 'has been wanting' có thể nhấn mạnh mong muốn kéo dài/gần đây. Việc 'want' thường được xếp là stative verb không đủ để đánh dấu câu này sai ngữ pháp."
 ---
 
 ---

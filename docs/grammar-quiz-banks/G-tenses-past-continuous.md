@@ -283,7 +283,7 @@ grammar_article_slug: "past-continuous"
 explain: "SAI — 'arrived' là sự kiện ngắn (Past Simple), phải đi với 'when', không phải 'while'. Sửa: 'When he arrived, I was cooking dinner.'"
 ---
 
-# ===== item_key 4 · Stative verbs không dùng với Past Continuous =====
+# ===== item_key 4 · Stative verbs — xét nghĩa và ngữ cảnh =====
 
 ---
 id: "pc_stative_b1"
@@ -296,7 +296,7 @@ prompt: "I ____ the answer immediately, so I didn't need to check my notes."
 options: ["was knowing", "knew", "know", "am knowing"]
 answer: 1
 grammar_article_slug: "past-continuous"
-explain: "'Know' là stative verb (động từ trạng thái), không dùng continuous → past simple: knew."
+explain: "'know the answer' là trạng thái biết trong ngữ cảnh này, thường dùng Past Simple: knew."
 ---
 
 ---
@@ -306,11 +306,11 @@ input: "choice"
 headword: "pc-stative-no-continuous"
 skill: "usage"
 subtype: "basic"
-prompt: "She ____ the film so much that she watched it twice that week."
+prompt: "She ____ the film so much that she watched it twice that week. (chọn Past Simple)"
 options: ["was loving", "loved", "loves", "love"]
 answer: 1
 grammar_article_slug: "past-continuous"
-explain: "'Love' là stative verb → không dùng was loving; dùng past simple: loved."
+explain: "Câu hỏi yêu cầu Past Simple, nên chọn 'loved'. 'was loving' có thể diễn tả trải nghiệm đang rất thích thú ở một thời điểm quá khứ; không mặc định sai chỉ vì động từ là 'love'."
 ---
 
 ---
@@ -324,7 +324,7 @@ prompt: "At that moment, I ____ exactly what she meant, even though she was spea
 options: ["was understanding", "understood", "understand", "was understand"]
 answer: 1
 grammar_article_slug: "past-continuous"
-explain: "'Understand' là stative verb (trạng thái nhận thức) → không dùng continuous dù đi kèm 'at that moment'; dùng past simple: understood."
+explain: "Ở đây 'understood exactly' diễn tả việc đã hiểu rõ ngay lúc đó, nên cách diễn đạt thông thường là Past Simple: understood; 'at that moment' không tự động buộc dùng continuous."
 ---
 
 ---
@@ -334,11 +334,11 @@ input: "text"
 headword: "pc-stative-no-continuous"
 skill: "production"
 subtype: "intermediate"
-prompt: "He ____ (want) to leave the party early, but he stayed to be polite."
+prompt: "Chia Past Simple: He ____ (want) to leave the party early, but he stayed to be polite."
 accept: ["wanted"]
 case_sensitive: false
 grammar_article_slug: "past-continuous"
-explain: "'Want' là stative verb → không dùng was wanting; past simple: wanted."
+explain: "Câu hỏi yêu cầu Past Simple để nêu mong muốn ở thời điểm quá khứ, nên điền 'wanted'. Không kết luận rằng 'want' không bao giờ dùng được ở continuous trong ngữ cảnh khác."
 ---
 
 ---
@@ -348,11 +348,11 @@ input: "text"
 headword: "pc-stative-no-continuous"
 skill: "production"
 subtype: "intermediate"
-prompt: "We ____ (believe) his explanation at first, but later we found out it wasn't true."
+prompt: "Chia Past Simple: We ____ (believe) his explanation at first, but later we found out it wasn't true."
 accept: ["believed"]
 case_sensitive: false
 grammar_article_slug: "past-continuous"
-explain: "'Believe' là stative verb (trạng thái nhận thức) → past simple: believed, không dùng continuous."
+explain: "Câu hỏi yêu cầu Past Simple để nêu niềm tin ở giai đoạn đầu: believed. Với nghĩa/ngữ cảnh này, dạng đơn là cách diễn đạt thông thường."
 ---
 
 ---
@@ -362,10 +362,10 @@ input: "boolean"
 headword: "pc-stative-no-continuous"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'She was loving the film we watched last night.'"
-answer: false
+prompt: "Đúng hay Sai: 'She was loving the film when we had to leave the cinema early.'"
+answer: true
 grammar_article_slug: "past-continuous"
-explain: "SAI — 'love' là stative verb, không dùng continuous. Sửa: 'She loved the film we watched last night.'"
+explain: "ĐÚNG — 'was loving' diễn tả trải nghiệm rất thích thú đang diễn ra khi phải rời rạp. 'love' có thể dùng continuous với nghĩa/ngữ cảnh này, đặc biệt trong văn phong thân mật."
 ---
 
 ---
@@ -378,5 +378,5 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'I was knowing the truth all along, but I didn't say anything.'"
 answer: false
 grammar_article_slug: "past-continuous"
-explain: "SAI — 'know' là stative verb, không dùng continuous. Sửa: 'I knew the truth all along, but I didn't say anything.'"
+explain: "SAI trong cách diễn đạt thông thường của 'know the truth': trạng thái biết dùng 'I knew the truth all along, but I didn't say anything.', không phải 'was knowing'."
 ---

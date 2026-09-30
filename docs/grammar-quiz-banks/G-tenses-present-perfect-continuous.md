@@ -254,7 +254,7 @@ grammar_article_slug: "present-perfect-continuous"
 explain: "SAI — câu hỏi 'How long?' đi với Present Perfect Continuous (nhấn mạnh quá trình), không phải Present Perfect: 'How long have you been writing this essay?'"
 ---
 
-# ===== item_key 4 · Stative verbs — không dùng với PPC =====
+# ===== item_key 4 · Stative verbs — xét nghĩa và ngữ cảnh =====
 
 ---
 id: "ppc_stative_b1"
@@ -267,7 +267,7 @@ prompt: "I ____ her since we were at school."
 options: ["have known", "have been knowing", "know", "am knowing"]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "'know' là stative verb (nhận thức) — không dùng với bất kỳ continuous tense nào. Dùng Present Perfect: have known."
+explain: "'know' mang nghĩa quen biết trong câu này, thường dùng dạng đơn để diễn tả trạng thái: have known. Không suy rộng rằng mọi nghĩa của mọi stative verb đều cấm continuous."
 ---
 
 ---
@@ -277,11 +277,11 @@ input: "choice"
 headword: "ppc-stative-verbs"
 skill: "usage"
 subtype: "intermediate"
-prompt: "She ____ to travel abroad for a long time, but she has never had the money."
-options: ["has wanted", "has been wanting", "is wanting", "wants"]
+prompt: "She ____ to ask you this question for weeks; the wish keeps coming back. (chọn Present Perfect Continuous)"
+options: ["has been wanting", "has wanting", "has been want", "have been wanting"]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "'want' là stative verb (mong muốn) — không chia continuous dù có 'for a long time'. Dùng Present Perfect: has wanted."
+explain: "'has been wanting' có thể dùng để nhấn mạnh mong muốn kéo dài/gần đây. Câu hỏi yêu cầu Present Perfect Continuous, với chủ ngữ 'she': has been wanting. 'has wanted' cũng có thể nêu mong muốn như một trạng thái, nên không dùng nó làm đáp án nhiễu sai ngữ pháp."
 ---
 
 ---
@@ -295,7 +295,7 @@ prompt: "I ____ (know) the truth about the project since last week, but I haven'
 accept: ["have known"]
 case_sensitive: false
 grammar_article_slug: "present-perfect-continuous"
-explain: "'know' là stative verb → dù có 'since' vẫn không dùng PPC, phải dùng Present Perfect: have known."
+explain: "'know the truth' diễn tả trạng thái biết trong ngữ cảnh này, thường dùng Present Perfect: have known; 'since last week' cho mốc bắt đầu của trạng thái."
 ---
 
 ---
@@ -308,7 +308,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'I have been knowing the answer since last week.'"
 answer: false
 grammar_article_slug: "present-perfect-continuous"
-explain: "SAI — 'know' là stative verb, không được dùng continuous: 'I have known the answer since last week.'"
+explain: "SAI trong cách diễn đạt thông thường của 'know the answer': trạng thái biết dùng 'I have known the answer since last week.', không phải 'have been knowing'. Quy tắc gắn với nghĩa biết ở câu này."
 ---
 
 ---
@@ -319,9 +319,9 @@ headword: "ppc-stative-verbs"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'She has been wanting to travel more, but work keeps her busy.'"
-answer: false
+answer: true
 grammar_article_slug: "present-perfect-continuous"
-explain: "SAI — 'want' là stative verb, không chia continuous: 'She has wanted to travel more, but work keeps her busy.'"
+explain: "ĐÚNG — 'has been wanting' có thể nhấn mạnh mong muốn kéo dài/gần đây. 'She has wanted…' cũng là một cách diễn đạt hợp lệ; không đánh dấu PPC sai chỉ vì 'want' thường được xếp là stative verb."
 ---
 
 # ===== item_key 5 · Present Continuous vs Present Perfect Continuous (đang xảy ra vs kéo dài từ quá khứ) =====

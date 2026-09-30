@@ -34,7 +34,7 @@ compare_with:
 - present-continuous
 order: 5
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-09-30
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -66,7 +66,7 @@ anchors:
   location: '## So sánh Present Perfect vs Present Perfect Continuous'
   type: compare-with
 - id: present-perfect-continuous.stative-verbs
-  location: '## Stative verbs — Không dùng với PPC'
+  location: '## Stative verbs — Thường dùng Present Perfect đơn'
   type: concept
 - id: present-perfect-continuous.common-mistakes
   location: '## Lỗi thường gặp'
@@ -153,7 +153,7 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 | **Tập trung vào** | Kết quả / số lần | Quá trình / thời gian |
 | **Câu hỏi** | What? / How many? | How long? |
 | **Ví dụ** | I **have read** three books. | I **have been reading** for hours. |
-| **Stative verbs** | Dùng được | Không dùng được |
+| **Stative verbs** | Thường dùng khi nói trạng thái kéo dài | Thường tránh; có ngoại lệ theo nghĩa và ngữ cảnh |
 
 **Ví dụ so sánh chi tiết:**
 
@@ -169,9 +169,9 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 > **Thực tế:** Với for/since và động từ hành động, cả hai thường đúng — PPC nhấn mạnh tính liên tục hơn.
 
 <!-- anchor: present-perfect-continuous.stative-verbs -->
-## Stative verbs — Không dùng với PPC
+## Stative verbs — Thường dùng Present Perfect đơn
 
-Động từ chỉ trạng thái không dùng với bất kỳ continuous tense nào:
+Khi diễn tả trạng thái kéo dài, các động từ dưới đây thường dùng Present Perfect đơn. Đây là quy tắc thông thường, không phải lệnh cấm mọi dạng tiếp diễn:
 
 | Nhóm | Động từ |
 |------|---------|
@@ -182,8 +182,10 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 
 - ❌ I have been knowing her for years.
 - ✅ I **have known** her for years.
-- ❌ She has been wanting to travel.
-- ✅ She **has wanted** to travel.
+- **Mong muốn kéo dài:** She **has wanted** to travel for years.
+- **Mong muốn nổi bật gần đây, thân mật:** I've **been wanting** to travel lately. Cách dùng tiếp diễn này có thể phù hợp; không sửa máy móc chỉ vì gặp "wanting".
+
+Với động từ có hai nghĩa, kiểm nghĩa trước: *I have had this car for years* (sở hữu) nhưng *I've been having trouble with it lately* (gặp khó khăn gần đây).
 
 <!-- anchor: present-perfect-continuous.common-mistakes -->
 ## Lỗi thường gặp
@@ -284,4 +286,4 @@ Thường đi với **for** (khoảng thời gian) và **since** (thời điểm
 - **PP đơn:** *Đã xong chưa?* → She has finished. (xong rồi)
 - **PPC:** *Đang làm bao lâu?* → She has been working for hours. (quá trình)
 
-**Stative verbs → luôn dùng PP đơn:** know, want, love, believe, own, understand
+**Stative verbs → thường dùng PP đơn khi nói trạng thái kéo dài:** know, want, love, believe, own, understand. Một số nghĩa và ngữ cảnh cho phép PPC; không chỉ nhìn đuôi -ing để kết luận sai.

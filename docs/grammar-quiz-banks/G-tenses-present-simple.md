@@ -432,10 +432,10 @@ input: "boolean"
 headword: "ps-vs-present-continuous"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'I love this song — I'm loving it every time I hear it.'"
-answer: false
+prompt: "Đúng hay Sai: 'I'm loving this holiday!' có thể diễn tả trải nghiệm đang rất thích thú, dù 'love' thường được xếp là stative verb."
+answer: true
 grammar_article_slug: "present-simple"
-explain: "SAI — 'love' là stative verb (động từ trạng thái), không dùng continuous. Sửa: 'I love this song — I love it every time I hear it.'"
+explain: "ĐÚNG — Present Simple thường dùng cho sở thích ổn định ('I love this song'), còn 'I'm loving this holiday!' nhấn mạnh trải nghiệm rất thích thú hiện tại, nhất là trong văn phong thân mật. Không cấm continuous chỉ dựa vào nhãn stative."
 ---
 
 ---
