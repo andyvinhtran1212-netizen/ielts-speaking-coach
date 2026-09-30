@@ -312,7 +312,7 @@ grammar_article_slug: "present-continuous"
 explain: "'I live in Hanoi' (tình trạng cố định, lâu dài) đối lập với 'I'm living with friends temporarily' (chỉ tạm thời) — đúng tinh thần bài Wiki."
 ---
 
-# ===== item_key 5 · Stative verbs — không dùng với Present Continuous =====
+# ===== item_key 5 · Stative verbs — xét nghĩa và ngữ cảnh =====
 
 ---
 id: "pc_stative_b1"
@@ -325,7 +325,7 @@ prompt: "I ____ the answer to this question."
 options: ["know", "am knowing", "knowing", "is knowing"]
 answer: 0
 grammar_article_slug: "present-continuous"
-explain: "'know' là stative verb (diễn tả trạng thái nhận thức) — không dùng continuous. Dùng Present Simple: I know."
+explain: "'know the answer' diễn tả trạng thái biết trong câu này, thường dùng Present Simple: I know."
 ---
 
 ---
@@ -335,11 +335,11 @@ input: "choice"
 headword: "pc-stative-verbs"
 skill: "form"
 subtype: "basic"
-prompt: "She ____ coffee more than tea."
+prompt: "She ____ coffee more than tea. (chọn Present Simple để nêu sở thích ổn định)"
 options: ["is loving", "loves", "love", "loving"]
 answer: 1
 grammar_article_slug: "present-continuous"
-explain: "'love' là stative verb (cảm xúc) — không chia continuous. Dùng Present Simple: loves."
+explain: "Câu hỏi yêu cầu Present Simple để nêu sở thích ổn định, nên chọn 'loves'. 'is loving' có thể diễn tả trải nghiệm đang rất thích thú trong ngữ cảnh khác; không phải mọi continuous với 'love' đều sai."
 ---
 
 ---
@@ -363,11 +363,11 @@ input: "text"
 headword: "pc-stative-verbs"
 skill: "production"
 subtype: "intermediate"
-prompt: "He ____ (want) a new laptop for his studies, but he can't afford one yet."
+prompt: "Chia Present Simple: He ____ (want) a new laptop for his studies, but he can't afford one yet."
 accept: ["wants"]
 case_sensitive: false
 grammar_article_slug: "present-continuous"
-explain: "'want' là stative verb (mong muốn) — không dùng continuous ('is wanting' sai): wants."
+explain: "Câu hỏi yêu cầu Present Simple; chủ ngữ 'he' cần -s: wants. Thông thường dùng dạng đơn cho mong muốn, nhưng không suy rộng thành lệnh cấm mọi cách dùng continuous với 'want'."
 ---
 
 ---
@@ -377,10 +377,10 @@ input: "boolean"
 headword: "pc-stative-verbs"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'She is loving coffee, especially in the morning.'"
-answer: false
+prompt: "Đúng hay Sai: 'She is loving this holiday; every day brings a new adventure.'"
+answer: true
 grammar_article_slug: "present-continuous"
-explain: "SAI — 'love' là stative verb diễn tả cảm xúc, không dùng continuous: 'She loves coffee, especially in the morning.'"
+explain: "ĐÚNG — 'is loving' diễn tả trải nghiệm đang rất thích thú trong kỳ nghỉ này, nhất là văn phong thân mật. Dạng continuous được chọn theo nghĩa/ngữ cảnh, không chỉ theo nhãn stative."
 ---
 
 ---
@@ -390,8 +390,8 @@ input: "boolean"
 headword: "pc-stative-verbs"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'He is wanting to change careers next year.'"
+prompt: "Đúng hay Sai: 'He is want to change careers next year.'"
 answer: false
 grammar_article_slug: "present-continuous"
-explain: "SAI — 'want' là stative verb, không chia continuous: 'He wants to change careers next year.'"
+explain: "SAI — 'is want' thiếu dạng -ing nếu dùng continuous; cách thông thường để nêu mong muốn là 'He wants to change careers next year.' Lỗi đang kiểm tra là cấu trúc động từ, không phải cấm mọi continuous với 'want'."
 ---

@@ -267,7 +267,7 @@ prompt: "Chọn câu đúng: 'know' là động từ trạng thái (stative verb
 options: ["The truth is known by everyone.", "The truth is being known by everyone.", "The truth was being known.", "The truth is know by everyone."]
 answer: 0
 grammar_article_slug: "passive-voice"
-explain: "Stative verbs (know, believe, understand...) không dùng dạng continuous ở cả chủ động lẫn bị động → 'is known', không phải 'is being known'."
+explain: "Với nghĩa 'sự thật được mọi người biết' ở câu này, cách diễn đạt thông thường là 'is known', không phải 'is being known'. Không suy rộng ví dụ này thành lệnh cấm mọi continuous của mọi động từ thường được xếp là stative."
 ---
 
 ---
