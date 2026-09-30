@@ -51,7 +51,9 @@ const overviewPayload = {
   access_codes: { active: 9, by_type: { mass: 4, direct: 3, staff: 2 } },
   skills: {
     speaking: { sessions_7d: 6, sessions_total: 60, avg_band_7d: 6.5 },
-    writing: { essays_7d: 5, essays_total: 50, feedback_pending: 2 },
+    // Canonical summaries deliberately differ: queue attention is not all
+    // undelivered feedback (which can include failed or AI-only entries).
+    writing: { essays_7d: 5, essays_total: 50, feedback_pending: 6 },
     reading: { attempts_7d: 8, attempts_total: 80, avg_score_7d: 0.8 },
     listening: { attempts_7d: 7, attempts_total: 70, content_count: 6, avg_score_7d: 0.75, dictation_total: 9, dictation_7d: 3 },
     vocab: { due_review_today: 12, words_total: 120 },
@@ -85,7 +87,9 @@ const opsPayload = (days) => ({
   total_practices: 123,
   grading_minutes: 456.7,
   tokens_called: { count: days * 1000, window_days: days },
-  attention: { errors_undismissed: 4, writing_pending: 2 },
+  // Queue fixture: one queued, one claimed and one edited instructor review;
+  // failed, AI-only and soft-deleted essays do not contribute to this count.
+  attention: { errors_undismissed: 4, writing_pending: 3 },
   computed_at: '2026-08-12T01:02:03Z',
 });
 
@@ -225,6 +229,11 @@ check('đường dẫn nội bộ hợp lệ vẫn là link',
   await page.locator('a.activity-row[href="/result?session_id=fixture"]').count() === 1);
 check('Listening hiển thị đúng tỷ lệ từ canonical payload',
   await page.getByText('75%', { exact: true }).count() === 1);
+check('Writing phân biệt hàng chờ giáo viên với tất cả feedback chưa trả',
+  (await page.locator('a.db-attn-card[href="/admin/writing/instructor-queue"] .db-attn-card__count').innerText()) === '3'
+    && (await page.locator('a.db-attn-card[href="/admin/writing/instructor-queue"] .db-attn-card__label').innerText()) === 'Bài cần duyệt/trả'
+    && (await page.locator('a.db-attn-card[href="/admin/writing/instructor-queue"] .db-attn-card__sub').innerText()) === 'Hàng chờ giáo viên'
+    && (await page.locator('a.admin-hub-card[data-skill="writing"] .stat-label').filter({ hasText: /^Chưa trả kết quả$/ }).locator('..').locator('.stat-num').innerText()) === '6');
 check('Reading hiển thị đúng tỷ lệ và dẫn đến native hub',
   await page.getByText('80%', { exact: true }).count() === 1
     && await page.locator('a.admin-hub-card[data-skill="reading"]').getAttribute('href') === '/admin/reading');

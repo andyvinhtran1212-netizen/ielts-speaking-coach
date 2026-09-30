@@ -130,6 +130,21 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
     def _practices():
         return _count("sessions", lambda q: q.eq("status", "completed"))
 
+    def _writing_active_reviews():
+        # The attention card opens the instructor queue's all_active view.
+        # Count that exact review scope; undelivered AI/failed essays belong to
+        # the separate content KPI and must not imply an instructor review row.
+        response = (
+            supabase_admin.table("instructor_reviews")
+            .select("id,writing_essays!inner(id)", count="exact", head=True)
+            .in_("status", ["queued", "claimed", "edited"])
+            .is_("writing_essays.deleted_at", "null")
+            .execute()
+        )
+        if not isinstance(response.count, int) or isinstance(response.count, bool) or response.count < 0:
+            raise ValueError("Instructor queue count unavailable")
+        return response.count
+
     def _grading_minutes():
         # Perf (mig 089): SUM server-side via RPC so no rows cross the wire
         # (the old path fetched EVERY responses row — unbounded). Falls back
@@ -213,10 +228,7 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
             ),
             "writing_pending": _metric(
                 "writing_pending",
-                lambda: _count(
-                    "writing_essays",
-                    lambda q: q.is_("delivered_at", "null").is_("deleted_at", "null"),
-                ),
+                _writing_active_reviews,
             ),
         },
         "computed_at": now.isoformat(),
