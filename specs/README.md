@@ -80,4 +80,6 @@ draft -> approved -> implementing -> verified -> shipped
 
 | WRITINGMODAL-0013 | Make Writing content dialogs follow browser history and keyboard focus | approved | medium | [spec](0013-writing-content-modal-history/spec.md) |
 
+| GRAMMARCUTOVER-0014 | Preserve Grammar quiz history during bounded bank revision cutover | approved | high | [spec](0014-grammar-bank-revision-cutover/spec.md) |
+
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
