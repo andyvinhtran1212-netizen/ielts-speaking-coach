@@ -105,6 +105,9 @@ jobs:
       # Its fixture requires an explicit loopback aver_ux_ test database and
       # creates/drops only its own random schema; configured failures are red.
       READING_GRAMMAR_FOCUS_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aver_ux_ci
+      # Dictation frozen-policy guards, FK erasure and finalization run on real
+      # PostgreSQL too. Each fixture owns only its random disposable schema.
+      DICTATION_POLICY_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aver_ux_ci
 
     steps:
       - name: Checkout

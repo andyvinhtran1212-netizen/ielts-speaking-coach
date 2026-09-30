@@ -71,13 +71,13 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/api/listening/tests/dictation/session' && method === 'POST') {
     const body = JSON.parse(request.postData() || '{}'); completionPosts.push(body);
     canonical = {
-      session_id: 'session-1', client_request_id: body.client_request_id,
+      session_id: '00000000-0000-4000-8000-000000000123', attempt_id: attemptId, client_request_id: body.client_request_id,
       section_num: 1, total_time_seconds: 61, total_sentences: 2, correct_count: 1,
       accuracy: .9, total_words: 7, correct_words: 6,
       error_trends: { op_counts: { miss: 0, wrong: 1, extra: 0 }, missed: {}, wrong: { 'brighton.': 1 } },
       results: [
-        { sentence_idx: 0, score: 1, correct_words: 2, total_words: 2, user_text: 'Hello there.', listen_count: 0, time_seconds: 4, diff: [{ op: 'match', actual: 'Hello' }, { op: 'match', actual: 'there.' }] },
-        { sentence_idx: 1, score: .8, correct_words: 4, total_words: 5, user_text: 'The address is bright.', listen_count: 0, time_seconds: 6, diff: [{ op: 'wrong', actual: 'bright', expected: 'Brighton.' }] },
+        { sentence_idx: 0, score: 1, correct_words: 2, total_words: 2, user_text: 'Hello there.', listen_count: body.sentences[0].listen_count, time_seconds: body.sentences[0].time_seconds, diff: [{ op: 'match', actual: 'Hello' }, { op: 'match', actual: 'there.' }] },
+        { sentence_idx: 1, score: .8, correct_words: 4, total_words: 5, user_text: 'The address is bright.', listen_count: body.sentences[1].listen_count, time_seconds: body.sentences[1].time_seconds, diff: [{ op: 'wrong', actual: 'bright', expected: 'Brighton.' }] },
       ],
     };
     // Simulate commit success + lost HTTP acknowledgement.
@@ -85,7 +85,7 @@ await page.route('**/*', async (route) => {
     await new Promise((resolve) => { releaseCompletion = resolve; });
     return route.abort('connectionreset');
   }
-  if (parsed.pathname === '/api/listening/tests/dictation/flag' && method === 'POST') return json({ id: 'flag-1', status: 'new' });
+  if (parsed.pathname === '/api/listening/tests/dictation/session/00000000-0000-4000-8000-000000000123' && method === 'GET') return json({ ...canonical, id: canonical.session_id });
   return json({ detail: `unhandled fixture ${method} ${parsed.pathname}` }, 404);
 });
 
@@ -96,12 +96,12 @@ check('authored title được React escape', await page.getByRole('heading', { 
 await page.getByRole('button', { name: /Section 1/ }).click();
 await page.getByLabel('Câu trả lời câu 1').fill('Hello there.');
 await page.getByRole('button', { name: 'Kiểm tra câu' }).click();
-await page.getByText('100% · 2/2 từ').waitFor();
+await page.getByText('100% · 2/2 token theo cách chấm cũ').waitFor();
 await page.getByRole('button', { name: 'Câu tiếp theo →' }).click();
 check('timing và proper-noun hint đổi theo câu', await page.getByText('Brighton', { exact: true }).count() === 1 && await page.locator('audio-player').getAttribute('segment-start') === '3');
 await page.getByLabel('Câu trả lời câu 2').fill('The address is bright.');
 await page.getByRole('button', { name: 'Kiểm tra câu' }).click();
-await page.getByText('80% · 4/5 từ').waitFor();
+await page.getByText('80% · 4/5 token theo cách chấm cũ').waitFor();
 await page.getByRole('button', { name: 'Xem tổng kết' }).click();
 await page.getByText('Đang xác nhận…', { exact: true }).waitFor();
 check('lost ACK không thể xoá receipt bằng làm lại khi đang xác nhận', await page.getByRole('button', { name: 'Làm lại section' }).isDisabled());
@@ -116,11 +116,8 @@ check('attempt mới claim Next trước khi làm bài', attemptWrites.length ==
 check('payload hoàn tất đủ coverage, attempt và receipt UUID', completionPosts[0].attempt_id === attemptId && completionPosts[0].sentences.length === 2 && /^[0-9a-f-]{36}$/i.test(completionPosts[0].client_request_id));
 check('summary dùng canonical report', await page.getByText('90%', { exact: true }).count() === 1 && await page.getByText('1/2', { exact: true }).count() === 1 && await page.getByText('6/7', { exact: true }).count() === 1);
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-await page.getByRole('button', { name: '⚑ Báo lỗi' }).first().click();
-await page.getByRole('button', { name: 'Transcript sai' }).click();
-await page.getByRole('button', { name: 'Gửi báo lỗi' }).click();
-await page.getByText('✓ Đã báo lỗi', { exact: true }).waitFor();
-check('báo lỗi từng câu hoạt động', await page.getByText('✓ Đã báo lỗi', { exact: true }).count() === 1);
+await page.getByRole('button', { name: '⚑ Báo lỗi' }).first().waitFor();
+check('báo cáo có receipt URL chỉ đọc, không POST báo lỗi', await page.getByRole('button', { name: '⚑ Báo lỗi' }).first().isDisabled());
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));

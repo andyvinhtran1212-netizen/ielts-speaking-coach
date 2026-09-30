@@ -46,7 +46,7 @@ describe('Admin Listening dictation model', () => {
 
   test('aggregate distinguishes no sessions from zero accuracy and counts malformed words', () => {
     assert.deepEqual(normalizeDictationAggregate({ session_count: 0, mean_accuracy: 0, top_missed: [], top_wrong: [] }), {
-      sessionCount: 0, meanAccuracy: 0, topMissed: [], topWrong: [], malformedWordCount: 0,
+      sessionCount: 0, meanAccuracy: 0, topMissed: [], topWrong: [], malformedWordCount: 0, versions: null,
       punctuationClassified: false, punctuationMissed: [], punctuationWrong: [],
       trendCompleteSessions: null, trendUnavailableSessions: null,
       punctuationMissedTotal: 0, punctuationWrongTotal: 0, missingTokenMissedTotal: 0, missingTokenWrongTotal: 0,

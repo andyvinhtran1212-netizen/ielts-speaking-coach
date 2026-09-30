@@ -236,6 +236,7 @@ function AccountDictation({ accountKey, contentId }: {
       <p className="lse-eyebrow"><a href="/listening/browse">← Kho bài nghe</a><span>LUYỆN NGHE TỪNG CÂU</span></p>
       <h1>Chép chính tả<span aria-hidden="true"> · </span><strong>{bundle?.content.title || '…'}</strong></h1>
       <p>Nghe từng đoạn ngắn, gõ lại câu bạn nghe được rồi đối chiếu sau khi nộp. Đáp án không được tải xuống trước lượt làm.</p>
+      <p>Chấm cũ v1 · lượt làm thêm không thay điểm chính thức đã lưu.</p>
       {bundle ? <FeedbackBridge hostRef={headerRef} contentId={bundle.content.id} /> : null}
     </header>
 

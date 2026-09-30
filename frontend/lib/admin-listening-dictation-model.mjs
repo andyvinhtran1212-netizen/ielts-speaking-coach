@@ -57,13 +57,19 @@ export function normalizeDictationReportItem(raw) {
   const accuracy = finiteNumber(value?.accuracy);
   const sectionNumber = integer(value?.section_num);
   const durationSeconds = finiteNumber(value?.total_time_seconds);
-  if (!value || !id || !user || totalSentences == null || totalSentences < 0
-    || correctCount == null || correctCount < 0 || correctCount > totalSentences
-    || accuracy == null || accuracy < 0 || accuracy > 1
+  let policy;
+  try { policy = normalizeDictationPolicy(value); } catch { return null; }
+  const lexical = policy.grading_version === LEXICAL_DICTATION_POLICY;
+  if (!value || !id || !user || (lexical && (totalSentences == null || correctCount == null || accuracy == null))
+    || (value.total_sentences != null && (totalSentences == null || totalSentences < 0))
+    || (value.correct_count != null && (correctCount == null || correctCount < 0))
+    || (correctCount != null && totalSentences != null && correctCount > totalSentences)
+    || (value.accuracy != null && (accuracy == null || accuracy < 0 || accuracy > 1))
     || (sectionNumber != null && sectionNumber < 1)
     || (durationSeconds != null && durationSeconds < 0)) return null;
   return {
     id, user, totalSentences, correctCount, accuracy, sectionNumber, durationSeconds,
+    gradingVersion: policy.grading_version, referenceSha256: policy.reference_sha256,
     testId: nullableText(value.test_id_external), sectionTitle: nullableText(value.section_title),
     completedAt: nullableText(value.completed_at), createdAt: nullableText(value.created_at),
   };
@@ -122,6 +128,19 @@ export function normalizeDictationAggregate(raw) {
   const punctuationWrong = normalizeWordRows(classified ? value.punctuation_wrong : [], 'token');
   const totals = classified ? [value.punctuation_missed_total, value.punctuation_wrong_total,
     value.missing_token_missed_total, value.missing_token_wrong_total].map(integer) : [0, 0, 0, 0];
+  let versions = null;
+  if (value?.versions !== undefined) {
+    if (!Array.isArray(value.versions)) return null;
+    versions = value.versions.map((row) => ({ gradingVersion: row?.grading_version,
+      sessionCount: integer(row?.session_count), meanAccuracy: finiteNumber(row?.mean_accuracy) }));
+    if (versions.some((row) => ![LEGACY_DICTATION_POLICY, LEXICAL_DICTATION_POLICY].includes(row.gradingVersion)
+        || row.sessionCount == null || row.sessionCount <= 0 || row.meanAccuracy == null || row.meanAccuracy < 0 || row.meanAccuracy > 1)
+        || new Set(versions.map((row) => row.gradingVersion)).size !== versions.length
+        || versions.reduce((sum, row) => sum + row.sessionCount, 0) !== sessionCount
+        // Both global and per-policy means are rounded to four decimals by
+        // the API; two rounding errors can differ by at most 0.0001.
+        || (sessionCount > 0 && Math.abs(versions.reduce((sum, row) => sum + row.sessionCount * row.meanAccuracy, 0) / sessionCount - meanAccuracy) > 0.00010001)) return null;
+  }
   if (!value || sessionCount == null || sessionCount < 0 || meanAccuracy == null
     || meanAccuracy < 0 || meanAccuracy > 1 || !missed || !wrong
     || !punctuationMissed || !punctuationWrong || totals.some((count) => count == null || count < 0)
@@ -139,6 +158,7 @@ export function normalizeDictationAggregate(raw) {
       || punctuationMissed.rows.length || punctuationWrong.rows.length || totals.some(Boolean)))) return null;
   return {
     sessionCount, meanAccuracy, topMissed: missed.rows, topWrong: wrong.rows,
+    versions,
     malformedWordCount: missed.malformedCount + wrong.malformedCount,
     punctuationClassified: classified,
     trendCompleteSessions: completeSessions, trendUnavailableSessions: unavailableSessions,
@@ -148,7 +168,7 @@ export function normalizeDictationAggregate(raw) {
   };
 }
 
-function normalizeSentence(raw) {
+function normalizeSentence(raw, policy) {
   const value = objectOf(raw);
   const index = integer(value?.sentence_idx);
   const score = finiteNumber(value?.score);
@@ -158,15 +178,29 @@ function normalizeSentence(raw) {
   const timeSeconds = finiteNumber(value?.time_seconds);
   const ops = objectOf(value?.ops);
   const miss = integer(ops?.miss); const wrong = integer(ops?.wrong); const extra = integer(ops?.extra);
-  const reference = textOf(value?.reference);
-  if (!value || index == null || index < 0 || !reference || reference.length > 10_000
-    || typeof value.user_text !== 'string' || score == null || score < 0 || score > 1
-    || correctWords == null || correctWords < 0 || totalWords == null || totalWords < 0 || correctWords > totalWords
+  const lexical = policy.grading_version === LEXICAL_DICTATION_POLICY;
+  const reference = lexical ? value?.reference : typeof value?.reference === 'string' && value.reference.trim() ? value.reference : null;
+  if (!value || index == null || index < 0 || (lexical && !reference) || (reference != null && reference.length > 10_000)
+    || (value.reference != null && typeof value.reference !== 'string')
+    || typeof value.user_text !== 'string' || (lexical && (score == null || correctWords == null || totalWords == null))
+    || (value.score != null && (score == null || score < 0 || score > 1))
+    || (value.correct_words != null && (correctWords == null || correctWords < 0))
+    || (value.total_words != null && (totalWords == null || totalWords < 0))
+    || (correctWords != null && totalWords != null && correctWords > totalWords)
     || (listenCount != null && listenCount < 0) || (timeSeconds != null && timeSeconds < 0)
-    || !ops || [miss, wrong, extra].some((count) => count == null || count < 0)) return null;
+    || (lexical && !ops) || (ops && [miss, wrong, extra].some((count) => count == null || count < 0))) return null;
+  let gradingEvidence = null;
+  try {
+    if (policy.grading_version === LEXICAL_DICTATION_POLICY) {
+      gradingEvidence = normalizeDictationGrade({ ...value.grading_evidence, ...value, is_correct: score === 1 }, policy,
+        { reference, user_text: value.user_text });
+      for (const key of ['miss', 'wrong', 'extra']) if (gradingEvidence.diff.filter((op) => op.op === key && !op.filler).length !== ops[key]) return null;
+    } else if ((value.grading_version != null && value.grading_version !== LEGACY_DICTATION_POLICY) || value.reference_sha256 != null) normalizeDictationPolicy(value, policy);
+  } catch { return null; }
   return {
     index, reference, userText: value.user_text, score, correctWords, totalWords,
-    listenCount, timeSeconds, ops: { miss, wrong, extra },
+    listenCount, timeSeconds, ops: ops ? { miss, wrong, extra } : null,
+    gradingEvidence,
   };
 }
 
@@ -177,17 +211,20 @@ export function normalizeDictationReportDetail(raw, expectedId) {
   const totalWords = integer(value?.total_words);
   const correctWords = integer(value?.correct_words);
   if (!base || base.id !== expectedId || !lookup || !Array.isArray(value.results)
-    || totalWords == null || totalWords < 0 || correctWords == null || correctWords < 0 || correctWords > totalWords) return null;
+    || (base.gradingVersion === LEXICAL_DICTATION_POLICY && (totalWords == null || correctWords == null))
+    || (value.total_words != null && (totalWords == null || totalWords < 0))
+    || (value.correct_words != null && (correctWords == null || correctWords < 0))
+    || (correctWords != null && totalWords != null && correctWords > totalWords)) return null;
   const sentences = [];
   const indexes = new Set();
   let malformedSentenceCount = 0;
   for (const candidate of value.results) {
-    const row = normalizeSentence(candidate);
-    if (row && row.index < base.totalSentences && !indexes.has(row.index)) { indexes.add(row.index); sentences.push(row); }
+    const row = normalizeSentence(candidate, { grading_version: base.gradingVersion, reference_sha256: base.referenceSha256 });
+    if (row && (base.totalSentences == null || row.index < base.totalSentences) && !indexes.has(row.index)) { indexes.add(row.index); sentences.push(row); }
     else malformedSentenceCount += 1;
   }
   sentences.sort((left, right) => left.index - right.index);
-  const missingSentenceCount = Math.max(0, base.totalSentences - sentences.length);
+  const missingSentenceCount = base.totalSentences == null ? null : Math.max(0, base.totalSentences - sentences.length);
   const counts = objectOf(value.error_trends)?.op_counts;
   const opCounts = objectOf(counts) && ['miss', 'wrong', 'extra'].every((key) => integer(counts[key]) != null && integer(counts[key]) >= 0)
     ? { miss: integer(counts.miss), wrong: integer(counts.wrong), extra: integer(counts.extra) }
@@ -209,3 +246,4 @@ export function formatDictationDuration(value) {
   const remainder = seconds % 60;
   return minutes ? `${minutes} phút ${remainder} giây` : `${remainder} giây`;
 }
+import { normalizeDictationPolicy, normalizeDictationGrade, LEGACY_DICTATION_POLICY, LEXICAL_DICTATION_POLICY } from './listening-dictation-controller.mjs';
