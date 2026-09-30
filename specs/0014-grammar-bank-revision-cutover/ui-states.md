@@ -32,3 +32,35 @@ Revision fingerprints, physical-code suffixes and private eligibility IDs remain
 implementation/admin evidence, not learner decision text. Keyboard focus returns
 after preview/commit dialogs; targets44px, reduced motion, light/dark and
 360/390/768/1440 acceptance apply to affected controls.
+
+## Revised current/lifecycle states — all acceptance PENDING
+
+| State | Required behavior |
+| --- | --- |
+| Validated pure preflight | Derive existing remaining/all-mastered gate; no submits/live engine/outbox/progress/end |
+| Start pending | One non-idempotent POST; ready disabled until actual frozen bank_id/revision/policy ACK |
+| Start ACK lost | Explicit unavailable, no automatic POST retry/optimistic ready/business writes; explicit reopen reads canonical state then may create new session |
+| Paused current post-reset | Only owned unmarked same-bank/revision run or continuation predecessor with remaining>0 and no unmarked-group completion qualifies |
+| Marked current or readonly review | History retained; never unfinished/predecessor proof; no guessed eligibility from empty stats |
+| Explicit current reset | Existing transaction marks all prior owned current admissions once before stats delete; confirms canonical truth before new work |
+| Terminal repeat-end | Owned frozen row succeeds without optional grammar; stored NULL/nonNULL revision preserved, no current mapping graft |
+| Conflicting extras/old intermediate cutover | Admin unavailable/review required; no automatic why_wrong rewrite/second revision |
+
+No grammar_reset_at/policy tokens/private proof IDs are learner controls. Existing
+keyboard/focus/themes/motion/width acceptance applies. Historical GET remains zero
+business writes; explicit readonly review admission may create a row but no graded
+attempt/mastery writes. Current reset is an explicit owner operation, not remediation
+or historical-read activity.
+
+## Reset-stale states — acceptance PENDING
+
+| State | Required behavior |
+| --- | --- |
+| Explicit current reset with orphan open start | Mark every prior owned-current admission once; no indefinite open-row refusal or auto-close/history rewrite |
+| Delayed progress from marked admission | Typed409 reset_stale; explicit stale/reopen, no automatic progress retry or optimistic saved/mastered |
+| Explicit reopen after reset-stale | Canonical reads then existing create/carryover if allowed; no auto-resubmit/recovered-session claim |
+| Marked owned-open end | Same frozen history row may terminalize; no mastery/KP/new eligibility, no rewritten answers/markers |
+| Marked prior/review versus current proof | Excluded from paused predecessor and completion-group proof; legacy fences remain unchanged |
+
+No reset marker or internal error token is a learner control. Normal keyboard/error
+focus, themes, reduced motion and existing width acceptance apply.

@@ -1,0 +1,1512 @@
+{
+  "status": "Exact final18 academic/source bytes APPROVED by Root and independent Content; implementation/spec/canonical publication gates remain open",
+  "totals": {
+    "codes": 12,
+    "questions": 264,
+    "text_questions": 58,
+    "exact": 49,
+    "legacy": 9
+  },
+  "banks": [
+    {
+      "group": "F01",
+      "code": "G-parts-of-speech-verbs",
+      "path": "docs/grammar-quiz-banks/G-parts-of-speech-verbs.md",
+      "reference_source_sha256": "5ff344a88afc52d6aceb8ebe48e25c28b10651deb452b5f76e6fe6dc166cc999",
+      "question_count": 23,
+      "exact_qids": [
+        "verb_stat_i2",
+        "verb_sva_i2",
+        "verb_pp_i2"
+      ],
+      "legacy_qids": [
+        "verb_link_i2"
+      ],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "649d784d010aebf11a3863d3cfabb41e602dd8545ee27a9f62848b907759d566",
+      "prior_reviewed_candidate_bytes": 10784,
+      "final_authored_source_sha256": "36e8b94fa47dfb8fc2316a1e1cab6003d79639e1e593f7c42d2d660b258afc9d",
+      "final_authored_source_bytes": 11072
+    },
+    {
+      "group": "F01",
+      "code": "G-sentence-structures-passive-voice",
+      "path": "docs/grammar-quiz-banks/G-sentence-structures-passive-voice.md",
+      "reference_source_sha256": "2243c9b093b28073fb1cf144b25ab09c3b7499c18bae988c2066d823780fdd51",
+      "question_count": 20,
+      "exact_qids": [
+        "pv_form_i2",
+        "pv_use_a1",
+        "pv_intr_i2",
+        "pv_err_i2"
+      ],
+      "legacy_qids": [],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "e3cb46a933e6f39488d6f6536474318da3182cd34c51406baf76e1318065edb2",
+      "prior_reviewed_candidate_bytes": 10628,
+      "final_authored_source_sha256": "2299da1f37da6ab306821c0eb34dc5735837156dfac4a7a8a480e3861fe5d866",
+      "final_authored_source_bytes": 11327
+    },
+    {
+      "group": "F01",
+      "code": "G-tenses-past-continuous",
+      "path": "docs/grammar-quiz-banks/G-tenses-past-continuous.md",
+      "reference_source_sha256": "835ab7040b48e0718a63b02cd6978d1636f2dd75af3f773e5e228ff102307b06",
+      "question_count": 26,
+      "exact_qids": [
+        "pc_form_i2",
+        "pc_form_i3",
+        "pc_interrupt_i2",
+        "pc_interrupt_i3",
+        "pc_while_i2",
+        "pc_while_i3",
+        "pc_stative_i2",
+        "pc_stative_i3"
+      ],
+      "legacy_qids": [],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "d76a156071b016e6f17f55bdeb36222313c6f4b2fd234731cf55664c4c24351f",
+      "prior_reviewed_candidate_bytes": 12619,
+      "final_authored_source_sha256": "1d75f48d70c9e476423383ec269f2a55fcc9eb8ca01307c45c4050c861bb11a6",
+      "final_authored_source_bytes": 17259
+    },
+    {
+      "group": "F01",
+      "code": "G-tenses-present-continuous",
+      "path": "docs/grammar-quiz-banks/G-tenses-present-continuous.md",
+      "reference_source_sha256": "f8ca14398b299aeb5eb559f3f84e92178a7508dccd87d451469f0f6e19a177da",
+      "question_count": 27,
+      "exact_qids": [
+        "pc_form_i2",
+        "pc_ing_i2",
+        "pc_trend_i2",
+        "pc_temp_i2",
+        "pc_stative_i2"
+      ],
+      "legacy_qids": [],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "ae97014a3f682fbe5773e18525601c55dc29a3230d7e48a5de545a21509c833b",
+      "prior_reviewed_candidate_bytes": 13174,
+      "final_authored_source_sha256": "711e42becddee32bfee93f6d0b691a318403b1b4ffef01302d28d2dbed1c037a",
+      "final_authored_source_bytes": 16408
+    },
+    {
+      "group": "F01",
+      "code": "G-tenses-present-perfect-continuous",
+      "path": "docs/grammar-quiz-banks/G-tenses-present-perfect-continuous.md",
+      "reference_source_sha256": "bac7024bc0b9f70c022ac1ac4485a0d85d886321bc013ecb8e32ddbc97a68549",
+      "question_count": 27,
+      "exact_qids": [
+        "ppc_form_i2",
+        "ppc_vspp_i2",
+        "ppc_stative_i2",
+        "ppc_vspc_i2"
+      ],
+      "legacy_qids": [
+        "ppc_forsince_i2"
+      ],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "6413b54df61f3d6f0e3f257cd69d69691fc098197396cadd72bfb9cf677f28c8",
+      "prior_reviewed_candidate_bytes": 14214,
+      "final_authored_source_sha256": "67ffbc97e73fdb1d43a88644a77d0ebfbb93b845b8f2dd6c8575dec93d84ef3a",
+      "final_authored_source_bytes": 17445
+    },
+    {
+      "group": "F01",
+      "code": "G-tenses-present-simple",
+      "path": "docs/grammar-quiz-banks/G-tenses-present-simple.md",
+      "reference_source_sha256": "bfa1d0193bd68a2028702016a98eb932052117ec62f22be69a50b7ae2eaed03d",
+      "question_count": 31,
+      "exact_qids": [
+        "ps_3s_i2",
+        "ps_3s_i3",
+        "ps_dd_i2",
+        "ps_dd_i3",
+        "ps_truth_i2",
+        "ps_truth_i3",
+        "ps_adv_i2",
+        "ps_adv_i3",
+        "ps_vspc_i2"
+      ],
+      "legacy_qids": [],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "abce05d55936ab86a63fd11287f4a60bbd9ecd17acbb7ffbe27d61a4eca9f801",
+      "prior_reviewed_candidate_bytes": 14493,
+      "final_authored_source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
+      "final_authored_source_bytes": 16751
+    },
+    {
+      "group": "R03",
+      "code": "G-grammar-for-reading-participle-clauses",
+      "path": "docs/grammar-quiz-banks/G-grammar-for-reading-participle-clauses.md",
+      "reference_source_sha256": "80652e9e6f1bd8e801c0e6c7a24804d6ff2cfebb4a89f65f780343eeff0ca2fa",
+      "question_count": 16,
+      "exact_qids": [
+        "pc_ving_i2",
+        "pc_v3_i2",
+        "pc_having_i2"
+      ],
+      "legacy_qids": [
+        "pc_meaning_i2"
+      ],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "9368439539d16264b5abb3b8b39785607fb706dbb996ba64b7908e6a568c71ab",
+      "prior_reviewed_candidate_bytes": 10953,
+      "final_authored_source_sha256": "f63edb03e73d2e657a82d16b4adfff004b01b9bf2e7bb9f2a93b3a6e3eb4a730",
+      "final_authored_source_bytes": 11656
+    },
+    {
+      "group": "R03",
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "path": "docs/grammar-quiz-banks/G-grammar-for-reading-long-sentence-untangling.md",
+      "reference_source_sha256": "aba98cc47d8c98cdb4683a02e4005f5431be80013daa35c8f3c8ef325f715eb8",
+      "question_count": 17,
+      "exact_qids": [],
+      "legacy_qids": [
+        "lsu_main_i2",
+        "lsu_strip_i2",
+        "lsu_pitfall_i3"
+      ],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "b028a3de1b3188712f1d51db5063fde255588aa98641ad8fdd45a543bead7946",
+      "prior_reviewed_candidate_bytes": 14791,
+      "final_authored_source_sha256": "f272f1d183cb766746c269510f0d226bf88036606dbdb2c3dfa246b716c6fcf0",
+      "final_authored_source_bytes": 15287
+    },
+    {
+      "group": "R03",
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "path": "docs/grammar-quiz-banks/G-grammar-for-reading-reduced-relative-clauses.md",
+      "reference_source_sha256": "8b8080b895d1b09114185f6839a9b968c2b5d977a5428a7f8d8b5fd202c3ae2f",
+      "question_count": 12,
+      "exact_qids": [
+        "rrc_ving_i2",
+        "rrc_v3_i2",
+        "rrc_main_i2"
+      ],
+      "legacy_qids": [],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "9506dace37457438800af8a71d3dd0570a79c58f2132655343f70c43882d7772",
+      "prior_reviewed_candidate_bytes": 8053,
+      "final_authored_source_sha256": "f9c0cab2ce4292531dfeda4d8353f6044d5d77d55d38068e8567f83730d3884d",
+      "final_authored_source_bytes": 8889
+    },
+    {
+      "group": "R03",
+      "code": "G-tenses-past-perfect",
+      "path": "docs/grammar-quiz-banks/G-tenses-past-perfect.md",
+      "reference_source_sha256": "37e0a5cdb02c9360f8ab08c787c7e7efb9ecde14540e22dc4c601b5681e80ebe",
+      "question_count": 23,
+      "exact_qids": [
+        "pqp_form_i2",
+        "pqp_seq_i2",
+        "pqp_bytime_i2",
+        "pqp_cond3_i2",
+        "pqp_reported_i2"
+      ],
+      "legacy_qids": [],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "297a5ae369e3bc727601e4c39157b32f43b759d2e33872201cc1df8e58222183",
+      "prior_reviewed_candidate_bytes": 13067,
+      "final_authored_source_sha256": "297a5ae369e3bc727601e4c39157b32f43b759d2e33872201cc1df8e58222183",
+      "final_authored_source_bytes": 13067
+    },
+    {
+      "group": "OPTIONAL",
+      "code": "G-foundations-phrase-vs-clause",
+      "path": "docs/grammar-quiz-banks/G-foundations-phrase-vs-clause.md",
+      "reference_source_sha256": "48102e8110350374f1e90861e17e6f3f3ab3f0c9dd81761cb82f99ce8b885c1b",
+      "question_count": 18,
+      "exact_qids": [
+        "pvc_frag_i2",
+        "pvc_dang_i2"
+      ],
+      "legacy_qids": [
+        "pvc_pc_i2",
+        "pvc_run_i2"
+      ],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "316246eb35a935a66073731dcc7adb1949635a6664219642e5db859a70dbb35a",
+      "prior_reviewed_candidate_bytes": 11475,
+      "final_authored_source_sha256": "66dfacf3a82258a91252cb33c3624967183c9313291b958b02ef64648a619dd9",
+      "final_authored_source_bytes": 11999
+    },
+    {
+      "group": "OPTIONAL",
+      "code": "G-error-clinic-dangling-modifiers",
+      "path": "docs/grammar-quiz-banks/G-error-clinic-dangling-modifiers.md",
+      "reference_source_sha256": "c6a1f410b705ab02b46a47ecce5029a933a876a70d85997d1bee47207c9174fe",
+      "question_count": 24,
+      "exact_qids": [
+        "dm_subj_i2",
+        "dm_clause_i2",
+        "dm_toinf_i2"
+      ],
+      "legacy_qids": [
+        "dm_part_i2"
+      ],
+      "final_source_map_approval": "APPROVED exact authored bytes/map only; deployed delivery/engine/cutover PENDING",
+      "prior_reviewed_candidate_sha256": "445211eb9960fcc7f85cae81e637dcb3f2d8b833aaccd4f7a2b30ffe62e4bedd",
+      "prior_reviewed_candidate_bytes": 19602,
+      "final_authored_source_sha256": "8606094f523bdd1a95666ebeb6139a3e71d1efd6f712aecba06e5bfebd20dec4",
+      "final_authored_source_bytes": 20384
+    }
+  ],
+  "r03_baseline_changed_qids": [
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "reviewed_changed_qids": [
+        "pc_ving_b1",
+        "pc_ving_i1",
+        "pc_ving_i2",
+        "pc_v3_b1",
+        "pc_v3_i1",
+        "pc_v3_i2",
+        "pc_having_b1",
+        "pc_having_i1",
+        "pc_having_i2",
+        "pc_meaning_b1",
+        "pc_meaning_a1"
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "reviewed_changed_qids": [
+        "lsu_main_b1",
+        "lsu_main_i2",
+        "lsu_strip_i2",
+        "lsu_strip_a1",
+        "lsu_strip_a2",
+        "lsu_pitfall_i3"
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "reviewed_changed_qids": [
+        "rrc_ving_b1",
+        "rrc_ving_i1",
+        "rrc_v3_b1",
+        "rrc_v3_i1",
+        "rrc_v3_i2",
+        "rrc_main_i2",
+        "rrc_main_a1"
+      ]
+    },
+    {
+      "code": "G-tenses-past-perfect",
+      "reviewed_changed_qids": [
+        "pqp_form_b2",
+        "pqp_form_i1",
+        "pqp_form_i2",
+        "pqp_seq_i2",
+        "pqp_seq_a2",
+        "pqp_bytime_b1",
+        "pqp_bytime_i1",
+        "pqp_bytime_i2",
+        "pqp_bytime_a1",
+        "pqp_reported_b1",
+        "pqp_reported_i1",
+        "pqp_reported_i2",
+        "pqp_reported_a1"
+      ]
+    }
+  ],
+  "reference_hashes_are_sources_without_new_maps": true,
+  "single_final_bundle_no_interim_six_publication": true,
+  "academic_articles": [
+    {
+      "path": "backend/content/error-clinic/dangling-modifiers.md",
+      "sha256": "cc455e30d1f802d00e2a82eb819b3b7f35c88dd6a3825c36aa8bb222be71b366",
+      "bytes": 4842
+    },
+    {
+      "path": "backend/content/foundations/phrase-vs-clause.md",
+      "sha256": "64869b808db7a8cae88724d51ab953ef0415ffdf19c272403a437816d8cd2b30",
+      "bytes": 16738
+    },
+    {
+      "path": "backend/content/grammar-for-reading/long-sentence-untangling.md",
+      "sha256": "6402f4573051114a9cb60d2823ea32fc98eee3e5acda813eb5f394ef0e9c1510",
+      "bytes": 5673
+    },
+    {
+      "path": "backend/content/grammar-for-reading/participle-clauses.md",
+      "sha256": "489c669cc69866f728b42440a4802883017a16c6adc3b90cb0b7358a68d85496",
+      "bytes": 5365
+    },
+    {
+      "path": "backend/content/grammar-for-reading/reduced-relative-clauses.md",
+      "sha256": "190fd721393ed092ac8587ee630cb999ef682eaa2ce5d2c4c1d9424c03b86541",
+      "bytes": 5586
+    },
+    {
+      "path": "backend/content/tenses/past-perfect.md",
+      "sha256": "80d10da32cce3fbf0078724bb8c9d76d985f72dbba80d57e4781efda99911887",
+      "bytes": 12334
+    }
+  ],
+  "prior_candidate_bundle_manifest_sha256": "8027272cb3214ce9ea662bfe8eca0274bf2903cf8c97a5357cd4e822b2a93025",
+  "academic_proposal_manifest_sha256": "6692d5e6c188becf1148758cf5483e93930cf807843ac854a90fa2057c7e16df",
+  "academic_proposal_decisions_sha256": "419e47ab0f188e7876870785e180b0ce14bcb6a33fe4d7c687afcdf551f2a0e1",
+  "academic_named_field_deltas": [
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_subj_b2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: Để sửa 'Having studied all night, the exam felt easy.', ta chỉ cần đổi chủ ngữ thành người học, ví dụ 'Having studied all night, I found the exam easy.'",
+          "proposed": "Đúng hay Sai: Sửa 'Having studied all night, the exam felt easy.' thành 'Having studied all night, I found the exam easy.' đã nêu đúng người học làm chủ ngữ mệnh đề chính và điều chỉnh vị ngữ để diễn đạt trải nghiệm của người đó."
+        },
+        "explain": {
+          "before": "ĐÚNG — 'the exam' không thể 'study all night'. Đổi chủ ngữ ngay sau phẩy thành 'I' (người thực sự học) là một cách sửa hợp lệ theo bài Wiki.",
+          "proposed": "ĐÚNG — I là người đã học và thấy bài thi dễ. Phép sửa thay chủ ngữ và điều chỉnh vị ngữ felt easy thành found the exam easy; không phải chỉ thay the exam bằng I rồi giữ nguyên mọi từ còn lại."
+        }
+      }
+    },
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_subj_i1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'Determined to pass the IELTS test' chỉ mô tả một người có quyết tâm. Đổi chủ ngữ thành 'she' (người quyết tâm) khớp đúng với cụm phân từ.",
+          "proposed": "Đáp án nêu she là người quyết tâm và đã dành nhiều tháng chuẩn bị. Nó vừa đổi chủ ngữ vừa điều chỉnh vị ngữ thành spent months preparing; không phải thay months of preparation bằng she rồi giữ followed nguyên vẹn."
+        }
+      }
+    },
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_clause_b1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Which revision fixes 'After finishing the report, the printer broke down.' by turning the opening phrase into a full clause (adding its own subject)?",
+          "proposed": "Người viết muốn nói chính mình đã hoàn tất việc viết và kiểm tra báo cáo. Which revision makes that person the expressed subject of a full opening clause while retaining the printer as the main-clause subject? 'After finishing the report, the printer broke down.'"
+        },
+        "explain": {
+          "before": "Cách sửa 2: biến cụm phân từ thành mệnh đề đầy đủ bằng cách thêm chủ ngữ riêng ('I') và động từ chia ('finished') cho mệnh đề phụ — máy in ('the printer') vẫn giữ nguyên vai trò chủ ngữ mệnh đề chính.",
+          "proposed": "Chọn 'After I finished the report, the printer broke down': I là người viết/kiểm tra báo cáo được nêu ở đề, finished là động từ hữu hạn của mệnh đề phụ. Không kết luận máy in không thể finish a report trong ngữ cảnh in ấn; nhiệm vụ ở đây là viết rõ tác nhân người và giữ chủ ngữ chính the printer."
+        }
+      }
+    },
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_clause_i1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Original (dangling): 'While reviewing the applications, several errors were found.' Which revision fixes it by adding a subject to make a full subordinate clause?",
+          "proposed": "Original: 'While reviewing the applications, several errors were found.' Which revision explicitly names the committee as the reviewing agent in a full subordinate clause, while retaining several errors as the main-clause subject?"
+        },
+        "explain": {
+          "before": "Thêm chủ ngữ 'the committee' và chia động từ 'reviewed' biến cụm phân từ rút gọn thành mệnh đề phụ đầy đủ ('While the committee reviewed the applications'), tách biệt rõ với chủ ngữ mệnh đề chính 'several errors'.",
+          "proposed": "Chọn 'While the committee reviewed the applications, several errors were found': mệnh đề phụ có chủ ngữ the committee và động từ hữu hạn reviewed. While dùng với Past Simple được trong cách kể này. Câu gốc có thể gợi tác nhân ngầm trong ngữ cảnh; bài này yêu cầu viết rõ tác nhân trong một mệnh đề phụ đầy đủ."
+        }
+      }
+    },
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_clause_a2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Which revision fixes this dangling modifier by turning it into a full subordinate clause (adding a subject), rather than changing the main clause's subject: 'Upon completing the internship, a permanent contract was offered.'?",
+          "proposed": "Người hoàn tất kỳ thực tập là she. Which revision names her as the expressed subject of a full subordinate clause while keeping a permanent contract as the main-clause subject? 'Upon completing the internship, a permanent contract was offered.'"
+        },
+        "explain": {
+          "before": "Cách 2 giữ nguyên chủ ngữ mệnh đề chính ('a permanent contract') nhưng thêm chủ ngữ riêng ('she') và liên từ ('After') để biến cụm phân từ thành mệnh đề phụ đầy đủ — khác với phương án A vốn đổi chủ ngữ mệnh đề chính (đó là cách sửa 1).",
+          "proposed": "Chọn 'After she completed the internship, a permanent contract was offered': she là chủ ngữ riêng của mệnh đề phụ, a permanent contract vẫn là chủ ngữ chính. Phương án đổi chủ ngữ chính sang interns có thể là một cách viết khác nhưng không đáp ứng nhiệm vụ này; không phán mọi generic passive gốc luôn sai."
+        }
+      }
+    },
+    {
+      "code": "G-foundations-phrase-vs-clause",
+      "qid": "pvc_pc_b2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Which of the following is a PHRASE (missing subject or verb)?",
+          "proposed": "Which of the following is a prepositional phrase?"
+        },
+        "explain": {
+          "before": "'in the early morning' là prepositional phrase — không có chủ ngữ lẫn động từ chia. Các đáp án còn lại đều có S + V.",
+          "proposed": "'In the early morning' là cụm giới từ. Các lựa chọn còn lại là mệnh đề hữu hạn có chủ ngữ và động từ hữu hạn. Không dùng định nghĩa 'thiếu chủ ngữ hoặc động từ thì luôn là phrase' để phủ nhận mệnh đề không hữu hạn trong các khung phân tích khác."
+        }
+      }
+    },
+    {
+      "code": "G-foundations-phrase-vs-clause",
+      "qid": "pvc_pc_i2",
+      "origin": "content37",
+      "fields": {
+        "explain": {
+          "before": "'What matters most' có chủ ngữ ẩn 'what' và động từ chia 'matters' → là clause (cụ thể là noun clause).",
+          "proposed": "'What matters most' có chủ ngữ được viết rõ là what và động từ hữu hạn matters, nên nhận 'clause'. Trong 'What matters most is consistent effort', toàn bộ nhóm what matters most làm chủ ngữ của is; không gọi what là chủ ngữ ẩn."
+        }
+      }
+    },
+    {
+      "code": "G-foundations-phrase-vs-clause",
+      "qid": "pvc_frag_a1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "SAI — đây là sentence fragment (chỉ là participial phrase, không có chủ ngữ + động từ chia). Sửa lại: 'Walking home from work, I called my mother.'",
+          "proposed": "SAI khi dùng như câu hoàn chỉnh trong văn viết học thuật: nhóm Walking home from work không tự có một mệnh đề chính hữu hạn. Có thể gọi đây là cụm V-ing hoặc mệnh đề không hữu hạn tùy khung phân tích; tên gọi không làm nó thành câu độc lập. Có thể viết 'Walking home from work, I called my mother.'"
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_main_b1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Identify the main clause in this sentence: 'Although the initial results seemed promising, the drug ultimately failed the final trial.' Which subject-verb pair is the main clause?",
+          "proposed": "Identify the core subject–main-verb pair of the main clause: 'Although the initial results seemed promising, the drug ultimately failed the final trial.'"
+        },
+        "explain": {
+          "before": "Trong câu này, 'Although the initial results seemed promising' là mệnh đề trạng ngữ nhượng bộ. Cặp chủ ngữ–động từ của mệnh đề chính là 'the drug failed'. Không áp dụng máy móc quy tắc bỏ mọi từ mở đầu: một mệnh đề nội dung vẫn có thể làm chủ ngữ hoặc bổ ngữ cần thiết.",
+          "proposed": "Cặp S + main V là 'the drug failed'. Mệnh đề chính đầy đủ là 'the drug ultimately failed the final trial'; failed the final trial có tân ngữ và ultimately là trạng từ. Mệnh đề Although là phần nhượng bộ; nhận diện khung không cho phép bỏ thông tin khi hiểu toàn câu."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_main_b2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Which is the main clause? 'When researchers conducted experiments with genetically modified seeds, productivity increased dramatically.' ",
+          "proposed": "Which option identifies the core subject–main-verb pair of the main clause? 'When researchers conducted experiments with genetically modified seeds, productivity increased dramatically.'"
+        },
+        "explain": {
+          "before": "Mệnh đề 'When researchers conducted...' bắt đầu bằng 'When' (liên từ), nên đó là mệnh đề phụ. Mệnh đề chính là 'productivity increased dramatically' — đó là ý chính của câu.",
+          "proposed": "Cặp S + main V là 'productivity increased'. Mệnh đề chính đầy đủ là 'productivity increased dramatically'; dramatically thêm cách thức/mức độ. When researchers conducted... là mệnh đề thời gian phụ trong cấu trúc câu này."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_main_i1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "SAI — mệnh đề quan hệ 'who had analyzed data for five years' là mệnh đề phụ bổ ngữ. Mệnh đề chính là 'Economists predicted a market collapse' (chủ ngữ = Economists, động từ = predicted).",
+          "proposed": "SAI — 'who had analyzed data for five years' là mệnh đề quan hệ bổ nghĩa cho Economists. Mệnh đề chính là 'Economists predicted a market collapse'; khung S + main V là 'Economists predicted'. Không nhầm phần bổ nghĩa với tân ngữ a market collapse."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_main_a1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "SAI — 'collaborating on...' là cụm participle rút gọn bổ ngữ cho 'Scientists', không phải mệnh đề chính. Mệnh đề chính là 'Scientists concluded that solar energy could revolutionize...' (không lược bỏ, đây là câu động từ).",
+          "proposed": "SAI — collaborating on... là phần phân từ bổ nghĩa cho Scientists, không phải mệnh đề chính. Khung S + main V là 'Scientists concluded'; mệnh đề chính đầy đủ giữ 'that solar energy could revolutionize the continent's power infrastructure' làm bổ ngữ nội dung của concluded. Tạm nhóm modifiers để nhìn khung không phải xóa nội dung kết luận."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_main_a2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "In this sentence, what is the main subject-verb relationship? 'Despite mounting evidence that pollution damages ecosystems, which has prompted international agreements, industrial nations, some of which had initially resisted, finally accepted carbon-reduction targets.' Identify the true main clause:",
+          "proposed": "Identify the core subject–main-verb pair of the main clause: 'Despite mounting evidence that pollution damages ecosystems, which has prompted international agreements, industrial nations, some of which had initially resisted, finally accepted carbon-reduction targets.'"
+        },
+        "explain": {
+          "before": "Mệnh đề 'Despite...' mở bằng giới từ (không phải liên từ). Mệnh đề quan hệ 'which has prompted...' và 'some of which had initially resisted' đều là bổ ngữ. Mệnh đề chính duy nhất là 'industrial nations accepted carbon-reduction targets'.",
+          "proposed": "Khung S + main V là 'industrial nations accepted'. Mệnh đề chính đầy đủ giữ 'finally accepted carbon-reduction targets'. Phần đầu Despite mounting evidence... là cụm giới từ, bên trong có mệnh đề nội dung that pollution damages ecosystems; các mệnh đề which... và some of which... bổ nghĩa. Không gọi toàn bộ cụm Despite là một mệnh đề riêng."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_pitfall_a2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'Suggested', 'encountered', 'delayed' đều là động từ trong các mệnh đề quan hệ phụ (bắt đầu bằng 'whose', 'who'). Động từ chính (của mệnh đề chính) là 'demonstrated'.",
+          "proposed": "Động từ của mệnh đề chính là demonstrated. Suggested nằm trong mệnh đề whose preliminary findings had suggested..., encountered trong who subsequently encountered..., và delayed trong that delayed publication bổ nghĩa cho methodological challenges. Giữ mệnh đề nội dung that the treatment was effective... khi hiểu điều được chứng minh."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "qid": "pc_ving_i2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Dùng mệnh đề phân từ chủ động V-ing hoặc Having + V3: ____ (study / economic / impacts), the government allocated additional research funding.",
+          "proposed": "Chỉ biến đổi study thành V-ing hoặc Having + V3 của study; giữ nguyên cụm economic impacts, không thêm mạo từ hay từ khác: ____ (study / economic impacts), the government allocated additional research funding."
+        },
+        "explain": {
+          "before": "Cả 'Studying economic impacts' và 'Having studied economic impacts' đều được nhận: dạng đầu nêu bối cảnh/cách thức; dạng perfect nhấn mạnh việc nghiên cứu đã xảy ra trước khi phân bổ vốn. Cả hai có chủ ngữ ngầm hiểu là 'government' và không mang thì độc lập; 'allocated' là động từ hữu hạn ở Past Simple.",
+          "proposed": "Nhận 'studying economic impacts' và 'having studied economic impacts'. Having studied nhấn mạnh việc nghiên cứu xảy ra trước việc cấp kinh phí; studying không tự ấn định thì hay quan hệ đồng thời. Economic impacts được giữ nguyên theo nhiệm vụ; thêm the có thể hợp ngữ pháp khi nói các tác động đã xác định, nhưng nằm ngoài phép biến đổi từ được yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "qid": "pc_v3_i2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Dùng mệnh đề phân từ bị động V3 hoặc Having been + V3: ____ (approve / by / authorities), the construction project began immediately.",
+          "proposed": "Chỉ biến đổi approve thành V3 hoặc Having been + V3 của approve; giữ nguyên cụm by authorities, không thêm mạo từ hay từ khác: ____ (approve / by authorities), the construction project began immediately."
+        },
+        "explain": {
+          "before": "Cả 'Approved by authorities' và 'Having been approved by authorities' đều mang nghĩa bị động. Trong ngữ cảnh này, dự án bắt đầu sau khi được phê duyệt; dạng perfect nhấn mạnh thứ tự đó. Không suy ra mọi V3 đều chỉ một hành động xảy ra trước: thời gian của phân từ còn phụ thuộc ngữ cảnh.",
+          "proposed": "Nhận 'approved by authorities' và 'having been approved by authorities'. Approved mang nghĩa bị động; Having been approved nhấn mạnh việc phê duyệt xảy ra trước việc bắt đầu dự án. Thời gian của dạng V3 đơn dựa vào ngữ cảnh. By authorities được giữ nguyên theo nhiệm vụ; by the authorities cũng có thể hợp ngữ pháp trong ngữ cảnh xác định khác."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "qid": "pc_meaning_i2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "____ (lack / funds), the research project could not proceed as planned.",
+          "proposed": "Chỉ biến đổi lack và giữ nguyên funds, không thêm từ vào cụm: dùng dạng V-ing của lack hoặc because of + dạng V-ing của lack để điền ____ (lack / funds), the research project could not proceed as planned."
+        },
+        "explain": {
+          "before": "'Lacking funds' là mệnh đề phân từ chỉ **nguyên nhân** (vì thiếu vốn). Nó giải thích LÝ DO dự án không thể tiến hành.",
+          "proposed": "Nhận 'lacking funds' và 'because of lacking funds' theo hai cấu trúc đã yêu cầu. Lacking funds là phần phân từ nêu nguyên nhân trong câu này; because of lacking funds là cụm giới từ, không phải cùng loại mệnh đề phân từ. Lacking the funds hoặc một mệnh đề because đầy đủ có thể đúng ở nhiệm vụ mở hơn; ở đây funds được giữ nguyên."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "qid": "rrc_ving_i2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Dùng mệnh đề quan hệ rút gọn bị động V3 hoặc being + V3: The technology ____ (employ / by / firms) around the world is becoming more advanced each year.",
+          "proposed": "Chỉ biến đổi employ thành dạng mệnh đề quan hệ rút gọn bị động V3 hoặc being + V3; giữ nguyên cụm by firms, không thêm mạo từ hay từ khác: The technology ____ (employ / by firms) around the world is becoming more advanced each year."
+        },
+        "explain": {
+          "before": "Mệnh đề rút gọn bị động: 'technology which is employed by firms' → 'technology employed by firms' (V3). Nếu dùng 'being employed' cũng chấp nhận (diễn tả hành động đang xảy ra).",
+          "proposed": "Nhận 'employed by firms' và 'being employed by firms'. Employed là dạng rút gọn bị động V3; being employed nhấn mạnh quá trình sử dụng. By firms được giữ nguyên theo nhiệm vụ; by the firms có thể đúng nếu các công ty đã được xác định, nhưng không thuộc phép biến đổi ở đây."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "qid": "rrc_v3_i2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Dùng mệnh đề quan hệ bị động đầy đủ hoặc rút gọn: The results ____ (publish / in / journals) last year support the new hypothesis.",
+          "proposed": "Việc công bố đã hoàn tất trong năm ngoái. Dùng mệnh đề quan hệ bị động với be ở Past Simple hoặc dạng rút gọn V3 của publish; giữ nguyên cụm in journals, không thêm từ khác vào cụm này: The results ____ (publish / in journals) last year support the new hypothesis."
+        },
+        "accept": {
+          "before": [
+            "published in journals",
+            "that were published in journals"
+          ],
+          "proposed": [
+            "published in journals",
+            "that were published in journals",
+            "which were published in journals"
+          ]
+        },
+        "explain": {
+          "before": "Bài này nhận cả mệnh đề đầy đủ 'that were published in journals' và dạng rút gọn 'published in journals'. Ở dạng rút gọn, bỏ 'that were', giữ V3 'published' bổ nghĩa cho 'results'; động từ chính là 'support'.",
+          "proposed": "Nhận 'published in journals', 'that were published in journals' và 'which were published in journals'. 'That' hoặc 'which' đều dùng được cho results trong mệnh đề quan hệ xác định; với Past Simple bị động và results số nhiều, dùng were + published. Dạng rút gọn giữ V3 published; support là động từ chính. Các dạng perfect/progressive hoặc get-passive có thể hợp ngữ pháp trong ngữ cảnh khác nhưng không đáp ứng dạng được yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "qid": "rrc_v3_a1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "ĐÚNG — V3 'collected' bổ nghĩa cho 'data' (dữ liệu được thu thập). 'shows' là động từ chính. Không nhầm với 'collected' là động từ chính.",
+          "proposed": "ĐÚNG với cách dùng data như danh từ không đếm được số ít: collected from multiple sources bổ nghĩa bị động, shows là động từ chính. Khi data dùng theo quy ước số nhiều, show cũng phù hợp; không coi shows sai trong mọi ngữ cảnh hoặc coi data luôn là số ít."
+        }
+      }
+    },
+    {
+      "code": "G-parts-of-speech-verbs",
+      "qid": "verb_stat_i1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Right now, the chef ____ the sauce to check if it needs more salt.",
+          "proposed": "Chọn dạng trình bày hành động nếm đang ở giữa tiến trình ngay lúc này, không phải thói quen của người đầu bếp: Right now, the chef ____ the sauce to check if it needs more salt."
+        },
+        "explain": {
+          "before": "'taste' ở đây là ACTION verb (đang thực hiện hành động nếm), khác với nghĩa stative 'this soup tastes great' (cảm nhận) → dùng -ing được.",
+          "proposed": "Chọn 'is tasting' cho hành động nếm thử đang diễn ra được yêu cầu. Taste ở đây mang nghĩa hành động, nên dùng continuous được; không có nghĩa mọi động từ hành động luôn phải continuous. Tastes có thể nêu cách làm thường lệ ở ngữ cảnh khác."
+        }
+      }
+    },
+    {
+      "code": "G-sentence-structures-passive-voice",
+      "qid": "pv_form_b2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "Present simple passive: am/is/are + V3. Hành động lặp lại hằng ngày, chủ ngữ 'data' → 'is collected'.",
+          "proposed": "Chọn 'is collected' theo cách dùng data như danh từ không đếm được số ít trong câu này: Present Simple passive với is + collected. Data cũng có cách dùng số nhiều, khi đó có thể viết are collected; không kết luận data luôn là số ít."
+        }
+      }
+    },
+    {
+      "code": "G-sentence-structures-passive-voice",
+      "qid": "pv_use_i2",
+      "origin": "content37",
+      "fields": {
+        "explain": {
+          "before": "Trong câu trả lời cá nhân Part 1, agent (tôi) đã rõ và là trọng tâm → active tự nhiên và mạnh hơn passive; bị động ở đây nghe sách vở, hạ điểm Fluency.",
+          "proposed": "Chọn 'I usually cook dinner for my family' vì câu hỏi tập trung vào việc người nói thường làm; dạng chủ động gọi trực tiếp người đó. Các câu bị động có thể hợp ngữ pháp nhưng kém trực tiếp với trọng tâm câu hỏi này. Không suy ra dùng một câu bị động tự động bị trừ điểm Fluency."
+        }
+      }
+    },
+    {
+      "code": "G-sentence-structures-passive-voice",
+      "qid": "pv_err_a1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'The report was written by someone.' là câu bị động chuẩn cho văn phong học thuật.",
+          "proposed": "Đúng hay Sai: Trong một bản tóm tắt học thuật chỉ cần nêu báo cáo đã được viết, tác giả không rõ và không liên quan đến ý cần truyền đạt, 'The report was written by someone' là cách diễn đạt súc tích phù hợp nhất với mục tiêu này."
+        },
+        "explain": {
+          "before": "SAI về phong cách — thêm 'by someone' khi agent không rõ ràng/không cần thiết làm câu yếu đi. Câu tốt hơn: 'The report was written.' (bỏ hẳn agent mơ hồ).",
+          "proposed": "SAI về độ phù hợp với mục tiêu súc tích đã nêu: by someone không thêm thông tin cần thiết, nên 'The report was written' trực tiếp hơn. Câu có by someone vẫn hợp ngữ pháp và có thể hữu ích khi việc do một người thực hiện là thông tin liên quan; không phán nó sai trong mọi văn phong học thuật."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_form_b1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "At 8 pm last night, I ____ for the exam.",
+          "proposed": "Lúc 8 giờ tối hôm qua, việc ôn thi đã bắt đầu từ trước và đang diễn ra; chọn dạng thể hiện hành động ở giữa tiến trình tại mốc đó: At 8 pm last night, I ____ for the exam."
+        },
+        "explain": {
+          "before": "'At 8 pm last night' = một thời điểm cụ thể trong quá khứ, hành động đang diễn ra tại đó → was + V-ing: was studying.",
+          "proposed": "Chọn 'was studying' để trình bày việc học đang diễn ra ở mốc 8 giờ. 'Studied' có thể kể một hoạt động như một sự kiện quá khứ, nhưng không thể hiện cách nhìn giữa tiến trình được yêu cầu. Mốc giờ tự nó không buộc mọi câu dùng Past Continuous."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_form_b2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "They ____ football when the rain started.",
+          "proposed": "Trận bóng đã diễn ra trước lúc mưa bắt đầu; chọn dạng thể hiện hoạt động đang tiếp diễn vào lúc đó: They ____ football when the rain started."
+        },
+        "explain": {
+          "before": "Chủ ngữ 'they' → dùng were, không phải was: were playing.",
+          "proposed": "Chọn 'were playing': they số nhiều và trận bóng được nhìn như đang diễn ra khi mưa bắt đầu. 'Played' có thể dùng với cách kể sự kiện khác, nhưng không thể hiện rõ nền đang tiếp diễn mà bài yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_form_i1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "____ you ____ TV when I called you last night?",
+          "proposed": "Hỏi người nghe có đang ở giữa việc xem TV vào đúng lúc cuộc gọi tới hay không: ____ you ____ TV when I called you last night? Chọn câu hỏi thể hiện hoạt động đã đang diễn ra tại mốc đó."
+        },
+        "explain": {
+          "before": "Chủ ngữ 'you' → Were; câu hỏi Past Continuous: Were + S + V-ing: Were you watching.",
+          "proposed": "Chọn 'Were / watching' để hỏi về hoạt động đang tiếp diễn lúc cuộc gọi tới. 'Did / watch' có thể hỏi về một sự kiện xem TV trong ngữ cảnh khác, nhưng không diễn đạt cách nhìn đang ở giữa hoạt động được yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_form_i2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'This time last year' + chủ ngữ số ít 'she' → was + V-ing: was living.",
+          "proposed": "Theo yêu cầu Past Continuous và chủ ngữ she, dùng 'was living', nhìn việc sống tại London như tình huống đang diễn ra ở mốc quá khứ. 'This time last year' cung cấp mốc nhưng không tự loại Past Simple trong mọi cách kể."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_interrupt_b1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "I ____ a book when the phone rang.",
+          "proposed": "Việc đọc đã bắt đầu trước tiếng chuông đầu tiên; chọn dạng diễn tả việc đọc đang diễn ra lúc điện thoại reo: I ____ a book when the phone rang."
+        },
+        "explain": {
+          "before": "Hành động nền đang diễn ra (đọc sách) bị gián đoạn bởi sự kiện ngắn (chuông reo) → Past Continuous cho hành động nền: was reading.",
+          "proposed": "Chọn 'was reading' cho hoạt động nền đang diễn ra tại thời điểm phone rang. 'Read' cũng là dạng Past Simple đúng và có thể kể một sự kiện đọc với cách nhìn khác; when không tự cấm dạng đó."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_interrupt_b2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "She was cooking dinner when he ____ home.",
+          "proposed": "Trong câu này, việc về đến nhà được kể như một sự kiện trọn vẹn xảy ra giữa lúc cô ấy đang nấu, không phải quá trình đang đến kéo dài: She was cooking dinner when he ____ home."
+        },
+        "explain": {
+          "before": "Sự kiện ngắn bất ngờ xảy đến (arrived) trong khi hành động nền đang diễn ra → Past Simple cho sự kiện gián đoạn: arrived.",
+          "proposed": "Chọn 'arrived' cho sự kiện về đến nhà được kể trọn vẹn trong bối cảnh này. 'Was arriving' có thể diễn đạt một quá trình đến trong ngữ cảnh thích hợp, nhưng không phải cách nhìn sự kiện mà đề yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_interrupt_i1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "They ____ the plan when the power ____ out.",
+          "proposed": "Cuộc thảo luận đã đang diễn ra thì xảy ra một lần mất điện đột ngột, được kể như sự kiện trọn vẹn: They ____ the plan when the power ____ out."
+        },
+        "explain": {
+          "before": "Hành động nền dài (đang thảo luận) + sự kiện ngắn bất ngờ (mất điện) → were discussing (PC) + went out (PS).",
+          "proposed": "Chọn 'were discussing / went': việc thảo luận là nền đang tiếp diễn, mất điện là một sự kiện đột ngột trọn vẹn. Các dạng discussed hoặc was going out có thể phù hợp với cách nhìn sự kiện/quá trình khác, nhưng không đáp ứng cách kể được nêu ở đây."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_interrupt_i2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "Hành động đang diễn ra (đi bộ về nhà) bị mưa 'cắt ngang' → Past Continuous: was walking.",
+          "proposed": "Theo yêu cầu Past Continuous, dùng 'was walking' cho hoạt động nền đang diễn ra lúc mưa bắt đầu. Started là sự kiện tại một mốc trong quá trình đi bộ; câu không tự khẳng định người đó đã ngừng đi bộ vì mưa."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_interrupt_i3",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "Hành động nền (đang ghi chép) bị gián đoạn bởi sự kiện ngắn (chuông báo cháy) → were taking (Past Continuous).",
+          "proposed": "Theo yêu cầu Past Continuous và students số nhiều, dùng 'were taking' cho hoạt động đang diễn ra lúc chuông vang. Went off là sự kiện ở một mốc trong quá trình; việc ghi chép có dừng hay không cần thêm ngữ cảnh."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_interrupt_a1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'I was reading a book when the phone was ringing.'",
+          "proposed": "Đúng hay Sai: Người kể muốn nói việc đọc và tiếng điện thoại reo đều đang tiếp diễn trong cùng một khoảng thời gian: 'I was reading a book when the phone was ringing.' Câu có thể dùng với cách nhìn này."
+        },
+        "answer": {
+          "before": false,
+          "proposed": true
+        },
+        "explain": {
+          "before": "SAI — sự kiện ngắn bất ngờ ('chuông reo') nên dùng Past Simple, không phải Past Continuous. Sửa: 'I was reading a book when the phone rang.'",
+          "proposed": "ĐÚNG — when có thể nối hai hoạt động nền đang tiếp diễn. Was ringing nhìn tiếng reo như một quá trình; rang thường kể một lần reo như sự kiện. Không bắt buộc thay was ringing bằng rang nếu ý được nêu là hai quá trình chồng lấp."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_while_b1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "She was reading while he ____ TV.",
+          "proposed": "Trong cùng một khoảng thời gian, người kể nhìn cả việc đọc và xem TV như hai hoạt động nền đang diễn ra: She was reading while he ____ TV. Chọn dạng thể hiện cách nhìn đang tiếp diễn đó."
+        },
+        "explain": {
+          "before": "Hai hành động diễn ra song song cùng lúc trong quá khứ → cả hai đều dùng Past Continuous: was watching.",
+          "proposed": "Chọn 'was watching' để trình bày cả hai hoạt động như đang tiếp diễn. 'Watched' cũng có thể hợp ngữ pháp với while khi nhìn việc xem như một sự kiện; while không tự bắt buộc cả hai mệnh đề dùng Past Continuous."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_while_b2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "I was cooking while my sister ____ the table.",
+          "proposed": "Người kể nhìn cả việc nấu và bày bàn như hai hoạt động đang diễn ra trong cùng một khoảng thời gian: I was cooking while my sister ____ the table. Chọn dạng thể hiện quá trình đang tiếp diễn này."
+        },
+        "explain": {
+          "before": "'while' nối hai hành động song song → was setting (Past Continuous).",
+          "proposed": "Chọn 'was setting' cho cách nhìn việc bày bàn đang diễn ra song song với nấu ăn. 'Set' cũng có thể kể việc bày bàn như sự kiện trọn vẹn; sự có mặt của while không khiến Past Simple tự động sai."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_while_i1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "____ my friends were taking photos, I was just standing there, taking it all in.",
+          "proposed": "Chọn liên từ diễn tả hai hoạt động chồng lấp trong cùng một khoảng thời gian, không chỉ thời điểm bắt đầu của một hoạt động: ____ my friends were taking photos, I was just standing there, taking it all in."
+        },
+        "options": {
+          "before": [
+            "When",
+            "While",
+            "During",
+            "As soon as"
+          ],
+          "proposed": [
+            "Meanwhile",
+            "While",
+            "During",
+            "As soon as"
+          ]
+        },
+        "explain": {
+          "before": "'while' đi với hai hành động song song, cả hai đều Past Continuous — đây là dấu hiệu chuẩn cho cấu trúc này.",
+          "proposed": "Chọn While để nối mệnh đề thời gian với mệnh đề chính và nêu khoảng chồng lấp. Meanwhile là trạng từ nối ý, không thay liên từ phụ thuộc trong cấu trúc và dấu câu này; During không đi trực tiếp với mệnh đề hữu hạn; As soon as nhấn mạnh mốc bắt đầu, không phải khoảng chồng lấp được yêu cầu. When cũng có thể diễn đạt sự đồng thời trong những cấu trúc thời gian thích hợp."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_while_i2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "Hai hành động song song (giảng bài / ghi chép) → cả hai chia Past Continuous: were taking.",
+          "proposed": "Theo yêu cầu Past Continuous, dùng 'were taking': students số nhiều và việc ghi chép được nhìn như đang diễn ra cùng việc giảng. Hai hoạt động đồng thời không tự buộc cả hai mệnh đề dùng continuous; Past Simple với while có thể phù hợp ở cách nhìn khác."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_while_i3",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "Cấu trúc dùng nhiều trong Writing Task 1 để mô tả hai xu hướng song song tại cùng giai đoạn → was increasing (Past Continuous).",
+          "proposed": "Bài yêu cầu Past Continuous để nhìn hai xu hướng như đang diễn ra trong cùng giai đoạn; chủ ngữ trung tâm 'the number' số ít nên dùng 'was increasing'. Không có quy tắc while hoặc hai xu hướng song song luôn buộc Past Continuous."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_while_a1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'While he arrived, I was cooking dinner.'",
+          "proposed": "Đúng hay Sai: Người kể xem việc anh ấy về đến nhà là một lần đến trọn vẹn tại một thời điểm, không phải quá trình đang đến kéo dài. 'While he arrived, I was cooking dinner.' là cách nối phù hợp với cách nhìn một thời điểm đó."
+        },
+        "explain": {
+          "before": "SAI — 'arrived' là sự kiện ngắn (Past Simple), phải đi với 'when', không phải 'while'. Sửa: 'When he arrived, I was cooking dinner.'",
+          "proposed": "SAI với cách nhìn một lần đến tại một thời điểm được nêu: 'When he arrived, I was cooking dinner' phù hợp hơn. While thường nêu một khoảng thời gian; không suy ra rằng while luôn cấm Past Simple hoặc chỉ đi được với Past Continuous."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_form_b1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "She ____ in the garden right now.",
+          "proposed": "Dùng Present Continuous để nói việc cô ấy đang làm trong khu vườn ngay lúc phát ngôn: She ____ in the garden right now."
+        },
+        "explain": {
+          "before": "Present Continuous = am/is/are + V-ing. Chủ ngữ 'she' → is + working.",
+          "proposed": "Theo yêu cầu Present Continuous, chọn 'is working': she đi với is + V-ing. Works có thể trình bày công việc/thói quen ở cách nhìn khác, nhưng không dùng cấu trúc continuous mà đề yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_form_i1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Look! The children ____ in the park.",
+          "proposed": "Chọn dạng nhìn việc chơi như hoạt động đang diễn ra trước mắt, thay vì thói quen hay một sự kiện đã kết thúc: Look! The children ____ in the park."
+        },
+        "explain": {
+          "before": "'Look!' là tín hiệu hành động đang xảy ra ngay lúc nói → are playing (they = số nhiều).",
+          "proposed": "Chọn 'are playing' cho hoạt động đang diễn ra trước mắt theo yêu cầu; children số nhiều nên dùng are. Không dùng Look làm quy tắc buộc thì bất kể nghĩa của câu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_form_a2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "SAI — am/is/are không đứng một mình, phải theo sau bởi V-ing: 'I am studying English now.'",
+          "proposed": "SAI trong cấu trúc Present Continuous này: sau am cần dạng V-ing studying, nên 'I am studying English now'. Không suy ra am/is/are luôn phải đi với V-ing; be còn dùng làm động từ nối hoặc trong cấu trúc khác."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_trend_b1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "More and more people ____ to work remotely nowadays.",
+          "proposed": "Chọn dạng trình bày sự chuyển đổi đang diễn ra trong giai đoạn hiện tại, thay vì nêu nhận định/thói quen chung: More and more people ____ to work remotely nowadays."
+        },
+        "explain": {
+          "before": "'nowadays' + xu hướng đang thay đổi → Present Continuous: are choosing.",
+          "proposed": "Chọn 'are choosing' cho góc nhìn xu hướng đang phát triển hiện nay. 'Choose' cũng có thể nêu một nhận định chung; nowadays và more and more không tự khiến Present Simple sai ngữ pháp."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_trend_i1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "The climate ____ warmer every year, according to scientists.",
+          "proposed": "Người viết muốn trình bày sự ấm lên như một quá trình thay đổi đang diễn ra, thay vì một nhận định chung lặp theo năm: The climate ____ warmer every year, according to scientists."
+        },
+        "explain": {
+          "before": "Xu hướng đang diễn biến theo thời gian (every year, đang thay đổi liên tục) → Present Continuous: is getting.",
+          "proposed": "Chọn 'is getting' để nhấn mạnh quá trình đang phát triển. 'Gets' có thể nêu diễn biến như một nhận định chung; every year không quyết định thì thay cho cách nhìn được yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_trend_i2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'these days' là dấu hiệu xu hướng đang thay đổi → are becoming (chủ ngữ số nhiều).",
+          "proposed": "Theo yêu cầu Present Continuous, dùng 'are becoming' để nhấn mạnh sự thay đổi đang diễn ra; Young Vietnamese chỉ nhiều người nên dùng are. These days cung cấp ngữ cảnh hiện nay, không tự cấm Present Simple trong mọi cách nhìn."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_trend_a1",
+      "origin": "content37",
+      "fields": {
+        "explain": {
+          "before": "Xu hướng xã hội đang biến đổi ngay trong giai đoạn hiện tại, CHƯA kết thúc → Present Continuous: are changing. ('have changed' ngụ ý thay đổi đã hoàn tất tính đến nay, không nhấn mạnh nó đang tiếp diễn.)",
+          "proposed": "Chọn đáp án có 'are changing' để nhấn mạnh quá trình thay đổi đang diễn ra hiện nay, đúng trọng tâm đề. 'Have changed' nhìn lại thay đổi/kết quả tới hiện tại và không tự có nghĩa toàn bộ xu hướng đã chấm dứt; các dạng khác không thể hiện rõ trọng tâm đang diễn ra mà bài yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_trend_a2",
+      "origin": "content37",
+      "fields": {
+        "explain": {
+          "before": "SAI — 'nowadays' + xu hướng đang thay đổi cần Present Continuous, không phải Present Simple: 'the number of online shoppers is increasing rapidly.'",
+          "proposed": "SAI vì hòa hợp chủ ngữ–động từ: chủ ngữ trung tâm 'the number' là số ít, nên không dùng increase. Có thể viết 'increases rapidly' cho nhận định chung hoặc 'is increasing rapidly' để nhấn mạnh quá trình đang phát triển. Nowadays không tự buộc Present Continuous."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_temp_b1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "I usually ____ with my parents, but this month I ____ with my aunt while my flat is repaired.",
+          "proposed": "Chọn cặp trình bày nơi ở thường lệ bằng Present Simple và chỗ ở tạm thời đang diễn ra trong tháng này bằng Present Continuous: I usually ____ with my parents, but this month I ____ with my aunt while my flat is repaired."
+        },
+        "explain": {
+          "before": "'usually' = thói quen cố định → Present Simple (live). 'this month' = tạm thời → Present Continuous (am living).",
+          "proposed": "Chọn 'live / am living' để thể hiện nơi ở thường lệ và giai đoạn ở tạm hiện tại theo yêu cầu. 'Live / live' có thể là cách trình bày sự việc như nhận định đơn trong một ngữ cảnh khác; không gọi nó sai ngữ pháp chỉ vì this month."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_temp_i1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "She ____ English at a language centre, but this semester she ____ at RMIT instead.",
+          "proposed": "Việc dạy là công việc thường lệ của cô ấy, còn việc học ở RMIT là hoạt động tạm thời đang diễn ra trong học kỳ hiện tại. Chọn cặp thể hiện thói quen/công việc thường lệ bằng dạng đơn và hoạt động tạm thời bằng dạng tiếp diễn: She ____ English at a language centre, but this semester she ____ at RMIT instead."
+        },
+        "explain": {
+          "before": "Nghề nghiệp/thói quen thường xuyên → Present Simple (teaches). 'this semester' = giai đoạn tạm thời → Present Continuous (is studying).",
+          "proposed": "Chọn 'teaches / is studying' cho hai góc nhìn được yêu cầu. 'Teaches / studies' hoặc các dạng tiếp diễn khác có thể phù hợp nếu thay đổi cách nhìn tình huống; this semester không tự làm mọi dạng đơn sai."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_temp_i2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'this week' + tình huống tạm thời (khác với 'normally') → Present Continuous: is working.",
+          "proposed": "Theo yêu cầu Present Continuous, dùng 'is working' để trình bày việc làm thêm như giai đoạn tạm thời đang diễn ra, đối lập với giờ về thường lệ. This week không một mình quyết định thì trong mọi câu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_temp_a1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'Water boiling at 100°C.'",
+          "proposed": "Đúng hay Sai: 'Water boiling at 100°C.' là một câu trần thuật hoàn chỉnh có động từ hữu hạn."
+        },
+        "explain": {
+          "before": "SAI — sự thật khoa học cố định dùng Present Simple, không phải Present Continuous: 'Water boils at 100°C.'",
+          "proposed": "SAI khi dùng như câu trần thuật hoàn chỉnh vì 'Water boiling at 100°C' thiếu động từ hữu hạn. 'Water boils at 100°C' nêu một sự thật chung; 'Water is boiling at 100°C' có thể tả một sự kiện cụ thể. Không phủ nhận câu tiếp diễn chỉ vì nội dung liên quan hiện tượng khoa học."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_temp_a2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Choose the pair that correctly contrasts a permanent fact with a temporary situation:",
+          "proposed": "Which pair contrasts a usual present situation with a temporary situation in progress now, rather than comparing present and past or repeating the same viewpoint?"
+        },
+        "options": {
+          "before": [
+            "He is always talking loudly. / He always talks loudly.",
+            "I live in Hanoi. / I'm living with friends temporarily.",
+            "She's teaching now. / She's teaching now.",
+            "They work here. / They are working here."
+          ],
+          "proposed": [
+            "He is always talking loudly. / He always talks loudly.",
+            "I live in Hanoi. / I'm living with friends temporarily.",
+            "She's teaching now. / She's teaching now.",
+            "They work here every weekday. / They worked here last year."
+          ]
+        },
+        "explain": {
+          "before": "'I live in Hanoi' (tình trạng cố định, lâu dài) đối lập với 'I'm living with friends temporarily' (chỉ tạm thời) — đúng tinh thần bài Wiki.",
+          "proposed": "Chọn cặp 'I live in Hanoi / I'm living with friends temporarily': nơi ở thường lệ đối lập với chỗ ở tạm đang diễn ra. Cặp 'They work here every weekday / They worked here last year' so sánh thói quen hiện tại và sự việc năm ngoái, không phải hai tình huống hiện tại thường lệ/tạm thời."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_stative_i1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'taste' (= có vị) là stative verb ở nghĩa này → Present Simple: tastes, không dùng 'is tasting'.",
+          "proposed": "Với nghĩa mô tả vị của món súp ở câu này, cách nói thông thường là 'tastes delicious': tastes liên kết soup với delicious. Khi taste nói về hành động nếm thử, continuous dùng được; không cấm mọi continuous chỉ dựa vào tên động từ taste."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_form_b1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "I ____ English for three years.",
+          "proposed": "Việc học bắt đầu ba năm trước và vẫn tiếp diễn đến hiện tại; chọn dạng nhấn mạnh quá trình từ lúc bắt đầu tới nay: I ____ English for three years."
+        },
+        "explain": {
+          "before": "Present Perfect Continuous = have/has + been + V-ing. Chủ ngữ 'I' → have been studying.",
+          "proposed": "Chọn 'have been studying' cho quá trình đã bắt đầu và còn tiếp diễn đến hiện tại. 'Studied' có thể nói về ba năm học đã kết thúc; for three years một mình không quyết định khoảng thời gian còn tiếp diễn hay đã kết thúc."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_form_i1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "____ you ____ long for the bus?",
+          "proposed": "Bạn vừa tới trạm xe buýt và người nghe vẫn đang đợi từ trước đó. Dùng câu hỏi Present Perfect Continuous để hỏi về quá trình đợi kéo dài tới lúc này: ____ you ____ long for the bus?"
+        },
+        "explain": {
+          "before": "Câu hỏi PPC: Have/Has + S + been + V-ing? → Have you been waiting.",
+          "proposed": "Theo yêu cầu Present Perfect Continuous, chọn 'Have / been waiting'. 'Have you waited long?' cũng có thể hỏi về thời gian đợi; 'Did you wait long?' có thể hỏi một lần đợi đã kết thúc. Chúng không đáp ứng cấu trúc thì được yêu cầu ở bài này, không phải luôn sai ngữ pháp."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_forsince_i2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "The gap between rich and poor has been widening ____ (viết giới từ) the global financial crisis began.",
+          "proposed": "The gap between rich and poor has been widening ____ (viết từ nối chỉ mốc bắt đầu) the global financial crisis began."
+        },
+        "explain": {
+          "before": "'the global financial crisis began' là một MỐC/sự kiện bắt đầu → since.",
+          "proposed": "Điền since để nối mốc bắt đầu 'the global financial crisis began' với quá trình kéo dài tới hiện tại. Ở đây since đi với một mệnh đề hữu hạn và thường được gọi là liên từ."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspp_b1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "I ____ three books this month — not bad for someone who barely reads!",
+          "proposed": "Tháng này chưa kết thúc và tôi đã đọc xong cả ba cuốn; chọn dạng nhấn mạnh số cuốn hoàn tất tính tới hiện tại: I ____ three books this month — not bad for someone who barely reads!"
+        },
+        "explain": {
+          "before": "Con số cụ thể 'three books' nhấn mạnh KẾT QUẢ đã hoàn thành, trả lời cho 'How many?' → Present Perfect: have read.",
+          "proposed": "Chọn 'have read' để nêu số cuốn đã hoàn tất tính tới hiện tại theo yêu cầu. 'Have been reading' có thể nói về quá trình đọc ba cuốn mà không tự bảo đảm đã đọc xong; con số three không một mình quyết định completion hay thì."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspp_i1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "You look tired and your clothes are dirty. ____?",
+          "proposed": "Người nghe vừa dừng một hoạt động chạy kéo dài; bạn muốn hỏi về quá trình vừa diễn ra, thay vì chỉ hỏi có chạy hay không: 'You look tired and your clothes are dirty. ____?' Chọn câu hỏi nhấn mạnh quá trình này."
+        },
+        "explain": {
+          "before": "Dấu vết hiện tại (tired, dirty clothes) giải thích bởi một quá trình vừa kết thúc → Present Perfect Continuous: Have you been running.",
+          "proposed": "Chọn 'Have you been running?' để nhấn mạnh hoạt động kéo dài gần đây và dấu vết hiện tại. 'Have you run?' hoặc 'Did you run?' có thể là câu hỏi hợp ngữ pháp với trọng tâm/khung thời gian khác; tired và dirty không tự khiến chúng sai."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspp_i2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Chia Present Perfect Continuous: He ____ (work) here for 10 years, and he still finds the job challenging. (nhấn mạnh quá trình liên tục)",
+          "proposed": "Chia Present Perfect Continuous để nhấn mạnh quá trình làm việc bắt đầu trong quá khứ và còn tiếp diễn tới nay: He ____ (work) here for 10 years, and he still finds the job challenging."
+        },
+        "explain": {
+          "before": "Nhấn mạnh QUÁ TRÌNH kéo dài liên tục 10 năm (chứ không chỉ nêu sự thật) → has been working.",
+          "proposed": "Theo yêu cầu Present Perfect Continuous, dùng 'has been working'. Việc làm kéo dài tới hiện tại có thể gồm những ca làm và khoảng nghỉ; không phải khẳng định làm không ngừng suốt mười năm. 'Has worked' cũng có thể nêu cùng thời gian làm như một sự thật nếu đề không yêu cầu riêng dạng continuous."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspp_a1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'have painted' = nhà đã sơn xong (kết quả); 'have been painting' = đã sơn cả ngày, có thể chưa xong (quá trình) — đúng ví dụ trong bài Wiki.",
+          "proposed": "Chọn cặp 'I have painted the house / I have been painting the house': câu đầu nhấn mạnh kết quả sơn xong trong cách đọc này, câu sau nhấn mạnh quá trình sơn gần đây/tới hiện tại. Câu sau không tự nói đã sơn cả ngày hoặc chắc chắn chưa xong; cần ngữ cảnh cho thời lượng và trạng thái hoàn tất."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspp_a2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'How long have you written this essay?' là câu hỏi đúng ngữ pháp khi hỏi về khoảng thời gian viết.",
+          "proposed": "Đúng hay Sai: Người nghe vẫn chưa viết xong bài luận và bạn muốn hỏi thời gian dành cho quá trình viết đang tiếp diễn. 'How long have you written this essay?' là cách hỏi tự nhiên phù hợp nhất với trọng tâm đó."
+        },
+        "explain": {
+          "before": "SAI — câu hỏi 'How long?' đi với Present Perfect Continuous (nhấn mạnh quá trình), không phải Present Perfect: 'How long have you been writing this essay?'",
+          "proposed": "SAI với trọng tâm quá trình viết một bài luận chưa xong: 'How long have you been writing this essay?' tự nhiên và rõ hơn. Không có quy tắc How long luôn bắt buộc continuous: 'How long have you worked there?' hoặc 'How long have you known her?' đều dùng được."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspc_b1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "I ____ English for 3 years — I started when I was in secondary school.",
+          "proposed": "Việc học bắt đầu khi tôi còn ở trường phổ thông và vẫn tiếp diễn tới nay; chọn dạng nhấn mạnh quá trình đã kéo dài ba năm: I ____ English for 3 years — I started when I was in secondary school."
+        },
+        "explain": {
+          "before": "'for 3 years' + hành động bắt đầu trong quá khứ và nối tới hiện tại → Present Perfect Continuous, không phải Present Continuous ('am studying' chỉ diễn tả việc đang xảy ra ngay lúc nói, không có liên kết với quá khứ).",
+          "proposed": "Chọn 'have been studying' cho quá trình đã bắt đầu và tiếp diễn tới hiện tại được nêu. Present Continuous có thể nói về hoạt động tạm thời quanh hiện tại hoặc kế hoạch, nhưng không tự biểu thị ba năm đã trải qua tới nay trong cách diễn đạt này."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspc_a1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'I am studying English for 3 years.'",
+          "proposed": "Đúng hay Sai: Để nói việc học đã bắt đầu ba năm trước và vẫn tiếp diễn đến hiện tại, 'I am studying English for 3 years' thể hiện rõ quá trình quá khứ–hiện tại được yêu cầu."
+        },
+        "explain": {
+          "before": "SAI — Present Continuous chỉ diễn tả hành động đang xảy ra ngay lúc nói, không thể hiện khoảng thời gian nối từ quá khứ đến hiện tại: 'I have been studying English for 3 years.'",
+          "proposed": "SAI với ý học đã kéo dài từ ba năm trước đến nay: 'I have been studying English for three years' phù hợp. Present Continuous cũng dùng cho tình huống tạm thời hoặc kế hoạch có thời hạn, nhưng một kế hoạch ba năm là ý nghĩa khác với ba năm đã trải qua tới hiện tại."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspc_a2",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Which sentence correctly explains a PERSISTENT effort over time (for use in Speaking Part 3)?",
+          "proposed": "Which sentence presents an investment effort that began in the past decade and is still continuing up to now, emphasizing the ongoing process (for Speaking Part 3)?"
+        },
+        "explain": {
+          "before": "'over the past decade' + hành động kéo dài, liên tục từ quá khứ đến hiện tại → Present Perfect Continuous: have been investing.",
+          "proposed": "Chọn 'have been investing' để nêu quá trình đầu tư bắt đầu trong quá khứ và tiếp diễn tới hiện tại. Câu 'invested ... and stopped' có thể diễn đạt nỗ lực kéo dài trong quá khứ nhưng nói rõ đã dừng; nó không đáp ứng yêu cầu còn tiếp diễn tới nay. Continuous không có nghĩa đầu tư không nghỉ trong từng khoảnh khắc."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_3s_b1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "My brother ____ football every weekend.",
+          "proposed": "Nêu thói quen hiện tại bằng Present Simple: My brother ____ football every weekend."
+        },
+        "explain": {
+          "before": "Chủ ngữ ngôi thứ ba số ít (he/she/it, hoặc danh từ số ít như 'my brother') LUÔN thêm -s/-es ở câu khẳng định present simple.",
+          "proposed": "Theo yêu cầu Present Simple, my brother là ngôi thứ ba số ít nên dùng plays. Played có thể nêu thói quen quá khứ, nhưng không đáp ứng thì hiện tại được yêu cầu; every weekend không tự quyết định hiện tại hay quá khứ."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_truth_b1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Water ____ at 100 degrees Celsius at sea level.",
+          "proposed": "Nêu một sự thật khoa học chung ở hiện tại, thay vì một lần đun nước đang diễn ra: Water ____ at 100 degrees Celsius at sea level."
+        },
+        "explain": {
+          "before": "Sự thật khoa học luôn đúng → present simple: boils (chủ ngữ 'water' số ít).",
+          "proposed": "Chọn boils để nêu sự thật chung; water số ít và động từ ở Present Simple. Is boiling có thể tả một lần nước đang sôi, nhưng không phải cách nhìn sự thật chung được yêu cầu."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_truth_i1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'right now' báo hiệu hành động đang diễn ra tại thời điểm nói → dùng Present Continuous (is sleeping), không dùng Present Simple.",
+          "proposed": "Trong ngữ cảnh xin giữ yên lặng vì em bé đang ngủ, chọn 'is sleeping' để trình bày hoạt động đang diễn ra. Right now là ngữ cảnh của câu này, không phải lệnh cấm mọi Present Simple có cụm right now."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_truth_a1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'I study right now, so please don't disturb me.'",
+          "proposed": "Đúng hay Sai: Người nói đang ở giữa buổi học ngay lúc phát ngôn và muốn nói rõ hoạt động đang diễn ra: 'I study right now, so please don't disturb me.' phù hợp với cách diễn đạt thông thường cho ý đó."
+        },
+        "explain": {
+          "before": "SAI — 'right now' đòi hỏi Present Continuous vì diễn tả hành động đang xảy ra. Sửa: 'I'm studying right now, so please don't disturb me.'",
+          "proposed": "SAI với ý đang ở giữa một buổi học ngay lúc nói được nêu: 'I'm studying right now, so please don't disturb me' tự nhiên hơn. Không suy ra right now luôn bắt buộc continuous khi câu nói về vai trò, lịch trình hoặc cách nhìn khác."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_adv_i1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Public transport in this city ____ reliable, so many commuters rarely drive.",
+          "proposed": "Chọn trật tự trạng từ ở vị trí giữa câu thông thường trong lời kể trung tính, không nhấn mạnh be: Public transport in this city ____ reliable, so many commuters rarely drive."
+        },
+        "explain": {
+          "before": "Với động từ 'to be' (is), trạng từ tần suất đứng SAU be: is usually reliable.",
+          "proposed": "Chọn 'is usually' cho cách kể trung tính. 'Usually is' có thể dùng khi nhấn mạnh is; không đánh nó sai ngữ pháp trong mọi ngữ cảnh. Usually một mình hoặc be usually không tạo động từ hữu hạn phù hợp ở đây."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_adv_i3",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Chia Present Simple: He ____ (rarely/be) late for meetings — punctuality matters a lot to him.",
+          "proposed": "Chia Present Simple và đặt rarely ở vị trí giữa câu thông thường, với cách nói trung tính không nhấn mạnh be: He ____ (rarely / be) late for meetings — punctuality matters a lot to him."
+        },
+        "explain": {
+          "before": "Với 'be', trạng từ tần suất đứng sau: is rarely late.",
+          "proposed": "Theo yêu cầu vị trí giữa câu trung tính, dùng 'is rarely'. Khi nhấn mạnh be, 'rarely is' cũng có thể dùng; dạng đó không đáp ứng cách nói trung tính được yêu cầu, không phải lỗi ngữ pháp trong mọi ngữ cảnh."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_adv_a1",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'I always am tired after a long shift at the hospital.'",
+          "proposed": "Đúng hay Sai: Đáp lại người nghi ngờ mình có thực sự mệt hay không, người nói nhấn mạnh AM trong 'I always AM tired after a long shift at the hospital.' Cách đặt always trước be có thể dùng trong cách nhấn mạnh này."
+        },
+        "answer": {
+          "before": false,
+          "proposed": true
+        },
+        "explain": {
+          "before": "SAI — trạng từ tần suất phải đứng SAU 'be', không phải trước. Sửa: 'I am always tired after a long shift at the hospital.'",
+          "proposed": "ĐÚNG — khi be được nhấn mạnh, trạng từ tần suất có thể đứng trước be: always AM. Cách nói trung tính thường là 'I am always tired'; không bắt buộc sửa trật tự của lời đáp có nhấn mạnh này."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_vspc_b1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "explain": {
+          "before": "'Look!' báo hiệu hành động đang xảy ra ngay lúc nói → Present Continuous: is coming, không phải Present Simple.",
+          "proposed": "Chọn 'is coming' cho chiếc xe đang tới trong tình huống người nói chỉ cho người nghe nhìn và giục nhanh lên. Không biến Look thành một từ khóa buộc mọi câu sau nó dùng continuous bất kể ý nghĩa."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_vspc_i1",
+      "origin": "related-sibling-in-264",
+      "fields": {
+        "prompt": {
+          "before": "Normally I ____ from home, but this month I ____ at the office because of a big project.",
+          "proposed": "Chọn cặp thể hiện thói quen thông thường bằng Present Simple và giai đoạn làm tại văn phòng tạm thời đang diễn ra bằng Present Continuous: Normally I ____ from home, but this month I ____ at the office because of a big project."
+        },
+        "explain": {
+          "before": "'Normally' (thói quen chung) → present simple: work. 'This month' (tình huống tạm thời) → present continuous: am working.",
+          "proposed": "Chọn 'work / am working' cho hai góc nhìn được yêu cầu. 'Work / work' có thể trình bày cả hai sự việc như nhận định đơn ở ngữ cảnh khác; this month không tự làm Present Simple sai."
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_vspc_a2",
+      "origin": "content37",
+      "fields": {
+        "prompt": {
+          "before": "Đúng hay Sai: 'She's studying medicine at university, but right now she's studying for a chemistry test.'",
+          "proposed": "Đúng hay Sai: Cô ấy đang theo học một khóa y khoa có thời hạn tại đại học; ngay lúc nói cô ấy đang ôn cho một bài kiểm tra: 'She's studying medicine at university, but right now she's studying for a chemistry test.' Hai cách dùng studying có thể phù hợp trong bối cảnh này."
+        },
+        "answer": {
+          "before": false,
+          "proposed": true
+        },
+        "explain": {
+          "before": "SAI — 'studying medicine' diễn tả chuyên ngành/việc lâu dài của cô ấy nên phải dùng Present Simple: 'studies'. 'studying for a test' (đang diễn ra ngay lúc nói) mới đúng khi dùng Present Continuous. Sửa: 'She studies medicine at university, but right now she's studying for a chemistry test.'",
+          "proposed": "ĐÚNG — studying medicine có thể nói về khóa học đang theo đuổi trong giai đoạn hiện tại, dù khóa kéo dài nhiều năm; studying for a chemistry test nói về việc ôn đang diễn ra ngay lúc nói. Một hoạt động dài không tự bắt buộc dùng Present Simple."
+        }
+      }
+    }
+  ],
+  "academic_article_field_deltas": [
+    {
+      "path": "backend/content/foundations/phrase-vs-clause.md",
+      "fields": [
+        {
+          "line": 170,
+          "before": "**Quy tắc quan trọng:** Nếu nhóm từ bắt đầu bằng các từ nối trên và có S + V → đó là **dependent clause**, không thể đứng một mình.",
+          "proposed": "**Quy tắc quan trọng:** Xét vai trò của từ mở đầu trong cấu trúc đang đọc. Khi nó làm từ nối/marker của mệnh đề trạng ngữ, quan hệ hoặc nội dung được nhúng, nhóm đó là **dependent clause**. Không suy phụ thuộc chỉ từ chữ đầu: **Who called?** là câu hỏi độc lập, với chủ ngữ who và động từ hữu hạn called."
+        },
+        {
+          "line": 253,
+          "before": "4. Nếu là clause nhưng bắt đầu bằng *because, although, when, if, who, which...* → **dependent clause** → không đứng một mình",
+          "proposed": "4. Xét chức năng trong cấu trúc: nếu *because, although, when, if, who, which...* làm marker của mệnh đề phụ được nhúng thì nhận diện **dependent clause**. Các wh-word cũng mở câu hỏi độc lập, như **Who called?**, nên không dùng chữ đầu để quyết định một mình."
+        },
+        {
+          "line": 315,
+          "before": "3. **Dependent clause** = có S + V nhưng bắt đầu bằng từ nối (*because, although, who, which, that...*) → không đứng độc lập",
+          "proposed": "3. **Dependent clause** → xét marker của mệnh đề phụ trong cấu trúc đang đọc; wh-word đầu câu cũng có thể mở câu hỏi độc lập, nên không quyết định chỉ từ chữ đầu."
+        }
+      ]
+    },
+    {
+      "path": "backend/content/foundations/phrase-vs-clause.md",
+      "fields": [
+        {
+          "line": 203,
+          "before": "- \"**what concerns people most**\" → Noun clause (subject)",
+          "proposed": "- \"**what concerns people most**\" → nhóm mệnh đề danh từ làm chủ ngữ của is trong cấu trúc được trích; bên trong nhóm, what là chủ ngữ được viết rõ của concerns, people là tân ngữ."
+        },
+        {
+          "line": 204,
+          "before": "- \"**how it's being used**\" → Noun clause (tân ngữ sau *but*)",
+          "proposed": "- \"**how it's being used**\" → mệnh đề nội dung làm bổ ngữ vị ngữ sau động từ nối is, đối chiếu với the technology itself trong cấu trúc not ... but ...; but nối hai phần đối chiếu, không nhận một tân ngữ riêng."
+        }
+      ]
+    }
+  ],
+  "named_source_exceptions": {
+    "answer": [
+      [
+        "G-tenses-past-continuous",
+        "pc_interrupt_a1"
+      ],
+      [
+        "G-tenses-present-simple",
+        "ps_adv_a1"
+      ],
+      [
+        "G-tenses-present-simple",
+        "ps_vspc_a2"
+      ]
+    ],
+    "options": [
+      [
+        "G-tenses-past-continuous",
+        "pc_while_i1"
+      ],
+      [
+        "G-tenses-present-continuous",
+        "pc_temp_a2"
+      ]
+    ],
+    "accept": [
+      [
+        "G-grammar-for-reading-reduced-relative-clauses",
+        "rrc_v3_i2"
+      ]
+    ]
+  },
+  "final_authored_source_review": "APPROVED exact manifest004ce source bytes; no runtime/cutover/publication approval",
+  "final_authored_manifest_sha256": "004ce84fab271f98d2ae9c5d89c2e958b1038890cc2a931129cd529d50125b3e",
+  "root_final_source_binding_sha256": "b52cb412cc0f37e655997fad0e203767dba0b674e4d6faec19a44193ca0ed1b6",
+  "root_final_source_approval_sha256": "07d4428a19a953c1d26435768d9fd80443a266d2e885932f83648764aab09196",
+  "independent_content_source_review_sha256": "cfbe82523e9041328e170ad2dfe93c63a5ff71a4c90ae752ca34b58e21d0ef84",
+  "independent_content_source_controls_sha256": "e93293de2d7312d27ec7b88f97528f4d92b62cd1f615ae6c3c94bd023433aeb0"
+}
