@@ -31,13 +31,16 @@
 // window.WC?.escapeHtml, window.lucide được cung cấp bởi các script mà layout
 // nạp. Không import, không gọi initSupabase() — AuthedShell đã làm rồi.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { coreOperationHeaders, coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import { createWritingAdmissionController, clearWritingAdmissionIntents, shouldUseWritingAdmission } from '@/lib/writing-admission.mjs';
 import { admitCorePlayer, corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { getBrowserJson } from '@/lib/browser-api';
+import { normalizeWritingContentList } from '@/lib/writing-content-navigation.mjs';
+import { createWritingContentDialog } from '@/lib/writing-content-dialog';
 
 /** Trạng thái toàn trang — giữ trong object để cleanup dứt điểm. */
 type ModalState = {
@@ -67,6 +70,9 @@ type PageState = {
   writingPermitted: boolean;
   dead: boolean;
   generation: number;
+  tipsRequest: number;
+  promptRequest: number;
+  contentNavigation: ReturnType<typeof createWritingContentDialog> | null;
 };
 
 type ListenerRegistrar = (el: Element | Document | null, ev: string, fn: any) => void;
@@ -81,6 +87,7 @@ function createPageState(): PageState {
     allEssays: [], currentFilter: 'all', allTips: [], tipsLoaded: false,
     tipFilter: 'all', tipTypeFilter: 'all', allPrompts: [], pbRendered: false,
     pbFilter: 'all', writingPermitted: true, dead: false, generation: 0,
+    tipsRequest: 0, promptRequest: 0, contentNavigation: null,
   };
 }
 
@@ -529,22 +536,26 @@ function wireEssayFilterTabs(ps: PageState, on: ListenerRegistrar) {
 
 async function loadTips(api: any, ps: PageState) {
   const generation = ps.generation;
+  const request = ++ps.tipsRequest;
   hide('tips-empty'); hide('tips-error'); hide('tips-list');
   const loadingEl = $('tips-loading');
   if (loadingEl) loadingEl.classList.remove('hidden');
   try {
-    const data = await api.get('/api/writing/tips');
-    if (ps.dead || ps.generation !== generation) return;
-    ps.allTips = (data && data.tips) || [];
+    const data = await getBrowserJson('/api/writing/tips');
+    if (ps.dead || ps.generation !== generation || request !== ps.tipsRequest) return { items: [], enabled: false };
+    ps.allTips = normalizeWritingContentList('tip', data);
     ps.tipsLoaded = true;
     hide('tips-loading');
     renderTips(ps);
+    return { items: ps.allTips, enabled: true };
   } catch (err: any) {
-    if (ps.dead || ps.generation !== generation) return;
+    if (ps.dead || ps.generation !== generation || request !== ps.tipsRequest) return { items: [], enabled: false };
+    ps.allTips = []; ps.tipsLoaded = false;
     hide('tips-loading');
     const errMsg = $('tips-error-msg');
     if (errMsg) errMsg.textContent = 'Không tải được mẹo viết: ' + ((err && err.message) || 'lỗi không xác định');
     show('tips-error');
+    throw err;
   }
 }
 
@@ -581,7 +592,7 @@ function renderTips(ps: PageState) {
       escapeHtml(TIP_TASK_LABELS[t.task_type] || t.task_type) + '</span>';
     const catPill = t.category ? '<span class="tip-card__cat">' + escapeHtml(t.category) + '</span>' : '';
     return (
-      '<div class="essay-card tip-card clickable" role="link" tabindex="0"' +
+      '<div class="essay-card tip-card clickable" role="button" aria-haspopup="dialog" tabindex="0"' +
           ' data-tip-id="' + escapeHtml(t.id) + '">' +
         '<div class="flex items-center justify-between gap-3 mb-2">' +
           '<h3 class="tip-card__title font-semibold">' + escapeHtml(t.title || '(Mẹo viết)') + '</h3>' +
@@ -598,7 +609,7 @@ function renderTips(ps: PageState) {
     const go = () => {
       const id = card.getAttribute('data-tip-id');
       const tip = ps.allTips.find((t: any) => t.id === id);
-      openTipModal(tip, ps);
+      openTipModal(tip, ps, card);
     };
     card.addEventListener('click', go);
     card.addEventListener('keydown', (ev: KeyboardEvent) => {
@@ -622,8 +633,8 @@ function wireTipFilterTabs(ps: PageState, on: ListenerRegistrar) {
   });
 }
 
-function openTipModal(tip: any, ps: PageState) {
-  if (!tip) return;
+function openTipModal(tip: any, ps: PageState, card: HTMLElement) {
+  if (!tip || !ps.contentNavigation?.activate('tip', tip.id, card)) return;
   const ctype = tip.content_type || 'tip';
   try {
     if (window.api && window.api.post) {
@@ -633,8 +644,12 @@ function openTipModal(tip: any, ps: PageState) {
       }).catch(() => {});
     }
   } catch {}
+}
+
+function renderTipModal(tip: any) {
+  const ctype = tip.content_type || 'tip';
   const titleEl = $('tip-modal-title');
-  if (titleEl) titleEl.textContent = tip.title || '';
+  if (titleEl) titleEl.textContent = tip.title?.trim() || 'Mẹo viết';
   const meta = [TIP_TYPE_LABELS[ctype] || ctype, TIP_TASK_LABELS[tip.task_type] || tip.task_type];
   if (tip.category) meta.push(tip.category);
   const metaEl = $('tip-modal-meta');
@@ -659,27 +674,32 @@ function openTipModal(tip: any, ps: PageState) {
   const bodyHtml = (window as any).renderMarkdown ? (window as any).renderMarkdown(tip.body_markdown) : '';
   const bodyEl = $('tip-modal-body');
   if (bodyEl) bodyEl.innerHTML = head + bodyHtml;
-  const modal = $('tip-modal');
-  if (modal) modal.classList.remove('hidden');
   if ((window as any).lucide && (window as any).lucide.createIcons) (window as any).lucide.createIcons();
-}
-
-function closeTipModal() {
-  const modal = $('tip-modal');
-  if (modal) modal.classList.add('hidden');
 }
 
 async function loadPromptBank(api: any, ps: PageState) {
   const generation = ps.generation;
+  const request = ++ps.promptRequest;
   try {
-    const data = await api.get('/api/writing/prompt-bank');
-    if (ps.dead || ps.generation !== generation) return;
-    if (!data || data.enabled !== true) return;
-    ps.allPrompts = (data.prompts) || [];
-    if (!ps.allPrompts.length) return;
+    const data = await getBrowserJson('/api/writing/prompt-bank');
+    if (ps.dead || ps.generation !== generation || request !== ps.promptRequest) return { items: [], enabled: false };
+    ps.allPrompts = normalizeWritingContentList('prompt', data);
+    const enabled = Boolean(data && typeof data === 'object' && 'enabled' in data && data.enabled === true);
     const btn = $('tab-prompt-bank');
-    if (btn) btn.hidden = false;
-  } catch {}
+    if (btn) btn.hidden = !enabled || ps.allPrompts.length === 0;
+    renderPromptBank(ps);
+    if (!enabled) {
+      const list = $('pb-list');
+      if (list) list.textContent = 'Kho đề hiện chưa được bật.';
+    }
+    return { items: ps.allPrompts, enabled };
+  } catch (err) {
+    if (ps.dead || ps.generation !== generation || request !== ps.promptRequest) return { items: [], enabled: false };
+    ps.allPrompts = []; ps.pbRendered = false;
+    const list = $('pb-list');
+    if (list) list.textContent = 'Không tải được kho đề. Vui lòng thử lại.';
+    throw err;
+  }
 }
 
 function renderPromptBank(ps: PageState) {
@@ -698,7 +718,7 @@ function renderPromptBank(ps: PageState) {
     const diff = p.difficulty ? '<span class="tip-card__cat">' + escapeHtml(p.difficulty) + '</span>' : '';
     const imgFlag = p.prompt_image_url ? ' 🖼️' : '';
     return (
-      '<div class="essay-card tip-card clickable" role="link" tabindex="0"' +
+      '<div class="essay-card tip-card clickable" role="button" aria-haspopup="dialog" tabindex="0"' +
           ' data-pb-id="' + escapeHtml(p.id) + '">' +
         '<div class="flex items-center justify-between gap-3 mb-2">' +
           '<h3 class="tip-card__title font-semibold">' + escapeHtml(p.title || '(Đề bài)') + imgFlag + '</h3>' +
@@ -714,7 +734,7 @@ function renderPromptBank(ps: PageState) {
     const go = () => {
       const id = card.getAttribute('data-pb-id');
       const p = ps.allPrompts.find((x: any) => String(x.id) === id);
-      openPromptModal(p, ps);
+      openPromptModal(p, ps, card);
     };
     card.addEventListener('click', go);
     card.addEventListener('keydown', (ev: KeyboardEvent) => {
@@ -734,8 +754,8 @@ function wirePromptFilterTabs(ps: PageState, on: ListenerRegistrar) {
   });
 }
 
-function openPromptModal(p: any, ps: PageState) {
-  if (!p) return;
+function openPromptModal(p: any, ps: PageState, card: HTMLElement) {
+  if (!p || !ps.contentNavigation?.activate('prompt', p.id, card)) return;
   try {
     if (window.api && window.api.post) {
       window.api.post('/api/analytics/events', {
@@ -744,8 +764,11 @@ function openPromptModal(p: any, ps: PageState) {
       }).catch(() => {});
     }
   } catch {}
+}
+
+function renderPromptModal(p: any) {
   const titleEl = $('tip-modal-title');
-  if (titleEl) titleEl.textContent = p.title || '(Đề bài)';
+  if (titleEl) titleEl.textContent = p.title?.trim() || 'Đề bài';
   const meta = [PB_TASK_LABELS[p.task_type] || p.task_type];
   if (p.difficulty) meta.push(p.difficulty);
   const metaEl = $('tip-modal-meta');
@@ -753,8 +776,6 @@ function openPromptModal(p: any, ps: PageState) {
   const img = p.prompt_image_url ? '<img src="' + escapeHtml(p.prompt_image_url) + '" alt="Đề Task 1" class="pb-modal-img" />' : '';
   const bodyEl = $('tip-modal-body');
   if (bodyEl) bodyEl.innerHTML = img + '<p class="pb-modal-text">' + escapeHtml(p.prompt_text || '') + '</p>';
-  const modal = $('tip-modal');
-  if (modal) modal.classList.remove('hidden');
 }
 
 function formatDeadline(iso: string | null | undefined): { urgency: string; label: string } | null {
@@ -1586,8 +1607,7 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   if (contTips) contTips.classList.toggle('hidden', tab !== 'tips');
   if (contPB) contPB.classList.toggle('hidden', tab !== 'prompt-bank');
 
-  if (tab === 'tips' && !ps.tipsLoaded) { loadTips(api, ps); }
-  if (tab === 'prompt-bank' && !ps.pbRendered) { renderPromptBank(ps); }
+  // The bounded content controller owns canonical reads on tab/history changes.
 }
 
 async function applyWritingPermissionGating(api: any, isCurrent: () => boolean) {
@@ -1641,6 +1661,12 @@ export function WritingBehavior() {
   }
   const lifecycle = modalStateRef.current;
 
+  useLayoutEffect(() => () => {
+    // Remove read-only content before an account/logout transition can paint.
+    lifecycle.page.contentNavigation?.dispose();
+    lifecycle.page.contentNavigation = null;
+  }, [status, user?.id, lifecycle]);
+
   // Cổng fail-closed (ADR-011) — dùng replace() để nút Back không dựng lại trang
   // riêng tư từ lịch sử. Bản legacy tương ứng: kiểm `getSession()` rồi đá về
   // trang đăng nhập.
@@ -1669,6 +1695,10 @@ export function WritingBehavior() {
     ps.tipsLoaded = false;
     ps.allPrompts = [];
     ps.pbRendered = false;
+    ps.tipFilter = 'all'; ps.tipTypeFilter = 'all'; ps.pbFilter = 'all';
+    ps.contentNavigation?.dispose(); ps.contentNavigation = null;
+    ['tips-list', 'pb-list', 'tip-modal-body'].forEach(id => $(id)?.replaceChildren());
+    hide('tip-modal');
 
     // Account switch must hide the previous learner synchronously, before the
     // new canonical reads resolve. Empty counts/lists are preferable to a
@@ -1724,23 +1754,34 @@ export function WritingBehavior() {
       const submitBtn = $('modal-btn-submit') as HTMLButtonElement | null;
       const modalClose = $('modal-close') as HTMLButtonElement | null;
 
-      on(tabAssignments, 'click', () => setTabActive('assignments', ps, api));
-      on(tabEssays, 'click', () => setTabActive('essays', ps, api));
-      on(tabTips, 'click', () => setTabActive('tips', ps, api));
-      on(tabPromptBank, 'click', () => setTabActive('prompt-bank', ps, api));
+      const contentNavigation = createWritingContentDialog({
+        account: user.id, current: isCurrent,
+        read: kind => kind === 'tip' ? loadTips(api, ps) : loadPromptBank(api, ps),
+        render: (kind, item) => kind === 'tip' ? renderTipModal(item) : renderPromptModal(item),
+        selectTab: tab => setTabActive(tab, ps, api),
+        filters: () => ({ tipFilter: ps.tipFilter, tipTypeFilter: ps.tipTypeFilter, pbFilter: ps.pbFilter }),
+        restoreFilters: filters => {
+          Object.assign(ps, { tipFilter: filters.tipFilter, tipTypeFilter: filters.tipTypeFilter, pbFilter: filters.pbFilter });
+          for (const [attribute, value] of [['data-tip-filter', ps.tipFilter], ['data-tip-type-filter', ps.tipTypeFilter], ['data-pb-filter', ps.pbFilter]]) {
+            document.querySelectorAll(`[${attribute}]`).forEach(btn => btn.classList.toggle('is-active', btn.getAttribute(attribute) === value));
+          }
+        },
+      });
+      ps.contentNavigation = contentNavigation;
+      on(tabAssignments, 'click', () => contentNavigation.tab('assignments'));
+      on(tabEssays, 'click', () => contentNavigation.tab('essays'));
+      on(tabTips, 'click', () => contentNavigation.tab('tips'));
+      on(tabPromptBank, 'click', () => contentNavigation.tab('prompt-bank'));
 
       wireEssayFilterTabs(ps, on);
       wirePromptFilterTabs(ps, on);
       wireTipFilterTabs(ps, on);
 
-      on(tipModalClose, 'click', closeTipModal);
-      on(tipModalBackdrop, 'click', closeTipModal);
+      on(tipModalClose, 'click', contentNavigation.close);
+      on(tipModalBackdrop, 'click', contentNavigation.close);
       on(document, 'keydown', (ev: KeyboardEvent) => {
+        if (contentNavigation.keydown(ev)) return;
         trapSubmitModalFocus(ev);
-        if (ev.key === 'Escape' && !$('tip-modal')?.classList.contains('hidden')) {
-          closeTipModal();
-          return;
-        }
         if (ev.key === 'Escape' && !$('spell-panel')?.classList.contains('hidden')) {
           hideSpellPanel();
           textarea?.focus();
@@ -1787,6 +1828,8 @@ export function WritingBehavior() {
       });
 
       // ASYNC LOADS (now that listeners are attached)
+      void contentNavigation.reconcile();
+      if (new URLSearchParams(window.location.search).get('tab') !== 'prompt-bank') void loadPromptBank(api, ps).catch(() => {});
       await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
       if (!isCurrent()) return;
       hideSubmissionNotice();
@@ -1801,10 +1844,10 @@ export function WritingBehavior() {
         await openSubmitModal(requestedAssignment, window as any, api, ms, false);
         if (!isCurrent()) return;
       }
-      await loadPromptBank(api, ps);
     })();
 
     return () => {
+      ps.contentNavigation?.dispose(); ps.contentNavigation = null;
       if (ps.generation === generation) ps.dead = true;
       ms.dead = true;
       if (ms.accountId === user.id) {

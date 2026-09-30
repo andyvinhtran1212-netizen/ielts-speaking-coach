@@ -4,18 +4,19 @@
 
 | Requirement | Planned evidence | Result |
 | --- | --- | --- |
-| FR-001 | Duplicate-even-identical/empty/wrong-tab/tabless/conflicting item closed tests; plain valid-tab library; any assignment_id presence suppresses content without altering assignment owner | PENDING |
-| FR-002 | Native one-entry repeated-open/Back/Forward journey | PENDING |
-| FR-003 | Owned-open→reload→close with valid/damaged marker; direct/new-tab→reload→close fallback; no URL/referrer ownership inference | PENDING |
-| FR-004 | Canonical permission/failure/deletion/late-read/account/logout journeys | PENDING |
-| FR-005 | Keyboard focus entry/trap/return/fallback and shared tip/prompt identity interactions | PENDING |
-| FR-006 | Zero submission/AI writes, analytics count and existing admission/submit/result suites | PENDING |
+| FR-001 | kind=test; ref=node --test frontend/tests/writing-content-navigation.test.mjs; detail=Duplicate-even-identical/empty/wrong-tab/tabless/conflicting item closed tests; plain valid-tab library; any assignment_id presence suppresses content without altering assignment owner; local_scope=synthetic final Next build | PASS |
+| FR-002 | kind=test; ref=node frontend/tooling/verify-writing-content-history-flow.mjs http://127.0.0.1:3115; detail=Native one-entry repeated-open/Back/Forward journey; local_scope=synthetic final Next build | PASS |
+| FR-003 | kind=test; ref=node frontend/tooling/verify-writing-content-history-flow.mjs http://127.0.0.1:3115; detail=Owned-open→reload→close with valid/damaged marker; direct/new-tab→reload→close fallback; no URL/referrer ownership inference; local_scope=synthetic final Next build | PASS |
+| FR-004 | kind=test; ref=node frontend/tooling/verify-writing-content-history-flow.mjs http://127.0.0.1:3115; detail=Canonical permission/failure/deletion/late-read/account/logout journeys; local_scope=synthetic final Next build | PASS |
+| FR-005 | kind=test; ref=node frontend/tooling/verify-writing-content-history-flow.mjs http://127.0.0.1:3115; detail=Keyboard focus entry/trap/return/fallback and shared tip/prompt identity interactions; local_scope=synthetic final Next build | PASS |
+| FR-006 | kind=test; ref=node frontend/tooling/verify-writing-content-history-flow.mjs http://127.0.0.1:3115; detail=Zero submission/AI writes, analytics count and existing admission/submit/result suites; local_scope=synthetic final Next build | PASS |
 | FR-007 | Filter/scroll, viewport/theme/reduced-motion and mobile/VoiceOver evidence | PENDING |
 
-This specification is approved; the approval authority and independent review
-are recorded in spec.md. Source audit proves the current local-overlay handlers,
-not the proposed behavior. Product implementation and its planned evidence
-remain pending; no planned test is a PASS.
+Approved base e3cf29140807477dfddd1150c2a54a1f3a04447f preceded implementation.
+Root independently reviewed source and consolidated parent-marker binding,
+focus after canonical card replacement, submit-owner visibility yield and blank
+accessible labels before the final build. Local evidence is not deployed or
+human accessibility acceptance.
 
 ## Contract evidence
 
@@ -31,8 +32,15 @@ remain pending; no planned test is a PASS.
 
 ## UI evidence
 
-- Viewports/themes/input methods: 360/390/768/1440, light/dark, reduced motion,
-  keyboard, mobile touch/VoiceOver and no horizontal overflow: PENDING.
+- Final build:58/58 native browser cases,27/27 admission scenarios;21 new
+  model cases and27 React interactions passed. Full canonical Node9,284passed,
+  2 interpreter-environment skips; both types and production build passed.
+- Browser widths360/390/768/1440, both themes, reduced motion, keyboard focus,
+  filters/scroll, async/account/error states passed. Mobile touch/VoiceOver and
+  actual persisted BFCache remain pending. Document Back recreated safely with
+  pageshow.persisted=false; lifecycle mocks are not a persisted-cache claim.
+- External evidence: writing-modal-implementation-handoff.md and final-build
+  browser/admission logs in the remediation audit directory.
 
 ## Release evidence
 

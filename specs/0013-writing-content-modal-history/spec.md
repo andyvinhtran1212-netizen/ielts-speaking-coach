@@ -1,7 +1,7 @@
 ---
 id: WRITINGMODAL-0013
 title: Make Writing content dialogs follow browser history and keyboard focus
-status: approved
+status: implementing
 risk: medium
 owner: product
 ---
