@@ -76,8 +76,10 @@ draft -> approved -> implementing -> verified -> shipped
 
 | DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | approved | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
 
-| READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | approved | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
+| READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | implementing | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
 
-| WRITINGMODAL-0013 | Make Writing content dialogs follow browser history and keyboard focus | approved | medium | [spec](0013-writing-content-modal-history/spec.md) |
+| WRITINGMODAL-0013 | Make Writing content dialogs follow browser history and keyboard focus | implementing | medium | [spec](0013-writing-content-modal-history/spec.md) |
+
+| GRAMMARCUTOVER-0014 | Preserve Grammar quiz history during bounded bank revision cutover | approved | high | [spec](0014-grammar-bank-revision-cutover/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.

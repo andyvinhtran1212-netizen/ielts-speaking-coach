@@ -1054,6 +1054,10 @@ body.av-page .hover\:text-white:hover {
   padding: var(--av-space-6);
 }
 .wd-tip-modal__panel h2 { color: var(--av-text-primary); margin: 0; }
+.wd-tip-modal .wd-modal-close { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+.wd-tip-modal__panel { overflow-wrap: anywhere; }
+.wd-tip-modal__panel:focus-visible,
+.wd-tip-modal .wd-modal-close:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 3px; }
 
 
 /* ── Sprint 19.1C — content_type badges + type-specific modal blocks ── */

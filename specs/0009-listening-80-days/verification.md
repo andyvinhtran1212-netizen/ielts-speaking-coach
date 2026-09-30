@@ -50,14 +50,42 @@ for preparation only, not published content or completed semantic review.
   bytes are unchanged. Round4 independent review accepted the correction and
   actual80-day/195-form scan: all104 study positions and110 unopened study blocks
   are neutral; all104 protected items and93 zero-item resources retain their
-  original explicit-study content. New exact-head CI remains pending;
-  merge/publication are held.
+  original explicit-study content. Actual CI at `e694fa57` failed because
+  Ubuntu lacked `ffprobe`, and a pre-existing Mock browser fixture mixed
+  countdown with intentional canonical-poll recovery. The final consolidation
+  in a separate checkout integrates observed staging `d276085e`, adds the real
+  OS audio dependency and isolates the fixture's recovery signals. It changes
+  neither the Mock app nor the frozen release. Final independent review and
+  exact-head CI remain required; merge/publication are held.
 - Consolidated correction local gates: source boundary 49 passed; complete
   backend 9,024 passed / 358 skipped; frontend contracts 9,271 passed; React
   27 passed; strict/legacy type checks and production build passed. The initial
   sandbox frontend run failed on localhost binding; the permitted rerun passed.
   Skips do not certify live service contracts. Logs are bound in the external
   runtime reset audit, not treated as staging or production evidence.
+- Final consolidation local evidence: actual merged OpenAPI generation is
+  byte-identical to the automatically merged types, and all35 Listening path
+  blocks retain their accepted bytes. Strict/legacy types, React39 and the
+  production build pass. The final Mock verifier passes36 cases, retaining its
+  original35 assertions plus explicit canonical-poll recovery; a paused-clock
+  trace separates countdown, online and poll signals. The existing generic
+  programme player passes all6 light/dark and375/768/1440 browser cases. These
+  are isolated local fixtures, not authenticated source-collection journeys.
+  The host full backend run is9494 passed /38 skipped /3 failed in unchanged
+  migration256 tests; an observed DB clock ahead of the Python host invalidates
+  their common-clock premise. The unchanged whole module subsequently passed
+  all26 cases with zero failures/errors/skips on the same Linux VM clock, with
+  six strict Python/SQL brackets and identical1631 source hashes before/after.
+  The exact owned runner was removed. This does not convert that full run into PASS;
+  complete exact-head Ubuntu CI must pass. Final frontend verification is
+  passed9293 cases with0 skips after restoring the build-generated fixture
+  config to its committed unconfigured default; no generated test endpoint
+  belongs in the patch. The earlier run's two default-config assertions failed
+  solely because the local build had generated fixture endpoints; that failure
+  and the actual restored rerun are retained in separate logs. These final
+  candidate gates bind the `d276085e` integration. Staging then advanced to
+  `2b7fa5b6`, including accepted Listening navigation/admin changes; its
+  integration and affected final gates remain pending before the final push.
 - Full80 local package and independent source/projection/package review: PASS.
   Package `80-days-listening-source-v1`, manifest SHA-256
   `29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841`.
@@ -75,10 +103,24 @@ for preparation only, not published content or completed semantic review.
   readback confirming293 ledger entries and the source namespace/nullable timing
   contract. Four prior package metadata fingerprints and19 attempt ID/status
   fingerprints were unchanged; this limited snapshot does not prove every
-  historical answer/reveal/timestamp field. The private listening-audio upload
-  stopped on a client timeout before the package RPC. Genuine complete-row
-  baseline, completed unpublished import/retry and663 asset readbacks remain
-  pending; partial uploads are not a package completion certificate.
+  historical answer/reveal/timestamp field. A subsequent genuine pre-import
+  baseline uses two identical read-only database snapshots and complete-row
+  digests, including19 existing attempts and7 reveals. The source package is
+  absent, and the verifier/importer/projection identities are pinned to clean
+  `e694fa57`. Two fresh non-admin synthetic students were created through the
+  reviewed factory and independently read back; no login or learner journey
+  is inferred. Initial asset transfers failed before the package RPC. The V3
+  continuation terminated with44 new verified assets,46 submitted terminal
+  outcomes and177 not submitted. Combined with440 prior receipts,484 of663
+  assets are confirmed and179 remain unconfirmed. Both failures preserve actual
+  transport exceptions; the fallback SDK returned object absence as404
+  `not_found` with an underlying HTTP400, which the V3 retry classifier rejected.
+  No package RPC was called. The independently accepted V4 uploader now handles
+  the exact179 remainder, including the two failures, with at most3 workers and
+  two canonical calls per asset. Partial live counters are not terminal receipts.
+  Completed unpublished
+  import/retry and fresh all663 asset/full-row readbacks remain pending;
+  partial receipts are not a package completion certificate.
 - Staging SHA, integrated checks and live source-collection journeys: pending.
 - Production promotion SHA, deployed markers and package publication: pending.
 
@@ -87,6 +129,7 @@ for preparation only, not published content or completed semantic review.
 - `80-days-listening-preview/phase-2-review/full80-independent-package-review.json`: independent actual full80/native package acceptance, SHA-256 `2bb1e65b72d890ecefa1e12a02593870cb004324d6d7dc7875967f78f7a35a4e`.
 - `80-days-listening-releases/source-v1-20260930`: frozen local release; external `source-v1-20260930-dry-run.json` records actual pure importer result.
 - `80-days-listening-preview/phase-2-review/full80-local-postgres-projection.json`: actual complete local RPC created/reused/rollback evidence.
+- `80-days-listening-qa/round5-module256-vm-root-r2-20260930/module256-root-result.json`: actual unchanged26-case local same-clock module evidence, SHA-256 `1c75906a7fd56c2d030d547ec86cae1aafd612e7cf56daa88a299828bcb999c6`; independent review `module256-actual-same-clock-independent-review.json`, SHA-256 `771a8a89bc8df3c5bf41dd388e28fd57df65f3069ca117c70d0bf0476927b1f6`.
 - `80-days-listening-preview/phase-2-review/release-projection-extension-78-80-review.json` plus revision3 `release-projection-extension-26-74-review.json`: final exact normalized tuples, with the original Day53 typed-prompt correction and review-hash rebinding explicitly superseded.
 
 The requirement matrix above stays PENDING for end-to-end release closure; local preparation and code gates do not prove staging or production behavior.

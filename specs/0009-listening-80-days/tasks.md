@@ -26,4 +26,27 @@
 
 ## Release checkpoint — full source package (2026-09-30)
 
-T003–T004 cover completed source preparation and independent content review; T005–T006 cover the implemented runtime and UI. The consolidated public-boundary correction R11/R12 passed local suites and independent round4 review. Staging migration304 is applied, but the immutable asset upload stopped on a Storage timeout before the package RPC. Hosted import/readback, exact staging deployment/journeys and production publication remain T007–T010. The actual full80 native dry-run and disposable PostgreSQL import/reuse/invalid-provenance rollback passed; these are not hosted service or browser evidence.
+T003–T004 cover completed source preparation and independent content review;
+T005–T006 cover the implemented runtime and UI. The R11/R12 public-boundary
+correction passed independent round4 review at `e694fa57`. Its actual CI exposed
+a missing `ffprobe` dependency and an unrelated Mock retry fixture that allowed
+canonical polling to interfere with its countdown assertion. The final
+consolidation is prepared in a separate CI checkout with observed staging
+`d276085e`: install real audio tools and isolate the fixture's recovery signals,
+preserving the app and the immutable source release. The unchanged whole
+migration256 module passed all26 cases on the same Linux VM clock, with zero
+skips and six strict Python/SQL clock brackets. Final review and exact-head CI
+are still required. Staging subsequently advanced to `2b7fa5b6`; its accepted
+Listening navigation/admin changes require integration before the final push.
+
+Staging migration304, the genuine complete-row pre-import baseline and two fresh
+synthetic learner accounts have been verified. The V3 bounded immutable transfer
+terminated after two network failures: 44 new assets were verified, bringing the
+receipt total to 484 of 663; 179 remain unconfirmed in that terminal receipt.
+The independently accepted V4 remainder uploader is now running; its partial
+progress does not replace a terminal asset receipt. Partial asset receipts do
+not prove a completed package. Hosted
+canonical import/readback/retry, exact staging
+deployment and authenticated journeys, and production publication remain
+T007–T010. Full80 local dry-run and disposable PostgreSQL import/reuse/invalid
+provenance rollback passed; these do not certify hosted services or learners.

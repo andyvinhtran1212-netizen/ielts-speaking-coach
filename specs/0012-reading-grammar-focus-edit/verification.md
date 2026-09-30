@@ -2,17 +2,18 @@
 
 ## Requirement coverage
 
-No endpoint implementation, canonical repair or release evidence is claimed.
+The bounded endpoint is implemented and locally verified. Canonical repair and
+release remain pending; local synthetic data does not certify deployed behavior.
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | L1 guarded canonical read/projection and stable fingerprint tests | PENDING |
-| FR-002 | Strict focus/revision/operation shape and size validation tests | PENDING |
-| FR-003 | Whole-state CAS, parent/question/FK locks, legacy empty-state and preservation evidence | PENDING |
-| FR-004 | Competing edits and unchanged-timestamp source/metadata import tests | PENDING |
-| FR-005 | No-op, lost ACK, operation reuse and concurrent retry receipt tests | PENDING |
-| FR-006 | Atomic audit failure, bounded receipt lookup and unrelated non-JSON log tests | PENDING |
-| FR-007 | OpenAPI/error/read-after/runtime checks; lost-ACK retry after source/question import distinguishes receipt component fingerprints from current fingerprints | PENDING |
+| FR-001 | kind=test; ref=pytest tests/test_reading_grammar_focus.py tests/test_reading_grammar_focus_precision.py tests/test_reading_grammar_focus_integration.py; detail=`backend/tests/test_reading_grammar_focus.py` canonical fingerprint tests and `test_missing_and_other_library_records_remain404` (local actual-PG/wire scope; live release pending) | PASS |
+| FR-002 | kind=test; ref=pytest tests/test_reading_grammar_focus.py tests/test_reading_grammar_focus_routes.py tests/test_reading_grammar_focus_optionality.py; detail=`backend/tests/test_reading_grammar_focus.py` strict-shape tests; `test_original_oversized_json_is_rejected_before_decode_or_write` (local actual-PG/wire scope; live release pending) | PASS |
+| FR-003 | kind=test; ref=pytest tests/test_reading_grammar_focus_integration.py; detail=`test_actual_one_analysis_edit_preserves_all_other_values_questions_and_private_projection`, `test_real_parent_question_and_immediate_fk_locks_fence_competing_writes` in `backend/tests/test_reading_grammar_focus_integration.py` (local actual-PG/wire scope; live release pending) | PASS |
+| FR-004 | kind=test; ref=pytest tests/test_reading_grammar_focus_integration.py; detail=`test_unchanged_timestamp_source_metadata_and_question_drifts_conflict`, `test_import_paused_after_question_delete_conflicts_and_zero_question_scope_still_fences_insert` (local actual-PG/wire scope; live release pending) | PASS |
+| FR-005 | kind=test; ref=pytest tests/test_reading_grammar_focus_integration.py; detail=`test_empty_legacy_noop_records_one_receipt_without_timestamp_or_metadata_rewrite`, `test_concurrent_identical_operations_serialize_to_one_audit_receipt`, `test_same_actor_passage_operation_id_reuse_rejects_changed_payload` (local actual-PG/wire scope; live release pending) | PASS |
+| FR-006 | kind=test; ref=pytest tests/test_reading_grammar_focus_integration.py; detail=`test_audit_failure_rolls_back_content_and_uses_safe_error`, `test_duplicate_corrupt_matching_receipts_fail_closed_without_rewriting_content`, `test_other_action_non_json_logs_are_never_cast_or_misinterpreted` (local actual-PG/wire scope; live release pending) | PASS |
+| FR-007 | kind=test; ref=pytest tests/test_reading_grammar_focus_routes.py tests/test_reading_grammar_focus_integration.py; detail=`backend/tests/test_reading_grammar_focus_routes.py` OpenAPI/auth/error contracts; `test_lost_ack_retry_after_source_and_question_import_uses_saved_component_fingerprints`; generated types and both tsc boundaries (local actual-PG/wire scope; live release pending) | PASS |
 | FR-008 | Independent source parse, reviewed one-analysis diff and canonical read-after | PENDING |
 | FR-009 | Separate approval, exact-SHA staging/release and bounded production/restore evidence | PENDING |
 
@@ -28,21 +29,58 @@ No endpoint implementation, canonical repair or release evidence is claimed.
 
 ## Contract evidence
 
-- Models/OpenAPI, strict validation and existing consumer compatibility: pending.
-- Atomic transaction transport with long translated metadata: pending.
+- 36 model/service tests, 11 actual route/auth/error/size/OpenAPI tests and
+  34 actual PostgreSQL cases passed (81 focused tests). Generated api.d.ts and
+  main/legacy TypeScript boundaries passed.
+- Full backend with explicit owned PostgreSQL prerequisite: 8,981 passed,
+  355 unrelated integration skips, 13 warnings. Full Node: 9,204 passed,
+  3 skips. Skips do not certify live contracts.
+- Local logs and independently bound hashes are in the external remediation
+  audit directory: admin-reading-focus-handoff.md, reading-editor-full-backend.log,
+  reading-editor-full-node.log and reading-focus route/type evidence.
+
+## Review correction evidence
+
+- Round 2 addresses three review findings together: optional fields no longer
+  advertise wire defaults that the pinned generator promotes to required fields;
+  JSONB snapshots preserve arbitrary decimal precision and update only the
+  grammar-focus path; private receipts verify a checksum over every saved field.
+- The combined model/service/wire/precision suite passes 153 tests: 36 original
+  model/service, 2 exact-number tests, 51 actual PostgreSQL cases, 11 wire routes,
+  and 53 optionality/schema/wire cases. Numeric and numeric-string identities
+  remain distinct; same-binary-float JSONB drift conflicts before mutation.
+- Independent review additionally found last-key-wins receipt ambiguity.
+  Recursive duplicate-key rejection now precedes typed semantic checks; five
+  real-PG corrupt cases fail503 and a unique-key reordered/pretty receipt replays.
+  The independent final review reran 89 service/precision/PG cases without skips.
+- Generated request/read/edit-result types accept point-only items and reject
+  explicit null. The strict TypeScript consumer and both tsc boundaries pass.
+- Full canonical Node command with its retired-HTML loader: 9,205 passed,
+  3 skipped. Earlier harness runs with a nonexistent loader and sandbox-blocked
+  loopback sockets are retained as failed evidence and are not counted as PASS.
 
 ## Data evidence
 
-- Full unrelated fields/metadata and question IDs/hashes preserved: pending.
-- Concurrency/no-op/retry/receipt and audit-failure rollback: pending.
+- Actual PG verifies unrelated Unicode/large metadata, questions/IDs/hashes,
+  whole-state CAS including unchanged-timestamp drift, no-op timestamp retention,
+  concurrent retries, audit rollback, child update/delete/insert locks and
+  immediate FK protection. Deferrable/unknown FK state fails before writes.
+- Lost ACK after later source/question import returns the committed component
+  hashes separately from current hashes. Matching duplicate/corrupt receipts
+  fail closed; unrelated non-JSON audit TEXT is never cast.
+- These are synthetic owned-schema results; configured staging/production
+  transaction, source and preservation readback remain pending.
 
 ## Academic evidence
 
 - Proposed corrected analysis is in the external council evidence report.
-- Second reviewer, actual source-text match and exact field diff: pending.
+- Root and content council reviewed the one-analysis proposal against the
+  captured source. A fresh canonical source match and exact deployed field diff
+  remain release gates.
 
 ## Release evidence
 
-- Spec approval and implementation PR/head: pending.
+- Separate spec approval merged at 7879954e; implementation PR #1556 is under
+  review. Its exact final head and integrated staging result remain pending.
 - Exact staging frontend/backend SHA and synthetic journey: pending.
 - Actual production read-before/operation/read-after/restore evidence: pending.

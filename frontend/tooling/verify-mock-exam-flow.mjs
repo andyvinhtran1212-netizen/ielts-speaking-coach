@@ -66,6 +66,7 @@ async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
   finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
   finalWritingCollectPause = false, deferStateGet = null, deferEmbedSave = false,
+  observeSubmitRetries = false,
   deferFlushAck = false, readingFlushFailsOnce = false, localDraftWritesFail = false,
   viewport = { width: 1280, height: 900 },
   theme = null,
@@ -91,6 +92,21 @@ async function fixturePage(browser, initialState, {
   }, [storageKey(SB), session, SITTING_ID, drafts, localDraftWritesFail, theme]);
   const page = await context.newPage();
   if (fakeClock) await page.clock.install({ time: new Date() });
+  if (observeSubmitRetries) {
+    // Observe when the app actually arms its backoff, not just when the
+    // fixture receives a POST: the 503 response/catch runs asynchronously.
+    await page.addInitScript(() => {
+      window.__mockSubmitRetryDelays = [];
+      const originalSetTimeout = window.setTimeout;
+      window.setTimeout = function setTimeout(callback, delay, ...args) {
+        const handle = originalSetTimeout.call(this, callback, delay, ...args);
+        if ([2_000, 5_000, 10_000, 20_000].includes(delay)) {
+          window.__mockSubmitRetryDelays.push(delay);
+        }
+        return handle;
+      };
+    });
+  }
   const errors = [];
   const egress = [];
   const calls = [];
@@ -589,42 +605,82 @@ check('Writing retry retains the immutable final payload after collect closes th
     && pausedRetry.state.writingFinals[1].task2_text === pausedRetryTask2);
 await pausedRetry.context.close();
 
-const boundedFailure = await fixturePage(browser, mockState({
-  active_section: 'writing', section_time_left_seconds: 0, section_duration_seconds: 60,
-}), { finalWritingAlwaysFails: true, fakeClock: true });
-await boundedFailure.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-const waitForWritingAttempts = async (count) => {
+const waitForWritingAttempts = async (run, count) => {
   const deadline = Date.now() + 3_000;
-  while (boundedFailure.state.writingFinals.length < count && Date.now() < deadline) {
+  while (run.state.writingFinals.length < count && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
+  if (run.state.writingFinals.length < count) throw new Error(`Writing attempt ${count} did not arrive`);
 };
-await waitForWritingAttempts(1);
-for (const [index, delay] of [2_000, 5_000, 10_000, 20_000].entries()) {
-  await boundedFailure.page.clock.runFor(delay + 1);
-  await waitForWritingAttempts(index + 2);
-}
-await boundedFailure.page.getByText(/Chưa nộp được lên máy chủ/).waitFor();
-// Cover three 500 ms countdown ticks while remaining below the next 3 s
-// canonical-state poll. Polling and `online` are deliberate recovery signals;
-// the countdown itself must not start another retry ladder.
+const waitForRetryArmed = async (run, index, delay) => {
+  const deadline = Date.now() + 3_000;
+  while (Date.now() < deadline) {
+    const armed = await run.page.evaluate(([index, delay]) => (
+      window.__mockSubmitRetryDelays?.[index] === delay
+    ), [index, delay]);
+    if (armed) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`Writing retry ${index + 1} (${delay} ms) was not armed`);
+};
+const exhaustWritingRetries = async (run) => {
+  await run.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+  await waitForWritingAttempts(run, 1);
+  await waitForRetryArmed(run, 0, 2_000);
+  // Let Auth/React bootstrap first, then freeze wall-time flow. Advancing the
+  // clock manually and holding the poll response isolates recovery signals.
+  await run.page.clock.pauseAt(await run.page.evaluate(() => Date.now() + 1_000));
+  for (const [index, delay] of [2_000, 5_000, 10_000, 20_000].entries()) {
+    await waitForRetryArmed(run, index, delay);
+    await run.page.clock.runFor(delay + 1);
+    await waitForWritingAttempts(run, index + 2);
+  }
+  await run.page.getByText(/Chưa nộp được lên máy chủ/).waitFor();
+  // The first canonical poll (8 s) is held in flight. It cannot recover the
+  // exhausted submit during the countdown-only or explicit-online checks.
+  await run.state.deferredReady;
+};
+const boundedFailure = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 0, section_duration_seconds: 60,
+}), { finalWritingAlwaysFails: true, fakeClock: true, deferStateGet: 2, observeSubmitRetries: true });
+await exhaustWritingRetries(boundedFailure);
 await boundedFailure.page.clock.runFor(1_500);
 await new Promise((resolve) => setTimeout(resolve, 50));
 const attemptsAfterExhaustion = boundedFailure.state.writingFinals.length;
 check('permanent submit failure stops after one bounded retry ladder', attemptsAfterExhaustion === 5,
   String(attemptsAfterExhaustion));
+const beforeOnline = await boundedFailure.page.evaluate(() => Date.now());
 await boundedFailure.page.evaluate(() => window.dispatchEvent(new Event('online')));
-await waitForWritingAttempts(6);
+await waitForWritingAttempts(boundedFailure, 6);
 check('explicit online recovery may start one new submit attempt',
-  boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
+  boundedFailure.state.writingFinals.length === 6
+    && boundedFailure.state.stateGets === 3
+    && await boundedFailure.page.evaluate(() => Date.now()) === beforeOnline,
+  String(boundedFailure.state.writingFinals.length));
+
+const pollRecovery = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 0, section_duration_seconds: 60,
+}), { finalWritingAlwaysFails: true, fakeClock: true, deferStateGet: 2, observeSubmitRetries: true });
+await exhaustWritingRetries(pollRecovery);
+const attemptsBeforePoll = pollRecovery.state.writingFinals.length;
+const beforePoll = await pollRecovery.page.evaluate(() => Date.now());
+pollRecovery.state.releaseDeferredState();
+await pollRecovery.state.deferredDelivered;
+await waitForWritingAttempts(pollRecovery, 6);
+check('successful canonical poll recovery may start one new submit attempt',
+  attemptsBeforePoll === 5 && pollRecovery.state.writingFinals.length === 6
+    && pollRecovery.state.stateGets === 2
+    && await pollRecovery.page.evaluate(() => Date.now()) === beforePoll,
+  String(pollRecovery.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, narrowWriting, darkWriting, staleRead, listening, collectedListening, collectedWriting, noLocalBackup, writing, forceCollected, pausedRetry, boundedFailure]
+  [waiting, retake, narrowWriting, darkWriting, staleRead, listening, collectedListening, collectedWriting, noLocalBackup, writing, forceCollected, pausedRetry, boundedFailure, pollRecovery]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),
   [...waiting.egress, ...retake.egress, ...narrowWriting.egress, ...darkWriting.egress, ...staleRead.egress, ...listening.egress, ...collectedListening.egress, ...writing.egress,
     ...collectedWriting.egress, ...noLocalBackup.egress, ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
     ...staleRead.errors, ...listening.errors, ...collectedListening.errors, ...collectedWriting.errors, ...writing.errors, ...forceCollected.errors,
-    ...noLocalBackup.errors, ...pausedRetry.errors, ...boundedFailure.errors][0] || '');
+    ...noLocalBackup.errors, ...pausedRetry.errors, ...boundedFailure.errors, ...pollRecovery.egress, ...pollRecovery.errors][0] || '');
 await boundedFailure.context.close();
+await pollRecovery.context.close();
 await writing.context.close();
 
 await browser.close();

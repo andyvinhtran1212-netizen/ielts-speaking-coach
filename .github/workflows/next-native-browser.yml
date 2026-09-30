@@ -766,6 +766,9 @@ jobs:
       - name: Kiểm luồng Mock Exam runner native
         run: node tooling/verify-mock-exam-flow.mjs "http://localhost:$TEST_PORT"
 
+      - name: Kiểm history và focus nội dung Writing
+        run: node tooling/verify-writing-content-history-flow.mjs "http://localhost:$TEST_PORT"
+
       - name: Kiểm luồng Writing learner native
         run: node tooling/verify-writing-admission-flow.mjs "http://localhost:$TEST_PORT"
 

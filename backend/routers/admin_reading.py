@@ -29,10 +29,20 @@ import secrets
 import string
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Header, HTTPException, Query, Request, UploadFile
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 
 from database import supabase_admin
-from routers.admin import require_admin
+from routers.admin import _require_db_engine, require_admin
+from models.reading_grammar_focus import (
+    MAX_REQUEST_BYTES, ReadingGrammarFocusEditRequest,
+    ReadingGrammarFocusEditResult, ReadingGrammarFocusErrorResponse,
+    ReadingGrammarFocusRead,
+)
+from services.reading_grammar_focus import (
+    ReadingGrammarFocusError, edit_focus, read_focus,
+)
 from services.class_assignment_service import active_exam_assignment_references
 from services.content_import_service import (
     FrontmatterError,
@@ -58,6 +68,67 @@ router = APIRouter(
 _LIBRARIES = {"l1_vocab", "l2_skill", "l3_test"}
 _STATUSES = {"draft", "published", "archived"}
 _LIST_PAGE_SIZE = 1000
+
+
+def _grammar_focus_engine():
+    try:
+        return _require_db_engine()
+    except HTTPException as exc:
+        if exc.status_code != 500:
+            raise
+        # This capability explicitly fails closed when the existing atomic
+        # transport is absent; never substitute a non-atomic PostgREST write.
+        return None
+
+
+_GRAMMAR_FOCUS_ERRORS = {
+    status: {"model": ReadingGrammarFocusErrorResponse}
+    for status in (404, 409, 503)
+}
+
+
+@router.get("/passages/{slug}/grammar-focus", response_model=ReadingGrammarFocusRead,
+            responses=_GRAMMAR_FOCUS_ERRORS)
+async def get_reading_grammar_focus(slug: str, authorization: str | None = Header(None)):
+    await require_admin(authorization)
+    try:
+        return await read_focus(_grammar_focus_engine(), slug)
+    except ReadingGrammarFocusError as exc:
+        raise HTTPException(exc.status_code, exc.as_detail()) from exc
+
+
+class _BoundedGrammarFocusRoute(APIRoute):
+    """Check the original JSON byte size before FastAPI decodes this PATCH."""
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def bounded(request: Request):
+            if len(await request.body()) > MAX_REQUEST_BYTES:
+                return JSONResponse(status_code=422, content={"detail": [{
+                    "loc": ["body"], "type": "payload_too_large",
+                    "msg": "Grammar Focus request exceeds 256KiB UTF-8 JSON.",
+                }]})
+            return await handler(request)
+
+        return bounded
+
+
+async def patch_reading_grammar_focus(
+    slug: str, body: ReadingGrammarFocusEditRequest,
+    authorization: str | None = Header(None),
+):
+    admin = await require_admin(authorization)
+    try:
+        return await edit_focus(_grammar_focus_engine(), slug, admin["id"], body)
+    except ReadingGrammarFocusError as exc:
+        raise HTTPException(exc.status_code, exc.as_detail()) from exc
+
+
+router.add_api_route(
+    "/passages/{slug}/grammar-focus", patch_reading_grammar_focus,
+    methods=["PATCH"], response_model=ReadingGrammarFocusEditResult,
+    responses=_GRAMMAR_FOCUS_ERRORS, route_class_override=_BoundedGrammarFocusRoute,
+)
 
 
 def _check_image_url_reachable(url: str, timeout_s: float = 3.0) -> list[str]:
