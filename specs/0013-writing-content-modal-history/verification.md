@@ -12,8 +12,10 @@
 | FR-006 | Zero submission/AI writes, analytics count and existing admission/submit/result suites | PENDING |
 | FR-007 | Filter/scroll, viewport/theme/reduced-motion and mobile/VoiceOver evidence | PENDING |
 
-This spec is draft. Source audit proves the current local-overlay handlers, not
-the proposed behavior. No product implementation or planned test is a PASS.
+This specification is approved; the approval authority and independent review
+are recorded in spec.md. Source audit proves the current local-overlay handlers,
+not the proposed behavior. Product implementation and its planned evidence
+remain pending; no planned test is a PASS.
 
 ## Contract evidence
 
@@ -34,6 +36,9 @@ the proposed behavior. No product implementation or planned test is a PASS.
 
 ## Release evidence
 
-- Approved spec base SHA and reviewing authority: PENDING.
+- Reviewing authority: root product scope approval and independent learner UX
+  and admin engineering review, as recorded in spec.md. The approved base SHA
+  becomes available after this specification PR merges; record it in the
+  implementation evidence before product code begins.
 - Staging SHA and checks: PENDING.
 - Production frontend/backend deployed SHAs and read-only journeys: PENDING.
