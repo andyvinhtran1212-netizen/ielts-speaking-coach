@@ -231,7 +231,7 @@ export function WritingShell() {
       {/* Tip detail modal (Sprint 19.1B) — renders the sanitized markdown body. */}
       <div id="tip-modal" className="wd-tip-modal hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="tip-modal-title">
         <div className="wd-tip-modal__backdrop" id="tip-modal-backdrop"></div>
-        <div className="wd-tip-modal__panel">
+        <div className="wd-tip-modal__panel" tabIndex={-1}>
           <header className="flex items-start justify-between gap-3 mb-3">
             <div className="min-w-0">
               <h2 id="tip-modal-title" className="text-xl font-semibold"></h2>
