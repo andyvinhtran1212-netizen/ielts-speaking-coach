@@ -8,6 +8,7 @@ import { listeningLessonHref, listeningLibraryFilter, listeningLibraryHref } fro
 import { useAuth } from '@/lib/auth/auth-provider';
 import type { ListeningOverviewWire, ListeningProgrammeLessonsWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { ListeningSourceEntry } from './ielts/80-days/source-collection';
 
 type Filter = 'all' | 'new' | 'in_progress' | 'completed';
 interface Lesson {
@@ -139,6 +140,7 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
         <h1>{title}</h1>
         <p>{description}</p>
       </header>
+      {showIeltsModes ? <ListeningSourceEntry /> : null}
       <nav className="listening-filter" aria-label="Lọc bài học">
         {FILTERS.map(([value, label]) => (
           <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>

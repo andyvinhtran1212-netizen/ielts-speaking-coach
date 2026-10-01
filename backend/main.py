@@ -82,6 +82,7 @@ from routers.listening import (
     user_router as listening_user_router,
     admin_router as listening_admin_router,
 )
+from routers.listening_source_collection import router as listening_source_collection_router
 from routers.health import router as health_router
 from routers.dashboard import router as dashboard_router
 from routers.student_home import router as student_home_router
@@ -285,6 +286,7 @@ app.include_router(exercises_user_router)
 app.include_router(exercises_admin_router)
 app.include_router(flashcards_user_router)
 app.include_router(listening_user_router)
+app.include_router(listening_source_collection_router)
 app.include_router(listening_admin_router)
 app.include_router(admin_reading_content_router)
 app.include_router(admin_reading_questions_router)

@@ -11,6 +11,7 @@ vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => tru
 let programmeId = 'general-listening-practice';
 const question = { q_num: 1, source_item_id: 'source-1', prompt: 'Which place?', response_type: 'single_choice', options: { A: 'Library', B: 'Museum' } };
 beforeEach(() => {
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   localStorage.clear(); programmeId = 'general-listening-practice'; route.params = new URLSearchParams('from=general&filter=in_progress');
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
   Object.assign(window, { api: {
@@ -47,7 +48,7 @@ it('query changes update form→lesson context without re-admitting, saving or r
   expect(screen.getByRole('link', { name: /Bài học/ }).getAttribute('href')).toBe('/listening/general/canonical-lesson?from=general&filter=in_progress');
   route.params = new URLSearchParams('from=general&filter=new'); view.rerender(<ProgrammeFormRunner testId="test-1" />);
   expect(screen.getByRole('link', { name: /Bài học/ }).getAttribute('href')).toBe('/listening/general/canonical-lesson?from=general&filter=new');
-  expect(window.api.postWith).toHaveBeenCalledExactlyOnceWith('/api/listening/tests/test-1/attempts?standalone=true', {});
+  expect(window.api.postWith).toHaveBeenCalledExactlyOnceWith('/api/listening/tests/test-1/attempts?standalone=true', {}, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   expect(window.api.patchWith).not.toHaveBeenCalled(); expect(screen.queryByText(/Đáp án đối chiếu|Transcript tham khảo/)).toBeNull();
 });
 
@@ -67,4 +68,39 @@ it('result preserves the filter on read-only rerenders and does not create a lin
   expect(screen.getByRole('link', { name: /Thư viện chương trình/ }).getAttribute('href')).toBe('/listening/general?filter=completed');
   expect(window.api.getWith).toHaveBeenCalledTimes(1); expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
   expect(screen.queryByRole('link', { name: /Bài học/ })).toBeNull();
+});
+
+it('source form keeps its canonical day despite foreign generic context and strips that context from the result URL', async () => {
+  programmeId = 'ielts-80-days-listening';
+  route.params = new URLSearchParams('from=general&filter=completed&return_to=https://evil.test');
+  const getWith = window.api.getWith;
+  Object.assign(window.api, { getWith: vi.fn(async (url: string) => {
+    const payload = await getWith<Record<string, unknown>>(url);
+    return url.endsWith('/guided-state') ? payload : { ...payload, source_day: 76 };
+  }) });
+  const view = render(<ProgrammeFormRunner testId="source-test-76" />);
+  await screen.findByRole('heading', { name: 'Canonical form' });
+  expect(screen.getByRole('link', { name: /Bài học/ }).getAttribute('href')).toBe('/listening/ielts/80-days/76');
+  route.params = new URLSearchParams('from=ielts&filter=new');
+  view.rerender(<ProgrammeFormRunner testId="source-test-76" />);
+  expect(screen.getByRole('link', { name: /Bài học/ }).getAttribute('href')).toBe('/listening/ielts/80-days/76');
+  expect(window.api.postWith).toHaveBeenCalledExactlyOnceWith('/api/listening/tests/source-test-76/attempts?standalone=true', {}, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(window.api.patchWith).not.toHaveBeenCalled();
+  expect(screen.queryByText(/Đáp án đối chiếu|Transcript tham khảo/)).toBeNull();
+  const { listeningProgrammeResultHref } = await import('@/lib/listening-library-context.mjs');
+  expect(listeningProgrammeResultHref(programmeId, 'source-attempt/76', route.params)).toBe('/listening/programmes/result/source-attempt%2F76');
+});
+
+it('source result returns to its canonical collection without inheriting foreign filters or reloading on query changes', async () => {
+  programmeId = 'ielts-80-days-listening';
+  route.params = new URLSearchParams('from=general&filter=completed&return_to=https://evil.test');
+  const view = render(<ProgrammeResult attemptId="source-attempt-76" />);
+  await screen.findByRole('heading', { name: 'Canonical result' });
+  expect(screen.getByRole('link', { name: /Thư viện chương trình/ }).getAttribute('href')).toBe('/listening/ielts/80-days');
+  route.params = new URLSearchParams('from=ielts&filter=new');
+  view.rerender(<ProgrammeResult attemptId="source-attempt-76" />);
+  expect(screen.getByRole('link', { name: /Thư viện chương trình/ }).getAttribute('href')).toBe('/listening/ielts/80-days');
+  expect(screen.queryByRole('link', { name: /Bài học/ })).toBeNull();
+  expect(window.api.getWith).toHaveBeenCalledExactlyOnceWith('/api/listening/tests/attempts/source-attempt-76/review', undefined, { signal: expect.any(AbortSignal) });
+  expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
 });

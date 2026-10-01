@@ -1446,7 +1446,15 @@ def set_package_status(
     if action not in {"publish", "archive"}:
         raise PackageValidationError("Action phải là publish hoặc archive")
     if action == "publish":
-        _verify_package_storage_assets(
+        package_rows = (db.table("listening_content_packages")
+                        .select("programme_id").eq("package_id", package_id).limit(1).execute().data or [])
+        from models.listening_source_collection import SOURCE_PROGRAMME
+        if package_rows and package_rows[0].get("programme_id") == SOURCE_PROGRAMME:
+            from services.listening_source_collection import verify_source_package_assets
+            verifier = verify_source_package_assets
+        else:
+            verifier = _verify_package_storage_assets
+        verifier(
             db,
             package_id=package_id,
             manifest_sha256=manifest_sha256,

@@ -7915,6 +7915,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/source-collections/80-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Collection */
+        get: operations["get_source_collection_api_listening_source_collections_80_days_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/source-collections/80-days/days/{day_number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Day */
+        get: operations["get_source_day_api_listening_source_collections_80_days_days__day_number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/source-collections/80-days/days/{day_number}/study": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Source Study */
+        post: operations["open_source_study_api_listening_source_collections_80_days_days__day_number__study_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/listening/content/{content_id}": {
         parameters: {
             query?: never;
@@ -16747,6 +16798,8 @@ export interface components {
             };
             /** Audio Url */
             audio_url?: string | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
             /** Audio Duration */
             audio_duration?: number | null;
             /** Section Offsets */
@@ -16923,6 +16976,19 @@ export interface components {
         };
         /** ListeningGuidedFeedbackItem */
         ListeningGuidedFeedbackItem: {
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Source Display Number */
+            source_display_number?: string | null;
+            /** Review Status */
+            review_status?: ("CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED") | null;
+            /** Answer Provenance */
+            answer_provenance?: string | null;
+            explanation?: components["schemas"]["SourceExplanation"] | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
             /** Q Num */
             q_num: number;
             /** First Answer */
@@ -17149,6 +17215,16 @@ export interface components {
             audio_storage_path?: string | null;
             /** Audio Duration Seconds */
             audio_duration_seconds?: number | null;
+            /** Source Collection Id */
+            source_collection_id?: string | null;
+            /** Source Day */
+            source_day?: number | null;
+            /** Source Part Label */
+            source_part_label?: string | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
+            /** Source Blocks */
+            source_blocks?: components["schemas"]["SourceBlock"][];
             /** Cue Points */
             cue_points?: unknown[];
             /** Sections */
@@ -17263,6 +17339,19 @@ export interface components {
         };
         /** ListeningReviewItem */
         ListeningReviewItem: {
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Source Display Number */
+            source_display_number?: string | null;
+            /** Review Status */
+            review_status?: ("CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED") | null;
+            /** Answer Provenance */
+            answer_provenance?: string | null;
+            explanation?: components["schemas"]["SourceExplanation"] | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
             /** Q Num */
             q_num: number;
             /** State */
@@ -17303,6 +17392,96 @@ export interface components {
             first_answer?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** ListeningSourceCollectionResponse */
+        ListeningSourceCollectionResponse: {
+            /**
+             * Collection Id
+             * @default 80-days
+             * @constant
+             */
+            collection_id: "80-days";
+            /** Package Id */
+            package_id: string;
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            /** Title */
+            title: string;
+            /** Groups */
+            groups: components["schemas"]["SourceGroup"][];
+            /**
+             * Partial Data
+             * @default false
+             */
+            partial_data: boolean;
+        };
+        /** ListeningSourceDayResponse */
+        ListeningSourceDayResponse: {
+            /**
+             * Collection Id
+             * @default 80-days
+             * @constant
+             */
+            collection_id: "80-days";
+            /** Package Id */
+            package_id: string;
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            /** Day */
+            day: number;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "short_practice" | "teaching" | "vocabulary" | "mock";
+            availability: components["schemas"]["SourceAvailability"];
+            /** Source Position Count */
+            source_position_count: number;
+            /** Practice Item Count */
+            practice_item_count: number;
+            /** Source Only Count */
+            source_only_count: number;
+            /** Parts */
+            parts: components["schemas"]["SourcePart"][];
+            /** Blocks */
+            blocks: components["schemas"]["SourceBlock"][];
+            /** Vocabulary Groups */
+            vocabulary_groups?: components["schemas"]["SourceVocabularyGroup"][];
+            /** Source Only Positions */
+            source_only_positions?: components["schemas"]["SourcePosition"][];
+            /**
+             * Partial Data
+             * @default false
+             */
+            partial_data: boolean;
+        };
+        /** ListeningSourceStudyRequest */
+        ListeningSourceStudyRequest: {
+            /** Block Ids */
+            block_ids: string[];
+        };
+        /** ListeningSourceStudyResponse */
+        ListeningSourceStudyResponse: {
+            /**
+             * Mode
+             * @default source_study
+             * @constant
+             */
+            mode: "source_study";
+            /**
+             * Independent Practice
+             * @default false
+             * @constant
+             */
+            independent_practice: false;
+            /** Day */
+            day: number;
+            /** Blocks */
+            blocks: components["schemas"]["SourceStudyBlock"][];
         };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {
@@ -18708,6 +18887,453 @@ export interface components {
             last_mode: string | null;
             /** Last Session At */
             last_session_at: string | null;
+        };
+        /** SourceAvailability */
+        SourceAvailability: {
+            /**
+             * Questions
+             * @default available
+             */
+            questions: string;
+            /**
+             * Audio
+             * @default missing
+             */
+            audio: string;
+            /**
+             * Transcript
+             * @default missing
+             */
+            transcript: string;
+            /**
+             * Printed Key
+             * @default missing
+             */
+            printed_key: string;
+            /**
+             * Explanations
+             * @default reviewed
+             */
+            explanations: string;
+        };
+        /** SourceBlock */
+        SourceBlock: {
+            /** Block Id */
+            block_id: string;
+            /** Part Id */
+            part_id: string;
+            /** Kind */
+            kind: string;
+            instruction: components["schemas"]["SourceInstruction"];
+            /** Item Ids */
+            item_ids?: string[];
+            /** Source Question Numbers */
+            source_question_numbers?: number[];
+            /** Images */
+            images?: components["schemas"]["SourceImage"][];
+            /** Shared Options */
+            shared_options?: components["schemas"]["SourceOption"][];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Display Kind
+             * @default practice
+             * @enum {string}
+             */
+            display_kind: "practice" | "source_study" | "vocabulary";
+            /**
+             * Study Available
+             * @default false
+             */
+            study_available: boolean;
+        };
+        /** SourceDayCard */
+        SourceDayCard: {
+            /** Day */
+            day: number;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "short_practice" | "teaching" | "vocabulary" | "mock";
+            availability: components["schemas"]["SourceAvailability"];
+            /** Source Position Count */
+            source_position_count: number;
+            /** Practice Item Count */
+            practice_item_count: number;
+            /** Source Only Count */
+            source_only_count: number;
+            /** Form Count */
+            form_count: number;
+            /**
+             * Completed Form Count
+             * @default 0
+             */
+            completed_form_count: number;
+            /**
+             * Independent Completed Form Count
+             * @default 0
+             */
+            independent_completed_form_count: number;
+            /**
+             * In Progress Form Count
+             * @default 0
+             */
+            in_progress_form_count: number;
+            /** Href */
+            href: string;
+        };
+        /** SourceDistractor */
+        SourceDistractor: {
+            /** Option */
+            option: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Reason Vi */
+            reason_vi: string;
+        };
+        /** SourceEvidence */
+        SourceEvidence: {
+            /** Source Kind */
+            source_kind: string;
+            /** Pdf Page */
+            pdf_page?: number | null;
+            /** Line Index 1 Based */
+            line_index_1_based?: number | null;
+            /** Quote */
+            quote: string;
+            /**
+             * Relation
+             * @default supports
+             */
+            relation: string;
+            /** Visual Reconstruction */
+            visual_reconstruction?: string | boolean | null;
+            /** Source Image Path */
+            source_image_path?: string | null;
+            /** Source Image Sha256 */
+            source_image_sha256?: string | null;
+            source_region?: components["schemas"]["SourceRegion"] | null;
+            /** Text Validation Source */
+            text_validation_source?: string | null;
+            /** Upstream Review State */
+            upstream_review_state?: string | null;
+            /** Raw Ocr Verbatim */
+            raw_ocr_verbatim?: boolean | null;
+            /** Source Pdf Sha256 */
+            source_pdf_sha256?: string | null;
+            /** Source Line Id */
+            source_line_id?: string | null;
+            /** Insertion After Line Index 1 Based */
+            insertion_after_line_index_1_based?: number | null;
+            /** Line Index Unavailable Reason */
+            line_index_unavailable_reason?: string | null;
+            /** Start */
+            start?: number | null;
+            /** End */
+            end?: number | null;
+        };
+        /** SourceExplanation */
+        SourceExplanation: {
+            printed_key?: components["schemas"]["SourcePrintedKey"] | null;
+            /** Answer */
+            answer?: string | string[] | {
+                [key: string]: string;
+            } | null;
+            /** Evidence */
+            evidence?: components["schemas"]["SourceEvidence"][];
+            /** Why Vi */
+            why_vi: string;
+            /** Distractors */
+            distractors?: components["schemas"]["SourceDistractor"][];
+            /**
+             * Paraphrase Vi
+             * @default
+             */
+            paraphrase_vi: string;
+            /**
+             * Trap Vi
+             * @default
+             */
+            trap_vi: string;
+            /**
+             * Format Vi
+             * @default
+             */
+            format_vi: string;
+            /** Source Answer Warning Vi */
+            source_answer_warning_vi?: string | null;
+            /** Next Action Vi */
+            next_action_vi?: string | null;
+        };
+        /** SourceForm */
+        SourceForm: {
+            /** Id */
+            id: string;
+            /** Source Form Id */
+            source_form_id: string;
+            /** Title */
+            title: string;
+            /** Item Count */
+            item_count: number;
+            /** Duration Seconds */
+            duration_seconds: number;
+            /**
+             * Status
+             * @default new
+             * @enum {string}
+             */
+            status: "new" | "in_progress" | "completed";
+            /**
+             * Assisted
+             * @default false
+             */
+            assisted: boolean;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Href */
+            href: string;
+        };
+        /** SourceGroup */
+        SourceGroup: {
+            /**
+             * Id
+             * @enum {string}
+             */
+            id: "short_practice" | "teaching" | "vocabulary" | "mock";
+            /** Title */
+            title: string;
+            /** Days */
+            days: components["schemas"]["SourceDayCard"][];
+        };
+        /** SourceImage */
+        SourceImage: {
+            /** Asset Id */
+            asset_id: string;
+            /** Url */
+            url: string;
+            /**
+             * Expires In
+             * @default 7200
+             */
+            expires_in: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Alt Vi */
+            alt_vi: string;
+        };
+        /** SourceInstruction */
+        SourceInstruction: {
+            /**
+             * Source En
+             * @default
+             */
+            source_en: string;
+            /**
+             * Student Vi
+             * @default
+             */
+            student_vi: string;
+            /** Word Limit */
+            word_limit?: number | null;
+            /** Select Count */
+            select_count?: number | null;
+        };
+        /** SourceKeyCitation */
+        SourceKeyCitation: {
+            /** Pdf Page */
+            pdf_page: number;
+            /** Line Index 1 Based */
+            line_index_1_based: number;
+        };
+        /** SourceOption */
+        SourceOption: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /** SourcePart */
+        SourcePart: {
+            /** Part Id */
+            part_id: string;
+            /** Source Label */
+            source_label: string;
+            /** Item Count */
+            item_count: number;
+            /** Source Position Count */
+            source_position_count: number;
+            /** Audio Status */
+            audio_status: string;
+            /**
+             * Timing Granularity
+             * @default none
+             * @enum {string}
+             */
+            timing_granularity: "whole_day" | "whole_part" | "question" | "none";
+            form?: components["schemas"]["SourceForm"] | null;
+        };
+        /** SourcePosition */
+        SourcePosition: {
+            /** Item Id */
+            item_id: string;
+            /** Source Display Number */
+            source_display_number: string;
+            /** Part Id */
+            part_id: string;
+            /** Block Id */
+            block_id: string;
+            /**
+             * Review Status
+             * @enum {string}
+             */
+            review_status: "CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED";
+            /**
+             * Reason Vi
+             * @default
+             */
+            reason_vi: string;
+        };
+        /** SourcePrintedKey */
+        SourcePrintedKey: {
+            /** Answer */
+            answer?: string | string[] | {
+                [key: string]: string;
+            } | null;
+            /** Source Pdf Page */
+            source_pdf_page?: number | null;
+            /** Source Ocr Line Index 1 Based */
+            source_ocr_line_index_1_based?: number | null;
+            /** Evidence Tier */
+            evidence_tier?: string | null;
+            /**
+             * Visual Correction
+             * @default false
+             */
+            visual_correction: boolean;
+            /** Source Lines */
+            source_lines?: components["schemas"]["SourceKeyCitation"][];
+        };
+        /** SourceRegion */
+        SourceRegion: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+        };
+        /**
+         * SourceResponseField
+         * @description Native blank metadata only; answer objects never belong here.
+         */
+        SourceResponseField: {
+            /** Field Id */
+            field_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Word Limit */
+            word_limit?: number | null;
+        };
+        /** SourceStudyBlock */
+        SourceStudyBlock: {
+            /** Block Id */
+            block_id: string;
+            /** Part Id */
+            part_id: string;
+            /** Kind */
+            kind: string;
+            instruction: components["schemas"]["SourceInstruction"];
+            /** Item Ids */
+            item_ids?: string[];
+            /** Source Question Numbers */
+            source_question_numbers?: number[];
+            /** Images */
+            images?: components["schemas"]["SourceImage"][];
+            /** Shared Options */
+            shared_options?: components["schemas"]["SourceOption"][];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Display Kind
+             * @default practice
+             * @enum {string}
+             */
+            display_kind: "practice" | "source_study" | "vocabulary";
+            /**
+             * Study Available
+             * @default false
+             */
+            study_available: boolean;
+            /** Items */
+            items?: components["schemas"]["SourceStudyItem"][];
+            /** Transcript */
+            transcript?: components["schemas"]["SourceEvidence"][];
+        };
+        /** SourceStudyItem */
+        SourceStudyItem: {
+            /** Item Id */
+            item_id: string;
+            /** Source Display Number */
+            source_display_number: string;
+            /**
+             * Review Status
+             * @enum {string}
+             */
+            review_status: "CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED";
+            /** Answer Provenance */
+            answer_provenance: string;
+            explanation: components["schemas"]["SourceExplanation"];
+        };
+        /** SourceVocabularyGroup */
+        SourceVocabularyGroup: {
+            /** Title */
+            title: string;
+            /** Source Heading */
+            source_heading?: string | null;
+            /** Editorial Heading En */
+            editorial_heading_en?: string | null;
+            /** Editorial Note Vi */
+            editorial_note_vi?: string | null;
+            /** Source Layout Note Vi */
+            source_layout_note_vi?: string | null;
+            /** Terms */
+            terms?: components["schemas"]["SourceVocabularyTerm"][];
+        };
+        /** SourceVocabularyTerm */
+        SourceVocabularyTerm: {
+            /** Term */
+            term: string;
+            /** Related Terms */
+            related_terms?: string[];
+            /** Meaning Vi */
+            meaning_vi?: string | null;
+            /**
+             * Editorial
+             * @default false
+             */
+            editorial: boolean;
+            /** Source Pdf Page */
+            source_pdf_page?: number | null;
+            /** Source Line Index 1 Based */
+            source_line_index_1_based?: number | null;
         };
         /** SpeakingAssessmentBody */
         SpeakingAssessmentBody: {
@@ -33286,6 +33912,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListeningAttemptReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_collection_api_listening_source_collections_80_days_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningSourceCollectionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_day_api_listening_source_collections_80_days_days__day_number__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                day_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningSourceDayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_source_study_api_listening_source_collections_80_days_days__day_number__study_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                day_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListeningSourceStudyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningSourceStudyResponse"];
                 };
             };
             /** @description Validation Error */
