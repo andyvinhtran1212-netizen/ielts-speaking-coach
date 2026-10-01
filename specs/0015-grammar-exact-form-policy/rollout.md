@@ -105,8 +105,14 @@ controls pass. No legacy cohort/completion/reset weakening or new matching colum
 Rollback keeps reset markers and this floor while every admitted work depends on it.
 
 Revised0014/0015 technical intent and final18 academic source/map hashes are
-independently approved. Approved base landing and every feature/release gate remain
-PENDING; current canonical footprint/extras/backup must be freshly proved.
+independently approved; separate base approval landed47fbb311 before implementation.
+Final local integrated policy/PG/Next/type/build evidence is recorded in
+verification.md, including known computed Admin checks and manual UNKNOWN states.
+The raw staging read-only preflight preserves historical ledger-name mismatches,
+unknown160/263 SQL provenance and twelve missing canonical codes. No306 migration
+or publication has run. Every feature/release gate remains PENDING; current
+canonical footprint/extras/backup and any predecessor procedure must be freshly
+reviewed before live operations.
 
 ## Reset-stale release floor
 

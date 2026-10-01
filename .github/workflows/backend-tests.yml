@@ -108,6 +108,9 @@ jobs:
       # Dictation frozen-policy guards, FK erasure and finalization run on real
       # PostgreSQL too. Each fixture owns only its random disposable schema.
       DICTATION_POLICY_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aver_ux_ci
+      # Grammar revision admission, reset, receipt and write races require the
+      # same real PostgreSQL service; missing configured access fails closed.
+      GRAMMAR_QUIZ_REVISION_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aver_ux_ci
 
     steps:
       - name: Checkout

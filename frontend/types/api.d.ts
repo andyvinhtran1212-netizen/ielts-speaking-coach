@@ -9465,6 +9465,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/quiz/grammar-revisions/{canonical_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Grammar Revision */
+        get: operations["read_grammar_revision_admin_quiz_grammar_revisions__canonical_code__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/grammar-revisions/{canonical_code}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Grammar Revision */
+        post: operations["preview_grammar_revision_admin_quiz_grammar_revisions__canonical_code__preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/grammar-revisions/{canonical_code}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit Grammar Revision */
+        post: operations["commit_grammar_revision_admin_quiz_grammar_revisions__canonical_code__commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/quiz/import": {
         parameters: {
             query?: never;
@@ -16202,6 +16253,183 @@ export interface components {
             /** Issue */
             issue: string;
         };
+        /** GrammarRevisionChange */
+        GrammarRevisionChange: {
+            /** Qid */
+            qid: string;
+            /** Fields */
+            fields: string[];
+            /** Before Sha256 */
+            before_sha256: string;
+            /** After Sha256 */
+            after_sha256: string;
+        };
+        /** GrammarRevisionCommitRequest */
+        GrammarRevisionCommitRequest: {
+            /** Source Markdown */
+            source_markdown: string;
+            /** Expected Revision */
+            expected_revision: string;
+            /** Preview Fingerprint */
+            preview_fingerprint: string;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+        };
+        /** GrammarRevisionCommitResult */
+        GrammarRevisionCommitResult: {
+            /**
+             * Canonical Code
+             * @enum {string}
+             */
+            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "applied" | "already_applied";
+            /**
+             * Original Bank Id
+             * Format: uuid
+             */
+            original_bank_id: string;
+            /**
+             * Corrected Bank Id
+             * Format: uuid
+             */
+            corrected_bank_id: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Committed Revision */
+            committed_revision: string;
+            /** Current Revision */
+            current_revision: string;
+            /** Current Matches Committed */
+            current_matches_committed: boolean;
+            /** Original Questions Sha256 */
+            original_questions_sha256: string;
+            /** Original History Sha256 */
+            original_history_sha256: string;
+            canonical: components["schemas"]["GrammarRevisionRead"];
+        };
+        /** GrammarRevisionErrorDetail */
+        GrammarRevisionErrorDetail: {
+            /** Error Code */
+            error_code: string;
+            /** Message */
+            message: string;
+            /** Current Revision */
+            current_revision?: string | null;
+        };
+        /** GrammarRevisionErrorResponse */
+        GrammarRevisionErrorResponse: {
+            /** Detail */
+            detail: components["schemas"]["GrammarRevisionErrorDetail"] | components["schemas"]["GrammarRevisionValidationIssue"][];
+        };
+        /** GrammarRevisionFootprint */
+        GrammarRevisionFootprint: {
+            /** Actors */
+            actors: number;
+            /** Sessions */
+            sessions: number;
+            /** Stats */
+            stats: number;
+            /** Attempts */
+            attempts: number;
+            /** Assignments */
+            assignments: number;
+            /** Open Sessions */
+            open_sessions: number;
+            /** Paused Sessions */
+            paused_sessions: number;
+            /** Classifications */
+            classifications: {
+                [key: string]: number;
+            };
+            /** Authoritative Review Required */
+            authoritative_review_required: boolean;
+        };
+        /** GrammarRevisionPreview */
+        GrammarRevisionPreview: {
+            canonical: components["schemas"]["GrammarRevisionRead"];
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            /** Preview Fingerprint */
+            preview_fingerprint: string;
+            /** Proposed Revision */
+            proposed_revision: string;
+            /** Changed Questions */
+            changed_questions: components["schemas"]["GrammarRevisionChange"][];
+            /** Validation Messages */
+            validation_messages: string[];
+        };
+        /** GrammarRevisionPreviewRequest */
+        GrammarRevisionPreviewRequest: {
+            /** Source Markdown */
+            source_markdown: string;
+            /** Expected Revision */
+            expected_revision: string;
+        };
+        /** GrammarRevisionRead */
+        GrammarRevisionRead: {
+            /**
+             * Canonical Code
+             * @enum {string}
+             */
+            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            /**
+             * Original Bank Id
+             * Format: uuid
+             */
+            original_bank_id: string;
+            /**
+             * Current Bank Id
+             * Format: uuid
+             */
+            current_bank_id: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Revision */
+            revision: string;
+            /** Current Bank Revision */
+            current_bank_revision: string;
+            /** Original Questions Sha256 */
+            original_questions_sha256: string;
+            /** Original Metadata Sha256 */
+            original_metadata_sha256: string;
+            /** Is Managed */
+            is_managed: boolean;
+            /** New Starts Enabled */
+            new_starts_enabled: boolean;
+            footprint: components["schemas"]["GrammarRevisionFootprint"];
+        };
+        /** GrammarRevisionValidationIssue */
+        GrammarRevisionValidationIssue: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /** Type */
+            type: string;
+            /** Input */
+            input?: unknown | null;
+            /** Ctx */
+            ctx?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** GrammarSearchResult */
         GrammarSearchResult: {
             /** Slug */
@@ -17609,6 +17837,49 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** ManagedGrammarSessionState */
+        ManagedGrammarSessionState: {
+            /**
+             * Canonical Code
+             * @enum {string}
+             */
+            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            /**
+             * Bank Id
+             * Format: uuid
+             */
+            bank_id: string;
+            /** Bank Revision */
+            bank_revision: string;
+            /**
+             * Content State
+             * @enum {string}
+             */
+            content_state: "original" | "current" | "legacy";
+            /** New Starts Enabled */
+            new_starts_enabled: boolean;
+            /** Can Continue Legacy */
+            can_continue_legacy: boolean;
+            /**
+             * Can Continue Current
+             * @default false
+             */
+            can_continue_current: boolean;
+            /**
+             * Mastery Retained
+             * @default false
+             */
+            mastery_retained: boolean;
+            /**
+             * Current Bank Id
+             * Format: uuid
+             */
+            current_bank_id: string;
+            /** Current Bank Revision */
+            current_bank_revision: string;
+            /** Text Match Policy */
+            text_match_policy?: "qid-exact-v1" | null;
+        };
         /** MarkDeliveredRequest */
         MarkDeliveredRequest: {
             /**
@@ -18193,6 +18464,66 @@ export interface components {
             }[] | null;
             /** Expected Updated At */
             expected_updated_at?: string | null;
+        };
+        /** QuizBankPlayResponse */
+        QuizBankPlayResponse: {
+            /** Bank */
+            bank: {
+                [key: string]: unknown;
+            };
+            /** Questions */
+            questions: {
+                [key: string]: unknown;
+            }[];
+            /** Word Cards */
+            word_cards: {
+                [key: string]: unknown;
+            };
+            grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** QuizSessionEndResponse */
+        QuizSessionEndResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id?: string | null;
+            /** Grammar Revision */
+            grammar_revision?: string | null;
+            grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** QuizSessionProgressResponse */
+        QuizSessionProgressResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Attempts */
+            attempts: number;
+            /** Word Stats */
+            word_stats: number;
+            grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** QuizSessionStartResponse */
+        QuizSessionStartResponse: {
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Resume */
+            resume: {
+                [key: string]: unknown;
+            }[];
+            grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
+        } & {
+            [key: string]: unknown;
         };
         /** ReadingAttemptTotalsOut */
         ReadingAttemptTotalsOut: {
@@ -19427,6 +19758,12 @@ export interface components {
              * @default run
              */
             kind: string;
+            /** Grammar Revision */
+            grammar_revision?: string | null;
+            /** Admission Kind */
+            admission_kind?: ("run" | "review") | null;
+            /** Text Match Policy */
+            text_match_policy?: "qid-exact-v1" | null;
         };
         /** StartSessionRequest */
         StartSessionRequest: {
@@ -36513,6 +36850,194 @@ export interface operations {
             };
         };
     };
+    read_grammar_revision_admin_quiz_grammar_revisions__canonical_code__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                canonical_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_grammar_revision_admin_quiz_grammar_revisions__canonical_code__preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                canonical_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrammarRevisionPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionPreview"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+        };
+    };
+    commit_grammar_revision_admin_quiz_grammar_revisions__canonical_code__commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                canonical_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrammarRevisionCommitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionCommitResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+        };
+    };
     import_bank_admin_quiz_import_post: {
         parameters: {
             query?: {
@@ -36982,7 +37507,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizBankPlayResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37188,7 +37713,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizSessionStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37503,7 +38028,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizSessionProgressResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37540,7 +38065,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizSessionEndResponse"];
                 };
             };
             /** @description Validation Error */

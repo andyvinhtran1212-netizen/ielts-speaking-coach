@@ -4,6 +4,8 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { AdminGrammarRevision } from './admin-grammar-revision';
+import { isGrammarRevisionCode, type RevisionCode } from '@/lib/admin-grammar-revision-model';
 import {
   CONTENT_SKILLS,
   contentSkillQuery,
@@ -38,6 +40,7 @@ export function AdminVocabQuizImport() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [deleteBank, setDeleteBank] = useState<Bank | null>(null);
+  const [revisionImport, setRevisionImport] = useState<{ code: RevisionCode; file: File } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const sequence = useRef(0);
   const previewSequence = useRef(0);
@@ -60,7 +63,7 @@ export function AdminVocabQuizImport() {
 
   useEffect(() => {
     const requestId = ++sequence.current; const account = profile.id;
-    setLoading(true); setTopics([]); setBanks([]); setSelectedTopic(''); setFile(null); setPreview(null); setCommitted(false); setNotice(null);
+    setLoading(true); setTopics([]); setBanks([]); setSelectedTopic(''); setFile(null); setPreview(null); setCommitted(false); setNotice(null); setRevisionImport(null);
     if (fileRef.current) fileRef.current.value = '';
     void Promise.all([fetchTopics(skill), fetchBanks(skill)]).then(([topicRows, bankRows]) => {
       if (requestId !== sequence.current || account !== accountRef.current) return;
@@ -110,7 +113,11 @@ export function AdminVocabQuizImport() {
       if (!value) throw new Error('Backend trả về preview import không đúng định dạng.');
       if (requestId !== previewSequence.current || account !== accountRef.current) return;
       setPreview(value as ImportPreview);
-      if (value.summary.errors) setNotice({ kind: 'error', message: 'File còn lỗi. Sửa nội dung rồi chọn lại file để kiểm tra.' });
+      if (skill === 'grammar' && value.meta?.skillArea === 'grammar' && isGrammarRevisionCode(value.meta.code)) {
+        setRevisionImport({ code: value.meta.code, file: picked });
+        setNotice({ kind: 'error', message: 'Nguồn Grammar thuộc đợt sửa đã duyệt. Dùng phần Xem trước và xác nhận bản sửa Grammar bên dưới; dry-run import không cho phép thay bank gốc.' });
+      }
+      else if (value.summary.errors) setNotice({ kind: 'error', message: 'File còn lỗi. Sửa nội dung rồi chọn lại file để kiểm tra.' });
       else if (!selectedTopic) setNotice({ kind: 'error', message: 'File hợp lệ; chọn topic trước khi lưu bank.' });
       else if (value.meta?.skillArea !== skill) setNotice({ kind: 'error', message: `META đang là ${value.meta?.skillArea || 'không xác định'}, không khớp khu vực ${skill}.` });
       else setNotice({ kind: 'success', message: 'Dry-run hợp lệ. Bank sẵn sàng được lưu.' });
@@ -130,6 +137,7 @@ export function AdminVocabQuizImport() {
   };
 
   const commit = async () => {
+    if (skill === 'grammar' && isGrammarRevisionCode(preview?.meta?.code)) { setNotice({ kind: 'error', message: 'Nguồn Grammar đã duyệt cần quy trình bản sửa; không dùng import thông thường.' }); return; }
     if (!file || !preview || preview.summary.errors || preview.meta?.skillArea !== skill) { setNotice({ kind: 'error', message: 'Cần một dry-run hợp lệ đúng khu vực trước khi lưu.' }); return; }
     if (!selectedTopic || !topics.some((topic) => topic.id === selectedTopic)) { setNotice({ kind: 'error', message: 'Chọn một topic canonical trước khi lưu.' }); return; }
     if (mutationLock.current) return;
@@ -168,7 +176,8 @@ export function AdminVocabQuizImport() {
     } finally { mutationLock.current = false; if (account === accountRef.current) setBusy(false); }
   };
 
-  const commitReady = !!file && !!preview && !committed && preview.summary.errors === 0 && preview.meta?.skillArea === skill && !!selectedTopic && !busy && !checking;
+  const reviewedGrammar = skill === 'grammar' && isGrammarRevisionCode(preview?.meta?.code);
+  const commitReady = !reviewedGrammar && !!file && !!preview && !committed && preview.summary.errors === 0 && preview.meta?.skillArea === skill && !!selectedTopic && !busy && !checking;
 
   return <main className="avv-shell avv-console-shell avv-quiz-import">
     <header className="avv-stats-hero">
@@ -191,10 +200,12 @@ export function AdminVocabQuizImport() {
         {checking ? <div className="avv-state">Đang parse và kiểm tra mastery contract…</div> : !preview ? <div className="avv-state">Chọn file để xem META, số pool, câu hỏi và lỗi validation.</div> : <>
           <div className="avv-preview-meta"><div><span>Bank</span><strong>{preview.meta?.code || '(thiếu code)'}</strong><small>{preview.meta?.title || 'Chưa có title'}</small></div><div><span>Scope</span><strong>{preview.meta?.skillArea || '—'}</strong></div></div>
           <div className="avv-preview-stats"><div><span>Câu hỏi</span><strong>{preview.summary.questions}</strong></div><div><span>Pool</span><strong>{preview.summary.pools}</strong></div><div><span>Từ</span><strong>{preview.summary.words}</strong></div><div className={preview.summary.errors ? 'is-error' : ''}><span>Lỗi</span><strong>{preview.summary.errors}</strong></div></div>
-          {preview.errors.length ? <div className="avv-import-errors"><strong>Lỗi cần sửa</strong><ol>{preview.errors.map((error, index) => <li key={`${error.block}-${error.field}-${index}`}><span>{error.block < 0 ? 'META' : `Block #${error.block + 1}`}{error.qid ? ` · ${error.qid}` : ''}</span><code>{error.field}</code><p>{error.message}</p></li>)}</ol></div> : <p className="avv-banner is-success">Không có lỗi validation. Chọn đúng topic và lưu khi sẵn sàng.</p>}
+          {preview.errors.length ? <div className="avv-import-errors"><strong>Lỗi cần sửa</strong><ol>{preview.errors.map((error, index) => <li key={`${error.block}-${error.field}-${index}`}><span>{error.block < 0 ? 'META' : `Block #${error.block + 1}`}{error.qid ? ` · ${error.qid}` : ''}</span><code>{error.field}</code><p>{error.message}</p></li>)}</ol></div> : reviewedGrammar ? <p className="avv-banner is-warning">Nguồn này cần preview revision và xác nhận riêng. <a href="#grammar-revision">Đi đến bản sửa Grammar</a></p> : <p className="avv-banner is-success">Không có lỗi validation. Chọn đúng topic và lưu khi sẵn sàng.</p>}
         </>}
       </section>
     </div>
+
+    {skill === 'grammar' && <AdminGrammarRevision imported={revisionImport} />}
 
     <section className="avv-linked-section avv-bank-catalog">
       <header><div><p className="avv-eyebrow">Canonical inventory</p><h2>Banks đã có</h2></div><span>{banks.length} bank</span></header>

@@ -66,7 +66,15 @@ async def pg():
         await connection.execute(f'SET search_path = {schema}')
         await connection.execute('CREATE TABLE users (id UUID PRIMARY KEY); CREATE TABLE listening_tests (id UUID PRIMARY KEY)')
         for role in ('anon', 'authenticated', 'service_role'):
-            await connection.execute(f"DO $$ BEGIN CREATE ROLE {role}; EXCEPTION WHEN duplicate_object THEN NULL; END $$")
+            # Supabase's service role bypasses RLS. Roles are cluster-wide:
+            # a bare role here would break the private INVOKER migration tests
+            # that run later, even when they use another test database.
+            options = ' BYPASSRLS' if role == 'service_role' else ''
+            await connection.execute(f"DO $$ BEGIN CREATE ROLE {role}{options}; EXCEPTION WHEN duplicate_object THEN NULL; END $$")
+        assert await connection.fetchval("SELECT rolbypassrls FROM pg_roles WHERE rolname='service_role'"), (
+            'The disposable test cluster requires service_role BYPASSRLS; use a fresh cluster. '
+            'This fixture does not alter an existing role.'
+        )
         original = migration('220_dictation_attempt_affinity.sql')
         expiry = migration('224_active_player_resume_ttl.sql')
         for table, source in [('dictation_sessions', migration('138_dictation_sessions.sql')),

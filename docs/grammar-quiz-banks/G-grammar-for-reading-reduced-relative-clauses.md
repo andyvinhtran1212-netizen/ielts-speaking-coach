@@ -13,6 +13,10 @@ cooldown: 2
 shuffle_options: true
 words_count: 3
 source: "authored-2026-07"
+text_match_by_qid:
+  rrc_ving_i2: exact
+  rrc_v3_i2: exact
+  rrc_main_i2: exact
 ---
 
 # ===== item_key 1 · Rút gọn chủ động → V-ing =====
@@ -24,11 +28,11 @@ input: "choice"
 headword: "rrc-active-ing"
 skill: "form"
 subtype: "basic"
-prompt: "The company ____ solar panels supplies energy to thousands of homes."
+prompt: "Dùng mệnh đề quan hệ rút gọn chủ động V-ing: The company ____ solar panels supplies energy to thousands of homes."
 options: ["that produces", "producing", "produced", "which are producing"]
 answer: 1
 grammar_article_slug: "reduced-relative-clauses"
-explain: "Mệnh đề quan hệ chủ động 'that produces' được rút gọn thành V-ing 'producing' → 'the company producing solar panels'."
+explain: "Chọn 'producing' theo yêu cầu rút gọn V-ing. Mệnh đề đầy đủ 'that produces' cũng tạo câu đúng, nhưng không phải dạng rút gọn. Ở đây phải chuyển 'produces' sang 'producing', không chỉ xoá 'that'."
 ---
 
 ---
@@ -39,10 +43,10 @@ headword: "rrc-active-ing"
 skill: "usage"
 subtype: "intermediate"
 prompt: "In the academic text, ____ without proper credentials were questioned by authorities."
-options: ["researchers conducting the study", "the researchers conducting the study", "study conducting researchers", "conducting the study researchers"]
+options: ["the researchers conducted the study", "the researchers conducting the study", "study conducting researchers", "conducting the study researchers"]
 answer: 1
 grammar_article_slug: "reduced-relative-clauses"
-explain: "Cụm 'researchers conducting the study' là mệnh đề rút gọn. V-ing 'conducting' bổ nghĩa cho 'researchers' (những người đang tiến hành nghiên cứu)."
+explain: "Chọn cụm danh từ 'the researchers conducting the study': 'conducting...' bổ nghĩa chủ động cho 'researchers', còn 'were questioned' là vị ngữ chính. 'The researchers conducted the study ... were questioned' có hai động từ hữu hạn không được nối đúng. Nếu bỏ 'the' khỏi đáp án đúng, câu vẫn có thể hợp ngữ pháp trong ngữ cảnh khác; khác biệt mạo từ không phải lỗi V-ing."
 ---
 
 ---
@@ -52,11 +56,11 @@ input: "text"
 headword: "rrc-active-ing"
 skill: "production"
 subtype: "intermediate"
-prompt: "The technology ____ (employ / by / firms) around the world is becoming more advanced each year."
+prompt: "Chỉ biến đổi employ thành dạng mệnh đề quan hệ rút gọn bị động V3 hoặc being + V3; giữ nguyên cụm by firms, không thêm mạo từ hay từ khác: The technology ____ (employ / by firms) around the world is becoming more advanced each year."
 accept: ["employed by firms", "being employed by firms"]
 case_sensitive: false
 grammar_article_slug: "reduced-relative-clauses"
-explain: "Mệnh đề rút gọn bị động: 'technology which is employed by firms' → 'technology employed by firms' (V3). Nếu dùng 'being employed' cũng chấp nhận (diễn tả hành động đang xảy ra)."
+explain: "Nhận 'employed by firms' và 'being employed by firms'. Employed là dạng rút gọn bị động V3; being employed nhấn mạnh quá trình sử dụng. By firms được giữ nguyên theo nhiệm vụ; by the firms có thể đúng nếu các công ty đã được xác định, nhưng không thuộc phép biến đổi ở đây."
 ---
 
 ---
@@ -81,11 +85,11 @@ input: "choice"
 headword: "rrc-passive-v3"
 skill: "form"
 subtype: "basic"
-prompt: "The building ____ by a famous architect is now a museum."
+prompt: "Dùng mệnh đề quan hệ rút gọn bị động V3: The building ____ by a famous architect is now a museum."
 options: ["which was designed", "designed", "designing", "which designed"]
 answer: 1
 grammar_article_slug: "reduced-relative-clauses"
-explain: "Mệnh đề quan hệ bị động 'which was designed' được rút gọn thành V3 'designed' → 'the building designed by a famous architect'."
+explain: "Chọn 'designed' theo yêu cầu rút gọn V3. 'Which was designed' cũng là mệnh đề quan hệ đầy đủ đúng, nhưng không đáp ứng dạng rút gọn được yêu cầu."
 ---
 
 ---
@@ -95,11 +99,11 @@ input: "choice"
 headword: "rrc-passive-v3"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Species ____ by habitat loss face extinction within decades."
+prompt: "Dùng mệnh đề quan hệ rút gọn bị động V3: Species ____ by habitat loss face extinction within decades."
 options: ["that are threatened", "threatened", "threatening", "which threaten"]
 answer: 1
 grammar_article_slug: "reduced-relative-clauses"
-explain: "Bị động rút gọn: 'Species which are threatened by habitat loss' → 'Species threatened by habitat loss'. Chủ ngữ 'species' bị tác động bởi 'habitat loss'."
+explain: "Chọn 'threatened' theo yêu cầu rút gọn V3; 'species' chịu tác động của habitat loss. 'That are threatened' cũng tạo câu đầy đủ đúng, nhưng không phải dạng rút gọn."
 ---
 
 ---
@@ -109,11 +113,11 @@ input: "text"
 headword: "rrc-passive-v3"
 skill: "production"
 subtype: "intermediate"
-prompt: "The results ____ (publish / in / journals) last year support the new hypothesis."
-accept: ["published in journals", "that were published in journals"]
+prompt: "Việc công bố đã hoàn tất trong năm ngoái. Dùng mệnh đề quan hệ bị động với be ở Past Simple hoặc dạng rút gọn V3 của publish; giữ nguyên cụm in journals, không thêm từ khác vào cụm này: The results ____ (publish / in journals) last year support the new hypothesis."
+accept: ["published in journals", "that were published in journals", "which were published in journals"]
 case_sensitive: false
 grammar_article_slug: "reduced-relative-clauses"
-explain: "Mệnh đề rút gọn bị động: 'results that were published in journals' → 'results published in journals'. V3 'published' bổ nghĩa cho 'results'."
+explain: "Nhận 'published in journals', 'that were published in journals' và 'which were published in journals'. 'That' hoặc 'which' đều dùng được cho results trong mệnh đề quan hệ xác định; với Past Simple bị động và results số nhiều, dùng were + published. Dạng rút gọn giữ V3 published; support là động từ chính. Các dạng perfect/progressive hoặc get-passive có thể hợp ngữ pháp trong ngữ cảnh khác nhưng không đáp ứng dạng được yêu cầu."
 ---
 
 ---
@@ -126,7 +130,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'The data collected from multiple sources shows a clear trend.'"
 answer: true
 grammar_article_slug: "reduced-relative-clauses"
-explain: "ĐÚNG — V3 'collected' bổ nghĩa cho 'data' (dữ liệu được thu thập). 'shows' là động từ chính. Không nhầm với 'collected' là động từ chính."
+explain: "ĐÚNG với cách dùng data như danh từ không đếm được số ít: collected from multiple sources bổ nghĩa bị động, shows là động từ chính. Khi data dùng theo quy ước số nhiều, show cũng phù hợp; không coi shows sai trong mọi ngữ cảnh hoặc coi data luôn là số ít."
 ---
 
 # ===== item_key 3 · Phân biệt phân từ vs động từ chính =====
@@ -166,11 +170,11 @@ input: "text"
 headword: "rrc-distinguish-participle-mainverb"
 skill: "production"
 subtype: "intermediate"
-prompt: "The report submitted last week ____ (recommend) stricter environmental policies."
+prompt: "Điền động từ chính ở Present Simple: The report submitted last week ____ (recommend) stricter environmental policies."
 accept: ["recommends"]
 case_sensitive: false
 grammar_article_slug: "reduced-relative-clauses"
-explain: "Chủ ngữ là 'report' (số ít) → động từ chính là 'recommends'. 'Submitted' là V3 bổ nghĩa (mệnh đề rút gọn), không ảnh hưởng tới động từ chính."
+explain: "Theo yêu cầu Present Simple và chủ ngữ số ít 'report', điền 'recommends'. 'Submitted last week' chỉ thời điểm nộp báo cáo, không buộc động từ chính dùng quá khứ; 'recommended' có thể đúng nếu ngữ cảnh yêu cầu mô tả khuyến nghị trong quá khứ."
 ---
 
 ---
@@ -183,5 +187,5 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'The researchers interviewed for the study concluded that social media impacts adolescent mental health.'"
 answer: true
 grammar_article_slug: "reduced-relative-clauses"
-explain: "ĐÚNG — 'interviewed' là V3 bổ nghĩa cho 'researchers'; động từ chính là 'concluded'. Hợp số với chủ ngữ 'researchers' (số nhiều)."
+explain: "ĐÚNG — 'interviewed' là phân từ V3 bổ nghĩa cho 'researchers'; 'concluded' là động từ hữu hạn Past Simple của mệnh đề chính. Dạng Past Simple 'concluded' không đổi theo ngôi/số; 'that social media impacts...' là mệnh đề nội dung của kết luận."
 ---

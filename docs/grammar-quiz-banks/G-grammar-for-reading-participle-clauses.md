@@ -13,9 +13,13 @@ cooldown: 2
 shuffle_options: true
 words_count: 4
 source: "authored-2026-07"
+text_match_by_qid:
+  pc_ving_i2: exact
+  pc_v3_i2: exact
+  pc_having_i2: exact
 ---
 
-# ===== item_key 1 · V-ing (chủ động, cùng lúc) =====
+# ===== item_key 1 · V-ing (chủ động, quan hệ tuỳ ngữ cảnh) =====
 
 ---
 id: "pc_ving_b1"
@@ -24,11 +28,11 @@ input: "choice"
 headword: "pc-ving-active"
 skill: "form"
 subtype: "basic"
-prompt: "Using satellite data, researchers ____ climate patterns across decades."
+prompt: "Điền động từ chính ở Past Simple: Using satellite data, researchers ____ climate patterns across decades."
 options: ["mapped", "are mapping", "mapping", "have mapped"]
 answer: 0
 grammar_article_slug: "participle-clauses"
-explain: "Cụm phân từ 'Using satellite data' là mệnh đề phụ. Động từ chính của câu là 'mapped' (quá khứ đơn). V-ing thay cho cả mệnh đề 'because/when they used satellite data'."
+explain: "Theo yêu cầu Past Simple, chọn 'mapped'. 'Using satellite data' diễn tả cách thức nghiên cứu và không có thì độc lập; bản thân V-ing không buộc động từ chính dùng quá khứ. 'Are mapping' hoặc 'have mapped' có thể tạo câu đúng trong ngữ cảnh khác, nhưng không đáp ứng yêu cầu thì của bài này."
 ---
 
 ---
@@ -38,11 +42,11 @@ input: "choice"
 headword: "pc-ving-active"
 skill: "usage"
 subtype: "intermediate"
-prompt: "____ rising pollution levels, cities worldwide have implemented stricter environmental regulations."
+prompt: "Dùng mệnh đề phân từ chủ động V-ing: ____ rising pollution levels, cities worldwide have implemented stricter environmental regulations."
 options: ["Because of", "Facing", "To face", "Faced"]
 answer: 1
 grammar_article_slug: "participle-clauses"
-explain: "'Facing rising pollution levels' là mệnh đề phân từ chủ động, thay cho 'because they faced rising pollution levels'. V-ing ở đây chỉ nguyên nhân."
+explain: "'Facing rising pollution levels' là mệnh đề phân từ chủ động V-ing chỉ nguyên nhân. 'Because of rising pollution levels' cũng hợp ngữ pháp, nhưng là cụm giới từ, không đáp ứng dạng phân từ mà bài yêu cầu."
 ---
 
 ---
@@ -52,11 +56,11 @@ input: "text"
 headword: "pc-ving-active"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (study / economic / impacts), the government allocated additional research funding."
+prompt: "Chỉ biến đổi study thành V-ing hoặc Having + V3 của study; giữ nguyên cụm economic impacts, không thêm mạo từ hay từ khác: ____ (study / economic impacts), the government allocated additional research funding."
 accept: ["studying economic impacts", "having studied economic impacts"]
 case_sensitive: false
 grammar_article_slug: "participle-clauses"
-explain: "Mệnh đề phân từ: 'Studying economic impacts' hoặc 'Having studied economic impacts'. V-ing chỉ hành động đang/vừa xảy ra của chủ ngữ 'government'."
+explain: "Nhận 'studying economic impacts' và 'having studied economic impacts'. Having studied nhấn mạnh việc nghiên cứu xảy ra trước việc cấp kinh phí; studying không tự ấn định thì hay quan hệ đồng thời. Economic impacts được giữ nguyên theo nhiệm vụ; thêm the có thể hợp ngữ pháp khi nói các tác động đã xác định, nhưng nằm ngoài phép biến đổi từ được yêu cầu."
 ---
 
 ---
@@ -81,11 +85,11 @@ input: "choice"
 headword: "pc-v3-passive"
 skill: "form"
 subtype: "basic"
-prompt: "Written in Latin, the ancient manuscript ____ nearly illegible to modern scholars."
+prompt: "Điền động từ chính ở Present Simple: Written in Latin, the ancient manuscript ____ nearly illegible to modern scholars."
 options: ["was", "is", "were", "are"]
 answer: 1
 grammar_article_slug: "participle-clauses"
-explain: "'Written in Latin' là mệnh đề phân từ bị động (= 'which was written'). Động từ chính là 'is' (số ít, vì 'manuscript' số ít)."
+explain: "Theo yêu cầu Present Simple và chủ ngữ số ít 'manuscript', chọn 'is'. 'Written in Latin' mang nghĩa bị động, không quyết định thì của động từ chính. 'Was' cũng tạo câu đúng nếu mô tả một thời điểm quá khứ, nhưng không đúng yêu cầu thì ở đây."
 ---
 
 ---
@@ -95,11 +99,11 @@ input: "choice"
 headword: "pc-v3-passive"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Discovered in 1994, the archaeological site ____ transformed our understanding of prehistoric civilizations."
+prompt: "Dùng Past Perfect để nhìn lại từ mốc năm 2000: Discovered in 1994, the archaeological site ____ transformed our understanding of prehistoric civilizations by 2000."
 options: ["has", "have", "had", "is"]
 answer: 2
 grammar_article_slug: "participle-clauses"
-explain: "'Discovered in 1994' là V3, chỉ hành động xảy ra trong quá khứ. Động từ chính 'had transformed' (quá khứ hoàn thành) để chỉ kết quả của hành động quá khứ."
+explain: "Chọn 'had' để tạo Past Perfect 'had transformed', nhìn lại từ mốc quá khứ 'by 2000' theo yêu cầu. 'Discovered in 1994' là phân từ bị động bổ nghĩa cho 'site'; ngày phát hiện tự nó không buộc mệnh đề chính dùng Past Perfect. Nếu nói về ảnh hưởng tới hiện tại, 'has transformed' có thể phù hợp với ngữ cảnh khác."
 ---
 
 ---
@@ -109,11 +113,11 @@ input: "text"
 headword: "pc-v3-passive"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (approve / by / authorities), the construction project began immediately."
+prompt: "Chỉ biến đổi approve thành V3 hoặc Having been + V3 của approve; giữ nguyên cụm by authorities, không thêm mạo từ hay từ khác: ____ (approve / by authorities), the construction project began immediately."
 accept: ["approved by authorities", "having been approved by authorities"]
 case_sensitive: false
 grammar_article_slug: "participle-clauses"
-explain: "Mệnh đề phân từ bị động: 'Approved by authorities' hoặc 'Having been approved by authorities'. V3 chỉ hành động bị động xảy ra trước hành động chính."
+explain: "Nhận 'approved by authorities' và 'having been approved by authorities'. Approved mang nghĩa bị động; Having been approved nhấn mạnh việc phê duyệt xảy ra trước việc bắt đầu dự án. Thời gian của dạng V3 đơn dựa vào ngữ cảnh. By authorities được giữ nguyên theo nhiệm vụ; by the authorities cũng có thể hợp ngữ pháp trong ngữ cảnh xác định khác."
 ---
 
 ---
@@ -138,11 +142,11 @@ input: "choice"
 headword: "pc-having-v3"
 skill: "form"
 subtype: "basic"
-prompt: "Having completed the research, the team ____ their findings to the international conference."
+prompt: "Điền động từ chính ở Past Simple: Having completed the research, the team ____ their findings to the international conference."
 options: ["presents", "presented", "present", "had presented"]
 answer: 1
 grammar_article_slug: "participle-clauses"
-explain: "'Having completed' chỉ hành động xảy ra **trước** hành động chính 'presented'. Động từ chính là 'presented'."
+explain: "Chọn 'presented' theo yêu cầu Past Simple. 'Having completed' nhấn mạnh việc hoàn tất nghiên cứu xảy ra trước việc trình bày; nó không tự quyết định thì của động từ chính. 'Presents' có thể phù hợp khi kể ở hiện tại, nhưng không đúng dạng thì được yêu cầu."
 ---
 
 ---
@@ -152,11 +156,11 @@ input: "choice"
 headword: "pc-having-v3"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Having ____ all available evidence, the conclusion remained inconclusive."
+prompt: "Having ____ all available evidence, the researchers still could not reach a definitive conclusion."
 options: ["analyzed", "been analyzed", "analyzing", "analysis"]
 answer: 0
 grammar_article_slug: "participle-clauses"
-explain: "'Having analyzed' = đã phân tích (xảy ra trước). Chủ ngữ ẩn là 'we' hoặc 'researchers' từ ngữ cảnh. V3 'analyzed' sau 'Having'."
+explain: "'Having analyzed' = đã phân tích trước khi đưa ra đánh giá. Chủ ngữ ngầm hiểu của 'analyzed' là 'the researchers', cũng là chủ ngữ mệnh đề chính. Dùng 'analyzed' (V3) sau 'Having'; không để 'the conclusion' làm chủ ngữ vì kết luận không thể phân tích chứng cứ."
 ---
 
 ---
@@ -166,7 +170,7 @@ input: "text"
 headword: "pc-having-v3"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete: '______ several tests, the scientists confirmed their hypothesis.'"
+prompt: "Dùng phân từ hoàn thành Having + V3 của conduct: '______ several tests, the scientists confirmed their hypothesis.'"
 hint: "viết dạng phân từ hoàn thành (2 từ)"
 accept: ["having conducted"]
 case_sensitive: false
@@ -200,7 +204,7 @@ prompt: "What does the participle clause express? 'Arriving home, she found the 
 options: ["reason/cause", "time/sequence", "condition", "result/consequence"]
 answer: 1
 grammar_article_slug: "participle-clauses"
-explain: "'Arriving home' chỉ thời gian (khi đến nhà). Nó mô tả sự kiện xảy ra **trước** khi cô ấy tìm thấy căn hộ trống."
+explain: "'Arriving home' chỉ thời gian: khi về đến nhà, cô ấy thấy căn hộ trống. Không cần suy ra một thì hiện tại hoặc một khoảng thời gian tách biệt trước việc phát hiện chỉ từ V-ing."
 ---
 
 ---
@@ -224,11 +228,11 @@ input: "text"
 headword: "pc-meaning-time-cause-result"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (lack / funds), the research project could not proceed as planned."
+prompt: "Chỉ biến đổi lack và giữ nguyên funds, không thêm từ vào cụm: dùng dạng V-ing của lack hoặc because of + dạng V-ing của lack để điền ____ (lack / funds), the research project could not proceed as planned."
 accept: ["lacking funds", "because of lacking funds"]
 case_sensitive: false
 grammar_article_slug: "participle-clauses"
-explain: "'Lacking funds' là mệnh đề phân từ chỉ **nguyên nhân** (vì thiếu vốn). Nó giải thích LÝ DO dự án không thể tiến hành."
+explain: "Nhận 'lacking funds' và 'because of lacking funds' theo hai cấu trúc đã yêu cầu. Lacking funds là phần phân từ nêu nguyên nhân trong câu này; because of lacking funds là cụm giới từ, không phải cùng loại mệnh đề phân từ. Lacking the funds hoặc một mệnh đề because đầy đủ có thể đúng ở nhiệm vụ mở hơn; ở đây funds được giữ nguyên."
 ---
 
 ---
@@ -238,8 +242,8 @@ input: "boolean"
 headword: "pc-meaning-time-cause-result"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Failing the exam twice, John finally passed on his third attempt.' (Meaning: because he failed)"
+prompt: "Đúng hay Sai: 'Lacking sufficient preparation, John failed the exam.' (Meaning: because he lacked preparation)"
 answer: true
 grammar_article_slug: "participle-clauses"
-explain: "ĐÚNG — 'Failing the exam twice' ở đây chỉ **nguyên nhân** hoặc **bối cảnh** dẫn đến John thử lần thứ ba. Nó giải thích lý do nỗ lực của anh."
+explain: "ĐÚNG — 'Lacking sufficient preparation' nêu nguyên nhân: vì thiếu chuẩn bị nên John trượt kỳ thi. Chủ ngữ ngầm hiểu của 'lacking' là John, khớp chủ ngữ chính; V-ing không mang thì độc lập."
 ---

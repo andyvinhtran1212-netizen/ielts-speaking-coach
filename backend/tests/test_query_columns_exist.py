@@ -77,11 +77,17 @@ _SCHEMA = {
         "accuracy", "words_mastered", "words_carried_over", "ended_by",
         "created_at", "class_assignment_item_id",
         "kind",                       # mig 189 — 'run' | 'retake'
+        # mig 306 — additive managed Grammar admission/completion identity.
+        "grammar_revision", "grammar_admission_kind",
+        "grammar_predecessor_session_id", "grammar_mastery_completed_at", "grammar_reset_at",
     },
     "quiz_banks": {              # mig 186 thêm course_id + lesson_no
         "id", "topic_id", "code", "title", "skill_area", "meta", "words_count",
         "source", "version", "is_published", "import_batch_id",
         "created_at", "updated_at", "course_id", "lesson_no",
+        # mig 306 — immutable original/current Grammar bank revision mapping.
+        "grammar_canonical_code", "grammar_revision", "grammar_is_current",
+        "grammar_predecessor_bank_id", "grammar_retired_at", "grammar_new_starts_enabled",
     },
     "quiz_questions": {          # mig 186 thêm why_wrong
         "id", "bank_id", "qid", "item_key", "type", "subtype", "input", "skill",
