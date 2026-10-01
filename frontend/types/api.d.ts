@@ -7398,6 +7398,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/dictation/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dictation Grading Capabilities */
+        get: operations["dictation_grading_capabilities_api_listening_tests_dictation_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/{test_id}/dictation/attempts/in-progress": {
         parameters: {
             query?: never;
@@ -12404,6 +12421,117 @@ export interface components {
              */
             updated_at: string;
         };
+        /** AdminDictationReportDetailResponse */
+        AdminDictationReportDetailResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Test Id External */
+            test_id_external?: string | null;
+            /** Section Num */
+            section_num?: number | null;
+            /** Section Title */
+            section_title?: string | null;
+            /** Total Sentences */
+            total_sentences?: number | null;
+            /** Correct Count */
+            correct_count?: number | null;
+            /** Accuracy */
+            accuracy?: number | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            user: components["schemas"]["AdminDictationUser"];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256: string | null;
+            /** Test Id */
+            test_id?: string | null;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Client Request Id */
+            client_request_id?: string | null;
+            /** Total Words */
+            total_words?: number | null;
+            /** Correct Words */
+            correct_words?: number | null;
+            /** Results */
+            results: components["schemas"]["DictationSentenceResult"][];
+            error_trends?: components["schemas"]["DictationErrorTrends"] | null;
+            /** Association Lookup Failed */
+            association_lookup_failed: boolean;
+            /** Association Lookup Failures */
+            association_lookup_failures: "users"[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdminDictationReportItem */
+        AdminDictationReportItem: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Test Id External */
+            test_id_external?: string | null;
+            /** Section Num */
+            section_num?: number | null;
+            /** Section Title */
+            section_title?: string | null;
+            /** Total Sentences */
+            total_sentences?: number | null;
+            /** Correct Count */
+            correct_count?: number | null;
+            /** Accuracy */
+            accuracy?: number | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            user: components["schemas"]["AdminDictationUser"];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdminDictationReportListResponse */
+        AdminDictationReportListResponse: {
+            /** Items */
+            items: components["schemas"]["AdminDictationReportItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Association Lookup Failed */
+            association_lookup_failed: boolean;
+            /** Association Lookup Failures */
+            association_lookup_failures: "users"[];
+        };
+        /** AdminDictationUser */
+        AdminDictationUser: {
+            /** Id */
+            id: string | null;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+        };
         /** AdminErrorOverviewOut */
         AdminErrorOverviewOut: {
             /** Undismissed */
@@ -14575,6 +14703,8 @@ export interface components {
              * @constant
              */
             mean_accuracy_basis: "mean_of_session_sentence_scores";
+            /** Versions */
+            versions: components["schemas"]["DictationVersionAggregate"][];
             /**
              * Trend Classification
              * @constant
@@ -14601,6 +14731,15 @@ export interface components {
             /** Missing Token Wrong Total */
             missing_token_wrong_total: number;
         };
+        /** DictationAmbiguity */
+        DictationAmbiguity: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Reason */
+            reason: string;
+        };
         /** DictationAttemptAnswerRequest */
         DictationAttemptAnswerRequest: {
             /**
@@ -14615,6 +14754,10 @@ export interface components {
             listen_count: number;
             /** Time Seconds */
             time_seconds?: number | null;
+            /** Grading Version */
+            grading_version?: ("legacy-whitespace-v1" | "lexical-v2") | null;
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
         };
         /** DictationAttemptRendererAffinityRequest */
         DictationAttemptRendererAffinityRequest: {
@@ -14624,10 +14767,115 @@ export interface components {
              */
             renderer_affinity: "legacy" | "next";
         };
+        /** DictationAttemptResponse */
+        DictationAttemptResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Test Id */
+            test_id: string;
+            /** Section Num */
+            section_num: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "completed" | "abandoned";
+            /** Renderer Affinity */
+            renderer_affinity?: ("legacy" | "next") | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Resume Expires At */
+            resume_expires_at?: string | null;
+            /** Units */
+            units: components["schemas"]["DictationUnit"][];
+            /** Answers */
+            answers: components["schemas"]["DictationSavedAnswer"][];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+        };
         /** DictationAttemptStartRequest */
         DictationAttemptStartRequest: {
             /** Renderer Affinity Protocol */
             renderer_affinity_protocol?: "claim-v1" | null;
+            /** Grading Version */
+            grading_version?: ("legacy-whitespace-v1" | "lexical-v2") | null;
+        };
+        /** DictationAttemptStartResponse */
+        DictationAttemptStartResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Test Id */
+            test_id: string;
+            /** Section Num */
+            section_num: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "completed" | "abandoned";
+            /** Renderer Affinity */
+            renderer_affinity?: ("legacy" | "next") | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Resume Expires At */
+            resume_expires_at?: string | null;
+            /** Units */
+            units: components["schemas"]["DictationUnit"][];
+            /** Answers */
+            answers: components["schemas"]["DictationSavedAnswer"][];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Created */
+            created: boolean;
+        };
+        /** DictationCapabilities */
+        DictationCapabilities: {
+            /** New Start Versions */
+            new_start_versions: ("legacy-whitespace-v1" | "lexical-v2")[];
+            /** Readable Versions */
+            readable_versions: ("legacy-whitespace-v1" | "lexical-v2")[];
+        };
+        /** DictationDiffOperation */
+        DictationDiffOperation: {
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "match" | "miss" | "wrong" | "extra";
+            /** Expected */
+            expected: string | null;
+            /** Actual */
+            actual: string | null;
+            /** Filler */
+            filler?: boolean | null;
+            expected_span?: components["schemas"]["DictationSpan"] | null;
+            actual_span?: components["schemas"]["DictationSpan"] | null;
+        };
+        /** DictationErrorTrends */
+        DictationErrorTrends: {
+            op_counts?: components["schemas"]["DictationOperationCounts"] | null;
+            /** Missed */
+            missed?: {
+                [key: string]: number;
+            } | null;
+            /** Wrong */
+            wrong?: {
+                [key: string]: number;
+            } | null;
+            /** Top Missed */
+            top_missed?: components["schemas"]["DictationTrendWord"][] | null;
+            /** Top Wrong */
+            top_wrong?: components["schemas"]["DictationTrendWrong"][] | null;
         };
         /** DictationFlagRequest */
         DictationFlagRequest: {
@@ -14642,6 +14890,42 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** DictationGrade */
+        DictationGrade: {
+            /** Score */
+            score: number;
+            /** Correct Words */
+            correct_words: number;
+            /** Total Words */
+            total_words: number;
+            /** Is Correct */
+            is_correct: boolean;
+            /** Diff */
+            diff: components["schemas"]["DictationDiffOperation"][];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Sentence Reference Sha256 */
+            sentence_reference_sha256?: string | null;
+            /** Offset Unit */
+            offset_unit?: "unicode_codepoint" | null;
+            /** Reference */
+            reference?: string | null;
+            /** User Text */
+            user_text?: string | null;
+            /** Reference Segments */
+            reference_segments?: components["schemas"]["DictationSegment"][] | null;
+            /** User Segments */
+            user_segments?: components["schemas"]["DictationSegment"][] | null;
+            /** Reference Ambiguities */
+            reference_ambiguities?: components["schemas"]["DictationAmbiguity"][] | null;
+            /** User Ambiguities */
+            user_ambiguities?: components["schemas"]["DictationAmbiguity"][] | null;
+        };
         /** DictationMissedWord */
         DictationMissedWord: {
             /** Word */
@@ -14649,12 +14933,164 @@ export interface components {
             /** Count */
             count: number;
         };
+        /** DictationOperationCounts */
+        DictationOperationCounts: {
+            /** Miss */
+            miss: number;
+            /** Wrong */
+            wrong: number;
+            /** Extra */
+            extra: number;
+        };
+        /** DictationPolicyDetail */
+        DictationPolicyDetail: {
+            /** Error Code */
+            error_code: string;
+            /** Message */
+            message: string;
+        };
+        /** DictationPolicyErrorResponse */
+        DictationPolicyErrorResponse: {
+            /** Detail */
+            detail: components["schemas"]["DictationPolicyDetail"] | components["schemas"]["DictationValidationIssue"][] | string;
+        };
         /** DictationPunctuationTrend */
         DictationPunctuationTrend: {
             /** Token */
             token: string;
             /** Count */
             count: number;
+        };
+        /** DictationResumeResponse */
+        DictationResumeResponse: {
+            attempt: components["schemas"]["DictationAttemptResponse"] | null;
+        };
+        /** DictationSavedAnswer */
+        DictationSavedAnswer: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Sentence Idx */
+            sentence_idx: number;
+            /** User Transcript */
+            user_transcript: string;
+            /** Score */
+            score: number;
+            /** Correct Words */
+            correct_words: number;
+            /** Total Words */
+            total_words: number;
+            /** Diff */
+            diff: components["schemas"]["DictationDiffOperation"][];
+            /** Listen Count */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Sentence Reference Sha256 */
+            sentence_reference_sha256?: string | null;
+            grading_evidence?: components["schemas"]["DictationGrade"] | null;
+        };
+        /** DictationSegment */
+        DictationSegment: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "lexical" | "unscored" | "whitespace";
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Raw */
+            raw: string;
+            /** Reason */
+            reason: string;
+        };
+        /** DictationSentenceGrade */
+        DictationSentenceGrade: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Sentence Idx */
+            sentence_idx: number;
+            /** User Transcript */
+            user_transcript: string;
+            /** Score */
+            score: number;
+            /** Correct Words */
+            correct_words: number;
+            /** Total Words */
+            total_words: number;
+            /** Diff */
+            diff: components["schemas"]["DictationDiffOperation"][];
+            /** Listen Count */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Sentence Reference Sha256 */
+            sentence_reference_sha256?: string | null;
+            grading_evidence?: components["schemas"]["DictationGrade"] | null;
+            /** Is Correct */
+            is_correct: boolean;
+            /** Offset Unit */
+            offset_unit?: "unicode_codepoint" | null;
+            /** Reference */
+            reference?: string | null;
+            /** User Text */
+            user_text?: string | null;
+            /** Reference Segments */
+            reference_segments?: components["schemas"]["DictationSegment"][] | null;
+            /** User Segments */
+            user_segments?: components["schemas"]["DictationSegment"][] | null;
+            /** Reference Ambiguities */
+            reference_ambiguities?: components["schemas"]["DictationAmbiguity"][] | null;
+            /** User Ambiguities */
+            user_ambiguities?: components["schemas"]["DictationAmbiguity"][] | null;
+        };
+        /** DictationSentenceResult */
+        DictationSentenceResult: {
+            /** Sentence Idx */
+            sentence_idx: number;
+            /** Reference */
+            reference?: string | null;
+            /** User Text */
+            user_text: string;
+            /** Score */
+            score: number;
+            /** Correct Words */
+            correct_words: number;
+            /** Total Words */
+            total_words: number;
+            /** Diff */
+            diff?: components["schemas"]["DictationDiffOperation"][] | null;
+            /** Listen Count */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+            ops?: components["schemas"]["DictationOperationCounts"] | null;
+            /** Grading Version */
+            grading_version?: ("legacy-whitespace-v1" | "lexical-v2") | null;
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Sentence Reference Sha256 */
+            sentence_reference_sha256?: string | null;
+            grading_evidence?: components["schemas"]["DictationGrade"] | null;
         };
         /** DictationSentenceSubmit */
         DictationSentenceSubmit: {
@@ -14689,6 +15125,151 @@ export interface components {
             total_time_seconds?: number | null;
             /** Sentences */
             sentences?: components["schemas"]["DictationSentenceSubmit"][];
+            /** Grading Version */
+            grading_version?: ("legacy-whitespace-v1" | "lexical-v2") | null;
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+        };
+        /** DictationSessionResponse */
+        DictationSessionResponse: {
+            /** Session Id */
+            session_id: string;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Client Request Id */
+            client_request_id?: string | null;
+            /** Test Title */
+            test_title?: string | null;
+            /** Section Num */
+            section_num?: number | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Total Sentences */
+            total_sentences: number;
+            /** Correct Count */
+            correct_count: number;
+            /** Accuracy */
+            accuracy: number;
+            /** Total Words */
+            total_words: number;
+            /** Correct Words */
+            correct_words: number;
+            error_trends: components["schemas"]["DictationErrorTrends"];
+            /** Results */
+            results: components["schemas"]["DictationSentenceResult"][];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+        };
+        /** DictationSpan */
+        DictationSpan: {
+            /** Segment Index */
+            segment_index: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+        };
+        /** DictationStoredSessionResponse */
+        DictationStoredSessionResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Test Id */
+            test_id?: string | null;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Client Request Id */
+            client_request_id?: string | null;
+            /** Test Id External */
+            test_id_external?: string | null;
+            /** Section Num */
+            section_num?: number | null;
+            /** Section Title */
+            section_title?: string | null;
+            /** Total Sentences */
+            total_sentences?: number | null;
+            /** Correct Count */
+            correct_count?: number | null;
+            /** Accuracy */
+            accuracy?: number | null;
+            /** Total Words */
+            total_words?: number | null;
+            /** Correct Words */
+            correct_words?: number | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Results */
+            results: components["schemas"]["DictationSentenceResult"][];
+            error_trends?: components["schemas"]["DictationErrorTrends"] | null;
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** DictationTrendWord */
+        DictationTrendWord: {
+            /** Word */
+            word: string;
+            /** Count */
+            count: number;
+        };
+        /** DictationTrendWrong */
+        DictationTrendWrong: {
+            /** Expected */
+            expected: string;
+            /** Count */
+            count: number;
+            /** Common Actual */
+            common_actual?: string[];
+        };
+        /** DictationUnit */
+        DictationUnit: {
+            /** Text */
+            text: string;
+            /** Start */
+            start?: number | null;
+            /** End */
+            end?: number | null;
+            /** Hints */
+            hints?: string[];
+        };
+        /** DictationValidationIssue */
+        DictationValidationIssue: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /** Type */
+            type: string;
+            /** Input */
+            input?: unknown | null;
+            /** Ctx */
+            ctx?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** DictationVersionAggregate */
+        DictationVersionAggregate: {
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Session Count */
+            session_count: number;
+            /** Mean Accuracy */
+            mean_accuracy: number;
         };
         /** DictationWrongWord */
         DictationWrongWord: {
@@ -16915,6 +17496,8 @@ export interface components {
              * @default
              */
             user_transcript: string;
+            /** Grading Version */
+            grading_version?: "legacy-whitespace-v1" | null;
         };
         /** ListeningTestListItem */
         ListeningTestListItem: {
@@ -32480,7 +33063,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationGrade"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dictation_grading_capabilities_api_listening_tests_dictation_capabilities_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationCapabilities"];
                 };
             };
             /** @description Validation Error */
@@ -32515,16 +33129,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationResumeResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -32554,16 +33186,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationAttemptStartResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -32629,16 +33279,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationSentenceGrade"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -32664,16 +33332,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationSessionResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -32697,16 +33383,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationSessionResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -32730,16 +33434,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationStoredSessionResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -34566,7 +35288,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminDictationReportListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34576,6 +35298,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -34612,6 +35343,15 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
         };
     };
     admin_get_dictation_report_admin_listening_dictation_reports__session_id__get: {
@@ -34633,7 +35373,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminDictationReportDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34643,6 +35383,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };

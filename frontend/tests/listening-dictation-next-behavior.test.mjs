@@ -164,7 +164,7 @@ describe('native Listening Dictation ownership', () => {
     assert.match(CLIENT, /setAnswer\(restored\[selectedIndex\]\?\.user_text \|\| ''\)/);
     assert.match(CLIENT, /sentences:\s*canonicalAttempt\.units\.map/);
     assert.match(CLIENT, /dictation\/session\/by-request/);
-    assert.match(CLIENT, /normalizeDictationAttemptReport\(payload, receipt\.submission\?\.attempt_id\)/);
+    assert.match(CLIENT, /normalizeDictationReceiptReport\(payload, receipt, false\)/);
     assert.match(CLIENT, /client_request_id/);
     assert.match(CLIENT, /localStorage\.setItem/);
     assert.match(CLIENT, /Gửi lại và xác nhận/);
@@ -172,7 +172,7 @@ describe('native Listening Dictation ownership', () => {
     assert.match(CLIENT, /audio-player/);
     assert.doesNotMatch(CLIENT, /crypto\.randomUUID\(\)/);
     assert.match(CLIENT, /const canRestartSection = saveState === 'saved'/);
-    assert.match(CLIENT, /disabled=\{!canRestartSection\}/);
+    assert.match(CLIENT, /disabled=\{!canRestartSection \|\|/);
     assert.match(CLIENT, /if \(!canRestartSection\) return; clearReceipt/);
   });
 

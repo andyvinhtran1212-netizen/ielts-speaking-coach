@@ -5,6 +5,8 @@ import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3001';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
+const testId = '00000000-0000-4000-8000-000000000111';
+const reportId = '00000000-0000-4000-8000-000000000123';
 const userId = '00000000-0000-0000-0000-000000000456';
 const session = JSON.stringify({ access_token: 'dictation-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: userId, email: 'dictation@local' } });
 const checks = [];
@@ -20,34 +22,45 @@ await context.addInitScript(([key, value]) => {
   Object.defineProperty(globalThis.crypto, 'randomUUID', { configurable: true, value: undefined });
 }, [storageKey(SB), session]);
 const page = await context.newPage();
+page.setDefaultTimeout(12000);
 const errors = []; const completionPosts = []; const receiptReads = []; const attemptWrites = [];
+const businessCalls = []; const flagPosts = []; const ownedReads = [];
 const attemptId = '00000000-0000-0000-0000-000000000789';
 let canonical = null;
 let releaseCompletion;
 let markCompletionStarted;
 const completionStarted = new Promise((resolve) => { markCompletionStarted = resolve; });
+async function bounded(promise, label) {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label}: fixture acknowledgement not reached`)), 12000);
+    })]);
+  } finally { clearTimeout(timer); }
+}
 page.on('pageerror', (error) => errors.push(String(error)));
 await page.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
   if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('about:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
   const parsed = new URL(url); const method = request.method();
+  if (parsed.pathname.includes('/dictation')) businessCalls.push({ method, path: parsed.pathname });
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-  if (parsed.pathname === '/api/listening/tests/test-1/dictation' && method === 'GET') return json({
-    id: 'test-1', test_id: 'LIS-1', title: 'Listening <script> fixture',
+  if (parsed.pathname === `/api/listening/tests/${testId}/dictation` && method === 'GET') return json({
+    id: testId, test_id: 'LIS-1', title: 'Listening <script> fixture',
     audio_url: 'https://audio.test/file.mp3', audio_duration_seconds: 90,
     sections: [
       { section_num: 1, title: 'Section 1', cue_start: 0, sentences: ['Hello there.', 'The address is Brighton.'], timings: [{ start: 0, end: 3 }, { start: 3, end: 7 }], hints: [[], ['Brighton']] },
       { section_num: 2, title: 'Section 2', cue_start: 7, sentences: ['A final sentence.'], timings: [], hints: [[]] },
     ],
   });
-  if (parsed.pathname === '/api/listening/tests/test-1/dictation/attempts/in-progress' && method === 'GET') {
+  if (parsed.pathname === `/api/listening/tests/${testId}/dictation/attempts/in-progress` && method === 'GET') {
     return json({ attempt: null });
   }
-  if (parsed.pathname === '/api/listening/tests/test-1/dictation/attempts' && method === 'POST') {
+  if (parsed.pathname === `/api/listening/tests/${testId}/dictation/attempts` && method === 'POST') {
     attemptWrites.push(JSON.parse(request.postData() || '{}'));
     return json({
-      attempt_id: attemptId, test_id: 'test-1', section_num: 1,
+      attempt_id: attemptId, test_id: testId, section_num: 1, created: true,
       status: 'in_progress', renderer_affinity: null,
       started_at: '2026-08-18T00:00:00Z', answers: [],
       units: [
@@ -71,13 +84,14 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/api/listening/tests/dictation/session' && method === 'POST') {
     const body = JSON.parse(request.postData() || '{}'); completionPosts.push(body);
     canonical = {
-      session_id: 'session-1', client_request_id: body.client_request_id,
-      section_num: 1, total_time_seconds: 61, total_sentences: 2, correct_count: 1,
+      session_id: reportId, attempt_id: attemptId, client_request_id: body.client_request_id,
+      test_id: testId, test_id_external: 'LIS-1', test_title: 'Listening <script> fixture',
+      section_num: 1, section_title: 'Section 1', total_time_seconds: 61, total_sentences: 2, correct_count: 1,
       accuracy: .9, total_words: 7, correct_words: 6,
       error_trends: { op_counts: { miss: 0, wrong: 1, extra: 0 }, missed: {}, wrong: { 'brighton.': 1 } },
       results: [
-        { sentence_idx: 0, score: 1, correct_words: 2, total_words: 2, user_text: 'Hello there.', listen_count: 0, time_seconds: 4, diff: [{ op: 'match', actual: 'Hello' }, { op: 'match', actual: 'there.' }] },
-        { sentence_idx: 1, score: .8, correct_words: 4, total_words: 5, user_text: 'The address is bright.', listen_count: 0, time_seconds: 6, diff: [{ op: 'wrong', actual: 'bright', expected: 'Brighton.' }] },
+        { sentence_idx: 0, reference: 'Hello there.', score: 1, correct_words: 2, total_words: 2, user_text: 'Hello there.', listen_count: body.sentences[0].listen_count, time_seconds: body.sentences[0].time_seconds, diff: [{ op: 'match', actual: 'Hello' }, { op: 'match', actual: 'there.' }] },
+        { sentence_idx: 1, reference: 'The address is Brighton.', score: .8, correct_words: 4, total_words: 5, user_text: 'The address is bright.', listen_count: body.sentences[1].listen_count, time_seconds: body.sentences[1].time_seconds, diff: [{ op: 'wrong', actual: 'bright', expected: 'Brighton.' }] },
       ],
     };
     // Simulate commit success + lost HTTP acknowledgement.
@@ -85,42 +99,80 @@ await page.route('**/*', async (route) => {
     await new Promise((resolve) => { releaseCompletion = resolve; });
     return route.abort('connectionreset');
   }
-  if (parsed.pathname === '/api/listening/tests/dictation/flag' && method === 'POST') return json({ id: 'flag-1', status: 'new' });
+  if (parsed.pathname === `/api/listening/tests/dictation/session/${reportId}` && method === 'GET') {
+    ownedReads.push(parsed.pathname);
+    return json({ ...canonical, id: canonical.session_id });
+  }
+  if (parsed.pathname === '/api/listening/tests/dictation/flag' && method === 'POST') {
+    flagPosts.push(JSON.parse(request.postData() || '{}'));
+    return json({ id: 'flag-1', status: 'new' });
+  }
   return json({ detail: `unhandled fixture ${method} ${parsed.pathname}` }, 404);
 });
 
-await page.goto(`${BASE}/listening/dictation/session?test_id=test-1`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/listening/dictation/session?test_id=${testId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Chọn section' }).waitFor();
 check('auth và multi-section boot vào picker', await page.getByRole('button', { name: /Section 1/ }).count() === 1);
 check('authored title được React escape', await page.getByRole('heading', { name: 'Chép chính tả · Listening <script> fixture' }).count() === 1 && await page.locator('script').filter({ hasText: 'fixture' }).count() === 0);
 await page.getByRole('button', { name: /Section 1/ }).click();
 await page.getByLabel('Câu trả lời câu 1').fill('Hello there.');
 await page.getByRole('button', { name: 'Kiểm tra câu' }).click();
-await page.getByText('100% · 2/2 từ').waitFor();
+await page.getByText('100% · 2/2 token theo cách chấm cũ').waitFor();
 await page.getByRole('button', { name: 'Câu tiếp theo →' }).click();
 check('timing và proper-noun hint đổi theo câu', await page.getByText('Brighton', { exact: true }).count() === 1 && await page.locator('audio-player').getAttribute('segment-start') === '3');
 await page.getByLabel('Câu trả lời câu 2').fill('The address is bright.');
 await page.getByRole('button', { name: 'Kiểm tra câu' }).click();
-await page.getByText('80% · 4/5 từ').waitFor();
+await page.getByText('80% · 4/5 token theo cách chấm cũ').waitFor();
+// Confirmation replaces the URL, then reads the owned report. Observe that
+// final read/render before asserting stats or invoking explicit feedback.
+const ownedReport = page.waitForResponse((response) => response.request().method() === 'GET'
+  && new URL(response.url()).pathname === `/api/listening/tests/dictation/session/${reportId}` && response.status() === 200);
 await page.getByRole('button', { name: 'Xem tổng kết' }).click();
 await page.getByText('Đang xác nhận…', { exact: true }).waitFor();
 check('lost ACK không thể xoá receipt bằng làm lại khi đang xác nhận', await page.getByRole('button', { name: 'Làm lại section' }).isDisabled());
 // `saving` is rendered before the POST reaches Playwright's route handler.
 // Wait for the fixture to actually hold the acknowledgement before releasing
 // it; otherwise a fast assertion can race the request and leave it suspended.
-await completionStarted;
+await bounded(completionStarted, 'completion POST');
 releaseCompletion();
+await ownedReport;
+await page.locator('.dict-next-stats').waitFor();
 await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
 check('mất ACK được read-back tự động bằng đúng receipt', completionPosts.length === 1 && receiptReads.length >= 2 && canonical?.client_request_id === completionPosts[0].client_request_id);
 check('attempt mới claim Next trước khi làm bài', attemptWrites.length === 1 && attemptWrites[0].renderer_affinity_protocol === 'claim-v1');
 check('payload hoàn tất đủ coverage, attempt và receipt UUID', completionPosts[0].attempt_id === attemptId && completionPosts[0].sentences.length === 2 && /^[0-9a-f-]{36}$/i.test(completionPosts[0].client_request_id));
 check('summary dùng canonical report', await page.getByText('90%', { exact: true }).count() === 1 && await page.getByText('1/2', { exact: true }).count() === 1 && await page.getByText('6/7', { exact: true }).count() === 1);
+check('owned report giữ đúng receipt và nguyên văn đã lưu', ownedReads.length === 1
+  && new URL(page.url()).searchParams.get('session_id') === reportId
+  && await page.locator('.dict-next-review .dict-next-reference').first().textContent() === 'TranscriptHello there.');
+check('đọc owned report thụ động không tự gửi báo lỗi', flagPosts.length === 0);
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+const beforeFlag = businessCalls.length;
 await page.getByRole('button', { name: '⚑ Báo lỗi' }).first().click();
 await page.getByRole('button', { name: 'Transcript sai' }).click();
 await page.getByRole('button', { name: 'Gửi báo lỗi' }).click();
 await page.getByText('✓ Đã báo lỗi', { exact: true }).waitFor();
 check('báo lỗi từng câu hoạt động', await page.getByText('✓ Đã báo lỗi', { exact: true }).count() === 1);
+check('báo lỗi explicit dùng test FK/section/saved index, không human code', flagPosts.length === 1
+  && flagPosts[0].test_id === testId && flagPosts[0].test_id !== canonical.test_id_external
+  && flagPosts[0].section_num === 1 && flagPosts[0].sentence_idx === 0 && flagPosts[0].category === 'transcript_wrong'
+  && flagPosts[0].note === null, JSON.stringify(flagPosts));
+check('báo lỗi không regrade hoặc tạo receipt/lượt trùng', businessCalls.slice(beforeFlag).length === 1
+  && businessCalls[beforeFlag].method === 'POST' && businessCalls[beforeFlag].path === '/api/listening/tests/dictation/flag'
+  && attemptWrites.length === 1 && completionPosts.length === 1 && ownedReads.length === 1
+  && businessCalls.filter((call) => call.method === 'POST' && call.path.includes('/sentences/')).length === 2
+  && await page.getByText('90%', { exact: true }).count() === 1 && await page.getByText('6/7', { exact: true }).count() === 1,
+  JSON.stringify({ attempts: attemptWrites.length, grades: businessCalls.filter((call) => call.method === 'POST' && call.path.includes('/sentences/')).length,
+    completions: completionPosts.length, receiptReads: receiptReads.length, ownedReads: ownedReads.length, flagPosts: flagPosts.length }));
+const beforeReload = businessCalls.length;
+const reloadedReport = page.waitForResponse((response) => response.request().method() === 'GET'
+  && new URL(response.url()).pathname === `/api/listening/tests/dictation/session/${reportId}` && response.status() === 200);
+await Promise.all([reloadedReport, page.reload()]);
+await page.locator('.dict-next-stats').getByText('90%', { exact: true }).waitFor();
+await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
+check('reload báo cáo chỉ GET owned evidence, không start/chấm/hoàn tất/báo lỗi', businessCalls.slice(beforeReload).length === 1
+  && businessCalls[beforeReload].method === 'GET' && businessCalls[beforeReload].path === `/api/listening/tests/dictation/session/${reportId}`
+  && flagPosts.length === 1 && ownedReads.length === 2);
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));

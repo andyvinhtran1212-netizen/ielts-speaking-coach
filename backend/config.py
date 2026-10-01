@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Separately retain owned reads/execution/fencing of existing admissions
     # while new preparation is disabled. No new command or baseline clock.
     CORE_ADMISSION_RECOVERY_ENABLED: bool = False
+    # New compatible Dictation starts only. Turning this off must still allow
+    # every already-frozen lexical-v2 attempt to read, grade and complete.
+    DICTATION_LEXICAL_V2_ENABLED: bool = False
 
     # Writing prompt-bank (R1): public-read library browse on the student
     # dashboard. Default off until the prompts are launch-ready; flip to true

@@ -35,6 +35,16 @@ from fastapi import (
 from pydantic import BaseModel, ConfigDict, Field
 
 from config import settings
+from models.dictation_grading import (
+    DictationAttemptStartResponse, DictationCapabilities, DictationGrade,
+    DictationPolicyErrorResponse, DictationResumeResponse, DictationSentenceGrade,
+    DictationSessionResponse, DictationStoredSessionResponse,
+)
+from services.dictation_grading_version import (
+    DictationPolicyError, LEGACY_POLICY_VERSION, LEXICAL_POLICY_VERSION,
+    frozen_contract, grade_frozen_sentence, persisted_policy_identity, reference_sha256,
+    require_write_contract, session_contract, text_sha256, validate_new_lexical_source,
+)
 from database import supabase_admin
 from services.core_attempt_observation import (
     admit_start, bind_owned_attempt, note_abandoned_dictation_attempt, note_abandoned_exam_attempts, note_persisted_exam_result, observe_operation,
@@ -51,7 +61,10 @@ from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
 from services.pg_search import ilike_or_filter
 from services.dictation_trends import classify_trends
-from models.listening_dictation import DictationAggregateResponse
+from models.listening_dictation import (
+    AdminDictationReportDetailResponse, AdminDictationReportListResponse,
+    DictationAggregateResponse,
+)
 from models.admin_listening_attempts import (
     AdminListeningAttemptDetailResponse,
     AdminListeningAttemptListResponse,
@@ -1078,6 +1091,8 @@ def _grade_and_save_dictation(
         "total_words":      graded["total_words"],
         "is_correct":       graded["is_correct"],
         "diff":             graded["diff"],
+        "grading_version":  LEGACY_POLICY_VERSION,
+        "sentence_reference_sha256": text_sha256(reference_transcript),
     }
 
 
@@ -5968,9 +5983,10 @@ class ListeningTestDictationGradeRequest(BaseModel):
     section_num:     int
     sentence_idx:    int = Field(ge=0)
     user_transcript: str = Field(default="", max_length=10_000)
+    grading_version: Literal["legacy-whitespace-v1"] | None = None
 
 
-@user_router.post("/tests/dictation/grade")
+@user_router.post("/tests/dictation/grade", response_model=DictationGrade, response_model_exclude_unset=True)
 async def grade_listening_test_dictation(
     body: ListeningTestDictationGradeRequest,
     authorization: str | None = Header(default=None),
@@ -6012,11 +6028,14 @@ async def grade_listening_test_dictation(
             f"(section có {len(units)} câu).",
         )
 
-    return grade_dictation(
+    grade = grade_dictation(
         reference_transcript=units[body.sentence_idx]["text"],
         user_transcript=body.user_transcript,
         ignore_fillers=True,   # don't penalise missed hesitations (um / er / oh)
     )
+    return {**grade, "grading_version": LEGACY_POLICY_VERSION,
+            "reference_sha256": None,
+            "sentence_reference_sha256": text_sha256(units[body.sentence_idx]["text"])}
 
 
 # ── Dictation completion report (persisted) + content flags ──────────
@@ -6057,12 +6076,15 @@ class DictationSentenceSubmit(BaseModel):
 
 class DictationAttemptStartRequest(BaseModel):
     renderer_affinity_protocol: Literal["claim-v1"] | None = None
+    grading_version: Literal["legacy-whitespace-v1", "lexical-v2"] | None = None
 
 
 class DictationAttemptAnswerRequest(BaseModel):
     user_transcript: str = Field(default="", max_length=10_000)
     listen_count:    int = Field(default=0, ge=0)
     time_seconds:    int | None = Field(default=None, ge=0)
+    grading_version: Literal["legacy-whitespace-v1", "lexical-v2"] | None = None
+    reference_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class DictationAttemptRendererAffinityRequest(BaseModel):
@@ -6077,11 +6099,37 @@ class DictationSessionRequest(BaseModel):
     started_at:         str | None = None
     total_time_seconds: int | None = Field(default=None, ge=0)
     sentences:          list[DictationSentenceSubmit] = Field(default_factory=list, max_length=200)
+    grading_version: Literal["legacy-whitespace-v1", "lexical-v2"] | None = None
+    reference_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+_DICTATION_POLICY_ERRORS = {code: {"model": DictationPolicyErrorResponse}
+                            for code in (409, 422, 503)}
+
+
+def _dictation_policy(action, *args, **kwargs):
+    try:
+        return action(*args, **kwargs)
+    except DictationPolicyError as exc:
+        raise HTTPException(exc.status_code, {"error_code": exc.code, "message": exc.message}) from None
+
+
+@user_router.get("/tests/dictation/capabilities", response_model=DictationCapabilities)
+async def dictation_grading_capabilities(authorization: str | None = Header(default=None)):
+    await _require_auth(authorization)
+    return {"new_start_versions": [LEGACY_POLICY_VERSION] + (
+        [LEXICAL_POLICY_VERSION] if settings.DICTATION_LEXICAL_V2_ENABLED else []),
+        "readable_versions": [LEGACY_POLICY_VERSION, LEXICAL_POLICY_VERSION]}
 
 
 def _dictation_submission_fingerprint(body: DictationSessionRequest) -> str:
     """Bind an idempotency key to one exact canonical submission payload."""
-    payload = body.model_dump(mode="json", exclude={"client_request_id"})
+    exclude = {"client_request_id"}
+    if body.grading_version != LEXICAL_POLICY_VERSION:
+        # Old receipts must keep their exact byte identity, including explicit
+        # legacy ACKs added by a new consumer. No historical fingerprint rewrite.
+        exclude.update({"grading_version", "reference_sha256"})
+    payload = body.model_dump(mode="json", exclude=exclude)
     canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -6089,6 +6137,7 @@ def _dictation_submission_fingerprint(body: DictationSessionRequest) -> str:
 def _dictation_session_response(row: dict, test_title: str | None = None) -> dict:
     """Return the stable completion contract from a persisted canonical row."""
     return {
+        **_dictation_policy(session_contract, row),
         "session_id":         row.get("id"),
         "attempt_id":         row.get("attempt_id"),
         "client_request_id":  row.get("client_request_id"),
@@ -6136,7 +6185,19 @@ def _dictation_attempt_answers(attempt_id: str) -> list[dict]:
 
 
 def _dictation_attempt_response(row: dict) -> dict:
+    contract = _dictation_policy(frozen_contract, row)
+    answers = []
+    for answer in _dictation_attempt_answers(str(row.get("id"))):
+        version = (LEGACY_POLICY_VERSION if answer.get("grading_version") is None
+                   else answer["grading_version"])
+        if version != contract["grading_version"] or (
+                version == LEXICAL_POLICY_VERSION
+                and answer.get("reference_sha256") != contract["reference_sha256"]):
+            raise HTTPException(503, {"error_code": "dictation_policy_evidence_unavailable",
+                                     "message": "Chính sách của câu đã lưu chưa khớp lượt Dictation."})
+        answers.append({**answer, "grading_version": version})
     return {
+        **contract,
         "attempt_id": row.get("id"),
         "test_id": row.get("test_id"),
         "section_num": row.get("section_num"),
@@ -6145,7 +6206,7 @@ def _dictation_attempt_response(row: dict) -> dict:
         "started_at": row.get("started_at") or row.get("created_at"),
         "resume_expires_at": row.get("resume_expires_at"),
         "units": row.get("units_snapshot") or [],
-        "answers": _dictation_attempt_answers(str(row.get("id"))),
+        "answers": answers,
     }
 
 
@@ -6195,7 +6256,8 @@ def _dictation_section_units_snapshot(test_id: str, section_num: int) -> list[di
     ]
 
 
-@user_router.get("/tests/{test_id}/dictation/attempts/in-progress")
+@user_router.get("/tests/{test_id}/dictation/attempts/in-progress", response_model=DictationResumeResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 async def get_in_progress_dictation_attempt(
     test_id: str,
     section_num: int = Query(ge=1),
@@ -6207,7 +6269,8 @@ async def get_in_progress_dictation_attempt(
     return {"attempt": _dictation_attempt_response(row) if row else None}
 
 
-@user_router.post("/tests/{test_id}/dictation/attempts")
+@user_router.post("/tests/{test_id}/dictation/attempts", response_model=DictationAttemptStartResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 @observe_operation("listening_dictation", "start", correlate_by=("test_id", "section_num", "body"))
 async def start_dictation_attempt(
     test_id: str,
@@ -6224,6 +6287,17 @@ async def start_dictation_attempt(
     if previous and is_resume_active(previous):
         bind_owned_attempt(previous)
         return {**_dictation_attempt_response(previous), "created": False}
+    requested_version = body.grading_version if body else None
+    if requested_version == LEXICAL_POLICY_VERSION and not settings.DICTATION_LEXICAL_V2_ENABLED:
+        raise HTTPException(503, {"error_code": "dictation_new_policy_disabled",
+                                 "message": "Chính sách chấm từ mới chưa được mở cho lượt mới."})
+    # V2 author/content gates run before retiring an expired parent or any
+    # write. Default legacy retains its deployed retirement/error ordering.
+    units_snapshot = None
+    frozen_hash = None
+    if requested_version == LEXICAL_POLICY_VERSION:
+        units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
+        frozen_hash = _dictation_policy(validate_new_lexical_source, units_snapshot)
     admit_start()
     if previous:
         # Preserve every answer row, but retire the expired parent from the
@@ -6244,7 +6318,10 @@ async def start_dictation_attempt(
                 user_id=user["id"], section_num=section_num,
             )
 
-    units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
+    if units_snapshot is None:
+        units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
+        if requested_version:
+            frozen_hash = _dictation_policy(reference_sha256, units_snapshot)
     now = datetime.now(timezone.utc).isoformat()
     expires_at = resume_expires_at(now)
     attempt_id = str(uuid.uuid4())
@@ -6260,6 +6337,8 @@ async def start_dictation_attempt(
         "created_at": now,
         "updated_at": now,
     }
+    if requested_version:
+        payload.update(grading_version=requested_version, reference_sha256=frozen_hash)
     affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
     if affinity_aware:
         payload["renderer_affinity"] = None
@@ -6316,7 +6395,9 @@ async def claim_dictation_attempt_renderer_affinity(
     return {"attempt_id": str(attempt_id), "renderer_affinity": affinity}
 
 
-@user_router.post("/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}")
+@user_router.post("/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}",
+                 response_model=DictationSentenceGrade, response_model_exclude_unset=True,
+                 responses=_DICTATION_POLICY_ERRORS)
 @observe_operation("listening_dictation", "save", correlate_by=("attempt_id", "sentence_idx", "body"))
 async def grade_and_save_dictation_attempt_sentence(
     attempt_id: uuid.UUID,
@@ -6338,11 +6419,8 @@ async def grade_and_save_dictation_attempt_sentence(
         raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
     if sentence_idx >= len(units):
         raise HTTPException(422, f"sentence_idx {sentence_idx} ngoài phạm vi.")
-    grade = grade_dictation(
-        reference_transcript=units[sentence_idx]["text"],
-        user_transcript=body.user_transcript,
-        ignore_fillers=True,
-    )
+    grade = _dictation_policy(grade_frozen_sentence, attempt, sentence_idx, body.user_transcript,
+        grading_version=body.grading_version, acknowledged_reference_sha256=body.reference_sha256)
     now = datetime.now(timezone.utc).isoformat()
     row = {
         "attempt_id": str(attempt_id),
@@ -6356,6 +6434,9 @@ async def grade_and_save_dictation_attempt_sentence(
         "time_seconds": body.time_seconds,
         "updated_at": now,
     }
+    if grade["grading_version"] == LEXICAL_POLICY_VERSION:
+        row.update(grading_version=LEXICAL_POLICY_VERSION, reference_sha256=grade["reference_sha256"],
+                   sentence_reference_sha256=grade["sentence_reference_sha256"], grading_evidence=grade)
     try:
         supabase_admin.table("dictation_attempt_answers").upsert(
             row, on_conflict="attempt_id,sentence_idx",
@@ -6397,6 +6478,14 @@ def _assert_dictation_request_replay(
     body: DictationSessionRequest,
     fingerprint: str,
 ) -> None:
+    # Even a pre-fingerprint receipt cannot accept an old-client write to v2.
+    contract = _dictation_policy(session_contract, row)
+    _dictation_policy(require_write_contract, {
+        **contract, "grading_version": row.get("grading_version"),
+        "units_snapshot": [{"text": item["reference"]} for item in sorted(
+            row.get("results") or [], key=lambda item: item.get("sentence_idx", -1))]
+        if contract["reference_sha256"] else None,
+    }, grading_version=body.grading_version, acknowledged_reference_sha256=body.reference_sha256)
     if row.get("test_id") != body.test_id or row.get("section_num") != body.section_num:
         raise HTTPException(409, "Mã gửi lại đã được dùng cho một bài chép chính tả khác.")
     if body.attempt_id and row.get("attempt_id") != str(body.attempt_id):
@@ -6455,7 +6544,8 @@ def _mark_dictation_attempt_completed(row: dict, user_id: str) -> None:
         raise HTTPException(500, "Kết quả đã ghi nhưng chưa đóng được lượt làm bài; hãy thử xác nhận lại.")
 
 
-@user_router.post("/tests/dictation/session")
+@user_router.post("/tests/dictation/session", response_model=DictationSessionResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 @observe_operation("listening_dictation", "submit", correlate_by=("body",))
 async def submit_listening_dictation_session(
     body: DictationSessionRequest,
@@ -6496,7 +6586,12 @@ async def submit_listening_dictation_session(
         bind_owned_attempt(attempt)
         if attempt.get("status") != "in_progress":
             raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
+        _dictation_policy(require_write_contract, attempt, grading_version=body.grading_version,
+                          acknowledged_reference_sha256=body.reference_sha256)
         _assert_dictation_attempt_submission(attempt, body)
+    elif body.grading_version == LEXICAL_POLICY_VERSION or body.reference_sha256 is not None:
+        raise HTTPException(409, {"error_code": "dictation_versioned_attempt_required",
+                                 "message": "Chính sách mới cần một lượt Dictation đã lưu; hãy tải lại."})
 
     test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
@@ -6524,8 +6619,10 @@ async def submit_listening_dictation_session(
     results: list[dict] = []
     for s in body.sentences:
         reference = units[s.sentence_idx]["text"]
-        g = grade_dictation(reference_transcript=reference,
-                            user_transcript=s.user_transcript, ignore_fillers=True)
+        g = (_dictation_policy(grade_frozen_sentence, attempt, s.sentence_idx, s.user_transcript,
+             grading_version=body.grading_version, acknowledged_reference_sha256=body.reference_sha256)
+             if attempt else grade_dictation(reference_transcript=reference,
+                                             user_transcript=s.user_transcript, ignore_fillers=True))
         graded.append(g)
         ops = {"miss": 0, "wrong": 0, "extra": 0}
         for op in g["diff"]:
@@ -6543,6 +6640,10 @@ async def submit_listening_dictation_session(
             "time_seconds":  s.time_seconds,
             "ops":           ops,
         })
+        if g.get("grading_version") == LEXICAL_POLICY_VERSION:
+            results[-1].update(grading_version=LEXICAL_POLICY_VERSION,
+                reference_sha256=g["reference_sha256"], sentence_reference_sha256=g["sentence_reference_sha256"],
+                grading_evidence=g)
 
     report = aggregate_dictation_report(graded)
     session_id = str(uuid.uuid4())
@@ -6565,6 +6666,8 @@ async def submit_listening_dictation_session(
         "started_at":         body.started_at,
         "completed_at":       datetime.now(timezone.utc).isoformat(),
     }
+    if attempt and attempt.get("grading_version"):
+        row.update(grading_version=attempt["grading_version"], reference_sha256=attempt.get("reference_sha256"))
     # Preserve the legacy no-receipt write shape during a migration-first
     # rollout: old clients keep working even if code reaches an instance before
     # migration 210, while the dark Next route remains gated until schema-ready.
@@ -6600,7 +6703,8 @@ async def submit_listening_dictation_session(
     return _dictation_session_response(row, test.get("title"))
 
 
-@user_router.get("/tests/dictation/session/by-request/{client_request_id}")
+@user_router.get("/tests/dictation/session/by-request/{client_request_id}", response_model=DictationSessionResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 async def get_listening_dictation_session_by_request(
     client_request_id: uuid.UUID,
     authorization: str | None = Header(default=None),
@@ -6614,7 +6718,8 @@ async def get_listening_dictation_session_by_request(
     return _dictation_session_response(row)
 
 
-@user_router.get("/tests/dictation/session/{session_id}")
+@user_router.get("/tests/dictation/session/{session_id}", response_model=DictationStoredSessionResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 async def get_listening_dictation_session(
     session_id: str,
     authorization: str | None = Header(default=None),
@@ -6630,7 +6735,7 @@ async def get_listening_dictation_session(
     row = res.data[0]
     if row.get("user_id") != user["id"]:
         raise HTTPException(403, "Phiên này thuộc người dùng khác.")
-    return row
+    return {**row, **_dictation_policy(session_contract, row)}
 
 
 class DictationFlagRequest(BaseModel):
@@ -6746,7 +6851,9 @@ def _dictation_list_rows_for_users(
     return rows, total
 
 
-@admin_router.get("/dictation-reports")
+@admin_router.get("/dictation-reports", response_model=AdminDictationReportListResponse,
+                  response_model_exclude_unset=True,
+                  responses={503: {"model": DictationPolicyErrorResponse}})
 async def admin_list_dictation_reports(
     test_id: str | None = Query(default=None),
     user_query: str | None = Query(default=None),
@@ -6761,7 +6868,7 @@ async def admin_list_dictation_reports(
     await require_admin(authorization)
     select_fields = ("id,user_id,test_id_external,section_num,section_title,"
                      "total_sentences,correct_count,accuracy,total_time_seconds,"
-                     "completed_at,created_at")
+                     "completed_at,created_at,grading_version,reference_sha256")
     if user_query:
         uids = _all_dictation_user_ids(user_query)
         if not uids:
@@ -6783,6 +6890,7 @@ async def admin_list_dictation_reports(
                .range(offset, offset + limit - 1).execute())
         items = res.data or []
         total = getattr(res, "count", None) or 0
+    items = [{**row, **_dictation_policy(persisted_policy_identity, row)} for row in items]
     lookup_failures: set[str] = set()
     users = _rows_by_id("users", [r.get("user_id") for r in items],
                         "id,email,display_name", lookup_failures=lookup_failures)
@@ -6804,7 +6912,7 @@ def _all_dictation_aggregate_rows(test_id: str | None, user_ids: list | None) ->
         offset = 0
         while True:
             q = supabase_admin.table("dictation_sessions").select(
-                "test_id_external,section_num,accuracy,total_sentences,error_trends")
+                "test_id_external,section_num,accuracy,total_sentences,error_trends,grading_version,reference_sha256")
             if test_id:
                 q = q.eq("test_id_external", test_id)
             if user_batch is not None:
@@ -6818,7 +6926,8 @@ def _all_dictation_aggregate_rows(test_id: str | None, user_ids: list | None) ->
     return rows
 
 
-@admin_router.get("/dictation-reports/aggregate", response_model=DictationAggregateResponse)
+@admin_router.get("/dictation-reports/aggregate", response_model=DictationAggregateResponse,
+                  responses={503: {"model": DictationPolicyErrorResponse}})
 async def admin_dictation_reports_aggregate(
     test_id: str | None = Query(default=None),
     user_query: str | None = Query(default=None),
@@ -6835,6 +6944,7 @@ async def admin_dictation_reports_aggregate(
         if not user_ids:
             return {"session_count": 0, "mean_accuracy": 0.0,
                     "mean_accuracy_basis": "mean_of_session_sentence_scores",
+                    "versions": [],
                     **classify_trends([])}
     rows = _all_dictation_aggregate_rows(test_id, user_ids)
 
@@ -6844,17 +6954,35 @@ async def admin_dictation_reports_aggregate(
         classified = classify_trends(rows)
     except ValueError:
         raise HTTPException(503, "Dữ liệu lỗi Dictation cần kiểm tra. Không thể tổng hợp chính xác.")
-    accs = [float(r.get("accuracy") or 0) for r in rows]
+    accs = []
+    by_version: dict[str, list[float]] = {}
+    for row in rows:
+        version = _dictation_policy(persisted_policy_identity, row)['grading_version']
+        # NULL/missing/bool/non-finite accuracy cannot masquerade as a clean zero.
+        value = row.get('accuracy')
+        try:
+            accuracy = float(value)
+        except (TypeError, ValueError, OverflowError):
+            raise HTTPException(503, 'Chưa xác minh được điểm Dictation đã lưu.') from None
+        if isinstance(value, bool) or not 0 <= accuracy <= 1:
+            raise HTTPException(503, 'Chưa xác minh được điểm Dictation đã lưu.')
+        accs.append(accuracy)
+        by_version.setdefault(version, []).append(accuracy)
 
     return {
         "session_count": len(rows),
         "mean_accuracy": round(sum(accs) / len(accs), 4) if accs else 0.0,
         "mean_accuracy_basis": "mean_of_session_sentence_scores",
+        "versions": [{"grading_version": version, "session_count": len(scores),
+                      "mean_accuracy": round(sum(scores) / len(scores), 4)}
+                     for version, scores in sorted(by_version.items())],
         **classified,
     }
 
 
-@admin_router.get("/dictation-reports/{session_id}")
+@admin_router.get("/dictation-reports/{session_id}", response_model=AdminDictationReportDetailResponse,
+                  response_model_exclude_unset=True,
+                  responses={503: {"model": DictationPolicyErrorResponse}})
 async def admin_get_dictation_report(
     session_id: str,
     authorization: str | None = Header(default=None),
@@ -6866,6 +6994,7 @@ async def admin_get_dictation_report(
     if not res.data:
         raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
     row = dict(res.data[0])
+    row.update(_dictation_policy(session_contract, row))
     lookup_failures: set[str] = set()
     users = _rows_by_id("users", [row.get("user_id")], "id,email,display_name",
                         lookup_failures=lookup_failures)

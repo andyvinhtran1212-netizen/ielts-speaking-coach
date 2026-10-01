@@ -1,0 +1,1401 @@
+[
+  {
+    "name": "unicode",
+    "units": [
+      {
+        "text": "“Hello—world”  💡 don't -42"
+      }
+    ],
+    "grade": {
+      "score": 1.0,
+      "correct_words": 4,
+      "total_words": 4,
+      "is_correct": true,
+      "diff": [
+        {
+          "op": "match",
+          "expected": "Hello",
+          "actual": "hello",
+          "expected_span": {
+            "segment_index": 1,
+            "start": 1,
+            "end": 6
+          },
+          "actual_span": {
+            "segment_index": 0,
+            "start": 0,
+            "end": 5
+          }
+        },
+        {
+          "op": "match",
+          "expected": "world",
+          "actual": "world",
+          "expected_span": {
+            "segment_index": 3,
+            "start": 7,
+            "end": 12
+          },
+          "actual_span": {
+            "segment_index": 2,
+            "start": 6,
+            "end": 11
+          }
+        },
+        {
+          "op": "match",
+          "expected": "don't",
+          "actual": "don't",
+          "expected_span": {
+            "segment_index": 8,
+            "start": 17,
+            "end": 22
+          },
+          "actual_span": {
+            "segment_index": 4,
+            "start": 12,
+            "end": 17
+          }
+        },
+        {
+          "op": "match",
+          "expected": "-42",
+          "actual": "-42",
+          "expected_span": {
+            "segment_index": 10,
+            "start": 23,
+            "end": 26
+          },
+          "actual_span": {
+            "segment_index": 6,
+            "start": 18,
+            "end": 21
+          }
+        }
+      ],
+      "grading_version": "lexical-v2",
+      "offset_unit": "unicode_codepoint",
+      "reference": "“Hello—world”  💡 don't -42",
+      "user_text": "hello world don't -42",
+      "reference_segments": [
+        {
+          "kind": "unscored",
+          "start": 0,
+          "end": 1,
+          "raw": "“",
+          "reason": "paired_shell_open"
+        },
+        {
+          "kind": "lexical",
+          "start": 1,
+          "end": 6,
+          "raw": "Hello",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "unscored",
+          "start": 6,
+          "end": 7,
+          "raw": "—",
+          "reason": "dash_separator"
+        },
+        {
+          "kind": "lexical",
+          "start": 7,
+          "end": 12,
+          "raw": "world",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "unscored",
+          "start": 12,
+          "end": 13,
+          "raw": "”",
+          "reason": "paired_shell_close"
+        },
+        {
+          "kind": "whitespace",
+          "start": 13,
+          "end": 15,
+          "raw": "  ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "unscored",
+          "start": 15,
+          "end": 16,
+          "raw": "💡",
+          "reason": "punctuation_or_symbol"
+        },
+        {
+          "kind": "whitespace",
+          "start": 16,
+          "end": 17,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 17,
+          "end": 22,
+          "raw": "don't",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 22,
+          "end": 23,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 23,
+          "end": 26,
+          "raw": "-42",
+          "reason": "lexical_text"
+        }
+      ],
+      "user_segments": [
+        {
+          "kind": "lexical",
+          "start": 0,
+          "end": 5,
+          "raw": "hello",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 5,
+          "end": 6,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 6,
+          "end": 11,
+          "raw": "world",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 11,
+          "end": 12,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 12,
+          "end": 17,
+          "raw": "don't",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 17,
+          "end": 18,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 18,
+          "end": 21,
+          "raw": "-42",
+          "reason": "lexical_text"
+        }
+      ],
+      "reference_ambiguities": [],
+      "user_ambiguities": [],
+      "reference_sha256": "9e24c2a43be02eb651fda3068d6d06f77379073820040cd0a9bb270bb5d0789a",
+      "sentence_reference_sha256": "11d10212b6edaadb77a2a19683179f74b3fe89c28816e4363bd3f4a9747b7123"
+    }
+  },
+  {
+    "name": "errors",
+    "units": [
+      {
+        "text": "one — two three"
+      }
+    ],
+    "grade": {
+      "score": 0.3333,
+      "correct_words": 1,
+      "total_words": 3,
+      "is_correct": false,
+      "diff": [
+        {
+          "op": "match",
+          "expected": "one",
+          "actual": "one",
+          "expected_span": {
+            "segment_index": 0,
+            "start": 0,
+            "end": 3
+          },
+          "actual_span": {
+            "segment_index": 0,
+            "start": 0,
+            "end": 3
+          }
+        },
+        {
+          "op": "extra",
+          "expected": null,
+          "actual": "too",
+          "expected_span": null,
+          "actual_span": {
+            "segment_index": 2,
+            "start": 4,
+            "end": 7
+          }
+        },
+        {
+          "op": "extra",
+          "expected": null,
+          "actual": "um",
+          "filler": true,
+          "expected_span": null,
+          "actual_span": {
+            "segment_index": 4,
+            "start": 8,
+            "end": 10
+          }
+        },
+        {
+          "op": "wrong",
+          "expected": "two",
+          "actual": "four",
+          "expected_span": {
+            "segment_index": 4,
+            "start": 6,
+            "end": 9
+          },
+          "actual_span": {
+            "segment_index": 6,
+            "start": 11,
+            "end": 15
+          }
+        },
+        {
+          "op": "miss",
+          "expected": "three",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 6,
+            "start": 10,
+            "end": 15
+          },
+          "actual_span": null
+        }
+      ],
+      "grading_version": "lexical-v2",
+      "offset_unit": "unicode_codepoint",
+      "reference": "one — two three",
+      "user_text": "one too um four",
+      "reference_segments": [
+        {
+          "kind": "lexical",
+          "start": 0,
+          "end": 3,
+          "raw": "one",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 3,
+          "end": 4,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "unscored",
+          "start": 4,
+          "end": 5,
+          "raw": "—",
+          "reason": "dash_separator"
+        },
+        {
+          "kind": "whitespace",
+          "start": 5,
+          "end": 6,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 6,
+          "end": 9,
+          "raw": "two",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 9,
+          "end": 10,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 10,
+          "end": 15,
+          "raw": "three",
+          "reason": "lexical_text"
+        }
+      ],
+      "user_segments": [
+        {
+          "kind": "lexical",
+          "start": 0,
+          "end": 3,
+          "raw": "one",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 3,
+          "end": 4,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 4,
+          "end": 7,
+          "raw": "too",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 7,
+          "end": 8,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 8,
+          "end": 10,
+          "raw": "um",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 10,
+          "end": 11,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 11,
+          "end": 15,
+          "raw": "four",
+          "reason": "lexical_text"
+        }
+      ],
+      "reference_ambiguities": [],
+      "user_ambiguities": [],
+      "reference_sha256": "2b8c9db7b2493530ca7da15b6b08e58983306d25d32239fe6f5bbf762440f400",
+      "sentence_reference_sha256": "a221f065156228745eb9b385f2d7c0ab5ba36ca5c4b1860a64aabcdd9ca4fe97"
+    }
+  },
+  {
+    "name": "blank",
+    "units": [
+      {
+        "text": "Hello."
+      }
+    ],
+    "grade": {
+      "score": 0.0,
+      "correct_words": 0,
+      "total_words": 1,
+      "is_correct": false,
+      "diff": [
+        {
+          "op": "miss",
+          "expected": "Hello.",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 0,
+            "start": 0,
+            "end": 6
+          },
+          "actual_span": null
+        }
+      ],
+      "grading_version": "lexical-v2",
+      "offset_unit": "unicode_codepoint",
+      "reference": "Hello.",
+      "user_text": " — 💡 ",
+      "reference_segments": [
+        {
+          "kind": "lexical",
+          "start": 0,
+          "end": 6,
+          "raw": "Hello.",
+          "reason": "lexical_text"
+        }
+      ],
+      "user_segments": [
+        {
+          "kind": "whitespace",
+          "start": 0,
+          "end": 1,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "unscored",
+          "start": 1,
+          "end": 2,
+          "raw": "—",
+          "reason": "dash_separator"
+        },
+        {
+          "kind": "whitespace",
+          "start": 2,
+          "end": 3,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "unscored",
+          "start": 3,
+          "end": 4,
+          "raw": "💡",
+          "reason": "punctuation_or_symbol"
+        },
+        {
+          "kind": "whitespace",
+          "start": 4,
+          "end": 5,
+          "raw": " ",
+          "reason": "source_whitespace"
+        }
+      ],
+      "reference_ambiguities": [],
+      "user_ambiguities": [],
+      "reference_sha256": "5a9bdfb28152b9b018900ae54b59db1e1129840729f0939801640f0dc889d3ef",
+      "sentence_reference_sha256": "2d8bd7d9bb5f85ba643f0110d50cb506a1fe439e769a22503193ea6046bb87f7"
+    }
+  },
+  {
+    "name": "extra-full-credit",
+    "units": [
+      {
+        "text": "Hello."
+      }
+    ],
+    "grade": {
+      "score": 1.0,
+      "correct_words": 1,
+      "total_words": 1,
+      "is_correct": true,
+      "diff": [
+        {
+          "op": "match",
+          "expected": "Hello.",
+          "actual": "hello",
+          "expected_span": {
+            "segment_index": 0,
+            "start": 0,
+            "end": 6
+          },
+          "actual_span": {
+            "segment_index": 0,
+            "start": 0,
+            "end": 5
+          }
+        },
+        {
+          "op": "extra",
+          "expected": null,
+          "actual": "tomorrow",
+          "expected_span": null,
+          "actual_span": {
+            "segment_index": 2,
+            "start": 6,
+            "end": 14
+          }
+        }
+      ],
+      "grading_version": "lexical-v2",
+      "offset_unit": "unicode_codepoint",
+      "reference": "Hello.",
+      "user_text": "hello tomorrow",
+      "reference_segments": [
+        {
+          "kind": "lexical",
+          "start": 0,
+          "end": 6,
+          "raw": "Hello.",
+          "reason": "lexical_text"
+        }
+      ],
+      "user_segments": [
+        {
+          "kind": "lexical",
+          "start": 0,
+          "end": 5,
+          "raw": "hello",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 5,
+          "end": 6,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 6,
+          "end": 14,
+          "raw": "tomorrow",
+          "reason": "lexical_text"
+        }
+      ],
+      "reference_ambiguities": [],
+      "user_ambiguities": [],
+      "reference_sha256": "5a9bdfb28152b9b018900ae54b59db1e1129840729f0939801640f0dc889d3ef",
+      "sentence_reference_sha256": "2d8bd7d9bb5f85ba643f0110d50cb506a1fe439e769a22503193ea6046bb87f7"
+    }
+  },
+  {
+    "name": "round-tie",
+    "units": [
+      {
+        "text": "one word0 word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12 word13 word14 word15 word16 word17 word18 word19 word20 word21 word22 word23 word24 word25 word26 word27 word28 word29 word30"
+      }
+    ],
+    "grade": {
+      "score": 0.0312,
+      "correct_words": 1,
+      "total_words": 32,
+      "is_correct": false,
+      "diff": [
+        {
+          "op": "match",
+          "expected": "one",
+          "actual": "one",
+          "expected_span": {
+            "segment_index": 0,
+            "start": 0,
+            "end": 3
+          },
+          "actual_span": {
+            "segment_index": 0,
+            "start": 0,
+            "end": 3
+          }
+        },
+        {
+          "op": "miss",
+          "expected": "word0",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 2,
+            "start": 4,
+            "end": 9
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word1",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 4,
+            "start": 10,
+            "end": 15
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word2",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 6,
+            "start": 16,
+            "end": 21
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word3",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 8,
+            "start": 22,
+            "end": 27
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word4",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 10,
+            "start": 28,
+            "end": 33
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word5",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 12,
+            "start": 34,
+            "end": 39
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word6",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 14,
+            "start": 40,
+            "end": 45
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word7",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 16,
+            "start": 46,
+            "end": 51
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word8",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 18,
+            "start": 52,
+            "end": 57
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word9",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 20,
+            "start": 58,
+            "end": 63
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word10",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 22,
+            "start": 64,
+            "end": 70
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word11",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 24,
+            "start": 71,
+            "end": 77
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word12",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 26,
+            "start": 78,
+            "end": 84
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word13",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 28,
+            "start": 85,
+            "end": 91
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word14",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 30,
+            "start": 92,
+            "end": 98
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word15",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 32,
+            "start": 99,
+            "end": 105
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word16",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 34,
+            "start": 106,
+            "end": 112
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word17",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 36,
+            "start": 113,
+            "end": 119
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word18",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 38,
+            "start": 120,
+            "end": 126
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word19",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 40,
+            "start": 127,
+            "end": 133
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word20",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 42,
+            "start": 134,
+            "end": 140
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word21",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 44,
+            "start": 141,
+            "end": 147
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word22",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 46,
+            "start": 148,
+            "end": 154
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word23",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 48,
+            "start": 155,
+            "end": 161
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word24",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 50,
+            "start": 162,
+            "end": 168
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word25",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 52,
+            "start": 169,
+            "end": 175
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word26",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 54,
+            "start": 176,
+            "end": 182
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word27",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 56,
+            "start": 183,
+            "end": 189
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word28",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 58,
+            "start": 190,
+            "end": 196
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word29",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 60,
+            "start": 197,
+            "end": 203
+          },
+          "actual_span": null
+        },
+        {
+          "op": "miss",
+          "expected": "word30",
+          "actual": null,
+          "expected_span": {
+            "segment_index": 62,
+            "start": 204,
+            "end": 210
+          },
+          "actual_span": null
+        }
+      ],
+      "grading_version": "lexical-v2",
+      "offset_unit": "unicode_codepoint",
+      "reference": "one word0 word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12 word13 word14 word15 word16 word17 word18 word19 word20 word21 word22 word23 word24 word25 word26 word27 word28 word29 word30",
+      "user_text": "one",
+      "reference_segments": [
+        {
+          "kind": "lexical",
+          "start": 0,
+          "end": 3,
+          "raw": "one",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 3,
+          "end": 4,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 4,
+          "end": 9,
+          "raw": "word0",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 9,
+          "end": 10,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 10,
+          "end": 15,
+          "raw": "word1",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 15,
+          "end": 16,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 16,
+          "end": 21,
+          "raw": "word2",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 21,
+          "end": 22,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 22,
+          "end": 27,
+          "raw": "word3",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 27,
+          "end": 28,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 28,
+          "end": 33,
+          "raw": "word4",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 33,
+          "end": 34,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 34,
+          "end": 39,
+          "raw": "word5",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 39,
+          "end": 40,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 40,
+          "end": 45,
+          "raw": "word6",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 45,
+          "end": 46,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 46,
+          "end": 51,
+          "raw": "word7",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 51,
+          "end": 52,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 52,
+          "end": 57,
+          "raw": "word8",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 57,
+          "end": 58,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 58,
+          "end": 63,
+          "raw": "word9",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 63,
+          "end": 64,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 64,
+          "end": 70,
+          "raw": "word10",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 70,
+          "end": 71,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 71,
+          "end": 77,
+          "raw": "word11",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 77,
+          "end": 78,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 78,
+          "end": 84,
+          "raw": "word12",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 84,
+          "end": 85,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 85,
+          "end": 91,
+          "raw": "word13",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 91,
+          "end": 92,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 92,
+          "end": 98,
+          "raw": "word14",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 98,
+          "end": 99,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 99,
+          "end": 105,
+          "raw": "word15",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 105,
+          "end": 106,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 106,
+          "end": 112,
+          "raw": "word16",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 112,
+          "end": 113,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 113,
+          "end": 119,
+          "raw": "word17",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 119,
+          "end": 120,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 120,
+          "end": 126,
+          "raw": "word18",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 126,
+          "end": 127,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 127,
+          "end": 133,
+          "raw": "word19",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 133,
+          "end": 134,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 134,
+          "end": 140,
+          "raw": "word20",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 140,
+          "end": 141,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 141,
+          "end": 147,
+          "raw": "word21",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 147,
+          "end": 148,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 148,
+          "end": 154,
+          "raw": "word22",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 154,
+          "end": 155,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 155,
+          "end": 161,
+          "raw": "word23",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 161,
+          "end": 162,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 162,
+          "end": 168,
+          "raw": "word24",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 168,
+          "end": 169,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 169,
+          "end": 175,
+          "raw": "word25",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 175,
+          "end": 176,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 176,
+          "end": 182,
+          "raw": "word26",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 182,
+          "end": 183,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 183,
+          "end": 189,
+          "raw": "word27",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 189,
+          "end": 190,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 190,
+          "end": 196,
+          "raw": "word28",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 196,
+          "end": 197,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 197,
+          "end": 203,
+          "raw": "word29",
+          "reason": "lexical_text"
+        },
+        {
+          "kind": "whitespace",
+          "start": 203,
+          "end": 204,
+          "raw": " ",
+          "reason": "source_whitespace"
+        },
+        {
+          "kind": "lexical",
+          "start": 204,
+          "end": 210,
+          "raw": "word30",
+          "reason": "lexical_text"
+        }
+      ],
+      "user_segments": [
+        {
+          "kind": "lexical",
+          "start": 0,
+          "end": 3,
+          "raw": "one",
+          "reason": "lexical_text"
+        }
+      ],
+      "reference_ambiguities": [],
+      "user_ambiguities": [],
+      "reference_sha256": "327acc99476688d55dd4f59a213ab73840eb0b94f0c9fee6f65fab31014c6d7c",
+      "sentence_reference_sha256": "5d249e3eb4168bd7308634857c709e10d126d1ffb1cdd9da7cf544513c398d8c"
+    }
+  }
+]
