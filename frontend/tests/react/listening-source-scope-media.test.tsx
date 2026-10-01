@@ -1,4 +1,4 @@
-import { StrictMode, useLayoutEffect, type ReactNode } from 'react';
+import { Activity, StrictMode, useLayoutEffect, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useListeningSource } from '@/lib/use-listening-source';
@@ -145,4 +145,29 @@ it.each([
   render(<ProgrammeResult attemptId="null-window" />); await screen.findByText('NULL_WINDOW_TITLE');
   expect(document.querySelector('audio')?.controls).toBe(false);
   expect(screen.queryByRole('button', { name: /Nghe đoạn liên quan/ })).toBeNull();
+});
+
+it.each(['source', 'generic'] as const)('clears %s media while Next retains an inactive Activity and restores it on return', async (kind) => {
+  window.api.getWith = vi.fn(async () => resultPayload('ACTIVITY', kind === 'source', kind === 'source' ? null : { start: 2, end: 4 }));
+  const view = render(<Activity mode="visible"><ProgrammeResult attemptId="activity-attempt" /></Activity>);
+  await screen.findByRole('heading', { name: 'ACTIVITY_TITLE' });
+  const audio = document.querySelector('audio')!;
+  const removeListener = vi.spyOn(audio, 'removeEventListener');
+  if (kind === 'generic') { fireEvent.click(screen.getByRole('button', { name: /Nghe đoạn liên quan/ })); await act(async () => {}); }
+  else await audio.play();
+  vi.mocked(HTMLMediaElement.prototype.pause).mockClear();
+  vi.mocked(HTMLMediaElement.prototype.load).mockClear();
+  view.rerender(<Activity mode="hidden"><ProgrammeResult attemptId="activity-attempt" /></Activity>);
+  // Activity retains the DOM; effect teardown must release media even without a ref detach.
+  expect(audio.isConnected).toBe(true);
+  expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts).toContain(audio);
+  expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).toContain(audio);
+  expect(audio.getAttribute('src')).toBeNull();
+  if (kind === 'generic') expect(removeListener).toHaveBeenCalledWith('timeupdate', expect.any(Function));
+  view.rerender(<Activity mode="visible"><ProgrammeResult attemptId="activity-attempt" /></Activity>);
+  await screen.findByRole('heading', { name: 'ACTIVITY_TITLE' });
+  expect(document.querySelector('audio')).toBe(audio);
+  expect(audio.getAttribute('src')).toBe('/ACTIVITY.mp3');
+  expect(window.api.getWith).toHaveBeenCalledTimes(2);
+  expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
 });

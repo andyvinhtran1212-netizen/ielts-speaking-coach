@@ -175,8 +175,52 @@ staging with three actionable conversations. The user subsequently said
 “cho phép” to correct all three and reopen review after the documented hard
 five-round limit. Trusted authorization artifact SHA-256
 `afb38bd3ad944c3a172ce3b3b94bd30557142c07635b1852f1857504ffd4e3f4`.
-The new uncommitted candidate must pass its own gates and independent review.
+The correction was saved locally as `99368c4054cff313b22fdb02972e2f58f4286b67`.
+Observed staging then advanced to `a5a579d18c0ebc2ee5bdcada1722cc90e4324aeb`;
+the isolated candidate integrated it as `03c5050e4bbb335c566cdadd68052ecb0d3dedd4`.
+Only migration README numbering conflicted; incoming305/next306 was retained
+alongside source304. Source definitions and all incoming Dictation definitions
+were independently compared, and actual merged OpenAPI/generated types match.
+
+Actual integrated local gates:9561 frontend contracts/zero skipped,146 React
+tests, strict/legacy types, build and maintained Mock36/guided6/context86 pass.
+The first contract run had two sandbox loopback permission failures; the
+unchanged permitted rerun passed. The full7360-file backend snapshot reports
+9789 passed/38 skipped/3 failed/13 warnings in292.21 seconds. All255 incoming
+Dictation cases, including73 PostgreSQL cases, and21 new source ASGI cases pass.
+The three failures remain the unchanged migration256 host/VM clock cases;
+the actual trace records database time17.054ms ahead of the host. Exit1 is
+retained; this is not an overall passing backend gate. Evidence
+`integrated-03c5050e-full-backend-gate-evidence.json`, SHA-256
+`7b6ceb8378d2655d7cfca348a2ef07dd4c633bc20c705909038d6ad282585792`.
+The146 React cases include two actual Activity hide/return cases (source and
+generic), which pass without any further product change. Final React log SHA-256
+`1b6f3856d8ad4782d1d28848e82eed2d73d4c57e5ef900d7dd9acf8fa0baee4e`.
+New exact-head Ubuntu CI and final independent acceptance remain required.
 Old CI does not close this correction. No conversation is resolved yet.
+
+Actual source browser81 checks pass on the same integrated build in four
+375/1440 light/dark paths, using unchanged original Day04 audio (255.8 seconds).
+Native Q16/Q19 cover four fields in browser; all12 native multi-gap items/25
+fields are covered separately by the native React/ASGI fixtures. First/final/
+editorial/printed-reference labels, actual play/pause/replay, real AuthProvider
+synthetic account change, actual Next soft navigation, metadata503/media403,
+zero application writes, zero hosted calls and zero DB operations are recorded.
+Receipt SHA-256`7b6881b02c233d45d8037bf62e3e43291ff6b74ff24ab894660ca47d25e89ce2`.
+
+Initial browser launch permission failure and both incorrect extra QA
+assumptions remain preserved. Native-only control proves Chromium retains a
+historical currentSrc after media is empty; actual Next/React Activity retains
+hidden DOM while the callback releases media. QA now checks the visible active
+view plus hidden-or-detached, paused/source-cleared/empty old media. It retains
+strict account detachment, all content/playback/error/network assertions and
+records both native properties and all-versus-visible DOM counts. Independent
+control SHA-256`1f22c745d5e19f34e6735e35301f807cabf2d3aa543f03ab3b7b4ff0b3c4e258`;
+Activity diagnostic SHA-256`30866039b9021d0fb9df3dbca461cbc1dfa67e8ead324f3e735b37eb71252928`.
+No product change followed those QA corrections. This local fixture evidence
+does not certify hosted Auth/RLS/signing. Owned test servers were stopped
+(Next143 is intentional SIGTERM); default runtime was restored byte-for-byte
+to SHA-256`6230d49c387433720e02481a2ba06eda3db23b99422cd7d4294f5404dd64df18`.
 
 The end-to-end FR001–015 matrix remains pending until source Auth/RLS/rendered
 journeys, exact staging deployment/demo, controlled publication/rollback and

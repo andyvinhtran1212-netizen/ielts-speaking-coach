@@ -77,6 +77,22 @@ lifetime and canonical answer/reference presentation; the source release,
 importer and schema stay frozen. Permission record SHA-256
 `afb38bd3ad944c3a172ce3b3b94bd30557142c07635b1852f1857504ffd4e3f4`.
 
+The authorized correction is local99368c40; observed incoming staginga5a579d1
+is integrated locally as03c5050e. The isolated merge preserves incoming
+Dictation contracts and source304; README retains305/next306. Actual local
+frontend9561/React146/types/build/Mock36/guided6/context86 gates pass. The full
+backend9789/38skipped/3 retained clock failures is recorded honestly; all255
+incoming Dictation cases and21 new source ASGI cases pass. New exact-head Ubuntu
+CI and final independent acceptance are still required. No push or merge is
+inferred from these local commits.
+
+Actual source browser81 checks pass in four375/1440 light/dark paths with
+original Day04 audio, native Q16/Q19 labels, account/attempt media cleanup and
+truthful error handling. Fixture Auth/API, not hosted Auth/RLS/signing; those
+remain T008. All earlier QA failures are preserved alongside actual native
+control/Activity diagnostic evidence. Owned test servers are stopped and the
+canonical unconfigured runtime restored. Source/importer/release remain frozen.
+
 The candidate has not received final independent acceptance, new-head CI or
 merge. T008–T010 remain open for authenticated staging source journeys, demo,
 publication/promotion/production verification and the final requirement audit.
