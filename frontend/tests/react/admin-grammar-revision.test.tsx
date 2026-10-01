@@ -139,7 +139,7 @@ describe('account-owned Grammar revision console', () => {
     confirm();
     await screen.findByText('Receipt đã đối chiếu canonical');
     expect(commitCalls()).toHaveLength(1);
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Đọc lại trạng thái Grammar' }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Đọc lại trạng thái Grammar' })));
     expect(calls.at(-1)?.method).toBe('GET');
     expect((commitCalls()[0].body as Record<string, unknown>).source_markdown).toBe(source());
     expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Nguồn Markdown Grammar' }).readOnly).toBe(true);
