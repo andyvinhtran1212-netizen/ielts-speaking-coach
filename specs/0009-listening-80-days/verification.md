@@ -32,7 +32,7 @@ Read-only source/web/reviewer findings are in the task's external
 `80-days-listening-preview/phase-1-*` folders. Their source inventory is evidence
 for preparation only, not published content or completed semantic review.
 
-## Release evidence
+## Historical release evidence — superseded by current closure
 
 - Specification-only approval: PR #1547 merged on 2026-09-30 as staging SHA
   `018c2c6702f541a21c59a626bb19c815eab205a1`. Independent reviewer accepted
@@ -139,7 +139,7 @@ for preparation only, not published content or completed semantic review.
 
 The requirement matrix above stays PENDING for end-to-end release closure; local preparation and code gates do not prove staging or production behavior.
 
-## Current unpublished staging closure and authorized correction (2026-10-01)
+## Unpublished staging closure and initial authorized correction (2026-10-01)
 
 This checkpoint supersedes earlier pending hosted-import/partial-transfer status;
 all historical failures above remain recorded. The final frozen manifest is
@@ -268,8 +268,72 @@ remain intact.
   structural event wiring plus actual React behavior replaces that implementation
   detail. No test is removed or skipped.
 
-Full PG backend, new build/native in-progress form evidence and final independent
-disposition remain required on the corrected snapshot. The historical complete
-source-result81 browser evidence applies to its unchanged result/hook/label bytes;
-it is not proof of the newly corrected in-progress form. Exact new-head Ubuntu
-CI, protected staging release and all hosted/production gates remain pending.
+### Current completed local verification — product95ed651a
+
+The corrected product commit is `95ed651acf9f59858a147c47bbb9fd34f16a1ce6`.
+The final review candidate differs only in task/verification documentation. This
+is one final disposition of the same still-open unpublished Round6, not another
+numbered review. Neither final acceptance nor a new push is implied.
+
+- Complete PG-enabled backend:9796 passed,38 skipped,3 failed,zero errors,
+  13 warnings/280.55s; exit1 retained. All28 source real-context transport cases
+  and all255 incoming Dictation cases (73 actualPG) pass. Copied7361-file source
+  hash mappings agree before/after. Only the same three unchanged migration256
+  clock cases fail, with DB statement time11.651ms ahead of host. No assertions,
+  tolerances, clock, skips/xfails or duplicate full-run changes. It is not an
+  overall passing backend gate; new exact-head Ubuntu CI remains required.
+  Evidence`corrected-95ed651a-full-backend-gate-evidence.json`, SHA-256
+  `ab897893ec9df8c8594ef2c05f390dd8e4e7d345fc03a295181711a83f4e408a`.
+  Actual OpenAPI SHA-256`59a6715af4fd81ce9a130368f627c058b2b493c6c05d8fdde1ada6e8de711157`
+  regenerates tracked types byte-equal SHA-256
+  `d18806ca37579c582c2fb19590d6812d6d2028cd88b746e0796bbfb19b502656`.
+- Current production build passes:ID`PDmj221TdScc5Qp9AVA83`, logSHA-256
+  `4845c58b5597d15d37390feba46d214843f4ac783215910e9a9a8df62da8b2be`.
+  Maintained native Mock36/guided6/context86 pass on that build. Full frontend
+  9561/React168 and both type boundaries above also pass; they were not rerun
+  merely for the final documentation delta.
+- New actual in-progress native form browser26 checks pass at375 light on95ed.
+  Original Day04 audio255.8s plays, pauses, replays and restores after return.
+  Account change strictly detaches old media/main; soft Next navigation retains
+  old DOM only with display:none/zero bounds/invisible. Both immediate and
+  settled states have paused/src-null/ready0/network0/time0/durationNaN audio.
+  Historical currentSrc is recorded, not mistaken for a live source. Pending
+  new views expose no old answers/feedback/hrefs/visible audio. Old heldQ17
+  flush never launches a later reveal. Both native Q16 authored fields are
+  blank for new account and both restore for the same account after return.
+  Generic once actual play/button pause/resume has one claim acknowledgement.
+  Receipt SHA-256`080dfc17224644ee2df23ef8f6429433c799c58a2581511f2d6f089cccb3f6c7`;
+  actual inspection SHA-256
+  `023a9d42013f0a2dd239a308d4a3dadf3fbdcfdd1be6b3edb7a16284fab9161d`.
+  Root and source agent visually inspected both375 screenshots. Fifteen
+  synthetic application request records and eight telemetry records are
+  intercepted in-process; these count arrivals, not independent completed
+  response certification. The old held PATCH is deliberately aborted. There
+  are zero real server application writes, hosted calls, unmatched/remote
+  requests or uncaught page errors. This does not certify hosted Auth/RLS.
+- The initial13-pass form browser run failed a broad first-input assertion
+  because the source-image dialog has a hidden zoom range value100. Its original
+  verifier and terminal receipt remain unchanged, SHA-256
+  `09dfb86659dcb7c10ddea6db8a4ef282dda614b19307fbbb54a82cf40a257cfc`.
+  One coherent off-repository QA correction scopes both assertions to native
+  Q16 country/birth_order authored labels and snapshots only answer controls.
+  Exact verifier SHA-256
+  `ae96d430b21d3f1434c64c411eea0a2c9f7c1c1b5659f5e273b35f9b2dafc205`;
+  original product/fixture/privacy/media predicates are unchanged. Eight
+  offline guards pass. No automatic adaptation or product patch followed.
+- Only root-owned API81260/Next84630 stopped after terminal native evidence;
+  API exit0/Next143 intentional SIGTERM. Canonical runtime restored byte-equal
+  SHA-256`6230d49c387433720e02481a2ba06eda3db23b99422cd7d4294f5404dd64df18`.
+  Cleanup receipt`corrected-95ed-runtime-cleanup.json`, SHA-256
+  `0aaab834a78e678dc4a047b8c104e636f78e8e204a12c78cb27572704dc084a5`.
+  Other sessions and the running QA database are preserved. Original importer
+  operator remains clean at e694fa57 and frozen release manifest is unchanged.
+
+Final independent disposition and then one normal consolidated push with the
+canonical pre-push hook are required. Exact new-head Ubuntu CI, protected staging
+merge/deployed-SHA checks, controlled attested publication, real source learner/
+Auth/RLS/signing journeys and human demo approval remain open. Production
+migration/promotion/deployment/publication/rollback/live verification and final
+FR001–015/T008–010 acceptance remain pending. T007 is closed only for unpublished
+staging data preparation. Historical complete source-result81 evidence certifies
+unchanged result/hook/labels bytes; the form26 evidence above is separate.
