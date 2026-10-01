@@ -16,7 +16,7 @@ def build_guided_feedback(
     first_answer: str,
     exercise_rows: list[dict[str, Any]],
     replay_policy: str,
-    *, source_required: bool = False,
+    *, source_required: bool = False, audio_granularity: str | None = None,
 ) -> dict[str, Any]:
     """Return only one revealed item's reviewed material, never the full key.
 
@@ -87,11 +87,15 @@ def build_guided_feedback(
     }
 
     if source_required or any((row.get("payload") or {}).get("source_contract") == "source_book_v1" for row in exercise_rows):
-        from services.listening_source_collection import source_explanation
+        from services.listening_source_collection import source_explanation, source_response_fields
         protected = solution if item["state"] == "checked" else self_review
         question = next((question for row in exercise_rows for question in (row.get("payload") or {}).get("questions") or [] if question.get("q_num") == q_num), {})
-        feedback.update({"source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
+        try:
+            fields = source_response_fields(question, reference_answer=(source_explanation(protected.get("explanation")) or {}).get("answer"))
+        except ValueError as exc:
+            raise FeedbackUnavailable("source blank metadata is unavailable") from exc
+        feedback.update({"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
             "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
             "explanation": source_explanation(protected.get("explanation")),
-            "audio_granularity": raw_window.get("granularity") if window else "whole_day"})
+            "audio_granularity": raw_window.get("granularity") if window else audio_granularity})
     return feedback

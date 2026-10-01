@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from models.listening_source_collection import (
     SOURCE_COLLECTION, SOURCE_CONTRACT, SOURCE_PROGRAMME, SourceBlock,
-    SourceStudyBlock, SourceExplanation, SourcePosition,
+    SourceStudyBlock, SourceExplanation, SourcePosition, SourceResponseField,
 )
 from services.listening_package_import import PackageValidationError
 
@@ -229,6 +229,35 @@ def source_explanation(raw: Any) -> dict | None:
         return SourceExplanation.model_validate(raw).model_dump()
     except ValidationError:
         return None
+
+
+def source_response_fields(question: dict, *, reference_answer: Any) -> list[dict]:
+    """Preserve the native blank order without exposing nested authoring data.
+
+    A malformed multi-gap definition cannot be replaced by object insertion
+    order: that would associate answers with the wrong printed blank.
+    """
+    if question.get("response_type") != "multi_gap_completion":
+        return []
+    raw = question.get("fields")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("Source multi-gap fields are unavailable")
+    output = []
+    seen = set()
+    for field in raw:
+        if not isinstance(field, dict):
+            raise ValueError("Source multi-gap field is invalid")
+        safe = SourceResponseField.model_validate({
+            key: field[key] for key in ("field_id", "prompt", "word_limit") if key in field
+        }).model_dump()
+        field_id = safe["field_id"]
+        if field_id != field_id.strip() or field_id in seen:
+            raise ValueError("Source multi-gap field identity is invalid")
+        seen.add(field_id)
+        output.append(safe)
+    if not isinstance(reference_answer, dict) or seen != set(reference_answer):
+        raise ValueError("Source multi-gap field/reference identity mismatch")
+    return output
 
 
 def verify_source_package_assets(db: Any, *, package_id: str, manifest_sha256: str, bucket_name: str) -> int:

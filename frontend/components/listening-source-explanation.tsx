@@ -1,10 +1,10 @@
 import type { ListeningSourceExplanationWire } from '@/lib/listening-source-collection-api';
 import { sourceAnswerProvenanceLabel, sourceEvidenceLabel, sourcePrintedKeyLabel, sourceReviewLabel } from '@/lib/listening-source-collection-api';
+import { displaySourceReferenceAnswer } from '@/lib/listening-source-responses.mjs';
 
-export function ListeningSourceExplanation({ explanation, reviewStatus, provenance }: { explanation: ListeningSourceExplanationWire; reviewStatus?: string | null; provenance?: string | null }) {
-  const formatAnswer = (value: ListeningSourceExplanationWire['answer']) => Array.isArray(value) ? value.join(' · ') : value && typeof value === 'object' ? Object.entries(value).map(([label, text]) => `${label}: ${text}`).join(' · ') : value;
-  const answer = formatAnswer(explanation.answer);
-  const printedAnswer = formatAnswer(explanation.printed_key?.answer);
+export function ListeningSourceExplanation({ explanation, reviewStatus, provenance, fields }: { explanation: ListeningSourceExplanationWire; reviewStatus?: string | null; provenance?: string | null; fields?: Array<{ field_id: string; prompt: string }> }) {
+  const answer = displaySourceReferenceAnswer(explanation.answer, fields);
+  const printedAnswer = displaySourceReferenceAnswer(explanation.printed_key?.answer, fields);
   const printedKey = explanation.printed_key;
   const keyCitations = printedKey?.source_lines?.length ? printedKey.source_lines.map((line) => `PDF trang ${line.pdf_page}, dòng ${line.line_index_1_based}`) : printedKey?.source_pdf_page != null ? [`PDF trang ${printedKey.source_pdf_page}${printedKey.source_ocr_line_index_1_based != null ? `, dòng ${printedKey.source_ocr_line_index_1_based}` : ''}`] : [];
   return <section className="source-explanation" aria-label="Lời giải có bằng chứng">

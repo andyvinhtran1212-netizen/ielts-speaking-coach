@@ -1,0 +1,293 @@
+{
+  "source_manifest_sha256": "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841",
+  "source_artifact_sha256": {
+    "units/day-04/normalized.json": "0a425674e7200921f666537b22ac59f8d43fe1d139a3498d0826ce022d3380ff",
+    "units/day-09/normalized.json": "c5b67d005e5430c4e812a74996533189e90703872971093ee05d94131c0af085",
+    "units/day-14/normalized.json": "ede49914f9a66a66a901959c125a6516d37a6ecc1c6d72fa7c017bf4be4e1ad4",
+    "units/day-30/normalized.json": "c57f3f21303e89faaa46ed462a6102dac2856513de1a5ad819b0c42bb0ba41b1"
+  },
+  "questions": [
+    {
+      "day": 4,
+      "source_item_id": "80-days:day-04:main:q-16",
+      "source_display_number": "16",
+      "prompt": "He comes from ___ and he is the ___ oldest child in his family.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "country",
+          "prompt": "He comes from",
+          "word_limit": 2
+        },
+        {
+          "field_id": "birth_order",
+          "prompt": "He is the ___ oldest child",
+          "word_limit": 2
+        }
+      ],
+      "reference_answer": {
+        "country": "Italy",
+        "birth_order": "second"
+      }
+    },
+    {
+      "day": 4,
+      "source_item_id": "80-days:day-04:main:q-19",
+      "source_display_number": "19",
+      "prompt": "Pancho has ___ sisters and ___ brothers.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "sisters",
+          "prompt": "Number of sisters",
+          "word_limit": 2
+        },
+        {
+          "field_id": "brothers",
+          "prompt": "Number of brothers",
+          "word_limit": 2
+        }
+      ],
+      "reference_answer": {
+        "sisters": "six",
+        "brothers": "seven"
+      }
+    },
+    {
+      "day": 9,
+      "source_item_id": "80-days:day-09:main:q-11",
+      "source_display_number": "11",
+      "prompt": "Purpose of visit: attend a ___ convention first and then plan on touring the ___ for a few days.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "convention_type",
+          "prompt": "Type of convention",
+          "word_limit": null
+        },
+        {
+          "field_id": "tour_destination",
+          "prompt": "Place to tour",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "convention_type": "teaching",
+        "tour_destination": "capital"
+      }
+    },
+    {
+      "day": 9,
+      "source_item_id": "80-days:day-09:main:q-13",
+      "source_display_number": "13",
+      "prompt": "___ belongings: clothes, a few books, and a CD ___.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "belongings_kind",
+          "prompt": "Kind of belongings",
+          "word_limit": null
+        },
+        {
+          "field_id": "cd_device",
+          "prompt": "CD device",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "belongings_kind": "personal",
+        "cd_device": "player"
+      }
+    },
+    {
+      "day": 9,
+      "source_item_id": "80-days:day-09:main:q-14",
+      "source_display_number": "14",
+      "prompt": "Actually, I was ___ here when my parents were working in the capital ___, but this is my ___ back since then.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "past_event",
+          "prompt": "I was ___ here",
+          "word_limit": null
+        },
+        {
+          "field_id": "past_time",
+          "prompt": "When parents worked there",
+          "word_limit": null
+        },
+        {
+          "field_id": "return_visit",
+          "prompt": "This is my ___ back",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "past_event": "born",
+        "past_time": "many years ago",
+        "return_visit": "first trip"
+      }
+    },
+    {
+      "day": 14,
+      "source_item_id": "80-days:day-14:main:q-04",
+      "source_display_number": "4",
+      "prompt": "Athletes from over _____ countries will be participating in the next meet to be held on the _____ of September.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "countries",
+          "prompt": "Số quốc gia",
+          "word_limit": null
+        },
+        {
+          "field_id": "date",
+          "prompt": "Ngày trong thángSeptember",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "countries": "70",
+        "date": "13th"
+      }
+    },
+    {
+      "day": 14,
+      "source_item_id": "80-days:day-14:main:q-06",
+      "source_display_number": "6",
+      "prompt": "Tiger Woods shot an incredible _____ under par on the back _____.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "under_par",
+          "prompt": "Số dưới par",
+          "word_limit": null
+        },
+        {
+          "field_id": "back_holes",
+          "prompt": "Số sauback",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "under_par": "6",
+        "back_holes": "9"
+      }
+    },
+    {
+      "day": 14,
+      "source_item_id": "80-days:day-14:main:q-07",
+      "source_display_number": "7",
+      "prompt": "By the time of his death in _____, Roger Franklin had accumulated over _____ patents.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "year",
+          "prompt": "Năm mất",
+          "word_limit": null
+        },
+        {
+          "field_id": "patents",
+          "prompt": "Số bằng sáng chế",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "year": "1962",
+        "patents": "174"
+      }
+    },
+    {
+      "day": 14,
+      "source_item_id": "80-days:day-14:main:q-09",
+      "source_display_number": "9",
+      "prompt": "His new computer cooks! He’s got _____ Mb Ram with a _____ Mhz processor.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "ram",
+          "prompt": "Dung lượngMbRam",
+          "word_limit": null
+        },
+        {
+          "field_id": "processor",
+          "prompt": "Tốc độMhz",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "ram": "256",
+        "processor": "733"
+      }
+    },
+    {
+      "day": 30,
+      "source_item_id": "80-days:day-30:main:q-18",
+      "source_display_number": "18",
+      "prompt": "An interview is a meeting between ___ and ___ to talk about a job.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "employer",
+          "prompt": "Ô 1",
+          "word_limit": null
+        },
+        {
+          "field_id": "applicant",
+          "prompt": "Ô 2",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "employer": "an employer",
+        "applicant": "an applicant"
+      }
+    },
+    {
+      "day": 30,
+      "source_item_id": "80-days:day-30:main:q-19",
+      "source_display_number": "19",
+      "prompt": "The interview helps you decide if the job meets you ___ and ___.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "career_needs",
+          "prompt": "Ô 1",
+          "word_limit": null
+        },
+        {
+          "field_id": "interests",
+          "prompt": "Ô 2",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "career_needs": "career needs",
+        "interests": "interests"
+      }
+    },
+    {
+      "day": 30,
+      "source_item_id": "80-days:day-30:main:q-20",
+      "source_display_number": "20",
+      "prompt": "If you practice that ___ managers usually ask, then you will feel ___ when you speak.",
+      "response_type": "multi_gap_completion",
+      "fields": [
+        {
+          "field_id": "interview_questions",
+          "prompt": "Ô 1",
+          "word_limit": null
+        },
+        {
+          "field_id": "feeling",
+          "prompt": "Ô 2",
+          "word_limit": null
+        }
+      ],
+      "reference_answer": {
+        "interview_questions": "interview questions",
+        "feeling": "confident"
+      }
+    }
+  ]
+}

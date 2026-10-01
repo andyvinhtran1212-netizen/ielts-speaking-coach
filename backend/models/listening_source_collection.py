@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 SOURCE_PROGRAMME = "ielts-80-days-listening"
 SOURCE_COLLECTION = "80-days"
@@ -33,6 +33,21 @@ class SourceInstruction(SourceModel):
 class SourceOption(SourceModel):
     id: str
     label: str
+
+
+class SourceResponseField(SourceModel):
+    """Native blank metadata only; answer objects never belong here."""
+
+    field_id: str = Field(strict=True, min_length=1)
+    prompt: str = Field(strict=True, min_length=1)
+    word_limit: int | None = Field(default=None, strict=True, gt=0)
+
+    @field_validator("field_id", "prompt")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Source field identity/label must not be blank")
+        return value
 
 
 class SourceImage(SourceModel):

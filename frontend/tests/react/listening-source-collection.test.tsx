@@ -13,13 +13,14 @@ const availability = { questions: 'available', audio: 'missing', transcript: 'av
 const block = { block_id: 'matching', part_id: 'part1', kind: 'matching', instruction: { source_en: 'Match each word.', student_vi: 'Nối từ theo số audio.' }, item_ids: ['q7', 'q8'], source_question_numbers: [7, 8], images: [{ asset_id: 'question-image', url: '/signed-question.png', expires_in: 7200, width: 1200, height: 300, alt_vi: 'Bốn từ trong nhóm lựa chọn' }], shared_options: [], description: 'Fragile / Surprise / Fast / Lightful', display_kind: 'practice' };
 
 beforeEach(() => {
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   auth.status = 'signed-in'; auth.user = { id: 'source-learner' };
   localStorage.clear();
   vi.stubGlobal('crypto', { randomUUID: () => 'source-claim' });
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 1; });
   Object.assign(window, { api: { getWith: vi.fn(), postWith: vi.fn(), patchWith: vi.fn(async () => ({})) } });
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it('keeps a disputed original printed key separate from the editorial reference answer', () => {
   render(<ListeningSourceExplanation reviewStatus="SUSPECT" explanation={{ answer: 'wreaths', printed_key: { answer: 'wreath', evidence_tier: 'PRINTED', source_pdf_page: 203, source_ocr_line_index_1_based: 10 }, why_vi: 'Cần đối chiếu số ít và số nhiều.', source_answer_warning_vi: 'Key in dùng số ít, transcript dùng số nhiều.', evidence: [] }} />);

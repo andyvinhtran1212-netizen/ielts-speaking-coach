@@ -138,3 +138,47 @@ for preparation only, not published content or completed semantic review.
 - `80-days-listening-preview/phase-2-review/release-projection-extension-78-80-review.json` plus revision3 `release-projection-extension-26-74-review.json`: final exact normalized tuples, with the original Day53 typed-prompt correction and review-hash rebinding explicitly superseded.
 
 The requirement matrix above stays PENDING for end-to-end release closure; local preparation and code gates do not prove staging or production behavior.
+
+## Current unpublished staging closure and authorized correction (2026-10-01)
+
+This checkpoint supersedes earlier pending hosted-import/partial-transfer status;
+all historical failures above remain recorded. The final frozen manifest is
+unchanged. Native source protection includes104 study-only positions,638 terms,
+12 multi-gap questions with25 fields and zero fabricated timing. Day76 preserves
+19 practiced positions in two covered forms and22 study positions (original
+position19 and positions21–41); Day77 is resource-only.
+
+Actual service evidence, all under external
+`80-days-listening-content/release-preparation/`:
+
+- Fresh absent baseline `staging-before-import-post-v5.json`: SHA-256
+  `28109b52c9bdb940b7b1ef21946d5cc90ee55b3d80909fde46e4ca294bc55652`.
+- Canonical created receipt `staging-import-commit-v2.json`: SHA-256
+  `89d7dc382649016ecb966239e97ef48850812bb93cd74cd953a10139e2bd6a11`.
+- Complete validated/private663 readback `staging-after-import-v2-readback.json`:
+  SHA-256`07b9b9950271c391cf547ae487d74818f9bd674e15f6b300d695a913f44a55d2`.
+- Actual reused retry `staging-import-retry-v2.json`: SHA-256
+  `3c39e69dce4b558a98742c642085505afb6e54f9372af95752dcdf5926f1f378`.
+- Complete retry readback `staging-after-import-v2-retry-readback.json`: SHA-256
+  `56ed2924a66e98eba21b76cae6e1f5e96e73232071d1323e96ccd9f57d72fc6d`.
+
+Both readbacks cover663 private assets/823353015 bytes, exact native payloads,
+actual imported_byNULL, validated package/draft private descendants, identical
+read-only transaction snapshots and unchanged full-row coexistence. Retry keeps
+every owned UUID/timestamp/payload fingerprint and all prior learner rows. The
+independent data closure SHA-256 is
+`dd6228ea0aebc6837be8163c96ff182f262f6b0e8329b282e288bead46030eee`.
+
+PR head d66301a9 passed actual Ubuntu CI (9516 backend passed/38 skipped) and
+all applicable frontend/type/build/native gates. It is still open against
+staging with three actionable conversations. The user subsequently said
+“cho phép” to correct all three and reopen review after the documented hard
+five-round limit. Trusted authorization artifact SHA-256
+`afb38bd3ad944c3a172ce3b3b94bd30557142c07635b1852f1857504ffd4e3f4`.
+The new uncommitted candidate must pass its own gates and independent review.
+Old CI does not close this correction. No conversation is resolved yet.
+
+The end-to-end FR001–015 matrix remains pending until source Auth/RLS/rendered
+journeys, exact staging deployment/demo, controlled publication/rollback and
+production promotion/deployment/verification have actual evidence. T007 data
+preparation closure is not overall release completion.

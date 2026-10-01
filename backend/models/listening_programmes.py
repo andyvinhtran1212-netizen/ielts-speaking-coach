@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-from models.listening_source_collection import SourceBlock, SourceExplanation, ReviewVerdict
+from models.listening_source_collection import SourceBlock, SourceExplanation, SourceResponseField, ReviewVerdict
 
 
 class ListeningProgrammeCard(BaseModel):
@@ -188,6 +188,7 @@ class ListeningReportOnlyResult(BaseModel):
 
 
 class ListeningGuidedFeedbackItem(BaseModel):
+    fields: list[SourceResponseField] = Field(default_factory=list)
     source_item_id: str | None = None
     source_display_number: str | None = None
     review_status: ReviewVerdict | None = None
@@ -217,6 +218,7 @@ class ListeningGuidedStateResponse(BaseModel):
 
 
 class ListeningReviewItem(BaseModel):
+    fields: list[SourceResponseField] = Field(default_factory=list)
     source_item_id: str | None = None
     source_display_number: str | None = None
     review_status: ReviewVerdict | None = None
@@ -268,6 +270,7 @@ class ListeningAttemptReviewResponse(BaseModel):
     claim_policy: str | None = None
     trap_analytics: dict[str, Any] = Field(default_factory=dict)
     audio_url: str | None = None
+    audio_granularity: str | None = None
     audio_duration: int | float | None = None
     section_offsets: dict[str, Any] = Field(default_factory=dict)
     cue_points: list[Any] = Field(default_factory=list)

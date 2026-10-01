@@ -6,6 +6,7 @@ export type ListeningSourceDayWire = ApiGetJson<'/api/listening/source-collectio
 export type ListeningSourceStudyWire = ApiPostJson<'/api/listening/source-collections/80-days/days/{day_number}/study'>;
 export type ListeningSourceBlockWire = components['schemas']['SourceBlock'];
 export type ListeningSourceExplanationWire = components['schemas']['SourceExplanation'];
+export type ListeningSourceResponseFieldWire = components['schemas']['SourceResponseField'];
 
 export const SOURCE_COLLECTION_PATH = '/listening/ielts/80-days';
 

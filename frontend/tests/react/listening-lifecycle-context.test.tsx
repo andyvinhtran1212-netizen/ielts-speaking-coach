@@ -11,6 +11,7 @@ vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => tru
 let programmeId = 'general-listening-practice';
 const question = { q_num: 1, source_item_id: 'source-1', prompt: 'Which place?', response_type: 'single_choice', options: { A: 'Library', B: 'Museum' } };
 beforeEach(() => {
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   localStorage.clear(); programmeId = 'general-listening-practice'; route.params = new URLSearchParams('from=general&filter=in_progress');
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
   Object.assign(window, { api: {

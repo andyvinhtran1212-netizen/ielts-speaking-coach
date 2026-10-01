@@ -16217,6 +16217,8 @@ export interface components {
             };
             /** Audio Url */
             audio_url?: string | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
             /** Audio Duration */
             audio_duration?: number | null;
             /** Section Offsets */
@@ -16393,6 +16395,8 @@ export interface components {
         };
         /** ListeningGuidedFeedbackItem */
         ListeningGuidedFeedbackItem: {
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
             /** Source Item Id */
             source_item_id?: string | null;
             /** Source Display Number */
@@ -16754,6 +16758,8 @@ export interface components {
         };
         /** ListeningReviewItem */
         ListeningReviewItem: {
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
             /** Source Item Id */
             source_item_id?: string | null;
             /** Source Display Number */
@@ -18647,6 +18653,18 @@ export interface components {
             width: number;
             /** Height */
             height: number;
+        };
+        /**
+         * SourceResponseField
+         * @description Native blank metadata only; answer objects never belong here.
+         */
+        SourceResponseField: {
+            /** Field Id */
+            field_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Word Limit */
+            word_limit?: number | null;
         };
         /** SourceStudyBlock */
         SourceStudyBlock: {

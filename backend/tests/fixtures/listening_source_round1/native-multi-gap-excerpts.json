@@ -1,0 +1,736 @@
+{
+  "schema_version": 1,
+  "source_manifest_sha256": "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841",
+  "scope": "Exact accepted native metadata/explanation excerpts; synthetic route aggregation, not a new source release or objective grading certificate.",
+  "items": [
+    {
+      "day": 4,
+      "artifact_path": "units/day-04/normalized.json",
+      "artifact_sha256": "0a425674e7200921f666537b22ac59f8d43fe1d139a3498d0826ce022d3380ff",
+      "item_id": "80-days:day-04:main:q-16",
+      "source_display_number": "16",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "He comes from ___ and he is the ___ oldest child in his family.",
+        "word_limit_scope": "per_blank",
+        "fields": [
+          {
+            "field_id": "country",
+            "prompt": "He comes from",
+            "word_limit": 2
+          },
+          {
+            "field_id": "birth_order",
+            "prompt": "He is the ___ oldest child",
+            "word_limit": 2
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "country": "Italy",
+          "birth_order": "second"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 253,
+            "line_index_1_based": 9,
+            "quote": "family back in Italy",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          },
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 253,
+            "line_index_1_based": 13,
+            "quote": "I'm the second oldest in my family.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Quê gia đình là Italy; Pancho nói mình lớn thứ hai. Giữ hai ô dưới cùng câu 16, mỗi ô giới hạn riêng.",
+        "distractors": [],
+        "paraphrase_vi": "Quê gia đình là Italy; Pancho nói mình lớn thứ hai. Giữ hai ô dưới cùng câu 16, mỗi ô giới hạn riêng.",
+        "trap_vi": "Không nhập Italy, second vào một ô. Second oldest không phải con lớn nhất.",
+        "format_vi": "Ô country: Italy (1 từ); ô birth_order: second (1 từ). Mỗi ô không quá 2 từ.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "medium",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "cac7620e5bb97204d1d77420e95e1d7c98fd287e8abfaa0ef49bcaa2cd258c7b",
+        "reviewed_artifact_sha256": "88598d25b994affc87b7af2e64ed38b614becf1f990a572cad10c2969256341a"
+      }
+    },
+    {
+      "day": 4,
+      "artifact_path": "units/day-04/normalized.json",
+      "artifact_sha256": "0a425674e7200921f666537b22ac59f8d43fe1d139a3498d0826ce022d3380ff",
+      "item_id": "80-days:day-04:main:q-19",
+      "source_display_number": "19",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "Pancho has ___ sisters and ___ brothers.",
+        "word_limit_scope": "per_blank",
+        "fields": [
+          {
+            "field_id": "sisters",
+            "prompt": "Number of sisters",
+            "word_limit": 2
+          },
+          {
+            "field_id": "brothers",
+            "prompt": "Number of brothers",
+            "word_limit": 2
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "sisters": "six",
+          "brothers": "seven"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 253,
+            "line_index_1_based": 11,
+            "quote": "I have seven brothers and six sisters.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Nguồn nói bảy anh/em trai trước rồi sáu chị/em gái; bảng đảo thứ tự thành sisters trước, brothers sau.",
+        "distractors": [],
+        "paraphrase_vi": "Nguồn nói bảy anh/em trai trước rồi sáu chị/em gái; bảng đảo thứ tự thành sisters trước, brothers sau.",
+        "trap_vi": "Theo nhãn từng ô; đừng chép 7–6 theo thứ tự âm thanh.",
+        "format_vi": "Ô sisters: six hoặc 6; ô brothers: seven hoặc 7. Mỗi ô không quá 2 từ.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "cac7620e5bb97204d1d77420e95e1d7c98fd287e8abfaa0ef49bcaa2cd258c7b",
+        "reviewed_artifact_sha256": "88598d25b994affc87b7af2e64ed38b614becf1f990a572cad10c2969256341a"
+      }
+    },
+    {
+      "day": 9,
+      "artifact_path": "units/day-09/normalized.json",
+      "artifact_sha256": "c5b67d005e5430c4e812a74996533189e90703872971093ee05d94131c0af085",
+      "item_id": "80-days:day-09:main:q-11",
+      "source_display_number": "11",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "Purpose of visit: attend a ___ convention first and then plan on touring the ___ for a few days.",
+        "word_limit_scope": "not_specified",
+        "fields": [
+          {
+            "field_id": "convention_type",
+            "prompt": "Type of convention",
+            "word_limit": null
+          },
+          {
+            "field_id": "tour_destination",
+            "prompt": "Place to tour",
+            "word_limit": null
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "convention_type": "teaching",
+          "tour_destination": "capital"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 259,
+            "line_index_1_based": 28,
+            "quote": "a teaching convention",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          },
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 259,
+            "line_index_1_based": 29,
+            "quote": "capital for a few days.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Đầu chuyến dự hội nghị về giảng dạy, sau đó tham quan thủ đô. Hai ô lần lượt teaching và capital.",
+        "distractors": [],
+        "paraphrase_vi": "Đầu chuyến dự hội nghị về giảng dạy, sau đó tham quan thủ đô. Hai ô lần lượt teaching và capital.",
+        "trap_vi": "Không nhập convention hoặc the vì đề đã có.",
+        "format_vi": "Nguồn không nêu giới hạn từ. Điền mỗi trường đúng ô tương ứng; không gộp các ô thành một chuỗi hay thêm số câu.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "75a243378a744f12b763a87264cf4adcee6ddc194febf63964aba7f33a7cd8b0",
+        "reviewed_artifact_sha256": "a33619070a15bba41d8ea89d97c666ff2515c56a544d2cccb0a697c9035fdb7d"
+      }
+    },
+    {
+      "day": 9,
+      "artifact_path": "units/day-09/normalized.json",
+      "artifact_sha256": "c5b67d005e5430c4e812a74996533189e90703872971093ee05d94131c0af085",
+      "item_id": "80-days:day-09:main:q-13",
+      "source_display_number": "13",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "___ belongings: clothes, a few books, and a CD ___.",
+        "word_limit_scope": "not_specified",
+        "fields": [
+          {
+            "field_id": "belongings_kind",
+            "prompt": "Kind of belongings",
+            "word_limit": null
+          },
+          {
+            "field_id": "cd_device",
+            "prompt": "CD device",
+            "word_limit": null
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "belongings_kind": "personal",
+          "cd_device": "player"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 259,
+            "line_index_1_based": 35,
+            "quote": "my personal belongings",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          },
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 259,
+            "line_index_1_based": 35,
+            "quote": "a CD player.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Đồ dùng cá nhân là personal belongings, thiết bị là CD player.",
+        "distractors": [],
+        "paraphrase_vi": "Đồ dùng cá nhân là personal belongings, thiết bị là CD player.",
+        "trap_vi": "Belongings và CD đã in; chỉ điền personal và player vào hai ô.",
+        "format_vi": "Nguồn không nêu giới hạn từ. Điền mỗi trường đúng ô tương ứng; không gộp các ô thành một chuỗi hay thêm số câu.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "75a243378a744f12b763a87264cf4adcee6ddc194febf63964aba7f33a7cd8b0",
+        "reviewed_artifact_sha256": "a33619070a15bba41d8ea89d97c666ff2515c56a544d2cccb0a697c9035fdb7d"
+      }
+    },
+    {
+      "day": 9,
+      "artifact_path": "units/day-09/normalized.json",
+      "artifact_sha256": "c5b67d005e5430c4e812a74996533189e90703872971093ee05d94131c0af085",
+      "item_id": "80-days:day-09:main:q-14",
+      "source_display_number": "14",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "Actually, I was ___ here when my parents were working in the capital ___, but this is my ___ back since then.",
+        "word_limit_scope": "not_specified",
+        "fields": [
+          {
+            "field_id": "past_event",
+            "prompt": "I was ___ here",
+            "word_limit": null
+          },
+          {
+            "field_id": "past_time",
+            "prompt": "When parents worked there",
+            "word_limit": null
+          },
+          {
+            "field_id": "return_visit",
+            "prompt": "This is my ___ back",
+            "word_limit": null
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "past_event": "born",
+          "past_time": "many years ago",
+          "return_visit": "first trip"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 259,
+            "line_index_1_based": 41,
+            "quote": "I was born here",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          },
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 259,
+            "line_index_1_based": 41,
+            "quote": "in the capital many",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          },
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 259,
+            "line_index_1_based": 42,
+            "quote": "years ago",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          },
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 259,
+            "line_index_1_based": 42,
+            "quote": "this is my first trip back since then.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Cô ấy sinh tại nước này nhiều năm trước, và đây là chuyến quay lại đầu tiên sau đó. Câu 14 có ba ô, không phải ba câu riêng.",
+        "distractors": [],
+        "paraphrase_vi": "Cô ấy sinh tại nước này nhiều năm trước, và đây là chuyến quay lại đầu tiên sau đó. Câu 14 có ba ô, không phải ba câu riêng.",
+        "trap_vi": "Yes and no không phủ nhận sinh tại đây; phân biệt từng ở nơi này với lần đầu trở lại.",
+        "format_vi": "Nguồn không nêu giới hạn từ. Điền mỗi trường đúng ô tương ứng; không gộp các ô thành một chuỗi hay thêm số câu.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "75a243378a744f12b763a87264cf4adcee6ddc194febf63964aba7f33a7cd8b0",
+        "reviewed_artifact_sha256": "a33619070a15bba41d8ea89d97c666ff2515c56a544d2cccb0a697c9035fdb7d"
+      }
+    },
+    {
+      "day": 14,
+      "artifact_path": "units/day-14/normalized.json",
+      "artifact_sha256": "ede49914f9a66a66a901959c125a6516d37a6ecc1c6d72fa7c017bf4be4e1ad4",
+      "item_id": "80-days:day-14:main:q-04",
+      "source_display_number": "4",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "Athletes from over _____ countries will be participating in the next meet to be held on the _____ of September.",
+        "fields": [
+          {
+            "field_id": "countries",
+            "prompt": "Số quốc gia",
+            "word_limit": null
+          },
+          {
+            "field_id": "date",
+            "prompt": "Ngày trong thángSeptember",
+            "word_limit": null
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "countries": "70",
+          "date": "13th"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 266,
+            "line_index_1_based": 9,
+            "quote": "over 70 countries will be participating in the next meet to be held on the 13th of September.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Ô thứ nhất số nước 70, ô thứ hai ngày 13th; đơn vị countries/September đã có.",
+        "distractors": [],
+        "paraphrase_vi": "Ô thứ nhất số nước 70, ô thứ hai ngày 13th; đơn vị countries/September đã có.",
+        "trap_vi": "Không đảo 70 và 13; ngày dùng số thứ tự.",
+        "format_vi": "Một câu nguồn có hai ô; điền mỗi số vào đúng trường. Nguồn không in giới hạn số từ.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "c57b519851775d1c96b2c56b885e29b010b73c7f3a52451f1fd7609938a8e13a",
+        "reviewed_artifact_sha256": "42c51e2542f60e73df421a1604331a9539820e6e555f15a52cd987e92a30bc26"
+      }
+    },
+    {
+      "day": 14,
+      "artifact_path": "units/day-14/normalized.json",
+      "artifact_sha256": "ede49914f9a66a66a901959c125a6516d37a6ecc1c6d72fa7c017bf4be4e1ad4",
+      "item_id": "80-days:day-14:main:q-06",
+      "source_display_number": "6",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "Tiger Woods shot an incredible _____ under par on the back _____.",
+        "fields": [
+          {
+            "field_id": "under_par",
+            "prompt": "Số dưới par",
+            "word_limit": null
+          },
+          {
+            "field_id": "back_holes",
+            "prompt": "Số sauback",
+            "word_limit": null
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "under_par": "6",
+          "back_holes": "9"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 266,
+            "line_index_1_based": 11,
+            "quote": "6 under par on the back 9.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Điền 6 ở under par và 9 ở back; mỗi số có chức năng riêng.",
+        "distractors": [],
+        "paraphrase_vi": "Điền 6 ở under par và 9 ở back; mỗi số có chức năng riêng.",
+        "trap_vi": "Không nhập gộp 69 vào một ô.",
+        "format_vi": "Một câu nguồn có hai ô; điền mỗi số vào đúng trường. Nguồn không in giới hạn số từ.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "c57b519851775d1c96b2c56b885e29b010b73c7f3a52451f1fd7609938a8e13a",
+        "reviewed_artifact_sha256": "42c51e2542f60e73df421a1604331a9539820e6e555f15a52cd987e92a30bc26"
+      }
+    },
+    {
+      "day": 14,
+      "artifact_path": "units/day-14/normalized.json",
+      "artifact_sha256": "ede49914f9a66a66a901959c125a6516d37a6ecc1c6d72fa7c017bf4be4e1ad4",
+      "item_id": "80-days:day-14:main:q-07",
+      "source_display_number": "7",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "By the time of his death in _____, Roger Franklin had accumulated over _____ patents.",
+        "fields": [
+          {
+            "field_id": "year",
+            "prompt": "Năm mất",
+            "word_limit": null
+          },
+          {
+            "field_id": "patents",
+            "prompt": "Số bằng sáng chế",
+            "word_limit": null
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "year": "1962",
+          "patents": "174"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 266,
+            "line_index_1_based": 12,
+            "quote": "death in 1962, Roger Franklin had accumulated over 174 patents.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "1962 là năm mất; 174 là số bằng sáng chế.",
+        "distractors": [],
+        "paraphrase_vi": "1962 là năm mất; 174 là số bằng sáng chế.",
+        "trap_vi": "Không chuyển 174 thành năm hay 1962 thành số bằng.",
+        "format_vi": "Một câu nguồn có hai ô; điền mỗi số vào đúng trường. Nguồn không in giới hạn số từ.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "c57b519851775d1c96b2c56b885e29b010b73c7f3a52451f1fd7609938a8e13a",
+        "reviewed_artifact_sha256": "42c51e2542f60e73df421a1604331a9539820e6e555f15a52cd987e92a30bc26"
+      }
+    },
+    {
+      "day": 14,
+      "artifact_path": "units/day-14/normalized.json",
+      "artifact_sha256": "ede49914f9a66a66a901959c125a6516d37a6ecc1c6d72fa7c017bf4be4e1ad4",
+      "item_id": "80-days:day-14:main:q-09",
+      "source_display_number": "9",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "His new computer cooks! He’s got _____ Mb Ram with a _____ Mhz processor.",
+        "fields": [
+          {
+            "field_id": "ram",
+            "prompt": "Dung lượngMbRam",
+            "word_limit": null
+          },
+          {
+            "field_id": "processor",
+            "prompt": "Tốc độMhz",
+            "word_limit": null
+          }
+        ]
+      },
+      "explanation_vi": {
+        "answer": {
+          "ram": "256",
+          "processor": "733"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 266,
+            "line_index_1_based": 14,
+            "quote": "256 Mb Ram with a 733 Mhz processor.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "256 ứng với Ram và 733 ứng với bộ xử lý; các đơn vị đã in.",
+        "distractors": [],
+        "paraphrase_vi": "256 ứng với Ram và 733 ứng với bộ xử lý; các đơn vị đã in.",
+        "trap_vi": "Phân biệt hai số theo Mb/Mhz, không thay ký hiệu nguồn bằng đơn vị mới.",
+        "format_vi": "Một câu nguồn có hai ô; điền mỗi số vào đúng trường. Nguồn không in giới hạn số từ.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "c57b519851775d1c96b2c56b885e29b010b73c7f3a52451f1fd7609938a8e13a",
+        "reviewed_artifact_sha256": "42c51e2542f60e73df421a1604331a9539820e6e555f15a52cd987e92a30bc26"
+      }
+    },
+    {
+      "day": 30,
+      "artifact_path": "units/day-30/normalized.json",
+      "artifact_sha256": "c57f3f21303e89faaa46ed462a6102dac2856513de1a5ad819b0c42bb0ba41b1",
+      "item_id": "80-days:day-30:main:q-18",
+      "source_display_number": "18",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "An interview is a meeting between ___ and ___ to talk about a job.",
+        "fields": [
+          {
+            "field_id": "employer",
+            "prompt": "Ô 1",
+            "word_limit": null
+          },
+          {
+            "field_id": "applicant",
+            "prompt": "Ô 2",
+            "word_limit": null
+          }
+        ],
+        "word_limit": null,
+        "word_limit_scope": "per_blank",
+        "shared_stimulus_block_id": "80-days:day-30:part-3:block-2"
+      },
+      "explanation_vi": {
+        "answer": {
+          "employer": "an employer",
+          "applicant": "an applicant"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 291,
+            "line_index_1_based": 40,
+            "quote": "between an employer and an applicant",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Ô đầu là an employer (người tuyển), ô sau an applicant (ứng viên); giữ mạo từ an ở cả hai.",
+        "distractors": [],
+        "paraphrase_vi": "Ô đầu là an employer (người tuyển), ô sau an applicant (ứng viên); giữ mạo từ an ở cả hai.",
+        "trap_vi": "Phân biệt hai vai, không đổi thành employee đã tuyển.",
+        "format_vi": "Điền hai ô theo thứ tự, mỗi ô ứng với field_id riêng; phần B không in giới hạn từ.",
+        "source_answer_warning_vi": null
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "da260f49db8854f15fd021824c28491430acb2cb586f950c2fa49129f3467252",
+        "reviewed_artifact_sha256": "0d005e5492e446177b3cf2a67927d69cc9b53e09090d9145bbfc5cb83bb138a7"
+      }
+    },
+    {
+      "day": 30,
+      "artifact_path": "units/day-30/normalized.json",
+      "artifact_sha256": "c57f3f21303e89faaa46ed462a6102dac2856513de1a5ad819b0c42bb0ba41b1",
+      "item_id": "80-days:day-30:main:q-19",
+      "source_display_number": "19",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "The interview helps you decide if the job meets you ___ and ___.",
+        "fields": [
+          {
+            "field_id": "career_needs",
+            "prompt": "Ô 1",
+            "word_limit": null
+          },
+          {
+            "field_id": "interests",
+            "prompt": "Ô 2",
+            "word_limit": null
+          }
+        ],
+        "word_limit": null,
+        "word_limit_scope": "per_blank",
+        "shared_stimulus_block_id": "80-days:day-30:part-3:block-2"
+      },
+      "explanation_vi": {
+        "answer": {
+          "career_needs": "career needs",
+          "interests": "interests"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 292,
+            "line_index_1_based": 4,
+            "quote": "your career needs and interests.",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Ô đầu career needs là nhu cầu nghề nghiệp, ô sau interests là sở thích/mối quan tâm. Nguồn stem in you, trong transcript là your; đây là lỗi đại từ sở hữu có thể nhận ra, không thay nghĩa hai ô.",
+        "distractors": [],
+        "paraphrase_vi": "Ô đầu career needs là nhu cầu nghề nghiệp, ô sau interests là sở thích/mối quan tâm. Nguồn stem in you, trong transcript là your; đây là lỗi đại từ sở hữu có thể nhận ra, không thay nghĩa hai ô.",
+        "trap_vi": "Giữ needs số nhiều; source you là lỗi, dự kiến your.",
+        "format_vi": "Điền hai ô theo thứ tự, mỗi ô ứng với field_id riêng; phần B không in giới hạn từ.",
+        "source_answer_warning_vi": "Stem nguồn in you thay your; giữ nguyên ảnh và khai báo lỗi, không coi you là dạng ngữ pháp chuẩn."
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "CONFIRMED",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "da260f49db8854f15fd021824c28491430acb2cb586f950c2fa49129f3467252",
+        "reviewed_artifact_sha256": "0d005e5492e446177b3cf2a67927d69cc9b53e09090d9145bbfc5cb83bb138a7"
+      }
+    },
+    {
+      "day": 30,
+      "artifact_path": "units/day-30/normalized.json",
+      "artifact_sha256": "c57f3f21303e89faaa46ed462a6102dac2856513de1a5ad819b0c42bb0ba41b1",
+      "item_id": "80-days:day-30:main:q-20",
+      "source_display_number": "20",
+      "response": {
+        "type": "multi_gap_completion",
+        "prompt": "If you practice that ___ managers usually ask, then you will feel ___ when you speak.",
+        "fields": [
+          {
+            "field_id": "interview_questions",
+            "prompt": "Ô 1",
+            "word_limit": null
+          },
+          {
+            "field_id": "feeling",
+            "prompt": "Ô 2",
+            "word_limit": null
+          }
+        ],
+        "word_limit": null,
+        "word_limit_scope": "per_blank",
+        "shared_stimulus_block_id": "80-days:day-30:part-3:block-2"
+      },
+      "explanation_vi": {
+        "answer": {
+          "interview_questions": "interview questions",
+          "feeling": "confident"
+        },
+        "evidence": [
+          {
+            "source_kind": "printed_transcript",
+            "pdf_page": 292,
+            "line_index_1_based": 9,
+            "quote": "practice the interview questions that managers usually ask, then you will feel confident",
+            "relation": "supports",
+            "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR"
+          }
+        ],
+        "why_vi": "Ô đầu interview questions, ô sau confident là tham khảo từ transcript. Stem đặt that trước ô, khác cấu trúc the interview questions that; điền key không tạo câu đúng ngữ pháp nên chưa dùng chấm.",
+        "distractors": [],
+        "paraphrase_vi": "Ô đầu interview questions, ô sau confident là tham khảo từ transcript. Stem đặt that trước ô, khác cấu trúc the interview questions that; điền key không tạo câu đúng ngữ pháp nên chưa dùng chấm.",
+        "trap_vi": "Nguồn đảo vị trí that; confident là tính từ sau feel, không confidence.",
+        "format_vi": "Điền hai ô theo thứ tự, mỗi ô ứng với field_id riêng; phần B không in giới hạn từ.",
+        "source_answer_warning_vi": "Stem đặt that trước chỗ trống; transcript là practice the interview questions that managers usually ask. Đáp án tham khảo không sửa được thứ tự từ của stem.",
+        "next_action_vi": "Sửa stem thành If you practice the ___ that managers usually ask trước khi dùng câu này để chấm."
+      },
+      "independent_review": {
+        "status": "ACCEPTED",
+        "verdict": "SUSPECT",
+        "confidence": "high",
+        "reviewer": "/root/reviewer",
+        "instruction_checked": true,
+        "alternatives_checked": true,
+        "report_sha256": "da260f49db8854f15fd021824c28491430acb2cb586f950c2fa49129f3467252",
+        "reviewed_artifact_sha256": "0d005e5492e446177b3cf2a67927d69cc9b53e09090d9145bbfc5cb83bb138a7"
+      }
+    }
+  ]
+}

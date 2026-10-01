@@ -15,7 +15,7 @@
 - [x] T005 Add required canonical import/API/runtime contracts and migration.
   `depends: T002`
 - [x] T006 Add collection/day and eligible player/result UI. `depends: T002,T005`
-- [ ] T007 Validate complete content and import as unpublished on staging.
+- [x] T007 Validate complete content and import as unpublished on staging.
   `depends: T003,T004,T005`
 - [ ] T008 Run independent content/code review, local suites and staged journeys.
   `depends: T006,T007`
@@ -54,3 +54,30 @@ canonical import/readback/retry, exact staging
 deployment and authenticated journeys, and production publication remain
 T007–T010. Full80 local dry-run and disposable PostgreSQL import/reuse/invalid
 provenance rollback passed; these do not certify hosted services or learners.
+
+## Authorized correction checkpoint (2026-10-01)
+
+T007 is closed for unpublished staging data preparation only. The unchanged
+canonical importer created package UUID `2f744893-a231-4f17-bde2-86800b76e19f`
+with80 lessons/195 forms/1572 practice items/69 stimuli and reused all663 assets.
+A real retry reused the same package UUID and all663 assets. Both complete
+private-byte/full-row readbacks agree, including every owned ID/timestamp/payload
+and the full-row fingerprints of the four existing packages,19 attempts and7
+reveals. Package remains validated; descendants remain draft/private. Independent
+closure: `staging-unpublished-data-final-independent-review.json`, SHA-256
+`dd6228ea0aebc6837be8163c96ff182f262f6b0e8329b282e288bead46030eee`.
+
+Exact d66301a9 PR CI passed, including complete Ubuntu backend9516/38; these
+checks do not certify the subsequent corrective candidate. Three existing
+review conversations still identified missing whole-day submitted replay,
+synchronous account scope and native multi-gap labels. The human explicitly
+authorized correcting all three and reopening review on2026-10-01. This is one
+coherent bounded correction: authoritative audio/field transports, account/media
+lifetime and canonical answer/reference presentation; the source release,
+importer and schema stay frozen. Permission record SHA-256
+`afb38bd3ad944c3a172ce3b3b94bd30557142c07635b1852f1857504ffd4e3f4`.
+
+The candidate has not received final independent acceptance, new-head CI or
+merge. T008–T010 remain open for authenticated staging source journeys, demo,
+publication/promotion/production verification and the final requirement audit.
+Earlier checkpoints above retain their historical failures and partial uploads.

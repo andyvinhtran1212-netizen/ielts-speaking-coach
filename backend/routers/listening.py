@@ -7631,6 +7631,7 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
 
 def _programme_guided_item(
     reveal: dict, exercise_rows: list[dict], replay_policy: str, *, source_required: bool = False,
+    audio_granularity: str | None = None,
 ) -> dict:
     from services.listening_programme_feedback import (
         FeedbackUnavailable, build_guided_feedback,
@@ -7639,7 +7640,7 @@ def _programme_guided_item(
     try:
         feedback = build_guided_feedback(
             int(reveal["q_num"]), str(reveal["first_answer"]),
-            exercise_rows, replay_policy, source_required=source_required,
+            exercise_rows, replay_policy, source_required=source_required, audio_granularity=audio_granularity,
         )
     except FeedbackUnavailable:
         logger.error("[listening-programmes] revealed item has no review material")
@@ -7666,7 +7667,8 @@ async def get_listening_programme_guided_state(
         .eq("attempt_id", attempt_id_str).order("q_num").execute()
     )
     items = [
-        _programme_guided_item(row, exercise_rows, test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME)
+        _programme_guided_item(row, exercise_rows, test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME,
+            audio_granularity=(test.get("metadata") or {}).get("timing_granularity") if test.get("programme_id") == SOURCE_PROGRAMME else None)
         for row in (result.data or [])
     ]
     return {"attempt_id": attempt_id_str, "assisted": bool(items), "items": items}
@@ -7725,6 +7727,7 @@ async def reveal_listening_programme_question(
     item = _programme_guided_item(
         {"q_num": q_num, **reveal}, exercise_rows,
         test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME,
+        audio_granularity=(test.get("metadata") or {}).get("timing_granularity") if test.get("programme_id") == SOURCE_PROGRAMME else None,
     )
     return {"attempt_id": attempt_id_str, "assisted": True, "items": [item]}
 
@@ -8296,13 +8299,17 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         win = _rebase_audio_window(windows_by_q.get(q), is_mini, sec_offsets)
         source_fields = {}
         if test_row.get("programme_id") == SOURCE_PROGRAMME:
-            from services.listening_source_collection import source_explanation
+            from services.listening_source_collection import source_explanation, source_response_fields
             question = source_questions_by_q.get(q) or {}
             protected = solutions_by_q.get(q) or self_review_by_q.get(q)
             protected = protected or {}
-            source_fields = {"source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
+            try:
+                fields = source_response_fields(question, reference_answer=(source_explanation(protected.get("explanation")) or {}).get("answer"))
+            except ValueError:
+                raise HTTPException(503, "Chưa tải được thông tin chỗ trống để đối chiếu. Hãy thử lại.") from None
+            source_fields = {"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
                 "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
-                "explanation": source_explanation(protected.get("explanation")), "audio_granularity": (win or {}).get("granularity") or (test_row.get("metadata") or {}).get("timing_granularity", "whole_day")}
+                "explanation": source_explanation(protected.get("explanation")), "audio_granularity": (win or {}).get("granularity") or meta.get("timing_granularity")}
         review.append({
             **source_fields,
             "q_num":         q,
@@ -8349,6 +8356,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "claim_policy":    test_row.get("claim_policy"),
         "trap_analytics":  attempt.get("trap_analytics") or {},
         "audio_url":       audio_url,
+        "audio_granularity": meta.get("timing_granularity") if test_row.get("programme_id") == SOURCE_PROGRAMME else None,
         "audio_duration":  audio_duration,
         "section_offsets": meta.get("section_offsets") or {},
         "cue_points":      test_row.get("cue_points") or [],

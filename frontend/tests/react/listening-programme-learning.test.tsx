@@ -14,6 +14,7 @@ const guidedItem = { q_num: 1, first_answer: 'A', state: 'checked', correct: tru
 const programmeTest = { scoring_policy: 'report_only', title: 'Let’s — Luyện tập', programme_id: 'general-listening-practice', listening_lesson_id: 'lesson-1', replay_policy: 'allowed', audio_url: '/audio.wav', sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions } }] }] };
 
 beforeEach(() => {
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   localStorage.clear();
   vi.stubGlobal('crypto', { randomUUID: () => 'playback-claim' });
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 1; });
@@ -30,7 +31,7 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it('lets a learner answer one question at a time, revise it, and change verified question language', async () => {
   render(<ProgrammeFormRunner testId="test-1" />);
