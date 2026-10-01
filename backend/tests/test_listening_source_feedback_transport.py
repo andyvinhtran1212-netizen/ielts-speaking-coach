@@ -39,24 +39,50 @@ def boundary(monkeypatch):
     payload, answers = native_payload()
     report = grade_report_only_attempt(answers, [{'payload': payload}], source_required=True)
     assert all(item['state'] == 'unscored' for item in report['per_question'])
-    db = SimpleNamespace(payload=payload, answers=answers, rpc_calls=[],
+    db = SimpleNamespace(payload=payload, answers=answers, rpc_calls=[], queries=[],
         test={'id': 'test-id', 'test_id': 'native-source', 'programme_id': SOURCE_PROGRAMME,
-              'scoring_policy': 'report_only', 'replay_policy': 'allowed', 'metadata': {'timing_granularity': 'whole_day'}},
+              'status': 'published', 'is_public': True, 'content_package_id': 'source-package',
+              'scoring_policy': 'report_only', 'replay_policy': 'allowed',
+              'metadata': {'timing_granularity': 'whole_day', 'author_audit': 'HIDDEN_METADATA'}},
+        package={'id': 'source-package', 'status': 'published'},
+        section={'id': 'section', 'test_id': 'test-id', 'section_num': 1, 'status': 'published'},
+        exercise_status='published',
         attempt={'id': str(ATTEMPT), 'user_id': 'owner', 'test_id': 'test-id', 'status': 'submitted',
                  'scoring_policy': 'report_only', 'grading_details': report['per_question']})
+    db.active_attempt = {**deepcopy(db.attempt), 'status': 'in_progress',
+                         'resume_expires_at': '2099-01-01T00:00:00Z'}
+    db.selected_attempt = db.attempt
     class Query:
-        def __init__(self, name): self.name = name
-        def select(self, *_): return self
-        def eq(self, *_): return self
-        def in_(self, *_): return self
-        def order(self, *_): return self
-        def limit(self, *_): return self
+        def __init__(self, name):
+            self.name = name; self.columns = None; self.filters = []; self.order_column = None; self.row_limit = None
+        def select(self, columns):
+            self.columns = columns; return self
+        def eq(self, column, value):
+            self.filters.append(('eq', column, value)); return self
+        def in_(self, column, values):
+            self.filters.append(('in', column, values)); return self
+        def order(self, column):
+            self.order_column = column; return self
+        def limit(self, count):
+            self.row_limit = count; return self
         def execute(self):
-            rows = {'listening_tests': [db.test], 'listening_content': [{'id': 'section'}],
-                    'listening_exercises': [{'payload': db.payload}],
-                    'listening_programme_feedback_reveals': [{'q_num': 1, 'first_answer': db.answers[0]['user_answer'],
+            assert self.columns is not None
+            rows = {'listening_tests': [db.test], 'listening_content_packages': [db.package],
+                    'listening_content': [db.section],
+                    'listening_exercises': [{'content_id': 'section', 'status': db.exercise_status, 'payload': db.payload}],
+                    'listening_programme_feedback_reveals': [{'attempt_id': str(ATTEMPT), 'q_num': 1, 'first_answer': db.answers[0]['user_answer'],
                         'revealed_at': '2026-10-01T01:00:00Z'}]}
-            return SimpleNamespace(data=deepcopy(rows[self.name]))
+            selected = deepcopy(rows[self.name])
+            for kind, column, value in self.filters:
+                selected = [row for row in selected if (row.get(column) == value if kind == 'eq' else row.get(column) in value)]
+            if self.order_column: selected.sort(key=lambda row: row[self.order_column])
+            if self.row_limit is not None: selected = selected[:self.row_limit]
+            db.queries.append({'table': self.name, 'columns': self.columns, 'filters': deepcopy(self.filters)})
+            # Model PostgREST projection, so an omitted authored column is not
+            # silently returned by the fixture. No context helper is replaced.
+            if self.columns != '*':
+                selected = [{column: row.get(column) for column in self.columns.split(',')} for row in selected]
+            return SimpleNamespace(data=selected)
     class Admin:
         def table(self, name): return Query(name)
         def rpc(self, name, args):
@@ -67,14 +93,14 @@ def boundary(monkeypatch):
     async def auth(_): return {'id': 'owner'}
     async def not_admin(_): return False
     def owned(_attempt, owner):
-        assert owner == 'owner'
-        return deepcopy(db.attempt)
+        assert _attempt == str(ATTEMPT) and owner == 'owner'
+        if db.selected_attempt['user_id'] != owner: raise HTTPException(403, 'not owner')
+        return deepcopy(db.selected_attempt)
     monkeypatch.setattr(router, '_require_auth', auth)
     monkeypatch.setattr(router, '_is_admin', not_admin)
     monkeypatch.setattr(router, '_fetch_attempt_or_404', owned)
     monkeypatch.setattr(router, 'supabase_admin', Admin())
     monkeypatch.setattr(router, '_student_audio_url_for_test', lambda _: ('/signed-covered-source.mp3', None, 123))
-    monkeypatch.setattr(router, '_programme_guided_context', lambda _: (db.test, [{'payload': db.payload}]))
     from services import mock_correction_service
     monkeypatch.setattr(mock_correction_service, 'capture_required_envelope', lambda *_args, **_kwargs: None)
     app = FastAPI(); app.include_router(router.user_router)
@@ -82,7 +108,8 @@ def boundary(monkeypatch):
 
 
 def request(boundary, method, suffix):
-    app, _db = boundary
+    app, db = boundary
+    db.selected_attempt = db.attempt if suffix == 'review' else db.active_attempt
     async def run():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://fixture') as client:
             return await client.request(method, f'/api/listening/tests/attempts/{ATTEMPT}/{suffix}')
@@ -109,10 +136,14 @@ def test_twelve_native_positions_twenty_five_fields_in_serialized_review_and_rev
         rows = reveal.json()['items']
         assert len(rows) == 1 and rows[0]['q_num'] == q_num and rows[0]['fields'] == fields
         assert rows[0]['first_answer'] == db.answers[q_num - 1]['user_answer'] and rows[0]['audio_window'] is None
+        assert rows[0]['audio_granularity'] == 'whole_day'
     guided = request(boundary, 'GET', 'guided-state')
     assert guided.status_code == 200
     assert [r['q_num'] for r in guided.json()['items']] == [1]
     assert guided.json()['items'][0]['fields'] == NATIVE['items'][0]['response']['fields']
+    assert guided.json()['items'][0]['audio_granularity'] == 'whole_day'
+    for table in ['listening_content', 'listening_exercises']:
+        assert any(query['table'] == table and ('eq', 'status', 'published') in query['filters'] for query in db.queries)
 
 
 def test_nested_field_authoring_never_crosses_either_api_allowlist(boundary):
@@ -161,14 +192,51 @@ def test_source_audio_granularity_is_metadata_not_a_window_fallback(boundary, gr
         assert guided.json()['items'][0]['audio_granularity'] == granularity
 
 
-def test_generic_submitted_review_keeps_exact_window_and_empty_fields(boundary):
+def test_generic_submitted_review_and_guided_keep_exact_window_and_empty_fields(boundary):
     _app, db = boundary
     db.test['programme_id'] = 'ielts-listening-practice'
-    db.payload['audio_windows'] = {'1': {'start': 2, 'end': 5}}
+    db.payload.clear()
+    db.payload.update({'variant': 'programme_form_v1',
+        'questions': [{'q_num': 1, 'response_type': 'single_choice', 'source_item_id': 'generic-one'}],
+        'answers': [{'q_num': 1, 'answers': ['B']}],
+        'solutions': {'1': {'rationale': 'The speaker says B.'}},
+        'audio_windows': {'1': {'start': 2, 'end': 5}}})
+    db.answers[0]['user_answer'] = 'A'
+    db.attempt['grading_details'] = grade_report_only_attempt(
+        [db.answers[0]], [{'payload': db.payload}], source_required=False)['per_question']
     response = request(boundary, 'GET', 'review')
     assert response.status_code == 200 and response.json()['audio_granularity'] is None
     assert response.json()['review'][0]['audio_window'] == {'start': 2, 'end': 5}
     assert response.json()['review'][0]['fields'] == []
+    for method, suffix in [('GET', 'guided-state'), ('POST', 'questions/1/reveal')]:
+        guided = request(boundary, method, suffix)
+        assert guided.status_code == 200
+        assert guided.json()['items'][0]['audio_window'] == {'start': 2, 'end': 5}
+        assert guided.json()['items'][0]['fields'] == []
+        assert guided.json()['items'][0]['audio_granularity'] is None
+
+
+@pytest.mark.parametrize('defect', ['unpublished_test', 'private_test', 'unpublished_package', 'unpublished_exercise'])
+def test_real_guided_context_publication_guards_run_before_reveal_rpc(boundary, defect):
+    _app, db = boundary
+    if defect == 'unpublished_test': db.test['status'] = 'draft'
+    elif defect == 'private_test': db.test['is_public'] = False
+    elif defect == 'unpublished_package': db.package['status'] = 'draft'
+    else: db.exercise_status = 'draft'
+    for method, suffix in [('GET', 'guided-state'), ('POST', 'questions/1/reveal')]:
+        assert request(boundary, method, suffix).status_code == (503 if defect == 'unpublished_exercise' else 422)
+    assert db.rpc_calls == []
+
+
+@pytest.mark.parametrize('defect', ['submitted', 'expired', 'foreign_owner'])
+def test_real_guided_context_active_owner_guards_run_before_reveal_rpc(boundary, defect):
+    _app, db = boundary
+    if defect == 'submitted': db.active_attempt['status'] = 'submitted'
+    elif defect == 'expired': db.active_attempt['resume_expires_at'] = '2000-01-01T00:00:00Z'
+    else: db.active_attempt['user_id'] = 'foreign-owner'
+    for method, suffix in [('GET', 'guided-state'), ('POST', 'questions/1/reveal')]:
+        assert request(boundary, method, suffix).status_code == {'submitted': 409, 'expired': 410, 'foreign_owner': 403}[defect]
+    assert db.rpc_calls == []
 
 
 def test_review_requires_submitted_owner_and_available_audio(boundary, monkeypatch):

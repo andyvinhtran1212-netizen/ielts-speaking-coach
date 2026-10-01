@@ -97,3 +97,31 @@ The candidate has not received final independent acceptance, new-head CI or
 merge. T008–T010 remain open for authenticated staging source journeys, demo,
 publication/promotion/production verification and the final requirement audit.
 Earlier checkpoints above retain their historical failures and partial uploads.
+
+### Single Round6 corrected freeze
+
+The independent whole-contract audit did not accept ff879c83. Its consolidated
+report `authorized-round6-consolidated-independent-findings.json` (SHA-256
+`03475dd9a3e974a78e0b73b5f6e7348be712e2f6748a59ea852daebbcc74b254`)
+identified exactly two gaps within the already authorized categories: in-progress
+form state/media/async continuations were not scoped, and the real guided context
+query omitted authored metadata. This same unpublished Round6 stays open for
+one corrected frozen candidate; no additional numbered round or push occurred.
+
+The form now remounts by Auth status/user/test identity, invalidates its captured
+lifetime synchronously, aborts requests and stops/empties native media. Every
+later queued save/reveal/submit/navigation/once-play continuation checks that
+lifetime; query-only context changes preserve the current attempt. Shared Auth,
+queue, replay and once-play helpers are unchanged. The backend reads metadata
+through the real guided query; strict projected transport fixtures no longer
+bypass that context. Focused178 cases pass, including all28 source transport
+cases. The original query demonstrably failed four authored-metadata cases.
+
+The new actual-component form suite passes22 cases; the exact ff879 form fails21
+of those same cases while its positive query-only control passes. Current full
+React168/15files, frontend9561/zero skipped and both typechecks pass. Before-proof
+and harness failures are retained separately. A stale exact onEnded source regex
+was replaced by structural wiring plus actual React current/inactive media
+behavior; its prior9560/1 full-contract result remains preserved. New full PG
+backend, build/native form/browser gates and the single independent final
+disposition are required on this corrected snapshot before the consolidated push.

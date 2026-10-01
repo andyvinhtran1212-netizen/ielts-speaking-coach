@@ -13,6 +13,8 @@ const availability = { questions: 'available', audio: 'missing', transcript: 'av
 const block = { block_id: 'matching', part_id: 'part1', kind: 'matching', instruction: { source_en: 'Match each word.', student_vi: 'Nối từ theo số audio.' }, item_ids: ['q7', 'q8'], source_question_numbers: [7, 8], images: [{ asset_id: 'question-image', url: '/signed-question.png', expires_in: 7200, width: 1200, height: 300, alt_vi: 'Bốn từ trong nhóm lựa chọn' }], shared_options: [], description: 'Fragile / Surprise / Fast / Lightful', display_kind: 'practice' };
 
 beforeEach(() => {
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   auth.status = 'signed-in'; auth.user = { id: 'source-learner' };
   localStorage.clear();
@@ -135,7 +137,7 @@ it('groups a matching block once, hides solutions until saved reveal, and preser
   expect(screen.getByText('Tập trung vào câu 7–8')).toBeTruthy();
   expect(screen.queryByText('7. Quick')).toBeNull();
   fireEvent.click(screen.getAllByRole('radio', { name: 'Fast' })[0]);
-  await waitFor(() => expect(window.api.patchWith).toHaveBeenCalledWith('/api/listening/tests/attempts/source-attempt/answers', { q_num: 1, user_answer: 'fast' }));
+  await waitFor(() => expect(window.api.patchWith).toHaveBeenCalledWith('/api/listening/tests/attempts/source-attempt/answers', { q_num: 1, user_answer: 'fast' }, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) })));
   fireEvent.click(screen.getAllByRole('button', { name: 'Đối chiếu câu này' })[0]);
   await screen.findByText('7. Quick');
   expect(screen.getByText(/Tự đối chiếu với gợi ý/)).toBeTruthy();
@@ -150,7 +152,7 @@ it('restores multiple blanks and saves them under one original source position',
   expect((screen.getByRole('textbox', { name: /Hoạt động/ }) as HTMLInputElement).value).toBe('dinner');
   fireEvent.change(place, { target: { value: 'New York' } });
   fireEvent.blur(place);
-  await waitFor(() => expect(window.api.patchWith).toHaveBeenCalledWith('/api/listening/tests/attempts/gap-attempt/answers', { q_num: 1, user_answer: '{"activity":"dinner","place":"New York"}' }));
+  await waitFor(() => expect(window.api.patchWith).toHaveBeenCalledWith('/api/listening/tests/attempts/gap-attempt/answers', { q_num: 1, user_answer: '{"activity":"dinner","place":"New York"}' }, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) })));
   expect(screen.getAllByText('Không quá 2 từ cho chỗ trống này.')).toHaveLength(2);
   expect(screen.getByText('1/1 câu đã thử')).toBeTruthy();
 });

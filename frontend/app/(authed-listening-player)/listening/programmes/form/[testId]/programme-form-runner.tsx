@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import type { AuthStatus } from '@/lib/auth/auth-provider';
 import { ListeningSourceBlock } from '@/components/listening-source-block';
 import { ListeningSourceExplanation } from '@/components/listening-source-explanation';
 import { programmeLessonPath } from '@/lib/listening-programme-navigation.mjs';
@@ -21,6 +22,7 @@ interface Question { q_num: number; source_item_id: string; prompt: string; resp
 interface FormData { title: string; programmeId: string; lessonId: string; replayPolicy: string; audioUrl: string; questions: Question[]; guidanceAvailable: boolean; sourceDay?: number; sourceBlocks: ListeningSourceBlockWire[]; audioGranularity?: string }
 type FeedbackItem = NonNullable<ListeningGuidedStateWire['items']>[number];
 type LoadState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; form: FormData; attemptId: string };
+interface FormScope { active: boolean; controller: AbortController }
 function row(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {}; }
 function questionLabel(question: Question | undefined) { return question?.source_display_number || String(question?.q_num || ''); }
 function feedbackResponseFields(question: Question, item: FeedbackItem | undefined): ListeningSourceResponseFieldWire[] | undefined {
@@ -31,6 +33,10 @@ function feedbackResponseFields(question: Question, item: FeedbackItem | undefin
 
 export function ProgrammeFormRunner({ testId }: { testId: string }) {
   const { status, user } = useAuth();
+  return <ProgrammeFormView key={JSON.stringify([status, user?.id ?? null, testId])} testId={testId} status={status} userId={user?.id ?? null} />;
+}
+
+function ProgrammeFormView({ testId, status, userId }: { testId: string; status: AuthStatus; userId: string | null }) {
   const params = useSearchParams();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -47,7 +53,11 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   const saveStatusTracker = useRef(createProgrammeSaveStatusTracker());
   const submitLock = useRef(false);
   const revealPromises = useRef<Map<number, Promise<void>>>(new Map());
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const scopeRef = useRef<FormScope | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioSource = useRef('');
+  const mediaGeneration = useRef(0);
+  audioSource.current = state.status === 'ready' ? state.form.audioUrl : '';
   const replayController = useRef<ReturnType<typeof createProgrammeReplayController> | null>(null);
   if (!replayController.current) replayController.current = createProgrammeReplayController(() => audioRef.current);
   const groupHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -55,6 +65,37 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   const [onceState, setOnceState] = useState<'ready' | 'starting' | 'playing' | 'paused' | 'unconfirmed' | 'done'>('ready');
   const [onceMessage, setOnceMessage] = useState('');
   const [audioError, setAudioError] = useState('');
+
+  function current(scope: FormScope | null): scope is FormScope {
+    return !!scope?.active && scope === scopeRef.current;
+  }
+  const bindAudio = useCallback((element: HTMLAudioElement | null) => {
+    const previous = audioRef.current;
+    if (previous === element) return;
+    mediaGeneration.current += 1;
+    if (previous) {
+      replayController.current?.dispose();
+      previous.pause();
+      previous.removeAttribute('src');
+      previous.load();
+    }
+    audioRef.current = element;
+    if (element && audioSource.current && element.getAttribute('src') !== audioSource.current) element.setAttribute('src', audioSource.current);
+  }, []);
+  useLayoutEffect(() => {
+    const scope: FormScope = { active: status === 'signed-in' && !!userId, controller: new AbortController() };
+    scopeRef.current = scope;
+    return () => {
+      scope.active = false;
+      scope.controller.abort();
+      Object.values(pending.current).forEach(window.clearTimeout);
+      pending.current = {};
+      saveQueue.current = null;
+      draftStore.current = null;
+      revealPromises.current.clear();
+      bindAudio(null);
+    };
+  }, [bindAudio, status, userId]);
 
   useEffect(() => {
     try {
@@ -67,14 +108,19 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
 
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');
-    if (status !== 'signed-in' || !user?.id) return;
-    let active = true; const controller = new AbortController();
+    if (status !== 'signed-in' || !userId) return;
+    const scope = scopeRef.current;
+    if (!current(scope)) return;
+    let active = true;
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.getWith && !!window.api?.postWith, 'window.api (programme form)');
-      if (!ready || !active) throw new Error('API chưa sẵn sàng');
-      const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}));
+      if (!active || !current(scope)) return;
+      if (!ready) throw new Error('API chưa sẵn sàng');
+      const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}, undefined, { signal: scope.controller.signal }));
+      if (!active || !current(scope)) return;
       const attemptId = String(attempt.attempt_id || '');
-      const test = row(await window.api.getWith<ListeningProgrammePlayerWire>(`/api/listening/tests/${encodeURIComponent(testId)}?attempt_id=${encodeURIComponent(attemptId)}`, undefined, { signal: controller.signal }));
+      const test = row(await window.api.getWith<ListeningProgrammePlayerWire>(`/api/listening/tests/${encodeURIComponent(testId)}?attempt_id=${encodeURIComponent(attemptId)}`, undefined, { signal: scope.controller.signal }));
+      if (!active || !current(scope)) return;
       if (test.scoring_policy !== 'report_only') throw new Error('Bài này không thuộc chương trình report-only.');
       const sections = Array.isArray(test.sections) ? test.sections : [];
       const exercises = sections.flatMap((value) => {
@@ -90,21 +136,22 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
       let guided: ListeningGuidedStateWire | null = null;
       try {
-        guided = await window.api.getWith<ListeningGuidedStateWire>(`/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/guided-state`, undefined, { signal: controller.signal });
+        guided = await window.api.getWith<ListeningGuidedStateWire>(`/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/guided-state`, undefined, { signal: scope.controller.signal });
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') throw error;
         // A mixed-version deployment or temporary endpoint outage must not
         // make the existing answer-and-submit programme flow unusable.
       }
       const revealed = Object.fromEntries((guided?.items || []).map((item) => [item.q_num, item]));
-      if (!active) return;
+      if (!active || !current(scope)) return;
       saveStatusTracker.current.reset();
       setSaveState('idle');
       const store = createProgrammeAnswerDraftStore(localStorage, attemptId);
       const recovered = store.load();
       const queue = createProgrammeAnswerWriteQueue(async (qNum, value) => {
-        await window.api.patchWith(`/api/listening/tests/attempts/${attemptId}/answers`, { q_num: qNum, user_answer: value });
-        store.clearIfCurrent(qNum, value);
+        if (!current(scope)) throw new DOMException('Programme scope ended', 'AbortError');
+        await window.api.patchWith(`/api/listening/tests/attempts/${attemptId}/answers`, { q_num: qNum, user_answer: value }, undefined, { signal: scope.controller.signal });
+        if (current(scope)) store.clearIfCurrent(qNum, value);
       });
       draftStore.current = store;
       saveQueue.current = queue;
@@ -117,9 +164,9 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
         const operation = saveStatusTracker.current.begin(qNum);
         setSaveState(operation.status);
         void queue.enqueue(qNum, value).then(() => {
-          if (active) setSaveState(saveStatusTracker.current.succeed(operation.token));
+          if (active && current(scope)) setSaveState(saveStatusTracker.current.succeed(operation.token));
         }).catch(() => {
-          if (active) setSaveState(saveStatusTracker.current.fail(operation.token));
+          if (active && current(scope)) setSaveState(saveStatusTracker.current.fail(operation.token));
         });
       }
       onceClaimId.current = crypto.randomUUID();
@@ -128,9 +175,9 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       const audioUrl = String(test.audio_url || '');
       setOnceState(attempt.playback_started_at || (replayPolicy === 'once' && !audioUrl) ? 'done' : 'ready');
       setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy, audioUrl, questions, guidanceAvailable: guided !== null, sourceDay: Number(test.source_day) || undefined, sourceBlocks: Array.isArray(test.source_blocks) ? test.source_blocks as ListeningSourceBlockWire[] : [], audioGranularity: test.audio_granularity ? String(test.audio_granularity) : undefined } });
-    })().catch((error: unknown) => { if (active && !(error instanceof DOMException && error.name === 'AbortError')) setState({ status: 'error', message: error instanceof Error ? error.message : 'Không tải được bài nghe.' }); });
-    return () => { active = false; controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); pending.current = {}; saveQueue.current = null; draftStore.current = null; submitLock.current = false; replayController.current?.dispose(); revealPromises.current.clear(); };
-  }, [status, testId, user?.id]);
+    })().catch((error: unknown) => { if (active && current(scope) && !(error instanceof DOMException && error.name === 'AbortError')) setState({ status: 'error', message: error instanceof Error ? error.message : 'Không tải được bài nghe.' }); });
+    return () => { active = false; scope.controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); pending.current = {}; saveQueue.current = null; draftStore.current = null; submitLock.current = false; replayController.current?.dispose(); revealPromises.current.clear(); };
+  }, [status, testId, userId]);
 
   const answeredCount = useMemo(() => Object.values(answers).filter((value) => value.trim()).length, [answers]);
   const groups = useMemo(() => state.status === 'ready' ? groupProgrammeQuestions(state.form.questions) as Array<{ key: string; sourceBlockId?: string | null; questions: Question[] }> : [], [state]);
@@ -149,26 +196,30 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     try { localStorage.setItem('av-listening-question-language', value); } catch { /* Keep current choice in memory. */ }
   }
   function moveToGroup(index: number) {
+    const scope = scopeRef.current;
+    if (!current(scope)) return;
     setCurrentGroup(index);
-    window.requestAnimationFrame(() => groupHeadingRef.current?.focus());
+    window.requestAnimationFrame(() => { if (current(scope)) groupHeadingRef.current?.focus(); });
   }
   async function save(qNum: number, value: string) {
+    const scope = scopeRef.current;
     const queue = saveQueue.current;
-    if (state.status !== 'ready' || !queue) return;
+    if (state.status !== 'ready' || !queue || !current(scope)) return;
     const tracker = saveStatusTracker.current;
     const operation = tracker.begin(qNum);
     setSaveState(operation.status);
-    try { await queue.enqueue(qNum, value); setSaveState(tracker.succeed(operation.token)); }
-    catch { setSaveState(tracker.fail(operation.token)); }
+    try { await queue.enqueue(qNum, value); if (current(scope)) setSaveState(tracker.succeed(operation.token)); }
+    catch { if (current(scope)) setSaveState(tracker.fail(operation.token)); }
   }
   function update(qNum: number, value: string, immediate = false) {
-    if (submitLock.current) return;
+    const scope = scopeRef.current;
+    if (submitLock.current || !current(scope)) return;
     draftStore.current?.remember(qNum, value);
     setAnswers((current) => ({ ...current, [qNum]: value }));
     if (pending.current[qNum]) window.clearTimeout(pending.current[qNum]);
     delete pending.current[qNum];
     if (immediate) void save(qNum, value);
-    else pending.current[qNum] = window.setTimeout(() => { delete pending.current[qNum]; void save(qNum, value); }, 650);
+    else pending.current[qNum] = window.setTimeout(() => { if (!current(scope)) return; delete pending.current[qNum]; void save(qNum, value); }, 650);
   }
   function toggleMultiple(question: Question, key: string) {
     const selected = new Set((answers[question.q_num] || '').split(',').map((value) => value.trim()).filter(Boolean));
@@ -176,10 +227,11 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     update(question.q_num, [...selected].sort().join(', '), true);
   }
   async function reveal(qNum: number) {
+    const scope = scopeRef.current;
     const queue = saveQueue.current;
     if (state.status !== 'ready' || !state.form.guidanceAvailable || !queue || submitLock.current
         || feedback[qNum] || revealPromises.current.has(qNum)
-        || !answers[qNum]?.trim()) return;
+        || !answers[qNum]?.trim() || !current(scope)) return;
     const value = answers[qNum];
     if (pending.current[qNum]) window.clearTimeout(pending.current[qNum]);
     delete pending.current[qNum];
@@ -187,9 +239,11 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     const operation = (async () => {
       // A failed or ambiguous PATCH never leads to a protected-key response.
       await queue.flush([{ qNum, value }]);
+      if (!current(scope)) return;
       const result = await window.api.postWith<ListeningGuidedStateWire>(
-        `/api/listening/tests/attempts/${encodeURIComponent(state.attemptId)}/questions/${qNum}/reveal`, {},
+        `/api/listening/tests/attempts/${encodeURIComponent(state.attemptId)}/questions/${qNum}/reveal`, {}, undefined, { signal: scope.controller.signal },
       );
+      if (!current(scope)) return;
       const item = (result.items || []).find((candidate) => candidate.q_num === qNum);
       if (!item) throw new Error('Không xác minh được phần đối chiếu.');
       setFeedback((current) => ({ ...current, [qNum]: item }));
@@ -198,15 +252,17 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     revealPromises.current.set(qNum, operation);
     try { await operation; }
     catch (error: unknown) {
+      if (!current(scope)) return;
       const statusCode = row(error).status;
       setRevealStatus((current) => ({ ...current, [qNum]: [403, 404, 409, 422].includes(Number(statusCode)) ? 'unavailable' : 'error' }));
     }
-    finally { revealPromises.current.delete(qNum); }
+    finally { if (revealPromises.current.get(qNum) === operation) revealPromises.current.delete(qNum); }
   }
   async function submit() {
+    const scope = scopeRef.current;
     const queue = saveQueue.current;
     if (state.status !== 'ready' || submitLock.current || !queue
-        || revealPromises.current.size) return;
+        || revealPromises.current.size || !current(scope)) return;
     submitLock.current = true;
     setSubmitting(true);
     const tracker = saveStatusTracker.current;
@@ -216,55 +272,68 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       Object.values(pending.current).forEach(window.clearTimeout);
       pending.current = {};
       await queue.flush(programmeAnswerFlushEntries(state.form.questions, answers));
+      if (!current(scope)) return;
       setSaveState(tracker.finishFlush(operation.token));
-      await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {});
+      await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {}, undefined, { signal: scope.controller.signal });
+      if (!current(scope)) return;
       draftStore.current?.clear();
       window.location.assign(listeningProgrammeResultHref(state.form.programmeId, state.attemptId, params || undefined));
     } catch {
+      if (!current(scope)) return;
       tracker.fail(operation.token);
       setSaveState('error');
       submitLock.current = false;
       setSubmitting(false);
     }
   }
-  async function acknowledgeOncePlayback() {
-    if (state.status !== 'ready') return false;
-    const result = row(await window.api.postWith<unknown>(`/api/listening/tests/attempts/${state.attemptId}/playback-started`, { playback_claim_id: onceClaimId.current }));
-    return result.accepted === true;
-  }
   async function controlOnce() {
-    if (state.status !== 'ready' || ['starting', 'done'].includes(onceState) || !audioRef.current) return;
+    const scope = scopeRef.current;
+    const element = audioRef.current;
+    const generation = mediaGeneration.current;
+    const mediaCurrent = () => current(scope) && audioRef.current === element && generation === mediaGeneration.current;
+    if (state.status !== 'ready' || ['starting', 'done'].includes(onceState) || !element || !current(scope)) return;
+    const acknowledgeOncePlayback = async () => {
+      if (!mediaCurrent()) return false;
+      const result = row(await window.api.postWith<unknown>(`/api/listening/tests/attempts/${state.attemptId}/playback-started`, { playback_claim_id: onceClaimId.current }, undefined, { signal: scope.controller.signal }));
+      return mediaCurrent() && result.accepted === true;
+    };
     if (onceState === 'playing') {
-      audioRef.current.pause();
+      element.pause();
       setOnceState('paused');
       return;
     }
     if (onceState === 'unconfirmed') {
-      const result = await confirmProgrammeOncePlayback(audioRef.current, acknowledgeOncePlayback);
+      const result = await confirmProgrammeOncePlayback(element, acknowledgeOncePlayback);
+      if (!mediaCurrent()) return;
       setOnceState(result.state);
       setOnceMessage(result.message);
       return;
     }
     if (onceState === 'paused') {
       try {
-        await audioRef.current.play();
+        await element.play();
+        if (!mediaCurrent()) return;
         setOnceMessage('');
         setOnceState('playing');
       } catch {
+        if (!mediaCurrent()) return;
         setOnceMessage('Trình duyệt chưa phát được audio. Hãy thử lại.');
       }
       return;
     }
     setOnceState('starting');
-    const result = await startProgrammeOncePlayback(audioRef.current, acknowledgeOncePlayback);
+    const result = await startProgrammeOncePlayback(element, acknowledgeOncePlayback);
+    if (!mediaCurrent()) return;
     setOnceState(result.state);
     setOnceMessage(result.message);
   }
   function replayQuestion(item: FeedbackItem) {
-    if (state.status !== 'ready' || state.form.replayPolicy !== 'allowed') return;
+    const scope = scopeRef.current;
+    const generation = mediaGeneration.current;
+    if (state.status !== 'ready' || state.form.replayPolicy !== 'allowed' || !current(scope)) return;
     setAudioError('');
     void replayController.current?.replay(item.audio_window).then((started) => {
-      if (!started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại hoặc dùng audio toàn bài.');
+      if (current(scope) && generation === mediaGeneration.current && !started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại hoặc dùng audio toàn bài.');
     });
   }
 
@@ -284,7 +353,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     <div className="programme-learning-workspace">
       <aside className="programme-audio" aria-label="Audio và tiến độ bài nghe">
         <h2>Nghe và khám phá</h2>
-        {state.form.replayPolicy === 'once' ? <><audio ref={audioRef} src={state.form.audioUrl || undefined} preload="metadata" onEnded={() => setOnceState('done')} onError={() => setAudioError('Không tải được audio. Hãy thử lại sau.')} /><button type="button" onClick={() => void controlOnce()} disabled={onceState === 'starting' || onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'starting' ? 'Đang bắt đầu…' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : onceState === 'unconfirmed' ? 'Xác nhận lượt nghe' : 'Đã sử dụng lượt nghe'}</button>{onceMessage ? <p role="status">{onceMessage}</p> : null}</> : <audio ref={audioRef} src={state.form.audioUrl} controls preload="metadata" onError={() => setAudioError('Không tải được audio. Hãy thử lại sau.')} />}
+        {state.form.replayPolicy === 'once' ? <><audio ref={bindAudio} src={state.form.audioUrl || undefined} preload="metadata" onEnded={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setOnceState('done'); }} onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} /><button type="button" onClick={() => void controlOnce()} disabled={onceState === 'starting' || onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'starting' ? 'Đang bắt đầu…' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : onceState === 'unconfirmed' ? 'Xác nhận lượt nghe' : 'Đã sử dụng lượt nghe'}</button>{onceMessage ? <p role="status">{onceMessage}</p> : null}</> : <audio ref={bindAudio} src={state.form.audioUrl} controls preload="metadata" onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} />}
         {audioError ? <p role="alert">{audioError}</p> : null}
         <p>{state.form.replayPolicy === 'once' ? 'Bài này chỉ cho phép bắt đầu audio một lần trong lượt làm hiện tại. Chuyển cách luyện không tạo lượt nghe mới.' : state.form.audioGranularity === 'whole_day' ? 'Audio toàn ngày. Các phần dùng chung file; chưa có mốc nghe riêng từng câu.' : 'Bạn có thể nghe lại toàn bài trong lúc làm hoặc sửa câu trả lời.'}</p>
         <div className="programme-learning-progress"><strong>Đường nghe</strong><span>{answeredCount}/{state.form.questions.length} câu đã thử · {Object.keys(feedback).length} câu đã đối chiếu</span><ol aria-label="Tiến độ các câu hỏi">{groups.map((group, index) => <li key={group.key} data-current={mode === 'guided' && index === selectedGroup} data-answered={group.questions.every((question) => !!answers[question.q_num]?.trim())} data-revealed={group.questions.every((question) => !!feedback[question.q_num])}><button type="button" onClick={() => { chooseMode('guided'); moveToGroup(index); }} aria-label={`Đến câu ${group.questions[0].q_num}${feedback[group.questions[0].q_num] ? ', đã đối chiếu' : ''}`}>{group.questions[0].q_num}</button></li>)}</ol></div>

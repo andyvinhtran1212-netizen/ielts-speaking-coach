@@ -14,6 +14,7 @@ const guidedItem = { q_num: 1, first_answer: 'A', state: 'checked', correct: tru
 const programmeTest = { scoring_policy: 'report_only', title: 'Let’s — Luyện tập', programme_id: 'general-listening-practice', listening_lesson_id: 'lesson-1', replay_policy: 'allowed', audio_url: '/audio.wav', sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions } }] }] };
 
 beforeEach(() => {
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   localStorage.clear();
   vi.stubGlobal('crypto', { randomUUID: () => 'playback-claim' });
@@ -156,7 +157,7 @@ it('shows only the revealed question, preserves the first answer, and allows a l
   expect((screen.getByRole('button', { name: 'Hoàn thành và xem lại' }) as HTMLButtonElement).disabled).toBe(false);
   expect(screen.getByText('Mai đang rủ cả hai.')).toBeTruthy();
   expect(screen.queryByText('Đáp án đối chiếu')).toBeNull();
-  expect(window.api.postWith).toHaveBeenCalledWith('/api/listening/tests/attempts/attempt-1/questions/1/reveal', {});
+  expect(window.api.postWith).toHaveBeenCalledWith('/api/listening/tests/attempts/attempt-1/questions/1/reveal', {}, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   fireEvent.click(screen.getByRole('radio', { name: /Chỉ yêu cầu Ben làm/ }));
   const comparison = within(screen.getByRole('region', { name: 'Đối chiếu câu 1' }));
   expect(comparison.getByText('B')).toBeTruthy();
@@ -173,7 +174,7 @@ it('does not request protected feedback when saving the first answer fails', asy
   fireEvent.click(screen.getByRole('radio', { name: /Rủ cả hai cùng làm/ }));
   fireEvent.click(screen.getAllByRole('button', { name: 'Đối chiếu câu này' })[0]);
   await screen.findByText(/Chưa đối chiếu được/);
-  expect(window.api.postWith).not.toHaveBeenCalledWith('/api/listening/tests/attempts/attempt-1/questions/1/reveal', {});
+  expect(vi.mocked(window.api.postWith).mock.calls.map(([path]) => path)).not.toContain('/api/listening/tests/attempts/attempt-1/questions/1/reveal');
 });
 
 it('restores persisted feedback after reopening an attempt', async () => {
@@ -187,7 +188,7 @@ it('restores persisted feedback after reopening an attempt', async () => {
   const comparison = within(screen.getByRole('region', { name: 'Đối chiếu câu 1' }));
   expect(comparison.getAllByText('A')).toHaveLength(2);
   expect(comparison.getByText('B')).toBeTruthy();
-  expect(window.api.postWith).not.toHaveBeenCalledWith('/api/listening/tests/attempts/attempt-1/questions/1/reveal', {});
+  expect(vi.mocked(window.api.postWith).mock.calls.map(([path]) => path)).not.toContain('/api/listening/tests/attempts/attempt-1/questions/1/reveal');
 });
 
 it('shows written feedback as self-review and never offers question replay for once-only audio', async () => {

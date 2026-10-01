@@ -226,3 +226,50 @@ The end-to-end FR001–015 matrix remains pending until source Auth/RLS/rendered
 journeys, exact staging deployment/demo, controlled publication/rollback and
 production promotion/deployment/verification have actual evidence. T007 data
 preparation closure is not overall release completion.
+
+### Single Round6 corrected freeze evidence
+
+The whole-contract audit of ff879c83 is **not acceptance**. Consolidated finding
+receipt SHA-256`03475dd9a3e974a78e0b73b5f6e7348be712e2f6748a59ea852daebbcc74b254`
+contains two findings within the authorized account/media and authored metadata
+categories. The same unpublished Round6 remains open for one corrected frozen
+candidate and its final disposition; there has been no further numbered review
+or push. Earlier result/hook/canonical-label corrections and frozen T007 data
+remain intact.
+
+- In-progress form: Auth status/user/test keyed view, layout-owned captured
+  lifetime and abort controller, native ref teardown/reattach, scoped later
+  queued writes/reveal/submit/navigation and once/clip playback. Shared Auth,
+  queue, once-play and replay helpers unchanged. Actual22-case React suite passes;
+  the exact old ff879 component fails21 identical cases with one query-only
+  positive control passing. Evidence`programme-form-scope-regressions-20261001.json`,
+  SHA-256`f95edd9f6165fe759a9183619bfeaeb575e9dba8b4244ca5146c23ae798bb90f`;
+  test SHA-256`7f236ba4b618c1f8cddd3dc8fe311128bba11028643521240a810eb9febe49aa`.
+  Before-alias transform/config failures are retained and excluded from product
+  regression counts. Current and inactive native error/ended behavior, StrictMode,
+  source/generic Activity return and query-only preservation are exercised.
+- Guided metadata: only the actual `_programme_guided_context` select adds
+  metadata. Both protected transports now execute that real context in strict
+  projected/filtering fixtures with genuine active/submitted/published boundaries.
+  Focused178/zero skipped, including28 source transport cases, pass. The original
+  query fails four real authored-granularity cases; one new generic fixture
+  initially reused invalid source-only content and was corrected/disclosed.
+  Evidence`guided-metadata-projection-correction-evidence.json`, SHA-256
+  `8228893e6352f56ace76863844b4791a5cd436427ab73117b3e2ccdbb3990b45`.
+- Current full frontend9561/zero skipped (logSHA
+  `67f6eb2f917a90b4d7b78b8267d9a6cdbd0842894ea71aeef1b0a957247eb783`),
+  full React168/15files (logSHA
+  `0b95073099aa6c619aa88c2ea654979cfb9d86814d43c53ba08232eeec38ee11`),
+  strict/legacy types pass. Original mutation path/payload/count checks are kept
+  alongside abort signals; negative reveal checks inspect paths to avoid vacuous
+  absence with changed optional argument counts. The old exact onEnded regex
+  failure9560/1 is retained (logSHA
+  `c4cab275114f81ebbbf3667ca783ecef34beffc00a6ce9a5470daf85bf79fb27`);
+  structural event wiring plus actual React behavior replaces that implementation
+  detail. No test is removed or skipped.
+
+Full PG backend, new build/native in-progress form evidence and final independent
+disposition remain required on the corrected snapshot. The historical complete
+source-result81 browser evidence applies to its unchanged result/hook/label bytes;
+it is not proof of the newly corrected in-progress form. Exact new-head Ubuntu
+CI, protected staging release and all hosted/production gates remain pending.

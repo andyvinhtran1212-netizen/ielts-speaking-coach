@@ -7736,7 +7736,7 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
         raise HTTPException(422, "Đối chiếu từng câu không áp dụng cho bài này.")
     result = (
         supabase_admin.table("listening_tests")
-        .select("id,status,is_public,scoring_policy,programme_id,replay_policy,content_package_id")
+        .select("id,status,is_public,scoring_policy,programme_id,replay_policy,content_package_id,metadata")
         .eq("id", attempt["test_id"]).limit(1).execute()
     )
     test = result.data[0] if result.data else None

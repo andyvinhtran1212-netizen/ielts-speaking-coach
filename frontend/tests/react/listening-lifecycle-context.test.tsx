@@ -48,7 +48,7 @@ it('query changes update form→lesson context without re-admitting, saving or r
   expect(screen.getByRole('link', { name: /Bài học/ }).getAttribute('href')).toBe('/listening/general/canonical-lesson?from=general&filter=in_progress');
   route.params = new URLSearchParams('from=general&filter=new'); view.rerender(<ProgrammeFormRunner testId="test-1" />);
   expect(screen.getByRole('link', { name: /Bài học/ }).getAttribute('href')).toBe('/listening/general/canonical-lesson?from=general&filter=new');
-  expect(window.api.postWith).toHaveBeenCalledExactlyOnceWith('/api/listening/tests/test-1/attempts?standalone=true', {});
+  expect(window.api.postWith).toHaveBeenCalledExactlyOnceWith('/api/listening/tests/test-1/attempts?standalone=true', {}, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   expect(window.api.patchWith).not.toHaveBeenCalled(); expect(screen.queryByText(/Đáp án đối chiếu|Transcript tham khảo/)).toBeNull();
 });
 
@@ -84,7 +84,7 @@ it('source form keeps its canonical day despite foreign generic context and stri
   route.params = new URLSearchParams('from=ielts&filter=new');
   view.rerender(<ProgrammeFormRunner testId="source-test-76" />);
   expect(screen.getByRole('link', { name: /Bài học/ }).getAttribute('href')).toBe('/listening/ielts/80-days/76');
-  expect(window.api.postWith).toHaveBeenCalledExactlyOnceWith('/api/listening/tests/source-test-76/attempts?standalone=true', {});
+  expect(window.api.postWith).toHaveBeenCalledExactlyOnceWith('/api/listening/tests/source-test-76/attempts?standalone=true', {}, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   expect(window.api.patchWith).not.toHaveBeenCalled();
   expect(screen.queryByText(/Đáp án đối chiếu|Transcript tham khảo/)).toBeNull();
   const { listeningProgrammeResultHref } = await import('@/lib/listening-library-context.mjs');

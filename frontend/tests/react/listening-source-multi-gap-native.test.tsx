@@ -52,5 +52,5 @@ it('guided save/reveal uses the same native three-field labels and immutable fir
   for (const field of q.fields) { const input = screen.getByRole('textbox', { name: new RegExp(field.prompt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }); fireEvent.change(input, { target: { value: revised[field.field_id] } }); fireEvent.blur(input); }
   await waitFor(() => expect(window.api.patchWith).toHaveBeenCalled());
   expect(screen.getByText(labelled(q.fields, first))).toBeTruthy(); expect(screen.getByText(labelled(q.fields, revised))).toBeTruthy();
-  expect(window.api.postWith).toHaveBeenCalledWith('/api/listening/tests/attempts/native-guided/questions/1/reveal', {});
+  expect(window.api.postWith).toHaveBeenCalledWith('/api/listening/tests/attempts/native-guided/questions/1/reveal', {}, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) }));
 });
