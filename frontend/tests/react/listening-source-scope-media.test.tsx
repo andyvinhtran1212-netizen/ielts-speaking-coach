@@ -171,3 +171,31 @@ it.each(['source', 'generic'] as const)('clears %s media while Next retains an i
   expect(window.api.getWith).toHaveBeenCalledTimes(2);
   expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
 });
+
+it.each(['Activity return', 'direct replacement'] as const)('late generic Result clip rejection after %s preserves the newer exact stop boundary and no stale alert', async boundary => {
+  let clip = { start: 2, end: 4 };
+  window.api.getWith = vi.fn(async () => {
+    const payload = resultPayload('ACTIVITY_CLIP', false, clip);
+    if (boundary === 'direct replacement') payload.review.push({ ...payload.review[0], q_num: 2, prompt: 'Second clip', audio_window: { start: 6, end: 9 } });
+    return payload;
+  });
+  const oldPlay = deferred<void>(); vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(() => oldPlay.promise);
+  const view = render(<Activity mode="visible"><ProgrammeResult attemptId="activity-clip-attempt" /></Activity>);
+  await screen.findByRole('heading', { name: 'ACTIVITY_CLIP_TITLE' }); const audio = document.querySelector('audio')!;
+  fireEvent.click(screen.getAllByRole('button', { name: /Nghe đoạn liên quan/ })[0]); expect(audio.currentTime).toBe(2);
+  if (boundary === 'Activity return') {
+    view.rerender(<Activity mode="hidden"><ProgrammeResult attemptId="activity-clip-attempt" /></Activity>);
+    expect(audio.isConnected).toBe(true); expect(audio.getAttribute('src')).toBeNull();
+    clip = { start: 6, end: 9 };
+    view.rerender(<Activity mode="visible"><ProgrammeResult attemptId="activity-clip-attempt" /></Activity>); await screen.findByRole('heading', { name: 'ACTIVITY_CLIP_TITLE' });
+  }
+  expect(document.querySelector('audio')).toBe(audio);
+  fireEvent.click(screen.getAllByRole('button', { name: /Nghe đoạn liên quan/ })[boundary === 'direct replacement' ? 1 : 0]); await act(async () => {}); expect(audio.currentTime).toBe(6);
+  const pauses = vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio).length;
+  await act(async () => { oldPlay.reject(new Error('old result clip unavailable')); });
+  expect(screen.queryByRole('alert')).toBeNull(); expect(screen.queryByText(/Không phát được đoạn nghe/)).toBeNull(); expect(audio.getAttribute('src')).toBe('/ACTIVITY_CLIP.mp3');
+  audio.currentTime = 4; fireEvent(audio, new Event('timeupdate'));
+  expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses);
+  audio.currentTime = 9; fireEvent(audio, new Event('timeupdate'));
+  expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses + 1);
+});

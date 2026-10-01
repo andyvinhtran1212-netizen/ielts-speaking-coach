@@ -61,7 +61,16 @@ function ProgrammeResultView({ attemptId, status, userId }: { attemptId: string;
     })().catch(() => { if (active) setState({ status: 'error' }); });
     return () => { active = false; controller.abort(); };
   }, [attemptId, status, userId]);
-  function replay(item: ReviewItem) { setAudioError(''); const generation = mediaGeneration.current; void replayController.current?.replay(item.audioWindow).then((started) => { if (mounted.current && generation === mediaGeneration.current && !started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại.'); }); }
+  function replay(item: ReviewItem) {
+    setAudioError('');
+    const generation = mediaGeneration.current;
+    replayController.current?.dispose();
+    const controller = createProgrammeReplayController(() => audio.current);
+    replayController.current = controller;
+    void controller.replay(item.audioWindow).then((started) => {
+      if (mounted.current && generation === mediaGeneration.current && replayController.current === controller && !started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại.');
+    });
+  }
   if (state.status === 'loading') return <main className="programme-result programme-result-state" role="status">Đang tải phần tự đối chiếu…</main>;
   if (state.status === 'error') return <main className="programme-result programme-result-state is-error" role="alert"><p>Không tải được kết quả.</p><a href="/listening">Về trang Luyện nghe</a></main>;
   const { result } = state; const summary = result.summary;

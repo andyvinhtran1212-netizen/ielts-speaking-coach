@@ -292,6 +292,8 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
     const generation = mediaGeneration.current;
     const mediaCurrent = () => current(scope) && audioRef.current === element && generation === mediaGeneration.current;
     if (state.status !== 'ready' || ['starting', 'done'].includes(onceState) || !element || !current(scope)) return;
+    // Activity may restore the same node while an earlier claim is settling.
+    const scopedAudio = { play: () => element.play(), pause: () => { if (mediaCurrent()) element.pause(); } };
     const acknowledgeOncePlayback = async () => {
       if (!mediaCurrent()) return false;
       const result = row(await window.api.postWith<unknown>(`/api/listening/tests/attempts/${state.attemptId}/playback-started`, { playback_claim_id: onceClaimId.current }, undefined, { signal: scope.controller.signal }));
@@ -303,7 +305,7 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
       return;
     }
     if (onceState === 'unconfirmed') {
-      const result = await confirmProgrammeOncePlayback(element, acknowledgeOncePlayback);
+      const result = await confirmProgrammeOncePlayback(scopedAudio, acknowledgeOncePlayback);
       if (!mediaCurrent()) return;
       setOnceState(result.state);
       setOnceMessage(result.message);
@@ -322,7 +324,7 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
       return;
     }
     setOnceState('starting');
-    const result = await startProgrammeOncePlayback(element, acknowledgeOncePlayback);
+    const result = await startProgrammeOncePlayback(scopedAudio, acknowledgeOncePlayback);
     if (!mediaCurrent()) return;
     setOnceState(result.state);
     setOnceMessage(result.message);
@@ -332,8 +334,11 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
     const generation = mediaGeneration.current;
     if (state.status !== 'ready' || state.form.replayPolicy !== 'allowed' || !current(scope)) return;
     setAudioError('');
-    void replayController.current?.replay(item.audio_window).then((started) => {
-      if (current(scope) && generation === mediaGeneration.current && !started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại hoặc dùng audio toàn bài.');
+    replayController.current?.dispose();
+    const controller = createProgrammeReplayController(() => audioRef.current);
+    replayController.current = controller;
+    void controller.replay(item.audio_window).then((started) => {
+      if (current(scope) && generation === mediaGeneration.current && replayController.current === controller && !started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại hoặc dùng audio toàn bài.');
     });
   }
 

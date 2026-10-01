@@ -161,3 +161,58 @@ it('query-only library context preserves the same admission, answers and media w
   expect(screen.getByRole('link', { name: /Bài học/ }).getAttribute('href')).toBe('/listening/general/OLD_LESSON?from=general&filter=completed'); expect((screen.getByRole('radio', { name: /OLD_OPTION_A/ }) as HTMLInputElement).checked).toBe(true); expect(document.querySelector('audio')).toBe(audio);
   expect([vi.mocked(window.api.postWith).mock.calls.length, vi.mocked(window.api.getWith).mock.calls.length, vi.mocked(window.api.patchWith).mock.calls.length]).toEqual(calls);
 });
+
+it.each(['accept', 'deny', 'reject'] as const)('a late once acknowledgement %s cannot pause the SAME returned Activity node during newer accepted playback', async outcome => {
+  once = true;
+  const oldAck = deferred(); const post = window.api.postWith; let claims = 0;
+  window.api.postWith = vi.fn((url: string, ...args: unknown[]) => url.endsWith('/playback-started') && claims++ === 0 ? oldAck.promise : post(url, ...args));
+  const view = render(<Activity mode="visible"><ProgrammeFormRunner testId="OLD" /></Activity>); await ready();
+  const audio = document.querySelector('audio')!;
+  fireEvent.click(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ }));
+  await waitFor(() => expect(vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'))).toHaveLength(1));
+  view.rerender(<Activity mode="hidden"><ProgrammeFormRunner testId="OLD" /></Activity>);
+  expect(audio.isConnected).toBe(true); expect(audio.getAttribute('src')).toBeNull();
+  view.rerender(<Activity mode="visible"><ProgrammeFormRunner testId="OLD" /></Activity>); await ready();
+  expect(document.querySelector('audio')).toBe(audio); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
+  fireEvent.click(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ })); await screen.findByRole('button', { name: 'Tạm dừng' });
+  const calls = vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'));
+  expect(calls).toHaveLength(2); expect(calls[0][1]).not.toEqual(calls[1][1]);
+  const pauses = vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio).length;
+  await act(async () => { if (outcome === 'reject') oldAck.reject(new Error('old acknowledgement unavailable')); else oldAck.resolve({ accepted: outcome === 'accept' }); }); await settle();
+  expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses);
+  expect(screen.getByRole('button', { name: 'Tạm dừng' })).toBeTruthy(); expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.queryByText(/cửa sổ hoặc thiết bị khác|chưa xác nhận được/)).toBeNull(); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
+  expect(vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'))).toHaveLength(2);
+});
+
+it.each(['Activity return', 'direct replacement'] as const)('late generic Form clip rejection after %s preserves the newer exact stop boundary and no stale alert', async boundary => {
+  revealed = true;
+  const oldPlay = deferred<void>(); vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(() => oldPlay.promise);
+  const originalGet = window.api.getWith;
+  const newItem = { ...item('OLD'), q_num: 2, source_item_id: 'source-SECOND', audio_window: { start: 6, end: 9 } };
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => {
+    if (boundary === 'direct replacement') {
+      if (url.endsWith('/guided-state')) return { assisted: true, items: [item('OLD'), newItem] };
+      const data = payload('OLD'); data.sections[0].exercises[0].payload.questions.push({ ...data.sections[0].exercises[0].payload.questions[0], q_num: 2, source_item_id: 'source-SECOND', prompt: 'SECOND_PROMPT' }); return data;
+    }
+    return originalGet(url, ...args);
+  });
+  const view = render(<Activity mode="visible"><ProgrammeFormRunner testId="OLD" /></Activity>); await ready();
+  const audio = document.querySelector('audio')!;
+  fireEvent.click(screen.getAllByRole('button', { name: /Nghe lại đoạn này/ })[0]); expect(audio.currentTime).toBe(2);
+  if (boundary === 'Activity return') {
+    view.rerender(<Activity mode="hidden"><ProgrammeFormRunner testId="OLD" /></Activity>);
+    expect(audio.isConnected).toBe(true); expect(audio.getAttribute('src')).toBeNull();
+    window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state') ? { assisted: true, items: [{ ...item('OLD'), audio_window: { start: 6, end: 9 } }] } : payload('OLD'));
+    view.rerender(<Activity mode="visible"><ProgrammeFormRunner testId="OLD" /></Activity>); await ready();
+  }
+  expect(document.querySelector('audio')).toBe(audio);
+  fireEvent.click(screen.getAllByRole('button', { name: /Nghe lại đoạn này/ })[boundary === 'direct replacement' ? 1 : 0]); await settle(); expect(audio.currentTime).toBe(6);
+  const pauses = vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio).length;
+  await act(async () => { oldPlay.reject(new Error('old clip unavailable')); }); await settle();
+  expect(screen.queryByRole('alert')).toBeNull(); expect(screen.queryByText(/Không phát được đoạn nghe/)).toBeNull(); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
+  audio.currentTime = 4; fireEvent(audio, new Event('timeupdate'));
+  expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses);
+  audio.currentTime = 9; fireEvent(audio, new Event('timeupdate'));
+  expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses + 1);
+});
