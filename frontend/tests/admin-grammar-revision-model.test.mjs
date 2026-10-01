@@ -136,3 +136,112 @@ test('only exact enum is recognized; malformed actors/operation and managed stat
   const p=clone(row.preview);p.canonical=row.ack.canonical;
   assert.equal(freezeRevisionCommand(fixture.actor,row.code,sourceFor(row.code),p,fixture.operation_id),null);
 });
+
+test('actual captured read, preview, command and both ACKs work without the structuredClone global', () => {
+  const captured = fixture.actual_admin_capture;
+  const [initial, preview, applied, replayed] = clone(captured.requests);
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'structuredClone');
+  try {
+    assert.equal(Reflect.deleteProperty(globalThis, 'structuredClone'), true);
+    const read = normalizeRevisionRead(initial.response, captured.canonical_code);
+    assert.deepEqual(read, initial.response);
+    const checked = normalizeRevisionPreview(preview.response, read, captured.provenance.source_sha256);
+    assert.deepEqual(checked, preview.response);
+    const command = freezeRevisionCommand(captured.actor_id, captured.canonical_code, sourceFor(captured.canonical_code), checked, applied.request_without_source.operation_id);
+    assert.ok(command);
+    assert.deepEqual(command.body, { source_markdown: sourceFor(captured.canonical_code), ...applied.request_without_source });
+    assert.deepEqual(normalizeRevisionAck(applied.response, command), applied.response);
+    assert.deepEqual(normalizeRevisionAck(replayed.response, command), replayed.response);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'structuredClone', descriptor);
+  }
+});
+
+test('canonical DTO copies isolate both directions through footprint and classifications', () => {
+  const raw = clone(fixture.actual_admin_capture.requests[0].response);
+  const read = normalizeRevisionRead(raw, raw.canonical_code);
+  assert.deepEqual(read, raw);
+  assert.notEqual(read, raw); assert.notEqual(read.footprint, raw.footprint);
+  assert.notEqual(read.footprint.classifications, raw.footprint.classifications);
+  const expected = clone(read);
+  raw.footprint.sessions++; raw.footprint.classifications.raw_only = 1;
+  assert.deepEqual(read, expected);
+  const rawAfter = clone(raw);
+  read.footprint.stats++; read.footprint.classifications.copy_only = 1;
+  assert.deepEqual(raw, rawAfter);
+});
+
+test('preview copies every nested branch and later mutations cannot change a frozen command', () => {
+  const captured = fixture.actual_admin_capture;
+  const raw = clone(captured.requests[1].response);
+  const read = normalizeRevisionRead(captured.requests[0].response, captured.canonical_code);
+  const preview = normalizeRevisionPreview(raw, read, captured.provenance.source_sha256);
+  assert.deepEqual(preview, raw); assert.notEqual(preview, raw);
+  assert.notEqual(preview.canonical, raw.canonical);
+  assert.notEqual(preview.canonical.footprint, raw.canonical.footprint);
+  assert.notEqual(preview.canonical.footprint.classifications, raw.canonical.footprint.classifications);
+  assert.notEqual(preview.changed_questions, raw.changed_questions);
+  assert.ok(preview.changed_questions.length > 0);
+  preview.changed_questions.forEach((question, i) => {
+    assert.notEqual(question, raw.changed_questions[i]);
+    assert.notEqual(question.fields, raw.changed_questions[i].fields);
+  });
+  assert.notEqual(preview.validation_messages, raw.validation_messages);
+  const command = freezeRevisionCommand(captured.actor_id, captured.canonical_code, sourceFor(captured.canonical_code), preview, captured.requests[2].request_without_source.operation_id);
+  assert.ok(command); assert.ok(Object.isFrozen(command)); assert.ok(Object.isFrozen(command.body));
+  const expectedPreview = clone(preview); const expectedCommand = clone(command);
+  raw.canonical.revision = 'a'.repeat(64); raw.canonical.footprint.sessions++;
+  raw.canonical.footprint.classifications.raw_only = 1;
+  raw.changed_questions[0].qid = 'raw-only'; raw.changed_questions[0].fields.push('prompt');
+  raw.validation_messages.push('raw-only'); raw.source_sha256 = 'b'.repeat(64);
+  raw.proposed_revision = 'c'.repeat(64); raw.preview_fingerprint = 'd'.repeat(64);
+  assert.deepEqual(preview, expectedPreview);
+  const rawAfter = clone(raw);
+  preview.canonical.revision = 'e'.repeat(64); preview.canonical.current_bank_id = fixture.actor;
+  preview.canonical.topic_id = fixture.operation_id; preview.canonical.original_metadata_sha256 = 'f'.repeat(64);
+  preview.canonical.footprint.stats++; preview.canonical.footprint.classifications.copy_only = 1;
+  preview.changed_questions[0].qid = 'copy-only'; preview.changed_questions[0].fields.push('hint');
+  preview.validation_messages.push('copy-only'); preview.source_sha256 = '0'.repeat(64);
+  preview.proposed_revision = '1'.repeat(64); preview.preview_fingerprint = '2'.repeat(64);
+  assert.deepEqual(raw, rawAfter); assert.deepEqual(command, expectedCommand);
+});
+
+test('applied and replayed ACK copies isolate canonical footprint and classifications', () => {
+  const captured = fixture.actual_admin_capture;
+  const preview = normalizeRevisionPreview(captured.requests[1].response, captured.requests[0].response, captured.provenance.source_sha256);
+  const command = freezeRevisionCommand(captured.actor_id, captured.canonical_code, sourceFor(captured.canonical_code), preview, captured.requests[2].request_without_source.operation_id);
+  assert.ok(command);
+  for (const request of captured.requests.slice(2, 4)) {
+    const raw = clone(request.response); const ack = normalizeRevisionAck(raw, command);
+    assert.deepEqual(ack, raw); assert.notEqual(ack, raw); assert.notEqual(ack.canonical, raw.canonical);
+    assert.notEqual(ack.canonical.footprint, raw.canonical.footprint);
+    assert.notEqual(ack.canonical.footprint.classifications, raw.canonical.footprint.classifications);
+    const expected = clone(ack);
+    raw.canonical.revision = 'a'.repeat(64); raw.canonical.footprint.sessions++;
+    raw.canonical.footprint.classifications.raw_only = 1;
+    assert.deepEqual(ack, expected);
+    const rawAfter = clone(raw);
+    ack.canonical.current_bank_id = fixture.actor; ack.canonical.footprint.stats++;
+    ack.canonical.footprint.classifications.copy_only = 1;
+    assert.deepEqual(raw, rawAfter);
+  }
+});
+
+test('synthetic JSON classifications retain special own keys as detached data properties', () => {
+  const raw = clone(row.read);
+  raw.footprint.actors = 1;
+  raw.footprint.classifications = JSON.parse('{"__proto__":1,"constructor":0,"prototype":0}');
+  const prototypeBefore = Object.getOwnPropertyDescriptors(Object.prototype);
+  const read = normalizeRevisionRead(raw, row.code); assert.ok(read);
+  assert.deepEqual(read.footprint.classifications, raw.footprint.classifications);
+  assert.equal(Object.hasOwn(read.footprint.classifications, '__proto__'), true);
+  assert.equal(read.footprint.classifications.__proto__, 1);
+  assert.equal(read.footprint.classifications.constructor, 0);
+  assert.equal(read.footprint.classifications.prototype, 0);
+  assert.equal(Object.getPrototypeOf(read.footprint.classifications), Object.prototype);
+  raw.footprint.classifications.__proto__ = 2;
+  assert.equal(read.footprint.classifications.__proto__, 1);
+  read.footprint.classifications.__proto__ = 3;
+  assert.equal(raw.footprint.classifications.__proto__, 2);
+  assert.deepEqual(Object.getOwnPropertyDescriptors(Object.prototype), prototypeBefore);
+});

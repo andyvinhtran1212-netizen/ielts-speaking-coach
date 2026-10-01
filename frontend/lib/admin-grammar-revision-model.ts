@@ -70,7 +70,7 @@ export function normalizeRevisionRead(value: unknown, code: RevisionCode): Revis
     total += n;
   }
   if (total !== f.actors) return null;
-  return structuredClone(value) as RevisionRead;
+  return { ...value, footprint: { ...f, classifications: { ...f.classifications } } } as RevisionRead;
 }
 const sameScope = (a: RevisionRead, b: RevisionRead) => ['canonical_code', 'original_bank_id', 'current_bank_id', 'topic_id', 'revision', 'current_bank_revision', 'original_questions_sha256', 'original_metadata_sha256', 'is_managed', 'new_starts_enabled'].every((k) => a[k as keyof RevisionRead] === b[k as keyof RevisionRead]);
 export function normalizeRevisionPreview(value: unknown, canonical: RevisionRead, sourceHash: string): RevisionPreview | null {
@@ -89,7 +89,12 @@ export function normalizeRevisionPreview(value: unknown, canonical: RevisionRead
         || !q.fields.every((x) => typeof x === 'string' && ['prompt', 'hint', 'options', 'answer', 'accept', 'explain'].includes(x))) return null;
     seen.add(q.qid);
   }
-  return structuredClone(value) as RevisionPreview;
+  return {
+    ...value,
+    canonical: read,
+    changed_questions: value.changed_questions.map((q) => ({ ...q, fields: q.fields.slice() })),
+    validation_messages: value.validation_messages.slice(),
+  } as RevisionPreview;
 }
 export function freezeRevisionCommand(actor: string, code: RevisionCode, source: string, preview: RevisionPreview, operation: string): FrozenRevisionCommand | null {
   const canonical = normalizeRevisionRead(preview?.canonical, code);
@@ -114,7 +119,7 @@ export function normalizeRevisionAck(value: unknown, command: FrozenRevisionComm
   if (!read || !read.is_managed || read.original_bank_id !== command.originalBankId || read.current_bank_id !== value.corrected_bank_id
       || read.topic_id !== command.topicId || read.revision !== value.current_revision || read.current_bank_revision !== command.proposedRevision
       || read.original_questions_sha256 !== command.originalQuestionsHash || read.original_metadata_sha256 !== command.originalMetadataHash) return null;
-  return structuredClone(value) as RevisionAck;
+  return { ...value, canonical: read } as RevisionAck;
 }
 /** Footprint may grow after commit. Content identities must still match the ACK. */
 export function revisionReadbackMatches(value: RevisionRead, ack: RevisionAck): boolean {
