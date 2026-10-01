@@ -127,41 +127,43 @@ backend, build/native form/browser gates were subsequently completed below. The
 single independent final disposition remains required before the consolidated push.
 
 
-### Current corrected candidate and completed local gates
+### Current final media lifetime freeze — product35062fe9
 
-The final product snapshot is `95ed651acf9f59858a147c47bbb9fd34f16a1ce6`.
-It preserves the integrated a5a579d1/source/importer/release contracts. Any final
-candidate delta only updates these two task/verification documents. No push or
-new review round has occurred. The original ff879 audit remains non-acceptance;
-its two consolidated findings have one coherent correction and direct proofs.
+The final product snapshot is `35062fe919e496319e318708c4b3d4c35f993b52`;
+the final review candidate adds only task/verification documentation. Same
+unpublished human-authorized Round6 remains open; no push or new numbered review.
+Reviewer retained2358 non-acceptance because old once ACK/clip rejection could
+still pause the same restored Activity node or clear the newer clip listener.
+That remaining R6-F1 intersection has one final component-local correction:
+Form once uses a captured lease/generation-gated pause facade; Form/Result give
+each replay its own controller plus current controller identity guard. All shared
+Auth/queue/once/replay helper bytes remain unchanged. Seven new behavioral
+regressions all fail exact2358; both complete owned React files pass53 cases,
+preserving the original46 assertions. Direct old-to-new clip replacement is
+covered alongside actual same-node Activity hide-return. Evidence SHA-256
+`25f56f9e14deeda69cecf8b512f45b6170978658755d45a149b6bdd2c77eb98b`.
 
-Actual full PG backend9796 passed/38 skipped/3 failed/zero errors retains exit1.
-All28 real-context source transport and all255 incoming Dictation cases pass,
-including73 actual PostgreSQL cases. Exactly the same three migration256 clock
-failures remain; the actual trace shows database11.651ms ahead of host. No clock,
-tolerance/assertion/skip/xfail changes or optional repeated full suite. New exact
-candidate Ubuntu CI must pass. OpenAPI/generated tracked types are byte-equal.
+Current full frontend9561/zero skipped, React175/15files, both types, build
+`yeThiDbAPibNbG-S4RZ7Z`, Mock36/guided6/context86 pass. Fresh original Day04 native
+Form26 and Result81 (375/1440 light/dark) pass on35062. All screenshots inspected.
+Form receipt SHA-256`56c56c5f3783ee434b0986dc626e6e9dc82541bc769189a744b8a12b77a89d91`;
+Result receipt SHA-256`b9d2d143222f3e9d26f3851d3103f1e6c5cad8dc231265ee56c8afdbb2ed769a`.
+Loopback synthetic Auth/API, not hosted learners/RLS/signing. Old browser and
+before-test failures remain retained. The Result QA first passed20 cases then
+expected only inner loading text; it observed the authored outer Suspense text
+with old media empty/hidden and no old content. One QA-only exact authored-text
+assertion correction passes81 without product/privacy/media changes.
 
-Actual full frontend9561/zero skipped, React168/15files, both types, production
-build `PDmj221TdScc5Qp9AVA83`, Mock36/guided6/context86 pass. New native in-progress
-form26 checks pass with original Day04 audio: account strict detachment, hidden
-Next Activity media release, pending-view privacy, cancellation of the later old
-Q17 reveal, both native Q16 fields blank/restored under correct account, and
-current generic once-play/pause/resume with one claim. The first13-pass browser
-run chose a hidden zoom slider as an answer input; its failure is retained. The
-coherent QA-only correction uses both authored Q16 labels; no product changed.
-Fifteen synthetic application request records and eight telemetry records are
-intercepted locally, with zero real server writes/hosted calls. They are arrival
-records, not independent certification of completed responses; an old PATCH was
-intentionally held and aborted. Native receipt SHA-256
-`080dfc17224644ee2df23ef8f6429433c799c58a2581511f2d6f089cccb3f6c7`.
-The historical result81 evidence covers unchanged result/hook/label bytes only.
+The complete actual backend9796/38skipped/3 clock failures/zero errors remains
+EXIT1, not overallPASS. All backend and tracked generated-type bytes are EXACT
+unchanged since its95ed snapshot; no duplicate full backend run. All28 source
+transports/255 incoming Dictation cases (73PG) pass; direct DB11.651ms ahead of
+host explains the same three retained migration256 clock cases. New exact-head
+Ubuntu CI remains required. Source/importer/release remain frozen.
 
-Root inspected both current screenshots. Only owned fixture API81260 and
-Next84630 were stopped (API0/Next143 intentional SIGTERM); the canonical runtime
-was restored to6230d49c. Other sessions and the QA database are preserved. One
-final independent disposition of this same Round6 frozen candidate is pending;
-then one normal consolidated push with the canonical hook, exact-new-head CI and
-protected staging merge. Hosted learner/Auth/RLS/signing, exact staged deployment,
-controlled publication/demo approval and all production/final FR gates remain
-T008–T010. No overall release completion is claimed.
+Only owned API10675 and Next10690 were stopped after all final browser jobs;
+API0/Next143 intentional SIGTERM. Runtime6230d49c restored; candidate clean.
+Other sessions and QA DB untouched. Final sameRound6 independent disposition,
+one canonical-hook consolidated push, exact CI/protected merge/deployed staging,
+controlled publication/real journeys and human demo remain open. Production and
+FR001–015/T008–T010 acceptance remain pending. T007 is data preparation only.

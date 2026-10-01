@@ -268,7 +268,7 @@ remain intact.
   structural event wiring plus actual React behavior replaces that implementation
   detail. No test is removed or skipped.
 
-### Current completed local verification — product95ed651a
+### Historical completed local verification — product95ed651a
 
 The corrected product commit is `95ed651acf9f59858a147c47bbb9fd34f16a1ce6`.
 The final review candidate differs only in task/verification documentation. This
@@ -337,3 +337,81 @@ migration/promotion/deployment/publication/rollback/live verification and final
 FR001–015/T008–010 acceptance remain pending. T007 is closed only for unpublished
 staging data preparation. Historical complete source-result81 evidence certifies
 unchanged result/hook/labels bytes; the form26 evidence above is separate.
+
+
+## Current final same-Round6 media lifetime closure — product35062fe9
+
+Final tested product`35062fe919e496319e318708c4b3d4c35f993b52`; final candidate
+diff is documentation only. The independent2358 checkpoint was not accepted:
+`authorized-round6-media-lifetime-intersection-audit.json`, SHA-256
+`d9c2be5d7c84af16eaf73b94eb2234ba21ec315732296beda3ad447f03939b16`.
+This was the remaining side effect in R6-F1, within the same already-authorized
+async/media category. No new numbered review, architecture or push occurred.
+
+- Minimal component correction: lease/media-generation-gated captured once pause
+  facade in Form; separate replay controller per invocation plus current instance
+  guard in both Form and Result. Delayed helper callbacks cannot mutate the
+  current restored node/listener or expose a stale direct-switch error. Shared
+  Auth/queue/once/replay helpers are byte-unchanged. Seven new actual-component
+  behavioral tests all fail exact2358 before aliases; all53 cases in the two
+  complete owned files pass35062, original46 assertion prefixes preserved.
+  Evidence`activity-same-native-intersections-20261001.json`, SHA-256
+  `25f56f9e14deeda69cecf8b512f45b6170978658755d45a149b6bdd2c77eb98b`.
+  Actual Activity asserts the SAME node, newer accepted once playback before old
+  ACK accept/deny/reject, old4s boundary does not pause/new9s boundary does pause,
+  no extra claim/current alert/stale playback message. Media is mocked in jsdom;
+  these sequencing tests are separate from genuine native browser playback.
+- Current full frontend9561/zero skip (logSHA
+  `aec56e208c8527eff3990a89ff20262401f37658f6d0d27536c6ce341a36fff3`),
+  React175/15files (logSHA
+  `e1f884ab1be3dc5798a20fa62050eaf3a83947b83d41fb6a5a3ffa0c09785b4c`),
+  strict and legacy types pass. Production buildID`yeThiDbAPibNbG-S4RZ7Z`, logSHA
+  `54f0decf55fe79ca065c3e479ace3e6547c6fbc5c6c6d7a0a3a455b2d8cc47d6`.
+  Native maintained Mock36/guided6/context86 pass on this build.
+- Fresh original Day04 Form26 and Result81 native browser checks pass35062.
+  Result81 covers375/1440 light/dark, actual decode/play/pause/replay, native
+  Q16/Q19 ordered first/final/editorial/printed labels, Auth account strict
+  detachment and actual Next attempt Activity hidden/empty old media, truthful
+  metadata503/media403. Form26 covers same account/form cleanup/return/current
+  once normal playback. Both Form screenshots and all four Result screenshots
+  visually inspected. Form receipt SHA-256
+  `56c56c5f3783ee434b0986dc626e6e9dc82541bc769189a744b8a12b77a89d91`;
+  Result receipt SHA-256
+  `b9d2d143222f3e9d26f3851d3103f1e6c5cad8dc231265ee56c8afdbb2ed769a`.
+  Intercepted local Auth/API only, zero real server/hosted/DB application writes.
+  Synthetic telemetry/request arrival counters are distinguished from completed
+  response certification. All12/25 native fields remain separately verified by
+  current React and real-context backend transport cases.
+- The first current Result run passes20 checks then fails an over-specific QA
+  loading-text assertion, receipt SHA-256
+  `3b7cf1e7ac9e108a85ffbb3a577a13e9ba9577a162c286bc3cc12e30903bc6c3`.
+  Recorded pending view has one visible main/zero visible h1/audio/hrefs; old
+  media hidden, paused/src-null/ready0/network0/time0/durationNaN. It contains
+  authored outer Suspense “Đang mở phần tự đối chiếu…” before inner authored
+  “Đang tải phần tự đối chiếu…”. Original script/log/screenshot retained. One
+  QA-only condition accepts EXACTLY those two source strings while retaining
+  all old-content/privacy/native-media assertions, not arbitrary loading text.
+  Verifier SHA-256`7c5e5e7035782cb8a36a224e41ddce6df65601ce7280376514f6fdd4da8f713d`;
+  exact diff SHA-256`d0449f6fc57db042d65e4519748ea2b774b1c93ef9abf338cb25745427237190`.
+  No product changed, no further automatic adaptation or rerun.
+- Backend proof reuses actual95ed complete9796/38/3 EXIT1 honestly: EVERY backend
+  path and generated tracked type byte is unchanged through35062/final docs.
+  No repeated full backend run. The same three migration256 host/Colima clock
+  failures remain, DB11.651ms ahead; no skip/xfail/assertion/tolerance/clock
+  changes. All28 source transports and all255 incoming Dictation cases (73PG)
+  pass. Actual OpenAPI/type parity above remains valid. Not an overall passing
+  backend gate; new exact-head Ubuntu CI must pass before protected merge.
+- All final native jobs terminal. Only root-owned API10675/Next10690 stopped:
+  API0/Next143 intentional SIGTERM. Canonical runtime6230d49c restored byte-equal;
+  clean candidate, other sessions/QA DB preserved. Cleanup SHA-256
+  `9810e5d621b716fa1e068279645670bd86a901f9f636506dda3ea84c0fa6a05b`.
+  Frozen importer operator e694fa57/release manifest unchanged.
+
+Final independent disposition of this same frozen Round6 remains required, then
+one normal consolidated push with canonical pre-push hook and exact-new-head CI.
+The local staged-journey v2 protocol is prepared/offline only with deployed SHA
+NULL and execution gates disabled; it has not logged in or touched hosted data.
+Protected merge/exact staging deploy/integrated/live smoke, attested publication,
+real source Auth/RLS/learner journeys and human demo approval precede production
+promotion/publication. All final FR001–015/T008–T010 gates stay pending; T007
+closure remains unpublished staging data preparation only.
