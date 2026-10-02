@@ -84,7 +84,9 @@ BEGIN
     END IF;
     -- Repeat the authenticated HTTP purpose decision in the same transaction:
     -- section changes/protected-reference mutations cannot race a CAS write.
-    PERFORM public.fn_guard_owned_mock_attempt(p_skill,parent,'flags_write');
+    IF public.fn_guard_owned_mock_attempt(p_skill,parent,'flags_write')->>'allowed' IS DISTINCT FROM 'true' THEN
+        RAISE EXCEPTION 'review_flag_policy_unavailable' USING ERRCODE='55000';
+    END IF;
 
     -- New attempts use the source identity frozen in306. Legacy attempts are
     -- not captured/backfilled: their existing current-source identity is used

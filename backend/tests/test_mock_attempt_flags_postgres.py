@@ -184,6 +184,19 @@ def test_new_protected_reference_is_rechecked_inside_flag_transaction(schema):
     assert sql(f"SELECT count(*) FROM {schema}.mock_attempt_review_flags WHERE attempt_id='{aid}'") == "0"
 
 
+def test_unverified_purpose_receipt_cannot_acknowledge_a_flag(schema):
+    aid,uid=attempt(schema)
+    admission=Path(os.environ.get("MOCK_FLAGS_ADMISSION_SQL",str(BACKEND / "migrations/306_mock_paper_policy_and_admission.sql")))
+    original=re.search(r"CREATE OR REPLACE FUNCTION public\.fn_guard_owned_mock_attempt\(.*?\$\$;",
+        admission.read_text(),re.S).group(0).replace("public.",schema+".").replace("search_path=public,",f"search_path={schema},")
+    try:
+        sql(f"CREATE OR REPLACE FUNCTION {schema}.fn_guard_owned_mock_attempt(p_skill TEXT,p_attempt JSONB,p_purpose TEXT) RETURNS JSONB LANGUAGE sql AS $$ SELECT '{{\"allowed\":false}}'::jsonb $$;")
+        with pytest.raises(RuntimeError,match="review_flag_policy_unavailable"): write(schema,aid,uid)
+        assert sql(f"SELECT count(*) FROM {schema}.mock_attempt_review_flags WHERE attempt_id='{aid}'") == "0"
+    finally:
+        sql(original)
+
+
 def test_attempt_row_contention_is_retryable_without_deadlocking(schema):
     aid,uid=attempt(schema); appname="flags307_parent_"+uuid4().hex
     holder=subprocess.Popen(DOCKER+["exec","-i",CONTAINER,"psql","-U","postgres",

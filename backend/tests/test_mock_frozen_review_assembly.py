@@ -97,7 +97,8 @@ def test_listening_actual_review_pins_transcript_audio_identity_and_consumed_rat
     paper={"id":"t1","test_id":"ORIGINAL","title":"Original paper",
         "full_audio_storage_path":"original.mp3","full_audio_duration_seconds":100,"metadata":{}}
     private=snapshot("listening",marks,sources,paper)
-    saved=attempt(); saved["grading_details"][0]["rationale_q_num"]=21
+    saved=attempt(); saved["grading_details"][0].update(
+        rationale_q_num=21,user_answer="B",expected="A, B",group="grouped_mcq_single")
     db=DB({"mock_paper_attempt_snapshots":[private],"listening_tests":[{"full_audio_storage_path":"changed.mp3"}],
         "listening_content":[],"listening_exercises":[]})
     with patch.object(listening,"supabase_admin",db), \
@@ -111,3 +112,23 @@ def test_listening_actual_review_pins_transcript_audio_identity_and_consumed_rat
     assert item["question_context"]["options"]==["A original","B original"]
     assert item["context_provenance"]["solution"]=="submission_snapshot"
     assert db.calls==["mock_paper_attempt_snapshots"] and saved["score"]==1
+
+
+def test_reading_review_renews_pinned_diagram_urls_without_changing_frozen_digest():
+    class ChangingSigner(Signer):
+        sequence=0
+        def create_signed_url(self,path,ttl):
+            self.sequence+=1
+            return {"signedURL":f"https://signed.local/{path}?nonce={self.sequence}"}
+    marks=[{"id":"q20","q_num":20,"question_type":"diagram_label_completion",
+        "prompt":"Label the diagram","payload":{"template":{"image_storage_path":"original.svg",
+            "image_alt":"Diagram with numbered blanks"}}}]
+    private=snapshot("reading",marks,[],{"title":"Original"})
+    db=DB({"mock_paper_attempt_snapshots":[private]}); db.storage=ChangingSigner()
+    with patch.object(reading_student,"supabase_admin",db), \
+         patch("services.mock_correction_service.attach_web_explanations",return_value={"available":False}):
+        first=reading_student._assemble_reading_review(attempt(),"a1")
+        second=reading_student._assemble_reading_review(attempt(),"a1")
+    assert first["review"][0]["question_context"]["image_url"] != second["review"][0]["question_context"]["image_url"]
+    assert first["review"][0]["question_context"]["image_alt"]=="Diagram with numbered blanks"
+    assert first["context_source"]["context_sha256"]==second["context_source"]["context_sha256"]

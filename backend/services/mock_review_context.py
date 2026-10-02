@@ -73,6 +73,12 @@ def question_context(question: dict | None, snapshot: dict | None) -> dict:
     if not present["options"] and "match_options" in metadata:
         fields["options"] = metadata["match_options"]
         present["options"] = True
+    template = fields.get("template") or {}
+    if isinstance(template, dict):
+        for name in ("image_url", "image_alt"):
+            if not present[name] and name in template:
+                fields[name] = template[name]
+                present[name] = True
     # Only authored display metadata; response policies and key metadata never
     # enter this projection. Explicit empty values keep their provenance.
     fields["metadata"] = {name: deepcopy(metadata[name]) for name in ("flow_direction",)

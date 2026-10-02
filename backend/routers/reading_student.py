@@ -1531,6 +1531,10 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
     # Per-Q rich solution + prompt/type for context (joined by q_num).
     sol_by_qnum: dict = {}
     ctx_by_qnum: dict = {}
+    # URLs are derived afresh from the pinned asset identity. Keep the raw
+    # snapshot untouched so its context digest never includes expiring URLs.
+    question_rows = [dict(row) for row in question_rows]
+    _stamp_diagram_image_urls(question_rows)
     for q in question_rows:
         qn = q.get("q_num")
         payload = q.get("payload") or {}
