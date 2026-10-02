@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { READING_QUESTION_LABELS } from '@/lib/admin-reading-preview-model.mjs';
 import { WebExplanationPanel, type EvidenceSelection } from '@/components/web-explanation-panel';
 import {
   grammarKnowledgeHref,
@@ -30,6 +31,8 @@ type PassageMode = 'original' | 'translation';
 type ReviewFilter = 'wrong' | 'all' | 'correct';
 type EvidenceTarget = { questionNumber: number; passageOrder: number };
 
+const QUESTION_TYPE_LABELS: Readonly<Record<string, string>> = READING_QUESTION_LABELS;
+
 const SKILL_LABELS: Record<string, string> = {
   skimming: 'Đọc lướt ý chính',
   scanning: 'Định vị thông tin',
@@ -38,7 +41,8 @@ const SKILL_LABELS: Record<string, string> = {
   inference: 'Suy luận',
   vocabulary_in_context: 'Từ vựng theo ngữ cảnh',
   reference_cohesion: 'Liên kết & tham chiếu',
-  writer_view_TFNG: 'Quan điểm tác giả (T/F/NG)',
+  writer_view_TFNG: 'Đối chiếu thông tin (True / False / Not Given)',
+  writer_view_YNNG: 'Quan điểm tác giả (Yes / No / Not Given)',
 };
 
 const STEP_LABELS: Record<string, string> = {
@@ -262,8 +266,13 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
       onToggle();
     }
   };
-  const skill = solution.skill_name || (item.skill_tag ? SKILL_LABELS[item.skill_tag] || item.skill_tag : '');
-  const tags = [item.question_type, skill, solution.band != null ? `Band ${solution.band}` : ''].filter(Boolean).join(' · ');
+  const writerViewSkill = item.skill_tag === 'writer_view_TFNG' || item.skill_tag === 'writer_view_YNNG';
+  const skillTag = writerViewSkill && item.question_type === 'yes_no_not_given'
+    ? 'writer_view_YNNG'
+    : writerViewSkill && item.question_type === 'true_false_not_given' ? 'writer_view_TFNG' : item.skill_tag;
+  const skill = solution.skill_name || (skillTag ? SKILL_LABELS[skillTag] || skillTag : '');
+  const typeLabel = QUESTION_TYPE_LABELS[item.question_type] || item.question_type;
+  const tags = [typeLabel, skill, solution.band != null ? `Band ${solution.band}` : ''].filter(Boolean).join(' · ');
   const prompt = readingReviewPrompt(item);
 
   return <article
