@@ -1,7 +1,7 @@
 ---
 id: GRAMMARLESSON-0017
 title: Assign individual MASTER30 Grammar lessons to Course 5 learners
-status: draft
+status: approved
 risk: high
 owner: product
 ---
