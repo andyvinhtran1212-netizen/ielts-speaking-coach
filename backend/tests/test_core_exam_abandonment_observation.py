@@ -21,11 +21,14 @@ class Query:
     def select(self, *_args, **_kwargs): return self
     def eq(self, key, value): self.filters.append((key, value)); return self
     def limit(self, _value): return self
+    def order(self, *_args, **_kwargs): return self
     def update(self, payload): self.action, self.payload = "update", payload; return self
     def insert(self, payload): self.action, self.payload = "insert", payload; return self
 
     def execute(self):
         self.db.calls.append((self.table, self.action, list(self.filters)))
+        if self.table == "mock_attempt_review_flags":
+            return SimpleNamespace(data=[])
         if self.table == "listening_tests":
             return SimpleNamespace(data=[self.db.test])
         if self.action == "insert":
@@ -49,6 +52,20 @@ class DB:
 
     def table(self, name): return Query(self, name)
 
+    def rpc(self, name, params):
+        assert name == "fn_resolve_mock_paper_access"
+        assert params["p_skill"] in {"reading", "listening"}
+        allowed = (params["p_test_id"] == self.test["id"]
+                   and self.test.get("status") == "published"
+                   and self.test.get("is_public") is True
+                   and params["p_sitting_id"] is None
+                   and params["p_class_item_id"] is None
+                   and params["p_purpose"] in {"delivery", "practice"})
+        return SimpleNamespace(execute=lambda: SimpleNamespace(data={
+            "allowed": allowed, "attempt_purpose": "practice" if allowed else None,
+            "paper_revision": 0, "policy_revision": 0,
+        }))
+
 
 def setup(monkeypatch, flavor, enabled=True):
     user, test_id = str(uuid4()), str(uuid4())
@@ -59,7 +76,7 @@ def setup(monkeypatch, flavor, enabled=True):
     other = {**old, "id": str(uuid4()), "user_id": str(uuid4()), "anon_id": "d" * 32}
     other_test = {**old, "id": str(uuid4()), "test_id": str(uuid4())}
     done = {**old, "id": str(uuid4()), "status": "submitted"}
-    test = {"id": test_id, "status": "published", "time_limit_minutes": 60,
+    test = {"id": test_id, "status": "published", "is_public": True, "time_limit_minutes": 60,
             "full_audio_storage_path": "synthetic/audio", "metadata": {"share": {"token": "share-fixture"}}}
     db = DB(test, [old, other, other_test, done])
     monkeypatch.setattr(obs.settings, "CORE_ATTEMPT_EVIDENCE_ENABLED", enabled)
@@ -73,11 +90,9 @@ def setup(monkeypatch, flavor, enabled=True):
     monkeypatch.setattr(module, "supabase_admin", db)
     monkeypatch.setattr(module, "_require_auth", AsyncMock(return_value={"id": user}))
     if flavor == "listening":
-        monkeypatch.setattr(listening, "_assert_listening_exam_content_allowed", lambda *_args: None)
         invoke = lambda: listening.start_listening_test_attempt(test_id)
     else:
         monkeypatch.setattr(reading, "_fetch_published_test", lambda *_args: test)
-        monkeypatch.setattr(reading, "_assert_exam_content_allowed", lambda *_args: None)
         monkeypatch.setattr(reading, "_require_test_unlocked", lambda *_args: None)
         monkeypatch.setattr(reading, "_resolve_share", lambda *_args, **_kwargs: test)
         monkeypatch.setattr(reading, "_hash_anon_src", lambda *_args: None)
