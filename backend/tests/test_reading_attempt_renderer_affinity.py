@@ -52,16 +52,49 @@ class _Db:
 class _InsertDb:
     def __init__(self):
         self.payload = None
+        self.current_table = None
+        self.rpc_calls = []
+        self.flag_filters = []
 
-    def table(self, _name):
+    def table(self, name):
+        assert name in {"reading_test_attempts", "mock_attempt_review_flags"}
+        self.current_table = name
+        return self
+
+    def rpc(self, name, params):
+        assert name == "fn_resolve_mock_paper_access"
+        assert params["p_skill"] == "reading"
+        assert params["p_test_id"] == "22222222-2222-4222-8222-222222222222"
+        assert params["p_user_id"] == "user-1"
+        assert params["p_purpose"] == "delivery"
+        assert params["p_sitting_id"] is None
+        assert params["p_allow_admission"] is True
+        self.rpc_calls.append((name, dict(params)))
+        return _Rpc({"allowed": True, "attempt_purpose": "practice", "paper_revision": 0, "policy_revision": 0})
+
+    def select(self, columns):
+        assert self.current_table == "mock_attempt_review_flags"
+        assert columns == "q_num,question_id,flagged,revision,updated_at"
+        return self
+
+    def eq(self, column, value):
+        self.flag_filters.append((column, value))
+        return self
+
+    def order(self, column):
+        assert column == "q_num"
         return self
 
     def insert(self, payload):
+        assert self.current_table == "reading_test_attempts"
         self.payload = payload
         return self
 
     def execute(self):
-        return _Result([self.payload])
+        if self.current_table == "mock_attempt_review_flags":
+            assert self.flag_filters == [("skill", "reading"), ("attempt_id", self.payload["id"])]
+            return _Result([])
+        return _Result([{**self.payload, "attempt_purpose": "practice", "paper_revision": 0, "policy_revision": 0}])
 
 
 def test_migration_backfills_legacy_defaults_n_minus_one_and_claims_atomically():
@@ -93,10 +126,10 @@ async def test_authenticated_start_versions_affinity_aware_and_n_minus_one_inser
         "id": "22222222-2222-4222-8222-222222222222",
         "test_id": "READ-1",
         "time_limit_minutes": 60,
+        "status": "published", "is_public": True,
     }
     with patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "user-1"})), \
          patch.object(mod, "_fetch_published_test", return_value=test), \
-         patch.object(mod, "_assert_exam_content_allowed"), \
          patch.object(mod, "_require_test_unlocked"), \
          patch.object(mod, "_abandon_open_attempts"), \
          patch.object(mod, "supabase_admin", db):
@@ -106,6 +139,11 @@ async def test_authenticated_start_versions_affinity_aware_and_n_minus_one_inser
     if has_column:
         assert db.payload["renderer_affinity"] is None
     assert out["renderer_affinity"] == response_affinity
+    assert out["attempt_purpose"] == "practice"
+    assert out["paper_revision"] == out["policy_revision"] == 0
+    assert out["flag_protocol"] == "question-cas-v1"
+    assert out["review_flags"] == []
+    assert len(db.rpc_calls) == 1
 
 
 @pytest.mark.asyncio
