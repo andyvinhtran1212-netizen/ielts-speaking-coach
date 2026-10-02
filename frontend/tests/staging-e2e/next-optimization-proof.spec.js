@@ -73,6 +73,7 @@ test.describe.serial('Next optimization live staging evidence', () => {
     let importAttempted = false;
     let topicCreateAttempted = false;
     let probeWasCreated = false;
+    let operationFailure = null;
 
     const findProbeId = async () => {
       for (const headword of [updatedHeadword, originalHeadword]) {
@@ -171,6 +172,9 @@ test.describe.serial('Next optimization live staging evidence', () => {
         timeout: 30_000,
         intervals: [500, 1_000, 2_000],
       }).toEqual({ status: 200, hasNew: true, hasOld: false });
+    } catch (error) {
+      operationFailure = error;
+      throw error;
     } finally {
       const cleanupFailures = [];
       try {
@@ -200,7 +204,11 @@ test.describe.serial('Next optimization live staging evidence', () => {
       } catch (error) {
         cleanupFailures.push(error);
       }
-      if (cleanupFailures.length) throw new AggregateError(cleanupFailures, 'staging cache proof cleanup failed');
+      if (cleanupFailures.length) {
+        const failures = operationFailure ? [operationFailure, ...cleanupFailures] : cleanupFailures;
+        const details = failures.map((error) => error instanceof Error ? error.message : String(error)).join('\n\n');
+        throw new AggregateError(failures, `staging cache proof cleanup failed\n${details}`);
+      }
     }
   });
 });
