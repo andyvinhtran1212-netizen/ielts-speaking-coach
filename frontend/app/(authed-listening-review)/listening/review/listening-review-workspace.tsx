@@ -24,6 +24,7 @@ import {
   normalizeListeningReview,
 } from '@/lib/listening-review-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { ReviewContextNotice, ReviewQuestionContext } from '@/components/review-attempt-context';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type Filter = 'wrong' | 'all' | 'correct';
@@ -227,6 +228,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
       <div ref={flagRef} className="lr-card__flag" />
     </div>
     {item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
+    {expanded || selected ? <ReviewQuestionContext value={item.question_context} /> : null}
     <div className="lr-card__answers">
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code></div> : null}
       <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
@@ -454,6 +456,7 @@ export function ListeningReviewWorkspace() {
         <TranscriptPane sections={data.sections} activeSection={activeSection} activeAnchor={activeAnchor} onSection={(section) => { setActiveSection(section); setActiveAnchor(null); }} />
         <div className="exam-divider" aria-hidden="true" />
         <section className="exam-questions lr-review-pane" aria-label="Chữa từng câu">
+          {!data.preview ? <ReviewContextNotice value={data.contextSource} /> : null}
           <header className="lr-review-header"><div><p className="lr-review-header__eyebrow">BÀN CHỮA BÀI</p><h1>Nghe lại, nhận ra tín hiệu</h1><p className="lr-review-header__copy">
             {data.preview
               ? `${data.review.length} câu trong đề · Xem đáp án, transcript và lời giải trước khi xuất bản.`

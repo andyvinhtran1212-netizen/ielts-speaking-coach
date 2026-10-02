@@ -26,6 +26,7 @@ from services.errors import safe_detail, GENERIC_MESSAGE
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
+from routers.mock_attempt_flags import router as mock_attempt_flags_router
 from services.server_timing import (
     format_header as format_server_timing_header,
     install_supabase_timing,
@@ -296,6 +297,7 @@ app.include_router(admin_quiz_router)
 app.include_router(quiz_player_router)
 app.include_router(course_pronunciation_router)
 app.include_router(reading_student_router)
+app.include_router(mock_attempt_flags_router)
 app.include_router(feedback_router)
 app.include_router(kp_router)
 app.include_router(exams_router)

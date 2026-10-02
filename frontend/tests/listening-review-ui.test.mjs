@@ -321,7 +321,7 @@ describe('v1.2 item B — full display transcript + anchor-based highlight', () 
   });
   test('review endpoint surfaces transcript_anchor per question (payload.transcript_anchors)', () => {
     assert.match(router, /transcript_anchors/);
-    assert.match(router, /"transcript_anchor":\s*anchors_by_q\.get\(q\)/);
+    assert.match(router, /"transcript_anchor":\s*anchors_by_q\.get\(solution_q\)/);
   });
 });
 
@@ -352,8 +352,8 @@ describe('Phase B — backend review endpoint cross-ref', () => {
     assert.match(router, /response_model=ListeningAttemptReviewResponse/);
     assert.match(router, /Chưa có chữa bài — attempt chưa submit/);   // 409 gate
     assert.match(router, /"audio_window":\s*win/);
-    assert.match(router, /"solution":\s*\(\{key: value for key, value in \(solutions_by_q\.get\(q\) or \{\}\)\.items\(\) if key in \{"expected", "rationale"\}\}/);
-    assert.match(router, /if test_row\.get\("programme_id"\) == SOURCE_PROGRAMME else solutions_by_q\.get\(q\) or \{\}\)/);
+    assert.match(router, /"solution":\s*\(\{key: value for key, value in \(solutions_by_q\.get\(solution_q\) or \{\}\)\.items\(\) if key in \{"expected", "rationale"\}\}/);
+    assert.match(router, /if test_row\.get\("programme_id"\) == SOURCE_PROGRAMME else solutions_by_q\.get\(solution_q\) or \{\}\)/);
   });
 });
 

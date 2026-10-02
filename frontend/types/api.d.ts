@@ -10529,6 +10529,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reading/test/attempts/{attempt_id}/review-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reading Review Flags */
+        get: operations["get_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Reading Review Flags */
+        patch: operations["patch_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_patch"];
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/review-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Listening Review Flags */
+        get: operations["get_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Listening Review Flags */
+        patch: operations["patch_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_patch"];
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -16826,6 +16862,7 @@ export interface components {
             web_explanation_access?: {
                 [key: string]: unknown;
             } | null;
+            context_source?: components["schemas"]["ReviewContextReference"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -17390,6 +17427,14 @@ export interface components {
             };
             /** First Answer */
             first_answer?: string | null;
+            /** Question Context */
+            question_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Context Provenance */
+            context_provenance?: {
+                [key: string]: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            };
         } & {
             [key: string]: unknown;
         };
@@ -18194,6 +18239,19 @@ export interface components {
             /** Expected Updated At */
             expected_updated_at?: string | null;
         };
+        /** QuestionReviewFlag */
+        QuestionReviewFlag: {
+            /** Q Num */
+            q_num: number;
+            /** Question Id */
+            question_id: string;
+            /** Flagged */
+            flagged: boolean;
+            /** Revision */
+            revision: number;
+            /** Updated At */
+            updated_at?: string | null;
+        };
         /** ReadingAttemptTotalsOut */
         ReadingAttemptTotalsOut: {
             /** Submitted All Time */
@@ -18596,6 +18654,92 @@ export interface components {
             retest_flags?: {
                 [key: string]: boolean;
             };
+        };
+        /** ReviewContextReference */
+        ReviewContextReference: {
+            /**
+             * Provenance
+             * @enum {string}
+             */
+            provenance: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            /** Possibly Changed */
+            possibly_changed: boolean;
+            /** Paper Revision */
+            paper_revision?: number | null;
+            /** Policy Revision */
+            policy_revision?: number | null;
+            /** Context Sha256 */
+            context_sha256?: string | null;
+            /** Field Provenance */
+            field_provenance?: {
+                [key: string]: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            };
+        };
+        /** ReviewFlagPatchRequest */
+        ReviewFlagPatchRequest: {
+            /** Q Num */
+            q_num: number;
+            /** Flagged */
+            flagged: boolean;
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+        };
+        /** ReviewFlagStateResponse */
+        ReviewFlagStateResponse: {
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /**
+             * Protocol
+             * @default question-cas-v1
+             * @constant
+             */
+            protocol: "question-cas-v1";
+            /** Review Flags */
+            review_flags: components["schemas"]["QuestionReviewFlag"][];
+        };
+        /** ReviewFlagWriteResponse */
+        ReviewFlagWriteResponse: {
+            /** Q Num */
+            q_num: number;
+            /** Question Id */
+            question_id: string;
+            /** Flagged */
+            flagged: boolean;
+            /** Revision */
+            revision: number;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /**
+             * Protocol
+             * @default question-cas-v1
+             * @constant
+             */
+            protocol: "question-cas-v1";
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Accepted */
+            accepted: boolean;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "applied" | "replayed" | "conflict";
         };
         /** RollbackRequest */
         RollbackRequest: {
@@ -38293,6 +38437,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewFlagPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagWriteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewFlagPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagWriteResponse"];
                 };
             };
             /** @description Validation Error */

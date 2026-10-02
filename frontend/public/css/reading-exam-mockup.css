@@ -466,3 +466,41 @@
 @media (prefers-reduced-motion: reduce) {
   .exam-timer[data-state="critical"] { animation: none; }
 }
+
+/* Canonical Review saves and authored review context share all four players. */
+.exam-review-flag-status, .review-context-notice {
+  min-width: 0; margin: 8px 12px; padding: 8px 10px;
+  color: var(--av-warning); background: var(--av-warning-soft);
+  border: 1px solid currentColor; border-radius: 8px;
+  font-size: 13px; line-height: 1.5; overflow-wrap: anywhere;
+}
+.exam-review-flag-status button {
+  margin-left: 8px; padding: 4px 6px; border: 0; background: transparent;
+  color: inherit; font: inherit; text-decoration: underline; cursor: pointer;
+}
+.review-question-context { min-width: 0; margin-block: 12px; padding: 12px; border: 1px solid var(--exam-border-default); border-radius: 8px; overflow-wrap: anywhere; }
+.review-question-context p { margin-block: 6px; }
+.review-context-bank ul, .review-context-template ul, .review-context-template ol { margin: 8px 0; padding-left: 24px; }
+.review-context-bank li, .review-context-template li { margin-block: 5px; }
+.review-context-bank b { margin-right: 6px; }
+.review-context-template table { width: 100%; border-collapse: collapse; }
+.review-context-template th, .review-context-template td { padding: 8px; border: 1px solid var(--exam-border-default); text-align: left; }
+
+/* Canonical Review saves and authored review context share all four players. */
+.exam-review-flag-status, .review-context-notice {
+  min-width: 0; margin: 8px 12px; padding: 8px 10px;
+  color: var(--av-warning); background: var(--av-warning-soft);
+  border: 1px solid currentColor; border-radius: 8px;
+  font-size: 13px; line-height: 1.5; overflow-wrap: anywhere;
+}
+.exam-review-flag-status button {
+  margin-left: 8px; padding: 4px 6px; border: 0; background: transparent;
+  color: inherit; font: inherit; text-decoration: underline; cursor: pointer;
+}
+.review-question-context { min-width: 0; margin-block: 12px; padding: 12px; border: 1px solid var(--exam-border-default); border-radius: 8px; overflow-wrap: anywhere; }
+.review-question-context p { margin-block: 6px; }
+.review-context-bank ul, .review-context-template ul, .review-context-template ol { margin: 8px 0; padding-left: 24px; }
+.review-context-bank li, .review-context-template li { margin-block: 5px; }
+.review-context-bank b { margin-right: 6px; }
+.review-context-template table { width: 100%; border-collapse: collapse; }
+.review-context-template th, .review-context-template td { padding: 8px; border: 1px solid var(--exam-border-default); text-align: left; }

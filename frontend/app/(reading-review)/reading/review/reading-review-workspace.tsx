@@ -26,6 +26,7 @@ import {
   splitReviewSteps,
 } from '@/lib/reading-review-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { ReviewContextNotice, ReviewQuestionContext } from '@/components/review-attempt-context';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type PassageMode = 'original' | 'translation';
@@ -309,6 +310,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
       <div ref={flagRef} className="rr-card__flag" />
     </div>
     {prompt ? <p className="rr-card__prompt">{prompt}</p> : null}
+    {expanded || selected ? <ReviewQuestionContext value={item.question_context} /> : null}
     <div className="rr-card__answers">
       {!preview ? <div className="rr-card__ans is-user"><span>Bạn trả lời</span><code>{item.user_answer || '—'}</code></div> : null}
       <div className="rr-card__ans is-correct"><span>Đáp án</span><code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
@@ -645,6 +647,7 @@ export function ReadingReviewWorkspace() {
         />
         <div className="exam-divider" aria-hidden="true" />
         <section className="exam-questions rr-review" aria-label="Chữa từng câu">
+          {!data.preview ? <ReviewContextNotice value={data.contextSource} /> : null}
           <header className="rr-review-header">
             <div><p className="rr-review-header__eyebrow">BÀN CHỮA BÀI</p><h1>Hiểu lỗi, sửa đúng cách</h1><p className="rr-review-header__copy">{data.preview
               ? `${data.review.length} câu trong đề · Xem đáp án, trích đoạn nguồn và lời giải trước khi xuất bản.`
