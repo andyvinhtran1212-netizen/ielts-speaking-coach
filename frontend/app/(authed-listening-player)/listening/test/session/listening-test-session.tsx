@@ -221,8 +221,12 @@ function SelectTemplate({ payload, questions, answers, onAnswer, plan }: {
   const image = payload?.map_svg
     ? `data:image/svg+xml;utf8,${encodeURIComponent(String(payload.map_svg))}`
     : payload?.map_image_url || '';
+  const authoredHeading = typeof payload?.template?.heading === 'string' ? payload.template.heading.trim() : '';
+  const first = Number(questions[0]?.q_num || 0);
+  const last = Number(questions.at(-1)?.q_num || first);
+  const imageAlt = authoredHeading || `Map or plan for questions ${first}${first === last ? '' : ` to ${last}`}`;
   return <div className={plan ? 'ielts-plan-container' : 'ielts-matching'}>
-    {plan ? <div className="ielts-plan-image">{image ? <img className="ielts-map-rendered" src={image} alt="Floor plan map" /> : <p className="ielts-notice">Hình map chưa được tạo cho exercise này.</p>}</div> : null}
+    {plan ? <div className="ielts-plan-image">{image ? <img className="ielts-map-rendered" src={image} alt={imageAlt} /> : <p className="ielts-notice">Hình map chưa được tạo cho exercise này.</p>}</div> : null}
     {!plan && bank.length ? <div className="ielts-match-bank"><ul className="ielts-match-bank__list">{bank.map((item: any) => <li key={optionValue(item)}><strong>{optionValue(item)}</strong> <InlineText text={optionText(item)} /></li>)}</ul></div> : null}
     <div className={plan ? 'ielts-plan-labels' : 'ielts-match-rows'}>{questions.map((question) => {
       const qNum = Number(question.q_num);
