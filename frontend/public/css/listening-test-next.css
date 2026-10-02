@@ -113,9 +113,9 @@
 .listening-next-palette .ft-unsaved-note, .listening-next-palette .ft-nothing-saved { margin: 5px 0; color: var(--exam-surface-card); }
 .listening-next-submit-row { display: flex; justify-content: flex-end; gap: 12px; align-items: center; flex-wrap: wrap; }
 .listening-next-review { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
-.listening-next-nav-btn { min-height: 34px; padding: 5px 12px; border: 1px solid var(--exam-border-default); background: transparent; color: var(--exam-surface-card); cursor: pointer; }
+.listening-next-nav-btn { min-height: 44px; padding: 5px 12px; border: 1px solid var(--exam-border-default); background: transparent; color: var(--exam-surface-card); cursor: pointer; }
 .listening-next-nav-btn:disabled { opacity: .4; cursor: default; }
-.listening-next-palette .btn-submit-final { min-height: 36px; padding: 6px 16px; }
+.listening-next-palette .btn-submit-final { min-height: 44px; padding: 6px 16px; }
 .listening-next-palette button { font-family: var(--exam-font-sans); }
 
 .listening-next-score { display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
