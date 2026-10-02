@@ -88,6 +88,66 @@ it('restores latest raw cue, Part and panel without Start or AI, including an em
   view.unmount();view=mount();await waitFor(()=>expect(input('prac-custom-q').value).toContain('Describe a place'));
   expect(input('prac-custom-q').value).toBe('  Describe a place\nYou should say:\nwhere it is  ');expect(input('prac-topic-custom').value).toBe('');expect(el('prac-part-2').classList.contains('selected')).toBe(true);expect(el('tab-practice').classList.contains('active')).toBe(true);expect(post).not.toHaveBeenCalled();
 });
+it('does not erase an existing draft when its panel is opened before returning auth is confirmed',async()=>{
+  let view=mount();await ready();mode('practice');click('prac-part-2');edit('prac-custom-q','saved cue');edit('prac-topic-custom','saved topic');
+  view.unmount();auth.status='initial-loading';auth.user=null;view=mount();mode('practice');
+  auth.status='signed-in';auth.user={id:'A'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  await waitFor(()=>expect(get.mock.calls.filter(([path])=>path==='/auth/me')).toHaveLength(2));
+  expect(input('prac-custom-q').value).toBe('saved cue');expect(input('prac-topic-custom').value).toBe('saved topic');
+  expect(el('prac-part-2').classList.contains('selected')).toBe(true);expect(el('tab-practice').classList.contains('active')).toBe(true);expect(post).not.toHaveBeenCalled();
+});
+it('keeps an explicit empty edit before profile readiness and immediate navigation, preserving untouched fields',async()=>{
+  let view=mount();await ready();mode('practice');click('prac-part-2');edit('prac-custom-q','old cue');edit('prac-topic-custom','old topic');view.unmount();
+  let resolveOld!:(profile:any)=>void;
+  get.mockImplementation(async(path:string)=>path==='/auth/me'?new Promise(resolve=>{resolveOld=resolve}):[]);
+  view=mount();await waitFor(()=>expect(get.mock.calls.filter(([path])=>path==='/auth/me')).toHaveLength(2));
+  mode('practice');expect(input('prac-custom-q').value).toBe('');edit('prac-custom-q','');view.unmount();
+  get.mockImplementation(async(path:string)=>path==='/auth/me'?{id:'A',permissions:['all']}:[]);
+  view=mount();await waitFor(()=>expect(input('prac-topic-custom').value).toBe('old topic'));
+  expect(input('prac-custom-q').value).toBe('');expect(el('prac-part-2').classList.contains('selected')).toBe(true);
+  await act(async()=>resolveOld({id:'A',permissions:[]}));expect(input('prac-topic-custom').value).toBe('old topic');expect(post).not.toHaveBeenCalled();
+});
+it('merges early question and Part edits without erasing the untouched topic',async()=>{
+  let view=mount();await ready();mode('practice');click('prac-part-2');edit('prac-custom-q','old cue');edit('prac-topic-custom','old topic');view.unmount();
+  auth.status='initial-loading';auth.user=null;view=mount();mode('practice');click('prac-part-3');edit('prac-custom-q','  replacement question  ');
+  auth.status='signed-in';auth.user={id:'A'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  await waitFor(()=>expect(input('prac-topic-custom').value).toBe('old topic'));
+  expect(input('prac-custom-q').value).toBe('  replacement question  ');expect(el('prac-part-3').classList.contains('selected')).toBe(true);expect(post).not.toHaveBeenCalled();
+});
+it('keeps all other Full Test topics when only one is edited before profile readiness',async()=>{
+  let view=mount();await ready();mode('fulltest');const ids=['ft-p1-topic-1','ft-p1-topic-2','ft-p1-topic-3','ft-p2-topic'];
+  ids.forEach((id,i)=>edit(id,`old${i}`));view.unmount();
+  auth.status='initial-loading';auth.user=null;view=mount();mode('fulltest');edit(ids[1],'');
+  auth.status='signed-in';auth.user={id:'A'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  await waitFor(()=>expect(input(ids[0]).value).toBe('old0'));expect(ids.map(id=>input(id).value)).toEqual(['old0','','old2','old3']);expect(post).not.toHaveBeenCalled();
+});
+it('preserves early edits in another panel and an explicit discard while account confirmation is pending',async()=>{
+  auth.status='initial-loading';auth.user=null;const view=mount();mode('practice');edit('prac-custom-q','early practice');
+  mode('fulltest');edit('ft-p2-topic','discard me');click('speaking-draft-discard');
+  auth.status='signed-in';auth.user={id:'A'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);await ready();
+  expect(input('ft-p2-topic').value).toBe('');mode('practice');expect(input('prac-custom-q').value).toBe('early practice');expect(post).not.toHaveBeenCalled();
+});
+it('shows unsaved preparation before account confirmation without assigning it to storage',()=>{
+  auth.status='initial-loading';auth.user=null;mount();mode('practice');edit('prac-custom-q','unconfirmed');
+  expect(el('speaking-draft-controls').hidden).toBe(false);expect(el('speaking-draft-notice').textContent).toContain('chưa được lưu');
+  expect(window.sessionStorage.getItem(LEARNER_DRAFT_KEY)).toBeNull();expect(post).not.toHaveBeenCalled();
+});
+it('does not expose a saved modal until fresh permissions authorize that mode',async()=>{
+  let view=mount();await ready();click('grammar-cta-start');click('tab-myq');edit('myq-input','private modal');view.unmount();
+  let resolveProfile!:(profile:any)=>void;
+  get.mockImplementation(async(path:string)=>path==='/auth/me'?new Promise(resolve=>{resolveProfile=resolve}):[]);
+  view=mount();await waitFor(()=>expect(get.mock.calls.filter(([path])=>path==='/auth/me')).toHaveLength(2));click('grammar-cta-start');
+  expect(input('myq-input').value).toBe('');await act(async()=>resolveProfile({id:'A',permissions:[]}));
+  expect(input('myq-input').value).toBe('');expect(post).not.toHaveBeenCalled();
+});
+it('merges a fresh modal edit and subtab with saved fields after its permission read',async()=>{
+  let view=mount();await ready();click('grammar-cta-start');click('tab-myq');edit('myq-input','old modal');click('tab-custom');edit('topic-custom-input','old custom');view.unmount();
+  let resolveProfile!:(profile:any)=>void;
+  get.mockImplementation(async(path:string)=>path==='/auth/me'?new Promise(resolve=>{resolveProfile=resolve}):[]);
+  view=mount();await waitFor(()=>expect(get.mock.calls.filter(([path])=>path==='/auth/me')).toHaveLength(2));click('grammar-cta-start');click('tab-myq');edit('myq-input','new modal');
+  await act(async()=>resolveProfile({id:'A',permissions:['all']}));
+  expect(input('myq-input').value).toBe('new modal');expect(input('topic-custom-input').value).toBe('old custom');expect(el('tab-myq').classList.contains('active')).toBe(true);expect(post).not.toHaveBeenCalled();
+});
 it('preserves full-test and Part-by-Part drafts independently and discards only the current mode',async()=>{
   let view=mount();await ready();mode('practice');edit('prac-custom-q','practice');mode('fulltest');
   ['ft-p1-topic-1','ft-p1-topic-2','ft-p1-topic-3','ft-p2-topic'].forEach((id,i)=>edit(id,`  topic${i}  `));
