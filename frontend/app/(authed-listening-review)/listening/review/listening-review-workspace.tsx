@@ -93,7 +93,7 @@ function WhyCorrect({ value }: { value: unknown }) {
   if (!paragraphs.length) return null;
   return <>{paragraphs.map((paragraph, index) => {
     const vi = hasVietnamese(paragraph);
-    const rows = bulletRows(paragraph);
+    const rows = paragraph.split(/\n+/).map((row) => row.trim().replace(/^[-•]\s*/, '')).filter(Boolean);
     return <div className={`lr-why lr-why--${vi ? 'vi' : 'en'}`} key={`${index}-${paragraph}`}>
       <span className="lr-why__lang">{vi ? 'VN' : 'EN'}</span>
       {rows.length > 1
