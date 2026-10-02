@@ -53,6 +53,7 @@ it('Reading waits for Start, admits the exact sitting, then loads bound context 
   await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Review', exact: true }) as HTMLInputElement).checked).toBe(true));
   expect(api.postWith.mock.calls[0][1]).toMatchObject({ purpose: 'mock_delivery', mock_sitting_id: 'sitting-a' });
   expect(api.patchWith).not.toHaveBeenCalled();
+  expect(api.getWith.mock.calls.filter(([path]) => path.includes('/boot')).every(([path]) => path.includes('sitting_id=sitting-a'))).toBe(true);
 });
 it('Listening admission exposes frozen context, restores flags and preserves saved answers', async () => {
   window.history.replaceState(null, '', '/listening/test/session?id=paper-a&sitting_id=sitting-a');
@@ -63,6 +64,7 @@ it('Listening admission exposes frozen context, restores flags and preserves sav
   await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Review', exact: true }) as HTMLInputElement).checked).toBe(true));
   expect(api.postWith.mock.calls[0][1]).toMatchObject({ purpose: 'mock_delivery', mock_sitting_id: 'sitting-a' });
   expect(api.patchWith).not.toHaveBeenCalled();
+  expect(api.get.mock.calls.filter(([path]) => !path.includes('/in-progress')).every(([path]) => path.includes('sitting_id=sitting-a'))).toBe(true);
 });
 it('failed Review save stays visible, explicit retry saves it, and reload does not create another attempt', async () => {
   bound = true; window.history.replaceState(null, '', '/listening/test/session?id=paper-a&sitting_id=sitting-a');

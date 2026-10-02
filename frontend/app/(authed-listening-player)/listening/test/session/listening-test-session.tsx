@@ -487,7 +487,7 @@ export function ListeningTestSession() {
       ? [await window.api.get(`/admin/listening/tests/${encodeURIComponent(params.testId)}/player-preview`), null]
       : await Promise.all([
         window.api.get(withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
-          ['class_item', params.classItem],
+          ['class_item', params.classItem], ['sitting_id', params.sittingId],
         ])),
         window.api.get(resumePath(params)),
       ]);

@@ -103,9 +103,12 @@ function formatTime(seconds: number) {
   return `${String(mins).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function queryWithClassItem(path: string, classItem: string | null) {
-  if (!classItem) return path;
-  return `${path}${path.includes('?') ? '&' : '?'}class_item=${encodeURIComponent(classItem)}`;
+function queryWithClassItem(path: string, classItem: string | null, sittingId: string | null = null) {
+  const query = new URLSearchParams();
+  if (classItem) query.set('class_item', classItem);
+  if (sittingId) query.set('sitting_id', sittingId);
+  const suffix = query.toString();
+  return suffix ? `${path}${path.includes('?') ? '&' : '?'}${suffix}` : path;
 }
 
 function optionValue(option: Option) {
@@ -800,7 +803,7 @@ export function ReadingExamSession() {
     }
     const path = params.share
       ? `/api/reading/test/share/${encodeURIComponent(params.share)}/boot`
-      : queryWithClassItem(`/api/reading/test/${encodeURIComponent(params.testId!)}/boot`, params.classItem);
+      : queryWithClassItem(`/api/reading/test/${encodeURIComponent(params.testId!)}/boot`, params.classItem, params.sittingId);
     const payload = await window.api.getWith<any>(
       path,
       params.share ? anonHeaders() : passwordHeaders(),
