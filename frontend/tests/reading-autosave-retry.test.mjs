@@ -307,8 +307,8 @@ describe('DEBT-D — surrounding contracts held', () => {
 describe('DEBT-D — premise cross-check (backend)', () => {
   const router = read('backend/routers/reading_student.py');
   test('resume rebuilds answers from reading_attempt_answers, not client state', () => {
-    const fn = router.slice(router.indexOf('def _fetch_in_progress_payload'));
-    assert.match(fn.slice(0, 2500), /reading_attempt_answers/);
+    const fn = router.slice(router.indexOf('def _fetch_in_progress_payload')).split('\n@router.')[0];
+    assert.match(fn, /supabase_admin\.table\("reading_attempt_answers"\)/);
   });
 });
 

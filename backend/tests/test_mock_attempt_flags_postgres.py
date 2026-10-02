@@ -69,7 +69,7 @@ def schema():
         status text,exam_mode text,active_section text,code text,config jsonb);
     CREATE TABLE {name}.mock_exam_sittings(id uuid PRIMARY KEY,mock_exam_id uuid,user_id uuid,
         status text,reading_attempt_id uuid,listening_attempt_id uuid);
-    CREATE TABLE {name}.mock_exam_assignments(exam_id uuid,skills text[],open_until timestamptz);
+    CREATE TABLE {name}.mock_exam_assignments(id uuid DEFAULT gen_random_uuid(),exam_id uuid,skills text[],open_until timestamptz);
     CREATE TABLE {name}.class_assignments(id uuid,title text,skill text,content_id uuid,
         status text,publish_at timestamptz,due_at timestamptz,content_config jsonb);
     CREATE TABLE {name}.class_assignment_items(id uuid,student_id uuid,assignment_id uuid);
