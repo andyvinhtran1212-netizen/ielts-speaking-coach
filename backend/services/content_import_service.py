@@ -25,6 +25,7 @@ from typing import Any, Optional
 import yaml
 
 from services import reading_solution
+from services.mock_response_policy import ResponsePolicyError, policy_answer_matches, validate_response_policy
 
 CONTENT_TYPES = ("tip", "knowledge", "sample", "outline")
 TASK_TYPES    = ("task_1", "task_2", "both")
@@ -414,6 +415,17 @@ def validate_reading_passage(p: ParsedReadingPassage) -> list[dict]:
     return errors
 
 
+def _reading_response_policy(question: dict) -> dict:
+    policy = validate_response_policy(question["response_policy"])
+    primary = question.get("answer")
+    candidates = primary if isinstance(primary, list) else [primary]
+    if not candidates or any(not isinstance(value, str) or not policy_answer_matches(value, policy) for value in candidates):
+        raise ResponsePolicyError("Accepted forms disagree with the authored answer key")
+    if question.get("question_type") == "mcq_multi" and policy["kind"] != "option_id":
+        raise ResponsePolicyError("Multi-select requires stable option_id policy")
+    return policy
+
+
 def validate_reading_questions(questions: Any) -> list[dict]:
     """Validate the `questions` block (L1 comprehension Qs, L2 exercises, L3
     per-passage Qs all share this validator). Each item must follow the FLAT
@@ -495,6 +507,11 @@ def validate_reading_questions(questions: Any) -> list[dict]:
         if alts is not None and not isinstance(alts, list):
             err(f"{label}: 'alternatives:' phải là danh sách chuỗi "
                 "(vd: [\"F\", \"false\"]); một chuỗi đơn sẽ bị bỏ qua.")
+        if "response_policy" in q:
+            try:
+                _reading_response_policy(q)
+            except ResponsePolicyError as exc:
+                err(f"{label}: response_policy không hợp lệ: {exc}.")
 
         # F2 — options-list questions need a non-empty `options:` of
         # {label, text} entries. (Other Phase 1 types — T/F/NG, Y/N/NG,
@@ -575,16 +592,21 @@ def build_reading_question_payloads(questions: list, passage_id: str) -> list[di
         if isinstance(q.get("solution"), dict) and q["solution"]:
             payload["solution"] = q["solution"]
         alternatives = q.get("alternatives")
+        answer_blob = {
+            "answer": q.get("answer"),
+            "alternatives": alternatives if isinstance(alternatives, list) else [],
+        }
+        if "response_policy" in q:
+            # Protected answer JSONB, never display payload; preserve the exact
+            # reviewed contract for admission pinning rather than silently drop.
+            answer_blob["response_policy"] = _reading_response_policy(q)
         rows.append({
             "passage_id":    passage_id,
             "q_num":         q.get("q_num"),
             "question_type": q.get("question_type"),
             "prompt":        _as_str(q.get("prompt")),
             "payload":       payload,
-            "answer":        {
-                "answer":       q.get("answer"),
-                "alternatives": alternatives if isinstance(alternatives, list) else [],
-            },
+            "answer":        answer_blob,
             "skill_tag":     q.get("skill_tag"),
             "sub_skill":     _as_str(q.get("sub_skill")),
             "explanation":   _as_str(q.get("explanation")),
