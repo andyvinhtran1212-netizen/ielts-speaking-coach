@@ -454,16 +454,7 @@ async function openTopicModal(part: number, mode: string, st: State, api: any) {
   applyCueCardCopy('myq-input', part);
   evaluateCueCardWarning('myq-input', 'myq-input-length-warning', part);
   switchTopicTab('list', st);
-  const saved = st.drafts.get(`modal:${st.modalMode}:${part}`)?.read();
-  if (saved?.restored) {
-    if (custom) custom.value = saved.value.customTopic;
-    const questions = $('myq-input') as HTMLTextAreaElement | null;
-    if (questions) questions.value = saved.value.questions;
-    switchTopicTab(saved.value.tab, st);
-    st.wantedTopics['topic-select'] = saved.value.topic;
-    evaluateCueCardWarning('myq-input', 'myq-input-length-warning', part);
-    draftNotice('ready', true);
-  }
+  st.restoreMode(`modal:${st.modalMode}:${part}`);
 
   const select = $('topic-select') as HTMLSelectElement | null;
   if (select) {
@@ -617,6 +608,7 @@ export function SpeakingBehavior() {
     let edited = false;
     let initialConfirmation = true;
     let profileRead = 0;
+    const pendingEdits = new Map<string, { base: any; patch: Record<string, any> }>();
     const draft = (scope: string) => {
       if (!st.accountId || st.accountId !== accountRef.current) return null;
       if (!st.drafts.has(scope)) st.drafts.set(scope, createLearnerTabDrafts({
@@ -626,27 +618,58 @@ export function SpeakingBehavior() {
       }));
       return st.drafts.get(scope)!;
     };
+    const preparation = (scope: string): any => {
+      if (scope.startsWith('modal:')) return { tab: st.activeTopicTab,
+        questions: val('myq-input'), customTopic: val('topic-custom-input'),
+        topic: st.wantedTopics['topic-select'] ?? selectedTopic(st, 'topic-select', st.modalPart) };
+      if (scope === 'practice') return { part: st.pracPart, topicPart: st.pracTopicPart,
+        questions: val('prac-custom-q'), customTopic: val('prac-topic-custom'),
+        topic: st.wantedTopics['prac-topic-select'] ?? selectedTopic(st, 'prac-topic-select', st.pracTopicPart) };
+      if (scope === 'partbpart') return { part: st.pbpPart, customTopic: val('pbp-topic-custom'),
+        topic: st.wantedTopics['pbp-topic-select'] ?? selectedTopic(st, 'pbp-topic-select', st.pbpPart) };
+      return { topics: ['ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic'].map(val) };
+    };
+    const markEdit = (scope: string, ...keys: string[]) => {
+      if (st.permissionsReady) return;
+      const value = preparation(scope);
+      const pending = pendingEdits.get(scope) ?? { base: value, patch: {} };
+      for (const key of keys) pending.patch[key] = key.startsWith('topics:') ? value.topics[Number(key.slice(7))] : value[key];
+      pendingEdits.set(scope, pending);
+    };
+    const savePreparation = (scope: string) => {
+      const handle = draft(scope);
+      let value = preparation(scope);
+      if (!st.permissionsReady) {
+        // Blank controls awaiting identity/permissions are not empty edits.
+        // Preserve the validated account draft and apply only actual actions;
+        // old values become visible only through the permission-gated restore.
+        const saved = handle?.read();
+        const pending = pendingEdits.get(scope);
+        value = { ...(saved?.restored ? saved.value : pending?.base ?? value) };
+        if (Array.isArray(value.topics)) value.topics = [...value.topics];
+        for (const [key, text] of Object.entries(pending?.patch ?? {})) {
+          if (key.startsWith('topics:')) value.topics[Number(key.slice(7))] = text;
+          else value[key] = text;
+        }
+      }
+      return handle?.save(value);
+    };
     st.saveDraft = () => {
       if (st.dead) return;
       edited = true;
-      if (!st.accountId) return;
+      if (!st.accountId) { const bar = $('speaking-draft-controls'); if (bar) bar.hidden = false; draftNotice('unavailable'); return; }
       const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
       const panel = draft('panel')?.save({ panel: st.mainTab, modalOpen, part: st.modalPart, mode: st.modalMode });
-      let saved;
-      if (modalOpen) saved = draft(`modal:${st.modalMode}:${st.modalPart}`)?.save({ tab: st.activeTopicTab,
-        questions: val('myq-input'), customTopic: val('topic-custom-input'),
-        topic: st.wantedTopics['topic-select'] ?? selectedTopic(st, 'topic-select', st.modalPart) });
-      else if (st.mainTab === 'practice') saved = draft('practice')?.save({ part: st.pracPart, topicPart: st.pracTopicPart,
-        questions: val('prac-custom-q'), customTopic: val('prac-topic-custom'),
-        topic: st.wantedTopics['prac-topic-select'] ?? selectedTopic(st, 'prac-topic-select', st.pracTopicPart) });
-      else if (st.mainTab === 'partbpart') saved = draft('partbpart')?.save({ part: st.pbpPart,
-        customTopic: val('pbp-topic-custom'), topic: st.wantedTopics['pbp-topic-select'] ?? selectedTopic(st, 'pbp-topic-select', st.pbpPart) });
-      else if (st.mainTab === 'fulltest') saved = draft('fulltest')?.save({ topics: ['ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic'].map(val) });
-      draftNotice(panel?.status === 'unavailable' || saved?.status === 'unavailable' ? 'unavailable' : 'saved');
+      const scopes = new Set(st.permissionsReady ? [] : pendingEdits.keys());
+      const scope = modalOpen ? `modal:${st.modalMode}:${st.modalPart}` : st.mainTab;
+      if (scope !== 'dashboard') scopes.add(scope);
+      const saved = [...scopes].map(savePreparation);
+      draftNotice(panel?.status === 'unavailable' || saved.some(result => result?.status === 'unavailable') ? 'unavailable' : 'saved');
     };
     st.restoreMode = (scope: string) => {
       if (!st.accountId || !st.permissionsReady || st.permissionAccount !== st.accountId || st.dead) return;
-      const permission = scope === 'practice' ? 'practice_single' : scope === 'partbpart' ? 'practice_part' : scope === 'fulltest' ? 'practice_full' : null;
+      const permission = scope === 'practice' || scope.startsWith('modal:practice:') ? 'practice_single'
+        : scope === 'partbpart' || scope.startsWith('modal:test_part:') ? 'practice_part' : scope === 'fulltest' ? 'practice_full' : null;
       if (permission && !hasPermission(st.perms, permission)) return;
       const saved = draft(scope)?.read();
       if (saved?.restored) {
@@ -660,6 +683,12 @@ export function SpeakingBehavior() {
           applyCueCardCopy('prac-custom-q', v.part); evaluateCueCardWarning('prac-custom-q', 'prac-custom-q-length-warning', v.part);
         } else if (scope === 'partbpart') { st.pbpPart = v.part; set('pbp-topic-custom', v.customTopic); st.wantedTopics['pbp-topic-select'] = v.topic; }
         else if (scope === 'fulltest') ['ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic'].forEach((id, i) => set(id, v.topics[i]));
+        else if (scope.startsWith('modal:')) {
+          set('myq-input', v.questions); set('topic-custom-input', v.customTopic);
+          switchTopicTab(v.tab, st); st.wantedTopics['topic-select'] = v.topic;
+          evaluateCueCardWarning('myq-input', 'myq-input-length-warning', st.modalPart);
+        }
+        draftNotice('ready', true);
       }
     };
     const restoreDraft = () => {
@@ -684,7 +713,7 @@ export function SpeakingBehavior() {
       const previous = st.accountId;
       if (!next && statusRef.current === 'signed-out') {
         initialConfirmation = false;
-        if (!previous) { resetPreparation(st); edited = false; }
+        if (!previous) { pendingEdits.clear(); resetPreparation(st); edited = false; const bar = $('speaking-draft-controls'); if (bar) bar.hidden = true; }
       }
       if (previous === next) return;
       // Initial mount already cleared browser-filled values before wiring any
@@ -695,7 +724,7 @@ export function SpeakingBehavior() {
       profileRead++; st.permissionsReady = false; st.permissionAccount = null;
       st.drafts.forEach(handle => handle.dispose()); st.drafts.clear();
       st.accountId = null;
-      if (!keepFreshPreparation) { resetPreparation(st); edited = false; }
+      if (!keepFreshPreparation) { pendingEdits.clear(); resetPreparation(st); edited = false; }
       if (previous && previous !== next && (next || statusRef.current === 'signed-out')) clearLearnerTabDraftAccount(previous);
       st.accountId = next;
       const bar = $('speaking-draft-controls'); if (bar) bar.hidden = !next;
@@ -722,7 +751,15 @@ export function SpeakingBehavior() {
         renderUser(profile, api, st);
         st.permissionAccount = profile.id;
         st.permissionsReady = Array.isArray(profile.permissions);
-        restoreDraft();
+        if (edited) {
+          st.restoreMode(st.mainTab);
+          loadMainTabData(st.mainTab, st, api);
+          if ($('topic-modal')?.classList.contains('open')) {
+            st.restoreMode(`modal:${st.modalMode}:${st.modalPart}`);
+            void loadTopicsInto('topic-select', st.modalPart, api, st);
+          }
+        } else restoreDraft();
+        if (st.permissionsReady) pendingEdits.clear();
       } catch { if (!st.dead && read === profileRead && st.accountId === account) { st.permissionsReady = false; draftNotice('unavailable'); } }
     };
     const resolveRuntimeApi = () => {
@@ -752,11 +789,21 @@ export function SpeakingBehavior() {
       el.addEventListener(ev, fn);
       cleanups.push(() => el.removeEventListener(ev, fn));
     };
-    for (const id of PREPARATION_FIELDS) on($(id), 'input', st.saveDraft);
-    for (const id of PREPARATION_SELECTS) on($(id), 'change', st.saveDraft);
+    const inputEdit = (id: string) => {
+      const field = id === 'prac-custom-q' || id === 'myq-input' ? 'questions'
+        : id.endsWith('-select') ? 'topic' : 'customTopic';
+      const scope = id.startsWith('prac-') ? 'practice' : id.startsWith('pbp-') ? 'partbpart'
+        : id.startsWith('ft-') ? 'fulltest' : `modal:${st.modalMode}:${st.modalPart}`;
+      const fullIndex = ['ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic'].indexOf(id);
+      markEdit(scope, fullIndex < 0 ? field : `topics:${fullIndex}`);
+      st.saveDraft();
+    };
+    for (const id of PREPARATION_FIELDS) on($(id), 'input', () => inputEdit(id));
+    for (const id of PREPARATION_SELECTS) on($(id), 'change', () => inputEdit(id));
     on($('speaking-draft-discard'), 'click', () => {
       const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
       const scope = modalOpen ? `modal:${st.modalMode}:${st.modalPart}` : st.mainTab;
+      pendingEdits.delete(scope);
       const discarded = draft(scope)?.discard();
       const clear = (ids: string[]) => ids.forEach(id => { const input = $(id) as HTMLInputElement | null; if (input) input.value = ''; });
       if (modalOpen) { clear(['myq-input', 'topic-custom-input', 'topic-select']); delete st.wantedTopics['topic-select']; switchTopicTab('list', st); }
@@ -772,7 +819,7 @@ export function SpeakingBehavior() {
       draft('panel')?.save({ panel: st.mainTab, modalOpen, part: st.modalPart, mode: st.modalMode });
       draftNotice(discarded?.status === 'unavailable' ? 'unavailable' : 'discarded');
     });
-    const conceal = () => { initialConfirmation = false; profileRead++; st.permissionsReady = false; st.permissionAccount = null; st.accountId = null; resetPreparation(st); const bar = $('speaking-draft-controls'); if (bar) bar.hidden = true; };
+    const conceal = () => { initialConfirmation = false; pendingEdits.clear(); profileRead++; st.permissionsReady = false; st.permissionAccount = null; st.accountId = null; resetPreparation(st); const bar = $('speaking-draft-controls'); if (bar) bar.hidden = true; };
     on(window, 'pagehide', conceal);
     const resume = async (event: PageTransitionEvent) => {
       if (!event.persisted) return;
@@ -822,6 +869,7 @@ export function SpeakingBehavior() {
         [1, 2, 3].forEach((q) => $('prac-part-' + q)?.classList.toggle('selected', q === p));
         applyCueCardCopy('prac-custom-q', p);
         evaluateCueCardWarning('prac-custom-q', 'prac-custom-q-length-warning', p);
+        markEdit('practice', 'part');
         st.saveDraft();
       });
       on($('prac-tp-part-' + p), 'click', () => {
@@ -829,6 +877,7 @@ export function SpeakingBehavior() {
         delete st.wantedTopics['prac-topic-select'];
         [1, 2, 3].forEach((q) => $('prac-tp-part-' + q)?.classList.toggle('selected', q === p));
         if (runtimeApi) void loadTopicsInto('prac-topic-select', p, runtimeApi, st);
+        markEdit('practice', 'topicPart', 'topic');
         st.saveDraft();
       });
     });
@@ -931,7 +980,7 @@ export function SpeakingBehavior() {
       // cả; chốt chặn `speaking-behavior-hooks.test.mjs` bắt được.
       on($('modal-close'), 'click', () => { closeTopicModal(); st.saveDraft(); });
       (['list', 'custom', 'myq'] as const).forEach((t) => {
-        on($('tab-' + t), 'click', () => { switchTopicTab(t, st); st.saveDraft(); });
+        on($('tab-' + t), 'click', () => { switchTopicTab(t, st); markEdit(`modal:${st.modalMode}:${st.modalPart}`, 'tab'); st.saveDraft(); });
       });
       on($('btn-confirm'), 'click', async () => {
         const btn = $('btn-confirm') as HTMLButtonElement | null;
@@ -963,7 +1012,7 @@ export function SpeakingBehavior() {
 
       // ── Panel Luyện tập ─────────────────────────────────────────────────
       [1, 2, 3].forEach((p) => {
-        on($('pbp-card-' + p), 'click', () => { delete st.wantedTopics['pbp-topic-select']; selectPbpPart(p, st, api); st.saveDraft(); });
+        on($('pbp-card-' + p), 'click', () => { delete st.wantedTopics['pbp-topic-select']; selectPbpPart(p, st, api); markEdit('partbpart', 'part', 'topic'); st.saveDraft(); });
       });
 
       on($('prac-custom-q-start'), 'click', (e: any) => startFromCustomQuestions({
