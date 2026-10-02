@@ -281,6 +281,32 @@ function MatchingMatrixTemplate({ payload, questions, answers, onAnswer }: {
   </div>;
 }
 
+function FlowChartTemplate({ payload, answers, onAnswer }: {
+  payload: any; answers: AnswerMap; onAnswer(q: number, v: string): void;
+}) {
+  const template = payload.template;
+  const bank = Array.isArray(payload?.metadata?.match_options) ? payload.metadata.match_options : [];
+  const letters = bank.map(optionValue);
+  return <div className="listening-next-flow-chart">
+    {bank.length ? <aside className="listening-next-match-bank" aria-label="Flow chart options"><strong>Options</strong><ul>{bank.map((option: any) => <li key={optionValue(option)}><b>{optionValue(option)}</b> <InlineText text={optionText(option)} /></li>)}</ul></aside> : null}
+    {template.heading ? <h3><InlineText text={template.heading} /></h3> : null}
+    <ol className="listening-next-flow-steps" aria-label="Flow chart stages">{template.steps.map((step: any, index: number) => {
+      const qNum = Number(step.q_num);
+      return <li key={qNum || index}>
+        {step.q_num != null ? <div className="listening-next-flow-step" id={`q-${qNum}`}>
+          <span className="ielts-question-num">{qNum}</span>
+          <InlineText text={step.prefix || ''} />
+          {bank.length ? <select className="ft-q-input ielts-gap-input" data-q-num={qNum} aria-label={`Answer ${qNum}`} value={answers.get(qNum) || ''} onChange={(event) => onAnswer(qNum, event.target.value)}>
+            <option value="">—</option>{letters.map((letter: string) => <option key={letter} value={letter}>{letter}</option>)}
+          </select> : <GapInput qNum={qNum} value={answers.get(qNum) || ''} onAnswer={onAnswer} />}
+          <InlineText text={step.suffix || ''} />
+        </div> : <div className="listening-next-flow-step"><InlineText text={step.text || ''} /></div>}
+        {index < template.steps.length - 1 ? <span className="listening-next-flow-arrow" aria-hidden="true">↓</span> : null}
+      </li>;
+    })}</ol>
+  </div>;
+}
+
 function Exercise({ exercise, answers, saveStates, onAnswer }: {
   exercise: any; answers: AnswerMap; saveStates: SaveMap; onAnswer(q: number, v: string): void;
 }) {
@@ -296,6 +322,7 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   else if (kind === 'notes_completion' && Array.isArray(template.groups)) content = <NotesTemplate template={template} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'summary_completion') content = <SummaryTemplate template={template} questions={questions} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'sentence_completion') content = <SentenceTemplate template={template} questions={questions} answers={answers} onAnswer={onAnswer} />;
+  else if (kind === 'flow_chart_completion' && payload.metadata?.flow_direction === 'top_to_bottom' && Array.isArray(template.steps) && template.steps.length) content = <FlowChartTemplate payload={payload} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'mcq_3option') content = <McqTemplate questions={questions} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'mcq_multi') content = <MultiSelectTemplate payload={payload} questions={questions} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'matching') content = <MatchingMatrixTemplate payload={payload} questions={questions} answers={answers} onAnswer={onAnswer} />;

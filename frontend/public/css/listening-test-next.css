@@ -90,6 +90,13 @@
 .listening-next-match-bank li + li { margin-top: 8px; }
 .listening-next-match-bank b { display: inline-block; min-width: 22px; }
 
+.listening-next-flow-chart { max-width: 640px; }
+.listening-next-flow-chart h3 { margin: 20px 0 12px; font-size: 18px; }
+.listening-next-flow-steps { margin: 0; padding: 0; list-style: none; }
+.listening-next-flow-step { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px; border: 1px solid var(--exam-border-default); background: var(--exam-surface-sunken); }
+.listening-next-flow-step .ielts-question-num { background: transparent; color: var(--exam-text-primary); font-weight: 700; }
+.listening-next-flow-arrow { display: block; padding: 4px; text-align: center; font-size: 24px; color: var(--exam-text-secondary); }
+
 .listening-next-palette { min-width: 0; padding: 10px 16px 12px; border-top: 1px solid var(--ielts-palette-border); background: var(--ielts-navy-2); color: var(--av-text-on-primary); }
 .listening-next-palette-groups { display: flex; gap: 18px; min-width: 0; overflow-x: auto; padding-bottom: 8px; }
 .listening-next-palette-group { display: grid; grid-template-columns: auto auto; align-items: end; gap: 6px; opacity: .82; white-space: nowrap; }
