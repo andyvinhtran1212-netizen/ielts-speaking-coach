@@ -1,10 +1,14 @@
 // Browser proof for the streamed Grammar article fallback. The Next server must
 // point at an unavailable or deliberately delayed API so the fallback remains
 // observable while the server-owned article read is pending.
+// --loaded checks the real chrome skip-link after the article is ready.
+// Usage: node tooling/verify-grammar-article-loading-flow.mjs [base] [article-path] --loaded
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
-const BASE = process.argv[2] || 'http://127.0.0.1:3012';
+const args = process.argv.slice(2);
+const loaded = args.includes('--loaded');
+const [BASE = 'http://127.0.0.1:3012', ARTICLE_PATH = '/grammar/tenses/present-simple'] = args.filter((arg) => !arg.startsWith('--'));
 const results = [];
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
@@ -29,7 +33,27 @@ for (const viewport of [
   { name: 'desktop', width: 1440, height: 900 },
 ]) {
   const page = await browser.newPage({ viewport });
-  await page.goto(`${BASE}/grammar/tenses/present-simple`, { waitUntil: 'commit' });
+  await page.route('**/*', (route) => {
+    // Keep the public article proof local; no analytics/auth/content requests
+    // leave the fixture browser.
+    return route.request().url().startsWith(BASE) ? route.continue() : route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+  await page.goto(`${BASE}${ARTICLE_PATH}`, { waitUntil: 'commit' });
+  if (loaded) {
+    const main = page.locator('main#article-container');
+    await main.locator('#article-title').waitFor({ timeout: 15000 });
+    check(`${viewport.name}: bài đã tải nằm trong một main landmark`, await page.getByRole('main').count() === 1 && await main.locator('article').count() === 1);
+    const skip = page.getByRole('link', { name: 'Bỏ qua điều hướng', exact: true });
+    await skip.focus();
+    await skip.click();
+    check(`${viewport.name}: click bỏ qua điều hướng đưa focus vào bài`, await main.evaluate((el) => document.activeElement === el));
+    await skip.focus();
+    await skip.press('Enter');
+    check(`${viewport.name}: Enter bỏ qua điều hướng đưa focus vào bài`, await main.evaluate((el) => document.activeElement === el));
+    check(`${viewport.name}: skip không chỉ thay hash`, new URL(page.url()).hash === '');
+    await page.close();
+    continue;
+  }
   const liveStatus = page.locator('p[role="status"]');
   await liveStatus.waitFor({ state: 'attached', timeout: 3000 });
   check(
