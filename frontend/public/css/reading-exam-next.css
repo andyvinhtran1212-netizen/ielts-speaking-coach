@@ -360,6 +360,9 @@
 .reading-next-selection-tools button:hover { background: rgba(255, 255, 255, .12); }
 .reading-next-selection-tools button:focus-visible { outline: 2px solid var(--ielts-current-ring); outline-offset: -3px; }
 
+.reading-next-player-page .exam-palette { grid-template-columns: minmax(0, 1fr) auto; }
+.reading-next-player-page .exam-palette__grid { min-width: 0; }
+
 @media (max-width: 760px) {
   .reading-next-player-page.reading-next-testing {
     display: block;
@@ -407,7 +410,10 @@
   .reading-next-state .exam-q { grid-template-columns: 28px minmax(0, 1fr); }
   .reading-next-state .exam-q__flag { grid-column: 2; justify-self: start; }
 
-  .reading-next-player-page .exam-palette__actions { flex-wrap: wrap; }
+  .reading-next-player-page .exam-palette { grid-template-columns: minmax(0, 1fr); }
+  .reading-next-player-page .exam-palette__group-btns { grid-auto-columns: 44px; }
+  .reading-next-player-page .exam-palette__q { width: 44px; height: 44px; }
+  .reading-next-player-page .exam-palette__actions { flex-wrap: wrap; min-width: 0; }
   .reading-next-player-page .exam-palette__nav { margin-left: auto; }
 
   .reading-next-state .exam-divider { display: none; }
