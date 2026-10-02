@@ -180,14 +180,15 @@ function InlineGap({ question, value, onChange }: {
   );
 }
 
-function QuestionControl({ question, value, onChange }: {
+function QuestionControl({ question, value, onChange, includePrompt = true }: {
   question: Question;
   value: string;
+  includePrompt?: boolean;
   onChange(value: string): void;
 }) {
   const type = question.question_type || '';
   const options = questionOptions(question);
-  const inline = /(?:sentence|summary|notes|table|form|short_answer|flow_chart|diagram_label)_completion|short_answer/.test(type)
+  const inline = includePrompt && /(?:sentence|summary|notes|table|form|short_answer|flow_chart|diagram_label)_completion|short_answer/.test(type)
     && /_{2,}/.test(String(question.prompt || ''))
     && !(type === 'summary_completion' && options.length);
   if (inline) return <InlineGap question={question} value={value} onChange={onChange} />;
@@ -387,7 +388,7 @@ function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, 
     onFocus={onCurrent}
   >
     <span className="exam-summary__gnum">{question.q_num}</span>{' '}
-    <QuestionControl question={controlQuestion} value={answer} onChange={onAnswer} />
+    <QuestionControl question={controlQuestion} value={answer} onChange={onAnswer} includePrompt={false} />
     <button className="reading-next-flow-flag" type="button" aria-label={`Flag question ${question.q_num} for review`} aria-pressed={flagged} onClick={onFlag}>⚑</button>
     <SaveHint state={saveState} />
   </span>;

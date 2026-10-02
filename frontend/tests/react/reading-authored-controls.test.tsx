@@ -34,6 +34,51 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('source-authored Reading controls in the native player', () => {
+  it.each(['sentence_completion', 'summary_completion', 'notes_completion', 'table_completion',
+    'form_completion', 'flow_chart_completion', 'diagram_label_completion'])(
+    'renders authored %s text once around each controlled gap', async (question_type) => {
+      const fixture = paper({ template: { summary_text: 'Water moves through {{14}} toward {{15}}.' } });
+      fixture.questions = fixture.questions.map(q => ({ ...q, question_type,
+        prompt: q.q_num === 14 ? 'Water moves through ____.' : 'The channel runs toward ____.' }));
+      get.mockResolvedValue(fixture);
+      const view = render(<ReadingExamSession />);
+      const first = await screen.findByRole('textbox', { name: 'Answer 14' });
+      const second = screen.getByRole('textbox', { name: 'Answer 15' });
+      const template = view.container.querySelector('[data-question-type]');
+      expect(template?.textContent?.match(/Water moves through/g)).toHaveLength(1);
+      expect(template?.textContent).not.toContain('The channel runs');
+      expect(template?.querySelector('.exam-q__prompt')).toBeNull();
+      expect(template?.querySelectorAll('input')).toHaveLength(2);
+      fireEvent.change(first, { target: { value: 'arches' } });
+      fireEvent.change(second, { target: { value: 'Rome' } });
+      expect((first as HTMLInputElement).value).toBe('arches');
+      expect((second as HTMLInputElement).value).toBe('Rome');
+      fireEvent.click(screen.getByRole('button', { name: 'Flag question 14 for review' }));
+      expect(screen.getByRole('button', { name: 'Flag question 14 for review' }).getAttribute('aria-pressed')).toBe('true');
+      expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
+    });
+
+  it('keeps a standalone completion prompt when no shared template exists', async () => {
+    const fixture = paper({});
+    fixture.questions = fixture.questions.map(q => ({ ...q, question_type: 'notes_completion', prompt: `Standalone ${q.q_num} ____ context.` }));
+    get.mockResolvedValue(fixture);
+    const view = render(<ReadingExamSession />);
+    await screen.findByRole('textbox', { name: 'Answer 14' });
+    expect(view.container.querySelector('#q-14 .exam-q__prompt')?.textContent).toBe('Standalone 14  context.');
+  });
+
+  it('keeps word-bank selections and repeated values inside authored summary text', async () => {
+    const fixture = paper({ template: { summary_text: 'Route: {{14}}, then {{15}}.' }, options: [{ label: 'A', text: 'arches' }, { label: 'B', text: 'tunnels' }] });
+    fixture.questions = fixture.questions.map(q => ({ ...q, question_type: 'summary_completion', prompt: 'Per-question ____ copy.' }));
+    get.mockResolvedValue(fixture);
+    const view = render(<ReadingExamSession />);
+    const first = await screen.findByRole('combobox', { name: 'Answer 14' });
+    const second = screen.getByRole('combobox', { name: 'Answer 15' });
+    fireEvent.change(first, { target: { value: 'A' } }); fireEvent.change(second, { target: { value: 'A' } });
+    expect((first as HTMLSelectElement).value).toBe('A'); expect((second as HTMLSelectElement).value).toBe('A');
+    expect(view.container.querySelector('[data-question-type]')?.textContent).not.toContain('Per-question');
+  });
+
   it.each(['F', 'G', 'I', 'J'])('renders exactly the authored A-%s paragraph bank and retains a selected answer', async (last) => {
     get.mockResolvedValue(paper({ template: { paragraph_labels: letters(last) } }));
     render(<ReadingExamSession />);
