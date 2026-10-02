@@ -12,7 +12,7 @@ function harness(options = {}) {
   const apply = (body) => {
     const previous = server.get(body.q_num);
     if (previous.operation_id === body.operation_id) return { ...scope, ...previous, accepted: true, reason: 'replayed' };
-    if (previous.revision !== body.expected_revision) return { ...scope, ...previous, operation_id: body.operation_id, accepted: false, reason: 'conflict' };
+    if (previous.revision !== body.expected_revision) return { ...scope, ...previous, accepted: false, reason: 'conflict' };
     const next = { ...previous, flagged: body.flagged, revision: previous.revision + 1, operation_id: body.operation_id };
     server.set(body.q_num, next);
     return { ...scope, ...next, accepted: true, reason: 'applied' };
@@ -60,7 +60,8 @@ test('lost acknowledgement retries exactly the same operation UUID', async () =>
 });
 test('conflicting remote write stays visible as failed until explicit retry of latest intent', async () => {
   const h = harness(); await h.c.load(); h.c.update(1, true);
-  h.server.set(1, row(1, false, 8)); assert.equal(await h.c.flush(), false);
+  h.server.set(1, { ...row(1, false, 8), operation_id: 'other-client-operation' });
+  assert.equal(await h.c.flush(), false);
   assert.equal(h.c.snapshot().flagged.has(1), true);
   assert.equal(h.c.snapshot().canonical.get(1).revision, 8);
   assert.equal(h.requests.length, 1);
@@ -68,6 +69,15 @@ test('conflicting remote write stays visible as failed until explicit retry of l
   assert.equal(h.requests[1].expected_revision, 8);
   assert.notEqual(h.requests[0].operation_id, h.requests[1].operation_id);
   assert.equal(h.server.get(1).flagged, true); h.c.dispose();
+});
+test('an accepted receipt for another operation cannot acknowledge this mutation', async () => {
+  const h = harness({ write: async () => ({ attempt_id: 'attempt-a', protocol: 'question-cas-v1',
+    ...row(1, true, 1), operation_id: 'other-client-operation', accepted: true, reason: 'applied' }) });
+  await h.c.load(); h.c.update(1, true);
+  assert.equal(await h.c.flush(), false);
+  assert.equal(h.c.snapshot().canonical.get(1).revision, 0);
+  assert.equal(h.c.snapshot().states.get(1), 'failed');
+  h.c.dispose();
 });
 test('late owner-scoped read after dispose cannot restore flags into a new attempt', async () => {
   let release;

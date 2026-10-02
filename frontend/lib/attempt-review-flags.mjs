@@ -68,8 +68,8 @@ export function createAttemptFlagCoordinator({
       if (disposed) return null;
       assertScope(reply);
       assertRow(reply);
-      if (reply.q_num !== qNum || reply.operation_id !== request.operation_id
-          || typeof reply.accepted !== 'boolean') {
+      if (reply.q_num !== qNum || typeof reply.accepted !== 'boolean'
+          || (reply.accepted && reply.operation_id !== request.operation_id)) {
         throw fail('Máy chủ chưa xác nhận đúng thay đổi cờ Review.', 409);
       }
       if (!reply.accepted) {
