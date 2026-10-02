@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import { WebExplanationPanel } from '@/components/web-explanation-panel';
 import {
   listeningBandLabel,
+  listeningReviewAnswerState,
   listeningReviewBackTarget,
   listeningReviewParams,
   listeningReviewSection,
@@ -92,7 +93,7 @@ function WhyCorrect({ value }: { value: unknown }) {
   if (!paragraphs.length) return null;
   return <>{paragraphs.map((paragraph, index) => {
     const vi = hasVietnamese(paragraph);
-    const rows = bulletRows(paragraph);
+    const rows = paragraph.split(/\n+/).map((row) => row.trim().replace(/^[-•]\s*/, '')).filter(Boolean);
     return <div className={`lr-why lr-why--${vi ? 'vi' : 'en'}`} key={`${index}-${paragraph}`}>
       <span className="lr-why__lang">{vi ? 'VN' : 'EN'}</span>
       {rows.length > 1
@@ -182,6 +183,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
   const topRef = useRef<HTMLDivElement | null>(null);
   const flagRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
+  const answerState = preview ? (item.correct ? 'correct' : 'incorrect') : listeningReviewAnswerState(item);
   const webExplanation = item.web_explanation_object;
   const vocab = bulletRows(solution.vocab_focus || solution.vocab);
   const hasSolutionDetail = Boolean(solution.translation_vi || vocab.length || solution.paraphrase
@@ -200,7 +202,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
   return <article
     ref={cardRef}
     id={`listening-review-q-${item.q_num}`}
-    className={`lr-card ${item.correct ? 'is-correct' : 'is-incorrect'}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
+    className={`lr-card is-${answerState}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
     data-q={item.q_num}
     data-correct={item.correct ? 'true' : 'false'}
     aria-current={selected ? 'true' : undefined}
@@ -219,7 +221,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
         onKeyDown={keyToggle}
       >
         <span className="lr-card__num">Câu {item.q_num}</span>
-        {!preview ? <span className="lr-card__verdict">{item.correct ? '✓ Đúng' : '✗ Sai'}</span> : null}
+        {!preview ? <span className="lr-card__verdict">{answerState === 'correct' ? '✓ Đúng' : answerState === 'unanswered' ? 'Bỏ trống' : '✗ Sai'}</span> : null}
         <span className="lr-card__toggle">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'} ▸</span>
       </div>
       <div ref={flagRef} className="lr-card__flag" />
@@ -495,11 +497,13 @@ export function ListeningReviewWorkspace() {
         <div className="lr-palette-strip" role="group" aria-label={`${data.review.length} câu — chọn để chữa`}>{data.review.map((item: any, index: number) => {
           const section = listeningReviewSection(item);
           const previousSection = index ? listeningReviewSection(data.review[index - 1]) : null;
+          const answerState = listeningReviewAnswerState(item);
+          const answerLabel = answerState === 'correct' ? 'đúng' : answerState === 'unanswered' ? 'bỏ trống' : 'sai';
           return <Fragment key={item.q_num}>{index > 0 && section !== null && section !== previousSection ? <span className="lr-palette-sep" aria-hidden="true" /> : null}<button
             type="button"
-            className={`lr-nav-q${data.preview ? '' : ` ${item.correct ? 'is-correct' : 'is-incorrect'}`}${currentQuestion === item.q_num ? ' is-current' : ''}`}
+            className={`lr-nav-q${data.preview ? '' : ` is-${answerState}`}${currentQuestion === item.q_num ? ' is-current' : ''}`}
             aria-current={currentQuestion === item.q_num ? 'true' : undefined}
-            aria-label={`Câu ${item.q_num}${data.preview ? ' — xem trước' : ` — ${item.correct ? 'đúng' : 'sai'}`}`}
+            aria-label={`Câu ${item.q_num}${data.preview ? ' — xem trước' : ` — ${answerLabel}`}`}
             onClick={() => jump(item)}
           >{item.q_num}</button></Fragment>;
         })}</div>

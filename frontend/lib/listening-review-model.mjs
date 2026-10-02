@@ -7,6 +7,13 @@ const finiteNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+// The grade stays authoritative; an empty incorrect response has its own
+// presentation so review does not describe it as a submitted wrong answer.
+export function listeningReviewAnswerState(item) {
+  if (item?.correct === true) return 'correct';
+  return text(item?.user_answer) ? 'incorrect' : 'unanswered';
+}
+
 export function listeningReviewParams(search) {
   const query = new URLSearchParams(search || '');
   const attemptId = text(query.get('attempt_id')) || null;
