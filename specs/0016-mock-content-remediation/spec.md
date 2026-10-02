@@ -1,7 +1,7 @@
 ---
 id: MOCKREPAIR-0016
 title: Preserve mock paper security and repair Reading and Listening work truthfully
-status: draft
+status: approved
 risk: critical
 owner: product
 ---
@@ -300,10 +300,11 @@ The extracted source artifact's SHA-256 and protected corrections are in
 
 ## Open questions
 
-- Approve the recommended contract in [approval-decision.md](approval-decision.md),
-  including the planned-reservation blocker and explicit per-overlap public
-  assessment decision. This document remains **draft** until the owner approves
-  intent and the approved spec-only change lands on the staging base.
+- The owner directly approved the contract in
+  [approval-decision.md](approval-decision.md), including the planned-reservation
+  blocker and explicit per-overlap public assessment decision, on 2026-10-02.
+  Runtime implementation must wait for this approved spec-only change to land
+  on the staging base.
 - Production restoration scope/source baseline and any future score repair are
   separate operational decisions. No guessed restoration or regrade is implied
   by approving this implementation intent.

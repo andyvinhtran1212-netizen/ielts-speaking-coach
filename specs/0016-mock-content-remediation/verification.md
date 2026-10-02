@@ -3,7 +3,7 @@
 ## Requirement coverage
 
 All rows below are **planned acceptance**, not passing implementation evidence.
-The draft does not claim the current green baseline satisfies these new rules.
+Approval of intent does not claim the current green baseline satisfies these new rules.
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
