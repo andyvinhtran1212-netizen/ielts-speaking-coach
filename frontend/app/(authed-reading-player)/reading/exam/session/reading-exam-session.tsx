@@ -520,6 +520,7 @@ function MatchingMatrixRun({ run, answers, saveStates, flagged, currentQuestion,
           const value = optionValue(option);
           return <td key={value}><label aria-label={`Question ${question.q_num}: ${value}`}>
             <input type="radio" name={`q-${question.q_num}`} value={value} checked={answers.get(question.q_num) === value} onChange={() => onAnswer(question.q_num, value)} />
+            <span className="reading-next-matrix-letter" aria-hidden="true">{value}</span>
           </label></td>;
         })}
         <td><button className="reading-next-matrix-review" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged.has(question.q_num)} onClick={() => onFlag(question.q_num)}>Review</button></td>

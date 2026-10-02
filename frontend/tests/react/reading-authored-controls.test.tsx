@@ -34,6 +34,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('source-authored Reading controls in the native player', () => {
+  it('keeps each matching radio visibly labelled with its exact authored value when column headers scroll away', async () => {
+    const options = [{ label: 'A', text: 'Researcher one' }, { label: 'F', text: 'Researcher six' }];
+    const fixture = paper({ options });
+    fixture.questions = fixture.questions.map(q => ({ ...q, question_type: 'matching_features' }));
+    const original = JSON.stringify(fixture);
+    get.mockResolvedValue(fixture);
+    const view = render(<ReadingExamSession />);
+    const first = await screen.findByRole('radio', { name: 'Question 14: A' });
+    const last = screen.getByRole('radio', { name: 'Question 14: F' });
+    expect(first.closest('label')?.textContent).toBe('A');
+    expect(last.closest('label')?.textContent).toBe('F'); // Do not relabel this as the second alphabetical value.
+    expect(view.container.querySelectorAll('.exam-features-box__item')).toHaveLength(2);
+    fireEvent.click(last);
+    expect((last as HTMLInputElement).checked).toBe(true);
+    expect((last as HTMLInputElement).value).toBe('F');
+    expect((first as HTMLInputElement).checked).toBe(false);
+    expect(JSON.stringify(fixture)).toBe(original);
+    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
+  });
   it.each(['sentence_completion', 'summary_completion', 'notes_completion', 'table_completion',
     'form_completion', 'flow_chart_completion', 'diagram_label_completion'])(
     'renders authored %s text once around each controlled gap', async (question_type) => {

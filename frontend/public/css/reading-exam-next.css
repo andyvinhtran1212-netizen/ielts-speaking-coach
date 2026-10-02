@@ -268,10 +268,19 @@
 
 .reading-next-match-matrix td label {
   display: grid;
+  grid-template-columns: 17px auto;
+  justify-content: center;
   place-items: center;
+  gap: 6px;
   min-width: 32px;
   min-height: 32px;
   cursor: pointer;
+}
+
+.reading-next-matrix-letter {
+  color: var(--exam-text-primary);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .reading-next-match-matrix input[type="radio"] {
