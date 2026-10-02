@@ -365,6 +365,36 @@
 /* Fixed button tracks must stay inside their part group while the grid scrolls. */
 .reading-next-player-page .exam-palette__group { flex: 0 0 auto; }
 
+/* The existing dark presets also need dark question surfaces and legible controls. */
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) {
+  --exam-surface-page: var(--exam-surface-sunken);
+  --exam-border-default: var(--exam-border-strong);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) :is(.exam-gap-box, .exam-diagram-container) {
+  background: var(--exam-surface-sunken);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) :is(.exam-headings-box__roman, .exam-features-box__roman, .exam-endings-box__roman, .exam-word-bank-box__roman, .exam-summary__gnum, .exam-q__select, .exam-q__option-prefix, .exam-q__gap--inline, .exam-questions__part-heading strong) {
+  color: var(--exam-text-primary);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) .exam-q__gap--inline {
+  border-bottom-color: var(--exam-text-primary);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) .reading-next-flow-flag:not([aria-pressed="true"]) {
+  color: var(--exam-text-muted);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) .exam-q__option:hover {
+  background: var(--exam-surface-card);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) :is(.exam-q__gap, .exam-q__select):focus {
+  outline-color: var(--ielts-current-ring);
+}
+
 @media (max-width: 760px) {
   .reading-next-player-page.reading-next-testing {
     display: block;

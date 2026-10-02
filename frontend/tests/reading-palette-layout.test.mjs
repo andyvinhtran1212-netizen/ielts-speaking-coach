@@ -60,3 +60,32 @@ describe('native Reading palette keeps part groups separate inside its scrollpor
     });
   }
 });
+
+describe('native Reading existing exam themes keep text and surfaces paired', () => {
+  for (const theme of ['dark', 'yellow-on-blue']) {
+    test(`${theme} uses exam surface and foreground tokens for questions, banks and answer controls`, () => {
+      const dom = new JSDOM(`<style>${stylesAtWidth(390)}</style><body class="exam-chrome reading-next-player-page" data-exam-theme="${theme}"><section class="exam-questions"><div class="exam-questions__part-heading"><strong>2</strong></div><div class="exam-gap-box"><span class="exam-summary__gnum">20</span></div><div class="exam-diagram-container"></div><strong class="exam-headings-box__roman">i</strong><strong class="exam-features-box__roman">A</strong><strong class="exam-endings-box__roman">B</strong><strong class="exam-word-bank-box__roman">C</strong><span class="exam-q__option-prefix">A</span><select class="exam-q__select"><option>A</option></select><input class="exam-q__gap exam-q__gap--inline"><button class="reading-next-flow-flag" aria-pressed="false">Flag</button><button class="reading-next-flow-flag" aria-pressed="true">Flag</button></section></body>`);
+      try {
+        const { document, getComputedStyle } = dom.window;
+        assert.equal(getComputedStyle(document.body).getPropertyValue('--exam-surface-page').trim(), 'var(--exam-surface-sunken)');
+        assert.equal(getComputedStyle(document.body).getPropertyValue('--exam-border-default').trim(), 'var(--exam-border-strong)');
+        for (const element of document.querySelectorAll('.exam-gap-box,.exam-diagram-container')) {
+          assert.equal(getComputedStyle(element).background, 'var(--exam-surface-sunken)');
+        }
+        for (const element of document.querySelectorAll('strong,.exam-summary__gnum,select,.exam-q__option-prefix,input')) {
+          assert.equal(getComputedStyle(element).color, 'var(--exam-text-primary)');
+        }
+        assert.equal(getComputedStyle(document.querySelector('input')).borderBottomColor, 'var(--exam-text-primary)');
+        assert.equal(getComputedStyle(document.querySelector('button[aria-pressed="false"]')).color, 'var(--exam-text-muted)');
+        assert.equal(getComputedStyle(document.querySelector('button[aria-pressed="true"]')).color, 'var(--av-warning)');
+        // JSDOM caches a previously computed normal-state style across focus.
+        // Read a fresh focused control; the native browser checks transitions.
+        const input = document.createElement('input');
+        input.className = 'exam-q__gap exam-q__gap--inline';
+        document.querySelector('section').append(input);
+        input.focus();
+        assert.equal(getComputedStyle(input).outlineColor, 'var(--ielts-current-ring)');
+      } finally { dom.window.close(); }
+    });
+  }
+});
