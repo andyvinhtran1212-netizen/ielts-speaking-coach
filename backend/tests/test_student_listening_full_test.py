@@ -381,7 +381,7 @@ class _Fake:
             return _RpcResult({"allowed": submitted_read or mock_bound or (
                 active and not row.get("sitting_id")
                 and row.get("attempt_purpose") != "mock_delivery")})
-        if name == "fn_acquire_listening_programme_attempt":
+        if name == "fn_acquire_listening_programme_attempt_v2":
             rows = self.tables["listening_test_attempts"]
             active = [
                 row for row in rows
@@ -865,7 +865,7 @@ def test_programme_drain_returns_conflict_without_abandoning_existing_attempt(mo
     rpc = fake.rpc
 
     def paused_acquire(name, params):
-        if name == "fn_acquire_listening_programme_attempt":
+        if name == "fn_acquire_listening_programme_attempt_v2":
             raise RuntimeError("listening_programme_new_starts_paused")
         return rpc(name, params)
 
