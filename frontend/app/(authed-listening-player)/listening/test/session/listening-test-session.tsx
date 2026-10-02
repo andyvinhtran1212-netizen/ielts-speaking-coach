@@ -146,12 +146,16 @@ function NotesTemplate({ template, answers, onAnswer }: { template: any; answers
   const groups = Array.isArray(template?.groups) ? template.groups : [];
   return <div className="ielts-notes-container">
     {template?.heading ? <div className="ielts-notes-heading"><InlineText text={template.heading} /></div> : null}
-    {groups.map((group: any, index: number) => <div className="ielts-notes-group" key={index}>
-      {group.heading ? <div className="ielts-notes-group-heading"><InlineText text={group.heading} /></div> : null}
+    {groups.map((group: any, index: number) => {
+      const headingSegments = Array.isArray(group.heading_segments) && group.heading_segments.length ? group.heading_segments : null;
+      return <div className="ielts-notes-group" key={index}>
+      {headingSegments || group.heading ? <div className="ielts-notes-group-heading">
+        {headingSegments ? headingSegments.map((segment: any, part: number) => <Fragment key={part}>{part ? ' ' : null}<Segment segment={segment} answers={answers} onAnswer={onAnswer} /></Fragment>) : <InlineText text={group.heading} />}
+      </div> : null}
       <ul className="ielts-notes-list">{(group.items || []).map((item: any, itemIndex: number) => <li key={itemIndex}>
         {item?.q_num != null ? <GapWithNumber qNum={Number(item.q_num)} value={answers.get(Number(item.q_num)) || ''} onAnswer={onAnswer} prefix={item.prefix || ''} suffix={item.suffix || ''} /> : <InlineText text={String(item?.text || '')} />}
       </li>)}</ul>
-    </div>)}
+    </div>; })}
   </div>;
 }
 
