@@ -161,14 +161,20 @@ export function readingReviewSkillRows(skillBreakdown, labels = {}) {
   })).sort((a, b) => a.percent - b.percent || a.label.localeCompare(b.label));
 }
 
+/** Presentation only: retain the backend grade while naming an empty response. */
+export function readingReviewAnswerStatus(item) {
+  if (item?.correct) return 'correct';
+  return text(item?.user_answer) ? 'incorrect' : 'blank';
+}
+
 const PLACEHOLDER_PROMPT = /^\s*\(?\s*see\s+(summary|notes|table|form)\s+above\s*\)?\s*\.?\s*$/i;
 
 export function readingReviewPrompt(item) {
   const prompt = String(item?.prompt ?? '');
-  if (prompt && !PLACEHOLDER_PROMPT.test(prompt)) return prompt;
+  if (prompt && !PLACEHOLDER_PROMPT.test(prompt)) return prompt.replace(/\{\{\s*\d{1,3}\s*\}\}/g, '____');
   const authored = text(item?.solution?.question_text)
     .replace(/^["“”']+/, '').replace(/["“”']+$/, '').trim();
-  return authored || prompt;
+  return (authored || prompt).replace(/\{\{\s*\d{1,3}\s*\}\}/g, '____');
 }
 
 export function splitReviewProse(value) {

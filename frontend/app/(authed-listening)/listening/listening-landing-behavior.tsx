@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-import { needsPermanentIeltsNavigation } from '@/lib/listening-programme-navigation.mjs';
+import { needsPermanentIeltsNavigation, programmeLibraryPath } from '@/lib/listening-programme-navigation.mjs';
 import type { ListeningOverviewWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -179,9 +179,7 @@ function ChartIcon() {
 }
 
 function ProgrammeCard({ programme }: { programme: Programme }) {
-  const href = programme.id === 'general-listening-practice'
-    ? '/listening/general'
-    : '/listening/ielts';
+  const href = programmeLibraryPath(programme.id);
   const progress = programme.formCount
     ? Math.round((programme.completedCount / programme.formCount) * 100)
     : 0;
@@ -248,7 +246,7 @@ function ResumePanel({ resume }: { resume: ResumeCard }) {
 function NextActionPanel({ overview }: { overview: Overview }) {
   const firstProgramme = overview.programmes[0];
   const href = firstProgramme
-    ? (firstProgramme.id === 'general-listening-practice' ? '/listening/general' : '/listening/ielts')
+    ? programmeLibraryPath(firstProgramme.id)
     : overview.tests.practice ? '/listening/practice'
     : overview.tests.mini ? '/listening/mini-test'
     : overview.tests.full ? '/listening/tests'

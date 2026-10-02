@@ -10,6 +10,26 @@ export type ListeningSourceResponseFieldWire = components['schemas']['SourceResp
 
 export const SOURCE_COLLECTION_PATH = '/listening/ielts/80-days';
 
+const SOURCE_GROUPS = ['short_practice', 'teaching', 'vocabulary', 'mock'];
+type SourceCollectionContext = { group: string; query: string };
+
+export function sourceCollectionContext(params: Pick<URLSearchParams, 'getAll' | 'get'> | null): SourceCollectionContext {
+  const group = params?.getAll('group').length === 1 ? params.get('group') : null;
+  const query = params?.getAll('q').length === 1 ? params.get('q') : null;
+  return { group: group && SOURCE_GROUPS.includes(group) ? group : 'all', query: query || '' };
+}
+
+export function sourceCollectionHref({ group, query }: SourceCollectionContext): string {
+  const params = new URLSearchParams();
+  if (SOURCE_GROUPS.includes(group)) params.set('group', group);
+  if (query) params.set('q', query);
+  return `${SOURCE_COLLECTION_PATH}${params.size ? `?${params}` : ''}`;
+}
+
+export function sourceDayHref(day: number, context: SourceCollectionContext): string {
+  return sourceCollectionHref(context).replace(SOURCE_COLLECTION_PATH, `${SOURCE_COLLECTION_PATH}/${day}`);
+}
+
 export function sourceAudioLabel(status: string): string {
   return ({ available: 'Có audio', partial: 'Audio một phần', missing: 'Thiếu audio', not_expected: 'Tài liệu từ vựng' } as Record<string, string>)[status] || 'Xem tình trạng audio';
 }
