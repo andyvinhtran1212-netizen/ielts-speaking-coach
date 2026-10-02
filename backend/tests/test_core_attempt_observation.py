@@ -538,16 +538,23 @@ def test_real_reading_start_records_only_after_insert(receipts, monkeypatch):
     from routers import reading_student as reading
     committed = []
     class DB:
-        def table(self, name): return self
+        def table(self, name):
+            self.name = name
+            return self
+        def select(self, *a, **kw): return self
+        def eq(self, *a, **kw): return self
+        def order(self, *a, **kw): return self
         def insert(self, payload):
             self.payload = payload
             return self
         def execute(self):
+            if self.name == "mock_attempt_review_flags":
+                return SimpleNamespace(data=[])
             committed.append(dict(self.payload))
             return SimpleNamespace(data=[self.payload])
     monkeypatch.setattr(reading, "_require_auth", AsyncMock(return_value={"id": str(uuid4())}))
     monkeypatch.setattr(reading, "_fetch_published_test", lambda *a: {"id": str(uuid4()), "time_limit_minutes": 60})
-    monkeypatch.setattr(reading, "_assert_exam_content_allowed", lambda *a: None)
+    monkeypatch.setattr(reading, "_assert_exam_content_allowed", lambda *a, **kw: {"allowed": True, "attempt_purpose": "practice"})
     monkeypatch.setattr(reading, "_require_test_unlocked", lambda *a: None)
     monkeypatch.setattr(reading, "_abandon_open_attempts", lambda *a: None)
     monkeypatch.setattr(reading, "supabase_admin", DB())

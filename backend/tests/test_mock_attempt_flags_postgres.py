@@ -57,7 +57,7 @@ def schema():
         answers jsonb,grading_details jsonb,started_at timestamptz,sitting_id uuid);
     CREATE TABLE {name}.listening_test_attempts(LIKE {name}.reading_test_attempts INCLUDING ALL);
     CREATE TABLE {name}.mock_paper_attempt_snapshots(skill text,attempt_id uuid,
-        marking_rows jsonb,PRIMARY KEY(skill,attempt_id));
+        marking_rows jsonb,paper_row jsonb DEFAULT '{{}}',PRIMARY KEY(skill,attempt_id));
     CREATE TABLE {name}.reading_passages(id uuid,test_id uuid,library text);
     CREATE TABLE {name}.reading_questions(id uuid,passage_id uuid,q_num int);
     CREATE TABLE {name}.listening_content(id uuid,test_id uuid);
@@ -96,7 +96,7 @@ def attempt(schema, skill="reading", *, anon=False, pinned=True, status="in_prog
         f"now() {'-' if expired else '+'} interval '1 day',{1 if pinned else 'NULL'},"
         f"{literal(json.dumps(answers))}::jsonb,'[]',now(),NULL);")
     if pinned:
-        sql(f"INSERT INTO {schema}.mock_paper_attempt_snapshots VALUES({literal(skill)},"
+        sql(f"INSERT INTO {schema}.mock_paper_attempt_snapshots(skill,attempt_id,marking_rows) VALUES({literal(skill)},"
             f"{literal(aid)},{literal(json.dumps(marks))}::jsonb);")
     else:
         pid, qid = uuid4(), uuid4()
