@@ -7939,6 +7939,8 @@ async def get_practice_audio_windows(
             or test_row.get("scoring_policy") != "diagnostic"):
         raise HTTPException(422, "Chỉ bài Luyện nhanh mới có cửa sổ audio theo câu.")
 
+    _assert_listening_exam_content_allowed(test_row, _user["id"], purpose="practice")
+
     windows: dict[str, dict] = {}
     offsets = (test_row.get("metadata") or {}).get("section_offsets") or {}
     for row in _practice_exercise_payloads(test_id):

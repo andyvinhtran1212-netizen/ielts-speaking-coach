@@ -1806,6 +1806,18 @@ def test_patch_fails_closed_when_the_test_type_cannot_be_resolved(monkeypatch):
 def test_practice_windows_returns_only_windows(monkeypatch):
     fake, authz = _patch(monkeypatch)
     t, _aid = _seed_practice(fake)
+    t["is_public"] = True
+    previous_rpc = fake.rpc
+    def practice_access(name, params):
+        if name == "fn_resolve_mock_paper_access":
+            assert params["p_purpose"] == "practice"
+            assert params["p_user_id"] == "user-1"
+            paper = next((row for row in fake.tables["listening_tests"]
+                          if row["id"] == params["p_test_id"]), None)
+            allowed = bool(paper and paper.get("is_public") and paper.get("status") == "published")
+            return _RpcResult({"allowed": allowed, "attempt_purpose": "practice" if allowed else None})
+        return previous_rpc(name, params)
+    fake.rpc = practice_access
     out = _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
     assert out["windows"] == {
         "1": {"start": 3.5, "end": 9.0},
