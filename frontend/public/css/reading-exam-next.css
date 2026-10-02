@@ -362,6 +362,8 @@
 
 .reading-next-player-page .exam-palette { grid-template-columns: minmax(0, 1fr) auto; }
 .reading-next-player-page .exam-palette__grid { min-width: 0; }
+/* Fixed button tracks must stay inside their part group while the grid scrolls. */
+.reading-next-player-page .exam-palette__group { flex: 0 0 auto; }
 
 @media (max-width: 760px) {
   .reading-next-player-page.reading-next-testing {
