@@ -6,7 +6,8 @@ import { LEARNER_DRAFT_KEY } from '@/lib/learner-tab-drafts.mjs';
 vi.mock('@/lib/learner-tab-draft-support.mjs',()=>({isLearnerTabPersistenceSupported:()=>true}));
 const auth=vi.hoisted(()=>({status:'signed-in',user:{id:'A'} as {id:string}|null}));
 vi.mock('@/lib/auth/auth-provider',()=>({useAuth:()=>auth}));
-vi.mock('@/lib/when-global-ready.mjs',()=>({whenGlobalReady:async()=>true}));
+const runtime=vi.hoisted(()=>({ready:vi.fn(async()=>true)}));
+vi.mock('@/lib/when-global-ready.mjs',()=>({whenGlobalReady:runtime.ready}));
 const el=(id:string)=>document.getElementById(id)!;
 const input=(id:string)=>el(id) as HTMLInputElement;
 const click=(id:string)=>fireEvent.click(el(id));
@@ -16,6 +17,7 @@ const mount=()=>render(<><SpeakingShell/><SpeakingBehavior/></>);
 let get:ReturnType<typeof vi.fn>, post:ReturnType<typeof vi.fn>, topics=true;
 beforeEach(()=>{
   window.sessionStorage.clear(); window.name=''; auth.status='signed-in'; auth.user={id:'A'}; topics=true;
+  runtime.ready.mockReset().mockResolvedValue(true);
   get=vi.fn(async(path:string)=>path==='/auth/me'?{id:auth.user?.id,email:'a@example.com',permissions:['all']}:
     path.startsWith('/topics?')?(topics?[{title:'Approved topic',category:'Public'}]:[]):[]);
   post=vi.fn(); Object.defineProperty(window,'api',{configurable:true,value:{get,post,postWith:post}});
@@ -23,6 +25,19 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();window.sessionStorage.clear();window.name='';});
 const ready=()=>waitFor(()=>expect(get).toHaveBeenCalledWith('/auth/me'));
+it('keeps the clicked Part while initial auth confirmation resets preparation before runtime readiness',async()=>{
+  let release!:(value:boolean)=>void;
+  runtime.ready.mockReturnValue(new Promise<boolean>(resolve=>{release=resolve}));
+  auth.status='initial-loading';auth.user=null;
+  post.mockRejectedValue(new Error('fixture stops navigation'));
+  const view=mount();mode('practice');click('prac-tp-part-2');edit('prac-topic-custom','Early Part2 topic');click('prac-topic-start');
+  auth.status='signed-in';auth.user={id:'550e8400-e29b-41d4-a716-446655440000'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  expect(el('prac-tp-part-1').classList.contains('selected')).toBe(true);
+  await act(async()=>release(true));
+  await waitFor(()=>expect(post).toHaveBeenCalled());
+  expect(post.mock.calls[0][1]).toMatchObject({mode:'practice',part:2,topic:'Early Part2 topic'});
+  expect(post).toHaveBeenCalledTimes(1);
+});
 it('restores latest raw cue, Part and panel without Start or AI, including an empty edit',async()=>{
   let view=mount();await ready();mode('practice');click('prac-part-2');edit('prac-custom-q','  Describe a place\nYou should say:\nwhere it is  ');edit('prac-topic-custom','older');edit('prac-topic-custom','');
   view.unmount();view=mount();await waitFor(()=>expect(input('prac-custom-q').value).toContain('Describe a place'));

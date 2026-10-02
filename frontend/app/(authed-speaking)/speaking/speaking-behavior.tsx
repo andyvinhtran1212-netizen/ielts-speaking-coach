@@ -821,6 +821,9 @@ export function SpeakingBehavior() {
       e.preventDefault();
       const btn = e.currentTarget as HTMLButtonElement;
       const topic = val('prac-topic-custom').trim() || selectedTopic(st, 'prac-topic-select', st.pracTopicPart);
+      // Submit the selection made at this click. Auth readiness may reset the
+      // preparation UI while the runtime is loading; it must not change Part.
+      const part = st.pracTopicPart;
       const err = $('prac-topic-error');
       if (err) err.textContent = '';
       if (!topic) {
@@ -843,7 +846,7 @@ export function SpeakingBehavior() {
         return;
       }
       return startFromTopic({
-        topic, mode: 'practice', part: st.pracTopicPart, errorId: 'prac-topic-error',
+        topic, mode: 'practice', part, errorId: 'prac-topic-error',
         btn, idleLabel, api, st,
       });
     });

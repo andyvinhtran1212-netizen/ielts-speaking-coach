@@ -46,7 +46,7 @@ not any of FR-001–007. See `feasibility.md`.
 - Approved staging base: df760bc6b74d1c99ae890dbe70de5a3bc7061a63
   (PR1575); the seven requirement definitions and medium risk are unchanged.
 - Actual Reading/Speaking consumers with the shared helper:19 focused React
-  interactions; complete React layer263 passed. These intentionally mock only
+  interactions; complete React layer264 passed. These intentionally mock only
   browser admission and do not qualify another engine/version. Auth signal
   ordering, current account concealment, failed-clear revival, empty edits,
   revision, scoped discard and topic absence are covered.
@@ -74,7 +74,14 @@ not any of FR-001–007. See `feasibility.md`.
   above stay pending until their complete evidence exists.
 
 Final consolidated local checks: production Webpack build and both TypeScript
-boundaries passed; full Node9590 passed/2 skipped and full React263 passed.
+boundaries passed; full Node9590 passed/2 skipped and full React264 passed.
 The earlier seven failed checks and the exact source/environment corrections
 remain in the task logs; no assertion was removed or disabled. These local
 checks still do not close positive supported-browser/live/human acceptance.
+
+The first CI browser run exposed an early Speaking Part race: initial auth
+confirmation reset preparation during runtime readiness. The topic-start
+listener now captures both topic and Part before waiting. A deferred-runtime
+React interaction reproduces that ordering and verifies one Part2 request;
+the unchanged production-built Speaking journey then passed32/32. The failed
+CI run37041993927 remains recorded; release acceptance is still pending.
