@@ -317,6 +317,48 @@ for (const theme of ['light','dark']) {
   }
 }
 
+// Discard must be reachable inside the dialog, whose backdrop blocks the page
+// controls. Check native Tab/Enter rather than invoking its handler through DOM.
+await page.locator('#prac-custom-q').fill(cue);
+await page.locator('#tab-practice [data-action="back-to-dashboard"]').click();
+await page.locator('#grammar-cta-start').click();
+await page.locator('#tab-custom').click();
+await page.locator('#topic-custom-input').fill('  modal topic  ');
+await page.locator('#tab-myq').click();
+await page.locator('#myq-input').fill('  Modal question?\nNext question?  ');
+const modalDiscard = page.locator('[role="dialog"] #speaking-modal-draft-discard');
+check('Modal exposes draft status and discard inside its focus boundary',
+  await modalDiscard.isVisible()
+    && await page.locator('#speaking-modal-draft-notice').isVisible()
+    && !(await page.locator('#speaking-draft-controls').isVisible())
+    && await discard.isDisabled()
+    && (await page.locator('#speaking-modal-draft-notice').innerText()).includes(qualified ? 'đã được lưu' : 'chưa được lưu'));
+await page.locator('#modal-close').focus();
+await page.keyboard.press('Shift+Tab'); // existing dialog trap wraps to Confirm
+await page.keyboard.press('Shift+Tab'); // previous visible button is modal discard
+check('Modal discard is reachable using the keyboard',
+  await page.evaluate(()=>document.activeElement?.id==='speaking-modal-draft-discard'));
+await page.keyboard.press('Enter');
+check('Modal keyboard discard clears its fields and preserves Practice without Start',
+  await page.locator('#myq-input').inputValue()===''
+    && await page.locator('#topic-custom-input').inputValue()===''
+    && await page.locator('#prac-custom-q').inputValue()===cue
+    && sessionPostCount===beforePreparationRestore);
+for (const theme of ['light','dark']) {
+  await page.evaluate(value=>document.documentElement.setAttribute('data-theme',value),theme);
+  for (const width of [360,390,768,1440]) {
+    await page.setViewportSize({width,height:900});
+    check(`Speaking modal draft controls ${theme}/${width}: fits and target is at least44px`,
+      await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)
+        && await modalDiscard.evaluate(el=>el.getBoundingClientRect().height>=44
+          && el.getBoundingClientRect().width>=44
+          && el.getBoundingClientRect().right<=innerWidth));
+  }
+}
+await page.locator('#modal-close').click();
+check('Closing the modal restores page controls and disables discard on dashboard',
+  await page.locator('#speaking-draft-controls').isVisible() && await discard.isDisabled());
+
 check('không có lỗi JS chưa bắt', errs.length === 0, errs[0] || '');
 
 await browser.close();
