@@ -167,7 +167,7 @@ function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview }: {
   return null;
 }
 
-function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, onLocate, getAudioPosition }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, onLocate, onListenContinuously, getAudioPosition }: {
   item: any;
   expanded: boolean;
   selected: boolean;
@@ -175,6 +175,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
   attemptId: string | null;
   onToggle(): void;
   onLocate(): void;
+  onListenContinuously(): void;
   getAudioPosition(): number | null;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
@@ -228,7 +229,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code></div> : null}
       <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
     </div>
-    {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button></div> : null}
+    {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button><button type="button" className="lr-card__ts" onClick={onListenContinuously}>Nghe tiếp từ {clock(win.start)}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
       {webExplanation && expanded
         ? <WebExplanationPanel
@@ -406,16 +407,23 @@ export function ListeningReviewWorkspace() {
     filter === 'wrong' ? !item.correct : filter === 'correct' ? item.correct : true
   )), [data, filter]);
 
-  const locate = useCallback((item: any) => {
+  const locate = useCallback((item: any, continuously = false) => {
     const win = item.audio_window;
     if (!win) return;
     const section = listeningReviewSection(item);
     if (section && data?.sections.some((row: any) => row.section_num === section)) setActiveSection(section);
     setActiveAnchor(item.transcript_anchor);
     setCurrentQuestion(item.q_num);
-    audioRef.current?.removeAttribute('segment-start');
-    audioRef.current?.removeAttribute('segment-end');
-    audioRef.current?.seekTo?.(win.start);
+    const player = audioRef.current;
+    player?.removeAttribute('auto-loop');
+    if (continuously) {
+      player?.removeAttribute('segment-start');
+      player?.removeAttribute('segment-end');
+    } else {
+      player?.setAttribute('segment-start', String(win.start));
+      player?.setAttribute('segment-end', String(win.end));
+    }
+    player?.seekTo?.(win.start);
   }, [data]);
 
   const jump = useCallback((item: any) => {
@@ -469,6 +477,7 @@ export function ListeningReviewWorkspace() {
                 });
               }}
               onLocate={() => locate(item)}
+              onListenContinuously={() => locate(item, true)}
               getAudioPosition={() => {
                 const seconds = audioRef.current?.getCurrentTime?.();
                 return Number.isFinite(seconds) ? Number(seconds) : null;
