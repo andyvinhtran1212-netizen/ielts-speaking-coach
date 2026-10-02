@@ -47,6 +47,9 @@ export type CatalogOption = {
   runtime: string | null;
   is_published: boolean;
   single_attempt_ready: boolean;
+  focus?: string | null;
+  question_count?: number;
+  article?: { category: string; slug: string; title: string } | null;
 };
 
 export type QuestionOption = {
@@ -59,7 +62,7 @@ export type QuestionOption = {
 
 export type HomeworkDraft = {
   kind: 'daily' | 'lesson';
-  skill: 'speaking' | 'reading' | 'listening' | 'course' | 'grammar';
+  skill: 'speaking' | 'reading' | 'listening' | 'course' | 'grammar' | 'grammar_lesson';
   title: string;
   contentId: string;
   mode: 'practice' | 'test_part';

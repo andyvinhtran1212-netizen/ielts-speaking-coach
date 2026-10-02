@@ -26,6 +26,10 @@ export function normalizeTally(value) {
       missing_sections: Array.isArray(row.missing_sections) ? row.missing_sections.map((value) => { const section = object(value); return { key: text(section.key), label: text(section.label) || text(section.key) }; }).filter((section) => section.key) : [],
       retakes: Math.max(0, finite(row.retakes) || 0), verdicts: Math.max(0, finite(row.verdicts) || 0),
       artifact_kind: nullableText(row.artifact_kind), artifact_id: nullableText(row.artifact_id),
+      grammar_attempt_id: nullableText(row.grammar_attempt_id),
+      grammar_answered: Math.max(0, finite(row.grammar_answered) || 0),
+      grammar_correct: finite(row.grammar_correct),
+      grammar_question_count: finite(row.grammar_question_count),
       has_writing: row.has_writing === true, writing_expected: row.writing_expected === true,
     };
   }).filter(Boolean);
