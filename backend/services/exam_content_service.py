@@ -84,22 +84,17 @@ def set_course_level(kind: str, content_id: str, level: Optional[str]) -> dict:
     return resp.data[0]
 
 
-def set_public_visibility(kind: str, content_id: str, is_public: bool) -> dict:
+def set_public_visibility(kind: str, content_id: str, is_public: bool, *, actor_id=None,
+                          expected_revision=None, overlap=None) -> dict:
     """Set self-practice visibility for one Reading/Listening test."""
     table, _ = _assert_kind(kind)
     if kind == "writing":
         raise UnknownKindError(
             "Public visibility hiện chỉ áp dụng cho đề Reading/Listening."
         )
-    resp = supabase_admin.table(table).update({
-        "is_public": bool(is_public),
-        # Compatibility cut-over: class assignment must not be rejected by
-        # clients that still understand the legacy exam_only flag.
-        "exam_only": False,
-    }).eq("id", str(content_id)).execute()
-    if not resp.data:
-        raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
-    return resp.data[0]
+    from services.mock_paper_policy import mutate
+    return mutate(supabase_admin,kind,content_id,{"is_public":bool(is_public)},actor_id,
+                  expected_revision=expected_revision,overlap=overlap)
 
 
 def publication_readiness(kind: str, row: dict) -> tuple[bool, Optional[str]]:
@@ -127,7 +122,7 @@ def publication_readiness(kind: str, row: dict) -> tuple[bool, Optional[str]]:
     return False, "Publish đề hiện chỉ áp dụng cho Reading/Listening."
 
 
-def set_status(kind: str, content_id: str, status: str) -> dict:
+def set_status(kind: str, content_id: str, status: str, *, actor_id=None, expected_revision=None) -> dict:
     """Change a paper lifecycle state from the centralized exam catalog."""
     table, _ = _assert_kind(kind)
     if kind == "writing":
@@ -144,43 +139,14 @@ def set_status(kind: str, content_id: str, status: str) -> dict:
         raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
     current = rows[0]
 
-    if next_status != "published" and current.get("status") == "published":
-        active = active_exam_assignment_references(
-            supabase_admin, kind, str(content_id),
-        )
-        if active:
-            names = ", ".join(str(item.get("title") or item["id"]) for item in active[:3])
-            raise ActiveAssignmentError(
-                f"Đề đang được giao trong bài còn nhận nộp: {names}. Hãy đóng bài giao trước."
-            )
-        # A mock exam owns the same paper by direct FK, independently of class
-        # homework. Depublishing it would leave the exam pointing at content the
-        # student player is no longer allowed to serve. Archived exams are
-        # intentionally ignored by live_exams_using().
-        from services import mock_exam_service
-        try:
-            live_exams = mock_exam_service.live_exams_using(kind, content_id)
-        except mock_exam_service.MockExamError as exc:
-            raise LifecycleLookupError(str(exc)) from exc
-        if live_exams:
-            names = ", ".join(
-                str(item.get("code") or item["id"]) for item in live_exams[:3]
-            )
-            raise ActiveMockExamError(
-                f"Đề đang được dùng trong mock test chưa lưu trữ: {names}. "
-                "Hãy lưu trữ hoặc đổi đề của mock test trước."
-            )
-
     if next_status == "published":
         ready, reason = publication_readiness(kind, current)
         if not ready:
             raise ContentNotReadyError(reason or "Đề chưa sẵn sàng để publish.")
 
-    updated = (
-        supabase_admin.table(table).update({"status": next_status})
-        .eq("id", str(content_id)).execute().data or []
-    )
-    return updated[0] if updated else {**current, "status": next_status}
+    from services.mock_paper_policy import mutate
+    return mutate(supabase_admin, kind, content_id, {"status": next_status}, actor_id,
+                  expected_revision=expected_revision)
 
 
 def _assert_content_exists(kind: str, content_id: str) -> None:

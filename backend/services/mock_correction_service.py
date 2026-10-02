@@ -272,10 +272,10 @@ def approve_paper_explanations(
     return str(result["content_version"])
 
 
-def apply_scoring_overrides(skill: str, test_id: str, answer_key: list[dict]) -> list[dict]:
+def apply_scoring_overrides(skill: str, test_id: str, answer_key: list[dict], *, frozen_rows=None) -> list[dict]:
     """Overlay only human-adjudicated matcher variants on the runtime key."""
     overrides: dict[int, dict] = {}
-    for row in _current_explanation_rows(skill, test_id):
+    for row in _current_explanation_rows(skill, test_id) if frozen_rows is None else frozen_rows:
         payload = row.get("payload") or {}
         adjudication = (payload.get("audit") or {}).get("release_adjudication") or {}
         if adjudication.get("override_version") != "cambridge-release-overrides/1.0":
@@ -839,6 +839,9 @@ def update_class_assignment_policy(assignment_id: str, patch: dict, actor_id: st
             },
         ).execute().data
     except Exception as exc:  # noqa: BLE001 — translate stable RPC markers
+        from services.mock_paper_policy import database_policy_error
+        if policy_error := database_policy_error(exc):
+            raise policy_error from exc
         message = str(exc)
         if "class_assignment_not_found" in message:
             raise NotFoundError("Không tìm thấy bài giao.") from exc
@@ -930,6 +933,9 @@ def update_public_test_policy(skill: str, test_id: str, patch: dict, actor_id: s
             },
         ).execute().data
     except Exception as exc:  # noqa: BLE001 — translate stable RPC markers
+        from services.mock_paper_policy import database_policy_error
+        if policy_error := database_policy_error(exc):
+            raise policy_error from exc
         message = str(exc)
         if "public_test_not_found" in message:
             raise NotFoundError("Không tìm thấy đề.") from exc

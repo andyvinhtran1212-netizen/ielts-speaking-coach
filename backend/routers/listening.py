@@ -1776,6 +1776,14 @@ async def admin_upsert_listening_exercise(
     ):
         validated_payload = dict(current_exercise.get("payload") or {})
 
+    from services.mock_response_policy import authored_response_policies, ResponsePolicyError
+    from services.listening_test_grader import collect_answer_key
+    try:
+        policies = authored_response_policies("listening", [{"payload": validated_payload}])
+        collect_answer_key([{"payload": validated_payload}], pinned_policies=policies)
+    except ResponsePolicyError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
     payload = {
         "content_id":    body.content_id,
         "exercise_type": body.exercise_type,
@@ -2503,19 +2511,10 @@ async def admin_patch_listening_test(
         update["title"] = title
 
     if body.exam_only is not None:
-        if not body.exam_only:
-            from services import mock_exam_service
-            try:
-                mock_exam_service.assert_can_unreserve("listening", test_id)
-            except mock_exam_service.SittingConflictError as e:
-                raise HTTPException(409, str(e))
-            except mock_exam_service.MockExamError as e:
-                raise HTTPException(503, str(e))
         update["exam_only"] = bool(body.exam_only)
 
     if body.is_public is not None:
         update["is_public"] = bool(body.is_public)
-        update["exam_only"] = False
 
     if body.version is not None:
         update["version"] = body.version.strip() or "1.0"
@@ -4801,6 +4800,8 @@ class _ListeningAttemptStartRequest(BaseModel):
     """
 
     renderer_affinity_protocol: Literal["claim-v1"] | None = None
+    purpose: Literal["practice", "assigned_practice", "mock_delivery"] | None = None
+    mock_sitting_id: uuid.UUID | None = None
 
 
 class _ListeningAttemptRendererAffinityRequest(BaseModel):
@@ -5056,7 +5057,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
             .execute().data or []
         )
         tests = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select(
                 "id,title,programme_id,listening_lesson_id,source_item_count,created_at"
             )
@@ -5189,7 +5190,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     tests: dict[str, int] = {}
     for kind in ("full", "mini", "drill", "practice"):
         q = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select("id", count="exact")
             .eq("status", "published")
             .eq("test_type", kind)
@@ -5232,7 +5233,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     practice_groups: dict[str, int] = {}
     if tests.get("practice"):
         pgq = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select("metadata")
             .eq("status", "published")
             .eq("test_type", "practice")
@@ -5288,7 +5289,7 @@ async def list_listening_programme_lessons(
     all_lessons = lessons_response.data or []
     lesson_ids = [str(row["id"]) for row in all_lessons]
     forms = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select("id,listening_lesson_id")
         .eq("programme_id", programme_id)
         .eq("status", "published")
@@ -5364,7 +5365,7 @@ async def get_listening_programme_lesson(
         raise HTTPException(404, "Listening lesson not found")
     lesson = rows[0]
     forms = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select(
             "id,test_id,source_form_id,title,form_purpose,replay_policy,"
             "support_policy,scoring_policy,source_item_count,"
@@ -5497,7 +5498,7 @@ async def list_published_listening_tests(
         raise HTTPException(422, "programme_id is not supported")
 
     q = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select("*", count="exact")
         .eq("status", "published")
         # Audio-readiness is filtered in SQL, BEFORE .range(). It used to be a
@@ -5621,8 +5622,9 @@ def _listening_test_is_public(test: dict) -> bool:
 
 
 def _assert_listening_exam_content_allowed(
-    test: dict, user_id, class_item: str | None = None, *, allow_public: bool = True
-) -> None:
+    test: dict, user_id, class_item: str | None = None, *, allow_public: bool = True,
+    purpose="delivery", sitting_id=None, allow_admission=False
+) -> dict:
     """A test reserved for mock exams is served ONLY to a student sitting one.
 
     Hiding it from the browse list is not enough — a direct link went straight
@@ -5634,21 +5636,10 @@ def _assert_listening_exam_content_allowed(
     404, not 403: to anyone without a sitting the paper does not exist, and
     "forbidden" would confirm the test id is real.
     """
-    if _listening_test_is_public(test):
-        return
-    from services import mock_correction_service
-    # public_practice_enabled is deploy-order compatibility only. Once the
-    # canonical column is present, an explicit is_public=false must win.
-    if (allow_public and "is_public" not in test
-            and test.get("public_practice_enabled")):
-        return
-    if mock_correction_service.class_item_entitles_exam_only(
-        user_id, class_item, skill="listening", test_id=test.get("id")
-    ):
-        return
-    from services import mock_exam_service
-    if not mock_exam_service.user_may_open_exam_content(user_id, "listening", test.get("id")):
-        raise HTTPException(404, "Test bundle not found or not published")
+    from services.mock_paper_policy import authorize
+    return authorize(supabase_admin, "listening", test["id"], user_id,
+        purpose=purpose if allow_public else "dictation", class_item_id=class_item,
+        sitting_id=sitting_id, allow_admission=allow_admission)
 
 
 def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True) -> dict:
@@ -5814,6 +5805,7 @@ async def get_published_listening_test(
     test_id: uuid.UUID,
     class_item: str | None = None,
     attempt_id: uuid.UUID | None = None,
+    sitting_id: uuid.UUID | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a published test bundle for the student player.
@@ -5838,7 +5830,7 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
-    _assert_listening_exam_content_allowed(test, _user.get("id"), class_item)
+    _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
     include_audio = True
     if test.get("replay_policy") == "once":
         if attempt_id is None:
@@ -7236,7 +7228,8 @@ async def get_in_progress_listening_attempt(
         supabase_admin.table("listening_test_attempts")
         .select(
             "id, started_at, created_at, answers, renderer_affinity, "
-            "resume_expires_at, status, playback_started_at"
+            "resume_expires_at, status, playback_started_at,user_id,test_id,sitting_id,"
+            "class_assignment_item_id,attempt_purpose,paper_revision,policy_revision"
         )
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
@@ -7272,8 +7265,11 @@ async def get_in_progress_listening_attempt(
     if not res.data or not is_resume_active(res.data[0]):
         return {"attempt": None}
     row = res.data[0]
+    from services.mock_paper_policy import guard_owned_attempt, attempt_receipt
+    guard_owned_attempt(supabase_admin, "listening", row, purpose="resume")
     return {
         "attempt": {
+            **attempt_receipt(row),
             "attempt_id": row["id"],
             "started_at": row.get("started_at") or row.get("created_at"),
             # Only answers with real content — a blank row is not progress and
@@ -7325,10 +7321,23 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
-    _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item)
+    decision = _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item,
+        purpose=body.purpose if body and body.purpose else "delivery",
+        sitting_id=body.mock_sitting_id if body else None, allow_admission=True)
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
+
+    if decision["attempt_purpose"] == "mock_delivery":
+        if standalone or class_item:
+            raise HTTPException(422, "mock_delivery cannot be combined with standalone or class_item")
+        from services.mock_paper_policy import admit_mock_attempt
+        admit_start()
+        admitted = admit_mock_attempt(supabase_admin, "listening", test_id, user["id"],
+            decision["mock_sitting_id"], affinity_protocol=body.renderer_affinity_protocol if body else None)
+        bind_owned_attempt({"id": admitted["attempt_id"], "test_id": test_id,
+            "user_id": user["id"], "status": admitted["status"]}, started=not admitted.get("acquired_existing"))
+        return admitted
 
     # Imported programme forms have one canonical standalone resume-or-create
     # path. The legacy start-over path abandons the previous row before its
@@ -7448,13 +7457,16 @@ async def start_listening_test_attempt(
     # never has to work it out afterwards (mig 181).
     if class_item:
         payload["class_assignment_item_id"] = class_item
-    (
+    inserted = (
         supabase_admin.table("listening_test_attempts")
         .insert(payload)
         .execute()
     )
     bind_owned_attempt(payload, started=True)
+    from services.mock_paper_policy import attempt_receipt
+    canonical = inserted.data[0] if inserted.data else payload
     return {
+        **attempt_receipt(canonical),
         "attempt_id": attempt_id,
         "status": "in_progress",
         "started_at": started_at,
@@ -7734,12 +7746,15 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
             or attempt.get("class_assignment_item_id")
             or attempt.get("sitting_id")):
         raise HTTPException(422, "Đối chiếu từng câu không áp dụng cho bài này.")
+    from services.mock_paper_policy import guard_owned_attempt, load_marking_snapshot
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="guided_feedback")
+    snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
     result = (
         supabase_admin.table("listening_tests")
         .select("id,status,is_public,scoring_policy,programme_id,replay_policy,content_package_id,metadata")
         .eq("id", attempt["test_id"]).limit(1).execute()
     )
-    test = result.data[0] if result.data else None
+    test = snapshot["paper_row"] if snapshot else (result.data[0] if result.data else None)
     if (not test or test.get("status") != "published"
             or not test.get("is_public")
             or test.get("scoring_policy") != "report_only"
@@ -7755,7 +7770,7 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
     )
     if not package.data or package.data[0].get("status") != "published":
         raise HTTPException(422, "Nội dung bài luyện hiện không khả dụng.")
-    return test, _practice_exercise_payloads(attempt["test_id"], published_only=True)
+    return test, snapshot["marking_rows"] if snapshot else _practice_exercise_payloads(attempt["test_id"], published_only=True)
 
 
 def _programme_guided_item(
@@ -7950,6 +7965,8 @@ async def check_listening_practice_answer(
 
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
+    if attempt.get("sitting_id") or attempt.get("attempt_purpose") == "mock_delivery":
+        raise HTTPException(404, "Practice feedback unavailable")
     if not body.reveal:
         # A per-question grade is an operation, never a new attempt or final
         # result. Reveal is read-only and must not claim mutation evidence.
@@ -8132,22 +8149,29 @@ async def submit_listening_test_attempt(
 
     # Pull the test's exercises + extract the answer key.
     test_id = attempt["test_id"]
-    sec_res = (
-        supabase_admin.table("listening_content")
-        .select("id")
-        .eq("test_id", test_id)
-        .execute()
-    )
-    section_ids = [r["id"] for r in (sec_res.data or [])]
-    if not section_ids:
-        raise HTTPException(500, "Test bundle thiếu section rows.")
+    from services.mock_paper_policy import load_marking_snapshot, guard_owned_attempt
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="submit")
+    marking_snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
+    if marking_snapshot is not None:
+        from types import SimpleNamespace
+        ex_res = SimpleNamespace(data=marking_snapshot["marking_rows"])
+    else:
+        sec_res = (
+            supabase_admin.table("listening_content")
+            .select("id")
+            .eq("test_id", test_id)
+            .execute()
+        )
+        section_ids = [r["id"] for r in (sec_res.data or [])]
+        if not section_ids:
+            raise HTTPException(500, "Test bundle thiếu section rows.")
 
-    ex_res = (
-        supabase_admin.table("listening_exercises")
-        .select("payload")
-        .in_("content_id", section_ids)
-        .execute()
-    )
+        ex_res = (
+            supabase_admin.table("listening_exercises")
+            .select("payload")
+            .in_("content_id", section_ids)
+            .execute()
+        )
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         report = grader.grade_report_only_attempt(
             attempt.get("answers") or [], ex_res.data or [], source_required=_source_required_for_test(test_id),
@@ -8187,11 +8211,15 @@ async def submit_listening_test_attempt(
             "status": "submitted",
             **report,
         }
-    answer_key = grader.collect_answer_key(ex_res.data or [])
     from services import mock_correction_service
-    answer_key = mock_correction_service.apply_scoring_overrides(
-        "listening", test_id, answer_key
-    )
+    from services.mock_paper_policy import frozen_answer_key
+    answer_key = frozen_answer_key(supabase_admin, "listening", attempt)
+    if answer_key is None:
+        answer_key = grader.collect_answer_key(ex_res.data or [])
+        from services import mock_correction_service
+        answer_key = mock_correction_service.apply_scoring_overrides(
+            "listening", test_id, answer_key
+        )
 
     result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
     now_iso = datetime.now(timezone.utc).isoformat()

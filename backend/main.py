@@ -478,6 +478,12 @@ def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
 # immediately; logging happens in the background.
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
+    from services.mock_paper_policy import safe_database_error
+    policy_error = safe_database_error(exc, operator=request.url.path.startswith(("/api/admin/", "/admin/")))
+    if policy_error is not None:
+        status, detail = policy_error
+        return JSONResponse(status_code=status, content={"detail": detail},
+                            headers=_cors_headers_for_origin(request.headers.get("origin")))
     import asyncio as _asyncio
     import traceback as _traceback
     import uuid as _uuid
