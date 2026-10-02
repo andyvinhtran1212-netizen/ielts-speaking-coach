@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -260,7 +261,13 @@ class _Q:
         return True
 
     def execute(self):
-        rows = self.fake.tables.setdefault(self.name, [])
+        if self.name == "listening_public_practice_catalog":
+            # Migration 306's service-only view excludes non-public papers
+            # before count/range. These fixtures have no protected mock refs.
+            rows = [row for row in self.fake.tables["listening_tests"]
+                    if row.get("status") == "published" and row.get("is_public") is True]
+        else:
+            rows = self.fake.tables.setdefault(self.name, [])
         if self._mode == "insert":
             payload = self._payload
             payloads = payload if isinstance(payload, list) else [payload]
@@ -324,6 +331,56 @@ class _Fake:
     # asserting against a stub: replace-by-q_num, keep sorted, only touch an
     # in_progress attempt, return the new count (None when nothing matched).
     def rpc(self, name, params):
+        if name == "fn_resolve_mock_paper_access":
+            assert params["p_skill"] == "listening"
+            paper = next((row for row in self.tables["listening_tests"]
+                          if row["id"] == params["p_test_id"]), None)
+            allowed = (paper is not None and paper.get("status") == "published"
+                       and paper.get("is_public") is True
+                       and params["p_sitting_id"] is None
+                       and params["p_purpose"] in {"delivery", "practice", "dictation"})
+            return _RpcResult({"allowed": allowed, "reason": "unavailable",
+                               "attempt_purpose": "practice" if allowed else None})
+        if name == "fn_guard_owned_mock_attempt":
+            assert params["p_skill"] in {"reading", "listening"}
+            supplied = params["p_attempt"]
+            skill = params["p_skill"]
+            row = next((row for row in self.tables.get(f"{skill}_test_attempts", [])
+                        if row.get("id") == supplied["id"]
+                        and row.get("user_id") == supplied.get("user_id")
+                        and row.get("test_id") == supplied.get("test_id")), None)
+            submitted_read = (row is not None and row.get("status") == "submitted"
+                              and params["p_purpose"] in {"flags_read", "review"})
+            active = (row is not None and row.get("status") == "in_progress"
+                      and row.get("resume_expires_at") is not None
+                      and datetime.fromisoformat(row["resume_expires_at"].replace("Z", "+00:00"))
+                      > datetime.now(timezone.utc))
+            mock_bound = False
+            if active and row.get("sitting_id") and row.get("paper_revision") is None:
+                sitting = next((s for s in self.tables.get("mock_exam_sittings", [])
+                                if s["id"] == row["sitting_id"]), None)
+                exam = next((e for e in self.tables.get("mock_exams", [])
+                             if sitting and e["id"] == sitting["mock_exam_id"]), None)
+                if sitting and exam:
+                    started = datetime.fromisoformat(exam[f"{skill}_started_at"])
+                    now = datetime.now(timezone.utc)
+                    paper = next((p for p in self.tables.get(f"{skill}_tests", [])
+                                  if p["id"] == row["test_id"]), {})
+                    duration = (exam.get("reading_minutes", 60) * 60 if skill == "reading"
+                                else (paper.get("full_audio_duration_seconds") or 1800) + 120)
+                    mock_bound = (sitting["user_id"] == row["user_id"]
+                                  and sitting.get(f"{skill}_attempt_id") == row["id"]
+                                  and sitting.get("status") != "void"
+                                  and sitting.get(f"{skill}_submitted_at") is None
+                                  and exam.get("status") == "published"
+                                  and exam.get(f"{skill}_test_id") == row["test_id"]
+                                  and exam.get("exam_mode") == "sequential"
+                                  and exam.get("active_section") == skill
+                                  and exam.get("collected_section") != skill
+                                  and 0 <= (now - started).total_seconds() <= duration)
+            return _RpcResult({"allowed": submitted_read or mock_bound or (
+                active and not row.get("sitting_id")
+                and row.get("attempt_purpose") != "mock_delivery")})
         if name == "fn_acquire_listening_programme_attempt":
             rows = self.tables["listening_test_attempts"]
             active = [
@@ -805,8 +862,12 @@ def test_programme_drain_returns_conflict_without_abandoning_existing_attempt(mo
     }
     fake.tables["listening_test_attempts"].append(existing)
 
-    def paused_acquire(_name, _params):
-        raise RuntimeError("listening_programme_new_starts_paused")
+    rpc = fake.rpc
+
+    def paused_acquire(name, params):
+        if name == "fn_acquire_listening_programme_attempt":
+            raise RuntimeError("listening_programme_new_starts_paused")
+        return rpc(name, params)
 
     fake.rpc = paused_acquire
     with pytest.raises(HTTPException) as exc:
@@ -860,6 +921,15 @@ def test_standalone_resume_never_returns_a_mock_attempt(monkeypatch):
         "id": "mock-att", "test_id": test["id"], "user_id": "user-1",
         "status": "in_progress", "sitting_id": "sit-1", "answers": [],
     })
+    fake.tables["mock_exam_sittings"] = [{
+        "id": "sit-1", "mock_exam_id": "exam-1", "user_id": "user-1",
+        "status": "in_progress", "listening_attempt_id": "mock-att",
+    }]
+    fake.tables["mock_exams"] = [{
+        "id": "exam-1", "status": "published", "exam_mode": "sequential",
+        "active_section": "listening", "listening_test_id": test["id"],
+        "listening_started_at": datetime.now(timezone.utc).isoformat(),
+    }]
     out = _run(listening_router.get_in_progress_listening_attempt(
         test_id=test["id"], sitting_id=None, authorization=authz,
     ))
