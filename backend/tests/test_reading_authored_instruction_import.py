@@ -6,6 +6,7 @@ import pytest
 import yaml
 
 from services.content_import_service import (
+    build_reading_question_payloads,
     build_reading_test_payloads,
     parse_reading_test,
     validate_reading_test,
@@ -32,6 +33,7 @@ def _document():
                     "question_type": "matching_information",
                     "prompt": "A comparison between two views",
                     "instruction": "Read paragraphs A–G.\nNB You may use a letter more than once.",
+                    "paragraph_labels": list("ABCDEFGH"),
                     "template": {"paragraph_labels": list("ABCDEFG")},
                     "answer": "G",
                     "alternatives": [],
@@ -84,7 +86,7 @@ def test_existing_import_roundtrip_preserves_authored_fields_and_protected_answe
     for authored, row in zip(document["passages"][0]["questions"], rows, strict=True):
         expected_payload = {
             key: authored[key]
-            for key in ("instruction", "word_limit", "options", "template", "solution")
+            for key in ("instruction", "word_limit", "paragraph_labels", "options", "template", "solution")
             if key in authored
         }
         assert row["payload"] == expected_payload
@@ -94,6 +96,31 @@ def test_existing_import_roundtrip_preserves_authored_fields_and_protected_answe
         assert row["question_type"] == authored["question_type"]
         assert row["skill_tag"] == authored["skill_tag"]
     assert document == original
+
+
+@pytest.mark.parametrize("invalid", [None, True, 2, "ABCDEFGH", {}, [],
+    ["A", 1], ["A", False], ["A", {}], ["A", []], [None], [""], [" \n "]])
+def test_paragraph_labels_rejects_malformed_authored_bank_without_coercion(invalid):
+    document = _document()
+    question = document["passages"][0]["questions"][0]
+    question["paragraph_labels"] = invalid
+    errors = validate_reading_test(_parse(document))
+    assert any("'paragraph_labels:'" in error["message"] for error in errors)
+    with pytest.raises(ValueError, match="paragraph_labels"):
+        build_reading_question_payloads([question], "synthetic-passage")
+
+
+def test_paragraph_labels_preserves_authored_strings_without_relocating_template():
+    document = _document()
+    question = document["passages"][0]["questions"][0]
+    bank = [" A ", "B", "Section III", "G"]
+    question["paragraph_labels"] = bank
+    parsed = _parse(document)
+    assert validate_reading_test(parsed) == []
+    row = build_reading_test_payloads(parsed)["passage_questions"][0][1][0]
+    assert row["payload"]["paragraph_labels"] == bank
+    assert row["payload"]["template"] == question["template"]
+    assert row["answer"] == {"answer": "G", "alternatives": []}
 
 
 @pytest.mark.parametrize("field_name", ["instruction", "word_limit"])
@@ -110,9 +137,11 @@ def test_absent_authored_instruction_fields_keep_the_legacy_payload_shape():
     for question in document["passages"][0]["questions"]:
         question.pop("instruction", None)
         question.pop("word_limit", None)
+        question.pop("paragraph_labels", None)
     parsed = _parse(document)
     assert validate_reading_test(parsed) == []
     for _, rows in build_reading_test_payloads(parsed)["passage_questions"]:
         for row in rows:
             assert "instruction" not in row["payload"]
             assert "word_limit" not in row["payload"]
+            assert "paragraph_labels" not in row["payload"]
