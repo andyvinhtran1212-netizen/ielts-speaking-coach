@@ -146,12 +146,16 @@ function NotesTemplate({ template, answers, onAnswer }: { template: any; answers
   const groups = Array.isArray(template?.groups) ? template.groups : [];
   return <div className="ielts-notes-container">
     {template?.heading ? <div className="ielts-notes-heading"><InlineText text={template.heading} /></div> : null}
-    {groups.map((group: any, index: number) => <div className="ielts-notes-group" key={index}>
-      {group.heading ? <div className="ielts-notes-group-heading"><InlineText text={group.heading} /></div> : null}
+    {groups.map((group: any, index: number) => {
+      const headingSegments = Array.isArray(group.heading_segments) && group.heading_segments.length ? group.heading_segments : null;
+      return <div className="ielts-notes-group" key={index}>
+      {headingSegments || group.heading ? <div className="ielts-notes-group-heading">
+        {headingSegments ? headingSegments.map((segment: any, part: number) => <Fragment key={part}>{part ? ' ' : null}<Segment segment={segment} answers={answers} onAnswer={onAnswer} /></Fragment>) : <InlineText text={group.heading} />}
+      </div> : null}
       <ul className="ielts-notes-list">{(group.items || []).map((item: any, itemIndex: number) => <li key={itemIndex}>
         {item?.q_num != null ? <GapWithNumber qNum={Number(item.q_num)} value={answers.get(Number(item.q_num)) || ''} onAnswer={onAnswer} prefix={item.prefix || ''} suffix={item.suffix || ''} /> : <InlineText text={String(item?.text || '')} />}
       </li>)}</ul>
-    </div>)}
+    </div>; })}
   </div>;
 }
 
@@ -221,8 +225,12 @@ function SelectTemplate({ payload, questions, answers, onAnswer, plan }: {
   const image = payload?.map_svg
     ? `data:image/svg+xml;utf8,${encodeURIComponent(String(payload.map_svg))}`
     : payload?.map_image_url || '';
+  const authoredHeading = typeof payload?.template?.heading === 'string' ? payload.template.heading.trim() : '';
+  const first = Number(questions[0]?.q_num || 0);
+  const last = Number(questions.at(-1)?.q_num || first);
+  const imageAlt = authoredHeading || `Map or plan for questions ${first}${first === last ? '' : ` to ${last}`}`;
   return <div className={plan ? 'ielts-plan-container' : 'ielts-matching'}>
-    {plan ? <div className="ielts-plan-image">{image ? <img className="ielts-map-rendered" src={image} alt="Floor plan map" /> : <p className="ielts-notice">Hình map chưa được tạo cho exercise này.</p>}</div> : null}
+    {plan ? <div className="ielts-plan-image">{image ? <img className="ielts-map-rendered" src={image} alt={imageAlt} /> : <p className="ielts-notice">Hình map chưa được tạo cho exercise này.</p>}</div> : null}
     {!plan && bank.length ? <div className="ielts-match-bank"><ul className="ielts-match-bank__list">{bank.map((item: any) => <li key={optionValue(item)}><strong>{optionValue(item)}</strong> <InlineText text={optionText(item)} /></li>)}</ul></div> : null}
     <div className={plan ? 'ielts-plan-labels' : 'ielts-match-rows'}>{questions.map((question) => {
       const qNum = Number(question.q_num);
@@ -281,6 +289,32 @@ function MatchingMatrixTemplate({ payload, questions, answers, onAnswer }: {
   </div>;
 }
 
+function FlowChartTemplate({ payload, answers, onAnswer }: {
+  payload: any; answers: AnswerMap; onAnswer(q: number, v: string): void;
+}) {
+  const template = payload.template;
+  const bank = Array.isArray(payload?.metadata?.match_options) ? payload.metadata.match_options : [];
+  const letters = bank.map(optionValue);
+  return <div className="listening-next-flow-chart">
+    {bank.length ? <aside className="listening-next-match-bank" aria-label="Flow chart options"><strong>Options</strong><ul>{bank.map((option: any) => <li key={optionValue(option)}><b>{optionValue(option)}</b> <InlineText text={optionText(option)} /></li>)}</ul></aside> : null}
+    {template.heading ? <h3><InlineText text={template.heading} /></h3> : null}
+    <ol className="listening-next-flow-steps" aria-label="Flow chart stages">{template.steps.map((step: any, index: number) => {
+      const qNum = Number(step.q_num);
+      return <li key={qNum || index}>
+        {step.q_num != null ? <div className="listening-next-flow-step" id={`q-${qNum}`}>
+          <span className="ielts-question-num">{qNum}</span>
+          <InlineText text={step.prefix || ''} />
+          {bank.length ? <select className="ft-q-input ielts-gap-input" data-q-num={qNum} aria-label={`Answer ${qNum}`} value={answers.get(qNum) || ''} onChange={(event) => onAnswer(qNum, event.target.value)}>
+            <option value="">—</option>{letters.map((letter: string) => <option key={letter} value={letter}>{letter}</option>)}
+          </select> : <GapInput qNum={qNum} value={answers.get(qNum) || ''} onAnswer={onAnswer} />}
+          <InlineText text={step.suffix || ''} />
+        </div> : <div className="listening-next-flow-step"><InlineText text={step.text || ''} /></div>}
+        {index < template.steps.length - 1 ? <span className="listening-next-flow-arrow" aria-hidden="true">↓</span> : null}
+      </li>;
+    })}</ol>
+  </div>;
+}
+
 function Exercise({ exercise, answers, saveStates, onAnswer }: {
   exercise: any; answers: AnswerMap; saveStates: SaveMap; onAnswer(q: number, v: string): void;
 }) {
@@ -296,6 +330,7 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   else if (kind === 'notes_completion' && Array.isArray(template.groups)) content = <NotesTemplate template={template} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'summary_completion') content = <SummaryTemplate template={template} questions={questions} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'sentence_completion') content = <SentenceTemplate template={template} questions={questions} answers={answers} onAnswer={onAnswer} />;
+  else if (kind === 'flow_chart_completion' && payload.metadata?.flow_direction === 'top_to_bottom' && Array.isArray(template.steps) && template.steps.length) content = <FlowChartTemplate payload={payload} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'mcq_3option') content = <McqTemplate questions={questions} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'mcq_multi') content = <MultiSelectTemplate payload={payload} questions={questions} answers={answers} onAnswer={onAnswer} />;
   else if (kind === 'matching') content = <MatchingMatrixTemplate payload={payload} questions={questions} answers={answers} onAnswer={onAnswer} />;

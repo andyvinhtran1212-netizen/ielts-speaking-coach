@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import { WebExplanationPanel } from '@/components/web-explanation-panel';
 import {
   listeningBandLabel,
+  listeningReviewAnswerState,
   listeningReviewBackTarget,
   listeningReviewParams,
   listeningReviewSection,
@@ -92,7 +93,7 @@ function WhyCorrect({ value }: { value: unknown }) {
   if (!paragraphs.length) return null;
   return <>{paragraphs.map((paragraph, index) => {
     const vi = hasVietnamese(paragraph);
-    const rows = bulletRows(paragraph);
+    const rows = paragraph.split(/\n+/).map((row) => row.trim().replace(/^[-•]\s*/, '')).filter(Boolean);
     return <div className={`lr-why lr-why--${vi ? 'vi' : 'en'}`} key={`${index}-${paragraph}`}>
       <span className="lr-why__lang">{vi ? 'VN' : 'EN'}</span>
       {rows.length > 1
@@ -167,7 +168,7 @@ function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview }: {
   return null;
 }
 
-function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, onLocate, getAudioPosition }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, onLocate, onListenContinuously, getAudioPosition }: {
   item: any;
   expanded: boolean;
   selected: boolean;
@@ -175,12 +176,14 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
   attemptId: string | null;
   onToggle(): void;
   onLocate(): void;
+  onListenContinuously(): void;
   getAudioPosition(): number | null;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
   const flagRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
+  const answerState = preview ? (item.correct ? 'correct' : 'incorrect') : listeningReviewAnswerState(item);
   const webExplanation = item.web_explanation_object;
   const vocab = bulletRows(solution.vocab_focus || solution.vocab);
   const hasSolutionDetail = Boolean(solution.translation_vi || vocab.length || solution.paraphrase
@@ -199,7 +202,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
   return <article
     ref={cardRef}
     id={`listening-review-q-${item.q_num}`}
-    className={`lr-card ${item.correct ? 'is-correct' : 'is-incorrect'}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
+    className={`lr-card is-${answerState}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
     data-q={item.q_num}
     data-correct={item.correct ? 'true' : 'false'}
     aria-current={selected ? 'true' : undefined}
@@ -218,7 +221,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
         onKeyDown={keyToggle}
       >
         <span className="lr-card__num">Câu {item.q_num}</span>
-        {!preview ? <span className="lr-card__verdict">{item.correct ? '✓ Đúng' : '✗ Sai'}</span> : null}
+        {!preview ? <span className="lr-card__verdict">{answerState === 'correct' ? '✓ Đúng' : answerState === 'unanswered' ? 'Bỏ trống' : '✗ Sai'}</span> : null}
         <span className="lr-card__toggle">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'} ▸</span>
       </div>
       <div ref={flagRef} className="lr-card__flag" />
@@ -228,7 +231,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code></div> : null}
       <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
     </div>
-    {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button></div> : null}
+    {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button><button type="button" className="lr-card__ts" onClick={onListenContinuously}>Nghe tiếp từ {clock(win.start)}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
       {webExplanation && expanded
         ? <WebExplanationPanel
@@ -406,16 +409,23 @@ export function ListeningReviewWorkspace() {
     filter === 'wrong' ? !item.correct : filter === 'correct' ? item.correct : true
   )), [data, filter]);
 
-  const locate = useCallback((item: any) => {
+  const locate = useCallback((item: any, continuously = false) => {
     const win = item.audio_window;
     if (!win) return;
     const section = listeningReviewSection(item);
     if (section && data?.sections.some((row: any) => row.section_num === section)) setActiveSection(section);
     setActiveAnchor(item.transcript_anchor);
     setCurrentQuestion(item.q_num);
-    audioRef.current?.removeAttribute('segment-start');
-    audioRef.current?.removeAttribute('segment-end');
-    audioRef.current?.seekTo?.(win.start);
+    const player = audioRef.current;
+    player?.removeAttribute('auto-loop');
+    if (continuously) {
+      player?.removeAttribute('segment-start');
+      player?.removeAttribute('segment-end');
+    } else {
+      player?.setAttribute('segment-start', String(win.start));
+      player?.setAttribute('segment-end', String(win.end));
+    }
+    player?.seekTo?.(win.start);
   }, [data]);
 
   const jump = useCallback((item: any) => {
@@ -469,6 +479,7 @@ export function ListeningReviewWorkspace() {
                 });
               }}
               onLocate={() => locate(item)}
+              onListenContinuously={() => locate(item, true)}
               getAudioPosition={() => {
                 const seconds = audioRef.current?.getCurrentTime?.();
                 return Number.isFinite(seconds) ? Number(seconds) : null;
@@ -486,11 +497,13 @@ export function ListeningReviewWorkspace() {
         <div className="lr-palette-strip" role="group" aria-label={`${data.review.length} câu — chọn để chữa`}>{data.review.map((item: any, index: number) => {
           const section = listeningReviewSection(item);
           const previousSection = index ? listeningReviewSection(data.review[index - 1]) : null;
+          const answerState = listeningReviewAnswerState(item);
+          const answerLabel = answerState === 'correct' ? 'đúng' : answerState === 'unanswered' ? 'bỏ trống' : 'sai';
           return <Fragment key={item.q_num}>{index > 0 && section !== null && section !== previousSection ? <span className="lr-palette-sep" aria-hidden="true" /> : null}<button
             type="button"
-            className={`lr-nav-q${data.preview ? '' : ` ${item.correct ? 'is-correct' : 'is-incorrect'}`}${currentQuestion === item.q_num ? ' is-current' : ''}`}
+            className={`lr-nav-q${data.preview ? '' : ` is-${answerState}`}${currentQuestion === item.q_num ? ' is-current' : ''}`}
             aria-current={currentQuestion === item.q_num ? 'true' : undefined}
-            aria-label={`Câu ${item.q_num}${data.preview ? ' — xem trước' : ` — ${item.correct ? 'đúng' : 'sai'}`}`}
+            aria-label={`Câu ${item.q_num}${data.preview ? ' — xem trước' : ` — ${answerLabel}`}`}
             onClick={() => jump(item)}
           >{item.q_num}</button></Fragment>;
         })}</div>
