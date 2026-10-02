@@ -95,6 +95,8 @@ _READING_QUESTION_TYPES_REQUIRE_OPTIONS = (
     "mcq_multi", "matching_features", "matching_sentence_endings",
 )
 
+_READING_AUTHORED_INSTRUCTION_FIELDS = ("instruction", "word_limit")
+
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
                       r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
@@ -513,6 +515,14 @@ def validate_reading_questions(questions: Any) -> list[dict]:
             except ResponsePolicyError as exc:
                 err(f"{label}: response_policy không hợp lệ: {exc}.")
 
+        # These are authored display/rubric strings, not values to coerce or
+        # infer from the answer key. Preserve valid text exactly in the builder.
+        for field_name in _READING_AUTHORED_INSTRUCTION_FIELDS:
+            if field_name in q and (
+                not isinstance(q[field_name], str) or not q[field_name].strip()
+            ):
+                err(f"{label}: '{field_name}:' phải là chuỗi không rỗng.")
+
         # F2 — options-list questions need a non-empty `options:` of
         # {label, text} entries. (Other Phase 1 types — T/F/NG, Y/N/NG,
         # *_completion, short_answer — don't need options.)
@@ -576,6 +586,9 @@ def build_reading_question_payloads(questions: list, passage_id: str) -> list[di
     rows: list[dict] = []
     for i, q in enumerate(questions):
         payload: dict = {}
+        for field_name in _READING_AUTHORED_INSTRUCTION_FIELDS:
+            if isinstance(q.get(field_name), str) and q[field_name].strip():
+                payload[field_name] = q[field_name]
         if isinstance(q.get("options"), list):
             payload["options"] = q["options"]
         if isinstance(q.get("template"), dict):
