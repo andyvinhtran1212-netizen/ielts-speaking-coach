@@ -590,7 +590,7 @@ export function SpeakingBehavior() {
   useLayoutEffect(() => {
     if (syncDraftRef.current) syncDraftRef.current(account);
     else PREPARATION_FIELDS.forEach(id => { const input = $(id) as HTMLInputElement | null; if (input) input.value = ''; });
-  }, [account]);
+  }, [account, status]);
 
   // Cổng fail-closed (ADR-011): rời trang bằng replace() để nút Back không dựng
   // lại trang riêng tư từ lịch sử. Bản legacy tương ứng: `requireAuth()` đẩy về
@@ -615,6 +615,8 @@ export function SpeakingBehavior() {
     let runtimeApi: any | null = null;
     let runtimeApiPromise: Promise<any | null> | null = null;
     let edited = false;
+    let initialConfirmation = true;
+    let profileRead = 0;
     const draft = (scope: string) => {
       if (!st.accountId || st.accountId !== accountRef.current) return null;
       if (!st.drafts.has(scope)) st.drafts.set(scope, createLearnerTabDrafts({
@@ -625,8 +627,9 @@ export function SpeakingBehavior() {
       return st.drafts.get(scope)!;
     };
     st.saveDraft = () => {
-      if (!st.accountId || st.dead) return;
+      if (st.dead) return;
       edited = true;
+      if (!st.accountId) return;
       const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
       const panel = draft('panel')?.save({ panel: st.mainTab, modalOpen, part: st.modalPart, mode: st.modalMode });
       let saved;
@@ -679,16 +682,27 @@ export function SpeakingBehavior() {
     };
     const syncDraftIdentity = (next: string | null) => {
       const previous = st.accountId;
+      if (!next && statusRef.current === 'signed-out') {
+        initialConfirmation = false;
+        if (!previous) { resetPreparation(st); edited = false; }
+      }
       if (previous === next) return;
+      // Initial mount already cleared browser-filled values before wiring any
+      // input handlers. Keep preparation entered since then when that document
+      // first confirms its account; later account/return boundaries still clear.
+      const keepFreshPreparation = initialConfirmation && !previous && Boolean(next) && edited;
+      if (next) initialConfirmation = false;
+      profileRead++; st.permissionsReady = false; st.permissionAccount = null;
       st.drafts.forEach(handle => handle.dispose()); st.drafts.clear();
       st.accountId = null;
-      resetPreparation(st); edited = false;
+      if (!keepFreshPreparation) { resetPreparation(st); edited = false; }
       if (previous && previous !== next && (next || statusRef.current === 'signed-out')) clearLearnerTabDraftAccount(previous);
       st.accountId = next;
       const bar = $('speaking-draft-controls'); if (bar) bar.hidden = !next;
       if (next) {
         ['panel', 'practice', 'partbpart', 'fulltest', ...['practice', 'test_part'].flatMap(mode => [1, 2, 3].map(part => `modal:${mode}:${part}`))].forEach(draft);
-        restoreDraft();
+        if (keepFreshPreparation) st.saveDraft();
+        else restoreDraft();
         if (runtimeApi && st.permissionAccount !== next) void loadProfile(runtimeApi);
       }
     };
@@ -697,14 +711,19 @@ export function SpeakingBehavior() {
     resetPreparation(st);
     syncDraftIdentity(accountRef.current);
     const loadProfile = async (api: any) => {
+      const account = st.accountId;
+      if (!account) return;
+      const read = ++profileRead;
+      st.permissionsReady = false; st.permissionAccount = null;
       try {
         const profile = await api.get('/auth/me') as AuthMeWire;
-        if (st.dead || !profile?.id || profile.id !== accountRef.current) return;
+        if (st.dead || read !== profileRead || st.accountId !== account
+            || profile?.id !== account || profile.id !== accountRef.current) return;
         renderUser(profile, api, st);
         st.permissionAccount = profile.id;
         st.permissionsReady = Array.isArray(profile.permissions);
         restoreDraft();
-      } catch { if (!st.dead) { st.permissionsReady = false; draftNotice('unavailable'); } }
+      } catch { if (!st.dead && read === profileRead && st.accountId === account) { st.permissionsReady = false; draftNotice('unavailable'); } }
     };
     const resolveRuntimeApi = () => {
       if (runtimeApi) return Promise.resolve(runtimeApi);
@@ -753,7 +772,7 @@ export function SpeakingBehavior() {
       draft('panel')?.save({ panel: st.mainTab, modalOpen, part: st.modalPart, mode: st.modalMode });
       draftNotice(discarded?.status === 'unavailable' ? 'unavailable' : 'discarded');
     });
-    const conceal = () => { st.accountId = null; resetPreparation(st); const bar = $('speaking-draft-controls'); if (bar) bar.hidden = true; };
+    const conceal = () => { initialConfirmation = false; profileRead++; st.permissionsReady = false; st.permissionAccount = null; st.accountId = null; resetPreparation(st); const bar = $('speaking-draft-controls'); if (bar) bar.hidden = true; };
     on(window, 'pagehide', conceal);
     const resume = async (event: PageTransitionEvent) => {
       if (!event.persisted) return;
