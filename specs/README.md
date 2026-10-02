@@ -85,4 +85,6 @@ draft -> approved -> implementing -> verified -> shipped
 
 | GRAMMARTEXT-0015 | Require exact authored forms for bounded Grammar questions while preserving old work | approved | high | [spec](0015-grammar-exact-form-policy/spec.md) |
 
+| MOCKREPAIR-0016 | Preserve mock paper security and repair Reading and Listening work truthfully | approved | critical | [spec](0016-mock-content-remediation/spec.md) |
+
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
