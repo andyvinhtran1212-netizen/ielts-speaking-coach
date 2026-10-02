@@ -53,6 +53,7 @@ type Question = {
       paragraph_labels?: string[];
       rows?: unknown[][];
       summary_text?: string;
+      image_alt?: string;
     };
   };
 };
@@ -474,7 +475,9 @@ function DiagramImageRun({ run, answers, saveStates, flagged, currentQuestion, o
     <img
       className="exam-diagram-image"
       src={first.payload?.image_url}
-      alt={`${type === 'flow_chart_completion' ? 'Flow chart' : 'Labeled diagram'} for questions ${first.q_num}–${run.at(-1)?.q_num}`}
+      alt={typeof first.payload?.template?.image_alt === 'string' && first.payload.template.image_alt.trim()
+        ? first.payload.template.image_alt.trim()
+        : `${type === 'flow_chart_completion' ? 'Flow chart' : 'Labeled diagram'} for questions ${first.q_num}–${run.at(-1)?.q_num}`}
     />
     <ol className="exam-diagram-rows">{run.map((question) => <li
       className={`exam-diagram-row${saveStates.has(question.q_num) ? ' is-unsaved' : ''}${currentQuestion === question.q_num ? ' is-current' : ''}`}
