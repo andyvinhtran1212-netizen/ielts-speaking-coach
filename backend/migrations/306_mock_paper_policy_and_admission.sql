@@ -342,7 +342,7 @@ END $$;
 
 CREATE OR REPLACE FUNCTION public.fn_mock_section_valid(p_skill TEXT,p_exam JSONB,p_sitting JSONB)
 RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
-DECLARE v_started TIMESTAMPTZ; v_duration NUMERIC; v_test JSONB;
+DECLARE v_started TIMESTAMPTZ; v_duration NUMERIC; v_test JSONB; v_attempt JSONB; v_snapshot JSONB;
 BEGIN
     IF p_sitting->>'status'='void' OR p_sitting->>(p_skill||'_submitted_at') IS NOT NULL
        OR p_exam->>'status'<>'published' THEN RETURN FALSE; END IF;
@@ -356,7 +356,32 @@ BEGIN
     IF v_started IS NULL OR v_started>clock_timestamp() THEN RETURN FALSE; END IF;
     IF p_skill='reading' THEN v_duration:=COALESCE((p_exam->>'reading_minutes')::NUMERIC,60)*60;
     ELSE
-        v_test:=public.fn_mock_paper_row('listening',(p_exam->>'listening_test_id')::UUID);
+        IF NULLIF(p_sitting->>'listening_attempt_id','') IS NOT NULL THEN
+            SELECT to_jsonb(a) INTO v_attempt FROM public.listening_test_attempts a
+                WHERE id=(p_sitting->>'listening_attempt_id')::UUID;
+        END IF;
+        IF v_attempt IS NOT NULL AND v_attempt->>'paper_revision' IS NOT NULL THEN
+            SELECT to_jsonb(s) INTO v_snapshot FROM public.mock_paper_attempt_snapshots s
+                WHERE s.skill='listening' AND s.attempt_id=(v_attempt->>'id')::UUID
+                  AND s.paper_id=(p_exam->>'listening_test_id')::UUID
+                  AND s.sitting_id=(p_sitting->>'id')::UUID
+                  AND s.paper_revision=(v_attempt->>'paper_revision')::BIGINT
+                  AND s.policy_revision=(v_attempt->>'policy_revision')::BIGINT
+                  AND s.attempt_purpose='mock_delivery';
+            IF v_attempt->>'test_id' IS DISTINCT FROM p_exam->>'listening_test_id'
+               OR v_attempt->>'sitting_id' IS DISTINCT FROM p_sitting->>'id'
+               OR v_attempt->>'user_id' IS DISTINCT FROM p_sitting->>'user_id'
+               OR v_snapshot IS NULL OR NOT (v_snapshot->'paper_row' ? 'full_audio_duration_seconds') THEN
+                PERFORM public.fn_mock_paper_error('continuation','verification_unavailable','listening',
+                    (p_exam->>'listening_test_id')::UUID,(v_attempt->>'policy_revision')::BIGINT);
+            END IF;
+            v_test:=v_snapshot->'paper_row';
+        ELSE
+            -- Before the atomic INSERT, the sitting pointer may already be set
+            -- but its attempt is not present yet. Explicit legacy rows also
+            -- retain their original current-source duration semantics.
+            v_test:=public.fn_mock_paper_row('listening',(p_exam->>'listening_test_id')::UUID);
+        END IF;
         v_duration:=COALESCE(NULLIF(v_test->>'full_audio_duration_seconds','')::NUMERIC,1800)+120;
     END IF;
     RETURN v_duration>0 AND clock_timestamp() <= v_started+make_interval(secs=>v_duration::DOUBLE PRECISION);
@@ -583,6 +608,20 @@ BEGIN
         RETURN OLD;
     END IF;
     n:=to_jsonb(NEW);
+    -- The room clock, retake collection and student countdown share this
+    -- duration. Keep it stable while work is live, so those paths cannot
+    -- expire earlier than the already admitted private paper context.
+    IF k='listening' AND n->'full_audio_duration_seconds' IS DISTINCT FROM b->'full_audio_duration_seconds' THEN
+        IF EXISTS(SELECT 1 FROM jsonb_array_elements(d) x
+                  WHERE x->>'reason' IN ('valid_resume','ambiguous_orphan','verification_unavailable'))
+           OR EXISTS(SELECT 1 FROM public.mock_exams m WHERE m.listening_test_id=OLD.id
+                     AND m.status='published' AND m.exam_mode IS DISTINCT FROM 'retake'
+                     AND m.active_section='listening' AND m.collected_section IS DISTINCT FROM 'listening') THEN
+            PERFORM public.fn_mock_paper_error('timing_update',CASE WHEN EXISTS(
+                SELECT 1 FROM jsonb_array_elements(d) x WHERE x->>'reason'='verification_unavailable')
+                THEN 'verification_unavailable' ELSE 'live_timing_dependency' END,k,OLD.id,r,d);
+        END IF;
+    END IF;
     -- Source-field changes invalidate overlap grants without changing their
     -- old approval record or any historical attempt.
     IF (n-ARRAY['policy_revision','mock_content_revision','approved_public_overlap','updated_at',

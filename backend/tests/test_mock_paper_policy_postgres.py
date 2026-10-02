@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from urllib.parse import urlparse
+from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -322,3 +323,61 @@ def test_flags_use_real_policy_guard_and_original_identity_after_source_delete(p
     query(f"UPDATE {s}.mock_exams SET collected_section='reading' WHERE id=$1",m)
     with pytest.raises(asyncpg.RaiseError,match='ambiguous_orphan'):
         query(command,aid,owner,False,1,uuid4())
+
+
+@pytest.mark.parametrize('mode', ['sequential', 'retake'])
+def test_listening_admitted_duration_cannot_expire_live_work_after_source_edit(policy_probe, mode):
+    s=policy_probe; p=paper(s,'listening'); owner=uuid4()
+    query(f"UPDATE {s}.listening_tests SET full_audio_duration_seconds=1800 WHERE id=$1",p)
+    section=query(f"INSERT INTO {s}.listening_content(test_id,section_num) VALUES($1,1) RETURNING id",p)[0]['id']
+    query(f"INSERT INTO {s}.listening_exercises(content_id,payload) VALUES($1,'{{\"questions\":[{{\"q_num\":1}}]}}')",section)
+    m=room(s,p,'listening',True,mode)
+    query(f"UPDATE {s}.mock_exams SET listening_started_at=now()-interval'200 seconds' WHERE id=$1",m)
+    sid=query(f"INSERT INTO {s}.mock_exam_sittings(mock_exam_id,user_id,assigned_skills,listening_started_at) VALUES($1,$2,ARRAY['listening'],now()-interval'200 seconds') RETURNING id",m,owner)[0]['id']
+    admitted=json.loads(query(f"SELECT {s}.fn_admit_mock_paper_attempt('listening',$1,$2,$3,'legacy') receipt",p,owner,sid)[0]['receipt'])
+    aid=UUID(admitted['attempt_id'])
+
+    with pytest.raises(asyncpg.RaiseError,match='live_timing_dependency'):
+        query(f"UPDATE {s}.listening_tests SET full_audio_duration_seconds=60 WHERE id=$1",p)
+    current=query(f"SELECT full_audio_duration_seconds FROM {s}.listening_tests WHERE id=$1",p)[0]
+    frozen=json.loads(query(f"SELECT paper_row FROM {s}.mock_paper_attempt_snapshots WHERE skill='listening' AND attempt_id=$1",aid)[0]['paper_row'])
+    assert current['full_audio_duration_seconds']==frozen['full_audio_duration_seconds']==1800
+    from services import mock_exam_service as clocks
+    exam=json.loads(query(f"SELECT to_jsonb(m) parent FROM {s}.mock_exams m WHERE id=$1",m)[0]['parent'])
+    sitting=json.loads(query(f"SELECT to_jsonb(s) parent FROM {s}.mock_exam_sittings s WHERE id=$1",sid)[0]['parent'])
+    ticking_now=query('SELECT clock_timestamp() value')[0]['value']
+    with patch.object(clocks,'_listening_audio_duration_seconds',return_value=current['full_audio_duration_seconds']), \
+         patch.object(clocks,'_now',return_value=ticking_now):
+        assert clocks.section_duration_seconds(exam,'listening')==1920
+        assert 1700<clocks.section_time_remaining_seconds(exam,'listening')<=1720
+        assert 1700<clocks.retake_time_remaining_seconds(sitting,exam,'listening')<=1720
+        assert clocks._retake_section_expired(sitting,exam,'listening',30) is False
+    query(f"UPDATE {s}.listening_tests SET title='Revised display title' WHERE id=$1",p)
+    assert access(s,'listening',p,owner,'delivery',sid)['allowed'] is True
+    parent=json.loads(query(f"SELECT to_jsonb(a) parent FROM {s}.listening_test_attempts a WHERE id=$1",aid)[0]['parent'])
+    guard=json.loads(query(f"SELECT {s}.fn_guard_owned_mock_attempt('listening',$1::jsonb,'resume') receipt",json.dumps(parent))[0]['receipt'])
+    assert guard['allowed'] is True
+    assert json.loads(query(f"SELECT {s}.fn_guard_owned_mock_attempt('listening',$1::jsonb,'submit') receipt",json.dumps(parent))[0]['receipt'])['allowed'] is True
+    flag=json.loads(query(f"SELECT {s}.fn_patch_mock_attempt_review_flag('listening',$1,$2,NULL,1,true,0,$3) receipt",aid,owner,uuid4())[0]['receipt'])
+    assert flag['accepted'] is True
+    query(f"UPDATE {s}.listening_test_attempts SET answers='[{{\"q_num\":1,\"user_answer\":\"saved\"}}]' WHERE id=$1",aid)
+    query(f"UPDATE {s}.mock_exam_sittings SET listening_submitted_at=now() WHERE id=$1",sid)
+    query(f"UPDATE {s}.listening_test_attempts SET status='submitted' WHERE id=$1",aid)
+    if mode=='sequential':
+        query(f"UPDATE {s}.mock_exams SET collected_section='listening' WHERE id=$1",m)
+    query(f"UPDATE {s}.listening_tests SET full_audio_duration_seconds=60 WHERE id=$1",p)
+    assert query(f"SELECT full_audio_duration_seconds FROM {s}.listening_tests WHERE id=$1",p)[0]['full_audio_duration_seconds']==60
+    assert json.loads(query(f"SELECT paper_row FROM {s}.mock_paper_attempt_snapshots WHERE skill='listening' AND attempt_id=$1",aid)[0]['paper_row'])['full_audio_duration_seconds']==1800
+
+
+def test_new_listening_duration_never_falls_back_when_private_snapshot_is_missing(policy_probe):
+    s=policy_probe; p=paper(s,'listening'); m=room(s,p,'listening',True); owner=uuid4()
+    sid=query(f"INSERT INTO {s}.mock_exam_sittings(mock_exam_id,user_id) VALUES($1,$2) RETURNING id",m,owner)[0]['id']
+    admitted=json.loads(query(f"SELECT {s}.fn_admit_mock_paper_attempt('listening',$1,$2,$3,'legacy') receipt",p,owner,sid)[0]['receipt'])
+    aid=UUID(admitted['attempt_id'])
+    # Simulate corrupt storage only in this disposable synthetic schema.
+    query(f"ALTER TABLE {s}.mock_paper_attempt_snapshots DISABLE TRIGGER USER;")
+    query(f"DELETE FROM {s}.mock_paper_attempt_snapshots WHERE skill='listening' AND attempt_id=$1",aid)
+    query(f"ALTER TABLE {s}.mock_paper_attempt_snapshots ENABLE TRIGGER USER;")
+    with pytest.raises(asyncpg.RaiseError,match='verification_unavailable'):
+        access(s,'listening',p,owner,'delivery',sid)
