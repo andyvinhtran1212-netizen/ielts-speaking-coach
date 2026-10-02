@@ -428,6 +428,14 @@ def _reading_response_policy(question: dict) -> dict:
     return policy
 
 
+def _reading_paragraph_labels(labels: Any) -> list[str]:
+    if not isinstance(labels, list) or not labels or any(
+        not isinstance(label, str) or not label.strip() for label in labels
+    ):
+        raise ValueError("'paragraph_labels:' phải là danh sách không rỗng các chuỗi không rỗng.")
+    return labels.copy()
+
+
 def validate_reading_questions(questions: Any) -> list[dict]:
     """Validate the `questions` block (L1 comprehension Qs, L2 exercises, L3
     per-passage Qs all share this validator). Each item must follow the FLAT
@@ -522,6 +530,11 @@ def validate_reading_questions(questions: Any) -> list[dict]:
                 not isinstance(q[field_name], str) or not q[field_name].strip()
             ):
                 err(f"{label}: '{field_name}:' phải là chuỗi không rỗng.")
+        if "paragraph_labels" in q:
+            try:
+                _reading_paragraph_labels(q["paragraph_labels"])
+            except ValueError as exc:
+                err(f"{label}: {exc}")
 
         # F2 — options-list questions need a non-empty `options:` of
         # {label, text} entries. (Other Phase 1 types — T/F/NG, Y/N/NG,
@@ -589,6 +602,8 @@ def build_reading_question_payloads(questions: list, passage_id: str) -> list[di
         for field_name in _READING_AUTHORED_INSTRUCTION_FIELDS:
             if isinstance(q.get(field_name), str) and q[field_name].strip():
                 payload[field_name] = q[field_name]
+        if "paragraph_labels" in q:
+            payload["paragraph_labels"] = _reading_paragraph_labels(q["paragraph_labels"])
         if isinstance(q.get("options"), list):
             payload["options"] = q["options"]
         if isinstance(q.get("template"), dict):
