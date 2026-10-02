@@ -20,12 +20,16 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-30 the highest is `305`, so the next new
-migration is `306`.
+sequence is dense. In this branch the highest is `307`, so the next new
+migration is `308`. Migration `306` belongs to the concurrent Grammar quiz
+revision and must land on staging before `307` is applied.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
 historical results; compatible code and explicit staged enablement are separate.
+
+Migration `307` adds assignment-scoped MASTER30 lesson practice attempts and a
+default-off runtime flag. It does not rewrite diagnostic items or learner history.
 
 ## Conventions
 

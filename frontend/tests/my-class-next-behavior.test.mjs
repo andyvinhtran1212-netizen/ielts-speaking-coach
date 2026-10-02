@@ -45,6 +45,24 @@ const payload = (overrides = {}) => ({
   ...overrides,
 });
 
+test('opens only the canonical assigned Bxx route', () => {
+  const correct = '/grammar-lessons/assigned?assignment_item=grammar-item';
+  assert.deepEqual(normalizeClassStartResponse({ item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
+    grammar_lesson_path: correct }, 'grammar-item'), { kind: 'grammar-lesson', url: correct });
+  assert.equal(normalizeClassStartResponse({ item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
+    grammar_lesson_path: 'https://other.example/bad' }, 'grammar-item'), null);
+});
+
+test('completed and expired-opened Bxx work remains reviewable from My Class', () => {
+  const content = { assignmentType: 'grammar_lesson', grammarLessonId: 'M30-B04',
+    grammarLessonTitle: 'Articles' };
+  const row = { assignment: { skill: 'grammar', content }, state: 'opened',
+    submittedAt: null, isMissing: true };
+  assert.deepEqual(assignmentAction(row), { kind: 'review', label: 'Xem bài & chữa lỗi' });
+  assert.deepEqual(assignmentAction({ ...row, submittedAt: '2026-10-01T10:00:00Z',
+    isMissing: false }), { kind: 'review', label: 'Xem bài & chữa lỗi' });
+});
+
 describe('canonical My Class snapshot boundary', () => {
   test('accepts a complete snapshot and preserves server truth', () => {
     const result = normalizeMyClassResponse(payload());

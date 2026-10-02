@@ -67,6 +67,8 @@ from routers.writing_student import router as writing_student_router
 from routers.grammar import router as grammar_router
 from routers.grammar_diagnostic import router as grammar_diagnostic_router
 from routers.admin_grammar_diagnostic import router as admin_grammar_diagnostic_router
+from routers.grammar_lesson import router as grammar_lesson_router
+from routers.admin_grammar_lesson import router as admin_grammar_lesson_router
 from routers.pronunciation import router as pronunciation_router
 from routers.sitemap import router as sitemap_router
 from routers.vocabulary import router as vocabulary_router
@@ -255,6 +257,8 @@ app.include_router(cohorts_router)
 app.include_router(admin_courses_router)
 app.include_router(admin_class_lessons_router)
 app.include_router(admin_class_assignments_router)
+app.include_router(grammar_lesson_router)
+app.include_router(admin_grammar_lesson_router)
 app.include_router(class_student_router)
 app.include_router(advanced_vocab_router)
 app.include_router(admin_advanced_vocab_router)
