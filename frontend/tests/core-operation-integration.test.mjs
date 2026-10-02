@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import ts from 'typescript';
 import { anonymousReadingScope, createCoreOperationTransport, coreOperationHeaders, clearCoreOperationIntents } from '../lib/core-operation-intent.mjs';
+import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '../lib/learner-tab-drafts.mjs';
 
 const HEADER = 'X-Core-Operation-ID';
 const files = {
@@ -223,7 +224,11 @@ test('actual AuthProvider transitions clear account hints without erasing capabi
   assert.ok(anonymousRow);
   rows.set('unrelated', 'preserved');
   const states = [];
-  const transition = actualHandler('auth', 'applySession', { clearCoreOperationIntents, window: { sessionStorage: store },
+  const browser = { sessionStorage: store, name: '' };
+  const transition = actualHandler('auth', 'applySession', { clearCoreOperationIntents, window: browser,
+    sessionReadRef: { current: 0 }, confirmedAccountRef: { current: null },
+    clearLearnerTabDraftAccount: account => clearLearnerTabDraftAccount(account, browser),
+    invalidateLearnerTabDraftOwner: () => invalidateLearnerTabDraftOwner(browser),
     setUser() {}, setStatus: value => states.push(value) });
   transition({ user: { id: userId } });
   assert.equal(rows.size, 3);

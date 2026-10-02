@@ -15,6 +15,7 @@ import { chromium } from 'playwright';
 import { existsSync } from 'node:fs';
 import { resolveCorePlayerAdmission } from '../lib/core-player-affinity.mjs';
 import { storageKey } from './supabase-session.mjs';
+import { isLearnerTabPersistenceSupported } from '../lib/learner-tab-draft-support.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -67,6 +68,7 @@ const check = (name, ok, detail = '') => {
 };
 
 async function launchChromium() {
+  if (process.argv.includes('--native-chrome')) return chromium.launch({ channel: 'chrome', headless: false });
   try {
     return await chromium.launch();
   } catch (error) {
@@ -263,6 +265,57 @@ await page.waitForTimeout(300);
 check('đóng modal được và trả lại cuộn trang',
   !(await page.locator('#topic-modal').evaluate((el) => el.classList.contains('open')))
     && (await page.evaluate(() => document.body.style.overflow)) === '');
+
+// Preparation-only lifecycle: the admitted native Chrome run must preserve
+// values; the normal unqualified CI browser must truthfully report unsaved.
+await page.goto(BASE + ROUTE, {waitUntil:'domcontentloaded'});
+await page.waitForTimeout(2800); // existing fixture /auth/me delay is2500ms
+const backToDashboard = page.locator('.main-tab-panel.active [data-action="back-to-dashboard"]');
+if (await backToDashboard.isVisible()) await backToDashboard.click();
+await page.locator('.mode-card[data-mode="practice"]').first().click();
+await page.locator('#prac-part-2').click();
+const cue = '  Describe a place you enjoy visiting.\nYou should say:\nwhere it is\nwhat you do there  ';
+await page.locator('#prac-custom-q').fill(cue);
+await page.locator('#prac-topic-custom').fill('older topic');
+await page.locator('#prac-topic-custom').fill('');
+const beforePreparationRestore = sessionPostCount;
+const qualified = isLearnerTabPersistenceSupported({navigator:{userAgent:await page.evaluate(()=>navigator.userAgent)}});
+if (qualified) {
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByText('Đã khôi phục nháp trong tab này.',{exact:true}).waitFor({state:'visible'});
+  check('Speaking reload preserves raw cue, empty topic, Part2 and preparation panel without Start',
+    await page.locator('#prac-custom-q').inputValue()===cue
+      && await page.locator('#prac-topic-custom').inputValue()===''
+      && await page.locator('#prac-part-2').evaluate(el=>el.classList.contains('selected'))
+      && await page.locator('#tab-practice').evaluate(el=>el.classList.contains('active'))
+      && sessionPostCount===beforePreparationRestore);
+  await page.locator('#tab-practice [data-action="back-to-dashboard"]').click();
+  await page.goto(BASE + '/grammar', {waitUntil:'domcontentloaded'});
+  await page.goBack({waitUntil:'domcontentloaded'});
+  await page.waitForTimeout(2800);
+  await page.locator('.mode-card[data-mode="practice"]').first().click();
+  check('Speaking immediate document Back preserves the unchecked cue with zero session writes',
+    await page.locator('#prac-custom-q').inputValue()===cue && sessionPostCount===beforePreparationRestore);
+} else {
+  check('Unqualified Speaking browser announces unsaved while keeping the current cue editable',
+    (await page.locator('#speaking-draft-notice').innerText()).includes('chưa được lưu')
+      && await page.locator('#prac-custom-q').inputValue()===cue
+      && await page.locator('#prac-custom-q').isEnabled()
+      && sessionPostCount===beforePreparationRestore);
+}
+const discard = page.locator('#speaking-draft-discard');
+await discard.focus(); await discard.press('Enter');
+check('Speaking keyboard discard clears only current preparation without Start',
+  await page.locator('#prac-custom-q').inputValue()==='' && sessionPostCount===beforePreparationRestore);
+for (const theme of ['light','dark']) {
+  await page.evaluate(value=>document.documentElement.setAttribute('data-theme',value),theme);
+  for (const width of [360,390,768,1440]) {
+    await page.setViewportSize({width,height:900});
+    check(`Speaking draft controls ${theme}/${width}: fits and target is at least44px`,
+      await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)
+        && await discard.evaluate(el=>el.getBoundingClientRect().height>=44));
+  }
+}
 
 check('không có lỗi JS chưa bắt', errs.length === 0, errs[0] || '');
 

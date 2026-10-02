@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { existsSync } from 'node:fs';
 
 import { storageKey } from './supabase-session.mjs';
+import { isLearnerTabPersistenceSupported } from '../lib/learner-tab-draft-support.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -17,6 +18,7 @@ const check = (name, ok, detail = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
 };
 async function launchChromium() {
+  if (process.argv.includes('--native-chrome')) return chromium.launch({ channel: 'chrome', headless: false });
   try { return await chromium.launch(); } catch (error) {
     const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     if (process.platform === 'darwin' && existsSync(localChrome)) return chromium.launch({ executablePath: localChrome });
@@ -38,6 +40,7 @@ const payloadFor = (slug, library) => ({
     { q_num: 2, question_type: 'true_false_not_given', prompt: 'Tea is coffee.', payload: {}, skill_tag: 'detail' },
     { q_num: 3, question_type: 'yes_no_not_given', prompt: 'Does the writer approve?', payload: {}, skill_tag: 'writer_view_TFNG' },
     { q_num: 4, question_type: 'matching_headings', prompt: 'Choose a heading.', payload: { options: [{ label: 'i', text: 'Origins' }, { label: 'ii', text: 'Trade' }] }, skill_tag: 'skimming' },
+    ...(slug === 'draft-article' ? [{ q_num: 5, question_type: 'gap_text', prompt: 'Write an unchecked response.', payload: {}, skill_tag: 'detail' }] : []),
   ],
 });
 
@@ -151,6 +154,60 @@ await page.setViewportSize({ width: 390, height: 844 });
 check('mobile không tràn ngang và bỏ independent pane scroll',
   await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
     && await page.locator('.rv-reader').evaluate((node) => getComputedStyle(node).overflowY === 'visible'));
+
+await page.goto(`${BASE}/reading/vocab/draft-article`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('textbox', { name: 'Câu 5' }).waitFor({ state: 'visible' });
+await page.getByRole('textbox', { name: 'Câu 5' }).fill('  latest raw draft  ');
+await page.getByRole('combobox', { name: 'Câu 4' }).selectOption('ii');
+await page.locator('.rq-card').nth(0).locator('input[value="A"]').check();
+await page.locator('.rq-card').nth(0).locator('.rq-check').click();
+await page.locator('.rq-card').nth(0).getByText('Đúng rồi', { exact: false }).waitFor({ state: 'visible' });
+const writesBeforeRestore = [...posts.values()].reduce((sum, count) => sum + count, 0);
+await page.reload({ waitUntil: 'domcontentloaded' });
+const qualified = isLearnerTabPersistenceSupported({navigator:{userAgent:await page.evaluate(()=>navigator.userAgent)}});
+if (qualified) {
+await page.getByText('Đã khôi phục nháp trong tab này.', { exact: true }).waitFor({ state: 'visible' });
+check('Reading draft reload restores raw unchecked text/selection, never verdict/lock and sends zero checks',
+  await page.getByRole('textbox', { name: 'Câu 5' }).inputValue() === '  latest raw draft  '
+    && await page.getByRole('combobox', { name: 'Câu 4' }).inputValue() === 'ii'
+    && !(await page.locator('.rq-card').nth(0).locator('input[value="A"]').isChecked())
+    && await page.locator('.rq-card').nth(0).locator('input[value="A"]').isEnabled()
+    && !(await page.locator('.rv-questions').innerText()).includes('Canonical explanation')
+    && [...posts.values()].reduce((sum, count) => sum + count, 0) === writesBeforeRestore);
+await page.getByRole('textbox', { name: 'Câu 5' }).fill('');
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.getByRole('textbox', { name: 'Câu 5' }).waitFor({ state: 'visible' });
+check('Reading latest empty edit survives reload instead of reviving older text',
+  await page.getByRole('textbox', { name: 'Câu 5' }).inputValue() === ''
+    && await page.evaluate(() => {
+      const namespace = JSON.parse(sessionStorage.getItem('aver:learner-tab-drafts:v1'));
+      const row = namespace.drafts.find((draft) => draft.scope === 'reading-vocab:draft-article');
+      return Object.hasOwn(row.value.answers, '5') && row.value.answers['5'] === '';
+    })
+    && [...posts.values()].reduce((sum, count) => sum + count, 0) === writesBeforeRestore);
+} else {
+  await page.getByText('Nháp chưa được lưu. Bạn vẫn có thể tiếp tục làm bài.', {exact:true}).waitFor({state:'visible'});
+  check('Unqualified browser reports unsaved, remains editable and reload sends zero checks',
+    await page.getByRole('textbox',{name:'Câu 5'}).isEnabled()
+      && await page.getByRole('textbox',{name:'Câu 5'}).inputValue()===''
+      && [...posts.values()].reduce((sum,count)=>sum+count,0)===writesBeforeRestore);
+}
+const discardDraft = page.getByRole('button', { name: 'Bỏ nháp bài này' });
+await discardDraft.focus(); await discardDraft.press('Enter');
+await page.getByText(qualified ? 'Đã bỏ nháp của bài đọc này.' : 'Nháp chưa được lưu. Bạn vẫn có thể tiếp tục làm bài.', { exact: true }).waitFor({ state: 'visible' });
+check('Reading discard is keyboard-operable, clears current article and keeps focus with zero checks',
+  await discardDraft.evaluate(node => document.activeElement === node)
+    && await page.getByRole('combobox', { name: 'Câu 4' }).inputValue() === ''
+    && [...posts.values()].reduce((sum, count) => sum + count, 0) === writesBeforeRestore);
+for (const theme of ['light', 'dark']) {
+  await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+  for (const width of [360, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    check(`Reading draft notice ${theme}/${width}: fits and discard target is at least 44px`,
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)
+        && await discardDraft.evaluate(node => node.getBoundingClientRect().height >= 44));
+  }
+}
 
 await page.setViewportSize({ width: 1280, height: 900 });
 await page.goto(`${BASE}/reading/skill/skim-climate-change-coral-reefs`, { waitUntil: 'domcontentloaded' });

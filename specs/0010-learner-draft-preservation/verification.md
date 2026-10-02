@@ -40,3 +40,48 @@ not any of FR-001–007. See `feasibility.md`.
   product/human acceptance is still pending.
 - Staging SHA and checks: PENDING.
 - Production frontend/backend deployed SHAs and journeys: PENDING.
+
+## Implementation evidence and limits
+
+- Approved staging base: df760bc6b74d1c99ae890dbe70de5a3bc7061a63
+  (PR1575); the seven requirement definitions and medium risk are unchanged.
+- Actual Reading/Speaking consumers with the shared helper:19 focused React
+  interactions; complete React layer264 passed. These intentionally mock only
+  browser admission and do not qualify another engine/version. Auth signal
+  ordering, current account concealment, failed-clear revival, empty edits,
+  revision, scoped discard and topic absence are covered.
+- Shared model/admission controls12 passed, including a later document when
+  both owner and storage writes are denied. No Start/retry source is modified.
+- Production-built journeys24 Reading and32 Speaking passed in the actual
+  newly launched desktop Chrome154 and default Chromium. Both exercised the
+  UNQUALIFIED/UNSAVED branch. They verify usable input, existing checks/Start,
+  keyboard discard and360/390/768/1440 light/dark controls. They do not prove
+  positive persistence in the already running, measured native Chrome152.
+- The qualified positive journeys are present in the existing drivers and
+  still require an actual Chrome152 product run. Do not spoof navigator data
+  or use test admission as browser qualification. Live Speaking on the current
+  signed-in staging session is the next acceptance step after deployment.
+- Reading staging L1 library is currently empty and admin access is denied;
+  canonical published content and a valid admin session remain prerequisites
+  for its live content/positive draft acceptance.
+- Full contract run exposed stale source harness assumptions and modal versus
+  panel copy drift; consumers preserve both existing copy variants and use the
+  existing cleanup helper. Focused corrections38 passed; two localhost-blocked
+  Pricing tests were rerun with unchanged assertions13 passed. Final full
+  contract/build/PR gates will be recorded against the committed feature SHA.
+- No production, historical grade repair, physical mobile/VoiceOver or human
+  acceptance is claimed by this implementation PR. All FR release results
+  above stay pending until their complete evidence exists.
+
+Final consolidated local checks: production Webpack build and both TypeScript
+boundaries passed; full Node9590 passed/2 skipped and full React264 passed.
+The earlier seven failed checks and the exact source/environment corrections
+remain in the task logs; no assertion was removed or disabled. These local
+checks still do not close positive supported-browser/live/human acceptance.
+
+The first CI browser run exposed an early Speaking Part race: initial auth
+confirmation reset preparation during runtime readiness. The topic-start
+listener now captures both topic and Part before waiting. A deferred-runtime
+React interaction reproduces that ordering and verifies one Part2 request;
+the unchanged production-built Speaking journey then passed32/32. The failed
+CI run37041993927 remains recorded; release acceptance is still pending.

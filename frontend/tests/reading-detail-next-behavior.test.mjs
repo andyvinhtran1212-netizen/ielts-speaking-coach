@@ -17,7 +17,7 @@ describe('native Reading detail workspace', () => {
     assert.match(SKILL, /<ReadingDetail library="skill" slug=\{slug\}/);
     assert.match(VOCAB, /<Suspense/); assert.match(SKILL, /<Suspense/);
     assert.match(BEHAVIOR, /useAuth\(\)/);
-    assert.match(BEHAVIOR, /key=\{`\$\{accountKey \|\| status\}\|\$\{library\}\|\$\{slug\}`\}/);
+    assert.match(BEHAVIOR, /key=\{`\$\{accountKey \|\| status\}\|\$\{library\}\|\$\{slug\}\|\$\{returnGeneration\}`\}/);
   });
 
   test('uses abortable canonical reads and strict normalization', () => {
@@ -28,7 +28,7 @@ describe('native Reading detail workspace', () => {
   });
 
   test('keeps server-side per-question grading retryable and duplicate-safe', () => {
-    assert.match(BEHAVIOR, /if \(!value \|\| lock\.current \|\| lockedResult\) return/);
+    assert.match(BEHAVIOR, /if \(!value \|\| lock\.current \|\| lockedResult \|\| !isCurrent\(\)\) return/);
     assert.match(BEHAVIOR, /mounted\.current = true;[\s\S]*mounted\.current = false/);
     assert.match(BEHAVIOR, /window\.api\.post<unknown>/);
     assert.match(BEHAVIOR, /normalizeReadingCheck\(raw, question\.qNum\)/);
