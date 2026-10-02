@@ -62,20 +62,27 @@ def question_context(question: dict | None, snapshot: dict | None) -> dict:
     """
     question = question or {}
     payload = question.get("payload") or {}
-    fields = {"question_id": question.get("id") or question.get("question_id"),
-              "instructions": payload.get("instructions", question.get("instructions")),
-              "instruction": payload.get("instruction", question.get("instruction")),
-              "options": payload.get("options", question.get("options")),
-              "template": payload.get("template", question.get("template")),
-              "max_words": payload.get("max_words", question.get("max_words")),
-              "paragraph_labels": payload.get("paragraph_labels", question.get("paragraph_labels"))}
-    for name in ("image_url", "image_alt", "template_kind", "variant", "word_limit",
-                 "word_limit_text", "response_type"):
-        fields[name] = payload.get(name, question.get(name))
-    return {**deepcopy(fields), "context_provenance": {
-        name: provenance(value, snapshot, present=(
-            ("id" in question or "question_id" in question) if name == "question_id"
-            else name in payload or name in question)) for name, value in fields.items()}}
+    metadata = payload.get("metadata") or {}
+    fields = {"question_id": question.get("id") or question.get("question_id")}
+    present = {"question_id": "id" in question or "question_id" in question}
+    for name in ("instructions", "instruction", "options", "template", "max_words",
+                 "paragraph_labels", "labels", "image_url", "image_alt", "template_kind",
+                 "variant", "word_limit", "word_limit_text", "response_type"):
+        present[name] = name in question or name in payload
+        fields[name] = question[name] if name in question else payload.get(name)
+    if not present["options"] and "match_options" in metadata:
+        fields["options"] = metadata["match_options"]
+        present["options"] = True
+    # Only authored display metadata; response policies and key metadata never
+    # enter this projection. Explicit empty values keep their provenance.
+    fields["metadata"] = {name: deepcopy(metadata[name]) for name in ("flow_direction",)
+                          if name in metadata}
+    result = {**deepcopy(fields), "context_provenance": {
+        name: provenance(value, snapshot, present=present.get(name, bool(value)))
+        for name, value in fields.items()}}
+    result["context_provenance"]["metadata.flow_direction"] = provenance(
+        metadata.get("flow_direction"), snapshot, present="flow_direction" in metadata)
+    return result
 
 
 def attach_review_web_explanations(skill, attempt, review, snapshot):

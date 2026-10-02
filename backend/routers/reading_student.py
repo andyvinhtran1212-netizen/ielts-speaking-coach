@@ -1484,48 +1484,59 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
     a synthetic one with every user answer blank. `attempt_id` is None there,
     and the caller owns all authorisation — this function checks nothing.
     """
+    from services.mock_review_context import (
+        attach_review_web_explanations, context_reference, load_review_snapshot,
+        provenance, question_context,
+    )
+    snapshot = load_review_snapshot(supabase_admin, "reading", attempt)
     test_uuid = attempt["test_id"]
-    test_res = (
-        supabase_admin.table("reading_tests")
-        .select("test_id,title,module")
-        .eq("id", test_uuid).limit(1).execute()
-    )
-    test_row = (test_res.data or [{}])[0]
-
-    passages_res = (
-        supabase_admin.table("reading_passages")
-        .select("id,slug,title,body_markdown,passage_order,metadata")
-        .eq("test_id", test_uuid)
-        .eq("library", "l3_test")
-        .order("passage_order")
-        .execute()
-    )
+    if snapshot is not None:
+        test_row = snapshot["paper_row"]
+        passage_rows = snapshot["source_rows"]
+        question_rows = snapshot["marking_rows"]
+    else:
+        test_res = (
+            supabase_admin.table("reading_tests")
+            .select("test_id,title,module")
+            .eq("id", test_uuid).limit(1).execute()
+        )
+        test_row = (test_res.data or [{}])[0]
+        passages_res = (
+            supabase_admin.table("reading_passages")
+            .select("id,slug,title,body_markdown,passage_order,metadata")
+            .eq("test_id", test_uuid).eq("library", "l3_test")
+            .order("passage_order").execute()
+        )
+        passage_rows = passages_res.data or []
+        passage_ids = [p["id"] for p in passage_rows]
+        question_rows = []
+        if passage_ids:
+            q_res = (
+                supabase_admin.table("reading_questions")
+                .select("id,q_num,question_type,prompt,payload,explanation,passage_id")
+                .in_("passage_id", passage_ids).execute()
+            )
+            question_rows = q_res.data or []
     passages: list[dict] = []
-    for p in (passages_res.data or []):
-        meta = p.pop("metadata", None) or {}
+    for row in passage_rows:
+        # A private snapshot contains full rows: select only rendered fields.
+        p = {key: row.get(key) for key in ("id", "slug", "title", "body_markdown", "passage_order")}
+        meta = row.get("metadata") or {}
         p["translation_vi"] = meta.get("translation_vi")
+        p["context_provenance"] = {key: provenance(value, snapshot,
+            present=(key in meta if key == "translation_vi" else key in row))
+            for key, value in p.items()}
         passages.append(p)
 
     # Per-Q rich solution + prompt/type for context (joined by q_num).
     sol_by_qnum: dict = {}
     ctx_by_qnum: dict = {}
-    passage_ids = [p["id"] for p in passages]
-    if passage_ids:
-        q_res = (
-            supabase_admin.table("reading_questions")
-            .select("q_num,question_type,prompt,payload,explanation,passage_id")
-            .in_("passage_id", passage_ids)
-            .execute()
-        )
-        for q in (q_res.data or []):
-            qn = q.get("q_num")
-            sol = (q.get("payload") or {}).get("solution")
-            if sol:
-                sol_by_qnum[qn] = sol
-            ctx_by_qnum[qn] = {
-                "prompt": q.get("prompt"), "question_type": q.get("question_type"),
-                "explanation": q.get("explanation"),
-            }
+    for q in question_rows:
+        qn = q.get("q_num")
+        payload = q.get("payload") or {}
+        if "solution" in payload:
+            sol_by_qnum[qn] = payload["solution"]
+        ctx_by_qnum[qn] = q
 
     grading = attempt.get("grading_details") or []
     review: list[dict] = []
@@ -1550,6 +1561,15 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
             )
         )
         item["solution"] = sol_by_qnum.get(solution_qn)
+        item["question_context"] = question_context(ctx, snapshot)
+        item["context_provenance"] = {
+            "prompt": provenance(item["prompt"], snapshot, present="prompt" in ctx),
+            "question_type": provenance(item["question_type"], snapshot, present="question_type" in ctx),
+            "explanation": provenance(explanation, snapshot, persisted="explanation" in g,
+                present="explanation" in g or "explanation" in ctx),
+            "solution": provenance(item["solution"], snapshot, present=solution_qn in sol_by_qnum),
+            "question_context": provenance(item["question_context"], snapshot, present=bool(ctx)),
+        }
         # Phase 0.3 — normalized stepper view-model (reconciles rich prose
         # solutions AND plain `explanation` into one stepper shape + surfaces
         # kp_refs). Backward-compatible: `solution` above is kept untouched.
@@ -1566,10 +1586,7 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         if g.get("correct"):
             bucket["correct"] += 1
 
-    from services import mock_correction_service
-    web_access = mock_correction_service.attach_web_explanations(
-        "reading", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
-    )
+    web_access = attach_review_web_explanations("reading", attempt, review, snapshot)
 
     return {
         "attempt_id":       attempt_id,
@@ -1584,6 +1601,7 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         "passages":         passages,
         "review":           review,
         "web_explanation_access": web_access,
+        "context_source": context_reference(snapshot),
     }
 
 @router.get("/test/attempts/{attempt_id}/review")

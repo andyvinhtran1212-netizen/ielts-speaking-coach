@@ -8322,17 +8322,39 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     every user_answer blank. `attempt_id` is None there, and the caller owns all
     authorisation: this function checks nothing.
     """
-    test_id = attempt["test_id"]
-    test_res = (
-        supabase_admin.table("listening_tests")
-        .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
-                "full_audio_storage_path,assembled_audio_storage_path,"
-                "full_audio_duration_seconds,themes,programme_id,scoring_policy,"
-                "form_purpose,replay_policy,support_policy,claim_policy,"
-                "listening_lesson_id")
-        .eq("id", test_id).limit(1).execute()
+    from services.mock_review_context import (
+        attach_review_web_explanations, context_reference, load_review_snapshot,
+        provenance, question_context,
     )
-    test_row = (test_res.data or [{}])[0]
+    snapshot = load_review_snapshot(supabase_admin, "listening", attempt)
+    test_id = attempt["test_id"]
+    if snapshot is not None:
+        test_row = snapshot["paper_row"]
+        content_rows = snapshot["source_rows"]
+        exercise_rows = snapshot["marking_rows"]
+    else:
+        test_res = (
+            supabase_admin.table("listening_tests")
+            .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
+                    "full_audio_storage_path,assembled_audio_storage_path,"
+                    "full_audio_duration_seconds,themes,programme_id,scoring_policy,"
+                    "form_purpose,replay_policy,support_policy,claim_policy,"
+                    "listening_lesson_id")
+            .eq("id", test_id).limit(1).execute()
+        )
+        test_row = (test_res.data or [{}])[0]
+        content_res = (
+            supabase_admin.table("listening_content")
+            .select("id,section_num,title,transcript,metadata")
+            .eq("test_id", test_id).order("section_num").execute()
+        )
+        content_rows = content_res.data or []
+        section_ids = [row["id"] for row in content_rows]
+        exercise_rows = []
+        if section_ids:
+            ex_res = (supabase_admin.table("listening_exercises")
+                      .select("id,payload").in_("content_id", section_ids).execute())
+            exercise_rows = ex_res.data or []
     audio_url, _, audio_duration = _student_audio_url_for_test(test_row)
     scoring_policy = attempt.get("scoring_policy") or test_row.get("scoring_policy") or "diagnostic"
     if scoring_policy == "report_only" and not audio_url:
@@ -8343,22 +8365,19 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     meta = test_row.get("metadata") or {}
 
     # Per-section transcripts (content rows).
-    content_res = (
-        supabase_admin.table("listening_content")
-        .select("id,section_num,title,transcript,metadata")
-        .eq("test_id", test_id).order("section_num").execute()
-    )
     sections = []
-    section_ids = []
-    for c in (content_res.data or []):
-        section_ids.append(c["id"])
+    for c in content_rows:
         cmeta = c.get("metadata") or {}
-        sections.append({
+        section = {
             "section_num": c.get("section_num"),
             "title":       c.get("title"),
             "theme":       cmeta.get("theme"),
             "transcript":  c.get("transcript"),
-        })
+        }
+        section["context_provenance"] = {key: provenance(value, snapshot,
+            present=(key in cmeta if key == "theme" else key in c))
+            for key, value in section.items()}
+        sections.append(section)
 
     # Per-question solution + audio window + prompt/type (from exercise payloads).
     solutions_by_q: dict[int, dict] = {}
@@ -8367,14 +8386,11 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     prompt_by_q: dict[int, str] = {}
     type_by_q: dict[int, str] = {}
     source_questions_by_q: dict[int, dict] = {}
+    question_context_by_q: dict[int, dict] = {}
     self_review_by_q: dict[int, dict] = {}
     controlled_transcripts: dict[str, list] = {}
-    if section_ids:
-        ex_res = (
-            supabase_admin.table("listening_exercises")
-            .select("payload").in_("content_id", section_ids).execute()
-        )
-        for row in (ex_res.data or []):
+    if exercise_rows:
+        for row in exercise_rows:
             p = row.get("payload") or {}
             for q, sol in (p.get("solutions") or {}).items():
                 solutions_by_q[int(q)] = sol
@@ -8396,6 +8412,10 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
                     prompt_by_q[qq["q_num"]] = qq.get("prompt")
                     type_by_q[qq["q_num"]] = qq.get("response_type") or variant
                     source_questions_by_q[qq["q_num"]] = qq
+                    authored = {**qq, "payload": p}
+                    if not authored.get("id") and row.get("id"):
+                        authored["id"] = qq.get("question_id") or f'{row["id"]}:{qq["q_num"]}'
+                    question_context_by_q[qq["q_num"]] = question_context(authored, snapshot)
 
     # A mini test's audio is its SINGLE section premixed alone (the mp3 starts at
     # ~0), but the stored audio_window is full-test-ABSOLUTE (= section-relative +
@@ -8425,13 +8445,17 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     review = []
     for g in (attempt.get("grading_details") or []):
         q = g.get("q_num")
-        win = _rebase_audio_window(windows_by_q.get(q), is_mini, sec_offsets)
+        rationale_q = g.get("rationale_q_num")
+        solution_q = rationale_q if type(rationale_q) is int else q
+        win = _rebase_audio_window(windows_by_q.get(solution_q), is_mini, sec_offsets)
         source_fields = {}
+        source_explanation_present = False
         if test_row.get("programme_id") == SOURCE_PROGRAMME:
             from services.listening_source_collection import source_explanation, source_response_fields
             question = source_questions_by_q.get(q) or {}
-            protected = solutions_by_q.get(q) or self_review_by_q.get(q)
+            protected = solutions_by_q.get(solution_q) or self_review_by_q.get(solution_q)
             protected = protected or {}
+            source_explanation_present = "explanation" in protected
             try:
                 fields = source_response_fields(question, reference_answer=(source_explanation(protected.get("explanation")) or {}).get("answer"))
             except ValueError:
@@ -8439,7 +8463,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             source_fields = {"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
                 "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
                 "explanation": source_explanation(protected.get("explanation")), "audio_granularity": (win or {}).get("granularity") or meta.get("timing_granularity")}
-        review.append({
+        item = {
             **source_fields,
             "q_num":         q,
             "state":         g.get("state"),
@@ -8450,21 +8474,34 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "prompt":        prompt_by_q.get(q),
             "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
             "section":       (win or {}).get("section"),
-            "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
-            "solution":      ({key: value for key, value in (solutions_by_q.get(q) or {}).items() if key in {"expected", "rationale"}}
-                               if test_row.get("programme_id") == SOURCE_PROGRAMME else solutions_by_q.get(q) or {}),
-            "self_review":   ({key: value for key, value in (self_review_by_q.get(q) or {}).items() if key in {"reference_answers", "rationale", "required_facts", "optional_facts"}}
-                               if test_row.get("programme_id") == SOURCE_PROGRAMME else self_review_by_q.get(q) or g.get("self_review") or {}),
+            "transcript_anchor": anchors_by_q.get(solution_q),
+            "solution":      ({key: value for key, value in (solutions_by_q.get(solution_q) or {}).items() if key in {"expected", "rationale"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else solutions_by_q.get(solution_q) or {}),
+            "self_review":   ({key: value for key, value in (self_review_by_q.get(solution_q) or {}).items() if key in {"reference_answers", "rationale", "required_facts", "optional_facts"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else self_review_by_q.get(solution_q) or g.get("self_review") or {}),
             "first_answer":  first_answers_by_q.get(q),
-        })
+            "question_context": question_context_by_q.get(q),
+        }
+        item["context_provenance"] = {
+            "prompt": provenance(item["prompt"], snapshot, present=q in prompt_by_q),
+            "question_type": provenance(item["question_type"], snapshot, present=q in type_by_q),
+            "solution": provenance(item["solution"], snapshot, present=solution_q in solutions_by_q),
+            "audio_window": provenance(win, snapshot, present=solution_q in windows_by_q),
+            "transcript_anchor": provenance(item["transcript_anchor"], snapshot, present=solution_q in anchors_by_q),
+            "self_review": provenance(item["self_review"], snapshot, persisted="self_review" in g,
+                present=solution_q in self_review_by_q or "self_review" in g),
+            "explanation": provenance(item.get("explanation"), snapshot, present=source_explanation_present),
+            "question_context": provenance(item["question_context"], snapshot, present=q in question_context_by_q),
+        }
+        if "self_review" in g and test_row.get("programme_id") != SOURCE_PROGRAMME:
+            item["self_review"] = g["self_review"] or {}
+            item["context_provenance"]["self_review"] = "submission_snapshot"
+        review.append(item)
 
     if scoring_policy == "report_only":
         web_access = {"available": False, "reason": "report_only"}
     else:
-        from services import mock_correction_service
-        web_access = mock_correction_service.attach_web_explanations(
-            "listening", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
-        )
+        web_access = attach_review_web_explanations("listening", attempt, review, snapshot)
 
     return {
         "attempt_id":      attempt_id,
@@ -8494,6 +8531,13 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "review":          review,
         "controlled_transcripts": controlled_transcripts,
         "web_explanation_access": web_access,
+        "context_source": {**context_reference(snapshot), "field_provenance": {
+            "audio_url": provenance(audio_url, snapshot,
+                present=bool(test_row.get("full_audio_storage_path") or test_row.get("assembled_audio_storage_path"))),
+            "audio_duration": provenance(audio_duration, snapshot, present="full_audio_duration_seconds" in test_row),
+            "cue_points": provenance(test_row.get("cue_points"), snapshot, present="cue_points" in test_row),
+            "section_offsets": provenance(meta.get("section_offsets"), snapshot, present="section_offsets" in meta),
+        }},
     }
 
 @user_router.get(

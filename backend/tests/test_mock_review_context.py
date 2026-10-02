@@ -91,3 +91,16 @@ def test_current_web_publication_cannot_replace_frozen_original_rationale():
     assert review[0]["context_provenance"]["web_explanation_object"]=="submission_snapshot"
     assert "web_explanation_object" not in review[1]
     assert review[1]["context_provenance"]["web_explanation_object"]=="unavailable"
+
+
+def test_authored_flow_bank_and_display_metadata_preserve_presence():
+    question={"payload":{"metadata":{"match_options":["A water","B heat"],
+        "flow_direction":"vertical","response_policy":{"accepted_answers":["private"]}},
+        "labels":["A","B"],"image_alt":"Blank flow diagram"}}
+    context=question_context(question,source())
+    assert context["options"]==["A water","B heat"]
+    assert context["metadata"]=={"flow_direction":"vertical"}
+    assert context["labels"]==["A","B"]
+    assert context["context_provenance"]["options"]=="submission_snapshot"
+    question["payload"]["options"]=None
+    assert question_context(question,source())["options"] is None
