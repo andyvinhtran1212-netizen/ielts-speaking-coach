@@ -2469,10 +2469,11 @@ async def admin_patch_listening_test(
 ):
     """Update editable metadata fields on a listening_tests row.
 
-    Allow-list: test_id, title, version, band_target, accent_profile,
-    themes. Only keys present in the request body land in the UPDATE.
+    Metadata-only requests retain the existing field allow-list. Requests
+    containing visibility fields use the serialized policy writer; mixed
+    metadata/policy requests are rejected atomically by its policy allow-list.
     """
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
 
     existing = (
         supabase_admin.table("listening_tests")
@@ -2536,6 +2537,13 @@ async def admin_patch_listening_test(
 
     if not update:
         return current
+
+    if "exam_only" in update or "is_public" in update:
+        from services.mock_paper_policy import mutate, unavailable
+        if not isinstance(current.get("policy_revision"), int):
+            raise unavailable("policy_update", "listening", test_id)
+        return mutate(supabase_admin, "listening", test_id, update, actor["id"],
+                      expected_revision=current["policy_revision"])
 
     res = (
         supabase_admin.table("listening_tests")
