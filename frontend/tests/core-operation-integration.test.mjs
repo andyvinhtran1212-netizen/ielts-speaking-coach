@@ -15,7 +15,7 @@ const files = {
   mock: '../app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx',
 };
 function actualHandler(file, name, scope) {
-  scope = { anonymousReadingScope, ...scope };
+  scope = { anonymousReadingScope, admissionRequired: false, flagApi: { flush: async () => true }, ...scope };
   const source = readFileSync(new URL(files[file], import.meta.url), 'utf8');
   const ast = ts.createSourceFile('handler.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let found;
@@ -202,7 +202,7 @@ for (const file of ['reading', 'listening']) {
     await actualHandler(file, 'startFresh', { ...scope, coreOperationRequest: harnessTransport(h) })();
     assert.deepEqual(calls[0], calls[1]);
     assert.ok(calls[0][0].endsWith('?class_item=class-1'));
-    assert.deepEqual(calls[0][1], { renderer_affinity_protocol: 'claim-v1' });
+    assert.deepEqual(calls[0][1], { renderer_affinity_protocol: 'claim-v1', purpose: 'assigned_practice' });
     assert.ok(calls[0][2][HEADER]);
     if (file === 'reading') assert.equal(calls[0][2]['X-Reading-Password'], 'test-only-password');
     assert.ok(!JSON.stringify([...h.rows]).includes('test-only-password'));

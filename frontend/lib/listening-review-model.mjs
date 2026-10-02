@@ -121,6 +121,7 @@ export function normalizeListeningReview(payload) {
     testId: text(payload.test_id),
     title: text(payload.title) || text(payload.test_id) || 'Chữa bài Listening',
     preview,
+    contextSource: payload.context_source && typeof payload.context_source === 'object' ? payload.context_source : null,
     score,
     maxScore: maxScore ?? review.length,
     bandEstimate,

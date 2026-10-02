@@ -27,6 +27,10 @@ import re
 from typing import Any
 
 from services.listening_test_grader import answer_matches, normalize_answer
+from services.mock_response_policy import (
+    ResponsePolicyError, attach_response_policies, option_token,
+    policy_alternatives, policy_answer_matches, response_policy_ref, validate_option_group,
+)
 
 
 # ── IELTS Academic Reading band table ─────────────────────────────────
@@ -146,6 +150,7 @@ def _option_fingerprint(payload: dict[str, Any]) -> tuple[tuple[str, str], ...]:
 def collect_answer_key(
     question_rows: list[dict[str, Any]],
     passage_order_by_id: dict[str, int] | None = None,
+    *, pinned_policies: dict | None = None,
 ) -> list[dict[str, Any]]:
     """Project reading_questions rows into the flat answer-key shape the
     grader consumes: ``{q_num, question_type, answer, alternatives,
@@ -156,6 +161,9 @@ def collect_answer_key(
     (reading_questions rows don't carry passage_order themselves — only a
     passage_id FK). When the map is omitted, passage_order is left None
     and per-part rollup is skipped for that row.
+
+    ``pinned_policies`` is supplied only alongside frozen admission rows;
+    mutable authored metadata cannot upgrade a legacy active attempt.
 
     Sprint 20.14b — `question_type` is now propagated so grade_attempt
     can branch on it for type-specific semantics. mcq_multi requires
@@ -220,7 +228,7 @@ def collect_answer_key(
                 item["group_key"] = group_key
                 item["group_type"] = "grouped_mcq_single"
         index = end
-    return out
+    return attach_response_policies(out, pinned_policies)
 
 
 # ── Top-level grading ─────────────────────────────────────────────────
@@ -267,6 +275,8 @@ def grade_attempt(
             continue
         primary = ak.get("answer")
         alternatives = ak.get("alternatives") or []
+        if ak.get("response_policy") is not None:
+            alternatives = policy_alternatives(ak["response_policy"], primary)
         candidates = primary if isinstance(primary, list) else [primary]
         candidates = [c for c in candidates if c is not None]
 
@@ -280,9 +290,16 @@ def grade_attempt(
                 continue
             graded_groups.add(group_key)
             group = sorted(grouped_mcq[group_key], key=lambda row: row.get("q_num") or 0)
+            policies = [row.get("response_policy") for row in group]
+            typed_group = any(policy is not None for policy in policies)
+            if typed_group and not all(policy is not None and policy.get("kind") == "option_id" for policy in policies):
+                raise ResponsePolicyError("A grouped task requires coherent pinned option policies")
+            if typed_group:
+                validate_option_group(group)
             remaining_by_answer: dict[str, list[dict[str, Any]]] = {}
             for row in group:
-                normalized = normalize_answer(str(row.get("answer") or ""))
+                normalized = (str(row["q_num"]) if typed_group
+                              else normalize_answer(str(row.get("answer") or "")))
                 if normalized:
                     remaining_by_answer.setdefault(normalized, []).append(row)
             expected_group_display = ", ".join(sorted(
@@ -299,6 +316,9 @@ def grade_attempt(
                 grouped_user_row = user_by_q.get(grouped_q_num) or {}
                 grouped_user_answer = grouped_user_row.get("user_answer")
                 pick = normalize_answer(str(grouped_user_answer or ""))
+                if typed_group:
+                    pick = next((identity for identity, rows in remaining_by_answer.items()
+                                 if rows and policy_answer_matches(grouped_user_answer, rows[0]["response_policy"])), "")
                 matched_rows = remaining_by_answer.get(pick) or []
                 matched_by_q_num[grouped_q_num] = (
                     matched_rows.pop(0) if pick and matched_rows else None
@@ -338,7 +358,8 @@ def grade_attempt(
                     alternatives = []
                 else:
                     explanation = rationale_row.get("explanation")
-                    alternatives = rationale_row.get("alternatives") or []
+                    alternatives = (policy_alternatives(rationale_row["response_policy"], rationale_row.get("answer"))
+                                    if typed_group else rationale_row.get("alternatives") or [])
                 per_question.append({
                     "q_num":         grouped_q_num,
                     "correct":       is_correct,
@@ -362,6 +383,8 @@ def grade_attempt(
                     "rationale_q_num": (
                         rationale_row.get("q_num") if rationale_row else None
                     ),
+                    **({"response_policy_ref": response_policy_ref((rationale_row or grouped_row)["response_policy"])}
+                       if typed_group else {}),
                 })
             continue
 
@@ -373,21 +396,29 @@ def grade_attempt(
         # comma-separated string (e.g. "A,C" or "A, C"), which we split
         # and trim before comparing.
         if qtype == "mcq_multi" and isinstance(primary, list):
-            # Build the canonical expected set (normalised single letters
-            # or labels). Use the listening grader's normalize_answer so
-            # the comparison is case/whitespace-insensitive and respects
-            # the existing diacritic + UK/US rules. (Mục 33/B7: import hoisted
-            # to module top — no circular dep; answer_matches already imported there.)
-            expected_norm = {normalize_answer(str(c)) for c in candidates}
-            expected_norm.discard("")
-            user_str = str(user_answer or "")
-            user_parts = [p for p in user_str.replace(";", ",").split(",")]
-            user_norm = {normalize_answer(p) for p in user_parts}
-            user_norm.discard("")
-            is_correct = bool(expected_norm) and user_norm == expected_norm
+            policy = ak.get("response_policy")
+            if policy is not None:
+                expected_norm = {option_token(str(c), policy) for c in candidates}
+                if len(expected_norm) != len(candidates):
+                    raise ResponsePolicyError("Repeated canonical option identities")
+                parts = str(user_answer or "").replace(";", ",").split(",")
+                user_norm = [option_token(part, policy) for part in parts]
+                is_correct = (bool(expected_norm) and all(user_norm)
+                              and len(user_norm) == len(set(user_norm))
+                              and set(user_norm) == expected_norm)
+            else:
+                # Legacy active attempts retain their original normalization.
+                expected_norm = {normalize_answer(str(c)) for c in candidates}
+                expected_norm.discard("")
+                user_str = str(user_answer or "")
+                user_parts = [p for p in user_str.replace(";", ",").split(",")]
+                user_norm = {normalize_answer(p) for p in user_parts}
+                user_norm.discard("")
+                is_correct = bool(expected_norm) and user_norm == expected_norm
         else:
             is_correct = any(
-                answer_matches(user_answer, str(c), alternatives) for c in candidates
+                answer_matches(user_answer, str(c), alternatives,
+                               response_policy=ak.get("response_policy")) for c in candidates
             )
 
         expected_display = ", ".join(str(c) for c in candidates) if candidates else ""
@@ -400,6 +431,8 @@ def grade_attempt(
             "skill_tag":     ak.get("skill_tag"),
             "explanation":   ak.get("explanation"),
             "passage_order": ak.get("passage_order"),
+            **({"response_policy_ref": response_policy_ref(ak["response_policy"])}
+               if ak.get("response_policy") is not None else {}),
         })
 
     score = sum(1 for r in per_question if r["correct"])

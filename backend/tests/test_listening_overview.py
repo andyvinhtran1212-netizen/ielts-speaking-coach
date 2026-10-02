@@ -124,6 +124,28 @@ class _FakeSB:
         self.tables = tables
 
     def table(self, name):
+        if name == "listening_public_practice_catalog":
+            rows = []
+            for paper in self.tables.get("listening_tests", []):
+                if paper.get("status") != "published" or paper.get("is_public") is not True:
+                    continue
+                references = [{
+                    "mock_exam_id": exam["id"], "paper_revision": paper["mock_content_revision"],
+                    "dependency_revision": exam["dependency_revision"],
+                } for exam in self.tables.get("mock_exams", [])
+                    if exam.get("listening_test_id") == paper["id"]
+                    and (exam.get("status") == "draft"
+                         or (exam.get("status") == "published" and exam.get("active_section") != "done"))]
+                references.sort(key=lambda ref: ref["mock_exam_id"])
+                approval = paper.get("approved_public_overlap") or {}
+                if references and not (
+                    approval.get("actor_id") and approval.get("reason")
+                    and approval.get("references") == references
+                    and approval.get("paper_revision") == paper["mock_content_revision"]
+                ):
+                    continue
+                rows.append(paper)
+            return _Query(rows)
         return _Query(self.tables.get(name, []))
 
 
@@ -132,6 +154,7 @@ def _test_row(i, kind, **over):
         "id": f"t{i}", "test_id": f"ILR-{i}", "title": f"Test {i}",
         "test_type": kind, "status": "published", "exam_only": False,
         "is_public": True,
+        "policy_revision": 0, "mock_content_revision": 0,
         "full_audio_storage_path": f"a/{i}.mp3",
         "assembled_audio_storage_path": None,
         "created_at": f"2026-01-{i:02d}", "metadata": {},
@@ -183,10 +206,9 @@ def _dataset():
         "listening_content": content,
         "listening_exercises": exercises,
         "listening_test_attempts": [],
+        "mock_exams": [{"id": "reserved-23", "status": "draft", "listening_test_id": "t23",
+                        "dependency_revision": "synthetic-mock-revision-1"}],
     }
-
-
-RESERVED = {"t23"}
 
 
 def _run(coro):
@@ -199,10 +221,8 @@ def _run(coro):
 
 def _patched(fn):
     from routers import listening as mod
-    import services.mock_exam_service as mes
     with patch.object(mod, "supabase_admin", _FakeSB(_dataset())), \
-         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
-         patch.object(mes, "reserved_test_ids", lambda _skill: set(RESERVED)):
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})):
         return fn(mod)
 
 
@@ -211,9 +231,9 @@ def _patched(fn):
 
 def test_overview_counts_published_audio_ready_tests():
     out = _patched(lambda m: _run(m.listening_overview(authorization="Bearer x")))
-    # full: 5 base + one public mock paper; draft/private/no-audio drop out.
+    # full: 5 base; protected mock, draft/private/no-audio drop out.
     # mini: 3 + the assembled-only row.
-    assert out["tests"] == {"full": 6, "mini": 4, "drill": 2, "practice": 0}
+    assert out["tests"] == {"full": 5, "mini": 4, "drill": 2, "practice": 0}
 
 
 def test_ielts_programme_description_explains_practice_without_internal_jargon():
@@ -227,7 +247,6 @@ def test_ielts_programme_description_explains_practice_without_internal_jargon()
 
 def test_explicit_programme_filter_returns_only_report_only_practice_forms():
     from routers import listening as mod
-    import services.mock_exam_service as mes
 
     tables = _dataset()
     tables["listening_tests"].extend([
@@ -252,8 +271,7 @@ def test_explicit_programme_filter_returns_only_report_only_practice_forms():
         ),
     ])
     with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
-         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
-         patch.object(mes, "reserved_test_ids", lambda _skill: set()):
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})):
         result = _run(mod.list_published_listening_tests(
             programme_id="general-listening-practice",
             test_type=None,
@@ -510,15 +528,13 @@ def test_a_no_audio_row_early_in_the_order_does_not_shorten_the_page():
     exactly the promise the count-driven landing makes.
     """
     from routers import listening as mod
-    import services.mock_exam_service as mes
 
     tables = _dataset()
     # Put the audioless row FIRST so a post-filter would eat a page slot.
     tables["listening_tests"].insert(0, _test_row(30, "full", full_audio_storage_path=None))
 
     with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
-         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
-         patch.object(mes, "reserved_test_ids", lambda _s: set(RESERVED)):
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})):
         page = _run(mod.list_published_listening_tests(
             test_type="full", limit=3, offset=0, authorization="Bearer x"))
 
@@ -526,14 +542,41 @@ def test_a_no_audio_row_early_in_the_order_does_not_shorten_the_page():
     assert all(i["id"] != "t30" for i in page["items"])
 
 
-def test_mock_assignment_does_not_hide_a_public_paper():
-    """Mock membership and public visibility are independent dimensions."""
-    def without_reserved(m):
-        import services.mock_exam_service as mes
-        with patch.object(mes, "reserved_test_ids", lambda _s: set()):
-            return _run(m.listening_overview(authorization="Bearer x"))["tests"]["full"]
+@pytest.mark.parametrize("approved_overlap", [False, True])
+def test_protected_public_mock_requires_explicit_current_overlap_for_catalog(approved_overlap):
+    tables = _dataset()
+    paper = next(row for row in tables["listening_tests"] if row["id"] == "t23")
+    if approved_overlap:
+        paper["approved_public_overlap"] = {
+            "actor_id": "synthetic-reviewer", "reason": "Synthetic explicit overlap fixture",
+            "paper_revision": 0,
+            "references": [{"mock_exam_id": "reserved-23", "paper_revision": 0,
+                            "dependency_revision": "synthetic-mock-revision-1"}],
+        }
+    def both(mod):
+        overview = _run(mod.listening_overview(authorization="Bearer x"))
+        listed = _run(mod.list_published_listening_tests(
+            test_type="full", limit=100, offset=0, authorization="Bearer x"))
+        return overview["tests"]["full"], listed["items"]
+    count, listed = _with(tables, both)
+    assert count == len(listed) == (6 if approved_overlap else 5)
+    assert ("t23" in {row["id"] for row in listed}) is approved_overlap
 
-    assert _patched(without_reserved) == 6
+
+def test_stale_overlap_cannot_keep_changed_paper_in_public_catalog():
+    tables = _dataset()
+    paper = next(row for row in tables["listening_tests"] if row["id"] == "t23")
+    paper["mock_content_revision"] = 1
+    paper["approved_public_overlap"] = {
+        "actor_id": "synthetic-reviewer", "reason": "Synthetic obsolete overlap fixture",
+        "paper_revision": 0,
+        "references": [{"mock_exam_id": "reserved-23", "paper_revision": 0,
+                        "dependency_revision": "synthetic-mock-revision-1"}],
+    }
+    listed = _with(tables, lambda mod: _run(mod.list_published_listening_tests(
+        test_type="full", limit=100, offset=0, authorization="Bearer x")))
+    assert listed["total"] == 5
+    assert "t23" not in {row["id"] for row in listed["items"]}
 
 
 def test_published_content_ids_pages_past_the_1000_row_cap():
@@ -550,21 +593,19 @@ def test_blank_audio_path_is_not_audio_ready(tmp_path=None):
     the Python guard and the URL signer both treat it as missing — the exact
     count-vs-list gap this endpoint exists to close."""
     from routers import listening as mod
-    import services.mock_exam_service as mes
 
     tables = _dataset()
     tables["listening_tests"].append(
         _test_row(31, "full", full_audio_storage_path="",
                   assembled_audio_storage_path=""))
     with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
-         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
-         patch.object(mes, "reserved_test_ids", lambda _s: set(RESERVED)):
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})):
         ov = _run(mod.listening_overview(authorization="Bearer x"))
         listed = _run(mod.list_published_listening_tests(
             test_type="full", limit=100, offset=0, authorization="Bearer x"))
 
-    assert ov["tests"]["full"] == 6, "a blank path is not audio"
-    assert len(listed["items"]) == 6
+    assert ov["tests"]["full"] == 5, "a blank path is not audio"
+    assert len(listed["items"]) == 5
     assert all(i["id"] != "t31" for i in listed["items"])
 
 
@@ -592,10 +633,8 @@ def _practice_dataset():
 
 def _with(tables, fn):
     from routers import listening as mod
-    import services.mock_exam_service as mes
     with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
-         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
-         patch.object(mes, "reserved_test_ids", lambda _s: set(RESERVED)):
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})):
         return fn(mod)
 
 
@@ -644,7 +683,7 @@ def test_other_libraries_ignore_practice_group():
         return _run(m.list_published_listening_tests(
             test_type="full", practice_group="trap",
             limit=100, offset=0, authorization="Bearer x"))
-    assert len(_with(_practice_dataset(), go)["items"]) == 6
+    assert len(_with(_practice_dataset(), go)["items"]) == 5
 
 
 def test_practice_is_a_valid_test_type():
@@ -655,25 +694,30 @@ def test_practice_is_a_valid_test_type():
     _with(_practice_dataset(), go)          # must not raise 422
 
 
-def test_practice_tab_counts_include_public_mock_papers():
-    """A paper held for a mock exam is invisible to both `tests['practice']`
-    and the list endpoint; the tab count has to agree or a tab advertises a
-    paper its own list refuses to return."""
+@pytest.mark.parametrize("approved_overlap", [False, True])
+def test_practice_tab_counts_exclude_protected_mock_without_current_reviewed_overlap(approved_overlap):
+    """The catalog and tab counts agree for confidential and reviewed overlap."""
     tables = _practice_dataset()
-    tables["listening_tests"].append(_practice_row(47, "trap"))
-    reserved = RESERVED | {"t47"}
-
+    paper = _practice_row(47, "trap")
+    tables["listening_tests"].append(paper)
+    tables["mock_exams"].append({"id": "reserved-47", "status": "draft", "listening_test_id": "t47",
+                                 "dependency_revision": "synthetic-mock-revision-1"})
+    if approved_overlap:
+        paper["approved_public_overlap"] = {
+            "actor_id": "synthetic-reviewer", "reason": "Synthetic reviewed practice overlap",
+            "paper_revision": 0,
+            "references": [{"mock_exam_id": "reserved-47", "paper_revision": 0,
+                            "dependency_revision": "synthetic-mock-revision-1"}],
+        }
     from routers import listening as mod
-    import services.mock_exam_service as mes
     with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
-         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
-         patch.object(mes, "reserved_test_ids", lambda _s: set(reserved)):
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})):
         ov = _run(mod.listening_overview(authorization="Bearer x"))
         listed = _run(mod.list_published_listening_tests(
             test_type="practice", practice_group="trap",
             limit=100, offset=0, authorization="Bearer x"))
 
-    assert ov["practice_groups"]["trap"] == len(listed["items"]) == 3
+    assert ov["practice_groups"]["trap"] == len(listed["items"]) == (3 if approved_overlap else 2)
 
 
 def test_admin_list_hides_the_practice_bank_by_default():

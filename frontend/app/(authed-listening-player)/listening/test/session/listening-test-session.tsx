@@ -24,11 +24,13 @@ import {
 } from '@/lib/listening-test-controller.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { MockPostTestCapture } from '@/components/mock-post-test-capture';
+import { useAttemptReviewFlags } from '@/lib/use-attempt-review-flags';
+import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status';
 
 type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'capture' | 'results' | 'sealed';
 type AnswerMap = Map<number, string>;
 type SaveMap = Map<number, 'pending' | 'retrying' | 'failed'>;
-type Attempt = { attempt_id: string; started_at: string; answers?: any[]; renderer_affinity?: 'legacy' | 'next' | null };
+type Attempt = { attempt_id: string; started_at: string; answers?: any[]; renderer_affinity?: 'legacy' | 'next' | null; attempt_purpose?: string | null; mock_sitting_id?: string | null };
 type ListeningTest = any;
 
 function withQuery(path: string, pairs: Array<[string, string | null]>) {
@@ -402,12 +404,13 @@ export function ListeningTestSession() {
   const [testData, setTestData] = useState<ListeningTest | null>(null);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [resumeAvailable, setResumeAvailable] = useState(false);
+  const [admissionRequired, setAdmissionRequired] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>(() => new Map());
   const answersRef = useRef<AnswerMap>(answers);
   const [saveStates, setSaveStates] = useState<SaveMap>(() => new Map());
   const [activeSection, setActiveSection] = useState(1);
   const [currentQuestion, setCurrentQuestion] = useState<number | null>(null);
-  const [reviewQuestions, setReviewQuestions] = useState<Set<number>>(() => new Set());
+  const [previewFlags, setPreviewFlags] = useState<Set<number>>(() => new Set());
   const [audioPromptOpen, setAudioPromptOpen] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -440,6 +443,21 @@ export function ListeningTestSession() {
     catch { setError('Không có mã bài Listening hợp lệ.'); setPhase('error'); }
   }, []);
 
+  const flagApi = useAttemptReviewFlags({
+    attemptId: attempt?.attempt_id, domain: 'listening', ownerScope: user?.id || '',
+    enabled: !!attempt && status === 'signed-in' && !['results', 'sealed', 'capture'].includes(phase),
+  });
+  const reviewQuestions = params?.adminPreview ? previewFlags : flagApi.flagged;
+  const toggleFlag = useCallback((qNum: number) => {
+    if (collectionFrozenRef.current || phase !== 'inprogress') return;
+    if (params?.adminPreview) setPreviewFlags((previous) => {
+      const next = new Set(previous);
+      if (next.has(qNum)) next.delete(qNum); else next.add(qNum);
+      return next;
+    });
+    else flagApi.toggle(qNum);
+  }, [flagApi.toggle, params?.adminPreview, phase]);
+
   const resumePath = useCallback((input = params) => {
     if (!input) return '';
     return withQuery(`/api/listening/tests/${encodeURIComponent(input.testId)}/attempts/in-progress`, [
@@ -469,7 +487,7 @@ export function ListeningTestSession() {
       ? [await window.api.get(`/admin/listening/tests/${encodeURIComponent(params.testId)}/player-preview`), null]
       : await Promise.all([
         window.api.get(withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
-          ['class_item', params.classItem],
+          ['class_item', params.classItem], ['sitting_id', params.sittingId],
         ])),
         window.api.get(resumePath(params)),
       ]);
@@ -498,13 +516,19 @@ export function ListeningTestSession() {
     } else {
       answersRef.current = new Map(); setAnswers(new Map()); setAttempt(null); setResumeAvailable(false);
     }
+    setAdmissionRequired(false);
     setPhase('prestart');
   }, [claimNextRenderer, params, resumePath]);
 
   const bootWithRecovery = useCallback(async () => {
     setPhase('loading'); setError('');
     try { await boot(); }
-    catch (caught: any) { setError(`Không tải được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
+    catch (caught: any) {
+      if (caught?.status === 409 && caught?.detail?.reason === 'admission_required') {
+        setTestData(null); setAttempt(null); setResumeAvailable(false); setAdmissionRequired(true); setPhase('prestart'); return;
+      }
+      setError(`Không tải được bài Listening. ${caught?.message || ''}`); setPhase('error');
+    }
   }, [boot]);
 
   useEffect(() => {
@@ -576,21 +600,23 @@ export function ListeningTestSession() {
     await (window as any).MockHook.attach('listening', attemptId);
   }, [params?.sittingId]);
 
-  const enterAttempt = useCallback(async (nextAttempt: Attempt, restored: AnswerMap, attach = true) => {
-    if (attach) await attachMockAttempt(nextAttempt.attempt_id);
-    const offset = await resolveAudioOffset(nextAttempt, testData);
+  const enterAttempt = useCallback(async (nextAttempt: Attempt, restored: AnswerMap, attach = true, nextTest = testData) => {
+    if (nextAttempt.attempt_purpose === 'mock_delivery') {
+      if (!nextAttempt.mock_sitting_id || (params?.sittingId && nextAttempt.mock_sitting_id !== params.sittingId)) throw new Error('Không xác nhận được kỳ thi của bài Listening.');
+    } else if (attach) await attachMockAttempt(nextAttempt.attempt_id);
+    const offset = await resolveAudioOffset(nextAttempt, nextTest);
     answersRef.current = restored;
     setAnswers(new Map(restored)); setAttempt(nextAttempt); setResumeAvailable(false);
     setResumeOffset(Number.isFinite(offset) ? Math.max(0, Number(offset)) : null);
-    const firstQuestion = Number(listeningQuestions(testData)[0]?.question?.q_num || 0);
+    const firstQuestion = Number(listeningQuestions(nextTest)[0]?.question?.q_num || 0);
     setCurrentQuestion(firstQuestion || null);
     // Embedded mock sections still need an explicit user gesture before a
     // browser may start media. Suppressing this prompt leaves full-test audio
     // with no first-play control because the parent runner cannot call play()
     // inside the iframe on the learner's behalf.
-    setAudioPromptOpen(!!testData && !isPracticeListeningTest(testData));
+    setAudioPromptOpen(!!nextTest && !isPracticeListeningTest(nextTest));
     setPhase('inprogress');
-  }, [attachMockAttempt, resolveAudioOffset, testData]);
+  }, [attachMockAttempt, params?.sittingId, resolveAudioOffset, testData]);
 
   const resume = useCallback(() => {
     if (!attempt) return;
@@ -604,20 +630,25 @@ export function ListeningTestSession() {
     setPhase('loading');
     try {
       const path = withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}/attempts`, [['class_item', params.classItem]]);
-      const body = { renderer_affinity_protocol: 'claim-v1' };
+      const body = { renderer_affinity_protocol: 'claim-v1', purpose: params.sittingId || admissionRequired ? 'mock_delivery' : params.classItem ? 'assigned_practice' : 'practice', ...(params.sittingId ? { mock_sitting_id: params.sittingId } : {}) };
       const started: any = await coreOperationRequest({
         accountId: user?.id, method: 'POST', path, input: body, fresh: resumeAvailable,
         acknowledged: (reply: any) => typeof reply?.attempt_id === 'string' && !!reply.attempt_id,
       }, (headers: Record<string, string>) => window.api.postWith(path, body, headers));
       const affinity = await claimNextRenderer(String(started.attempt_id));
       if (!affinity) return;
-      await attachMockAttempt(String(started.attempt_id));
-      const canonical = normalizeListeningResume(await window.api.get(resumePath(params)));
+      const [resumePayload, testPayload] = await Promise.all([
+        window.api.get(resumePath(params)),
+        window.api.get(withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [['class_item', params.classItem], ['sitting_id', params.sittingId]])),
+      ]);
+      const canonical = normalizeListeningResume(resumePayload);
       if (!canonical || canonical.attempt_id !== String(started.attempt_id)) throw new Error('Không xác nhận được attempt vừa tạo.');
+      const confirmedTest = normalizeListeningTest(testPayload);
+      setTestData(confirmedTest); setAdmissionRequired(false);
       const ownedAttempt = { ...canonical, renderer_affinity: affinity };
-      await enterAttempt(ownedAttempt, new Map(), false);
+      await enterAttempt(ownedAttempt, listeningAnswersFromRows(canonical.answers), true, confirmedTest);
     } catch (caught: any) { setError(`Không bắt đầu được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
-  }, [attachMockAttempt, claimNextRenderer, enterAttempt, params, resumePath, resumeAvailable, user?.id]);
+  }, [admissionRequired, claimNextRenderer, enterAttempt, params, resumePath, resumeAvailable, user?.id]);
 
   useEffect(() => {
     if (phase !== 'prestart' || !params?.mockEmbed || autoEnteredMockRef.current) return;
@@ -636,7 +667,7 @@ export function ListeningTestSession() {
   const submit = useCallback(async () => {
     if (!attempt || ['submitting', 'results', 'sealed'].includes(phase)) return;
     setSubmitOpen(false); setSubmitBlocked(''); setPhase('submitting');
-    const clean = await coordinatorRef.current?.flush?.();
+    const [clean] = await Promise.all([coordinatorRef.current?.flush?.(), flagApi.flush()]);
     if (!clean) {
       setPhase('inprogress');
       setSubmitBlocked('Vẫn còn câu chưa lưu được lên máy chủ. Hãy kiểm tra kết nối, bấm “Thử lại”, rồi nộp bài lại để tránh mất đáp án.');
@@ -664,7 +695,7 @@ export function ListeningTestSession() {
       }
       setResult(response); setPhase('results');
     } catch (caught: any) { setError(`Không nộp được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
-  }, [attempt, params?.mockEmbed, phase, user?.id]);
+  }, [attempt, flagApi.flush, params?.mockEmbed, phase, user?.id]);
 
   useEffect(() => {
     if (!params?.mockEmbed) return undefined;
@@ -833,6 +864,7 @@ export function ListeningTestSession() {
     <main className={`listening-next-shell${['inprogress', 'submitting'].includes(phase) ? ' is-testing' : ''}`}>
       {phase === 'loading' ? <div className="empty-state">Đang tải bài Listening…</div> : null}
       {phase === 'error' ? <section className="error-banner" role="alert"><p>{error}</p><div className="listening-next-actions"><button className="ft-control-btn" type="button" onClick={() => void bootWithRecovery()}>Thử lại</button><a className="ft-control-btn ghost" href={backHref}>← Quay lại</a></div></section> : null}
+      {phase === 'prestart' && admissionRequired ? <section className="ft-prestart"><h1>Bài Listening trong kỳ thi</h1><p>Bắt đầu bài thi để tiếp tục vào phần Listening.</p><div className="listening-next-actions"><button className="ft-control-btn" type="button" onClick={() => void startFresh()}>Bắt đầu bài thi</button><a className="ft-control-btn ghost" href={backHref}>← Quay lại</a></div></section> : null}
       {phase === 'prestart' && testData ? <section className="ft-prestart">
         <p className="eyebrow">{practice ? 'LISTENING PRACTICE' : 'FULL LISTENING TEST'}</p>
         <h1>{testData.title}</h1><p>{sections.length} phần · {total} câu</p>
@@ -902,7 +934,8 @@ export function ListeningTestSession() {
           })}</div>
           {saveStates.size ? <p className="ft-unsaved-note" role="status">{unsavedPending ? `Đang lưu ${unsavedPending} câu. ` : ''}{unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}{unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi lưu xong.'}{unsavedFailed ? <button className="ft-unsaved-retry" type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}</p> : null}
           {submitBlocked ? <p className="ft-nothing-saved" role="alert">{submitBlocked}</p> : null}
-          <div className="listening-next-submit-row"><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions[0]?.question?.q_num)} onClick={() => moveQuestion(-1)}>‹ Previous</button><label className="listening-next-review"><input type="checkbox" checked={currentQuestion != null && reviewQuestions.has(currentQuestion)} disabled={currentQuestion == null} onChange={() => { if (currentQuestion == null) return; setReviewQuestions((previous) => { const next = new Set(previous); if (next.has(currentQuestion)) next.delete(currentQuestion); else next.add(currentQuestion); return next; }); }} /> Review</label><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions.at(-1)?.question?.q_num)} onClick={() => moveQuestion(1)}>Next ›</button>{params?.adminPreview ? <a className="btn-submit-final" href={`/listening/review?admin_test_id=${encodeURIComponent(testData.id)}`}>Xem chữa bài</a> : !params?.mockEmbed ? <button className="btn-submit-final" id="btn-submit" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang chấm…' : 'Submit answers'}</button> : null}</div>
+          {!params?.adminPreview ? <AttemptReviewFlagStatus ready={flagApi.ready} states={flagApi.states} error={flagApi.error} onRetry={flagApi.retry} /> : null}
+          <div className="listening-next-submit-row"><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions[0]?.question?.q_num)} onClick={() => moveQuestion(-1)}>‹ Previous</button><label className="listening-next-review"><input type="checkbox" checked={currentQuestion != null && reviewQuestions.has(currentQuestion)} disabled={currentQuestion == null || phase !== 'inprogress' || (!params?.adminPreview && !flagApi.ready)} onChange={() => { if (currentQuestion != null) toggleFlag(currentQuestion); }} /> Review</label><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions.at(-1)?.question?.q_num)} onClick={() => moveQuestion(1)}>Next ›</button>{params?.adminPreview ? <a className="btn-submit-final" href={`/listening/review?admin_test_id=${encodeURIComponent(testData.id)}`}>Xem chữa bài</a> : !params?.mockEmbed ? <button className="btn-submit-final" id="btn-submit" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang chấm…' : 'Submit answers'}</button> : null}</div>
         </footer>
       </> : null}
       {phase === 'sealed' ? <section className="ft-prestart"><p>Đã thu bài Listening. Đang chờ kỳ thi chuyển bước tiếp theo…</p></section> : null}

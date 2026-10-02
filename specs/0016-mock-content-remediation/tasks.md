@@ -1,10 +1,10 @@
 # Tasks
 
-- [ ] T001 Record direct owner approval of the concrete intent, set lifecycle only
+- [x] T001 Record direct owner approval of the concrete intent, set lifecycle only
   through the reviewed spec-only change and land it on staging before runtime
   implementation. `owns: specs/0016-mock-content-remediation, specs/README.md`
-  Direct owner approval is recorded in `approval-decision.md`; T001 remains
-  unchecked until this spec-only PR has actually landed on staging.
+  Direct owner approval is recorded in `approval-decision.md`; the spec-only
+  PR #1565 landed on staging at `ae71cdc51435f7c5e54758651bdd79d58bb19a0c`.
 - [ ] T002 Build complete route/writer/purpose and lifecycle inventory, validate
   source/main/staging distinctions and derive typed API/error contracts and
   synthetic fixtures. `depends: T001; owns: new policy models, contract inventory`

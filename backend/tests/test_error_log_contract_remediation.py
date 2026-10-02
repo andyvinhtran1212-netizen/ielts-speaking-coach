@@ -77,6 +77,11 @@ class _FailingInsert:
     def insert(self, _payload):
         return self
 
+    def rpc(self, name, params):
+        assert name == "fn_create_mock_exam_with_paper_policy"
+        assert params["p_payload"]["code"] == "COURSE-1"
+        return self
+
     def execute(self):
         raise self.exc
 

@@ -36,6 +36,31 @@ _ADMIN_USER = {"id": "00000000-0000-0000-0000-00000000aaaa", "email": "admin@x"}
 _USER = {"id": "00000000-0000-0000-0000-00000000bbbb", "email": "u@x"}
 
 
+def _legacy_practice_db():
+    """Model published, unreserved legacy paper access without bypassing routes."""
+    db = MagicMock()
+    flags = MagicMock()
+    flags.select.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(data=[])
+    tables = db.table.return_value
+    db.table.side_effect = lambda name: flags if name == "mock_attempt_review_flags" else tables
+    def rpc(name, params):
+        if name == "fn_resolve_mock_paper_access":
+            assert params["p_skill"] == "reading"
+            assert params["p_test_id"]
+            assert params["p_user_id"] == _USER["id"]
+            return MagicMock(execute=MagicMock(return_value=MagicMock(data={
+                "allowed": True, "attempt_purpose": "practice", "paper_revision": 1, "policy_revision": 1})))
+        if name == "fn_guard_owned_mock_attempt":
+            attempt = params["p_attempt"]
+            assert params["p_skill"] == "reading"
+            assert attempt["user_id"] == _USER["id"]
+            assert attempt["test_id"] and not attempt.get("sitting_id")
+            return MagicMock(execute=MagicMock(return_value=MagicMock(data={"allowed": True})))
+        raise AssertionError(f"Unexpected policy RPC: {name}")
+    db.rpc.side_effect = rpc
+    return db
+
+
 # ── D1 — L3 passage reconciliation (audit P1-1) ───────────────────────
 
 
@@ -85,7 +110,7 @@ def test_d1_l3_reimport_deletes_passage_removed_from_source():
     REMOVED from the source file, the orphan reading_passages row attached
     to the test_id must be deleted. ON DELETE CASCADE on reading_questions
     handles the questions."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
 
     # 1) reading_tests existence check (used by _import_l3_full_test step 1).
     test_exist_chain = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
@@ -138,7 +163,7 @@ def test_d1_l3_reimport_unchanged_passages_no_extra_delete():
     passages as the existing test, the reconciliation step deletes none of
     them. (It still deletes reading_questions per passage for the
     delete-then-insert question replacement — that's separate.)"""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
 
     test_exist_chain = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
     test_exist_chain.execute.return_value = MagicMock(data=[{"id": "test-uuid"}])
@@ -172,7 +197,7 @@ def test_d1_l3_reimport_unchanged_passages_no_extra_delete():
 def test_d1_l3_first_import_no_existing_passages_no_delete():
     """When the test is created (not updated), the existing-passage lookup
     returns empty and the reconciliation step is a no-op."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     test_exist_chain = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
     test_exist_chain.execute.return_value = MagicMock(data=[])    # test row does not exist → insert path
     existing_pass_chain = mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value
@@ -209,7 +234,7 @@ def test_d2_start_retries_on_unique_violation_until_insert_succeeds():
     abandons the racer's row), and inserts successfully."""
     from unittest.mock import call
 
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     # The test fetch in _fetch_published_test:
     fetch_chain = mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value
     fetch_chain.execute.return_value = MagicMock(data=[{
@@ -243,7 +268,7 @@ def test_d2_start_retries_on_unique_violation_until_insert_succeeds():
 def test_d2_start_503_when_retry_budget_exhausted():
     """Three back-to-back unique violations (pathological contention) → the
     handler gives up with a 503, not an infinite loop or a 500."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     fetch_chain = mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value
     fetch_chain.execute.return_value = MagicMock(data=[{
         "id": "test-uuid", "test_id": "T1", "title": "T", "module": "academic",
@@ -271,7 +296,7 @@ def test_d3_patch_two_different_qnums_each_upserts_independently():
     This is the unit-test surrogate for the audit's concurrency concern.
     True parallel concurrency is verified at the DB layer by the partial
     PK on (attempt_id, q_num) in migration 088."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value
     chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{
@@ -311,7 +336,7 @@ def test_d4_submit_fails_closed_on_unparseable_started_at():
     from fastapi.testclient import TestClient as _TC
     client = _TC(_app, raise_server_exceptions=False)
 
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     attempt_row = {
         "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
         "status": "in_progress",
@@ -341,7 +366,7 @@ def test_d4_submit_fails_closed_on_missing_started_at():
     from fastapi.testclient import TestClient as _TC
     client = _TC(_app, raise_server_exceptions=False)
 
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     attempt_row = {
         "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
         "status": "in_progress",

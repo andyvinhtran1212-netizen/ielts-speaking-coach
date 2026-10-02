@@ -37,6 +37,7 @@ from urllib.parse import parse_qs, urlparse
 
 from services import listening_convert as lc
 from services.listening_grader import build_turn_segments
+from services.mock_response_policy import authored_response_policies
 
 # Tolerance for the audio:// ↔ timings cross-check (seconds). Generous enough
 # for float rounding, tight enough to catch a real section-offset mistake.
@@ -535,6 +536,9 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
     each payload is ENRICHED with per-question audio_windows + solutions for the
     review. The router stamps id / test_id / content_id and inserts."""
     qp_sections = lc.split_qp_sections(qp_text)
+    # The persistence adapter must carry the reviewed marking contract with
+    # its answer. Validate before projecting the merged authoring records.
+    policies = authored_response_policies("listening", [{"payload": {"answers": res.questions}}])
     by_q = {q["q_num"]: q for q in res.questions}
     accent = _accent_tag(res.metadata.get("accent_profile"))
     cefr = lc.infer_cefr_level(res.metadata.get("band_target"))
@@ -552,7 +556,9 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
         sec_questions = [q for q in res.questions if q["section_num"] == section_num]
         blocks = lc.parse_question_blocks(qp_sections[section_num])
         answers = [{"q_num": q["q_num"], "answer": q["answer"] or "",
-                    "alternatives": q.get("alternatives") or []} for q in sec_questions]
+                    "alternatives": q.get("alternatives") or [],
+                    **({"response_policy": policies[q["q_num"]]} if q["q_num"] in policies else {})}
+                   for q in sec_questions]
         exercises = lc.build_exercises(blocks, answers, section_num)
         anchors = res.transcript_anchors or {}
         for ex in exercises:
@@ -621,6 +627,12 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
             },
             "exercise_rows": exercises,
         })
+    if policies:
+        from services.listening_test_grader import collect_answer_key
+        # Check the actual persisted block/group shape, including dropped
+        # identities and key/accepted-form disagreement, before returning rows.
+        collect_answer_key([exercise for section in out for exercise in section["exercise_rows"]],
+                           pinned_policies=policies)
     return out
 
 

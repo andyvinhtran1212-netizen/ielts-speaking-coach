@@ -157,7 +157,7 @@ def test_actual_submit_routes_prove_only_acknowledged_persisted_results(monkeypa
               "sitting_id": "sealed-fixture" if sealed else None, "answers": [{"q_num": 1, "user_answer": "answer-1"}]}
     if surface == "reading_exam":
         fake.tables["reading_test_attempts"] = [source]
-        fake.tables["reading_tests"] = [{"id": test_id, "time_limit_minutes": 60, "module": "academic"}]
+        fake.tables["reading_tests"] = [{"id": test_id, "time_limit_minutes": 60, "module": "academic", "status": "published", "is_public": not sealed}]
         fake.tables["reading_passages"] = [{"id": "p1", "test_id": test_id, "library": "l3_test", "passage_order": 1}]
         fake.tables["reading_questions"] = [{"passage_id": "p1", "q_num": n, "question_type": "short_answer", "answer": {"answer": f"answer-{n}"}} for n in (1, 2)]
         fake.tables["reading_attempt_answers"] = []
@@ -171,6 +171,19 @@ def test_actual_submit_routes_prove_only_acknowledged_persisted_results(monkeypa
         monkeypatch.setattr(listening, "supabase_admin", fake)
         monkeypatch.setattr(listening, "_require_auth", AsyncMock(return_value={"id": owner}))
         monkeypatch.setattr(listening, "_mock_sealed", lambda *_: sealed)
+    if sealed:
+        skill = "reading" if surface == "reading_exam" else "listening"
+        fake.tables["mock_exams"] = [{
+            "id": "exam-fixture", "status": "published", "exam_mode": "sequential",
+            "active_section": skill, "collected_section": None,
+            f"{skill}_test_id": test_id, f"{skill}_started_at": now.isoformat(),
+            "reading_minutes": 60,
+        }]
+        fake.tables["mock_exam_sittings"] = [{
+            "id": "sealed-fixture", "user_id": owner, "mock_exam_id": "exam-fixture",
+            "status": "lrw_in_progress", f"{skill}_attempt_id": attempt,
+            f"{skill}_submitted_at": None,
+        }]
     committed = []
     class Q(_Q):
         def execute(self):

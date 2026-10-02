@@ -274,8 +274,10 @@ class _Fake:
         self.tables = {"listening_tests": [], "listening_content": [],
                        "dictation_sessions": [], "dictation_attempts": [],
                        "dictation_attempt_answers": [],
-                       "user_feedback": [], "users": []}
+                       "user_feedback": [], "users": [],
+                       "mock_exams": [], "mock_exam_sittings": []}
         self.fail_tables: set[str] = set()
+        self.rpc_calls: list[tuple[str, dict]] = []
         self.in_filter_sizes: list[tuple[str, str, int]] = []
         self.range_orderings: list[tuple[str, tuple[tuple[str, bool], ...], tuple[int, int]]] = []
         self.storage = _Storage()
@@ -283,6 +285,31 @@ class _Fake:
     def table(self, name): return _Q(self, name)
 
     def rpc(self, name, params):
+        self.rpc_calls.append((name, dict(params)))
+        if name == "fn_resolve_mock_paper_access":
+            assert params["p_skill"] == "listening"
+            assert params["p_purpose"] in {"delivery", "dictation"}
+            if self.fail_tables.intersection({"listening_tests", "mock_exams", "mock_exam_sittings"}):
+                raise RuntimeError("paper policy lookup unavailable")
+            paper = next((item for item in self.tables["listening_tests"]
+                          if item["id"] == params["p_test_id"]), None)
+            if not paper or paper["status"] != "published":
+                return _RpcResult({"allowed": False, "reason": "unavailable"})
+            reserved = any(
+                exam.get("listening_test_id") == paper["id"]
+                and (exam.get("status") == "draft"
+                     or (exam.get("status") == "published" and exam.get("active_section") != "done"))
+                for exam in self.tables["mock_exams"]
+            )
+            # These fixtures admit public practice only. In particular, the
+            # dictation purpose cannot consume a user's mock sitting grant.
+            if not paper.get("is_public") or reserved or params["p_sitting_id"]:
+                return _RpcResult({"allowed": False, "reason": "denied"})
+            return _RpcResult({
+                "allowed": True, "attempt_purpose": "practice",
+                "paper_revision": paper["mock_content_revision"],
+                "policy_revision": paper["policy_revision"],
+            })
         if name != "fn_claim_dictation_attempt_renderer_affinity":
             raise AssertionError(f"unexpected rpc {name}")
         row = next((item for item in self.tables["dictation_attempts"]
@@ -326,6 +353,9 @@ def _seed_test(fake, **overrides):
         "test_id": "ILR-LIS-001",
         "title":   "Pilot 01",
         "status":  "published",
+        "is_public": True,
+        "policy_revision": 0,
+        "mock_content_revision": 0,
         "metadata": {},
         "audio_assembly_mode":         "full_premixed",
         "full_audio_storage_path":     "tests/x/full.mp3",
@@ -385,6 +415,42 @@ def test_get_dictation_returns_audio_and_sentences(monkeypatch):
     assert sec["section_num"] == 1
     assert sec["sentences"] == ["Hello there.", "How are you today?"]
     assert sec["cue_start"] == 29.3
+    assert fake.rpc_calls[0] == ("fn_resolve_mock_paper_access", {
+        "p_skill": "listening", "p_test_id": test["id"], "p_user_id": "user-1",
+        "p_purpose": "dictation", "p_class_item_id": None, "p_sitting_id": None,
+        "p_allow_admission": False,
+    })
+
+
+def test_mock_sitting_grant_does_not_expose_dictation_transcript_or_grade(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "Confidential transcript.")
+    fake.tables["mock_exams"].append({
+        "id": "exam-1", "status": "published", "active_section": "listening",
+        "listening_test_id": test["id"],
+    })
+    fake.tables["mock_exam_sittings"].append({
+        "id": "sitting-1", "mock_exam_id": "exam-1", "user_id": "user-1",
+        "status": "active", "listening_attempt_id": "attempt-1",
+    })
+    fake.fail_tables.add("listening_content")  # access must fail before loading the transcript
+
+    def unexpected_signed_audio(*args):
+        raise AssertionError("denied dictation must not sign audio")
+
+    monkeypatch.setattr(_StorageBucket, "create_signed_url", unexpected_signed_audio)
+    with pytest.raises(HTTPException) as boot_error:
+        _run(listening_router.get_listening_test_dictation(
+            test_id=test["id"], authorization=authz))
+    with pytest.raises(HTTPException) as grade_error:
+        _grade(test["id"], 1, 0, "Confidential transcript.", authz)
+    assert boot_error.value.status_code == grade_error.value.status_code == 404
+    assert len(fake.rpc_calls) == 2
+    assert all(params["p_purpose"] == "dictation" and params["p_user_id"] == "user-1"
+               for _, params in fake.rpc_calls)
+    assert fake.tables["dictation_attempts"] == []
+    assert fake.tables["dictation_sessions"] == []
 
 
 def test_get_dictation_blank_transcript_yields_no_sentences(monkeypatch):

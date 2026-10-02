@@ -96,6 +96,10 @@ export function normalizeReadingBoot(payload, fallbackTestId = null) {
       time_limit_minutes: positiveInteger(inProgress.time_limit_minutes, positiveInteger(test.time_limit_minutes, 60)),
       answers: Array.isArray(inProgress.answers) ? inProgress.answers : [],
       renderer_affinity: inProgress.renderer_affinity ?? null,
+      ...('attempt_purpose' in inProgress ? { attempt_purpose: inProgress.attempt_purpose } : {}),
+      ...('mock_sitting_id' in inProgress ? { mock_sitting_id: inProgress.mock_sitting_id } : {}),
+      ...('paper_revision' in inProgress ? { paper_revision: inProgress.paper_revision } : {}),
+      ...('policy_revision' in inProgress ? { policy_revision: inProgress.policy_revision } : {}),
     } : null,
   };
 }

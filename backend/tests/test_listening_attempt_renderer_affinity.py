@@ -74,12 +74,16 @@ class _Table:
     def limit(self, *_args, **_kwargs):
         return self
 
+    def order(self, *_args, **_kwargs):
+        return self
+
     def execute(self):
         if self.name == "listening_tests" and self.operation == "select":
             return _Result([{
                 "id": "22222222-2222-4222-8222-222222222222",
                 "status": "published",
                 "exam_only": False,
+                "is_public": True,
                 "full_audio_storage_path": "tests/audio.mp3",
                 "assembled_audio_storage_path": None,
             }])
@@ -92,6 +96,15 @@ class _StartDb:
 
     def table(self, name):
         return _Table(self, name)
+
+    def rpc(self, name, params):
+        assert name == "fn_resolve_mock_paper_access"
+        assert params == {
+            "p_skill": "listening", "p_test_id": "22222222-2222-4222-8222-222222222222",
+            "p_user_id": "user-1", "p_purpose": "delivery",
+            "p_class_item_id": None, "p_sitting_id": None, "p_allow_admission": True,
+        }
+        return _Rpc({"allowed": True, "attempt_purpose": "practice"})
 
 
 def test_migration_backfills_legacy_defaults_n_minus_one_and_claims_atomically():
@@ -119,7 +132,6 @@ async def test_start_versions_affinity_aware_and_n_minus_one_inserts(
 ):
     db = _StartDb()
     with patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "user-1"})), \
-         patch.object(mod, "_assert_listening_exam_content_allowed"), \
          patch.object(mod, "supabase_admin", db):
         out = await mod.start_listening_test_attempt(
             "22222222-2222-4222-8222-222222222222",
