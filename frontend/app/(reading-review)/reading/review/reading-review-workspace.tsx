@@ -11,12 +11,14 @@ import {
 } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { READING_QUESTION_LABELS } from '@/lib/admin-reading-preview-model.mjs';
 import { WebExplanationPanel, type EvidenceSelection } from '@/components/web-explanation-panel';
 import {
   grammarKnowledgeHref,
   normalizeReadingReview,
   readingEvidenceMatchesTarget,
   readingReviewBackTarget,
+  readingReviewAnswerStatus,
   readingReviewParams,
   readingReviewPrompt,
   readingReviewSkillRows,
@@ -30,6 +32,10 @@ type PassageMode = 'original' | 'translation';
 type ReviewFilter = 'wrong' | 'all' | 'correct';
 type EvidenceTarget = { questionNumber: number; passageOrder: number };
 
+const QUESTION_TYPE_LABELS: Readonly<Record<string, string>> = READING_QUESTION_LABELS;
+const ANSWER_VERDICTS = { correct: '✓ Đúng', incorrect: '✗ Sai', blank: 'Bỏ trống' };
+const ANSWER_ARIA_LABELS = { correct: 'đúng', incorrect: 'sai', blank: 'bỏ trống' };
+
 const SKILL_LABELS: Record<string, string> = {
   skimming: 'Đọc lướt ý chính',
   scanning: 'Định vị thông tin',
@@ -38,7 +44,8 @@ const SKILL_LABELS: Record<string, string> = {
   inference: 'Suy luận',
   vocabulary_in_context: 'Từ vựng theo ngữ cảnh',
   reference_cohesion: 'Liên kết & tham chiếu',
-  writer_view_TFNG: 'Quan điểm tác giả (T/F/NG)',
+  writer_view_TFNG: 'Đối chiếu thông tin (True / False / Not Given)',
+  writer_view_YNNG: 'Quan điểm tác giả (Yes / No / Not Given)',
 };
 
 const STEP_LABELS: Record<string, string> = {
@@ -262,14 +269,20 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
       onToggle();
     }
   };
-  const skill = solution.skill_name || (item.skill_tag ? SKILL_LABELS[item.skill_tag] || item.skill_tag : '');
-  const tags = [item.question_type, skill, solution.band != null ? `Band ${solution.band}` : ''].filter(Boolean).join(' · ');
+  const writerViewSkill = item.skill_tag === 'writer_view_TFNG' || item.skill_tag === 'writer_view_YNNG';
+  const skillTag = writerViewSkill && item.question_type === 'yes_no_not_given'
+    ? 'writer_view_YNNG'
+    : writerViewSkill && item.question_type === 'true_false_not_given' ? 'writer_view_TFNG' : item.skill_tag;
+  const skill = solution.skill_name || (skillTag ? SKILL_LABELS[skillTag] || skillTag : '');
+  const typeLabel = QUESTION_TYPE_LABELS[item.question_type] || item.question_type;
+  const tags = [typeLabel, skill, solution.band != null ? `Band ${solution.band}` : ''].filter(Boolean).join(' · ');
   const prompt = readingReviewPrompt(item);
+  const answerStatus = preview ? (item.correct ? 'correct' : 'incorrect') : readingReviewAnswerStatus(item);
 
   return <article
     ref={cardRef}
     id={`reading-review-q-${item.q_num}`}
-    className={`rr-card ${item.correct ? 'is-correct' : 'is-incorrect'}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
+    className={`rr-card is-${answerStatus}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
     data-q={item.q_num}
     aria-current={selected ? 'true' : undefined}
   >
@@ -286,7 +299,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
         onKeyDown={toggleFromKeyboard}
       >
         <span className="rr-card__num">Câu {item.q_num}</span>
-        {!preview ? <span className="rr-card__verdict">{item.correct ? '✓ Đúng' : '✗ Sai'}</span> : null}
+        {!preview ? <span className="rr-card__verdict">{ANSWER_VERDICTS[answerStatus]}</span> : null}
         <span className="rr-card__tag">{tags}</span>
         {hasRich ? <span className="rr-card__toggle">
           <span className="rr-card__toggle-text">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'}</span>
@@ -690,9 +703,9 @@ export function ReadingReviewWorkspace() {
           <span className="exam-palette__group-label">Passage {part.passage_order}</span>
           <div className="exam-palette__group-btns">{data.review.filter((item: any) => item.passage_order === part.passage_order).map((item: any) => <button
             type="button"
-            className={`exam-palette__q rr-nav-q${data.preview ? '' : ` ${item.correct ? 'is-correct' : 'is-incorrect'}`}${currentQuestion === item.q_num ? ' is-current' : ''}`}
+            className={`exam-palette__q rr-nav-q${data.preview ? '' : ` is-${readingReviewAnswerStatus(item)}`}${currentQuestion === item.q_num ? ' is-current' : ''}`}
             aria-current={currentQuestion === item.q_num ? 'true' : undefined}
-            aria-label={`Câu ${item.q_num}${data.preview ? ' — xem trước' : ` — ${item.correct ? 'đúng' : 'sai'}`}`}
+            aria-label={`Câu ${item.q_num}${data.preview ? ' — xem trước' : ` — ${ANSWER_ARIA_LABELS[readingReviewAnswerStatus(item)]}`}`}
             onClick={() => selectQuestion(item)}
             key={item.q_num}
           >{item.q_num}</button>)}</div>
@@ -700,6 +713,7 @@ export function ReadingReviewWorkspace() {
         <div className="rr-nav-legend" aria-hidden="true">
           <span className="rr-nav-legend__item"><span className="rr-nav-legend__swatch is-correct" />Đúng</span>
           <span className="rr-nav-legend__item"><span className="rr-nav-legend__swatch is-incorrect" />Sai</span>
+          <span className="rr-nav-legend__item"><span className="rr-nav-legend__swatch is-blank" />Bỏ trống</span>
         </div>
       </footer>
     </> : null}

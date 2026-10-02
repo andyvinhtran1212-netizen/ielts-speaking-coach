@@ -127,6 +127,36 @@ describe('native Reading exam controller', () => {
     assert.equal(groupedReadingMcqChoiceCount([questions[0], questions[3]]), 0);
   });
 
+  test('separates adjacent answer rubrics without orphaning a shared summary template', () => {
+    const questions = [
+      { q_num: 10, question_type: 'short_answer', payload: { instruction: 'Choose ONE WORD from the passage.', word_limit: 'ONE WORD' } },
+      { q_num: 11, question_type: 'short_answer', payload: { instruction: 'Choose ONE WORD AND/OR A NUMBER from the passage.', word_limit: 'ONE WORD AND/OR A NUMBER' } },
+      { q_num: 12, question_type: 'short_answer', payload: { instruction: 'Choose NO MORE THAN TWO WORDS from the passage.', word_limit: 'NO MORE THAN TWO WORDS' } },
+      { q_num: 36, question_type: 'summary_completion', payload: { instruction: 'Complete the summary.', word_limit: 'ONE WORD', template: { summary_text: '{{36}} and {{37}}' } } },
+      { q_num: 37, question_type: 'summary_completion', payload: {} },
+    ];
+    const runs = readingDisplayQuestionRuns(questions);
+    assert.deepEqual(runs.map(run => run.map(question => question.q_num)), [[10], [11], [12], [36, 37]]);
+    assert.match(readingQuestionInstruction(runs[1]), /ONE WORD AND\/OR A NUMBER/);
+    assert.match(readingQuestionInstruction(runs[2]), /NO MORE THAN TWO WORDS/);
+    assert.equal(runs[3][0].payload.template.summary_text, '{{36}} and {{37}}');
+  });
+
+  test('preserves source-authored instructions, paragraph limits and explicit reuse wording', () => {
+    const instruction = 'Reading Passage 2 has nine paragraphs, A-I. Which paragraph contains the following information? NB You may use any letter more than once.';
+    const run = [14, 15].map((q_num) => ({ q_num, question_type: 'matching_information', payload: { instruction: `  ${instruction}  ` } }));
+    assert.equal(readingQuestionInstruction(run, 2), `Questions 14–15: ${instruction}`);
+    run[0].payload.instruction = `Questions 14-15\n${instruction}`;
+    assert.equal(readingQuestionInstruction(run, 2), `Questions 14-15\n${instruction}`);
+  });
+
+  test('retains existing generated rubrics when authored instructions are empty or not text', () => {
+    for (const instruction of [undefined, null, {}, 123, '  ']) {
+      assert.equal(readingQuestionInstruction([{ q_num: 1, question_type: 'sentence_completion', payload: { instruction, word_limit: 'ONE WORD ONLY' } }], 1),
+        'Questions 1: Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.');
+    }
+  });
+
   test('builds a capability-safe review URL with an allowlisted origin', () => {
     assert.equal(
       readingReviewHref('attempt 1', { anonId: 'anon/token', from: 'mini' }),

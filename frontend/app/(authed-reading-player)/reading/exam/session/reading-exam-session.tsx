@@ -44,6 +44,7 @@ type Question = {
   payload?: {
     options?: Option[];
     image_url?: string;
+    instruction?: string;
     word_limit?: string;
     template?: {
       choose?: number;
@@ -52,6 +53,7 @@ type Question = {
       paragraph_labels?: string[];
       rows?: unknown[][];
       summary_text?: string;
+      image_alt?: string;
     };
   };
 };
@@ -178,14 +180,15 @@ function InlineGap({ question, value, onChange }: {
   );
 }
 
-function QuestionControl({ question, value, onChange }: {
+function QuestionControl({ question, value, onChange, includePrompt = true }: {
   question: Question;
   value: string;
+  includePrompt?: boolean;
   onChange(value: string): void;
 }) {
   const type = question.question_type || '';
   const options = questionOptions(question);
-  const inline = /(?:sentence|summary|notes|table|form|short_answer|flow_chart|diagram_label)_completion|short_answer/.test(type)
+  const inline = includePrompt && /(?:sentence|summary|notes|table|form|short_answer|flow_chart|diagram_label)_completion|short_answer/.test(type)
     && /_{2,}/.test(String(question.prompt || ''))
     && !(type === 'summary_completion' && options.length);
   if (inline) return <InlineGap question={question} value={value} onChange={onChange} />;
@@ -250,7 +253,8 @@ function QuestionControl({ question, value, onChange }: {
     const authored = question.payload?.template?.paragraph_labels;
     selectOptions = Array.isArray(authored) && authored.length
       ? authored.map(String)
-      : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      : options.length ? options.map(optionValue)
+        : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   }
   if (selectOptions) {
     return (
@@ -384,7 +388,7 @@ function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, 
     onFocus={onCurrent}
   >
     <span className="exam-summary__gnum">{question.q_num}</span>{' '}
-    <QuestionControl question={controlQuestion} value={answer} onChange={onAnswer} />
+    <QuestionControl question={controlQuestion} value={answer} onChange={onAnswer} includePrompt={false} />
     <button className="reading-next-flow-flag" type="button" aria-label={`Flag question ${question.q_num} for review`} aria-pressed={flagged} onClick={onFlag}>⚑</button>
     <SaveHint state={saveState} />
   </span>;
@@ -472,7 +476,9 @@ function DiagramImageRun({ run, answers, saveStates, flagged, currentQuestion, o
     <img
       className="exam-diagram-image"
       src={first.payload?.image_url}
-      alt={`${type === 'flow_chart_completion' ? 'Flow chart' : 'Labeled diagram'} for questions ${first.q_num}–${run.at(-1)?.q_num}`}
+      alt={typeof first.payload?.template?.image_alt === 'string' && first.payload.template.image_alt.trim()
+        ? first.payload.template.image_alt.trim()
+        : `${type === 'flow_chart_completion' ? 'Flow chart' : 'Labeled diagram'} for questions ${first.q_num}–${run.at(-1)?.q_num}`}
     />
     <ol className="exam-diagram-rows">{run.map((question) => <li
       className={`exam-diagram-row${saveStates.has(question.q_num) ? ' is-unsaved' : ''}${currentQuestion === question.q_num ? ' is-current' : ''}`}
@@ -514,6 +520,7 @@ function MatchingMatrixRun({ run, answers, saveStates, flagged, currentQuestion,
           const value = optionValue(option);
           return <td key={value}><label aria-label={`Question ${question.q_num}: ${value}`}>
             <input type="radio" name={`q-${question.q_num}`} value={value} checked={answers.get(question.q_num) === value} onChange={() => onAnswer(question.q_num, value)} />
+            <span className="reading-next-matrix-letter" aria-hidden="true">{value}</span>
           </label></td>;
         })}
         <td><button className="reading-next-matrix-review" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged.has(question.q_num)} onClick={() => onFlag(question.q_num)}>Review</button></td>

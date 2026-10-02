@@ -251,6 +251,9 @@
 .rr-card::before { position: absolute; top: var(--av-space-4); bottom: var(--av-space-4); left: 0; width: 3px; border-radius: 0 var(--av-radius-pill) var(--av-radius-pill) 0; background: var(--av-border-strong); content: ''; }
 .rr-card.is-correct::before { background: var(--av-success); }
 .rr-card.is-incorrect::before { background: var(--av-error); }
+.rr-card.is-blank .rr-card__verdict { color: var(--av-text-secondary); }
+.rr-nav-q.is-blank,
+.rr-nav-legend__swatch.is-blank { border-color: var(--av-border-strong); color: var(--av-text-secondary); }
 .rr-card.is-current { border-color: var(--av-primary); box-shadow: var(--av-shadow-focus); }
 .rr-card__toolbar { display: flex; align-items: flex-start; gap: var(--av-space-2); }
 .rr-card__top { min-width: 0; min-height: 44px; flex: 1; gap: var(--av-space-2); }
@@ -286,6 +289,7 @@
 .rr-microcheck__option { min-height: 44px; }
 
 .exam-palette { padding: var(--av-space-2) var(--av-space-6); border-color: var(--av-border-default); background: var(--av-surface-elevated); box-shadow: 0 -4px 16px color-mix(in srgb, var(--av-text-primary) 8%, transparent); }
+.exam-palette__group { flex: 0 0 auto; }
 .exam-palette__group-btns { grid-auto-columns: 44px; }
 .rr-nav-q { width: 44px; height: 44px; border-radius: var(--av-radius-md); background: var(--av-surface-card); font-family: var(--av-font-mono); }
 .rr-nav-q.is-current { box-shadow: 0 0 0 2px var(--av-primary); }
