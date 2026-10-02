@@ -161,6 +161,12 @@ export function readingReviewSkillRows(skillBreakdown, labels = {}) {
   })).sort((a, b) => a.percent - b.percent || a.label.localeCompare(b.label));
 }
 
+/** Presentation only: retain the backend grade while naming an empty response. */
+export function readingReviewAnswerStatus(item) {
+  if (item?.correct) return 'correct';
+  return text(item?.user_answer) ? 'incorrect' : 'blank';
+}
+
 const PLACEHOLDER_PROMPT = /^\s*\(?\s*see\s+(summary|notes|table|form)\s+above\s*\)?\s*\.?\s*$/i;
 
 export function readingReviewPrompt(item) {

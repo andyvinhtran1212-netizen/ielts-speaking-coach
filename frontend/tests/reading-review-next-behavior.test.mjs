@@ -9,6 +9,7 @@ import {
   normalizeReadingReview,
   readingEvidenceMatchesTarget,
   readingReviewBackTarget,
+  readingReviewAnswerStatus,
   readingReviewParams,
   readingReviewPrompt,
   readingReviewSkillRows,
@@ -48,6 +49,20 @@ function payload(overrides = {}) {
 }
 
 describe('native Reading review model', () => {
+  test('labels blank responses without overriding the canonical grade or mutating historical rows', () => {
+    for (const [row, expected] of [
+      [{ correct: false, user_answer: '' }, 'blank'],
+      [{ correct: false, user_answer: '  ' }, 'blank'],
+      [{ correct: false, user_answer: 'B' }, 'incorrect'],
+      [{ correct: false, user_answer: '0' }, 'incorrect'],
+      [{ correct: true, user_answer: '' }, 'correct'],
+      [{ correct: true, user_answer: 'A' }, 'correct'],
+    ]) {
+      const before = JSON.stringify(row);
+      assert.equal(readingReviewAnswerStatus(row), expected);
+      assert.equal(JSON.stringify(row), before);
+    }
+  });
   test('parses attempt/admin identities and allowlists the back origin', () => {
     assert.deepEqual(readingReviewParams('?attempt_id=a%2F1&anon=cap&from=mini'), {
       attemptId: 'a/1', adminTestId: null, anonId: 'cap', from: 'mini', sittingId: null,
