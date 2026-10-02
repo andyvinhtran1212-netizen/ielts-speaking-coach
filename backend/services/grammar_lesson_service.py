@@ -30,6 +30,14 @@ def enabled() -> bool:
     return runtime_flags.is_enabled(FLAG, default=False)
 
 
+def _unready_reason(lesson_id: str) -> str:
+    if lesson_id == "M30-B02":
+        return "B02 chưa có bộ câu hỏi luyện riêng về Âm & chữ."
+    if lesson_id in {"M30-B07", "M30-B18"}:
+        return "Bài ôn/kiểm tra này chưa có bộ câu hỏi luyện riêng tách khỏi bài diagnostic."
+    return "Bài này chưa được đóng gói và rà soát cho luồng giao bài Grammar lẻ."
+
+
 def _active_release() -> dict[str, Any]:
     rows = (
         supabase_admin.table("grammar_content_releases")
@@ -58,15 +66,12 @@ def catalog() -> list[dict[str, Any]]:
     available = enabled()
     result = []
     for row in rows:
-        content = lesson_content(str(row["lesson_id"]))
-        reason = (
-            "Bài này chưa có tài liệu và bài luyện riêng được rà soát."
-            if content is None else
-            "Tính năng giao bài Grammar lẻ đang tắt."
-            if not available else None
-        )
+        lesson_id = str(row["lesson_id"])
+        content = lesson_content(lesson_id)
+        reason = (_unready_reason(lesson_id) if content is None else
+                  "Tính năng giao bài Grammar lẻ đang tắt." if not available else None)
         result.append({
-            "id": str(row["lesson_id"]),
+            "id": lesson_id,
             "lesson_no": row["lesson_no"],
             "title": row["title"],
             "ready": reason is None,
