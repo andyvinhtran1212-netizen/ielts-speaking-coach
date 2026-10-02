@@ -140,7 +140,7 @@ describe('Sprint 11.2 — <audio-player> contract', () => {
     // currentTime crosses it. A refactor that drops the segment-mode
     // branch here trips this.
     assert.match(SRC, /_isSegmentMode/);
-    assert.match(SRC, /currentTime\s*>=\s*end/);
+    assert.match(SRC, /currentTime\s*<\s*end\s*-\s*0\.01/);
     assert.match(SRC, /\.pause\(\)/);
   });
 

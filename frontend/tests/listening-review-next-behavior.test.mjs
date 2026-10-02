@@ -139,10 +139,14 @@ describe('Listening review native controller contract', () => {
     assert.match(CLIENT, /Paraphrase và bẫy/);
   });
 
-  test('real audio window drives full-track seek and transcript anchor highlight', () => {
+  test('real audio window drives bounded replay with an explicit continuous alternative', () => {
+    assert.match(CLIENT, /setAttribute\('segment-start', String\(win\.start\)\)/);
+    assert.match(CLIENT, /setAttribute\('segment-end', String\(win\.end\)\)/);
+    assert.match(CLIENT, /if \(continuously\)/);
     assert.match(CLIENT, /removeAttribute\('segment-start'\)/);
     assert.match(CLIENT, /removeAttribute\('segment-end'\)/);
     assert.match(CLIENT, /seekTo\?\.\(win\.start\)/);
+    assert.match(CLIENT, /Nghe tiếp từ/);
     assert.match(CLIENT, /setActiveAnchor\(item\.transcript_anchor\)/);
     assert.match(CLIENT, /data-para=\{index\}/);
   });

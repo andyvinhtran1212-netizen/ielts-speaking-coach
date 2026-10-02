@@ -4,7 +4,8 @@
 .listening-next-player-page .vh:focus { width: auto; height: auto; padding: 8px 12px; overflow: visible; clip-path: none; background: var(--exam-surface-card); color: var(--exam-text-primary); }
 .listening-next-player-page.listening-next-testing { overflow: hidden; }
 .listening-next-shell { width: min(1040px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 64px; display: grid; gap: 24px; min-width: 0; }
-.listening-next-shell.is-testing { width: 100%; height: 100%; min-height: 0; padding: 0; gap: 0; grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }
+/* The 40-question palette must not set the grid's intrinsic column width. */
+.listening-next-shell.is-testing { width: 100%; height: 100%; min-height: 0; padding: 0; gap: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }
 
 .listening-next-topbar { position: relative; z-index: 30; }
 .listening-next-topbar-progress { color: var(--exam-text-secondary); font-variant-numeric: tabular-nums; }
@@ -89,7 +90,7 @@
 .listening-next-match-bank li + li { margin-top: 8px; }
 .listening-next-match-bank b { display: inline-block; min-width: 22px; }
 
-.listening-next-palette { padding: 10px 16px 12px; border-top: 1px solid var(--ielts-palette-border); background: var(--ielts-navy-2); color: var(--av-text-on-primary); }
+.listening-next-palette { min-width: 0; padding: 10px 16px 12px; border-top: 1px solid var(--ielts-palette-border); background: var(--ielts-navy-2); color: var(--av-text-on-primary); }
 .listening-next-palette-groups { display: flex; gap: 18px; min-width: 0; overflow-x: auto; padding-bottom: 8px; }
 .listening-next-palette-group { display: grid; grid-template-columns: auto auto; align-items: end; gap: 6px; opacity: .82; white-space: nowrap; }
 .listening-next-palette-group.is-active { opacity: 1; }
