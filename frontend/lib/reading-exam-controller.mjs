@@ -207,6 +207,12 @@ export function readingQuestionInstruction(run, part = 1) {
   const authoredLimit = String(first?.payload?.word_limit || '').trim().toUpperCase();
   const wordLimit = WORD_LIMITS.has(authoredLimit) ? authoredLimit : 'NO MORE THAN TWO WORDS';
   const questionLead = `Questions ${range}:`;
+  const authoredInstruction = typeof first?.payload?.instruction === 'string'
+    ? first.payload.instruction.trim() : '';
+  if (authoredInstruction) {
+    return /^Questions?\s+\d/i.test(authoredInstruction)
+      ? authoredInstruction : `${questionLead} ${authoredInstruction}`;
+  }
   const letters = options.length === 5 ? 'A, B, C, D or E'
     : options.length === 3 ? 'A, B or C' : 'A, B, C or D';
   const templates = {

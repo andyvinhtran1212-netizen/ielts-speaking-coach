@@ -127,6 +127,21 @@ describe('native Reading exam controller', () => {
     assert.equal(groupedReadingMcqChoiceCount([questions[0], questions[3]]), 0);
   });
 
+  test('preserves source-authored instructions, paragraph limits and explicit reuse wording', () => {
+    const instruction = 'Reading Passage 2 has nine paragraphs, A-I. Which paragraph contains the following information? NB You may use any letter more than once.';
+    const run = [14, 15].map((q_num) => ({ q_num, question_type: 'matching_information', payload: { instruction: `  ${instruction}  ` } }));
+    assert.equal(readingQuestionInstruction(run, 2), `Questions 14–15: ${instruction}`);
+    run[0].payload.instruction = `Questions 14-15\n${instruction}`;
+    assert.equal(readingQuestionInstruction(run, 2), `Questions 14-15\n${instruction}`);
+  });
+
+  test('retains existing generated rubrics when authored instructions are empty or not text', () => {
+    for (const instruction of [undefined, null, {}, 123, '  ']) {
+      assert.equal(readingQuestionInstruction([{ q_num: 1, question_type: 'sentence_completion', payload: { instruction, word_limit: 'ONE WORD ONLY' } }], 1),
+        'Questions 1: Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.');
+    }
+  });
+
   test('builds a capability-safe review URL with an allowlisted origin', () => {
     assert.equal(
       readingReviewHref('attempt 1', { anonId: 'anon/token', from: 'mini' }),

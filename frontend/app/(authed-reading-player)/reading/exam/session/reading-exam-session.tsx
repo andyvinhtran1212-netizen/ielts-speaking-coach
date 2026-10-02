@@ -44,6 +44,7 @@ type Question = {
   payload?: {
     options?: Option[];
     image_url?: string;
+    instruction?: string;
     word_limit?: string;
     template?: {
       choose?: number;
@@ -250,7 +251,8 @@ function QuestionControl({ question, value, onChange }: {
     const authored = question.payload?.template?.paragraph_labels;
     selectOptions = Array.isArray(authored) && authored.length
       ? authored.map(String)
-      : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      : options.length ? options.map(optionValue)
+        : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   }
   if (selectOptions) {
     return (
