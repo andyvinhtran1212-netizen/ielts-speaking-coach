@@ -1,7 +1,7 @@
-"""307's actual CAS RPC on the labelled, task-owned disposable local PG only.
+"""307's actual CAS RPC on CI or a task-owned disposable local PostgreSQL.
 
-All product-shaped data lives in one random schema; this never runs on a
-Supabase database. Admission-policy behavior is tested with306 separately.
+TEST_PG_URL accepts only loopback databases, matching the existing CI service.
+All product-shaped data lives in one random schema, never a hosted database.
 """
 import json
 import os
@@ -9,20 +9,38 @@ from pathlib import Path
 import re
 import subprocess
 import time
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import pytest
 
 BACKEND = Path(__file__).resolve().parents[1]
 CONTAINER = os.environ.get("MOCK_FLAGS_LOCAL_PG_CONTAINER")
+DB = os.environ.get("TEST_PG_URL", "")
 DOCKER = ["docker", "--context", "colima-listening80-qa"]
 OWNER = "01a0fa28-41bd-7c63-8d79-be3dab777496"
 
 
+def psql_command():
+    if DB:
+        parsed = urlparse(DB)
+        if (parsed.scheme not in {"postgres", "postgresql"}
+                or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
+                or parsed.query or parsed.fragment):
+            raise RuntimeError("Review flag tests require a loopback disposable PostgreSQL URL without overrides")
+        return ["psql", DB, "-X", "-v", "ON_ERROR_STOP=1", "-tAq"]
+    return DOCKER + ["exec", "-i", CONTAINER, "psql", "-U", "postgres",
+                     "-d", "aver_mock_qa", "-X", "-v", "ON_ERROR_STOP=1", "-tAq"]
+
+
+# Do not let ambient libpq options redirect the explicitly local CI target.
+PG_ENV = {key: value for key, value in os.environ.items() if not key.startswith("PG")}
+PG_ENV["PGCONNECT_TIMEOUT"] = "3"
+
+
 def sql(query):
-    process = subprocess.run(DOCKER + ["exec", "-i", CONTAINER, "psql", "-U", "postgres",
-        "-d", "aver_mock_qa", "-X", "-v", "ON_ERROR_STOP=1", "-tAq"], input=query,
-        capture_output=True, text=True, timeout=30)
+    process = subprocess.run(psql_command(), input=query,
+        capture_output=True, text=True, timeout=30, env=PG_ENV)
     if process.returncode:
         raise RuntimeError(process.stderr)
     return process.stdout.strip()
@@ -34,12 +52,20 @@ def literal(value):
 
 @pytest.fixture(scope="module")
 def schema():
-    if not CONTAINER:
-        if os.environ.get("REQUIRE_PG") == "1": pytest.fail("Task-owned PG container required")
-        pytest.skip("Task-owned local PostgreSQL not requested")
-    check = subprocess.run(DOCKER + ["inspect", "--format", '{{ index .Config.Labels "codex.task" }}',
-        CONTAINER], capture_output=True, text=True, timeout=10)
-    assert check.returncode == 0 and check.stdout.strip() == OWNER, "Wrong local PG owner"
+    if not DB and not CONTAINER:
+        if os.environ.get("REQUIRE_PG") == "1": pytest.fail("Local PostgreSQL required for migration 307 verification")
+        pytest.skip("Local PostgreSQL not requested")
+    if not DB:
+        check = subprocess.run(DOCKER + ["inspect", "--format", '{{ index .Config.Labels "codex.task" }}',
+            CONTAINER], capture_output=True, text=True, timeout=10)
+        assert check.returncode == 0 and check.stdout.strip() == OWNER, "Wrong local PG owner"
+    assert sql("SELECT 1") == "1", "Local PostgreSQL unavailable"
+    assert sql("SELECT usesuper FROM pg_user WHERE usename=current_user") == "t", "Disposable local fixture requires superuser"
+    sql("""DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role BYPASSRLS; END IF;
+    END $$;""")
     name = "flags307_" + uuid4().hex
     admission = Path(os.environ.get("MOCK_FLAGS_ADMISSION_SQL", str(BACKEND / "migrations/306_mock_paper_policy_and_admission.sql")))
     # Use the actual306 dependency implementation, not an advisory-lock mock.
@@ -199,8 +225,7 @@ def test_unverified_purpose_receipt_cannot_acknowledge_a_flag(schema):
 
 def test_attempt_row_contention_is_retryable_without_deadlocking(schema):
     aid,uid=attempt(schema); appname="flags307_parent_"+uuid4().hex
-    holder=subprocess.Popen(DOCKER+["exec","-i",CONTAINER,"psql","-U","postgres",
-        "-d","aver_mock_qa","-X","-v","ON_ERROR_STOP=1","-tAq"],
+    holder=subprocess.Popen(psql_command(), env=PG_ENV,
         stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     holder.stdin.write(f"SET application_name='{appname}'; BEGIN; SELECT id FROM {schema}.reading_test_attempts WHERE id='{aid}' FOR UPDATE; SELECT pg_sleep(3); COMMIT;")
     holder.stdin.close()
@@ -226,8 +251,7 @@ def test_overlapping_clients_preserve_other_questions_and_conflict_same_question
     # the second operation is waiting, then commits; no timing-only race.
     appname="flags307_"+uuid4().hex
     first_query = f"SET application_name='{appname}'; BEGIN;" + query(schema,aid,uid) + "SELECT pg_sleep(5); COMMIT;"
-    first = subprocess.Popen(DOCKER+["exec","-i",CONTAINER,"psql","-U","postgres",
-        "-d","aver_mock_qa","-X","-v","ON_ERROR_STOP=1","-tAq"],
+    first = subprocess.Popen(psql_command(), env=PG_ENV,
         stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     first.stdin.write(first_query); first.stdin.close()
     second=None
@@ -235,8 +259,7 @@ def test_overlapping_clients_preserve_other_questions_and_conflict_same_question
         for _ in range(30):
             if sql(f"SELECT count(*) FROM pg_stat_activity WHERE application_name='{appname}' AND state='active' AND query LIKE '%pg_sleep(5)%'") != "0": break
             time.sleep(.02)
-        second=subprocess.Popen(DOCKER+["exec","-i",CONTAINER,"psql","-U","postgres",
-            "-d","aver_mock_qa","-X","-v","ON_ERROR_STOP=1","-tAq"],
+        second=subprocess.Popen(psql_command(), env=PG_ENV,
             stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         second.stdin.write(f"SET application_name='{appname}_second';"+query(schema,aid,uid,q=20 if same_question else 29)); second.stdin.close()
         blocked=False
