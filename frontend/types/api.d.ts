@@ -8187,8 +8187,9 @@ export interface paths {
          * Admin Patch Listening Test
          * @description Update editable metadata fields on a listening_tests row.
          *
-         *     Allow-list: test_id, title, version, band_target, accent_profile,
-         *     themes. Only keys present in the request body land in the UPDATE.
+         *     Metadata-only requests retain the existing field allow-list. Requests
+         *     containing visibility fields use the serialized policy writer; mixed
+         *     metadata/policy requests are rejected atomically by its policy allow-list.
          */
         patch: operations["admin_patch_listening_test_admin_listening_tests__test_id__patch"];
         trace?: never;
