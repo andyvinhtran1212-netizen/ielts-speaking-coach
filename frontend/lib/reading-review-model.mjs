@@ -165,10 +165,10 @@ const PLACEHOLDER_PROMPT = /^\s*\(?\s*see\s+(summary|notes|table|form)\s+above\s
 
 export function readingReviewPrompt(item) {
   const prompt = String(item?.prompt ?? '');
-  if (prompt && !PLACEHOLDER_PROMPT.test(prompt)) return prompt;
+  if (prompt && !PLACEHOLDER_PROMPT.test(prompt)) return prompt.replace(/\{\{\s*\d{1,3}\s*\}\}/g, '____');
   const authored = text(item?.solution?.question_text)
     .replace(/^["“”']+/, '').replace(/["“”']+$/, '').trim();
-  return authored || prompt;
+  return (authored || prompt).replace(/\{\{\s*\d{1,3}\s*\}\}/g, '____');
 }
 
 export function splitReviewProse(value) {

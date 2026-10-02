@@ -103,6 +103,14 @@ describe('native Reading review model', () => {
     assert.equal(out.review[0].expected, 'A');
   });
 
+  test('shows template gaps as answer blanks in direct and restored review prompts', () => {
+    const item = { prompt: '(see summary above)', solution: { question_text: 'a name called {{13}}' } };
+    assert.equal(readingReviewPrompt(item), 'a name called ____');
+    assert.equal(readingReviewPrompt({ prompt: 'The {{ 13 }} label follows {{14}}.' }), 'The ____ label follows ____.');
+    assert.equal(item.solution.question_text, 'a name called {{13}}');
+    assert.equal(readingReviewPrompt({ prompt: 'A direct stem', solution: { question_text: '{{13}}' } }), 'A direct stem');
+  });
+
   test('restores completion prompts and grammar deep links safely', () => {
     assert.equal(readingReviewPrompt({ prompt: '(see summary above)', solution: { question_text: '“gravity”' } }), 'gravity');
     assert.equal(grammarKnowledgeHref({ type: 'grammar', category: 'articles', slug: 'a-an', anchor: 'rules' }), '/grammar/articles/a-an#rules');
