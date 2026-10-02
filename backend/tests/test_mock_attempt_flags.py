@@ -1,5 +1,6 @@
 """Owner/capability boundaries and truthful retry receipts for flag transport."""
 from types import SimpleNamespace
+import json
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
@@ -80,6 +81,23 @@ def test_lost_ack_and_invalid_receipt_are_truthful_retry_errors():
     with pytest.raises(HTTPException) as error:
         patch_review_flag(DB(receipt=forged), "reading", {"id": str(AID)}, request, user_id=UID)
     assert error.value.status_code == 503
+
+
+@pytest.mark.parametrize("reason,status", [("protected_dependency", 409), ("verification_unavailable", 503)])
+def test_flag_policy_conflict_redacts_private_paper_and_dependency_evidence(reason, status):
+    detail = {"operation": "flags_write", "reason": reason, "kind": "reading",
+              "content_id": "PRIVATE-PAPER", "current_revision": 7,
+              "dependencies": [{"id": "PRIVATE-EXAM", "type": "mock_exam"}],
+              "next_actions": ["inspect_policy"]}
+    db = DB(error=RuntimeError("mock_paper_policy:" + json.dumps(detail)))
+
+    with pytest.raises(HTTPException) as error:
+        patch_review_flag(db, "reading", {"id": str(AID)}, body(), user_id=UID)
+
+    assert error.value.status_code == status
+    assert error.value.detail == {"operation": "paper_access", "reason":
+        "verification_unavailable" if status == 503 else "paper_unavailable", "next_actions": ["retry"]}
+    assert "PRIVATE" not in str(error.value.detail)
 
 
 def test_conflict_returns_canonical_state_without_false_acknowledgement():

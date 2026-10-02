@@ -11,6 +11,7 @@ import pytest
 
 DB = os.environ.get("TEST_PG_URL", "")
 SQL = (Path(__file__).resolve().parents[1] / "migrations/306_mock_paper_policy_and_admission.sql").read_text()
+FLAGS_SQL = (Path(__file__).resolve().parents[1] / "migrations/307_mock_attempt_review_flags.sql").read_text()
 
 
 async def run(sql, *args):
@@ -98,10 +99,12 @@ def policy_probe():
     bootstrap = bootstrap.replace("DEFAULT3", "DEFAULT 3").replace("DEFAULT40", "DEFAULT 40").replace("DEFAULT300", "DEFAULT 300").replace("DEFAULT60", "DEFAULT 60").replace("DEFAULT150", "DEFAULT 150")
     query("DO $$ BEGIN IF NOT EXISTS(SELECT1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF; IF NOT EXISTS(SELECT1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF; IF NOT EXISTS(SELECT1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role BYPASSRLS; END IF; END $$".replace("SELECT1","SELECT 1"))
     migrated = SQL.replace("public.", schema + ".").replace("search_path=public,", "search_path=" + schema + ",").replace("search_path = public,", "search_path = " + schema + ",").replace("ns.nspname='public'", "ns.nspname='" + schema + "'")
+    migrated_flags = FLAGS_SQL.replace("public.", schema + ".").replace("search_path = public,", "search_path = " + schema + ",")
     try:
         query(bootstrap)
         query(migrated)
         query(migrated)  # idempotent forward application, no hidden baseline DML
+        query(migrated_flags)
         yield schema
     finally:
         query(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
@@ -297,3 +300,25 @@ def test_unfinished_orphan_never_becomes_public_by_ended_room_badge(policy_probe
     assert access(s,'reading',p,owner,'delivery')["reason"]=='ambiguous_orphan'
     with pytest.raises(asyncpg.RaiseError,match="ambiguous_orphan"):
         query(f"UPDATE {s}.reading_tests SET is_public=true WHERE id=$1",p)
+
+
+def test_flags_use_real_policy_guard_and_original_identity_after_source_delete(policy_probe):
+    s=policy_probe; p=paper(s); m=room(s,p,active=True); owner=uuid4()
+    passage=query(f"INSERT INTO {s}.reading_passages(test_id,passage_order) VALUES($1,1) RETURNING id",p)[0]['id']
+    qid=query(f"INSERT INTO {s}.reading_questions(passage_id,q_num) VALUES($1,1) RETURNING id",passage)[0]['id']
+    sid=query(f"INSERT INTO {s}.mock_exam_sittings(mock_exam_id,user_id) VALUES($1,$2) RETURNING id",m,owner)[0]['id']
+    admitted=json.loads(query(f"SELECT {s}.fn_admit_mock_paper_attempt('reading',$1,$2,$3,'legacy') receipt",p,owner,sid)[0]['receipt'])
+    aid=UUID(admitted['attempt_id']); operation=uuid4()
+    query(f"DELETE FROM {s}.reading_questions WHERE id=$1",qid)
+    command=f"SELECT {s}.fn_patch_mock_attempt_review_flag('reading',$1,$2,NULL,1,$3,$4,$5) receipt"
+    first=json.loads(query(command,aid,owner,True,0,operation)[0]['receipt'])
+    replay=json.loads(query(command,aid,owner,True,0,operation)[0]['receipt'])
+    conflict=json.loads(query(command,aid,owner,False,0,uuid4())[0]['receipt'])
+    assert first['accepted'] and first['question_id']==str(qid) and first['revision']==1
+    assert replay['reason']=='replayed' and conflict['reason']=='conflict' and conflict['flagged'] is True
+    assert query(f"SELECT answers FROM {s}.reading_test_attempts WHERE id=$1",aid)[0]['answers']=='[]'
+    with pytest.raises(asyncpg.InsufficientPrivilegeError,match='review_flag_owner_mismatch'):
+        query(command,aid,uuid4(),False,1,uuid4())
+    query(f"UPDATE {s}.mock_exams SET collected_section='reading' WHERE id=$1",m)
+    with pytest.raises(asyncpg.RaiseError,match='ambiguous_orphan'):
+        query(command,aid,owner,False,1,uuid4())

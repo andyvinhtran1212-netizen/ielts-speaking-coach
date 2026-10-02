@@ -64,10 +64,10 @@ def patch_review_flag(db, skill: Skill, attempt: dict, body: ReviewFlagPatchRequ
     except Exception as exc:
         message = str(exc)
         if "mock_paper_policy:" in message:
-            from services.mock_paper_policy import database_policy_error
-            policy_error = database_policy_error(exc)
+            from services.mock_paper_policy import safe_database_error
+            policy_error = safe_database_error(exc, operator=False)
             if policy_error is not None:
-                raise HTTPException(policy_error.status_code, policy_error.detail) from exc
+                raise HTTPException(policy_error[0], policy_error[1]) from exc
         mappings = {
             "review_flag_owner_mismatch": (403, "Không có quyền với lượt làm này."),
             "review_flag_attempt_missing": (404, "Không tìm thấy lượt làm."),

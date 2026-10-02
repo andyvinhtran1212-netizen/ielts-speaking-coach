@@ -131,3 +131,24 @@ def test_submit_key_uses_frozen_policy_and_overrides_without_live_lookup():
     attempt["paper_revision"] = None
     db.calls.clear()
     assert frozen_answer_key(db, "reading", attempt) is None and db.calls == []
+
+
+def test_web_explanation_never_substitutes_current_object_for_admitted_context():
+    from services import mock_correction_service as correction
+    snapshot = private_snapshot("reading")
+    snapshot["scoring_override_rows"] = [{"question_number": number, "content_version": "original-v1",
+        "rights_status": "APPROVED", "editorial_status": "APPROVED",
+        "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES", "payload": {"stem": "Original stem"}}
+        for number in range(1, 41)]
+    db = DB("reading", snapshot)
+    attempt = db.tables["reading_test_attempts"][0]
+    policy = {"scope": "mock_exam", "mode": "with_result", "result_released": True,
+              "content_version": "original-v1", "capture_required": False}
+    with patch.object(correction, "supabase_admin", db), \
+         patch.object(correction, "_effective_policy", return_value=policy), \
+         patch.object(correction, "_current_explanation_rows", side_effect=AssertionError("live web object read")):
+        access = correction.explanation_access("reading", attempt)
+        assert access["allowed"] and access["items"][1]["payload"]["stem"] == "Original stem"
+        policy["content_version"] = "replacement-v2"
+        denied = correction.explanation_access("reading", attempt)
+        assert not denied["allowed"] and denied["items"] == {}
