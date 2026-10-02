@@ -56,6 +56,16 @@ CREATE POLICY deny_client_mock_paper_snapshots ON public.mock_paper_attempt_snap
 REVOKE ALL ON public.mock_paper_attempt_snapshots FROM PUBLIC,anon,authenticated;
 GRANT SELECT,INSERT ON public.mock_paper_attempt_snapshots TO service_role;
 
+-- Additive N-1 phase: the frozen contract activates only after the exact
+-- backend deployment is verified by the opt-in308 migration. Reapplying306
+-- must never turn an already activated contract off.
+DO $$ BEGIN
+    IF to_regprocedure('public.fn_mock_admission_contract_active()') IS NULL THEN
+        EXECUTE 'CREATE FUNCTION public.fn_mock_admission_contract_active() RETURNS BOOLEAN
+            LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS ''SELECT FALSE''';
+    END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.fn_lock_mock_paper(p_skill TEXT,p_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 BEGIN
@@ -73,6 +83,10 @@ DECLARE old_row JSONB:=CASE WHEN TG_OP='INSERT' THEN '{}'::JSONB ELSE to_jsonb(O
         new_row JSONB:=CASE WHEN TG_OP='DELETE' THEN '{}'::JSONB ELSE to_jsonb(NEW) END;
         refs JSONB:='[]'; x RECORD; paper JSONB; parent JSONB; v_new BOOLEAN; v_protected BOOLEAN;
 BEGIN
+    IF NOT public.fn_mock_admission_contract_active() THEN
+        IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+        RETURN NEW;
+    END IF;
     IF TG_TABLE_NAME IN ('mock_exams','mock_exam_sittings','mock_exam_assignments') THEN
         IF TG_TABLE_NAME='mock_exams' THEN
             refs:=jsonb_build_array(jsonb_build_object('kind','reading','id',old_row->>'reading_test_id'),
@@ -157,6 +171,19 @@ DECLARE k TEXT:=CASE WHEN TG_TABLE_NAME='reading_test_attempts' THEN 'reading' E
         paper JSONB; sitting JSONB; exam JSONB; v_class BOOLEAN; decision JSONB;
 BEGIN
     PERFORM public.fn_lock_mock_paper(k,NEW.test_id);
+    IF TG_OP='INSERT' AND NEW.attempt_purpose IS NULL
+       AND current_setting('mock_paper.programme_admission',TRUE)='practice' THEN
+        NEW.attempt_purpose:='practice';
+    END IF;
+    IF NOT public.fn_mock_admission_contract_active() THEN
+        IF TG_OP='UPDATE' AND OLD.paper_revision IS NULL THEN RETURN NEW; END IF;
+        IF TG_OP='INSERT' THEN
+            NEW.paper_revision:=NULL; NEW.policy_revision:=NULL;
+            IF NEW.attempt_purpose IS NULL THEN RETURN NEW; END IF;
+        END IF;
+    ELSIF TG_OP='INSERT' AND NEW.attempt_purpose IS NULL THEN
+        PERFORM public.fn_mock_paper_error('admission','typed_admission_required',k,NEW.test_id,NULL);
+    END IF;
     IF TG_OP='UPDATE' THEN
         IF NEW.test_id IS DISTINCT FROM OLD.test_id OR NEW.user_id IS DISTINCT FROM OLD.user_id
            OR NEW.sitting_id IS DISTINCT FROM OLD.sitting_id OR NEW.attempt_purpose IS DISTINCT FROM OLD.attempt_purpose
@@ -198,7 +225,13 @@ BEGIN
     IF paper IS NULL OR paper->>'status'<>'published' THEN
         PERFORM public.fn_mock_paper_error('admission','paper_not_ready',k,NEW.test_id,NULL);
     END IF;
+    IF NEW.attempt_purpose NOT IN ('practice','assigned_practice','mock_delivery') THEN
+        PERFORM public.fn_mock_paper_error('admission','unsupported_purpose',k,NEW.test_id,NULL);
+    END IF;
     IF NEW.sitting_id IS NOT NULL THEN
+        IF NEW.attempt_purpose<>'mock_delivery' THEN
+            PERFORM public.fn_mock_paper_error('admission','mock_binding_required',k,NEW.test_id,NULL);
+        END IF;
         SELECT to_jsonb(s) INTO sitting FROM public.mock_exam_sittings s WHERE id=NEW.sitting_id;
         SELECT to_jsonb(m) INTO exam FROM public.mock_exams m WHERE id=(sitting->>'mock_exam_id')::UUID;
         IF sitting IS NULL OR sitting->>'user_id' IS DISTINCT FROM NEW.user_id::TEXT
@@ -215,10 +248,16 @@ BEGIN
         IF decision->>'allowed' IS DISTINCT FROM 'true' THEN
             PERFORM public.fn_mock_paper_error('admission','mock_binding_required',k,NEW.test_id,(paper->>'policy_revision')::BIGINT);
         END IF;
-        NEW.attempt_purpose:=decision->>'attempt_purpose';
+        IF NEW.attempt_purpose IS DISTINCT FROM decision->>'attempt_purpose' THEN
+            PERFORM public.fn_mock_paper_error('admission','mock_binding_required',k,NEW.test_id,(paper->>'policy_revision')::BIGINT);
+        END IF;
     END IF;
-    NEW.paper_revision:=(paper->>'mock_content_revision')::BIGINT;
-    NEW.policy_revision:=(paper->>'policy_revision')::BIGINT;
+    IF public.fn_mock_admission_contract_active() THEN
+        NEW.paper_revision:=(paper->>'mock_content_revision')::BIGINT;
+        NEW.policy_revision:=(paper->>'policy_revision')::BIGINT;
+    ELSE
+        NEW.paper_revision:=NULL; NEW.policy_revision:=NULL;
+    END IF;
     RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS trg_mock_paper_attempt ON public.reading_test_attempts;
@@ -233,6 +272,7 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp
 DECLARE k TEXT:=CASE WHEN TG_TABLE_NAME='reading_test_attempts' THEN 'reading' ELSE 'listening' END;
         paper JSONB; sources JSONB; marks JSONB; orders JSONB:='{}'; overrides JSONB;
 BEGIN
+    IF NEW.paper_revision IS NULL THEN RETURN NEW; END IF;
     -- BEFORE admission holds the paper lock; source-child writers use it too.
     paper:=public.fn_mock_paper_row(k,NEW.test_id);
     IF k='reading' THEN
@@ -295,14 +335,14 @@ BEGIN
         v_id:=gen_random_uuid(); v_started:=clock_timestamp();
         IF p_skill='reading' THEN
             UPDATE public.mock_exam_sittings SET reading_attempt_id=v_id WHERE id=p_sitting_id;
-            INSERT INTO public.reading_test_attempts(id,test_id,user_id,sitting_id,started_at,renderer_affinity,resume_expires_at)
+            INSERT INTO public.reading_test_attempts(id,test_id,user_id,sitting_id,started_at,renderer_affinity,resume_expires_at,attempt_purpose)
             VALUES(v_id,p_test_id,p_user_id,p_sitting_id,v_started,CASE WHEN p_renderer_affinity_protocol='claim-v1' THEN NULL ELSE 'legacy' END,
-                v_started+INTERVAL '24 hours') RETURNING to_jsonb(reading_test_attempts) INTO attempt;
+                v_started+INTERVAL '24 hours','mock_delivery') RETURNING to_jsonb(reading_test_attempts) INTO attempt;
         ELSE
             UPDATE public.mock_exam_sittings SET listening_attempt_id=v_id WHERE id=p_sitting_id;
-            INSERT INTO public.listening_test_attempts(id,test_id,user_id,sitting_id,started_at,renderer_affinity,resume_expires_at,scoring_policy)
+            INSERT INTO public.listening_test_attempts(id,test_id,user_id,sitting_id,started_at,renderer_affinity,resume_expires_at,scoring_policy,attempt_purpose)
             VALUES(v_id,p_test_id,p_user_id,p_sitting_id,v_started,CASE WHEN p_renderer_affinity_protocol='claim-v1' THEN NULL ELSE 'legacy' END,
-                v_started+INTERVAL '24 hours',COALESCE(paper->>'scoring_policy','diagnostic'))
+                v_started+INTERVAL '24 hours',COALESCE(paper->>'scoring_policy','diagnostic'),'mock_delivery')
                 RETURNING to_jsonb(listening_test_attempts) INTO attempt;
         END IF;
     END IF;
@@ -314,6 +354,24 @@ BEGIN
         'acquired_existing',existing IS NOT NULL);
 EXCEPTION WHEN deadlock_detected OR lock_not_available THEN
     PERFORM public.fn_mock_paper_error('admission','verification_unavailable',p_skill,p_test_id,NULL);
+END $$;
+
+-- Reuse295's exact resume/merge/once-play acquisition semantics. Only this
+-- service RPC supplies explicit practice purpose to its delegated INSERT;
+-- the trigger still resolves current owner/paper entitlement atomically.
+CREATE OR REPLACE FUNCTION public.fn_acquire_listening_programme_attempt_v2(
+    p_test_id UUID,p_user_id UUID,p_renderer_affinity_protocol TEXT)
+RETURNS TABLE(attempt_id UUID,attempt_status TEXT,attempt_started_at TIMESTAMPTZ,
+    attempt_resume_expires_at TIMESTAMPTZ,attempt_answers JSONB,
+    attempt_renderer_affinity TEXT,attempt_playback_started_at TIMESTAMPTZ,created BOOLEAN)
+LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
+DECLARE previous_purpose TEXT:=current_setting('mock_paper.programme_admission',TRUE);
+BEGIN
+    PERFORM public.fn_lock_mock_paper('listening',p_test_id);
+    PERFORM set_config('mock_paper.programme_admission','practice',TRUE);
+    RETURN QUERY SELECT * FROM public.fn_acquire_listening_programme_attempt(
+        p_test_id,p_user_id,p_renderer_affinity_protocol);
+    PERFORM set_config('mock_paper.programme_admission',COALESCE(previous_purpose,''),TRUE);
 END $$;
 
 CREATE OR REPLACE FUNCTION public.fn_mock_paper_error(
@@ -597,6 +655,10 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp
 DECLARE k TEXT:=CASE WHEN TG_TABLE_NAME='reading_tests' THEN 'reading' ELSE 'listening' END;
         b JSONB:=to_jsonb(OLD); n JSONB; d JSONB; r BIGINT; v_changed BOOLEAN;
 BEGIN
+    IF NOT public.fn_mock_admission_contract_active() THEN
+        IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+        RETURN NEW;
+    END IF;
     PERFORM public.fn_lock_mock_paper(k,OLD.id);
     d:=public.fn_mock_paper_dependencies(k,OLD.id); r:=OLD.policy_revision;
     IF TG_OP='DELETE' THEN
@@ -1142,6 +1204,10 @@ DECLARE b JSONB:=CASE WHEN TG_OP='INSERT' THEN '{}'::JSONB ELSE to_jsonb(OLD) EN
         n JSONB:=CASE WHEN TG_OP='DELETE' THEN '{}'::JSONB ELSE to_jsonb(NEW) END;
         refs JSONB:='[]'; x RECORD;
 BEGIN
+    IF NOT public.fn_mock_admission_contract_active() THEN
+        IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+        RETURN NEW;
+    END IF;
     IF TG_TABLE_NAME='reading_passages' THEN
         refs:=jsonb_build_array(jsonb_build_object('kind','reading','id',b->>'test_id'),jsonb_build_object('kind','reading','id',n->>'test_id'));
     ELSIF TG_TABLE_NAME='reading_questions' THEN
@@ -1189,6 +1255,7 @@ CREATE OR REPLACE FUNCTION public.fn_guard_mock_reading_answer()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE a public.reading_test_attempts%ROWTYPE; sitting JSONB; exam JSONB;
 BEGIN
+    IF NOT public.fn_mock_admission_contract_active() THEN RETURN NEW; END IF;
     SELECT * INTO a FROM public.reading_test_attempts WHERE id=NEW.attempt_id;
     IF a.sitting_id IS NOT NULL THEN
         PERFORM public.fn_lock_mock_paper('reading',a.test_id);
@@ -1284,7 +1351,8 @@ END $$;
 DO $$ DECLARE f RECORD; BEGIN
     FOR f IN SELECT p.proname,pg_get_function_identity_arguments(p.oid) args
         FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='public'
-        AND p.proname=ANY(ARRAY['fn_lock_mock_paper','fn_mock_paper_error','fn_mock_paper_row',
+        AND p.proname=ANY(ARRAY['fn_mock_admission_contract_active','fn_acquire_listening_programme_attempt_v2',
+            'fn_lock_mock_paper','fn_mock_paper_error','fn_mock_paper_row',
             'fn_mock_section_valid','fn_mock_paper_dependencies','fn_mock_protected_references',
             'fn_mock_overlap_valid','fn_mock_public_practice_allowed','fn_resolve_mock_paper_access',
             'fn_mock_policy_snapshot','fn_guard_mock_paper_policy','fn_mutate_mock_paper_policy',

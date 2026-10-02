@@ -1031,6 +1031,7 @@ async def start_shared_reading_test_attempt(
         "user_id":     None,                       # anonymous
         "anon_id":     anon_id,
         "share_token": share.get("token"),
+        "attempt_purpose": "practice",
         "anon_src":    _hash_anon_src(_client_ip(request)),
         "status":      "in_progress",
         "answers":     [],
@@ -1171,6 +1172,7 @@ async def start_reading_test_attempt(
             "id":         attempt_id,
             "test_id":    test_uuid,
             "user_id":    user["id"],
+            "attempt_purpose": decision["attempt_purpose"],
             "status":     "in_progress",
             "answers":    [],
             "started_at": started_at,

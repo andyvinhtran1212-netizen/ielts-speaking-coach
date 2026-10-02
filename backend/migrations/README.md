@@ -304,3 +304,13 @@ Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
 hosted drift. A pending feature group requires its explicit
 `MIGRATION_FEATURES` opt-in after staging validation.
+
+Mock remediation rolls out as306307 additive migrations, then deployment and
+verification of the exact new backend SHA, then opt-in308
+(`mock_content_remediation_activation`). Before308, attempts remain honest
+legacy rows without frozen marking snapshots; N-1 start/attach/save/submit
+remain compatible. Apply308 only through the locked runner after setting
+`mock_paper.deployed_backend_sha` to that verified40-character SHA in its
+session;308 records the SHA on the service-only activation function. Do not
+include308 in the migration-before-code batch. It activates typed admission
+and frozen snapshots for new work, with no backfill or regrade of old work.

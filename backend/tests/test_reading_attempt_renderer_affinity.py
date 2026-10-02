@@ -136,6 +136,7 @@ async def test_authenticated_start_versions_affinity_aware_and_n_minus_one_inser
         out = await mod.start_reading_test_attempt("READ-1", body=body)
 
     assert ("renderer_affinity" in db.payload) is has_column
+    assert db.payload["attempt_purpose"] == "practice"
     if has_column:
         assert db.payload["renderer_affinity"] is None
     assert out["renderer_affinity"] == response_affinity

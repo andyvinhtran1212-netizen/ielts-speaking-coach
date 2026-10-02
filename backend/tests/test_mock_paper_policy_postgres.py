@@ -13,6 +13,7 @@ import pytest
 DB = os.environ.get("TEST_PG_URL", "")
 SQL = (Path(__file__).resolve().parents[1] / "migrations/306_mock_paper_policy_and_admission.sql").read_text()
 FLAGS_SQL = (Path(__file__).resolve().parents[1] / "migrations/307_mock_attempt_review_flags.sql").read_text()
+ACTIVATION_SQL = (Path(__file__).resolve().parents[1] / "migrations/308_activate_mock_paper_admission.sql").read_text()
 
 
 async def run(sql, *args):
@@ -30,8 +31,7 @@ def query(sql, *args):
     return asyncio.run(run(sql, *args))
 
 
-@pytest.fixture(scope="module")
-def policy_probe():
+def _policy_probe(*, active):
     parsed = urlparse(DB)
     if parsed.scheme not in {"postgres", "postgresql"} or parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or parsed.query:
         if os.environ.get("REQUIRE_PG") == "1":
@@ -106,9 +106,26 @@ def policy_probe():
         query(migrated)
         query(migrated)  # idempotent forward application, no hidden baseline DML
         query(migrated_flags)
+        if active:
+            activate(schema)
         yield schema
     finally:
         query(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+
+
+def activate(schema):
+    migration = ACTIVATION_SQL.replace('public.', schema + '.').replace('search_path=public,', 'search_path=' + schema + ',')
+    query("SELECT set_config('mock_paper.deployed_backend_sha','" + 'a'*40 + "',false);" + migration)
+
+
+@pytest.fixture(scope='module')
+def policy_probe():
+    yield from _policy_probe(active=True)
+
+
+@pytest.fixture
+def rollout_probe():
+    yield from _policy_probe(active=False)
 
 
 def paper(schema, skill="reading", public=False):
@@ -147,7 +164,7 @@ def test_bound_admission_preserves_closed_entry_and_denies_dictation(policy_prob
     assert access(s,"listening",p,u,"delivery",sid)["allowed"] is True
     assert access(s,"listening",p,u,"dictation")["allowed"] is False
     with pytest.raises(asyncpg.RaiseError,match="mock_binding_required"):
-        query(f"INSERT INTO {s}.listening_test_attempts(test_id,user_id) VALUES($1,$2)",p,u)
+        query(f"INSERT INTO {s}.listening_test_attempts(test_id,user_id,attempt_purpose) VALUES($1,$2,'practice')",p,u)
 
 
 def test_historical_done_depends_on_actual_unfinished_rights(policy_probe):
@@ -177,7 +194,7 @@ def test_private_snapshot_survives_source_edit_and_client_select_denied(policy_p
     s=policy_probe; p=paper(s,public=True); u=uuid4()
     source=query(f"INSERT INTO {s}.reading_passages(test_id,passage_order,body_markdown) VALUES($1,1,'original passage') RETURNING id",p)[0]["id"]
     qid=query(f"INSERT INTO {s}.reading_questions(passage_id,q_num,prompt,answer) VALUES($1,1,'original prompt','{{\"value\":\"A\"}}') RETURNING id",source)[0]["id"]
-    aid=query(f"INSERT INTO {s}.reading_test_attempts(test_id,user_id) VALUES($1,$2) RETURNING id",p,u)[0]["id"]
+    aid=query(f"INSERT INTO {s}.reading_test_attempts(test_id,user_id,attempt_purpose) VALUES($1,$2,'practice') RETURNING id",p,u)[0]["id"]
     query(f"UPDATE {s}.reading_questions SET prompt='changed',answer='{{\"value\":\"B\"}}' WHERE id=$1",qid)
     snap=query(f"SELECT marking_rows,source_rows FROM {s}.mock_paper_attempt_snapshots WHERE attempt_id=$1",aid)[0]
     assert json.loads(snap["marking_rows"])[0]["prompt"]=="original prompt"
@@ -231,7 +248,7 @@ def test_all_reference_overlap_is_explicit_and_revision_bound(policy_probe):
 
 def test_hide_preserves_existing_work_and_reverse_link_is_blocked(policy_probe):
     s=policy_probe; p=paper(s,public=True); owner=uuid4()
-    query(f"INSERT INTO {s}.reading_test_attempts(test_id,user_id) VALUES($1,$2)",p,owner)
+    query(f"INSERT INTO {s}.reading_test_attempts(test_id,user_id,attempt_purpose) VALUES($1,$2,'practice')",p,owner)
     query(f"SELECT {s}.fn_mutate_mock_paper_policy('reading',$1,'{{\"is_public\":false}}',NULL,0,NULL,NULL)",p)
     assert access(s,"reading",p,owner,"delivery")["allowed"] is True
     assert access(s,"reading",p,owner,"practice",admit=True)["allowed"] is False
@@ -386,8 +403,96 @@ def test_new_listening_duration_never_falls_back_when_private_snapshot_is_missin
 def test_standalone_listening_revision_does_not_inherit_mock_clock_barrier(policy_probe):
     s=policy_probe; p=paper(s,'listening',public=True)
     query(f"UPDATE {s}.listening_tests SET full_audio_duration_seconds=1800 WHERE id=$1",p)
-    aid=query(f"INSERT INTO {s}.listening_test_attempts(test_id,user_id) VALUES($1,$2) RETURNING id",p,uuid4())[0]['id']
+    aid=query(f"INSERT INTO {s}.listening_test_attempts(test_id,user_id,attempt_purpose) VALUES($1,$2,'practice') RETURNING id",p,uuid4())[0]['id']
     query(f"UPDATE {s}.listening_tests SET full_audio_duration_seconds=60 WHERE id=$1",p)
     assert query(f"SELECT full_audio_duration_seconds FROM {s}.listening_tests WHERE id=$1",p)[0]['full_audio_duration_seconds']==60
     frozen=json.loads(query(f"SELECT paper_row FROM {s}.mock_paper_attempt_snapshots WHERE skill='listening' AND attempt_id=$1",aid)[0]['paper_row'])
     assert frozen['full_audio_duration_seconds']==1800
+
+
+@pytest.mark.parametrize('skill', ['reading','listening'])
+def test_n_minus_one_start_attach_submit_then_activation_preserves_history(rollout_probe, skill):
+    s=rollout_probe; p=paper(s,skill); owner=uuid4(); m=room(s,p,skill,True)
+    sid=query(f"INSERT INTO {s}.mock_exam_sittings(mock_exam_id,user_id) VALUES($1,$2) RETURNING id",m,owner)[0]['id']
+    old=query(f"INSERT INTO {s}.{skill}_test_attempts(test_id,user_id) VALUES($1,$2) RETURNING id",p,owner)[0]['id']
+    # The deployed N-1 start is a separate abandon write BEFORE its untyped
+    # INSERT. Additive306 must not turn this into abandon-then-rejectedINSERT.
+    query(f"UPDATE {s}.{skill}_test_attempts SET status='abandoned' WHERE id=$1",old)
+    aid=query(f"INSERT INTO {s}.{skill}_test_attempts(test_id,user_id) VALUES($1,$2) RETURNING id",p,owner)[0]['id']
+    query(f"UPDATE {s}.mock_exam_sittings SET {skill}_attempt_id=$1 WHERE id=$2",aid,sid)
+    query(f"UPDATE {s}.{skill}_test_attempts SET sitting_id=$1 WHERE id=$2",sid,aid)
+    saved='[{"q_num":1,"user_answer":"saved legacy work"}]'
+    if skill=='reading':
+        query(f"INSERT INTO {s}.reading_attempt_answers VALUES($1,1,'saved legacy work')",aid)
+    else:
+        query(f"UPDATE {s}.listening_test_attempts SET answers=$1::jsonb WHERE id=$2",saved,aid)
+        query(f"UPDATE {s}.listening_tests SET full_audio_duration_seconds=60 WHERE id=$1",p)
+    # Existing pointer retries/continuation remain valid and cannot mint or
+    # relink a different empty attempt during the transition.
+    retry=json.loads(query(f"SELECT {s}.fn_admit_mock_paper_attempt($1,$2,$3,$4,'legacy') receipt",skill,p,owner,sid)[0]['receipt'])
+    assert retry['attempt_id']==str(aid) and retry['acquired_existing'] is True
+    assert retry['paper_revision'] is None
+    assert access(s,skill,p,owner,'delivery',sid)['allowed'] is True
+    query(f"UPDATE {s}.{skill}_test_attempts SET status='submitted',score=27,grading_details='[{{\"legacy\":true}}]' WHERE id=$1",aid)
+    query(f"UPDATE {s}.mock_exam_sittings SET {skill}_submitted_at=now() WHERE id=$1",sid)
+    if skill=='listening':
+        query(f"UPDATE {s}.mock_exams SET collected_section='listening' WHERE id=$1",m)
+    # A new backend already serving some requests before old workers drain
+    # explicitly types admission, but cannot create a pinned key that N-1
+    # submit would mistakenly grade against today's mutable content.
+    practice=paper(s,skill,public=True)
+    phased=query(f"INSERT INTO {s}.{skill}_test_attempts(test_id,user_id,attempt_purpose) VALUES($1,$2,'practice') RETURNING id,paper_revision",practice,owner)[0]
+    assert phased['paper_revision'] is None
+    assert query(f"SELECT * FROM {s}.mock_paper_attempt_snapshots WHERE skill=$1",skill)==[]
+    activate(s)
+    fresh=query(f"INSERT INTO {s}.{skill}_test_attempts(test_id,user_id,attempt_purpose) VALUES($1,$2,'practice') RETURNING id,paper_revision",practice,uuid4())[0]
+    assert fresh['paper_revision'] is not None
+    assert len(query(f"SELECT * FROM {s}.mock_paper_attempt_snapshots WHERE skill=$1 AND attempt_id=$2",skill,fresh['id']))==1
+    with pytest.raises(asyncpg.RaiseError,match='typed_admission_required'):
+        query(f"INSERT INTO {s}.{skill}_test_attempts(test_id,user_id) VALUES($1,$2)",practice,uuid4())
+    # Old work stays legacy and can finish through the new backend without
+    # retroactive capture or claiming reconstruction of original keys.
+    query(f"UPDATE {s}.{skill}_test_attempts SET status='submitted',score=15 WHERE id=$1",phased['id'])
+    historical=query(f"SELECT score,paper_revision,grading_details FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0]
+    assert historical['score']==27 and historical['paper_revision'] is None
+    assert json.loads(historical['grading_details'])==[{'legacy':True}]
+    assert query(f"SELECT * FROM {s}.mock_paper_attempt_snapshots WHERE attempt_id=ANY($1::uuid[])",[old,aid,phased['id']])==[]
+    reapplied=SQL.replace('public.',s+'.').replace('search_path=public,','search_path='+s+',').replace('search_path = public,','search_path = '+s+',').replace("ns.nspname='public'","ns.nspname='"+s+"'")
+    query(reapplied)
+    assert query(f"SELECT {s}.fn_mock_admission_contract_active() active")[0]['active'] is True
+
+
+def test_activation_requires_explicit_exact_backend_receipt_and_is_private(rollout_probe):
+    s=rollout_probe
+    migration=ACTIVATION_SQL.replace('public.',s+'.').replace('search_path=public,','search_path='+s+',')
+    with pytest.raises(asyncpg.RaiseError,match='requires_verified_backend_sha'):
+        query(migration)
+    assert query(f"SELECT {s}.fn_mock_admission_contract_active() active")[0]['active'] is False
+    with pytest.raises(asyncpg.InsufficientPrivilegeError):
+        query(f"SET ROLE authenticated; SELECT {s}.fn_mock_admission_contract_active();")
+    activate(s)
+    comment=query(f"SELECT obj_description('{s}.fn_mock_admission_contract_active()'::regprocedure,'pg_proc') receipt")[0]['receipt']
+    assert comment.endswith('a'*40)
+
+
+def test_programme_v2_explicit_admission_preserves_old_rpc_during_rollout(rollout_probe):
+    s=rollout_probe
+    # Faithful N-1 INSERT shape delegated by the unchanged295 acquisition.
+    query(f"""CREATE FUNCTION {s}.fn_acquire_listening_programme_attempt(uuid,uuid,text)
+        RETURNS TABLE(attempt_id uuid,attempt_status text,attempt_started_at timestamptz,
+            attempt_resume_expires_at timestamptz,attempt_answers jsonb,attempt_renderer_affinity text,
+            attempt_playback_started_at timestamptz,created boolean) LANGUAGE plpgsql AS $$ BEGIN
+        RETURN QUERY INSERT INTO {s}.listening_test_attempts AS a(test_id,user_id,scoring_policy,renderer_affinity)
+        VALUES($1,$2,'report_only',$3) RETURNING a.id,a.status,a.started_at,a.resume_expires_at,a.answers,a.renderer_affinity,a.playback_started_at,true;
+        END $$;""")
+    p=paper(s,'listening',public=True)
+    query(f"UPDATE {s}.listening_tests SET scoring_policy='report_only' WHERE id=$1",p)
+    legacy=query(f"SELECT * FROM {s}.fn_acquire_listening_programme_attempt($1,$2,'legacy')",p,uuid4())[0]['attempt_id']
+    phased=query(f"SELECT * FROM {s}.fn_acquire_listening_programme_attempt_v2($1,$2,'legacy')",p,uuid4())[0]['attempt_id']
+    assert query(f"SELECT paper_revision FROM {s}.listening_test_attempts WHERE id=$1",phased)[0]['paper_revision'] is None
+    assert query(f"SELECT * FROM {s}.mock_paper_attempt_snapshots")==[]
+    activate(s)
+    fresh=query(f"SELECT * FROM {s}.fn_acquire_listening_programme_attempt_v2($1,$2,'claim-v1')",p,uuid4())[0]['attempt_id']
+    assert query(f"SELECT attempt_purpose,paper_revision FROM {s}.listening_test_attempts WHERE id=$1",fresh)[0]['attempt_purpose']=='practice'
+    assert len(query(f"SELECT * FROM {s}.mock_paper_attempt_snapshots WHERE attempt_id=$1",fresh))==1
+    assert query(f"SELECT * FROM {s}.mock_paper_attempt_snapshots WHERE attempt_id=ANY($1::uuid[])",[legacy,phased])==[]

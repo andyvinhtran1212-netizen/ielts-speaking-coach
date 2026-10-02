@@ -7394,7 +7394,7 @@ async def start_listening_test_attempt(
     if standalone and test_row.get("scoring_policy") == "report_only":
         try:
             acquired = supabase_admin.rpc(
-                "fn_acquire_listening_programme_attempt",
+                "fn_acquire_listening_programme_attempt_v2",
                 {
                     "p_test_id": test_id,
                     "p_user_id": user["id"],
@@ -7478,6 +7478,7 @@ async def start_listening_test_attempt(
         "id":      attempt_id,
         "test_id": test_id,
         "user_id": user["id"],
+        "attempt_purpose": decision["attempt_purpose"],
         "status":  "in_progress",
         "answers": [],
         "scoring_policy": test_row.get("scoring_policy") or "diagnostic",
