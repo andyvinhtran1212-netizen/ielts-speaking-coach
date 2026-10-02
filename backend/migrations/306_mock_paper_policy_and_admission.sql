@@ -19,6 +19,15 @@ ALTER TABLE public.listening_test_attempts
     ADD COLUMN IF NOT EXISTS paper_revision BIGINT,
     ADD COLUMN IF NOT EXISTS policy_revision BIGINT;
 
+-- Owner RLS is a row boundary, not a seal: SELECT('*') would otherwise reveal
+-- persisted expected answers after a sealed submission. All result/grade
+-- writes and result reads use the existing authenticated backend endpoints.
+REVOKE ALL ON public.reading_test_attempts,public.listening_test_attempts FROM PUBLIC,anon,authenticated;
+GRANT SELECT(id,test_id,user_id,status,answers,started_at,resume_expires_at,renderer_affinity,
+    sitting_id,class_assignment_item_id,attempt_purpose,paper_revision,policy_revision)
+    ON public.reading_test_attempts,public.listening_test_attempts TO authenticated;
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.reading_test_attempts,public.listening_test_attempts TO service_role;
+
 -- The existing item-observation/capture tables describe answers AFTER work;
 -- neither stores one immutable pre-submit paper context. Attempts have owner
 -- SELECT policies, so keys must not be added to their client-readable JSON.
@@ -171,7 +180,17 @@ BEGIN
             END IF;
         END IF;
         IF NEW.status='submitted' AND OLD.status='in_progress' THEN
-            PERFORM public.fn_guard_owned_mock_attempt(k,to_jsonb(OLD),'submit');
+            -- Service-role force collection first claims the sitting's submit
+            -- stamp. Preserve that existing recovery contract; HTTP submit
+            -- separately checks delivery purpose before reading private keys.
+            IF NEW.sitting_id IS NOT NULL THEN
+                SELECT to_jsonb(s) INTO sitting FROM public.mock_exam_sittings s WHERE id=NEW.sitting_id;
+                SELECT to_jsonb(m) INTO exam FROM public.mock_exams m WHERE id=(sitting->>'mock_exam_id')::UUID;
+                IF sitting IS NULL OR exam IS NULL OR sitting->>(k||'_attempt_id') IS DISTINCT FROM NEW.id::TEXT
+                   OR sitting->>'user_id' IS DISTINCT FROM NEW.user_id::TEXT OR exam->>(k||'_test_id') IS DISTINCT FROM NEW.test_id::TEXT THEN
+                    PERFORM public.fn_mock_paper_error('submit','ambiguous_orphan',k,NEW.test_id,OLD.policy_revision);
+                END IF;
+            END IF;
         END IF;
         RETURN NEW;
     END IF;
@@ -348,6 +367,7 @@ END $$;
 CREATE OR REPLACE FUNCTION public.fn_mock_paper_dependencies(p_skill TEXT,p_id UUID)
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE v_out JSONB:='[]'; e RECORD; s RECORD; a RECORD; v_reason TEXT; v_paper JSONB; v_dependency_revision TEXT;
+        v_sitting JSONB; v_exam JSONB;
 BEGIN
     v_paper:=public.fn_mock_paper_row(p_skill,p_id);
     IF v_paper IS NULL THEN RETURN v_out; END IF;
@@ -384,21 +404,28 @@ BEGIN
         v_out:=v_out||jsonb_build_array(jsonb_build_object('type','class_assignment',
             'id',a.id,'title',a.title,'reason','future_admission'));
     END LOOP;
-    IF p_skill='reading' THEN
-        FOR a IN SELECT id,sitting_id,resume_expires_at FROM public.reading_test_attempts
-            WHERE test_id=p_id AND status='in_progress'
+    FOR a IN
+        SELECT id,user_id,sitting_id,resume_expires_at FROM public.reading_test_attempts
+            WHERE p_skill='reading' AND test_id=p_id AND status='in_progress'
+              AND (resume_expires_at IS NULL OR resume_expires_at>clock_timestamp())
+        UNION ALL SELECT id,user_id,sitting_id,resume_expires_at FROM public.listening_test_attempts
+            WHERE p_skill='listening' AND test_id=p_id AND status='in_progress'
               AND (resume_expires_at IS NULL OR resume_expires_at>clock_timestamp()) ORDER BY id LOOP
-            v_out:=v_out||jsonb_build_array(jsonb_build_object('type','attempt','id',a.id,
-                'reason',CASE WHEN a.resume_expires_at IS NULL THEN 'verification_unavailable' ELSE 'valid_resume' END));
-        END LOOP;
-    ELSE
-        FOR a IN SELECT id,sitting_id,resume_expires_at FROM public.listening_test_attempts
-            WHERE test_id=p_id AND status='in_progress'
-              AND (resume_expires_at IS NULL OR resume_expires_at>clock_timestamp()) ORDER BY id LOOP
-            v_out:=v_out||jsonb_build_array(jsonb_build_object('type','attempt','id',a.id,
-                'reason',CASE WHEN a.resume_expires_at IS NULL THEN 'verification_unavailable' ELSE 'valid_resume' END));
-        END LOOP;
-    END IF;
+        v_reason:=CASE WHEN a.resume_expires_at IS NULL THEN 'verification_unavailable' ELSE 'valid_resume' END;
+        v_sitting:=NULL; v_exam:=NULL; v_dependency_revision:=NULL;
+        IF a.sitting_id IS NOT NULL THEN
+            SELECT to_jsonb(ms) INTO v_sitting FROM public.mock_exam_sittings ms WHERE id=a.sitting_id;
+            SELECT to_jsonb(m) INTO v_exam FROM public.mock_exams m WHERE id=(v_sitting->>'mock_exam_id')::UUID;
+            IF v_sitting IS NULL OR v_exam IS NULL THEN v_reason:='verification_unavailable';
+            ELSIF v_sitting->>'user_id' IS DISTINCT FROM a.user_id::TEXT
+               OR v_sitting->>(p_skill||'_attempt_id') IS DISTINCT FROM a.id::TEXT
+               OR v_exam->>(p_skill||'_test_id') IS DISTINCT FROM p_id::TEXT
+               OR NOT public.fn_mock_section_valid(p_skill,v_exam,v_sitting) THEN v_reason:='ambiguous_orphan'; END IF;
+            SELECT md5((v_exam-ARRAY['updated_at','is_open','active_section','collected_section','reading_started_at','listening_started_at','writing_started_at'])::TEXT || COALESCE(jsonb_agg(to_jsonb(x)-ARRAY['created_at','updated_at'] ORDER BY x.id)::TEXT,'[]')) INTO v_dependency_revision FROM public.mock_exam_assignments x WHERE x.exam_id=(v_exam->>'id')::UUID;
+        END IF;
+        v_out:=v_out||jsonb_build_array(jsonb_build_object('type','attempt','id',a.id,'reason',v_reason,
+            'mock_exam_id',v_exam->>'id','paper_revision',v_paper->'mock_content_revision','dependency_revision',v_dependency_revision));
+    END LOOP;
     RETURN v_out;
 END $$;
 
@@ -406,7 +433,7 @@ CREATE OR REPLACE FUNCTION public.fn_mock_protected_references(p_dependencies JS
 RETURNS JSONB LANGUAGE sql IMMUTABLE SET search_path=public,pg_temp AS $$
     SELECT COALESCE(jsonb_agg(jsonb_build_object('mock_exam_id',id,'paper_revision',revision,'dependency_revision',dependency_revision) ORDER BY id),'[]')
     FROM (SELECT DISTINCT COALESCE(d->>'mock_exam_id',d->>'id') id,d->'paper_revision' revision,d->>'dependency_revision' dependency_revision
-          FROM jsonb_array_elements(p_dependencies) d WHERE d->>'type' IN ('mock_exam','mock_sitting')) x;
+          FROM jsonb_array_elements(p_dependencies) d WHERE d->>'type' IN ('mock_exam','mock_sitting') OR d->>'mock_exam_id' IS NOT NULL) x;
 $$;
 
 CREATE OR REPLACE FUNCTION public.fn_mock_overlap_valid(p_paper JSONB,p_dependencies JSONB)
@@ -426,6 +453,7 @@ BEGIN
     v:=public.fn_mock_paper_row(p_skill,p_id);
     IF v IS NULL OR v->>'status'<>'published' OR NOT COALESCE((v->>'is_public')::BOOLEAN,FALSE) THEN RETURN FALSE; END IF;
     d:=public.fn_mock_paper_dependencies(p_skill,p_id);
+    IF EXISTS(SELECT 1 FROM jsonb_array_elements(d) x WHERE x->>'reason' IN ('verification_unavailable','ambiguous_orphan')) THEN RETURN FALSE; END IF;
     RETURN public.fn_mock_protected_references(d)='[]'::JSONB OR COALESCE(public.fn_mock_overlap_valid(v,d),FALSE);
 END $$;
 
@@ -449,6 +477,13 @@ BEGIN
     d:=public.fn_mock_paper_dependencies(p_skill,p_test_id);
     IF EXISTS(SELECT 1 FROM jsonb_array_elements(d) x WHERE x->>'reason'='verification_unavailable') THEN
         PERFORM public.fn_mock_paper_error(p_purpose,'verification_unavailable',p_skill,p_test_id,(v->>'policy_revision')::BIGINT);
+    END IF;
+    IF EXISTS(SELECT 1 FROM jsonb_array_elements(d) x WHERE x->>'reason'='ambiguous_orphan') THEN
+        IF p_user_id IS NOT NULL AND ((p_skill='reading' AND EXISTS(SELECT 1 FROM public.reading_test_attempts WHERE test_id=p_test_id AND user_id=p_user_id AND status='in_progress'))
+            OR (p_skill='listening' AND EXISTS(SELECT 1 FROM public.listening_test_attempts WHERE test_id=p_test_id AND user_id=p_user_id AND status='in_progress'))) THEN
+            RETURN jsonb_build_object('allowed',FALSE,'reason','ambiguous_orphan');
+        END IF;
+        RETURN jsonb_build_object('allowed',FALSE,'reason','unavailable');
     END IF;
     v_public:=COALESCE((v->>'is_public')::BOOLEAN,FALSE) AND
         (public.fn_mock_protected_references(d)='[]'::JSONB OR COALESCE(public.fn_mock_overlap_valid(v,d),FALSE));
@@ -567,6 +602,9 @@ BEGIN
     IF (NEW.is_public IS TRUE AND OLD.is_public IS DISTINCT FROM TRUE)
        OR (NEW.public_practice_enabled IS TRUE AND OLD.public_practice_enabled IS DISTINCT FROM TRUE)
        OR NEW.approved_public_overlap IS DISTINCT FROM OLD.approved_public_overlap THEN
+        IF EXISTS(SELECT 1 FROM jsonb_array_elements(d) x WHERE x->>'reason' IN ('verification_unavailable','ambiguous_orphan')) THEN
+            PERFORM public.fn_mock_paper_error('visibility',CASE WHEN EXISTS(SELECT 1 FROM jsonb_array_elements(d) x WHERE x->>'reason'='verification_unavailable') THEN 'verification_unavailable' ELSE 'ambiguous_orphan' END,k,OLD.id,r,d);
+        END IF;
         IF public.fn_mock_protected_references(d)<>'[]'::JSONB AND NOT COALESCE(public.fn_mock_overlap_valid(n,d),FALSE) THEN
             PERFORM public.fn_mock_paper_error('visibility','public_overlap_unapproved',k,OLD.id,r,d);
         END IF;

@@ -16,6 +16,18 @@ def without_response_policies(value):
     return deepcopy(value)
 
 
+def without_private_marking(value):
+    """Remove marking/evidence fields even inside nested authored templates."""
+    private = {"answer", "answers", "correct_answer", "accepted_answers", "solution", "solutions",
+               "explanation", "explanations", "response_policy", "response_policies", "transcript",
+               "controlled_transcripts", "transcript_anchors", "audio_windows", "self_review"}
+    if isinstance(value, dict):
+        return {key: without_private_marking(child) for key, child in value.items() if key not in private}
+    if isinstance(value, list):
+        return [without_private_marking(child) for child in value]
+    return deepcopy(value)
+
+
 def reading_snapshot_bundle(snapshot, *, sign_images):
     paper = snapshot["paper_row"]
     test = {key: deepcopy(paper[key]) for key in (
@@ -30,9 +42,7 @@ def reading_snapshot_bundle(snapshot, *, sign_images):
     for row in snapshot["marking_rows"]:
         question = {key: deepcopy(row[key]) for key in ("id", "q_num", "question_type", "prompt",
             "payload", "skill_tag", "sub_skill", "order_num", "passage_id") if key in row}
-        payload = without_response_policies(question.get("payload") or {})
-        for key in ("solution", "answer", "answers", "accepted_answers", "explanation"):
-            payload.pop(key, None)
+        payload = without_private_marking(question.get("payload") or {})
         question["payload"] = payload
         question["passage_order"] = orders.get(row.get("passage_id"))
         questions.append(question)

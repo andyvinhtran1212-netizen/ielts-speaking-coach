@@ -183,6 +183,12 @@ def test_private_snapshot_survives_source_edit_and_client_select_denied(policy_p
         query(f"SET ROLE authenticated; SELECT * FROM {s}.mock_paper_attempt_snapshots")
     with pytest.raises(asyncpg.RaiseError,match="immutable_mock_paper_snapshot"):
         query(f"UPDATE {s}.mock_paper_attempt_snapshots SET marking_rows='[]' WHERE attempt_id=$1",aid)
+    assert query(f"SELECT has_column_privilege('authenticated','{s}.reading_test_attempts','id','SELECT') allowed")[0]["allowed"] is True
+    assert query(f"SELECT has_column_privilege('authenticated','{s}.reading_test_attempts','grading_details','SELECT') allowed")[0]["allowed"] is False
+    with pytest.raises(asyncpg.InsufficientPrivilegeError):
+        query(f"SET ROLE authenticated; SELECT * FROM {s}.reading_test_attempts")
+    with pytest.raises(asyncpg.InsufficientPrivilegeError):
+        query(f"SET ROLE authenticated; UPDATE {s}.reading_test_attempts SET score=40 WHERE id='{aid}'")
 
 
 def test_new_reference_vs_depublish_is_serialized(policy_probe):
@@ -271,3 +277,23 @@ def test_admission_parent_contention_is_typed_retry(policy_probe):
         finally:
             await tx.rollback(); await first.close(); await second.close()
     asyncio.run(contention())
+
+
+def test_server_collection_can_finalize_after_parent_claim(policy_probe):
+    s=policy_probe; p=paper(s); m=room(s,p,active=True); owner=uuid4()
+    sid=query(f"INSERT INTO {s}.mock_exam_sittings(mock_exam_id,user_id) VALUES($1,$2) RETURNING id",m,owner)[0]["id"]
+    receipt=json.loads(query(f"SELECT {s}.fn_admit_mock_paper_attempt('reading',$1,$2,$3,'legacy') receipt",p,owner,sid)[0]["receipt"])
+    query(f"UPDATE {s}.mock_exam_sittings SET reading_submitted_at=now() WHERE id=$1",sid)
+    query(f"UPDATE {s}.mock_exams SET collected_section='reading' WHERE id=$1",m)
+    query(f"UPDATE {s}.reading_test_attempts SET status='submitted',score=0 WHERE id=$1",UUID(receipt["attempt_id"]))
+    assert query(f"SELECT status FROM {s}.reading_test_attempts WHERE id=$1",UUID(receipt["attempt_id"]))[0]["status"]=='submitted'
+
+
+def test_unfinished_orphan_never_becomes_public_by_ended_room_badge(policy_probe):
+    s=policy_probe; p=paper(s); m=room(s,p,active=True); owner=uuid4()
+    sid=query(f"INSERT INTO {s}.mock_exam_sittings(mock_exam_id,user_id) VALUES($1,$2) RETURNING id",m,owner)[0]["id"]
+    query(f"SELECT {s}.fn_admit_mock_paper_attempt('reading',$1,$2,$3,'legacy')",p,owner,sid)
+    query(f"UPDATE {s}.mock_exams SET active_section='done' WHERE id=$1",m)
+    assert access(s,'reading',p,owner,'delivery')["reason"]=='ambiguous_orphan'
+    with pytest.raises(asyncpg.RaiseError,match="ambiguous_orphan"):
+        query(f"UPDATE {s}.reading_tests SET is_public=true WHERE id=$1",p)

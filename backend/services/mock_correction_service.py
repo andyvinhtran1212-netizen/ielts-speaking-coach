@@ -423,7 +423,9 @@ def _effective_policy(skill: str, attempt: dict) -> dict:
 
 
 def explanation_access(skill: str, attempt: dict, *, admin_preview: bool = False) -> dict | None:
-    rows = _current_explanation_rows(skill, attempt.get("test_id"))
+    from services.mock_paper_policy import load_marking_snapshot
+    snapshot = load_marking_snapshot(supabase_admin, skill, attempt)
+    rows = snapshot["scoring_override_rows"] if snapshot is not None else _current_explanation_rows(skill, attempt.get("test_id"))
     if not rows:
         return None  # no new content: preserve the legacy review contract
     policy = _effective_policy(skill, attempt)

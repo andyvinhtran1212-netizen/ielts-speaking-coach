@@ -113,6 +113,10 @@ class ListeningPlayerResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str
+    attempt_purpose: str | None = None
+    mock_sitting_id: str | None = None
+    paper_revision: int | None = None
+    policy_revision: int | None = None
     test_id: str | None = None
     title: str | None = None
     test_type: str | None = None

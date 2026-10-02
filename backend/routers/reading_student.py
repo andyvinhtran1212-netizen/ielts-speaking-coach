@@ -522,8 +522,9 @@ def _strip_solution_from_payload(questions: list[dict]) -> None:
     ship during the test — only the post-submit chữa-bài review surfaces it."""
     for q in questions:
         pl = q.get("payload")
-        if isinstance(pl, dict) and "solution" in pl:
-            pl = dict(pl)
+        if isinstance(pl, dict):
+            from services.mock_player_context import without_private_marking
+            pl = without_private_marking(pl)
             pl.pop("solution", None)
             q["payload"] = pl
 
@@ -606,8 +607,13 @@ def _build_reading_test_detail(test_id: str, password: str | None = None,
     Enforces the lock gate (F1) then drops the raw metadata (never leak the
     password to the client)."""
     test = dict(_fetch_published_test(test_id))
-    _assert_exam_content_allowed(test, user_id, class_item, sitting_id=sitting_id)
+    decision = _assert_exam_content_allowed(test, user_id, class_item, sitting_id=sitting_id)
     _require_test_unlocked(test, password)
+    from services.mock_paper_policy import owned_delivery_snapshot
+    attempt, snapshot = owned_delivery_snapshot(supabase_admin, "reading", test["id"], user_id, decision)
+    if snapshot is not None:
+        from services.mock_player_context import reading_snapshot_bundle
+        return reading_snapshot_bundle(snapshot, sign_images=_stamp_diagram_image_urls)
     locked = bool(((test.get("metadata") or {}).get("access") or {}).get("locked"))
     test.pop("metadata", None)
     test["locked"] = locked
@@ -775,7 +781,12 @@ def _fetch_in_progress_payload(
 
     row = res.data[0]
     from services.mock_paper_policy import guard_owned_attempt, attempt_receipt
+    from services.mock_attempt_flags import review_flag_state
     guard_owned_attempt(supabase_admin, "reading", row, purpose="resume")
+    from services.mock_paper_policy import load_marking_snapshot
+    snapshot = load_marking_snapshot(supabase_admin, "reading", row)
+    if snapshot is not None:
+        test = snapshot["paper_row"]
     persisted_res = (
         supabase_admin.table("reading_attempt_answers")
         .select("q_num,user_answer,answered_at")
@@ -793,6 +804,7 @@ def _fetch_in_progress_payload(
     ]
     return {
         **attempt_receipt(row),
+        **review_flag_state(supabase_admin, "reading", row),
         "attempt_id":         row["id"],
         "test_id":            test_id,
         "status":             row["status"],
@@ -938,7 +950,6 @@ async def boot_shared_reading_test(
     test_text_id = test.get("test_id")
     detail = dict(test)
     detail["locked"] = False              # the valid share token IS the grant (bypass F1)
-    detail = _assemble_test_detail(detail)
 
     in_progress = None
     if x_reading_anon:
@@ -946,6 +957,15 @@ async def boot_shared_reading_test(
             None, test_text_id, detail, raise_on_missing=False,
             anon_id=x_reading_anon,
         )
+    if in_progress and in_progress.get("paper_revision") is not None:
+        from services.mock_paper_policy import load_marking_snapshot
+        from services.mock_player_context import reading_snapshot_bundle
+        snapshot = load_marking_snapshot(supabase_admin, "reading", {"id": in_progress["attempt_id"],
+            "test_id": test["id"], "paper_revision": in_progress["paper_revision"]})
+        detail = reading_snapshot_bundle(snapshot, sign_images=_stamp_diagram_image_urls)
+        detail["locked"] = False
+    else:
+        detail = _assemble_test_detail(detail)
     return {"test": detail, "in_progress": in_progress}
 
 
@@ -1020,9 +1040,14 @@ async def start_shared_reading_test_attempt(
     affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
     if affinity_aware:
         payload["renderer_affinity"] = None
-    supabase_admin.table("reading_test_attempts").insert(payload).execute()
+    inserted = supabase_admin.table("reading_test_attempts").insert(payload).execute()
     bind_owned_attempt(payload, started=True)
+    from services.mock_paper_policy import attempt_receipt
+    from services.mock_attempt_flags import review_flag_state
+    canonical = inserted.data[0] if inserted.data else payload
     return {
+        **attempt_receipt(canonical),
+        **review_flag_state(supabase_admin, "reading", canonical),
         "attempt_id":         attempt_id,
         "anon_id":            anon_id,             # client MUST keep this (ownership)
         "started_at":         started_at,
@@ -1120,7 +1145,9 @@ async def start_reading_test_attempt(
             decision["mock_sitting_id"], affinity_protocol=body.renderer_affinity_protocol if body else None)
         bind_owned_attempt({"id": admitted["attempt_id"], "test_id": test_uuid,
             "user_id": user["id"], "status": admitted["status"]}, started=not admitted.get("acquired_existing"))
-        return {**admitted, "test_id": test_id, "time_limit_minutes": test["time_limit_minutes"]}
+        from services.mock_attempt_flags import review_flag_state
+        return {**admitted, **review_flag_state(supabase_admin, "reading", {"id": admitted["attempt_id"]}),
+                "test_id": test_id}
 
     if class_item:
         try:
@@ -1171,9 +1198,11 @@ async def start_reading_test_attempt(
 
         bind_owned_attempt(payload, started=True)
         from services.mock_paper_policy import attempt_receipt
+        from services.mock_attempt_flags import review_flag_state
         canonical = inserted.data[0] if inserted.data else payload
         return {
             **attempt_receipt(canonical),
+            **review_flag_state(supabase_admin, "reading", canonical),
             "attempt_id":         attempt_id,
             "test_id":            test_id,
             "status":             "in_progress",

@@ -5642,7 +5642,7 @@ def _assert_listening_exam_content_allowed(
         sitting_id=sitting_id, allow_admission=allow_admission)
 
 
-def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True) -> dict:
+def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True, snapshot=None) -> dict:
     """Build the student-safe player contract for public and admin preview."""
     from services import listening_test_grader as grader
 
@@ -5655,24 +5655,30 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
         if not audio_url:
             raise HTTPException(422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.")
 
-    section_rows = (
-        supabase_admin.table("listening_content")
-        .select("id,section_num,title,transcript,metadata")
-        .eq("test_id", test_id).order("section_num").execute().data or []
-    )
-    section_ids = [section["id"] for section in section_rows]
-    exercises_res = (
-        supabase_admin.table("listening_exercises")
-        .select("id,content_id,exercise_type,payload,order_num")
-        .in_("content_id", section_ids).order("order_num").execute()
-        if section_ids else None
-    )
-    raw_exercises = [exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
-                     if not _is_standalone_authoring_exercise(exercise)]
+    if snapshot is not None:
+        from services.mock_player_context import listening_snapshot_sources
+        section_rows, raw_exercises = listening_snapshot_sources(snapshot)
+        raw_exercises = [exercise for exercise in raw_exercises if not _is_standalone_authoring_exercise(exercise)]
+    else:
+        section_rows = (
+            supabase_admin.table("listening_content")
+            .select("id,section_num,title,transcript,metadata")
+            .eq("test_id", test_id).order("section_num").execute().data or []
+        )
+        section_ids = [section["id"] for section in section_rows]
+        exercises_res = (
+            supabase_admin.table("listening_exercises")
+            .select("id,content_id,exercise_type,payload,order_num")
+            .in_("content_id", section_ids).order("order_num").execute()
+            if section_ids else None
+        )
+        raw_exercises = [exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
+                         if not _is_standalone_authoring_exercise(exercise)]
     source_required = test.get("programme_id") == SOURCE_PROGRAMME
     if source_required and (not raw_exercises or any((exercise.get("payload") or {}).get("source_contract") != SOURCE_CONTRACT for exercise in raw_exercises)):
         raise HTTPException(503, "Hợp đồng nội dung nguồn chưa hợp lệ.")
-    exercises = grader.strip_answer_keys(raw_exercises)
+    from services.mock_player_context import without_private_marking
+    exercises = grader.strip_answer_keys(without_private_marking(raw_exercises))
     source_fields = {}
     if source_required:
         from services.listening_source_collection import sign_source_block
@@ -5830,19 +5836,29 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
-    _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
+    decision = _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
+    from services.mock_paper_policy import owned_delivery_snapshot, attempt_receipt
+    attempt, snapshot = owned_delivery_snapshot(supabase_admin, "listening", test_id, _user["id"], decision,
+                                               attempt_id=attempt_id)
+    if snapshot is not None:
+        test = snapshot["paper_row"]
     include_audio = True
     if test.get("replay_policy") == "once":
         if attempt_id is None:
             raise HTTPException(409, "Bài nghe một lượt cần một attempt đang hoạt động.")
-        attempt = _fetch_attempt_or_404(str(attempt_id), _user["id"])
+        attempt = attempt or _fetch_attempt_or_404(str(attempt_id), _user["id"])
         if str(attempt.get("test_id")) != test_id:
             raise HTTPException(422, "Attempt không thuộc bài nghe này.")
         if attempt.get("status") != "in_progress":
             raise HTTPException(422, "Attempt không còn hoạt động.")
         require_resume_active(attempt)
         include_audio = not bool(attempt.get("playback_started_at"))
-    return _assemble_listening_player_payload(test, include_audio=include_audio)
+    payload = _assemble_listening_player_payload(test, include_audio=include_audio, snapshot=snapshot)
+    if attempt is not None:
+        from services.mock_attempt_flags import review_flag_state
+        payload.update(attempt_receipt(attempt))
+        payload.update(review_flag_state(supabase_admin, "listening", attempt))
+    return payload
 
 
 # ── Test-linked dictation (chép chính tả) ────────────────────────────
@@ -7267,9 +7283,11 @@ async def get_in_progress_listening_attempt(
     row = res.data[0]
     from services.mock_paper_policy import guard_owned_attempt, attempt_receipt
     guard_owned_attempt(supabase_admin, "listening", row, purpose="resume")
+    from services.mock_attempt_flags import review_flag_state
     return {
         "attempt": {
             **attempt_receipt(row),
+            **review_flag_state(supabase_admin, "listening", row),
             "attempt_id": row["id"],
             "started_at": row.get("started_at") or row.get("created_at"),
             # Only answers with real content — a blank row is not progress and
@@ -7337,7 +7355,8 @@ async def start_listening_test_attempt(
             decision["mock_sitting_id"], affinity_protocol=body.renderer_affinity_protocol if body else None)
         bind_owned_attempt({"id": admitted["attempt_id"], "test_id": test_id,
             "user_id": user["id"], "status": admitted["status"]}, started=not admitted.get("acquired_existing"))
-        return admitted
+        from services.mock_attempt_flags import review_flag_state
+        return {**admitted, **review_flag_state(supabase_admin, "listening", {"id": admitted["attempt_id"]})}
 
     # Imported programme forms have one canonical standalone resume-or-create
     # path. The legacy start-over path abandons the previous row before its
@@ -7408,7 +7427,13 @@ async def start_listening_test_attempt(
             "renderer_affinity": acquired_row.get("attempt_renderer_affinity"),
         }
         bind_owned_attempt(observation_row, started=created)
+        canonical = _fetch_attempt_or_404(attempt_id, user["id"])
+        from services.mock_paper_policy import attempt_receipt, guard_owned_attempt
+        from services.mock_attempt_flags import review_flag_state
+        guard_owned_attempt(supabase_admin, "listening", canonical, purpose="resume")
         return {
+            **attempt_receipt(canonical),
+            **review_flag_state(supabase_admin, "listening", canonical),
             "attempt_id": attempt_id,
             "status": observation_row["status"],
             "started_at": acquired_row.get("attempt_started_at"),
@@ -7464,9 +7489,11 @@ async def start_listening_test_attempt(
     )
     bind_owned_attempt(payload, started=True)
     from services.mock_paper_policy import attempt_receipt
+    from services.mock_attempt_flags import review_flag_state
     canonical = inserted.data[0] if inserted.data else payload
     return {
         **attempt_receipt(canonical),
+        **review_flag_state(supabase_admin, "listening", canonical),
         "attempt_id": attempt_id,
         "status": "in_progress",
         "started_at": started_at,
@@ -7975,6 +8002,9 @@ async def check_listening_practice_answer(
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
     require_resume_active(attempt)
 
+    from services.mock_paper_policy import guard_owned_attempt, load_marking_snapshot, frozen_answer_key
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="practice_feedback")
+    snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,test_type,metadata")
@@ -7982,7 +8012,7 @@ async def check_listening_practice_answer(
     )
     if not test_res.data:
         raise HTTPException(404, "Test bundle not found")
-    test_row = test_res.data[0]
+    test_row = snapshot["paper_row"] if snapshot else test_res.data[0]
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         raise HTTPException(
             422,
@@ -7994,8 +8024,10 @@ async def check_listening_practice_answer(
             "Chấm từng câu chỉ dành cho Luyện nhanh. Bài thi chấm một lần khi nộp.",
         )
 
-    payloads = _practice_exercise_payloads(attempt["test_id"])
-    answer_key = grader.collect_answer_key(payloads)
+    payloads = snapshot["marking_rows"] if snapshot else _practice_exercise_payloads(attempt["test_id"])
+    answer_key = frozen_answer_key(supabase_admin, "listening", attempt)
+    if answer_key is None:
+        answer_key = grader.collect_answer_key(payloads)
     key_row = next((k for k in answer_key if k.get("q_num") == body.q_num), None)
     if key_row is None:
         raise HTTPException(404, f"Câu {body.q_num} không thuộc bài này.")

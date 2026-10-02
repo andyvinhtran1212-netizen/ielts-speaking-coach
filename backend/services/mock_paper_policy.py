@@ -51,6 +51,10 @@ def _rpc(db, name: str, params: dict, *, operation: str, skill: str, paper_id: s
             raise HTTPException(404, "Paper not found") from exc
         if "invalid_mock_paper_policy_field" in str(exc):
             raise HTTPException(422, "Invalid paper policy field") from exc
+        if any(marker in str(exc) for marker in (
+                "web_explanation_paper_requires_q01_q40", "web_explanation_content_version_unavailable",
+                "web_explanation_serving_blocked:")):
+            raise HTTPException(422, "Paper explanation evidence is not approved for the requested revision") from exc
         raise database_policy_error(exc) or unavailable(operation, skill, paper_id) from exc
     if isinstance(result, list) and len(result) == 1:
         result = result[0]
@@ -175,3 +179,26 @@ def guard_owned_attempt(db, skill: str, attempt: dict, *, purpose: str = "resume
     }, operation=purpose, skill=skill, paper_id=attempt["test_id"])
     if result.get("allowed") is not True:
         raise unavailable(purpose, skill, attempt["test_id"])
+
+
+def owned_delivery_snapshot(db, skill: str, paper_id: str, user_id: str,
+                            decision: dict, *, attempt_id=None) -> tuple[dict | None, dict | None]:
+    """Resolve the already admitted owner before reading private player rows."""
+    selected = str(attempt_id or decision.get("attempt_id") or "")
+    if not selected:
+        return None, None
+    try:
+        rows = db.table(f"{skill}_test_attempts").select("*").eq("id", selected).eq(
+            "user_id", str(user_id)).eq("test_id", str(paper_id)).limit(1).execute().data or []
+    except Exception as exc:
+        raise unavailable("delivery", skill, paper_id) from exc
+    if len(rows) != 1:
+        raise HTTPException(404, "Attempt not found")
+    attempt = rows[0]
+    if (decision.get("attempt_purpose") == "mock_delivery"
+            and str(attempt.get("sitting_id")) != str(decision.get("mock_sitting_id"))):
+        raise HTTPException(409, "Attempt does not match the admitted sitting")
+    if decision.get("attempt_purpose") != "mock_delivery" and attempt.get("sitting_id"):
+        raise HTTPException(404, "Attempt unavailable for this delivery purpose")
+    guard_owned_attempt(db, skill, attempt, purpose="resume")
+    return attempt, load_marking_snapshot(db, skill, attempt)
