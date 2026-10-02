@@ -53,6 +53,17 @@ test('normalizes the answer-key contract without turning nullable values into ze
   assert.ok(untitled.issues.some((issue) => issue.includes('thiếu title')));
 });
 
+test('shows native top-level paragraph labels ahead of legacy template labels and retains template-only papers', () => {
+  const source = payload();
+  source.questions[0].payload = { paragraph_labels: ['A', 'F', 'I'], template: { paragraph_labels: ['A', 'H'] } };
+  source.questions[1].payload = { template: { paragraph_labels: ['A', 'G'] } };
+  const original = JSON.stringify(source);
+  const normalized = normalizeReadingAdminPreview(source).test;
+  assert.deepEqual(normalized.questions[0].template.paragraphLabels, ['A', 'F', 'I']);
+  assert.deepEqual(normalized.questions[1].template.paragraphLabels, ['A', 'G']);
+  assert.equal(JSON.stringify(source), original);
+});
+
 test('reports malformed/count drift instead of inventing preview rows', () => {
   const normalized = normalizeReadingAdminPreview(payload({
     passage_count: 2,

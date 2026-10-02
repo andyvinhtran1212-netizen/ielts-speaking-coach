@@ -110,6 +110,22 @@ describe('source-authored Reading controls in the native player', () => {
     expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
   });
 
+  it.each(['F', 'I'])('uses the native top-level A-%s bank ahead of a conflicting legacy template without changing source data', async (last) => {
+    const fixture = paper({ paragraph_labels: letters(last), template: { paragraph_labels: letters('H') } });
+    const original = JSON.stringify(fixture);
+    get.mockResolvedValue(fixture);
+    render(<ReadingExamSession />);
+    const first = await screen.findByRole('combobox', { name: 'Answer 14' });
+    const second = screen.getByRole('combobox', { name: 'Answer 15' });
+    expect(within(first).getAllByRole('option').map((option) => (option as HTMLOptionElement).value)).toEqual(['', ...letters(last)]);
+    fireEvent.change(first, { target: { value: last } });
+    fireEvent.change(second, { target: { value: last } });
+    expect((first as HTMLSelectElement).value).toBe(last);
+    expect((second as HTMLSelectElement).value).toBe(last);
+    expect(JSON.stringify(fixture)).toBe(original);
+    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
+  });
+
   it('uses explicit option labels when a paragraph template is absent, while retaining repeated answers', async () => {
     get.mockResolvedValue(paper({ options: letters('I').map((label) => ({ label, text: `Paragraph ${label}` })) }));
     render(<ReadingExamSession />);

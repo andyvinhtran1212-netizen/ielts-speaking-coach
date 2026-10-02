@@ -48,6 +48,7 @@ type Question = {
     image_url?: string;
     instruction?: string;
     word_limit?: string;
+    paragraph_labels?: string[];
     template?: {
       choose?: number;
       heading?: string;
@@ -257,7 +258,9 @@ function QuestionControl({ question, value, onChange, includePrompt = true }: {
       || (type === 'summary_completion' && options.length)) {
     selectOptions = options.map(optionValue);
   } else if (type === 'matching_information') {
-    const authored = question.payload?.template?.paragraph_labels;
+    const flatLabels = question.payload?.paragraph_labels;
+    const authored = Array.isArray(flatLabels) && flatLabels.length
+      ? flatLabels : question.payload?.template?.paragraph_labels;
     selectOptions = Array.isArray(authored) && authored.length
       ? authored.map(String)
       : options.length ? options.map(optionValue)

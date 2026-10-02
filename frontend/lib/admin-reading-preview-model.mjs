@@ -66,6 +66,8 @@ function normalizeQuestion(raw, index, passageIds, issues) {
   const id = optionalText(value.id);
   if (!id) issues.push(`Question Q${qNum} thiếu id canonical; preview giữ nội dung nhưng khóa quản lý ảnh.`);
   const payload = objectOf(value.payload) || {}; const template = objectOf(payload.template) || {};
+  const paragraphLabels = Array.isArray(payload.paragraph_labels) && payload.paragraph_labels.length
+    ? payload.paragraph_labels : template.paragraph_labels;
   const answer = objectOf(value.answer) || {};
   const rawAnswer = answer.answer;
   const accepted = Array.isArray(rawAnswer) ? rawAnswer.map((item) => String(item)) : rawAnswer == null ? [] : [String(rawAnswer)];
@@ -78,7 +80,7 @@ function normalizeQuestion(raw, index, passageIds, issues) {
     template: {
       summaryText: typeof template.summary_text === 'string' ? template.summary_text : null,
       imageStoragePath: optionalText(template.image_storage_path), imageSource: optionalText(template.image_source),
-      choose: integerOf(template.choose), paragraphLabels: Array.isArray(template.paragraph_labels) ? template.paragraph_labels.map(textOf).filter(Boolean) : [],
+      choose: integerOf(template.choose), paragraphLabels: Array.isArray(paragraphLabels) ? paragraphLabels.map(textOf).filter(Boolean) : [],
       extras: Object.fromEntries(Object.entries(template).filter(([key]) => !['summary_text', 'image_storage_path', 'image_source', 'image_size_bytes', 'image_format', 'image_uploaded_at', 'image_uploaded_by', 'choose', 'paragraph_labels'].includes(key))),
     },
     answers: accepted, alternatives, explanation: optionalText(value.explanation),
