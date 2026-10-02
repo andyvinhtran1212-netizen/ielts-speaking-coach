@@ -381,3 +381,13 @@ def test_new_listening_duration_never_falls_back_when_private_snapshot_is_missin
     query(f"ALTER TABLE {s}.mock_paper_attempt_snapshots ENABLE TRIGGER USER;")
     with pytest.raises(asyncpg.RaiseError,match='verification_unavailable'):
         access(s,'listening',p,owner,'delivery',sid)
+
+
+def test_standalone_listening_revision_does_not_inherit_mock_clock_barrier(policy_probe):
+    s=policy_probe; p=paper(s,'listening',public=True)
+    query(f"UPDATE {s}.listening_tests SET full_audio_duration_seconds=1800 WHERE id=$1",p)
+    aid=query(f"INSERT INTO {s}.listening_test_attempts(test_id,user_id) VALUES($1,$2) RETURNING id",p,uuid4())[0]['id']
+    query(f"UPDATE {s}.listening_tests SET full_audio_duration_seconds=60 WHERE id=$1",p)
+    assert query(f"SELECT full_audio_duration_seconds FROM {s}.listening_tests WHERE id=$1",p)[0]['full_audio_duration_seconds']==60
+    frozen=json.loads(query(f"SELECT paper_row FROM {s}.mock_paper_attempt_snapshots WHERE skill='listening' AND attempt_id=$1",aid)[0]['paper_row'])
+    assert frozen['full_audio_duration_seconds']==1800

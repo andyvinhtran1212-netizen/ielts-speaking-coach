@@ -613,7 +613,8 @@ BEGIN
     -- expire earlier than the already admitted private paper context.
     IF k='listening' AND n->'full_audio_duration_seconds' IS DISTINCT FROM b->'full_audio_duration_seconds' THEN
         IF EXISTS(SELECT 1 FROM jsonb_array_elements(d) x
-                  WHERE x->>'reason' IN ('valid_resume','ambiguous_orphan','verification_unavailable'))
+                  WHERE x->>'reason' IN ('valid_resume','ambiguous_orphan','verification_unavailable')
+                    AND (x->>'reason'<>'valid_resume' OR x->>'type'='mock_sitting' OR x->>'mock_exam_id' IS NOT NULL))
            OR EXISTS(SELECT 1 FROM public.mock_exams m WHERE m.listening_test_id=OLD.id
                      AND m.status='published' AND m.exam_mode IS DISTINCT FROM 'retake'
                      AND m.active_section='listening' AND m.collected_section IS DISTINCT FROM 'listening') THEN
