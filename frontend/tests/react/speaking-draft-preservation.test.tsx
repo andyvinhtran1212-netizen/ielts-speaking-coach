@@ -25,18 +25,63 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();window.sessionStorage.clear();window.name='';});
 const ready=()=>waitFor(()=>expect(get).toHaveBeenCalledWith('/auth/me'));
-it('keeps the clicked Part while initial auth confirmation resets preparation before runtime readiness',async()=>{
+it('keeps the submitted Part when a later preparation edit precedes runtime readiness',async()=>{
   let release!:(value:boolean)=>void;
   runtime.ready.mockReturnValue(new Promise<boolean>(resolve=>{release=resolve}));
   auth.status='initial-loading';auth.user=null;
   post.mockRejectedValue(new Error('fixture stops navigation'));
   const view=mount();mode('practice');click('prac-tp-part-2');edit('prac-topic-custom','Early Part2 topic');click('prac-topic-start');
+  click('prac-tp-part-3');
   auth.status='signed-in';auth.user={id:'550e8400-e29b-41d4-a716-446655440000'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
-  expect(el('prac-tp-part-1').classList.contains('selected')).toBe(true);
+  expect(el('prac-tp-part-3').classList.contains('selected')).toBe(true);
   await act(async()=>release(true));
   await waitFor(()=>expect(post).toHaveBeenCalled());
   expect(post.mock.calls[0][1]).toMatchObject({mode:'practice',part:2,topic:'Early Part2 topic'});
   expect(post).toHaveBeenCalledTimes(1);
+});
+it('keeps fresh panel, Part and raw edits at first account confirmation, then clears them at a switch',async()=>{
+  auth.status='initial-loading';auth.user=null;
+  const view=mount();mode('practice');click('prac-part-2');edit('prac-custom-q','  Fresh cue\nYou should say:\nwhy  ');edit('prac-topic-custom','  Fresh topic  ');
+  auth.status='signed-in';auth.user={id:'A'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  await ready();
+  expect(el('tab-practice').classList.contains('active')).toBe(true);
+  expect(el('prac-part-2').classList.contains('selected')).toBe(true);
+  expect(input('prac-custom-q').value).toBe('  Fresh cue\nYou should say:\nwhy  ');
+  expect(input('prac-topic-custom').value).toBe('  Fresh topic  ');
+  auth.user={id:'B'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  expect(input('prac-custom-q').value).toBe('');expect(input('prac-topic-custom').value).toBe('');
+  expect(el('tab-dashboard').classList.contains('active')).toBe(true);expect(post).not.toHaveBeenCalled();
+});
+it('drops unconfirmed preparation on signed-out instead of adopting it at a later sign-in',async()=>{
+  auth.status='initial-loading';auth.user=null;
+  const view=mount();mode('practice');edit('prac-custom-q','unconfirmed text');
+  auth.status='signed-out';view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  expect(input('prac-custom-q').value).toBe('');
+  auth.status='signed-in';auth.user={id:'B'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  await ready();expect(input('prac-custom-q').value).toBe('');
+  expect(el('tab-dashboard').classList.contains('active')).toBe(true);expect(post).not.toHaveBeenCalled();
+});
+it('rechecks permissions on persisted return before restoring a now disallowed preparation',async()=>{
+  mount();await ready();mode('practice');edit('prac-custom-q','private preparation');
+  const before=get.mock.calls.filter(([p])=>p==='/auth/me').length;
+  get.mockImplementation(async(path:string)=>path==='/auth/me'?{id:'A',permissions:[]}:[]);
+  act(()=>{window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));});
+  await waitFor(()=>expect(get.mock.calls.filter(([p])=>p==='/auth/me').length).toBeGreaterThan(before));
+  expect(input('prac-custom-q').value).toBe('');expect(el('tab-dashboard').classList.contains('active')).toBe(true);expect(post).not.toHaveBeenCalled();
+});
+it('ignores an old same-account profile after an A to B to A transition',async()=>{
+  let resolveOld!:(profile:any)=>void;let profiles=0;
+  get.mockImplementation(async(path:string)=>{
+    if(path!=='/auth/me')return [];
+    profiles++;if(profiles===1)return new Promise(resolve=>{resolveOld=resolve});
+    return {id:auth.user?.id,permissions:[]};
+  });
+  const view=mount();await ready();mode('practice');edit('prac-custom-q','private A');
+  auth.user={id:'B'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  auth.user={id:'A'};view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  await waitFor(()=>expect(profiles).toBeGreaterThanOrEqual(3));
+  await act(async()=>resolveOld({id:'A',permissions:['all']}));
+  expect(input('prac-custom-q').value).toBe('');expect(el('tab-dashboard').classList.contains('active')).toBe(true);expect(post).not.toHaveBeenCalled();
 });
 it('restores latest raw cue, Part and panel without Start or AI, including an empty edit',async()=>{
   let view=mount();await ready();mode('practice');click('prac-part-2');edit('prac-custom-q','  Describe a place\nYou should say:\nwhere it is  ');edit('prac-topic-custom','older');edit('prac-topic-custom','');
