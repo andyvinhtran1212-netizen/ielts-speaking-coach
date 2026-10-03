@@ -57,6 +57,24 @@ function normalizeOptions(value) {
   }).filter(Boolean);
 }
 
+function normalizeSolution(value) {
+  const texts = (raw) => (Array.isArray(raw) ? raw : [raw])
+    .filter((item) => typeof item === 'string' && item.trim());
+  if (typeof value === 'string') return texts(value).length ? [{ key: 'text', label: 'Lời giải authored', values: [value] }] : [];
+  const solution = objectOf(value); if (!solution) return [];
+  const fields = [
+    ['question_text', 'Câu hỏi trong lời giải'], ['steps', 'Các bước giải'],
+    ['source_excerpt', 'Trích đoạn nguồn'], ['source_location', 'Vị trí nguồn'],
+    ['source_paragraph', 'Đoạn nguồn'],
+    ['vocab', 'Từ vựng'], ['paraphrase', 'Paraphrase'],
+    ['trap_analysis', 'Phân tích bẫy & kỹ năng'], ['tips', 'Mẹo làm bài'],
+    ['skill_code', 'Mã kỹ năng'], ['skill_name', 'Kỹ năng'],
+  ];
+  const sections = fields.map(([key, label]) => ({ key, label, values: texts(solution[key]) })).filter((section) => section.values.length);
+  if (typeof solution.band === 'number' && Number.isFinite(solution.band)) sections.push({ key: 'band', label: 'Band', values: [String(solution.band)] });
+  return sections;
+}
+
 function normalizeQuestion(raw, index, passageIds, issues) {
   const value = objectOf(raw); const qNum = integerOf(value?.q_num); const passageId = textOf(value?.passage_id);
   if (!value || qNum == null || qNum < 1 || !passageId || !passageIds.has(passageId)) {
@@ -84,6 +102,8 @@ function normalizeQuestion(raw, index, passageIds, issues) {
       extras: Object.fromEntries(Object.entries(template).filter(([key]) => !['summary_text', 'image_storage_path', 'image_source', 'image_size_bytes', 'image_format', 'image_uploaded_at', 'image_uploaded_by', 'choose', 'paragraph_labels'].includes(key))),
     },
     answers: accepted, alternatives, explanation: optionalText(value.explanation),
+    solutionSections: normalizeSolution(payload.solution),
+    instruction: optionalText(payload.instruction), wordLimit: optionalText(payload.word_limit),
   };
 }
 

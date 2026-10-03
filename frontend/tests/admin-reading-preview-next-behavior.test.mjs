@@ -64,6 +64,40 @@ test('shows native top-level paragraph labels ahead of legacy template labels an
   assert.equal(JSON.stringify(source), original);
 });
 
+test('retains authored solutions and rubrics alongside legacy explanations without changing keys or source', () => {
+  const source = payload();
+  source.questions[0].payload = { instruction: 'Complete the notes.', word_limit: 'ONE WORD ONLY', solution: {
+    question_text: 'Original question', steps: 'Locate the line.\nRead the noun.',
+    source_excerpt: 'The outer layer of sheep intestines.', source_paragraph: 'A', vocab: ['intestines = ruột'],
+    paraphrase: 'animals ↔ sheep', trap_analysis: 'Do not add a second word.', tips: 'Keep the plural.', skill_code: 'LEX', band: 6.5,
+  } };
+  source.questions[1].payload.solution = 'Authored plain-text solution';
+  const original = JSON.stringify(source);
+  const rows = normalizeReadingAdminPreview(source).test.questions;
+  assert.equal(rows[0].explanation, 'Because A');
+  assert.equal(rows[0].instruction, 'Complete the notes.');
+  assert.equal(rows[0].wordLimit, 'ONE WORD ONLY');
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'steps').values, ['Locate the line.\nRead the noun.']);
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'vocab').values, ['intestines = ruột']);
+  // AVR001 Q1 and native packets use source_paragraph independently of source_location.
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'source_paragraph'), { key: 'source_paragraph', label: 'Đoạn nguồn', values: ['A'] });
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'band').values, ['6.5']);
+  assert.deepEqual(rows[1].solutionSections, [{ key: 'text', label: 'Lời giải authored', values: ['Authored plain-text solution'] }]);
+  assert.deepEqual(rows[0].answers, ['A']);
+  assert.equal(JSON.stringify(source), original);
+});
+
+test('does not invent prose from malformed or empty solution/rubric values', () => {
+  const source = payload();
+  source.questions[0].payload = { instruction: {}, word_limit: 2, solution: { steps: {}, vocab: ['', null, {}, 42], band: '6.5' } };
+  source.questions[1].payload.solution = [];
+  source.questions[2].payload.solution = '  ';
+  const rows = normalizeReadingAdminPreview(source).test.questions;
+  assert.deepEqual(rows.map(({ solutionSections }) => solutionSections), [[], [], []]);
+  assert.equal(rows[0].instruction, null); assert.equal(rows[0].wordLimit, null);
+  assert.equal(rows[0].explanation, 'Because A');
+});
+
 test('reports malformed/count drift instead of inventing preview rows', () => {
   const normalized = normalizeReadingAdminPreview(payload({
     passage_count: 2,

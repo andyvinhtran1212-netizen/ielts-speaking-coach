@@ -15,8 +15,9 @@ import {
 
 type Option = { label: string; text: string };
 type ImagePrompt = { id: string | null; type: string | null; qrange: string | null; prompt: string };
+type SolutionSection = { key: string; label: string; values: string[] };
 type Passage = { id: string; order: number; slug: string; title: string; bodyMarkdown: string; wordCount: number | null; estimatedMinutes: number | null; topicTags: string[]; status: string | null; imagePrompts: ImagePrompt[] };
-type Question = { id: string | null; qNum: number; passageId: string; passageOrder: number | null; type: string; prompt: string; skillTag: string | null; subSkill: string | null; options: Option[]; imageUrl: string | null; template: { summaryText: string | null; imageStoragePath: string | null; imageSource: string | null; choose: number | null; paragraphLabels: string[]; extras: Record<string, unknown> }; answers: string[]; alternatives: string[]; explanation: string | null };
+type Question = { id: string | null; qNum: number; passageId: string; passageOrder: number | null; type: string; prompt: string; skillTag: string | null; subSkill: string | null; options: Option[]; imageUrl: string | null; template: { summaryText: string | null; imageStoragePath: string | null; imageSource: string | null; choose: number | null; paragraphLabels: string[]; extras: Record<string, unknown> }; answers: string[]; alternatives: string[]; explanation: string | null; solutionSections: SolutionSection[]; instruction: string | null; wordLimit: string | null };
 type Test = { id: string | null; testId: string; title: string; module: string | null; status: string | null; timeLimitMinutes: number | null; passageCount: number; totalQuestions: number; bandTarget: number | null; passages: Passage[]; questions: Question[] };
 type Snapshot = { key: string; test: Test; issues: string[]; readAt: string };
 type Banner = { kind: 'success' | 'warning' | 'error' | 'info'; title: string; detail: string };
@@ -51,6 +52,17 @@ function TemplateInspector({ question }: { question: Question }) {
   return <div className="arp-template"><strong>Template đã parse</strong>{template.summaryText && <pre>{template.summaryText}</pre>}<dl>{template.choose != null && <div><dt>Choose</dt><dd>{template.choose}</dd></div>}{template.paragraphLabels.length > 0 && <div><dt>Paragraph labels</dt><dd>{template.paragraphLabels.join(', ')}</dd></div>}{template.imageStoragePath && <div><dt>Image path</dt><dd><code>{template.imageStoragePath}</code></dd></div>}{Object.keys(template.extras).length > 0 && <div><dt>Extras</dt><dd><code>{JSON.stringify(template.extras)}</code></dd></div>}</dl></div>;
 }
 
+function SolutionInspector({ question }: { question: Question }) {
+  if (!question.explanation && !question.solutionSections.length) return <span className="arp-muted">Chưa có lời giải</span>;
+  return <div className="arp-solution">
+    {question.explanation && <p>{question.explanation}</p>}
+    {question.solutionSections.map((section) => <section key={section.key} aria-label={section.label}>
+      <strong>{section.label}</strong>
+      {section.values.length === 1 ? <p>{section.values[0]}</p> : <ul>{section.values.map((value, index) => <li key={index}>{value}</li>)}</ul>}
+    </section>)}
+  </div>;
+}
+
 function QuestionCard({ question, passageQuestions, index, passage, busy, onUpload, onDelete }: { question: Question; passageQuestions: Question[]; index: number; passage: Passage; busy: boolean; onUpload(question: Question, file: File): void; onDelete(question: Question): void }) {
   const role = diagramRole(passageQuestions, index) as { lead: boolean; leadQNum: number } | null;
   const prompt = role?.lead ? imagePromptForQuestion(passage, question.qNum) as ImagePrompt | null : null;
@@ -65,6 +77,10 @@ function QuestionCard({ question, passageQuestions, index, passage, busy, onUplo
   return <article className="arp-question" id={`q${question.qNum}`} data-question={question.qNum}>
     <header className="arp-question__head"><span className="arp-qnum">Q{question.qNum}</span><div><strong>{questionLabels[question.type] || question.type}</strong><code>{question.type}</code></div>{question.skillTag && <span className="arp-skill">{question.skillTag}</span>}</header>
     <div className="arp-question__body"><p className="arp-prompt">{question.prompt || <em>Không có prompt</em>}</p>
+      {(question.instruction || question.wordLimit) && <dl className="arp-rubric">
+        {question.instruction && <div><dt>Hướng dẫn</dt><dd>{question.instruction}</dd></div>}
+        {question.wordLimit && <div><dt>Giới hạn trả lời</dt><dd>{question.wordLimit}</dd></div>}
+      </dl>}
       {question.options.length > 0 && <ol className="arp-options">{question.options.map((option, optionIndex) => <li key={`${option.label}-${optionIndex}`}><strong>{option.label}</strong><span>{option.text}</span></li>)}</ol>}
       <TemplateInspector question={question}/>
       {role && !role.lead && <p className="arp-shared-image">Dùng chung ảnh sơ đồ với Q{role.leadQNum}; quản lý ảnh ở câu đầu block.</p>}
@@ -73,7 +89,7 @@ function QuestionCard({ question, passageQuestions, index, passage, busy, onUplo
         {prompt && <details className="arp-imgprompt"><summary>Prompt tạo ảnh được trích từ file</summary><div><code>{[prompt.id, prompt.type, prompt.qrange && `Q${prompt.qrange}`].filter(Boolean).join(' · ')}</code><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void copyPrompt()}>Copy prompt</button></div><pre id={`arp-imgprompt-${question.qNum}`}>{prompt.prompt}</pre></details>}
       </section>}
     </div>
-    <dl className="arp-keys"><div><dt>Đáp án canonical</dt><dd><AnswerList values={question.answers} empty="Thiếu đáp án"/></dd></div><div><dt>Đáp án thay thế</dt><dd><AnswerList values={question.alternatives} empty="Không có"/></dd></div><div className="is-wide"><dt>Lời giải</dt><dd>{question.explanation || <span className="arp-muted">Chưa có lời giải</span>}</dd></div></dl>
+    <dl className="arp-keys"><div><dt>Đáp án canonical</dt><dd><AnswerList values={question.answers} empty="Thiếu đáp án"/></dd></div><div><dt>Đáp án thay thế</dt><dd><AnswerList values={question.alternatives} empty="Không có"/></dd></div><div className="is-wide"><dt>Lời giải</dt><dd><SolutionInspector question={question}/></dd></div></dl>
   </article>;
 }
 
