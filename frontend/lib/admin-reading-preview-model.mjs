@@ -65,6 +65,7 @@ function normalizeSolution(value) {
   const fields = [
     ['question_text', 'Câu hỏi trong lời giải'], ['steps', 'Các bước giải'],
     ['source_excerpt', 'Trích đoạn nguồn'], ['source_location', 'Vị trí nguồn'],
+    ['source_paragraph', 'Đoạn nguồn'],
     ['vocab', 'Từ vựng'], ['paraphrase', 'Paraphrase'],
     ['trap_analysis', 'Phân tích bẫy & kỹ năng'], ['tips', 'Mẹo làm bài'],
     ['skill_code', 'Mã kỹ năng'], ['skill_name', 'Kỹ năng'],

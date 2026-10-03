@@ -68,7 +68,7 @@ test('retains authored solutions and rubrics alongside legacy explanations witho
   const source = payload();
   source.questions[0].payload = { instruction: 'Complete the notes.', word_limit: 'ONE WORD ONLY', solution: {
     question_text: 'Original question', steps: 'Locate the line.\nRead the noun.',
-    source_excerpt: 'The outer layer of sheep intestines.', vocab: ['intestines = ruột'],
+    source_excerpt: 'The outer layer of sheep intestines.', source_paragraph: 'A', vocab: ['intestines = ruột'],
     paraphrase: 'animals ↔ sheep', trap_analysis: 'Do not add a second word.', tips: 'Keep the plural.', skill_code: 'LEX', band: 6.5,
   } };
   source.questions[1].payload.solution = 'Authored plain-text solution';
@@ -79,6 +79,8 @@ test('retains authored solutions and rubrics alongside legacy explanations witho
   assert.equal(rows[0].wordLimit, 'ONE WORD ONLY');
   assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'steps').values, ['Locate the line.\nRead the noun.']);
   assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'vocab').values, ['intestines = ruột']);
+  // AVR001 Q1 and native packets use source_paragraph independently of source_location.
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'source_paragraph'), { key: 'source_paragraph', label: 'Đoạn nguồn', values: ['A'] });
   assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'band').values, ['6.5']);
   assert.deepEqual(rows[1].solutionSections, [{ key: 'text', label: 'Lời giải authored', values: ['Authored plain-text solution'] }]);
   assert.deepEqual(rows[0].answers, ['A']);
