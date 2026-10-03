@@ -2,7 +2,7 @@
 title: Past Perfect — Thì Quá khứ hoàn thành
 slug: past-perfect
 category: tenses
-summary: 'Past Perfect (had + V3) diễn tả hành động đã xảy ra và hoàn thành TRƯỚC một hành động khác trong quá khứ. Đây là thì "quá khứ của quá khứ", giúp sắp xếp trình tự thời gian rõ ràng khi kể chuyện. Thường gặp trong IELTS Writing Task 2 và Speaking khi phân tích nguyên nhân-kết quả hoặc điều kiện loại 3.
+summary: 'Past Perfect (had + V3) nhìn lại thời gian trước một mốc quá khứ, giúp làm rõ sự kiện xảy ra trước hoặc trạng thái kéo dài tới mốc đó. Ngữ cảnh quyết định việc đã chấm dứt hay còn tiếp tục; bản thân thì này không luôn có nghĩa "đã kết thúc". Thường gặp khi kể chuyện, tường thuật và dùng điều kiện loại 3.
 
   '
 level: intermediate
@@ -31,7 +31,7 @@ compare_with:
 - present-perfect
 order: 8
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-09-30
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -76,7 +76,9 @@ anchors:
 <!-- anchor: past-perfect.overview -->
 ## Tóm tắt
 
-Past Perfect diễn tả hành động **đã hoàn thành trước** một thời điểm hoặc hành động khác trong quá khứ.
+Past Perfect nhìn lại **thời gian trước một mốc quá khứ**. Nó thường làm rõ một sự kiện đã xảy ra trước mốc đó, nhưng cũng có thể diễn tả trạng thái hoặc khoảng thời gian kéo dài tới mốc đó, không nhất thiết đã chấm dứt.
+
+- By 2020, she **had known** him for ten years. (đã quen anh ấy được mười năm tính tới 2020; câu không nói họ ngừng quen nhau vào năm đó)
 
 | | Khẳng định | Phủ định | Nghi vấn |
 |--|-----------|---------|---------|
@@ -123,7 +125,7 @@ Past Perfect (trước) → Past Simple (sau)
 
 **2. Kết hợp với "by the time / by + time expression"**
 
-"By the time..." + Past Simple → Past Perfect đã xảy ra rồi
+Khi nhìn lại từ một mốc quá khứ với *by the time/by + thời gian*, Past Perfect giúp diễn tả điều đã xảy ra hoặc khoảng thời gian tính tới mốc đó. Chọn thì theo nghĩa và mốc tham chiếu, không chỉ theo một từ khoá.
 
 - **By the time** the guests arrived, we **had prepared** everything.
 - **By 2010**, the company **had expanded** to 20 countries.
@@ -131,10 +133,12 @@ Past Perfect (trước) → Past Simple (sau)
 
 **3. Trong câu tường thuật (Reported Speech)**
 
-Present Perfect → Past Perfect khi tường thuật:
+Khi áp dụng **lùi thì (backshift)**, Present Perfect chuyển thành Past Perfect:
 
 - "I **have finished** the report." → She said she **had finished** the report.
 - "They **have arrived**." → He told me they **had arrived**.
+
+Nếu thông tin vẫn đúng hoặc còn liên quan ở hiện tại, người nói có thể giữ Present Perfect: *She said she has finished the report, so we can review it now.* Không phải mọi câu tường thuật với *said/told* đều bắt buộc lùi thì.
 
 **4. Trong câu điều kiện loại 3**
 
@@ -163,7 +167,7 @@ If + Past Perfect, would have + V3
 
 | | Past Perfect | Past Simple |
 |--|------------|------------|
-| **Thứ tự** | Xảy ra TRƯỚC trong quá khứ | Xảy ra SAU hoặc tại một thời điểm |
+| **Mốc nhìn** | Nhìn lại thời gian trước một mốc quá khứ | Nêu sự kiện/trạng thái trong quá khứ; thứ tự còn phụ thuộc ngữ cảnh |
 | **Mục đích** | Làm rõ trình tự thời gian | Kể sự kiện theo thứ tự xuất hiện |
 
 **Ví dụ phân biệt:**
@@ -189,7 +193,7 @@ If + Past Perfect, would have + V3
 
 - ❌ When I arrived, she already left.
 - ✅ When I arrived, she **had already left**.
-- ❌ After he finished his meal, he paid the bill. (chấp nhận được nhưng PP rõ hơn)
+- ✅ After he finished his meal, he paid the bill. (after đã chỉ rõ trình tự)
 - ✅ After he **had finished** his meal, he paid the bill.
 
 ### Lỗi 2: Dùng "had" nhưng quên V3
@@ -238,7 +242,7 @@ Nếu trình tự thời gian đã rõ qua "before/after", Past Simple cũng ch�
 
 - "By the time governments began to address climate change, significant damage **had already been done**."
 - "The economic crisis of 2008 revealed that banks **had been** lending irresponsibly for years."
-- "Many of the problems facing cities today stem from decisions that planners **had made** decades earlier."
+- "Many problems facing cities today stem from decisions that planners **had made** before the expansion began in 1990." (mốc quá khứ để nhìn lại là thời điểm bắt đầu mở rộng năm 1990; *today* không tự cung cấp mốc cho Past Perfect)
 
 ### Conditionals Type 3 — Đánh giá lịch sử:
 
@@ -265,7 +269,7 @@ Nếu trình tự thời gian đã rõ qua "before/after", Past Simple cũng ch�
 ### Đáp án
 
 **Chia động từ:**
-1. arrived / had already started | 2. hadn't eaten / went | 3. called / had already left | 4. had finished / watched | 5. discovered / had broken into
+1. arrived / had already started | 2. hadn't eaten hoặc didn't eat / went | 3. called / had already left | 4. finished hoặc had finished / watched | 5. discovered / had broken into
 
 **Sửa lỗi:**
 1. She had **gone** to Paris before. (V3 bất quy tắc)
@@ -277,14 +281,15 @@ Nếu trình tự thời gian đã rõ qua "before/after", Past Simple cũng ch�
 
 | Cách dùng | Cấu trúc | Ví dụ |
 |-----------|---------|-------|
-| Hành động xảy ra TRƯỚC trong QK | had + V3 | She had left before he arrived. |
+| Nhìn lại từ mốc QK: sự kiện trước đó hoặc trạng thái kéo dài tới mốc | had + V3 | She had left before he arrived. / By 2020, she had known him for ten years. |
 | Với "by the time" | By the time S + PS, S + PP | By the time I arrived, it had started. |
 | Sau "after" | After S + PP, S + PS | After she had eaten, she left. |
 | Conditional Type 3 | If + PP, would have + V3 | If I had known, I would have helped. |
-| Reported Speech | said + PP | She said she had finished. |
+| Reported Speech có lùi thì | said + PP | She said she had finished. |
 
 **Quy tắc vàng:**
 - Dùng Past Perfect khi cần làm rõ **hành động nào xảy ra trước** trong quá khứ
-- Không lạm dụng — chỉ dùng khi trình tự thời gian không rõ nếu không có PP
+- Trạng thái có thể kéo dài tới hoặc sau mốc quá khứ; không suy ra đã chấm dứt chỉ từ had + V3
+- Khi before/after đã làm rõ trình tự, Past Simple cũng có thể phù hợp; Past Perfect nhấn mạnh góc nhìn trước mốc quá khứ
 - Tất cả các ngôi đều dùng **had** (không đổi)
 - Chú ý V3 bất quy tắc: go→gone, eat→eaten, write→written, see→seen

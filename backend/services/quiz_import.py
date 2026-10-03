@@ -21,6 +21,9 @@ from typing import Literal, Optional
 from database import supabase_admin
 from services.content_import_service import _split_frontmatter, FrontmatterError
 from services.vocab_import import split_word_blocks
+from services.grammar_quiz_policy import (
+    GrammarQuizPolicyInvalid, guard_quiz_source, validate_text_match_policy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ _META_KEYS = (
     "rotate_on", "rotate_variant_on_wrong", "cooldown", "max_attempts_per_word",
     "target_session_min", "soft_cap_min", "avg_sec_per_item", "carry_over_unmastered",
     "log_per_question", "log_per_word", "log_accuracy", "shuffle_options",
-    "runtime",
+    "runtime", "text_match_by_qid",
 )
 
 PublishState = Literal["preserve", "published", "unpublished"]
@@ -322,6 +325,17 @@ def import_quiz_file(
     Commit is all-or-nothing (any block error → nothing written)."""
     if publish_state not in {"preserve", "published", "unpublished"}:
         raise ValueError("publish_state must be preserve, published, or unpublished")
+    # The shared splitter itself safe_loads frontmatter candidates. Scoped
+    # policy guards must run before that first dict/key collapse, not just in
+    # the later META parser. Unmanaged absent-policy imports remain unchanged.
+    try:
+        guard_quiz_source(text)
+    except GrammarQuizPolicyInvalid as exc:
+        return {"dry_run": dry_run, "meta": None, "questions": [],
+                "validation_errors": [{"block": -1, "qid": "", "field": "text_match_by_qid",
+                                       "message": str(exc)}],
+                "summary": {"words": 0, "questions": 0, "errors": 1, "pools": 0},
+                "committed_bank_id": None}
     chunks = split_word_blocks(text)
 
     meta_info: Optional[dict] = None
@@ -387,6 +401,20 @@ def import_quiz_file(
         if e.get("qid") and len(seen.get(e["qid"], [])) > 1:
             e["validation_errors"].append({"field": "id", "message": f"Trùng id '{e['qid']}'."})
 
+    policy_invalid = False
+    if meta_info is not None:
+        try:
+            policy = validate_text_match_policy(meta_info["meta"],
+                [e.get("payload") for e in q_entries], code=meta_info["code"],
+                skill_area=meta_info["skill_area"])
+            # Nonempty opt-in publication belongs to the reviewed revision
+            # transaction, never the destructive general import RPC.
+            if policy and not dry_run:
+                raise GrammarQuizPolicyInvalid('Nonempty text policy requires the reviewed Grammar revision cutover')
+        except GrammarQuizPolicyInvalid as exc:
+            policy_invalid = True
+            meta_errors.append({"field": "text_match_by_qid", "message": str(exc)})
+
     pools = sorted({e["item_key"] for e in q_entries if e.get("item_key")})
 
     # Mastery-contract gate: every pool must be able to reach 'mastered' under this
@@ -412,7 +440,7 @@ def import_quiz_file(
     # The bank's skill_area must match the SELECTED topic's — otherwise a file
     # with skill_area: grammar (or a typo) would commit under a vocab topic and
     # then vanish from the vocab bank list. The topic is authoritative.
-    if not dry_run and topic_id and meta_info is not None and not advanced_runtime:
+    if not dry_run and topic_id and meta_info is not None and not advanced_runtime and not policy_invalid:
         topic_skill = _topic_skill_area(topic_id)
         if topic_skill and meta_info["skill_area"] != topic_skill:
             meta_errors.append({
