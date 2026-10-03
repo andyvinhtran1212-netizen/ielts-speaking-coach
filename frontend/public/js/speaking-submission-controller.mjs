@@ -10,6 +10,11 @@ const AUDIO_EXTENSIONS = Object.freeze({
   'audio/x-m4a': 'm4a',
 });
 
+// Match the existing Full Test wait budget; readback needs a shorter deadline
+// so a failed upload cannot move the same infinite wait into GET /sessions.
+const SUBMISSION_TIMEOUT_MS = 180_000;
+const READBACK_TIMEOUT_MS = 15_000;
+
 export function speakingAudioFilename(blob) {
   const mime = String(blob?.type || '').split(';', 1)[0].trim().toLowerCase();
   return `response.${AUDIO_EXTENSIONS[mime] || 'webm'}`;
@@ -144,7 +149,10 @@ export class SpeakingSubmissionController {
     this.upload = environment.upload;
     this.getSession = environment.getSession;
     this.FormDataCtor = environment.FormDataCtor || globalThis.FormData;
+    this.submissionTimeoutMs = environment.submissionTimeoutMs ?? SUBMISSION_TIMEOUT_MS;
+    this.readbackTimeoutMs = environment.readbackTimeoutMs ?? READBACK_TIMEOUT_MS;
     this.pending = new Map();
+    this.unconfirmed = new Map();
     this.disposed = false;
   }
 
@@ -216,23 +224,78 @@ export class SpeakingSubmissionController {
   }
 
   async #submitOnce({ sessionId, questionId, blob, filename, priorResponseId }) {
+    const key = `${sessionId}\u0000${questionId}`;
+    const previous = this.unconfirmed.get(key);
+    if (previous) {
+      // A retry first checks the old request. It may have committed after the
+      // browser stopped waiting. A failed read is never permission to reupload.
+      let recovered = previous.blob === blob ? previous.receipt : null;
+      if (!recovered) {
+        try {
+          const readback = await this.#readback(sessionId, questionId, previous.priorResponseId);
+          if (previous.blob === blob) recovered = readback;
+        } catch {
+          throw previous.error;
+        }
+      }
+      if (recovered) {
+        this.unconfirmed.delete(key);
+        return recovered;
+      }
+      // Even a transport which ignores AbortSignal must not run two uploads
+      // for this question at once. Keep the recording and allow another check.
+      if (!previous.settled) throw previous.error;
+    }
+    if (this.disposed) {
+      throw new SpeakingSubmissionError('disposed', 'Trang làm bài đã đóng. Hãy mở lại phiên học.');
+    }
     const formData = new this.FormDataCtor();
     formData.append('question_id', questionId);
     formData.append('audio_file', blob, filename);
 
+    const attempt = { blob, priorResponseId, settled: false, receipt: null, error: null };
+    this.unconfirmed.set(key, attempt);
     let direct;
     try {
-      direct = await this.upload(
-        `/sessions/${encodeURIComponent(sessionId)}/responses`,
-        formData,
+      direct = await this.#requestWithin(
+        (signal) => {
+          let request;
+          try {
+            request = Promise.resolve(this.upload(
+              `/sessions/${encodeURIComponent(sessionId)}/responses`,
+              formData,
+              { signal },
+            ));
+          } catch (error) {
+            attempt.settled = true;
+            throw error;
+          }
+          // Observe late settlement without allowing it to update the player.
+          void request.then((result) => {
+            attempt.settled = true;
+            if (responseId(result)) attempt.receipt = result;
+          }, () => { attempt.settled = true; });
+          return request;
+        },
+        this.submissionTimeoutMs,
+        { sessionId, questionId },
       );
     } catch (error) {
       const classified = classifySubmissionError(error, sessionId, questionId);
-      if (classified.code !== 'ambiguous_commit') throw classified;
-      return this.#reconcile(classified, sessionId, questionId, priorResponseId);
+      if (classified.code !== 'ambiguous_commit') {
+        this.unconfirmed.delete(key);
+        throw classified;
+      }
+      attempt.error = classified;
+      const recovered = await this.#reconcile(classified, sessionId, questionId, priorResponseId);
+      this.unconfirmed.delete(key);
+      return recovered;
     }
 
-    if (responseId(direct)) return direct;
+    if (responseId(direct)) {
+      this.unconfirmed.delete(key);
+      return direct;
+    }
 
     // A 2xx/empty or 2xx/malformed payload is not proof of persistence. Older
     // backend versions had exactly this silent-success failure mode.
@@ -241,26 +304,54 @@ export class SpeakingSubmissionController {
       'Máy chủ phản hồi nhưng chưa xác nhận mã bản ghi.',
       { sessionId, questionId },
     );
-    return this.#reconcile(malformed, sessionId, questionId, priorResponseId);
+    attempt.error = malformed;
+    const recovered = await this.#reconcile(malformed, sessionId, questionId, priorResponseId);
+    this.unconfirmed.delete(key);
+    return recovered;
+  }
+
+  async #requestWithin(request, milliseconds, context) {
+    const controller = new AbortController();
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new SpeakingSubmissionError(
+          'ambiguous_commit',
+          'Chờ máy chủ quá lâu. Chưa thể xác nhận bản ghi đã được lưu.',
+          context,
+        ));
+        controller.abort();
+      }, milliseconds);
+    });
+    try {
+      return await Promise.race([request(controller.signal), deadline]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async #readback(sessionId, questionId, priorResponseId) {
+    const session = await this.#requestWithin(
+      (signal) => this.getSession(`/sessions/${encodeURIComponent(sessionId)}`, { signal }),
+      this.readbackTimeoutMs,
+      { sessionId, questionId },
+    );
+    const row = findPersistedSpeakingResponse(session, questionId);
+    // The row that existed before a retake does not prove the new audio saved.
+    if (row && (!priorResponseId || String(row.id) !== priorResponseId)) {
+      return {
+        response_id: row.id,
+        _reconciled: true,
+        _persisted_response: row,
+      };
+    }
+    return null;
   }
 
   async #reconcile(originalError, sessionId, questionId, priorResponseId) {
     try {
-      const session = await this.getSession(
-        `/sessions/${encodeURIComponent(sessionId)}`,
-      );
-      const row = findPersistedSpeakingResponse(session, questionId);
-      // Readback of the same row that existed before a retake is not proof that
-      // this new audio committed. Without a backend revision/idempotency token,
-      // the only safe answer is still "ambiguous" and a retry (the upsert key is
-      // session_id + question_id, so retry cannot create a second response row).
-      if (row && (!priorResponseId || String(row.id) !== priorResponseId)) {
-        return {
-          response_id: row.id,
-          _reconciled: true,
-          _persisted_response: row,
-        };
-      }
+      const recovered = await this.#readback(sessionId, questionId, priorResponseId);
+      if (recovered) return recovered;
     } catch {
       // GET /sessions itself can fail. Absence of readback is never proof that
       // the mutation did not commit, so preserve the original ambiguity.

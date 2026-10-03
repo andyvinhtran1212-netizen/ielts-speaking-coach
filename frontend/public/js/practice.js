@@ -41,10 +41,8 @@
   var FULL_TEST_Q_COUNT = { 1: 9, 2: 1, 3: 5 };   // test_full mode
 
   var PROCESSING_TEXTS = [
-    'Đang chuyển giọng nói thành văn bản...',
-    'AI đang phân tích câu trả lời...',
-    'Đang tạo nhận xét chi tiết...',
-    'Đang tổng hợp kết quả...',
+    'Đang gửi bản ghi và chờ kết quả chấm...',
+    'Đang chờ máy chủ phản hồi. Bản ghi vẫn còn trên trang này.',
   ];
 
   // ── Session state ─────────────────────────────────────────────────────────────
