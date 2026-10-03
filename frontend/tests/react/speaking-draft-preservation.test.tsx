@@ -160,6 +160,57 @@ it('restores modal subtab and custom questions and never adopts a removed public
   await waitFor(()=>expect(input('prac-topic-select').disabled).toBe(false));fireEvent.change(input('prac-topic-select'),{target:{value:'Approved topic'}});
   view.unmount();topics=false;view=mount();await waitFor(()=>expect(el('speaking-draft-notice').textContent).toContain('không có trong danh sách'));expect(input('prac-topic-select').value).toBe('');expect(post).not.toHaveBeenCalled();
 });
+it('offers modal-local discard and status, preserves Practice, and disables dashboard discard after close',async()=>{
+  let view=mount();await ready();mode('practice');edit('prac-custom-q','keep Practice');
+  click('grammar-cta-start');click('tab-myq');edit('myq-input','discard modal');click('tab-custom');edit('topic-custom-input','discard topic');
+  const dialog=document.querySelector('[role="dialog"]')!;
+  expect(dialog.querySelector('#speaking-modal-draft-discard')).not.toBeNull();
+  expect(el('speaking-draft-controls').hidden).toBe(true);
+  expect(input('speaking-draft-discard').disabled).toBe(true);
+  expect(el('speaking-modal-draft-controls').hidden).toBe(false);
+  expect(el('speaking-modal-draft-notice').textContent).toContain('đã được lưu');
+  click('speaking-modal-draft-discard');
+  expect(input('myq-input').value).toBe('');expect(input('topic-custom-input').value).toBe('');
+  expect(el('speaking-modal-draft-notice').textContent).toContain('Đã bỏ nháp');
+  expect(input('prac-custom-q').value).toBe('keep Practice');
+  click('modal-close');expect(el('speaking-draft-controls').hidden).toBe(false);
+  fireEvent.click(document.querySelector('#tab-practice [data-action="back-to-dashboard"]')!);
+  click('grammar-cta-start');click('modal-close');
+  expect(input('speaking-draft-discard').disabled).toBe(true);
+  view.unmount();view=mount();await ready();mode('practice');
+  await waitFor(()=>expect(input('prac-custom-q').value).toBe('keep Practice'));
+  click('grammar-cta-start');expect(input('myq-input').value).toBe('');expect(input('topic-custom-input').value).toBe('');
+  expect(post).not.toHaveBeenCalled();
+});
+it('shows unsaved preparation inside the modal before account confirmation and conceals it on sign-out',async()=>{
+  auth.status='initial-loading';auth.user=null;const view=mount();await act(async()=>{});click('grammar-cta-start');click('tab-myq');edit('myq-input','fresh modal');
+  expect(el('speaking-draft-controls').hidden).toBe(true);
+  expect(el('speaking-modal-draft-controls').hidden).toBe(false);
+  expect(el('speaking-modal-draft-notice').textContent).toContain('chưa được lưu');
+  expect(window.sessionStorage.getItem(LEARNER_DRAFT_KEY)).toBeNull();
+  auth.status='signed-out';view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);
+  expect(el('topic-modal').hidden).toBe(true);expect(el('speaking-draft-controls').hidden).toBe(true);
+  expect(input('myq-input').value).toBe('');expect(post).not.toHaveBeenCalled();
+});
+it('keeps the dialog within a shortened visual viewport without changing preparation',async()=>{
+  const original=Object.getOwnPropertyDescriptor(window,'visualViewport');
+  const viewport=Object.assign(new window.EventTarget(),{height:900,offsetTop:0});
+  Object.defineProperty(window,'visualViewport',{configurable:true,value:viewport});
+  let view:ReturnType<typeof mount>|undefined;
+  try {
+    view=mount();await ready();mode('practice');edit('prac-custom-q','keep Practice');click('grammar-cta-start');click('tab-myq');edit('myq-input','keep modal');
+    viewport.height=320;viewport.offsetTop=70;
+    act(()=>viewport.dispatchEvent(new window.Event('resize')));
+    expect(el('topic-modal').style.height).toBe('320px');expect(el('topic-modal').style.top).toBe('70px');
+    expect((document.querySelector('[role="dialog"]') as HTMLElement).style.overflowY).toBe('auto');
+    viewport.offsetTop=90;act(()=>viewport.dispatchEvent(new window.Event('scroll')));
+    expect(el('topic-modal').style.top).toBe('90px');
+    expect(input('myq-input').value).toBe('keep modal');expect(input('prac-custom-q').value).toBe('keep Practice');
+    click('modal-close');expect(el('topic-modal').hidden).toBe(true);expect(document.body.style.overflow).toBe('');expect(post).not.toHaveBeenCalled();
+  } finally {
+    view?.unmount();if(original) Object.defineProperty(window,'visualViewport',original);else delete (window as any).visualViewport;
+  }
+});
 it('conceals unconfirmed account and BFCache text then requires a current session before restore',async()=>{
   const view=mount();await ready();mode('practice');edit('prac-custom-q','private A');
   auth.status='initial-loading';auth.user=null;view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);expect(input('prac-custom-q').value).toBe('');

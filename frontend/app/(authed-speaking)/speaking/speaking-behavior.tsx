@@ -89,8 +89,9 @@ function validSpeakingPreparation(scope: string, value: any): boolean {
 }
 
 function draftNotice(status: string, restored = false) {
-  const notice = $('speaking-draft-notice');
-  if (notice) {
+  for (const id of ['speaking-draft-notice', 'speaking-modal-draft-notice']) {
+    const notice = $(id);
+    if (!notice) continue;
     notice.textContent = status === 'unavailable'
       ? 'Nháp chưa được lưu trong tab này. Bạn vẫn có thể luyện tập; hãy giữ trang mở để tránh mất nội dung.'
       : status === 'topic-unavailable' ? 'Chủ đề đã lưu hiện không có trong danh sách. Hãy chọn hoặc nhập chủ đề để tiếp tục.'
@@ -122,6 +123,7 @@ function resetPreparation(st: State) {
   switchTopicTab('list', st);
   const modal = $('topic-modal');
   if (modal) { modal.hidden = true; modal.inert = true; modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+  for (const id of ['speaking-draft-controls', 'speaking-modal-draft-controls']) { const bar = $(id); if (bar) bar.hidden = true; }
   document.body.style.overflow = '';
   const section = $('pbp-topic-section'); if (section) section.style.display = 'none';
   switchMainTab('dashboard', st, null, []);
@@ -424,6 +426,20 @@ function switchTopicTab(tab: State['activeTopicTab'], st: State) {
 
 let topicModalTrigger: HTMLElement | null = null;
 
+function syncTopicModalViewport() {
+  const modal = $('topic-modal');
+  if (!modal?.classList.contains('open')) return;
+  const viewport = window.visualViewport;
+  const height = viewport && Number.isFinite(viewport.height) && viewport.height > 0
+    ? viewport.height : window.innerHeight;
+  const top = viewport && Number.isFinite(viewport.offsetTop) ? Math.max(0, viewport.offsetTop) : 0;
+  // A keyboard can shrink/pan only the visual viewport while the layout stays
+  // tall. Fit the backdrop there; the dialog scrolls within its padded height.
+  modal.style.top = `${top}px`;
+  modal.style.bottom = 'auto';
+  modal.style.height = `${height}px`;
+}
+
 function closeTopicModal() {
   const modal = $('topic-modal');
   modal?.classList.remove('open');
@@ -468,9 +484,8 @@ async function openTopicModal(part: number, mode: string, st: State, api: any) {
     modal.setAttribute('aria-hidden', 'false');
     modal.classList.add('open');
   }
+  syncTopicModalViewport();
   document.body.style.overflow = 'hidden';
-  const discard = $('speaking-draft-discard') as HTMLButtonElement | null;
-  if (discard) discard.disabled = false;
   ($('modal-close') as HTMLButtonElement | null)?.focus();
   st.saveDraft();
   await loadTopicsInto('topic-select', part, api, st);
@@ -609,6 +624,16 @@ export function SpeakingBehavior() {
     let initialConfirmation = true;
     let profileRead = 0;
     const pendingEdits = new Map<string, { base: any; patch: Record<string, any> }>();
+    const syncDraftControls = () => {
+      const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
+      const visible = Boolean(st.accountId) || edited;
+      const pageBar = $('speaking-draft-controls');
+      const modalBar = $('speaking-modal-draft-controls');
+      if (pageBar) pageBar.hidden = !visible || modalOpen;
+      if (modalBar) modalBar.hidden = !visible || !modalOpen;
+      const discard = $('speaking-draft-discard') as HTMLButtonElement | null;
+      if (discard) discard.disabled = modalOpen || st.mainTab === 'dashboard';
+    };
     const draft = (scope: string) => {
       if (!st.accountId || st.accountId !== accountRef.current) return null;
       if (!st.drafts.has(scope)) st.drafts.set(scope, createLearnerTabDrafts({
@@ -657,7 +682,8 @@ export function SpeakingBehavior() {
     st.saveDraft = () => {
       if (st.dead) return;
       edited = true;
-      if (!st.accountId) { const bar = $('speaking-draft-controls'); if (bar) bar.hidden = false; draftNotice('unavailable'); return; }
+      syncDraftControls();
+      if (!st.accountId) { draftNotice('unavailable'); return; }
       const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
       const panel = draft('panel')?.save({ panel: st.mainTab, modalOpen, part: st.modalPart, mode: st.modalMode });
       const scopes = new Set(st.permissionsReady ? [] : pendingEdits.keys());
@@ -727,7 +753,7 @@ export function SpeakingBehavior() {
       if (!keepFreshPreparation) { pendingEdits.clear(); resetPreparation(st); edited = false; }
       if (previous && previous !== next && (next || statusRef.current === 'signed-out')) clearLearnerTabDraftAccount(previous);
       st.accountId = next;
-      const bar = $('speaking-draft-controls'); if (bar) bar.hidden = !next;
+      syncDraftControls();
       if (next) {
         ['panel', 'practice', 'partbpart', 'fulltest', ...['practice', 'test_part'].flatMap(mode => [1, 2, 3].map(part => `modal:${mode}:${part}`))].forEach(draft);
         if (keepFreshPreparation) st.saveDraft();
@@ -784,7 +810,7 @@ export function SpeakingBehavior() {
     };
     // `document` không phải `Element` — uỷ quyền sự kiện ở cấp tài liệu là có
     // thật (nút "quay lại dashboard"), nên kiểu phải nhận cả hai.
-    const on = (el: Element | Document | Window | null, ev: string, fn: any) => {
+    const on = (el: Element | Document | Window | VisualViewport | null, ev: string, fn: any) => {
       if (!el) return;
       el.addEventListener(ev, fn);
       cleanups.push(() => el.removeEventListener(ev, fn));
@@ -800,7 +826,7 @@ export function SpeakingBehavior() {
     };
     for (const id of PREPARATION_FIELDS) on($(id), 'input', () => inputEdit(id));
     for (const id of PREPARATION_SELECTS) on($(id), 'change', () => inputEdit(id));
-    on($('speaking-draft-discard'), 'click', () => {
+    const discardPreparation = () => {
       const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
       const scope = modalOpen ? `modal:${st.modalMode}:${st.modalPart}` : st.mainTab;
       pendingEdits.delete(scope);
@@ -818,7 +844,9 @@ export function SpeakingBehavior() {
       edited = true;
       draft('panel')?.save({ panel: st.mainTab, modalOpen, part: st.modalPart, mode: st.modalMode });
       draftNotice(discarded?.status === 'unavailable' ? 'unavailable' : 'discarded');
-    });
+    };
+    on($('speaking-draft-discard'), 'click', discardPreparation);
+    on($('speaking-modal-draft-discard'), 'click', discardPreparation);
     const conceal = () => { initialConfirmation = false; pendingEdits.clear(); profileRead++; st.permissionsReady = false; st.permissionAccount = null; st.accountId = null; resetPreparation(st); const bar = $('speaking-draft-controls'); if (bar) bar.hidden = true; };
     on(window, 'pagehide', conceal);
     const resume = async (event: PageTransitionEvent) => {
@@ -942,6 +970,9 @@ export function SpeakingBehavior() {
       bindWatcher('myq-input', 'myq-input-length-warning', () => st.modalPart);
 
       // ── Modal chủ đề ────────────────────────────────────────────────────
+      on(window, 'resize', syncTopicModalViewport);
+      on(window.visualViewport, 'resize', syncTopicModalViewport);
+      on(window.visualViewport, 'scroll', syncTopicModalViewport);
       on($('topic-modal'), 'click', (e: any) => {
         if (e.target === $('topic-modal')) { closeTopicModal(); st.saveDraft(); }
       });
