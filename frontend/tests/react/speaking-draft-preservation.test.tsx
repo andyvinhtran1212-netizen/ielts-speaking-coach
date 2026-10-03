@@ -192,6 +192,25 @@ it('shows unsaved preparation inside the modal before account confirmation and c
   expect(el('topic-modal').hidden).toBe(true);expect(el('speaking-draft-controls').hidden).toBe(true);
   expect(input('myq-input').value).toBe('');expect(post).not.toHaveBeenCalled();
 });
+it('keeps the dialog within a shortened visual viewport without changing preparation',async()=>{
+  const original=Object.getOwnPropertyDescriptor(window,'visualViewport');
+  const viewport=Object.assign(new window.EventTarget(),{height:900,offsetTop:0});
+  Object.defineProperty(window,'visualViewport',{configurable:true,value:viewport});
+  let view:ReturnType<typeof mount>|undefined;
+  try {
+    view=mount();await ready();mode('practice');edit('prac-custom-q','keep Practice');click('grammar-cta-start');click('tab-myq');edit('myq-input','keep modal');
+    viewport.height=320;viewport.offsetTop=70;
+    act(()=>viewport.dispatchEvent(new window.Event('resize')));
+    expect(el('topic-modal').style.height).toBe('320px');expect(el('topic-modal').style.top).toBe('70px');
+    expect((document.querySelector('[role="dialog"]') as HTMLElement).style.overflowY).toBe('auto');
+    viewport.offsetTop=90;act(()=>viewport.dispatchEvent(new window.Event('scroll')));
+    expect(el('topic-modal').style.top).toBe('90px');
+    expect(input('myq-input').value).toBe('keep modal');expect(input('prac-custom-q').value).toBe('keep Practice');
+    click('modal-close');expect(el('topic-modal').hidden).toBe(true);expect(document.body.style.overflow).toBe('');expect(post).not.toHaveBeenCalled();
+  } finally {
+    view?.unmount();if(original) Object.defineProperty(window,'visualViewport',original);else delete (window as any).visualViewport;
+  }
+});
 it('conceals unconfirmed account and BFCache text then requires a current session before restore',async()=>{
   const view=mount();await ready();mode('practice');edit('prac-custom-q','private A');
   auth.status='initial-loading';auth.user=null;view.rerender(<><SpeakingShell/><SpeakingBehavior/></>);expect(input('prac-custom-q').value).toBe('');

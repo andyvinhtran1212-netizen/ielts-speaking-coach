@@ -355,7 +355,28 @@ for (const theme of ['light','dark']) {
           && el.getBoundingClientRect().right<=innerWidth));
   }
 }
-await page.locator('#modal-close').click();
+for (const theme of ['light','dark']) {
+  await page.evaluate(value=>document.documentElement.setAttribute('data-theme',value),theme);
+  for (const [width,height] of [[360,320],[390,400],[768,300],[1440,360]]) {
+    await page.setViewportSize({width,height});
+    await page.locator('#tab-myq').click();
+    await page.locator('#myq-input').fill('  Short viewport question?\nNext question?  ');
+    const withinViewport = locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=-1&&r.bottom<=innerHeight+1;});
+    const boxFits = await page.locator('[role="dialog"]').evaluate(el=>{
+      const r=el.getBoundingClientRect();return r.top>=-1&&r.bottom<=innerHeight+1&&getComputedStyle(el).overflowY==='auto';
+    });
+    await page.locator('#modal-close').focus();const closeReachable=await withinViewport(page.locator('#modal-close'));
+    await page.keyboard.press('Shift+Tab');const confirmReachable=await withinViewport(page.locator('#btn-confirm'));
+    await page.keyboard.press('Shift+Tab');const discardReachable=await withinViewport(modalDiscard)
+      && await page.evaluate(()=>document.activeElement?.id==='speaking-modal-draft-discard');
+    await page.keyboard.press('Enter');
+    check(`Speaking short dialog ${theme}/${width}x${height}: scrolls, all controls reachable and keyboard discard scoped`,
+      boxFits&&closeReachable&&confirmReachable&&discardReachable
+        && await page.locator('#myq-input').inputValue()===''
+        && await page.locator('#prac-custom-q').inputValue()===cue&&sessionPostCount===beforePreparationRestore);
+  }
+}
+await page.keyboard.press('Escape');
 check('Closing the modal restores page controls and disables discard on dashboard',
   await page.locator('#speaking-draft-controls').isVisible() && await discard.isDisabled());
 

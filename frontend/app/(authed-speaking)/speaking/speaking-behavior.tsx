@@ -426,6 +426,20 @@ function switchTopicTab(tab: State['activeTopicTab'], st: State) {
 
 let topicModalTrigger: HTMLElement | null = null;
 
+function syncTopicModalViewport() {
+  const modal = $('topic-modal');
+  if (!modal?.classList.contains('open')) return;
+  const viewport = window.visualViewport;
+  const height = viewport && Number.isFinite(viewport.height) && viewport.height > 0
+    ? viewport.height : window.innerHeight;
+  const top = viewport && Number.isFinite(viewport.offsetTop) ? Math.max(0, viewport.offsetTop) : 0;
+  // A keyboard can shrink/pan only the visual viewport while the layout stays
+  // tall. Fit the backdrop there; the dialog scrolls within its padded height.
+  modal.style.top = `${top}px`;
+  modal.style.bottom = 'auto';
+  modal.style.height = `${height}px`;
+}
+
 function closeTopicModal() {
   const modal = $('topic-modal');
   modal?.classList.remove('open');
@@ -470,6 +484,7 @@ async function openTopicModal(part: number, mode: string, st: State, api: any) {
     modal.setAttribute('aria-hidden', 'false');
     modal.classList.add('open');
   }
+  syncTopicModalViewport();
   document.body.style.overflow = 'hidden';
   ($('modal-close') as HTMLButtonElement | null)?.focus();
   st.saveDraft();
@@ -795,7 +810,7 @@ export function SpeakingBehavior() {
     };
     // `document` không phải `Element` — uỷ quyền sự kiện ở cấp tài liệu là có
     // thật (nút "quay lại dashboard"), nên kiểu phải nhận cả hai.
-    const on = (el: Element | Document | Window | null, ev: string, fn: any) => {
+    const on = (el: Element | Document | Window | VisualViewport | null, ev: string, fn: any) => {
       if (!el) return;
       el.addEventListener(ev, fn);
       cleanups.push(() => el.removeEventListener(ev, fn));
@@ -955,6 +970,9 @@ export function SpeakingBehavior() {
       bindWatcher('myq-input', 'myq-input-length-warning', () => st.modalPart);
 
       // ── Modal chủ đề ────────────────────────────────────────────────────
+      on(window, 'resize', syncTopicModalViewport);
+      on(window.visualViewport, 'resize', syncTopicModalViewport);
+      on(window.visualViewport, 'scroll', syncTopicModalViewport);
       on($('topic-modal'), 'click', (e: any) => {
         if (e.target === $('topic-modal')) { closeTopicModal(); st.saveDraft(); }
       });

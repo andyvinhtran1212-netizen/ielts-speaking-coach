@@ -652,7 +652,8 @@ export function SpeakingShell() {
 
         {/* ─── TOPIC MODAL ──────────────────────────────────────────────── */}
         <div id="topic-modal" className="modal-backdrop" hidden aria-hidden="true">
-          <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="topic-modal-title" tabIndex={-1}>
+          <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="topic-modal-title" tabIndex={-1}
+            style={{ maxHeight: '100%', overflowY: 'auto', overscrollBehavior: 'contain' }}>
 
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
