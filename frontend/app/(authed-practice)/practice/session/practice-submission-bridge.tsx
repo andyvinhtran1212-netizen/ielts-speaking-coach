@@ -16,11 +16,11 @@ export function PracticeSubmissionBridge() {
     const submission = Object.assign(new SpeakingSubmissionController({
       // A redirect here would destroy the only in-memory copy of an
       // unconfirmed recording. Preserve 401 and let the player keep the blob.
-      upload: (path: string, formData: FormData) => (
+      upload: (path: string, formData: FormData, { signal }: { signal: AbortSignal }) => (
         coreSpeakingUpload({ accountId: user.id, path, formData }, (headers: Record<string, string>) =>
-          win.api.uploadWith(path, formData, { noRedirect: true }, headers))
+          win.api.uploadWith(path, formData, { noRedirect: true, signal }, headers))
       ),
-      getSession: (path: string) => win.api.getWith(path, {}, { noRedirect: true }),
+      getSession: (path: string, { signal }: { signal: AbortSignal }) => win.api.getWith(path, {}, { noRedirect: true, signal }),
     }), {
       complete: (sessionId: string) => {
         const path = `/sessions/${encodeURIComponent(sessionId)}/complete`;

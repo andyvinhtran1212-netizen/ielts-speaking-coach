@@ -191,6 +191,23 @@ test('actual Next bridge completes with durable retry hints while shared practic
   win.api.patchWith = rejectComplete;
   await assert.rejects(win.PracticeSubmission.complete(partA), /lost part completion/);
   assert.deepEqual(partCalls[0], partCalls[4], 'another part acknowledgement cannot erase this completion hint');
+  const submitCalls = [];
+  win.api.uploadWith = async (...args) => {
+    submitCalls.push(args);
+    throw new TypeError('lost upload response');
+  };
+  win.api.getWith = async (...args) => {
+    submitCalls.push(args);
+    return { responses: [{ id: 'saved-response', question_id: 'q' }] };
+  };
+  assert.equal((await win.PracticeSubmission.submit({
+    sessionId, questionId: 'q', blob: new Blob(['preserved answer'], { type: 'audio/mp4' }),
+  })).response_id, 'saved-response');
+  assert.equal(submitCalls.length, 2);
+  for (const call of submitCalls) {
+    assert.equal(call[2].noRedirect, true);
+    assert.ok(call[2].signal instanceof AbortSignal, 'the bridge forwards each request deadline to api.js');
+  }
   cleanup();
 
   const practice = readFileSync(new URL('../public/js/practice.js', import.meta.url), 'utf8');
