@@ -23,6 +23,8 @@ import {
 import { corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { MockPostTestCapture } from '@/components/mock-post-test-capture';
+import { useAttemptReviewFlags } from '@/lib/use-attempt-review-flags';
+import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status';
 
 type AnswerMap = Map<number, string>;
 type SaveState = Map<number, 'pending' | 'retrying' | 'failed'>;
@@ -44,7 +46,9 @@ type Question = {
   payload?: {
     options?: Option[];
     image_url?: string;
+    instruction?: string;
     word_limit?: string;
+    paragraph_labels?: string[];
     template?: {
       choose?: number;
       heading?: string;
@@ -52,6 +56,7 @@ type Question = {
       paragraph_labels?: string[];
       rows?: unknown[][];
       summary_text?: string;
+      image_alt?: string;
     };
   };
 };
@@ -71,6 +76,8 @@ type Attempt = {
   started_at: string;
   time_limit_minutes: number;
   renderer_affinity?: 'legacy' | 'next' | null;
+  attempt_purpose?: string | null;
+  mock_sitting_id?: string | null;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -97,9 +104,12 @@ function formatTime(seconds: number) {
   return `${String(mins).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function queryWithClassItem(path: string, classItem: string | null) {
-  if (!classItem) return path;
-  return `${path}${path.includes('?') ? '&' : '?'}class_item=${encodeURIComponent(classItem)}`;
+function queryWithClassItem(path: string, classItem: string | null, sittingId: string | null = null) {
+  const query = new URLSearchParams();
+  if (classItem) query.set('class_item', classItem);
+  if (sittingId) query.set('sitting_id', sittingId);
+  const suffix = query.toString();
+  return suffix ? `${path}${path.includes('?') ? '&' : '?'}${suffix}` : path;
 }
 
 function optionValue(option: Option) {
@@ -178,14 +188,15 @@ function InlineGap({ question, value, onChange }: {
   );
 }
 
-function QuestionControl({ question, value, onChange }: {
+function QuestionControl({ question, value, onChange, includePrompt = true }: {
   question: Question;
   value: string;
+  includePrompt?: boolean;
   onChange(value: string): void;
 }) {
   const type = question.question_type || '';
   const options = questionOptions(question);
-  const inline = /(?:sentence|summary|notes|table|form|short_answer|flow_chart|diagram_label)_completion|short_answer/.test(type)
+  const inline = includePrompt && /(?:sentence|summary|notes|table|form|short_answer|flow_chart|diagram_label)_completion|short_answer/.test(type)
     && /_{2,}/.test(String(question.prompt || ''))
     && !(type === 'summary_completion' && options.length);
   if (inline) return <InlineGap question={question} value={value} onChange={onChange} />;
@@ -247,10 +258,13 @@ function QuestionControl({ question, value, onChange }: {
       || (type === 'summary_completion' && options.length)) {
     selectOptions = options.map(optionValue);
   } else if (type === 'matching_information') {
-    const authored = question.payload?.template?.paragraph_labels;
+    const flatLabels = question.payload?.paragraph_labels;
+    const authored = Array.isArray(flatLabels) && flatLabels.length
+      ? flatLabels : question.payload?.template?.paragraph_labels;
     selectOptions = Array.isArray(authored) && authored.length
       ? authored.map(String)
-      : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      : options.length ? options.map(optionValue)
+        : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   }
   if (selectOptions) {
     return (
@@ -274,11 +288,12 @@ function QuestionControl({ question, value, onChange }: {
   );
 }
 
-function QuestionCard({ question, answer, saveState, flagged, current, onAnswer, onFlag, onCurrent }: {
+function QuestionCard({ question, answer, saveState, flagged, flagReady, current, onAnswer, onFlag, onCurrent }: {
   question: Question;
   answer: string;
   saveState?: 'pending' | 'retrying' | 'failed';
   flagged: boolean;
+  flagReady: boolean;
   current: boolean;
   onAnswer(value: string): void;
   onFlag(): void;
@@ -305,7 +320,7 @@ function QuestionCard({ question, answer, saveState, flagged, current, onAnswer,
           {saveState === 'pending' ? 'Đang lưu…' : saveState === 'retrying' ? 'Đang thử lưu lại…' : 'Chưa lưu được lên máy chủ.'}
         </small> : null}
       </div>
-      <button className="exam-q__flag" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged} onClick={onFlag}>
+      <button className="exam-q__flag" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged} disabled={!flagReady} onClick={onFlag}>
         <span aria-hidden="true">{flagged ? 'Reviewing' : 'Review'}</span>
       </button>
     </article>
@@ -331,6 +346,7 @@ type QuestionRunProps = {
   answers: AnswerMap;
   saveStates: SaveState;
   flagged: Set<number>;
+  flagReady: boolean;
   currentQuestion: number;
   onAnswer(qNum: number, value: string): void;
   onFlag(qNum: number): void;
@@ -362,12 +378,13 @@ function QuestionBank({ type, options }: { type: string; options: Option[] }) {
   </aside>;
 }
 
-function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, current, onAnswer, onFlag, onCurrent }: {
+function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, flagReady, current, onAnswer, onFlag, onCurrent }: {
   question: Question;
   sharedOptions?: Option[];
   answer: string;
   saveState?: 'pending' | 'retrying' | 'failed';
   flagged: boolean;
+  flagReady: boolean;
   current: boolean;
   onAnswer(value: string): void;
   onFlag(): void;
@@ -384,13 +401,13 @@ function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, 
     onFocus={onCurrent}
   >
     <span className="exam-summary__gnum">{question.q_num}</span>{' '}
-    <QuestionControl question={controlQuestion} value={answer} onChange={onAnswer} />
-    <button className="reading-next-flow-flag" type="button" aria-label={`Flag question ${question.q_num} for review`} aria-pressed={flagged} onClick={onFlag}>⚑</button>
+    <QuestionControl question={controlQuestion} value={answer} onChange={onAnswer} includePrompt={false} />
+    <button className="reading-next-flow-flag" type="button" aria-label={`Flag question ${question.q_num} for review`} aria-pressed={flagged} disabled={!flagReady} onClick={onFlag}>⚑</button>
     <SaveHint state={saveState} />
   </span>;
 }
 
-function FlowingCompletionRun({ run, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
+function FlowingCompletionRun({ run, answers, saveStates, flagged, flagReady, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
   const first = run[0];
   const type = String(first.question_type || '');
   const summary = String(first.payload?.template?.summary_text || '');
@@ -411,7 +428,7 @@ function FlowingCompletionRun({ run, answers, saveStates, flagged, currentQuesti
         sharedOptions={sharedOptions}
         answer={answers.get(qNum) || ''}
         saveState={saveStates.get(qNum)}
-        flagged={flagged.has(qNum)}
+        flagged={flagged.has(qNum)} flagReady={flagReady}
         current={currentQuestion === qNum}
         onAnswer={(value) => onAnswer(qNum, value)}
         onFlag={() => onFlag(qNum)}
@@ -465,14 +482,16 @@ function FlowingCompletionRun({ run, answers, saveStates, flagged, currentQuesti
   </div>;
 }
 
-function DiagramImageRun({ run, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
+function DiagramImageRun({ run, answers, saveStates, flagged, flagReady, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
   const first = run[0];
   const type = String(first.question_type || '');
   return <div className="exam-diagram-container" data-question-type={type}>
     <img
       className="exam-diagram-image"
       src={first.payload?.image_url}
-      alt={`${type === 'flow_chart_completion' ? 'Flow chart' : 'Labeled diagram'} for questions ${first.q_num}–${run.at(-1)?.q_num}`}
+      alt={typeof first.payload?.template?.image_alt === 'string' && first.payload.template.image_alt.trim()
+        ? first.payload.template.image_alt.trim()
+        : `${type === 'flow_chart_completion' ? 'Flow chart' : 'Labeled diagram'} for questions ${first.q_num}–${run.at(-1)?.q_num}`}
     />
     <ol className="exam-diagram-rows">{run.map((question) => <li
       className={`exam-diagram-row${saveStates.has(question.q_num) ? ' is-unsaved' : ''}${currentQuestion === question.q_num ? ' is-current' : ''}`}
@@ -491,13 +510,13 @@ function DiagramImageRun({ run, answers, saveStates, flagged, currentQuestion, o
         value={answers.get(question.q_num) || ''}
         onChange={(event) => onAnswer(question.q_num, event.target.value)}
       />
-      <button className="reading-next-flow-flag" type="button" aria-label={`Flag question ${question.q_num} for review`} aria-pressed={flagged.has(question.q_num)} onClick={() => onFlag(question.q_num)}>⚑</button>
+      <button className="reading-next-flow-flag" type="button" aria-label={`Flag question ${question.q_num} for review`} aria-pressed={flagged.has(question.q_num)} disabled={!flagReady} onClick={() => onFlag(question.q_num)}>⚑</button>
       <SaveHint state={saveStates.get(question.q_num)} />
     </li>)}</ol>
   </div>;
 }
 
-function MatchingMatrixRun({ run, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
+function MatchingMatrixRun({ run, answers, saveStates, flagged, flagReady, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
   const options = questionOptions(run[0]);
   return <div className="reading-next-match-matrix-wrap">
     <table className="reading-next-match-matrix">
@@ -514,15 +533,16 @@ function MatchingMatrixRun({ run, answers, saveStates, flagged, currentQuestion,
           const value = optionValue(option);
           return <td key={value}><label aria-label={`Question ${question.q_num}: ${value}`}>
             <input type="radio" name={`q-${question.q_num}`} value={value} checked={answers.get(question.q_num) === value} onChange={() => onAnswer(question.q_num, value)} />
+            <span className="reading-next-matrix-letter" aria-hidden="true">{value}</span>
           </label></td>;
         })}
-        <td><button className="reading-next-matrix-review" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged.has(question.q_num)} onClick={() => onFlag(question.q_num)}>Review</button></td>
+        <td><button className="reading-next-matrix-review" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged.has(question.q_num)} disabled={!flagReady} onClick={() => onFlag(question.q_num)}>Review</button></td>
       </tr>)}</tbody>
     </table>
   </div>;
 }
 
-function GroupedMcqRun({ run, answers, saveStates, flagged, onAnswer, onFlag }: Omit<QuestionRunProps, 'part' | 'currentQuestion' | 'onCurrent'>) {
+function GroupedMcqRun({ run, answers, saveStates, flagged, flagReady, onAnswer, onFlag }: Omit<QuestionRunProps, 'part' | 'currentQuestion' | 'onCurrent'>) {
   const first = run[0];
   const options = questionOptions(first);
   const choose = groupedReadingMcqChoiceCount(run);
@@ -559,13 +579,13 @@ function GroupedMcqRun({ run, answers, saveStates, flagged, onAnswer, onFlag }: 
       type="button"
       key={question.q_num}
       aria-label={`Flag question ${question.q_num} for review`}
-      aria-pressed={flagged.has(question.q_num)}
+      aria-pressed={flagged.has(question.q_num)} disabled={!flagReady}
       onClick={() => onFlag(question.q_num)}
     >⚑ {question.q_num}</button>)}</div>
   </article>;
 }
 
-function QuestionRun({ run, part, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: QuestionRunProps) {
+function QuestionRun({ run, part, answers, saveStates, flagged, flagReady, currentQuestion, onAnswer, onFlag, onCurrent }: QuestionRunProps) {
   const first = run[0];
   const type = String(first.question_type || '');
   const options = questionOptions(first);
@@ -580,16 +600,16 @@ function QuestionRun({ run, part, answers, saveStates, flagged, currentQuestion,
       {readingQuestionInstruction(run, part)}
     </div>
     {hasBank ? <QuestionBank type={type} options={options} /> : null}
-    {groupedMcq ? <GroupedMcqRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} onAnswer={onAnswer} onFlag={onFlag} />
-      : type === 'matching_features' && options.length ? <MatchingMatrixRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
-      : hasImageVariant ? <DiagramImageRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
-      : hasFlowingTemplate ? <FlowingCompletionRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
+    {groupedMcq ? <GroupedMcqRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} onAnswer={onAnswer} onFlag={onFlag} />
+      : type === 'matching_features' && options.length ? <MatchingMatrixRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
+      : hasImageVariant ? <DiagramImageRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
+      : hasFlowingTemplate ? <FlowingCompletionRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
         : run.map((question) => <QuestionCard
           key={question.q_num}
           question={question}
           answer={answers.get(question.q_num) || ''}
           saveState={saveStates.get(question.q_num)}
-          flagged={flagged.has(question.q_num)}
+          flagged={flagged.has(question.q_num)} flagReady={flagReady}
           current={currentQuestion === question.q_num}
           onAnswer={(value) => onAnswer(question.q_num, value)}
           onFlag={() => onFlag(question.q_num)}
@@ -669,6 +689,7 @@ export function ReadingExamSession() {
   const [test, setTest] = useState<ReadingTest | null>(null);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [resumeAvailable, setResumeAvailable] = useState(false);
+  const [admissionRequired, setAdmissionRequired] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>(() => new Map());
   const answersRef = useRef<AnswerMap>(answers);
   const [saveStates, setSaveStates] = useState<SaveState>(() => new Map());
@@ -676,7 +697,7 @@ export function ReadingExamSession() {
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [splitPercent, setSplitPercent] = useState(50);
   const [selectionMenu, setSelectionMenu] = useState<{ x: number; y: number } | null>(null);
-  const [flagged, setFlagged] = useState<Set<number>>(() => new Set());
+  const [previewFlags, setPreviewFlags] = useState<Set<number>>(() => new Set());
   const [remaining, setRemaining] = useState(0);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -735,6 +756,15 @@ export function ReadingExamSession() {
     return value ? { 'X-Reading-Anon': value } : undefined;
   }, [anonCapability]);
 
+  const flagApi = useAttemptReviewFlags({
+    attemptId: attempt?.attempt_id, domain: 'reading',
+    ownerScope: params?.share ? `share:${params.share}:${anonCapability() || ''}` : user?.id || '',
+    enabled: !!attempt && (params?.share ? true : status === 'signed-in') && !['results', 'sealed', 'capture'].includes(phase),
+    headers: params?.share ? anonHeaders : undefined,
+  });
+  const flagged = params?.adminPreview ? previewFlags : flagApi.flagged;
+  const flagReady = !!params?.adminPreview || (phase === 'inprogress' && flagApi.ready);
+
   const passwordHeaders = useCallback(() => {
     if (!params?.testId) return undefined;
     try {
@@ -776,7 +806,7 @@ export function ReadingExamSession() {
     }
     const path = params.share
       ? `/api/reading/test/share/${encodeURIComponent(params.share)}/boot`
-      : queryWithClassItem(`/api/reading/test/${encodeURIComponent(params.testId!)}/boot`, params.classItem);
+      : queryWithClassItem(`/api/reading/test/${encodeURIComponent(params.testId!)}/boot`, params.classItem, params.sittingId);
     const payload = await window.api.getWith<any>(
       path,
       params.share ? anonHeaders() : passwordHeaders(),
@@ -799,7 +829,9 @@ export function ReadingExamSession() {
       setAttempt(null);
       setResumeAvailable(false);
     }
+    setAdmissionRequired(false);
     setPhase('prestart');
+    return normalized;
   }, [anonHeaders, claimAttempt, params, passwordHeaders]);
 
   const bootWithRecovery = useCallback(async () => {
@@ -812,6 +844,10 @@ export function ReadingExamSession() {
       return;
     } catch (error) {
       caught = error;
+    }
+    if (!params.share && caught?.status === 409 && caught?.detail?.reason === 'admission_required') {
+      setTest(null); setAttempt(null); setResumeAvailable(false); setAdmissionRequired(true); setPhase('prestart');
+      return;
     }
     if (!params.share && caught?.status === 403) {
       const supplied = window.prompt('🔒 Bài thi này đang khoá. Nhập mật khẩu để vào:');
@@ -896,7 +932,9 @@ export function ReadingExamSession() {
   }, [attempt?.attempt_id, phase === 'results' || phase === 'sealed', saveAnswer]);
 
   const enterAttempt = useCallback(async (nextAttempt: Attempt, restored: AnswerMap) => {
-    if (params?.sittingId) {
+    if (nextAttempt.attempt_purpose === 'mock_delivery') {
+      if (!nextAttempt.mock_sitting_id || (params?.sittingId && nextAttempt.mock_sitting_id !== params.sittingId)) throw new Error('Không xác nhận được kỳ thi của bài Reading.');
+    } else if (params?.sittingId) {
       // RouteScriptChain loads the legacy bridge independently from React
       // hydration.  A one-shot lookup here used to let the native player win
       // that race: the learner could answer every question, but the attempt was
@@ -927,7 +965,7 @@ export function ReadingExamSession() {
   }, [attempt, enterAttempt]);
 
   const startFresh = useCallback(async () => {
-    if (!params || !test) return;
+    if (!params) return;
     setPhase('loading');
     try {
       let response: any;
@@ -948,28 +986,27 @@ export function ReadingExamSession() {
           try { localStorage.setItem(`reading-anon:${params.share}`, response.anon_id); } catch {}
         }
       } else {
-        const path = queryWithClassItem(`/api/reading/test/${encodeURIComponent(test.test_id)}/attempts`, params.classItem);
+        const path = queryWithClassItem(`/api/reading/test/${encodeURIComponent(params.testId!)}/attempts`, params.classItem);
+        const body = { ...READING_RENDERER_AFFINITY_PROTOCOL, purpose: params.sittingId || admissionRequired ? 'mock_delivery' : params.classItem ? 'assigned_practice' : 'practice', ...(params.sittingId ? { mock_sitting_id: params.sittingId } : {}) };
         response = await coreOperationRequest({
-          accountId: user?.id, method: 'POST', path, input: READING_RENDERER_AFFINITY_PROTOCOL, fresh: resumeAvailable,
+          accountId: user?.id, method: 'POST', path, input: body, fresh: resumeAvailable,
           acknowledged: (reply: any) => typeof reply?.attempt_id === 'string' && !!reply.attempt_id,
         }, (headers: Record<string, string>) => window.api.postWith(
           path,
-          READING_RENDERER_AFFINITY_PROTOCOL,
+          body,
           { ...passwordHeaders(), ...headers },
         ));
       }
-      if (!await claimAttempt(String(response.attempt_id))) return;
-      const nextAttempt = {
-        attempt_id: String(response.attempt_id),
-        started_at: String(response.started_at),
-        time_limit_minutes: Number(response.time_limit_minutes || test.time_limit_minutes),
-      };
-      await enterAttempt(nextAttempt, new Map());
+      const confirmed = await boot();
+      if (!confirmed?.inProgress || confirmed.inProgress.attempt_id !== String(response.attempt_id)) {
+        throw new Error('Không xác nhận được lượt làm vừa bắt đầu.');
+      }
+      await enterAttempt(confirmed.inProgress, answersFromRows(confirmed.inProgress.answers));
     } catch (caught: any) {
       setError(`Không bắt đầu được bài thi. ${caught?.message || ''}`);
       setPhase('error');
     }
-  }, [anonHeaders, claimAttempt, enterAttempt, params, passwordHeaders, test, resumeAvailable, user?.id]);
+  }, [admissionRequired, anonHeaders, boot, enterAttempt, params, passwordHeaders, resumeAvailable, user?.id]);
 
   useEffect(() => {
     if (phase !== 'prestart' || !params?.mockEmbed || autoEnteredMockRef.current) return;
@@ -989,19 +1026,22 @@ export function ReadingExamSession() {
 
   const toggleFlag = useCallback((qNum: number) => {
     if (collectionFrozenRef.current) return;
-    setFlagged((previous) => {
-      const next = new Set(previous);
-      if (next.has(qNum)) next.delete(qNum); else next.add(qNum);
-      return next;
-    });
-  }, []);
+    if (phase !== 'inprogress') return;
+    if (params?.adminPreview) {
+      setPreviewFlags((previous) => {
+        const next = new Set(previous);
+        if (next.has(qNum)) next.delete(qNum); else next.add(qNum);
+        return next;
+      });
+    } else flagApi.toggle(qNum);
+  }, [flagApi.toggle, params?.adminPreview, phase]);
 
   const submit = useCallback(async () => {
     if (!attempt || phase === 'submitting' || phase === 'results' || phase === 'sealed') return;
     setSubmitOpen(false);
     setPhase('submitting');
     try {
-      await coordinatorRef.current?.flush?.();
+      await Promise.all([coordinatorRef.current?.flush?.(), flagApi.flush()]);
       const body = { answers: [...answersRef.current].map(([q_num, user_answer]) => ({ q_num, user_answer })) };
       const path = `/api/reading/test/attempts/${encodeURIComponent(attempt.attempt_id)}/submit`;
       const accessHeaders = params?.share ? anonHeaders() : undefined;
@@ -1029,7 +1069,7 @@ export function ReadingExamSession() {
       setError(`Không nộp được bài. ${caught?.message || ''}`);
       setPhase('error');
     }
-  }, [anonHeaders, attempt, params?.mockEmbed, params?.share, phase, user?.id]);
+  }, [flagApi.flush, anonHeaders, attempt, params?.mockEmbed, params?.share, phase, user?.id]);
 
   useEffect(() => {
     if (!params?.mockEmbed) return undefined;
@@ -1183,6 +1223,11 @@ export function ReadingExamSession() {
         <p className="exam-state-msg exam-state-msg--error" role="alert">{error}</p>
         <div className="reading-next-error-actions"><button className="exam-btn exam-btn--primary" type="button" onClick={() => void bootWithRecovery()}>Thử lại</button><a className="exam-btn" href={backHref}>← Quay lại kho đề</a></div>
       </main> : null}
+      {phase === 'prestart' && admissionRequired ? <main className="exam-state-shell reading-next-state"><div className="exam-card">
+        <h1 className="exam-card__title">Bài Reading trong kỳ thi</h1><p>Đồng hồ bắt đầu chạy khi bạn bắt đầu bài thi.</p>
+        <button className="exam-btn exam-btn--primary" type="button" onClick={() => void startFresh()}>Bắt đầu bài thi</button>
+        <a className="exam-btn" href={backHref}>← Quay lại</a>
+      </div></main> : null}
       {phase === 'prestart' && test ? <main className="exam-state-shell reading-next-state">
         <div className="exam-card">
           <h1 className="exam-card__title">{test.title}</h1>
@@ -1237,7 +1282,7 @@ export function ReadingExamSession() {
               part={currentPart}
               answers={answers}
               saveStates={saveStates}
-              flagged={flagged}
+              flagged={flagged} flagReady={flagReady}
               currentQuestion={currentQuestion}
               onAnswer={updateAnswer}
               onFlag={toggleFlag}
@@ -1270,8 +1315,9 @@ export function ReadingExamSession() {
             {unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi cảnh báo biến mất.'}
             {unsavedFailed ? <button type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}
           </p> : null}
+          {!params?.adminPreview ? <AttemptReviewFlagStatus ready={flagApi.ready} states={flagApi.states} error={flagApi.error} onRetry={flagApi.retry} /> : null}
           <div className="exam-palette__actions">
-            <label className="reading-next-review-toggle"><input type="checkbox" checked={flagged.has(currentQuestion)} onChange={() => toggleFlag(currentQuestion)} /> Review</label>
+            <label className="reading-next-review-toggle"><input type="checkbox" checked={flagged.has(currentQuestion)} disabled={phase !== 'inprogress' || (!params?.adminPreview && !flagApi.ready)} onChange={() => toggleFlag(currentQuestion)} /> Review</label>
             <div className="exam-palette__nav" role="group" aria-label="Previous or next question">
               <button className="exam-palette__nav-btn" type="button" disabled={currentQuestion === test.questions[0]?.q_num} onClick={() => moveQuestion(-1)}>← Previous</button>
               <button className="exam-palette__nav-btn" type="button" disabled={currentQuestion === test.questions.at(-1)?.q_num} onClick={() => moveQuestion(1)}>Next →</button>

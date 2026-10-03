@@ -96,6 +96,10 @@ export function normalizeReadingBoot(payload, fallbackTestId = null) {
       time_limit_minutes: positiveInteger(inProgress.time_limit_minutes, positiveInteger(test.time_limit_minutes, 60)),
       answers: Array.isArray(inProgress.answers) ? inProgress.answers : [],
       renderer_affinity: inProgress.renderer_affinity ?? null,
+      ...('attempt_purpose' in inProgress ? { attempt_purpose: inProgress.attempt_purpose } : {}),
+      ...('mock_sitting_id' in inProgress ? { mock_sitting_id: inProgress.mock_sitting_id } : {}),
+      ...('paper_revision' in inProgress ? { paper_revision: inProgress.paper_revision } : {}),
+      ...('policy_revision' in inProgress ? { policy_revision: inProgress.policy_revision } : {}),
     } : null,
   };
 }
@@ -159,10 +163,23 @@ export function groupedReadingMcqChoiceCount(run) {
   return choose;
 }
 
-/** Split a same-type run around authentic grouped MCQs while retaining normal runs. */
+/** Retain shared templates, but start a new display group when its authored rubric changes. */
 export function readingDisplayQuestionRuns(questions) {
+  const displayRuns = [];
+  for (const question of Array.isArray(questions) ? questions : []) {
+    const current = displayRuns.at(-1);
+    const first = current?.[0];
+    const instruction = typeof question?.payload?.instruction === 'string' ? question.payload.instruction.trim() : '';
+    const firstInstruction = typeof first?.payload?.instruction === 'string' ? first.payload.instruction.trim() : '';
+    const limit = String(question?.payload?.word_limit || '').trim().toUpperCase();
+    const firstLimit = String(first?.payload?.word_limit || '').trim().toUpperCase();
+    if (first?.question_type === question?.question_type
+        && (!instruction || instruction === firstInstruction)
+        && (!limit || limit === firstLimit)) current.push(question);
+    else displayRuns.push([question]);
+  }
   const output = [];
-  for (const typeRun of consecutiveReadingQuestionRuns(questions)) {
+  for (const typeRun of displayRuns) {
     if (typeRun[0]?.question_type !== 'mcq_single') {
       output.push(typeRun);
       continue;
@@ -207,6 +224,12 @@ export function readingQuestionInstruction(run, part = 1) {
   const authoredLimit = String(first?.payload?.word_limit || '').trim().toUpperCase();
   const wordLimit = WORD_LIMITS.has(authoredLimit) ? authoredLimit : 'NO MORE THAN TWO WORDS';
   const questionLead = `Questions ${range}:`;
+  const authoredInstruction = typeof first?.payload?.instruction === 'string'
+    ? first.payload.instruction.trim() : '';
+  if (authoredInstruction) {
+    return /^Questions?\s+\d/i.test(authoredInstruction)
+      ? authoredInstruction : `${questionLead} ${authoredInstruction}`;
+  }
   const letters = options.length === 5 ? 'A, B, C, D or E'
     : options.length === 3 ? 'A, B or C' : 'A, B, C or D';
   const templates = {

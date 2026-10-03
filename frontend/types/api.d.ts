@@ -8187,8 +8187,9 @@ export interface paths {
          * Admin Patch Listening Test
          * @description Update editable metadata fields on a listening_tests row.
          *
-         *     Allow-list: test_id, title, version, band_target, accent_profile,
-         *     themes. Only keys present in the request body land in the UPDATE.
+         *     Metadata-only requests retain the existing field allow-list. Requests
+         *     containing visibility fields use the serialized policy writer; mixed
+         *     metadata/policy requests are rejected atomically by its policy allow-list.
          */
         patch: operations["admin_patch_listening_test_admin_listening_tests__test_id__patch"];
         trace?: never;
@@ -10580,6 +10581,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reading/test/attempts/{attempt_id}/review-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reading Review Flags */
+        get: operations["get_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Reading Review Flags */
+        patch: operations["patch_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_patch"];
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/review-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Listening Review Flags */
+        get: operations["get_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Listening Review Flags */
+        patch: operations["patch_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_patch"];
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -11115,6 +11152,40 @@ export interface paths {
          * @description Publish/archive from the one admin catalog used to assign papers.
          */
         patch: operations["set_status_admin_exam_content__kind___content_id__status_patch"];
+        trace?: never;
+    };
+    "/admin/exam-content/{kind}/{content_id}/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Paper Policy */
+        get: operations["get_paper_policy_admin_exam_content__kind___content_id__policy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/exam-content/{kind}/{content_id}/policy/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Paper Policy */
+        post: operations["restore_paper_policy_admin_exam_content__kind___content_id__policy_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/admin/exam-content/{kind}/{content_id}/level": {
@@ -17054,6 +17125,7 @@ export interface components {
             web_explanation_access?: {
                 [key: string]: unknown;
             } | null;
+            context_source?: components["schemas"]["ReviewContextReference"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -17407,6 +17479,14 @@ export interface components {
         ListeningPlayerResponse: {
             /** Id */
             id: string;
+            /** Attempt Purpose */
+            attempt_purpose?: string | null;
+            /** Mock Sitting Id */
+            mock_sitting_id?: string | null;
+            /** Paper Revision */
+            paper_revision?: number | null;
+            /** Policy Revision */
+            policy_revision?: number | null;
             /** Test Id */
             test_id?: string | null;
             /** Title */
@@ -17618,6 +17698,14 @@ export interface components {
             };
             /** First Answer */
             first_answer?: string | null;
+            /** Question Context */
+            question_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Context Provenance */
+            context_provenance?: {
+                [key: string]: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            };
         } & {
             [key: string]: unknown;
         };
@@ -18092,6 +18180,65 @@ export interface components {
             /** Client Ids With Multiple Fingerprints */
             client_ids_with_multiple_fingerprints: number;
         };
+        /** PaperPolicyDependency */
+        PaperPolicyDependency: {
+            /** Type */
+            type: string;
+            /** Id */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Mock Exam Id */
+            mock_exam_id?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Paper Revision */
+            paper_revision?: number | null;
+            /** Dependency Revision */
+            dependency_revision?: string | null;
+        };
+        /** PaperPolicyInspection */
+        PaperPolicyInspection: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reading" | "listening";
+            /** Policy Revision */
+            policy_revision: number;
+            /** Paper Revision */
+            paper_revision: number;
+            /** Policy */
+            policy: {
+                [key: string]: unknown;
+            };
+            /** Dependencies */
+            dependencies: components["schemas"]["PaperPolicyDependency"][];
+            /** Protected References */
+            protected_references: components["schemas"]["PublicOverlapReference"][];
+            /** Restore Snapshots */
+            restore_snapshots: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** PaperPolicyReceipt */
+        PaperPolicyReceipt: {
+            /** Id */
+            id: string;
+            /** Policy Revision */
+            policy_revision?: number | null;
+            /** Status */
+            status?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+        };
         /**
          * PasteLog
          * @description Body for POST /paste-log. The frontend's paste handler decides
@@ -18422,6 +18569,27 @@ export interface components {
              */
             exam_only?: boolean | null;
         };
+        /** PublicOverlapDecision */
+        PublicOverlapDecision: {
+            /** Reason */
+            reason: string;
+            /** Paper Revision */
+            paper_revision: number;
+            /** References */
+            references: components["schemas"]["PublicOverlapReference"][];
+        };
+        /** PublicOverlapReference */
+        PublicOverlapReference: {
+            /**
+             * Mock Exam Id
+             * Format: uuid
+             */
+            mock_exam_id: string;
+            /** Paper Revision */
+            paper_revision: number;
+            /** Dependency Revision */
+            dependency_revision: string;
+        };
         /** PublicPolicyPatch */
         PublicPolicyPatch: {
             /** Is Public */
@@ -18464,6 +18632,19 @@ export interface components {
             }[] | null;
             /** Expected Updated At */
             expected_updated_at?: string | null;
+        };
+        /** QuestionReviewFlag */
+        QuestionReviewFlag: {
+            /** Q Num */
+            q_num: number;
+            /** Question Id */
+            question_id: string;
+            /** Flagged */
+            flagged: boolean;
+            /** Revision */
+            revision: number;
+            /** Updated At */
+            updated_at?: string | null;
         };
         /** QuizBankPlayResponse */
         QuizBankPlayResponse: {
@@ -18911,6 +19092,16 @@ export interface components {
              */
             assistance_used: boolean;
         };
+        /** RestorePolicyBody */
+        RestorePolicyBody: {
+            /**
+             * Snapshot Id
+             * Format: uuid
+             */
+            snapshot_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+        };
         /** RetestBody */
         RetestBody: {
             /** Needs Retest */
@@ -18927,6 +19118,92 @@ export interface components {
             retest_flags?: {
                 [key: string]: boolean;
             };
+        };
+        /** ReviewContextReference */
+        ReviewContextReference: {
+            /**
+             * Provenance
+             * @enum {string}
+             */
+            provenance: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            /** Possibly Changed */
+            possibly_changed: boolean;
+            /** Paper Revision */
+            paper_revision?: number | null;
+            /** Policy Revision */
+            policy_revision?: number | null;
+            /** Context Sha256 */
+            context_sha256?: string | null;
+            /** Field Provenance */
+            field_provenance?: {
+                [key: string]: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            };
+        };
+        /** ReviewFlagPatchRequest */
+        ReviewFlagPatchRequest: {
+            /** Q Num */
+            q_num: number;
+            /** Flagged */
+            flagged: boolean;
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+        };
+        /** ReviewFlagStateResponse */
+        ReviewFlagStateResponse: {
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /**
+             * Protocol
+             * @default question-cas-v1
+             * @constant
+             */
+            protocol: "question-cas-v1";
+            /** Review Flags */
+            review_flags: components["schemas"]["QuestionReviewFlag"][];
+        };
+        /** ReviewFlagWriteResponse */
+        ReviewFlagWriteResponse: {
+            /** Q Num */
+            q_num: number;
+            /** Question Id */
+            question_id: string;
+            /** Flagged */
+            flagged: boolean;
+            /** Revision */
+            revision: number;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /**
+             * Protocol
+             * @default question-cas-v1
+             * @constant
+             */
+            protocol: "question-cas-v1";
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Accepted */
+            accepted: boolean;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "applied" | "replayed" | "conflict";
         };
         /** RollbackRequest */
         RollbackRequest: {
@@ -19777,6 +20054,8 @@ export interface components {
         StatusBody: {
             /** Status */
             status: string;
+            /** Expected Revision */
+            expected_revision?: number | null;
         };
         /** StatusIn */
         StatusIn: {
@@ -20095,6 +20374,9 @@ export interface components {
         VisibilityBody: {
             /** Is Public */
             is_public: boolean;
+            /** Expected Revision */
+            expected_revision?: number | null;
+            overlap?: components["schemas"]["PublicOverlapDecision"] | null;
         };
         /** VocabFPReportRequest */
         VocabFPReportRequest: {
@@ -20479,6 +20761,10 @@ export interface components {
         _ListeningAttemptStartRequest: {
             /** Renderer Affinity Protocol */
             renderer_affinity_protocol?: "claim-v1" | null;
+            /** Purpose */
+            purpose?: ("practice" | "assigned_practice" | "mock_delivery") | null;
+            /** Mock Sitting Id */
+            mock_sitting_id?: string | null;
         };
         /** _ReadingAttemptRendererAffinityRequest */
         _ReadingAttemptRendererAffinityRequest: {
@@ -20499,6 +20785,10 @@ export interface components {
         _ReadingAttemptStartRequest: {
             /** Renderer Affinity Protocol */
             renderer_affinity_protocol?: "claim-v1" | null;
+            /** Purpose */
+            purpose?: ("practice" | "assigned_practice" | "mock_delivery") | null;
+            /** Mock Sitting Id */
+            mock_sitting_id?: string | null;
         };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {
@@ -33315,6 +33605,7 @@ export interface operations {
             query?: {
                 class_item?: string | null;
                 attempt_id?: string | null;
+                sitting_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -38434,6 +38725,7 @@ export interface operations {
         parameters: {
             query?: {
                 class_item?: string | null;
+                sitting_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -38729,6 +39021,7 @@ export interface operations {
         parameters: {
             query?: {
                 class_item?: string | null;
+                sitting_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -38818,6 +39111,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewFlagPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagWriteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewFlagPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39761,7 +40196,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PaperPolicyReceipt"];
                 };
             };
             /** @description Validation Error */
@@ -39799,7 +40234,79 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PaperPolicyReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_paper_policy_admin_exam_content__kind___content_id__policy_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: "reading" | "listening";
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperPolicyInspection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_paper_policy_admin_exam_content__kind___content_id__policy_restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: "reading" | "listening";
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestorePolicyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperPolicyReceipt"];
                 };
             };
             /** @description Validation Error */

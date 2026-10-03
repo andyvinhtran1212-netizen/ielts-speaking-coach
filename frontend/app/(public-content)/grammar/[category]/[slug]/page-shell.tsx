@@ -166,7 +166,7 @@ export function ArticleShell({ article, source = '' }: { article: GrammarArticle
       )}
 
       {/* Article container (no hidden class for SSR — content is ready) */}
-      <div id="article-container" className="av-w-page py-8 ds-fadein">
+      <main id="article-container" tabIndex={-1} className="av-w-page py-8 ds-fadein">
         <div className="flex gap-8 items-start justify-center">
           {/* Main article column (max-width: var(--av-width-read)) */}
           <article className="min-w-0 w-full" style={{ maxWidth: 'var(--av-width-read)' }}>
@@ -293,7 +293,7 @@ export function ArticleShell({ article, source = '' }: { article: GrammarArticle
             </aside>
           )}
         </div>
-      </div>
+      </main>
 
       {/* Guest CTA bar (grammar.js line 767: _initGuestCTA, shown by article-behavior.tsx) */}
       <div

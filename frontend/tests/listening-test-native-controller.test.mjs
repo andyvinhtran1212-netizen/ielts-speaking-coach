@@ -315,7 +315,7 @@ describe('native Listening test route contract', () => {
   test('preserves mock sealing, canonical resume and submit safety', () => {
     assert.match(page, /MockHook\.attach\('listening', attemptId\)/);
     assert.match(page, /hook\?\.isSealedResponse/);
-    assert.match(page, /const clean = await coordinatorRef\.current\?\.flush/);
+    assert.match(page, /const \[clean\] = await Promise\.all\(\[coordinatorRef\.current\?\.flush\?\.\(\), flagApi\.flush\(\)\]\)/);
     assert.match(page, /if \(!clean\)/);
     assert.match(page, /coordinatorRef\.current\?\.snapshot\?\.\(\)\.size/);
     assert.match(page, /audio\.ended \|\| audioEnded/);

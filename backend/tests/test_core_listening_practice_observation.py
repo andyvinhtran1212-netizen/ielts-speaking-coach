@@ -155,6 +155,8 @@ def test_rpc_failure_and_lost_ack_preserve_work_and_original_error(monkeypatch, 
     failure = RuntimeError("private synthetic RPC failure")
 
     def fail(name, params):
+        if name != "fn_insert_listening_answer_once":
+            return rpc(name, params)
         if committed: rpc(name, params)
         raise failure
 
@@ -187,9 +189,11 @@ def test_grading_failure_after_write_does_not_erase_first_answer(monkeypatch):
 @pytest.mark.parametrize("enabled", [False, True])
 def test_concurrent_write_requires_verified_first_answer_before_returning_success(monkeypatch, winner, enabled):
     world = setup(monkeypatch, enabled=enabled)
+    rpc = world.db.rpc
 
     def race(name, params):
-        assert name == "fn_insert_listening_answer_once"
+        if name != "fn_insert_listening_answer_once":
+            return rpc(name, params)
         if winner:
             world.attempt["answers"] = [{"q_num": 1, "user_answer": "nineteen"}]
         else:
@@ -213,7 +217,9 @@ def test_concurrent_write_requires_verified_first_answer_before_returning_succes
 @pytest.mark.parametrize("enabled", [False, True])
 def test_unexpected_rpc_shape_or_rejected_write_never_claims_success(monkeypatch, invalid, enabled):
     world = setup(monkeypatch, enabled=enabled)
-    world.db.rpc = lambda *_: fixtures._RpcResult(invalid)
+    rpc = world.db.rpc
+    world.db.rpc = lambda name, params: (fixtures._RpcResult(invalid)
+        if name == "fn_insert_listening_answer_once" else rpc(name, params))
     with pytest.raises(HTTPException) as error: asyncio.run(world.invoke(user_answer="ninety"))
     assert error.value.status_code == (422 if invalid is None else 503)
     assert len(world.events) == int(enabled) and world.attempt["answers"] == []
@@ -264,8 +270,11 @@ def test_installed_postgrest_client_preserves_boolean_rpc_contract(value):
 def test_http_practice_route_preserves_body_auth_and_truthful_error_status(monkeypatch, scenario, status, enabled):
     from main import request_id_middleware
     world = setup(monkeypatch, enabled=enabled)
-    if scenario == "conflict": world.db.rpc = lambda *_: fixtures._RpcResult(False)
-    if scenario == "malformed": world.db.rpc = lambda *_: fixtures._RpcResult("private bad shape")
+    rpc = world.db.rpc
+    if scenario in {"conflict", "malformed"}:
+        world.db.rpc = lambda name, params: (
+            fixtures._RpcResult(False if scenario == "conflict" else "private bad shape")
+            if name == "fn_insert_listening_answer_once" else rpc(name, params))
     if scenario == "owner": world.attempt["user_id"] = str(uuid4())
     app = FastAPI()
     app.middleware("http")(request_id_middleware)

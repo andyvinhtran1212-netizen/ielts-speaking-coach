@@ -331,14 +331,11 @@ def sittings_in_exam(exam_id: UUID | str, sitting_ids) -> set:
 def is_sealed(sitting_id: UUID | str) -> bool:
     """The hook domain endpoints call: is this sitting still withholding scores?
 
-    A missing sitting is treated as NOT sealed (fail-open would be wrong for a
-    real sitting, but a missing row means "not part of a mock" — the caller only
-    reaches here when attempt.sitting_id is set, and a dangling id shouldn't
-    hard-block a normal review path). Released/void sittings are not sealed.
+    A linked but missing sitting remains sealed until its binding is resolved.
     """
     sitting = get_sitting(sitting_id)
     if not sitting:
-        return False
+        return True
     return bool(sitting.get("sealed"))
 
 
@@ -871,6 +868,15 @@ def attach_attempt(
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
     _assert_owner(sitting, user_id)
+    if str(sitting.get(link_col) or "") == str(attempt_id):
+        canonical = supabase_admin.table(domain_table).select(
+            "id,user_id,test_id,sitting_id,attempt_purpose,status",
+        ).eq("id", str(attempt_id)).limit(1).execute().data or []
+        if canonical and canonical[0].get("attempt_purpose") == "mock_delivery":
+            row = canonical[0]
+            if str(row.get("user_id")) != str(user_id) or str(row.get("sitting_id")) != str(sitting_id):
+                raise SittingConflictError("Canonical attempt binding không hợp lệ.")
+            return sitting
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
@@ -2217,6 +2223,9 @@ def _update_mock_with_explanation_approval(
             },
         ).execute().data
     except Exception as exc:  # noqa: BLE001 — translate stable RPC markers
+        from services.mock_paper_policy import database_policy_error
+        if policy_error := database_policy_error(exc):
+            raise policy_error from exc
         message = str(exc)
         if "web_explanation_paper_requires_q01_q40" in message:
             raise ValueError(
@@ -2243,46 +2252,31 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     row = {k: v for k, v in payload.items() if k in _EXAM_WRITABLE}
     if not row.get("code") or not row.get("title"):
         raise ValueError("code và title là bắt buộc.")
-    desired_mode = row.get("web_explanation_mode") or "with_result"
-    # The row is invisible to learners while draft, but storing an enabled mode
-    # before approval would still create false canonical state if the next RPC
-    # fails. Start disabled, then atomically approve + enable below.
-    row["web_explanation_mode"] = "disabled"
-    row["created_by"] = str(created_by)
+    for field in ("reading_is_public", "listening_is_public"):
+        if payload.get(field) is not None:
+            row[field] = bool(payload[field])
     try:
-        inserted = supabase_admin.table("mock_exams").insert(row).execute()
+        result = supabase_admin.rpc("fn_create_mock_exam_with_paper_policy", {
+            "p_payload": row, "p_actor_id": str(created_by),
+        }).execute().data
     except Exception as exc:  # noqa: BLE001 — PostgREST exposes SQLSTATE dynamically
+        from services.mock_paper_policy import database_policy_error
+        if policy_error := database_policy_error(exc):
+            raise policy_error from exc
         if _is_unique_violation(exc):
             raise DuplicateExamCodeError("Mã đề đã tồn tại.") from exc
+        if "web_explanation_paper_requires_q01_q40" in str(exc):
+            raise ValueError("Chỉ bật web explanation khi từng đề có đủ đúng 40 objects từ Q1 đến Q40.") from exc
+        if "web_explanation_content_version_unavailable" in str(exc):
+            raise ValueError("Các đề trong mock test không có cùng một content version hiện hành.") from exc
+        if "web_explanation_serving_blocked:" in str(exc):
+            raise ValueError("Đề còn item chưa qua matcher/serving gate.") from exc
         raise
-    if not inserted.data:
-        raise MockExamError("Không tạo được mock exam.")
-    try:
-        scope_patch = {
-            "web_explanation_mode": desired_mode,
-            "web_explanation_content_version": payload.get(
-                "web_explanation_content_version"
-            ),
-        }
-        for field in ("reading_is_public", "listening_is_public"):
-            if payload.get(field) is not None:
-                scope_patch[field] = payload[field]
-        inserted.data[0] = _update_mock_with_explanation_approval(
-            str(inserted.data[0]["id"]), scope_patch, str(created_by),
-        )
-    except Exception:
-        try:
-            supabase_admin.table("mock_exams").delete().eq(
-                "id", str(inserted.data[0]["id"]),
-            ).execute()
-        except Exception:  # noqa: BLE001
-            logger.exception(
-                "[mock-exam] create rollback failed exam=%s",
-                inserted.data[0].get("id"),
-            )
-        raise
-    _reserve_exam_content(inserted.data[0])
-    return inserted.data[0]
+    if not isinstance(result, dict) or not result.get("id"):
+        from services.mock_paper_policy import unavailable
+        raise unavailable("mock_create", "reading", row.get("reading_test_id", ""))
+    _reserve_exam_content(result)
+    return result
 
 
 def admin_update_exam(exam_id: str, patch: dict, actor_id: str | None = None) -> dict:
@@ -2549,20 +2543,23 @@ def _grade_and_finalize_listening(attempt_id: str) -> None:
 
     update: dict = {"status": "submitted", "submitted_at": _now_iso()}
     try:
-        test_id = attempt["test_id"]
-        section_ids = [r["id"] for r in (
-            supabase_admin.table("listening_content").select("id")
-            .eq("test_id", test_id).execute().data or []
-        )]
-        ex_rows = (
-            supabase_admin.table("listening_exercises").select("payload")
-            .in_("content_id", section_ids).execute().data
-            if section_ids else []
-        )
-        answer_key = grader.collect_answer_key(ex_rows or [])
-        answer_key = mock_correction_service.apply_scoring_overrides(
-            "listening", test_id, answer_key
-        )
+        from services.mock_paper_policy import frozen_answer_key, load_marking_snapshot
+        answer_key = frozen_answer_key(supabase_admin, "listening", attempt)
+        if answer_key is None:
+            test_id = attempt["test_id"]
+            section_ids = [r["id"] for r in (
+                supabase_admin.table("listening_content").select("id")
+                .eq("test_id", test_id).execute().data or []
+            )]
+            ex_rows = (
+                supabase_admin.table("listening_exercises").select("payload")
+                .in_("content_id", section_ids).execute().data
+                if section_ids else []
+            )
+            answer_key = grader.collect_answer_key(ex_rows or [])
+            answer_key = mock_correction_service.apply_scoring_overrides(
+                "listening", test_id, answer_key
+            )
         result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
         update.update({
             "score":           result["score"],
@@ -2598,26 +2595,31 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
 
     update: dict = {"status": "submitted", "submitted_at": _now_iso()}
     try:
-        test_uuid = attempt["test_id"]
-        test_res = supabase_admin.table("reading_tests").select(
-            "id, module",
-        ).eq("id", test_uuid).limit(1).execute()
-        module = test_res.data[0].get("module") if test_res.data else None
-        passages = (
-            supabase_admin.table("reading_passages").select("id, passage_order")
-            .eq("test_id", test_uuid).eq("library", "l3_test").execute().data or []
-        )
-        passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
-        q_rows = (
-            supabase_admin.table("reading_questions")
-            .select("q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id")
-            .in_("passage_id", list(passage_order_by_id.keys())).execute().data
-            if passage_order_by_id else []
-        )
-        answer_key = grader.collect_answer_key(q_rows or [], passage_order_by_id)
-        answer_key = mock_correction_service.apply_scoring_overrides(
-            "reading", test_uuid, answer_key
-        )
+        from services.mock_paper_policy import frozen_answer_key, load_marking_snapshot
+        answer_key = frozen_answer_key(supabase_admin, "reading", attempt)
+        snapshot = load_marking_snapshot(supabase_admin, "reading", attempt)
+        module = snapshot["paper_row"].get("module") if snapshot is not None else None
+        if answer_key is None:
+            test_uuid = attempt["test_id"]
+            test_res = supabase_admin.table("reading_tests").select(
+                "id, module",
+            ).eq("id", test_uuid).limit(1).execute()
+            module = test_res.data[0].get("module") if test_res.data else None
+            passages = (
+                supabase_admin.table("reading_passages").select("id, passage_order")
+                .eq("test_id", test_uuid).eq("library", "l3_test").execute().data or []
+            )
+            passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
+            q_rows = (
+                supabase_admin.table("reading_questions")
+                .select("q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id")
+                .in_("passage_id", list(passage_order_by_id.keys())).execute().data
+                if passage_order_by_id else []
+            )
+            answer_key = grader.collect_answer_key(q_rows or [], passage_order_by_id)
+            answer_key = mock_correction_service.apply_scoring_overrides(
+                "reading", test_uuid, answer_key
+            )
         persisted = (
             supabase_admin.table("reading_attempt_answers")
             .select("q_num,user_answer").eq("attempt_id", attempt_id).execute().data or []

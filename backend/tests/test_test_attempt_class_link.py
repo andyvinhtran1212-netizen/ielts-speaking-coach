@@ -13,6 +13,8 @@ interchangeable: a row written first and checked second is a row that exists.
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
+from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -33,6 +35,7 @@ class _Table:
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
         return self
     def limit(self, *_a): return self
+    def order(self, *_a, **_k): return self
     def update(self, _p): return self
 
     def insert(self, payload):
@@ -48,6 +51,21 @@ def _db(rows=None):
     db = type("DB", (), {})()
     db.table = lambda n: _Table(tables.get(n, []), sink)
     db.inserted = sink
+    def rpc(name, params):
+        assert name == "fn_resolve_mock_paper_access"
+        allowed = (params["p_skill"] in {"reading", "listening"}
+                   and params["p_test_id"] == "uuid-1"
+                   and params["p_user_id"] == "user-1"
+                   and params["p_purpose"] == "delivery"
+                   and params["p_sitting_id"] is None
+                   and params["p_allow_admission"] is True
+                   and params["p_class_item_id"] in {None, "item-1"})
+        return SimpleNamespace(execute=lambda: _Resp({
+            "allowed": allowed,
+            "attempt_purpose": ("assigned_practice" if params["p_class_item_id"] else "practice") if allowed else None,
+            "paper_revision": 0, "policy_revision": 0,
+        }))
+    db.rpc = rpc
     return db
 
 
@@ -61,7 +79,6 @@ async def _start_reading(class_item, *, validator=None):
          patch.object(reading_mod, "_fetch_published_test",
                       lambda _t: {"id": "uuid-1", "time_limit_minutes": 60,
                                   "metadata": {}}), \
-         patch.object(reading_mod, "_assert_exam_content_allowed", lambda *_a: None), \
          patch.object(reading_mod, "_require_test_unlocked", lambda *_a: None), \
          patch.object(reading_mod, "_abandon_open_attempts", lambda *_a: None), \
          patch.object(reading_mod, "validate_class_item_for_test",
@@ -108,8 +125,6 @@ async def _start_listening(class_item, *, validator=None):
     }]})
     with patch.object(listening_mod, "_require_auth",
                       AsyncMock(return_value={"id": "user-1"})), \
-         patch.object(listening_mod, "_assert_listening_exam_content_allowed",
-                      lambda *_a: None), \
          patch.object(listening_mod, "validate_class_item_for_test",
                       validator or (lambda *_a, **_k: None)), \
          patch.object(listening_mod, "supabase_admin", db):
@@ -175,7 +190,22 @@ _HOMEWORK = {**_FREE, "id": "att-HW", "class_assignment_item_id": "item-1"}
 
 def _lookup_db(rows, seen):
     db = type("DB", (), {})()
-    db.table = lambda _n: _RecordingTable(rows, seen)
+    db.table = lambda name: _RecordingTable(
+        [] if name == "mock_attempt_review_flags" else rows, seen)
+    def rpc(name, params):
+        assert name == "fn_guard_owned_mock_attempt"
+        assert params["p_skill"] in {"reading", "listening"}
+        assert params["p_purpose"] == "resume"
+        supplied = params["p_attempt"]
+        canonical = next((row for row in rows if row["id"] == supplied["id"]
+                          and row["user_id"] == supplied.get("user_id")
+                          and row["test_id"] == supplied.get("test_id")), None)
+        allowed = (canonical is not None and canonical["status"] == "in_progress"
+                   and not canonical.get("sitting_id")
+                   and canonical.get("attempt_purpose") != "mock_delivery"
+                   and datetime.fromisoformat(canonical["resume_expires_at"]) > datetime.now(timezone.utc))
+        return SimpleNamespace(execute=lambda: _Resp({"allowed": allowed}))
+    db.rpc = rpc
     return db
 
 

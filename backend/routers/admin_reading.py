@@ -975,33 +975,15 @@ async def admin_set_reading_exam_only(
     Keyed by the human test_id the admin list shows, like every other route
     here — an admin should never have to find a UUID.
     """
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
     value = bool(body.get("exam_only"))
-    if not value:
-        # Handing it back to the library while a live exam still binds it would
-        # publish that exam's paper to the students about to sit it.
-        row = (
-            supabase_admin.table("reading_tests").select("id")
-            .eq("test_id", test_id).limit(1).execute().data or []
-        )
-        if not row:
-            raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
-        from services import mock_exam_service
-        try:
-            mock_exam_service.assert_can_unreserve("reading", row[0]["id"])
-        except mock_exam_service.SittingConflictError as e:
-            raise HTTPException(409, str(e))
-        except mock_exam_service.MockExamError as e:
-            raise HTTPException(503, str(e))
-    resp = (
-        supabase_admin.table("reading_tests")
-        .update({"exam_only": value})
-        .eq("test_id", test_id)
-        .execute()
-    )
-    if not resp.data:
+    rows = supabase_admin.table("reading_tests").select("id").eq("test_id", test_id).limit(1).execute().data or []
+    if not rows:
         raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
-    return {"test_id": test_id, "exam_only": value}
+    from services.mock_paper_policy import mutate
+    row = mutate(supabase_admin, "reading", rows[0]["id"], {"exam_only": value}, actor["id"],
+                 expected_revision=body.get("expected_revision"))
+    return {"test_id": test_id, "exam_only": row["exam_only"], "policy_revision": row["policy_revision"]}
 
 
 @router.patch("/tests/{test_id}/visibility")
@@ -1011,19 +993,17 @@ async def admin_set_reading_visibility(
     authorization: str | None = Header(default=None),
 ):
     """Set public visibility independently from mock/class assignment."""
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
     if "is_public" not in body:
         raise HTTPException(422, "Thiếu is_public.")
     value = bool(body.get("is_public"))
-    resp = (
-        supabase_admin.table("reading_tests")
-        .update({"is_public": value, "exam_only": False})
-        .eq("test_id", test_id)
-        .execute()
-    )
-    if not resp.data:
+    rows = supabase_admin.table("reading_tests").select("id").eq("test_id", test_id).limit(1).execute().data or []
+    if not rows:
         raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
-    return {"test_id": test_id, "is_public": value}
+    from services.mock_paper_policy import mutate
+    row = mutate(supabase_admin, "reading", rows[0]["id"], {"is_public": value}, actor["id"],
+                 expected_revision=body.get("expected_revision"), overlap=body.get("overlap"))
+    return {"test_id": test_id, "is_public": row["is_public"], "policy_revision": row["policy_revision"]}
 
 
 @router.post("/tests/{test_id}/lock")

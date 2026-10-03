@@ -26,6 +26,7 @@ import {
   type ReactNode,
 } from 'react';
 import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
+import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '@/lib/learner-tab-drafts.mjs';
 
 export type AuthStatus = 'initial-loading' | 'signed-in' | 'signed-out';
 
@@ -70,11 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('initial-loading');
   const [user, setUser] = useState<AuthUser | null>(null);
   const sbRef = useRef<any>(null);
+  const confirmedAccountRef = useRef<string | null>(null);
+  const sessionReadRef = useRef(0);
 
   // Single transition point: every signal (initial getSession, refresh events,
   // cross-tab storage sync, chrome sign-out) funnels through here, so a null
   // session can only ever move us to signed-out — the fail-closed direction.
   const applySession = useCallback((session: any | null) => {
+    ++sessionReadRef.current; // A newer auth signal supersedes pending reads.
+    const nextAccount = typeof session?.user?.id === 'string' ? session.user.id : null;
+    const previousAccount = confirmedAccountRef.current;
+    if (previousAccount && previousAccount !== nextAccount) clearLearnerTabDraftAccount(previousAccount);
+    else if (!nextAccount) invalidateLearnerTabDraftOwner();
+    confirmedAccountRef.current = nextAccount;
     try { clearCoreOperationIntents(window.sessionStorage, session?.user?.id || null); } catch { /* auth must proceed */ }
     if (session && session.user) {
       setUser({ id: session.user.id, email: session.user.email ?? null });
@@ -98,20 +107,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       sbRef.current = sb;
 
+      // Subscribe before the initial read: logout/account changes must win
+      // over an older getSession response.
+      const { data: sub } = sb.auth.onAuthStateChange((_event: string, session: any) => {
+        if (!disposed) applySession(session ?? null);
+      });
+      unsubscribe = () => sub?.subscription?.unsubscribe?.();
+      const initialRead = ++sessionReadRef.current;
+
       try {
         const { data } = await sb.auth.getSession();
-        if (!disposed) applySession(data?.session ?? null);
+        if (!disposed && initialRead === sessionReadRef.current) applySession(data?.session ?? null);
       } catch {
-        if (!disposed) applySession(null); // fail-closed
+        if (!disposed && initialRead === sessionReadRef.current) applySession(null); // fail-closed
       }
 
       // supabase-js v2 covers refresh outcomes AND cross-tab sync (storage
       // events on its localStorage key): TOKEN_REFRESHED keeps signed-in,
       // refresh failure / SIGNED_OUT arrive with session=null → signed-out.
-      const { data: sub } = sb.auth.onAuthStateChange((_event: string, session: any) => {
-        if (!disposed) applySession(session ?? null);
-      });
-      unsubscribe = () => sub?.subscription?.unsubscribe?.();
     })();
 
     // ADR-011 §4 coexistence: the legacy <aver-chrome> logout button performs
@@ -127,13 +140,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // real session on every persisted pageshow.
     const onPageShow = (e: PageTransitionEvent) => {
       if (!e.persisted || !sbRef.current) return;
+      const read = ++sessionReadRef.current;
+      setUser(null);
+      setStatus('initial-loading');
       sbRef.current.auth
         .getSession()
         .then(({ data }: any) => {
-          if (!disposed) applySession(data?.session ?? null);
+          if (!disposed && read === sessionReadRef.current) applySession(data?.session ?? null);
         })
         .catch(() => {
-          if (!disposed) applySession(null);
+          if (!disposed && read === sessionReadRef.current) applySession(null);
         });
     };
     window.addEventListener('pageshow', onPageShow);

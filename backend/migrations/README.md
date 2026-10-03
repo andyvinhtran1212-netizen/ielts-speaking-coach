@@ -20,12 +20,19 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-01 the highest is `306`, so the next new
-migration is `307`.
+sequence is dense. As of 2026-10-03 the highest is `309`, so the next new
+migration is `310`.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
 historical results; compatible code and explicit staged enablement are separate.
+
+The unapplied Grammar revision candidate was renamed from
+`306_grammar_quiz_revision_cutover.sql` to
+`309_grammar_quiz_revision_cutover.sql` after the independently released Mock
+migrations used 306–308. Its SQL is unchanged; no applied ledger row is renamed
+or baselined. Verify the candidate is still unapplied on the target before
+release; an already applied old filename requires an additive follow-up.
 
 ## Conventions
 
@@ -309,3 +316,13 @@ Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
 hosted drift. A pending feature group requires its explicit
 `MIGRATION_FEATURES` opt-in after staging validation.
+
+Mock remediation rolls out as306307 additive migrations, then deployment and
+verification of the exact new backend SHA, then opt-in308
+(`mock_content_remediation_activation`). Before308, attempts remain honest
+legacy rows without frozen marking snapshots; N-1 start/attach/save/submit
+remain compatible. Apply308 only through the locked runner after setting
+`mock_paper.deployed_backend_sha` to that verified40-character SHA in its
+session;308 records the SHA on the service-only activation function. Do not
+include308 in the migration-before-code batch. It activates typed admission
+and frozen snapshots for new work, with no backfill or regrade of old work.

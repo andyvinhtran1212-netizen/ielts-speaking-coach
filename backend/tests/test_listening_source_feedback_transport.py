@@ -2,6 +2,7 @@
 from __future__ import annotations
 import asyncio
 from copy import deepcopy
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -39,7 +40,7 @@ def boundary(monkeypatch):
     payload, answers = native_payload()
     report = grade_report_only_attempt(answers, [{'payload': payload}], source_required=True)
     assert all(item['state'] == 'unscored' for item in report['per_question'])
-    db = SimpleNamespace(payload=payload, answers=answers, rpc_calls=[], queries=[],
+    db = SimpleNamespace(payload=payload, answers=answers, rpc_calls=[], policy_rpc_calls=[], queries=[],
         test={'id': 'test-id', 'test_id': 'native-source', 'programme_id': SOURCE_PROGRAMME,
               'status': 'published', 'is_public': True, 'content_package_id': 'source-package',
               'scoring_policy': 'report_only', 'replay_policy': 'allowed',
@@ -86,6 +87,22 @@ def boundary(monkeypatch):
     class Admin:
         def table(self, name): return Query(name)
         def rpc(self, name, args):
+            if name == 'fn_guard_owned_mock_attempt':
+                db.policy_rpc_calls.append((name, deepcopy(args)))
+                attempt = args['p_attempt']
+                assert args['p_skill'] == 'listening'
+                identity = (attempt['id'] == str(ATTEMPT)
+                            and attempt['user_id'] == 'owner'
+                            and attempt['test_id'] == db.test['id'])
+                submitted_read = (attempt['status'] == 'submitted'
+                                  and args['p_purpose'] in {'review', 'flags_read'})
+                active = (attempt['status'] == 'in_progress'
+                          and datetime.fromisoformat(attempt['resume_expires_at'].replace('Z', '+00:00'))
+                          > datetime.now(timezone.utc))
+                return SimpleNamespace(execute=lambda: SimpleNamespace(data={
+                    'allowed': identity and (submitted_read or active)
+                    and not attempt.get('sitting_id')}))
+            assert name == 'fn_record_listening_programme_feedback_reveal'
             db.rpc_calls.append((name, args))
             return SimpleNamespace(execute=lambda: SimpleNamespace(data=[{
                 'first_answer': db.answers[args['p_q_num'] - 1]['user_answer'],

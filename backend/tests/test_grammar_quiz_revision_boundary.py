@@ -82,7 +82,7 @@ class GrammarPg:
         function = re.search(r'CREATE OR REPLACE FUNCTION public.quiz_replace_questions[\s\S]*?END; \$function\$;', sql).group()
         await self.c.execute(self.adapted(function))
         await self.c.execute(self.adapted((MIGRATIONS / '294_atomic_quiz_import_publish_state.sql').read_text()))
-        await self.c.execute(self.adapted((MIGRATIONS / '306_grammar_quiz_revision_cutover.sql').read_text()))
+        await self.c.execute(self.adapted((MIGRATIONS / '309_grammar_quiz_revision_cutover.sql').read_text()))
         for role in self.roles.values():
             await self.c.execute(f'GRANT USAGE ON SCHEMA {self.schema} TO {role}')
             await self.c.execute(f'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA {self.schema} TO {role}')
@@ -222,7 +222,7 @@ async def pg():
 @pytest.mark.asyncio
 async def test_additive_migration_and_rerun_preserve_unmanaged_rows(pg):
     before = await pg.c.fetchval('SELECT to_jsonb(b)::text FROM quiz_banks b WHERE id=$1', pg.old)
-    await pg.c.execute(pg.adapted((MIGRATIONS / '306_grammar_quiz_revision_cutover.sql').read_text()))
+    await pg.c.execute(pg.adapted((MIGRATIONS / '309_grammar_quiz_revision_cutover.sql').read_text()))
     assert await pg.c.fetchval('SELECT to_jsonb(b)::text FROM quiz_banks b WHERE id=$1', pg.old) == before
     assert await pg.c.fetchval('SELECT count(*) FROM governance_audit') == 0
     assert await pg.c.fetchval('SELECT count(*) FROM quiz_sessions WHERE grammar_revision IS NOT NULL') == 0

@@ -187,6 +187,10 @@ export function normalizeListeningResume(payload) {
     started_at: requiredText(attempt.started_at, 'invalid-listening-start-time'),
     answers: Array.isArray(attempt.answers) ? attempt.answers : [],
     renderer_affinity: rendererAffinity,
+    ...('attempt_purpose' in attempt ? { attempt_purpose: attempt.attempt_purpose } : {}),
+    ...('mock_sitting_id' in attempt ? { mock_sitting_id: attempt.mock_sitting_id } : {}),
+    ...('paper_revision' in attempt ? { paper_revision: attempt.paper_revision } : {}),
+    ...('policy_revision' in attempt ? { policy_revision: attempt.policy_revision } : {}),
   };
 }
 
@@ -412,6 +416,16 @@ export function createListeningSaveCoordinator({
     for (const [qNum, value] of seedValues || []) values.set(Number(qNum), String(value ?? ''));
   }
 
+  // Restored unacknowledged flag intent waits for explicit retry. Answer
+  // callers retain the existing seed/update behavior.
+  function restoreFailed(seedValues) {
+    for (const [qNum, value] of seedValues || []) {
+      values.set(qNum, String(value ?? ''));
+      generations.set(qNum, (generations.get(qNum) || 0) + 1);
+      setStatus(qNum, 'failed');
+    }
+  }
+
   function subscribe(listener) {
     listeners.add(listener);
     return () => listeners.delete(listener);
@@ -426,7 +440,7 @@ export function createListeningSaveCoordinator({
     listeners.clear();
   }
 
-  return { update, flush, retryFailed, seed, subscribe, snapshot, dispose };
+  return { update, flush, retryFailed, seed, restoreFailed, subscribe, snapshot, dispose };
 }
 
 function positiveInteger(value, fallback) {

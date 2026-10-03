@@ -24,3 +24,12 @@ lifecycle states, and rollout.md for staging and release sequencing. source-scop
 bind the reviewed academic corrections and matching maps. Final source approval,
 spec approval on the base branch, implementation acceptance, canonical cutover and
 release are separate gates.
+
+Integration update 2026-10-03: the original Grammar306 candidate is still
+unapplied in the recorded canonical preflight. After staging allocated306–308
+to the independent Mock release, this candidate is named
+`309_grammar_quiz_revision_cutover.sql`, with identical SQL bytes. Internal
+routine/lock identifiers remain unchanged. Fresh exact-filename ledger and
+catalog verification must precede any execution; an applied old Grammar filename
+requires an additive follow-up. Full restore, publication, deployed acceptance
+and all22FR remain pending.

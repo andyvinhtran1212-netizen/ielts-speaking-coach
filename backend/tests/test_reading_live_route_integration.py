@@ -93,13 +93,38 @@ passages:
 """
 
 
+def _legacy_practice_db():
+    """Model published, unreserved legacy paper access without bypassing routes."""
+    db = MagicMock()
+    flags = MagicMock()
+    flags.select.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(data=[])
+    tables = db.table.return_value
+    db.table.side_effect = lambda name: flags if name == "mock_attempt_review_flags" else tables
+    def rpc(name, params):
+        if name == "fn_resolve_mock_paper_access":
+            assert params["p_skill"] == "reading"
+            assert params["p_test_id"]
+            assert params["p_user_id"] == _USER["id"]
+            return MagicMock(execute=MagicMock(return_value=MagicMock(data={
+                "allowed": True, "attempt_purpose": "practice", "paper_revision": 1, "policy_revision": 1})))
+        if name == "fn_guard_owned_mock_attempt":
+            attempt = params["p_attempt"]
+            assert params["p_skill"] == "reading"
+            assert attempt["user_id"] == _USER["id"]
+            assert attempt["test_id"] and not attempt.get("sitting_id")
+            return MagicMock(execute=MagicMock(return_value=MagicMock(data={"allowed": True})))
+        raise AssertionError(f"Unexpected policy RPC: {name}")
+    db.rpc.side_effect = rpc
+    return db
+
+
 # ── Step 1 — admin import dry-run ─────────────────────────────────────
 
 
 def test_d6_admin_import_dry_run_is_clean_for_the_integration_fixture():
     """The fixture used by the live-route chain must validate clean. If this
     fails, the rest of the chain is meaningless."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_reading.supabase_admin", mock_db):
         files = {"file": ("t.md", _TINY_L3.encode("utf-8"), "text/markdown")}
@@ -119,7 +144,7 @@ def test_d6_admin_import_dry_run_is_clean_for_the_integration_fixture():
 def test_d6_admin_list_l3_returns_the_imported_test():
     """After import, the L3 filter on the admin list must show the test row.
     The 20.8 endpoint queries reading_tests directly for library=l3_test."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     ordered = mock_db.table.return_value.select.return_value.order.return_value
     # The list uses updated_at plus id as its stable order. Keep the fluent
     # mock on one builder across both order() calls so execute() returns the
@@ -154,7 +179,7 @@ def test_d6_student_detail_omits_answer_keys_at_the_response_surface():
     endpoint must never include `answer` or `explanation` in any question
     object it returns, and the underlying SQL must never select those
     columns either."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value.select.return_value
     # _fetch_published_test
     chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{
@@ -195,7 +220,7 @@ def test_d6_student_detail_omits_answer_keys_at_the_response_surface():
 
 def test_d6_start_attempt_succeeds_first_try_in_the_happy_path():
     """In the no-contention case, the D2 retry loop executes exactly once."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     fetch_chain = mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value
     fetch_chain.execute.return_value = MagicMock(data=[{
         "id": "test-uuid", "test_id": "INT-LIVE-001", "title": "Integration Live Test",
@@ -225,7 +250,7 @@ def test_d6_two_patches_for_different_qnums_each_upsert_reading_attempt_answers(
     reading_attempt_answers, keyed by the (attempt_id, q_num) PK. The
     attempt row's answers JSONB column is never touched during the
     in-flight phase."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value
     chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{
         "id": "attempt-uuid", "user_id": _USER["id"], "test_id": "test-uuid",
@@ -261,7 +286,7 @@ def test_d6_submit_returns_grade_with_skill_breakdown():
 
     started_at = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
 
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     # 1) _fetch_attempt_or_404 + test row
     mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect = [
         MagicMock(data=[{

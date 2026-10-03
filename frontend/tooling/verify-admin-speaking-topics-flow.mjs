@@ -117,6 +117,8 @@ await page.getByRole('tab', { name: /Part 2/ }).click();
 await page.waitForURL((url) => url.searchParams.get('part') === '2' && !url.searchParams.has('topic'));
 await page.getByRole('button', { name: /Travel and tourism/ }).click();
 await page.getByRole('heading', { name: 'Travel and tourism', exact: true }).waitFor();
+await page.getByText('Part 2 · #1', { exact: true }).waitFor();
+await page.getByText('Part 3 · #1', { exact: true }).waitFor();
 check('Part 2 topic hiển thị cả Part 2 và follow-up Part 3', await page.getByText('Part 2 · #1', { exact: true }).count() === 1 && await page.getByText('Part 3 · #1', { exact: true }).count() === 1);
 const topicTrigger = page.getByRole('button', { name: /Travel and tourism/ });
 const detailHeading = page.locator('#ast-detail-title');
