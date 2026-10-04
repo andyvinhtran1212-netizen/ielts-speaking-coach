@@ -62,6 +62,13 @@ function normalizeSolution(value) {
     .filter((item) => typeof item === 'string' && item.trim());
   if (typeof value === 'string') return texts(value).length ? [{ key: 'text', label: 'Lời giải authored', values: [value] }] : [];
   const solution = objectOf(value); if (!solution) return [];
+  const steps = Array.isArray(solution.solution_steps)
+    ? solution.solution_steps.map((step) => textOf(objectOf(step)?.instruction_vi)).filter(Boolean) : [];
+  const distractors = Array.isArray(solution.distractor_analysis)
+    ? solution.distractor_analysis.map((entry) => {
+      const row = objectOf(entry); const why = textOf(row?.why_wrong_vi); const option = textOf(row?.option);
+      return why ? option ? `${option} — ${why}` : why : '';
+    }).filter(Boolean) : [];
   const fields = [
     ['question_text', 'Câu hỏi trong lời giải'], ['steps', 'Các bước giải'],
     ['source_excerpt', 'Trích đoạn nguồn'], ['source_location', 'Vị trí nguồn'],
@@ -70,7 +77,11 @@ function normalizeSolution(value) {
     ['trap_analysis', 'Phân tích bẫy & kỹ năng'], ['tips', 'Mẹo làm bài'],
     ['skill_code', 'Mã kỹ năng'], ['skill_name', 'Kỹ năng'],
   ];
-  const sections = fields.map(([key, label]) => ({ key, label, values: texts(solution[key]) })).filter((section) => section.values.length);
+  const sections = fields.map(([key, label]) => {
+    if (key === 'steps' && steps.length) return { key: 'solution_steps', label, values: steps };
+    if (key === 'trap_analysis' && distractors.length) return { key: 'distractor_analysis', label: 'Phân tích đáp án nhiễu', values: distractors };
+    return { key, label, values: texts(solution[key]) };
+  }).filter((section) => section.values.length);
   if (typeof solution.band === 'number' && Number.isFinite(solution.band)) sections.push({ key: 'band', label: 'Band', values: [String(solution.band)] });
   return sections;
 }

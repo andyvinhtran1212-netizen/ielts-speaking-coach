@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminReadingPreview } from '@/app/(authed-admin-reading-preview)/admin/reading/preview/admin-reading-preview';
+import canonical from '../fixtures/reading-admin-canonical-solutions.json';
 
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('test_id=authored-preview') }));
 vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: 'admin-1' }) }));
@@ -38,6 +39,30 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('admin inspector authored Reading solutions', () => {
+  it('shows all three actual L3 Q10 instructions and the canonical MCQ distractor before and after reload', async () => {
+    const source = { ...paper(), total_questions: 2, questions: [canonical.q10, canonical.mcq] };
+    const original = JSON.stringify(source);
+    get.mockResolvedValue(source);
+    const view = render(<AdminReadingPreview />);
+    await screen.findByText(canonical.q10.prompt);
+    const assertCanonical = () => {
+      const q10 = within(view.container.querySelector('#q10') as HTMLElement);
+      expect(q10.queryByText('Chưa có lời giải')).toBeNull();
+      const steps = q10.getByRole('region', { name: 'Các bước giải' });
+      expect(within(steps).getAllByRole('listitem').map((item) => item.textContent)).toEqual(
+        canonical.q10.payload.solution.solution_steps.map((step) => step.instruction_vi));
+      expect(q10.getByText('coal', { selector: 'code' })).toBeTruthy();
+      const mcq = within(view.container.querySelector('#q1') as HTMLElement);
+      expect(mcq.getByText('B — ' + canonical.mcq.payload.solution.distractor_analysis[0].why_wrong_vi)).toBeTruthy();
+    };
+    assertCanonical();
+    fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    assertCanonical();
+    expect(JSON.stringify(source)).toBe(original);
+    expect(patch).not.toHaveBeenCalled(); expect(post).not.toHaveBeenCalled();
+  });
+
   it('shows a C19R1-shaped authored solution and rubric instead of the empty fallback, while retaining legacy and genuine empty states', async () => {
     const source = paper(); const original = JSON.stringify(source);
     get.mockResolvedValue(source);
@@ -55,6 +80,18 @@ describe('admin inspector authored Reading solutions', () => {
     expect(screen.getAllByText('Chưa có lời giải')).toHaveLength(1);
     expect(JSON.stringify(source)).toBe(original);
     expect(patch).not.toHaveBeenCalled(); expect(post).not.toHaveBeenCalled();
+  });
+
+  it('renders hostile canonical instructions and distractor reasons as literal text', async () => {
+    const fixture = structuredClone(canonical);
+    fixture.q10.payload.solution.solution_steps[0].instruction_vi = '<script>alert(1)</script>';
+    fixture.mcq.payload.solution.distractor_analysis[0].why_wrong_vi = '<img src=x onerror=alert(2)>';
+    get.mockResolvedValue({ ...paper(), total_questions: 2, questions: [fixture.q10, fixture.mcq] });
+    const view = render(<AdminReadingPreview />);
+    expect(await screen.findByText('<script>alert(1)</script>')).toBeTruthy();
+    expect(screen.getByText('B — <img src=x onerror=alert(2)>')).toBeTruthy();
+    expect(view.container.querySelector('#q10 script, #q1 img')).toBeNull();
+    expect(markdown.mock.calls.every(([value]) => value === 'Source passage')).toBe(true);
   });
 
   it('renders both explanation sources and literal hostile markup as text without invoking the passage Markdown renderer', async () => {

@@ -1,0 +1,135 @@
+{
+  "source_paths": [
+    "backend/content/reading/l3-academic-reading-test-1.md#Q10",
+    "backend/content/exams/grammar-reading-decode-001.md#Q1"
+  ],
+  "q10": {
+    "id": "canonical-q10",
+    "q_num": 10,
+    "passage_id": "p1",
+    "passage_order": 1,
+    "question_type": "short_answer",
+    "prompt": "Which industry is the 150,000 craft figure compared with? (ONE word)",
+    "skill_tag": "scanning",
+    "payload": {
+      "solution": {
+        "solution_steps": [
+          {
+            "action": "locate",
+            "instruction_vi": "Quét (scan) tìm con số '150,000' trong bài — số liệu là 'mỏ neo' dễ định vị nhanh.",
+            "kp_refs": [
+              {
+                "type": "skill",
+                "slug": "scanning"
+              }
+            ]
+          },
+          {
+            "action": "parse_syntax",
+            "instruction_vi": "Bài dùng cấu trúc so sánh 'more than …': '150,000 people — more than the country's coal industry'. Ngành đứng sau 'more than' chính là đáp án.",
+            "kp_refs": [
+              {
+                "type": "grammar",
+                "slug": "comparison",
+                "anchor": "comparison.overview"
+              }
+            ],
+            "microcheck": {
+              "prompt": "Trong '150,000 people — more than the country's coal industry', ngành đứng sau 'more than' đóng vai trò gì?",
+              "options": [
+                "là ngành được đem ra so sánh (đáp án: coal)",
+                "là chủ ngữ của câu",
+                "không liên quan tới đáp án"
+              ],
+              "answer": "A"
+            }
+          },
+          {
+            "action": "confirm",
+            "instruction_vi": "Ngành được đem so sánh là 'coal' → đáp án: coal."
+          }
+        ]
+      }
+    },
+    "answer": {
+      "answer": "coal",
+      "alternatives": []
+    },
+    "explanation": null
+  },
+  "mcq": {
+    "id": "canonical-q1",
+    "q_num": 1,
+    "passage_id": "p1",
+    "passage_order": 1,
+    "question_type": "mcq_single",
+    "prompt": "The artefacts ____ in the tomb are now displayed in the national museum.",
+    "skill_tag": null,
+    "payload": {
+      "solution": {
+        "solution_steps": [
+          {
+            "action": "parse_syntax",
+            "instruction_vi": "'discovered in the tomb' là mệnh đề quan hệ rút gọn BỊ ĐỘNG = 'which were discovered in the tomb'. Hiện vật ĐƯỢC phát hiện, nên dùng phân từ quá khứ (V3).",
+            "kp_refs": [
+              {
+                "type": "grammar",
+                "slug": "reduced-relative-clauses",
+                "anchor": "reduced-relative-clauses.passive-v3"
+              }
+            ],
+            "microcheck": {
+              "prompt": "'The artefacts discovered in the tomb' — 'discovered' rút gọn từ cụm nào?",
+              "options": [
+                "which were discovered",
+                "which discovered",
+                "who discovered"
+              ],
+              "answer": "A"
+            }
+          },
+          {
+            "action": "confirm",
+            "instruction_vi": "Rút gọn bị động → phân từ quá khứ 'discovered'. Đáp án A."
+          }
+        ],
+        "distractor_analysis": [
+          {
+            "option": "B",
+            "why_wrong_vi": "'discovering' (V-ing) là rút gọn CHỦ ĐỘNG — sai nghĩa vì hiện vật không tự phát hiện, mà được phát hiện.",
+            "kp_refs": [
+              {
+                "type": "grammar",
+                "slug": "reduced-relative-clauses",
+                "anchor": "reduced-relative-clauses.pitfall"
+              }
+            ]
+          }
+        ]
+      },
+      "options": [
+        {
+          "label": "A",
+          "text": "discovered"
+        },
+        {
+          "label": "B",
+          "text": "discovering"
+        },
+        {
+          "label": "C",
+          "text": "which discovered"
+        },
+        {
+          "label": "D",
+          "text": "discover"
+        }
+      ]
+    },
+    "answer": {
+      "answer": "A",
+      "alternatives": []
+    },
+    "explanation": null
+  }
+}
