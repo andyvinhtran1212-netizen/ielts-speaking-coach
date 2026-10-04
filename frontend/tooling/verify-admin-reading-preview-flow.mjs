@@ -1,5 +1,5 @@
 // Fixture-backed browser contract for native Admin Reading paper QA.
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
@@ -9,6 +9,7 @@ const testId = 'AVR-READ-PREVIEW-1';
 const adminId = '00000000-0000-0000-0000-000000000117';
 const session = JSON.stringify({ access_token: 'admin-reading-preview-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'reading-preview@local' } });
 const results = [];
+const canonical = JSON.parse(readFileSync(new URL('../tests/fixtures/reading-admin-canonical-solutions.json', import.meta.url), 'utf8'));
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
 async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
 
@@ -16,7 +17,7 @@ let imagePath = null;
 let getCount = 0;
 const fixture = () => ({
   id: 'uuid-test', test_id: testId, title: 'Academic Reading QA', module: 'academic', status: 'draft',
-  passage_count: 2, total_questions: 4, time_limit_minutes: 60, band_target: 7,
+  passage_count: 2, total_questions: 6, time_limit_minutes: 60, band_target: 7,
   passages: [
     { id: 'p1', passage_order: 1, slug: 'water-safe', title: 'Water & Safety <script>', body_markdown: '# Water safety\n\n<script>window.__arpXss = true</script>Text stays readable.', word_count: 640, estimated_minutes: 20, status: 'published', topic_tags: [], img_prompts: [{ id: 'IMG-Q2-3', type: 'diagram', qrange: '2–3', prompt: 'Create a labelled water-cycle diagram.' }, { id: 'broken' }] },
     { id: 'p2', passage_order: 2, slug: 'cities', title: 'Cities', body_markdown: '## Urban change\n\nSecond passage.', word_count: 590, estimated_minutes: 20, status: 'published', topic_tags: [], img_prompts: [] },
@@ -26,6 +27,8 @@ const fixture = () => ({
     { id: 'q2', q_num: 2, passage_id: 'p1', passage_order: 1, question_type: 'diagram_label_completion', prompt: 'Label the cycle.', skill_tag: 'visual', payload: { template: imagePath ? { image_storage_path: imagePath, image_source: 'admin_upload', choose: 1 } : { choose: 1 }, ...(imagePath ? { image_url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==' } : {}) }, answer: { answer: 'evaporation', alternatives: ['water evaporation'] }, explanation: 'Follow the upward arrow.' },
     { id: 'q3', q_num: 3, passage_id: 'p1', passage_order: 1, question_type: 'diagram_label_completion', prompt: 'Label the next stage.', skill_tag: 'visual', payload: { template: {} }, answer: { answer: 'condensation', alternatives: [] }, explanation: 'Follow the cloud marker.' },
     { id: 'q4', q_num: 4, passage_id: 'p2', passage_order: 2, question_type: 'short_answer', prompt: 'Name the city.', skill_tag: 'locate', payload: {}, answer: { answer: 'Oslo', alternatives: ['OSLO'] }, explanation: 'Named in paragraph 2.' },
+    canonical.q10,
+    { ...canonical.mcq, id: 'canonical-mcq', q_num: 14, passage_id: 'p2', passage_order: 2 },
   ],
 });
 
@@ -59,6 +62,11 @@ await page.goto(`${BASE}/admin/reading/preview?test_id=${testId}`, { waitUntil: 
 await page.getByRole('heading', { name: 'Academic Reading QA', exact: true }).waitFor();
 check('backend-owned admin gate và canonical GET chạy', requests.includes('GET /auth/me') && requests.includes(`GET /admin/reading/content/tests/${testId}`));
 check('answer key và explanation hiển thị', await page.getByText('evaporation', { exact: true }).count() === 1 && await page.getByText('Follow the upward arrow.', { exact: true }).count() === 1);
+const q10 = page.locator('#q10');
+if (process.env.AVER_CANONICAL_SCREENSHOT) await q10.screenshot({ path: process.env.AVER_CANONICAL_SCREENSHOT });
+check('actual canonical L3 Q10 shows all three ordered instructions instead of empty solution',
+  JSON.stringify(await q10.locator('section[aria-label="Các bước giải"] li').allTextContents()) === JSON.stringify(canonical.q10.payload.solution.solution_steps.map((step) => step.instruction_vi))
+  && await q10.getByText('Chưa có lời giải', { exact: true }).count() === 0);
 check('diagram block chỉ có một image manager', await page.getByRole('region', { name: 'Ảnh sơ đồ cho câu 2' }).count() === 1 && await page.getByText('Dùng chung ảnh sơ đồ với Q2', { exact: false }).count() === 1);
 check('IMG-PROMPT và contract issue hiển thị thật', await page.getByText('Prompt tạo ảnh được trích từ file').count() === 1 && await page.getByText(/1 vấn đề contract cần rà/).count() === 1);
 check('student-like preview dùng native review route', await page.getByRole('link', { name: 'Xem như học viên ↗' }).getAttribute('href') === `/reading/review?admin_test_id=${testId}`);
@@ -83,6 +91,20 @@ check('delete canonical readback trả UI về fallback', getCount >= 3 && await
 await page.goto(`${BASE}/admin/reading/preview?test_id=${testId}#q4`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Cities', exact: true }).waitFor();
 check('deep link câu hỏi chọn đúng passage trước khi scroll', await page.locator('#q4').count() === 1 && await page.getByRole('button', { name: /Passage 2/ }).getAttribute('aria-current') === 'true');
+check('canonical distractor keeps the option label and complete authored reason',
+  await page.locator('#q14').getByText('B — ' + canonical.mcq.payload.solution.distractor_analysis[0].why_wrong_vi, { exact: true }).count() === 1);
+if (process.env.AVER_CANONICAL_DISTRACTOR_SCREENSHOT) await page.locator('#q14').screenshot({ path: process.env.AVER_CANONICAL_DISTRACTOR_SCREENSHOT });
+
+await page.goto(`${BASE}/admin/reading/preview?test_id=${testId}#q10`, { waitUntil: 'domcontentloaded' });
+await page.locator('#q10').waitFor();
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.locator('#q10').waitFor();
+check('canonical Q10 survives a full page reload with all three steps and unchanged coal key',
+  await page.locator('#q10 section[aria-label="Các bước giải"] li').count() === 3
+  && await page.locator('#q10').getByText('coal', { exact: true }).count() === 1);
+
+await page.goto(`${BASE}/admin/reading/preview?test_id=${testId}#q4`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Cities', exact: true }).waitFor();
 
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.reload({ waitUntil: 'domcontentloaded' });

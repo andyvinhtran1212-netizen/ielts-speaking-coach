@@ -18,6 +18,7 @@ const CSS = read('public', 'css', 'admin-reading-preview-next.css');
 const CONTENT = read('app', '(authed-admin-reading-content)', 'admin', 'reading', 'content', 'admin-reading-content.tsx');
 const FEEDBACK_MODEL = read('lib', 'admin-feedback-model.mjs');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
+const CANONICAL = JSON.parse(read('tests', 'fixtures', 'reading-admin-canonical-solutions.json'));
 
 const payload = (overrides = {}) => ({
   id: 'uuid-t1', test_id: 'T 1', title: 'Reading paper', module: 'academic',
@@ -96,6 +97,42 @@ test('does not invent prose from malformed or empty solution/rubric values', () 
   assert.deepEqual(rows.map(({ solutionSections }) => solutionSections), [[], [], []]);
   assert.equal(rows[0].instruction, null); assert.equal(rows[0].wordLimit, null);
   assert.equal(rows[0].explanation, 'Because A');
+});
+
+test('renders the actual structured L3 Q10 and canonical MCQ distractor without a root explanation', () => {
+  const source = payload({ total_questions: 2, questions: [CANONICAL.q10, CANONICAL.mcq] });
+  const before = JSON.stringify(source);
+  const rows = normalizeReadingAdminPreview(source).test.questions;
+  const q10 = rows.find((row) => row.qNum === 10);
+  assert.equal(q10.explanation, null);
+  assert.deepEqual(q10.solutionSections.find(({ key }) => key === 'solution_steps')?.values,
+    CANONICAL.q10.payload.solution.solution_steps.map((step) => step.instruction_vi));
+  assert.deepEqual(q10.answers, ['coal']);
+  const mcq = rows.find((row) => row.qNum === 1);
+  assert.deepEqual(mcq.solutionSections.find(({ key }) => key === 'distractor_analysis')?.values,
+    ["B — " + CANONICAL.mcq.payload.solution.distractor_analysis[0].why_wrong_vi]);
+  assert.equal(JSON.stringify(source), before);
+});
+
+test('guards structured entries and preserves legacy prose when structured fields contain no readable content', () => {
+  const source = payload();
+  source.questions[0].payload.solution = { solution_steps: [null, 42, {}, { instruction_vi: ' ' }],
+    distractor_analysis: [null, { why_wrong_vi: {} }], steps: 'Legacy steps.', trap_analysis: 'Legacy trap.' };
+  source.questions[1].payload.solution = { solution_steps: {}, distractor_analysis: 'not an array' };
+  const rows = normalizeReadingAdminPreview(source).test.questions;
+  assert.deepEqual(rows[0].solutionSections.map(({ values }) => values), [['Legacy steps.'], ['Legacy trap.']]);
+  assert.deepEqual(rows[1].solutionSections, []);
+});
+
+test('uses canonical instructions and distractors ahead of legacy fallbacks without hiding other prose fields', () => {
+  const source = payload();
+  source.questions[0].payload.solution = { ...CANONICAL.mcq.payload.solution,
+    steps: 'Old prose steps.', trap_analysis: 'Old prose trap.', source_excerpt: 'Original source.' };
+  const sections = normalizeReadingAdminPreview(source).test.questions[0].solutionSections;
+  assert.equal(sections.some(({ key }) => key === 'steps' || key === 'trap_analysis'), false);
+  assert.equal(sections.find(({ key }) => key === 'solution_steps').values.length, 2);
+  assert.equal(sections.find(({ key }) => key === 'distractor_analysis').values.length, 1);
+  assert.deepEqual(sections.find(({ key }) => key === 'source_excerpt').values, ['Original source.']);
 });
 
 test('reports malformed/count drift instead of inventing preview rows', () => {
