@@ -87,7 +87,7 @@
         "why_vi": "Sách ghép bright với lightful, nhưng không giải nghĩa lightful. Vì vậy chưa có căn cứ xác nhận đây là cặp đồng nghĩa chuẩn.",
         "paraphrase_vi": "",
         "trap_vi": "Không học lightful như từ đồng nghĩa đã được xác minh của bright.",
-        "next_action_vi": null
+        "next_action_vi": "Nghe để nhận ra bright ở câu 9; chưa học lightful như từ đồng nghĩa vì nguồn chưa giải thích nghĩa của từ này."
       }
     },
     "80-days:day-01:main:q-10": {
@@ -282,7 +282,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Nghe lại từ worker; chưa chọn nơi làm việc vì đoạn nghe không xác định nhà máy hay địa điểm khác."
       }
     },
     "80-days:day-02:main:q-15": {
@@ -794,7 +794,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện phân biệt khả năng bay với nhận xét đi biển rẻ hơn; chưa trả lời phương tiện sẽ chọn khi người nói chưa quyết định."
       }
     },
     "80-days:day-05:main:q-12": {
@@ -1071,7 +1071,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Ghi riêng số anh/em trai nghe được; bỏ câu hỏi tổng người trong gia đình vì các thành viên còn lại chưa được nêu đủ."
       }
     },
     "80-days:day-07:main:q-07": {
@@ -1116,7 +1116,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Tách nơi sinh, nơi lớn lên và tư cách công dân; chưa dùng các thông tin đó để kết luận Suzanne hiện sống ở đâu."
       }
     },
     "80-days:day-07:main:q-13": {
@@ -1999,7 +1999,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Nghe lại cách đọc số ở câu 7 và đối chiếu chuỗi 004287; để trống kết luận về dấu thập phân khi chưa có căn cứ xác định."
       }
     },
     "80-days:day-13:main:q-08": {
@@ -3802,7 +3802,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nhận ra daily life trong câu nghe; chưa chọn phương án diễn đạt lại vì danh sách không có ý tương ứng đầy đủ."
       }
     },
     "80-days:day-24:main:q-06": {
@@ -4428,7 +4428,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện ghép level three với báo cũ hơn sáu tháng; chưa xếp báo January 1996 vào tầng nào vì thiếu ngày diễn ra chuyến tham quan."
       }
     },
     "80-days:day-27:main:q-20": {
@@ -4536,7 +4536,7 @@
         "paraphrase_vi": "",
         "trap_vi": "Không có dữ kiện cửa đang mở; lời đáp phụ thuộc vào tình huống chưa được nêu.",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nhận diện lời chúc Good night; chưa chọn Close the door vì nguồn không nêu tình huống cửa đang mở."
       }
     },
     "80-days:day-28:main:q-10": {
@@ -4740,7 +4740,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Ghi giờ phim bắt đầu là 2:45 chiều; chưa trả lời giờ đi vì nguồn thiếu thời gian di chuyển và giờ mẹ họp xong."
       }
     },
     "80-days:day-29:main:q-14": {
@@ -5072,7 +5072,7 @@
       "source_explanation_sha256": "f098fb2d6b5626a7a0513855ade90597aeac2b3d632ca5f3b1237313555bab9c",
       "changes": {
         "paraphrase_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Ghi đủ ba yêu cầu: máy rửa bát, điều hòa trung tâm và hai phòng tắm; chưa ghép thành đáp án bốn từ vì chưa có cách rút gọn đã xác nhận giữ đủ ý."
       }
     },
     "80-days:day-31:main:q-18": {
@@ -5177,7 +5177,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Theo dõi thông tin về Emily trong lời thoại; bỏ phần xếp hạng Susan vì tên và thứ hạng đó chưa được nguồn xác nhận."
       }
     },
     "80-days:day-32:main:q-08": {
@@ -5205,7 +5205,7 @@
       "source_explanation_sha256": "192e1f148687e30b02b4687e806344c73b881464e2a7a3950d4d7f8d90a63f28",
       "changes": {
         "paraphrase_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện ghi mức giá tối đa 200 đô la; chưa trả lời giá usually vì nguồn không cho giá thông thường."
       }
     },
     "80-days:day-32:main:q-12": {
@@ -5372,7 +5372,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nhận ra điều hòa làm trên tàu ấm và bờ biển có nắng; chưa suy nhiệt độ bờ biển hoặc chi phí từ hai chi tiết này."
       }
     },
     "80-days:day-33:main:q-11": {
@@ -5380,7 +5380,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nhận diện đồ bếp và văn phòng phẩm trong đợt giảm giá; chưa đánh dấu T/F cho vị trí cửa hàng ở đại học vì nguồn không nêu địa điểm đó."
       }
     },
     "80-days:day-33:main:q-12": {
@@ -5441,7 +5441,7 @@
         "paraphrase_vi": "",
         "trap_vi": "Đoạn thoại không nhắc tiền thuê, nên C không được xác nhận chỉ từ lời thoại hiện có.",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Theo dõi việc người nói chưa trao đổi với chủ nhà; chưa chọn lý do liên quan tiền thuê vì đoạn thoại không nhắc tăng tiền thuê."
       }
     },
     "80-days:day-33:main:q-20": {
@@ -5612,7 +5612,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Tách chủ đề thơ về nông trại khỏi cuộc sống sau Thế chiến II; chưa chọn T/F cho việc sống yên bình ở nông thôn khi thiếu thông tin về giai đoạn đó."
       }
     },
     "80-days:day-34:main:q-20": {
@@ -5792,7 +5792,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nghe cách so sánh lượng oxy trên mỗi gram; chưa kết luận quy luật theo cả size và shape vì nguồn chưa xác lập hai yếu tố này cùng nhau."
       }
     },
     "80-days:day-35:main:q-21": {
@@ -6126,7 +6126,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Phân biệt gợi ý camping, lựa chọn shopping và sự đồng ý; chưa kết luận hai người cùng đi cắm trại khi người phụ nữ chưa chọn."
       }
     },
     "80-days:day-37:main:q-18": {
@@ -6279,7 +6279,7 @@
       "source_explanation_sha256": "30872525b5576a64c84733570c30a5a251cbf25beb8167d0a0ddd40c32fa72ad",
       "changes": {
         "paraphrase_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện ghi on whole wheat và yêu cầu bỏ mayonnaise; để câu này ở phần tham khảo vì with mayonnaise trong đề trái với đơn gọi món."
       }
     },
     "80-days:day-38:main:q-15": {
@@ -6550,7 +6550,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Ghi riêng cuộc họp lúc 3 giờ và cuộc gặp phục vụ đàm phán; chưa suy giờ gặp hoặc việc bỏ họp khi người nói chưa xác nhận."
       }
     },
     "80-days:day-40:main:q-05": {
@@ -6623,7 +6623,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Phân biệt cash advance với cách thanh toán hóa đơn; chưa chọn charge hay credit card khi Richard chưa xác nhận phương thức trả tiền."
       }
     },
     "80-days:day-40:main:q-15": {
@@ -6661,7 +6661,7 @@
       "source_explanation_sha256": "7411e7990e2daa062657d565de448279d542d57328a22a3ab2a53eb736c14a41",
       "changes": {
         "paraphrase_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Ghi riêng người sống gần, bạn thân và họ hàng xa; chưa dùng friends and relatives làm đáp án đầy đủ vì bỏ mất nhóm người sống gần."
       }
     },
     "80-days:day-40:main:q-21": {
@@ -6740,7 +6740,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện ghép các ý về học tập, tầng lớp trung lưu và chuyển ra ngoại ô; chưa chọn J vì black community không chứng minh racial segregation."
       }
     },
     "80-days:day-41:main:q-07": {
@@ -6901,7 +6901,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện phân biệt seemed happy với pretending to be happy; chưa chọn một phương án bỏ mất ý giả vờ mà người nói nêu."
       }
     },
     "80-days:day-42:main:q-06": {
@@ -7031,7 +7031,7 @@
       "changes": {
         "why_vi": "214 miles là quãng đường, còn how long it will take hỏi thời lượng. Đoạn thoại không cho tốc độ hay thời gian đi, nên chưa thể trả lời câu hỏi này.",
         "paraphrase_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện ghi quãng đường 214 miles; bỏ câu hỏi thời lượng vì thiếu thời gian đi hoặc tốc độ để tính."
       }
     },
     "80-days:day-42:main:q-25": {
@@ -7262,7 +7262,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nhận diện nghề reporter và những trận đánh được nhắc; chưa chọn T/F cho tried to catch every news vì nguồn không xác nhận mục tiêu đó."
       }
     },
     "80-days:day-44:main:q-10": {
@@ -7719,7 +7719,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nhận ra phản ứng startled; chưa suy Kevin chơi piano giỏi, mới tiến bộ hay mới học khi nguồn không nói rõ trình độ."
       }
     },
     "80-days:day-47:main:q-04": {
@@ -7802,7 +7802,7 @@
       "source_explanation_sha256": "42f4651cb636c167e25a936cfd6a5b2385135098114e27281da6a2fd584b3890",
       "changes": {
         "paraphrase_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện ghi get a tree today; chưa chọn make hay buy vì get không xác định cách Jack có cây."
       }
     },
     "80-days:day-47:main:q-16": {
@@ -8079,7 +8079,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Đối chiếu những tên được nêu trong bài; bỏ việc xếp theo rich in vitamin C vì nguồn không cung cấp hàm lượng để so sánh."
       }
     },
     "80-days:day-49:main:q-03": {
@@ -8250,7 +8250,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Thử tính giới hạn số người thuộc cả hai đội từ 15, 18 và tổng 30; chưa chọn số chính xác khi chưa biết mọi người có thuộc ít nhất một đội hay không."
       }
     },
     "80-days:day-50:main:q-06": {
@@ -8349,7 +8349,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Đối chiếu phát biểu với đúng nhóm The Arab được nguồn nhắc; chưa chọn T/F về Kuwait vì nguồn không nêu quốc gia này."
       }
     },
     "80-days:day-50:main:q-20": {
@@ -8899,7 +8899,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nhận ra Jewish là căn tính dân tộc/tôn giáo; để trống câu hỏi nationality vì nguồn không xác định quốc tịch của Shylock."
       }
     },
     "80-days:day-71:main:q-35": {
@@ -9217,7 +9217,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Tách giá a quarter trong đợt sale cũ khỏi giá now; chưa ghi giá hiện tại của bộ nồi khi nguồn không xác nhận món đó còn giảm giá."
       }
     },
     "80-days:day-72:main:q-41": {
@@ -9347,7 +9347,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện nhận ra lớp đông làm thiếu chăm sóc cá nhân; để câu hỏi ở phần tham khảo vì các phương án chưa diễn đạt đúng vấn đề này."
       }
     },
     "80-days:day-73:main:q-20": {
@@ -9455,7 +9455,7 @@
         "paraphrase_vi": "",
         "trap_vi": "Speaking chỉ người phát biểu, attending gồm cả người chỉ ngồi nghe; đếm năm người nói chưa cho tổng người dự.",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Đếm năm vai phát biểu để luyện nhận diện người nói; để trống tổng người attending vì nguồn chưa đếm những người chỉ nghe."
       }
     },
     "80-days:day-73:main:q-36": {
@@ -9477,7 +9477,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Theo dõi vai của từng người trong cuộc họp; chưa chọn T/F về việc họ là vận động viên khi nguồn không cho nghề nghiệp hay tình trạng đó."
       }
     },
     "80-days:day-73:main:q-39": {
@@ -9654,7 +9654,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện phân biệt employers với employees; để trống kết luận về nhân viên vì đoạn nói về yêu cầu trang phục của nhà tuyển dụng."
       }
     },
     "80-days:day-74:main:q-23": {
@@ -9802,7 +9802,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Theo dõi việc quan hệ ngoại giao tạo cơ hội phát triển quan hệ địa phương; chưa đảo chiều thành quan hệ San Francisco giúp bình thường hóa ngoại giao."
       }
     },
     "80-days:day-75:main:q-04": {
@@ -9810,7 +9810,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Đối chiếu câu has got với ý become the first city; chưa chọn T/F khi hai ý còn mâu thuẫn và phạm vi quốc gia của câu hỏi chưa rõ."
       }
     },
     "80-days:day-75:main:q-05": {
@@ -9838,7 +9838,7 @@
       "source_explanation_sha256": "12574e78f17030cf39021fc81a856084ee5a7ee440767a94cd0babd24fab97e0",
       "changes": {
         "paraphrase_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Luyện ghi số 5 million cùng đơn vị short tons; để câu điền ở phần tham khảo vì cách ghép đầy đủ với cargo vượt giới hạn ba từ."
       }
     },
     "80-days:day-75:main:q-09": {
@@ -10198,7 +10198,7 @@
       "changes": {
         "paraphrase_vi": "",
         "format_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Nghe Section 2 để tách sirens khỏi warnings phát trên TV/radio; chưa chọn T/F cho the government vì nguồn chưa xác định ai phát cảnh báo."
       }
     },
     "80-days:day-76:main:q-20": {
@@ -11232,7 +11232,7 @@
       "source_explanation_sha256": "36b3cef19a0a05c35cbede372cc9ccf64bbc9e38b68a7bb8869756a4a2460c8d",
       "changes": {
         "paraphrase_vi": "",
-        "next_action_vi": null
+        "next_action_vi": "Nghe Section 2 và đối chiếu năm được đọc; chưa chuyển số liệu about one kilogram của 1900 sang câu hỏi 1990 khi hai bản nguồn chưa thống nhất."
       }
     },
     "80-days:day-80:main:q-11": {

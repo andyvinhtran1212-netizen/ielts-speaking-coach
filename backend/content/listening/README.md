@@ -3,8 +3,10 @@
 `80-days-explanations-v2.json` is reviewed Vietnamese editorial content for
 the source collection. It removes repeated paraphrases, generic instructions
 already shown in question blocks and editor-only tasks, and contains 55
-substantive item overrides. An independent council reviewed those overrides and
-the removal invariants. This is an editorial review, not fresh answer-key
+substantive item overrides. All 43 unresolved positions retain concise,
+source-specific learner next steps; only editor-only tasks are removed.
+An independent council reviewed those overrides, next steps and removal
+invariants. This is an editorial review, not fresh answer-key
 certification; ambiguous and unresolved source warnings remain.
 
 Each changed item binds the complete original `SourceExplanation` JSON
