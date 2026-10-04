@@ -249,6 +249,117 @@ describe('SpeakingSubmissionController', () => {
       (error) => error.code === 'disposed',
     );
   });
+
+  test('bounds a stalled upload and readback even when the transports ignore abort', async () => {
+    let uploadSignal, readSignal;
+    const c = controller({
+      submissionTimeoutMs: 5,
+      readbackTimeoutMs: 5,
+      upload: (_path, _body, { signal }) => {
+        uploadSignal = signal;
+        return new Promise(() => {});
+      },
+      getSession: (_path, { signal }) => {
+        readSignal = signal;
+        return new Promise(() => {});
+      },
+    });
+    await assert.rejects(c.submit({ sessionId: 's', questionId: 'q', blob: {} }),
+      error => error.code === 'ambiguous_commit');
+    assert.equal(uploadSignal.aborted, true);
+    assert.equal(readSignal.aborted, true);
+    assert.equal(c.pending.size, 0);
+  });
+
+  test('retry checks a later persisted response and never sends the same take again', async () => {
+    let calls = 0;
+    let saved = false;
+    const c = controller({
+      submissionTimeoutMs: 5,
+      upload: () => { calls++; return new Promise(() => {}); },
+      getSession: async () => ({ responses: saved ? [{ id: 'saved', question_id: 'q' }] : [] }),
+    });
+    const input = { sessionId: 's', questionId: 'q', blob: {} };
+    await assert.rejects(c.submit(input), error => error.code === 'ambiguous_commit');
+    saved = true;
+    const first = c.submit(input);
+    const second = c.submit(input);
+    assert.equal(first, second);
+    assert.equal((await first).response_id, 'saved');
+    assert.equal(calls, 1);
+  });
+
+  test('a still-running upload prevents a second POST, including a newer recording', async () => {
+    let calls = 0;
+    let release;
+    const c = controller({
+      submissionTimeoutMs: 5,
+      upload: () => { calls++; return new Promise(resolve => { release = resolve; }); },
+    });
+    const input = { sessionId: 's', questionId: 'q', blob: {} };
+    await assert.rejects(c.submit(input));
+    await assert.rejects(c.submit(input), error => error.code === 'ambiguous_commit');
+    await assert.rejects(c.submit({ ...input, blob: {} }));
+    assert.equal(calls, 1);
+    release({ response_id: 'late-receipt' });
+    await Promise.resolve();
+    assert.equal((await c.submit(input)).response_id, 'late-receipt');
+    assert.equal(calls, 1);
+  });
+
+  test('retry preserves the exact blob and only uploads after the old request settles and readback is empty', async () => {
+    const calls = [];
+    let reads = 0;
+    const c = controller({
+      submissionTimeoutMs: 5,
+      upload: (_url, body, { signal }) => {
+        calls.push({ body, signal, reads });
+        if (calls.length === 2) return { response_id: 'retry-receipt' };
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        });
+      },
+      getSession: async () => { reads++; return { responses: [] }; },
+    });
+    const blob = { type: 'audio/mp4' };
+    const input = { sessionId: 's', questionId: 'q', blob };
+    await assert.rejects(c.submit(input));
+    assert.equal((await c.submit(input)).response_id, 'retry-receipt');
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].signal.aborted, true);
+    assert.equal(calls[1].reads, 2, 'retry readback happened before the second upload');
+    assert.equal(calls[1].body.entries[1][1], blob);
+    assert.equal(calls[1].body.entries[1][2], 'response.m4a');
+  });
+
+  test('a failed retry readback cannot trigger another upload', async () => {
+    let calls = 0;
+    let reads = 0;
+    const c = controller({
+      upload: async () => { calls++; throw new TypeError('Failed to fetch'); },
+      getSession: async () => {
+        if (++reads === 1) return { responses: [] };
+        throw new Error('readback offline');
+      },
+    });
+    const input = { sessionId: 's', questionId: 'q', blob: {} };
+    await assert.rejects(c.submit(input));
+    await assert.rejects(c.submit(input), error => error.code === 'ambiguous_commit');
+    assert.equal(calls, 1);
+  });
+
+  test('retry of a retake never accepts the response id that existed before submission', async () => {
+    let calls = 0;
+    const c = controller({
+      submissionTimeoutMs: 5,
+      upload: () => { calls++; return new Promise(() => {}); },
+      getSession: async () => ({ responses: [{ id: 'old-row', question_id: 'q' }] }),
+    });
+    const input = { sessionId: 's', questionId: 'q', blob: {}, priorResponseId: 'old-row' };
+    await assert.rejects(c.submit(input));
+    await assert.rejects(c.submit(input), error => error.code === 'ambiguous_commit');
+    assert.equal(calls, 1);
+  });
 });
 
 test('findPersistedSpeakingResponse requires the exact question and a row id', () => {
