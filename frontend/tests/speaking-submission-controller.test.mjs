@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   findPersistedSpeakingResponse,
   speakingAudioFilename,
+  speakingSubmissionId,
   SpeakingSubmissionController,
 } from '../public/js/speaking-submission-controller.mjs';
 
@@ -37,6 +38,14 @@ function controller(overrides = {}) {
     getSession: async (...args) => ({ submission_retry_safe: true, ...await getSession(...args) }),
   });
 }
+
+test('Safari 15 mints a secure UUID from random bytes without randomUUID', () => {
+  let calls = 0;
+  const id = speakingSubmissionId({ getRandomValues(bytes) { calls++; bytes.fill(0); return bytes; } });
+  assert.equal(id, '00000000-0000-4000-8000-000000000000');
+  assert.equal(calls, 1);
+  assert.throws(() => speakingSubmissionId({}), error => error.code === 'runtime_unavailable');
+});
 
 describe('SpeakingSubmissionController', () => {
   test('sends the canonical multipart contract and URL-encodes session ids', async () => {

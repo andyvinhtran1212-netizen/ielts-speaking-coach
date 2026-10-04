@@ -15,6 +15,19 @@ const AUDIO_EXTENSIONS = Object.freeze({
 const SUBMISSION_TIMEOUT_MS = 180_000;
 const READBACK_TIMEOUT_MS = 15_000;
 
+// Safari 15.0–15.3 has secure random bytes but no crypto.randomUUID.
+export function speakingSubmissionId(cryptoProvider = globalThis.crypto) {
+  if (typeof cryptoProvider?.randomUUID === 'function') return cryptoProvider.randomUUID();
+  if (typeof cryptoProvider?.getRandomValues !== 'function') {
+    throw new SpeakingSubmissionError('runtime_unavailable', 'Trình duyệt không hỗ trợ mã gửi bài an toàn.');
+  }
+  const bytes = cryptoProvider.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function speakingAudioFilename(blob) {
   const mime = String(blob?.type || '').split(';', 1)[0].trim().toLowerCase();
   return `response.${AUDIO_EXTENSIONS[mime] || 'webm'}`;
@@ -155,7 +168,7 @@ export class SpeakingSubmissionController {
     this.submissionTimeoutMs = environment.submissionTimeoutMs ?? SUBMISSION_TIMEOUT_MS;
     this.readbackTimeoutMs = environment.readbackTimeoutMs ?? READBACK_TIMEOUT_MS;
     this.recordingIds = new WeakMap();
-    this.createSubmissionId = environment.createSubmissionId || (() => globalThis.crypto.randomUUID());
+    this.createSubmissionId = environment.createSubmissionId || speakingSubmissionId;
     this.pending = new Map();
     this.unconfirmed = new Map();
     this.disposed = false;
