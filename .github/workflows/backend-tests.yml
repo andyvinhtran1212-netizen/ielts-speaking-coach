@@ -12,8 +12,8 @@ name: Tests
 # frontend-only PRs too. The mapping file lives under backend/, but a
 # frontend dev with VS Code open at repo root could touch it; more
 # importantly, frontend changes that consume the recommendation shape
-# (anchor field) want the same gate. Cheap insurance — the job is
-# 10 min and runs only on PRs.
+# (anchor field) want the same gate. The finite 15-minute backend budget
+# includes setup, all tests, drift and cleanup on PRs and staging/main pushes.
 #
 # Sprint 6.3.1 added the frontend-tests job (Codex audit AMBER #1):
 # Sprint 6 introduced node:test contract suites for theme-toggle,
@@ -78,7 +78,9 @@ jobs:
   backend:
     name: Backend (pytest + anchor drift)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Full pytest plus PG/audio setup and cleanup exceeded 10 minutes in PR1563.
+    # Keep every test and required PG guard within a finite total job budget.
+    timeout-minutes: 15
 
     # Postgres THẬT cho các chốt nạp một tệp migration rồi GỌI hàm trong đó.
     # Không có nó thì `test_delete_rpc_course_evidence.py` tự bỏ qua, và một PR
@@ -108,6 +110,9 @@ jobs:
       # Dictation frozen-policy guards, FK erasure and finalization run on real
       # PostgreSQL too. Each fixture owns only its random disposable schema.
       DICTATION_POLICY_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aver_ux_ci
+      # Grammar revision admission, reset, receipt and write races require the
+      # same real PostgreSQL service; missing configured access fails closed.
+      GRAMMAR_QUIZ_REVISION_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aver_ux_ci
 
     steps:
       - name: Checkout

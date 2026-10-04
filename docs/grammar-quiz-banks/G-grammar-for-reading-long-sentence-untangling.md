@@ -24,11 +24,11 @@ input: "choice"
 headword: "lsu-find-main-clause"
 skill: "form"
 subtype: "basic"
-prompt: "Identify the main clause in this sentence: 'Although the initial results seemed promising, the drug ultimately failed the final trial.' Which subject-verb pair is the main clause?"
+prompt: "Identify the core subject–main-verb pair of the main clause: 'Although the initial results seemed promising, the drug ultimately failed the final trial.'"
 options: ["the drug failed", "results seemed", "drug seemed", "results failed"]
 answer: 0
 grammar_article_slug: "long-sentence-untangling"
-explain: "Mệnh đề chính là cặp chủ ngữ + động từ **không** bắt đầu bằng liên từ phụ thuộc (although, because, when, if...). Ở đây, 'Although...' mở một mệnh đề phụ nhượng bộ, nên mệnh đề chính là 'the drug failed'."
+explain: "Cặp S + main V là 'the drug failed'. Mệnh đề chính đầy đủ là 'the drug ultimately failed the final trial'; failed the final trial có tân ngữ và ultimately là trạng từ. Mệnh đề Although là phần nhượng bộ; nhận diện khung không cho phép bỏ thông tin khi hiểu toàn câu."
 ---
 
 ---
@@ -38,11 +38,11 @@ input: "choice"
 headword: "lsu-find-main-clause"
 skill: "usage"
 subtype: "basic"
-prompt: "Which is the main clause? 'When researchers conducted experiments with genetically modified seeds, productivity increased dramatically.' "
+prompt: "Which option identifies the core subject–main-verb pair of the main clause? 'When researchers conducted experiments with genetically modified seeds, productivity increased dramatically.'"
 options: ["productivity increased", "researchers conducted", "experiments with seeds", "when productivity increased"]
 answer: 0
 grammar_article_slug: "long-sentence-untangling"
-explain: "Mệnh đề 'When researchers conducted...' bắt đầu bằng 'When' (liên từ), nên đó là mệnh đề phụ. Mệnh đề chính là 'productivity increased dramatically' — đó là ý chính của câu."
+explain: "Cặp S + main V là 'productivity increased'. Mệnh đề chính đầy đủ là 'productivity increased dramatically'; dramatically thêm cách thức/mức độ. When researchers conducted... là mệnh đề thời gian phụ trong cấu trúc câu này."
 ---
 
 ---
@@ -55,7 +55,7 @@ subtype: "intermediate"
 prompt: "Đúng hay Sai: Trong câu 'Economists, who had analyzed data for five years, predicted a market collapse,' mệnh đề chính là 'who had analyzed data for five years'."
 answer: false
 grammar_article_slug: "long-sentence-untangling"
-explain: "SAI — mệnh đề quan hệ 'who had analyzed data for five years' là mệnh đề phụ bổ ngữ. Mệnh đề chính là 'Economists predicted a market collapse' (chủ ngữ = Economists, động từ = predicted)."
+explain: "SAI — 'who had analyzed data for five years' là mệnh đề quan hệ bổ nghĩa cho Economists. Mệnh đề chính là 'Economists predicted a market collapse'; khung S + main V là 'Economists predicted'. Không nhầm phần bổ nghĩa với tân ngữ a market collapse."
 ---
 
 ---
@@ -65,11 +65,11 @@ input: "text"
 headword: "lsu-find-main-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Identify the main clause: 'Because climate change is accelerating, governments, which are increasingly under pressure, must implement radical strategies.' → ____"
+prompt: "Viết khung chủ ngữ + động từ chính (S + main V); có thể viết thêm tân ngữ/bổ ngữ: 'Because climate change is accelerating, governments, which are increasingly under pressure, must implement radical strategies.' → ____"
 accept: ["governments must implement", "governments must implement radical strategies", "Governments must implement"]
 case_sensitive: false
 grammar_article_slug: "long-sentence-untangling"
-explain: "Gạch bỏ mệnh đề phụ nhượng bộ 'Because climate change is accelerating' và mệnh đề quan hệ 'which are increasingly under pressure', lộ ra mệnh đề chính: 'governments must implement radical strategies'."
+explain: "Tạm nhóm mệnh đề nguyên nhân 'Because climate change is accelerating' và mệnh đề quan hệ 'which are increasingly under pressure'. Khung S + main V được nhận là 'governments must implement'; mệnh đề chính đầy đủ là 'governments must implement radical strategies'. Khi hiểu toàn câu, ghép lại quan hệ nguyên nhân và phần bổ nghĩa."
 ---
 
 ---
@@ -82,7 +82,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'Scientists from across Europe, collaborating on an ambitious project that required unprecedented funding, concluded that solar energy could revolutionize the continent's power infrastructure.' Ở đây, mệnh đề chính là 'collaborating on an ambitious project that required unprecedented funding'."
 answer: false
 grammar_article_slug: "long-sentence-untangling"
-explain: "SAI — 'collaborating on...' là cụm participle rút gọn bổ ngữ cho 'Scientists', không phải mệnh đề chính. Mệnh đề chính là 'Scientists concluded that solar energy could revolutionize...' (không lược bỏ, đây là câu động từ)."
+explain: "SAI — collaborating on... là phần phân từ bổ nghĩa cho Scientists, không phải mệnh đề chính. Khung S + main V là 'Scientists concluded'; mệnh đề chính đầy đủ giữ 'that solar energy could revolutionize the continent's power infrastructure' làm bổ ngữ nội dung của concluded. Tạm nhóm modifiers để nhìn khung không phải xóa nội dung kết luận."
 ---
 
 ---
@@ -92,14 +92,14 @@ input: "choice"
 headword: "lsu-find-main-clause"
 skill: "form"
 subtype: "advanced"
-prompt: "In this sentence, what is the main subject-verb relationship? 'Despite mounting evidence that pollution damages ecosystems, which has prompted international agreements, industrial nations, some of which had initially resisted, finally accepted carbon-reduction targets.' Identify the true main clause:"
+prompt: "Identify the core subject–main-verb pair of the main clause: 'Despite mounting evidence that pollution damages ecosystems, which has prompted international agreements, industrial nations, some of which had initially resisted, finally accepted carbon-reduction targets.'"
 options: ["industrial nations accepted", "evidence damages", "pollution damages", "agreements prompted"]
 answer: 0
 grammar_article_slug: "long-sentence-untangling"
-explain: "Mệnh đề 'Despite...' mở bằng giới từ (không phải liên từ). Mệnh đề quan hệ 'which has prompted...' và 'some of which had initially resisted' đều là bổ ngữ. Mệnh đề chính duy nhất là 'industrial nations accepted carbon-reduction targets'."
+explain: "Khung S + main V là 'industrial nations accepted'. Mệnh đề chính đầy đủ giữ 'finally accepted carbon-reduction targets'. Phần đầu Despite mounting evidence... là cụm giới từ, bên trong có mệnh đề nội dung that pollution damages ecosystems; các mệnh đề which... và some of which... bổ nghĩa. Không gọi toàn bộ cụm Despite là một mệnh đề riêng."
 ---
 
-# ===== item_key 2 · Gạch các cụm bổ ngữ (giới từ, quan hệ, participle) =====
+# ===== item_key 2 · Tạm nhóm các phần bổ nghĩa (giới từ, quan hệ, participle) =====
 
 ---
 id: "lsu_strip_b1"
@@ -108,11 +108,11 @@ input: "choice"
 headword: "lsu-strip-modifiers"
 skill: "form"
 subtype: "basic"
-prompt: "Remove the modifier phrase and identify what remains: 'The director of the film, with extensive experience in animation, chose a different approach.' After removing the modifier, what is the core sentence?"
+prompt: "Temporarily group the modifier phrases and identify the core sentence: 'The director of the film, with extensive experience in animation, chose a different approach.' What is the core sentence?"
 options: ["The director chose a different approach", "the film chose", "director with experience chose", "animation chose"]
 answer: 0
 grammar_article_slug: "long-sentence-untangling"
-explain: "Cụm giới từ 'of the film' và 'with extensive experience in animation' đều bổ ngữ cho 'director'. Gạch chúng đi, câu lõi còn: 'The director chose a different approach'."
+explain: "Tạm nhóm 'of the film' và 'with extensive experience in animation' để thấy khung 'The director chose a different approach'. Hai cụm bổ nghĩa vẫn cần được ghép lại khi hiểu ai là director và kinh nghiệm của người đó."
 ---
 
 ---
@@ -122,11 +122,11 @@ input: "choice"
 headword: "lsu-strip-modifiers"
 skill: "usage"
 subtype: "basic"
-prompt: "Which clause is a modifier that should be removed? 'The study, conducted over a decade, revealed surprising patterns about climate cycles.' "
+prompt: "Which participle clause can be temporarily grouped to find the core sentence? 'The study, conducted over a decade, revealed surprising patterns about climate cycles.'"
 options: ["conducted over a decade", "revealed surprising patterns", "about climate cycles", "over a decade"]
 answer: 0
 grammar_article_slug: "long-sentence-untangling"
-explain: "'Conducted over a decade' là mệnh đề quan hệ rút gọn (participle clause), bổ ngữ cho 'study'. Gạch nó, câu lõi là 'The study revealed surprising patterns about climate cycles'."
+explain: "'Conducted over a decade' là mệnh đề phân từ rút gọn bổ nghĩa cho 'study'. Tạm nhóm nó để thấy 'The study revealed surprising patterns about climate cycles', rồi ghép lại thông tin về thời gian nghiên cứu khi đọc nghĩa."
 ---
 
 ---
@@ -136,10 +136,10 @@ input: "boolean"
 headword: "lsu-strip-modifiers"
 skill: "error_id"
 subtype: "intermediate"
-prompt: "Đúng hay Sai: Trong câu 'Experts, recognizing the urgency of climate action, which is supported by overwhelming data, argue that solutions must be implemented immediately,' nên gạch bỏ cả hai bộ phận: 'recognizing the urgency of climate action' và 'which is supported by overwhelming data'."
+prompt: "Đúng hay Sai: Trong câu 'Experts, recognizing the urgency of climate action, which is supported by overwhelming data, argue that solutions must be implemented immediately,' có thể tạm nhóm hai phần bổ nghĩa 'recognizing the urgency of climate action' và 'which is supported by overwhelming data' để nhìn khung chính, rồi ghép lại khi đọc nghĩa."
 answer: true
 grammar_article_slug: "long-sentence-untangling"
-explain: "ĐÚNG — cả hai đều là bổ ngữ (participle clause + relative clause). Gạch cả hai, câu chính là: 'Experts argue that solutions must be implemented immediately'."
+explain: "ĐÚNG — hai phần này là mệnh đề phân từ và mệnh đề quan hệ bổ nghĩa. Tạm nhóm chúng giúp thấy 'Experts argue that solutions must be implemented immediately'. Giữ mệnh đề nội dung 'that solutions...' và ghép lại thông tin bổ nghĩa để hiểu đủ câu."
 ---
 
 ---
@@ -149,11 +149,11 @@ input: "text"
 headword: "lsu-strip-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Strip all modifiers: 'The results of the experiment, which lasted for eighteen months and involved hundreds of participants, demonstrated a clear correlation.' → ____"
-accept: ["the results demonstrated", "The results demonstrated", "results demonstrated a clear correlation"]
+prompt: "Tạm nhóm các phần bổ nghĩa rồi viết khung chủ ngữ + động từ chính (S + main V); có thể viết thêm tân ngữ/bổ ngữ: 'The results of the experiment, which lasted for eighteen months and involved hundreds of participants, demonstrated a clear correlation.' → ____"
+accept: ["the results demonstrated", "The results demonstrated", "results demonstrated a clear correlation", "the results demonstrated a clear correlation"]
 case_sensitive: false
 grammar_article_slug: "long-sentence-untangling"
-explain: "'Of the experiment' (cụm giới từ) và 'which lasted for eighteen months and involved hundreds of participants' (mệnh đề quan hệ) đều là bổ ngữ. Gạch đi, câu lõi = 'The results demonstrated a clear correlation'."
+explain: "Tạm nhóm 'of the experiment' (cụm giới từ) và 'which lasted for eighteen months and involved hundreds of participants' (mệnh đề quan hệ). Khung S + main V được nhận là 'the results demonstrated'; mệnh đề chính đầy đủ là 'The results demonstrated a clear correlation'. Ghép lại phần bổ nghĩa khi đọc nghĩa, không bỏ thông tin khỏi cách hiểu câu."
 ---
 
 ---
@@ -163,10 +163,10 @@ input: "boolean"
 headword: "lsu-strip-modifiers"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'The observation that environmental factors, which had been largely ignored, play a crucial role in determining social outcomes, a finding that challenges traditional theories, marks a significant shift in academic thinking.' Các mệnh đề 'which had been largely ignored' và 'a finding that challenges traditional theories' đều nên được bỏ để lộ mệnh đề chính."
+prompt: "Đúng hay Sai: 'The observation that environmental factors, which had been largely ignored, play a crucial role in determining social outcomes, a finding that challenges traditional theories, marks a significant shift in academic thinking.' Hai bộ phận chêm 'which had been largely ignored' và 'a finding that challenges traditional theories' có thể tạm tách ra để nhìn khung chính."
 answer: true
 grammar_article_slug: "long-sentence-untangling"
-explain: "ĐÚNG — 'which had been largely ignored' (relative clause) và 'a finding that challenges traditional theories' (appositive clause) đều là bổ ngữ. Gạch chúng, mệnh đề chính là: 'The observation that environmental factors play a crucial role marks a shift in academic thinking'."
+explain: "ĐÚNG — phần đầu là mệnh đề quan hệ; phần sau là cụm danh từ đồng vị, bên trong có mệnh đề quan hệ 'that challenges traditional theories'. Tạm tách hai phần chêm này vẫn giữ 'The observation that environmental factors play a crucial role marks a significant shift in academic thinking'. Không bỏ nội dung 'that environmental factors play...' xác định điều được quan sát."
 ---
 
 ---
@@ -176,11 +176,11 @@ input: "choice"
 headword: "lsu-strip-modifiers"
 skill: "form"
 subtype: "advanced"
-prompt: "Identify which element is NOT a modifier and therefore should remain: 'The legislation, passed after intense negotiations between stakeholders representing diverse interests and approved by parliament despite considerable opposition, requires immediate implementation.' Which clause must stay?"
+prompt: "Identify which element is NOT a modifier and therefore should remain: 'The legislation, passed after intense negotiations between stakeholders representing diverse interests and approved by parliament despite considerable opposition, requires immediate implementation.' Which element must stay?"
 options: ["requires immediate implementation", "passed after intense negotiations", "representing diverse interests", "despite considerable opposition"]
 answer: 0
 grammar_article_slug: "long-sentence-untangling"
-explain: "'Requires immediate implementation' là mệnh đề chính (động từ chính = requires). Các phần còn lại ('passed after...', 'representing...', 'despite opposition') đều là bổ ngữ cho 'legislation'. Chỉ mệnh đề chính mới bắt buộc."
+explain: "'Requires immediate implementation' là phần vị ngữ cần giữ, với động từ chính 'requires' và tân ngữ 'immediate implementation'. Các cụm trong phần chêm sau 'legislation' có thể tạm nhóm để nhìn khung 'The legislation requires immediate implementation'. Đây không phải quy tắc cho phép bỏ mọi mệnh đề phụ hoặc tân ngữ/bổ ngữ."
 ---
 
 # ===== item_key 3 · Tránh nhầm động từ mệnh đề phụ làm động từ chính =====
@@ -219,11 +219,11 @@ input: "text"
 headword: "lsu-avoid-nested-verb-confusion"
 skill: "production"
 subtype: "intermediate"
-prompt: "What is the main clause? 'Because scientists discovered unprecedented ice loss in polar regions, which surprised even experts who had studied climate trends for decades, governments finally prioritized environmental policy.' → ____"
-accept: ["governments prioritized", "governments finally prioritized", "Governments prioritized"]
+prompt: "Viết khung chủ ngữ + động từ chính (S + main V); có thể giữ trạng từ và viết thêm tân ngữ/bổ ngữ: 'Because scientists discovered unprecedented ice loss in polar regions, which surprised even experts who had studied climate trends for decades, governments finally prioritized environmental policy.' → ____"
+accept: ["governments prioritized", "governments finally prioritized", "Governments prioritized", "governments finally prioritized environmental policy", "governments prioritized environmental policy"]
 case_sensitive: false
 grammar_article_slug: "long-sentence-untangling"
-explain: "'Discovered' và 'had studied' là các động từ trong mệnh đề phụ. Động từ chính của mệnh đề chính là 'prioritized' (chủ ngữ = governments)."
+explain: "'Discovered' và 'had studied' nằm trong các mệnh đề phụ. Khung S + main V là 'governments prioritized', có thể giữ 'finally'; mệnh đề chính đầy đủ là 'governments finally prioritized environmental policy'. Bài nhận khung ngắn hoặc mệnh đề đầy đủ, không gọi riêng cặp S + V là toàn bộ mệnh đề."
 ---
 
 ---
@@ -250,5 +250,5 @@ prompt: "What is the main action in this sentence? 'Researchers, whose prelimina
 options: ["demonstrated", "suggested", "encountered", "delayed"]
 answer: 0
 grammar_article_slug: "long-sentence-untangling"
-explain: "'Suggested', 'encountered', 'delayed' đều là động từ trong các mệnh đề quan hệ phụ (bắt đầu bằng 'whose', 'who'). Động từ chính (của mệnh đề chính) là 'demonstrated'."
+explain: "Động từ của mệnh đề chính là demonstrated. Suggested nằm trong mệnh đề whose preliminary findings had suggested..., encountered trong who subsequently encountered..., và delayed trong that delayed publication bổ nghĩa cho methodological challenges. Giữ mệnh đề nội dung that the treatment was effective... khi hiểu điều được chứng minh."
 ---

@@ -14,18 +14,106 @@ The parse→validate→commit pipeline lives in services/quiz_import.py.
 from __future__ import annotations
 
 import logging
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Header, HTTPException, Query, Request, UploadFile
+from fastapi.routing import APIRoute
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from database import supabase_admin
 from routers.admin import require_admin
 from services.quiz_import import PublishState, import_quiz_file
+from models.grammar_quiz_revisions import (
+    MAX_SOURCE_BYTES, GrammarRevisionCommitRequest, GrammarRevisionCommitResult,
+    GrammarRevisionErrorResponse, GrammarRevisionPreview, GrammarRevisionPreviewRequest,
+    GrammarRevisionRead,
+)
+from services import grammar_quiz_revisions
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/quiz", tags=["admin-quiz"])
+_GRAMMAR_REVISION_ERRORS = {status:{'model':GrammarRevisionErrorResponse} for status in (404,409,422,503)}
+
+
+async def _grammar_revision_call(action,*args):
+    # Reuse the configured owner; never create a new pool or load credentials.
+    from routers import admin
+    try:
+        return await action(admin._db_engine,*args)
+    except grammar_quiz_revisions.GrammarRevisionError as error:
+        raise HTTPException(error.status_code,{'error_code':error.code,
+            'message':error.message,'current_revision':error.current_revision}) from None
+
+
+class _BoundedGrammarRevisionRoute(APIRoute):
+    """Bound original bytes and invalid Unicode before framework decoding.
+
+    A lone escaped surrogate can otherwise survive JSON parsing and break
+    FastAPI's 422 encoder while it reflects the invalid input. Keep errors
+    static and retain the normal typed body/OpenAPI contract.
+    """
+    def get_route_handler(self):
+        handler=super().get_route_handler()
+        async def bounded(request: Request):
+            raw=await request.body()
+            if len(raw)>MAX_SOURCE_BYTES:
+                return JSONResponse(status_code=422,content={'detail':{'error_code':'grammar_source_too_large',
+                    'message':'Nội dung gửi vượt giới hạn 256KiB.','current_revision':None}})
+            def unique(pairs):
+                value={}
+                for key,item in pairs:
+                    if key in value: raise ValueError('duplicate request key')
+                    value[key]=item
+                return value
+            def nonfinite(value):
+                raise ValueError('nonfinite JSON number')
+            try:
+                pending=[(json.loads(raw,object_pairs_hook=unique,parse_constant=nonfinite),0)]
+                while pending:
+                    value,depth=pending.pop()
+                    # These commands are flat typed objects. Bound invalid
+                    # nested input before framework validation reflects it.
+                    if depth>64: raise ValueError('request nesting too deep')
+                    if isinstance(value,str): value.encode('utf8')
+                    elif isinstance(value,dict):
+                        pending.extend((item,depth+1) for item in value)
+                        pending.extend((item,depth+1) for item in value.values())
+                    elif isinstance(value,list): pending.extend((item,depth+1) for item in value)
+            except (UnicodeError,ValueError,RecursionError):
+                return JSONResponse(status_code=422,content={'detail':[{'loc':['body'],
+                    'type':'json_invalid','msg':'Nội dung phải là JSON UTF-8 hợp lệ với khóa duy nhất.'}]})
+            return await handler(request)
+        return bounded
+
+
+@router.get('/grammar-revisions/{canonical_code}',response_model=GrammarRevisionRead,
+    responses=_GRAMMAR_REVISION_ERRORS)
+async def read_grammar_revision(canonical_code: str,authorization: str | None=Header(None)):
+    await require_admin(authorization)
+    return await _grammar_revision_call(grammar_quiz_revisions.read_revision,canonical_code)
+
+
+async def preview_grammar_revision(canonical_code: str,body: GrammarRevisionPreviewRequest,
+    authorization: str | None=Header(None)):
+    await require_admin(authorization)
+    return await _grammar_revision_call(grammar_quiz_revisions.preview_revision,canonical_code,body)
+
+
+async def commit_grammar_revision(canonical_code: str,body: GrammarRevisionCommitRequest,
+    authorization: str | None=Header(None)):
+    actor = await require_admin(authorization)
+    return await _grammar_revision_call(grammar_quiz_revisions.commit_revision,canonical_code,actor['id'],body)
+
+
+router.add_api_route('/grammar-revisions/{canonical_code}/preview',preview_grammar_revision,
+    methods=['POST'],response_model=GrammarRevisionPreview,responses=_GRAMMAR_REVISION_ERRORS,
+    route_class_override=_BoundedGrammarRevisionRoute)
+router.add_api_route('/grammar-revisions/{canonical_code}/commit',commit_grammar_revision,
+    methods=['POST'],response_model=GrammarRevisionCommitResult,responses=_GRAMMAR_REVISION_ERRORS,
+    route_class_override=_BoundedGrammarRevisionRoute)
 
 
 class BankUpdate(BaseModel):
@@ -174,6 +262,8 @@ async def update_bank(
             .update(patch).eq("id", str(bank_id)).execute()
         )
     except Exception as exc:  # noqa: BLE001
+        if 'grammar_managed_bank_' in str(exc):
+            raise HTTPException(409,'Bank Grammar đã được giữ theo phiên bản; dùng thao tác sửa đã duyệt.') from exc
         raise HTTPException(500, f"Lỗi cập nhật bank: {exc}")
     if not res.data:
         raise HTTPException(404, "Không tìm thấy bank")
@@ -184,10 +274,12 @@ async def update_bank(
 async def delete_bank(bank_id: UUID, authorization: str | None = Header(None)):
     await require_admin(authorization)
     try:
-        rows = (supabase_admin.table("quiz_banks").select("id,meta")
+        rows = (supabase_admin.table("quiz_banks").select("id,meta,grammar_canonical_code")
                 .eq("id", str(bank_id)).limit(1).execute().data) or []
         if not rows:
             raise HTTPException(404, "Không tìm thấy bank")
+        if rows[0].get('grammar_canonical_code') is not None:
+            raise HTTPException(409,'Bank Grammar giữ câu hỏi và lịch sử theo phiên bản; không thể xóa.')
         runtime = ((rows[0].get("meta") or {}).get("runtime") or {}).get("kind")
         if runtime == "advanced_vocab":
             raise HTTPException(
@@ -199,6 +291,8 @@ async def delete_bank(bank_id: UUID, authorization: str | None = Header(None)):
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
+        if 'grammar_managed_bank_' in str(exc):
+            raise HTTPException(409,'Bank Grammar giữ lịch sử theo phiên bản; không thể xóa.') from exc
         if "cannot delete immutable advanced vocabulary bank" in str(exc):
             raise HTTPException(
                 409,

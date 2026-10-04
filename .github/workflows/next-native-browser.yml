@@ -760,6 +760,23 @@ jobs:
       - name: Kiểm luồng Quiz native
         run: node tooling/verify-quiz-flow.mjs "http://localhost:$TEST_PORT"
 
+      # Source-bound full-bank payloads exercise managed admission, exact-form
+      # grading and stale/reset ACKs with isolated auth and HTTP transports.
+      - name: Kiểm Grammar revision và exact-form Quiz native
+        env:
+          GRAMMAR_NATIVE_OUTPUT: /tmp/grammar-managed-quiz-browser.json
+        run: node tooling/verify-grammar-managed-quiz-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm lịch sử Grammar giữ nguyên câu hỏi và đáp án
+        env:
+          GRAMMAR_HISTORY_OUTPUT: /tmp/grammar-quiz-history-browser.json
+        run: node tooling/verify-grammar-quiz-history-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm Admin Grammar preview và phục hồi receipt
+        env:
+          ADMIN_GRAMMAR_BROWSER_EVIDENCE: /tmp/admin-grammar-revision-browser.json
+        run: node tooling/verify-admin-grammar-revision-flow.mjs "http://localhost:$TEST_PORT"
+
       - name: Kiểm luồng Exam player native
         run: node tooling/verify-exam-flow.mjs "http://localhost:$TEST_PORT"
 
@@ -1250,6 +1267,9 @@ jobs:
             /tmp/next-native-browser.log
             /tmp/next-native-fixture-api.log
             /tmp/dictation-versioned-browser.json
+            /tmp/grammar-managed-quiz-browser.json
+            /tmp/grammar-quiz-history-browser.json
+            /tmp/admin-grammar-revision-browser.json
 
       - name: Dừng Next
         if: ${{ always() }}

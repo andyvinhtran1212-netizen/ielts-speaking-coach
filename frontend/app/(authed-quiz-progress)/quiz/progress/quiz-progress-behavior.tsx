@@ -5,11 +5,12 @@
 // Khác với compatibility shell trước đây, component này sở hữu state và vòng
 // đời request. Không sửa DOM bằng innerHTML, không chờ DOMContentLoaded và mọi
 // request đều bị abort khi logout, đổi tài khoản hoặc rời route.
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { quizHistoryBankDisplay } from '@/lib/quiz-history-display-model.mjs';
 import { parseCourseExplanation } from '../../../../public/js/course-explanation-format.js';
 
 interface ProgressTotals {
@@ -23,6 +24,7 @@ interface ProgressBank {
   bank_id: string;
   code?: string | null;
   title?: string | null;
+  skill_area?: string | null;
   words_count?: number | null;
   mastered: number;
   in_progress: number;
@@ -58,6 +60,8 @@ interface MistakeItem {
   bank_id: string;
   item_key: string;
   code?: string | null;
+  title?: string | null;
+  skill_area?: string | null;
   status?: string | null;
   questions: MistakeQuestion[];
 }
@@ -235,6 +239,7 @@ function MistakesSection({ data, error, onRetry }: {
         const isOpen = expanded.has(index);
         const fixed = item.status === 'mastered';
         const bodyId = `pg-mistake-${index}`;
+        const bankDisplay = quizHistoryBankDisplay(item.code, item.title, item.skill_area);
         return (
           <div className="av-card pg-mk" key={`${item.bank_id}:${item.item_key}`}>
             <button
@@ -253,7 +258,7 @@ function MistakesSection({ data, error, onRetry }: {
             >
               <span className="pg-mk__word">
                 {item.item_key}{' '}
-                <span className="pg-mk__meta" style={{ fontWeight: 400 }}>{item.code || ''}</span>
+                <span className="pg-mk__meta" style={{ fontWeight: 400 }}>{bankDisplay.label}</span>
               </span>
               <span className="pg-mk__meta">
                 {fixed ? 'Đã thuộc · ' : ''}{item.questions.length} câu sai · {isOpen ? 'Thu gọn' : 'Mở'}
@@ -274,9 +279,10 @@ function MistakesSection({ data, error, onRetry }: {
   );
 }
 
-function ProgressContent({ progress, children }: {
+function ProgressContent({ progress, children, skill }: {
   progress: QuizProgressPayload;
   children: ReactNode;
+  skill: string;
 }) {
   const totals = progress.totals || {};
   const banks = progress.banks || [];
@@ -307,16 +313,17 @@ function ProgressContent({ progress, children }: {
           {banks.length ? banks.map((bank) => {
             const total = bank.words_count || bank.mastered + bank.in_progress || 0;
             const width = total ? Math.round(bank.mastered / total * 100) : 0;
+            const bankDisplay = quizHistoryBankDisplay(bank.code, bank.title, bank.skill_area);
             return (
               <div className="pg-bank" key={bank.bank_id}>
                 <div className="pg-bank__row">
                   <span className="pg-bank__name">
-                    {bank.code || ''}{' '}
-                    <span className="pg-bank__meta">{bank.title || ''}</span>
+                    {bankDisplay.label}{' '}
+                    <span className="pg-bank__meta">{bankDisplay.subtitle}</span>
                   </span>
                   <span className="pg-bank__meta">Đã thuộc {bank.mastered}/{total}</span>
                 </div>
-                <div className="pg-track" role="progressbar" aria-label={`Tiến độ ${bank.code || bank.title || 'bộ bài'}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={width}>
+                <div className="pg-track" role="progressbar" aria-label={`Tiến độ ${bankDisplay.label || bankDisplay.subtitle || 'bộ bài'}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={width}>
                   <div className="pg-bar" style={{ width: `${width}%` }} />
                 </div>
               </div>
@@ -339,7 +346,7 @@ function ProgressContent({ progress, children }: {
               <tbody>
                 {sessions.map((session, index) => (
                   <tr key={`${session.ended_at || 'session'}:${index}`}>
-                    <td data-label="Bộ">{session.code || '—'}</td>
+                    <td data-label="Bộ">{quizHistoryBankDisplay(session.code, undefined, skill || undefined).label || '—'}</td>
                     <td data-label="Chính xác">{formatPercent(session.accuracy)}</td>
                     <td data-label="Đã thuộc">{session.words_mastered || 0}</td>
                     <td data-label="Thời gian">{session.duration_sec ? formatDuration(session.duration_sec) : '—'}</td>
@@ -388,6 +395,10 @@ export function QuizProgressBehavior() {
   const searchParams = useSearchParams();
   const skill = searchParams?.get('skill_area') || '';
   const requestKey = status === 'signed-in' && user?.id ? `${user.id}:${skill}` : null;
+  // A committed owner change is visible before effect cleanup; abort alone
+  // cannot retract a response promise that has already fulfilled.
+  const requestKeyRef = useRef(requestKey);
+  requestKeyRef.current = requestKey;
   const [progressState, setProgressState] = useState<{
     key: string; value: QuizProgressPayload;
   } | null>(null);
@@ -427,6 +438,8 @@ export function QuizProgressBehavior() {
 
     const controller = new AbortController();
     let disposed = false;
+    const isCurrent = () => !disposed && !controller.signal.aborted
+      && requestKeyRef.current === requestKey;
     setProgressState(null);
     setProgressErrorState(null);
 
@@ -435,8 +448,8 @@ export function QuizProgressBehavior() {
         () => !!window.api?.getWith,
         'window.api (quiz progress)',
       );
-      if (!ready || disposed) {
-        if (!disposed) setProgressErrorState({
+      if (!ready || !isCurrent()) {
+        if (isCurrent()) setProgressErrorState({
           key: requestKey,
           value: 'Không tải được thành phần kết nối. Hãy tải lại trang.',
         });
@@ -447,12 +460,16 @@ export function QuizProgressBehavior() {
         const payload = await window.api.getWith<QuizProgressPayload>(
           `/api/quiz/progress${queryFor(skill)}`,
           undefined,
-          { signal: controller.signal },
+          { signal: controller.signal, noRedirect: true },
         );
-        if (disposed || payload == null) return;
+        if (!isCurrent() || payload == null) return;
         setProgressState({ key: requestKey, value: payload });
       } catch (error: any) {
-        if (error?.name !== 'AbortError' && !disposed) {
+        if (error?.name !== 'AbortError' && isCurrent()) {
+          if (error?.status === 401) {
+            window.location.href = '/login';
+            return;
+          }
           setProgressErrorState({
             key: requestKey,
             value: 'Không tải được thống kê. Vui lòng thử lại.',
@@ -472,6 +489,8 @@ export function QuizProgressBehavior() {
 
     const controller = new AbortController();
     let disposed = false;
+    const isCurrent = () => !disposed && !controller.signal.aborted
+      && requestKeyRef.current === requestKey;
     setMistakesState(null);
     setMistakesErrorState(null);
 
@@ -480,8 +499,8 @@ export function QuizProgressBehavior() {
         () => !!window.api?.getWith,
         'window.api (quiz mistakes)',
       );
-      if (!ready || disposed) {
-        if (!disposed) setMistakesErrorState({ key: requestKey, value: 'load-failed' });
+      if (!ready || !isCurrent()) {
+        if (isCurrent()) setMistakesErrorState({ key: requestKey, value: 'load-failed' });
         return;
       }
 
@@ -491,11 +510,15 @@ export function QuizProgressBehavior() {
         const payload = await window.api.getWith<MistakesPayload>(
           `/api/quiz/mistakes${queryFor(skill)}`,
           undefined,
-          { signal: controller.signal },
+          { signal: controller.signal, noRedirect: true },
         );
-        if (!disposed && payload != null) setMistakesState({ key: requestKey, value: payload });
+        if (isCurrent() && payload != null) setMistakesState({ key: requestKey, value: payload });
       } catch (error: any) {
-        if (error?.name !== 'AbortError' && !disposed) {
+        if (error?.name !== 'AbortError' && isCurrent()) {
+          if (error?.status === 401) {
+            window.location.href = '/login';
+            return;
+          }
           setMistakesErrorState({ key: requestKey, value: 'load-failed' });
         }
       }
@@ -519,7 +542,7 @@ export function QuizProgressBehavior() {
         </div>
       ) : null}
       {progress ? (
-        <ProgressContent progress={progress}>
+        <ProgressContent progress={progress} skill={skill}>
           <section className="pg-section" id="can-on">
             <div className="pg-section__head">
               <div><p>Cần ôn</p><h2>Câu bạn từng trả lời sai</h2></div>

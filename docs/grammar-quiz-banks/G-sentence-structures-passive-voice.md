@@ -13,6 +13,11 @@ cooldown: 2
 shuffle_options: true
 words_count: 4
 source: "authored-2026-07"
+text_match_by_qid:
+  pv_form_i2: exact
+  pv_use_a1: exact
+  pv_intr_i2: exact
+  pv_err_i2: exact
 ---
 
 # ===== item_key 1 · Cấu trúc be + V3 đúng thì =====
@@ -42,7 +47,7 @@ prompt: "The data ____ daily by the research team."
 options: ["is collected", "collects", "collecting", "collected"]
 answer: 0
 grammar_article_slug: "passive-voice"
-explain: "Present simple passive: am/is/are + V3. Hành động lặp lại hằng ngày, chủ ngữ 'data' → 'is collected'."
+explain: "Chọn 'is collected' theo cách dùng data như danh từ không đếm được số ít trong câu này: Present Simple passive với is + collected. Data cũng có cách dùng số nhiều, khi đó có thể viết are collected; không kết luận data luôn là số ít."
 ---
 
 ---
@@ -127,7 +132,7 @@ prompt: "Trong IELTS Speaking Part 1, câu nào TỰ NHIÊN hơn khi trả lời
 options: ["I usually cook dinner for my family.", "Dinner is usually cooked by me for my family.", "Dinner is usually cooked for my family.", "Dinner usually gets cooked by me."]
 answer: 0
 grammar_article_slug: "passive-voice"
-explain: "Trong câu trả lời cá nhân Part 1, agent (tôi) đã rõ và là trọng tâm → active tự nhiên và mạnh hơn passive; bị động ở đây nghe sách vở, hạ điểm Fluency."
+explain: "Chọn 'I usually cook dinner for my family' vì câu hỏi tập trung vào việc người nói thường làm; dạng chủ động gọi trực tiếp người đó. Các câu bị động có thể hợp ngữ pháp nhưng kém trực tiếp với trọng tâm câu hỏi này. Không suy ra dùng một câu bị động tự động bị trừ điểm Fluency."
 ---
 
 ---
@@ -206,7 +211,7 @@ input: "text"
 headword: "pv-intransitive-error"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại đúng ở thể chủ động (KHÔNG dùng bị động vì đây là nội động từ): 'The flight ____ (arrive) two hours late.'"
+prompt: "Chia Past Simple ở thể chủ động (arrive là nội động từ, không dùng bị động): 'The flight ____ (arrive) two hours late.'"
 accept: ["arrived"]
 case_sensitive: false
 grammar_article_slug: "passive-voice"
@@ -277,7 +282,7 @@ input: "text"
 headword: "pv-other-errors"
 skill: "production"
 subtype: "intermediate"
-prompt: "Chia đúng động từ ở bị động, chú ý V3 bất quy tắc: 'The results ____ (announce) next week.'"
+prompt: "Chia Future Simple Passive (will be + V3); announce là động từ có quy tắc: 'The results ____ (announce) next week.'"
 accept: ["will be announced"]
 case_sensitive: false
 grammar_article_slug: "passive-voice"
@@ -291,8 +296,8 @@ input: "boolean"
 headword: "pv-other-errors"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'The report was written by someone.' là câu bị động chuẩn cho văn phong học thuật."
+prompt: "Đúng hay Sai: Trong một bản tóm tắt học thuật chỉ cần nêu báo cáo đã được viết, tác giả không rõ và không liên quan đến ý cần truyền đạt, 'The report was written by someone' là cách diễn đạt súc tích phù hợp nhất với mục tiêu này."
 answer: false
 grammar_article_slug: "passive-voice"
-explain: "SAI về phong cách — thêm 'by someone' khi agent không rõ ràng/không cần thiết làm câu yếu đi. Câu tốt hơn: 'The report was written.' (bỏ hẳn agent mơ hồ)."
+explain: "SAI về độ phù hợp với mục tiêu súc tích đã nêu: by someone không thêm thông tin cần thiết, nên 'The report was written' trực tiếp hơn. Câu có by someone vẫn hợp ngữ pháp và có thể hữu ích khi việc do một người thực hiện là thông tin liên quan; không phán nó sai trong mọi văn phong học thuật."
 ---

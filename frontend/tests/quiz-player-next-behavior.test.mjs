@@ -13,6 +13,7 @@ const LAYOUT = read('app', '(authed-quiz-player)', 'layout.tsx');
 const CSS = read('public', 'css', 'quiz-player.css');
 const OUTBOX = read('lib', 'quiz-progress-outbox.mjs');
 const MODEL = read('lib', 'quiz-player-model.mjs');
+const API = read('lib', 'quiz-player-api.ts');
 
 describe('/quiz — native React owner', () => {
   test('does not embed or inject the rollback document', () => {
@@ -26,20 +27,23 @@ describe('/quiz — native React owner', () => {
     assert.match(BEHAVIOR, /useAuth\(\)/);
     assert.match(BEHAVIOR, /requestKey = status === 'signed-in'/);
     assert.match(BEHAVIOR, /ownerKey === requestKey/);
-    assert.match(BEHAVIOR, /requestKeyRef\.current !== expectedKey/);
+    assert.match(BEHAVIOR, /scopeRef\.current === scope/);
+    assert.match(BEHAVIOR, /requestKeyRef\.current === scope\.key/);
+    assert.match(BEHAVIOR, /scope\.disposed = true/);
     assert.match(BEHAVIOR, /new AbortController\(\)/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
     assert.match(BEHAVIOR, /window\.location\.replace\('\/login'\)/);
   });
 
   test('preserves canonical bank, resume, session, progress, reset and finalization contracts', () => {
-    assert.match(BEHAVIOR, /\/api\/quiz\/banks\$\{suffix\}/);
-    assert.match(BEHAVIOR, /\/api\/quiz\/banks\/\$\{encodeURIComponent\(resolution\.bankId\)\}/);
-    assert.match(BEHAVIOR, /\/resume/);
-    assert.match(BEHAVIOR, /window\.api\.post\('\/api\/quiz\/sessions'/);
+    assert.match(API, /paths\['\/api\/quiz\/banks\/\{bank_id\}'\]/);
+    assert.match(API, /paths\['\/api\/quiz\/sessions'\]/);
+    assert.ok(API.includes("Start['responses'][201]"));
+    assert.match(API, /\/resume/);
+    assert.match(BEHAVIOR, /scope\.api\.start\(quizStartBody/);
     assert.match(BEHAVIOR, /QuizProgressOutbox/);
-    assert.match(BEHAVIOR, /window\.api\.patch\(`\/api\/quiz\/sessions/);
-    assert.match(BEHAVIOR, /\/reset/);
+    assert.match(BEHAVIOR, /scope\.api\.end/);
+    assert.match(BEHAVIOR, /scope\.api\.reset/);
     assert.match(BEHAVIOR, /confirmed = Array\.isArray\(resume\) && resume\.length === 0/);
   });
 
@@ -47,15 +51,15 @@ describe('/quiz — native React owner', () => {
     for (const lock of ['answerLockRef', 'advanceLockRef', 'startLockRef', 'resetLockRef', 'finishLockRef']) {
       assert.match(BEHAVIOR, new RegExp(`${lock}\\.current`));
     }
-    assert.match(BEHAVIOR, /if \(advanceLockRef\.current \|\| requestKeyRef\.current !== expectedKey\) return/);
-    assert.match(BEHAVIOR, /if \(resetLockRef\.current \|\| !currentBank \|\| !requestKey\) return/);
+    assert.match(BEHAVIOR, /advanceLockRef\.current \|\| !isCurrentScope\(scope\)/);
+    assert.match(BEHAVIOR, /resetLockRef\.current \|\| !currentBank \|\| !scope \|\| !isCurrentScope\(scope\)/);
     assert.match(BEHAVIOR, /enterSubmitRef\.current = true; submitAnswer\(textAnswer\)/);
     assert.match(BEHAVIOR, /document\.addEventListener\('keyup', onKeyUp\)/);
   });
 
   test('never persists review-mode attempts and keeps failed progress for retry/keepalive', () => {
     assert.match(OUTBOX, /if \(this\.#review\) return/);
-    assert.match(OUTBOX, /catch \{\s*return false/);
+    assert.match(OUTBOX, /catch \(error\) \{\s*this\.observeFailure/);
     assert.match(OUTBOX, /while \(force && saved/);
     assert.match(BEHAVIOR, /keepalive: true/);
     assert.match(MODEL, /ended_by: saved === true \? 'completed' : 'paused'/);

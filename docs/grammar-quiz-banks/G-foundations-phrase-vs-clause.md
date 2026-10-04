@@ -13,6 +13,9 @@ cooldown: 2
 shuffle_options: true
 words_count: 4
 source: "authored-2026-07"
+text_match_by_qid:
+  pvc_frag_i2: exact
+  pvc_dang_i2: exact
 ---
 
 # ===== item_key 1 · Phrase vs. Clause (có/thiếu S+V) =====
@@ -24,11 +27,11 @@ input: "choice"
 headword: "pvc-phrase-vs-clause"
 skill: "form"
 subtype: "basic"
-prompt: "Which of the following is a CLAUSE (has both subject and verb)?"
+prompt: "Which option is a finite clause with an expressed subject and a finite verb?"
 options: ["in the morning", "running very fast", "she studies hard", "the tall woman"]
 answer: 2
 grammar_article_slug: "phrase-vs-clause"
-explain: "'she studies hard' có đủ chủ ngữ (she) và vị ngữ (studies) → là clause. Ba đáp án còn lại chỉ là phrase, thiếu S hoặc V."
+explain: "'She studies hard' có chủ ngữ 'she' và động từ hữu hạn 'studies'. 'Running very fast' không có động từ hữu hạn; trong các khung ngữ pháp mở rộng, một nhóm V-ing có thể được phân tích là mệnh đề không hữu hạn. Bài này hỏi riêng finite clause."
 ---
 
 ---
@@ -38,11 +41,11 @@ input: "choice"
 headword: "pvc-phrase-vs-clause"
 skill: "form"
 subtype: "basic"
-prompt: "Which of the following is a PHRASE (missing subject or verb)?"
+prompt: "Which of the following is a prepositional phrase?"
 options: ["technology has changed our lives", "because it rained", "in the early morning", "the government announced new policies"]
 answer: 2
 grammar_article_slug: "phrase-vs-clause"
-explain: "'in the early morning' là prepositional phrase — không có chủ ngữ lẫn động từ chia. Các đáp án còn lại đều có S + V."
+explain: "'In the early morning' là cụm giới từ. Các lựa chọn còn lại là mệnh đề hữu hạn có chủ ngữ và động từ hữu hạn. Không dùng định nghĩa 'thiếu chủ ngữ hoặc động từ thì luôn là phrase' để phủ nhận mệnh đề không hữu hạn trong các khung phân tích khác."
 ---
 
 ---
@@ -71,7 +74,7 @@ hint: "gõ 1 từ: 'phrase' hoặc 'clause'"
 accept: ["clause"]
 case_sensitive: false
 grammar_article_slug: "phrase-vs-clause"
-explain: "'What matters most' có chủ ngữ ẩn 'what' và động từ chia 'matters' → là clause (cụ thể là noun clause)."
+explain: "'What matters most' có chủ ngữ được viết rõ là what và động từ hữu hạn matters, nên nhận 'clause'. Trong 'What matters most is consistent effort', toàn bộ nhóm what matters most làm chủ ngữ của is; không gọi what là chủ ngữ ẩn."
 ---
 
 ---
@@ -81,10 +84,10 @@ input: "boolean"
 headword: "pvc-phrase-vs-clause"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Running every morning' là một clause vì nó chứa động từ 'running'."
+prompt: "Đúng hay Sai: 'Running every morning' tự nó là một finite independent clause có thể đứng thành câu hoàn chỉnh trong văn viết học thuật, chỉ vì chứa động từ 'running'."
 answer: false
 grammar_article_slug: "phrase-vs-clause"
-explain: "SAI — 'running' ở đây là V-ing không chia theo chủ ngữ (participle), và câu này thiếu chủ ngữ rõ ràng thực hiện hành động → đây chỉ là participial phrase, không phải clause."
+explain: "SAI — 'running' là dạng không hữu hạn, nên nhóm từ này không tự tạo một finite independent clause hoặc câu hoàn chỉnh. Có thể gọi nó là cụm V-ing trong cách học cơ bản hoặc mệnh đề không hữu hạn trong khung ngữ pháp khác; sự khác biệt tên gọi không làm nó thành câu độc lập."
 ---
 
 # ===== item_key 2 · Sentence Fragment (dependent clause đứng một mình) =====
@@ -110,11 +113,11 @@ input: "choice"
 headword: "pvc-sentence-fragment"
 skill: "usage"
 subtype: "intermediate"
-prompt: "'Because many cities are facing pollution problems.' is a sentence fragment. To fix it, you should ____."
+prompt: "'Because many cities are facing pollution problems.' is a sentence fragment. Keeping 'Because' and the original dependent clause unchanged, how should you complete the sentence?"
 options: ["remove 'Because'", "add an independent clause after it", "add a comma at the end", "change 'are facing' to 'face'"]
 answer: 1
 grammar_article_slug: "phrase-vs-clause"
-explain: "Dependent clause bắt đầu bằng 'Because' cần một independent clause đi kèm để hoàn chỉnh nghĩa, ví dụ: '..., the government should act.'"
+explain: "Vì bài yêu cầu giữ 'Because' và mệnh đề phụ, thêm một independent clause, ví dụ '..., the government should act.' Bỏ 'Because' cũng có thể tạo câu độc lập trong một cách viết khác, nhưng không đáp ứng yêu cầu giữ nguyên ở đây."
 ---
 
 ---
@@ -124,11 +127,11 @@ input: "text"
 headword: "pvc-sentence-fragment"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete the independent clause that follows the dependent clause: 'Although the economy has improved significantly, unemployment ____ (remain) high.' Write the correct verb form for 'remain'."
+prompt: "Complete the independent clause using Present Simple: 'Although the economy has improved significantly, unemployment ____ (remain) high.'"
 accept: ["remains"]
 case_sensitive: false
 grammar_article_slug: "phrase-vs-clause"
-explain: "Chủ ngữ số ít 'unemployment' cần động từ số ít 'remains' để hoàn chỉnh independent clause đi sau dependent clause 'Although...'."
+explain: "Bài yêu cầu Present Simple; 'unemployment' là chủ ngữ số ít nên dùng 'remains'. Ngữ cảnh khác có thể dùng 'has remained' hoặc 'remained', nhưng đó không phải thì được yêu cầu ở đây."
 ---
 
 ---
@@ -141,7 +144,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'Walking home from work.' là một câu hoàn chỉnh trong văn viết học thuật."
 answer: false
 grammar_article_slug: "phrase-vs-clause"
-explain: "SAI — đây là sentence fragment (chỉ là participial phrase, không có chủ ngữ + động từ chia). Sửa lại: 'Walking home from work, I called my mother.'"
+explain: "SAI khi dùng như câu hoàn chỉnh trong văn viết học thuật: nhóm Walking home from work không tự có một mệnh đề chính hữu hạn. Có thể gọi đây là cụm V-ing hoặc mệnh đề không hữu hạn tùy khung phân tích; tên gọi không làm nó thành câu độc lập. Có thể viết 'Walking home from work, I called my mother.'"
 ---
 
 ---
@@ -194,7 +197,7 @@ input: "text"
 headword: "pvc-run-on-sentence"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lỗi run-on: cần một dấu câu trước 'she' trong 'She loves cooking____ she spends every weekend in the kitchen.' Gõ đúng 1 dấu câu cần điền."
+prompt: "Nối hai mệnh đề độc lập bằng một dấu chấm phẩy (;): 'She loves cooking____ she spends every weekend in the kitchen.' Gõ đúng 1 dấu chấm phẩy."
 accept: [";"]
 case_sensitive: false
 grammar_article_slug: "phrase-vs-clause"
@@ -251,11 +254,11 @@ input: "text"
 headword: "pvc-dangling-participle"
 skill: "production"
 subtype: "intermediate"
-prompt: "Fix the dangling participle: 'Having studied for months, ____ (celebrate) with her family.' Write the correct verb form for 'celebrate', assuming the subject is 'she'."
-accept: ["she celebrated", "celebrated"]
+prompt: "Điền cả chủ ngữ she và động từ celebrate ở Past Simple: 'Having studied for months, ____ with her family.'"
+accept: ["she celebrated"]
 case_sensitive: false
 grammar_article_slug: "phrase-vs-clause"
-explain: "Chủ ngữ thực hiện hành động 'Having studied' phải là 'she', theo sau bằng động từ chia phù hợp: 'she celebrated'."
+explain: "Chỗ trống cần cả chủ ngữ 'she' (người đã học) và động từ Past Simple 'celebrated'. Chỉ viết 'celebrated' sẽ thiếu chủ ngữ của mệnh đề chính. Dạng hoàn thành 'Having studied' cho biết việc học xảy ra trước, còn Past Simple là thì được bài yêu cầu cho mệnh đề chính."
 ---
 
 ---
