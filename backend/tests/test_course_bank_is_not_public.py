@@ -600,6 +600,10 @@ def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8):
     # `_owned_session` below represents a real database read; keep the backing
     # table in sync so the atomic terminal update can match the same row.
     db._tables.setdefault("quiz_sessions", []).append(sess)
+    # Session admission now verifies its canonical bank, including sessions
+    # admitted before Grammar revision fields existed. This is an ordinary
+    # course bank and must remain on the established course finalization path.
+    db._tables.setdefault("quiz_banks", [_COURSE_BANK])
     with patch.object(mod, "supabase_admin", db), \
          patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
          patch.object(mod, "mark_item_submitted",
@@ -641,6 +645,7 @@ def test_a_failure_while_marking_does_NOT_break_ending_the_session():
     sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
             "class_assignment_item_id": "it-1"}
     db = _db(
+        quiz_banks=[_COURSE_BANK],
         quiz_sessions=[sess],
         class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1"}],
         class_assignments=[_LIVE_ASG],

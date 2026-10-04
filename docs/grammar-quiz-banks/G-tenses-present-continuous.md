@@ -13,6 +13,12 @@ cooldown: 2
 shuffle_options: true
 words_count: 5
 source: "authored-2026-07"
+text_match_by_qid:
+  pc_form_i2: exact
+  pc_ing_i2: exact
+  pc_trend_i2: exact
+  pc_temp_i2: exact
+  pc_stative_i2: exact
 ---
 
 # ===== item_key 1 · Cấu trúc am/is/are + V-ing (form cơ bản) =====
@@ -24,11 +30,11 @@ input: "choice"
 headword: "pc-form"
 skill: "form"
 subtype: "basic"
-prompt: "She ____ in the garden right now."
+prompt: "Dùng Present Continuous để nói việc cô ấy đang làm trong khu vườn ngay lúc phát ngôn: She ____ in the garden right now."
 options: ["is working", "working", "work", "works"]
 answer: 0
 grammar_article_slug: "present-continuous"
-explain: "Present Continuous = am/is/are + V-ing. Chủ ngữ 'she' → is + working."
+explain: "Theo yêu cầu Present Continuous, chọn 'is working': she đi với is + V-ing. Works có thể trình bày công việc/thói quen ở cách nhìn khác, nhưng không dùng cấu trúc continuous mà đề yêu cầu."
 ---
 
 ---
@@ -52,11 +58,11 @@ input: "choice"
 headword: "pc-form"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Look! The children ____ in the park."
+prompt: "Chọn dạng nhìn việc chơi như hoạt động đang diễn ra trước mắt, thay vì thói quen hay một sự kiện đã kết thúc: Look! The children ____ in the park."
 options: ["play", "are playing", "played", "is playing"]
 answer: 1
 grammar_article_slug: "present-continuous"
-explain: "'Look!' là tín hiệu hành động đang xảy ra ngay lúc nói → are playing (they = số nhiều)."
+explain: "Chọn 'are playing' cho hoạt động đang diễn ra trước mắt theo yêu cầu; children số nhiều nên dùng are. Không dùng Look làm quy tắc buộc thì bất kể nghĩa của câu."
 ---
 
 ---
@@ -66,7 +72,7 @@ input: "text"
 headword: "pc-form"
 skill: "production"
 subtype: "intermediate"
-prompt: "Why ____ (you / laugh) so loudly right now?"
+prompt: "Chia Present Continuous: Why ____ (you / laugh) so loudly right now?"
 accept: ["are you laughing"]
 case_sensitive: false
 grammar_article_slug: "present-continuous"
@@ -96,7 +102,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'I am study English now.'"
 answer: false
 grammar_article_slug: "present-continuous"
-explain: "SAI — am/is/are không đứng một mình, phải theo sau bởi V-ing: 'I am studying English now.'"
+explain: "SAI trong cấu trúc Present Continuous này: sau am cần dạng V-ing studying, nên 'I am studying English now'. Không suy ra am/is/are luôn phải đi với V-ing; be còn dùng làm động từ nối hoặc trong cấu trúc khác."
 ---
 
 # ===== item_key 2 · Quy tắc chính tả thêm -ing =====
@@ -150,7 +156,7 @@ input: "text"
 headword: "pc-ing-spelling"
 skill: "production"
 subtype: "intermediate"
-prompt: "She ____ (write) an essay about climate change right now."
+prompt: "Chia Present Continuous: She ____ (write) an essay about climate change right now."
 accept: ["is writing"]
 case_sensitive: false
 grammar_article_slug: "present-continuous"
@@ -179,11 +185,11 @@ input: "choice"
 headword: "pc-changing-trends"
 skill: "form"
 subtype: "basic"
-prompt: "More and more people ____ to work remotely nowadays."
+prompt: "Chọn dạng trình bày sự chuyển đổi đang diễn ra trong giai đoạn hiện tại, thay vì nêu nhận định/thói quen chung: More and more people ____ to work remotely nowadays."
 options: ["choose", "chooses", "are choosing", "chose"]
 answer: 2
 grammar_article_slug: "present-continuous"
-explain: "'nowadays' + xu hướng đang thay đổi → Present Continuous: are choosing."
+explain: "Chọn 'are choosing' cho góc nhìn xu hướng đang phát triển hiện nay. 'Choose' cũng có thể nêu một nhận định chung; nowadays và more and more không tự khiến Present Simple sai ngữ pháp."
 ---
 
 ---
@@ -193,11 +199,11 @@ input: "choice"
 headword: "pc-changing-trends"
 skill: "usage"
 subtype: "intermediate"
-prompt: "The climate ____ warmer every year, according to scientists."
+prompt: "Người viết muốn trình bày sự ấm lên như một quá trình thay đổi đang diễn ra, thay vì một nhận định chung lặp theo năm: The climate ____ warmer every year, according to scientists."
 options: ["gets", "is getting", "got", "get"]
 answer: 1
 grammar_article_slug: "present-continuous"
-explain: "Xu hướng đang diễn biến theo thời gian (every year, đang thay đổi liên tục) → Present Continuous: is getting."
+explain: "Chọn 'is getting' để nhấn mạnh quá trình đang phát triển. 'Gets' có thể nêu diễn biến như một nhận định chung; every year không quyết định thì thay cho cách nhìn được yêu cầu."
 ---
 
 ---
@@ -207,11 +213,11 @@ input: "text"
 headword: "pc-changing-trends"
 skill: "production"
 subtype: "intermediate"
-prompt: "Young Vietnamese ____ (become) more globally connected these days."
+prompt: "Chia Present Continuous: Young Vietnamese ____ (become) more globally connected these days."
 accept: ["are becoming"]
 case_sensitive: false
 grammar_article_slug: "present-continuous"
-explain: "'these days' là dấu hiệu xu hướng đang thay đổi → are becoming (chủ ngữ số nhiều)."
+explain: "Theo yêu cầu Present Continuous, dùng 'are becoming' để nhấn mạnh sự thay đổi đang diễn ra; Young Vietnamese chỉ nhiều người nên dùng are. These days cung cấp ngữ cảnh hiện nay, không tự cấm Present Simple trong mọi cách nhìn."
 ---
 
 ---
@@ -225,7 +231,7 @@ prompt: "Which sentence best describes a social trend that is still in progress 
 options: ["Traditional values change as urbanisation increases.", "Traditional values are changing as urbanisation increases.", "Traditional values changed as urbanisation increases.", "Traditional values have changed as urbanisation increases."]
 answer: 1
 grammar_article_slug: "present-continuous"
-explain: "Xu hướng xã hội đang biến đổi ngay trong giai đoạn hiện tại, CHƯA kết thúc → Present Continuous: are changing. ('have changed' ngụ ý thay đổi đã hoàn tất tính đến nay, không nhấn mạnh nó đang tiếp diễn.)"
+explain: "Chọn đáp án có 'are changing' để nhấn mạnh quá trình thay đổi đang diễn ra hiện nay, đúng trọng tâm đề. 'Have changed' nhìn lại thay đổi/kết quả tới hiện tại và không tự có nghĩa toàn bộ xu hướng đã chấm dứt; các dạng khác không thể hiện rõ trọng tâm đang diễn ra mà bài yêu cầu."
 ---
 
 ---
@@ -238,7 +244,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'Nowadays, the number of online shoppers increase rapidly.'"
 answer: false
 grammar_article_slug: "present-continuous"
-explain: "SAI — 'nowadays' + xu hướng đang thay đổi cần Present Continuous, không phải Present Simple: 'the number of online shoppers is increasing rapidly.'"
+explain: "SAI vì hòa hợp chủ ngữ–động từ: chủ ngữ trung tâm 'the number' là số ít, nên không dùng increase. Có thể viết 'increases rapidly' cho nhận định chung hoặc 'is increasing rapidly' để nhấn mạnh quá trình đang phát triển. Nowadays không tự buộc Present Continuous."
 ---
 
 # ===== item_key 4 · Tình huống tạm thời vs. cố định (Present Continuous vs Present Simple) =====
@@ -250,11 +256,11 @@ input: "choice"
 headword: "pc-vs-present-simple"
 skill: "contrast"
 subtype: "basic"
-prompt: "I usually ____ with my parents, but this month I ____ with my aunt while my flat is repaired."
+prompt: "Chọn cặp trình bày nơi ở thường lệ bằng Present Simple và chỗ ở tạm thời đang diễn ra trong tháng này bằng Present Continuous: I usually ____ with my parents, but this month I ____ with my aunt while my flat is repaired."
 options: ["live / am living", "am living / live", "live / live", "am living / am living"]
 answer: 0
 grammar_article_slug: "present-continuous"
-explain: "'usually' = thói quen cố định → Present Simple (live). 'this month' = tạm thời → Present Continuous (am living)."
+explain: "Chọn 'live / am living' để thể hiện nơi ở thường lệ và giai đoạn ở tạm hiện tại theo yêu cầu. 'Live / live' có thể là cách trình bày sự việc như nhận định đơn trong một ngữ cảnh khác; không gọi nó sai ngữ pháp chỉ vì this month."
 ---
 
 ---
@@ -264,11 +270,11 @@ input: "choice"
 headword: "pc-vs-present-simple"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "She ____ English at a language centre, but this semester she ____ at RMIT instead."
+prompt: "Việc dạy là công việc thường lệ của cô ấy, còn việc học ở RMIT là hoạt động tạm thời đang diễn ra trong học kỳ hiện tại. Chọn cặp thể hiện thói quen/công việc thường lệ bằng dạng đơn và hoạt động tạm thời bằng dạng tiếp diễn: She ____ English at a language centre, but this semester she ____ at RMIT instead."
 options: ["teaches / is studying", "is teaching / studies", "teaches / studies", "is teaching / is studying"]
 answer: 0
 grammar_article_slug: "present-continuous"
-explain: "Nghề nghiệp/thói quen thường xuyên → Present Simple (teaches). 'this semester' = giai đoạn tạm thời → Present Continuous (is studying)."
+explain: "Chọn 'teaches / is studying' cho hai góc nhìn được yêu cầu. 'Teaches / studies' hoặc các dạng tiếp diễn khác có thể phù hợp nếu thay đổi cách nhìn tình huống; this semester không tự làm mọi dạng đơn sai."
 ---
 
 ---
@@ -278,11 +284,11 @@ input: "text"
 headword: "pc-vs-present-simple"
 skill: "production"
 subtype: "intermediate"
-prompt: "He ____ (work) extra hours this week because of a big project, though normally he leaves at 5 PM."
+prompt: "Chia Present Continuous: He ____ (work) extra hours this week because of a big project, though normally he leaves at 5 PM."
 accept: ["is working"]
 case_sensitive: false
 grammar_article_slug: "present-continuous"
-explain: "'this week' + tình huống tạm thời (khác với 'normally') → Present Continuous: is working."
+explain: "Theo yêu cầu Present Continuous, dùng 'is working' để trình bày việc làm thêm như giai đoạn tạm thời đang diễn ra, đối lập với giờ về thường lệ. This week không một mình quyết định thì trong mọi câu."
 ---
 
 ---
@@ -292,10 +298,10 @@ input: "boolean"
 headword: "pc-vs-present-simple"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Water boiling at 100°C.'"
+prompt: "Đúng hay Sai: 'Water boiling at 100°C.' là một câu trần thuật hoàn chỉnh có động từ hữu hạn."
 answer: false
 grammar_article_slug: "present-continuous"
-explain: "SAI — sự thật khoa học cố định dùng Present Simple, không phải Present Continuous: 'Water boils at 100°C.'"
+explain: "SAI khi dùng như câu trần thuật hoàn chỉnh vì 'Water boiling at 100°C' thiếu động từ hữu hạn. 'Water boils at 100°C' nêu một sự thật chung; 'Water is boiling at 100°C' có thể tả một sự kiện cụ thể. Không phủ nhận câu tiếp diễn chỉ vì nội dung liên quan hiện tượng khoa học."
 ---
 
 ---
@@ -305,11 +311,11 @@ input: "choice"
 headword: "pc-vs-present-simple"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Choose the pair that correctly contrasts a permanent fact with a temporary situation:"
-options: ["He is always talking loudly. / He always talks loudly.", "I live in Hanoi. / I'm living with friends temporarily.", "She's teaching now. / She's teaching now.", "They work here. / They are working here."]
+prompt: "Which pair contrasts a usual present situation with a temporary situation in progress now, rather than comparing present and past or repeating the same viewpoint?"
+options: ["He is always talking loudly. / He always talks loudly.", "I live in Hanoi. / I'm living with friends temporarily.", "She's teaching now. / She's teaching now.", "They work here every weekday. / They worked here last year."]
 answer: 1
 grammar_article_slug: "present-continuous"
-explain: "'I live in Hanoi' (tình trạng cố định, lâu dài) đối lập với 'I'm living with friends temporarily' (chỉ tạm thời) — đúng tinh thần bài Wiki."
+explain: "Chọn cặp 'I live in Hanoi / I'm living with friends temporarily': nơi ở thường lệ đối lập với chỗ ở tạm đang diễn ra. Cặp 'They work here every weekday / They worked here last year' so sánh thói quen hiện tại và sự việc năm ngoái, không phải hai tình huống hiện tại thường lệ/tạm thời."
 ---
 
 # ===== item_key 5 · Stative verbs — xét nghĩa và ngữ cảnh =====
@@ -353,7 +359,7 @@ prompt: "This soup ____ delicious — did you add something new?"
 options: ["is tasting", "tastes", "taste", "are tasting"]
 answer: 1
 grammar_article_slug: "present-continuous"
-explain: "'taste' (= có vị) là stative verb ở nghĩa này → Present Simple: tastes, không dùng 'is tasting'."
+explain: "Với nghĩa mô tả vị của món súp ở câu này, cách nói thông thường là 'tastes delicious': tastes liên kết soup với delicious. Khi taste nói về hành động nếm thử, continuous dùng được; không cấm mọi continuous chỉ dựa vào tên động từ taste."
 ---
 
 ---

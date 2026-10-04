@@ -134,7 +134,19 @@
 .qz-note.is-tip { border-color: var(--av-success); background: var(--av-success-soft); }
 .qz-feedback > p, .qz-save-warning > p, .qz-error > p, .qz-note > p { margin: var(--av-space-2) 0 0; }
 .qz-feedback a, .qz-cardlink { color: var(--av-primary); text-decoration: underline; }
+.qz-feedback a,
+.qz-review-item a,
+.qz-shell .qz-muted a {
+  display: inline-flex;
+  align-items: center;
+  min-width: var(--av-control-min-height);
+  min-height: var(--av-control-min-height);
+}
 .qz-cardlink, .qz-inline-audio {
+  display: inline-flex;
+  align-items: center;
+  min-width: var(--av-control-min-height);
+  min-height: var(--av-control-min-height);
   padding: 0;
   border: 0;
   background: none;
@@ -180,7 +192,15 @@ button.qz-chip { cursor: pointer; }
 .qz-review-item.is-right { border-color: var(--av-success); }
 .qz-review-item p { margin: var(--av-space-2) 0 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
 .qz-dialog { z-index: 100; }
-.qz-dialog-close { padding: 0; border: 0; background: none; color: var(--av-text-muted); font-size: var(--av-fs-2xl); cursor: pointer; }
+.qz-dialog-close { display: inline-flex; align-items: center; justify-content: center; min-width: var(--av-control-min-height); min-height: var(--av-control-min-height); padding: 0; border: 0; background: none; color: var(--av-text-muted); font-size: var(--av-fs-2xl); cursor: pointer; }
+.qz-shell .subpage-header__back,
+.qz-shell .av-button-sm,
+.qz-dialog .av-button-sm,
+button.qz-res-chip {
+  min-width: var(--av-control-min-height);
+  min-height: var(--av-control-min-height);
+}
+button.qz-res-chip { align-items: center; }
 .qz-ipa { display: inline-block; margin-top: var(--av-space-2); padding-inline: var(--av-space-2); border: 1px solid var(--av-primary-border); border-radius: var(--av-radius-sm); background: var(--av-primary-soft); color: var(--av-primary); font-family: var(--av-font-mono); }
 .qz-card-meta { margin: 0 0 var(--av-space-2); }
 .qz-card-definition { margin: 0; color: var(--av-text-primary); font-size: var(--av-fs-lg); font-weight: var(--av-fw-medium); }
@@ -204,5 +224,6 @@ button.qz-chip { cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .qz-bar, .qz-opt { transition: none; }
+  .qz-shell .subpage-header__back { transition: none; }
   .qz-finishing .spinner { animation: none; }
 }

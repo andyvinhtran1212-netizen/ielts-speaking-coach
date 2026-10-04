@@ -2,7 +2,7 @@
 title: Dangling Modifiers — Lỗi mệnh đề phân từ treo
 slug: dangling-modifiers
 category: error-clinic
-summary: 'Mệnh đề phân từ mở đầu câu (Walking home, …) mặc định thuộc về chủ ngữ ngay sau dấu phẩy. Nếu chủ ngữ đó không thể thực hiện hành động phân từ, câu bị "treo" (dangling) — một lỗi tinh vi kéo điểm Writing.
+summary: 'Với mệnh đề phân từ mở đầu không có chủ ngữ riêng, kiểm tra chủ ngữ ngầm hiểu có khớp chủ ngữ chính và ý nghĩa định diễn đạt hay không. Cụm chỉ mục đích To + V cần được xét theo tác nhân và ngữ cảnh; không kết luận mọi câu bị động hoặc mọi chủ ngữ không phải người đều sai.
 
   '
 level: advanced
@@ -21,7 +21,7 @@ compare_with:
 - participle-clauses
 order: 19
 status: complete
-last_updated: 2026-07-05
+last_updated: 2026-09-30
 difficulty: advanced
 band_relevance:
 - '6.5'
@@ -65,10 +65,10 @@ Cụm phân từ mở đầu câu bổ nghĩa cho **chủ ngữ ngay sau dấu p
 
 Người viết ngầm có một chủ thể trong đầu, nhưng chủ ngữ ghi ra lại là thứ khác:
 
-- ❌ *Having finished the report, the printer broke down.* → máy in không "finish the report".
-- ❌ *To improve health, exercise is essential.* → chủ ngữ "exercise" không "improve health" một cách chủ động.
+- Nếu muốn nói **một người đã viết và kiểm tra xong báo cáo**, *Having finished the report, the printer broke down* không viết ra người đó làm chủ ngữ. Không cấm cách hiểu máy in đã **in xong** báo cáo trong ngữ cảnh in ấn.
+- *To improve health, people should exercise regularly* viết rõ người hành động. *To improve health, exercise is essential* vẫn có thể diễn đạt mục đích hợp lý; nếu cần làm rõ ai phải hành động, chọn phiên bản có *people*.
 
-Người đọc chỉ thấy chủ ngữ **viết ra**, nên câu nghe phi lý.
+Đánh giá theo hành động và ý nghĩa được định diễn đạt, không chỉ theo tiêu chí chủ ngữ là người hay vật.
 
 <!-- anchor: dangling-modifiers.fix -->
 ### Ba cách sửa
@@ -84,15 +84,16 @@ Người đọc chỉ thấy chủ ngữ **viết ra**, nên câu nghe phi lý.
 ## Lỗi thường gặp
 
 ### Lỗi 1: Chủ ngữ sau phẩy không làm được hành động
-- ❌ *Being cheap, everyone bought the phone.* → "everyone" không "cheap".
+- Với ý **điện thoại rẻ nên được mua**, *Being cheap, everyone bought the phone* gắn *cheap* với *everyone* thay vì chiếc điện thoại. *Cheap* cũng có thể mô tả một người ở nghĩa khác, nên lỗi ở đây là không đúng ý định diễn đạt.
 - ✅ *Being cheap, the phone sold quickly.*
 
-### Lỗi 2: Câu mở đầu bằng "To + V" nhưng thiếu tác nhân
-- ❌ *To pass the exam, hard work is needed.*
-- ✅ *To pass the exam, **students** must work hard.*
+### Lưu ý: Làm rõ tác nhân của mục đích "To + V"
+- *To pass the exam, hard work is needed* có thể được hiểu qua ngữ cảnh, nhưng chưa trực tiếp gọi tên người học.
+- *To pass the exam, **students** must work hard* nêu rõ người phải học để thi đỗ.
+- Thể bị động tự nó không bảo đảm hoặc loại bỏ tác nhân rõ ràng; xét cả tác nhân viết ra/ngầm hiểu và mục đích của câu.
 
 ### Cách tự kiểm
-Hỏi: *"Chủ ngữ ngay sau dấu phẩy có thực sự làm hành động phân từ không?"* Nếu không → sửa.
+Với kiểu phân từ mở đầu không có chủ ngữ riêng, hỏi: *"Chủ ngữ chính có khớp người/vật được mô tả và ý tôi muốn nói không?"* Với To + V chỉ mục đích, xét thêm tác nhân ngầm hiểu và ngữ cảnh; khi chưa rõ, viết ra tác nhân hoặc dùng mệnh đề đầy đủ.
 
 ## Ứng dụng trong bài thi
 
@@ -101,5 +102,5 @@ Hỏi: *"Chủ ngữ ngay sau dấu phẩy có thực sự làm hành động ph
 ## Tóm tắt nhanh
 
 - Cụm phân từ mở đầu thuộc về chủ ngữ ngay sau phẩy
-- Chủ ngữ đó phải làm được hành động phân từ, nếu không → treo
+- Chủ ngữ ngầm hiểu phải khớp chủ ngữ chính theo ý nghĩa; không áp dụng máy móc thành quy tắc chỉ người mới có thể là tác nhân
 - Sửa: đổi chủ ngữ, hoặc thêm chủ ngữ cho cụm, hoặc nêu rõ tác nhân

@@ -422,15 +422,23 @@ async def get_dashboard_data(
 # the public article page can show a "Kiểm tra nhanh" button. No answers here.
 
 def _published_grammar_banks() -> list[dict]:
+    from services.grammar_quiz_resolution import current_banks
     try:
-        return (
+        response = (
             supabase_admin.table("quiz_banks")
-            .select("id, code, title, words_count, topic_id")
+            .select("id, code, title, words_count, topic_id, grammar_canonical_code, grammar_revision, "
+                    "grammar_is_current, grammar_predecessor_bank_id, grammar_new_starts_enabled",count='exact')
             .eq("skill_area", "grammar").eq("is_published", True)
             .order("code").execute()
-        ).data or []
-    except Exception:  # noqa: BLE001 — availability is best-effort, never 500 the page
-        return []
+        )
+        if (not isinstance(response.data,list) or type(response.count) is not int
+                or len(response.data)!=response.count):
+            raise HTTPException(503,'Danh sách Grammar chưa được đọc đầy đủ. Hãy thử lại.')
+        return current_banks(response.data)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(503,'Chưa đọc được bộ câu hỏi Grammar. Hãy thử lại.') from exc
 
 
 @router.get("/exercises")
@@ -467,4 +475,6 @@ async def get_article_exercise(category: str, slug: str) -> dict:
         "code": code,
         "title": match.get("title"),
         "questions": match.get("words_count"),
+        **({'grammar_revision':match['grammar_revision'],
+            'new_starts_enabled':match['grammar_new_starts_enabled']} if match.get('grammar_canonical_code') else {}),
     }

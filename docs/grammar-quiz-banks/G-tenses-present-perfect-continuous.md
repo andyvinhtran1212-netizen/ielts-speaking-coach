@@ -13,6 +13,11 @@ cooldown: 2
 shuffle_options: true
 words_count: 5
 source: "authored-2026-07"
+text_match_by_qid:
+  ppc_form_i2: exact
+  ppc_vspp_i2: exact
+  ppc_stative_i2: exact
+  ppc_vspc_i2: exact
 ---
 
 # ===== item_key 1 · Cấu trúc have/has been + V-ing (form cơ bản) =====
@@ -24,11 +29,11 @@ input: "choice"
 headword: "ppc-form"
 skill: "form"
 subtype: "basic"
-prompt: "I ____ English for three years."
+prompt: "Việc học bắt đầu ba năm trước và vẫn tiếp diễn đến hiện tại; chọn dạng nhấn mạnh quá trình từ lúc bắt đầu tới nay: I ____ English for three years."
 options: ["have been studying", "am studying", "has been studying", "studied"]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "Present Perfect Continuous = have/has + been + V-ing. Chủ ngữ 'I' → have been studying."
+explain: "Chọn 'have been studying' cho quá trình đã bắt đầu và còn tiếp diễn đến hiện tại. 'Studied' có thể nói về ba năm học đã kết thúc; for three years một mình không quyết định khoảng thời gian còn tiếp diễn hay đã kết thúc."
 ---
 
 ---
@@ -52,11 +57,11 @@ input: "choice"
 headword: "ppc-form"
 skill: "usage"
 subtype: "intermediate"
-prompt: "____ you ____ long for the bus?"
+prompt: "Bạn vừa tới trạm xe buýt và người nghe vẫn đang đợi từ trước đó. Dùng câu hỏi Present Perfect Continuous để hỏi về quá trình đợi kéo dài tới lúc này: ____ you ____ long for the bus?"
 options: ["Have / been waiting", "Are / waiting", "Did / wait", "Have / waited"]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "Câu hỏi PPC: Have/Has + S + been + V-ing? → Have you been waiting."
+explain: "Theo yêu cầu Present Perfect Continuous, chọn 'Have / been waiting'. 'Have you waited long?' cũng có thể hỏi về thời gian đợi; 'Did you wait long?' có thể hỏi một lần đợi đã kết thúc. Chúng không đáp ứng cấu trúc thì được yêu cầu ở bài này, không phải luôn sai ngữ pháp."
 ---
 
 ---
@@ -66,7 +71,7 @@ input: "text"
 headword: "ppc-form"
 skill: "production"
 subtype: "intermediate"
-prompt: "They ____ (not / sleep) well recently because of the noisy construction site."
+prompt: "Chia Present Perfect Continuous: They ____ (not / sleep) well recently because of the noisy construction site."
 accept: ["haven't been sleeping", "have not been sleeping"]
 case_sensitive: false
 grammar_article_slug: "present-perfect-continuous"
@@ -150,11 +155,11 @@ input: "text"
 headword: "ppc-for-since"
 skill: "production"
 subtype: "intermediate"
-prompt: "The gap between rich and poor has been widening ____ (viết giới từ) the global financial crisis began."
+prompt: "The gap between rich and poor has been widening ____ (viết từ nối chỉ mốc bắt đầu) the global financial crisis began."
 accept: ["since"]
 case_sensitive: false
 grammar_article_slug: "present-perfect-continuous"
-explain: "'the global financial crisis began' là một MỐC/sự kiện bắt đầu → since."
+explain: "Điền since để nối mốc bắt đầu 'the global financial crisis began' với quá trình kéo dài tới hiện tại. Ở đây since đi với một mệnh đề hữu hạn và thường được gọi là liên từ."
 ---
 
 ---
@@ -192,11 +197,11 @@ input: "choice"
 headword: "ppc-vs-present-perfect"
 skill: "contrast"
 subtype: "basic"
-prompt: "I ____ three books this month — not bad for someone who barely reads!"
+prompt: "Tháng này chưa kết thúc và tôi đã đọc xong cả ba cuốn; chọn dạng nhấn mạnh số cuốn hoàn tất tính tới hiện tại: I ____ three books this month — not bad for someone who barely reads!"
 options: ["have read", "have been reading", "am reading", "read"]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "Con số cụ thể 'three books' nhấn mạnh KẾT QUẢ đã hoàn thành, trả lời cho 'How many?' → Present Perfect: have read."
+explain: "Chọn 'have read' để nêu số cuốn đã hoàn tất tính tới hiện tại theo yêu cầu. 'Have been reading' có thể nói về quá trình đọc ba cuốn mà không tự bảo đảm đã đọc xong; con số three không một mình quyết định completion hay thì."
 ---
 
 ---
@@ -206,11 +211,11 @@ input: "choice"
 headword: "ppc-vs-present-perfect"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "You look tired and your clothes are dirty. ____?"
+prompt: "Người nghe vừa dừng một hoạt động chạy kéo dài; bạn muốn hỏi về quá trình vừa diễn ra, thay vì chỉ hỏi có chạy hay không: 'You look tired and your clothes are dirty. ____?' Chọn câu hỏi nhấn mạnh quá trình này."
 options: ["Have you been running", "Have you run", "Did you run", "Are you running"]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "Dấu vết hiện tại (tired, dirty clothes) giải thích bởi một quá trình vừa kết thúc → Present Perfect Continuous: Have you been running."
+explain: "Chọn 'Have you been running?' để nhấn mạnh hoạt động kéo dài gần đây và dấu vết hiện tại. 'Have you run?' hoặc 'Did you run?' có thể là câu hỏi hợp ngữ pháp với trọng tâm/khung thời gian khác; tired và dirty không tự khiến chúng sai."
 ---
 
 ---
@@ -220,11 +225,11 @@ input: "text"
 headword: "ppc-vs-present-perfect"
 skill: "production"
 subtype: "intermediate"
-prompt: "He ____ (work) here for 10 years, and he still finds the job challenging. (nhấn mạnh quá trình liên tục)"
+prompt: "Chia Present Perfect Continuous để nhấn mạnh quá trình làm việc bắt đầu trong quá khứ và còn tiếp diễn tới nay: He ____ (work) here for 10 years, and he still finds the job challenging."
 accept: ["has been working"]
 case_sensitive: false
 grammar_article_slug: "present-perfect-continuous"
-explain: "Nhấn mạnh QUÁ TRÌNH kéo dài liên tục 10 năm (chứ không chỉ nêu sự thật) → has been working."
+explain: "Theo yêu cầu Present Perfect Continuous, dùng 'has been working'. Việc làm kéo dài tới hiện tại có thể gồm những ca làm và khoảng nghỉ; không phải khẳng định làm không ngừng suốt mười năm. 'Has worked' cũng có thể nêu cùng thời gian làm như một sự thật nếu đề không yêu cầu riêng dạng continuous."
 ---
 
 ---
@@ -238,7 +243,7 @@ prompt: "Which pair correctly shows RESULT (Present Perfect) vs PROCESS (Present
 options: ["I have painted the house. / I have been painting the house.", "I have painted the house. / I painted the house.", "I have been painting the house. / I am painting the house.", "I have painted the house. / I paint the house."]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "'have painted' = nhà đã sơn xong (kết quả); 'have been painting' = đã sơn cả ngày, có thể chưa xong (quá trình) — đúng ví dụ trong bài Wiki."
+explain: "Chọn cặp 'I have painted the house / I have been painting the house': câu đầu nhấn mạnh kết quả sơn xong trong cách đọc này, câu sau nhấn mạnh quá trình sơn gần đây/tới hiện tại. Câu sau không tự nói đã sơn cả ngày hoặc chắc chắn chưa xong; cần ngữ cảnh cho thời lượng và trạng thái hoàn tất."
 ---
 
 ---
@@ -248,10 +253,10 @@ input: "boolean"
 headword: "ppc-vs-present-perfect"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'How long have you written this essay?' là câu hỏi đúng ngữ pháp khi hỏi về khoảng thời gian viết."
+prompt: "Đúng hay Sai: Người nghe vẫn chưa viết xong bài luận và bạn muốn hỏi thời gian dành cho quá trình viết đang tiếp diễn. 'How long have you written this essay?' là cách hỏi tự nhiên phù hợp nhất với trọng tâm đó."
 answer: false
 grammar_article_slug: "present-perfect-continuous"
-explain: "SAI — câu hỏi 'How long?' đi với Present Perfect Continuous (nhấn mạnh quá trình), không phải Present Perfect: 'How long have you been writing this essay?'"
+explain: "SAI với trọng tâm quá trình viết một bài luận chưa xong: 'How long have you been writing this essay?' tự nhiên và rõ hơn. Không có quy tắc How long luôn bắt buộc continuous: 'How long have you worked there?' hoặc 'How long have you known her?' đều dùng được."
 ---
 
 # ===== item_key 4 · Stative verbs — xét nghĩa và ngữ cảnh =====
@@ -291,7 +296,7 @@ input: "text"
 headword: "ppc-stative-verbs"
 skill: "production"
 subtype: "intermediate"
-prompt: "I ____ (know) the truth about the project since last week, but I haven't told anyone yet."
+prompt: "Chia Present Perfect Simple: I ____ (know) the truth about the project since last week, but I haven't told anyone yet."
 accept: ["have known"]
 case_sensitive: false
 grammar_article_slug: "present-perfect-continuous"
@@ -333,11 +338,11 @@ input: "choice"
 headword: "ppc-vs-present-continuous"
 skill: "contrast"
 subtype: "basic"
-prompt: "I ____ English for 3 years — I started when I was in secondary school."
+prompt: "Việc học bắt đầu khi tôi còn ở trường phổ thông và vẫn tiếp diễn tới nay; chọn dạng nhấn mạnh quá trình đã kéo dài ba năm: I ____ English for 3 years — I started when I was in secondary school."
 options: ["have been studying", "am studying", "study", "was studying"]
 answer: 0
 grammar_article_slug: "present-perfect-continuous"
-explain: "'for 3 years' + hành động bắt đầu trong quá khứ và nối tới hiện tại → Present Perfect Continuous, không phải Present Continuous ('am studying' chỉ diễn tả việc đang xảy ra ngay lúc nói, không có liên kết với quá khứ)."
+explain: "Chọn 'have been studying' cho quá trình đã bắt đầu và tiếp diễn tới hiện tại được nêu. Present Continuous có thể nói về hoạt động tạm thời quanh hiện tại hoặc kế hoạch, nhưng không tự biểu thị ba năm đã trải qua tới nay trong cách diễn đạt này."
 ---
 
 ---
@@ -361,7 +366,7 @@ input: "text"
 headword: "ppc-vs-present-continuous"
 skill: "production"
 subtype: "intermediate"
-prompt: "In recent years, cities ____ (experience) rapid population growth, and the trend continues today."
+prompt: "Chia Present Perfect Continuous: In recent years, cities ____ (experience) rapid population growth, and the trend continues today."
 accept: ["have been experiencing"]
 case_sensitive: false
 grammar_article_slug: "present-perfect-continuous"
@@ -375,10 +380,10 @@ input: "boolean"
 headword: "ppc-vs-present-continuous"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'I am studying English for 3 years.'"
+prompt: "Đúng hay Sai: Để nói việc học đã bắt đầu ba năm trước và vẫn tiếp diễn đến hiện tại, 'I am studying English for 3 years' thể hiện rõ quá trình quá khứ–hiện tại được yêu cầu."
 answer: false
 grammar_article_slug: "present-perfect-continuous"
-explain: "SAI — Present Continuous chỉ diễn tả hành động đang xảy ra ngay lúc nói, không thể hiện khoảng thời gian nối từ quá khứ đến hiện tại: 'I have been studying English for 3 years.'"
+explain: "SAI với ý học đã kéo dài từ ba năm trước đến nay: 'I have been studying English for three years' phù hợp. Present Continuous cũng dùng cho tình huống tạm thời hoặc kế hoạch có thời hạn, nhưng một kế hoạch ba năm là ý nghĩa khác với ba năm đã trải qua tới hiện tại."
 ---
 
 ---
@@ -388,9 +393,9 @@ input: "choice"
 headword: "ppc-vs-present-continuous"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Which sentence correctly explains a PERSISTENT effort over time (for use in Speaking Part 3)?"
+prompt: "Which sentence presents an investment effort that began in the past decade and is still continuing up to now, emphasizing the ongoing process (for Speaking Part 3)?"
 options: ["Governments are investing more in renewable energy right now.", "Governments have been investing more in renewable energy over the past decade.", "Governments invest more in renewable energy over the past decade.", "Governments invested more in renewable energy over the past decade and stopped."]
 answer: 1
 grammar_article_slug: "present-perfect-continuous"
-explain: "'over the past decade' + hành động kéo dài, liên tục từ quá khứ đến hiện tại → Present Perfect Continuous: have been investing."
+explain: "Chọn 'have been investing' để nêu quá trình đầu tư bắt đầu trong quá khứ và tiếp diễn tới hiện tại. Câu 'invested ... and stopped' có thể diễn đạt nỗ lực kéo dài trong quá khứ nhưng nói rõ đã dừng; nó không đáp ứng yêu cầu còn tiếp diễn tới nay. Continuous không có nghĩa đầu tư không nghỉ trong từng khoảnh khắc."
 ---

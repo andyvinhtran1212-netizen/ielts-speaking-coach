@@ -20,12 +20,19 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-02 the highest is `308`, so the next new
-migration is `309`.
+sequence is dense. As of 2026-10-03 the highest is `309`, so the next new
+migration is `310`.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
 historical results; compatible code and explicit staged enablement are separate.
+
+The unapplied Grammar revision candidate was renamed from
+`306_grammar_quiz_revision_cutover.sql` to
+`309_grammar_quiz_revision_cutover.sql` after the independently released Mock
+migrations used 306–308. Its SQL is unchanged; no applied ledger row is renamed
+or baselined. Verify the candidate is still unapplied on the target before
+release; an already applied old filename requires an additive follow-up.
 
 ## Conventions
 
@@ -299,6 +306,11 @@ Migration 304 extends the existing Listening package contract for the 80-day
 source collection: lessons may have zero practice forms and transcript timings
 may be absent. It keeps controlled transcript hashes required and preserves the
 existing atomic import, publication and service-role boundaries.
+Migration 306 adds the approved managed Grammar revision/admission boundaries,
+retained private cutover proof and serialized start/progress/reset/end routines.
+It does not publish or replace a bank. Canonical account erasure uses the same
+statement-first scope and only erases that absent owner's personal history;
+bank/question revisions and private audit receipts remain immutable.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
