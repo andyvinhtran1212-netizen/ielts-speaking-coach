@@ -64,11 +64,14 @@ def test_catalog_marks_unready_b02_and_ready_b04(monkeypatch):
     assert next(row for row in catalog if row["id"] == "M30-B04")["ready"]
     b02 = next(row for row in catalog if row["id"] == "M30-B02")
     assert not b02["ready"] and b02["question_count"] == 0
-    assert "Âm & chữ" in b02["reason"]
+    assert "đã có câu hỏi" in b02["reason"]
+    assert "chưa nạp và rà soát" in b02["reason"]
     b07 = next(row for row in catalog if row["id"] == "M30-B07")
-    assert "tách khỏi bài diagnostic" in b07["reason"]
+    assert "đã có câu hỏi" in b07["reason"]
+    b18 = next(row for row in catalog if row["id"] == "M30-B18")
+    assert "đã có câu hỏi" in b18["reason"]
     b09 = next(row for row in catalog if row["id"] == "M30-B09")
-    assert "chưa được đóng gói" in b09["reason"]
+    assert "đã có nguồn" in b09["reason"]
 
 
 def test_give_requires_unique_request_id_and_fingerprint_changes_with_intent():

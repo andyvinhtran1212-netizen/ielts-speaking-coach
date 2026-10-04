@@ -31,11 +31,15 @@ def enabled() -> bool:
 
 
 def _unready_reason(lesson_id: str) -> str:
-    if lesson_id == "M30-B02":
-        return "B02 chưa có bộ câu hỏi luyện riêng về Âm & chữ."
-    if lesson_id in {"M30-B07", "M30-B18"}:
-        return "Bài ôn/kiểm tra này chưa có bộ câu hỏi luyện riêng tách khỏi bài diagnostic."
-    return "Bài này chưa được đóng gói và rà soát cho luồng giao bài Grammar lẻ."
+    if lesson_id in {"M30-B02", "M30-B07", "M30-B18"}:
+        return (
+            "Kho MASTER30 đã có câu hỏi cho bài này; web chưa nạp và rà soát "
+            "một gói luyện riêng để giao lẻ."
+        )
+    return (
+        "Kho MASTER30 đã có nguồn bài này; web chưa có gói luyện riêng "
+        "được rà soát để giao lẻ."
+    )
 
 
 def _active_release() -> dict[str, Any]:
