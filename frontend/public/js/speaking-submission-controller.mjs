@@ -129,6 +129,9 @@ function classifySubmissionError(error, sessionId, questionId) {
   // could be accepted. Network errors, malformed 2xx responses and 5xx errors
   // are ambiguous: the response row may already be canonical.
   const definitelyRejected = new Set([400, 413, 415, 422]);
+  if (context.status === 409 && ['submission_superseded', 'submission_audio_changed'].includes(detail?.code)) {
+    return new SpeakingSubmissionError('submission_rejected', detail.message || 'Bản ghi đã thay đổi. Hãy thử gửi lại.', context);
+  }
   if (definitelyRejected.has(context.status)) {
     return new SpeakingSubmissionError(
       'submission_rejected',
@@ -151,6 +154,8 @@ export class SpeakingSubmissionController {
     this.FormDataCtor = environment.FormDataCtor || globalThis.FormData;
     this.submissionTimeoutMs = environment.submissionTimeoutMs ?? SUBMISSION_TIMEOUT_MS;
     this.readbackTimeoutMs = environment.readbackTimeoutMs ?? READBACK_TIMEOUT_MS;
+    this.recordingIds = new WeakMap();
+    this.createSubmissionId = environment.createSubmissionId || (() => globalThis.crypto.randomUUID());
     this.pending = new Map();
     this.unconfirmed = new Map();
     this.disposed = false;
@@ -210,8 +215,8 @@ export class SpeakingSubmissionController {
     };
     const run = () => this.#submitOnce(submission);
     // Same question + same blob is one idempotent caller. A genuinely new take
-    // must never alias the old promise: serialize it so the canonical upsert's
-    // last take wins and no recording is silently discarded.
+    // must never alias the old promise. Serialize active UI callers; the server
+    // revision also protects newer recordings from uploads that finish late.
     const operation = existing
       ? existing.promise.then(run, run)
       : run();
@@ -226,56 +231,50 @@ export class SpeakingSubmissionController {
   async #submitOnce({ sessionId, questionId, blob, filename, priorResponseId }) {
     const key = `${sessionId}\u0000${questionId}`;
     const previous = this.unconfirmed.get(key);
-    if (previous) {
-      // A retry first checks the old request. It may have committed after the
-      // browser stopped waiting. A failed read is never permission to reupload.
-      let recovered = previous.blob === blob ? previous.receipt : null;
-      if (!recovered) {
-        try {
-          const readback = await this.#readback(sessionId, questionId, previous.priorResponseId);
-          if (previous.blob === blob) recovered = readback;
-        } catch {
-          throw previous.error;
-        }
-      }
-      if (recovered) {
-        this.unconfirmed.delete(key);
-        return recovered;
-      }
-      // Even a transport which ignores AbortSignal must not run two uploads
-      // for this question at once. Keep the recording and allow another check.
-      if (!previous.settled) throw previous.error;
+    let submissionId = this.recordingIds.get(blob);
+    if (!submissionId) {
+      submissionId = this.createSubmissionId();
+      this.recordingIds.set(blob, submissionId);
+    }
+    let snapshot;
+    try {
+      snapshot = await this.#snapshot(sessionId, questionId);
+    } catch (error) {
+      throw previous?.error || classifySubmissionError(error, sessionId, questionId);
+    }
+    const saved = this.#matchingReceipt(snapshot.row, submissionId);
+    if (saved) {
+      this.unconfirmed.delete(key);
+      return saved;
+    }
+    if (!snapshot.retrySafe) {
+      throw new SpeakingSubmissionError(
+        'ambiguous_commit',
+        'Máy chủ đang cập nhật bộ gửi bài. Bản ghi vẫn được giữ; hãy thử lại sau.',
+        { sessionId, questionId },
+      );
     }
     if (this.disposed) {
       throw new SpeakingSubmissionError('disposed', 'Trang làm bài đã đóng. Hãy mở lại phiên học.');
     }
+    const expectedRevision = previous?.blob === blob
+      ? previous.expectedRevision
+      : snapshot.row?.submission_revision || 'absent';
     const formData = new this.FormDataCtor();
     formData.append('question_id', questionId);
     formData.append('audio_file', blob, filename);
+    formData.append('submission_id', submissionId);
+    formData.append('expected_revision', expectedRevision);
 
-    const attempt = { blob, priorResponseId, settled: false, receipt: null, error: null };
+    const attempt = { blob, submissionId, expectedRevision, error: null };
     this.unconfirmed.set(key, attempt);
     let direct;
     try {
       direct = await this.#requestWithin(
         (signal) => {
-          let request;
-          try {
-            request = Promise.resolve(this.upload(
-              `/sessions/${encodeURIComponent(sessionId)}/responses`,
-              formData,
-              { signal },
-            ));
-          } catch (error) {
-            attempt.settled = true;
-            throw error;
-          }
-          // Observe late settlement without allowing it to update the player.
-          void request.then((result) => {
-            attempt.settled = true;
-            if (responseId(result)) attempt.receipt = result;
-          }, () => { attempt.settled = true; });
-          return request;
+          return this.upload(
+            `/sessions/${encodeURIComponent(sessionId)}/responses`, formData, { signal },
+          );
         },
         this.submissionTimeoutMs,
         { sessionId, questionId },
@@ -287,12 +286,12 @@ export class SpeakingSubmissionController {
         throw classified;
       }
       attempt.error = classified;
-      const recovered = await this.#reconcile(classified, sessionId, questionId, priorResponseId);
+      const recovered = await this.#reconcile(classified, sessionId, questionId, submissionId);
       this.unconfirmed.delete(key);
       return recovered;
     }
 
-    if (responseId(direct)) {
+    if (responseId(direct) && !direct._replayed) {
       this.unconfirmed.delete(key);
       return direct;
     }
@@ -305,7 +304,7 @@ export class SpeakingSubmissionController {
       { sessionId, questionId },
     );
     attempt.error = malformed;
-    const recovered = await this.#reconcile(malformed, sessionId, questionId, priorResponseId);
+    const recovered = await this.#reconcile(malformed, sessionId, questionId, submissionId);
     this.unconfirmed.delete(key);
     return recovered;
   }
@@ -330,27 +329,37 @@ export class SpeakingSubmissionController {
     }
   }
 
-  async #readback(sessionId, questionId, priorResponseId) {
+  async #snapshot(sessionId, questionId) {
     const session = await this.#requestWithin(
       (signal) => this.getSession(`/sessions/${encodeURIComponent(sessionId)}`, { signal }),
       this.readbackTimeoutMs,
       { sessionId, questionId },
     );
-    const row = findPersistedSpeakingResponse(session, questionId);
-    // The row that existed before a retake does not prove the new audio saved.
-    if (row && (!priorResponseId || String(row.id) !== priorResponseId)) {
-      return {
-        response_id: row.id,
-        _reconciled: true,
-        _persisted_response: row,
-      };
+    if (session?.response_lookup_failed) {
+      throw new SpeakingSubmissionError('ambiguous_commit', 'Chưa thể đọc trạng thái bản ghi.', { sessionId, questionId });
     }
-    return null;
+    return {
+      row: findPersistedSpeakingResponse(session, questionId),
+      retrySafe: session?.submission_retry_safe === true,
+    };
   }
 
-  async #reconcile(originalError, sessionId, questionId, priorResponseId) {
+  #matchingReceipt(row, submissionId) {
+    return row?.submission_id === submissionId ? {
+      response_id: row.id,
+      _reconciled: true,
+      _persisted_response: row,
+    } : null;
+  }
+
+  async #readback(sessionId, questionId, submissionId) {
+    const snapshot = await this.#snapshot(sessionId, questionId);
+    return this.#matchingReceipt(snapshot.row, submissionId);
+  }
+
+  async #reconcile(originalError, sessionId, questionId, submissionId) {
     try {
-      const recovered = await this.#readback(sessionId, questionId, priorResponseId);
+      const recovered = await this.#readback(sessionId, questionId, submissionId);
       if (recovered) return recovered;
     } catch {
       // GET /sessions itself can fail. Absence of readback is never proof that

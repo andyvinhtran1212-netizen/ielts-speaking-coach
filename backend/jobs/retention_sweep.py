@@ -32,10 +32,12 @@ is orphan-safe + idempotent; the only cost is a sub-second window where audio_ur
 
 import logging
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 
 from database import supabase_admin
+from services.speaking_submission import submission_id
 from services.retention import (
     RETENTION_AUDIO_DAYS,
     RETENTION_CONTENT_DAYS,
@@ -80,7 +82,7 @@ def _eligible(purged_col: str, days: int, expiry_key: str) -> list[dict]:
     return [r for r in rows if compute_expiry(r)[expiry_key]]
 
 
-def _audio_paths(session_id: str) -> list[str]:
+def _audio_paths(session_id: str, user_id: str | None = None) -> list[str]:
     """Bucket-relative keys for a session's recordings (non-null only)."""
     rows = (
         supabase_admin.table("responses")
@@ -89,7 +91,29 @@ def _audio_paths(session_id: str) -> list[str]:
         .execute()
         .data
     ) or []
-    return [r["audio_storage_path"] for r in rows if r.get("audio_storage_path")]
+    paths = [r["audio_storage_path"] for r in rows if r.get("audio_storage_path")]
+    # Immutable take paths may outlive the single canonical row (retakes or a
+    # losing concurrent upload). Keep their existing 15-day retention deadline.
+    if user_id:
+        if not all(re.fullmatch(r"[A-Za-z0-9_-]+", value) for value in (user_id, session_id)):
+            raise ValueError("invalid recording owner prefix")
+        prefix = f"{user_id}/{session_id}"
+        offset = 0
+        while True:
+            objects = supabase_admin.storage.from_(_AUDIO_BUCKET).list(
+                prefix, {"limit": 1000, "offset": offset, "sortBy": {"column": "name", "order": "asc"}},
+            )
+            for item in objects:
+                name = item.get("name")
+                if not isinstance(name, str) or "/" in name or "\\" in name:
+                    continue
+                path = f"{prefix}/{name}"
+                if submission_id({"audio_storage_path": path}):
+                    paths.append(path)
+            if len(objects) < 1000:
+                break
+            offset += 1000
+    return list(dict.fromkeys(paths))
 
 
 def _storage_remove(paths: list[str]) -> None:
@@ -130,7 +154,7 @@ def _purge_audio(session: dict) -> int:
     """Storage-first (orphan-safe): capture paths → remove files → scrub audio
     columns → stamp audio_purged_at. Returns the number of objects removed."""
     sid = session["id"]
-    paths = _audio_paths(sid)              # capture BEFORE scrubbing audio_storage_path
+    paths = _audio_paths(sid, session.get("user_id"))              # capture BEFORE scrubbing audio_storage_path
     if DRY_RUN:
         return len(paths)
     if paths:

@@ -24,6 +24,7 @@ from services.core_attempt_observation import (
 )
 from services.core_attempt_outcomes import observe_speaking_background
 from services.recording_audio import attach_playback_urls, PLAYBACK_TTL
+from services.speaking_submission import submission_id, submission_revision
 from services.question_visibility import redact_questions, should_reveal
 from routers.auth import get_supabase_user
 from services.class_assignment_service import (
@@ -1119,17 +1120,23 @@ async def get_session(
     # The response row id is required to distinguish a real persisted row from
     # an optimistic/pending client state. persisted_at is server-authored and
     # lets release evidence prove that exact row existed inside its journey
-    # window. A retake still has the same row id and therefore remains ambiguous
-    # unless the POST itself confirms it.
+    # window. Retakes keep the row id; their recording UUID distinguishes the
+    # exact upload without exposing sealed transcripts, grades or audio paths.
     response_receipts = [
         {
             "id": row.get("id"),
             "question_id": row.get("question_id"),
             "persisted_at": row.get("persisted_at"),
+            "submission_id": submission_id(row),
+            "submission_revision": submission_revision(row),
         }
         for row in responses
         if row.get("id") and row.get("question_id")
     ]
+
+    for row in responses:
+        row["submission_id"] = submission_id(row)
+        row["submission_revision"] = submission_revision(row)
 
     # Sealed 4-skill mock: withhold the graded responses (bands + feedback) until
     # the sitting is released. Questions still return so recording works. Return
@@ -1152,6 +1159,7 @@ async def get_session(
         "questions":  questions,
         "responses":  responses,
         "response_receipts": response_receipts,
+        "submission_retry_safe": True,
         "question_lookup_failed": question_lookup_failed,
         "response_lookup_failed": response_lookup_failed,
         "results_sealed": results_sealed,

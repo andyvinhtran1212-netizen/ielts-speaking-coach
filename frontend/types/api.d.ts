@@ -13881,6 +13881,10 @@ export interface components {
              * @description Audio recording (MP3 / WAV / WebM / OGG / MP4/M4A)
              */
             audio_file: string;
+            /** Submission Id */
+            submission_id?: string | null;
+            /** Expected Revision */
+            expected_revision?: string | null;
         };
         /** Body_import_bank_admin_quiz_import_post */
         Body_import_bank_admin_quiz_import_post: {
@@ -18989,6 +18993,11 @@ export interface components {
             questions: components["schemas"]["SessionQuestion"][];
             /** Responses */
             responses: components["schemas"]["models__session_contracts__SessionResponse"][];
+            /**
+             * Submission Retry Safe
+             * @default false
+             */
+            submission_retry_safe: boolean;
             /** Response Receipts */
             response_receipts: components["schemas"]["SessionResponseReceipt"][];
             /** Question Lookup Failed */
@@ -19055,6 +19064,10 @@ export interface components {
             question_id: string;
             /** Persisted At */
             persisted_at: string | null;
+            /** Submission Id */
+            submission_id?: string | null;
+            /** Submission Revision */
+            submission_revision?: string | null;
         };
         /** SessionRetention */
         SessionRetention: {
@@ -20498,6 +20511,10 @@ export interface components {
             grading_status?: string | null;
             /** Stt Status */
             stt_status?: string | null;
+            /** Submission Id */
+            submission_id?: string | null;
+            /** Submission Revision */
+            submission_revision?: string | null;
             /** Persisted At */
             persisted_at?: string | null;
             /** Duration Seconds */

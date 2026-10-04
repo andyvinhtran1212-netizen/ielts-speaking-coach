@@ -69,6 +69,10 @@ class _Storage:
         self._bucket = bucket
         return self
 
+    def list(self, prefix, options):
+        self._calls.append({"type": "storage_list", "prefix": prefix})
+        return []
+
     def remove(self, paths):
         self._calls.append({"type": "storage_remove", "bucket": self._bucket, "paths": list(paths)})
         return []
@@ -266,3 +270,25 @@ def test_dry_run_env_parsing(monkeypatch, env, expected):
     # Re-evaluate the same expression the module uses at import.
     import os
     assert (os.getenv("RETENTION_SWEEP_DRY_RUN", "true").lower() != "false") is expected
+
+
+def test_immutable_retakes_and_losing_uploads_keep_audio_retention(monkeypatch):
+    calls = _install(monkeypatch, dry_run=False, sessions=_ELIGIBLE_AUDIO, responses=_RESP)
+    old_take = "q1.11111111-1111-4111-8111-111111111111." + "a" * 64 + ".wav"
+    def listing(prefix, options):
+        assert prefix == "u1/s1"
+        return [{"name": old_take}, {"name": "../outside.wav"}, {"name": "other-session/file.wav"}]
+    monkeypatch.setattr(sweep.supabase_admin.storage, 'list', listing)
+    result = sweep.sweep_audio()
+    assert result['objects'] == 3 and result['purged'] == 1
+    deleted = [c for c in calls if c['type'] == 'storage_remove'][0]['paths']
+    assert deleted == ['u1/s1/q1.webm', 'u1/s1/q2.webm', 'u1/s1/' + old_take]
+
+
+def test_failed_take_listing_never_stamps_retention_complete(monkeypatch):
+    calls = _install(monkeypatch, dry_run=False, sessions=_ELIGIBLE_AUDIO, responses=_RESP)
+    def listing(*args): raise RuntimeError('storage unavailable')
+    monkeypatch.setattr(sweep.supabase_admin.storage, 'list', listing)
+    result = sweep.sweep_audio()
+    assert result['purged'] == 0 and len(result['errors']) == 1
+    assert not [c for c in calls if c['type'] in ('update', 'storage_remove')]
