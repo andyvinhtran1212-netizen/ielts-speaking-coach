@@ -1,0 +1,40 @@
+{
+  "printed_key": {
+    "answer": "leaves class quickly",
+    "source_pdf_page": 399,
+    "source_ocr_line_index_1_based": 24,
+    "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+    "visual_correction": false,
+    "source_lines": []
+  },
+  "answer": "leaves class",
+  "evidence": [
+    {
+      "source_kind": "printed_transcript",
+      "pdf_page": 252,
+      "line_index_1_based": 12,
+      "quote": "everyone leaves class quickly",
+      "relation": "supports",
+      "visual_reconstruction": null,
+      "source_image_path": null,
+      "source_image_sha256": null,
+      "source_region": null,
+      "text_validation_source": null,
+      "upstream_review_state": null,
+      "raw_ocr_verbatim": null,
+      "source_pdf_sha256": null,
+      "source_line_id": null,
+      "insertion_after_line_index_1_based": null,
+      "line_index_unavailable_reason": null,
+      "start": null,
+      "end": null
+    }
+  ],
+  "why_vi": "Key leaves class quickly có BA từ, vượt giới hạn. Leaves class gồm hai từ, giữ hành động ra khỏi lớp. Leaves quickly cũng có hai từ và là một cách rút gọn đúng ngữ pháp; leaves class không phải đáp án biên tập duy nhất.",
+  "distractors": [],
+  "paraphrase_vi": "Key leaves class quickly có BA từ, vượt giới hạn. Leaves class gồm hai từ, giữ hành động ra khỏi lớp.",
+  "trap_vi": "Quickly là trạng từ; bỏ nó là đề xuất biên tập, không phải trích nguyên key.",
+  "format_vi": "Không quá 2 từ.",
+  "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+  "next_action_vi": "Giữ câu không chấm; chọn cách sửa biên tập và kiểm duyệt lại toàn câu trước khi mở chấm tự động."
+}

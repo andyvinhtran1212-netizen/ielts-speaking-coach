@@ -16,6 +16,19 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+it('shows the reviewed explanation once and retains legacy feedback for other programmes', async () => {
+  window.api.getWith = vi.fn(async () => ({ programme_id: 'ielts-80-days-listening', scoring_policy: 'report_only', title: 'Concise source result', result_summary: {}, review: [
+    { q_num: 1, state: 'unscored', prompt: 'Source item', expected: 'source reference', self_review: { reference_answers: ['source reference'], rationale: 'OLD_EDITORIAL_FILLER' }, explanation: { answer: 'source reference', why_vi: 'Specific reviewed reason', evidence: [] } },
+    { q_num: 2, state: 'checked', prompt: 'Legacy item', expected: 'B', solution: { rationale: 'Retained legacy reason' } },
+  ] }));
+  render(<ProgrammeResult attemptId="concise-result" />);
+  await screen.findByText('Specific reviewed reason');
+  expect(screen.getAllByText('Specific reviewed reason')).toHaveLength(1);
+  expect(screen.queryByText('OLD_EDITORIAL_FILLER')).toBeNull();
+  expect(screen.getByText('Retained legacy reason')).toBeTruthy();
+  expect(screen.getAllByText(/source reference/)).toHaveLength(1);
+});
+
 it('labels all12 canonical positions /25 fields identically in submitted first, final and structured references', async () => {
   window.api.getWith = vi.fn(async () => ({ programme_id: 'ielts-80-days-listening', scoring_policy: 'report_only', title: 'Native multi-gap result', replay_policy: 'allowed', audio_granularity: 'whole_day', audio_url: '/native.mp3', result_summary: { item_count: 12 }, review: native.questions.map((q, index) => ({ q_num: index + 1, source_item_id: q.source_item_id, source_display_number: q.source_display_number, question_type: 'multi_gap_completion', state: 'unscored', prompt: q.prompt, fields: q.fields, first_answer: JSON.stringify(reversed(q.fields, 'FIRST')), user_answer: JSON.stringify(reversed(q.fields, 'FINAL')), audio_window: null, explanation: { answer: Object.fromEntries(Object.entries(q.reference_answer).reverse()), why_vi: 'Native reviewed reference', evidence: [] } })) }));
   render(<ProgrammeResult attemptId="native-attempt" />); await screen.findByRole('heading', { name: 'Native multi-gap result' });

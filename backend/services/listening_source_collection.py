@@ -197,7 +197,9 @@ def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], s
             safe_block["description"] = str(raw.get("description") or "")
         try:
             selected.append(SourceStudyBlock.model_validate(sign_source_block(safe_block, signer, study_opened=True) | {
-                "items": raw.get("items") or [], "transcript": [] if mixed else raw.get("transcript") or [],
+                "items": [{**item, "explanation": source_explanation(item.get("explanation"), item_id=item.get("item_id"))}
+                          for item in raw.get("items") or []],
+                "transcript": [] if mixed else raw.get("transcript") or [],
             }).model_dump())
         except ValidationError as exc:
             raise HTTPException(503, "Tài liệu đối chiếu chưa hợp lệ.") from exc
@@ -222,11 +224,15 @@ def safe_source_transcript(rows: Any) -> list[dict]:
     return output
 
 
-def source_explanation(raw: Any) -> dict | None:
+def source_explanation(raw: Any, *, item_id: str | None = None) -> dict | None:
     if not isinstance(raw, dict):
         return None
     try:
-        return SourceExplanation.model_validate(raw).model_dump()
+        explanation = SourceExplanation.model_validate(raw).model_dump()
+        if item_id:
+            from services.listening_source_editorial import revised_explanation
+            explanation = SourceExplanation.model_validate(revised_explanation(explanation, item_id)).model_dump()
+        return explanation
     except ValidationError:
         return None
 

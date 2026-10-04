@@ -8527,13 +8527,14 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             protected = solutions_by_q.get(solution_q) or self_review_by_q.get(solution_q)
             protected = protected or {}
             source_explanation_present = "explanation" in protected
+            explanation = source_explanation(protected.get("explanation"), item_id=question.get("source_item_id"))
             try:
-                fields = source_response_fields(question, reference_answer=(source_explanation(protected.get("explanation")) or {}).get("answer"))
+                fields = source_response_fields(question, reference_answer=(explanation or {}).get("answer"))
             except ValueError:
                 raise HTTPException(503, "Chưa tải được thông tin chỗ trống để đối chiếu. Hãy thử lại.") from None
             source_fields = {"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
                 "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
-                "explanation": source_explanation(protected.get("explanation")), "audio_granularity": (win or {}).get("granularity") or meta.get("timing_granularity")}
+                "explanation": explanation, "audio_granularity": (win or {}).get("granularity") or meta.get("timing_granularity")}
         item = {
             **source_fields,
             "q_num":         q,
