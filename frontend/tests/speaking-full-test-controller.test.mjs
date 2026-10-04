@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   SpeakingFullTestController,
 } from '../public/js/speaking-full-test-controller.mjs';
+import { SpeakingSubmissionController } from '../public/js/speaking-submission-controller.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const readFrontend = (...parts) => readFileSync(path.join(FRONTEND, ...parts), 'utf8');
@@ -361,6 +362,52 @@ describe('SpeakingFullTestController — submission and retry ownership', () => 
     assert.equal(controller.getSnapshot().retryCount, 1);
     assert.equal(controller.hasUnsavedAudio(), true);
   });
+
+  for (const retry of [false, true]) {
+    test(`waits for canonical readback after the upload deadline${retry ? ' including retry preflight' : ''}`, async (t) => {
+      t.mock.timers.enable({ apis: ['setTimeout'] });
+      let uploads = 0;
+      let reads = 0;
+      const input = { sessionId: 'p3', questionId: 'q1', blob: new Blob(['answer']) };
+      const submission = new SpeakingSubmissionController({
+        upload: () => {
+          uploads += 1;
+          if (retry && uploads === 1) return Promise.reject(new TypeError('lost response'));
+          return new Promise(() => {});
+        },
+        getSession: () => {
+          reads += 1;
+          if (retry && reads === 1) return Promise.resolve({ responses: [] });
+          const preflight = retry && reads === 2;
+          return new Promise((resolve) => setTimeout(() => resolve({
+            responses: preflight ? [] : [{ id: 'saved-after-deadline', question_id: 'q1' }],
+          }), 14_000));
+        },
+      });
+      if (retry) await assert.rejects(submission.submit(input));
+      const { controller } = makeController({ submit: (item) => submission.submit(item) });
+      assert.ok(controller.submissionSettleMs > submission.submissionTimeoutMs + 2 * submission.readbackTimeoutMs);
+      controller.restore({ ownerId: 'u', currentSessionId: 'p3' });
+      controller.replaceChain(['p1', 'p2', 'p3']);
+      const pending = controller.submitAnswer(input);
+      void pending.catch(() => {});
+      await new Promise(setImmediate);
+      if (retry) {
+        t.mock.timers.tick(14_000);
+        await new Promise(setImmediate);
+      }
+      t.mock.timers.tick(submission.submissionTimeoutMs);
+      await new Promise(setImmediate);
+      assert.equal(controller.getSnapshot().retryCount, 0, 'the outer controller still awaits reconciliation');
+      t.mock.timers.tick(14_000);
+      assert.equal((await pending).response_id, 'saved-after-deadline');
+      assert.deepEqual(controller.confirmedQuestionIds('p3'), ['q1']);
+      assert.equal(controller.hasUnsavedAudio(), false);
+      const result = await controller.finalizeFullTest();
+      assert.equal(result.accepted, true, 'finalize succeeds without a manual retry');
+      assert.equal(controller.getSnapshot().retryCount, 0);
+    });
+  }
 });
 
 describe('SpeakingFullTestController — finalize barrier and reconciliation', () => {
