@@ -49,6 +49,37 @@ async def canonical(pg):
 
 
 @pytest.mark.asyncio
+async def test_actual_cutover_learner_list_is_current_but_owned_legacy_url_still_works(canonical,monkeypatch):
+    import json
+    from routers import quiz as router
+    from services import quiz_service
+    from test_quiz_service import _FakeSupabase
+    pg,engine=canonical
+    result=await service.commit_revision(engine,CODE,pg.actor,await commit_request(canonical))
+    rows=json.loads(await pg.c.fetchval('''SELECT jsonb_agg(to_jsonb(b) ORDER BY code)::text
+        FROM quiz_banks b WHERE is_published AND skill_area='grammar' '''))
+    assert len(rows)==2
+    old=next(row for row in rows if row['id']==str(pg.old))
+    questions=json.loads(await pg.c.fetchval('''SELECT jsonb_agg(to_jsonb(q) ORDER BY "order")::text
+        FROM quiz_questions q WHERE bank_id=$1''',pg.old))
+    legacy_state=await pg.rpc('grammar_quiz_state',pg.user,pg.old)
+    assert legacy_state['can_continue_legacy'] is True
+    fake=_FakeSupabase({('quiz_banks','select'):rows})
+    monkeypatch.setattr(quiz_service,'supabase_admin',fake)
+    async def signed_in(_authorization): return {'id':str(pg.user)}
+    monkeypatch.setattr(router,'get_supabase_user',signed_in)
+    listed=await router.list_banks(skill_area='grammar',topic_id=old['topic_id'],authorization='test')
+    assert len(listed)==1
+    assert listed[0]['id']==str(result.corrected_bank_id) and listed[0]['code']==CODE
+    fake.responses={('quiz_banks','select'):[old],('quiz_questions','select'):questions,
+        ('rpc','grammar_quiz_state'):legacy_state}
+    legacy=await router.get_bank(pg.old,authorization='test')
+    assert legacy['bank']['id']==str(pg.old) and legacy['questions']==questions
+    assert legacy['grammar']['content_state']=='legacy' and legacy['grammar']['can_continue_legacy'] is True
+    assert all(call['op'] in {'select','rpc'} for call in fake.calls)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('code',list(REVIEWED_SOURCES))
 async def test_actual_twelve_sources_policy_copy_readback_and_synthetic_original_history(pg,code):
     """Actual final sources, synthetic predecessor/history; no production cohort proof."""

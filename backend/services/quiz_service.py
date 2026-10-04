@@ -34,6 +34,7 @@ from services.class_membership_service import active_cohort_ids_for_student
 
 from database import supabase_admin
 from services import grammar_quiz_session
+from services.grammar_quiz_resolution import current_banks
 
 logger = logging.getLogger(__name__)
 
@@ -776,8 +777,11 @@ def unavailable_course_admin_summary(
 
 
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
+    public_columns = ("id", "topic_id", "code", "title", "skill_area", "words_count", "updated_at")
     q = supabase_admin.table("quiz_banks").select(
-        "id, topic_id, code, title, skill_area, words_count, updated_at"
+        ", ".join(public_columns) + ", grammar_canonical_code, grammar_revision, "
+        "grammar_is_current, grammar_predecessor_bank_id, grammar_new_starts_enabled",
+        count="exact",
     ).eq("is_published", True)
     # KHÔNG bao giờ liệt kê bank theo buổi ở đây. `skill_area` do người gọi
     # truyền, nên không loại trừ nghĩa là bất kỳ học viên nào gọi
@@ -791,7 +795,21 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
     if topic_id:
         q = q.eq("topic_id", topic_id)
     try:
-        return q.order("code").execute().data or []
+        response = q.order("code").execute()
+        rows = response.data
+        # The current resolver needs both physical revisions. A truncated read
+        # must not turn a missing predecessor into an empty/ambiguous learner CTA.
+        if (not isinstance(rows, list) or type(response.count) is not int
+                or len(rows) != response.count):
+            raise HTTPException(503, "Danh sách bài luyện chưa được đọc đầy đủ. Hãy thử lại.")
+        grammar = current_banks([row for row in rows if row.get("skill_area") == "grammar"])
+        selected = [row for row in rows if row.get("skill_area") != "grammar"] + grammar
+        # Preserve the list response shape and canonical article codes; legacy
+        # bank IDs remain available through the separately authorized play path.
+        return [{key: row.get(key) for key in public_columns}
+                for row in sorted(selected, key=lambda row: row["code"])]
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn banks: {exc}")
 

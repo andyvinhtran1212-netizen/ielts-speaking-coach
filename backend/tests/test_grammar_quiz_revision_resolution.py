@@ -6,7 +6,8 @@ import asyncio
 
 import pytest
 from fastapi import HTTPException
-from routers import grammar
+from routers import grammar, quiz
+from services import quiz_service
 from services.grammar_quiz_resolution import current_banks
 from services.grammar_quiz_revision_source import REVIEWED_SOURCES
 from test_grammar_quiz_revision_boundary import CODE
@@ -26,6 +27,51 @@ def test_current_mapping_keeps_old_bank_id_and_public_canonical_article_code():
     selected=current_banks([current,old])
     assert len(selected)==1 and selected[0]['id']==current['id'] and selected[0]['code']==CODE
     assert [old,current]==before
+
+
+def test_learner_bank_list_uses_current_revision_without_exposing_physical_code(monkeypatch):
+    from test_quiz_service import _FakeSupabase
+    old,current=revised()
+    old.update(skill_area='grammar',updated_at='2026-10-04T00:00:00Z')
+    current.update(skill_area='grammar',updated_at='2026-10-04T01:00:00Z')
+    vocabulary={'id':str(uuid4()),'topic_id':str(uuid4()),'code':'L14',
+        'title':'Vocabulary','skill_area':'vocab','words_count':20,'updated_at':None}
+    stored=[current,vocabulary,old]
+    before=deepcopy(stored)
+    fake=_FakeSupabase({('quiz_banks','select'):stored})
+    monkeypatch.setattr(quiz_service,'supabase_admin',fake)
+    async def signed_in(_authorization): return {'id':str(uuid4())}
+    monkeypatch.setattr(quiz,'get_supabase_user',signed_in)
+    result=asyncio.run(quiz.list_banks(skill_area=None,topic_id=None,authorization='test'))
+    assert result==[{key:value for key,value in {**current,'code':CODE}.items()
+        if key in {'id','topic_id','code','title','skill_area','words_count','updated_at'}},vocabulary]
+    assert stored==before
+    assert all(call['op']=='select' for call in fake.calls)
+
+
+@pytest.mark.parametrize('response',[
+    SimpleNamespace(data=[],count=None),
+    SimpleNamespace(data=[{'skill_area':'grammar','code':CODE}],count=2),
+])
+def test_learner_bank_list_refuses_partial_current_mapping(monkeypatch,response):
+    class QuizListQuery(Query):
+        def neq(self,*args): return self
+    monkeypatch.setattr(quiz_service,'supabase_admin',QuizListQuery(response))
+    with pytest.raises(HTTPException) as error:
+        quiz_service.list_published_banks(skill_area='grammar')
+    assert error.value.status_code==503
+
+
+def test_learner_bank_list_preserves_unmanaged_grammar_and_course_exclusion(monkeypatch):
+    from test_quiz_service import _FakeSupabase
+    bank={'id':str(uuid4()),'topic_id':str(uuid4()),'code':CODE,'title':'Present Simple',
+        'skill_area':'grammar','words_count':13,'updated_at':None}
+    fake=_FakeSupabase({('quiz_banks','select'):[bank]})
+    monkeypatch.setattr(quiz_service,'supabase_admin',fake)
+    assert quiz_service.list_published_banks(skill_area='grammar',topic_id=bank['topic_id'])==[bank]
+    assert ('neq','skill_area','course') in fake.calls[-1]['filters']
+    assert ('topic_id',bank['topic_id']) in fake.calls[-1]['filters']
+    assert quiz_service.list_published_banks(skill_area='course')==[]
 
 
 @pytest.mark.parametrize('problem',['two_current','missing_current','unmanaged_duplicate','wrong_predecessor','wrong_source','wrong_topic','nonboolean_pause','missing_pause'])
