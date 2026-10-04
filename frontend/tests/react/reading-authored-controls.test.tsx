@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReadingExamSession } from '@/app/(authed-reading-player)/reading/exam/session/reading-exam-session';
+import c20EndingStems from '../fixtures/reading-c20-matching-ending-stems.json';
 
 vi.mock('@/lib/auth/auth-provider', () => ({
   useAuth: () => ({ status: 'signed-in', user: { id: 'admin-fixture', email: 'fixture@example.test' } }),
@@ -34,6 +35,26 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('source-authored Reading controls in the native player', () => {
+  it('keeps the original C20 T1 Q31–35 sentence beginnings visible beside their dropdowns', async () => {
+    const fixture = paper({});
+    fixture.passages[0].passage_order = 3;
+    fixture.questions = c20EndingStems.questions.map(question => ({
+      ...fixture.questions[0], ...question, passage_order: 3,
+    }));
+    const original = JSON.stringify(fixture);
+    get.mockResolvedValue(fixture);
+    render(<ReadingExamSession />);
+    const first = await screen.findByRole('combobox', { name: 'Answer 31' });
+    for (const question of c20EndingStems.questions) {
+      expect(screen.getByText(question.prompt, { exact: true })).toBeTruthy();
+      expect(screen.getByRole('combobox', { name: `Answer ${question.q_num}` })).toBeTruthy();
+    }
+    fireEvent.change(first, { target: { value: 'G' } });
+    expect((first as HTMLSelectElement).value).toBe('G');
+    expect(JSON.stringify(fixture)).toBe(original);
+    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
+  });
+
   it('keeps each matching radio visibly labelled with its exact authored value when column headers scroll away', async () => {
     const options = [{ label: 'A', text: 'Researcher one' }, { label: 'F', text: 'Researcher six' }];
     const fixture = paper({ options });
