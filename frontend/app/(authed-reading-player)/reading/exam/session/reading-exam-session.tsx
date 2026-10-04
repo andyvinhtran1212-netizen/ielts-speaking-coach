@@ -188,6 +188,13 @@ function InlineGap({ question, value, onChange }: {
   );
 }
 
+function rendersInlinePrompt(question: Question, options: Option[]) {
+  const type = question.question_type || '';
+  return /(?:sentence|summary|notes|table|form|short_answer|flow_chart|diagram_label)_completion|short_answer/.test(type)
+    && /_{2,}/.test(String(question.prompt || ''))
+    && !(type === 'summary_completion' && options.length);
+}
+
 function QuestionControl({ question, value, onChange, includePrompt = true }: {
   question: Question;
   value: string;
@@ -196,9 +203,7 @@ function QuestionControl({ question, value, onChange, includePrompt = true }: {
 }) {
   const type = question.question_type || '';
   const options = questionOptions(question);
-  const inline = includePrompt && /(?:sentence|summary|notes|table|form|short_answer|flow_chart|diagram_label)_completion|short_answer/.test(type)
-    && /_{2,}/.test(String(question.prompt || ''))
-    && !(type === 'summary_completion' && options.length);
+  const inline = includePrompt && rendersInlinePrompt(question, options);
   if (inline) return <InlineGap question={question} value={value} onChange={onChange} />;
 
   if (type === 'true_false_not_given' || type === 'yes_no_not_given') {
@@ -300,8 +305,7 @@ function QuestionCard({ question, answer, saveState, flagged, flagReady, current
   onCurrent(): void;
 }) {
   const options = questionOptions(question);
-  const hasInlinePrompt = /_{2,}/.test(String(question.prompt || ''))
-    && !(question.question_type === 'summary_completion' && options.length);
+  const hasInlinePrompt = rendersInlinePrompt(question, options);
   return (
     <article
       className={`exam-q${answer ? ' is-answered' : ''}${saveState ? ' is-unsaved' : ''}${current ? ' is-current' : ''}`}

@@ -1,0 +1,197 @@
+{
+  "source_test_id": "ILR-RDG-CAM-B20-T1",
+  "source_sha256": "bdeb6517134a668033d7927b4f7d138c090ca5d82ceedd0637efc39fba864354",
+  "questions": [
+    {
+      "q_num": 31,
+      "question_type": "matching_sentence_endings",
+      "prompt": "At times when they were relaxed, the firefighters usually ________.",
+      "payload": {
+        "options": [
+          {
+            "text": "made them feel optimistic.",
+            "label": "A"
+          },
+          {
+            "text": "took relatively little notice of bad news.",
+            "label": "B"
+          },
+          {
+            "text": "responded to negative and positive information in the same way.",
+            "label": "C"
+          },
+          {
+            "text": "were feeling under stress.",
+            "label": "D"
+          },
+          {
+            "text": "put them in a stressful situation.",
+            "label": "E"
+          },
+          {
+            "text": "behaved in a similar manner, regardless of the circumstances.",
+            "label": "F"
+          },
+          {
+            "text": "thought it more likely that they would experience something bad.",
+            "label": "G"
+          }
+        ]
+      },
+      "passage_order": 3
+    },
+    {
+      "q_num": 32,
+      "question_type": "matching_sentence_endings",
+      "prompt": "The researchers noted that when the firefighters were stressed, they ________.",
+      "payload": {
+        "options": [
+          {
+            "text": "made them feel optimistic.",
+            "label": "A"
+          },
+          {
+            "text": "took relatively little notice of bad news.",
+            "label": "B"
+          },
+          {
+            "text": "responded to negative and positive information in the same way.",
+            "label": "C"
+          },
+          {
+            "text": "were feeling under stress.",
+            "label": "D"
+          },
+          {
+            "text": "put them in a stressful situation.",
+            "label": "E"
+          },
+          {
+            "text": "behaved in a similar manner, regardless of the circumstances.",
+            "label": "F"
+          },
+          {
+            "text": "thought it more likely that they would experience something bad.",
+            "label": "G"
+          }
+        ]
+      },
+      "passage_order": 3
+    },
+    {
+      "q_num": 33,
+      "question_type": "matching_sentence_endings",
+      "prompt": "When the firefighters were told good news, they always ________.",
+      "payload": {
+        "options": [
+          {
+            "text": "made them feel optimistic.",
+            "label": "A"
+          },
+          {
+            "text": "took relatively little notice of bad news.",
+            "label": "B"
+          },
+          {
+            "text": "responded to negative and positive information in the same way.",
+            "label": "C"
+          },
+          {
+            "text": "were feeling under stress.",
+            "label": "D"
+          },
+          {
+            "text": "put them in a stressful situation.",
+            "label": "E"
+          },
+          {
+            "text": "behaved in a similar manner, regardless of the circumstances.",
+            "label": "F"
+          },
+          {
+            "text": "thought it more likely that they would experience something bad.",
+            "label": "G"
+          }
+        ]
+      },
+      "passage_order": 3
+    },
+    {
+      "q_num": 34,
+      "question_type": "matching_sentence_endings",
+      "prompt": "The students' cortisol levels and heart rates were affected when the researchers ________.",
+      "payload": {
+        "options": [
+          {
+            "text": "made them feel optimistic.",
+            "label": "A"
+          },
+          {
+            "text": "took relatively little notice of bad news.",
+            "label": "B"
+          },
+          {
+            "text": "responded to negative and positive information in the same way.",
+            "label": "C"
+          },
+          {
+            "text": "were feeling under stress.",
+            "label": "D"
+          },
+          {
+            "text": "put them in a stressful situation.",
+            "label": "E"
+          },
+          {
+            "text": "behaved in a similar manner, regardless of the circumstances.",
+            "label": "F"
+          },
+          {
+            "text": "thought it more likely that they would experience something bad.",
+            "label": "G"
+          }
+        ]
+      },
+      "passage_order": 3
+    },
+    {
+      "q_num": 35,
+      "question_type": "matching_sentence_endings",
+      "prompt": "In both experiments, negative information was processed better when the subjects ________.",
+      "payload": {
+        "options": [
+          {
+            "text": "made them feel optimistic.",
+            "label": "A"
+          },
+          {
+            "text": "took relatively little notice of bad news.",
+            "label": "B"
+          },
+          {
+            "text": "responded to negative and positive information in the same way.",
+            "label": "C"
+          },
+          {
+            "text": "were feeling under stress.",
+            "label": "D"
+          },
+          {
+            "text": "put them in a stressful situation.",
+            "label": "E"
+          },
+          {
+            "text": "behaved in a similar manner, regardless of the circumstances.",
+            "label": "F"
+          },
+          {
+            "text": "thought it more likely that they would experience something bad.",
+            "label": "G"
+          }
+        ]
+      },
+      "passage_order": 3
+    }
+  ],
+  "projection": "Student payload: reading_student._strip_solution_from_payload removes protected solution; original prompts/options retained."
+}
