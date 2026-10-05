@@ -81,29 +81,23 @@ def safe_source_block_metadata(block: dict, *, study_opened: bool = False) -> di
     return allowed
 
 
-def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study_opened: bool = False) -> dict:
+def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study_opened: bool = False,
+                      presentation_source: dict | None = None) -> dict:
     """Build a new block from safe fields; never echo raw nested authoring JSON."""
     try:
+        from services.listening_source_native import native_presentation
+        native = native_presentation(presentation_source if presentation_source is not None else block,
+                                     study_opened=study_opened)
         block = safe_source_block_metadata(block, study_opened=study_opened)
-    except (ValidationError, KeyError, TypeError) as exc:
+    except (ValidationError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
-    images = []
-    for asset in block.get("images") or []:
-        if not isinstance(asset, dict) or not isinstance(asset.get("storage_path"), str):
-            raise HTTPException(503, "Thông tin hình nguồn chưa hợp lệ.")
-        path = asset["storage_path"]
-        if not path.startswith("source-collections/") or ".." in path.split("/"):
-            raise HTTPException(503, "Thông tin hình nguồn chưa hợp lệ.")
-        url = signer(path)
-        if not url:
-            raise HTTPException(503, "Không tải được hình nguồn; hãy thử lại.")
-        images.append({"asset_id": asset["asset_id"], "url": url, "expires_in": 7200,
-                       "width": asset["width"], "height": asset["height"], "alt_vi": asset["alt_vi"]})
+    # Archival PDF crops remain source evidence, never learner question content.
+    # SVG bytes are delivered through this authenticated response, not public assets.
     try:
         return SourceBlock.model_validate({
             key: block[key] for key in ("block_id", "part_id", "kind", "instruction", "item_ids",
                 "source_question_numbers", "shared_options", "description", "display_kind", "study_available") if key in block
-        } | {"images": images}).model_dump()
+        } | {"images": [], "native": native}).model_dump()
     except (ValidationError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
 
@@ -196,7 +190,13 @@ def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], s
         if resource:
             safe_block["description"] = str(raw.get("description") or "")
         try:
-            selected.append(SourceStudyBlock.model_validate(sign_source_block(safe_block, signer, study_opened=True) | {
+            native_block = sign_source_block(safe_block, signer, study_opened=True, presentation_source=block)
+            if mixed and native_block.get("native"):
+                # An explicitly opened mixed block contains only excluded study
+                # positions; it must not duplicate eligible practice positions.
+                native_block["native"]["questions"] = [question for question in native_block["native"]["questions"]
+                                                        if question["item_id"] in raw_ids]
+            selected.append(SourceStudyBlock.model_validate(native_block | {
                 "items": [{**item, "explanation": source_explanation(item.get("explanation"), item_id=item.get("item_id"))}
                           for item in raw.get("items") or []],
                 "transcript": [] if mixed else raw.get("transcript") or [],

@@ -5706,7 +5706,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                 question = dict(raw_question) if isinstance(raw_question, dict) else {}
                 question.pop("visual_url", None)
                 storage_path = question.pop("visual_storage_path", None)
-                if storage_path:
+                if storage_path and not source_required:
                     visual_url = _sign_programme_visual_url(storage_path)
                     if not visual_url:
                         raise HTTPException(
@@ -5730,7 +5730,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                         if key in raw_translation
                     }
                     translated_storage_path = raw_translation.get("visual_storage_path")
-                    if translated_storage_path:
+                    if translated_storage_path and not source_required:
                         translated_url = _sign_programme_visual_url(translated_storage_path)
                         if not translated_url:
                             raise HTTPException(

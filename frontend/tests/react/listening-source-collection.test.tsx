@@ -20,7 +20,7 @@ vi.mock('next/navigation', async () => {
 });
 
 const availability = { questions: 'available', audio: 'missing', transcript: 'available', printed_key: 'missing', explanations: 'reviewed' };
-const block = { block_id: 'matching', part_id: 'part1', kind: 'matching', instruction: { source_en: 'Match each word.', student_vi: 'Nối từ theo số audio.' }, item_ids: ['q7', 'q8'], source_question_numbers: [7, 8], images: [{ asset_id: 'question-image', url: '/signed-question.png', expires_in: 7200, width: 1200, height: 300, alt_vi: 'Bốn từ trong nhóm lựa chọn' }], shared_options: [], description: 'Fragile / Surprise / Fast / Lightful', display_kind: 'practice' };
+const block = { block_id: 'matching', part_id: 'part1', kind: 'matching', instruction: { source_en: 'Match each word.', student_vi: 'Nối từ theo số audio.' }, item_ids: ['q7', 'q8'], source_question_numbers: [7, 8], images: [{ asset_id: 'question-image', url: '/signed-question.png', expires_in: 7200, width: 1200, height: 300, alt_vi: 'Bốn từ trong nhóm lựa chọn' }], shared_options: [], description: 'Fragile / Surprise / Fast / Lightful', display_kind: 'practice', native: { kind: 'questions', text: 'Native shared context', word_bank: ['Fragile', 'Surprise', 'Fast', 'Lightful'], figures: [], questions: [] } };
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/listening/ielts/80-days');
@@ -226,12 +226,14 @@ it('translates canonical explanation provenance and retains precise evidence ref
 });
 
 it('groups a matching block once, hides solutions until saved reveal, and preserves source numbering', async () => {
-  const sourceQuestions = [7, 8].map((number, index) => ({ q_num: index + 1, source_item_id: `q${number}`, source_display_number: String(number), source_block_id: 'matching', prompt: `Từ audio ${number}`, response_type: 'single_choice', options: { fragile: 'Fragile', fast: 'Fast' } }));
+  const sourceQuestions = [7, 8].map((number, index) => ({ q_num: index + 1, source_item_id: `q${number}`, source_display_number: String(number), source_block_id: 'matching', prompt: `Từ audio ${number}`, visual_url: '/legacy-pdf-crop.png', response_type: 'single_choice', options: { fragile: 'Fragile', fast: 'Fast' } }));
   window.api.postWith = vi.fn(async (url: string) => url.endsWith('/reveal') ? { items: [{ q_num: 1, state: 'unscored', correct: null, first_answer: 'fast', explanation: { answer: 'Fast', why_vi: 'Quick và fast cùng chỉ tốc độ.', evidence: [{ source_kind: 'printed_transcript', pdf_page: 249, line_index_1_based: 6, quote: '7. Quick' }] } }] } : { attempt_id: 'source-attempt', answers: [] });
   window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state') ? { items: [] } : { title: 'Ngày 1 — Part 1', programme_id: 'ielts-80-days-listening', source_day: 1, listening_lesson_id: 'lesson-uuid', audio_granularity: 'whole_day', replay_policy: 'allowed', scoring_policy: 'report_only', audio_url: '/day01.mp3', source_blocks: [block], sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: sourceQuestions } }] }] });
   render(<ProgrammeFormRunner testId="source-form" />);
   await screen.findByText('Từ audio 7');
   expect(screen.getAllByText('Nối từ theo số audio.')).toHaveLength(1);
+  expect(screen.getByText('Native shared context')).toBeTruthy();
+  expect(document.querySelector('img')).toBeNull();
   expect(screen.getByRole('link', { name: '← Bài học' }).getAttribute('href')).toBe('/listening/ielts/80-days/1');
   fireEvent.click(screen.getByRole('button', { name: 'Luyện từng bước' }));
   expect(screen.getByText('Tập trung vào câu 7–8')).toBeTruthy();

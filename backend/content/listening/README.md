@@ -21,3 +21,53 @@ original explanation; answers, evidence, source warnings, immutable package
 rows and learner attempts are retained. A different item or source explanation
 does not receive this revision. Reverting the content integration restores
 the original text without a database migration or data rollback.
+
+# 80-day native presentation
+
+`80-days-native-v1.json` contains only display text, layouts, blank labels and
+31 authored SVGs from the reviewed local native preview. It represents all 80
+days, all 350 question blocks / 1,676 source positions, 10 vocabulary blocks and
+93 supplementary study blocks; the diagram reused in study gives 32 SVG
+attachments. The 41 existing layout overrides retain full passages and fixed
+form/table rows. Original imported question options, multi-gap IDs, grading,
+answer keys, explanations and learner attempts remain authoritative.
+
+Each row binds the complete original imported block's structural metadata,
+question membership and archival image paths to source manifest
+`29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841`
+with canonical UTF-8 JSON / sorted keys / compact separators / SHA-256.
+Only this private backend content is projected into authenticated day, player
+and explicitly opened study responses. Caller-supplied native JSON is ignored.
+Study blocks remain hidden before the existing study guard; mixed study blocks
+show only excluded positions. SVG markup is restricted to passive shapes/text
+and rendered in an image context. No PDF crop is signed or displayed by these
+source routes. A missing or changed binding returns an explicit missing native
+presentation state instead of guessing content or falling back to an image.
+
+This changes presentation on the deployed code path without a migration or
+source reimport. Source raster objects remain private archival evidence. SVG
+source-fidelity metadata in the preview remains historical review evidence;
+local render tests do not claim fresh independent visual or live acceptance.
+
+# 80-day audio choices
+
+`80-days-audio-variants-v1.json` binds 80 machine-reviewed Kokoro MP3 hashes
+and 69 unchanged source recordings to the same immutable source manifest.
+The authenticated day audio endpoint signs only these private Storage paths.
+Missing objects have no playable URL. The day player keeps the original as
+default when available; Kokoro is a separate free-listening choice, never a
+replacement for audio in an existing graded attempt. Day 61–70 are English
+vocabulary pronunciation tracks. Day 76 retains its partial-original warning,
+and Day 77 has no original recording. Synthetic timing and pronunciation
+limitations remain visible; machine review is not human listening acceptance.
+
+Validate before uploading with the operator's target-environment settings:
+
+```sh
+python backend/scripts/upload_listening_source_audio.py --audio-root /path/to/kokoro/audio
+python backend/scripts/upload_listening_source_audio.py --audio-root /path/to/kokoro/audio --commit
+```
+
+The CLI checks all 80 final hashes before any write, requires an existing
+private bucket, and reuses the canonical immutable upload/readback helper.
+It neither overwrites original objects nor changes package/attempt rows.

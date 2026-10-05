@@ -8,6 +8,7 @@ from models.listening_source_collection import (
     ListeningSourceStudyRequest, ListeningSourceStudyResponse,
 )
 from services import listening_source_collection as service
+from models.listening_source_audio import SourceAudioResponse
 
 router = APIRouter(prefix="/api/listening/source-collections", tags=["listening-source"])
 
@@ -65,3 +66,11 @@ async def open_source_study(body: ListeningSourceStudyRequest, day_number: int =
     await get_supabase_user(authorization)
     _package, lessons = _context(day_number)
     return service.study_response(lessons[0], body.block_ids, _sign)
+
+
+@router.get("/80-days/days/{day_number}/audio", response_model=SourceAudioResponse)
+async def get_source_audio(day_number: int = Path(ge=1, le=80), authorization: str | None = Header(default=None)):
+    from services.listening_source_audio import audio_response
+    await get_supabase_user(authorization)
+    package, lessons = _context(day_number)
+    return audio_response(package, lessons[0], _sign)

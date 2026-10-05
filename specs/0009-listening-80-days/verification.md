@@ -415,3 +415,40 @@ Protected merge/exact staging deploy/integrated/live smoke, attested publication
 real source Auth/RLS/learner journeys and human demo approval precede production
 promotion/publication. All final FR001–015/T008–T010 gates stay pending; T007
 closure remains unpublished staging data preparation only.
+
+
+## Current checkpoint — 2026-10-05: native presentation and separate audio
+
+This supersedes the historical local-only release conclusions above. Editorial
+PR #1587 is merged; its revised explanations were checked on live staging. The
+immutable source package is already published on staging with manifest
+`29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841`.
+Production was checked directly and still has no 80-day package. Shared code
+promotion is owned by another session; this checkout does not race that release.
+
+Current branch `codex/listening-native-display-20261005`, base `f2a73572`, adds
+private native presentation on real day/player/study routes and independent
+authenticated audio choices. All 453 runtime block bindings and all 195 forms
+match source; 350 question blocks / 1,676 positions, 41 layouts and 31 existing
+SVGs are covered. No source question route signs/displays PDF crops. Source
+keys, grading, original package and learner attempts remain unchanged.
+
+Kokoro choices bind all 80 final reviewed MP3 hashes; 69 originals remain
+separate, with truthful Day76 partial/Day77 missing/vocabulary-track states.
+The immutable upload CLI validates all 80 before writes and verifies private
+Storage readback. Staging bucket and package identity have been checked;
+upload is in progress. Production content import has not run.
+
+Local evidence: full backend 9,724 passed / 646 skipped; full React 417 passed;
+both TypeScript checks and webpack production build passed. Full frontend
+contracts: 10,588 passed / 1 skipped / 2 runtime-config failures caused by
+concurrent build generation; the committed null stub was restored and all 15
+affected runtime-config tests passed. After the measured mobile overflow fix,
+affected React 19 and native backend 12 passed. Actual local Next checks at
+375/1440px, light/dark passed table rows, SVG/zoom, study guard and multi-gap
+save with mocked auth/API. These are local acceptance, not deployed acceptance.
+
+One independent council code/data review accepted the complete native/audio
+patch with no blocker. It is not a new human audio or source-fidelity certificate.
+Next required evidence: exact-head CI, deployed native/audio staging journeys,
+then production code/content publication and actual production journeys.

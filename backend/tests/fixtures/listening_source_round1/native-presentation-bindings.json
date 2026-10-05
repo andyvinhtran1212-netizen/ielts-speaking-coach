@@ -1,0 +1,216 @@
+{
+  "source_manifest_sha256": "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841",
+  "blocks": {
+    "80-days:day-04:part-2:block-1": {
+      "block_id": "80-days:day-04:part-2:block-1",
+      "part_id": "80-days:day-04:part-2",
+      "kind": "single_choice",
+      "instruction": {
+        "source_en": "Listen to the questions and choose the best answer for each of them.",
+        "student_vi": "Nghe câu hỏi và chọn câu trả lời phù hợp nhất.",
+        "word_limit": null,
+        "select_count": 1
+      },
+      "item_ids": [
+        "80-days:day-04:main:q-11",
+        "80-days:day-04:main:q-12",
+        "80-days:day-04:main:q-13",
+        "80-days:day-04:main:q-14",
+        "80-days:day-04:main:q-15"
+      ],
+      "source_question_numbers": [
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "images": [
+        {
+          "asset_id": "80-days:day-04:asset:question-responses",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/589646770dd57e13cc55c07642d2ce6ba6be474d2d095555b10db9ff422d7263.png",
+          "width": 1195,
+          "height": 595,
+          "alt_vi": "Năm câu chọn câu trả lời phù hợp, câu 11–15."
+        }
+      ],
+      "shared_options": [],
+      "description": "",
+      "display_kind": "practice",
+      "study_available": false
+    },
+    "80-days:day-35:part-1:block-1": {
+      "block_id": "80-days:day-35:part-1:block-1",
+      "part_id": "80-days:day-35:part-1",
+      "kind": "single_choice",
+      "instruction": {
+        "source_en": "Choose the best answer according to what you have heard.",
+        "student_vi": "Chọn một phương án mỗi câu.",
+        "word_limit": null,
+        "select_count": 1
+      },
+      "item_ids": [
+        "80-days:day-35:main:q-01",
+        "80-days:day-35:main:q-02",
+        "80-days:day-35:main:q-03",
+        "80-days:day-35:main:q-04",
+        "80-days:day-35:main:q-05"
+      ],
+      "source_question_numbers": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "images": [
+        {
+          "asset_id": "80-days:day-35:asset:q1-5",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/e56d4f50f079991586c2b524fbce637d687ae23db44bb49344a3d545d8224525.png",
+          "width": 1230,
+          "height": 1080,
+          "alt_vi": "Phần I câu 1–5 và đầy đủ phương án."
+        }
+      ],
+      "shared_options": [],
+      "description": "",
+      "display_kind": "practice",
+      "study_available": false
+    },
+    "80-days:day-55:table_completion:block-1": {
+      "block_id": "80-days:day-55:table_completion:block-1",
+      "part_id": "80-days:day-55:table_completion",
+      "kind": "short_answer",
+      "instruction": {
+        "source_en": "Complete the table with information about the festival program. Write NO MORE THAN THREE WORDS OR NUMBERS for each answer.",
+        "student_vi": "Hoàn thành sáu ô theo lịch biểu diễn. Không quá ba từ hoặc số cho mỗi đáp án; chú ý cột Stage và Time.",
+        "word_limit": 3,
+        "select_count": null
+      },
+      "item_ids": [
+        "80-days:day-55:table_completion:q-01",
+        "80-days:day-55:table_completion:q-02",
+        "80-days:day-55:table_completion:q-03",
+        "80-days:day-55:table_completion:q-04",
+        "80-days:day-55:table_completion:q-05",
+        "80-days:day-55:table_completion:q-06"
+      ],
+      "source_question_numbers": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "images": [
+        {
+          "asset_id": "80-days:day-55:asset:festival-table",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/3732f0dba3b1409e39779b0e79acf919f9cd14e4fc721c39ec7c20f2a3551914.png",
+          "width": 1210,
+          "height": 775,
+          "alt_vi": "Yêu cầu câu 1–6 và bảng Name / Type of act / Stage / Time đầy đủ cả hàng không có ô trống."
+        }
+      ],
+      "shared_options": [],
+      "description": "Ví dụ · Festival program",
+      "display_kind": "practice",
+      "study_available": false
+    },
+    "80-days:day-60:source-key": {
+      "block_id": "80-days:day-60:source-key",
+      "part_id": "80-days:day-60:source-key:resource",
+      "kind": "worked_teaching",
+      "instruction": {
+        "source_en": "",
+        "student_vi": "Tài liệu tự học đã có nội dung giải; không tính câu hỏi hoặc điểm luyện nghe."
+      },
+      "item_ids": [],
+      "source_question_numbers": [],
+      "images": [
+        {
+          "asset_id": "80-days:day-60:asset:source-key-full-diagram",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/5cb0d72e5081fb784aa93bbaef2666269022e3e0ec38da938426e5e8b2f5acdb.png",
+          "width": 970,
+          "height": 710,
+          "alt_vi": "Toàn bộ sơ đồ sprinkler và bảng key in sẵn; giữ đủ phía phải của hình và nhãn 5."
+        }
+      ],
+      "shared_options": [],
+      "description": "Sơ đồ và key nguồn có lỗi spay tube",
+      "display_kind": "source_study",
+      "study_available": true
+    },
+    "80-days:day-35:part-2:block-1": {
+      "block_id": "80-days:day-35:part-2:block-1",
+      "part_id": "80-days:day-35:part-2",
+      "kind": "map_matching",
+      "instruction": {
+        "source_en": "Choose the appropriate letters from the map below.",
+        "student_vi": "Chọn chữ A–H cho mỗi địa điểm theo bản đồ nguồn.",
+        "word_limit": null,
+        "select_count": null
+      },
+      "item_ids": [
+        "80-days:day-35:main:q-11",
+        "80-days:day-35:main:q-12",
+        "80-days:day-35:main:q-13",
+        "80-days:day-35:main:q-14",
+        "80-days:day-35:main:q-15"
+      ],
+      "source_question_numbers": [
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "images": [
+        {
+          "asset_id": "80-days:day-35:asset:map-q11-15",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/e3853b6de87305fc1a9c1e0266f819e90ef906242061ba65dce24753963fcd35.png",
+          "width": 1230,
+          "height": 680,
+          "alt_vi": "Bản đồ A–H, bốn Avenue và North Street; vị trí hotel 11, shopping 12, park 13, bars 14, museum 15."
+        }
+      ],
+      "shared_options": [
+        {
+          "id": "A",
+          "label": "A"
+        },
+        {
+          "id": "B",
+          "label": "B"
+        },
+        {
+          "id": "C",
+          "label": "C"
+        },
+        {
+          "id": "D",
+          "label": "D"
+        },
+        {
+          "id": "E",
+          "label": "E"
+        },
+        {
+          "id": "F",
+          "label": "F"
+        },
+        {
+          "id": "G",
+          "label": "G"
+        },
+        {
+          "id": "H",
+          "label": "H"
+        }
+      ],
+      "description": "",
+      "display_kind": "practice",
+      "study_available": false
+    }
+  }
+}
