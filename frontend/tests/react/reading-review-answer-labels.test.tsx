@@ -18,6 +18,37 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
+it('labels Cambridge choose-TWO review rows as multiple answers while retaining stored slot types and keys', async () => {
+  window.history.replaceState(null, '', '/reading/review?admin_test_id=grouped-label-fixture');
+  const fixture = {
+    preview: true, status: 'submitted', test_id: 'grouped-label-fixture', title: 'Grouped review',
+    score: 0, max_score: 3, skill_breakdown: {},
+    passages: [{ passage_order: 2, title: 'Source', body_markdown: 'Source text.' }],
+    review: [
+      ...[21, 22].map((q_num) => ({
+        q_num, passage_order: 2, correct: false, user_answer: '', expected: 'B, D',
+        question_type: 'mcq_single', group: 'grouped_mcq_single',
+        prompt: 'Which TWO of the following statements are true of the researchers at London Zoo?',
+        question_context: { instruction: 'Choose TWO letters, A-E.' },
+      })),
+      { q_num: 23, passage_order: 2, correct: false, user_answer: '', expected: 'A',
+        question_type: 'mcq_single', prompt: 'Ordinary single-answer question' },
+    ],
+  };
+  const original = JSON.stringify(fixture);
+  getWith.mockResolvedValue(fixture);
+  const view = render(<ReadingReviewWorkspace />);
+  await screen.findByText(fixture.title);
+  for (const q_num of [21, 22]) {
+    const card = view.container.querySelector(`#reading-review-q-${q_num}`) as HTMLElement;
+    expect(card.querySelector('.rr-card__tag')?.textContent).toBe('MCQ · nhiều đáp án');
+    expect(card.querySelector('.rr-card__ans.is-correct code')?.textContent).toBe('B, D');
+  }
+  expect(view.container.querySelector('#reading-review-q-23 .rr-card__tag')?.textContent).toBe('MCQ · 1 đáp án');
+  expect(JSON.stringify(fixture)).toBe(original);
+  expect(post).not.toHaveBeenCalled();
+});
+
 it('distinguishes blank, incorrect and correct responses without changing their canonical grade or filtering', async () => {
   const fixture = {
     attempt_id: 'label-fixture', status: 'submitted', test_id: 'review-label-fixture', title: 'Review labels',

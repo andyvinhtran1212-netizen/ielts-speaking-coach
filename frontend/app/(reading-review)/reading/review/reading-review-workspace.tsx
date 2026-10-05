@@ -275,7 +275,9 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
     ? 'writer_view_YNNG'
     : writerViewSkill && item.question_type === 'true_false_not_given' ? 'writer_view_TFNG' : item.skill_tag;
   const skill = solution.skill_name || (skillTag ? SKILL_LABELS[skillTag] || skillTag : '');
-  const typeLabel = QUESTION_TYPE_LABELS[item.question_type] || item.question_type;
+  const displayType = item.question_type === 'mcq_single' && item.group === 'grouped_mcq_single'
+    ? 'mcq_multi' : item.question_type;
+  const typeLabel = QUESTION_TYPE_LABELS[displayType] || displayType;
   const tags = [typeLabel, skill, solution.band != null ? `Band ${solution.band}` : ''].filter(Boolean).join(' · ');
   const prompt = readingReviewPrompt(item);
   const answerStatus = preview ? (item.correct ? 'correct' : 'incorrect') : readingReviewAnswerStatus(item);
