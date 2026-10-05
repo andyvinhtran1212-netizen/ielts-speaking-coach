@@ -4634,6 +4634,54 @@ def test_retake_review_requires_only_assigned_skills(fake_db, svc, wf):
     assert saved["final_bands"]["writing"] == 6.5
 
 
+@pytest.mark.parametrize("skills,band,blankable", [
+    (["listening"], 8.5, []),
+    (["reading"], 8.5, []),
+    (["writing"], None, ["writing"]),
+    (["listening", "writing"], 8.5, ["writing"]),
+    (["listening"], None, ["listening"]),
+])
+def test_retake_review_detail_blankable_is_subset_of_assigned_skills(
+    fake_db, svc, wf, monkeypatch, skills, band, blankable,
+):
+    """A retake without essays must not advertise unassigned Writing to the UI."""
+    import asyncio
+    from unittest.mock import AsyncMock
+    from routers import admin_mock_reviews
+
+    user_id, review_id = uuid4(), uuid4()
+    _seed_retake(fake_db, user_id, skills)
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    stored_sitting = next(s for s in fake_db.rows("mock_exam_sittings")
+                          if s["id"] == sitting["id"])
+    stored_sitting["status"] = "all_submitted"
+    for skill in ("listening", "reading"):
+        if skill in skills:
+            attempt_id = str(uuid4())
+            stored_sitting[f"{skill}_attempt_id"] = attempt_id
+            fake_db.seed(f"{skill}_test_attempts", {
+                "id": attempt_id, "score": 39, "band_estimate": band,
+            })
+    fake_db.seed("mock_exam_reviews", {
+        "id": str(review_id), "sitting_id": sitting["id"], "status": "claimed",
+    })
+    authorize = AsyncMock(return_value={"id": str(uuid4())})
+    monkeypatch.setattr(admin_mock_reviews, "require_admin", authorize)
+
+    # Pin the actual failing backend condition, rather than mocking its result:
+    # with no essays the workflow considers Writing unconvertible even when the
+    # retake only assigned Listening or Reading.
+    assert "writing" in wf.blankable_skills_for_sitting(sitting["id"])
+    detail = asyncio.run(admin_mock_reviews.get_review(review_id, "Bearer qa"))
+
+    authorize.assert_awaited_once_with("Bearer qa")
+    assert detail["review"]["id"] == str(review_id)
+    assert detail["review"]["sitting_id"] == detail["sitting"]["id"] == sitting["id"]
+    assert detail["required_skills"] == skills
+    assert detail["blankable_skills"] == blankable
+    assert set(detail["blankable_skills"]) <= set(detail["required_skills"])
+
+
 def test_retake_start_section_blocks_second_concurrent(fake_db, svc):
     """Codex P2 (2026-07-13): only one per-sitting clock may run at a time —
     starting a second assigned section while one is in progress is rejected (a

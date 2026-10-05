@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { advancedVocabularyStudentState, canReturnSubmission, findAdvancedVocabularyEvidence, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
+import { advancedVocabularyStudentState, canReturnSubmission, findAdvancedVocabularyEvidence, groupReportQuestions, grammarLessonResult, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -17,6 +17,20 @@ const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER = read('tooling', 'verify-admin-class-submissions-flow.mjs');
 
 describe('admin class submissions model', () => {
+  test('does not turn a failed Grammar progress lookup into zero correct answers', () => {
+    const out = normalizeTally({ assignment: { id: 'a1', title: 'B02', skill: 'grammar' },
+      homework_stale: true, students: [{ student_id: 's1', status: 'submitted',
+        grammar_answered: null, grammar_correct: null, grammar_question_count: 12,
+        artifact_kind: 'grammar_lesson_attempt', artifact_id: 'saved-attempt' }], counts: {} });
+    assert.equal(out.students[0].grammar_answered, null);
+    assert.equal(out.students[0].artifact_id, 'saved-attempt');
+    assert.equal(grammarLessonResult(out.students[0]), 'Chưa đọc được tiến độ');
+    assert.equal(grammarLessonResult({ ...out.students[0], grammar_answered: 12 }), 'Chưa đọc được kết quả');
+    assert.equal(grammarLessonResult({ ...out.students[0], grammar_answered: 12, grammar_correct: 11 }), '11/12');
+    assert.equal(grammarLessonResult({ ...out.students[0], status: 'pending', grammar_answered: 0 }), 'Chưa làm');
+    assert.equal(grammarLessonResult({ ...out.students[0], status: 'pending', grammar_answered: 3 }), '3/12 câu');
+  });
+
   test('keeps canonical tally states and unknown scores distinct', () => {
     const out = normalizeTally({ assignment: { id: 'a1', title: 'Grammar 2', skill: 'course' }, sealed: true, homework_stale: true, sections_shape_unknown: true, students: [
       { student_id: 's1', status: 'missing', score: null, flags: [] },

@@ -201,7 +201,7 @@ class _Table:
         return _Resp(self._rows)
 
 
-def _db(fail: set[str]):
+def _db(fail: set[str], overrides: dict | None = None):
     tables = {
         "cohorts": [{"id": "c1", "name": "C2-K12", "course_id": None}],
         "courses": [],
@@ -213,6 +213,7 @@ def _db(fail: set[str]):
             {"id": "m1", "student_id": "s1", "cohort_id": "c1", "is_active": True},
         ],
     }
+    tables.update(overrides or {})
     db = type("DB", (), {})()
     db.table = lambda name: _Table(tables.get(name, []), name in fail)
     return db
@@ -258,6 +259,57 @@ async def test_nothing_broken_means_no_degraded_key_at_all():
     assert "degraded" not in out
     assert out["class"]["name"] == "C2-K12"
     assert [l["title"] for l in out["lessons"]] == ["Buổi 1"]
+
+
+@pytest.mark.parametrize("completed", [False, True])
+def test_my_class_http_preserves_grammar_lesson_identity_on_every_read(completed):
+    """Exercise the HTTP payload and its real display filter, not a UI fixture.
+
+    Both completed history and expired opened work need the discriminator to
+    retain their review action. Question/answer snapshots remain private.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    config = {
+        "assignment_type": "grammar_lesson", "lesson_id": "M30-B02",
+        "lesson_title": "Danh từ", "content_version": "v2",
+        "content_sha256": "private-hash", "question_ids": ["private-question"],
+        "questions": [{"correct_index": 2}], "answers": {"private-question": 2},
+    }
+    item = {
+        "id": "grammar-item", "student_id": "s1", "assignment_id": "a1",
+        "state": "submitted" if completed else "opened", "score": None,
+        "submitted_at": NOW.isoformat() if completed else None,
+    }
+    assignment = {
+        "id": "a1", "cohort_id": "c1", "title": "Ôn B02", "skill": "grammar",
+        "status": "published", "publish_at": None,
+        "due_at": (NOW - timedelta(hours=1)).isoformat(), "content_config": config,
+    }
+    db = _db(set(), {
+        "students": [{"id": "s1", "user_id": "u1", "cohort_id": "c1",
+                      "full_name": "A", "student_code": "S1"}],
+        "class_assignments": [assignment], "class_assignment_items": [item],
+    })
+    app = FastAPI()
+    app.include_router(mod.router)
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "reconcile_test_attempts"), \
+         patch.object(mod, "reconcile_course_items"), TestClient(app) as client:
+        immediate = client.get("/api/class/me").json()
+        reloaded = client.get("/api/class/me").json()
+
+    assert immediate == reloaded
+    assert "degraded" not in immediate
+    row = immediate["assignments"][0]
+    assert row["state"] == item["state"]
+    assert row["submitted_at"] == item["submitted_at"]
+    assert row["assignment"]["content_config"] == {
+        "assignment_type": "grammar_lesson", "lesson_id": "M30-B02",
+        "lesson_title": "Danh từ",
+    }
 
 
 # ── URL tài liệu: khoá ở NGUỒN SỰ THẬT, không chỉ ở giao diện ───────────

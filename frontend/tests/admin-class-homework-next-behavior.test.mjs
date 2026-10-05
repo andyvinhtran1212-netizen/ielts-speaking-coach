@@ -153,6 +153,22 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(Object.hasOwn(result.body, 'pass_pct'), false);
   });
 
+  test('assigns a reviewed Bxx lesson without reusing diagnostic options', () => {
+    const rows = [
+      { id: 'M30-B04', title: 'Articles', ready: true, already_given: false },
+      { id: 'M30-B02', title: 'Support-only', ready: false, already_given: false, reason: 'Chưa có bài luyện' },
+    ];
+    const draft = { ...homeworkDraft(), skill: 'grammar_lesson', title: 'Ôn B04',
+      contentId: 'M30-B04', recipientScope: 'subset', studentIds: ['student-1'] };
+    const result = validateHomeworkDraft(draft, rows);
+    assert.equal(result.ok, true);
+    assert.equal(result.body.skill, 'grammar');
+    assert.equal(result.body.grammar_lesson_id, 'M30-B04');
+    assert.equal(result.body.content_id, null);
+    assert.deepEqual(result.body.student_ids, ['student-1']);
+    assert.equal(validateHomeworkDraft({ ...draft, contentId: 'M30-B02' }, rows).ok, false);
+  });
+
   test('manual Speaking selection must use the exact ready count', () => {
     const draft = { ...homeworkDraft(), title: 'Speaking', contentId: 'topic-1', questionMode: 'manual', questionIds: ['q1', 'q2'] };
     const topics = [{ id: 'topic-1', title: 'Home', ready: true, already_given: false }];

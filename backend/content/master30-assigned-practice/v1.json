@@ -1,0 +1,1676 @@
+{
+  "version": "v1",
+  "policy": "Reviewed Grammar Wiki Quick Check items only; never MASTER30 diagnostic, confirmation or holdout items",
+  "lessons": {
+    "M30-B01": {
+      "focus": "Bộ khung câu đơn: chủ ngữ và động từ hữu hạn",
+      "article": {
+        "category": "sentence-structures",
+        "slug": "simple-sentence",
+        "title": "Simple Sentence (Câu đơn)"
+      },
+      "source_bank_code": "G-sentence-structures-simple-sentence",
+      "source_sha256": "43c76265815e823af763e4d68d9682f72644aa6e1039f4842c01e739d004e674",
+      "questions": [
+        {
+          "id": "ss_id_b1",
+          "prompt": "Câu nào là câu ĐƠN (simple sentence)?",
+          "options": [
+            "My brother works at a bank.",
+            "My brother works at a bank, and he enjoys it.",
+            "Although my brother works at a bank, he wants to change jobs.",
+            "My brother works at a bank, but he studies part-time."
+          ],
+          "correct_index": 0,
+          "explanation": "Câu đơn chỉ có MỘT mệnh đề độc lập (một S + một V). Ba câu còn lại có liên từ nối thêm mệnh đề khác.",
+          "source_qid": "ss_id_b1"
+        },
+        {
+          "id": "ss_id_a1",
+          "prompt": "Đúng hay Sai: 'The cities that attract the most tourists are usually the most expensive.' là một câu đơn.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — câu này có mệnh đề quan hệ 'that attract the most tourists' → đây là câu phức (complex sentence), không phải câu đơn.",
+          "source_qid": "ss_id_a1"
+        },
+        {
+          "id": "ss_frag_b1",
+          "prompt": "Câu nào là câu HOÀN CHỈNH, không phải câu cụt (fragment)?",
+          "options": [
+            "She studied very hard for the exam.",
+            "Studied very hard for the exam.",
+            "Because I was tired.",
+            "The beautiful sunset over the mountains."
+          ],
+          "correct_index": 0,
+          "explanation": "Câu đầu có đủ chủ ngữ (She) và động từ (studied) → câu hoàn chỉnh. Ba câu kia thiếu chủ ngữ, là mệnh đề phụ đứng một mình, hoặc chỉ là cụm danh từ.",
+          "source_qid": "ss_frag_b1"
+        },
+        {
+          "id": "ss_frag_a1",
+          "prompt": "Đúng hay Sai: 'Because I was tired.' là một câu hoàn chỉnh.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — đây là mệnh đề phụ đứng một mình, không có mệnh đề chính đi kèm → câu cụt. Cần sửa: 'I went to bed early because I was tired.'",
+          "source_qid": "ss_frag_a1"
+        },
+        {
+          "id": "ss_run_b1",
+          "prompt": "Câu nào bị lỗi câu dính (run-on)?",
+          "options": [
+            "She loves reading she goes to the library every week.",
+            "She loves reading, so she goes to the library every week.",
+            "She loves reading. She goes to the library every week.",
+            "She loves reading and goes to the library every week."
+          ],
+          "correct_index": 0,
+          "explanation": "Hai mệnh đề độc lập ('She loves reading' và 'she goes to the library') ghép lại mà không có dấu câu hay liên từ → câu dính (run-on).",
+          "source_qid": "ss_run_b1"
+        },
+        {
+          "id": "ss_run_a1",
+          "prompt": "Đúng hay Sai: 'My brother he works at a bank.' là câu đúng ngữ pháp.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — lỗi thêm chủ ngữ thừa (pronoun doubling), lỗi phổ biến của người Việt. Sửa: 'My brother works at a bank.' (bỏ 'he').",
+          "source_qid": "ss_run_a1"
+        },
+        {
+          "id": "ss_over_b1",
+          "prompt": "Đoạn văn nào cho thấy LẠM DỤNG câu đơn liên tiếp (đơn điệu, cần đa dạng hơn)?",
+          "options": [
+            "Technology helps communication. It helps education. It has benefits.",
+            "Technology helps communication and education, which brings many benefits.",
+            "Although technology has drawbacks, it helps communication and education.",
+            "Technology, which helps communication, also benefits education."
+          ],
+          "correct_index": 0,
+          "explanation": "Ba câu đơn liên tiếp cùng cấu trúc chủ ngữ lặp lại ('Technology... It... It...') là dấu hiệu đặc trưng của simple_sentence_overuse — bị giới hạn điểm Grammatical Range.",
+          "source_qid": "ss_over_b1"
+        },
+        {
+          "id": "ss_over_a1",
+          "prompt": "Đúng hay Sai: 'I went to the market and I bought vegetables and I cooked dinner and I ate with my family and then I washed the dishes.' là ví dụ tốt về câu phức tạp, đa dạng.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — đây là câu yếu do nối quá nhiều 'and' liên tiếp (dangling sentence), không phải câu phức thực sự. Nên tách câu hoặc dùng mệnh đề phụ: 'After going to the market, I bought vegetables and cooked dinner. I ate with my family, then washed the dishes.'",
+          "source_qid": "ss_over_a1"
+        }
+      ]
+    },
+    "M30-B03": {
+      "focus": "Danh từ đếm được, số ít/số nhiều và cụm danh từ",
+      "article": {
+        "category": "parts-of-speech",
+        "slug": "nouns",
+        "title": "Nouns — Danh từ"
+      },
+      "source_bank_code": "G-parts-of-speech-nouns",
+      "source_sha256": "320ba49013b01b7f063c030a3bafab8fcd50b0a1c0c7939d6e863a05e5bc9950",
+      "questions": [
+        {
+          "id": "noun_cnt_b1",
+          "prompt": "She gave me some useful ____ before my job interview.",
+          "options": [
+            "advice",
+            "advices",
+            "an advice",
+            "advices'"
+          ],
+          "correct_index": 0,
+          "explanation": "'advice' là danh từ không đếm được — không có dạng số nhiều 'advices', và không dùng 'a/an' trước nó.",
+          "source_qid": "noun_cnt_b1"
+        },
+        {
+          "id": "noun_cnt_a1",
+          "prompt": "Đúng hay Sai: 'The research team published several important researches last year.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'research' là uncountable, không thêm -s. Sửa: 'The research team published several important research papers last year.' hoặc 'published important research'.",
+          "source_qid": "noun_cnt_a1"
+        },
+        {
+          "id": "noun_art_b1",
+          "prompt": "I bought ____ book yesterday, and ____ book was more expensive than I expected.",
+          "options": [
+            "a / the",
+            "the / a",
+            "a / a",
+            "the / the"
+          ],
+          "correct_index": 0,
+          "explanation": "Đề cập lần đầu (đếm được, số ít) → 'a book'. Đề cập lại lần hai (đã xác định) → 'the book'.",
+          "source_qid": "noun_art_b1"
+        },
+        {
+          "id": "noun_art_a1",
+          "prompt": "Đúng hay Sai: 'I bought book yesterday, and the book was more expensive than I expected.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'book' là danh từ đếm được số ít, đề cập lần đầu, không thể đứng trơ trọi. Sửa: 'I bought a book yesterday...'.",
+          "source_qid": "noun_art_a1"
+        },
+        {
+          "id": "noun_pl_b1",
+          "prompt": "Many ____ in this village still walk several kilometres to school every day.",
+          "options": [
+            "children",
+            "childs",
+            "childrens",
+            "child"
+          ],
+          "correct_index": 0,
+          "explanation": "Số nhiều bất quy tắc của 'child' là 'children', không thêm -s.",
+          "source_qid": "noun_pl_b1"
+        },
+        {
+          "id": "noun_pl_a1",
+          "prompt": "Đúng hay Sai: 'The report shows that over three million persons were affected by the flood.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — với số lượng lớn người nói chung, dùng 'people' (số nhiều bất quy tắc của person), không dùng 'persons'. Sửa: 'over three million people were affected'.",
+          "source_qid": "noun_pl_a1"
+        },
+        {
+          "id": "noun_poss_b1",
+          "prompt": "____ presentation impressed the whole management team.",
+          "options": [
+            "The manager's",
+            "The managers",
+            "The manager",
+            "Managers'"
+          ],
+          "correct_index": 0,
+          "explanation": "Sở hữu cách số ít thêm 's: 'the manager's presentation' = bài thuyết trình của người quản lý.",
+          "source_qid": "noun_poss_b1"
+        },
+        {
+          "id": "noun_poss_a1",
+          "prompt": "Đúng hay Sai: 'The companys' profits increased significantly this quarter.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — dạng số nhiều của 'company' là 'companies', và sở hữu cách số nhiều đúng phải là 'companies''. Nếu chỉ MỘT công ty thì viết 'the company's profits'.",
+          "source_qid": "noun_poss_a1"
+        }
+      ]
+    },
+    "M30-B04": {
+      "focus": "Mạo từ a/an/the và trường hợp không dùng mạo từ",
+      "article": {
+        "category": "foundations",
+        "slug": "articles",
+        "title": "Articles — A, An, The (Mạo từ)"
+      },
+      "source_bank_code": "G-foundations-articles",
+      "source_sha256": "aa63805cc14dc541cffe509a9a01ecd851b3154a433824fe45c0baa41e0ed053",
+      "questions": [
+        {
+          "id": "art_indef_b1",
+          "prompt": "She works as ____ software engineer at a tech startup.",
+          "options": [
+            "a",
+            "an",
+            "the",
+            "ø (no article)"
+          ],
+          "correct_index": 0,
+          "explanation": "Nghề nghiệp sau 'be/work as' + danh từ đếm được số ít, không xác định cụ thể → dùng 'a'.",
+          "source_qid": "art_indef_b1"
+        },
+        {
+          "id": "art_indef_a1",
+          "prompt": "Which sentence correctly uses the fixed expression pattern 'such a + adjective + noun'?",
+          "options": [
+            "It was such interesting a proposal!",
+            "It was such a interesting proposal!",
+            "It was such an interesting proposal!",
+            "It was such the interesting proposal!"
+          ],
+          "correct_index": 2,
+          "explanation": "Cấu trúc cố định 'such a/an + adj + noun'; vì 'interesting' bắt đầu bằng nguyên âm /ɪ/ nên dùng 'an': 'such an interesting proposal'.",
+          "source_qid": "art_indef_a1"
+        },
+        {
+          "id": "art_def_b1",
+          "prompt": "Could you close ____ window? It's getting cold in here.",
+          "options": [
+            "a",
+            "an",
+            "the",
+            "ø (no article)"
+          ],
+          "correct_index": 2,
+          "explanation": "Cả người nói và người nghe đều biết cửa sổ nào (shared knowledge — chỉ có một cửa sổ trong phòng) → dùng 'the'.",
+          "source_qid": "art_def_b1"
+        },
+        {
+          "id": "art_def_a1",
+          "prompt": "Đúng hay Sai: 'Government has announced a plan to cut carbon emissions by 2040' là đúng ngữ pháp vì 'government' luôn là danh từ chung.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — khi nói tới chính phủ CỤ THỂ của một nước (shared knowledge trong ngữ cảnh), bắt buộc phải có 'the': 'The government has announced a plan...' (lỗi missing_article)",
+          "source_qid": "art_def_a1"
+        },
+        {
+          "id": "art_zero_b1",
+          "prompt": "____ Employees at this company receive excellent healthcare benefits.",
+          "options": [
+            "A",
+            "An",
+            "The",
+            "ø (no article)"
+          ],
+          "correct_index": 3,
+          "explanation": "'Employees' số nhiều nói chung về nhân viên nói chung (không phải một nhóm nhân viên cụ thể đã nhắc) → zero article.",
+          "source_qid": "art_zero_b1"
+        },
+        {
+          "id": "art_zero_a1",
+          "prompt": "Which pair correctly contrasts general vs specific meaning? 1) '____ Small businesses often struggle to compete with large corporations.' 2) '____ small businesses in this district have closed since the new mall opened.'",
+          "options": [
+            "ø / The",
+            "The / ø",
+            "A / The",
+            "ø / A"
+          ],
+          "correct_index": 0,
+          "explanation": "Câu 1 nói về doanh nghiệp nhỏ NÓI CHUNG → zero article. Câu 2 nói về nhóm doanh nghiệp nhỏ CỤ THỂ 'in this district' (cả người nói/nghe đều biết) → 'The'.",
+          "source_qid": "art_zero_a1"
+        },
+        {
+          "id": "art_aan_b1",
+          "prompt": "They launched ____ new mobile app for tracking daily expenses.",
+          "options": [
+            "a",
+            "an",
+            "the",
+            "ø (no article)"
+          ],
+          "correct_index": 0,
+          "explanation": "'new' bắt đầu bằng âm phụ âm /nj/ → dùng 'a': 'a new mobile app'.",
+          "source_qid": "art_aan_b1"
+        },
+        {
+          "id": "art_aan_a1",
+          "prompt": "Đúng hay Sai: 'She has a MBA from a well-known business school'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — khi đọc tên viết tắt theo chữ cái, 'M' được đọc là /ɛm/, bắt đầu bằng âm nguyên âm → phải dùng 'an MBA', không phải 'a MBA'. Sửa đúng: 'She has an MBA from a well-known business school'.",
+          "source_qid": "art_aan_a1"
+        }
+      ]
+    },
+    "M30-B06": {
+      "focus": "Tính từ và vị trí tính từ trong câu",
+      "article": {
+        "category": "modifiers",
+        "slug": "adjectives",
+        "title": "Adjectives (Tính từ)"
+      },
+      "source_bank_code": "G-modifiers-adjectives",
+      "source_sha256": "5d918bc08216f8466fcef5b1533af530a0c63141337fb3a35cc53a4982451335",
+      "questions": [
+        {
+          "id": "adjpos_b1",
+          "prompt": "My hometown is a ____ city.",
+          "options": [
+            "beautiful",
+            "beautifully",
+            "beauty",
+            "beautify"
+          ],
+          "correct_index": 0,
+          "explanation": "Adjective đứng TRƯỚC noun để mô tả nó: a beautiful city. 'beautifully' là adverb, không đứng trước noun.",
+          "source_qid": "adjpos_b1"
+        },
+        {
+          "id": "adjpos_a1",
+          "prompt": "Đúng hay Sai: 'I have a Vietnamese old beautiful vase.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — thứ tự adjective phải là opinion → age → origin: 'I have a beautiful old Vietnamese vase.'",
+          "source_qid": "adjpos_a1"
+        },
+        {
+          "id": "adjvsadv_b1",
+          "prompt": "She sings ____.",
+          "options": [
+            "beautifully",
+            "beautiful",
+            "beauty",
+            "more beautiful"
+          ],
+          "correct_index": 0,
+          "explanation": "'sings' là action verb → cần adverb để mô tả cách hát: beautifully.",
+          "source_qid": "adjvsadv_b1"
+        },
+        {
+          "id": "adjvsadv_a1",
+          "prompt": "Đúng hay Sai: 'He drives very careful on the highway during rush hour.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'drives' là action verb, cần adverb: 'He drives very carefully on the highway during rush hour.'",
+          "source_qid": "adjvsadv_a1"
+        },
+        {
+          "id": "adjlink_b1",
+          "prompt": "This coffee tastes ____.",
+          "options": [
+            "strange",
+            "strangely",
+            "stranger of",
+            "strangeness"
+          ],
+          "correct_index": 0,
+          "explanation": "'taste' là linking verb → theo sau là adjective mô tả chủ ngữ 'coffee': tastes strange.",
+          "source_qid": "adjlink_b1"
+        },
+        {
+          "id": "adjlink_a1",
+          "prompt": "Đúng hay Sai: 'The flowers in the garden smell wonderfully after the rain.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'smell' là linking verb, cần adjective: 'The flowers in the garden smell wonderful after the rain.'",
+          "source_qid": "adjlink_a1"
+        },
+        {
+          "id": "adjnoplural_b1",
+          "prompt": "They are two ____ dogs.",
+          "options": [
+            "big",
+            "bigs",
+            "bigly",
+            "bigger of"
+          ],
+          "correct_index": 0,
+          "explanation": "Adjective trong tiếng Anh KHÔNG đổi theo số nhiều của noun — luôn giữ nguyên dạng: big dogs, không phải bigs dogs.",
+          "source_qid": "adjnoplural_b1"
+        },
+        {
+          "id": "adjnoplural_a1",
+          "prompt": "Đúng hay Sai: 'The museum displays many ancients artifacts from the region.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — adjective không thêm -s: 'The museum displays many ancient artifacts from the region.'",
+          "source_qid": "adjnoplural_a1"
+        }
+      ]
+    },
+    "M30-B08": {
+      "focus": "Trạng từ và phân biệt tính từ/trạng từ",
+      "article": {
+        "category": "modifiers",
+        "slug": "adverbs",
+        "title": "Adverbs (Trạng từ)"
+      },
+      "source_bank_code": "G-modifiers-adverbs",
+      "source_sha256": "71a89c3b5e6514696b75c12b85b3f35938377dbf6006db4d244765394ac28d18",
+      "questions": [
+        {
+          "id": "freqpos_b1",
+          "prompt": "I ____ drink coffee in the morning before work.",
+          "options": [
+            "always",
+            "am always",
+            "drink always",
+            "always drink always"
+          ],
+          "correct_index": 0,
+          "explanation": "Frequency adverb đứng TRƯỚC động từ thường: I always drink coffee.",
+          "source_qid": "freqpos_b1"
+        },
+        {
+          "id": "freqpos_a1",
+          "prompt": "Đúng hay Sai: 'I drink always coffee in the morning before checking my emails.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI (word_order_error) — frequency adverb không đứng giữa động từ và tân ngữ: 'I always drink coffee in the morning before checking my emails.'",
+          "source_qid": "freqpos_a1"
+        },
+        {
+          "id": "mannerpos_b1",
+          "prompt": "She speaks English ____.",
+          "options": [
+            "fluently",
+            "fluent",
+            "fluency",
+            "more fluent"
+          ],
+          "correct_index": 0,
+          "explanation": "Manner adverb thường đứng SAU động từ và tân ngữ: speaks English fluently.",
+          "source_qid": "mannerpos_b1"
+        },
+        {
+          "id": "mannerpos_a1",
+          "prompt": "Đúng hay Sai: 'She speaks fluently English after living in London for five years.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI (word_order_error) — manner adverb không đứng giữa verb và object: 'She speaks English fluently after living in London for five years.'",
+          "source_qid": "mannerpos_a1"
+        },
+        {
+          "id": "degreecomp_b1",
+          "prompt": "It's ____ cold today, so bring a jacket.",
+          "options": [
+            "very",
+            "much",
+            "far",
+            "a lot"
+          ],
+          "correct_index": 0,
+          "explanation": "'very' bổ nghĩa cho adjective ở dạng gốc (positive) 'cold' — đây không phải comparative.",
+          "source_qid": "degreecomp_b1"
+        },
+        {
+          "id": "degreecomp_a1",
+          "prompt": "Đúng hay Sai: 'Public transport in this city is very better than it was ten years ago.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'very' không đi với comparative 'better': 'Public transport in this city is much better than it was ten years ago.'",
+          "source_qid": "degreecomp_a1"
+        },
+        {
+          "id": "sentadv_b1",
+          "prompt": "____, this approach has some serious limitations.",
+          "options": [
+            "However",
+            "But however",
+            "How ever",
+            "Howevery"
+          ],
+          "correct_index": 0,
+          "explanation": "'However' đứng đầu câu, theo sau bởi dấu phẩy, để bình luận/tương phản với ý trước.",
+          "source_qid": "sentadv_b1"
+        },
+        {
+          "id": "sentadv_a1",
+          "prompt": "Đúng hay Sai: 'The plan was good, however it was too expensive to carry out.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — đây là comma splice: 'However' không thể nối 2 mệnh đề chỉ bằng dấu phẩy đơn: 'The plan was good. However, it was too expensive to carry out.'",
+          "source_qid": "sentadv_a1"
+        }
+      ]
+    },
+    "M30-B11": {
+      "focus": "Cụm từ cố định và kết hợp ngữ pháp",
+      "article": {
+        "category": "grammar-for-meaning",
+        "slug": "grammatical-collocations",
+        "title": "Grammatical Collocations — Cụm ngữ pháp cố định"
+      },
+      "source_bank_code": "G-grammar-for-meaning-grammatical-collocations",
+      "source_sha256": "83e48e6b9cb1906a28aa246af97f75d6164bb8b76a2fcf694b66da3efb712f16",
+      "questions": [
+        {
+          "id": "gc_verbprep_b1",
+          "prompt": "I listen ____ music every day on my way to work.",
+          "options": [
+            "to",
+            "at",
+            "for",
+            "(no preposition)"
+          ],
+          "correct_index": 0,
+          "explanation": "'listen' là intransitive verb, cần preposition 'to' trước object: listen to music.",
+          "source_qid": "gc_verbprep_b1"
+        },
+        {
+          "id": "gc_verbprep_a1",
+          "prompt": "Đúng hay Sai: 'It depends of the weather.' là câu đúng ngữ pháp.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI (preposition_error) — người Việt hay dịch 'phụ thuộc vào' → chọn nhầm 'of'. Câu đúng: 'It depends on the weather.'",
+          "source_qid": "gc_verbprep_a1"
+        },
+        {
+          "id": "gc_noprep_b1",
+          "prompt": "Let's ____ this issue at the next meeting.",
+          "options": [
+            "discuss",
+            "discuss about",
+            "discuss with",
+            "discuss of"
+          ],
+          "correct_index": 0,
+          "explanation": "'discuss' là transitive verb, đã bao hàm nghĩa 'về' — không cần thêm 'about'.",
+          "source_qid": "gc_noprep_b1"
+        },
+        {
+          "id": "gc_noprep_a1",
+          "prompt": "Đúng hay Sai: 'He entered into the room quietly.' là câu đúng ngữ pháp.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI (preposition_error) — với địa điểm vật lý, 'enter' là transitive verb, không cần 'into': 'He entered the room quietly.' (Lưu ý: 'enter into' vẫn đúng ở nghĩa trừu tượng như 'enter into an agreement/negotiation' — chỉ sai khi đi với địa điểm vật lý như 'the room'.)",
+          "source_qid": "gc_noprep_a1"
+        },
+        {
+          "id": "gc_adjprep_b1",
+          "prompt": "She's really good ____ maths and often helps her classmates.",
+          "options": [
+            "at",
+            "in",
+            "on",
+            "for"
+          ],
+          "correct_index": 0,
+          "explanation": "Skill/ability collocates với 'at': good at maths (không phải 'in' hay 'on').",
+          "source_qid": "gc_adjprep_b1"
+        },
+        {
+          "id": "gc_adjprep_a1",
+          "prompt": "Đúng hay Sai: 'She's good in English and always gets top marks.' là câu đúng ngữ pháp.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI (preposition_error) — 'good' collocates với 'at' cho skill/ability, không phải 'in'. Câu đúng: 'She's good at English.'",
+          "source_qid": "gc_adjprep_a1"
+        },
+        {
+          "id": "gc_nounprep_b1",
+          "prompt": "What's the reason ____ your delay this morning?",
+          "options": [
+            "for",
+            "of",
+            "with",
+            "at"
+          ],
+          "correct_index": 0,
+          "explanation": "'reason for' là noun + preposition collocation cố định diễn đạt lý do cho việc gì.",
+          "source_qid": "gc_nounprep_b1"
+        },
+        {
+          "id": "gc_nounprep_a1",
+          "prompt": "Đúng hay Sai: 'What's the difference of formal and informal language?' là câu đúng ngữ pháp.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI (preposition_error) — collocation đúng là 'difference between A and B', không phải 'difference of'. Câu đúng: 'What's the difference between formal and informal language?'",
+          "source_qid": "gc_nounprep_a1"
+        },
+        {
+          "id": "gc_advcol_b1",
+          "prompt": "I ____ disagree with that view — I think it overlooks several important factors.",
+          "options": [
+            "strongly",
+            "strong",
+            "strongness",
+            "stronger"
+          ],
+          "correct_index": 0,
+          "explanation": "'strongly disagree' là collocation cố định (adverb + verb) dùng để nhấn mạnh ý kiến — cần dạng adverb 'strongly', không phải tính từ 'strong'.",
+          "source_qid": "gc_advcol_b1"
+        },
+        {
+          "id": "gc_advcol_a1",
+          "prompt": "Đúng hay Sai: 'I deeply regret saying that' sử dụng đúng collocation verb + adverb intensifier.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 0,
+          "explanation": "ĐÚNG — 'deeply regret' là collocation cố định phù hợp diễn đạt sự hối tiếc mạnh mẽ, nâng tone bài Speaking/Writing lên Band 7+.",
+          "source_qid": "gc_advcol_a1"
+        }
+      ]
+    },
+    "M30-B12": {
+      "focus": "Động từ chính và dạng động từ trong câu",
+      "article": {
+        "category": "parts-of-speech",
+        "slug": "verbs",
+        "title": "Verbs — Động từ"
+      },
+      "source_bank_code": "G-parts-of-speech-verbs",
+      "source_sha256": "5ff344a88afc52d6aceb8ebe48e25c28b10651deb452b5f76e6fe6dc166cc999",
+      "questions": [
+        {
+          "id": "verb_stat_b1",
+          "prompt": "I ____ the answer, so please don't tell me.",
+          "options": [
+            "know",
+            "am knowing",
+            "knows",
+            "am know"
+          ],
+          "correct_index": 0,
+          "explanation": "'know the answer' diễn tả trạng thái biết trong câu này, thường dùng dạng đơn: I know.",
+          "source_qid": "verb_stat_b1"
+        },
+        {
+          "id": "verb_stat_a1",
+          "prompt": "Đúng hay Sai: 'She has been wanting to improve her English pronunciation for months.' có thể nhấn mạnh mong muốn kéo dài.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 0,
+          "explanation": "ĐÚNG — 'has been wanting' có thể nhấn mạnh mong muốn kéo dài/gần đây. Việc 'want' thường được xếp là stative verb không đủ để đánh dấu câu này sai ngữ pháp.",
+          "source_qid": "verb_stat_a1"
+        },
+        {
+          "id": "verb_sva_b1",
+          "prompt": "My sister ____ to work by bicycle every morning.",
+          "options": [
+            "goes",
+            "go",
+            "going",
+            "is go"
+          ],
+          "correct_index": 0,
+          "explanation": "Chủ ngữ ngôi thứ 3 số ít (my sister = she) trong Present Simple → thêm -es: goes.",
+          "source_qid": "verb_sva_b1"
+        },
+        {
+          "id": "verb_sva_a1",
+          "prompt": "Đúng hay Sai: 'She don't work on Sundays because she prefer to spend time with her family.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI hai chỗ — ngôi thứ 3 số ít cần 'doesn't' và 'prefers'. Sửa: 'She doesn't work on Sundays because she prefers to spend time with her family.'",
+          "source_qid": "verb_sva_a1"
+        },
+        {
+          "id": "verb_pp_b1",
+          "prompt": "I have already ____ this documentary twice.",
+          "options": [
+            "seen",
+            "saw",
+            "see",
+            "seeing"
+          ],
+          "correct_index": 0,
+          "explanation": "Sau 'have' trong perfect tense phải dùng past participle: seen (không phải saw, đó là past simple).",
+          "source_qid": "verb_pp_b1"
+        },
+        {
+          "id": "verb_pp_a1",
+          "prompt": "Đúng hay Sai: 'I have went to that museum three times already this year.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — sau 'have' cần past participle, không phải past simple. 'go' bất quy tắc: go-went-gone. Sửa: 'I have gone to that museum three times already this year.'",
+          "source_qid": "verb_pp_a1"
+        },
+        {
+          "id": "verb_link_b1",
+          "prompt": "This soup ____ absolutely delicious.",
+          "options": [
+            "tastes",
+            "tastes to",
+            "is tasting",
+            "taste"
+          ],
+          "correct_index": 0,
+          "explanation": "'taste' là linking verb ở đây, nối chủ ngữ với tính từ mô tả (delicious) — chia theo ngôi thứ 3 số ít: tastes.",
+          "source_qid": "verb_link_b1"
+        },
+        {
+          "id": "verb_link_a1",
+          "prompt": "Đúng hay Sai: 'The new candidate seems confidently during interviews, which impressed the panel.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'seem' là linking verb, phải theo sau bởi tính từ, không phải trạng từ. Sửa: 'The new candidate seems confident during interviews...'.",
+          "source_qid": "verb_link_a1"
+        }
+      ]
+    },
+    "M30-B14": {
+      "focus": "Thì hiện tại hoàn thành",
+      "article": {
+        "category": "tenses",
+        "slug": "present-perfect",
+        "title": "Present Perfect"
+      },
+      "source_bank_code": "G-tenses-present-perfect",
+      "source_sha256": "1a67461dd6fea6e264d869fc0018644cab24aa9c43091489a3f387700085ae88",
+      "questions": [
+        {
+          "id": "pp_exp_b1",
+          "prompt": "I ____ to Japan twice.",
+          "options": [
+            "have been",
+            "have gone",
+            "went",
+            "go"
+          ],
+          "correct_index": 0,
+          "explanation": "'have been to' = đã tới đó và đã về (trải nghiệm). 'have gone to' = đã đi và còn ở đó.",
+          "source_qid": "pp_exp_b1"
+        },
+        {
+          "id": "pp_exp_a1",
+          "prompt": "Đúng hay Sai: 'I have seen that film yesterday.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'yesterday' là mốc quá khứ xác định → past simple: 'I saw that film yesterday.'",
+          "source_qid": "pp_exp_a1"
+        },
+        {
+          "id": "pp_sf_b1",
+          "prompt": "We have lived here ____ 2015.",
+          "options": [
+            "since",
+            "for",
+            "from",
+            "in"
+          ],
+          "correct_index": 0,
+          "explanation": "since + MỐC thời gian (2015). for + KHOẢNG thời gian (ten years).",
+          "source_qid": "pp_sf_b1"
+        },
+        {
+          "id": "pp_sf_a1",
+          "prompt": "Đúng hay Sai: 'I have studied English for I was a child.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'I was a child' là mốc → dùng since: 'I have studied English since I was a child.'",
+          "source_qid": "pp_sf_a1"
+        },
+        {
+          "id": "pp_vs_b1",
+          "prompt": "I ____ my keys — I can't find them now.",
+          "options": [
+            "lost",
+            "have lost",
+            "was losing",
+            "am losing"
+          ],
+          "correct_index": 1,
+          "explanation": "Kết quả còn ảnh hưởng đến HIỆN TẠI (giờ vẫn chưa tìm ra) → present perfect: have lost.",
+          "source_qid": "pp_vs_b1"
+        },
+        {
+          "id": "pp_vs_a1",
+          "prompt": "Đúng hay Sai: 'I have finished my report two hours ago.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'two hours ago' là mốc quá khứ → past simple: 'I finished my report two hours ago.'",
+          "source_qid": "pp_vs_a1"
+        },
+        {
+          "id": "pp_yaj_b1",
+          "prompt": "Don't worry, I've ____ finished — I did it a minute ago.",
+          "options": [
+            "yet",
+            "just",
+            "ago",
+            "still"
+          ],
+          "correct_index": 1,
+          "explanation": "'just' = vừa mới xong, đứng giữa have và V3.",
+          "source_qid": "pp_yaj_b1"
+        },
+        {
+          "id": "pp_yaj_a1",
+          "prompt": "Đúng hay Sai: 'I have already ate lunch, thanks.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — sau have phải là V3: 'I have already eaten lunch.' (ate là V2).",
+          "source_qid": "pp_yaj_a1"
+        }
+      ]
+    },
+    "M30-B16": {
+      "focus": "Hoà hợp chủ ngữ và động từ",
+      "article": {
+        "category": "error-clinic",
+        "slug": "subject-verb-agreement",
+        "title": "Subject-Verb Agreement — Sự hoà hợp giữa Chủ ngữ và Động từ"
+      },
+      "source_bank_code": "G-error-clinic-subject-verb-agreement",
+      "source_sha256": "b82addc62faef5fa4f9a85b40f1d4b8da29a50b547da80e857ee7323e2fe6257",
+      "questions": [
+        {
+          "id": "sva_gap_b1",
+          "prompt": "The list of requirements ____ very long.",
+          "options": [
+            "is",
+            "are",
+            "were",
+            "have been"
+          ],
+          "correct_index": 0,
+          "explanation": "Chủ ngữ thực sự là 'The list' (số ít), 'of requirements' chỉ là cụm giới từ chen giữa → bỏ qua nó khi chia động từ: is.",
+          "source_qid": "sva_gap_b1"
+        },
+        {
+          "id": "sva_gap_a1",
+          "prompt": "Đúng hay Sai: 'The number of tourists visiting the city have increased dramatically.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — chủ ngữ thực sự là 'The number' (số ít), không phải 'tourists': 'The number of tourists visiting the city has increased dramatically.'",
+          "source_qid": "sva_gap_a1"
+        },
+        {
+          "id": "sva_coll_b1",
+          "prompt": "The government ____ considering new policies on housing.",
+          "options": [
+            "is",
+            "are",
+            "have",
+            "were"
+          ],
+          "correct_index": 0,
+          "explanation": "'Government' là danh từ tập hợp nhưng khi nói về nó như MỘT thực thể ra quyết định, thường dùng số ít: is considering.",
+          "source_qid": "sva_coll_b1"
+        },
+        {
+          "id": "sva_coll_a1",
+          "prompt": "Đúng hay Sai: Trong một bài IELTS Writing, viết 'The staff is friendly' ở đoạn 1 và 'The staff are always willing to help' ở đoạn 3 vẫn được chấp nhận vì cả hai cách đều đúng ngữ pháp.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — cả số ít và số nhiều với danh từ tập hợp đều được chấp nhận trong IELTS, nhưng phải NHẤT QUÁN xuyên suốt bài; đổi qua lại giữa 'is' và 'are' cho cùng một danh từ trong cùng một bài bị coi là thiếu nhất quán.",
+          "source_qid": "sva_coll_a1"
+        },
+        {
+          "id": "sva_each_b1",
+          "prompt": "Everyone in the office ____ about the new policy.",
+          "options": [
+            "know",
+            "knows",
+            "are knowing",
+            "have known"
+          ],
+          "correct_index": 1,
+          "explanation": "'Everyone' luôn là chủ ngữ số ít → knows (không phải 'know').",
+          "source_qid": "sva_each_b1"
+        },
+        {
+          "id": "sva_each_a1",
+          "prompt": "Đúng hay Sai: 'One of the most common mistakes are using \"there is\" with plural nouns.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — chủ ngữ thực sự là 'one', không phải 'mistakes': 'One of the most common mistakes is using \"there is\" with plural nouns.'",
+          "source_qid": "sva_each_a1"
+        },
+        {
+          "id": "sva_norr_b1",
+          "prompt": "Neither the teacher nor the students ____ informed about the change.",
+          "options": [
+            "was",
+            "were",
+            "is",
+            "has been"
+          ],
+          "correct_index": 1,
+          "explanation": "Trong 'neither A nor B', động từ chia theo chủ ngữ GẦN động từ nhất — ở đây là 'the students' (số nhiều) → were.",
+          "source_qid": "sva_norr_b1"
+        },
+        {
+          "id": "sva_norr_a1",
+          "prompt": "Đúng hay Sai: 'Neither the manager nor the employees was aware of the budget cut.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — chủ ngữ gần động từ nhất là 'the employees' (số nhiều), không phải 'the manager': 'Neither the manager nor the employees were aware of the budget cut.'",
+          "source_qid": "sva_norr_a1"
+        }
+      ]
+    },
+    "M30-B17": {
+      "focus": "Cấu trúc bị động và dạng be + V3",
+      "article": {
+        "category": "sentence-structures",
+        "slug": "passive-voice",
+        "title": "Passive Voice — Câu bị động"
+      },
+      "source_bank_code": "G-sentence-structures-passive-voice",
+      "source_sha256": "2243c9b093b28073fb1cf144b25ab09c3b7499c18bae988c2066d823780fdd51",
+      "questions": [
+        {
+          "id": "pv_form_b1",
+          "prompt": "The report ____ last year.",
+          "options": [
+            "was published",
+            "published",
+            "is published",
+            "publishes"
+          ],
+          "correct_index": 0,
+          "explanation": "Bị động thì quá khứ đơn: was/were + V3. 'last year' là mốc quá khứ → 'was published'.",
+          "source_qid": "pv_form_b1"
+        },
+        {
+          "id": "pv_form_a1",
+          "prompt": "Đúng hay Sai: 'The policy has implemented since last year.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — thiếu 'been' trong perfect passive. Sửa: 'The policy has been implemented since last year.'",
+          "source_qid": "pv_form_a1"
+        },
+        {
+          "id": "pv_use_b1",
+          "prompt": "'My car ____ last night.' (không biết ai làm việc này)",
+          "options": [
+            "was stolen",
+            "stole",
+            "steals",
+            "is stealing"
+          ],
+          "correct_index": 0,
+          "explanation": "Khi không biết ai thực hiện hành động (thủ phạm không rõ), dùng bị động và có thể bỏ agent: 'was stolen'.",
+          "source_qid": "pv_use_b1"
+        },
+        {
+          "id": "pv_use_a2",
+          "prompt": "Đúng hay Sai: 'Tôi bị mất ví' nên dịch là 'My wallet was lost by me' để đúng ngữ pháp tiếng Anh tự nhiên.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — khi bản thân người nói là agent thực của hành động 'mất', tiếng Anh tự nhiên dùng active: 'I lost my wallet', không cần bị động dù tiếng Việt có 'bị'.",
+          "source_qid": "pv_use_a2"
+        },
+        {
+          "id": "pv_intr_b1",
+          "prompt": "Đúng hay Sai: 'The accident was happened yesterday.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'happen' là nội động từ (intransitive), không có tân ngữ nên không thể bị động hóa. Sửa: 'The accident happened yesterday.'",
+          "source_qid": "pv_intr_b1"
+        },
+        {
+          "id": "pv_intr_a1",
+          "prompt": "Câu nào mắc lỗi bị động hóa nội động từ?",
+          "options": [
+            "The meeting was held on Monday.",
+            "The storm was occurred last night.",
+            "The bridge was built in 1990.",
+            "The letter was written in French."
+          ],
+          "correct_index": 1,
+          "explanation": "'occur' là nội động từ nên không có dạng bị động — 'was occurred' sai. Sửa: 'The storm occurred last night.' Các câu còn lại dùng ngoại động từ (hold/build/write) đúng.",
+          "source_qid": "pv_intr_a1"
+        },
+        {
+          "id": "pv_err_b1",
+          "prompt": "Đúng hay Sai: 'I was borned in 1999.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'born' là past participle đặc biệt, KHÔNG thêm '-ed'. Sửa: 'I was born in 1999.'",
+          "source_qid": "pv_err_b1"
+        },
+        {
+          "id": "pv_err_a1",
+          "prompt": "Đúng hay Sai: 'The report was written by someone.' là câu bị động chuẩn cho văn phong học thuật.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI về phong cách — thêm 'by someone' khi agent không rõ ràng/không cần thiết làm câu yếu đi. Câu tốt hơn: 'The report was written.' (bỏ hẳn agent mơ hồ).",
+          "source_qid": "pv_err_a1"
+        }
+      ]
+    },
+    "M30-B21": {
+      "focus": "Câu điều kiện và quan hệ giả định",
+      "article": {
+        "category": "grammar-for-meaning",
+        "slug": "conditionals",
+        "title": "Conditionals — Câu điều kiện"
+      },
+      "source_bank_code": "G-grammar-for-meaning-conditionals",
+      "source_sha256": "efe2552f4b54bb2e9c2e702bb45cdbb3e2fd76dac9f782c0e79c3edfc61488f1",
+      "questions": [
+        {
+          "id": "cond_t1_b1",
+          "prompt": "If it rains tomorrow, we ____ the trip.",
+          "options": [
+            "will cancel",
+            "cancel",
+            "would cancel",
+            "cancelled"
+          ],
+          "correct_index": 0,
+          "explanation": "First Conditional: If + present simple, will + V-bare. Mệnh đề chính dùng 'will' để nói về kết quả có khả năng xảy ra.",
+          "source_qid": "cond_t1_b1"
+        },
+        {
+          "id": "cond_t1_a1",
+          "prompt": "Đúng hay Sai: 'If it will rain tomorrow, I'll stay home.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — không dùng 'will' trong if-clause. Đây là lỗi số 1 của người Việt (dịch 'nếu...sẽ' có 'sẽ' ở cả hai vế): 'If it rains tomorrow, I'll stay home.'",
+          "source_qid": "cond_t1_a1"
+        },
+        {
+          "id": "cond_t2_b1",
+          "prompt": "If I ____ more time, I would travel the world.",
+          "options": [
+            "had",
+            "have",
+            "will have",
+            "would have"
+          ],
+          "correct_index": 0,
+          "explanation": "Second Conditional: If + past simple, would + V-bare. Diễn tả điều không có thật ở hiện tại: 'If I had...' = tôi không có nhiều thời gian.",
+          "source_qid": "cond_t2_b1"
+        },
+        {
+          "id": "cond_t2_a1",
+          "prompt": "Đúng hay Sai: 'If I would have more time, I would travel.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — if-clause của Type 2 không dùng 'would', chỉ dùng past simple: 'If I had more time, I would travel.'",
+          "source_qid": "cond_t2_a1"
+        },
+        {
+          "id": "cond_t3_b1",
+          "prompt": "If she ____ the instructions more carefully, she would have avoided the mistake.",
+          "options": [
+            "had read",
+            "read",
+            "have read",
+            "would read"
+          ],
+          "correct_index": 0,
+          "explanation": "Third Conditional: If + past perfect, would have + V3. Diễn tả điều không xảy ra trong quá khứ (thực ra cô ấy đã không đọc kỹ hướng dẫn).",
+          "source_qid": "cond_t3_b1"
+        },
+        {
+          "id": "cond_t3_a1",
+          "prompt": "Đúng hay Sai: 'If she had called me, I would went to pick her up.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — main clause của Type 3 phải là 'would have + V3', không phải 'would + past simple': 'I would have gone to pick her up.'",
+          "source_qid": "cond_t3_a1"
+        },
+        {
+          "id": "cond_unless_b1",
+          "prompt": "____ you hurry, you'll miss the bus.",
+          "options": [
+            "Unless",
+            "If",
+            "Because",
+            "Although"
+          ],
+          "correct_index": 0,
+          "explanation": "'Unless' = 'if...not': Unless you hurry = If you don't hurry. Diễn tả điều kiện phủ định trực tiếp và mạnh mẽ hơn.",
+          "source_qid": "cond_unless_b1"
+        },
+        {
+          "id": "cond_unless_a1",
+          "prompt": "Đúng hay Sai: 'Unless governments don't act, the situation will worsen.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'unless' đã mang nghĩa phủ định ('if...not'), thêm 'don't' tạo phủ định kép (double negative): 'Unless governments act, the situation will worsen.'",
+          "source_qid": "cond_unless_a1"
+        }
+      ]
+    },
+    "M30-B22": {
+      "focus": "Phân biệt dạng V-ing và V3-ed trong vai trò bổ nghĩa",
+      "article": {
+        "category": "modifiers",
+        "slug": "participial-adjectives",
+        "title": "Participial Adjectives — interested vs interesting"
+      },
+      "source_bank_code": "G-modifiers-participial-adjectives",
+      "source_sha256": "fcd11e5ffa8fdcb345044c92282869234c6c46b8c0ff8942cc85aeeecc690967",
+      "questions": [
+        {
+          "id": "pa_rule_b1",
+          "prompt": "I am ____ after such a long flight.",
+          "options": [
+            "tired",
+            "tiring",
+            "tire",
+            "tires"
+          ],
+          "correct_index": 0,
+          "explanation": "Chủ ngữ 'I' là người CẢM THẤY mệt → dùng dạng -ed: tired. Dạng -ing (tiring) chỉ bản chất gây mệt, dùng cho vật/việc.",
+          "source_qid": "pa_rule_b1"
+        },
+        {
+          "id": "pa_rule_a1",
+          "prompt": "Đúng hay Sai: 'The documentary about climate change was deeply moved, and many viewers left the cinema in tears.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'documentary' (vật) là nguồn GÂY ra cảm xúc cho người xem → phải dùng -ing: 'The documentary ... was deeply moving.' Dạng 'moved' (-ed) chỉ dùng khi chủ ngữ là người cảm thấy xúc động, ví dụ 'The viewers were deeply moved.'",
+          "source_qid": "pa_rule_a1"
+        },
+        {
+          "id": "pa_pvt_b1",
+          "prompt": "The movie we watched last night was ____.",
+          "options": [
+            "excited",
+            "exciting",
+            "excite",
+            "excites"
+          ],
+          "correct_index": 1,
+          "explanation": "'The movie' là một sự việc, không thể tự 'cảm thấy' — nó chỉ có thể GÂY RA cảm giác cho người xem → luôn dùng -ing: exciting.",
+          "source_qid": "pa_pvt_b1"
+        },
+        {
+          "id": "pa_pvt_a1",
+          "prompt": "Đúng hay Sai: 'The exam results were very disappointed for most of the students in my class.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'the exam results' là sự việc/vật, không thể tự cảm thấy thất vọng, nó chỉ GÂY RA sự thất vọng → phải dùng -ing: 'The exam results were very disappointing.' Nếu muốn nói về cảm giác của học sinh thì viết 'Most of the students felt disappointed.'",
+          "source_qid": "pa_pvt_a1"
+        },
+        {
+          "id": "pa_self_b1",
+          "prompt": "I feel really ____ right now — there's nothing to do at home.",
+          "options": [
+            "boring",
+            "bored",
+            "bore",
+            "bores"
+          ],
+          "correct_index": 1,
+          "explanation": "'I' đang CẢM THẤY chán → dùng -ed: bored. Nếu nói 'I am boring' nghĩa là 'tôi là người gây chán cho người khác' — sai hoàn toàn với ý định.",
+          "source_qid": "pa_self_b1"
+        },
+        {
+          "id": "pa_self_a1",
+          "prompt": "Đúng hay Sai: 'I was really annoying when my flight got delayed for the third time.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — người nói muốn diễn tả cảm giác của mình (bực bội) khi chuyến bay bị hoãn, nên phải dùng -ed: 'I was really annoyed when my flight got delayed for the third time.' Câu gốc với 'annoying' lại có nghĩa là 'tôi là người gây khó chịu cho người khác'.",
+          "source_qid": "pa_self_a1"
+        },
+        {
+          "id": "pa_pairs_b1",
+          "prompt": "My little brother keeps asking the same question — it's so ____!",
+          "options": [
+            "annoyed",
+            "annoying",
+            "annoy",
+            "annoys"
+          ],
+          "correct_index": 1,
+          "explanation": "Hành động 'hỏi đi hỏi lại' là nguồn GÂY RA sự khó chịu → dùng -ing: annoying.",
+          "source_qid": "pa_pairs_b1"
+        },
+        {
+          "id": "pa_pairs_a1",
+          "prompt": "Đúng hay Sai: 'The constant noise from the construction site next door is really annoyed, so I can't concentrate on my writing task.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'the constant noise' (sự việc) là nguồn GÂY RA sự khó chịu, không thể tự cảm thấy khó chịu → phải dùng -ing: 'The constant noise ... is really annoying.' Dạng annoyed (-ed) chỉ dùng cho người, ví dụ 'I am really annoyed by the noise.'",
+          "source_qid": "pa_pairs_a1"
+        }
+      ]
+    },
+    "M30-B23": {
+      "focus": "Gerund, to-infinitive và verb patterns",
+      "article": {
+        "category": "verb-patterns",
+        "slug": "gerund-vs-infinitive",
+        "title": "Gerund vs. Infinitive (Khi nào dùng V-ing, khi nào dùng to + V?)"
+      },
+      "source_bank_code": "G-verb-patterns-gerund-vs-infinitive",
+      "source_sha256": "b124f6967f22197062149751e02fa69197104642c44f814937052216db0f400e",
+      "questions": [
+        {
+          "id": "gvi_remember_b1",
+          "prompt": "I remember ____ dizzy the first time I tried scuba diving in Nha Trang.",
+          "options": [
+            "feeling",
+            "to feel",
+            "feel",
+            "felt"
+          ],
+          "correct_index": 0,
+          "explanation": "remember + gerund = nhớ lại một việc ĐÃ xảy ra: 'remember feeling' (tôi nhớ là mình đã thấy chóng mặt).",
+          "source_qid": "gvi_remember_b1"
+        },
+        {
+          "id": "gvi_remember_a1",
+          "prompt": "Đúng hay Sai: 'Remember to pack your prescription medication before we leave for the airport' means the medication has already been packed.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI về nghĩa — 'remember to pack' = lời nhắc làm việc SẮP tới (thuốc CHƯA được đóng gói). Nếu muốn nói thuốc đã được đóng gói rồi, phải dùng gerund: 'Remember packing your prescription medication' (nhớ lại là mình đã đóng gói rồi).",
+          "source_qid": "gvi_remember_a1"
+        },
+        {
+          "id": "gvi_stop_b1",
+          "prompt": "After her diagnosis, she stopped ____ sugary drinks completely and switched to water.",
+          "options": [
+            "drinking",
+            "to drink",
+            "drink",
+            "drank"
+          ],
+          "correct_index": 0,
+          "explanation": "stop + gerund = từ bỏ hẳn một thói quen: 'stopped drinking' (không uống nữa).",
+          "source_qid": "gvi_stop_b1"
+        },
+        {
+          "id": "gvi_stop_a1",
+          "prompt": "Đúng hay Sai: 'She stopped to eat junk food last year and has felt much healthier since.' means she no longer eats junk food.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI về nghĩa — 'stopped to eat' nghĩa là dừng lại ĐỂ ăn đồ ăn vặt (vẫn đang ăn), ngược hoàn toàn ý muốn nói. Câu đúng phải là: 'stopped eating junk food'.",
+          "source_qid": "gvi_stop_a1"
+        },
+        {
+          "id": "gvi_try_b1",
+          "prompt": "If you feel seasick on the ferry, try ____ ginger tea — it often helps.",
+          "options": [
+            "drinking",
+            "to drink",
+            "drink",
+            "drunk"
+          ],
+          "correct_index": 0,
+          "explanation": "try + gerund = thử một giải pháp xem có hiệu quả không: 'try drinking'.",
+          "source_qid": "gvi_try_b1"
+        },
+        {
+          "id": "gvi_try_a1",
+          "prompt": "Đúng hay Sai: 'The paramedics tried reviving the hiker for almost ten minutes but were unsuccessful.' correctly emphasises a difficult, effortful attempt.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — khi nhấn mạnh nỗ lực khó khăn có thể thất bại, cần to-infinitive: 'tried to revive'. 'Tried reviving' nghe như đang thử một phương pháp, không phù hợp ngữ cảnh cấp cứu khẩn cấp.",
+          "source_qid": "gvi_try_a1"
+        },
+        {
+          "id": "gvi_forget_b1",
+          "prompt": "Don't forget ____ your yellow fever vaccination certificate when you travel to that region.",
+          "options": [
+            "to bring",
+            "bringing",
+            "bring",
+            "brought"
+          ],
+          "correct_index": 0,
+          "explanation": "forget + to-infinitive = quên CHƯA làm một việc cần làm: 'forget to bring'.",
+          "source_qid": "gvi_forget_b1"
+        },
+        {
+          "id": "gvi_forget_a1",
+          "prompt": "Đúng hay Sai: 'She forgot taking her malaria tablets, so she ended up getting sick during the trip.' correctly explains why she got sick.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI về nghĩa — nếu thuốc CHƯA được uống (dẫn đến ốm), phải dùng to-infinitive: 'forgot to take'. 'Forgot taking' nghĩa là không nhớ đã uống rồi hay chưa, không giải thích được vì sao cô ấy bị ốm.",
+          "source_qid": "gvi_forget_a1"
+        }
+      ]
+    },
+    "M30-B24": {
+      "focus": "Câu ghép và liên từ nối hai mệnh đề",
+      "article": {
+        "category": "sentence-structures",
+        "slug": "compound-sentence",
+        "title": "Compound Sentence (Câu ghép)"
+      },
+      "source_bank_code": "G-sentence-structures-compound-sentence",
+      "source_sha256": "b5308b097f213c2c6bf75275ffaf2fe377e0cc453294824ba323f7b347d4fcd6",
+      "questions": [
+        {
+          "id": "cs_fan_b1",
+          "prompt": "She studied hard, ____ she passed the exam.",
+          "options": [
+            "so",
+            "but",
+            "or",
+            "nor"
+          ],
+          "correct_index": 0,
+          "explanation": "'so' diễn tả kết quả — học chăm nên đậu. Đây là mối quan hệ nguyên nhân-kết quả, không phải tương phản (but) hay lựa chọn (or).",
+          "source_qid": "cs_fan_b1"
+        },
+        {
+          "id": "cs_fan_a1",
+          "prompt": "Đúng hay Sai: 'She left early, for she had an appointment.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 0,
+          "explanation": "ĐÚNG — 'for' làm liên từ nghĩa 'vì, bởi vì', đứng trước một independent clause đầy đủ ('she had an appointment') giải thích lý do.",
+          "source_qid": "cs_fan_a1"
+        },
+        {
+          "id": "cs_semi_b1",
+          "prompt": "The plan seemed good; ____, it failed in practice.",
+          "options": [
+            "however",
+            "but",
+            "so",
+            "and"
+          ],
+          "correct_index": 0,
+          "explanation": "Sau dấu chấm phẩy (;), dùng conjunctive adverb ('however') để nối ý tương phản, không dùng coordinating conjunction (but/and/so).",
+          "source_qid": "cs_semi_b1"
+        },
+        {
+          "id": "cs_semi_a1",
+          "prompt": "Đúng hay Sai: 'She worked hard, however she failed.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'however' là trạng từ liên kết (conjunctive adverb), không phải liên từ, không thể nối hai independent clauses chỉ bằng dấu phẩy. Sửa: 'She worked hard; however, she failed.'",
+          "source_qid": "cs_semi_a1"
+        },
+        {
+          "id": "cs_err_b1",
+          "prompt": "Đúng hay Sai: 'She worked hard, she passed the exam.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — đây là comma splice: dấu phẩy đơn thuần không đủ mạnh để nối hai independent clauses. Sửa: 'She worked hard, so she passed the exam.' hoặc dùng dấu chấm phẩy.",
+          "source_qid": "cs_err_b1"
+        },
+        {
+          "id": "cs_err_a1",
+          "prompt": "Câu nào mắc lỗi run-on sentence?",
+          "options": [
+            "The report is long readers often skip the appendix.",
+            "The report is long, so readers often skip the appendix.",
+            "The report is long; readers often skip the appendix.",
+            "Because the report is long, readers often skip the appendix."
+          ],
+          "correct_index": 0,
+          "explanation": "Câu đầu ghép hai independent clauses liền nhau, không dấu câu, không liên từ → run-on sentence. Các câu còn lại dùng đúng liên từ, chấm phẩy, hoặc subordinating conjunction.",
+          "source_qid": "cs_err_a1"
+        },
+        {
+          "id": "cs_vs_b1",
+          "prompt": "Câu nào là compound sentence (không phải complex)?",
+          "options": [
+            "Because she studied hard, she passed.",
+            "She studied hard, and she passed.",
+            "She passed although she was nervous.",
+            "The exam that she took was difficult."
+          ],
+          "correct_index": 1,
+          "explanation": "Compound sentence gồm hai independent clauses ngang hàng nối bằng FANBOYS ('and'). Ba câu còn lại có mệnh đề phụ thuộc (because/although/that) → complex sentence.",
+          "source_qid": "cs_vs_b1"
+        },
+        {
+          "id": "cs_vs_a1",
+          "prompt": "Đúng hay Sai: 'She and her friend studied hard.' là một compound sentence.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — đây chỉ là simple sentence với chủ ngữ ghép ('She and her friend') và MỘT vị ngữ duy nhất ('studied'), không phải hai independent clauses riêng biệt.",
+          "source_qid": "cs_vs_a1"
+        }
+      ]
+    },
+    "M30-B30": {
+      "focus": "Ngữ pháp mô tả số liệu và xu hướng Task 1",
+      "article": {
+        "category": "grammar-for-writing",
+        "slug": "task1-trend-grammar",
+        "title": "Task 1 Trend Grammar — Ngữ pháp mô tả xu hướng trong Writing Task 1"
+      },
+      "source_bank_code": "G-grammar-for-writing-task1-trend-grammar",
+      "source_sha256": "b41cb4817f1f88808d9e3fe246134d02943e9f90adbce16bb1bd241c9f9360d1",
+      "questions": [
+        {
+          "id": "t1tg_verb_b1",
+          "prompt": "Coffee consumption ____ steadily between 2005 and 2015.",
+          "options": [
+            "rose",
+            "was risen",
+            "raised",
+            "has risen by"
+          ],
+          "correct_index": 0,
+          "explanation": "'rise' là nội động từ (không tân ngữ, không bị động) — dạng quá khứ đơn là 'rose'. 'was risen' sai vì rise không bị động hoá được.",
+          "source_qid": "t1tg_verb_b1"
+        },
+        {
+          "id": "t1tg_verb_a1",
+          "prompt": "Đúng hay Sai: 'Public transport fares were risen twice during the period shown.'",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'rise' không có dạng bị động vì nó là nội động từ: 'Public transport fares rose twice during the period shown.' (Nếu muốn diễn đạt có tác nhân gây tăng, dùng ngoại động từ 'raise': 'The government raised fares twice.')",
+          "source_qid": "t1tg_verb_a1"
+        },
+        {
+          "id": "t1tg_noun_b1",
+          "prompt": "There was a sharp ____ in coffee consumption among young adults between 2010 and 2020.",
+          "options": [
+            "rise",
+            "rose",
+            "risen",
+            "rising"
+          ],
+          "correct_index": 0,
+          "explanation": "Sau mạo từ + tính từ cần danh từ: 'a sharp rise'. 'rose/risen/rising' là dạng động từ, không đứng sau tính từ theo cách này.",
+          "source_qid": "t1tg_noun_b1"
+        },
+        {
+          "id": "t1tg_noun_a1",
+          "prompt": "Đúng hay Sai: 'There was a steady growth of internet users throughout the period, reaching almost 80% by 2020' dùng đúng giới từ sau danh từ xu hướng.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'growth' theo sau bởi chủ đề (internet users) cần giới từ 'in', không phải 'of': 'a steady growth in internet users'. 'of' chỉ hợp khi theo sau là con số/lượng, ví dụ 'growth of 15 percentage points'.",
+          "source_qid": "t1tg_noun_a1"
+        },
+        {
+          "id": "t1tg_deg_b1",
+          "prompt": "Tourist arrivals to the national park increased ____ during the summer months.",
+          "options": [
+            "sharply",
+            "sharp",
+            "a sharp",
+            "sharpness"
+          ],
+          "correct_index": 0,
+          "explanation": "Sau ĐỘNG TỪ (increased) cần TRẠNG TỪ bổ nghĩa cho động từ: 'increased sharply'. 'sharp' là tính từ, không đứng sau động từ theo cách này.",
+          "source_qid": "t1tg_deg_b1"
+        },
+        {
+          "id": "t1tg_deg_a1",
+          "prompt": "Đúng hay Sai: 'Coffee consumption rose dramatic between 2000 and 2010, before levelling off' là câu đúng ngữ pháp.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — sau động từ 'rose' cần trạng từ, không phải tính từ: 'Coffee consumption rose dramatically...'. 'dramatic' (tính từ) chỉ dùng trước danh từ, ví dụ 'a dramatic rise'.",
+          "source_qid": "t1tg_deg_a1"
+        },
+        {
+          "id": "t1tg_prep_b1",
+          "prompt": "Tourist arrivals increased ____ 2 million between 2010 and 2015.",
+          "options": [
+            "by",
+            "to",
+            "of",
+            "at"
+          ],
+          "correct_index": 0,
+          "explanation": "'by' + LƯỢNG thay đổi sau động từ: 'increased by 2 million' (tăng THÊM 2 triệu, không phải đạt tới 2 triệu).",
+          "source_qid": "t1tg_prep_b1"
+        },
+        {
+          "id": "t1tg_prep_a1",
+          "prompt": "Đúng hay Sai: 'The number of registered internet users increased of 15% between 2016 and 2018' là câu đúng ngữ pháp.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — sau động từ 'increased' + LƯỢNG cần giới từ 'by', không phải 'of': 'increased by 15%'. 'of' chỉ dùng sau DANH TỪ xu hướng, ví dụ 'an increase of 15%'.",
+          "source_qid": "t1tg_prep_a1"
+        },
+        {
+          "id": "t1tg_tense_b1",
+          "prompt": "Tourist arrivals ____ steadily between 1995 and 2005, according to the graph.",
+          "options": [
+            "increased",
+            "have increased",
+            "increase",
+            "will increase"
+          ],
+          "correct_index": 0,
+          "explanation": "Hai mốc quá khứ xác định (1995 và 2005) đã kết thúc → past simple: 'increased'.",
+          "source_qid": "t1tg_tense_b1"
+        },
+        {
+          "id": "t1tg_tense_a1",
+          "prompt": "Đúng hay Sai: 'Between 2000 and 2010, coffee consumption has increased significantly before levelling off' là lựa chọn thì đúng cho khoảng thời gian đã kết thúc trong quá khứ.",
+          "options": [
+            "Đúng",
+            "Sai"
+          ],
+          "correct_index": 1,
+          "explanation": "SAI — 'Between 2000 and 2010' là khoảng thời gian đã kết thúc hẳn trong quá khứ, không nối tới hiện tại → dùng past simple, không phải present perfect: 'coffee consumption increased significantly before levelling off'.",
+          "source_qid": "t1tg_tense_a1"
+        }
+      ]
+    }
+  }
+}

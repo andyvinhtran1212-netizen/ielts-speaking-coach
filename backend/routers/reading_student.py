@@ -253,6 +253,7 @@ async def list_vocab_passages(
         .eq("library", "l1_vocab")
         .eq("status", "published")
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
     if difficulty:
@@ -413,6 +414,7 @@ async def list_skill_exercises(
         .eq("library", "l2_skill")
         .eq("status", "published")
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
     if difficulty:
@@ -847,6 +849,7 @@ async def list_reading_tests(
                 count="exact")
         .eq("status", "published")
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
     if module:

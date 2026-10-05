@@ -2379,6 +2379,91 @@ export interface paths {
         patch: operations["update_assignment_due_admin_cohorts__cohort_id__assignments__assignment_id__due_patch"];
         trace?: never;
     };
+    "/api/grammar/lessons/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Item */
+        get: operations["read_item_api_grammar_lessons_items__item_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/lessons/items/{item_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Item */
+        post: operations["start_item_api_grammar_lessons_items__item_id__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/lessons/items/{item_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Item */
+        post: operations["answer_item_api_grammar_lessons_items__item_id__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/grammar-lessons/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["catalog_admin_cohorts__cohort_id__grammar_lessons_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/grammar-lessons/attempts/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report */
+        get: operations["report_admin_grammar_lessons_attempts__attempt_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class/my-assignments": {
         parameters: {
             query?: never;
@@ -13464,6 +13549,13 @@ export interface components {
             /** Session Id */
             session_id?: string | null;
         };
+        /** AnswerBody */
+        AnswerBody: {
+            /** Question Id */
+            question_id: string;
+            /** Selected Index */
+            selected_index: number;
+        };
         /** AssignRow */
         AssignRow: {
             /** User Id */
@@ -14153,6 +14245,26 @@ export interface components {
             confidence: number;
             /** Self Attribution */
             self_attribution?: string[];
+        };
+        /** CatalogEntry */
+        CatalogEntry: {
+            /** Id */
+            id: string;
+            /** Lesson No */
+            lesson_no: number;
+            /** Title */
+            title: string;
+            /** Ready */
+            ready: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Focus */
+            focus?: string | null;
+            /** Question Count */
+            question_count: number;
+            article?: components["schemas"]["GrammarArticleRef"] | null;
+            /** Content Version */
+            content_version?: string | null;
         };
         /** ClaimRendererAffinityBody */
         ClaimRendererAffinityBody: {
@@ -15465,6 +15577,30 @@ export interface components {
                 [key: string]: number;
             } | null;
         };
+        /** EducatorReport */
+        EducatorReport: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Assignment Item Id */
+            assignment_item_id: string;
+            /** Assignment Title */
+            assignment_title: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Status */
+            status: string;
+            /** Correct Count */
+            correct_count: number;
+            /** Question Count */
+            question_count: number;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Focus */
+            focus: string;
+            article?: components["schemas"]["GrammarArticleRef"] | null;
+            /** Questions */
+            questions: components["schemas"]["ReportQuestion"][];
+        };
         /** EducatorReportResponse */
         EducatorReportResponse: {
             /** Profile Kind */
@@ -16620,6 +16756,8 @@ export interface components {
             skill: "grammar";
             /** Grammar Path */
             grammar_path?: string | null;
+            /** Grammar Lesson Path */
+            grammar_lesson_path?: string | null;
             /** Grammar Report Session Id */
             grammar_report_session_id?: string | null;
         };
@@ -17002,6 +17140,45 @@ export interface components {
             attachments?: components["schemas"]["Attachment"][] | null;
             /** Is Published */
             is_published?: boolean | null;
+        };
+        /** LessonState */
+        LessonState: {
+            /** Assignment Item Id */
+            assignment_item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Title */
+            title: string;
+            /** Instructions */
+            instructions?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_started" | "scheduled" | "expired" | "paused" | "in_progress" | "completed";
+            /** Can Submit */
+            can_submit: boolean;
+            /** Answered Count */
+            answered_count: number;
+            /** Correct Count */
+            correct_count: number;
+            /** Question Count */
+            question_count: number;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Focus */
+            focus: string;
+            article?: components["schemas"]["GrammarArticleRef"] | null;
+            /** Lesson Notes */
+            lesson_notes?: string | null;
+            /** Learning Objectives */
+            learning_objectives?: string[];
+            /** Questions */
+            questions: components["schemas"]["Question"][];
         };
         /** LevelBody */
         LevelBody: {
@@ -18627,6 +18804,23 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** Question */
+        Question: {
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+            /** Selected Index */
+            selected_index?: number | null;
+            /** Is Correct */
+            is_correct?: boolean | null;
+            /** Correct Index */
+            correct_index?: number | null;
+            /** Explanation */
+            explanation?: string | null;
+        };
         /**
          * QuestionEditRequest
          * @description In-place edit of ONE question inside a test-bundle exercise payload. All
@@ -19085,6 +19279,23 @@ export interface components {
              * @default in_app
              */
             channel: string;
+        };
+        /** ReportQuestion */
+        ReportQuestion: {
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+            /** Selected Index */
+            selected_index?: number | null;
+            /** Is Correct */
+            is_correct?: boolean | null;
+            /** Correct Index */
+            correct_index?: number | null;
+            /** Explanation */
+            explanation?: string | null;
         };
         /** ResponseAccepted */
         ResponseAccepted: {
@@ -21071,6 +21282,10 @@ export interface components {
              * @enum {string}
              */
             grammar_module: "GENERAL" | "ACADEMIC";
+            /** Grammar Lesson Id */
+            grammar_lesson_id?: string | null;
+            /** Give Request Id */
+            give_request_id?: string | null;
         };
         /** AssignBody */
         routers__admin_mock_exams__AssignBody: {
@@ -25294,6 +25509,175 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_item_api_grammar_lessons_items__item_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_item_api_grammar_lessons_items__item_id__start_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_item_api_grammar_lessons_items__item_id__answers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalog_admin_cohorts__cohort_id__grammar_lessons_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_admin_grammar_lessons_attempts__attempt_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EducatorReport"];
                 };
             };
             /** @description Validation Error */

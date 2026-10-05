@@ -94,7 +94,7 @@ export function selectAssignments(assignments, filters = {}, nowValue = Date.now
     if (status === 'due-soon' && !dueSoon) return false;
     if (status === 'archived' && row.status !== 'archived') return false;
     const cfg = object(row.content_config);
-    const haystack = fold(`${row.title} ${row.skill} ${text(cfg.topic)} ${text(cfg.test_title)}`);
+    const haystack = fold(`${row.title} ${row.skill} ${text(cfg.topic)} ${text(cfg.test_title)} ${text(cfg.lesson_id)}`);
     return !query || haystack.includes(query);
   });
 }
@@ -167,7 +167,7 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     }
   }
   const body = {
-    skill: draft.kind === 'lesson' ? 'speaking' : draft.skill,
+    skill: draft.kind === 'lesson' ? 'speaking' : draft.skill === 'grammar_lesson' ? 'grammar' : draft.skill,
     kind: draft.kind,
     title,
     content_id: contentId,
@@ -186,6 +186,10 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
       body.grammar_length = contentId === 'master30-full' ? 'FULL' : 'QUICK';
       body.grammar_mode = 'REVIEW';
       body.grammar_module = 'GENERAL';
+    }
+    if (draft.skill === 'grammar_lesson') {
+      body.content_id = null;
+      body.grammar_lesson_id = contentId;
     }
     if (draft.skill === 'speaking') {
       body.topic = selected.title;

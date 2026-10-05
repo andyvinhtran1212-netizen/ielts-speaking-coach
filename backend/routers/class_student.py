@@ -81,6 +81,7 @@ class GrammarStartResponse(BaseModel):
     assignment_id: str
     skill: Literal["grammar"]
     grammar_path: Optional[str] = None
+    grammar_lesson_path: Optional[str] = None
     grammar_report_session_id: Optional[str] = None
 
 
@@ -225,7 +226,7 @@ def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
 # `lesson_no` an toàn để hiện: nó là "Buổi 3", không phải nội dung đề.
 _DISPLAY_CONFIG_FIELDS = (
     "topic", "mode", "part", "test_title", "lesson_no",
-    "test_length", "module",
+    "test_length", "module", "assignment_type", "lesson_id", "lesson_title",
 )
 
 
@@ -606,6 +607,15 @@ async def start_assignment(
     # deadline và trước kiểm tra trạng thái đề: hết hạn hoặc hạ đề khỏi kho chỉ
     # chặn lượt MỚI, không được xoá quyền đọc kết quả đã lưu.
     if skill == "grammar" and item.get("submitted_at"):
+        if cfg.get("assignment_type") == "grammar_lesson":
+            if item.get("artifact_kind") != "grammar_lesson_attempt" or not item.get("artifact_id"):
+                raise HTTPException(409, "Bài đã hoàn tất nhưng chưa đối chiếu được lượt luyện Grammar.")
+            return {
+                "item_id": item_id,
+                "assignment_id": assignment["id"],
+                "skill": "grammar",
+                "grammar_lesson_path": f"/grammar-lessons/assigned?assignment_item={quote(item_id)}",
+            }
         if item.get("artifact_kind") != "grammar_diagnostic" or not item.get("artifact_id"):
             raise HTTPException(409, "Bài đã hoàn tất nhưng chưa đối chiếu được báo cáo.")
         return {
@@ -628,6 +638,16 @@ async def start_assignment(
             "assignment_id":     assignment["id"],
             "skill":             skill,
             "review_attempt_id": str(attempt_id),
+        }
+
+    if (skill == "grammar" and cfg.get("assignment_type") == "grammar_lesson"
+            and item.get("state") == "opened"
+            and not is_accepting_submissions(assignment)):
+        return {
+            "item_id": item_id,
+            "assignment_id": assignment["id"],
+            "skill": "grammar",
+            "grammar_lesson_path": f"/grammar-lessons/assigned?assignment_item={quote(item_id)}",
         }
 
     # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
@@ -688,6 +708,13 @@ async def start_assignment(
         }
 
     if skill == "grammar":
+        if cfg.get("assignment_type") == "grammar_lesson":
+            return {
+                "item_id": item_id,
+                "assignment_id": assignment["id"],
+                "skill": "grammar",
+                "grammar_lesson_path": f"/grammar-lessons/assigned?assignment_item={quote(item_id)}",
+            }
         return {
             "item_id": item_id,
             "assignment_id": assignment["id"],
