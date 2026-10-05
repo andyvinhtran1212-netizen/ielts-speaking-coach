@@ -19,6 +19,7 @@
 | FR-013 | OpenAPI/type, migration and compatibility checks | PENDING |
 | FR-014 | Mobile/desktop, light/dark, keyboard and failure-state journeys | PENDING |
 | FR-015 | Independent review, local gates and exact release evidence | PENDING |
+| FR-016 | Existing audio catalogue/hash/auth/source-gap and UI no-attempt tests; live staging source choices; production publication below | PENDING |
 
 ## Initial evidence
 
@@ -474,3 +475,33 @@ canonical isolated runtime settings; initial missing-runtime local attempts
 failed before the product heading and are not passing evidence.
 Shared promotion #1586 has finished; this task may now proceed through its own
 exact-head CI and staging acceptance without racing that session.
+
+## FR-016 — synthetic free-study scope evidence, 2026-10-05
+
+The user's later explicit per-lesson Kokoro request authorizes this scope
+extension; it is not retroactively included in the September30 approval.
+Spec-only PR #1593 recorded that authorization after implementation. This
+clarification adds requirement traceability without changing runtime behavior.
+
+- `backend/tests/test_listening_source_audio.py`: all80 catalogue days,69
+  original recordings and days without originals, vocabulary/Day76/77 truth, wrong package/manifest/day fail
+  closed, authenticated route, unavailable signed assets, and upload tampering
+  rejection before writes. `frontend/tests/react/listening-source-audio.test.tsx`
+  checks original default, separate synthetic switching without attempt POST,
+  day/account media cleanup, unavailable media and retry. These passed in the
+  consolidated PR #1591 suites; unchanged product bytes retain that evidence.
+- All80 generated WAV/MP3/plan/receipt/ASR bindings were verified against the
+  final manifest `21bcf24a85984f68d4959a43455c3969bde96b9ad4cea3743c3ac66ef50f3199`.
+  Council evaluation is machine-based integrity/transcription assessment, not
+  a human naturalness certificate. The canonical staging upload readback
+  verified80 private MP3 objects;69 original files remain unchanged.
+- Authenticated live staging66a8374b played original and Kokoro Day1,
+  vocabulary-only Day61 and synthetic-only Day77 without media errors. Day77
+  retained zero Listening starts and protected40-question study; Day76 retained
+  original Section1–2 coverage. The375px selector was45px with visible keyboard
+  focus. Official smoke37261556465 passed and confirms frontend/backend both
+  serve `1d1b9e220ea17f07aa87194384b8e1f67314978d`; only spec prose changed after
+  the product acceptance. No human listening acceptance is asserted.
+- Production package import, private variant upload/publication and affected
+  live production journeys remain pending production access. Staging evidence
+  does not certify production content availability.
