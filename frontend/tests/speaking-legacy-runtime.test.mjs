@@ -32,7 +32,7 @@ function fakeWindow() {
   return {
     api: {
       upload: async () => ({ response_id: 'r1' }),
-      get: async () => ({ responses: [] }),
+      get: async () => ({ submission_retry_safe: true, responses: [] }),
       post: async (path, body) => ({
         accepted: path === '/sessions/finalize-full-test',
         session_ids: [body.p1_id, body.p2_id, body.p3_id],
@@ -101,7 +101,7 @@ describe('Legacy Speaking canonical runtime', () => {
       questionId: 'q1',
       blob: new Blob(['audio'], { type: 'audio/webm' }),
     });
-    await Promise.resolve();
+    await new Promise(setImmediate);
 
     let prevented = false;
     const event = { preventDefault() { prevented = true; }, returnValue: undefined };

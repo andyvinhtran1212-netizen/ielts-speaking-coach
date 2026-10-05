@@ -113,6 +113,8 @@ class SessionResponse(SessionWireModel):
     final_overall_band: float | None = None
     grading_status: str | None = None
     stt_status: str | None = None
+    submission_id: str | None = None
+    submission_revision: str | None = None
     persisted_at: str | None = None
     duration_seconds: float | None = None
     audio_url: str | None = None
@@ -125,6 +127,8 @@ class SessionResponseReceipt(BaseModel):
     id: str
     question_id: str
     persisted_at: str | None
+    submission_id: str | None = None
+    submission_revision: str | None = None
 
 
 class SessionClassTask(BaseModel):
@@ -139,6 +143,7 @@ class SessionDetailResponse(SessionRow):
     session_id: str
     questions: list[SessionQuestion]
     responses: list[SessionResponse]
+    submission_retry_safe: bool = False
     response_receipts: list[SessionResponseReceipt]
     question_lookup_failed: bool
     response_lookup_failed: bool

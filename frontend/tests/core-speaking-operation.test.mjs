@@ -42,7 +42,7 @@ test('real submission controller preserves audio, multipart fields, serializatio
       if (lost) { lost = false; return Promise.reject(Error('offline')); }
       return Promise.resolve({ response_id: 'receipt-1' });
     }),
-    getSession: async () => ({ responses: [] }),
+    getSession: async () => ({ submission_retry_safe: true, responses: [] }),
   });
   const blob = new Blob(['recorded answer'], { type: 'audio/mp4' });
   const first = { sessionId: 'sid', questionId: 'qid', blob };
@@ -198,12 +198,13 @@ test('actual Next bridge completes with durable retry hints while shared practic
   };
   win.api.getWith = async (...args) => {
     submitCalls.push(args);
-    return { responses: [{ id: 'saved-response', question_id: 'q' }] };
+    const upload = submitCalls.find(call => call[0].endsWith('/responses'));
+    return { submission_retry_safe: true, responses: upload ? [{ id: 'saved-response', question_id: 'q', submission_id: upload[1].get('submission_id') }] : [] };
   };
   assert.equal((await win.PracticeSubmission.submit({
     sessionId, questionId: 'q', blob: new Blob(['preserved answer'], { type: 'audio/mp4' }),
   })).response_id, 'saved-response');
-  assert.equal(submitCalls.length, 2);
+  assert.equal(submitCalls.length, 3);
   for (const call of submitCalls) {
     assert.equal(call[2].noRedirect, true);
     assert.ok(call[2].signal instanceof AbortSignal, 'the bridge forwards each request deadline to api.js');

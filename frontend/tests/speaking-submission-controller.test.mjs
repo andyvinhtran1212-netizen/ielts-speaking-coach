@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   findPersistedSpeakingResponse,
   speakingAudioFilename,
+  speakingSubmissionId,
   SpeakingSubmissionController,
 } from '../public/js/speaking-submission-controller.mjs';
 
@@ -26,14 +27,25 @@ class FakeFormData {
   append(...entry) { this.entries.push(entry); }
 }
 
+const TOKEN = '11111111-1111-4111-8111-111111111111';
 function controller(overrides = {}) {
+  const getSession = overrides.getSession || (async () => ({ responses: [] }));
   return new SpeakingSubmissionController({
     FormDataCtor: FakeFormData,
+    createSubmissionId: () => TOKEN,
     upload: async () => ({ response_id: 'r-1', overall_band: 7 }),
-    getSession: async () => ({ responses: [] }),
     ...overrides,
+    getSession: async (...args) => ({ submission_retry_safe: true, ...await getSession(...args) }),
   });
 }
+
+test('Safari 15 mints a secure UUID from random bytes without randomUUID', () => {
+  let calls = 0;
+  const id = speakingSubmissionId({ getRandomValues(bytes) { calls++; bytes.fill(0); return bytes; } });
+  assert.equal(id, '00000000-0000-4000-8000-000000000000');
+  assert.equal(calls, 1);
+  assert.throws(() => speakingSubmissionId({}), error => error.code === 'runtime_unavailable');
+});
 
 describe('SpeakingSubmissionController', () => {
   test('sends the canonical multipart contract and URL-encodes session ids', async () => {
@@ -50,6 +62,8 @@ describe('SpeakingSubmissionController', () => {
     assert.deepEqual(call.body.entries, [
       ['question_id', 'q-1'],
       ['audio_file', blob, 'response.webm'],
+      ['submission_id', TOKEN],
+      ['expected_revision', 'absent'],
     ]);
   });
 
@@ -84,6 +98,7 @@ describe('SpeakingSubmissionController', () => {
     const first = c.submit({ sessionId: 's', questionId: 'q', blob });
     const second = c.submit({ sessionId: 's', questionId: 'q', blob });
     assert.equal(first, second);
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls, 1);
     release({ response_id: 'r' });
     await first;
@@ -99,10 +114,11 @@ describe('SpeakingSubmissionController', () => {
     const first = c.submit({ sessionId: 's', questionId: 'q', blob: firstBlob });
     const second = c.submit({ sessionId: 's', questionId: 'q', blob: secondBlob });
     assert.notEqual(first, second);
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls.length, 1);
     calls[0].resolve({ response_id: 'r-a' });
     assert.equal((await first).response_id, 'r-a');
-    await Promise.resolve();
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls.length, 2);
     assert.equal(calls[1].body.entries[1][1], secondBlob);
     calls[1].resolve({ response_id: 'r-b' });
@@ -141,7 +157,7 @@ describe('SpeakingSubmissionController', () => {
           return outcome;
         },
         getSession: async () => ({
-          responses: [{ id: 'saved-r', question_id: 'q', feedback: '{}' }],
+          responses: [{ id: 'saved-r', question_id: 'q', feedback: '{}', submission_id: TOKEN }],
         }),
       });
       const result = await c.submit({ sessionId: 's', questionId: 'q', blob: {} });
@@ -192,7 +208,7 @@ describe('SpeakingSubmissionController', () => {
       }).submit({ sessionId: 's', questionId: 'q', blob: {} }),
       (error) => error.code === 'submission_rejected',
     );
-    assert.equal(reads, 0);
+    assert.equal(reads, 1);
   });
 
   test('auth, ownership and missing-session failures keep distinct actionable codes', async () => {
@@ -227,11 +243,11 @@ describe('SpeakingSubmissionController', () => {
         upload: async () => { throw uncertain; },
         getSession: async () => {
           reads += 1;
-          return { responses: [{ id: `r-${status}`, question_id: 'q' }] };
+          return { responses: [{ id: `r-${status}`, question_id: 'q', submission_id: reads > 1 ? TOKEN : null }] };
         },
       }).submit({ sessionId: 's', questionId: 'q', blob: {} });
       assert.equal(result.response_id, `r-${status}`);
-      assert.equal(reads, 1);
+      assert.equal(reads, 2);
     }
   });
 
@@ -241,6 +257,7 @@ describe('SpeakingSubmissionController', () => {
       upload: () => new Promise((resolve) => { release = resolve; }),
     });
     const pending = c.submit({ sessionId: 's', questionId: 'q', blob: {} });
+    await new Promise(resolve => setImmediate(resolve));
     c.destroy();
     release({ response_id: 'r' });
     assert.equal((await pending).response_id, 'r');
@@ -251,7 +268,7 @@ describe('SpeakingSubmissionController', () => {
   });
 
   test('bounds a stalled upload and readback even when the transports ignore abort', async () => {
-    let uploadSignal, readSignal;
+    let uploadSignal, readSignal, reads = 0;
     const c = controller({
       submissionTimeoutMs: 5,
       readbackTimeoutMs: 5,
@@ -261,6 +278,7 @@ describe('SpeakingSubmissionController', () => {
       },
       getSession: (_path, { signal }) => {
         readSignal = signal;
+        if (++reads === 1) return { responses: [] };
         return new Promise(() => {});
       },
     });
@@ -277,7 +295,7 @@ describe('SpeakingSubmissionController', () => {
     const c = controller({
       submissionTimeoutMs: 5,
       upload: () => { calls++; return new Promise(() => {}); },
-      getSession: async () => ({ responses: saved ? [{ id: 'saved', question_id: 'q' }] : [] }),
+      getSession: async () => ({ responses: saved ? [{ id: 'saved', question_id: 'q', submission_id: TOKEN }] : [] }),
     });
     const input = { sessionId: 's', questionId: 'q', blob: {} };
     await assert.rejects(c.submit(input), error => error.code === 'ambiguous_commit');
@@ -289,22 +307,25 @@ describe('SpeakingSubmissionController', () => {
     assert.equal(calls, 1);
   });
 
-  test('a still-running upload prevents a second POST, including a newer recording', async () => {
-    let calls = 0;
-    let release;
+  test('retry and a newer take can proceed when the old upload never settles', async () => {
+    const calls = [];
+    let sequence = 0;
     const c = controller({
+      createSubmissionId: () => `${++sequence}`,
       submissionTimeoutMs: 5,
-      upload: () => { calls++; return new Promise(resolve => { release = resolve; }); },
+      upload: (_url, body) => {
+        calls.push(body.entries);
+        if (calls.length === 1) return new Promise(() => {});
+        return { response_id: 'retry-receipt' };
+      },
     });
     const input = { sessionId: 's', questionId: 'q', blob: {} };
     await assert.rejects(c.submit(input));
-    await assert.rejects(c.submit(input), error => error.code === 'ambiguous_commit');
-    await assert.rejects(c.submit({ ...input, blob: {} }));
-    assert.equal(calls, 1);
-    release({ response_id: 'late-receipt' });
-    await Promise.resolve();
-    assert.equal((await c.submit(input)).response_id, 'late-receipt');
-    assert.equal(calls, 1);
+    assert.equal((await c.submit(input)).response_id, 'retry-receipt');
+    await c.submit({ ...input, blob: {} });
+    assert.equal(calls.length, 3);
+    assert.equal(calls[0][2][1], calls[1][2][1], 'same audio retains its idempotency key');
+    assert.notEqual(calls[1][2][1], calls[2][2][1], 'rerecord uses a fresh key');
   });
 
   test('retry preserves the exact blob and only uploads after the old request settles and readback is empty', async () => {
@@ -327,7 +348,7 @@ describe('SpeakingSubmissionController', () => {
     assert.equal((await c.submit(input)).response_id, 'retry-receipt');
     assert.equal(calls.length, 2);
     assert.equal(calls[0].signal.aborted, true);
-    assert.equal(calls[1].reads, 2, 'retry readback happened before the second upload');
+    assert.equal(calls[1].reads, 3, 'retry readback happened before the second upload');
     assert.equal(calls[1].body.entries[1][1], blob);
     assert.equal(calls[1].body.entries[1][2], 'response.m4a');
   });
@@ -358,7 +379,7 @@ describe('SpeakingSubmissionController', () => {
     const input = { sessionId: 's', questionId: 'q', blob: {}, priorResponseId: 'old-row' };
     await assert.rejects(c.submit(input));
     await assert.rejects(c.submit(input), error => error.code === 'ambiguous_commit');
-    assert.equal(calls, 1);
+    assert.equal(calls, 2);
   });
 });
 

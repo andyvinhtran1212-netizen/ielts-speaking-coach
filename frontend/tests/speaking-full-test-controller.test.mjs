@@ -369,7 +369,9 @@ describe('SpeakingFullTestController — submission and retry ownership', () => 
       let uploads = 0;
       let reads = 0;
       const input = { sessionId: 'p3', questionId: 'q1', blob: new Blob(['answer']) };
+      const token = '11111111-1111-4111-8111-111111111111';
       const submission = new SpeakingSubmissionController({
+        createSubmissionId: () => token,
         upload: () => {
           uploads += 1;
           if (retry && uploads === 1) return Promise.reject(new TypeError('lost response'));
@@ -377,10 +379,11 @@ describe('SpeakingFullTestController — submission and retry ownership', () => 
         },
         getSession: () => {
           reads += 1;
-          if (retry && reads === 1) return Promise.resolve({ responses: [] });
-          const preflight = retry && reads === 2;
+          if (retry && reads <= 2) return Promise.resolve({ submission_retry_safe: true, responses: [] });
+          const preflight = reads === (retry ? 3 : 1);
           return new Promise((resolve) => setTimeout(() => resolve({
-            responses: preflight ? [] : [{ id: 'saved-after-deadline', question_id: 'q1' }],
+            submission_retry_safe: true,
+            responses: preflight ? [] : [{ id: 'saved-after-deadline', question_id: 'q1', submission_id: token }],
           }), 14_000));
         },
       });
@@ -392,10 +395,8 @@ describe('SpeakingFullTestController — submission and retry ownership', () => 
       const pending = controller.submitAnswer(input);
       void pending.catch(() => {});
       await new Promise(setImmediate);
-      if (retry) {
-        t.mock.timers.tick(14_000);
-        await new Promise(setImmediate);
-      }
+      t.mock.timers.tick(14_000);
+      await new Promise(setImmediate);
       t.mock.timers.tick(submission.submissionTimeoutMs);
       await new Promise(setImmediate);
       assert.equal(controller.getSnapshot().retryCount, 0, 'the outer controller still awaits reconciliation');
