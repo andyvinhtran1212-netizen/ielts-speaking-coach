@@ -7966,6 +7966,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/source-collections/80-days/days/{day_number}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Audio */
+        get: operations["get_source_audio_api_listening_source_collections_80_days_days__day_number__audio_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/listening/content/{content_id}": {
         parameters: {
             query?: never;
@@ -19509,6 +19526,31 @@ export interface components {
             /** Last Session At */
             last_session_at: string | null;
         };
+        /** SourceAudioResponse */
+        SourceAudioResponse: {
+            /** Day */
+            day: number;
+            /** Variants */
+            variants: components["schemas"]["SourceAudioVariant"][];
+        };
+        /** SourceAudioVariant */
+        SourceAudioVariant: {
+            /**
+             * Variant Id
+             * @enum {string}
+             */
+            variant_id: "original" | "kokoro-v1";
+            /** Label Vi */
+            label_vi: string;
+            /** Synthetic */
+            synthetic: boolean;
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Url */
+            url: string | null;
+            /** Note Vi */
+            note_vi: string;
+        };
         /** SourceAvailability */
         SourceAvailability: {
             /**
@@ -19570,6 +19612,7 @@ export interface components {
              * @default false
              */
             study_available: boolean;
+            native?: components["schemas"]["SourceNativePresentation"] | null;
         };
         /** SourceDayCard */
         SourceDayCard: {
@@ -19779,6 +19822,61 @@ export interface components {
             /** Line Index 1 Based */
             line_index_1_based: number;
         };
+        /** SourceNativeFigure */
+        SourceNativeFigure: {
+            /** Figure Id */
+            figure_id: string;
+            /** Svg */
+            svg: string;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Alt Vi */
+            alt_vi: string;
+        };
+        /** SourceNativePresentation */
+        SourceNativePresentation: {
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Kind
+             * @default questions
+             * @enum {string}
+             */
+            kind: "questions" | "passage" | "form" | "table" | "vocabulary" | "resource";
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Columns */
+            columns?: string[];
+            /** Rows */
+            rows?: string[][];
+            /** Word Bank */
+            word_bank?: string[];
+            /** Figures */
+            figures?: components["schemas"]["SourceNativeFigure"][];
+            /** Questions */
+            questions?: components["schemas"]["SourceNativeQuestion"][];
+        };
+        /** SourceNativeQuestion */
+        SourceNativeQuestion: {
+            /** Item Id */
+            item_id: string;
+            /** Source Display Number */
+            source_display_number: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options?: components["schemas"]["SourceOption"][];
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
+        };
         /** SourceOption */
         SourceOption: {
             /** Id */
@@ -19903,6 +20001,7 @@ export interface components {
              * @default false
              */
             study_available: boolean;
+            native?: components["schemas"]["SourceNativePresentation"] | null;
             /** Items */
             items?: components["schemas"]["SourceStudyItem"][];
             /** Transcript */
@@ -34658,6 +34757,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListeningSourceStudyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_audio_api_listening_source_collections_80_days_days__day_number__audio_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                day_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceAudioResponse"];
                 };
             };
             /** @description Validation Error */
