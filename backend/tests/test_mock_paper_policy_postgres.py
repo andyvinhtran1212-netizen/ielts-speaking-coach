@@ -15,6 +15,8 @@ SQL = (Path(__file__).resolve().parents[1] / "migrations/306_mock_paper_policy_a
 FLAGS_SQL = (Path(__file__).resolve().parents[1] / "migrations/307_mock_attempt_review_flags.sql").read_text()
 ACTIVATION_SQL = (Path(__file__).resolve().parents[1] / "migrations/308_activate_mock_paper_admission.sql").read_text()
 FINALIZE_SQL = (Path(__file__).resolve().parents[1] / "migrations/310_mock_attempt_submitted_finalization.sql").read_text()
+VOID_SQL = (Path(__file__).resolve().parents[1] / "migrations/168_fn_void_sitting.sql").read_text()
+PARENT_LIFECYCLE_SQL = (Path(__file__).resolve().parents[1] / "migrations/311_mock_submitted_parent_lifecycle.sql").read_text()
 
 
 async def run(sql, *args):
@@ -83,7 +85,7 @@ def _policy_probe(*, active):
         web_explanation_mode text DEFAULT'disabled',web_explanation_content_version text,
         web_explanations_released_at timestamptz,web_explanations_released_by uuid);
       CREATE TABLE {schema}.mock_exam_sittings(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),mock_exam_id uuid,
-        user_id uuid,status text DEFAULT'registered',assigned_skills text[],sealed boolean DEFAULT true,
+        user_id uuid,status text DEFAULT'registered',assigned_skills text[],sealed boolean DEFAULT true,integrity jsonb DEFAULT'{{}}',
         reading_attempt_id uuid,listening_attempt_id uuid,reading_started_at timestamptz,listening_started_at timestamptz,
         reading_submitted_at timestamptz,listening_submitted_at timestamptz);
       CREATE TABLE {schema}.mock_exam_assignments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),exam_id uuid,user_id uuid,
@@ -104,10 +106,13 @@ def _policy_probe(*, active):
     migrated_flags = FLAGS_SQL.replace("public.", schema + ".").replace("search_path = public,", "search_path = " + schema + ",")
     try:
         query(bootstrap)
+        void_sql = VOID_SQL.replace('CREATE OR REPLACE FUNCTION fn_void_sitting(', 'CREATE OR REPLACE FUNCTION public.fn_void_sitting(').replace('COMMENT ON FUNCTION fn_void_sitting(', 'COMMENT ON FUNCTION public.fn_void_sitting(')
+        query(void_sql.replace('public.', schema + '.').replace('search_path = public,', 'search_path = ' + schema + ','))
         query(migrated)
         query(migrated)  # idempotent forward application, no hidden baseline DML
         query(migrated_flags)
         query(FINALIZE_SQL.replace('public.', schema + '.').replace('search_path=public,', 'search_path=' + schema + ','))
+        query(PARENT_LIFECYCLE_SQL.replace('public.', schema + '.').replace('search_path=public,', 'search_path=' + schema + ','))
         if active:
             activate(schema)
         yield schema
@@ -321,8 +326,10 @@ def _admitted_retake(schema, skill):
 
 @pytest.mark.parametrize('skill',['reading','listening'])
 @pytest.mark.parametrize('boundary',['expired_clock','claimed_stamp'])
-def test_finalized_answers_survive_section_finish_boundary(policy_probe,skill,boundary):
+@pytest.mark.parametrize('sitting_status',['registered','lrw_in_progress'])
+def test_finalized_answers_survive_section_finish_boundary(policy_probe,skill,boundary,sitting_status):
     s=policy_probe; _,m,sid,aid=_admitted_retake(s,skill)
+    query(f"UPDATE {s}.mock_exam_sittings SET status=$2 WHERE id=$1",sid,sitting_status)
     answers=json.dumps([{'q_num':3,'user_answer':'hairs'}])
     if skill=='reading':
         query(f"INSERT INTO {s}.reading_attempt_answers(attempt_id,q_num,user_answer) VALUES($1,3,'hairs')",aid)
@@ -340,6 +347,35 @@ def test_finalized_answers_survive_section_finish_boundary(policy_probe,skill,bo
     assert json.loads(first['answers'])==json.loads(answers)
     query(command,aid,answers)  # exact retry is idempotent
     assert dict(query(f"SELECT * FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0])==first
+
+
+@pytest.mark.parametrize('skill',['reading','listening'])
+@pytest.mark.parametrize('parent_change',['void','unpublished'])
+def test_finalize_rechecks_parent_lifecycle_after_router_guard(policy_probe,skill,parent_change):
+    s=policy_probe; _,m,sid,aid=_admitted_retake(s,skill)
+
+    async def concurrent_parent_change():
+        submitter=await asyncpg.connect(DB); operator=await asyncpg.connect(DB)
+        try:
+            # The HTTP request's authorization completed before the admin write.
+            # Independent autocommit connections reproduce that precise gap.
+            parent=await submitter.fetchval(f"SELECT to_jsonb(a) FROM {s}.{skill}_test_attempts a WHERE id=$1",aid)
+            decision=await submitter.fetchval(f"SELECT {s}.fn_guard_owned_mock_attempt($1,$2::jsonb,'submit')",skill,parent)
+            assert json.loads(decision)['allowed'] is True
+            if parent_change=='void':
+                cancelled=await operator.fetchval(f"SELECT {s}.fn_void_sitting($1,'admin','cancel concurrent submission')",sid)
+                assert json.loads(cancelled)['status']=='void'
+            else:
+                await operator.execute(f"UPDATE {s}.mock_exams SET status='draft' WHERE id=$1",m)
+            with pytest.raises(asyncpg.RaiseError,match='invalid_resume') as rejected:
+                await submitter.execute(f"UPDATE {s}.{skill}_test_attempts SET status='submitted',answers='[{{\"q_num\":3,\"user_answer\":\"hairs\"}}]',score=1 WHERE id=$1",aid)
+            assert 'submit' in str(rejected.value)
+        finally:
+            await submitter.close(); await operator.close()
+
+    asyncio.run(concurrent_parent_change())
+    stored=query(f"SELECT status,answers,score FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0]
+    assert stored['status']=='in_progress' and json.loads(stored['answers'])==[] and stored['score'] is None
 
 
 @pytest.mark.parametrize('skill',['reading','listening'])
@@ -395,6 +431,9 @@ def test_finalize_migration_preserves_historical_rows_on_reapply(rollout_probe,s
     migration=FINALIZE_SQL.replace('public.',s+'.').replace('search_path=public,','search_path='+s+',')
     query(migration)
     query(migration)
+    lifecycle=PARENT_LIFECYCLE_SQL.replace('public.',s+'.').replace('search_path=public,','search_path='+s+',')
+    query(lifecycle)
+    query(lifecycle)
     assert dict(query(f"SELECT * FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0])==before
 
 
