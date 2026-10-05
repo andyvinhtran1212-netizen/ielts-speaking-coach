@@ -211,6 +211,769 @@
       "description": "",
       "display_kind": "practice",
       "study_available": false
+    },
+    "80-days:day-01:part-1:block-2": {
+      "block_id": "80-days:day-01:part-1:block-2",
+      "part_id": "80-days:day-01:part-1",
+      "kind": "matching",
+      "instruction": {
+        "source_en": "II. You will listen to four words all together this time. After each word, there is a pause behind it. During the pause, connect the number of the word you hear with its synonym (同义词).",
+        "student_vi": "Nghe các từ số 7–10. Với mỗi số trong audio, chọn từ tương ứng trong danh sách. Các số cạnh danh sách trên ảnh là vị trí in của lựa chọn; ô trả lời bên dưới theo số được đọc trong audio.",
+        "word_limit": null,
+        "select_count": 1
+      },
+      "item_ids": [
+        "80-days:day-01:main:q-07",
+        "80-days:day-01:main:q-08",
+        "80-days:day-01:main:q-09",
+        "80-days:day-01:main:q-10"
+      ],
+      "source_question_numbers": [
+        7,
+        8,
+        9,
+        10
+      ],
+      "images": [
+        {
+          "asset_id": "80-days:day-01:asset:part1-matching",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/5dd441dffd7ea41f0f96db8cf6044495f7c96de3e67a92b9e6e62099b3f2cf75.png",
+          "width": 1200,
+          "height": 340,
+          "alt_vi": "Hướng dẫn ghép từ; danh sách lựa chọn Fragile, Surprise, Fast, Lightful."
+        }
+      ],
+      "shared_options": [
+        {
+          "id": "fragile",
+          "label": "Fragile"
+        },
+        {
+          "id": "surprise",
+          "label": "Surprise"
+        },
+        {
+          "id": "fast",
+          "label": "Fast"
+        },
+        {
+          "id": "lightful",
+          "label": "Lightful"
+        }
+      ],
+      "description": "",
+      "display_kind": "practice",
+      "study_available": true
+    },
+    "80-days:day-01:part-2:block-1": {
+      "block_id": "80-days:day-01:part-2:block-1",
+      "part_id": "80-days:day-01:part-2",
+      "kind": "single_choice",
+      "instruction": {
+        "source_en": "Listen and choose the best answer which is closest in meaning to the sentence you have heard.",
+        "student_vi": "Nghe từng câu và chọn phương án gần nghĩa nhất. Câu 14 có lựa chọn nối sang ảnh kế tiếp.",
+        "word_limit": null,
+        "select_count": 1
+      },
+      "item_ids": [
+        "80-days:day-01:main:q-11",
+        "80-days:day-01:main:q-12",
+        "80-days:day-01:main:q-13",
+        "80-days:day-01:main:q-14",
+        "80-days:day-01:main:q-15"
+      ],
+      "source_question_numbers": [
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "images": [
+        {
+          "asset_id": "80-days:day-01:asset:part2-paraphrase-1",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/2f700bfc6a64e87afc5ac158430f791854a151bd6702914d55faed66fad02390.png",
+          "width": 1200,
+          "height": 555,
+          "alt_vi": "Part 2: hướng dẫn, câu 11–13 và lựa chọn A–B của câu 14; C–D nằm ở ảnh kế tiếp."
+        },
+        {
+          "asset_id": "80-days:day-01:asset:part2-paraphrase-2",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/6104f3d18e5a407e91bf834616a3491ab10959748221fcc59d6c2bfcdcafd1aa.png",
+          "width": 1120,
+          "height": 197,
+          "alt_vi": "Tiếp câu 14: C–D; câu 15 gồm đầy đủ bốn lựa chọn."
+        }
+      ],
+      "shared_options": [],
+      "description": "",
+      "display_kind": "practice",
+      "study_available": false
+    },
+    "80-days:day-80:part-1:block-fishing-summary": {
+      "block_id": "80-days:day-80:part-1:block-fishing-summary",
+      "part_id": "80-days:day-80:part-1",
+      "kind": "short_answer",
+      "instruction": {
+        "source_en": "Question 7–9 Filling the following gap with NO MORE THAN THREE SORDS.",
+        "student_vi": "Điền không quá ba từ; giữ nguyên ảnh nguồn có lỗi in SORDS/fisher.",
+        "word_limit": 3,
+        "select_count": null
+      },
+      "item_ids": [
+        "80-days:day-80:main:q-07",
+        "80-days:day-80:main:q-08",
+        "80-days:day-80:main:q-09"
+      ],
+      "source_question_numbers": [
+        7,
+        8,
+        9
+      ],
+      "images": [
+        {
+          "asset_id": "80-days:day-80:asset:fishing-summary-7-9",
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/1c8cc598288f357cc97746675b1778435d56772b50c1687c77534f809a504040.png",
+          "width": 1178,
+          "height": 236,
+          "alt_vi": "Đoạn tóm tắt nguyên vẹn 7–9, giữ SORDS/fisher/States trong ảnh nguồn."
+        }
+      ],
+      "shared_options": [],
+      "description": "",
+      "display_kind": "practice",
+      "study_available": false
     }
+  },
+  "practice_questions": {
+    "80-days:day-01:part-1:block-2": [
+      {
+        "source_item_id": "80-days:day-01:main:q-07",
+        "word_limit": null,
+        "prompt": "Từ số 7 trong audio",
+        "response_type": "single_choice",
+        "q_num": 7,
+        "source_block_id": "80-days:day-01:part-1:block-2",
+        "choice_label_only": true,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "fragile": "Fragile",
+          "surprise": "Surprise",
+          "fast": "Fast",
+          "lightful": "Lightful"
+        },
+        "fields": [],
+        "source_display_number": "7"
+      },
+      {
+        "source_item_id": "80-days:day-01:main:q-08",
+        "word_limit": null,
+        "prompt": "Từ số 8 trong audio",
+        "response_type": "single_choice",
+        "q_num": 8,
+        "source_block_id": "80-days:day-01:part-1:block-2",
+        "choice_label_only": true,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "fragile": "Fragile",
+          "surprise": "Surprise",
+          "fast": "Fast",
+          "lightful": "Lightful"
+        },
+        "fields": [],
+        "source_display_number": "8"
+      },
+      {
+        "source_item_id": "80-days:day-01:main:q-10",
+        "word_limit": null,
+        "prompt": "Từ số 10 trong audio",
+        "response_type": "single_choice",
+        "q_num": 9,
+        "source_block_id": "80-days:day-01:part-1:block-2",
+        "choice_label_only": true,
+        "selection_count": 1,
+        "review_status": "SUSPECT",
+        "evaluation_mode": "self_review",
+        "options": {
+          "fragile": "Fragile",
+          "surprise": "Surprise",
+          "fast": "Fast",
+          "lightful": "Lightful"
+        },
+        "fields": [],
+        "source_display_number": "10"
+      }
+    ],
+    "80-days:day-01:part-2:block-1": [
+      {
+        "source_item_id": "80-days:day-01:main:q-11",
+        "word_limit": null,
+        "prompt": "Chọn câu gần nghĩa nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 1,
+        "source_block_id": "80-days:day-01:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "I'm learning a bit of English.",
+          "B": "My English is gradually improving.",
+          "C": "I've learned English for a long time.",
+          "D": "My English is not very good."
+        },
+        "fields": [],
+        "source_display_number": "11"
+      },
+      {
+        "source_item_id": "80-days:day-01:main:q-12",
+        "word_limit": null,
+        "prompt": "Chọn câu gần nghĩa nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 2,
+        "source_block_id": "80-days:day-01:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "He always eats hamburgers.",
+          "B": "He seldom eats hamburgers.",
+          "C": "He used to eat hamburgers.",
+          "D": "He doesn't eat hamburgers."
+        },
+        "fields": [],
+        "source_display_number": "12"
+      },
+      {
+        "source_item_id": "80-days:day-01:main:q-13",
+        "word_limit": null,
+        "prompt": "Chọn câu gần nghĩa nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 3,
+        "source_block_id": "80-days:day-01:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "The cat was black and white.",
+          "B": "The cat was under the box.",
+          "C": "There was a white cat and a black box.",
+          "D": "There was a black cat and a white box."
+        },
+        "fields": [],
+        "source_display_number": "13"
+      },
+      {
+        "source_item_id": "80-days:day-01:main:q-14",
+        "word_limit": null,
+        "prompt": "Chọn câu gần nghĩa nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 4,
+        "source_block_id": "80-days:day-01:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "Linda was thinking of her mother while waiting for her at the train station.",
+          "B": "Linda and her mother lost their way at the train station.",
+          "C": "Linda didn't meet her mother at the train station.",
+          "D": "Linda didn't catch the train."
+        },
+        "fields": [],
+        "source_display_number": "14"
+      },
+      {
+        "source_item_id": "80-days:day-01:main:q-15",
+        "word_limit": null,
+        "prompt": "Chọn câu gần nghĩa nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 5,
+        "source_block_id": "80-days:day-01:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "We won't come if it rains.",
+          "B": "We'll come unless it is fine.",
+          "C": "We'll come anyway.",
+          "D": "We'll shine our shoes after the rain."
+        },
+        "fields": [],
+        "source_display_number": "15"
+      }
+    ],
+    "80-days:day-04:part-2:block-1": [
+      {
+        "source_item_id": "80-days:day-04:main:q-11",
+        "word_limit": null,
+        "prompt": "Chọn câu trả lời phù hợp với câu hỏi nghe được.",
+        "response_type": "single_choice",
+        "q_num": 1,
+        "source_block_id": "80-days:day-04:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "He lives in Paris.",
+          "B": "He’s an architect.",
+          "C": "His name is Greg.",
+          "D": "He is sick."
+        },
+        "fields": [],
+        "source_display_number": "11"
+      },
+      {
+        "source_item_id": "80-days:day-04:main:q-12",
+        "word_limit": null,
+        "prompt": "Chọn câu trả lời phù hợp với câu hỏi nghe được.",
+        "response_type": "single_choice",
+        "q_num": 2,
+        "source_block_id": "80-days:day-04:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "There are five people in my family.",
+          "B": "He has two older brothers.",
+          "C": "My sister isn’t married.",
+          "D": "My father is a architect."
+        },
+        "fields": [],
+        "source_display_number": "12"
+      },
+      {
+        "source_item_id": "80-days:day-04:main:q-13",
+        "word_limit": null,
+        "prompt": "Chọn câu trả lời phù hợp với câu hỏi nghe được.",
+        "response_type": "single_choice",
+        "q_num": 3,
+        "source_block_id": "80-days:day-04:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "Since 1978.",
+          "B": "He’s seventeen.",
+          "C": "She turned ten in May.",
+          "D": "She is a student."
+        },
+        "fields": [],
+        "source_display_number": "13"
+      },
+      {
+        "source_item_id": "80-days:day-04:main:q-14",
+        "word_limit": null,
+        "prompt": "Chọn câu trả lời phù hợp với câu hỏi nghe được.",
+        "response_type": "single_choice",
+        "q_num": 4,
+        "source_block_id": "80-days:day-04:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "They’re both lawyers.",
+          "B": "They’re from Sydney.",
+          "C": "They live in London.",
+          "D": "They are retired."
+        },
+        "fields": [],
+        "source_display_number": "14"
+      },
+      {
+        "source_item_id": "80-days:day-04:main:q-15",
+        "word_limit": null,
+        "prompt": "Chọn câu trả lời phù hợp với câu hỏi nghe được.",
+        "response_type": "single_choice",
+        "q_num": 5,
+        "source_block_id": "80-days:day-04:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "I’m single.",
+          "B": "I have two sisters.",
+          "C": "I live with my brothers.",
+          "D": "I am the youngest."
+        },
+        "fields": [],
+        "source_display_number": "15"
+      }
+    ],
+    "80-days:day-35:part-1:block-1": [
+      {
+        "source_item_id": "80-days:day-35:main:q-01",
+        "word_limit": null,
+        "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 1,
+        "source_block_id": "80-days:day-35:part-1:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "Robert went the bank to get some money.",
+          "B": "Robert was unsatisfied with the bank's decision.",
+          "C": "The bank closed Robert's account.",
+          "D": "Robert robbed the bank in a secret way."
+        },
+        "fields": [],
+        "source_display_number": "1"
+      },
+      {
+        "source_item_id": "80-days:day-35:main:q-02",
+        "word_limit": null,
+        "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 2,
+        "source_block_id": "80-days:day-35:part-1:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "It is easy for Alice to come here.",
+          "B": "It takes Alice for four hours to come here.",
+          "C": "Alice has classes before she comes here.",
+          "D": "Alice is always be late for a date or meeting."
+        },
+        "fields": [],
+        "source_display_number": "2"
+      },
+      {
+        "source_item_id": "80-days:day-35:main:q-03",
+        "word_limit": null,
+        "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 3,
+        "source_block_id": "80-days:day-35:part-1:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "AMBIGUOUS",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "She is taking a test on Friday.",
+          "B": "She has to study at home because she has rested for a long time.",
+          "C": "She prefers to stay at home.",
+          "D": "She has to study because the test is coming."
+        },
+        "fields": [],
+        "source_display_number": "3"
+      },
+      {
+        "source_item_id": "80-days:day-35:main:q-04",
+        "word_limit": null,
+        "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 4,
+        "source_block_id": "80-days:day-35:part-1:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "She didn't like sitting beside Jim Smith.",
+          "B": "She didn't like sitting beside the hosts.",
+          "C": "She didn't like the dinner.",
+          "D": "She didn't like Smith or the host."
+        },
+        "fields": [],
+        "source_display_number": "4"
+      },
+      {
+        "source_item_id": "80-days:day-35:main:q-05",
+        "word_limit": null,
+        "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+        "response_type": "single_choice",
+        "q_num": 5,
+        "source_block_id": "80-days:day-35:part-1:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "He doesn't know why the coffee tastes differently.",
+          "B": "He only wants coffee because he isn't hungry.",
+          "C": "He thinks that they ought to go to the coffee shop.",
+          "D": "He wants coffee because he is very hungry."
+        },
+        "fields": [],
+        "source_display_number": "5"
+      }
+    ],
+    "80-days:day-35:part-2:block-1": [
+      {
+        "source_item_id": "80-days:day-35:main:q-11",
+        "word_limit": null,
+        "prompt": "Hotel",
+        "response_type": "single_choice",
+        "q_num": 1,
+        "source_block_id": "80-days:day-35:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "Góc phía Nam của ô giữa First/Second Avenue, trên North Street",
+          "B": "Góc phía Bắc sát Second Avenue của ô First/Second",
+          "C": "Góc trái ô trên North Street giữa Second/Third Avenue",
+          "D": "Góc phải ô trên North Street giữa Second/Third Avenue",
+          "E": "Góc phía Bắc sát Third Avenue của ô Third/Fourth",
+          "F": "Góc phải ô phía trên North Street giữa Third/Fourth",
+          "G": "Góc trái ô dưới North Street giữa Third/Fourth",
+          "H": "Góc phải ô dưới North Street sát Fourth Avenue"
+        },
+        "fields": [],
+        "source_display_number": "11"
+      },
+      {
+        "source_item_id": "80-days:day-35:main:q-12",
+        "word_limit": null,
+        "prompt": "Shopping Center",
+        "response_type": "single_choice",
+        "q_num": 2,
+        "source_block_id": "80-days:day-35:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "Góc phía Nam của ô giữa First/Second Avenue, trên North Street",
+          "B": "Góc phía Bắc sát Second Avenue của ô First/Second",
+          "C": "Góc trái ô trên North Street giữa Second/Third Avenue",
+          "D": "Góc phải ô trên North Street giữa Second/Third Avenue",
+          "E": "Góc phía Bắc sát Third Avenue của ô Third/Fourth",
+          "F": "Góc phải ô phía trên North Street giữa Third/Fourth",
+          "G": "Góc trái ô dưới North Street giữa Third/Fourth",
+          "H": "Góc phải ô dưới North Street sát Fourth Avenue"
+        },
+        "fields": [],
+        "source_display_number": "12"
+      },
+      {
+        "source_item_id": "80-days:day-35:main:q-13",
+        "word_limit": null,
+        "prompt": "Central Park",
+        "response_type": "single_choice",
+        "q_num": 3,
+        "source_block_id": "80-days:day-35:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "Góc phía Nam của ô giữa First/Second Avenue, trên North Street",
+          "B": "Góc phía Bắc sát Second Avenue của ô First/Second",
+          "C": "Góc trái ô trên North Street giữa Second/Third Avenue",
+          "D": "Góc phải ô trên North Street giữa Second/Third Avenue",
+          "E": "Góc phía Bắc sát Third Avenue của ô Third/Fourth",
+          "F": "Góc phải ô phía trên North Street giữa Third/Fourth",
+          "G": "Góc trái ô dưới North Street giữa Third/Fourth",
+          "H": "Góc phải ô dưới North Street sát Fourth Avenue"
+        },
+        "fields": [],
+        "source_display_number": "13"
+      },
+      {
+        "source_item_id": "80-days:day-35:main:q-14",
+        "word_limit": null,
+        "prompt": "Bars and the Coffee House",
+        "response_type": "single_choice",
+        "q_num": 4,
+        "source_block_id": "80-days:day-35:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "Góc phía Nam của ô giữa First/Second Avenue, trên North Street",
+          "B": "Góc phía Bắc sát Second Avenue của ô First/Second",
+          "C": "Góc trái ô trên North Street giữa Second/Third Avenue",
+          "D": "Góc phải ô trên North Street giữa Second/Third Avenue",
+          "E": "Góc phía Bắc sát Third Avenue của ô Third/Fourth",
+          "F": "Góc phải ô phía trên North Street giữa Third/Fourth",
+          "G": "Góc trái ô dưới North Street giữa Third/Fourth",
+          "H": "Góc phải ô dưới North Street sát Fourth Avenue"
+        },
+        "fields": [],
+        "source_display_number": "14"
+      },
+      {
+        "source_item_id": "80-days:day-35:main:q-15",
+        "word_limit": null,
+        "prompt": "Museum",
+        "response_type": "single_choice",
+        "q_num": 5,
+        "source_block_id": "80-days:day-35:part-2:block-1",
+        "choice_label_only": false,
+        "selection_count": 1,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {
+          "A": "Góc phía Nam của ô giữa First/Second Avenue, trên North Street",
+          "B": "Góc phía Bắc sát Second Avenue của ô First/Second",
+          "C": "Góc trái ô trên North Street giữa Second/Third Avenue",
+          "D": "Góc phải ô trên North Street giữa Second/Third Avenue",
+          "E": "Góc phía Bắc sát Third Avenue của ô Third/Fourth",
+          "F": "Góc phải ô phía trên North Street giữa Third/Fourth",
+          "G": "Góc trái ô dưới North Street giữa Third/Fourth",
+          "H": "Góc phải ô dưới North Street sát Fourth Avenue"
+        },
+        "fields": [],
+        "source_display_number": "15"
+      }
+    ],
+    "80-days:day-55:table_completion:block-1": [
+      {
+        "source_item_id": "80-days:day-55:table_completion:q-01",
+        "word_limit": 3,
+        "prompt": "Brazilian Drum Band · Stage",
+        "response_type": "short_answer",
+        "q_num": 1,
+        "source_block_id": "80-days:day-55:table_completion:block-1",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "1"
+      },
+      {
+        "source_item_id": "80-days:day-55:table_completion:q-02",
+        "word_limit": 3,
+        "prompt": "Great Grapefruit · Type of act",
+        "response_type": "short_answer",
+        "q_num": 2,
+        "source_block_id": "80-days:day-55:table_completion:block-1",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "2"
+      },
+      {
+        "source_item_id": "80-days:day-55:table_completion:q-03",
+        "word_limit": 3,
+        "prompt": "Crossed Wires · Time",
+        "response_type": "short_answer",
+        "q_num": 3,
+        "source_block_id": "80-days:day-55:table_completion:block-1",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "3"
+      },
+      {
+        "source_item_id": "80-days:day-55:table_completion:q-04",
+        "word_limit": 3,
+        "prompt": "Flying Barite Brothers · Stage",
+        "response_type": "short_answer",
+        "q_num": 4,
+        "source_block_id": "80-days:day-55:table_completion:block-1",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "4"
+      },
+      {
+        "source_item_id": "80-days:day-55:table_completion:q-05",
+        "word_limit": 3,
+        "prompt": "Winston Smiles · Time",
+        "response_type": "short_answer",
+        "q_num": 5,
+        "source_block_id": "80-days:day-55:table_completion:block-1",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "5"
+      },
+      {
+        "source_item_id": "80-days:day-55:table_completion:q-06",
+        "word_limit": 3,
+        "prompt": "Blue Grass Ben · Type of act",
+        "response_type": "short_answer",
+        "q_num": 6,
+        "source_block_id": "80-days:day-55:table_completion:block-1",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "6"
+      }
+    ],
+    "80-days:day-80:part-1:block-fishing-summary": [
+      {
+        "source_item_id": "80-days:day-80:main:q-07",
+        "word_limit": 3,
+        "prompt": "Allen sell some of the special fish to ___",
+        "response_type": "short_answer",
+        "q_num": 7,
+        "source_block_id": "80-days:day-80:part-1:block-fishing-summary",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "7"
+      },
+      {
+        "source_item_id": "80-days:day-80:main:q-08",
+        "word_limit": 3,
+        "prompt": "The other fisher will be sold to ___",
+        "response_type": "short_answer",
+        "q_num": 8,
+        "source_block_id": "80-days:day-80:part-1:block-fishing-summary",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "8"
+      },
+      {
+        "source_item_id": "80-days:day-80:main:q-09",
+        "word_limit": 3,
+        "prompt": "Allen’s grandfather fishes in ___",
+        "response_type": "short_answer",
+        "q_num": 9,
+        "source_block_id": "80-days:day-80:part-1:block-fishing-summary",
+        "choice_label_only": false,
+        "selection_count": null,
+        "review_status": "CONFIRMED",
+        "evaluation_mode": "self_review",
+        "options": {},
+        "fields": [],
+        "source_display_number": "9"
+      }
+    ]
   }
 }

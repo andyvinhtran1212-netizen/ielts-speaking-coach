@@ -64,8 +64,8 @@ async def get_source_day(day_number: int = Path(ge=1, le=80), authorization: str
 async def open_source_study(body: ListeningSourceStudyRequest, day_number: int = Path(ge=1, le=80),
                             authorization: str | None = Header(default=None)):
     await get_supabase_user(authorization)
-    _package, lessons = _context(day_number)
-    return service.study_response(lessons[0], body.block_ids, _sign)
+    package, lessons = _context(day_number)
+    return service.study_response(lessons[0], body.block_ids, _sign, manifest_sha256=package.get("manifest_sha256"))
 
 
 @router.get("/80-days/days/{day_number}/audio", response_model=SourceAudioResponse)

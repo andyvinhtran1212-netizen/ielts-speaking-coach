@@ -26,7 +26,7 @@ export function ListeningSourceAudio({ day }: { day: number }) {
     <h2>Nghe theo phiên bản</h2>
     <p>Nghe tự do trên trang này không tạo lượt luyện. Bài luyện bên dưới dùng bản ghi gốc.</p>
     {state.status === 'loading' ? <p role="status">Đang tải audio…</p> : state.status === 'error' ? <><p role="alert">Chưa tải được các phiên bản audio.</p><button type="button" onClick={retry}>Thử lại audio</button></> : <>
-      <label>Phiên bản audio <select value={selected?.variant_id || ''} onChange={(event) => { audio.current?.pause(); setChoice({ scope, id: event.target.value }); }}>
+      <label>Phiên bản audio <select className="source-audio-select" value={selected?.variant_id || ''} onChange={(event) => { audio.current?.pause(); setChoice({ scope, id: event.target.value }); }}>
         {variants.map((variant) => <option key={variant.variant_id} value={variant.variant_id}>{variant.label_vi}</option>)}
       </select></label>
       {selected ? <><p>{selected.note_vi}</p>{selected.url ? <audio key={mediaKey} ref={audio} controls preload="none" src={selected.url} style={{ width: '100%' }} aria-label={selected.label_vi} onError={() => setFailed(mediaKey)} /> : <p role="status">Bản audio này chưa sẵn sàng để phát.</p>}

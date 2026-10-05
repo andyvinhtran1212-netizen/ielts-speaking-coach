@@ -82,13 +82,18 @@ def safe_source_block_metadata(block: dict, *, study_opened: bool = False) -> di
 
 
 def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study_opened: bool = False,
-                      presentation_source: dict | None = None) -> dict:
+                      presentation_source: dict | None = None, manifest_sha256: str | None = None,
+                      runtime_questions: list[dict] | None = None) -> dict:
     """Build a new block from safe fields; never echo raw nested authoring JSON."""
     try:
-        from services.listening_source_native import native_presentation
-        native = native_presentation(presentation_source if presentation_source is not None else block,
-                                     study_opened=study_opened)
+        from services.listening_source_native import native_presentation, native_instruction_vi
+        source_block = presentation_source if presentation_source is not None else block
+        native = native_presentation(source_block, study_opened=study_opened, manifest_sha256=manifest_sha256,
+                                     runtime_questions=runtime_questions)
+        instruction_vi = native_instruction_vi(source_block, manifest_sha256=manifest_sha256) if native is not None else None
         block = safe_source_block_metadata(block, study_opened=study_opened)
+        if instruction_vi is not None:
+            block["instruction"]["student_vi"] = instruction_vi
     except (ValidationError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
     # Archival PDF crops remain source evidence, never learner question content.
@@ -158,13 +163,15 @@ def day_response(package: dict, lesson: dict, forms: list[dict], states: dict,
     return {"collection_id": SOURCE_COLLECTION, "package_id": package["package_id"],
         "manifest_sha256": package["manifest_sha256"], **{key: card[key] for key in (
             "day", "lesson_id", "title", "group", "availability", "source_position_count", "practice_item_count", "source_only_count")},
-        "parts": parts, "blocks": [sign_source_block(block, signer) for block in meta["blocks"]],
+        "parts": parts, "blocks": [sign_source_block(block, signer, manifest_sha256=package.get("manifest_sha256"))
+                                    for block in meta["blocks"]],
         "vocabulary_groups": meta.get("vocabulary_groups") or [],
         "source_only_positions": [public_source_position(position, parts)
                                   for position in meta.get("source_only_positions") or []], "partial_data": partial}
 
 
-def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], str | None]) -> dict:
+def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], str | None], *,
+                   manifest_sha256: str | None = None) -> dict:
     meta = source_metadata(lesson)
     study = (lesson.get("metadata") or {}).get("source_study") or {}
     blocks = {block["block_id"]: block for block in meta["blocks"]}
@@ -190,7 +197,8 @@ def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], s
         if resource:
             safe_block["description"] = str(raw.get("description") or "")
         try:
-            native_block = sign_source_block(safe_block, signer, study_opened=True, presentation_source=block)
+            native_block = sign_source_block(safe_block, signer, study_opened=True, presentation_source=block,
+                                            manifest_sha256=manifest_sha256)
             if mixed and native_block.get("native"):
                 # An explicitly opened mixed block contains only excluded study
                 # positions; it must not duplicate eligible practice positions.

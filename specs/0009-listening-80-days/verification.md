@@ -424,7 +424,7 @@ PR #1587 is merged; its revised explanations were checked on live staging. The
 immutable source package is already published on staging with manifest
 `29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841`.
 Production was checked directly and still has no 80-day package. Shared code
-promotion is owned by another session; this checkout does not race that release.
+promotion #1586 completed before this task integrates its own release.
 
 Current branch `codex/listening-native-display-20261005`, base `f2a73572`, adds
 private native presentation on real day/player/study routes and independent
@@ -437,18 +437,40 @@ Kokoro choices bind all 80 final reviewed MP3 hashes; 69 originals remain
 separate, with truthful Day76 partial/Day77 missing/vocabulary-track states.
 The immutable upload CLI validates all 80 before writes and verifies private
 Storage readback. Staging bucket and package identity have been checked;
-upload is in progress. Production content import has not run.
+all 80 objects were created and verified by hash, upload exit 0.
+Production content import has not run.
 
-Local evidence: full backend 9,724 passed / 646 skipped; full React 417 passed;
-both TypeScript checks and webpack production build passed. Full frontend
-contracts: 10,588 passed / 1 skipped / 2 runtime-config failures caused by
-concurrent build generation; the committed null stub was restored and all 15
-affected runtime-config tests passed. After the measured mobile overflow fix,
-affected React 19 and native backend 12 passed. Actual local Next checks at
-375/1440px, light/dark passed table rows, SVG/zoom, study guard and multi-gap
-save with mocked auth/API. These are local acceptance, not deployed acceptance.
+Consolidated local evidence: full backend 9,746 passed / 646 skipped; full React
+417 passed; both TypeScript checks and webpack production build passed. Full
+frontend contracts passed 10,651 / zero failures or skips with the required
+loopback permission and no concurrent runtime-config generation. The committed
+null runtime stub is restored. Actual local Next checks at 375/1440px, light/dark
+passed table rows, SVG/zoom, study guard and multi-gap save with mocked auth/API.
+These are local acceptance, not deployed acceptance.
 
 One independent council code/data review accepted the complete native/audio
 patch with no blocker. It is not a new human audio or source-fidelity certificate.
 Next required evidence: exact-head CI, deployed native/audio staging journeys,
 then production code/content publication and actual production journeys.
+
+Before integration, a live staging inspection identified three instructions
+that still directed learners to PDF crops. These are now bound Vietnamese
+native instruction overrides for Day1 matching/closest-meaning and Day80
+fishing. Original English text, word/selection limits, question layouts,
+options and source digests remain unchanged. The council accepted this bounded
+correction; all 72 affected source/native/audio tests passed after adding the
+three real source-block fixtures.
+
+PR #1591's two P2 findings are corrected together: native lookup requires the
+active published package manifest and all 1,572 practice display-question hashes;
+the free-listening audio select has a 44px minimum target and explicit keyboard
+focus styling. The council accepted the bounded consolidated revision. Actual
+375px deployed selector measurement remains pending. The initial PR browser run
+failed one Admin Writing Tips request assertion: its page heading was visible
+before its list effect. The verifier now awaits the existing canonical item
+heading before making the same assertion; no product behavior/assertion is removed.
+The focused Admin Writing Tips browser journey now passes all 13 checks with
+canonical isolated runtime settings; initial missing-runtime local attempts
+failed before the product heading and are not passing evidence.
+Shared promotion #1586 has finished; this task may now proceed through its own
+exact-head CI and staging acceptance without racing that session.

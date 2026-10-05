@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from models.listening_source_collection import SourceInstruction, SourceNativePresentation, SourceOption
+from models.listening_source_collection import SourceInstruction, SourceNativePresentation, SourceOption, SourceResponseField
 
 CONTENT = Path(__file__).resolve().parents[1] / "content/listening/80-days-native-v1.json"
 SVG_TAGS = frozenset({"svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "title", "desc", "defs", "marker"})
@@ -56,10 +56,49 @@ def revision() -> dict:
     return content
 
 
-def native_presentation(block: dict, *, study_opened: bool = False) -> dict | None:
+def display_question_digest(question: dict) -> str:
+    """Bind only learner display/control fields, never answers or transcripts."""
+    value = {key: question.get(key) for key in (
+        "q_num", "source_item_id", "source_display_number", "source_block_id",
+        "prompt", "response_type", "selection_count", "word_limit", "choice_label_only")}
+    value["options"] = question.get("options") or {}
+    value["fields"] = [SourceResponseField.model_validate(field).model_dump()
+                       for field in question.get("fields") or []]
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def _bound_row(block: dict, manifest_sha256: str | None) -> dict | None:
+    content = revision()
+    if not manifest_sha256 or manifest_sha256 != content["source_manifest_sha256"]:
+        return None
+    row = content["blocks"].get(block.get("block_id"))
+    return row if row and row["source_block_sha256"] == block_digest(block) else None
+
+
+def native_presentation(block: dict, *, manifest_sha256: str | None = None,
+                        study_opened: bool = False, runtime_questions: list[dict] | None = None) -> dict | None:
     if block.get("display_kind") == "source_study" and not study_opened:
         return None
-    row = revision()["blocks"].get(block.get("block_id"))
-    if not row or row["source_block_sha256"] != block_digest(block):
+    row = _bound_row(block, manifest_sha256)
+    if not row:
         return None
+    if runtime_questions is not None:
+        expected = row.get("practice_question_sha256") or {}
+        identities = [question.get("source_item_id") for question in runtime_questions]
+        if (not expected or len(set(identities)) != len(identities) or set(identities) != set(expected)
+                or any(question.get("source_block_id") != block["block_id"]
+                       or display_question_digest(question) != expected[question["source_item_id"]]
+                       for question in runtime_questions)):
+            return None
     return SourceNativePresentation.model_validate(row["presentation"]).model_dump()
+
+
+def native_instruction_vi(block: dict, *, manifest_sha256: str | None = None) -> str | None:
+    """Remove obsolete crop directions only for this exact native source block."""
+    row = _bound_row(block, manifest_sha256)
+    if not row:
+        return None
+    text = row.get("instruction_vi")
+    if text is not None and (not isinstance(text, str) or not text.strip()):
+        raise ValueError("Invalid native instruction")
+    return text

@@ -36,8 +36,12 @@ Each row binds the complete original imported block's structural metadata,
 question membership and archival image paths to source manifest
 `29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841`
 with canonical UTF-8 JSON / sorted keys / compact separators / SHA-256.
-Only this private backend content is projected into authenticated day, player
-and explicitly opened study responses. Caller-supplied native JSON is ignored.
+The active published package manifest must match that header. Practice blocks
+also bind every display question (prompt, options, fields, limits and numbering),
+with exact unique item membership; answers and other protected content are not
+part of this display digest. Missing or changed manifests/questions omit native
+content and instruction overrides. Only this private backend content is projected
+into authenticated day, player and explicitly opened study responses. Caller-supplied native JSON is ignored.
 Study blocks remain hidden before the existing study guard; mixed study blocks
 show only excluded positions. SVG markup is restricted to passive shapes/text
 and rendered in an image context. No PDF crop is signed or displayed by these
@@ -45,7 +49,9 @@ source routes. A missing or changed binding returns an explicit missing native
 presentation state instead of guessing content or falling back to an image.
 
 This changes presentation on the deployed code path without a migration or
-source reimport. Source raster objects remain private archival evidence. SVG
+source reimport. Source raster objects remain private archival evidence. Three
+source-bound Vietnamese instruction overrides remove obsolete crop directions;
+original English instructions, question content and limits remain unchanged. SVG
 source-fidelity metadata in the preview remains historical review evidence;
 local render tests do not claim fresh independent visual or live acceptance.
 
