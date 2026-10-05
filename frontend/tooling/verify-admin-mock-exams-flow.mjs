@@ -308,6 +308,8 @@ levelCatalogFailed = true;
 const partialLevelsRead = page.waitForResponse((response) => new URL(response.url()).pathname === '/admin/exam-content/page');
 await page.getByRole('button', { name: 'Tải lại' }).click();
 await partialLevelsRead;
+await page.getByText(/Danh sách cấp khóa có thể chưa đầy đủ: Listening/).waitFor({ state: 'visible' });
+await page.getByText('Hiển thị 1–1 / 1 đề', { exact: true }).waitFor({ state: 'visible' });
 check('level catalog lỗi được báo riêng, tổng nội dung vẫn chính xác', await page.getByText(/Danh sách cấp khóa có thể chưa đầy đủ: Listening/).count() === 1 && await page.getByText('Hiển thị 1–1 / 1 đề').count() === 1);
 
 failContentPage = true;

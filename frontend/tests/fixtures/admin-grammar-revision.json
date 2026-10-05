@@ -1,0 +1,2972 @@
+{
+  "status": "DECLARED_SYNTHETIC_12_BANK_ROWS_PLUS_SEPARATE_EXACT_LOCAL_PG_ASGI_PUBLIC_CAPTURE",
+  "boundary": "rows: synthetic owner/count/revision/receipt identities shaped by concrete backend models; real parser source/diff pins. actual_admin_capture: exact five public read/preview/applied/replay/current responses from hash-bound task-local PG+ASGI with synthetic Auth/snapshot synchronous reads; no live RLS/publication proof. No private cohort/user/history/schema data copied. Not canonical release proof.",
+  "actor": "11111111-1111-4111-8111-111111111111",
+  "operation_id": "22222222-2222-4222-8222-222222222222",
+  "source_fixture": {
+    "path": "frontend/tests/fixtures/grammar-exact-form-banks.json",
+    "sha256": "934530a72aeeb9c0a0e94cc656051bd88801db695e3a8ec14c5fa8624f03b735"
+  },
+  "rows": [
+    {
+      "code": "G-parts-of-speech-verbs",
+      "source_fixture_code": "G-parts-of-speech-verbs",
+      "read": {
+        "canonical_code": "G-parts-of-speech-verbs",
+        "original_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+        "current_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+        "topic_id": "0ad07244-d02b-5425-bf7d-d02ee96aed61",
+        "revision": "3ec60d04d085dcf47a09e5252909f3adb35bcf2083d6074e1f7745ee6b48161f",
+        "current_bank_revision": "8cf19cc6eda63e8fb8b9dcbf43e7935746b8b5a0ce4855f8c7b9e56785536f13",
+        "original_questions_sha256": "a583f9cf7568a2ca0c30394654796f0871dd0bdad25943f8f76c83882900f0fb",
+        "original_metadata_sha256": "c4fa132884245336348e22c484ab9d1d711fc6e191ff1faedb2cc57c30ee7196",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-parts-of-speech-verbs",
+          "original_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+          "current_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+          "topic_id": "0ad07244-d02b-5425-bf7d-d02ee96aed61",
+          "revision": "3ec60d04d085dcf47a09e5252909f3adb35bcf2083d6074e1f7745ee6b48161f",
+          "current_bank_revision": "8cf19cc6eda63e8fb8b9dcbf43e7935746b8b5a0ce4855f8c7b9e56785536f13",
+          "original_questions_sha256": "a583f9cf7568a2ca0c30394654796f0871dd0bdad25943f8f76c83882900f0fb",
+          "original_metadata_sha256": "c4fa132884245336348e22c484ab9d1d711fc6e191ff1faedb2cc57c30ee7196",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "36e8b94fa47dfb8fc2316a1e1cab6003d79639e1e593f7c42d2d660b258afc9d",
+        "manifest_sha256": "e43ebcca9b399eadfa4b030434fdb4d91fd1b9bef2326b4c4d10836ea5843ed5",
+        "preview_fingerprint": "4747549c2affc7c531fab732b779f151b27a6496ff4f9be3b53e160817e70052",
+        "proposed_revision": "a999f67408b8e089e56b46f3fe0834f73a19bc4377774d6188b52e84a28661d3",
+        "changed_questions": [
+          {
+            "qid": "verb_stat_b1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "d642c6051a8ac1a9558576cd2a221780e71fb7c74ff116694f279b8a8ddeb6c5",
+            "after_sha256": "e374a1f46ab36fb8a79ebb598b10682c80eed4ccd14c2957c2037da6b7df6767"
+          },
+          {
+            "qid": "verb_stat_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "457db82ce658abd59fce9d5fe08f6b6074355443e8f3d4bab281382d0f8825c9",
+            "after_sha256": "d643328be94eac0bb177574b660caae53438b1fe8ac917b992631cc325f2952b"
+          },
+          {
+            "qid": "verb_stat_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "c4e0993d82500d2973ac8e620d03cdacd2ec028ed43b7edeeb1ddedddc58041f",
+            "after_sha256": "410320ce85b9855f1cbbedce04baa629b2cdd0b0d0b2680e6a992486be400eb7"
+          },
+          {
+            "qid": "verb_stat_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "da927967cce157af4fa9f8921ff2362073d83b91ddc7664caca8f71003217e0a",
+            "after_sha256": "34cea09d0a8f4f93adf09145d3ff35e0fd5728c463df67647e7327f58a2c27ba"
+          },
+          {
+            "qid": "verb_stat_a1",
+            "fields": [
+              "answer",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "e3559c7763f5e3d936dfa6751b68b45bc4835c66b99ea0276472c30f3b1e20f2",
+            "after_sha256": "c03a81c20a9b6bdd59a16eb3e03c3465daf202ec4cb7a95a4210865fd81906ed"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-parts-of-speech-verbs",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+        "corrected_bank_id": "93e01d2c-4a88-5e29-a708-d2d80c624fd8",
+        "source_sha256": "36e8b94fa47dfb8fc2316a1e1cab6003d79639e1e593f7c42d2d660b258afc9d",
+        "committed_revision": "5e7511ccd2f7946f7e8a2e46ce3c95205b8a9688ac5d6f2f8b97f47159415851",
+        "current_revision": "5e7511ccd2f7946f7e8a2e46ce3c95205b8a9688ac5d6f2f8b97f47159415851",
+        "current_matches_committed": true,
+        "original_questions_sha256": "a583f9cf7568a2ca0c30394654796f0871dd0bdad25943f8f76c83882900f0fb",
+        "original_history_sha256": "daf8174307dcb7ac5bd0d047fb5456957cd8faf1e32c6bcc404d5afb67b9fee1",
+        "canonical": {
+          "canonical_code": "G-parts-of-speech-verbs",
+          "original_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+          "current_bank_id": "93e01d2c-4a88-5e29-a708-d2d80c624fd8",
+          "topic_id": "0ad07244-d02b-5425-bf7d-d02ee96aed61",
+          "revision": "5e7511ccd2f7946f7e8a2e46ce3c95205b8a9688ac5d6f2f8b97f47159415851",
+          "current_bank_revision": "a999f67408b8e089e56b46f3fe0834f73a19bc4377774d6188b52e84a28661d3",
+          "original_questions_sha256": "a583f9cf7568a2ca0c30394654796f0871dd0bdad25943f8f76c83882900f0fb",
+          "original_metadata_sha256": "c4fa132884245336348e22c484ab9d1d711fc6e191ff1faedb2cc57c30ee7196",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-sentence-structures-passive-voice",
+      "source_fixture_code": "G-sentence-structures-passive-voice",
+      "read": {
+        "canonical_code": "G-sentence-structures-passive-voice",
+        "original_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+        "current_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+        "topic_id": "340632e1-2996-5ebb-a16e-08f4a780e3cd",
+        "revision": "900bc21409057d8fb19b3df82daea980eeff0031280beeff54fe029c2ed34789",
+        "current_bank_revision": "4254db6dc2d83485ad952291bd035d8273409f8ba689990ee9d5c24e30bf7aa9",
+        "original_questions_sha256": "04a9ea9bce20912c61665f4e1128980d230af47695f0c3fbf640906e84fbdb36",
+        "original_metadata_sha256": "ddacd68665d94c755805dc491affa622aee14168c147f58f579d5ba23108135d",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-sentence-structures-passive-voice",
+          "original_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+          "current_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+          "topic_id": "340632e1-2996-5ebb-a16e-08f4a780e3cd",
+          "revision": "900bc21409057d8fb19b3df82daea980eeff0031280beeff54fe029c2ed34789",
+          "current_bank_revision": "4254db6dc2d83485ad952291bd035d8273409f8ba689990ee9d5c24e30bf7aa9",
+          "original_questions_sha256": "04a9ea9bce20912c61665f4e1128980d230af47695f0c3fbf640906e84fbdb36",
+          "original_metadata_sha256": "ddacd68665d94c755805dc491affa622aee14168c147f58f579d5ba23108135d",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "2299da1f37da6ab306821c0eb34dc5735837156dfac4a7a8a480e3861fe5d866",
+        "manifest_sha256": "4d29060817b67b558767e3a9111c926df00eb184294506f9e6accdd772323ddd",
+        "preview_fingerprint": "41d7094c821a164893d78c33dffb239baf8e3d28ca11214d7b21eba7db6677a8",
+        "proposed_revision": "a424ec50bb54cef2a92ccd15daf58535836b647f13714c6c1dfe47a333f66bc7",
+        "changed_questions": [
+          {
+            "qid": "pv_form_b2",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "abbd2e0b3f64c228ad2042df5f23c95625837def9ea8e1ed88ea68e1d1816108",
+            "after_sha256": "f43915125ced771190b3eb110b18ac8d2f1d738e1362f0902425fcc1209b3c7e"
+          },
+          {
+            "qid": "pv_use_i2",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "23ff49c6071aba30bc22434deff7e2ffbc46c1d8149371e7190c61de2e0e3ecf",
+            "after_sha256": "06d706bbff205db8b3d975e04d6c956a4037c5f490960518ef855ee4fadaf32e"
+          },
+          {
+            "qid": "pv_intr_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "d805f93d8b8a2b4a746a0d5c6f610c5b3b62d30e2663cacdac07d5fb5337443d",
+            "after_sha256": "673c1a0b6bb16838b2b86f7c0bf5c4346d9bebe4e1c3f4af4a9f493d9b1c1e8f"
+          },
+          {
+            "qid": "pv_err_i1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "d80cc80ddbb6e3712bf9c7caeb243940d0d5cb3f13db7318c32279e01bd62cd2",
+            "after_sha256": "462dab55429a9ddc73a46120b7d3a2e5f75775f2ca7591c2a6a45bc6feecde67"
+          },
+          {
+            "qid": "pv_err_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "ce043181f9a2c877b2ec8861d4d1826adf32bd994c6c5e0f0dde061b77c880c2",
+            "after_sha256": "8e24e4f0a97cea3953efe625186d82b70b63c3d216bf9a3d2be615415c3e29d6"
+          },
+          {
+            "qid": "pv_err_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "db3da60e25532b940b8b26e9347df08093525cd1a4ce43bd5e0d7dce6cf99fbd",
+            "after_sha256": "fa3b137d23281da59b2bff36b9f15c4bb6fc411afd5ab37469969e58fa28c017"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-sentence-structures-passive-voice",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+        "corrected_bank_id": "5e286920-fc5c-5236-ba67-8ec555560a8b",
+        "source_sha256": "2299da1f37da6ab306821c0eb34dc5735837156dfac4a7a8a480e3861fe5d866",
+        "committed_revision": "d74f9d52f710e96a6bc60c9b1ec7f62431c26ae2cc9e251e0743ef1535e2e702",
+        "current_revision": "d74f9d52f710e96a6bc60c9b1ec7f62431c26ae2cc9e251e0743ef1535e2e702",
+        "current_matches_committed": true,
+        "original_questions_sha256": "04a9ea9bce20912c61665f4e1128980d230af47695f0c3fbf640906e84fbdb36",
+        "original_history_sha256": "ad5141e8d76eca34a23b1244f9012c4601862518a982632e7f1e83a37e224cbd",
+        "canonical": {
+          "canonical_code": "G-sentence-structures-passive-voice",
+          "original_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+          "current_bank_id": "5e286920-fc5c-5236-ba67-8ec555560a8b",
+          "topic_id": "340632e1-2996-5ebb-a16e-08f4a780e3cd",
+          "revision": "d74f9d52f710e96a6bc60c9b1ec7f62431c26ae2cc9e251e0743ef1535e2e702",
+          "current_bank_revision": "a424ec50bb54cef2a92ccd15daf58535836b647f13714c6c1dfe47a333f66bc7",
+          "original_questions_sha256": "04a9ea9bce20912c61665f4e1128980d230af47695f0c3fbf640906e84fbdb36",
+          "original_metadata_sha256": "ddacd68665d94c755805dc491affa622aee14168c147f58f579d5ba23108135d",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "source_fixture_code": "G-tenses-past-continuous",
+      "read": {
+        "canonical_code": "G-tenses-past-continuous",
+        "original_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+        "current_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+        "topic_id": "88a841ae-b063-5ea8-8628-55751bbc59a2",
+        "revision": "22eb5c1879fa2056aebf1fc1cf23bd1b5f82249b8d2e98e0532324dd0f598f09",
+        "current_bank_revision": "336b2afe037cc95a076a14e0719e28f92cedf1cc3ef966d6eee0696f5828f385",
+        "original_questions_sha256": "d5fc32bb082e2b02f79506c6fadf1e334b48d66a932f95f6fde794417090f4a2",
+        "original_metadata_sha256": "c53c46ddd94a1b2a928ac2abe0e739341fd200748c3c94b3f956a463b670bfd7",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-tenses-past-continuous",
+          "original_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+          "current_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+          "topic_id": "88a841ae-b063-5ea8-8628-55751bbc59a2",
+          "revision": "22eb5c1879fa2056aebf1fc1cf23bd1b5f82249b8d2e98e0532324dd0f598f09",
+          "current_bank_revision": "336b2afe037cc95a076a14e0719e28f92cedf1cc3ef966d6eee0696f5828f385",
+          "original_questions_sha256": "d5fc32bb082e2b02f79506c6fadf1e334b48d66a932f95f6fde794417090f4a2",
+          "original_metadata_sha256": "c53c46ddd94a1b2a928ac2abe0e739341fd200748c3c94b3f956a463b670bfd7",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "1d75f48d70c9e476423383ec269f2a55fcc9eb8ca01307c45c4050c861bb11a6",
+        "manifest_sha256": "719d77f2f13ca1f67fcbcd6ae82c0b1351cdb1aca8bd7106c081cc16ac68d0db",
+        "preview_fingerprint": "ff63ee3ae2f4a410e9664383aab806c603829b0c5ffb63348cba2cfcf3331a88",
+        "proposed_revision": "a74ca12e599ca300a13781a6006b8925f8466daa73e474f87ae2f108c9767b1d",
+        "changed_questions": [
+          {
+            "qid": "pc_form_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "869d0c9dac6274c3fc67307f9e50b5af8f6ca65c4f19274af316e5218622adfd",
+            "after_sha256": "f904f8780300c3cf387ce5fd78bcef0a402fa0cbfd70f38dc977269b98d084e9"
+          },
+          {
+            "qid": "pc_form_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "06653d9cc3663b667ad166bb38aaaf18b3dfe730e9968324c818cb1167efe82b",
+            "after_sha256": "f0041856d89e4f01836cd02c72b830582a878c9f323a158fde449b6f801072c4"
+          },
+          {
+            "qid": "pc_form_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "41ec151ee8370871a06b13d33646bca1f05e8be4ceddade701314a5dc7152d3f",
+            "after_sha256": "135d774cc384146617769e827a33d9b556e8c5cc9b0fabeefd080558ac96e56d"
+          },
+          {
+            "qid": "pc_form_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7c952956a057acf93809c226c01aa19a0dc64bff489f39376f3558fea3254f76",
+            "after_sha256": "619840a72ab9f9615d2b94daf2b8bd1d8a360bdf7ca10da85258f14426dadf4a"
+          },
+          {
+            "qid": "pc_form_i3",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "bdfac36c420c476e823bf1309eeb637e277ac45eacc5020ee918c96598f052b2",
+            "after_sha256": "bc35cf05f9f2e2b56c06db6c2005a9c71c1e071e7d33b922d1e8623cc751fd0d"
+          },
+          {
+            "qid": "pc_interrupt_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "e49e2dfb5899230e6b67e9d588ec2ebc47103c9650d72f433222b710f12e39d6",
+            "after_sha256": "874fceb7cbbbc216e6f0c4243fb489d9672fb087db2015d9beec0a8941bc3d60"
+          },
+          {
+            "qid": "pc_interrupt_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "1bd65b127bded01908aa0573ba09f679f57a80232cd1fdf1bcbc27c8f57bd681",
+            "after_sha256": "08c16e13b454c719ace587e3ff3ae455a0eb10a09c2cabab50ca3b483a7fb4de"
+          },
+          {
+            "qid": "pc_interrupt_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7d20149eadd79e680ec5d588a8c05daafde74eba2e71305751cf97fbed391411",
+            "after_sha256": "afd7368ad6570d7e5c675074a110f4778b84d8a490cb9884e2c3607247367113"
+          },
+          {
+            "qid": "pc_interrupt_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "8b7f7943dfecee64c9b01e77be22c6047362edfdbb44ab708f84b18bedb51436",
+            "after_sha256": "602e20b9221790fc29d7aacebbe72b75f16ad07a5e57bdf6dbb05cea06b889d3"
+          },
+          {
+            "qid": "pc_interrupt_i3",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "90dc69940ef41df60204cf9b8a0494149dfe0841e116f3598aa5de0af52fd458",
+            "after_sha256": "c0ffb75f714758bcd69804954514036a60d9c3f956537fe87283f6f74c0671b9"
+          },
+          {
+            "qid": "pc_interrupt_a1",
+            "fields": [
+              "answer",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7f42d5297d2f3bd2f4f676d2c167d0028a6db9b048a17868da3e6a6bc9214aab",
+            "after_sha256": "c7fa50039cb8b82034feaa8b7e447603c4bcf4342ecd8b4d21e54b6238b3bc54"
+          },
+          {
+            "qid": "pc_while_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "20a88d4666a1bd7a1b2b3e00657fcad6b0679620f0d8068f63196169c7a5d159",
+            "after_sha256": "19d6ba68b6c98f1d3652b17dfe6c1f6424d5538a5cc556bd9e9368751294a6da"
+          },
+          {
+            "qid": "pc_while_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "6b5ba4d287589cf2bb24f61eeb9d2ab196aa2c24a409891e22b164efb19ee723",
+            "after_sha256": "07680394936444e6d986f9e6ace76f3666ec48d64c87262d7e61926d2d07219e"
+          },
+          {
+            "qid": "pc_while_i1",
+            "fields": [
+              "explain",
+              "options",
+              "prompt"
+            ],
+            "before_sha256": "526553a7eeb41e8a19d8c0923dbd075d787b5e2a2a961cff310ce1d028b1fce1",
+            "after_sha256": "8cc94d6b4a5b6715f9547e015afb6bdb30dcec021d6da721404360a3b66a7099"
+          },
+          {
+            "qid": "pc_while_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "a246e6c36e8d54ceaee82e3c56b80bb7162858a68d6a1ac7aa522165297651af",
+            "after_sha256": "a0a8041d4d15e21b9ac69ba70b7b6117a6a68e157d22c08b95002a918941880b"
+          },
+          {
+            "qid": "pc_while_i3",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "990c47a2000c05bfac6db42bf983143f7bec0f7465824667524d119234132e17",
+            "after_sha256": "ba8450ccb5cdda8f813fca4fdd4239f49f75c17aeb39344ac1412dbe7fa61020"
+          },
+          {
+            "qid": "pc_while_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "6feb4d01b5fe2636b71a5546e88e3c7cb21345ab98274476f0dd83ab261e18be",
+            "after_sha256": "d52723db7965f518d76f8b422023460af4b0f1247b316ba05cdad275fc50aba0"
+          },
+          {
+            "qid": "pc_stative_b1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "74ed293a8a92ecd7d83250c22476889bdae58a602d6ddf234f372f99fa288a9d",
+            "after_sha256": "f54ec8726cc7aac88c45443426eb3f85f897bff75b514217497d8fe3d7e1f0ce"
+          },
+          {
+            "qid": "pc_stative_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "aae8832e4b34461f201484d408270a44625d4767e3b6b60e20956933b7126289",
+            "after_sha256": "aad2e03952b1446f95e26d49fbada18c527ac58e70deb6bef7b050bc428a7faf"
+          },
+          {
+            "qid": "pc_stative_i1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "e3c538a6f5ab1680c7b8e6963bcd9c27906b6c72640ba5550d347fe03d6d61e9",
+            "after_sha256": "a30e6c3ea3a3b96f08be58980637524d0157a65f9bc62a2a39984f1692d5955c"
+          },
+          {
+            "qid": "pc_stative_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "0f73150fbb1ca33de19db190a2f1c990af11d8fc3f39897347342c0e96a6a360",
+            "after_sha256": "bef1945ccd2ed985bf7b915965578ef94fa289d71f85b6b5b2e5449b1bdd1393"
+          },
+          {
+            "qid": "pc_stative_i3",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "1978e01996336bef57f751754e442279fc1132524eaf10823542d15cd7a4a814",
+            "after_sha256": "3bf69f49387522a0dfba1affa45a5ec7fc2898c3c4e9488df4e7c963fdc97e86"
+          },
+          {
+            "qid": "pc_stative_a1",
+            "fields": [
+              "answer",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7207667586d2d0a06e002814b058f3dc89ef8e0f0d62243eeaaeb639b6d146b4",
+            "after_sha256": "e492a2938455b70587ffdc1000c5925de1572a01f597143b5b05cf0419a6606f"
+          },
+          {
+            "qid": "pc_stative_a2",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "28bf9275d8d252d305d17f647fe6e3d9489929775d797cb61404ef5fbddaf4ca",
+            "after_sha256": "29bf260e12119fded1523abbef29b1cd8885995628b0f3238b91a6e3273508db"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-tenses-past-continuous",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+        "corrected_bank_id": "c15ab4cb-1486-5cfa-9fa8-1f1823463883",
+        "source_sha256": "1d75f48d70c9e476423383ec269f2a55fcc9eb8ca01307c45c4050c861bb11a6",
+        "committed_revision": "aa3acfc51d4ba0d7f818e446825af87bb4d282bccf0cb43b551e182c095e17f4",
+        "current_revision": "aa3acfc51d4ba0d7f818e446825af87bb4d282bccf0cb43b551e182c095e17f4",
+        "current_matches_committed": true,
+        "original_questions_sha256": "d5fc32bb082e2b02f79506c6fadf1e334b48d66a932f95f6fde794417090f4a2",
+        "original_history_sha256": "6ca410f96d1b71de7655ac67b97558638b9c71262a2c6f193f4a7659abde8fe7",
+        "canonical": {
+          "canonical_code": "G-tenses-past-continuous",
+          "original_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+          "current_bank_id": "c15ab4cb-1486-5cfa-9fa8-1f1823463883",
+          "topic_id": "88a841ae-b063-5ea8-8628-55751bbc59a2",
+          "revision": "aa3acfc51d4ba0d7f818e446825af87bb4d282bccf0cb43b551e182c095e17f4",
+          "current_bank_revision": "a74ca12e599ca300a13781a6006b8925f8466daa73e474f87ae2f108c9767b1d",
+          "original_questions_sha256": "d5fc32bb082e2b02f79506c6fadf1e334b48d66a932f95f6fde794417090f4a2",
+          "original_metadata_sha256": "c53c46ddd94a1b2a928ac2abe0e739341fd200748c3c94b3f956a463b670bfd7",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "source_fixture_code": "G-tenses-present-continuous",
+      "read": {
+        "canonical_code": "G-tenses-present-continuous",
+        "original_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+        "current_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+        "topic_id": "4646d4a5-4234-5961-9a51-210e23680065",
+        "revision": "8ff7212a20d78fef5e44eaabb5a9b18d7ccfc0d34fed95cb5f6e8b9b64cb8544",
+        "current_bank_revision": "1c580106d9ec2c8fc9d7625a409cb6bc8496025828638a4d16b8a4121e97b730",
+        "original_questions_sha256": "57eec474be9820653e6044f7e5626aee4b934a944024d3d85609f119ccdcbdef",
+        "original_metadata_sha256": "513ebb6e2466ea65ff08fa32038ede852546cfb03fac2d99bcbd939820db9bc0",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-tenses-present-continuous",
+          "original_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+          "current_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+          "topic_id": "4646d4a5-4234-5961-9a51-210e23680065",
+          "revision": "8ff7212a20d78fef5e44eaabb5a9b18d7ccfc0d34fed95cb5f6e8b9b64cb8544",
+          "current_bank_revision": "1c580106d9ec2c8fc9d7625a409cb6bc8496025828638a4d16b8a4121e97b730",
+          "original_questions_sha256": "57eec474be9820653e6044f7e5626aee4b934a944024d3d85609f119ccdcbdef",
+          "original_metadata_sha256": "513ebb6e2466ea65ff08fa32038ede852546cfb03fac2d99bcbd939820db9bc0",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "711e42becddee32bfee93f6d0b691a318403b1b4ffef01302d28d2dbed1c037a",
+        "manifest_sha256": "140828a526bfe896663156422e7a0488490bb4289f25d2e310853e3cfe31c5b1",
+        "preview_fingerprint": "a0a19de50cdfb539472c5dae3c34c4378e7f38caa2ede3545f50ab53ac8f9b34",
+        "proposed_revision": "47b5cae1d91b2a369476591e945d7b34394a8e7957f1ebafa5b85db19e5a7876",
+        "changed_questions": [
+          {
+            "qid": "pc_form_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "5d683c559bcc85bc510761e7e057b7f0a046faba370cd64ecd9273a39f6d5127",
+            "after_sha256": "4a01333c7a2f8c9fd719a25d1a427ffabd09ba2ba55a6953e2a045c56271212b"
+          },
+          {
+            "qid": "pc_form_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "0ea0ae809b84e4513038ee0a076daa39e65a72a055a11b0e30a831deee0707ae",
+            "after_sha256": "85844b94a82093d811947742aa4b417e891015f9da6dd846f293748f06ed1c0f"
+          },
+          {
+            "qid": "pc_form_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "db356786732bde88bc0eb2095325c674a11226c91f942857c8e96f2f4c9e64b7",
+            "after_sha256": "559dc48a3b453b328ea15cc48b6e7c69bbe1908d8094408ba9190cc6d3b9a542"
+          },
+          {
+            "qid": "pc_form_a2",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "2bca6dde7c64382af6b534b401502836291429ae577bcd9fd16ce5760ef65b38",
+            "after_sha256": "92aefebd59318daf6f5fef9969d3234201d8b65557dd74642af142ac2ca3b791"
+          },
+          {
+            "qid": "pc_ing_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "7dd726172bce4cf43d27f0a165417c1fca3adb582a6996ab7eb599d72f05c505",
+            "after_sha256": "7adce8b63242b7d520f9232cb44ec35f0fa3033b6b1a125e7d736c1253713789"
+          },
+          {
+            "qid": "pc_trend_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "a428b52ebd680f5d764358e2292f4000e2aba597a2a7a5db5921ffc3a1f48ba6",
+            "after_sha256": "284a7066608bcde2b07787b7bae9c51ff0d65d0696e5ff867a4a5d8ad5d8075f"
+          },
+          {
+            "qid": "pc_trend_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "0c3f8dfad38f2064d0aede8326d5c9291f1bff304b3933ee17f9b73d1c5c3e4c",
+            "after_sha256": "aa377b9ece314235a2198714acc1fb6cb60489d970a351a69ad171f42202066c"
+          },
+          {
+            "qid": "pc_trend_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "1d9fd7d405478bb1148f7e1b9ceae2595383ed74282ab28b078fa91767578d4f",
+            "after_sha256": "f2139ee7ac67020902447fafbd09153ccebc0ad12059015c940b6766e9e84476"
+          },
+          {
+            "qid": "pc_trend_a1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "2f0fd42f89878dfc4ce52e3f716037efab996d132045df24460ffe365b11d4c1",
+            "after_sha256": "c98fb0c6ee4a50d8e10650150cb106ad8a68be88fddcec1d802929c5aa06522c"
+          },
+          {
+            "qid": "pc_trend_a2",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "97e52ccc5220dd09f0a3fc46ce4c732c7f465db3db6a89d0032208e6da6e28e9",
+            "after_sha256": "dbca93cef3a7f13a6b80e129d3928f3573beb7e7de809d4e70f666f7fd619a9f"
+          },
+          {
+            "qid": "pc_temp_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "e4d1a15372243ee400b56671e78ed93d7199ade06afbac3139be311d41d72106",
+            "after_sha256": "12e2c1f55206ab3cad8980467345d3603aa76ec855db9771d923588621420583"
+          },
+          {
+            "qid": "pc_temp_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "b7862a9a79b4da2f06ae0bd2cd06864e85819af13865f240443d36da01e06338",
+            "after_sha256": "1219835fc404c326f95dcefc253e88160546be7c6dc5bd466dd7462c4619e525"
+          },
+          {
+            "qid": "pc_temp_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "29d68cff53ebfc6f70e4a6eedf8a1989c2cad2203b5127198850e63520999e00",
+            "after_sha256": "94d125d857acdb87e27a380f840b548d44d53971601816d131ac0d12f09f824a"
+          },
+          {
+            "qid": "pc_temp_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "4995e127178266be860de27fe41b2c775b7375bcb19cf9701d01002c11301358",
+            "after_sha256": "29fa20ee6cdf10139a3f59f9dcb0042c7be9a7e0e2098180c1c29c923220fea0"
+          },
+          {
+            "qid": "pc_temp_a2",
+            "fields": [
+              "explain",
+              "options",
+              "prompt"
+            ],
+            "before_sha256": "3c950a82efa7ae6f3aa3b84a8908d9b7c064b08224110eca0481e25ed44e016d",
+            "after_sha256": "0668e25643f3e0fefed0eb63d6a3e9d2a46895b0fc1f7d27d22c07428fe12c57"
+          },
+          {
+            "qid": "pc_stative_b1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "0b9eba4b24821cc93855259468ca1ccb53c87c545b45bf03ee5b6d1c281e07bc",
+            "after_sha256": "a6c5b618d6a30700a30bee341a8e5c50f4d5c76665ef291acc9ddeb3be56fae3"
+          },
+          {
+            "qid": "pc_stative_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7e33125c6ae1652121838d42c7e9dd0c907ae8288bebf6d68d988f41983ec54b",
+            "after_sha256": "cf566ba904943f54e81f465e2c8810f2ed1611d76ee359422ce0aa9cc3a5b49f"
+          },
+          {
+            "qid": "pc_stative_i1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "3bbfc213da26906fc714a68401703d4837fa0271b39864640afabc777636de5e",
+            "after_sha256": "5e0cef68844aa96650655e2c91270aa1546711814125bb648a2512d94ace9be5"
+          },
+          {
+            "qid": "pc_stative_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "187791c527efaf0c9c330f6663b0e676b2da80e58e84bc8f1df56d96a20512ee",
+            "after_sha256": "2e86ca60ebd42f43f88798db3bf3150de6013a4017f7d89906dc081ab9cc52cf"
+          },
+          {
+            "qid": "pc_stative_a1",
+            "fields": [
+              "answer",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "8cedbaf3999f677f84121f97cfc7c0994c71f37af3f345169ec11368f8ea6b86",
+            "after_sha256": "cbcba196269f17b060e2002fa582d0e544269de231076c3e18874ea751243e48"
+          },
+          {
+            "qid": "pc_stative_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "069e3c01b80fc9a09cbdf5b9aaa05e50231a247c4005e149b505998e6de968e9",
+            "after_sha256": "cbd6b439fe6b0d9724ab6c41046a3c9a0781bf82913814b13aa4822c1353aa20"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-tenses-present-continuous",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+        "corrected_bank_id": "5e83dd44-1c45-5497-906f-335f34a0d1e7",
+        "source_sha256": "711e42becddee32bfee93f6d0b691a318403b1b4ffef01302d28d2dbed1c037a",
+        "committed_revision": "abec2ee5b3fd212b6401ad238006f2046fe2c72c92e937740d738853116fd39e",
+        "current_revision": "abec2ee5b3fd212b6401ad238006f2046fe2c72c92e937740d738853116fd39e",
+        "current_matches_committed": true,
+        "original_questions_sha256": "57eec474be9820653e6044f7e5626aee4b934a944024d3d85609f119ccdcbdef",
+        "original_history_sha256": "544137a24df2719cdcc97dbd834ffdd7a3e48367f86c8f1bc6e2eb7e9cdf97d0",
+        "canonical": {
+          "canonical_code": "G-tenses-present-continuous",
+          "original_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+          "current_bank_id": "5e83dd44-1c45-5497-906f-335f34a0d1e7",
+          "topic_id": "4646d4a5-4234-5961-9a51-210e23680065",
+          "revision": "abec2ee5b3fd212b6401ad238006f2046fe2c72c92e937740d738853116fd39e",
+          "current_bank_revision": "47b5cae1d91b2a369476591e945d7b34394a8e7957f1ebafa5b85db19e5a7876",
+          "original_questions_sha256": "57eec474be9820653e6044f7e5626aee4b934a944024d3d85609f119ccdcbdef",
+          "original_metadata_sha256": "513ebb6e2466ea65ff08fa32038ede852546cfb03fac2d99bcbd939820db9bc0",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "source_fixture_code": "G-tenses-present-perfect-continuous",
+      "read": {
+        "canonical_code": "G-tenses-present-perfect-continuous",
+        "original_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+        "current_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+        "topic_id": "f2fa6335-0ac3-5933-839b-814686465da8",
+        "revision": "898b3fc714c3c27f3ffdb0b3f87caa20abf06563ed5dd4b058d6a4a25a450b24",
+        "current_bank_revision": "885fd379b84cc05af5dc465e0d613a768b6b8a968f52bae060c925304ab88d0c",
+        "original_questions_sha256": "2704ea4f0cbd2973f2c5c8bcd16aa5903caf8a5c6fbebdbf581e578140b1f519",
+        "original_metadata_sha256": "1e5465c0553508686614409e3835e3746d0e5e2983a3f0ab822949f303898453",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-tenses-present-perfect-continuous",
+          "original_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+          "current_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+          "topic_id": "f2fa6335-0ac3-5933-839b-814686465da8",
+          "revision": "898b3fc714c3c27f3ffdb0b3f87caa20abf06563ed5dd4b058d6a4a25a450b24",
+          "current_bank_revision": "885fd379b84cc05af5dc465e0d613a768b6b8a968f52bae060c925304ab88d0c",
+          "original_questions_sha256": "2704ea4f0cbd2973f2c5c8bcd16aa5903caf8a5c6fbebdbf581e578140b1f519",
+          "original_metadata_sha256": "1e5465c0553508686614409e3835e3746d0e5e2983a3f0ab822949f303898453",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "67ffbc97e73fdb1d43a88644a77d0ebfbb93b845b8f2dd6c8575dec93d84ef3a",
+        "manifest_sha256": "1520fc1a79b33814b518901fc674b2c287d31a7946bb4d924d5312cfb5586c36",
+        "preview_fingerprint": "d9dc642651357824e1d86516b3671f05fb9b309f19b917392cf5d7f95617a3f9",
+        "proposed_revision": "2cb35e34eb07afada03f980017d0f68dcfd55da99f841565b6106240bcd4fa6a",
+        "changed_questions": [
+          {
+            "qid": "ppc_form_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "da35a872f2942bb55e14d96dfb01f4a820482dac0d999b895ba6e25224affdbf",
+            "after_sha256": "22513e23f251b6d35b019902d42c48e5d777c032f51e4eed5b4a110340ed9b60"
+          },
+          {
+            "qid": "ppc_form_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "379cd2a3b29ae617b978699d4234200e851b283225f0a397ddae67344354aba2",
+            "after_sha256": "08aac458c14e4e9d99a352f45ebd9886a93416d2ac317e328069b5b18011c020"
+          },
+          {
+            "qid": "ppc_form_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "267697f4f9e6164f2c3550a02cd2a70f94e13108feba6a6ccb6e27fbb795450f",
+            "after_sha256": "9d27722a24f734a6d139ebd2442d1f268307a73e34bb3e4925c86e6f6873487e"
+          },
+          {
+            "qid": "ppc_forsince_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "a48f4cb482bba766ffa3318915637abb91876319ff00bbaeaf1e985dd71a3ff5",
+            "after_sha256": "1f3c75d34be79a0b73a6f6693b0d95943227ed1440925d1fe2fdaaf5b0e7a253"
+          },
+          {
+            "qid": "ppc_vspp_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7069ae7f91b249d83f199da8f2c9517e89a5c58c0ad62c06507e8a9a3c1266ef",
+            "after_sha256": "27115155a599ac67914a18b6aa694653df36df6eaba8befa39698b0f63d87bd9"
+          },
+          {
+            "qid": "ppc_vspp_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "02fae1f332d942590936064198c2a66b6b388cabbff2c15c06ad63025a66f340",
+            "after_sha256": "2ebac4c8ff841897c76e8888bdbca1c7c1c019c830082e3c65b735f160620d19"
+          },
+          {
+            "qid": "ppc_vspp_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "3f0b23e6f69a01312112f3208764de659f258b5032ba3aab96bbd5949d376721",
+            "after_sha256": "fc903db54cd0f9c02a212a7aee7f832a13efe32176fc969ff5b62d0a3e8fcd5d"
+          },
+          {
+            "qid": "ppc_vspp_a1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "8db4ffea179b872230ff30daff4da8c107b7e74a2893519b4e537838af83a10e",
+            "after_sha256": "4885c6ec75f858cd77428422910719682679a77fc25fe9ce3d676d8d05a5574f"
+          },
+          {
+            "qid": "ppc_vspp_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "27c31b4d7c4023f521aeb6fc947a453d8c9089d80b32f1501ff3f8686fa9c959",
+            "after_sha256": "79b2122678ce880bf7d213815dcd51d49f6eb5f007b6e2a616761a40ed2ae400"
+          },
+          {
+            "qid": "ppc_stative_b1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "3253cbd722c00ae141f5e2c7fc4fe48486edad2f5f974c1eba2a8179d3c6f3c4",
+            "after_sha256": "2f88642c300b5d869c397cec9e2fce68208b7dabf9f2ffdcc91f009c839efd57"
+          },
+          {
+            "qid": "ppc_stative_i1",
+            "fields": [
+              "explain",
+              "options",
+              "prompt"
+            ],
+            "before_sha256": "5410b3fee4adae9739cff16b93c3c695cb448883dda98e119da70673626a8327",
+            "after_sha256": "38943c21a82a792696ff73a606967449d2f179244b17f464bf28aa766062ee92"
+          },
+          {
+            "qid": "ppc_stative_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "315fbe71f0ce1cbfbb5052eafca550fc23a5bb20a71c6d9d64b21f1a874b4033",
+            "after_sha256": "36184ec5a8876e8cfbd9cacd5d81d9474c385905f4caaa16e01d23be2f134892"
+          },
+          {
+            "qid": "ppc_stative_a1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "2feabde475ead47f38e74a79bd8409a6b50cf394e0d0f3ff7f6985f942a6d09e",
+            "after_sha256": "4d982c8580d7ca7ba16f692ea8835520fb0756feff9bb297ae2d0573263ce6bd"
+          },
+          {
+            "qid": "ppc_stative_a2",
+            "fields": [
+              "answer",
+              "explain"
+            ],
+            "before_sha256": "b47100cdc82d0a73ba92c316a48c961452b4f59b19be1cfcde6b537346fc133b",
+            "after_sha256": "8d2adc3719b8e9c31865ac0a7c3dffaeb8188e2cdd1b8226e391bfd59cacdad1"
+          },
+          {
+            "qid": "ppc_vspc_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "4e87cea067f175ef16525298c847d0c40cfdf2aa1cd6656414579e952fc073f8",
+            "after_sha256": "4a47d8cdb637c609803a1842472ad7135faa9bcd2ec6bc6685fd640cc0c5ab3c"
+          },
+          {
+            "qid": "ppc_vspc_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "b7c244e5f4a24c50dcd3c3247299fd62f13c56529791372b9921853947b66807",
+            "after_sha256": "ed48a683d7629bd95d61b9d50dfa71b3ae665791eb420ea8ad3bb938aa528983"
+          },
+          {
+            "qid": "ppc_vspc_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "0f398c4f425f2602ee4acf5c41c5ca3226599465423660cd9b28df88ca160dbe",
+            "after_sha256": "a359750cfaf4fdf36fc6c7dea3d3a3e4705d57f42b47243e1c6cf8c32cc5fcd9"
+          },
+          {
+            "qid": "ppc_vspc_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "648883c7225f9ddbe2d201357475c223ef1237a1b34bf41e199dd8a741ed92cc",
+            "after_sha256": "861ad4b61b21050c4484740c0a839ba77d18be85e87c5e2ac448774857803c0c"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-tenses-present-perfect-continuous",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+        "corrected_bank_id": "4ffa0728-bcfe-5660-bfac-d37593f4db59",
+        "source_sha256": "67ffbc97e73fdb1d43a88644a77d0ebfbb93b845b8f2dd6c8575dec93d84ef3a",
+        "committed_revision": "561ae98115b3bc540099b76533df60002905c4fe7ce2634b4f85907b7b8ce5ff",
+        "current_revision": "561ae98115b3bc540099b76533df60002905c4fe7ce2634b4f85907b7b8ce5ff",
+        "current_matches_committed": true,
+        "original_questions_sha256": "2704ea4f0cbd2973f2c5c8bcd16aa5903caf8a5c6fbebdbf581e578140b1f519",
+        "original_history_sha256": "08ab95f4c1319368e7dbed015429b9361e609bd727a9689b683af6d5ba1e2fb5",
+        "canonical": {
+          "canonical_code": "G-tenses-present-perfect-continuous",
+          "original_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+          "current_bank_id": "4ffa0728-bcfe-5660-bfac-d37593f4db59",
+          "topic_id": "f2fa6335-0ac3-5933-839b-814686465da8",
+          "revision": "561ae98115b3bc540099b76533df60002905c4fe7ce2634b4f85907b7b8ce5ff",
+          "current_bank_revision": "2cb35e34eb07afada03f980017d0f68dcfd55da99f841565b6106240bcd4fa6a",
+          "original_questions_sha256": "2704ea4f0cbd2973f2c5c8bcd16aa5903caf8a5c6fbebdbf581e578140b1f519",
+          "original_metadata_sha256": "1e5465c0553508686614409e3835e3746d0e5e2983a3f0ab822949f303898453",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "source_fixture_code": "G-tenses-present-simple",
+      "read": {
+        "canonical_code": "G-tenses-present-simple",
+        "original_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+        "current_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+        "topic_id": "cebcbf14-77ef-5694-801c-0f9218d4e0e7",
+        "revision": "0c0c52d52032087dcf948ebfa032530130a3452058e154a40d5e349cc4645cb1",
+        "current_bank_revision": "e776046407be21c9de53f34a0857a2d894c019ecea87082f396a8c08597db8dc",
+        "original_questions_sha256": "e772e9d8075ac7fd6e67d2ae54ff5ae9a0268240aacf3b29063a0897809663ac",
+        "original_metadata_sha256": "39f2451f6954cff83a23a890d5b38159cb212c51851fc387afb588a3dcda95cd",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-tenses-present-simple",
+          "original_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+          "current_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+          "topic_id": "cebcbf14-77ef-5694-801c-0f9218d4e0e7",
+          "revision": "0c0c52d52032087dcf948ebfa032530130a3452058e154a40d5e349cc4645cb1",
+          "current_bank_revision": "e776046407be21c9de53f34a0857a2d894c019ecea87082f396a8c08597db8dc",
+          "original_questions_sha256": "e772e9d8075ac7fd6e67d2ae54ff5ae9a0268240aacf3b29063a0897809663ac",
+          "original_metadata_sha256": "39f2451f6954cff83a23a890d5b38159cb212c51851fc387afb588a3dcda95cd",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
+        "manifest_sha256": "cc5f490add6a475b8638fcf2866f5e07987e7eebd46edfa1e3c9674ef753651c",
+        "preview_fingerprint": "4427260a7f98d6b13d561c9f6210d6a64f741287fc8c183fec1b9d415e489b61",
+        "proposed_revision": "c3eae4e8f43d84d5e9d0e9cb57836faf556dd5c3b9139afb801fc094869b7698",
+        "changed_questions": [
+          {
+            "qid": "ps_3s_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "6dd43310e03b6813edfba02cc3363282c14feee09283300f22bcf779e37faa42",
+            "after_sha256": "3e0cb8c5912b5eb2592537cadf91d53898a55ae39722a3624a7f04bbd0f7e779"
+          },
+          {
+            "qid": "ps_3s_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "282759e8323f8fe75ea28405967ba91094add2d90cd2419adc8c1236814a45b8",
+            "after_sha256": "1738468956c80fa241c5cbaeba2bc0a23e62bb4b0ceeb4c81f52aff4d1d93485"
+          },
+          {
+            "qid": "ps_3s_i3",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "7a687ea09ea2dc002c6958256b9262026e2ce8a1f40d7a9bf8830696d25cac7c",
+            "after_sha256": "7203cd422c9eb0682eec28c2c779bc5d43cb12e102fa6ecb7ffef3f940137882"
+          },
+          {
+            "qid": "ps_dd_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "91b53562c7c13c42ecfbcfefd3527f5b4789c3607b2a8bbeaebbf265a37d58a1",
+            "after_sha256": "d31684cab7d250cd613aa207ee4457eb95a088ff63595907eeeec0f7c4e4f48a"
+          },
+          {
+            "qid": "ps_dd_i3",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "17780b04169f0c170b31166da1d08ceb1e74ffbd52180a06fa85e3fea4c90df9",
+            "after_sha256": "54c300ca06c2aa491e3fd1e1cb4b8a4a7fa07c8287f03e248180639d0761b0b0"
+          },
+          {
+            "qid": "ps_truth_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "9be85c6231df10ea514f0f537e493ab4bf94da8e2643905d6ae8cb5c1b1128c8",
+            "after_sha256": "2bb5d5c90f7ed384e65e08b83fe7feeb25e787a17b3aaeb3153830f25c6627f7"
+          },
+          {
+            "qid": "ps_truth_i1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "943ac901c58461920d7fe8e47db35870caa3bb32bbda552d1fa26ce46fd1a30b",
+            "after_sha256": "76e7312565bbab09b125695fc70fdd80e6a9b17da7e6193171b242d092eba902"
+          },
+          {
+            "qid": "ps_truth_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "35732952a2a217db41f39763c2039227c3a693fb50444c863dbcb8f5ccfe5cb2",
+            "after_sha256": "5aea4370270375a16b0fafc4468c23445cd9fccda865c3ed3e4f281fb044d608"
+          },
+          {
+            "qid": "ps_truth_i3",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "4473d5473af2090fba2afab286cb4189e2ab011f3524c9430c47ccb41aece73c",
+            "after_sha256": "8c6b44d36cdce1a3d03f184110869f4f1e9a165d683f643df2f7377ff68b66e8"
+          },
+          {
+            "qid": "ps_truth_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "0cd821f5df269e058fb7616311cc6b44e7cbc3229845df6fb90c855e21049e04",
+            "after_sha256": "51f9dcd99ccd61b96e05019466554dd6552db053ea6629a4532ba3607a092d73"
+          },
+          {
+            "qid": "ps_adv_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "185376e6c316068335b76e877e000138100f39d9bcf319c50848a239542e0f93",
+            "after_sha256": "2626217457bacc9557b4dbdba3df8929373e7e6eb2e6cd99f4badc292580cc8c"
+          },
+          {
+            "qid": "ps_adv_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "688e1a894ef47e18e661e6fcf52b7cb028422300ad8f1e2b11893d039b652276",
+            "after_sha256": "92b0a7b9acb96d8f2e00c361a0ee31a87a1702c17fe409a939fe5c40e1ff8b6e"
+          },
+          {
+            "qid": "ps_adv_i3",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "51b9be5b1d597cb72c756f8c51e30ca6510cf527db442e63de8bd11a578115f7",
+            "after_sha256": "d69c6e2fd87f204b1ad0d1ef6b4d540a35c046f7620d22d1bf6dfbd122224d66"
+          },
+          {
+            "qid": "ps_adv_a1",
+            "fields": [
+              "answer",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "e755fde81a09a1317920455af7393d87e10dc7225931f603e752fd1865fab3ac",
+            "after_sha256": "a81c55784d7f0094baad453d9c0cc8dec451e7fcd178f9c6807feda902cff1ad"
+          },
+          {
+            "qid": "ps_vspc_b1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "74cad901c802e3edd7ab9c698415a74b92d8dc69bcb2c2e1380ef3620d0e274d",
+            "after_sha256": "c4225e4ae596f1916a1d14330178a9d9ae3e03c723c4f9d9fc2801d6b3c40495"
+          },
+          {
+            "qid": "ps_vspc_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "04fae783eda53389ea0949a7dd0cfcf18e21ae097bee6f846298eef435892781",
+            "after_sha256": "96b789fd9e2ee1c3139732a8f7d10e77b6616fba96de84788c9da22a7619b185"
+          },
+          {
+            "qid": "ps_vspc_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "897338cec8a113c6ba3e60a3dea2269f01014cd2463b067574d985447721c6ec",
+            "after_sha256": "18fc36e220c10ed057a914292fbf9b7681c44958b2d59cab4ee92063c04265f3"
+          },
+          {
+            "qid": "ps_vspc_a1",
+            "fields": [
+              "answer",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "4fd1a6768fd83e1f0886b3a425d9a0b1d4f09310fbef58c3fc82b20fb0c86cde",
+            "after_sha256": "fa833eae6026ca6a91672406e23ac1c72b27c2eafcf30aecd39543e212150d4c"
+          },
+          {
+            "qid": "ps_vspc_a2",
+            "fields": [
+              "answer",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "f32afae3b00f9bb0933813167a0ca4aab43e5222829531838b0e6cb4ca94d0a5",
+            "after_sha256": "d9623e4e71f6bfda728aa82523597045b558b2453d282cb1d245bcd9dec61782"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-tenses-present-simple",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+        "corrected_bank_id": "4308e748-5d7b-517c-8398-b065aede827a",
+        "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
+        "committed_revision": "3b2046bf1e353b1f12ff5a296eeb843e712cf23e7c76cdf97e0a557a50791933",
+        "current_revision": "3b2046bf1e353b1f12ff5a296eeb843e712cf23e7c76cdf97e0a557a50791933",
+        "current_matches_committed": true,
+        "original_questions_sha256": "e772e9d8075ac7fd6e67d2ae54ff5ae9a0268240aacf3b29063a0897809663ac",
+        "original_history_sha256": "3b6774ca92ca7427e39a208ea9fbfb9e6f4136fda4ceccd6b5d362f1415ad009",
+        "canonical": {
+          "canonical_code": "G-tenses-present-simple",
+          "original_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+          "current_bank_id": "4308e748-5d7b-517c-8398-b065aede827a",
+          "topic_id": "cebcbf14-77ef-5694-801c-0f9218d4e0e7",
+          "revision": "3b2046bf1e353b1f12ff5a296eeb843e712cf23e7c76cdf97e0a557a50791933",
+          "current_bank_revision": "c3eae4e8f43d84d5e9d0e9cb57836faf556dd5c3b9139afb801fc094869b7698",
+          "original_questions_sha256": "e772e9d8075ac7fd6e67d2ae54ff5ae9a0268240aacf3b29063a0897809663ac",
+          "original_metadata_sha256": "39f2451f6954cff83a23a890d5b38159cb212c51851fc387afb588a3dcda95cd",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "source_fixture_code": "G-grammar-for-reading-participle-clauses",
+      "read": {
+        "canonical_code": "G-grammar-for-reading-participle-clauses",
+        "original_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+        "current_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+        "topic_id": "16c0accf-d89a-5245-a755-d7ffde557465",
+        "revision": "0dec2bb6a8bc171ffae5b827967a2926078a3f36c379d9a84c8283539c74748b",
+        "current_bank_revision": "572f2e4c49aa94fa64b0f0ed4fb26c39f871edab6bb3a6f4acd7829da96a4950",
+        "original_questions_sha256": "3d23d0f5ff150f3bdf0a51bd642b360bf36202a6a56edf95230d6ef7412ebf95",
+        "original_metadata_sha256": "96d0f78b3450a3c09989f4ef61f6176b92691c4e40f2a2745656295bff4a6771",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-grammar-for-reading-participle-clauses",
+          "original_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+          "current_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+          "topic_id": "16c0accf-d89a-5245-a755-d7ffde557465",
+          "revision": "0dec2bb6a8bc171ffae5b827967a2926078a3f36c379d9a84c8283539c74748b",
+          "current_bank_revision": "572f2e4c49aa94fa64b0f0ed4fb26c39f871edab6bb3a6f4acd7829da96a4950",
+          "original_questions_sha256": "3d23d0f5ff150f3bdf0a51bd642b360bf36202a6a56edf95230d6ef7412ebf95",
+          "original_metadata_sha256": "96d0f78b3450a3c09989f4ef61f6176b92691c4e40f2a2745656295bff4a6771",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "f63edb03e73d2e657a82d16b4adfff004b01b9bf2e7bb9f2a93b3a6e3eb4a730",
+        "manifest_sha256": "85e04eb57d0a0ad72c44dddaf3d3584ba6c2a0d106330245c917b26645eee133",
+        "preview_fingerprint": "73e1f18d4781b09a7d80dc0b9c7c713992d06b193870d66fdd27c9b4662ffd74",
+        "proposed_revision": "3f2733287f6e1ab1eda863690e1c3d29a13b9b5a7fe5aa6266798e4dc7b139ed",
+        "changed_questions": [
+          {
+            "qid": "pc_ving_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "469fbc13b200542d2d8689dc1b94fe13d8761063fbb3d45e7c90aada5b0e495a",
+            "after_sha256": "fffb843556edd1ab1a43d5f92ea9d892b61c5920a6a21503b6b1d22bd9ab5966"
+          },
+          {
+            "qid": "pc_ving_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "740bbff517b37c0161a0516d64871934159c9107e2fdb797353f210604a89eac",
+            "after_sha256": "a74447e314fab3b727e2cf2d63c8ef56fdef8b3557d4189f1c64671a58008930"
+          },
+          {
+            "qid": "pc_ving_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "62f9cede26cc7750a9ef0c55dfec94b7de13faa520fc145aa2a4520a3453a461",
+            "after_sha256": "e3931c4fcab1f29ef5162956b88f7f5b1cebb13e50f20a3ec64b73e9f711cca4"
+          },
+          {
+            "qid": "pc_v3_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "6cf73cf10c88abfe8b249acc00e206fd04183d0e26dfe49f140d3800d357237a",
+            "after_sha256": "cda9c8559fe4c1e670c8e7eef122b2cee15f7028f0a9c7baef220b7f46aa5a93"
+          },
+          {
+            "qid": "pc_v3_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "55e494bf7a6576b1965a14eec612a6db9f482afaa3c04cb162391a0052acc551",
+            "after_sha256": "054a59249ee79157a36948637a0dae82565c3e34fa82d42a3f5051d5814f43fd"
+          },
+          {
+            "qid": "pc_v3_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "9da3c7029c6c16b9064fc65c0997be13c8cd07b5de04678034fbb3a6c7eb2cdf",
+            "after_sha256": "3df6d35d5b68d8ee1a14f7b0e155e9adefeef1146929d70082f356f4f95bf899"
+          },
+          {
+            "qid": "pc_having_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "dd846dfeef2cf4721a4162ea1d803ef7aa928168a24e13e4336631ba30f5f1f4",
+            "after_sha256": "163a0ea189ddfb5073dcfdf9484204df6e51bee40b440403120aae7558bde117"
+          },
+          {
+            "qid": "pc_having_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "20389a11d85a30ac3d524d692e9949a56d5866b7fb3cbee538dd1b34abf6ea7c",
+            "after_sha256": "8876679d378ace18cab8c5ac5ceac3684152efa58604433b8adc88cbe7fc4ecd"
+          },
+          {
+            "qid": "pc_having_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "7e0a1840a55db1104d2f174c5108dd8bf5ed4893eab4dcc2111908fc1b2aa35f",
+            "after_sha256": "a571d5537cd8a9d3675b32e692882062753a7664fd80fb589243ebc32a6953ce"
+          },
+          {
+            "qid": "pc_meaning_b1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "6f4d196749f60126ce038fe29dd673f49befa490c6015dce6b0ee5a63b8846b6",
+            "after_sha256": "842988fcb60b92837608d668da6a645f3bbefd89f9f19417acdf66c593d0c186"
+          },
+          {
+            "qid": "pc_meaning_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "890208ebefd40a5790bc03848e87f7d9652e5b4e5c66156179a58c950433ea6c",
+            "after_sha256": "d41c20e4374b350568a8bc1601288ded6870b2ce12e250eba898057cc74cb7dc"
+          },
+          {
+            "qid": "pc_meaning_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "a7aab1a6ee9ce47e7ba4fbfcbadf1382c9fa159a7ee7f599fce95d9a776d5069",
+            "after_sha256": "5ed9ffb0e7a8f9a2f94c0b6c0535433a788b09756f17fb687d3380ad3a51a0fa"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-grammar-for-reading-participle-clauses",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+        "corrected_bank_id": "c927cae1-c9f3-5296-9842-2ad01cf30952",
+        "source_sha256": "f63edb03e73d2e657a82d16b4adfff004b01b9bf2e7bb9f2a93b3a6e3eb4a730",
+        "committed_revision": "b14f4bc47489959a813c429148e3e50e4ef0e7e5c5de4dd2cd360918df4e609c",
+        "current_revision": "b14f4bc47489959a813c429148e3e50e4ef0e7e5c5de4dd2cd360918df4e609c",
+        "current_matches_committed": true,
+        "original_questions_sha256": "3d23d0f5ff150f3bdf0a51bd642b360bf36202a6a56edf95230d6ef7412ebf95",
+        "original_history_sha256": "7b4d9524d9202b1eb28eb0aab5c2c768cf2e403168cb3b991d05bbd82223919f",
+        "canonical": {
+          "canonical_code": "G-grammar-for-reading-participle-clauses",
+          "original_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+          "current_bank_id": "c927cae1-c9f3-5296-9842-2ad01cf30952",
+          "topic_id": "16c0accf-d89a-5245-a755-d7ffde557465",
+          "revision": "b14f4bc47489959a813c429148e3e50e4ef0e7e5c5de4dd2cd360918df4e609c",
+          "current_bank_revision": "3f2733287f6e1ab1eda863690e1c3d29a13b9b5a7fe5aa6266798e4dc7b139ed",
+          "original_questions_sha256": "3d23d0f5ff150f3bdf0a51bd642b360bf36202a6a56edf95230d6ef7412ebf95",
+          "original_metadata_sha256": "96d0f78b3450a3c09989f4ef61f6176b92691c4e40f2a2745656295bff4a6771",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "source_fixture_code": "G-grammar-for-reading-long-sentence-untangling",
+      "read": {
+        "canonical_code": "G-grammar-for-reading-long-sentence-untangling",
+        "original_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+        "current_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+        "topic_id": "e9951768-d22d-585b-9485-112cf2b838da",
+        "revision": "9e64b1a413f5b9d13a66ba3d1fd19d3ac72733d8cc3d25735e2db78ba9393f6c",
+        "current_bank_revision": "854c9a0e962923899ace2e00f664a10a2c4f47d222a912ad15ecb386c86faf1a",
+        "original_questions_sha256": "a612ea1b9ba563dfac8db6b84e5c705aa86d0972ad7ae3fa1ce79585eb7cc332",
+        "original_metadata_sha256": "ae95112948cc2f77a056a014283c18fff19f6786f10fab52ab65abadb686871a",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-grammar-for-reading-long-sentence-untangling",
+          "original_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+          "current_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+          "topic_id": "e9951768-d22d-585b-9485-112cf2b838da",
+          "revision": "9e64b1a413f5b9d13a66ba3d1fd19d3ac72733d8cc3d25735e2db78ba9393f6c",
+          "current_bank_revision": "854c9a0e962923899ace2e00f664a10a2c4f47d222a912ad15ecb386c86faf1a",
+          "original_questions_sha256": "a612ea1b9ba563dfac8db6b84e5c705aa86d0972ad7ae3fa1ce79585eb7cc332",
+          "original_metadata_sha256": "ae95112948cc2f77a056a014283c18fff19f6786f10fab52ab65abadb686871a",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "f272f1d183cb766746c269510f0d226bf88036606dbdb2c3dfa246b716c6fcf0",
+        "manifest_sha256": "8c0a7a893647ecb8b72379d50f5fbc1b045b4fd13a86365c89f0a76e1b0792bc",
+        "preview_fingerprint": "80fae9277267b9df60738841eb86f7507ef1256ff1777f8b40a709c1b83ac8a3",
+        "proposed_revision": "de23ea068e68be1421af98e977f9944049e0ff515d0311e11911e0b5124f865a",
+        "changed_questions": [
+          {
+            "qid": "lsu_main_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "4b1403c227cfd2406f754ce01e81c3ab17508846d2b84fad8d11124384f53a3e",
+            "after_sha256": "4675b108f702a2d086098a51394b7db65ae5424f01708e5456ae6d3ea2214288"
+          },
+          {
+            "qid": "lsu_main_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "8811700f3cbda78ef5668f9b5ba333b690772ca33b9935543dbf8de212c60263",
+            "after_sha256": "5812f81ce3e632d9e0630df0f08a40b6fc00284ae60f7cb4ae215508fa7f3fc6"
+          },
+          {
+            "qid": "lsu_main_i1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "5ae04c078543fabcb0fead9051cfc75fe9f0a25981a0e897b753326f34473608",
+            "after_sha256": "f72764b9d6d510ce5011f806dca7556bf6fa931efd0edf123ad7c13fcdd1410a"
+          },
+          {
+            "qid": "lsu_main_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "0a0d20caa40112aba8e2556e4304872a3d6d42ed0e4cd187987414d55737522a",
+            "after_sha256": "722db1a8b778a46fb691321616105144430058bdf1b0f7e1971525701da8045c"
+          },
+          {
+            "qid": "lsu_main_a1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "6ab19622d49405a31c5dbc1d466abdbb109d6b312649e33bcec65bc8d7e9d4e8",
+            "after_sha256": "9529f52dd175250863ff629891547152b999b051368bee7829fc2518aa8336df"
+          },
+          {
+            "qid": "lsu_main_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "44875cb4eac1bae4a51dc7f1ffc89edab37d06556c933065f1fbad8b7cebf2e8",
+            "after_sha256": "6d2163557d4bb067f6ae40d4020b994569b0ec7552f9cb06a7fcb2d2cc5fea60"
+          },
+          {
+            "qid": "lsu_strip_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "4e6379c4675c54773afa404718201109c7cae0b2cefa63036a7f58075b85ca24",
+            "after_sha256": "ae18957a62d71e72bf12dd9a277fbd0eb2e45d98cf2664325ef9b666657e0ca8"
+          },
+          {
+            "qid": "lsu_strip_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "b87ddb930126cc07ce0b7a2727b3595af35b22f06f10afe36cc2b1ce0eecd6b8",
+            "after_sha256": "a7bb8bf27c5472b0f7f9b18262c84f04bea4c3a5f02f23408a1f09fa0d12c326"
+          },
+          {
+            "qid": "lsu_strip_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7a6710567807d224a90a02bdd32bf8c19674d432378b35f090f438887d18dd9a",
+            "after_sha256": "2b4f9201d5018e460215b2fbbab983e573bd74d40047ce4a01bbaf4304fa2241"
+          },
+          {
+            "qid": "lsu_strip_i2",
+            "fields": [
+              "accept",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "847c2dadfbf64d5005cb9e706e9ed25cc6b161a9691c3f9a2e43cbfce12bb15a",
+            "after_sha256": "f166d9a2aa77b76b36d451a7f79096ed96277e63f863c8701232dd234a3a5cbe"
+          },
+          {
+            "qid": "lsu_strip_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "243152e55fa79597c8f1006e8221b4b75c38a450d794cc669a57d7d2885dce0c",
+            "after_sha256": "25fd79c13e7c8f13b8ce0212eb14ff6322330cdd4dc2ab6f3f929d1988319e32"
+          },
+          {
+            "qid": "lsu_strip_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "2f5271f5c435b2c9553566cb75d0eaba90e594a1b1b5fd5d05e1d95f47a0789b",
+            "after_sha256": "c31ea34e618a0cd3cefe47825bd6f012c828d8195048d6a43db6c8e668d930d9"
+          },
+          {
+            "qid": "lsu_pitfall_i3",
+            "fields": [
+              "accept",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "81227b35b186005830a01a826bdf4a19815aef2fd3370e8e305df904e41cfe95",
+            "after_sha256": "2ebdfb36be9c9ea5098f76235a349f3e2e3b4da075991488d002cbc1cdb25722"
+          },
+          {
+            "qid": "lsu_pitfall_a2",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "33b08aef6d69c256bc515bf6b7c38d8797eb2f740223b3b4f2f4ba2ec915f54f",
+            "after_sha256": "f58d0193c0bf1784c077fa65ac0b6dc46b59e9b85fc568f7b2fd8d6b1f09d6d0"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-grammar-for-reading-long-sentence-untangling",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+        "corrected_bank_id": "3cbf04c2-6adc-5b1e-9c31-46b24832b970",
+        "source_sha256": "f272f1d183cb766746c269510f0d226bf88036606dbdb2c3dfa246b716c6fcf0",
+        "committed_revision": "520f6e7103fe4138ac85c57868ec31c3ed829313d84d7a59d98ee361c661f925",
+        "current_revision": "520f6e7103fe4138ac85c57868ec31c3ed829313d84d7a59d98ee361c661f925",
+        "current_matches_committed": true,
+        "original_questions_sha256": "a612ea1b9ba563dfac8db6b84e5c705aa86d0972ad7ae3fa1ce79585eb7cc332",
+        "original_history_sha256": "b23122e3975d60fb4b3796ce725a91413313b4c06ce2c904ef43c51570db3631",
+        "canonical": {
+          "canonical_code": "G-grammar-for-reading-long-sentence-untangling",
+          "original_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+          "current_bank_id": "3cbf04c2-6adc-5b1e-9c31-46b24832b970",
+          "topic_id": "e9951768-d22d-585b-9485-112cf2b838da",
+          "revision": "520f6e7103fe4138ac85c57868ec31c3ed829313d84d7a59d98ee361c661f925",
+          "current_bank_revision": "de23ea068e68be1421af98e977f9944049e0ff515d0311e11911e0b5124f865a",
+          "original_questions_sha256": "a612ea1b9ba563dfac8db6b84e5c705aa86d0972ad7ae3fa1ce79585eb7cc332",
+          "original_metadata_sha256": "ae95112948cc2f77a056a014283c18fff19f6786f10fab52ab65abadb686871a",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "source_fixture_code": "G-grammar-for-reading-reduced-relative-clauses",
+      "read": {
+        "canonical_code": "G-grammar-for-reading-reduced-relative-clauses",
+        "original_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+        "current_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+        "topic_id": "539f049e-4591-5f9c-b5ee-7ac4e60be79a",
+        "revision": "bf870a4d64edb4091d1d5dc9e0f13298a4c421b65009f7c711a76dc073036b15",
+        "current_bank_revision": "e91ed7aeeb1e8a23d9f0ef0a4921ee7395b5cfb40bcaa8da9906f886ba03c2c3",
+        "original_questions_sha256": "25854a48e0bb7da4d0d8c67901a6ec9ce95f02e81e9604bf1253b9dcb6c9e32a",
+        "original_metadata_sha256": "d329680b692804386fab0449b9e3d116326532c264dd964c9b325eb621b17d84",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-grammar-for-reading-reduced-relative-clauses",
+          "original_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+          "current_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+          "topic_id": "539f049e-4591-5f9c-b5ee-7ac4e60be79a",
+          "revision": "bf870a4d64edb4091d1d5dc9e0f13298a4c421b65009f7c711a76dc073036b15",
+          "current_bank_revision": "e91ed7aeeb1e8a23d9f0ef0a4921ee7395b5cfb40bcaa8da9906f886ba03c2c3",
+          "original_questions_sha256": "25854a48e0bb7da4d0d8c67901a6ec9ce95f02e81e9604bf1253b9dcb6c9e32a",
+          "original_metadata_sha256": "d329680b692804386fab0449b9e3d116326532c264dd964c9b325eb621b17d84",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "f9c0cab2ce4292531dfeda4d8353f6044d5d77d55d38068e8567f83730d3884d",
+        "manifest_sha256": "bb08f18af7392830fac4aa0dc1f88e1fc69d49fc37275f42b25776f2b973e7b0",
+        "preview_fingerprint": "6bb0f338eec61469cc6da12a0ed33af8bd1964170ad6191d6794ce179b83590e",
+        "proposed_revision": "e1613724bfd808baff31a3c93c34f63879c221e9132a94a8972a2e0292661ee8",
+        "changed_questions": [
+          {
+            "qid": "rrc_ving_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "6591b3c9d78b1bb216d7acc8b5208be5f092ac5b8a3595d45c36f8596f33ea36",
+            "after_sha256": "4a08cbec0b8b0d51e6f95b823fe5675460efa0668922fb645e2dcdc5ddd6be35"
+          },
+          {
+            "qid": "rrc_ving_i1",
+            "fields": [
+              "explain",
+              "options"
+            ],
+            "before_sha256": "a71256c683d60ead2305326a88c4653fb8fa032d9341cce9fda376fcfd33992f",
+            "after_sha256": "b62ddbddc97c391e2e786625c93bb7feeefb71adcdaf0acbdfecf03006d80f21"
+          },
+          {
+            "qid": "rrc_ving_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "3a8ee19d8db8b7aaacbc1fc7e5342822c58f975974db8e3578bc6d22f8b9dfc4",
+            "after_sha256": "171e443d13c4a41b58b2f0d8947cf7dcc7701e64cc211cc187d0dce350d0f863"
+          },
+          {
+            "qid": "rrc_v3_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "f4a7b0b9d05b95562c3c930d9aa7045d3ee7273407ea37c6b9be8b2f8db9cfa1",
+            "after_sha256": "37e34d86a92c18b53379169a717d084799b1d574351f9972a2c0df622eb709ca"
+          },
+          {
+            "qid": "rrc_v3_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "ffaa91096eab1dc2e72a1865591cdcf96dc4feb389b02f122776af120650e561",
+            "after_sha256": "6d4372da91c1501e1fd2354d245a32211798a25c79314ba7a2e8857fc67395ef"
+          },
+          {
+            "qid": "rrc_v3_i2",
+            "fields": [
+              "accept",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "2869ab5b4a1049ae6052e7b46022e4a8a151faad750bb21c38c52426e25ec7f0",
+            "after_sha256": "c03e1fa5e4bb863a47e09bb8a39a526ddb14f6dd60ec5b52fa8de04f1ef5a204"
+          },
+          {
+            "qid": "rrc_v3_a1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "928a82124a6bf246b124cc857c75d40ef95c9740dc41431e8d40d81af4d8f3cc",
+            "after_sha256": "cdcac4e5e4f470ba15f6a8117a477ca6abd3586ba184708b43811b16bb50c679"
+          },
+          {
+            "qid": "rrc_main_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "788b06d03b7a4ead68d9a8fcc5815db97acf8c7ced9a8dd978e8b7b761e954d7",
+            "after_sha256": "c5fa96cceb8dc3f2b28fc0ba37150ede4872eec7e89d88d3d45cbe1815c35644"
+          },
+          {
+            "qid": "rrc_main_a1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "ef6b366538717e78fe116ca31ff8c12ed98ea28a4061b141a461a2147642ff3a",
+            "after_sha256": "bd4bf02f181fb5363b364d9a43ebe2e96611080e959c698bfb5d4bd68762a1c2"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-grammar-for-reading-reduced-relative-clauses",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+        "corrected_bank_id": "5b4e73e0-02c9-5e81-a3a3-def597c062af",
+        "source_sha256": "f9c0cab2ce4292531dfeda4d8353f6044d5d77d55d38068e8567f83730d3884d",
+        "committed_revision": "fb192f771c1232f066731dfa129afd4b7823fe45f045f0b244fbe4d9b48ad3a7",
+        "current_revision": "fb192f771c1232f066731dfa129afd4b7823fe45f045f0b244fbe4d9b48ad3a7",
+        "current_matches_committed": true,
+        "original_questions_sha256": "25854a48e0bb7da4d0d8c67901a6ec9ce95f02e81e9604bf1253b9dcb6c9e32a",
+        "original_history_sha256": "0cda436c1e2b025b397439d76c0ede8d5e6ad4a2b9873013d7390771bedaa5ea",
+        "canonical": {
+          "canonical_code": "G-grammar-for-reading-reduced-relative-clauses",
+          "original_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+          "current_bank_id": "5b4e73e0-02c9-5e81-a3a3-def597c062af",
+          "topic_id": "539f049e-4591-5f9c-b5ee-7ac4e60be79a",
+          "revision": "fb192f771c1232f066731dfa129afd4b7823fe45f045f0b244fbe4d9b48ad3a7",
+          "current_bank_revision": "e1613724bfd808baff31a3c93c34f63879c221e9132a94a8972a2e0292661ee8",
+          "original_questions_sha256": "25854a48e0bb7da4d0d8c67901a6ec9ce95f02e81e9604bf1253b9dcb6c9e32a",
+          "original_metadata_sha256": "d329680b692804386fab0449b9e3d116326532c264dd964c9b325eb621b17d84",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-tenses-past-perfect",
+      "source_fixture_code": "G-tenses-past-perfect",
+      "read": {
+        "canonical_code": "G-tenses-past-perfect",
+        "original_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+        "current_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+        "topic_id": "85d78e9e-8aff-5120-b916-f4a07a344a75",
+        "revision": "0130590b6b56585b644eb17f068db8d68b5af5670aa592fb8589915a1f6743d4",
+        "current_bank_revision": "18f0985c0bd136707727816cd12acfff760dfa9b1d23862c3df5a60b5dcd4f6a",
+        "original_questions_sha256": "74af99ea83f1dc84760b0447a90a49440727a30ca637b34043325f16e3488382",
+        "original_metadata_sha256": "d0fa524ea042dd32178b298d7f95412517329e7e921d8d390baea7cf5772e18b",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-tenses-past-perfect",
+          "original_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+          "current_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+          "topic_id": "85d78e9e-8aff-5120-b916-f4a07a344a75",
+          "revision": "0130590b6b56585b644eb17f068db8d68b5af5670aa592fb8589915a1f6743d4",
+          "current_bank_revision": "18f0985c0bd136707727816cd12acfff760dfa9b1d23862c3df5a60b5dcd4f6a",
+          "original_questions_sha256": "74af99ea83f1dc84760b0447a90a49440727a30ca637b34043325f16e3488382",
+          "original_metadata_sha256": "d0fa524ea042dd32178b298d7f95412517329e7e921d8d390baea7cf5772e18b",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "297a5ae369e3bc727601e4c39157b32f43b759d2e33872201cc1df8e58222183",
+        "manifest_sha256": "dc18875c1ada1a3e72c05db2b67267cfb7cb2c64abd4402ec53c01aa42b3bc85",
+        "preview_fingerprint": "90dc8823f6b60da0352726a5ad26fba186f98fdfc88024b6b3406d01dd730cd7",
+        "proposed_revision": "34bda2e86c0ba33ce223f4311877f723fe8f8d25e64036fa6ff2145ec2f488a4",
+        "changed_questions": [
+          {
+            "qid": "pqp_form_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "2c3b8b612616010a7f8c776a477bfc526d5550fc5783f8aba8911713dd4f7fcd",
+            "after_sha256": "b620fde93cc9778a0e4fe71fd2151f724f86a314a7982da5a4790aa20e3d817e"
+          },
+          {
+            "qid": "pqp_form_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7aff4bcff8aca61519ad6dcc78bb2096488377bd921765bfa15c2a7bdf2139e4",
+            "after_sha256": "f16bbfb44e96f7b34fbfcac1c5991eb232e523a655e3e26df8370c1cc4eab3e8"
+          },
+          {
+            "qid": "pqp_form_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "9c9a90447491cba324b4772ea16dfb03b156d7a7c78ab0e506d4808f3161e1f1",
+            "after_sha256": "87760e261a630f9e92548a309ae22096998a1ebb0560504d1a710986d83fe91b"
+          },
+          {
+            "qid": "pqp_seq_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "ce50d824632f41177317a91a50e79367d5ab10a245d352eb749f6bea342cd4a3",
+            "after_sha256": "c6da9e55e3b5c33fe2f26525b6bbc3587ac0915fa9ac94c07f476e9e15947e30"
+          },
+          {
+            "qid": "pqp_seq_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "3c0683cb0669998fe21f65662f2e32894a5bffd8f37902f277baffb5d69a6616",
+            "after_sha256": "f19d31eb7089744a0d04a14ca250ad491ed895b62c0369e3916d8b98cb309aa3"
+          },
+          {
+            "qid": "pqp_bytime_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "1d0f35a09bf90bb0e89e4868121fb0efc33d6b4bbc29fcf1226d779716ab0307",
+            "after_sha256": "1682f693ed135835f466c210cdb5421e7458b66ea2941442132de6643977a8ab"
+          },
+          {
+            "qid": "pqp_bytime_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "b823077fc79982b28522a14df2853a0c7cd40751a2753f696162f94ca91fb758",
+            "after_sha256": "067cc53f4a5a59601981720acec2858ba5a8a5bec8b12dba737185978751917e"
+          },
+          {
+            "qid": "pqp_bytime_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "1bd17814c8d043092c2d4daf79d36d0802de3fbe7890658f93981a8e0f16e23e",
+            "after_sha256": "64ac21e744b7c812d9e32607ab8efa82757197fbdd99fbed472b0334b57239fa"
+          },
+          {
+            "qid": "pqp_bytime_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "e85df169c030d89f218e8efe40551a0c318aff5b443d10a86c1efd71c403cc38",
+            "after_sha256": "54b636b2808e81091305b38e2152b1768d9cf695993dd76557b42b40686f63f7"
+          },
+          {
+            "qid": "pqp_cond3_b1",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "2b7ed4a61a4bf145822fe6562cb47eeb662d1986da3622e5cfcbc8bbc6903ec4",
+            "after_sha256": "d59049fe1a7bf105975b1228f8e3fe6cb216ceb8ca77417682af59a10ef8198a"
+          },
+          {
+            "qid": "pqp_cond3_i1",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "70032b6aa82c975523744cd5c4810b0e92ee3eed2b008eaf6e9cb46df1645ab9",
+            "after_sha256": "f59eb27ac3999160f7b0c477ce16052ea56fb7182bdd41e121ae177559ca28a4"
+          },
+          {
+            "qid": "pqp_cond3_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "19bec675654d8d86a02788c72651b90210cb0833def25faafc0a36540faaaadd",
+            "after_sha256": "ca092f222353b79cdad8dca39a76eeeef49bc40150039945fb75b43034f9d67c"
+          },
+          {
+            "qid": "pqp_reported_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "c86c1c5c7fe6c6f366fbe23d027d8419a0038115efe4b74d182d4daf1ab03a1e",
+            "after_sha256": "a62f2e0555fe4b4de8b6cff379ec0349584bf403bd83e35b86baf24b169c42ab"
+          },
+          {
+            "qid": "pqp_reported_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "66dbbb2ad18e2cfa092a1714d97c709e5bcd481dae39eec4a012bbd34574ed1c",
+            "after_sha256": "e459a779260edeb4f37b5d14da56ce73818c03f26c0424918288ae09ba6629d3"
+          },
+          {
+            "qid": "pqp_reported_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "70e78805c78bd14ab9e352efe9f80c2d34f65b8e6a91197d8ad24ed8425811cd",
+            "after_sha256": "b2054d556c885b0861091feece50b3713f169f3b8ece5f13a7c83707e45e3a81"
+          },
+          {
+            "qid": "pqp_reported_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "fabe6289f3d6ac1e6baa7d43f29a24a5d3947fb6cf61201a03d809aff6e25f7c",
+            "after_sha256": "94e00de06c9ec03d5049c18dabc81ab06e1e6b130c1f8c98277a2df5640ddaaf"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-tenses-past-perfect",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+        "corrected_bank_id": "2747fd3e-c223-5d85-9d72-c982807c737d",
+        "source_sha256": "297a5ae369e3bc727601e4c39157b32f43b759d2e33872201cc1df8e58222183",
+        "committed_revision": "e44845436c287e8997d8ad864a1a3024fc44f3c2be97f7a02b30b24fcb01fdaf",
+        "current_revision": "e44845436c287e8997d8ad864a1a3024fc44f3c2be97f7a02b30b24fcb01fdaf",
+        "current_matches_committed": true,
+        "original_questions_sha256": "74af99ea83f1dc84760b0447a90a49440727a30ca637b34043325f16e3488382",
+        "original_history_sha256": "6552b48a4d4e8fe66d5d5030f2394d93b5cb200ab5aabb8ab10aafb853f1ead7",
+        "canonical": {
+          "canonical_code": "G-tenses-past-perfect",
+          "original_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+          "current_bank_id": "2747fd3e-c223-5d85-9d72-c982807c737d",
+          "topic_id": "85d78e9e-8aff-5120-b916-f4a07a344a75",
+          "revision": "e44845436c287e8997d8ad864a1a3024fc44f3c2be97f7a02b30b24fcb01fdaf",
+          "current_bank_revision": "34bda2e86c0ba33ce223f4311877f723fe8f8d25e64036fa6ff2145ec2f488a4",
+          "original_questions_sha256": "74af99ea83f1dc84760b0447a90a49440727a30ca637b34043325f16e3488382",
+          "original_metadata_sha256": "d0fa524ea042dd32178b298d7f95412517329e7e921d8d390baea7cf5772e18b",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-foundations-phrase-vs-clause",
+      "source_fixture_code": "G-foundations-phrase-vs-clause",
+      "read": {
+        "canonical_code": "G-foundations-phrase-vs-clause",
+        "original_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+        "current_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+        "topic_id": "1e427510-6ace-58fa-ba3b-f50ec5013cc0",
+        "revision": "4b26286b738876b3b4548334b901a2553b9fe27408497ea55732191629ad76a6",
+        "current_bank_revision": "45c3427745a40cab0b7ce0e3efc857b52c9e0327e8538b2bc2ae7f7bce8acafd",
+        "original_questions_sha256": "0b7336bc8e54148ff079db920bb100d679d04410fcc0bd6864f08af4efc559cd",
+        "original_metadata_sha256": "9d38f13699b16382c3180772e7b9803d955bf73631e5dd805ea22af4e59d2675",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-foundations-phrase-vs-clause",
+          "original_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+          "current_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+          "topic_id": "1e427510-6ace-58fa-ba3b-f50ec5013cc0",
+          "revision": "4b26286b738876b3b4548334b901a2553b9fe27408497ea55732191629ad76a6",
+          "current_bank_revision": "45c3427745a40cab0b7ce0e3efc857b52c9e0327e8538b2bc2ae7f7bce8acafd",
+          "original_questions_sha256": "0b7336bc8e54148ff079db920bb100d679d04410fcc0bd6864f08af4efc559cd",
+          "original_metadata_sha256": "9d38f13699b16382c3180772e7b9803d955bf73631e5dd805ea22af4e59d2675",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "66dfacf3a82258a91252cb33c3624967183c9313291b958b02ef64648a619dd9",
+        "manifest_sha256": "c336148456499027f89fb349aaf87fc18039395108292c03657ef8255e45f35d",
+        "preview_fingerprint": "b71f05e4c7b7eb92f673f27275ef52e241048a6c35655403d439345010ed2bef",
+        "proposed_revision": "023e85eb24e1e1f24e6b1ea107688c592144cd58b64d1a3b8871f3e5b611a832",
+        "changed_questions": [
+          {
+            "qid": "pvc_pc_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "930b6522f2d8ada07f28234fe77b6503e86ad19c9e221e540d90871addd3cb19",
+            "after_sha256": "7733616a1659b740ae29cf40a8a00b362fb281c5aa2b935348e67e32bf04f025"
+          },
+          {
+            "qid": "pvc_pc_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "47c9a93345d141bb2a3af236b772c7ffc886e31bee34c222e508d1a02c75fa07",
+            "after_sha256": "507866299c8d0cc3e1ba998edc767f781ea63e30f4aeca3aacbb1f3a10942964"
+          },
+          {
+            "qid": "pvc_pc_i2",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "95a56dacb312a292260abf26be5defc3e7b481b4f28ac25510ca59b9145bd5e3",
+            "after_sha256": "5ebfd7442a7d757421757f13718e89213f637988d787ce21ae0a865fb0fcdc91"
+          },
+          {
+            "qid": "pvc_pc_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "edba311f544ad064a118864d27ce2c91415d6cc526920b7d398fd15b7e478ce2",
+            "after_sha256": "9658cdf393bf79f44ccd2d8bbe1fa1813870a5d4dcd3e6d5c8488ded1b03bb32"
+          },
+          {
+            "qid": "pvc_frag_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "3a7056a78c6a96c0857eaec99165587471f8d194699035eef7b0a117d5bc73f7",
+            "after_sha256": "1de9d998f24cf7c1568ee0784e72e9b0d5d583737b2f377b5a2a0ec283c41bac"
+          },
+          {
+            "qid": "pvc_frag_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "b50136fc02f6909b3533496fb1db125653110e67a90f110699c1a14f1f12de18",
+            "after_sha256": "507824fa2a0fef911c989b91fc24f73226867b3a47ba51b2947ab4469285d3e1"
+          },
+          {
+            "qid": "pvc_frag_a1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "fec5af86a8e124dbbad9922d749a7395c1c2b1ea2b0393c7d53b4b4584261197",
+            "after_sha256": "eeb16ed03dce24861f705caf344db931ca9c9b3b11f32b1436a4531bc7fd35c3"
+          },
+          {
+            "qid": "pvc_run_i2",
+            "fields": [
+              "prompt"
+            ],
+            "before_sha256": "a4739c0bb08854a6b7917154e750426f59df7be1bf59d8c87162dfd3286470cb",
+            "after_sha256": "78fe423842a247c806d7e6fdbec5ba7a5d09a458424733419bde63b5278078d8"
+          },
+          {
+            "qid": "pvc_dang_i2",
+            "fields": [
+              "accept",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "04a31d299c6d88e39d8f2f3c7eebf4df835eb4bd873491d3f2b7a2444107de49",
+            "after_sha256": "65bcb0945281a4c0864ebad2863d8e732596ab89ea499f0569a3b801de912405"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-foundations-phrase-vs-clause",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+        "corrected_bank_id": "1f3ed0df-a0a0-5785-9121-37639cfe555b",
+        "source_sha256": "66dfacf3a82258a91252cb33c3624967183c9313291b958b02ef64648a619dd9",
+        "committed_revision": "a7d4c578dbd6456daae8e83d88b6c758b79cd0917fc8e67c6c4f7d425b782c1f",
+        "current_revision": "a7d4c578dbd6456daae8e83d88b6c758b79cd0917fc8e67c6c4f7d425b782c1f",
+        "current_matches_committed": true,
+        "original_questions_sha256": "0b7336bc8e54148ff079db920bb100d679d04410fcc0bd6864f08af4efc559cd",
+        "original_history_sha256": "620248efe6f10d6e96b93c9c4c5069dd333f01898fd1a8f9f25a1aa36ec90e65",
+        "canonical": {
+          "canonical_code": "G-foundations-phrase-vs-clause",
+          "original_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+          "current_bank_id": "1f3ed0df-a0a0-5785-9121-37639cfe555b",
+          "topic_id": "1e427510-6ace-58fa-ba3b-f50ec5013cc0",
+          "revision": "a7d4c578dbd6456daae8e83d88b6c758b79cd0917fc8e67c6c4f7d425b782c1f",
+          "current_bank_revision": "023e85eb24e1e1f24e6b1ea107688c592144cd58b64d1a3b8871f3e5b611a832",
+          "original_questions_sha256": "0b7336bc8e54148ff079db920bb100d679d04410fcc0bd6864f08af4efc559cd",
+          "original_metadata_sha256": "9d38f13699b16382c3180772e7b9803d955bf73631e5dd805ea22af4e59d2675",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    },
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "source_fixture_code": "G-error-clinic-dangling-modifiers",
+      "read": {
+        "canonical_code": "G-error-clinic-dangling-modifiers",
+        "original_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+        "current_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+        "topic_id": "0fcc389f-fc79-56b1-95d2-46a33480efa5",
+        "revision": "8dd81d626931eba779d3f6b5c54eb0253f9b427f30a6589972f8d4caed1130df",
+        "current_bank_revision": "778f61ddd4a657932fb646edb865299f0bdf33057ebb297240f574b6e036279e",
+        "original_questions_sha256": "1cfa302fd239876bb9b89d83c4832dd1c986d190972acd75bcf32cb4f1e9fed3",
+        "original_metadata_sha256": "aac416fa255f2aa7bb93ae61f8e9e6b037a6d14fe7919b2f10e63ea7de6a59e7",
+        "is_managed": false,
+        "new_starts_enabled": true,
+        "footprint": {
+          "actors": 1,
+          "sessions": 2,
+          "stats": 1,
+          "attempts": 3,
+          "assignments": 1,
+          "open_sessions": 1,
+          "paused_sessions": 1,
+          "classifications": {
+            "provably_unfinished_paused": 1
+          },
+          "authoritative_review_required": false
+        }
+      },
+      "preview": {
+        "canonical": {
+          "canonical_code": "G-error-clinic-dangling-modifiers",
+          "original_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+          "current_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+          "topic_id": "0fcc389f-fc79-56b1-95d2-46a33480efa5",
+          "revision": "8dd81d626931eba779d3f6b5c54eb0253f9b427f30a6589972f8d4caed1130df",
+          "current_bank_revision": "778f61ddd4a657932fb646edb865299f0bdf33057ebb297240f574b6e036279e",
+          "original_questions_sha256": "1cfa302fd239876bb9b89d83c4832dd1c986d190972acd75bcf32cb4f1e9fed3",
+          "original_metadata_sha256": "aac416fa255f2aa7bb93ae61f8e9e6b037a6d14fe7919b2f10e63ea7de6a59e7",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "source_sha256": "8606094f523bdd1a95666ebeb6139a3e71d1efd6f712aecba06e5bfebd20dec4",
+        "manifest_sha256": "477ae949146cb4343d997d709280e69428bb2bf4baed0771fbe2cf62c03f46f7",
+        "preview_fingerprint": "bd208989fa5de0889e55d1934eb507e22184f1886b5de798750fca9922d7cab9",
+        "proposed_revision": "960693d4ab4e943df550cebddb93015bad41b6892debf48ddfd605529eae9794",
+        "changed_questions": [
+          {
+            "qid": "dm_part_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "36dc50d489edf38e0a0399a01861244b6010b8dc6933187e759d6d21222bd2ba",
+            "after_sha256": "c93673363b50374addf91e68934d7adbc88a4159fa85cda69686d9a633f78fed"
+          },
+          {
+            "qid": "dm_part_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "050f348e73c1889ca739930d2ae1da3a9ece4ef6463d7cb3d0f2a023c24da9b1",
+            "after_sha256": "b006338fa3a556b081229b2927a45935451ebbceb6ed7ea42fc45a2103f4b6a6"
+          },
+          {
+            "qid": "dm_part_a1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "aa87c929c578c466d60fb26a197007e6597a5bb85ccf0ed286880ef1c603e1aa",
+            "after_sha256": "3f78403cb1b4e76bd80baf650cdc917cc06bbc4c5812f07c9bae9cdff8dd23eb"
+          },
+          {
+            "qid": "dm_subj_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "8b0147c2aa4da2ed2056c7e5589ef745451852c1cb9c228bb6550581c23b4768",
+            "after_sha256": "71dcfef85052fbd952f706e32fe380b580ce8d6eccb164b219ca185c7af7ca29"
+          },
+          {
+            "qid": "dm_subj_i1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "12c60b977c50370931f0e563702e0373c6d6a622fcfa15c1676744886887b719",
+            "after_sha256": "a48eefbcf33333d7c180d920801a044dd2124e617df6d7a885d2b36a758147d8"
+          },
+          {
+            "qid": "dm_subj_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "8d72763bf29047f18dececd98c1596ee0831ba0fa67638ee0d11b167b8838e56",
+            "after_sha256": "e1d1f7abd050aa79c7f54f5df23dca95ffa3aa2eff075383b6263c9d8be66206"
+          },
+          {
+            "qid": "dm_subj_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "65ed8e9b6b16d6bd99815b08b892a16d82267560f8ca2135c10dd5a5defad425",
+            "after_sha256": "36163ef263c55c3344d637d40575d107e141cd3dbb09f96a4951559e0e5b8b06"
+          },
+          {
+            "qid": "dm_clause_b1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "589a158eaaa89db08343753754600121041bf6f1b83e5ca6a13dfd3759afa82d",
+            "after_sha256": "9573496fdf57657c85677195a7631fddddb5b5378bec15c523884ff5023b1e0f"
+          },
+          {
+            "qid": "dm_clause_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "267045920d4a57585b5f92222e5d8952fb717a5422b36f15bf87840b10178383",
+            "after_sha256": "b2d6d69f8f473e75020dd9e1eae1c2fa6feaea5869d0bc2d980bd32fc7662cc3"
+          },
+          {
+            "qid": "dm_clause_i1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "60313a8a45649aeb93fca4f44939c1d32aece7ac62c76b9ee901d772d91d6d13",
+            "after_sha256": "17f051226ed05112c66d20ccb0e02cf2da708718a8f586de6093d2b59da27621"
+          },
+          {
+            "qid": "dm_clause_i2",
+            "fields": [
+              "accept",
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "7911ec997c12eebb4335113c438208397e05409aa24b8dc9c4d7e9f199db6a0c",
+            "after_sha256": "1254434e282fb3404f2c6b0334973d53ab4cc62a6c533dfb30be9a85c6c04b68"
+          },
+          {
+            "qid": "dm_clause_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "4f3aeecbab0a5d53a1467f847f094401f77b628298a48a81a1290a4773dd0104",
+            "after_sha256": "5e6020ae9497c87e60573b7a17b16ed25e49de94bd8b4274ec034842f1f29b54"
+          },
+          {
+            "qid": "dm_toinf_b1",
+            "fields": [
+              "explain"
+            ],
+            "before_sha256": "5f74159bd7a06ad7a2bc0813ae94030cdd89b52b8aff459bd4e2b4bd367084e9",
+            "after_sha256": "da9d14ebe772855e96209820bb0c6941ac0753b30afec7eb34535be261c204d1"
+          },
+          {
+            "qid": "dm_toinf_b2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "0b81e9cbb5f768500224203b90acc54798fcf0bbc84c5c17134c556080c91026",
+            "after_sha256": "583259f898175d6d838ec1e8b926e09382491b9b0aad5b4b62ff5c67477bcebf"
+          },
+          {
+            "qid": "dm_toinf_i2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "96bd8afaa3f6aaed8d63a12e781f0d86c0056fc57b67969d324d7fcec2a93748",
+            "after_sha256": "2bc1e340e972ea7b07fb4e72b2b19846d733dd51236bfa2ff7b887fbe53e299b"
+          },
+          {
+            "qid": "dm_toinf_a1",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "f499c0d85d523bd125f1b71512e7de52c66166f7d662f81b411e53b7fe758d82",
+            "after_sha256": "5b9e0b04c276923cd4c1a3ad03128811d20670afb59abcfe36b8133bc86b0900"
+          },
+          {
+            "qid": "dm_toinf_a2",
+            "fields": [
+              "explain",
+              "prompt"
+            ],
+            "before_sha256": "f611a56e2342aa7b1a2108a5b5ffd02d02c8ca2c10597d02af51479012288242",
+            "after_sha256": "219f6119f8da221a288c46efb49abdcac64227f140b57c0423ae83ff1f45e173"
+          }
+        ],
+        "validation_messages": [
+          "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+        ]
+      },
+      "ack": {
+        "canonical_code": "G-error-clinic-dangling-modifiers",
+        "operation_id": "22222222-2222-4222-8222-222222222222",
+        "outcome": "applied",
+        "original_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+        "corrected_bank_id": "5b536662-94e5-512b-8f6c-0781e244bcf2",
+        "source_sha256": "8606094f523bdd1a95666ebeb6139a3e71d1efd6f712aecba06e5bfebd20dec4",
+        "committed_revision": "a24ad52296c79dfda12832e1d005b792225199595f4c5e3d3132af39ddd7277d",
+        "current_revision": "a24ad52296c79dfda12832e1d005b792225199595f4c5e3d3132af39ddd7277d",
+        "current_matches_committed": true,
+        "original_questions_sha256": "1cfa302fd239876bb9b89d83c4832dd1c986d190972acd75bcf32cb4f1e9fed3",
+        "original_history_sha256": "1428f2a84d7de20ddd4b9cf40cfec85b3e53f128f2ea247f20a5894154aaa367",
+        "canonical": {
+          "canonical_code": "G-error-clinic-dangling-modifiers",
+          "original_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+          "current_bank_id": "5b536662-94e5-512b-8f6c-0781e244bcf2",
+          "topic_id": "0fcc389f-fc79-56b1-95d2-46a33480efa5",
+          "revision": "a24ad52296c79dfda12832e1d005b792225199595f4c5e3d3132af39ddd7277d",
+          "current_bank_revision": "960693d4ab4e943df550cebddb93015bad41b6892debf48ddfd605529eae9794",
+          "original_questions_sha256": "1cfa302fd239876bb9b89d83c4832dd1c986d190972acd75bcf32cb4f1e9fed3",
+          "original_metadata_sha256": "aac416fa255f2aa7bb93ae61f8e9e6b037a6d14fe7919b2f10e63ea7de6a59e7",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 2,
+            "stats": 1,
+            "attempts": 3,
+            "assignments": 1,
+            "open_sessions": 1,
+            "paused_sessions": 1,
+            "classifications": {
+              "provably_unfinished_paused": 1
+            },
+            "authoritative_review_required": false
+          }
+        }
+      }
+    }
+  ],
+  "actual_admin_capture": {
+    "provenance": {
+      "artifact": "grammar-history-admin-public-wire-v1.json",
+      "sha256": "9adcb759a8906ec40afc6ccc3d12a72de3926f4c973f67d3b2fd0127ff853c7a",
+      "boundary": "real task-local PG commit/lifecycle + real ASGI; synthetic Auth and snapshot synchronous reads; no live RLS/publication proof",
+      "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
+      "extraction": "Exact public admin_requests responses/identity fields; raw source is referenced byte-exact from grammar-exact-form-banks.json, no private cohort/history/user or schema data copied."
+    },
+    "actor_id": "71650bf7-0b92-445d-b719-ad283536dce0",
+    "canonical_code": "G-tenses-present-simple",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/admin/quiz/grammar-revisions/G-tenses-present-simple",
+        "status": 200,
+        "response": {
+          "canonical_code": "G-tenses-present-simple",
+          "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+          "current_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+          "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
+          "revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef",
+          "current_bank_revision": "2f1791d0c98f83e498cdb20ac2c9d9ea0443c1c63d99601b8e644009dee8dae9",
+          "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+          "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
+          "is_managed": false,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 1,
+            "stats": 0,
+            "attempts": 0,
+            "assignments": 0,
+            "open_sessions": 1,
+            "paused_sessions": 0,
+            "classifications": {
+              "provably_unfinished_in_progress": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "request_without_source": null,
+        "source_fixture_code": null
+      },
+      {
+        "method": "POST",
+        "path": "/admin/quiz/grammar-revisions/G-tenses-present-simple/preview",
+        "status": 200,
+        "response": {
+          "canonical": {
+            "canonical_code": "G-tenses-present-simple",
+            "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+            "current_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+            "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
+            "revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef",
+            "current_bank_revision": "2f1791d0c98f83e498cdb20ac2c9d9ea0443c1c63d99601b8e644009dee8dae9",
+            "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+            "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
+            "is_managed": false,
+            "new_starts_enabled": true,
+            "footprint": {
+              "actors": 1,
+              "sessions": 1,
+              "stats": 0,
+              "attempts": 0,
+              "assignments": 0,
+              "open_sessions": 1,
+              "paused_sessions": 0,
+              "classifications": {
+                "provably_unfinished_in_progress": 1
+              },
+              "authoritative_review_required": false
+            }
+          },
+          "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
+          "manifest_sha256": "cc5f490add6a475b8638fcf2866f5e07987e7eebd46edfa1e3c9674ef753651c",
+          "preview_fingerprint": "818b1cde40bd0c4c5e9ef2e3a2ec675499fd5b5cf57278952634f163645cc817",
+          "proposed_revision": "f50e9d3b48cb18aa2715d69b451b1151bdf2ceef3acd534ee4053be43c850a0d",
+          "changed_questions": [
+            {
+              "qid": "ps_vspc_a1",
+              "fields": [
+                "answer"
+              ],
+              "before_sha256": "f2bb6fbedf04268cf67c92ecac500ee0a37f3ac1cf35e6b8b13438486430c824",
+              "after_sha256": "fa833eae6026ca6a91672406e23ac1c72b27c2eafcf30aecd39543e212150d4c"
+            }
+          ],
+          "validation_messages": [
+            "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
+          ]
+        },
+        "request_without_source": {
+          "expected_revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef"
+        },
+        "source_fixture_code": "G-tenses-present-simple"
+      },
+      {
+        "method": "POST",
+        "path": "/admin/quiz/grammar-revisions/G-tenses-present-simple/commit",
+        "status": 200,
+        "response": {
+          "canonical_code": "G-tenses-present-simple",
+          "operation_id": "0b36243b-e5f5-4ec3-a735-4e6c64861b59",
+          "outcome": "applied",
+          "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+          "corrected_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+          "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
+          "committed_revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+          "current_revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+          "current_matches_committed": true,
+          "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+          "original_history_sha256": "d155010b070b5f00285fc5b63a1946bbf963a9a3938a18acdd6202b2b5d50fc7",
+          "canonical": {
+            "canonical_code": "G-tenses-present-simple",
+            "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+            "current_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+            "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
+            "revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+            "current_bank_revision": "f50e9d3b48cb18aa2715d69b451b1151bdf2ceef3acd534ee4053be43c850a0d",
+            "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+            "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
+            "is_managed": true,
+            "new_starts_enabled": true,
+            "footprint": {
+              "actors": 1,
+              "sessions": 1,
+              "stats": 0,
+              "attempts": 0,
+              "assignments": 0,
+              "open_sessions": 1,
+              "paused_sessions": 0,
+              "classifications": {
+                "provably_unfinished_in_progress": 1
+              },
+              "authoritative_review_required": false
+            }
+          }
+        },
+        "request_without_source": {
+          "expected_revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef",
+          "preview_fingerprint": "818b1cde40bd0c4c5e9ef2e3a2ec675499fd5b5cf57278952634f163645cc817",
+          "operation_id": "0b36243b-e5f5-4ec3-a735-4e6c64861b59"
+        },
+        "source_fixture_code": "G-tenses-present-simple"
+      },
+      {
+        "method": "POST",
+        "path": "/admin/quiz/grammar-revisions/G-tenses-present-simple/commit",
+        "status": 200,
+        "response": {
+          "canonical_code": "G-tenses-present-simple",
+          "operation_id": "0b36243b-e5f5-4ec3-a735-4e6c64861b59",
+          "outcome": "already_applied",
+          "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+          "corrected_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+          "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
+          "committed_revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+          "current_revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+          "current_matches_committed": true,
+          "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+          "original_history_sha256": "d155010b070b5f00285fc5b63a1946bbf963a9a3938a18acdd6202b2b5d50fc7",
+          "canonical": {
+            "canonical_code": "G-tenses-present-simple",
+            "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+            "current_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+            "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
+            "revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+            "current_bank_revision": "f50e9d3b48cb18aa2715d69b451b1151bdf2ceef3acd534ee4053be43c850a0d",
+            "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+            "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
+            "is_managed": true,
+            "new_starts_enabled": true,
+            "footprint": {
+              "actors": 1,
+              "sessions": 1,
+              "stats": 0,
+              "attempts": 0,
+              "assignments": 0,
+              "open_sessions": 1,
+              "paused_sessions": 0,
+              "classifications": {
+                "provably_unfinished_in_progress": 1
+              },
+              "authoritative_review_required": false
+            }
+          }
+        },
+        "request_without_source": {
+          "expected_revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef",
+          "preview_fingerprint": "818b1cde40bd0c4c5e9ef2e3a2ec675499fd5b5cf57278952634f163645cc817",
+          "operation_id": "0b36243b-e5f5-4ec3-a735-4e6c64861b59"
+        },
+        "source_fixture_code": "G-tenses-present-simple"
+      },
+      {
+        "method": "GET",
+        "path": "/admin/quiz/grammar-revisions/G-tenses-present-simple",
+        "status": 200,
+        "response": {
+          "canonical_code": "G-tenses-present-simple",
+          "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+          "current_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+          "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
+          "revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+          "current_bank_revision": "f50e9d3b48cb18aa2715d69b451b1151bdf2ceef3acd534ee4053be43c850a0d",
+          "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+          "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
+          "is_managed": true,
+          "new_starts_enabled": true,
+          "footprint": {
+            "actors": 1,
+            "sessions": 1,
+            "stats": 0,
+            "attempts": 0,
+            "assignments": 0,
+            "open_sessions": 1,
+            "paused_sessions": 0,
+            "classifications": {
+              "provably_unfinished_in_progress": 1
+            },
+            "authoritative_review_required": false
+          }
+        },
+        "request_without_source": null,
+        "source_fixture_code": null
+      }
+    ]
+  }
+}

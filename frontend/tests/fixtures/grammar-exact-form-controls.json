@@ -1,0 +1,715 @@
+{
+  "provenance": {
+    "academic_frame_sha256": "d4505ca8685299454778126ab26cd4ca75a445b36c840d35ac1a6c66a62c7cf5",
+    "approved_source_manifest_sha256": "004ce84fab271f98d2ae9c5d89c2e958b1038890cc2a931129cd529d50125b3e",
+    "boundary": "Authored academic test targets only; actual question data comes solely from the real-parser bank fixture. No grade/credit outputs supplied."
+  },
+  "controls": [
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_part_i2",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "the candidat",
+          "correct": true,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_subj_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "she rushes",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_clause_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "she has lived",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-error-clinic-dangling-modifiers",
+      "qid": "dm_toinf_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "consumers should recycled",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-foundations-phrase-vs-clause",
+      "qid": "pvc_pc_i2",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "claus",
+          "correct": true,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-foundations-phrase-vs-clause",
+      "qid": "pvc_frag_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "remain",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-foundations-phrase-vs-clause",
+      "qid": "pvc_run_i2",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": ".",
+          "correct": false,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        },
+        {
+          "answer": ",",
+          "correct": false,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        },
+        {
+          "answer": " ; ",
+          "correct": true,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-foundations-phrase-vs-clause",
+      "qid": "pvc_dang_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "she celebrates",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_main_i2",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "governments must implemen",
+          "correct": true,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_strip_i2",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "the results demonstrate",
+          "correct": true,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-long-sentence-untangling",
+      "qid": "lsu_pitfall_i3",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "governments prioritize",
+          "correct": true,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "qid": "pc_ving_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "study economic impacts",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "qid": "pc_v3_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "approving by authorities",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "qid": "pc_having_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "having conduct",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-participle-clauses",
+      "qid": "pc_meaning_i2",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "lacking fund",
+          "correct": true,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "qid": "rrc_ving_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "employing by firms",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "qid": "rrc_v3_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "that was published in journals",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-grammar-for-reading-reduced-relative-clauses",
+      "qid": "rrc_main_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "recommend",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-parts-of-speech-verbs",
+      "qid": "verb_stat_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "understands",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-parts-of-speech-verbs",
+      "qid": "verb_sva_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "boil",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-parts-of-speech-verbs",
+      "qid": "verb_pp_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "build",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-parts-of-speech-verbs",
+      "qid": "verb_link_i2",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "caln",
+          "correct": false,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-sentence-structures-passive-voice",
+      "qid": "pv_form_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "have been solved",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-sentence-structures-passive-voice",
+      "qid": "pv_use_a1",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "have been discovered",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-sentence-structures-passive-voice",
+      "qid": "pv_intr_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "arrives",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-sentence-structures-passive-voice",
+      "qid": "pv_err_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "will be announce",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_form_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "was live",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_form_i3",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "was you doing",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_interrupt_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "was walk",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_interrupt_i3",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "was taking",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_while_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "were take",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_while_i3",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "were increasing",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_stative_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "want",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-continuous",
+      "qid": "pc_stative_i3",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "believe",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-perfect",
+      "qid": "pqp_form_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "has already left",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-perfect",
+      "qid": "pqp_seq_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "has lived",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-perfect",
+      "qid": "pqp_bytime_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "has finished",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-perfect",
+      "qid": "pqp_cond3_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "has been introduced",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-past-perfect",
+      "qid": "pqp_reported_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "has submitted",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_form_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "were you laughing",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_ing_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "are writing",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_trend_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "is becoming",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_temp_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "are working",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-continuous",
+      "qid": "pc_stative_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "want",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_form_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "hasn't been sleeping",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_forsince_i2",
+      "mode": "legacy",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "sinc",
+          "correct": true,
+          "reason": "preserve existing code-read legacy guard/fuzzy outcome; later actual engine differential must confirm"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspp_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "have been working",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_stative_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "has known",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-perfect-continuous",
+      "qid": "ppc_vspc_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "has been experiencing",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_3s_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "wash",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_3s_i3",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "explain",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_dd_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "don't drink",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_dd_i3",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "does you believe",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_truth_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "argues",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_truth_i3",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "close",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_adv_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "often works",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_adv_i3",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "are rarely",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    },
+    {
+      "code": "G-tenses-present-simple",
+      "qid": "ps_vspc_i2",
+      "mode": "exact",
+      "negative_or_legacy_cases": [
+        {
+          "answer": "don't eat",
+          "correct": false,
+          "reason": "outside visibly requested tense/agreement/transform/word cues; not a universal grammaticality verdict"
+        }
+      ]
+    }
+  ]
+}

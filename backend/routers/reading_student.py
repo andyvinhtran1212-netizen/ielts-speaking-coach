@@ -253,6 +253,7 @@ async def list_vocab_passages(
         .eq("library", "l1_vocab")
         .eq("status", "published")
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
     if difficulty:
@@ -413,6 +414,7 @@ async def list_skill_exercises(
         .eq("library", "l2_skill")
         .eq("status", "published")
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
     if difficulty:
@@ -522,8 +524,9 @@ def _strip_solution_from_payload(questions: list[dict]) -> None:
     ship during the test — only the post-submit chữa-bài review surfaces it."""
     for q in questions:
         pl = q.get("payload")
-        if isinstance(pl, dict) and "solution" in pl:
-            pl = dict(pl)
+        if isinstance(pl, dict):
+            from services.mock_player_context import without_private_marking
+            pl = without_private_marking(pl)
             pl.pop("solution", None)
             q["payload"] = pl
 
@@ -581,7 +584,8 @@ def _test_is_public(test: dict) -> bool:
     return bool(test.get("public_practice_enabled")) or not bool(test.get("exam_only"))
 
 
-def _assert_exam_content_allowed(test: dict, user_id, class_item: str | None = None) -> None:
+def _assert_exam_content_allowed(test: dict, user_id, class_item: str | None = None,
+                                 *, purpose="delivery", sitting_id=None, allow_admission=False) -> dict:
     """A test reserved for mock exams is served ONLY to a student sitting one.
 
     Hiding it from the browse list is not enough — a direct link (a bookmark, a
@@ -593,26 +597,25 @@ def _assert_exam_content_allowed(test: dict, user_id, class_item: str | None = N
     404, not 403: to anyone without a sitting the paper does not exist, and
     saying "forbidden" would confirm the test id is real.
     """
-    if _test_is_public(test):
-        return
-    from services import mock_correction_service
-    if mock_correction_service.class_item_entitles_exam_only(
-        user_id, class_item, skill="reading", test_id=test.get("id")
-    ):
-        return
-    from services import mock_exam_service
-    if not mock_exam_service.user_may_open_exam_content(user_id, "reading", test.get("id")):
-        raise HTTPException(404, "Không tìm thấy đề đọc này.")
+    from services.mock_paper_policy import authorize
+    return authorize(supabase_admin, "reading", test["id"], user_id,
+                     purpose=purpose, class_item_id=class_item,
+                     sitting_id=sitting_id, allow_admission=allow_admission)
 
 
 def _build_reading_test_detail(test_id: str, password: str | None = None,
-                               user_id=None, class_item: str | None = None) -> dict:
+                               user_id=None, class_item: str | None = None, sitting_id=None) -> dict:
     """Return the student-safe L3 test bundle with answer keys stripped.
     Enforces the lock gate (F1) then drops the raw metadata (never leak the
     password to the client)."""
     test = dict(_fetch_published_test(test_id))
-    _assert_exam_content_allowed(test, user_id, class_item)
+    decision = _assert_exam_content_allowed(test, user_id, class_item, sitting_id=sitting_id)
     _require_test_unlocked(test, password)
+    from services.mock_paper_policy import owned_delivery_snapshot
+    attempt, snapshot = owned_delivery_snapshot(supabase_admin, "reading", test["id"], user_id, decision)
+    if snapshot is not None:
+        from services.mock_player_context import reading_snapshot_bundle
+        return reading_snapshot_bundle(snapshot, sign_images=_stamp_diagram_image_urls)
     locked = bool(((test.get("metadata") or {}).get("access") or {}).get("locked"))
     test.pop("metadata", None)
     test["locked"] = locked
@@ -736,6 +739,7 @@ def _fetch_in_progress_payload(
     raise_on_missing: bool,
     anon_id: str | None = None,
     class_item: str | None = None,
+    sitting_id: UUID | None = None,
 ) -> dict | None:
     """Return the open in-progress attempt payload for ``test`` if present.
     Owned EITHER by an authenticated user (``user_id``) OR — for share-link
@@ -754,7 +758,7 @@ def _fetch_in_progress_payload(
     earned goes on standing.
     """
     q = supabase_admin.table("reading_test_attempts").select(
-        "id,started_at,status,renderer_affinity,resume_expires_at"
+        "*"
     )
     # Owner filter FIRST (the authed user_id, or the anonymous anon_id token),
     # then test + status. Exactly one ownership filter is applied.
@@ -765,6 +769,8 @@ def _fetch_in_progress_payload(
     q = q.eq("test_id", test["id"]).eq("status", "in_progress")
     if class_item:
         q = q.eq("class_assignment_item_id", class_item)
+    if sitting_id:
+        q = q.eq("sitting_id", str(sitting_id))
     res = (
         q.order("started_at", desc=True)
         .limit(1)
@@ -776,6 +782,13 @@ def _fetch_in_progress_payload(
         return None
 
     row = res.data[0]
+    from services.mock_paper_policy import guard_owned_attempt, attempt_receipt
+    from services.mock_attempt_flags import review_flag_state
+    guard_owned_attempt(supabase_admin, "reading", row, purpose="resume")
+    from services.mock_paper_policy import load_marking_snapshot
+    snapshot = load_marking_snapshot(supabase_admin, "reading", row)
+    if snapshot is not None:
+        test = snapshot["paper_row"]
     persisted_res = (
         supabase_admin.table("reading_attempt_answers")
         .select("q_num,user_answer,answered_at")
@@ -792,6 +805,8 @@ def _fetch_in_progress_payload(
         for a in (persisted_res.data or [])
     ]
     return {
+        **attempt_receipt(row),
+        **review_flag_state(supabase_admin, "reading", row),
         "attempt_id":         row["id"],
         "test_id":            test_id,
         "status":             row["status"],
@@ -828,12 +843,13 @@ async def list_reading_tests(
         raise HTTPException(422, "test_type must be 'mini' or 'full'")
 
     q = (
-        supabase_admin.table("reading_tests")
+        supabase_admin.table("reading_public_practice_catalog")
         .select("id,test_id,title,module,time_limit_minutes,passage_count,"
                 "total_questions,band_target,created_at",
                 count="exact")
         .eq("status", "published")
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
     if module:
@@ -876,6 +892,7 @@ async def get_reading_test(
 async def boot_reading_test(
     test_id: str,
     class_item: str | None = None,
+    sitting_id: UUID | None = None,
     authorization: str | None = Header(default=None),
     x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
 ):
@@ -888,10 +905,10 @@ async def boot_reading_test(
     """
     user = await _require_auth(authorization)
     test = _build_reading_test_detail(
-        test_id, x_reading_password, user["id"], class_item=class_item
+        test_id, x_reading_password, user["id"], class_item=class_item, sitting_id=sitting_id
     )
     in_progress = _fetch_in_progress_payload(
-        user["id"], test_id, test, raise_on_missing=False, class_item=class_item
+        user["id"], test_id, test, raise_on_missing=False, class_item=class_item, sitting_id=sitting_id
     )
     return {"test": test, "in_progress": in_progress}
 
@@ -926,6 +943,7 @@ async def boot_shared_reading_test(
     student-safe bundle (lock bypassed), and — if the caller already holds an
     anon_id for an in-progress attempt on this test — the resume payload."""
     test = _resolve_share(share_token, by_token=True)
+    _assert_exam_content_allowed(test, None, purpose="practice")
     if not _test_is_public(test):
         # A share link is by definition anonymous, so there is no sitting to
         # check — a mock-exam paper can never be entitled through this route.
@@ -935,7 +953,6 @@ async def boot_shared_reading_test(
     test_text_id = test.get("test_id")
     detail = dict(test)
     detail["locked"] = False              # the valid share token IS the grant (bypass F1)
-    detail = _assemble_test_detail(detail)
 
     in_progress = None
     if x_reading_anon:
@@ -943,6 +960,15 @@ async def boot_shared_reading_test(
             None, test_text_id, detail, raise_on_missing=False,
             anon_id=x_reading_anon,
         )
+    if in_progress and in_progress.get("paper_revision") is not None:
+        from services.mock_paper_policy import load_marking_snapshot
+        from services.mock_player_context import reading_snapshot_bundle
+        snapshot = load_marking_snapshot(supabase_admin, "reading", {"id": in_progress["attempt_id"],
+            "test_id": test["id"], "paper_revision": in_progress["paper_revision"]})
+        detail = reading_snapshot_bundle(snapshot, sign_images=_stamp_diagram_image_urls)
+        detail["locked"] = False
+    else:
+        detail = _assemble_test_detail(detail)
     return {"test": detail, "in_progress": in_progress}
 
 
@@ -955,6 +981,8 @@ class _ReadingAttemptStartRequest(BaseModel):
     """
 
     renderer_affinity_protocol: Literal["claim-v1"] | None = None
+    purpose: Literal["practice", "assigned_practice", "mock_delivery"] | None = None
+    mock_sitting_id: UUID | None = None
 
 
 class _ReadingAttemptRendererAffinityRequest(BaseModel):
@@ -975,6 +1003,7 @@ async def start_shared_reading_test_attempt(
     creates an attempt with user_id NULL. Returns attempt_id + anon_id."""
     import uuid as _uuid
     test = _resolve_share(share_token, by_token=True)
+    _assert_exam_content_allowed(test, None, purpose="practice")
     if not _test_is_public(test):
         # Share links are anonymous by definition, so there is no sitting that
         # could entitle this. Gating the share BOOT alone left the start route
@@ -1005,6 +1034,7 @@ async def start_shared_reading_test_attempt(
         "user_id":     None,                       # anonymous
         "anon_id":     anon_id,
         "share_token": share.get("token"),
+        "attempt_purpose": "practice",
         "anon_src":    _hash_anon_src(_client_ip(request)),
         "status":      "in_progress",
         "answers":     [],
@@ -1014,9 +1044,14 @@ async def start_shared_reading_test_attempt(
     affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
     if affinity_aware:
         payload["renderer_affinity"] = None
-    supabase_admin.table("reading_test_attempts").insert(payload).execute()
+    inserted = supabase_admin.table("reading_test_attempts").insert(payload).execute()
     bind_owned_attempt(payload, started=True)
+    from services.mock_paper_policy import attempt_receipt
+    from services.mock_attempt_flags import review_flag_state
+    canonical = inserted.data[0] if inserted.data else payload
     return {
+        **attempt_receipt(canonical),
+        **review_flag_state(supabase_admin, "reading", canonical),
         "attempt_id":         attempt_id,
         "anon_id":            anon_id,             # client MUST keep this (ownership)
         "started_at":         started_at,
@@ -1101,9 +1136,22 @@ async def start_reading_test_attempt(
     # ownership rather than exam entitlement — so a blank submit then hands back
     # the passages, expected answers and solutions (Codex adversarial review,
     # 2026-07-26).
-    _assert_exam_content_allowed(test, user["id"], class_item)
+    decision = _assert_exam_content_allowed(test, user["id"], class_item,
+        purpose=body.purpose if body and body.purpose else "delivery",
+        sitting_id=body.mock_sitting_id if body else None, allow_admission=True)
     _require_test_unlocked(test, x_reading_password)   # F1 gate on start too
     test_uuid = test["id"]
+
+    if decision["attempt_purpose"] == "mock_delivery":
+        from services.mock_paper_policy import admit_mock_attempt
+        admit_start()
+        admitted = admit_mock_attempt(supabase_admin, "reading", test_uuid, user["id"],
+            decision["mock_sitting_id"], affinity_protocol=body.renderer_affinity_protocol if body else None)
+        bind_owned_attempt({"id": admitted["attempt_id"], "test_id": test_uuid,
+            "user_id": user["id"], "status": admitted["status"]}, started=not admitted.get("acquired_existing"))
+        from services.mock_attempt_flags import review_flag_state
+        return {**admitted, **review_flag_state(supabase_admin, "reading", {"id": admitted["attempt_id"]}),
+                "test_id": test_id}
 
     if class_item:
         try:
@@ -1127,6 +1175,7 @@ async def start_reading_test_attempt(
             "id":         attempt_id,
             "test_id":    test_uuid,
             "user_id":    user["id"],
+            "attempt_purpose": decision["attempt_purpose"],
             "status":     "in_progress",
             "answers":    [],
             "started_at": started_at,
@@ -1142,7 +1191,7 @@ async def start_reading_test_attempt(
         if class_item:
             payload["class_assignment_item_id"] = class_item
         try:
-            supabase_admin.table("reading_test_attempts").insert(payload).execute()
+            inserted = supabase_admin.table("reading_test_attempts").insert(payload).execute()
         except Exception as exc:
             if _is_unique_violation(exc):
                 # Another concurrent POST just inserted an in_progress row
@@ -1153,7 +1202,12 @@ async def start_reading_test_attempt(
             raise
 
         bind_owned_attempt(payload, started=True)
+        from services.mock_paper_policy import attempt_receipt
+        from services.mock_attempt_flags import review_flag_state
+        canonical = inserted.data[0] if inserted.data else payload
         return {
+            **attempt_receipt(canonical),
+            **review_flag_state(supabase_admin, "reading", canonical),
             "attempt_id":         attempt_id,
             "test_id":            test_id,
             "status":             "in_progress",
@@ -1300,14 +1354,20 @@ async def submit_reading_test_attempt(
 
     # Resolve the test for the time-limit guard + Academic/GT routing.
     test_uuid = attempt["test_id"]
-    test_res = (
-        supabase_admin.table("reading_tests")
-        .select("id,test_id,time_limit_minutes,module")
-        .eq("id", test_uuid).limit(1).execute()
-    )
-    if not test_res.data:
-        raise HTTPException(500, "Test row cho attempt này đã biến mất.")
-    test_row = test_res.data[0]
+    from services.mock_paper_policy import load_marking_snapshot, guard_owned_attempt
+    guard_owned_attempt(supabase_admin, "reading", attempt, purpose="submit")
+    marking_snapshot = load_marking_snapshot(supabase_admin, "reading", attempt)
+    if marking_snapshot is not None:
+        test_row = marking_snapshot["paper_row"]
+    else:
+        test_res = (
+            supabase_admin.table("reading_tests")
+            .select("id,test_id,time_limit_minutes,module")
+            .eq("id", test_uuid).limit(1).execute()
+        )
+        if not test_res.data:
+            raise HTTPException(500, "Test row cho attempt này đã biến mất.")
+        test_row = test_res.data[0]
 
     # Q5 server-guard: enforce the limit at submit (client countdown is the
     # primary UX layer; this is the backstop).
@@ -1340,31 +1400,35 @@ async def submit_reading_test_attempt(
     if not attempt.get("sitting_id") and elapsed_seconds > limit_seconds + _SUBMIT_GRACE_SECONDS:
         raise HTTPException(422, "Time limit exceeded — attempt expired.")
 
-    # Pull every passage's reading_questions for this test, stamp each row
-    # with its passage's passage_order so the grader's by_part rollup works.
-    passages_res = (
-        supabase_admin.table("reading_passages")
-        .select("id,passage_order")
-        .eq("test_id", test_uuid)
-        .eq("library", "l3_test")
-        .execute()
-    )
-    passages = passages_res.data or []
-    if not passages:
-        raise HTTPException(500, "Test bundle thiếu passage rows.")
-    passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
-
-    q_res = (
-        supabase_admin.table("reading_questions")
-        .select("q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id")
-        .in_("passage_id", list(passage_order_by_id.keys()))
-        .execute()
-    )
-    answer_key = grader.collect_answer_key(q_res.data or [], passage_order_by_id)
     from services import mock_correction_service
-    answer_key = mock_correction_service.apply_scoring_overrides(
-        "reading", test_uuid, answer_key
-    )
+    from services.mock_paper_policy import frozen_answer_key
+    answer_key = frozen_answer_key(supabase_admin, "reading", attempt)
+    if answer_key is None:
+        # Pull every passage's reading_questions for this test, stamp each row
+        # with its passage's passage_order so the grader's by_part rollup works.
+        passages_res = (
+            supabase_admin.table("reading_passages")
+            .select("id,passage_order")
+            .eq("test_id", test_uuid)
+            .eq("library", "l3_test")
+            .execute()
+        )
+        passages = passages_res.data or []
+        if not passages:
+            raise HTTPException(500, "Test bundle thiếu passage rows.")
+        passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
+
+        q_res = (
+            supabase_admin.table("reading_questions")
+            .select("q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id")
+            .in_("passage_id", list(passage_order_by_id.keys()))
+            .execute()
+        )
+        answer_key = grader.collect_answer_key(q_res.data or [], passage_order_by_id)
+        from services import mock_correction_service
+        answer_key = mock_correction_service.apply_scoring_overrides(
+            "reading", test_uuid, answer_key
+        )
 
     # Sprint 20.9 D3 — gather authoritative answers from reading_attempt_answers
     # (where PATCH /answers has been atomically upserting per (attempt, q_num)
@@ -1484,48 +1548,63 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
     a synthetic one with every user answer blank. `attempt_id` is None there,
     and the caller owns all authorisation — this function checks nothing.
     """
+    from services.mock_review_context import (
+        attach_review_web_explanations, context_reference, load_review_snapshot,
+        provenance, question_context,
+    )
+    snapshot = load_review_snapshot(supabase_admin, "reading", attempt)
     test_uuid = attempt["test_id"]
-    test_res = (
-        supabase_admin.table("reading_tests")
-        .select("test_id,title,module")
-        .eq("id", test_uuid).limit(1).execute()
-    )
-    test_row = (test_res.data or [{}])[0]
-
-    passages_res = (
-        supabase_admin.table("reading_passages")
-        .select("id,slug,title,body_markdown,passage_order,metadata")
-        .eq("test_id", test_uuid)
-        .eq("library", "l3_test")
-        .order("passage_order")
-        .execute()
-    )
+    if snapshot is not None:
+        test_row = snapshot["paper_row"]
+        passage_rows = snapshot["source_rows"]
+        question_rows = snapshot["marking_rows"]
+    else:
+        test_res = (
+            supabase_admin.table("reading_tests")
+            .select("test_id,title,module")
+            .eq("id", test_uuid).limit(1).execute()
+        )
+        test_row = (test_res.data or [{}])[0]
+        passages_res = (
+            supabase_admin.table("reading_passages")
+            .select("id,slug,title,body_markdown,passage_order,metadata")
+            .eq("test_id", test_uuid).eq("library", "l3_test")
+            .order("passage_order").execute()
+        )
+        passage_rows = passages_res.data or []
+        passage_ids = [p["id"] for p in passage_rows]
+        question_rows = []
+        if passage_ids:
+            q_res = (
+                supabase_admin.table("reading_questions")
+                .select("id,q_num,question_type,prompt,payload,explanation,passage_id")
+                .in_("passage_id", passage_ids).execute()
+            )
+            question_rows = q_res.data or []
     passages: list[dict] = []
-    for p in (passages_res.data or []):
-        meta = p.pop("metadata", None) or {}
+    for row in passage_rows:
+        # A private snapshot contains full rows: select only rendered fields.
+        p = {key: row.get(key) for key in ("id", "slug", "title", "body_markdown", "passage_order")}
+        meta = row.get("metadata") or {}
         p["translation_vi"] = meta.get("translation_vi")
+        p["context_provenance"] = {key: provenance(value, snapshot,
+            present=(key in meta if key == "translation_vi" else key in row))
+            for key, value in p.items()}
         passages.append(p)
 
     # Per-Q rich solution + prompt/type for context (joined by q_num).
     sol_by_qnum: dict = {}
     ctx_by_qnum: dict = {}
-    passage_ids = [p["id"] for p in passages]
-    if passage_ids:
-        q_res = (
-            supabase_admin.table("reading_questions")
-            .select("q_num,question_type,prompt,payload,explanation,passage_id")
-            .in_("passage_id", passage_ids)
-            .execute()
-        )
-        for q in (q_res.data or []):
-            qn = q.get("q_num")
-            sol = (q.get("payload") or {}).get("solution")
-            if sol:
-                sol_by_qnum[qn] = sol
-            ctx_by_qnum[qn] = {
-                "prompt": q.get("prompt"), "question_type": q.get("question_type"),
-                "explanation": q.get("explanation"),
-            }
+    # URLs are derived afresh from the pinned asset identity. Keep the raw
+    # snapshot untouched so its context digest never includes expiring URLs.
+    question_rows = [dict(row) for row in question_rows]
+    _stamp_diagram_image_urls(question_rows)
+    for q in question_rows:
+        qn = q.get("q_num")
+        payload = q.get("payload") or {}
+        if "solution" in payload:
+            sol_by_qnum[qn] = payload["solution"]
+        ctx_by_qnum[qn] = q
 
     grading = attempt.get("grading_details") or []
     review: list[dict] = []
@@ -1550,6 +1629,15 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
             )
         )
         item["solution"] = sol_by_qnum.get(solution_qn)
+        item["question_context"] = question_context(ctx, snapshot)
+        item["context_provenance"] = {
+            "prompt": provenance(item["prompt"], snapshot, present="prompt" in ctx),
+            "question_type": provenance(item["question_type"], snapshot, present="question_type" in ctx),
+            "explanation": provenance(explanation, snapshot, persisted="explanation" in g,
+                present="explanation" in g or "explanation" in ctx),
+            "solution": provenance(item["solution"], snapshot, present=solution_qn in sol_by_qnum),
+            "question_context": provenance(item["question_context"], snapshot, present=bool(ctx)),
+        }
         # Phase 0.3 — normalized stepper view-model (reconciles rich prose
         # solutions AND plain `explanation` into one stepper shape + surfaces
         # kp_refs). Backward-compatible: `solution` above is kept untouched.
@@ -1566,10 +1654,7 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         if g.get("correct"):
             bucket["correct"] += 1
 
-    from services import mock_correction_service
-    web_access = mock_correction_service.attach_web_explanations(
-        "reading", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
-    )
+    web_access = attach_review_web_explanations("reading", attempt, review, snapshot)
 
     return {
         "attempt_id":       attempt_id,
@@ -1584,6 +1669,7 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         "passages":         passages,
         "review":           review,
         "web_explanation_access": web_access,
+        "context_source": context_reference(snapshot),
     }
 
 @router.get("/test/attempts/{attempt_id}/review")
@@ -1657,6 +1743,7 @@ async def review_reading_test_attempt(
 async def get_in_progress_reading_attempt(
     test_id: str,
     class_item: str | None = None,
+    sitting_id: UUID | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Find the user's open attempt for this test, if any. Used by the exam
@@ -1669,7 +1756,7 @@ async def get_in_progress_reading_attempt(
     user = await _require_auth(authorization)
     test = _fetch_published_test(test_id)
     return _fetch_in_progress_payload(
-        user["id"], test_id, test, raise_on_missing=True, class_item=class_item
+        user["id"], test_id, test, raise_on_missing=True, class_item=class_item, sitting_id=sitting_id
     )
 
 

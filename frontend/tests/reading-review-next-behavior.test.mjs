@@ -9,6 +9,7 @@ import {
   normalizeReadingReview,
   readingEvidenceMatchesTarget,
   readingReviewBackTarget,
+  readingReviewAnswerStatus,
   readingReviewParams,
   readingReviewPrompt,
   readingReviewSkillRows,
@@ -48,6 +49,20 @@ function payload(overrides = {}) {
 }
 
 describe('native Reading review model', () => {
+  test('labels blank responses without overriding the canonical grade or mutating historical rows', () => {
+    for (const [row, expected] of [
+      [{ correct: false, user_answer: '' }, 'blank'],
+      [{ correct: false, user_answer: '  ' }, 'blank'],
+      [{ correct: false, user_answer: 'B' }, 'incorrect'],
+      [{ correct: false, user_answer: '0' }, 'incorrect'],
+      [{ correct: true, user_answer: '' }, 'correct'],
+      [{ correct: true, user_answer: 'A' }, 'correct'],
+    ]) {
+      const before = JSON.stringify(row);
+      assert.equal(readingReviewAnswerStatus(row), expected);
+      assert.equal(JSON.stringify(row), before);
+    }
+  });
   test('parses attempt/admin identities and allowlists the back origin', () => {
     assert.deepEqual(readingReviewParams('?attempt_id=a%2F1&anon=cap&from=mini'), {
       attemptId: 'a/1', adminTestId: null, anonId: 'cap', from: 'mini', sittingId: null,
@@ -101,6 +116,14 @@ describe('native Reading review model', () => {
     assert.equal(out.preview, true);
     assert.equal(out.score, null);
     assert.equal(out.review[0].expected, 'A');
+  });
+
+  test('shows template gaps as answer blanks in direct and restored review prompts', () => {
+    const item = { prompt: '(see summary above)', solution: { question_text: 'a name called {{13}}' } };
+    assert.equal(readingReviewPrompt(item), 'a name called ____');
+    assert.equal(readingReviewPrompt({ prompt: 'The {{ 13 }} label follows {{14}}.' }), 'The ____ label follows ____.');
+    assert.equal(item.solution.question_text, 'a name called {{13}}');
+    assert.equal(readingReviewPrompt({ prompt: 'A direct stem', solution: { question_text: '{{13}}' } }), 'A direct stem');
   });
 
   test('restores completion prompts and grammar deep links safely', () => {

@@ -31,7 +31,10 @@ def schema(probe):
     return probe
 
 
-def now(): return datetime.now(timezone.utc)
+def now():
+    # The migration records and bounds ingestion with the database clock.
+    # Use that same clock for fixtures; a local PG VM can lead the host clock.
+    return datetime.fromisoformat(psql("BEGIN READ ONLY; SELECT clock_timestamp(); COMMIT;"))
 
 
 def aggregate(schema, start, end=None):

@@ -175,6 +175,12 @@ await page.route('**/*', async (route) => {
     else state.answers.delete(Number(body.q_num));
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ attempt_id: ATTEMPT_ID, answer_count: state.answers.size }), headers: cors });
   }
+  if (request.method() === 'GET' && url.pathname === `/api/listening/tests/attempts/${ATTEMPT_ID}/review-flags`) {
+    interceptedApiRequests += 1;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      attempt_id: ATTEMPT_ID, protocol: 'question-cas-v1', review_flags: [],
+    }), headers: cors });
+  }
   if (request.method() === 'POST' && url.pathname === `/api/listening/tests/attempts/${ATTEMPT_ID}/submit`) {
     interceptedApiRequests += 1;
     state.submits += 1; state.status = 'submitted';
@@ -236,7 +242,7 @@ await page.waitForTimeout(100);
 check('terminal partial save blocks finalization', state.submits === 0 && await page.getByText('1 câu chưa lưu được lên máy chủ.').isVisible());
 
 state.rejectQ2 = false;
-await page.getByRole('button', { name: 'Thử lại' }).click();
+await page.locator('.ft-unsaved-note').getByRole('button', { name: 'Thử lại', exact: true }).click();
 await page.waitForFunction(() => document.querySelectorAll('.ft-unsaved-note').length === 0);
 check('manual retry reconciles the missing answer', state.answers.get(2) === 'blue');
 await page.getByRole('button', { name: 'Submit answers' }).click();

@@ -1,0 +1,49 @@
+"""Read independently published synthetic audio without replacing source assets."""
+from functools import lru_cache
+import json
+from pathlib import Path
+from typing import Callable
+
+from fastapi import HTTPException
+from models.listening_source_audio import SourceAudioResponse
+
+CATALOG_PATH = Path(__file__).resolve().parents[1] / "content/listening/80-days-audio-variants-v1.json"
+
+
+@lru_cache(maxsize=1)
+def audio_catalog() -> dict:
+    data = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+    if data.get("schema") != "80-days-audio-variants/1" or [row.get("day") for row in data["days"]] != list(range(1, 81)):
+        raise ValueError("Invalid audio catalog")
+    return data
+
+
+def audio_response(package: dict, lesson: dict, signer: Callable[[str], str | None]) -> dict:
+    catalog = audio_catalog()
+    if (package.get("package_id"), package.get("manifest_sha256")) != (catalog["package_id"], catalog["manifest_sha256"]):
+        raise HTTPException(409, "Bản audio mới chưa được gắn với phiên bản nội dung này.")
+    day = lesson["sequence_num"]
+    if not isinstance(day, int) or not 1 <= day <= 80:
+        raise HTTPException(503, "Thông tin ngày học chưa hợp lệ.")
+    row = catalog["days"][day - 1]
+    if lesson.get("source_lesson_id") != row["source_day_id"]:
+        raise HTTPException(503, "Audio chưa khớp ngày học.")
+    variants = []
+    if original := row["original"]:
+        variants.append({"variant_id": "original", "label_vi": "Bản ghi gốc", "synthetic": False,
+            "duration_seconds": original["duration_seconds"], "url": signer(original["storage_path"]),
+            "note_vi": "Nguồn chỉ có Section 1–2." if original["partial"] else "Bản ghi được giữ nguyên từ nguồn."})
+    new = row["kokoro"]
+    note = ("Track phát âm từ vựng tiếng Anh; không phải hội thoại hoặc bản đọc câu chuyện tiếng Trung."
+            if new["kind"] == "source_vocabulary_pronunciation_extension"
+            else "Giọng tổng hợp đọc lại transcript in trong sách, phân vai theo hội thoại.")
+    note += " " + new["timing_note_vi"] + " Đã kiểm bằng máy; chưa có duyệt nghe của người dùng."
+    if day == 26:
+        note += " Phát âm cụm tiếng Đức chưa được xác minh."
+    if day == 77:
+        note += " Nguồn không có bản ghi gốc cho ngày này."
+    if day in {73, 80}:
+        note += " Một cụm từ lỗi trong transcript in đã được sửa khi đọc theo bằng chứng từ bản ghi gốc."
+    variants.append({"variant_id": "kokoro-v1", "label_vi": "Kokoro · bản đọc mới", "synthetic": True,
+        "duration_seconds": new["duration_seconds"], "url": signer(new["storage_path"]), "note_vi": note})
+    return SourceAudioResponse(day=day, variants=variants).model_dump()

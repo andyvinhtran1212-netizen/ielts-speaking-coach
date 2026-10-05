@@ -130,7 +130,7 @@ it('StrictMode callback-ref reattachment restores the actual signed audio src af
   await screen.findByText('STRICT_SOURCE_TITLE');
   const audio = screen.getByLabelText('Audio của ngày') as HTMLAudioElement;
   // StrictMode really detached this node; this assertion prevents a vacuous reattachment test.
-  expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).toContain(audio);
+  await waitFor(() => expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).toContain(audio));
   expect(audio.isConnected).toBe(true); expect(audio.getAttribute('src')).toBe(signedUrl); expect(audio.controls).toBe(true);
   expect(screen.queryByRole('alert')).toBeNull();
   view.unmount(); expect(audio.getAttribute('src')).toBeNull();

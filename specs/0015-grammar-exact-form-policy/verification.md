@@ -1,5 +1,51 @@
 # Verification
 
+## Current implementation checkpoint — 2026-10-01
+
+Approved base `47fbb311` landed separately before implementation. The current
+implementation base is `0d9b886c`, integrating the Listening80 staging change with
+reviewed task preservation and regenerated API `946acb1e`. The frozen integrated
+backend passed **10089 tests / 38 documented skips** with actual PostgreSQL groups
+required; no Grammar306, Dictation305, Listening304 or Reading PG group was skipped.
+Final frontend gates passed **10591 Node / 0 skips**, **286 React**, strict and legacy
+TypeScript, and the rebuilt production Next bundle. The first Node invocation's
+two interpreter-environment skips are retained; the configured-venv invocation
+ran both. Earlier component receipts and RED runs remain historical evidence.
+
+Actual built Next with synthetic auth/intercepted business traffic passed
+**311/311 Native checks in 64 scenarios**, **134/134 History checks in 9 scenarios**,
+**25/25 Admin flow checks** and **9/9 shared quiz checks**. The Vocab compatibility
+matrix retains 16 snapshots/112 controls. After three scoped Admin CSS fixes,
+actual computed measurements passed the known contrast/44px-target/zero-duration
+checks across 24 state/theme/width snapshots: 1192 supported text records,
+128 outer controls and1696 motion records. **32 native-control contrast UNKNOWN**
+and **8 disabled exemptions** remain separate; no whole-WCAG or physical/manual
+certification is inferred. The minimum supported unrounded contrast is4.505561;
+the minimum control width is44px. Independent source review accepts the exact
+CSS `182ea351` and verifier `5083d38e` deltas, keeping assertions/fixture/engine
+unchanged. History401 ownership, twelve-code Admin coverage and API preservation
+have separate reviewed source evidence. Runtime config was restored exactly.
+
+Actual local PG/ASGI public capture `9adcb759` records scoped Admin commit/replay
+and original/current historical keys; auth and synchronous reads are synthetic
+snapshots. Its503 case withholds one snapshot question without corrupting PG.
+Six historical-read table digests are unchanged. The narrow missing-question
+guard does not identify missing-parent/NULL managed-history markers.
+
+Staging read-only preflight found ledger294,304/305 applied,306 absent and only306
+pending. Relevant prerequisite catalog checks passed, while the raw result remains
+FAIL for five historical ledger filenames; SQL provenance for160/263 is UNKNOWN.
+The twelve canonical codes are missing in that staging footprint; this authorizes
+neither zero-cohort inference nor automatic predecessors/publication. Root's bounded
+migration-risk decision, after-migration preservation/readback, separately reviewed
+predecessors and fresh canonical extras/backup gates remain open.
+
+Spec governance validates17features and its88contract tests pass.
+All22 requirement rows below remain PENDING. Exact-head CI, live principal/grants/
+schema cache, fresh canonical/extras/backup/cutover, exact staging/promotion/
+production and manual evidence are separate gates. No live306 migration, canonical
+cutover or historical regrade has occurred.
+
 ## Requirement coverage
 
 | Requirement | Evidence | Result |
@@ -89,9 +135,10 @@ per-bank original/current IDs/revisions and receipts, old history hashes and rol
 drill. Production promotion must be the exact verified staging SHA. Source PR,
 offline probe, build or unrelated historical green run does not close feature gates.
 
-Status: technical intent/source approved; base landing and every feature requirement PENDING. Baseline read-only
-academic/parser/engine evidence is complete; no matching-policy implementation,
-actual PG policy transaction or deployed acceptance is claimed.
+Status: separate technical/source approval47fbb311 and the reviewed final local
+implementation are established as bounded above. All22 feature requirements,
+exact-head CI, canonical publication and deployed/live/manual acceptance remain
+PENDING; local evidence does not close those gates.
 
 ## Resolved review contract gates — all PENDING
 
@@ -131,8 +178,8 @@ actual PG policy transaction or deployed acceptance is claimed.
   or unapproved second revision. Preserve normalized map hash/copy/readback/receipt.
 
 Feature PASS cannot be inferred from the frozen478 content-source tests, local engine
-negative proof, specification validation or formal review. Actual PG, actual delivered
-Next, a11y/manual/live/exact-SHA gates remain PENDING.
+negative proof, specification validation or formal review. Actual local PG and delivered-Next fixture results are recorded above;
+a11y/manual/live/exact-SHA feature gates remain PENDING.
 
 ## Mandatory reset-stale acceptance — all PENDING
 

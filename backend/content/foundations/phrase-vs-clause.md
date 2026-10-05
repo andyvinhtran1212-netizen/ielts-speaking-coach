@@ -2,7 +2,7 @@
 title: Phrase vs. Clause (Cụm từ và Mệnh đề)
 slug: phrase-vs-clause
 category: foundations
-summary: 'Phrase là nhóm từ có nghĩa nhưng không đủ chủ ngữ và vị ngữ. Clause là nhóm từ có đủ chủ ngữ và vị ngữ. Phân biệt hai khái niệm này giúp bạn hiểu tại sao một câu là đúng hay sai ngữ pháp và xây dựng câu phức tạp hơn một cách tự tin.
+summary: 'Bài này phân biệt cụm từ với mệnh đề hữu hạn (finite clause) có chủ ngữ và động từ hữu hạn, rồi xét mệnh đề độc lập và phụ thuộc. Một số cấu trúc V-ing/to-V còn được phân tích là mệnh đề không hữu hạn trong khung ngữ pháp mở rộng; việc có động từ chưa đủ để một nhóm từ đứng thành câu độc lập.
 
   '
 level: beginner
@@ -25,7 +25,7 @@ related_pages:
 compare_with: []
 order: 3
 status: complete
-last_updated: 2026-04-13
+last_updated: 2026-09-30
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -57,7 +57,7 @@ anchors:
 <!-- anchor: phrase-vs-clause.tom-tat -->
 ## Tóm tắt
 
-**Phrase** = nhóm từ có nghĩa nhưng **thiếu chủ ngữ hoặc vị ngữ** (hoặc cả hai), không thể đứng độc lập thành câu. **Clause** = nhóm từ **có đủ chủ ngữ và vị ngữ**, có thể đứng độc lập hoặc phụ thuộc vào mệnh đề khác.
+**Phrase** là cụm từ có một chức năng trong câu. Trong cách phân tích cơ bản ở bài này, **finite clause** có chủ ngữ và động từ hữu hạn, rồi có thể là mệnh đề độc lập hoặc phụ thuộc. Một số nhóm V-ing/to-V cũng được gọi là **non-finite clause** (mệnh đề không hữu hạn) trong ngữ pháp mở rộng; chúng không tự trở thành câu độc lập chỉ vì có động từ.
 
 <!-- anchor: phrase-vs-clause.tai-sao-quan-trong -->
 ## Tại sao quan trọng
@@ -84,7 +84,7 @@ Một nhóm từ liên quan nhau, có thể có nghĩa, nhưng **không có đ�
 - *running very fast* → Có hành động, nhưng không biết ai làm
 
 ### Clause (Mệnh đề)
-Một nhóm từ **có đủ chủ ngữ (S) và vị ngữ (V)**. Có hai loại:
+Ở đây xét **finite clause** có chủ ngữ (S) và động từ hữu hạn, tức động từ biểu thị thì trong ngữ cảnh. Có hai loại:
 - **Independent clause (Mệnh đề độc lập):** Có thể đứng một mình thành câu hoàn chỉnh
 - **Dependent clause (Mệnh đề phụ):** Có S + V nhưng không đứng độc lập được — cần mệnh đề chính
 
@@ -167,7 +167,7 @@ Mỗi câu hoàn chỉnh phải có ít nhất một independent clause:
 | **Adjective clause** | who, whom, which, that, whose, where, when |
 | **Noun clause** | that, what, which, who, whether, if, how, why, when, where |
 
-**Quy tắc quan trọng:** Nếu nhóm từ bắt đầu bằng các từ nối trên và có S + V → đó là **dependent clause**, không thể đứng một mình.
+**Quy tắc quan trọng:** Xét vai trò của từ mở đầu trong cấu trúc đang đọc. Khi nó làm từ nối/marker của mệnh đề trạng ngữ, quan hệ hoặc nội dung được nhúng, nhóm đó là **dependent clause**. Không suy phụ thuộc chỉ từ chữ đầu: **Who called?** là câu hỏi độc lập, với chủ ngữ who và động từ hữu hạn called.
 
 ## Ví dụ
 
@@ -200,8 +200,8 @@ Phân tích:
 - "**available in cities**" → Adjective phrase
 
 **(Speaking Part 3)** "I think **what concerns people most** is not the technology itself, but **how it's being used**."
-- "**what concerns people most**" → Noun clause (subject)
-- "**how it's being used**" → Noun clause (tân ngữ sau *but*)
+- "**what concerns people most**" → nhóm mệnh đề danh từ làm chủ ngữ của is trong cấu trúc được trích; bên trong nhóm, what là chủ ngữ được viết rõ của concerns, people là tân ngữ.
+- "**how it's being used**" → mệnh đề nội dung làm bổ ngữ vị ngữ sau động từ nối is, đối chiếu với the technology itself trong cấu trúc not ... but ...; but nối hai phần đối chiếu, không nhận một tân ngữ riêng.
 
 <!-- anchor: phrase-vs-clause.loi-thuong-gap -->
 ## Lỗi thường gặp
@@ -218,7 +218,7 @@ Phân tích:
 
 - ❌ SAI (nghĩ là câu hoàn chỉnh): **Running every morning.** *(Chỉ là participial phrase)*
 - ✅ ĐÚNG: **Running every morning keeps me healthy.**
-- **TẠI SAO:** Phrase dù có V-ing vẫn không phải clause vì thiếu chủ ngữ rõ ràng.
+- **TẠI SAO:** V-ing không tự tạo động từ hữu hạn của một câu độc lập. Trong ví dụ sửa, *Running every morning* làm chủ ngữ của động từ hữu hạn *keeps*; có thể phân tích phần V-ing này là mệnh đề không hữu hạn trong khung khác.
 
 ### Lỗi 3: Dùng hai independent clauses liền nhau không có liên từ (Run-on sentence)
 
@@ -249,8 +249,8 @@ Tiếng Việt rất linh hoạt về cấu trúc câu — bạn có thể nói 
 **Mẹo nhận ra clause vs. phrase:**
 1. Tìm **động từ chia** (conjugated verb) trong nhóm từ — has, is, studied, goes, v.v.
 2. Tìm **chủ ngữ** của động từ đó
-3. Nếu có cả hai → **clause**; nếu thiếu một trong hai → **phrase**
-4. Nếu là clause nhưng bắt đầu bằng *because, although, when, if, who, which...* → **dependent clause** → không đứng một mình
+3. Có chủ ngữ và động từ hữu hạn → nhận diện **finite clause**. Với V-ing/to-V, xét chức năng và chủ ngữ ngầm hiểu; không dùng sự thiếu thì để phủ nhận mọi phân tích **non-finite clause**.
+4. Xét chức năng trong cấu trúc: nếu *because, although, when, if, who, which...* làm marker của mệnh đề phụ được nhúng thì nhận diện **dependent clause**. Các wh-word cũng mở câu hỏi độc lập, như **Who called?**, nên không dùng chữ đầu để quyết định một mình.
 
 ## Ứng dụng trong IELTS
 
@@ -310,9 +310,9 @@ Câu Band 7+ chứa: 1 dependent adverb clause + 1 relative clause + 1 adjective
 5. Run-on → "Technology is advancing rapidly**, and** people are adapting."
 
 ## Tóm tắt nhanh
-1. **Phrase** = nhóm từ, thiếu S hoặc V (hoặc cả hai), không đứng độc lập
+1. **Phrase** làm một chức năng trong câu; bài cơ bản này phân biệt nó với **finite clause**, không phủ nhận mệnh đề không hữu hạn
 2. **Independent clause** = có đủ S + V, đứng được một mình thành câu
-3. **Dependent clause** = có S + V nhưng bắt đầu bằng từ nối (*because, although, who, which, that...*) → không đứng độc lập
+3. **Dependent clause** → xét marker của mệnh đề phụ trong cấu trúc đang đọc; wh-word đầu câu cũng có thể mở câu hỏi độc lập, nên không quyết định chỉ từ chữ đầu.
 4. Lỗi phổ biến: dùng dependent clause như câu đơn → **sentence fragment**
 5. Lỗi phổ biến: ghép hai independent clauses không có liên từ → **run-on sentence**
 6. Participial phrase cần chủ ngữ tương ứng trong mệnh đề chính

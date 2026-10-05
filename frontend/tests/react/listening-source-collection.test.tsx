@@ -4,15 +4,31 @@ import { ListeningSourceCollection } from '@/app/(authed-listening)/listening/ie
 import { ListeningSourceDay } from '@/app/(authed-listening)/listening/ielts/80-days/[day]/source-day';
 import { ProgrammeFormRunner } from '@/app/(authed-listening-player)/listening/programmes/form/[testId]/programme-form-runner';
 import { ListeningSourceExplanation } from '@/components/listening-source-explanation';
+import { ListeningLandingBehavior } from '@/app/(authed-listening)/listening/listening-landing-behavior';
 
 const auth = vi.hoisted(() => ({ status: 'signed-in', user: { id: 'source-learner' } }));
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => auth }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  const subscribe = (update: () => void) => {
+    window.addEventListener('popstate', update);
+    window.addEventListener('test:navigation', update);
+    return () => { window.removeEventListener('popstate', update); window.removeEventListener('test:navigation', update); };
+  };
+  return { useSearchParams: () => new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search, () => '')) };
+});
 
 const availability = { questions: 'available', audio: 'missing', transcript: 'available', printed_key: 'missing', explanations: 'reviewed' };
-const block = { block_id: 'matching', part_id: 'part1', kind: 'matching', instruction: { source_en: 'Match each word.', student_vi: 'Nối từ theo số audio.' }, item_ids: ['q7', 'q8'], source_question_numbers: [7, 8], images: [{ asset_id: 'question-image', url: '/signed-question.png', expires_in: 7200, width: 1200, height: 300, alt_vi: 'Bốn từ trong nhóm lựa chọn' }], shared_options: [], description: 'Fragile / Surprise / Fast / Lightful', display_kind: 'practice' };
+const block = { block_id: 'matching', part_id: 'part1', kind: 'matching', instruction: { source_en: 'Match each word.', student_vi: 'Nối từ theo số audio.' }, item_ids: ['q7', 'q8'], source_question_numbers: [7, 8], images: [{ asset_id: 'question-image', url: '/signed-question.png', expires_in: 7200, width: 1200, height: 300, alt_vi: 'Bốn từ trong nhóm lựa chọn' }], shared_options: [], description: 'Fragile / Surprise / Fast / Lightful', display_kind: 'practice', native: { kind: 'questions', text: 'Native shared context', word_bank: ['Fragile', 'Surprise', 'Fast', 'Lightful'], figures: [], questions: [] } };
 
 beforeEach(() => {
+  window.history.replaceState(null, '', '/listening/ielts/80-days');
+  const replaceState = window.history.replaceState.bind(window.history);
+  vi.spyOn(window.history, 'replaceState').mockImplementation((data, unused, url) => {
+    replaceState(data, unused, url);
+    window.dispatchEvent(new Event('test:navigation'));
+  });
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
@@ -63,6 +79,90 @@ it('keeps vocabulary/no-audio days reachable and filters the actual canonical gr
   fireEvent.click(screen.getByRole('button', { name: 'Từ vựng' }));
   expect(screen.queryByText('Mock 7')).toBeNull();
   expect(screen.getByText('Chọn khóa học')).toBeTruthy();
+});
+
+function navigationCollection() {
+  const day = (number: number, group: string) => ({ day: number, lesson_id: `day${number}`, title: `Bài ngày ${number}`, group, availability, practice_item_count: 0, source_position_count: 2, source_only_count: 2, form_count: 0 });
+  return { collection_id: '80-days', groups: [
+    { id: 'short_practice', title: 'Bài nghe ngắn · Day 1–50', days: [day(2, 'short_practice')] },
+    { id: 'teaching', title: 'Luyện kỹ năng · Day 51–60', days: [day(51, 'teaching'), day(52, 'teaching')] },
+    { id: 'vocabulary', title: 'Từ vựng · Day 61–70', days: [day(61, 'vocabulary')] },
+    { id: 'mock', title: 'Đề mô phỏng · Day 71–80', days: [day(77, 'mock')] },
+  ] };
+}
+
+it('keeps group and search through day links, explicit return, Back and reload without writes', async () => {
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/days/52') ? studyDay(52) : navigationCollection());
+  let view = render(<ListeningSourceCollection />);
+  await screen.findByText('Bài ngày 52');
+  fireEvent.click(screen.getByRole('button', { name: 'Luyện kỹ năng · Day 51–60' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Tìm ngày' }), { target: { value: '52' } });
+  expect(window.location.pathname + window.location.search).toBe('/listening/ielts/80-days?group=teaching&q=52');
+  expect(screen.queryByText('Bài ngày 51')).toBeNull();
+  expect(screen.queryByText('Bài ngày 2')).toBeNull();
+  const dayHref = screen.getByRole('link', { name: /Ngày 52/ }).getAttribute('href')!;
+  expect(dayHref).toBe('/listening/ielts/80-days/52?group=teaching&q=52');
+  expect(window.api.getWith).toHaveBeenCalledTimes(1);
+  view.unmount();
+  window.history.pushState(null, '', dayHref);
+  view = render(<ListeningSourceDay day={52} />);
+  await screen.findByText('Ngày 52 đang học');
+  const returnHref = screen.getByRole('link', { name: '← 80 ngày Listening' }).getAttribute('href')!;
+  expect(returnHref).toBe('/listening/ielts/80-days?group=teaching&q=52');
+  expect(screen.getByRole('link', { name: 'Ngày 53 →' }).getAttribute('href')).toBe('/listening/ielts/80-days/53?group=teaching&q=52');
+  await act(async () => {
+    const popped = new Promise<void>((done) => window.addEventListener('popstate', () => done(), { once: true }));
+    window.history.back();
+    await popped;
+  });
+  view.unmount();
+  view = render(<ListeningSourceCollection />);
+  await screen.findByText('Bài ngày 52');
+  expect(screen.getByRole('button', { name: 'Luyện kỹ năng · Day 51–60' }).getAttribute('aria-pressed')).toBe('true');
+  expect((screen.getByRole('textbox', { name: 'Tìm ngày' }) as HTMLInputElement).value).toBe('52');
+  view.unmount();
+  window.history.replaceState(null, '', returnHref);
+  render(<ListeningSourceCollection />);
+  await screen.findByText('Bài ngày 52');
+  expect(screen.queryByText('Bài ngày 51')).toBeNull();
+  expect((screen.getByRole('textbox', { name: 'Tìm ngày' }) as HTMLInputElement).value).toBe('52');
+  expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
+});
+
+it('encodes search text and responds to URL changes while ignoring foreign and duplicate filters', async () => {
+  window.api.getWith = vi.fn(async () => navigationCollection());
+  render(<ListeningSourceCollection />);
+  await screen.findByText('Bài ngày 52');
+  const input = screen.getByRole('textbox', { name: 'Tìm ngày' });
+  fireEvent.change(input, { target: { value: '  ' } });
+  expect((input as HTMLInputElement).value).toBe('  ');
+  fireEvent.change(input, { target: { value: '  ngày 52 & +?  ' } });
+  expect(new URLSearchParams(window.location.search).get('q')).toBe('  ngày 52 & +?  ');
+  await act(async () => { window.history.replaceState(null, '', '/listening/ielts/80-days?group=vocabulary&q=61'); });
+  expect(screen.getByText('Bài ngày 61')).toBeTruthy();
+  expect(screen.queryByText('Bài ngày 52')).toBeNull();
+  await act(async () => { window.history.replaceState(null, '', '/listening/ielts/80-days?from=general&filter=new&group=teaching&group=mock&q=52&q=61&return_to=https://evil.test'); });
+  expect(screen.getByRole('button', { name: 'Tất cả' }).getAttribute('aria-pressed')).toBe('true');
+  expect((input as HTMLInputElement).value).toBe('');
+  expect(screen.getByRole('link', { name: /Ngày 52/ }).getAttribute('href')).toBe('/listening/ielts/80-days/52');
+  expect(screen.getByText('Bài ngày 61')).toBeTruthy();
+  expect(window.api.getWith).toHaveBeenCalledTimes(1);
+  expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
+});
+
+it('routes the three programme cards and a source next action to their own libraries', async () => {
+  window.api.getWith = vi.fn(async () => ({ programmes: [
+    { id: 'ielts-80-days-listening', title: '80 ngày luyện Listening', lesson_count: 80, form_count: 195 },
+    { id: 'general-listening-practice', title: 'General Listening', lesson_count: 12, form_count: 36 },
+    { id: 'ielts-listening-practice', title: 'IELTS Listening', lesson_count: 10, form_count: 30 },
+  ] }));
+  render(<ListeningLandingBehavior />);
+  await screen.findByRole('heading', { name: '80 ngày luyện Listening' });
+  for (const [title, href] of [['80 ngày luyện Listening', '/listening/ielts/80-days'], ['General Listening', '/listening/general'], ['IELTS Listening', '/listening/ielts']]) {
+    expect(screen.getByRole('heading', { name: title }).closest('a')?.getAttribute('href')).toBe(href);
+  }
+  expect(screen.getByRole('link', { name: 'Bắt đầu luyện' }).getAttribute('href')).toBe('/listening/ielts/80-days');
+  expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
 });
 
 it('opens missing-audio study explicitly without starting or completing a practice attempt', async () => {
@@ -126,12 +226,14 @@ it('translates canonical explanation provenance and retains precise evidence ref
 });
 
 it('groups a matching block once, hides solutions until saved reveal, and preserves source numbering', async () => {
-  const sourceQuestions = [7, 8].map((number, index) => ({ q_num: index + 1, source_item_id: `q${number}`, source_display_number: String(number), source_block_id: 'matching', prompt: `Từ audio ${number}`, response_type: 'single_choice', options: { fragile: 'Fragile', fast: 'Fast' } }));
+  const sourceQuestions = [7, 8].map((number, index) => ({ q_num: index + 1, source_item_id: `q${number}`, source_display_number: String(number), source_block_id: 'matching', prompt: `Từ audio ${number}`, visual_url: '/legacy-pdf-crop.png', response_type: 'single_choice', options: { fragile: 'Fragile', fast: 'Fast' } }));
   window.api.postWith = vi.fn(async (url: string) => url.endsWith('/reveal') ? { items: [{ q_num: 1, state: 'unscored', correct: null, first_answer: 'fast', explanation: { answer: 'Fast', why_vi: 'Quick và fast cùng chỉ tốc độ.', evidence: [{ source_kind: 'printed_transcript', pdf_page: 249, line_index_1_based: 6, quote: '7. Quick' }] } }] } : { attempt_id: 'source-attempt', answers: [] });
   window.api.getWith = vi.fn(async (url: string) => url.endsWith('/guided-state') ? { items: [] } : { title: 'Ngày 1 — Part 1', programme_id: 'ielts-80-days-listening', source_day: 1, listening_lesson_id: 'lesson-uuid', audio_granularity: 'whole_day', replay_policy: 'allowed', scoring_policy: 'report_only', audio_url: '/day01.mp3', source_blocks: [block], sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: sourceQuestions } }] }] });
   render(<ProgrammeFormRunner testId="source-form" />);
   await screen.findByText('Từ audio 7');
   expect(screen.getAllByText('Nối từ theo số audio.')).toHaveLength(1);
+  expect(screen.getByText('Native shared context')).toBeTruthy();
+  expect(document.querySelector('img')).toBeNull();
   expect(screen.getByRole('link', { name: '← Bài học' }).getAttribute('href')).toBe('/listening/ielts/80-days/1');
   fireEvent.click(screen.getByRole('button', { name: 'Luyện từng bước' }));
   expect(screen.getByText('Tập trung vào câu 7–8')).toBeTruthy();

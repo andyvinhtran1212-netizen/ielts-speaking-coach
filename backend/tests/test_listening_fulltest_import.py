@@ -232,6 +232,69 @@ def test_build_section_persistence_shapes():
     assert "1" in ex0["payload"]["solutions"]
 
 
+def _synthetic_import_policy(kind, accepted_answers, settings, q_num):
+    """Synthetic metadata exercises transport; it certifies no real source."""
+    return {
+        "version": 1, "policy_id": f"synthetic-import/Q{q_num}/v1", "kind": kind,
+        "accepted_answers": accepted_answers, "settings": settings,
+        "provenance": {
+            "source_item_id": f"synthetic-import/Q{q_num}", "source_sha256": "a" * 64,
+            "item_revision": "synthetic-v1", "reviewer": "synthetic-test-reviewer",
+            "review_status": "ACCEPTED",
+        },
+    }
+
+
+def test_persistence_keeps_authored_q5_q30_q34_policies_and_number_sign_semantics():
+    from services import listening_test_grader as grader
+    from services.mock_response_policy import authored_response_policies
+
+    qp, sol, tim = _load()
+    parsed = imp.parse_fulltest(qp, sol, tim)
+    policies = {
+        5: _synthetic_import_policy("literal", ["travel", "transport"], {}, 5),
+        30: _synthetic_import_policy("number", ["11,000", "11000", "eleven thousand"], {"locale": "en"}, 30),
+        34: _synthetic_import_policy("literal", ["two-dimensional material", "2D material"], {}, 34),
+    }
+    for question in parsed.questions:
+        if question["q_num"] in policies:
+            policy = policies[question["q_num"]]
+            question.update({"answer": policy["accepted_answers"][0], "response_policy": policy})
+    exercises = [row for section in imp.build_section_persistence(parsed, qp)
+                 for row in section["exercise_rows"]]
+    persisted = authored_response_policies("listening", exercises)
+    assert persisted == policies
+    for row in exercises:
+        for answer in row["payload"]["answers"]:
+            if answer["q_num"] in policies:
+                assert answer["response_policy"] == policies[answer["q_num"]]
+                assert answer["response_policy"] is not policies[answer["q_num"]]
+        assert all("response_policy" not in question for question in row["payload"]["questions"])
+    key = grader.collect_answer_key(exercises, pinned_policies=persisted)
+    for response, correct in [("11000", True), ("11,000", True), ("eleven thousand", True), ("-11000", False)]:
+        graded = grader.grade_attempt([{"q_num": 30, "user_answer": response}], key)
+        assert next(question for question in graded["per_question"] if question["q_num"] == 30)["correct"] is correct
+
+
+@pytest.mark.parametrize("failure", ["malformed", "key_mismatch", "dropped_identity"])
+def test_persistence_rejects_invalid_or_incoherent_authored_policy(failure):
+    from services.mock_response_policy import ResponsePolicyError
+
+    qp, sol, tim = _load()
+    parsed = imp.parse_fulltest(qp, sol, tim)
+    question = next(question for question in parsed.questions if question["q_num"] == 30)
+    question.update({"answer": "11,000", "response_policy":
+                     _synthetic_import_policy("number", ["11,000"], {"locale": "en"}, 30)})
+    if failure == "malformed":
+        question["response_policy"]["version"] = 999
+    elif failure == "key_mismatch":
+        question["answer"] = "-11000"
+    else:
+        question["q_num"] = 99
+    with pytest.raises(ResponsePolicyError):
+        imp.build_section_persistence(parsed, qp)
+
+
 def test_v12_full_transcript_parsed_per_section():
     """v1.2: the `# Transcript (bản đọc)` block ingests as the per-section
     display transcript — real values from the pack, not 'block exists'."""

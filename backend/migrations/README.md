@@ -20,15 +20,26 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. In this branch the highest is `307`, so the next new
-migration is `308`. Migration `306` belongs to the concurrent Grammar quiz
-revision and must land on staging before `307` is applied.
+sequence is dense. As of 2026-10-05 this branch's highest is `312`, so the next
+new migration is `313`.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
 historical results; compatible code and explicit staged enablement are separate.
 
-Migration `307` adds assignment-scoped MASTER30 lesson practice attempts and a
+The unapplied Grammar revision candidate was renamed from
+`306_grammar_quiz_revision_cutover.sql` to
+`309_grammar_quiz_revision_cutover.sql` after the independently released Mock
+migrations used 306–308. Its SQL is unchanged; no applied ledger row is renamed
+or baselined. Verify the candidate is still unapplied on the target before
+release; an already applied old filename requires an additive follow-up.
+
+The unapplied assignment candidate was renamed from
+`307_assigned_master30_grammar_lessons.sql` to
+`312_assigned_master30_grammar_lessons.sql` after released Mock migrations used
+306–308. Read-only staging and production ledger checks on 2026-10-05 confirmed
+the old assignment filename was absent and the attempt table did not exist.
+Migration `312` adds assignment-scoped MASTER30 lesson practice attempts and a
 default-off runtime flag. It does not rewrite diagnostic items or learner history.
 
 ## Conventions
@@ -303,8 +314,23 @@ Migration 304 extends the existing Listening package contract for the 80-day
 source collection: lessons may have zero practice forms and transcript timings
 may be absent. It keeps controlled transcript hashes required and preserves the
 existing atomic import, publication and service-role boundaries.
+Migration 306 adds the approved managed Grammar revision/admission boundaries,
+retained private cutover proof and serialized start/progress/reset/end routines.
+It does not publish or replace a bank. Canonical account erasure uses the same
+statement-first scope and only erases that absent owner's personal history;
+bank/question revisions and private audit receipts remain immutable.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
 hosted drift. A pending feature group requires its explicit
 `MIGRATION_FEATURES` opt-in after staging validation.
+
+Mock remediation rolls out as306307 additive migrations, then deployment and
+verification of the exact new backend SHA, then opt-in308
+(`mock_content_remediation_activation`). Before308, attempts remain honest
+legacy rows without frozen marking snapshots; N-1 start/attach/save/submit
+remain compatible. Apply308 only through the locked runner after setting
+`mock_paper.deployed_backend_sha` to that verified40-character SHA in its
+session;308 records the SHA on the service-only activation function. Do not
+include308 in the migration-before-code batch. It activates typed admission
+and frozen snapshots for new work, with no backfill or regrade of old work.

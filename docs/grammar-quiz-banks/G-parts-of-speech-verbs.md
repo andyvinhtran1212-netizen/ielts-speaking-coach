@@ -13,6 +13,10 @@ cooldown: 2
 shuffle_options: true
 words_count: 4
 source: "authored-2026-07"
+text_match_by_qid:
+  verb_stat_i2: exact
+  verb_sva_i2: exact
+  verb_pp_i2: exact
 ---
 
 # ===== item_key 1 · Stative vs Action verbs (xét nghĩa và ngữ cảnh) =====
@@ -52,11 +56,11 @@ input: "choice"
 headword: "verb-stative-action"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Right now, the chef ____ the sauce to check if it needs more salt."
+prompt: "Chọn dạng trình bày hành động nếm đang ở giữa tiến trình ngay lúc này, không phải thói quen của người đầu bếp: Right now, the chef ____ the sauce to check if it needs more salt."
 options: ["is tasting", "tastes", "taste", "is taste"]
 answer: 0
 grammar_article_slug: "verbs"
-explain: "'taste' ở đây là ACTION verb (đang thực hiện hành động nếm), khác với nghĩa stative 'this soup tastes great' (cảm nhận) → dùng -ing được."
+explain: "Chọn 'is tasting' cho hành động nếm thử đang diễn ra được yêu cầu. Taste ở đây mang nghĩa hành động, nên dùng continuous được; không có nghĩa mọi động từ hành động luôn phải continuous. Tastes có thể nêu cách làm thường lệ ở ngữ cảnh khác."
 ---
 
 ---
@@ -66,7 +70,7 @@ input: "text"
 headword: "verb-stative-action"
 skill: "production"
 subtype: "intermediate"
-prompt: "I completely ____ (understand) your concerns about the new policy."
+prompt: "Chia Present Simple: I completely ____ (understand) your concerns about the new policy."
 hint: "chia động từ cho đúng"
 accept: ["understand"]
 case_sensitive: false

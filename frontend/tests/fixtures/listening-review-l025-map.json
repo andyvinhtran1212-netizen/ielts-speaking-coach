@@ -1,0 +1,499 @@
+{
+  "source_path": "/Volumes/Kingston SSD/Code/aver-mock-validation-2026-10-02/revised-packages/ILR-LIS-025/revisions/1.2/staging-private-input-20261005/native-persistence-plan.json",
+  "source_sha256": "90a038d5a7fcc5237367486d745a1ed3943a8540be81b83c2f5ed161320c9d44",
+  "test_uuid": "f9163589-537f-4f48-9288-3d1bdfe5671e",
+  "authored_question": {
+    "q_num": 16,
+    "prompt": "Main hall",
+    "options": [
+      {
+        "text": "",
+        "letter": "A"
+      },
+      {
+        "text": "",
+        "letter": "B"
+      },
+      {
+        "text": "",
+        "letter": "C"
+      },
+      {
+        "text": "",
+        "letter": "D"
+      },
+      {
+        "text": "",
+        "letter": "E"
+      },
+      {
+        "text": "",
+        "letter": "F"
+      },
+      {
+        "text": "",
+        "letter": "G"
+      },
+      {
+        "text": "",
+        "letter": "H"
+      }
+    ],
+    "variant": "plan_label",
+    "id": "8e51c081-607d-447d-8b25-9e8c98948d18:16",
+    "payload": {
+      "answers": [
+        {
+          "q_num": 16,
+          "answer": "A",
+          "alternatives": []
+        },
+        {
+          "q_num": 17,
+          "answer": "E",
+          "alternatives": []
+        },
+        {
+          "q_num": 18,
+          "answer": "C",
+          "alternatives": []
+        },
+        {
+          "q_num": 19,
+          "answer": "D",
+          "alternatives": []
+        },
+        {
+          "q_num": 20,
+          "answer": "B",
+          "alternatives": []
+        }
+      ],
+      "map_svg": "<svg viewBox='0 0 600 400' xmlns='http://www.w3.org/2000/svg'><rect x='80' y='40' width='440' height='320' fill='white' stroke='black' stroke-width='2'/><text x='270' y='380' font-family='Arial' font-size='12' font-style='italic'>Main entrance (south)</text><path d='M 285 360 L 305 360 L 305 350 L 290 350 L 290 345 L 280 355 L 290 365 L 290 360 Z' fill='black'/><rect x='270' y='320' width='60' height='30' fill='white' stroke='black'/><text x='293' y='340' font-family='Arial' font-size='14' font-weight='bold'>F</text><text x='278' y='315' font-family='Arial' font-size='9'>Reg.</text><text x='295' y='220' font-family='Arial' font-size='16' font-weight='bold'>A</text><text x='295' y='90' font-family='Arial' font-size='16' font-weight='bold'>E</text><line x1='80' y1='130' x2='520' y2='130' stroke='black' stroke-width='1'/><line x1='240' y1='130' x2='240' y2='320' stroke='black' stroke-width='1'/><line x1='360' y1='130' x2='360' y2='320' stroke='black' stroke-width='1'/><text x='420' y='240' font-family='Arial' font-size='16' font-weight='bold'>C</text><text x='150' y='240' font-family='Arial' font-size='16' font-weight='bold'>D</text><rect x='100' y='320' width='80' height='30' fill='white' stroke='black'/><text x='130' y='340' font-family='Arial' font-size='14' font-weight='bold'>B</text><rect x='185' y='320' width='50' height='30' fill='white' stroke='black'/><text x='200' y='340' font-family='Arial' font-size='12' font-weight='bold'>G</text><text x='460' y='335' font-family='Arial' font-size='12' font-weight='bold'>H</text></svg>",
+      "variant": "mcq_letter_label",
+      "metadata": {
+        "letter_options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H"
+        ],
+        "map_description": "SmartCity Expo venue. Main entrance at bottom (south). Registration (F) inside the entrance. A is dead centre, the largest single space. E is at the far back, full width. C is on the east side, immediately past registration. D is on the west side, opposite C. B is in the south-west corner near the main entrance. VIP lounge (G) is a small annex adjacent to B. H is a closed back office.",
+        "map_image_custom_prompt": "## AI Image Generation Prompt — Map for ILR-LIS-025 Section 2 Q16-20\n\nGenerate a clean, IELTS Cambridge–style black-and-white **indoor floor plan (top-down architectural view)** for an English-language listening test. The map will be printed on A4 paper and displayed on a web page.\n\n### Visual specifications\n\n- **Style**: Cambridge IELTS textbook map — clean line drawing, mostly black and white with subtle light grey fills only where needed for contrast\n- **View**: strict top-down (plan view), no perspective, no 3D\n- **Aspect ratio**: 4:3 landscape (recommended 1200×900 px or 600×400 SVG viewBox)\n- **Background**: white\n- **Lines**: 2px black borders for major outlines; 1px for internal walls/paths\n- **Font**: Arial / sans-serif, 12pt body, 14pt bold for letter labels\n- **North arrow** in top-left corner (small triangle pointing up with letter 'N')\n- **No colours** other than black, white, light grey\n- **Style reference**: Cambridge IELTS 14-17 series Listening Section 2 maps\n\n### Map context\n\n- **Setting**: Smart city expo briefing (AmE)\n- **Section context**: American host briefing visitors at the entrance to a smart city technology expo\n- **Purpose**: candidates listen to a speaker giving a tour/briefing and must label the locations on this map\n\n### Layout from official description\n\n> SmartCity Expo venue. Main entrance at bottom (south). Registration (F) inside entrance. Main hall (A) dead centre, largest single space. Demo zone (E) at far back, full width. Press lounge (C) east side immediately past registration. Start-up alley (D) west side opposite press lounge. Food court (B) south-west corner near main entrance. VIP lounge (G) small annex adjacent to food court. H is a closed back office.\n\n### Letter labels (must appear on map exactly as specified)\n\n| Letter | What it labels | Position notes (from audio/description) |\n|---|---|---|\n| **A** | Main hall | Dead centre, largest space |\n| **B** | Food court | South-west corner, NOT VIP annex G — place confusion |\n| **C** | Press lounge | East side past registration |\n| **D** | Start-up alley | West opposite press lounge |\n| **E** | Demo zone | Far back, full width |\n| F | (distractor — empty/unlabelled space) | placement implied by surrounding labels |\n| G | (distractor — empty/unlabelled space) | placement implied by surrounding labels |\n| H | (distractor — unlabelled feature) | a closed back office |\n\n### Critical accuracy requirements\n\n1. **Every letter A-H must appear on the map ONCE only** — no duplicates\n2. **Compass orientation**: north at the top of the page. All 'north/south/east/west' positions in the description must match\n3. **Letter positions must be unambiguous** — each letter clearly inside or next to the feature it labels (not floating between two features)\n4. **Labels must NOT contain the location name** — only the letter (e.g. show 'A' inside a building, not 'A — Café')\n5. **Main entrance** clearly marked with text label 'Main entrance' and a small arrow\n6. **Distractor positions** (letters that aren't a tested answer) must occupy plausible empty spaces, not interfere with the tested features\n7. **Scale**: features should be in proportion (a 'large hall' larger than a 'small annex')\n8. **No decorative elements** (people, vehicles, plants) unless explicitly mentioned in description\n\n### Suggested AI image-gen models\n\n- **DALL-E 3 / GPT-image-1**: works for line-art floor plans\n- **Midjourney**: add `--style raw --ar 4:3 --no color --no people` parameters\n- **Stable Diffusion + ControlNet**: use canny edge model with the existing SVG as input for higher fidelity\n- **Best alternative**: render the existing SVG to PNG/JPG directly via `rsvg-convert` or `cairosvg` — guaranteed perfect accuracy\n\n### Verification checklist after generation\n\n- [ ] All 8 letters visible and uniquely placed\n- [ ] North arrow present at top-left\n- [ ] Main entrance labelled and positioned per description\n- [ ] Letter **A** placed at: Dead centre, largest space\n- [ ] Letter **E** placed at: Far back, full width\n- [ ] Letter **C** placed at: East side past registration\n- [ ] Letter **D** placed at: West opposite press lounge\n- [ ] Letter **B** placed at: South-west corner, NOT VIP annex G — place confusion"
+      },
+      "questions": [
+        {
+          "q_num": 16,
+          "prompt": "Main hall",
+          "options": [
+            {
+              "text": "",
+              "letter": "A"
+            },
+            {
+              "text": "",
+              "letter": "B"
+            },
+            {
+              "text": "",
+              "letter": "C"
+            },
+            {
+              "text": "",
+              "letter": "D"
+            },
+            {
+              "text": "",
+              "letter": "E"
+            },
+            {
+              "text": "",
+              "letter": "F"
+            },
+            {
+              "text": "",
+              "letter": "G"
+            },
+            {
+              "text": "",
+              "letter": "H"
+            }
+          ],
+          "variant": "plan_label"
+        },
+        {
+          "q_num": 17,
+          "prompt": "Demo zone",
+          "options": [
+            {
+              "text": "",
+              "letter": "A"
+            },
+            {
+              "text": "",
+              "letter": "B"
+            },
+            {
+              "text": "",
+              "letter": "C"
+            },
+            {
+              "text": "",
+              "letter": "D"
+            },
+            {
+              "text": "",
+              "letter": "E"
+            },
+            {
+              "text": "",
+              "letter": "F"
+            },
+            {
+              "text": "",
+              "letter": "G"
+            },
+            {
+              "text": "",
+              "letter": "H"
+            }
+          ],
+          "variant": "plan_label"
+        },
+        {
+          "q_num": 18,
+          "prompt": "Press lounge",
+          "options": [
+            {
+              "text": "",
+              "letter": "A"
+            },
+            {
+              "text": "",
+              "letter": "B"
+            },
+            {
+              "text": "",
+              "letter": "C"
+            },
+            {
+              "text": "",
+              "letter": "D"
+            },
+            {
+              "text": "",
+              "letter": "E"
+            },
+            {
+              "text": "",
+              "letter": "F"
+            },
+            {
+              "text": "",
+              "letter": "G"
+            },
+            {
+              "text": "",
+              "letter": "H"
+            }
+          ],
+          "variant": "plan_label"
+        },
+        {
+          "q_num": 19,
+          "prompt": "Start-up alley",
+          "options": [
+            {
+              "text": "",
+              "letter": "A"
+            },
+            {
+              "text": "",
+              "letter": "B"
+            },
+            {
+              "text": "",
+              "letter": "C"
+            },
+            {
+              "text": "",
+              "letter": "D"
+            },
+            {
+              "text": "",
+              "letter": "E"
+            },
+            {
+              "text": "",
+              "letter": "F"
+            },
+            {
+              "text": "",
+              "letter": "G"
+            },
+            {
+              "text": "",
+              "letter": "H"
+            }
+          ],
+          "variant": "plan_label"
+        },
+        {
+          "q_num": 20,
+          "prompt": "Food court",
+          "options": [
+            {
+              "text": "",
+              "letter": "A"
+            },
+            {
+              "text": "",
+              "letter": "B"
+            },
+            {
+              "text": "",
+              "letter": "C"
+            },
+            {
+              "text": "",
+              "letter": "D"
+            },
+            {
+              "text": "",
+              "letter": "E"
+            },
+            {
+              "text": "",
+              "letter": "F"
+            },
+            {
+              "text": "",
+              "letter": "G"
+            },
+            {
+              "text": "",
+              "letter": "H"
+            }
+          ],
+          "variant": "plan_label"
+        }
+      ],
+      "solutions": {
+        "16": {
+          "trap": "Bẫy định vị (đánh vào **K8**): F là khu đăng ký ('right inside'); sảnh chính ở 'dead centre' phía trước → A. Đừng nhầm với F.\n\n\n---",
+          "vocab": "- **main hall** /meɪn hɔːl/ — principal indoor space at venue; đại sảnh chính\n- **central aisle** /ˈsen.trəl aɪl/ — walkway down middle; lối đi trung tâm\n- **dead centre** /ded ˈsen.tə/ — exactly in the middle (colloquial); chính giữa tuyệt đối",
+          "answer": "A",
+          "script": "```\n[M-AmE-30s-energetic]\nHmm, walk straight ahead from registration through the central aisle, and the first big space you'll reach is the main hall (Q16). It hosts the keynote and the panel debate. It's dead centre on the map.\n```",
+          "skills": "K8 (map/định vị)",
+          "relisten": "Section 2, turn ~8 — speaker `[M-AmE-30s-energetic]`",
+          "paraphrase": "- Main hall location → 'walk straight ahead from registration... dead centre on the map'",
+          "vocab_focus": "- **central aisle** /ˈsen.trəl aɪl/ (n.) — lối đi trung tâm\n- **dead centre** /ded ˈsen.tə/ (cụm) — chính giữa",
+          "why_correct": "_Location cues:_ Straight ahead from registration, dead centre\n\n_EN:_ Drew locates the main hall with 'walk straight ahead from registration through the central aisle' and '**dead centre on the map**'. Registration is F near the south entrance; A is the central area directly ahead. These location cues identify A. The phrase 'dead centre' means 'exactly in the middle'.\n\n_VN:_ Drew xác định sảnh chính bằng hai chỉ dẫn vị trí: đi thẳng từ khu đăng ký qua lối đi trung tâm và '**dead centre on the map**' (chính giữa bản đồ). F là khu đăng ký gần lối vào phía nam; A là khu trung tâm ở phía trước. Hai chỉ dẫn này xác định A. 'Dead centre' nghĩa là 'chính giữa'.",
+          "audio_window": {
+            "end": 707.61,
+            "file": "full_test.mp3",
+            "start": 690.34,
+            "section": "S2"
+          },
+          "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| Main hall location | 'walk straight ahead from registration through the central aisle... dead centre on the map' | 'straight ahead from registration' + 'dead centre' = route + central position |",
+          "translation_vi": "“Đi thẳng từ khu đăng ký qua lối đi trung tâm, không gian lớn đầu tiên bạn tới là sảnh chính. Nơi này tổ chức keynote và tranh luận. Nó nằm chính giữa bản đồ.”",
+          "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym\n- `map_double_constraint` — Map double-constraint — cần 2 directional cues để xác định"
+        },
+        "17": {
+          "trap": "Bẫy định vị (đánh vào **K8**): 'very back' + 'full width' → khu chạy ngang ở cùng phía bắc/sau → E. Phải kết hợp 2 ràng buộc vị trí.\n\n\n---",
+          "vocab": "- **demo zone** /ˈdem.əʊ zəʊn/ — area for technology demonstrations; khu trình diễn công nghệ\n- **running the full width** /ˈrʌn.ɪŋ ðə fʊl wɪdθ/ — extending across entire breadth; trải hết chiều ngang\n- **menagerie** /məˈnædʒ.ər.i/ — collection (here: of demo gadgets — drones, robots); tập hợp đa dạng",
+          "answer": "E",
+          "script": "```\n[M-AmE-30s-energetic]\nEr, beyond the main hall, at the very back of the venue, running the full width, is the demo zone (Q17). That's where the technology demonstrations happen — robots, drones, the full menagerie. Don't miss it.\n```",
+          "skills": "K8 (map/định vị)",
+          "relisten": "Section 2, turn ~9 — speaker `[M-AmE-30s-energetic]`",
+          "paraphrase": "- Demo zone location → 'at the very back of the venue, running the full width'",
+          "vocab_focus": "- **demo zone** /ˈdem.əʊ zəʊn/ (n.) — khu trình diễn\n- **running the full width** /ˈrʌn.ɪŋ ðə fʊl wɪdθ/ (cụm) — chạy hết chiều rộng",
+          "why_correct": "_(From answer key notes):_ Far back, full width\n\n_EN:_ Drew specifies position with two cues: 'beyond the main hall, **at the very back of the venue, running the full width**, is the demo zone'. The combination 'far back + full width' uniquely matches letter E on the map (a long horizontal strip across the rear). 'Beyond the main hall' as direction adds confirmation.\n\n_VN:_ Drew xác định vị trí bằng 2 cues: 'beyond the main hall, **at the very back of the venue, running the full width**, is the demo zone'. Combo 'far back + full width' khớp duy nhất letter E trên map (một dải ngang dài ở rìa sau). 'Beyond the main hall' (đi qua main hall) thêm confirmation. Map double-constraint: vị trí (back) + shape (full width) loại hết các option khác.",
+          "audio_window": {
+            "end": 720.91,
+            "file": "full_test.mp3",
+            "start": 705.64,
+            "section": "S2"
+          },
+          "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| Demo zone location | 'at the very back of the venue, running the full width, is the demo zone' | 'very back' + 'running full width' = position + shape cue |",
+          "translation_vi": "“Vượt qua sảnh chính, ở tận phía sau địa điểm, chạy hết chiều rộng, là khu demo. Đó là nơi diễn ra các buổi trình diễn công nghệ — robot, drone, đủ thứ. Đừng bỏ lỡ.”",
+          "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym\n- `map_double_constraint` — Map double-constraint — cần 2 directional cues để xác định"
+        },
+        "18": {
+          "trap": "Bẫy lẫn vị trí (đánh vào **K8**): bám cả hai điểm tựa 'directly to the right of the main hall' và 'just below the demo zone' → C. H ở dải phía đông bên dưới không nằm ngay dưới E; D nằm bên trái sảnh chính.\n\n\n---",
+          "vocab": "- **press lounge** /pres laʊndʒ/ — media-only area for journalists; phòng dành riêng cho báo chí\n- **accredited journalist** /əˈkred.ɪ.tɪd ˈdʒɜː.nə.lɪst/ — officially credentialed reporter; phóng viên có chứng nhận\n- **east side** /iːst saɪd/ — eastern part of venue; phía đông",
+          "answer": "C",
+          "script": "```\n[M-AmE-30s-energetic]\nWell, the press lounge (Q18) is the room directly to the right of the main hall, just below the demo zone. Accredited journalists only — your standard lanyard won't get you in. Don't try.\n```",
+          "skills": "K8 (map/định vị) + K6",
+          "relisten": "Section 2, turn ~10 — speaker `[M-AmE-30s-energetic]`",
+          "paraphrase": "- Press lounge location → 'the room directly to the right of the main hall, just below the demo zone'",
+          "vocab_focus": "- **press lounge** /pres laʊndʒ/ (n.) — phòng báo chí\n- **accredited** /əˈkred.ɪ.tɪd/ (adj.) — được cấp phép/có thẻ",
+          "why_correct": "_Location cues:_ Room directly right of main hall, just below demo zone\n\n_EN:_ Drew says 'the press lounge is the room directly to the right of the main hall, just below the demo zone'. The main hall is the central area A and the demo zone is the full-width rear area E. C is the room immediately to A's right and directly below E. H is in the lower east strip, with C between it and E, so it does not satisfy these two location cues. The journalist-access restriction describes who may enter, not the room's position.\n\n_VN:_ Drew nói phòng báo chí là 'the room directly to the right of the main hall, just below the demo zone'. Sảnh chính là vùng trung tâm A; khu demo là vùng E chạy hết chiều ngang phía sau. C là căn phòng ngay bên phải A và ngay dưới E. H nằm ở dải phía đông bên dưới, có C ở giữa H và E, nên không thỏa hai chỉ dẫn vị trí. Điều kiện chỉ dành cho nhà báo nói về quyền vào phòng, không phải vị trí phòng.",
+          "audio_window": {
+            "end": 735.31,
+            "file": "full_test.mp3",
+            "start": 718.93,
+            "section": "S2"
+          },
+          "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| Press lounge location | 'the room directly to the right of the main hall, just below the demo zone' | 'directly to the right of the main hall' + 'just below the demo zone' = two anchored position cues |",
+          "translation_vi": "“Vâng, phòng báo chí là căn phòng nằm ngay bên phải sảnh chính, ngay dưới khu demo. Chỉ dành cho nhà báo có thẻ — thẻ thường của bạn không vào được. Đừng thử.”",
+          "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym"
+        },
+        "19": {
+          "trap": "Bẫy lẫn vị trí (đánh vào **K8**): 'opposite press lounge' = đối xứng với C; phải bám 'to the west' → D, không nhầm với phòng báo chí.\n\n\n---",
+          "vocab": "- **start-up alley** /ˈstɑːt.ʌp ˈæl.i/ — section of small startup booths; khu vực startup nhỏ\n- **directly opposite** /dɪˈrekt.li ˈɒp.ə.zɪt/ — exactly across from; đối diện trực tiếp\n- **side room** /saɪd ruːm/ — smaller adjacent room; phòng phụ bên cạnh",
+          "answer": "D",
+          "script": "```\n[M-AmE-30s-energetic]\nSo, um, directly opposite the press lounge — to the west, on your left — is the start-up alley (Q19). Smaller booths from newer companies. The fireside chat I mentioned actually takes place in a side room off start-up alley, not in the main hall, so factor that into your timing.\n```",
+          "skills": "K8 (map/định vị)",
+          "relisten": "Section 2, turn ~11 — speaker `[M-AmE-30s-energetic]`",
+          "paraphrase": "- Start-up alley location → 'directly opposite the press lounge — to the west, on your left'",
+          "vocab_focus": "- **start-up alley** /ˈstɑːt.ʌp ˈæl.i/ (n.) — khu khởi nghiệp\n- **side room** /saɪd ruːm/ (n.) — phòng phụ bên cạnh",
+          "why_correct": "_(From answer key notes):_ West opposite press lounge\n\n_EN:_ Drew anchors start-up alley to the press lounge: '**directly opposite the press lounge — to the west, on your left** — is the start-up alley'. Knowing Q18 (press lounge = C, east), 'directly opposite to the west' places start-up alley at D. The map_double_constraint relies on backward reference to the previous answer.\n\n_VN:_ Drew anchor start-up alley dựa trên press lounge: '**directly opposite the press lounge — to the west, on your left** — is the start-up alley'. Biết Q18 (press lounge = C, east), 'directly opposite + to the west' đặt start-up alley ở D. Map_double_constraint dùng **backward reference** tới câu trước. Bẫy phụ: 'fireside chat takes place in a side room off start-up alley, not in the main hall' là context bổ sung, không ảnh hưởng vị trí.",
+          "audio_window": {
+            "end": 754.81,
+            "file": "full_test.mp3",
+            "start": 733.39,
+            "section": "S2"
+          },
+          "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| Start-up alley location | 'directly opposite the press lounge — to the west, on your left — is the start-up alley' | 'directly opposite Y + to the west' = mirrored position via backward reference |",
+          "translation_vi": "“Đối diện trực tiếp phòng báo chí — về phía tây, bên trái bạn — là khu khởi nghiệp. Các gian nhỏ hơn từ công ty mới. Buổi fireside chat thực ra diễn ra ở phòng phụ kế bên khu khởi nghiệp, không phải sảnh chính.”",
+          "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym"
+        },
+        "20": {
+          "trap": "Bẫy lẫn vị trí (đánh vào **K8**): khu phụ VIP nằm sát food court; audio cảnh báo 'don't confuse them'; bám 'south-west corner, next to the main entrance' → B.\n\n\n---\n\n# Section 3 Deep Dive — Group critique of ethnographic study",
+          "vocab": "- **food court** /fuːd kɔːt/ — multi-vendor eating area; khu ẩm thực\n- **south-west corner** /ˌsaʊθ west ˈkɔː.nə/ — SW corner (compass position); góc tây nam\n- **tucked into** /tʌkt ˈɪn.tuː/ — placed snugly in; nép gọn vào\n- **annex** /ˈæn.eks/ — small adjoining building; công trình phụ liền kề\n- **VIP lounge** /ˌviː.aɪˈpiː laʊndʒ/ — lounge for very important persons; phòng chờ VIP\n- **delegate** /ˈdel.ɪ.ɡət/ — official representative; đại biểu (có quyền truy cập đặc biệt)",
+          "answer": "B",
+          "script": "```\n[M-AmE-30s-energetic]\nUm, and tucked into the south-west corner, next to the main entrance, you'll find the food court (Q20). The smaller annex right next to the food court is just for delegates with extra access — that's the VIP lounge. Don't confuse them.\n```",
+          "skills": "K8 (map/định vị) + K6",
+          "relisten": "Section 2, turn ~12 — speaker `[M-AmE-30s-energetic]`",
+          "paraphrase": "- Food court location → 'tucked into the south-west corner, next to the main entrance'",
+          "vocab_focus": "- **food court** /fuːd kɔːt/ (n.) — khu ẩm thực\n- **VIP lounge** /ˌviːaɪˈpiː laʊndʒ/ (n.) — phòng VIP\n- **tucked into** /tʌkt ˈɪn.tuː/ (cụm) — nép vào",
+          "why_correct": "_(From answer key notes):_ South-west corner, NOT VIP annex G — place confusion\n\n_EN:_ Drew specifies SW corner: 'tucked into the **south-west corner, next to the main entrance**, you'll find the food court'. He then warns about confusing the neighbouring annex: 'The smaller annex right next to the food court is just for delegates with extra access — **that's the VIP lounge. Don't confuse them**'. Food court = main letter B; VIP lounge = adjacent annex G. The explicit 'don't confuse' is the place_confusion warning.\n\n_VN:_ Drew xác định SW corner: 'tucked into the **south-west corner, next to the main entrance**, you'll find the food court'. Sau đó warn về annex bên cạnh: 'The smaller annex right next to the food court is just for delegates with extra access — **that's the VIP lounge. Don't confuse them**'. Food court = letter chính B; VIP lounge = annex G kế bên. Cảnh báo 'don't confuse' là tín hiệu **place_confusion** điển hình. Học viên dễ chọn G vì 'next to' khiến lẫn 2 letters.",
+          "audio_window": {
+            "end": 769.69,
+            "file": "full_test.mp3",
+            "start": 752.84,
+            "section": "S2"
+          },
+          "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| Food court location | 'tucked into the south-west corner, next to the main entrance, you'll find the food court... The smaller annex right next to the food court... that's the VIP lounge. Don't confuse them' | 'don't confuse them' = explicit place_confusion warning |",
+          "translation_vi": "“Nép ở góc tây-nam, kế bên cổng chính, bạn sẽ thấy khu ẩm thực. Khu phụ nhỏ ngay cạnh khu ẩm thực chỉ dành cho đại biểu có quyền vào thêm — đó là phòng VIP. Đừng nhầm hai chỗ.”",
+          "trap_mechanisms": "- `place_confusion` — Lẫn địa điểm — main vs branch, room A vs room B\n- `paraphrase_t2` — Paraphrase tier 2 — restructure phrase"
+        }
+      },
+      "instruction": "Label the plan below. Write the correct letter, A-H, next to questions 16-20.",
+      "audio_windows": {
+        "16": {
+          "end": 707.61,
+          "start": 690.34,
+          "section": "S2"
+        },
+        "17": {
+          "end": 720.91,
+          "start": 705.64,
+          "section": "S2"
+        },
+        "18": {
+          "end": 735.31,
+          "start": 718.93,
+          "section": "S2"
+        },
+        "19": {
+          "end": 754.81,
+          "start": 733.39,
+          "section": "S2"
+        },
+        "20": {
+          "end": 769.69,
+          "start": 752.84,
+          "section": "S2"
+        }
+      },
+      "template_kind": "plan_label",
+      "transcript_anchors": {
+        "16": 9,
+        "17": 10,
+        "18": 11,
+        "19": 12,
+        "20": 13
+      }
+    }
+  },
+  "expected_context": {
+    "question_id": "8e51c081-607d-447d-8b25-9e8c98948d18:16",
+    "instructions": null,
+    "instruction": "Label the plan below. Write the correct letter, A-H, next to questions 16-20.",
+    "options": [
+      {
+        "text": "",
+        "letter": "A"
+      },
+      {
+        "text": "",
+        "letter": "B"
+      },
+      {
+        "text": "",
+        "letter": "C"
+      },
+      {
+        "text": "",
+        "letter": "D"
+      },
+      {
+        "text": "",
+        "letter": "E"
+      },
+      {
+        "text": "",
+        "letter": "F"
+      },
+      {
+        "text": "",
+        "letter": "G"
+      },
+      {
+        "text": "",
+        "letter": "H"
+      }
+    ],
+    "template": null,
+    "max_words": null,
+    "paragraph_labels": null,
+    "labels": null,
+    "image_url": null,
+    "image_alt": null,
+    "template_kind": "plan_label",
+    "variant": "plan_label",
+    "word_limit": null,
+    "word_limit_text": null,
+    "response_type": null,
+    "metadata": {},
+    "context_provenance": {
+      "question_id": "current_content_fallback",
+      "instructions": "unavailable",
+      "instruction": "current_content_fallback",
+      "options": "current_content_fallback",
+      "template": "unavailable",
+      "max_words": "unavailable",
+      "paragraph_labels": "unavailable",
+      "labels": "unavailable",
+      "image_url": "unavailable",
+      "image_alt": "unavailable",
+      "template_kind": "current_content_fallback",
+      "variant": "current_content_fallback",
+      "word_limit": "unavailable",
+      "word_limit_text": "unavailable",
+      "response_type": "unavailable",
+      "metadata": "unavailable",
+      "metadata.flow_direction": "unavailable",
+      "map_svg": "current_content_fallback",
+      "map_image_url": "unavailable"
+    },
+    "map_svg": "<svg viewBox='0 0 600 400' xmlns='http://www.w3.org/2000/svg'><rect x='80' y='40' width='440' height='320' fill='white' stroke='black' stroke-width='2'/><text x='270' y='380' font-family='Arial' font-size='12' font-style='italic'>Main entrance (south)</text><path d='M 285 360 L 305 360 L 305 350 L 290 350 L 290 345 L 280 355 L 290 365 L 290 360 Z' fill='black'/><rect x='270' y='320' width='60' height='30' fill='white' stroke='black'/><text x='293' y='340' font-family='Arial' font-size='14' font-weight='bold'>F</text><text x='278' y='315' font-family='Arial' font-size='9'>Reg.</text><text x='295' y='220' font-family='Arial' font-size='16' font-weight='bold'>A</text><text x='295' y='90' font-family='Arial' font-size='16' font-weight='bold'>E</text><line x1='80' y1='130' x2='520' y2='130' stroke='black' stroke-width='1'/><line x1='240' y1='130' x2='240' y2='320' stroke='black' stroke-width='1'/><line x1='360' y1='130' x2='360' y2='320' stroke='black' stroke-width='1'/><text x='420' y='240' font-family='Arial' font-size='16' font-weight='bold'>C</text><text x='150' y='240' font-family='Arial' font-size='16' font-weight='bold'>D</text><rect x='100' y='320' width='80' height='30' fill='white' stroke='black'/><text x='130' y='340' font-family='Arial' font-size='14' font-weight='bold'>B</text><rect x='185' y='320' width='50' height='30' fill='white' stroke='black'/><text x='200' y='340' font-family='Arial' font-size='12' font-weight='bold'>G</text><text x='460' y='335' font-family='Arial' font-size='12' font-weight='bold'>H</text></svg>",
+    "map_image_url": null
+  }
+}

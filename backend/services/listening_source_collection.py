@@ -81,29 +81,28 @@ def safe_source_block_metadata(block: dict, *, study_opened: bool = False) -> di
     return allowed
 
 
-def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study_opened: bool = False) -> dict:
+def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study_opened: bool = False,
+                      presentation_source: dict | None = None, manifest_sha256: str | None = None,
+                      runtime_questions: list[dict] | None = None) -> dict:
     """Build a new block from safe fields; never echo raw nested authoring JSON."""
     try:
+        from services.listening_source_native import native_presentation, native_instruction_vi
+        source_block = presentation_source if presentation_source is not None else block
+        native = native_presentation(source_block, study_opened=study_opened, manifest_sha256=manifest_sha256,
+                                     runtime_questions=runtime_questions)
+        instruction_vi = native_instruction_vi(source_block, manifest_sha256=manifest_sha256) if native is not None else None
         block = safe_source_block_metadata(block, study_opened=study_opened)
-    except (ValidationError, KeyError, TypeError) as exc:
+        if instruction_vi is not None:
+            block["instruction"]["student_vi"] = instruction_vi
+    except (ValidationError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
-    images = []
-    for asset in block.get("images") or []:
-        if not isinstance(asset, dict) or not isinstance(asset.get("storage_path"), str):
-            raise HTTPException(503, "Thông tin hình nguồn chưa hợp lệ.")
-        path = asset["storage_path"]
-        if not path.startswith("source-collections/") or ".." in path.split("/"):
-            raise HTTPException(503, "Thông tin hình nguồn chưa hợp lệ.")
-        url = signer(path)
-        if not url:
-            raise HTTPException(503, "Không tải được hình nguồn; hãy thử lại.")
-        images.append({"asset_id": asset["asset_id"], "url": url, "expires_in": 7200,
-                       "width": asset["width"], "height": asset["height"], "alt_vi": asset["alt_vi"]})
+    # Archival PDF crops remain source evidence, never learner question content.
+    # SVG bytes are delivered through this authenticated response, not public assets.
     try:
         return SourceBlock.model_validate({
             key: block[key] for key in ("block_id", "part_id", "kind", "instruction", "item_ids",
                 "source_question_numbers", "shared_options", "description", "display_kind", "study_available") if key in block
-        } | {"images": images}).model_dump()
+        } | {"images": [], "native": native}).model_dump()
     except (ValidationError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
 
@@ -164,13 +163,15 @@ def day_response(package: dict, lesson: dict, forms: list[dict], states: dict,
     return {"collection_id": SOURCE_COLLECTION, "package_id": package["package_id"],
         "manifest_sha256": package["manifest_sha256"], **{key: card[key] for key in (
             "day", "lesson_id", "title", "group", "availability", "source_position_count", "practice_item_count", "source_only_count")},
-        "parts": parts, "blocks": [sign_source_block(block, signer) for block in meta["blocks"]],
+        "parts": parts, "blocks": [sign_source_block(block, signer, manifest_sha256=package.get("manifest_sha256"))
+                                    for block in meta["blocks"]],
         "vocabulary_groups": meta.get("vocabulary_groups") or [],
         "source_only_positions": [public_source_position(position, parts)
                                   for position in meta.get("source_only_positions") or []], "partial_data": partial}
 
 
-def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], str | None]) -> dict:
+def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], str | None], *,
+                   manifest_sha256: str | None = None) -> dict:
     meta = source_metadata(lesson)
     study = (lesson.get("metadata") or {}).get("source_study") or {}
     blocks = {block["block_id"]: block for block in meta["blocks"]}
@@ -196,8 +197,17 @@ def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], s
         if resource:
             safe_block["description"] = str(raw.get("description") or "")
         try:
-            selected.append(SourceStudyBlock.model_validate(sign_source_block(safe_block, signer, study_opened=True) | {
-                "items": raw.get("items") or [], "transcript": [] if mixed else raw.get("transcript") or [],
+            native_block = sign_source_block(safe_block, signer, study_opened=True, presentation_source=block,
+                                            manifest_sha256=manifest_sha256)
+            if mixed and native_block.get("native"):
+                # An explicitly opened mixed block contains only excluded study
+                # positions; it must not duplicate eligible practice positions.
+                native_block["native"]["questions"] = [question for question in native_block["native"]["questions"]
+                                                        if question["item_id"] in raw_ids]
+            selected.append(SourceStudyBlock.model_validate(native_block | {
+                "items": [{**item, "explanation": source_explanation(item.get("explanation"), item_id=item.get("item_id"))}
+                          for item in raw.get("items") or []],
+                "transcript": [] if mixed else raw.get("transcript") or [],
             }).model_dump())
         except ValidationError as exc:
             raise HTTPException(503, "Tài liệu đối chiếu chưa hợp lệ.") from exc
@@ -222,11 +232,15 @@ def safe_source_transcript(rows: Any) -> list[dict]:
     return output
 
 
-def source_explanation(raw: Any) -> dict | None:
+def source_explanation(raw: Any, *, item_id: str | None = None) -> dict | None:
     if not isinstance(raw, dict):
         return None
     try:
-        return SourceExplanation.model_validate(raw).model_dump()
+        explanation = SourceExplanation.model_validate(raw).model_dump()
+        if item_id:
+            from services.listening_source_editorial import revised_explanation
+            explanation = SourceExplanation.model_validate(revised_explanation(explanation, item_id)).model_dump()
+        return explanation
     except ValidationError:
         return None
 

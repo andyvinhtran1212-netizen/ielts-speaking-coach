@@ -1776,6 +1776,14 @@ async def admin_upsert_listening_exercise(
     ):
         validated_payload = dict(current_exercise.get("payload") or {})
 
+    from services.mock_response_policy import authored_response_policies, ResponsePolicyError
+    from services.listening_test_grader import collect_answer_key
+    try:
+        policies = authored_response_policies("listening", [{"payload": validated_payload}])
+        collect_answer_key([{"payload": validated_payload}], pinned_policies=policies)
+    except ResponsePolicyError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
     payload = {
         "content_id":    body.content_id,
         "exercise_type": body.exercise_type,
@@ -2461,10 +2469,11 @@ async def admin_patch_listening_test(
 ):
     """Update editable metadata fields on a listening_tests row.
 
-    Allow-list: test_id, title, version, band_target, accent_profile,
-    themes. Only keys present in the request body land in the UPDATE.
+    Metadata-only requests retain the existing field allow-list. Requests
+    containing visibility fields use the serialized policy writer; mixed
+    metadata/policy requests are rejected atomically by its policy allow-list.
     """
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
 
     existing = (
         supabase_admin.table("listening_tests")
@@ -2503,19 +2512,10 @@ async def admin_patch_listening_test(
         update["title"] = title
 
     if body.exam_only is not None:
-        if not body.exam_only:
-            from services import mock_exam_service
-            try:
-                mock_exam_service.assert_can_unreserve("listening", test_id)
-            except mock_exam_service.SittingConflictError as e:
-                raise HTTPException(409, str(e))
-            except mock_exam_service.MockExamError as e:
-                raise HTTPException(503, str(e))
         update["exam_only"] = bool(body.exam_only)
 
     if body.is_public is not None:
         update["is_public"] = bool(body.is_public)
-        update["exam_only"] = False
 
     if body.version is not None:
         update["version"] = body.version.strip() or "1.0"
@@ -2537,6 +2537,13 @@ async def admin_patch_listening_test(
 
     if not update:
         return current
+
+    if "exam_only" in update or "is_public" in update:
+        from services.mock_paper_policy import mutate, unavailable
+        if not isinstance(current.get("policy_revision"), int):
+            raise unavailable("policy_update", "listening", test_id)
+        return mutate(supabase_admin, "listening", test_id, update, actor["id"],
+                      expected_revision=current["policy_revision"])
 
     res = (
         supabase_admin.table("listening_tests")
@@ -4801,6 +4808,8 @@ class _ListeningAttemptStartRequest(BaseModel):
     """
 
     renderer_affinity_protocol: Literal["claim-v1"] | None = None
+    purpose: Literal["practice", "assigned_practice", "mock_delivery"] | None = None
+    mock_sitting_id: uuid.UUID | None = None
 
 
 class _ListeningAttemptRendererAffinityRequest(BaseModel):
@@ -5056,7 +5065,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
             .execute().data or []
         )
         tests = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select(
                 "id,title,programme_id,listening_lesson_id,source_item_count,created_at"
             )
@@ -5189,7 +5198,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     tests: dict[str, int] = {}
     for kind in ("full", "mini", "drill", "practice"):
         q = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select("id", count="exact")
             .eq("status", "published")
             .eq("test_type", kind)
@@ -5232,7 +5241,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     practice_groups: dict[str, int] = {}
     if tests.get("practice"):
         pgq = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select("metadata")
             .eq("status", "published")
             .eq("test_type", "practice")
@@ -5288,7 +5297,7 @@ async def list_listening_programme_lessons(
     all_lessons = lessons_response.data or []
     lesson_ids = [str(row["id"]) for row in all_lessons]
     forms = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select("id,listening_lesson_id")
         .eq("programme_id", programme_id)
         .eq("status", "published")
@@ -5364,7 +5373,7 @@ async def get_listening_programme_lesson(
         raise HTTPException(404, "Listening lesson not found")
     lesson = rows[0]
     forms = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select(
             "id,test_id,source_form_id,title,form_purpose,replay_policy,"
             "support_policy,scoring_policy,source_item_count,"
@@ -5497,7 +5506,7 @@ async def list_published_listening_tests(
         raise HTTPException(422, "programme_id is not supported")
 
     q = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select("*", count="exact")
         .eq("status", "published")
         # Audio-readiness is filtered in SQL, BEFORE .range(). It used to be a
@@ -5621,8 +5630,9 @@ def _listening_test_is_public(test: dict) -> bool:
 
 
 def _assert_listening_exam_content_allowed(
-    test: dict, user_id, class_item: str | None = None, *, allow_public: bool = True
-) -> None:
+    test: dict, user_id, class_item: str | None = None, *, allow_public: bool = True,
+    purpose="delivery", sitting_id=None, allow_admission=False
+) -> dict:
     """A test reserved for mock exams is served ONLY to a student sitting one.
 
     Hiding it from the browse list is not enough — a direct link went straight
@@ -5634,24 +5644,13 @@ def _assert_listening_exam_content_allowed(
     404, not 403: to anyone without a sitting the paper does not exist, and
     "forbidden" would confirm the test id is real.
     """
-    if _listening_test_is_public(test):
-        return
-    from services import mock_correction_service
-    # public_practice_enabled is deploy-order compatibility only. Once the
-    # canonical column is present, an explicit is_public=false must win.
-    if (allow_public and "is_public" not in test
-            and test.get("public_practice_enabled")):
-        return
-    if mock_correction_service.class_item_entitles_exam_only(
-        user_id, class_item, skill="listening", test_id=test.get("id")
-    ):
-        return
-    from services import mock_exam_service
-    if not mock_exam_service.user_may_open_exam_content(user_id, "listening", test.get("id")):
-        raise HTTPException(404, "Test bundle not found or not published")
+    from services.mock_paper_policy import authorize
+    return authorize(supabase_admin, "listening", test["id"], user_id,
+        purpose=purpose if allow_public else "dictation", class_item_id=class_item,
+        sitting_id=sitting_id, allow_admission=allow_admission)
 
 
-def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True) -> dict:
+def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True, snapshot=None) -> dict:
     """Build the student-safe player contract for public and admin preview."""
     from services import listening_test_grader as grader
 
@@ -5664,30 +5663,50 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
         if not audio_url:
             raise HTTPException(422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.")
 
-    section_rows = (
-        supabase_admin.table("listening_content")
-        .select("id,section_num,title,transcript,metadata")
-        .eq("test_id", test_id).order("section_num").execute().data or []
-    )
-    section_ids = [section["id"] for section in section_rows]
-    exercises_res = (
-        supabase_admin.table("listening_exercises")
-        .select("id,content_id,exercise_type,payload,order_num")
-        .in_("content_id", section_ids).order("order_num").execute()
-        if section_ids else None
-    )
-    raw_exercises = [exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
-                     if not _is_standalone_authoring_exercise(exercise)]
+    if snapshot is not None:
+        from services.mock_player_context import listening_snapshot_sources
+        section_rows, raw_exercises = listening_snapshot_sources(snapshot)
+        raw_exercises = [exercise for exercise in raw_exercises if not _is_standalone_authoring_exercise(exercise)]
+    else:
+        section_rows = (
+            supabase_admin.table("listening_content")
+            .select("id,section_num,title,transcript,metadata")
+            .eq("test_id", test_id).order("section_num").execute().data or []
+        )
+        section_ids = [section["id"] for section in section_rows]
+        exercises_res = (
+            supabase_admin.table("listening_exercises")
+            .select("id,content_id,exercise_type,payload,order_num")
+            .in_("content_id", section_ids).order("order_num").execute()
+            if section_ids else None
+        )
+        raw_exercises = [exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
+                         if not _is_standalone_authoring_exercise(exercise)]
     source_required = test.get("programme_id") == SOURCE_PROGRAMME
     if source_required and (not raw_exercises or any((exercise.get("payload") or {}).get("source_contract") != SOURCE_CONTRACT for exercise in raw_exercises)):
         raise HTTPException(503, "Hợp đồng nội dung nguồn chưa hợp lệ.")
-    exercises = grader.strip_answer_keys(raw_exercises)
+    from services.mock_player_context import without_private_marking
+    exercises = grader.strip_answer_keys(without_private_marking(raw_exercises))
     source_fields = {}
     if source_required:
         from services.listening_source_collection import sign_source_block
+        source_manifest = None
+        if test.get("content_package_id"):
+            try:
+                packages = (supabase_admin.table("listening_content_packages").select("manifest_sha256")
+                            .eq("id", test["content_package_id"]).eq("programme_id", SOURCE_PROGRAMME)
+                            .eq("status", "published").limit(1).execute().data or [])
+            except Exception as exc:
+                raise HTTPException(503, "Không xác định được phiên bản đề nguồn; hãy thử lại.") from exc
+            if len(packages) == 1:
+                source_manifest = packages[0].get("manifest_sha256")
         for exercise in exercises:
             payload = exercise["payload"]
-            payload["source_blocks"] = [sign_source_block(block, _sign_programme_visual_url) for block in payload.get("source_blocks") or []]
+            payload["source_blocks"] = [sign_source_block(block, _sign_programme_visual_url,
+                manifest_sha256=source_manifest,
+                runtime_questions=[question for question in payload.get("questions") or []
+                                   if question.get("source_block_id") == block.get("block_id")])
+                for block in payload.get("source_blocks") or []]
             source_fields = {"source_collection_id": "80-days", "source_day": payload.get("source_day"),
                 "source_part_label": payload.get("source_part_label"), "audio_granularity": (test.get("metadata") or {}).get("timing_granularity", "whole_day"),
                 "source_blocks": payload["source_blocks"]}
@@ -5701,7 +5720,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                 question = dict(raw_question) if isinstance(raw_question, dict) else {}
                 question.pop("visual_url", None)
                 storage_path = question.pop("visual_storage_path", None)
-                if storage_path:
+                if storage_path and not source_required:
                     visual_url = _sign_programme_visual_url(storage_path)
                     if not visual_url:
                         raise HTTPException(
@@ -5725,7 +5744,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                         if key in raw_translation
                     }
                     translated_storage_path = raw_translation.get("visual_storage_path")
-                    if translated_storage_path:
+                    if translated_storage_path and not source_required:
                         translated_url = _sign_programme_visual_url(translated_storage_path)
                         if not translated_url:
                             raise HTTPException(
@@ -5814,6 +5833,7 @@ async def get_published_listening_test(
     test_id: uuid.UUID,
     class_item: str | None = None,
     attempt_id: uuid.UUID | None = None,
+    sitting_id: uuid.UUID | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a published test bundle for the student player.
@@ -5838,19 +5858,29 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
-    _assert_listening_exam_content_allowed(test, _user.get("id"), class_item)
+    decision = _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
+    from services.mock_paper_policy import owned_delivery_snapshot, attempt_receipt
+    attempt, snapshot = owned_delivery_snapshot(supabase_admin, "listening", test_id, _user["id"], decision,
+                                               attempt_id=attempt_id)
+    if snapshot is not None:
+        test = snapshot["paper_row"]
     include_audio = True
     if test.get("replay_policy") == "once":
         if attempt_id is None:
             raise HTTPException(409, "Bài nghe một lượt cần một attempt đang hoạt động.")
-        attempt = _fetch_attempt_or_404(str(attempt_id), _user["id"])
+        attempt = attempt or _fetch_attempt_or_404(str(attempt_id), _user["id"])
         if str(attempt.get("test_id")) != test_id:
             raise HTTPException(422, "Attempt không thuộc bài nghe này.")
         if attempt.get("status") != "in_progress":
             raise HTTPException(422, "Attempt không còn hoạt động.")
         require_resume_active(attempt)
         include_audio = not bool(attempt.get("playback_started_at"))
-    return _assemble_listening_player_payload(test, include_audio=include_audio)
+    payload = _assemble_listening_player_payload(test, include_audio=include_audio, snapshot=snapshot)
+    if attempt is not None:
+        from services.mock_attempt_flags import review_flag_state
+        payload.update(attempt_receipt(attempt))
+        payload.update(review_flag_state(supabase_admin, "listening", attempt))
+    return payload
 
 
 # ── Test-linked dictation (chép chính tả) ────────────────────────────
@@ -7236,7 +7266,8 @@ async def get_in_progress_listening_attempt(
         supabase_admin.table("listening_test_attempts")
         .select(
             "id, started_at, created_at, answers, renderer_affinity, "
-            "resume_expires_at, status, playback_started_at"
+            "resume_expires_at, status, playback_started_at,user_id,test_id,sitting_id,"
+            "class_assignment_item_id,attempt_purpose,paper_revision,policy_revision"
         )
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
@@ -7272,8 +7303,13 @@ async def get_in_progress_listening_attempt(
     if not res.data or not is_resume_active(res.data[0]):
         return {"attempt": None}
     row = res.data[0]
+    from services.mock_paper_policy import guard_owned_attempt, attempt_receipt
+    guard_owned_attempt(supabase_admin, "listening", row, purpose="resume")
+    from services.mock_attempt_flags import review_flag_state
     return {
         "attempt": {
+            **attempt_receipt(row),
+            **review_flag_state(supabase_admin, "listening", row),
             "attempt_id": row["id"],
             "started_at": row.get("started_at") or row.get("created_at"),
             # Only answers with real content — a blank row is not progress and
@@ -7325,10 +7361,24 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
-    _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item)
+    decision = _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item,
+        purpose=body.purpose if body and body.purpose else "delivery",
+        sitting_id=body.mock_sitting_id if body else None, allow_admission=True)
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
+
+    if decision["attempt_purpose"] == "mock_delivery":
+        if standalone or class_item:
+            raise HTTPException(422, "mock_delivery cannot be combined with standalone or class_item")
+        from services.mock_paper_policy import admit_mock_attempt
+        admit_start()
+        admitted = admit_mock_attempt(supabase_admin, "listening", test_id, user["id"],
+            decision["mock_sitting_id"], affinity_protocol=body.renderer_affinity_protocol if body else None)
+        bind_owned_attempt({"id": admitted["attempt_id"], "test_id": test_id,
+            "user_id": user["id"], "status": admitted["status"]}, started=not admitted.get("acquired_existing"))
+        from services.mock_attempt_flags import review_flag_state
+        return {**admitted, **review_flag_state(supabase_admin, "listening", {"id": admitted["attempt_id"]})}
 
     # Imported programme forms have one canonical standalone resume-or-create
     # path. The legacy start-over path abandons the previous row before its
@@ -7358,7 +7408,7 @@ async def start_listening_test_attempt(
     if standalone and test_row.get("scoring_policy") == "report_only":
         try:
             acquired = supabase_admin.rpc(
-                "fn_acquire_listening_programme_attempt",
+                "fn_acquire_listening_programme_attempt_v2",
                 {
                     "p_test_id": test_id,
                     "p_user_id": user["id"],
@@ -7399,7 +7449,13 @@ async def start_listening_test_attempt(
             "renderer_affinity": acquired_row.get("attempt_renderer_affinity"),
         }
         bind_owned_attempt(observation_row, started=created)
+        canonical = _fetch_attempt_or_404(attempt_id, user["id"])
+        from services.mock_paper_policy import attempt_receipt, guard_owned_attempt
+        from services.mock_attempt_flags import review_flag_state
+        guard_owned_attempt(supabase_admin, "listening", canonical, purpose="resume")
         return {
+            **attempt_receipt(canonical),
+            **review_flag_state(supabase_admin, "listening", canonical),
             "attempt_id": attempt_id,
             "status": observation_row["status"],
             "started_at": acquired_row.get("attempt_started_at"),
@@ -7436,6 +7492,7 @@ async def start_listening_test_attempt(
         "id":      attempt_id,
         "test_id": test_id,
         "user_id": user["id"],
+        "attempt_purpose": decision["attempt_purpose"],
         "status":  "in_progress",
         "answers": [],
         "scoring_policy": test_row.get("scoring_policy") or "diagnostic",
@@ -7448,13 +7505,18 @@ async def start_listening_test_attempt(
     # never has to work it out afterwards (mig 181).
     if class_item:
         payload["class_assignment_item_id"] = class_item
-    (
+    inserted = (
         supabase_admin.table("listening_test_attempts")
         .insert(payload)
         .execute()
     )
     bind_owned_attempt(payload, started=True)
+    from services.mock_paper_policy import attempt_receipt
+    from services.mock_attempt_flags import review_flag_state
+    canonical = inserted.data[0] if inserted.data else payload
     return {
+        **attempt_receipt(canonical),
+        **review_flag_state(supabase_admin, "listening", canonical),
         "attempt_id": attempt_id,
         "status": "in_progress",
         "started_at": started_at,
@@ -7734,12 +7796,15 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
             or attempt.get("class_assignment_item_id")
             or attempt.get("sitting_id")):
         raise HTTPException(422, "Đối chiếu từng câu không áp dụng cho bài này.")
+    from services.mock_paper_policy import guard_owned_attempt, load_marking_snapshot
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="guided_feedback")
+    snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
     result = (
         supabase_admin.table("listening_tests")
         .select("id,status,is_public,scoring_policy,programme_id,replay_policy,content_package_id,metadata")
         .eq("id", attempt["test_id"]).limit(1).execute()
     )
-    test = result.data[0] if result.data else None
+    test = snapshot["paper_row"] if snapshot else (result.data[0] if result.data else None)
     if (not test or test.get("status") != "published"
             or not test.get("is_public")
             or test.get("scoring_policy") != "report_only"
@@ -7755,7 +7820,7 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
     )
     if not package.data or package.data[0].get("status") != "published":
         raise HTTPException(422, "Nội dung bài luyện hiện không khả dụng.")
-    return test, _practice_exercise_payloads(attempt["test_id"], published_only=True)
+    return test, snapshot["marking_rows"] if snapshot else _practice_exercise_payloads(attempt["test_id"], published_only=True)
 
 
 def _programme_guided_item(
@@ -7897,6 +7962,8 @@ async def get_practice_audio_windows(
             or test_row.get("scoring_policy") != "diagnostic"):
         raise HTTPException(422, "Chỉ bài Luyện nhanh mới có cửa sổ audio theo câu.")
 
+    _assert_listening_exam_content_allowed(test_row, _user["id"], purpose="practice")
+
     windows: dict[str, dict] = {}
     offsets = (test_row.get("metadata") or {}).get("section_offsets") or {}
     for row in _practice_exercise_payloads(test_id):
@@ -7950,6 +8017,8 @@ async def check_listening_practice_answer(
 
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
+    if attempt.get("sitting_id") or attempt.get("attempt_purpose") == "mock_delivery":
+        raise HTTPException(404, "Practice feedback unavailable")
     if not body.reveal:
         # A per-question grade is an operation, never a new attempt or final
         # result. Reveal is read-only and must not claim mutation evidence.
@@ -7958,6 +8027,9 @@ async def check_listening_practice_answer(
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
     require_resume_active(attempt)
 
+    from services.mock_paper_policy import guard_owned_attempt, load_marking_snapshot, frozen_answer_key
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="practice_feedback")
+    snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,test_type,metadata")
@@ -7965,7 +8037,7 @@ async def check_listening_practice_answer(
     )
     if not test_res.data:
         raise HTTPException(404, "Test bundle not found")
-    test_row = test_res.data[0]
+    test_row = snapshot["paper_row"] if snapshot else test_res.data[0]
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         raise HTTPException(
             422,
@@ -7977,8 +8049,10 @@ async def check_listening_practice_answer(
             "Chấm từng câu chỉ dành cho Luyện nhanh. Bài thi chấm một lần khi nộp.",
         )
 
-    payloads = _practice_exercise_payloads(attempt["test_id"])
-    answer_key = grader.collect_answer_key(payloads)
+    payloads = snapshot["marking_rows"] if snapshot else _practice_exercise_payloads(attempt["test_id"])
+    answer_key = frozen_answer_key(supabase_admin, "listening", attempt)
+    if answer_key is None:
+        answer_key = grader.collect_answer_key(payloads)
     key_row = next((k for k in answer_key if k.get("q_num") == body.q_num), None)
     if key_row is None:
         raise HTTPException(404, f"Câu {body.q_num} không thuộc bài này.")
@@ -8132,22 +8206,29 @@ async def submit_listening_test_attempt(
 
     # Pull the test's exercises + extract the answer key.
     test_id = attempt["test_id"]
-    sec_res = (
-        supabase_admin.table("listening_content")
-        .select("id")
-        .eq("test_id", test_id)
-        .execute()
-    )
-    section_ids = [r["id"] for r in (sec_res.data or [])]
-    if not section_ids:
-        raise HTTPException(500, "Test bundle thiếu section rows.")
+    from services.mock_paper_policy import load_marking_snapshot, guard_owned_attempt
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="submit")
+    marking_snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
+    if marking_snapshot is not None:
+        from types import SimpleNamespace
+        ex_res = SimpleNamespace(data=marking_snapshot["marking_rows"])
+    else:
+        sec_res = (
+            supabase_admin.table("listening_content")
+            .select("id")
+            .eq("test_id", test_id)
+            .execute()
+        )
+        section_ids = [r["id"] for r in (sec_res.data or [])]
+        if not section_ids:
+            raise HTTPException(500, "Test bundle thiếu section rows.")
 
-    ex_res = (
-        supabase_admin.table("listening_exercises")
-        .select("payload")
-        .in_("content_id", section_ids)
-        .execute()
-    )
+        ex_res = (
+            supabase_admin.table("listening_exercises")
+            .select("payload")
+            .in_("content_id", section_ids)
+            .execute()
+        )
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         report = grader.grade_report_only_attempt(
             attempt.get("answers") or [], ex_res.data or [], source_required=_source_required_for_test(test_id),
@@ -8187,11 +8268,15 @@ async def submit_listening_test_attempt(
             "status": "submitted",
             **report,
         }
-    answer_key = grader.collect_answer_key(ex_res.data or [])
     from services import mock_correction_service
-    answer_key = mock_correction_service.apply_scoring_overrides(
-        "listening", test_id, answer_key
-    )
+    from services.mock_paper_policy import frozen_answer_key
+    answer_key = frozen_answer_key(supabase_admin, "listening", attempt)
+    if answer_key is None:
+        answer_key = grader.collect_answer_key(ex_res.data or [])
+        from services import mock_correction_service
+        answer_key = mock_correction_service.apply_scoring_overrides(
+            "listening", test_id, answer_key
+        )
 
     result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -8322,17 +8407,39 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     every user_answer blank. `attempt_id` is None there, and the caller owns all
     authorisation: this function checks nothing.
     """
-    test_id = attempt["test_id"]
-    test_res = (
-        supabase_admin.table("listening_tests")
-        .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
-                "full_audio_storage_path,assembled_audio_storage_path,"
-                "full_audio_duration_seconds,themes,programme_id,scoring_policy,"
-                "form_purpose,replay_policy,support_policy,claim_policy,"
-                "listening_lesson_id")
-        .eq("id", test_id).limit(1).execute()
+    from services.mock_review_context import (
+        attach_review_web_explanations, context_reference, load_review_snapshot,
+        provenance, question_context,
     )
-    test_row = (test_res.data or [{}])[0]
+    snapshot = load_review_snapshot(supabase_admin, "listening", attempt)
+    test_id = attempt["test_id"]
+    if snapshot is not None:
+        test_row = snapshot["paper_row"]
+        content_rows = snapshot["source_rows"]
+        exercise_rows = snapshot["marking_rows"]
+    else:
+        test_res = (
+            supabase_admin.table("listening_tests")
+            .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
+                    "full_audio_storage_path,assembled_audio_storage_path,"
+                    "full_audio_duration_seconds,themes,programme_id,scoring_policy,"
+                    "form_purpose,replay_policy,support_policy,claim_policy,"
+                    "listening_lesson_id")
+            .eq("id", test_id).limit(1).execute()
+        )
+        test_row = (test_res.data or [{}])[0]
+        content_res = (
+            supabase_admin.table("listening_content")
+            .select("id,section_num,title,transcript,metadata")
+            .eq("test_id", test_id).order("section_num").execute()
+        )
+        content_rows = content_res.data or []
+        section_ids = [row["id"] for row in content_rows]
+        exercise_rows = []
+        if section_ids:
+            ex_res = (supabase_admin.table("listening_exercises")
+                      .select("id,payload").in_("content_id", section_ids).execute())
+            exercise_rows = ex_res.data or []
     audio_url, _, audio_duration = _student_audio_url_for_test(test_row)
     scoring_policy = attempt.get("scoring_policy") or test_row.get("scoring_policy") or "diagnostic"
     if scoring_policy == "report_only" and not audio_url:
@@ -8343,22 +8450,19 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     meta = test_row.get("metadata") or {}
 
     # Per-section transcripts (content rows).
-    content_res = (
-        supabase_admin.table("listening_content")
-        .select("id,section_num,title,transcript,metadata")
-        .eq("test_id", test_id).order("section_num").execute()
-    )
     sections = []
-    section_ids = []
-    for c in (content_res.data or []):
-        section_ids.append(c["id"])
+    for c in content_rows:
         cmeta = c.get("metadata") or {}
-        sections.append({
+        section = {
             "section_num": c.get("section_num"),
             "title":       c.get("title"),
             "theme":       cmeta.get("theme"),
             "transcript":  c.get("transcript"),
-        })
+        }
+        section["context_provenance"] = {key: provenance(value, snapshot,
+            present=(key in cmeta if key == "theme" else key in c))
+            for key, value in section.items()}
+        sections.append(section)
 
     # Per-question solution + audio window + prompt/type (from exercise payloads).
     solutions_by_q: dict[int, dict] = {}
@@ -8367,15 +8471,19 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     prompt_by_q: dict[int, str] = {}
     type_by_q: dict[int, str] = {}
     source_questions_by_q: dict[int, dict] = {}
+    question_context_by_q: dict[int, dict] = {}
     self_review_by_q: dict[int, dict] = {}
     controlled_transcripts: dict[str, list] = {}
-    if section_ids:
-        ex_res = (
-            supabase_admin.table("listening_exercises")
-            .select("payload").in_("content_id", section_ids).execute()
-        )
-        for row in (ex_res.data or []):
+    if exercise_rows:
+        for row in exercise_rows:
             p = row.get("payload") or {}
+            # Callers already enforced review access. Sign this selected
+            # revision's raster map on a runtime copy, never on stored rows.
+            storage_path = p.get("map_image_storage_path")
+            inline_map = p.get("map_svg")
+            if storage_path and not (isinstance(inline_map, str) and inline_map.strip()):
+                p = dict(p)
+                p["map_image_url"] = _sign_map_image_url(storage_path, expires_in=7200)
             for q, sol in (p.get("solutions") or {}).items():
                 solutions_by_q[int(q)] = sol
             for q, w in (p.get("audio_windows") or {}).items():
@@ -8396,6 +8504,10 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
                     prompt_by_q[qq["q_num"]] = qq.get("prompt")
                     type_by_q[qq["q_num"]] = qq.get("response_type") or variant
                     source_questions_by_q[qq["q_num"]] = qq
+                    authored = {**qq, "payload": p}
+                    if not authored.get("id") and row.get("id"):
+                        authored["id"] = qq.get("question_id") or f'{row["id"]}:{qq["q_num"]}'
+                    question_context_by_q[qq["q_num"]] = question_context(authored, snapshot)
 
     # A mini test's audio is its SINGLE section premixed alone (the mp3 starts at
     # ~0), but the stored audio_window is full-test-ABSOLUTE (= section-relative +
@@ -8425,21 +8537,26 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     review = []
     for g in (attempt.get("grading_details") or []):
         q = g.get("q_num")
-        win = _rebase_audio_window(windows_by_q.get(q), is_mini, sec_offsets)
+        rationale_q = g.get("rationale_q_num")
+        solution_q = rationale_q if type(rationale_q) is int else q
+        win = _rebase_audio_window(windows_by_q.get(solution_q), is_mini, sec_offsets)
         source_fields = {}
+        source_explanation_present = False
         if test_row.get("programme_id") == SOURCE_PROGRAMME:
             from services.listening_source_collection import source_explanation, source_response_fields
             question = source_questions_by_q.get(q) or {}
-            protected = solutions_by_q.get(q) or self_review_by_q.get(q)
+            protected = solutions_by_q.get(solution_q) or self_review_by_q.get(solution_q)
             protected = protected or {}
+            source_explanation_present = "explanation" in protected
+            explanation = source_explanation(protected.get("explanation"), item_id=question.get("source_item_id"))
             try:
-                fields = source_response_fields(question, reference_answer=(source_explanation(protected.get("explanation")) or {}).get("answer"))
+                fields = source_response_fields(question, reference_answer=(explanation or {}).get("answer"))
             except ValueError:
                 raise HTTPException(503, "Chưa tải được thông tin chỗ trống để đối chiếu. Hãy thử lại.") from None
             source_fields = {"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
                 "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
-                "explanation": source_explanation(protected.get("explanation")), "audio_granularity": (win or {}).get("granularity") or meta.get("timing_granularity")}
-        review.append({
+                "explanation": explanation, "audio_granularity": (win or {}).get("granularity") or meta.get("timing_granularity")}
+        item = {
             **source_fields,
             "q_num":         q,
             "state":         g.get("state"),
@@ -8450,21 +8567,34 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "prompt":        prompt_by_q.get(q),
             "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
             "section":       (win or {}).get("section"),
-            "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
-            "solution":      ({key: value for key, value in (solutions_by_q.get(q) or {}).items() if key in {"expected", "rationale"}}
-                               if test_row.get("programme_id") == SOURCE_PROGRAMME else solutions_by_q.get(q) or {}),
-            "self_review":   ({key: value for key, value in (self_review_by_q.get(q) or {}).items() if key in {"reference_answers", "rationale", "required_facts", "optional_facts"}}
-                               if test_row.get("programme_id") == SOURCE_PROGRAMME else self_review_by_q.get(q) or g.get("self_review") or {}),
+            "transcript_anchor": anchors_by_q.get(solution_q),
+            "solution":      ({key: value for key, value in (solutions_by_q.get(solution_q) or {}).items() if key in {"expected", "rationale"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else solutions_by_q.get(solution_q) or {}),
+            "self_review":   ({key: value for key, value in (self_review_by_q.get(solution_q) or {}).items() if key in {"reference_answers", "rationale", "required_facts", "optional_facts"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else self_review_by_q.get(solution_q) or g.get("self_review") or {}),
             "first_answer":  first_answers_by_q.get(q),
-        })
+            "question_context": question_context_by_q.get(q),
+        }
+        item["context_provenance"] = {
+            "prompt": provenance(item["prompt"], snapshot, present=q in prompt_by_q),
+            "question_type": provenance(item["question_type"], snapshot, present=q in type_by_q),
+            "solution": provenance(item["solution"], snapshot, present=solution_q in solutions_by_q),
+            "audio_window": provenance(win, snapshot, present=solution_q in windows_by_q),
+            "transcript_anchor": provenance(item["transcript_anchor"], snapshot, present=solution_q in anchors_by_q),
+            "self_review": provenance(item["self_review"], snapshot, persisted="self_review" in g,
+                present=solution_q in self_review_by_q or "self_review" in g),
+            "explanation": provenance(item.get("explanation"), snapshot, present=source_explanation_present),
+            "question_context": provenance(item["question_context"], snapshot, present=q in question_context_by_q),
+        }
+        if "self_review" in g and test_row.get("programme_id") != SOURCE_PROGRAMME:
+            item["self_review"] = g["self_review"] or {}
+            item["context_provenance"]["self_review"] = "submission_snapshot"
+        review.append(item)
 
     if scoring_policy == "report_only":
         web_access = {"available": False, "reason": "report_only"}
     else:
-        from services import mock_correction_service
-        web_access = mock_correction_service.attach_web_explanations(
-            "listening", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
-        )
+        web_access = attach_review_web_explanations("listening", attempt, review, snapshot)
 
     return {
         "attempt_id":      attempt_id,
@@ -8494,6 +8624,13 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "review":          review,
         "controlled_transcripts": controlled_transcripts,
         "web_explanation_access": web_access,
+        "context_source": {**context_reference(snapshot), "field_provenance": {
+            "audio_url": provenance(audio_url, snapshot,
+                present=bool(test_row.get("full_audio_storage_path") or test_row.get("assembled_audio_storage_path"))),
+            "audio_duration": provenance(audio_duration, snapshot, present="full_audio_duration_seconds" in test_row),
+            "cue_points": provenance(test_row.get("cue_points"), snapshot, present="cue_points" in test_row),
+            "section_offsets": provenance(meta.get("section_offsets"), snapshot, present="section_offsets" in meta),
+        }},
     }
 
 @user_router.get(

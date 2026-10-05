@@ -38,7 +38,30 @@ class _Chain:
 # ── Unit: the gate logic (the core security invariant) ────────────────
 
 def _locked_test(pw="ABCD-1234"):
-    return {"id": "t-uuid", "test_id": "T1", "metadata": {"access": {"locked": True, "password": pw}}}
+    return {"id": "t-uuid", "test_id": "T1", "status": "published", "is_public": True,
+            "policy_revision": 0, "mock_content_revision": 0,
+            "metadata": {"access": {"locked": True, "password": pw}}}
+
+
+def _public_locked_db():
+    paper = _locked_test()
+    db = MagicMock()
+    db.table.side_effect = lambda name: _Chain([paper]) if name == "reading_tests" else _Chain([])
+
+    def resolve(name, params):
+        assert name == "fn_resolve_mock_paper_access"
+        assert params["p_skill"] == "reading"
+        assert params["p_test_id"] == paper["id"]
+        assert params["p_user_id"] == _USER["id"]
+        assert params["p_purpose"] == "delivery"
+        assert params["p_sitting_id"] is None
+        assert params["p_class_item_id"] is None
+        result = {"allowed": True, "attempt_purpose": "practice",
+                  "paper_revision": paper["mock_content_revision"], "policy_revision": paper["policy_revision"]}
+        return MagicMock(execute=MagicMock(return_value=MagicMock(data=result)))
+
+    db.rpc.side_effect = resolve
+    return db
 
 
 def test_gate_rejects_absent_and_wrong_password():
@@ -63,8 +86,7 @@ def test_gate_allows_correct_password_and_unlocked_tests():
 # ── Endpoint: locked test is 403'd without the password ───────────────
 
 def test_get_locked_test_403_without_password():
-    db = MagicMock()
-    db.table.side_effect = lambda name: _Chain([_locked_test()]) if name == "reading_tests" else _Chain([])
+    db = _public_locked_db()
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
         r = _client().get("/api/reading/test/T1", headers=_AUTH)
@@ -72,20 +94,19 @@ def test_get_locked_test_403_without_password():
 
 
 def test_start_locked_test_403_without_password():
-    db = MagicMock()
-    db.table.side_effect = lambda name: _Chain([_locked_test()]) if name == "reading_tests" else _Chain([])
+    db = _public_locked_db()
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
         r = _client().post("/api/reading/test/T1/attempts", headers=_AUTH)
     assert r.status_code == 403
     db.table.return_value.insert.assert_not_called()
+    assert db.rpc.call_args.args[1]["p_allow_admission"] is True
 
 
 def test_get_locked_test_200_with_password_and_no_password_leak():
     # correct password → bundle returned; metadata (incl. password) stripped,
     # a safe `locked` flag surfaced.
-    db = MagicMock()
-    db.table.side_effect = lambda name: _Chain([_locked_test()]) if name == "reading_tests" else _Chain([])
+    db = _public_locked_db()
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
         r = _client().get("/api/reading/test/T1", headers={**_AUTH, "X-Reading-Password": "ABCD-1234"})

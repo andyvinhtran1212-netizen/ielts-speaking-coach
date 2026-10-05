@@ -2,7 +2,7 @@
 title: Reduced Relative Clauses — Mệnh đề quan hệ rút gọn
 slug: reduced-relative-clauses
 category: grammar-for-reading
-summary: 'Mệnh đề quan hệ rút gọn bỏ đại từ quan hệ (who/which/that) và động từ to-be, để lại một phân từ (V-ing hoặc V3) bổ nghĩa cho danh từ. Đây là rào cản giải mã câu số một trong bài đọc học thuật — nhận ra nó giúp bạn tìm đúng chủ ngữ và động từ chính.
+summary: 'Mệnh đề quan hệ rút gọn dùng phân từ V-ing hoặc V3 để bổ nghĩa cho danh từ. Với who is/that were + phân từ, có thể bỏ đại từ quan hệ và to-be; với một số mệnh đề chủ động, cần chuyển động từ hữu hạn sang V-ing và kiểm tra ngữ cảnh để giữ đúng nghĩa.
 
   '
 level: advanced
@@ -22,7 +22,7 @@ compare_with:
 - participle-clauses
 order: 1
 status: complete
-last_updated: 2026-07-05
+last_updated: 2026-09-30
 difficulty: advanced
 band_relevance:
 - '6.5'
@@ -75,7 +75,7 @@ learning_blocks:
 <!-- anchor: reduced-relative-clauses.overview -->
 ## Tóm tắt
 
-Mệnh đề quan hệ đầy đủ có thể **rút gọn** bằng cách bỏ đại từ quan hệ + động từ *to-be*:
+Với mệnh đề quan hệ có **đại từ quan hệ + to-be + phân từ**, có thể **rút gọn** bằng cách bỏ đại từ quan hệ và *to-be*:
 
 - The scientist **who is leading** the study… → The scientist **leading** the study…
 - The results **that were published** last year… → The results **published** last year…
@@ -93,12 +93,12 @@ Không còn *who/which/that*, người đọc dễ **nhầm phân từ là độ
 <!-- anchor: reduced-relative-clauses.active-ing -->
 ### Rút gọn chủ động → V-ing
 
-Khi mệnh đề quan hệ mang nghĩa **chủ động**, rút thành **V-ing**:
+Một số mệnh đề quan hệ mang nghĩa **chủ động** có thể rút thành **V-ing**. Nếu không có *to-be*, phải **chuyển động từ hữu hạn sang V-ing**, chứ không chỉ xoá *who/which/that*:
 
 - The company **that produces** solar panels → The company **producing** solar panels
 - Passengers **who travel** without tickets → Passengers **travelling** without tickets
 
-Mẹo đọc: V-ing ngay sau danh từ (không có to-be trước nó) thường = "danh từ đang/luôn làm gì".
+Mẹo đọc: V-ing ngay sau danh từ thường mô tả việc danh từ đó làm. Phân từ không mang thì độc lập; không tự suy ra "đang" hoặc "luôn" chỉ từ V-ing. Kiểm tra ngữ cảnh và thời gian của câu, vì không phải mọi mệnh đề quan hệ đều có thể rút gọn máy móc mà giữ nguyên nghĩa.
 
 <!-- anchor: reduced-relative-clauses.passive-v3 -->
 ### Rút gọn bị động → V3 (past participle)
@@ -124,11 +124,12 @@ Mẹo đọc: V3 ngay sau danh từ = "danh từ **bị/được** làm gì". C�
 
 ### Chiến lược giải mã
 1. Thấy danh từ + V-ing/V3 ngay sau → nghi ngờ mệnh đề rút gọn.
-2. Tạm "gạch" cụm phân từ để lộ **động từ chính** thật của câu.
+2. Tạm nhóm cụm phân từ để lộ **động từ chính**, rồi ghép lại thông tin bổ nghĩa khi hiểu câu.
 3. Xác định chủ động (V-ing) hay bị động (V3) để hiểu đúng ai làm gì.
 
 ## Tóm tắt nhanh
 
-- Rút gọn = bỏ who/which/that + to-be, để lại phân từ
+- Với who is/that were + phân từ: bỏ đại từ quan hệ và to-be
+- Với một số mệnh đề chủ động: chuyển động từ hữu hạn sang V-ing; kiểm tra nghĩa trong ngữ cảnh
 - **V-ing** = nghĩa chủ động; **V3** = nghĩa bị động
-- Đừng nhầm phân từ với động từ chính — gạch nó đi để tìm vị ngữ thật
+- Đừng nhầm phân từ với động từ chính — tạm nhóm để tìm vị ngữ, rồi giữ thông tin bổ nghĩa trong cách hiểu câu

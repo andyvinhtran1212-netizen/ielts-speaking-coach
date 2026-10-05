@@ -27,6 +27,11 @@ import re
 import unicodedata
 from typing import Any
 
+from services.mock_response_policy import (
+    ResponsePolicyError, attach_response_policies, policy_answer_matches,
+    policy_alternatives, response_policy_ref, validate_option_group,
+)
+
 
 # ── Answer normalisation ───────────────────────────────────────────────────
 
@@ -173,7 +178,8 @@ def _expected_letters(grp: list[dict[str, Any]]) -> list[str]:
     return [normalize_answer(g.get("answer") or "") for g in grp]
 
 
-def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> bool:
+def answer_matches(user: str | None, expected: str, alternatives: list[str],
+                   *, response_policy: dict | None = None) -> bool:
     """Compare a user answer against the canonical answer + its
     alternatives. Cambridge answer keys sometimes retain their printed
     shorthand in persisted rows: "(food) consumption" means both
@@ -185,6 +191,8 @@ def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> 
     Hyphenated forms count as single words (no special handling required —
     normalisation keeps the hyphen).
     """
+    if response_policy is not None:
+        return policy_answer_matches(user, response_policy)
     raw_user = str(user or "").strip()
     norm_user = normalize_answer(user)
     if not norm_user:
@@ -354,6 +362,35 @@ def grade_attempt(
                 continue
             graded_mm.add(gk)
             grp = sorted(mm_groups[gk], key=lambda r: r.get("q_num") or 0)
+            pinned = [g.get("response_policy") for g in grp]
+            if any(policy is not None for policy in pinned):
+                if not all(policy is not None and policy.get("kind") == "option_id" for policy in pinned):
+                    raise ResponsePolicyError("A grouped task requires coherent pinned option policies")
+                validate_option_group(grp)
+                # Consume canonical rows, rather than a normalized label set:
+                # no punctuation stripping or duplicate selection credit.
+                remaining_rows = list(grp)
+                group_expected = ", ".join(str(row.get("answer") or "") for row in grp)
+                matched_by_q_num = {}
+                for g in grp:
+                    user_answer = (user_by_q.get(g["q_num"]) or {}).get("user_answer")
+                    matched = next((row for row in remaining_rows if policy_answer_matches(user_answer, row["response_policy"])), None)
+                    if matched is not None:
+                        remaining_rows.remove(matched)
+                    matched_by_q_num[g["q_num"]] = matched
+                for g in grp:
+                    user_answer = (user_by_q.get(g["q_num"]) or {}).get("user_answer")
+                    matched = matched_by_q_num[g["q_num"]]
+                    rationale = matched if matched is not None else remaining_rows.pop(0)
+                    per_question.append({
+                        "q_num": g["q_num"], "correct": matched is not None,
+                        "user_answer": user_answer or "", "expected": group_expected,
+                        "alternatives": policy_alternatives(rationale["response_policy"], rationale.get("answer")),
+                        "trap_mechanisms": rationale.get("trap_mechanisms") or [],
+                        "group": "mcq_multi", "response_policy_ref": response_policy_ref(rationale["response_policy"]),
+                        "rationale_q_num": rationale["q_num"],
+                    })
+                continue
             remaining = _expected_letters(grp)
             for g in grp:
                 gq = g.get("q_num")
@@ -374,11 +411,14 @@ def grade_attempt(
 
         expected = ak.get("answer") or ""
         alternatives = ak.get("alternatives") or []
+        if ak.get("response_policy") is not None:
+            alternatives = policy_alternatives(ak["response_policy"], expected)
         trap_mechanisms = ak.get("trap_mechanisms") or []
 
         ua_row = user_by_q.get(q_num) or {}
         user_answer = ua_row.get("user_answer")
-        is_correct = answer_matches(user_answer, expected, alternatives)
+        is_correct = answer_matches(user_answer, expected, alternatives,
+                                    response_policy=ak.get("response_policy"))
 
         per_question.append({
             "q_num":            q_num,
@@ -387,6 +427,8 @@ def grade_attempt(
             "expected":         expected,
             "alternatives":     alternatives,
             "trap_mechanisms":  trap_mechanisms,
+            **({"response_policy_ref": response_policy_ref(ak["response_policy"])}
+               if ak.get("response_policy") is not None else {}),
         })
 
     per_question.sort(key=lambda r: r.get("q_num") or 0)
@@ -404,13 +446,17 @@ def grade_attempt(
 # ── Helpers — extract answer key from exercise rows ────────────────────────
 
 
-def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def collect_answer_key(exercise_rows: list[dict[str, Any]],
+                       *, pinned_policies: dict | None = None) -> list[dict[str, Any]]:
     """Walk a test's exercise rows and flatten the per-question
     answer entries into a single list, ready for ``grade_attempt``.
 
     ``exercise_rows`` is the raw ``listening_exercises`` DB shape:
     each row has a ``payload`` dict carrying ``answers`` (the
     Sprint 13.4.2 parser output).
+
+    Only callers supplying a protected admission snapshot may pass
+    ``pinned_policies``; authored metadata is ignored by legacy callers.
     """
     out: list[dict[str, Any]] = []
     for row in exercise_rows:
@@ -434,7 +480,7 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, An
                 "template_kind":   tk,
                 "group_key":       group_key,
             })
-    return out
+    return attach_response_policies(out, pinned_policies)
 
 
 def grade_report_only_attempt(

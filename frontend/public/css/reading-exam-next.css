@@ -268,10 +268,19 @@
 
 .reading-next-match-matrix td label {
   display: grid;
+  grid-template-columns: 17px auto;
+  justify-content: center;
   place-items: center;
+  gap: 6px;
   min-width: 32px;
   min-height: 32px;
   cursor: pointer;
+}
+
+.reading-next-matrix-letter {
+  color: var(--exam-text-primary);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .reading-next-match-matrix input[type="radio"] {
@@ -360,6 +369,41 @@
 .reading-next-selection-tools button:hover { background: rgba(255, 255, 255, .12); }
 .reading-next-selection-tools button:focus-visible { outline: 2px solid var(--ielts-current-ring); outline-offset: -3px; }
 
+.reading-next-player-page .exam-palette { grid-template-columns: minmax(0, 1fr) auto; }
+.reading-next-player-page .exam-palette__grid { min-width: 0; }
+/* Fixed button tracks must stay inside their part group while the grid scrolls. */
+.reading-next-player-page .exam-palette__group { flex: 0 0 auto; }
+
+/* The existing dark presets also need dark question surfaces and legible controls. */
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) {
+  --exam-surface-page: var(--exam-surface-sunken);
+  --exam-border-default: var(--exam-border-strong);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) :is(.exam-gap-box, .exam-diagram-container) {
+  background: var(--exam-surface-sunken);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) :is(.exam-headings-box__roman, .exam-features-box__roman, .exam-endings-box__roman, .exam-word-bank-box__roman, .exam-summary__gnum, .exam-q__select, .exam-q__option-prefix, .exam-q__gap--inline, .exam-questions__part-heading strong) {
+  color: var(--exam-text-primary);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) .exam-q__gap--inline {
+  border-bottom-color: var(--exam-text-primary);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) .reading-next-flow-flag:not([aria-pressed="true"]) {
+  color: var(--exam-text-muted);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) .exam-q__option:hover {
+  background: var(--exam-surface-card);
+}
+
+body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yellow-on-blue"]) :is(.exam-q__gap, .exam-q__select):focus {
+  outline-color: var(--ielts-current-ring);
+}
+
 @media (max-width: 760px) {
   .reading-next-player-page.reading-next-testing {
     display: block;
@@ -407,7 +451,10 @@
   .reading-next-state .exam-q { grid-template-columns: 28px minmax(0, 1fr); }
   .reading-next-state .exam-q__flag { grid-column: 2; justify-self: start; }
 
-  .reading-next-player-page .exam-palette__actions { flex-wrap: wrap; }
+  .reading-next-player-page .exam-palette { grid-template-columns: minmax(0, 1fr); }
+  .reading-next-player-page .exam-palette__group-btns { grid-auto-columns: 44px; }
+  .reading-next-player-page .exam-palette__q { width: 44px; height: 44px; }
+  .reading-next-player-page .exam-palette__actions { flex-wrap: wrap; min-width: 0; }
   .reading-next-player-page .exam-palette__nav { margin-left: auto; }
 
   .reading-next-state .exam-divider { display: none; }

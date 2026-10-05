@@ -98,6 +98,31 @@ passages:
 """
 
 
+def _legacy_practice_db():
+    """Model published, unreserved legacy paper access without bypassing routes."""
+    db = MagicMock()
+    flags = MagicMock()
+    flags.select.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(data=[])
+    tables = db.table.return_value
+    db.table.side_effect = lambda name: flags if name == "mock_attempt_review_flags" else tables
+    def rpc(name, params):
+        if name == "fn_resolve_mock_paper_access":
+            assert params["p_skill"] == "reading"
+            assert params["p_test_id"]
+            assert params["p_user_id"] == _USER["id"]
+            return MagicMock(execute=MagicMock(return_value=MagicMock(data={
+                "allowed": True, "attempt_purpose": "practice", "paper_revision": 1, "policy_revision": 1})))
+        if name == "fn_guard_owned_mock_attempt":
+            attempt = params["p_attempt"]
+            assert params["p_skill"] == "reading"
+            assert attempt["user_id"] == _USER["id"]
+            assert attempt["test_id"] and not attempt.get("sitting_id")
+            return MagicMock(execute=MagicMock(return_value=MagicMock(data={"allowed": True})))
+        raise AssertionError(f"Unexpected policy RPC: {name}")
+    db.rpc.side_effect = rpc
+    return db
+
+
 # ── Service: L3 parse / validate / build ──────────────────────────────
 
 
@@ -349,7 +374,7 @@ def test_l3_submit_requires_auth():
 
 
 def test_l3_detail_strips_answer_keys_via_column_selection():
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value.select.return_value
     # 1) _fetch_published_test: select.eq.eq.limit.execute
     chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
@@ -398,7 +423,7 @@ def test_l3_submit_rejects_when_elapsed_exceeds_limit_plus_grace():
     from fastapi.testclient import TestClient as _TC
     client = _TC(_app, raise_server_exceptions=False)
 
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     # Use side_effect so the two select chains return DIFFERENT data:
     # call 1 = _fetch_attempt_or_404 (attempt row), call 2 = test_row fetch.
     attempt_row = {
@@ -446,7 +471,7 @@ def _upload(md: str, qs: str = "", headers=None):
 
 
 def test_import_l3_dry_run_shows_passage_summaries():
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_reading.supabase_admin", mock_db):
         r = _upload(_L3_MIN, "?dry_run=true", _ADMIN_AUTH)
@@ -477,7 +502,7 @@ def test_resume_returns_open_attempt_when_one_exists():
     """Sprint 20.9 D3: the resume payload hydrates answers from the new
     `reading_attempt_answers` table (mig 088), not from the in_progress
     row's JSONB array."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value.select.return_value
     # _fetch_published_test: select.eq.eq.limit.execute (status=published)
     chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
@@ -486,7 +511,7 @@ def test_resume_returns_open_attempt_when_one_exists():
                           "band_target": None, "status": "published"}])
     # in-progress lookup (reading_test_attempts): select.eq.eq.eq.order.limit.execute
     chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
-        MagicMock(data=[{"id": "a-uuid", "started_at": "2026-05-28T10:00:00+00:00",
+        MagicMock(data=[{"id": "a-uuid", "test_id": "test-uuid", "user_id": _USER["id"], "started_at": "2026-05-28T10:00:00+00:00",
                           "status": "in_progress",
                           "resume_expires_at": "2099-01-01T00:00:00+00:00"}])
     # 20.9 — per-q_num answers fetch (reading_attempt_answers): select.eq.order.execute
@@ -508,7 +533,7 @@ def test_resume_returns_open_attempt_when_one_exists():
 
 
 def test_resume_404_when_no_in_progress_attempt():
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value.select.return_value
     # Test exists (published).
     chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
@@ -530,7 +555,7 @@ def test_patch_answers_upserts_by_qnum_when_in_progress():
     `reading_attempt_answers` table as a single PK upsert (atomic). The pre-
     20.9 read-modify-write against reading_test_attempts.answers JSONB is
     GONE — no .update() of the attempt row, no read-modify-write window."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value
     # _fetch_attempt_or_404: select.eq.limit.execute returns the attempt row.
     chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
@@ -571,7 +596,7 @@ def test_patch_answers_upserts_by_qnum_when_in_progress():
 
 def test_patch_answers_rejects_when_attempt_already_submitted():
     """Sprint 20.9 D3: the upsert path still respects the in_progress gate."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value
     chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{
@@ -606,7 +631,7 @@ def test_l3_boot_requires_auth():
 def test_l3_boot_returns_test_and_resume_payload_without_answer_keys():
     """Perf-1: the combined boot endpoint replaces the frontend waterfall
     without weakening answer-key stripping or resume hydration."""
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value.select.return_value
     # _fetch_published_test: select.eq.eq.limit.execute
     chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
@@ -624,7 +649,7 @@ def test_l3_boot_returns_test_and_resume_payload_without_answer_keys():
                           "order_num": 1, "passage_id": "p1"}])
     # in-progress lookup: select.eq.eq.eq.order.limit.execute
     chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
-        MagicMock(data=[{"id": "a-uuid", "started_at": "2026-05-28T10:00:00+00:00",
+        MagicMock(data=[{"id": "a-uuid", "test_id": "test-uuid", "user_id": _USER["id"], "started_at": "2026-05-28T10:00:00+00:00",
                           "status": "in_progress",
                           "resume_expires_at": "2099-01-01T00:00:00+00:00"}])
     # per-q_num answers: select.eq.order.execute
@@ -644,6 +669,12 @@ def test_l3_boot_returns_test_and_resume_payload_without_answer_keys():
     assert all("answer" not in q for q in body["test"]["questions"])
     assert all("explanation" not in q for q in body["test"]["questions"])
     assert body["in_progress"] == {
+        "attempt_purpose": None,
+        "mock_sitting_id": None,
+        "paper_revision": None,
+        "policy_revision": None,
+        "flag_protocol": "question-cas-v1",
+        "review_flags": [],
         "attempt_id": "a-uuid",
         "test_id": "T1",
         "status": "in_progress",
@@ -666,7 +697,7 @@ def test_l3_boot_returns_test_and_resume_payload_without_answer_keys():
 
 
 def test_l3_boot_returns_null_resume_when_no_in_progress_attempt():
-    mock_db = MagicMock()
+    mock_db = _legacy_practice_db()
     chain = mock_db.table.return_value.select.return_value
     chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{"id": "test-uuid", "test_id": "T1", "title": "T", "module": "academic",

@@ -90,12 +90,13 @@ def build_guided_feedback(
         from services.listening_source_collection import source_explanation, source_response_fields
         protected = solution if item["state"] == "checked" else self_review
         question = next((question for row in exercise_rows for question in (row.get("payload") or {}).get("questions") or [] if question.get("q_num") == q_num), {})
+        explanation = source_explanation(protected.get("explanation"), item_id=question.get("source_item_id"))
         try:
-            fields = source_response_fields(question, reference_answer=(source_explanation(protected.get("explanation")) or {}).get("answer"))
+            fields = source_response_fields(question, reference_answer=(explanation or {}).get("answer"))
         except ValueError as exc:
             raise FeedbackUnavailable("source blank metadata is unavailable") from exc
         feedback.update({"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
             "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
-            "explanation": source_explanation(protected.get("explanation")),
+            "explanation": explanation,
             "audio_granularity": raw_window.get("granularity") if window else audio_granularity})
     return feedback

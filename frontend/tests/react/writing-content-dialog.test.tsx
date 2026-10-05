@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { webcrypto } from 'node:crypto';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createWritingContentDialog } from '@/lib/writing-content-dialog';
 import { WRITING_CONTENT_MARKER, WRITING_LIBRARY_MARKER, readWritingContentQuery, createWritingContentMarker } from '@/lib/writing-content-navigation.mjs';
@@ -8,7 +9,7 @@ beforeEach(() => {
   window.history.replaceState({ nextOwned: 'preserve' }, '', '/writing/dashboard?tab=tips');
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
 });
-afterEach(() => { dispose?.(); dispose = undefined; cleanup(); document.body.style.overflow = ''; });
+afterEach(() => { dispose?.(); dispose = undefined; cleanup(); document.body.style.overflow = ''; vi.unstubAllGlobals(); });
 function setup(read = vi.fn(async () => ({ enabled: true, items: [{ id: 't1', title: 'Canonical tip' }] }))) {
   render(<><main><button id="tab-assignments">Assignments</button><button id="tab-tips">Tips</button>
     <button data-tip-id="t1">Read tip</button></main><div id="submit-modal" className="hidden"><button id="modal-close">Submit close</button></div>
@@ -22,6 +23,18 @@ function setup(read = vi.fn(async () => ({ enabled: true, items: [{ id: 't1', ti
   dispose = controller.dispose;
   return { controller, card: screen.getByRole('button', { name: 'Read tip' }), read, selectTab };
 }
+it('Safari without randomUUID opens content and retains the owned Back history entry', async () => {
+  vi.stubGlobal('crypto', { getRandomValues: webcrypto.getRandomValues.bind(webcrypto) });
+  const { controller, card } = setup();
+  expect(controller.activate('tip', 't1', card)).toBe(true);
+  await waitFor(() => expect(screen.getByRole('dialog').getAttribute('data-content-state')).toBe('ready'));
+  const parent = window.history.state[WRITING_LIBRARY_MARKER].id;
+  expect(parent).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+  controller.close();
+  expect(back).toHaveBeenCalledTimes(1);
+  expect(document.activeElement).toBe(card);
+});
 it('FR002/005: one explicit entry, immediate focus, trap and inert background', async () => {
   const { controller, card } = setup();
   const push = vi.spyOn(window.history, 'pushState');

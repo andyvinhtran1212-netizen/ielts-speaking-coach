@@ -91,7 +91,7 @@ async function installHarness(page, {
     }
     if (request.method() === 'GET' && path === `/sessions/${sessionId}`) {
       const payload = typeof session === 'function' ? session() : session;
-      return route.fulfill({ json: payload, headers: cors });
+      return route.fulfill({ json: { submission_retry_safe: true, ...payload }, headers: cors });
     }
     if (request.method() === 'GET' && path === `/sessions/${sessionId}/questions`) {
       const payload = typeof questions === 'function' ? questions() : questions;

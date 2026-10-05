@@ -28,6 +28,7 @@ async function launch() {
 const browser = await launch();
 async function fixture(options = {}) {
   const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1440, height: 900 } });
+  await context.addInitScript(() => Object.defineProperty(crypto, 'randomUUID', { value: undefined }));
   const state = { tips: structuredClone(tips), prompts: structuredClone(prompts), enabled: true,
     status: 200, hold: null, calls: [], unexpected: [], errors: [] };
   await context.addInitScript(({ user }) => {

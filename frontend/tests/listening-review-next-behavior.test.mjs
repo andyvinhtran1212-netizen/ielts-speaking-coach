@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   listeningBandLabel,
+  listeningReviewAnswerState,
   listeningReviewBackTarget,
   listeningReviewParams,
   listeningReviewSection,
@@ -50,6 +51,13 @@ const fixture = (overrides = {}) => ({
 });
 
 describe('Listening review native model', () => {
+  test('distinguishes empty responses without overriding canonical positive grades or numeric zero', () => {
+    assert.equal(listeningReviewAnswerState({ correct: false, user_answer: null }), 'unanswered');
+    assert.equal(listeningReviewAnswerState({ correct: false, user_answer: ' \n ' }), 'unanswered');
+    assert.equal(listeningReviewAnswerState({ correct: false, user_answer: 0 }), 'incorrect');
+    assert.equal(listeningReviewAnswerState({ correct: false, user_answer: ' B ' }), 'incorrect');
+    assert.equal(listeningReviewAnswerState({ correct: true, user_answer: '' }), 'correct');
+  });
   test('parses only allowlisted origins and requires a sitting to return to mock', () => {
     assert.deepEqual(listeningReviewParams('?attempt_id=a&from=practice'), {
       attemptId: 'a', adminTestId: null, from: 'practice', sittingId: null,
@@ -139,10 +147,14 @@ describe('Listening review native controller contract', () => {
     assert.match(CLIENT, /Paraphrase và bẫy/);
   });
 
-  test('real audio window drives full-track seek and transcript anchor highlight', () => {
+  test('real audio window drives bounded replay with an explicit continuous alternative', () => {
+    assert.match(CLIENT, /setAttribute\('segment-start', String\(win\.start\)\)/);
+    assert.match(CLIENT, /setAttribute\('segment-end', String\(win\.end\)\)/);
+    assert.match(CLIENT, /if \(continuously\)/);
     assert.match(CLIENT, /removeAttribute\('segment-start'\)/);
     assert.match(CLIENT, /removeAttribute\('segment-end'\)/);
     assert.match(CLIENT, /seekTo\?\.\(win\.start\)/);
+    assert.match(CLIENT, /Nghe tiếp từ/);
     assert.match(CLIENT, /setActiveAnchor\(item\.transcript_anchor\)/);
     assert.match(CLIENT, /data-para=\{index\}/);
   });

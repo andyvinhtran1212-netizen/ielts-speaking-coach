@@ -670,6 +670,9 @@
 .rq-check:hover { background: var(--av-primary-hover); }
 .rq-check:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 3px; }
 .rq-check:disabled { opacity: .5; cursor: default; }
+.rq-draft { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av-space-2); padding: var(--av-space-3); border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-md); }
+.rq-draft p { flex: 1 1 180px; min-width: 0; margin: 0; color: var(--av-text-primary); font-size: var(--av-fs-sm); overflow-wrap: anywhere; }
+.rq-draft__discard { min-height: 44px; flex: 0 1 auto; max-width: 100%; }
 .rq-feedback { font-size: var(--av-fs-sm); line-height: var(--av-lh-normal); padding: var(--av-space-2) var(--av-space-3); border-radius: var(--av-radius-sm); }
 .rq-feedback.is-correct { background: var(--av-success-soft); color: var(--av-success); }
 .rq-feedback.is-incorrect { background: var(--av-error-soft); color: var(--av-error); }

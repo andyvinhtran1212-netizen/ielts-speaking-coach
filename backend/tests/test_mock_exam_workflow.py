@@ -23,6 +23,8 @@ What we pin:
 from __future__ import annotations
 
 import threading
+import copy
+import json
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -139,6 +141,8 @@ class _Query:
 
     def execute(self):
         rows = self.fake.tables.setdefault(self.table_name, [])
+        if self.op in {"insert", "update", "delete"}:
+            self.fake.writer_calls.append((self.table_name, self.op))
 
         if self.op == "insert":
             with self.fake.lock:
@@ -198,6 +202,8 @@ class FakeSupabase:
         self.tables: dict[str, list[dict]] = {}
         self.lock = threading.Lock()
         self.mock_explanation_scope_error = None
+        self.rpc_calls: list[tuple[str, dict]] = []
+        self.writer_calls: list[tuple[str, str]] = []
 
     def table(self, name):
         return _Query(self, name)
@@ -208,6 +214,50 @@ class FakeSupabase:
     # jsonb-|| so untouched keys survive, and only a non-terminal sitting — so
     # these tests keep exercising real behaviour instead of a stub.
     def rpc(self, name, params):
+        self.rpc_calls.append((name, copy.deepcopy(params)))
+        if name == "fn_create_mock_exam_with_paper_policy":
+            # The database contract returns one canonical row. These fixtures
+            # check the caller's single-RPC boundary; rollback is tested on PG.
+            if self.mock_explanation_scope_error:
+                raise RuntimeError(self.mock_explanation_scope_error)
+            payload = dict(params["p_payload"])
+            linked_papers = []
+            for kind in ("reading", "listening"):
+                paper_id = payload.get(f"{kind}_test_id")
+                if not paper_id:
+                    continue
+                paper = next((row for row in self.tables.get(f"{kind}_tests", [])
+                              if row["id"] == paper_id), None)
+                if paper is None or paper.get("status") != "published":
+                    raise RuntimeError("mock_paper_policy:" + json.dumps({
+                        "operation": "link", "reason": "paper_not_ready", "kind": kind,
+                        "content_id": paper_id, "current_revision": None,
+                        "dependencies": [], "next_actions": ["publish_paper"],
+                    }))
+                if paper.get("is_public") and payload.get(f"{kind}_is_public") is not False:
+                    raise RuntimeError("mock_paper_policy:" + json.dumps({
+                        "operation": "link", "reason": "public_overlap_unapproved", "kind": kind,
+                        "content_id": paper_id, "current_revision": paper.get("policy_revision", 0),
+                        "dependencies": [], "next_actions": ["review_visibility"],
+                    }))
+                linked_papers.append((kind, paper))
+            with self.lock:
+                for kind, paper in linked_papers:
+                    if payload.get(f"{kind}_is_public") is False:
+                        changed = paper.get("is_public") is not False
+                        paper["is_public"] = False
+                        paper["policy_revision"] = paper.get("policy_revision", 0) + int(changed)
+                now = _now_iso_for_test()
+                row = {
+                    "id": str(uuid4()), "created_at": now, "updated_at": now,
+                    "status": "draft", "active_section": "not_started",
+                    **{key: value for key, value in payload.items()
+                       if key not in {"reading_is_public", "listening_is_public"}},
+                    "created_by": params["p_actor_id"],
+                    "web_explanation_mode": payload.get("web_explanation_mode", "with_result"),
+                }
+                self.tables.setdefault("mock_exams", []).append(row)
+            return _RpcResult(copy.deepcopy(row))
         if name == "fn_merge_sitting_integrity":
             row = next(
                 (r for r in self.tables.get("mock_exam_sittings", [])
@@ -291,7 +341,6 @@ class FakeSupabase:
                         raise RuntimeError(f"mock_{kind}_visibility_update_failed")
                     paper.update({
                         "is_public": bool(patch[visibility]),
-                        "exam_only": False,
                     })
                 patch.pop(visibility, None)
             row.update(patch)
@@ -374,6 +423,51 @@ def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
 
 
 # ── canonical content readiness gates ─────────────────────────────────
+
+
+def test_mock_create_uses_one_canonical_rpc_and_only_explicit_visibility_command(fake_db, svc):
+    reading_id, listening_id = str(uuid4()), str(uuid4())
+    fake_db.seed("reading_tests", {"id": reading_id, "status": "published",
+                                  "is_public": True, "exam_only": True, "policy_revision": 4})
+    fake_db.seed("listening_tests", {"id": listening_id, "status": "published",
+                                    "is_public": False, "exam_only": False, "policy_revision": 2})
+    actor = str(uuid4())
+    payload = {
+        "code": "ATOMIC-CREATE", "title": "Atomic create", "status": "draft",
+        "reading_test_id": reading_id, "listening_test_id": listening_id,
+        "reading_is_public": False, "web_explanation_mode": "disabled",
+        "id": "CLIENT-ID", "created_by": "CLIENT-ACTOR", "active_section": "reading",
+    }
+    result = svc.admin_create_exam(payload, actor)
+    assert fake_db.rpc_calls == [("fn_create_mock_exam_with_paper_policy", {
+        "p_payload": {key: value for key, value in payload.items()
+                      if key not in {"id", "created_by", "active_section"}},
+        "p_actor_id": actor,
+    })]
+    assert result["id"] != "CLIENT-ID"
+    assert result["created_by"] == actor
+    assert result["active_section"] == "not_started"
+    assert fake_db.rows("reading_tests")[0]["is_public"] is False
+    assert fake_db.rows("reading_tests")[0]["exam_only"] is True
+    assert fake_db.rows("reading_tests")[0]["policy_revision"] == 5
+    assert fake_db.rows("listening_tests")[0]["policy_revision"] == 2
+    assert fake_db.writer_calls == []  # no Python insert, visibility writer, or delete fallback
+
+
+def test_mock_create_policy_conflict_has_no_separate_insert_or_delete_fallback(fake_db, svc):
+    from services.mock_paper_policy import PaperPolicyError
+
+    paper_id = str(uuid4())
+    fake_db.seed("reading_tests", {"id": paper_id, "status": "published", "is_public": True})
+    before = copy.deepcopy(fake_db.tables)
+    with pytest.raises(PaperPolicyError) as error:
+        svc.admin_create_exam({"code": "PRIVATE-LINK", "title": "Private link",
+                               "reading_test_id": paper_id, "web_explanation_mode": "disabled"}, str(uuid4()))
+    assert error.value.status_code == 409
+    assert error.value.detail["reason"] == "public_overlap_unapproved"
+    assert fake_db.tables == before
+    assert fake_db.writer_calls == []
+    assert [name for name, _ in fake_db.rpc_calls] == ["fn_create_mock_exam_with_paper_policy"]
 
 
 def test_mock_explanation_enable_uses_one_atomic_scope_rpc(monkeypatch, svc):
@@ -1271,6 +1365,53 @@ def test_attach_attempt_sets_both_directions(fake_db, svc):
     assert fake_db.rows("reading_test_attempts")[0]["sitting_id"] == s["id"]
 
 
+@pytest.mark.parametrize("terminal", ["collected", "released"])
+def test_canonical_attach_retry_returns_same_binding_without_writes_after_collection(fake_db, svc, terminal):
+    exam = _seed_exam(fake_db, listening=False)
+    user_id = str(uuid4())
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    sitting = next(row for row in fake_db.rows("mock_exam_sittings") if row["id"] == sitting["id"])
+    attempt_id = str(uuid4())
+    exam.update({"active_section": "reading", "collected_section": "reading"})
+    sitting.update({"reading_attempt_id": attempt_id, "reading_submitted_at": _now_iso_for_test(),
+                    "status": "released" if terminal == "released" else "all_submitted"})
+    fake_db.seed("reading_test_attempts", {
+        "id": attempt_id, "user_id": user_id, "test_id": exam["reading_test_id"],
+        "sitting_id": sitting["id"], "attempt_purpose": "mock_delivery", "status": "submitted",
+    })
+    fake_db.writer_calls.clear()
+    result = svc.attach_attempt(sitting["id"], user_id, "reading", attempt_id)
+    assert result == sitting
+    assert fake_db.writer_calls == []
+
+
+@pytest.mark.parametrize("mismatch", ["owner", "sitting", "purpose", "pointer"])
+def test_canonical_attach_retry_does_not_accept_mismatched_binding(fake_db, svc, mismatch):
+    exam = _seed_exam(fake_db, listening=False)
+    user_id = str(uuid4())
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    sitting = next(row for row in fake_db.rows("mock_exam_sittings") if row["id"] == sitting["id"])
+    attempt_id = str(uuid4())
+    sitting.update({"reading_attempt_id": attempt_id, "status": "released"})
+    attempt = {
+        "id": attempt_id, "user_id": user_id, "test_id": exam["reading_test_id"],
+        "sitting_id": sitting["id"], "attempt_purpose": "mock_delivery", "status": "submitted",
+    }
+    if mismatch == "owner":
+        attempt["user_id"] = str(uuid4())
+    elif mismatch == "sitting":
+        attempt["sitting_id"] = str(uuid4())
+    elif mismatch == "purpose":
+        attempt["attempt_purpose"] = "practice"
+    else:
+        sitting["reading_attempt_id"] = str(uuid4())
+    fake_db.seed("reading_test_attempts", attempt)
+    fake_db.writer_calls.clear()
+    with pytest.raises(svc.SittingConflictError):
+        svc.attach_attempt(sitting["id"], user_id, "reading", attempt_id)
+    assert fake_db.writer_calls == []
+
+
 def test_attach_attempt_rejects_before_section_open(fake_db, svc):
     """A domain attempt can't be attached before the admin opens that section."""
     _seed_exam(fake_db)
@@ -1606,7 +1747,7 @@ def test_is_sealed_tracks_flag(fake_db, svc):
     assert svc.is_sealed(s["id"]) is True
     fake_db.rows("mock_exam_sittings")[0]["sealed"] = False
     assert svc.is_sealed(s["id"]) is False
-    assert svc.is_sealed(uuid4()) is False   # missing sitting → not sealed
+    assert svc.is_sealed(uuid4()) is True    # a missing linked sitting cannot disclose scores
 
 
 # ── review workflow: claim / final bands / release ────────────────────
@@ -4491,6 +4632,54 @@ def test_retake_review_requires_only_assigned_skills(fake_db, svc, wf):
     wf.claim(review["id"], admin)
     saved = wf.save_final_bands(review["id"], admin, {"writing": 6.5})   # no L/R/S needed
     assert saved["final_bands"]["writing"] == 6.5
+
+
+@pytest.mark.parametrize("skills,band,blankable", [
+    (["listening"], 8.5, []),
+    (["reading"], 8.5, []),
+    (["writing"], None, ["writing"]),
+    (["listening", "writing"], 8.5, ["writing"]),
+    (["listening"], None, ["listening"]),
+])
+def test_retake_review_detail_blankable_is_subset_of_assigned_skills(
+    fake_db, svc, wf, monkeypatch, skills, band, blankable,
+):
+    """A retake without essays must not advertise unassigned Writing to the UI."""
+    import asyncio
+    from unittest.mock import AsyncMock
+    from routers import admin_mock_reviews
+
+    user_id, review_id = uuid4(), uuid4()
+    _seed_retake(fake_db, user_id, skills)
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    stored_sitting = next(s for s in fake_db.rows("mock_exam_sittings")
+                          if s["id"] == sitting["id"])
+    stored_sitting["status"] = "all_submitted"
+    for skill in ("listening", "reading"):
+        if skill in skills:
+            attempt_id = str(uuid4())
+            stored_sitting[f"{skill}_attempt_id"] = attempt_id
+            fake_db.seed(f"{skill}_test_attempts", {
+                "id": attempt_id, "score": 39, "band_estimate": band,
+            })
+    fake_db.seed("mock_exam_reviews", {
+        "id": str(review_id), "sitting_id": sitting["id"], "status": "claimed",
+    })
+    authorize = AsyncMock(return_value={"id": str(uuid4())})
+    monkeypatch.setattr(admin_mock_reviews, "require_admin", authorize)
+
+    # Pin the actual failing backend condition, rather than mocking its result:
+    # with no essays the workflow considers Writing unconvertible even when the
+    # retake only assigned Listening or Reading.
+    assert "writing" in wf.blankable_skills_for_sitting(sitting["id"])
+    detail = asyncio.run(admin_mock_reviews.get_review(review_id, "Bearer qa"))
+
+    authorize.assert_awaited_once_with("Bearer qa")
+    assert detail["review"]["id"] == str(review_id)
+    assert detail["review"]["sitting_id"] == detail["sitting"]["id"] == sitting["id"]
+    assert detail["required_skills"] == skills
+    assert detail["blankable_skills"] == blankable
+    assert set(detail["blankable_skills"]) <= set(detail["required_skills"])
 
 
 def test_retake_start_section_blocks_second_concurrent(fake_db, svc):

@@ -86,3 +86,13 @@ Verify delayed progress/end/reset races and oldtab stale/reopen without automati
 progress retry, mastery resurrection or optimistic save. Rollback retains these
 reset/admission/matching guards and stored marks while any admitted work depends on
 them; no schema removal/mark clearing/history rewrite. Every release gate is PENDING.
+
+## Current integration migration filename (2026-10-03)
+
+Select `309_grammar_quiz_revision_cutover.sql` for the currently unapplied
+Grammar candidate. `306_mock_paper_policy_and_admission.sql` belongs to the
+independent Mock release. Verify exact filenames and catalog bodies, not the
+numeric prefix alone. The Grammar SQL is unchanged from the reviewed candidate;
+no applied ledger filename is renamed or baselined. The previous preflight is
+historical and must be refreshed before applying309. If the old Grammar filename
+was applied meanwhile, stop for an additive follow-up instead.

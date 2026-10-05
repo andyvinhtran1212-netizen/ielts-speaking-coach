@@ -148,7 +148,11 @@ it.each(['source', 'generic', 'once'] as const)('releases %s media in hidden Act
 
 it.each(['source', 'once'] as const)('StrictMode exercises cleanup and restores %s audio without losing the current claim', async kind => {
   source = kind === 'source'; once = kind === 'once'; const view = render(<StrictMode><ProgrammeFormRunner testId="OLD" /></StrictMode>); await ready();
-  const audio = document.querySelector('audio')!; expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.calls.length).toBeGreaterThan(0); expect(vi.mocked(HTMLMediaElement.prototype.load).mock.calls.length).toBeGreaterThan(0);
+  const audio = document.querySelector('audio')!;
+  await waitFor(() => {
+    expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts).toContain(audio);
+    expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).toContain(audio);
+  });
   expect(audio.getAttribute('src')).toBe('/OLD.mp3');
   if (once) { fireEvent.click(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ })); await screen.findByRole('button', { name: 'Tạm dừng' }); expect(vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'))).toHaveLength(1); fireEvent.ended(audio); const ended = await screen.findByRole('button', { name: 'Đã sử dụng lượt nghe' }); expect(ended.hasAttribute('disabled')).toBe(true); }
   view.unmount(); expect(audio.getAttribute('src')).toBeNull();

@@ -290,13 +290,13 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 
 ### Chia động từ đúng (Present Simple)
 
-1. She _____ (go) to work by bus every day.
-2. Water _____ (freeze) at 0 degrees Celsius.
-3. They _____ (not/watch) TV on weekdays.
-4. _____ he _____ (like) Vietnamese coffee?
-5. The flight _____ (depart) at 10:30 PM.
-6. My sister _____ (work) as a teacher in Ho Chi Minh City.
-7. _____ you _____ (speak) English fluently?
+1. She `_____` (go) to work by bus every day.
+2. Water `_____` (freeze) at 0 degrees Celsius.
+3. They `_____` (not/watch) TV on weekdays.
+4. `_____` he `_____` (like) Vietnamese coffee?
+5. The flight `_____` (depart) at 10:30 PM.
+6. My sister `_____` (work) as a teacher in Ho Chi Minh City.
+7. `_____` you `_____` (speak) English fluently?
 
 ### Sửa lỗi
 
@@ -308,9 +308,9 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 
 ### Viết câu hỏi dựa vào câu trả lời
 
-1. ____________? — Yes, I like reading books.
-2. ____________? — She works as a doctor.
-3. ____________? — They go to the beach every summer. (Hỏi nơi đến.)
+1. `____________`? — Yes, I like reading books.
+2. `____________`? — She works as a doctor.
+3. `____________`? — They go to the beach every summer. (Hỏi nơi đến.)
 
 ## Đáp án
 

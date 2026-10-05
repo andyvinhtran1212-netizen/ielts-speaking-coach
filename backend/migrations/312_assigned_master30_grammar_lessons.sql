@@ -1,5 +1,5 @@
--- Targeted MASTER30 lesson practice. 306 is reserved by the concurrent
--- Grammar quiz revision PR; apply that forward migration before this one.
+-- Targeted MASTER30 lesson practice. Renumbered before hosted application;
+-- deployed Mock and Grammar revisions occupy 306–311. No applied ledger rename.
 -- Additive schema and a default-off runtime flag. No learner data is rewritten.
 
 CREATE TABLE IF NOT EXISTS public.grammar_lesson_attempts (

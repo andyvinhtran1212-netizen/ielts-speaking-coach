@@ -33,6 +33,13 @@ export function SpeakingShell() {
 
         {/* ─── MAIN ────────────────────────────────────────────── */}
         <main className="main-bg flex-1">
+        <section id="speaking-draft-controls" hidden aria-label="Nháp chuẩn bị Speaking" className="av-w-page"
+          style={{ paddingTop: '1rem', display: undefined }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+            <p id="speaking-draft-notice" role="status" aria-live="polite" style={{ color: 'var(--av-text-primary)', flex: '1 1 16rem', overflowWrap: 'anywhere' }} />
+            <button id="speaking-draft-discard" type="button" className="btn btn-secondary" disabled style={{ minHeight: 44, minWidth: 44 }}>Bỏ nháp</button>
+          </div>
+        </section>
 
         {/* ════ TAB: DASHBOARD ════════════════════════════════════ */}
         <div id="tab-dashboard" className="main-tab-panel active">
@@ -645,7 +652,8 @@ export function SpeakingShell() {
 
         {/* ─── TOPIC MODAL ──────────────────────────────────────────────── */}
         <div id="topic-modal" className="modal-backdrop" hidden aria-hidden="true">
-          <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="topic-modal-title" tabIndex={-1}>
+          <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="topic-modal-title" tabIndex={-1}
+            style={{ maxHeight: '100%', overflowY: 'auto', overscrollBehavior: 'contain' }}>
 
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
@@ -703,6 +711,13 @@ export function SpeakingShell() {
                    practice form). */}
               <div id="myq-input-length-warning" className="ds-cuecard-length-warning" data-state="hidden" role="status" aria-live="polite"></div>
               <p id="myq-input-preview" className="cue-card-preview" style={{ display: "none", fontSize: "11px", marginTop: "6px", color: "var(--av-text-muted)" }}></p>
+            </div>
+
+            <div id="speaking-modal-draft-controls" hidden aria-label="Nháp chuẩn bị trong hộp thoại" className="mt-4">
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+                <p id="speaking-modal-draft-notice" role="status" aria-live="polite" style={{ color: 'var(--av-text-primary)', flex: '1 1 12rem', overflowWrap: 'anywhere', margin: 0 }} />
+                <button id="speaking-modal-draft-discard" type="button" className="btn btn-secondary" style={{ minHeight: 44, minWidth: 44 }}>Bỏ nháp</button>
+              </div>
             </div>
 
             {/* Error */}

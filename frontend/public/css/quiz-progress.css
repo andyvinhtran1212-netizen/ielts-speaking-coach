@@ -1,5 +1,6 @@
 .pg-shell { max-width: var(--av-width-page); padding-bottom: var(--av-space-16); color: var(--av-text-primary); }
 .pg-shell .subpage-header { margin-bottom: var(--av-space-4); }
+.pg-shell .subpage-header__back { min-width: var(--av-control-min-height); min-height: var(--av-control-min-height); }
 .pg-hero { padding: clamp(24px, 4vw, 42px); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-xl); background: var(--av-surface-card); box-shadow: var(--av-shadow-sm); }
 .pg-eyebrow, .pg-section__head p { margin: 0 0 var(--av-space-2); color: var(--av-primary); font-size: var(--av-fs-xs); font-weight: var(--av-fw-bold); letter-spacing: var(--av-tracking-widest); text-transform: uppercase; }
 .pg-title { max-width: 720px; margin: 0; font-size: clamp(2rem, 4.5vw, 3.35rem); line-height: 1.02; letter-spacing: -.045em; }
@@ -38,7 +39,7 @@
 .pg-mk__q + .pg-mk__q { margin-top: var(--av-space-3); }
 .pg-mk__prompt { color: var(--av-text-primary); font-size: var(--av-fs-sm); line-height: var(--av-lh-relaxed); }
 .pg-mk__row { margin-top: var(--av-space-3); color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
-.pg-mk__row a { color: var(--av-primary); font-weight: var(--av-fw-semibold); text-decoration: none; }
+.pg-mk__row a { display: inline-flex; align-items: center; min-width: var(--av-control-min-height); min-height: var(--av-control-min-height); color: var(--av-primary); font-weight: var(--av-fw-semibold); text-decoration: none; }
 .pg-mk__ans { font-weight: var(--av-fw-semibold); }
 .pg-mk__ans.is-wrong { color: var(--av-error); }
 .pg-mk__ans.is-right { color: var(--av-success); }
@@ -95,4 +96,4 @@ table.pg-sess td { padding: var(--av-space-4); border-top: 1px solid var(--av-bo
   .pg-stats { grid-template-columns: 1fr; }
   .pg-stat + .pg-stat { border-top: 1px solid var(--av-border-default); border-left: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .pg-bar { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .pg-bar, .pg-shell .subpage-header__back { transition: none; } }

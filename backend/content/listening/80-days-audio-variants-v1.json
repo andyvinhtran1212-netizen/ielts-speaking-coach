@@ -1,0 +1,1484 @@
+{
+  "schema": "80-days-audio-variants/1",
+  "package_id": "80-days-listening-source-v1",
+  "manifest_sha256": "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841",
+  "days": [
+    {
+      "day": 1,
+      "source_day_id": "80-days:day-01",
+      "original": {
+        "sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5.mp3",
+        "duration_seconds": 228.3,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "2328cb0195490078f3d462db1df71cea819ab6da557b2d3b351d3c70dba1e8a2",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/2328cb0195490078f3d462db1df71cea819ab6da557b2d3b351d3c70dba1e8a2.mp3",
+        "duration_seconds": 151.275,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 2,
+      "source_day_id": "80-days:day-02",
+      "original": {
+        "sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0.mp3",
+        "duration_seconds": 216.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "c51f8959837a944dee1542d911e6ae69cd74e30c477633f7117f416299d7352a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/c51f8959837a944dee1542d911e6ae69cd74e30c477633f7117f416299d7352a.mp3",
+        "duration_seconds": 188.77,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 3,
+      "source_day_id": "80-days:day-03",
+      "original": {
+        "sha256": "f683b4877c1415455bd42ee0ca80b9f1ded1cc87df06221dfa93e6de0650b985",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/f683b4877c1415455bd42ee0ca80b9f1ded1cc87df06221dfa93e6de0650b985.mp3",
+        "duration_seconds": 245.4,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "3b5b7a532268be3ced4240fa2b3dd57e4b07748592810fa328f7f82f464910a0",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/3b5b7a532268be3ced4240fa2b3dd57e4b07748592810fa328f7f82f464910a0.mp3",
+        "duration_seconds": 161.92,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 4,
+      "source_day_id": "80-days:day-04",
+      "original": {
+        "sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949.mp3",
+        "duration_seconds": 255.8,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "4188ea42ec17d724e2dfb1bdc4982c2de2842279a06c8b880b9b31d3158aa4ea",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/4188ea42ec17d724e2dfb1bdc4982c2de2842279a06c8b880b9b31d3158aa4ea.mp3",
+        "duration_seconds": 185.15,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 5,
+      "source_day_id": "80-days:day-05",
+      "original": {
+        "sha256": "2dd224f22be6c9e034cc12b830aabcdfeea781ae4adeb774b32304baeda7cb56",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/2dd224f22be6c9e034cc12b830aabcdfeea781ae4adeb774b32304baeda7cb56.mp3",
+        "duration_seconds": 229.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "e2a9ccd45972f316974c40ea477f650d2c5b1adc1f5bd8f58d05f72b0b436d9f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/e2a9ccd45972f316974c40ea477f650d2c5b1adc1f5bd8f58d05f72b0b436d9f.mp3",
+        "duration_seconds": 183.64,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 6,
+      "source_day_id": "80-days:day-06",
+      "original": {
+        "sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063.mp3",
+        "duration_seconds": 221.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "1415279ee6663980016a8300a3d34ad0ab3ce420d3e2db1583645fcad7386835",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/1415279ee6663980016a8300a3d34ad0ab3ce420d3e2db1583645fcad7386835.mp3",
+        "duration_seconds": 151.275,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 7,
+      "source_day_id": "80-days:day-07",
+      "original": {
+        "sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e.mp3",
+        "duration_seconds": 232.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "0756a295ad7de376d38c83dde29ba53246722d25187301b13245cf2c13a0b564",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/0756a295ad7de376d38c83dde29ba53246722d25187301b13245cf2c13a0b564.mp3",
+        "duration_seconds": 158.765,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 8,
+      "source_day_id": "80-days:day-08",
+      "original": {
+        "sha256": "30c5a172c38bc95bbdcae2fd56578ed52ad25d706058f8545c73ab514466daa7",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/30c5a172c38bc95bbdcae2fd56578ed52ad25d706058f8545c73ab514466daa7.mp3",
+        "duration_seconds": 250.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "34686df61050aa511bcf0b57c15c32a063db0fd3d7a2e646715566388ec61ea3",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/34686df61050aa511bcf0b57c15c32a063db0fd3d7a2e646715566388ec61ea3.mp3",
+        "duration_seconds": 205.55,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 9,
+      "source_day_id": "80-days:day-09",
+      "original": {
+        "sha256": "7c3605860cdd651aa83b0121be7f76cee77aa67dd63ed45e9bf7aef3030b7ecf",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/7c3605860cdd651aa83b0121be7f76cee77aa67dd63ed45e9bf7aef3030b7ecf.mp3",
+        "duration_seconds": 178.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "4ea8875cefb134455c85cdc3d19a70dc558d7b5df87f37db18b2a460a0e5c752",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/4ea8875cefb134455c85cdc3d19a70dc558d7b5df87f37db18b2a460a0e5c752.mp3",
+        "duration_seconds": 126.445,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 10,
+      "source_day_id": "80-days:day-10",
+      "original": {
+        "sha256": "397de916d2e120ef193f19452fe471c30297e132fd547c9cd9b520fc195bb422",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/397de916d2e120ef193f19452fe471c30297e132fd547c9cd9b520fc195bb422.mp3",
+        "duration_seconds": 242.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "fa1139dae0c4970d9d8f558c012abf3e9bda4ab8caa47ca52810d4c23b281b3c",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/fa1139dae0c4970d9d8f558c012abf3e9bda4ab8caa47ca52810d4c23b281b3c.mp3",
+        "duration_seconds": 190.175,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 11,
+      "source_day_id": "80-days:day-11",
+      "original": {
+        "sha256": "f4f4a04eaff22e4e46b119b7559db79b79672d1f804c44164924b84a4bd47734",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/f4f4a04eaff22e4e46b119b7559db79b79672d1f804c44164924b84a4bd47734.mp3",
+        "duration_seconds": 234.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "4f72a41f2dbd62b8a2a5490a099c694e63f4cd3719aec1b9dbca9440493b90e0",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/4f72a41f2dbd62b8a2a5490a099c694e63f4cd3719aec1b9dbca9440493b90e0.mp3",
+        "duration_seconds": 174.67,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 12,
+      "source_day_id": "80-days:day-12",
+      "original": {
+        "sha256": "06f878a8ed95e4551fdc775aa9b42d4c1ef9e0897fe6249fb433e7d4ef06d90d",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/06f878a8ed95e4551fdc775aa9b42d4c1ef9e0897fe6249fb433e7d4ef06d90d.mp3",
+        "duration_seconds": 295.008,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "64196f2248f18570ad7ecbe2eeeaff384126467b056d8fc7721a491852200c3a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/64196f2248f18570ad7ecbe2eeeaff384126467b056d8fc7721a491852200c3a.mp3",
+        "duration_seconds": 233.72,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 13,
+      "source_day_id": "80-days:day-13",
+      "original": {
+        "sha256": "65691721bbbf623957abe25c8a3417784e1a7c425ed9e9e07bd356fc3dde25ee",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/65691721bbbf623957abe25c8a3417784e1a7c425ed9e9e07bd356fc3dde25ee.mp3",
+        "duration_seconds": 205.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "02f214732aa2a113de3c1f6612614a9db5d73748beead8dc96de694be9c6a931",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/02f214732aa2a113de3c1f6612614a9db5d73748beead8dc96de694be9c6a931.mp3",
+        "duration_seconds": 176.705,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 14,
+      "source_day_id": "80-days:day-14",
+      "original": {
+        "sha256": "5c074a5e452d4b92f26aaa3b14ae941333bb5a89705e8c99a0378a6264c9f013",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/5c074a5e452d4b92f26aaa3b14ae941333bb5a89705e8c99a0378a6264c9f013.mp3",
+        "duration_seconds": 295.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "502cf110b401bdd10e3bd332b3618be05d46340b30f94dff44a21dd6cfff9974",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/502cf110b401bdd10e3bd332b3618be05d46340b30f94dff44a21dd6cfff9974.mp3",
+        "duration_seconds": 260.425,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 15,
+      "source_day_id": "80-days:day-15",
+      "original": {
+        "sha256": "b591cda367dd0453f11af289356501bf6f20215dd92d3e42007536a4e08c2846",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/b591cda367dd0453f11af289356501bf6f20215dd92d3e42007536a4e08c2846.mp3",
+        "duration_seconds": 253.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "9564cf55b524c00497fdab83456b54bdb412e9134a517e4be6bc2bd54521da73",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/9564cf55b524c00497fdab83456b54bdb412e9134a517e4be6bc2bd54521da73.mp3",
+        "duration_seconds": 210.5,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 16,
+      "source_day_id": "80-days:day-16",
+      "original": {
+        "sha256": "2e756233cbc4b05757869f566365b3a0735afe401c749de34cb5a60fafabcacb",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/2e756233cbc4b05757869f566365b3a0735afe401c749de34cb5a60fafabcacb.mp3",
+        "duration_seconds": 247.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "6195209959a053f00743ec00ca466f9166a87c8c26bdc0a830b1b4c7bcfbc6c1",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/6195209959a053f00743ec00ca466f9166a87c8c26bdc0a830b1b4c7bcfbc6c1.mp3",
+        "duration_seconds": 200.675,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 17,
+      "source_day_id": "80-days:day-17",
+      "original": {
+        "sha256": "1262da02e56abbe4c81019e7ece25db2e43dca21b253fde457971eee0bb6cd52",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/1262da02e56abbe4c81019e7ece25db2e43dca21b253fde457971eee0bb6cd52.mp3",
+        "duration_seconds": 229.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "b2b03c6dec81eba5e000bcfde31f95a9517db3f5595e359878d5391397d7ddd7",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/b2b03c6dec81eba5e000bcfde31f95a9517db3f5595e359878d5391397d7ddd7.mp3",
+        "duration_seconds": 167.325,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 18,
+      "source_day_id": "80-days:day-18",
+      "original": {
+        "sha256": "48b2e3777e1d56120e463ccf3d367c12c20744c1e9ba3ae6701c35a0ba65eddc",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/48b2e3777e1d56120e463ccf3d367c12c20744c1e9ba3ae6701c35a0ba65eddc.mp3",
+        "duration_seconds": 224.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "ca95a075ce2e6c9f887e7e083100056a5724818e144c9f3aef46fab4b6fe3bcb",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/ca95a075ce2e6c9f887e7e083100056a5724818e144c9f3aef46fab4b6fe3bcb.mp3",
+        "duration_seconds": 179.475,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 19,
+      "source_day_id": "80-days:day-19",
+      "original": {
+        "sha256": "ca6ff1f55656ef1d18402a53d232c1a17685972611eaf5162e9bbb48c98fce3f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/ca6ff1f55656ef1d18402a53d232c1a17685972611eaf5162e9bbb48c98fce3f.mp3",
+        "duration_seconds": 215.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "ed3325d3b76612ae2735f9ad45f62f795e38ff0500c547b360f8b373fd9af262",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/ed3325d3b76612ae2735f9ad45f62f795e38ff0500c547b360f8b373fd9af262.mp3",
+        "duration_seconds": 182.09,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 20,
+      "source_day_id": "80-days:day-20",
+      "original": {
+        "sha256": "86156134697ce316923c009734e2b6297ba24ca29b5251887ea1b11c09fd695a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/86156134697ce316923c009734e2b6297ba24ca29b5251887ea1b11c09fd695a.mp3",
+        "duration_seconds": 238.3,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "abb476f10dd846a8d0031c64813bec1a478cd32f02bee88729cf833f76db853f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/abb476f10dd846a8d0031c64813bec1a478cd32f02bee88729cf833f76db853f.mp3",
+        "duration_seconds": 206.32,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Printed bracket interjection retained; opposite speaker or overlap assignment unverified."
+        ]
+      }
+    },
+    {
+      "day": 21,
+      "source_day_id": "80-days:day-21",
+      "original": {
+        "sha256": "d36f860cc8e66175ef91c27f9957480b6bf06155ff48a4b3ee3bec86ba00398d",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/d36f860cc8e66175ef91c27f9957480b6bf06155ff48a4b3ee3bec86ba00398d.mp3",
+        "duration_seconds": 220.2,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "26a6934326c49853f36c2376e325db011fe8daa6aae09306c27034a93f00470c",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/26a6934326c49853f36c2376e325db011fe8daa6aae09306c27034a93f00470c.mp3",
+        "duration_seconds": 205.0,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 22,
+      "source_day_id": "80-days:day-22",
+      "original": {
+        "sha256": "745f1148db14722165fdac6b41a06559ef2fc8b5b602f0e222cd7bf15e52fae3",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/745f1148db14722165fdac6b41a06559ef2fc8b5b602f0e222cd7bf15e52fae3.mp3",
+        "duration_seconds": 214.116,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "349720338a93e9b04d89d23869adddc3b313b20ca00606fb4f41c541806e19bb",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/349720338a93e9b04d89d23869adddc3b313b20ca00606fb4f41c541806e19bb.mp3",
+        "duration_seconds": 181.915,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Printed bracket interjection retained; opposite speaker or overlap assignment unverified."
+        ]
+      }
+    },
+    {
+      "day": 23,
+      "source_day_id": "80-days:day-23",
+      "original": {
+        "sha256": "edebb7f489854b8e2155c0917b83b1f0dcda84bda77dcc3873e807fefc79f03c",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/edebb7f489854b8e2155c0917b83b1f0dcda84bda77dcc3873e807fefc79f03c.mp3",
+        "duration_seconds": 270.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "ce53f479c9e87a911a988f9961113d576a5f362927de5ee090cdc2c318623104",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/ce53f479c9e87a911a988f9961113d576a5f362927de5ee090cdc2c318623104.mp3",
+        "duration_seconds": 228.16,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 24,
+      "source_day_id": "80-days:day-24",
+      "original": {
+        "sha256": "7b5a5f619a1cd90ce274d53af8f9b5c68be17f6022e17762e12e05841157cdaf",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/7b5a5f619a1cd90ce274d53af8f9b5c68be17f6022e17762e12e05841157cdaf.mp3",
+        "duration_seconds": 230.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "27fe6f553aede3bf95ec61894227f5e55a5ccaebc737bd74dfcff3d3ab22a7dd",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/27fe6f553aede3bf95ec61894227f5e55a5ccaebc737bd74dfcff3d3ab22a7dd.mp3",
+        "duration_seconds": 185.67,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 25,
+      "source_day_id": "80-days:day-25",
+      "original": {
+        "sha256": "cba1cea65bd3a46ea17427a05ed34cb07d6dd04985d924f59ea0d60fd1d3e0ae",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/cba1cea65bd3a46ea17427a05ed34cb07d6dd04985d924f59ea0d60fd1d3e0ae.mp3",
+        "duration_seconds": 232.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "2e4ddd9aa04961c43c9cfa24ec81b607781ae4946cc5f14ce18c933e9f090e6a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/2e4ddd9aa04961c43c9cfa24ec81b607781ae4946cc5f14ce18c933e9f090e6a.mp3",
+        "duration_seconds": 202.415,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 26,
+      "source_day_id": "80-days:day-26",
+      "original": {
+        "sha256": "44ed146d016c7c471aa442b4db3d68239349edeb0fba1756bfa13691f4dfc384",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/44ed146d016c7c471aa442b4db3d68239349edeb0fba1756bfa13691f4dfc384.mp3",
+        "duration_seconds": 313.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "80683058cfefa5d4038d9fe55aec6e0103edabdc8ef1a53368e3daee44d4df46",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/80683058cfefa5d4038d9fe55aec6e0103edabdc8ef1a53368e3daee44d4df46.mp3",
+        "duration_seconds": 296.52,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "German phrase retained exactly; English Kokoro pronunciation has not been language-reviewed."
+        ]
+      }
+    },
+    {
+      "day": 27,
+      "source_day_id": "80-days:day-27",
+      "original": {
+        "sha256": "d4dfc61e60d29988c79ed79de68e95eb041a43ab822aa922af5976b6d813bb11",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/d4dfc61e60d29988c79ed79de68e95eb041a43ab822aa922af5976b6d813bb11.mp3",
+        "duration_seconds": 247.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "e2e8bdbcf06383214673bc4442a6a2a790d7b042fe8688d2b214ff1c06b044f3",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/e2e8bdbcf06383214673bc4442a6a2a790d7b042fe8688d2b214ff1c06b044f3.mp3",
+        "duration_seconds": 190.68,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 28,
+      "source_day_id": "80-days:day-28",
+      "original": {
+        "sha256": "8877317798a5fb9ddf8f8ee996854cc623bc5ddd776f549c713520d4d48d9381",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/8877317798a5fb9ddf8f8ee996854cc623bc5ddd776f549c713520d4d48d9381.mp3",
+        "duration_seconds": 251.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "bf5d3657c7f5584656f9577464b51042c2126825813611d1e49230d470b7f9ec",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/bf5d3657c7f5584656f9577464b51042c2126825813611d1e49230d470b7f9ec.mp3",
+        "duration_seconds": 236.705,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 29,
+      "source_day_id": "80-days:day-29",
+      "original": {
+        "sha256": "5b655065a5beacc9d908395c0edbe46332033d0592110c6329d318c83a4c67e6",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/5b655065a5beacc9d908395c0edbe46332033d0592110c6329d318c83a4c67e6.mp3",
+        "duration_seconds": 217.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "2e191a6484936c51f735f725af689b9ecc20ec63464cd13d57d3d33e29cc9416",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/2e191a6484936c51f735f725af689b9ecc20ec63464cd13d57d3d33e29cc9416.mp3",
+        "duration_seconds": 192.425,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 30,
+      "source_day_id": "80-days:day-30",
+      "original": {
+        "sha256": "3311905e5b5f4cb402dd902b2f642af5779285256a0c3384cb7f9684c7939daf",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/3311905e5b5f4cb402dd902b2f642af5779285256a0c3384cb7f9684c7939daf.mp3",
+        "duration_seconds": 195.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "fe5ae5675ecc4355063d71abdaf096a564a56f6944330ed2990204679ee12dfc",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/fe5ae5675ecc4355063d71abdaf096a564a56f6944330ed2990204679ee12dfc.mp3",
+        "duration_seconds": 143.64,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 31,
+      "source_day_id": "80-days:day-31",
+      "original": {
+        "sha256": "d8c78a47fb00a1d864db95f6815d158c69b31ba5720cd760f3d22d7ea6079132",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/d8c78a47fb00a1d864db95f6815d158c69b31ba5720cd760f3d22d7ea6079132.mp3",
+        "duration_seconds": 329.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "d8835aa8339e6d82a6f69c803c2459fcc9729283eab9ea16fda59cf941267d8b",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/d8835aa8339e6d82a6f69c803c2459fcc9729283eab9ea16fda59cf941267d8b.mp3",
+        "duration_seconds": 314.23,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 32,
+      "source_day_id": "80-days:day-32",
+      "original": {
+        "sha256": "c52ec15ca3b3cf9ea4796bd88825fac39b831e0ba731bf6eb4f78749cc818f6c",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/c52ec15ca3b3cf9ea4796bd88825fac39b831e0ba731bf6eb4f78749cc818f6c.mp3",
+        "duration_seconds": 233.48,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "d5efbeb7e630924a0246a822af957d7b3498d398e294b918a05631bae6ae4846",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/d5efbeb7e630924a0246a822af957d7b3498d398e294b918a05631bae6ae4846.mp3",
+        "duration_seconds": 241.065,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 33,
+      "source_day_id": "80-days:day-33",
+      "original": {
+        "sha256": "f64931aef95f282003757592eb082251f536e6fc94d445bdbd5adf7217a6d980",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/f64931aef95f282003757592eb082251f536e6fc94d445bdbd5adf7217a6d980.mp3",
+        "duration_seconds": 300.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "82599201163f5f2bb46701b4fdbf0b790286f543a0ba79a6ce43c97bc5e6cbe6",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/82599201163f5f2bb46701b4fdbf0b790286f543a0ba79a6ce43c97bc5e6cbe6.mp3",
+        "duration_seconds": 287.81,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 34,
+      "source_day_id": "80-days:day-34",
+      "original": {
+        "sha256": "241888d62fbfb099f1fa747ab3082c4ee9d7903742d5a7bb18c0c506ac09ed87",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/241888d62fbfb099f1fa747ab3082c4ee9d7903742d5a7bb18c0c506ac09ed87.mp3",
+        "duration_seconds": 317.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "e5f9e6a9f7ddfd759f972b7e8edb062767f36e705cc9f9461469d5126f4f855d",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/e5f9e6a9f7ddfd759f972b7e8edb062767f36e705cc9f9461469d5126f4f855d.mp3",
+        "duration_seconds": 300.475,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 35,
+      "source_day_id": "80-days:day-35",
+      "original": {
+        "sha256": "62f6fdd8ba0b35696e7a61dc35163b184e3c042ed2f58e15ecba4c963ef088ae",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/62f6fdd8ba0b35696e7a61dc35163b184e3c042ed2f58e15ecba4c963ef088ae.mp3",
+        "duration_seconds": 342.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "0515b60f742e5fd044d9a7340493dae787d89572074ef81e2a4b08d34d5a338b",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/0515b60f742e5fd044d9a7340493dae787d89572074ef81e2a4b08d34d5a338b.mp3",
+        "duration_seconds": 308.02,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 36,
+      "source_day_id": "80-days:day-36",
+      "original": {
+        "sha256": "a2d81b0b82e21e9d37adf318e94bba6c91e143769d7d60471c4029a054f54c9a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/a2d81b0b82e21e9d37adf318e94bba6c91e143769d7d60471c4029a054f54c9a.mp3",
+        "duration_seconds": 345.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "e4c0c8269dfe6be6a465026d323f125c7366f938b5808cb5b6c7fa686ae9a9da",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/e4c0c8269dfe6be6a465026d323f125c7366f938b5808cb5b6c7fa686ae9a9da.mp3",
+        "duration_seconds": 352.725,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 37,
+      "source_day_id": "80-days:day-37",
+      "original": {
+        "sha256": "198f4b6f50ca8a16a1f14ccde707c2aa153d6d5857e9230f0b08f928954f41d8",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/198f4b6f50ca8a16a1f14ccde707c2aa153d6d5857e9230f0b08f928954f41d8.mp3",
+        "duration_seconds": 317.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "63b16bf79181197f1268b041d239782cf07d05878e93cb39a07f5e7f06de8906",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/63b16bf79181197f1268b041d239782cf07d05878e93cb39a07f5e7f06de8906.mp3",
+        "duration_seconds": 311.77,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 38,
+      "source_day_id": "80-days:day-38",
+      "original": {
+        "sha256": "0fb6e99eacffdfa1f0f2a7f09f5f617a8ab7eb954b0c0268ec7801642c0d3345",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/0fb6e99eacffdfa1f0f2a7f09f5f617a8ab7eb954b0c0268ec7801642c0d3345.mp3",
+        "duration_seconds": 330.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "8e990a3f8dd36423ae05eb41e534d967ea4e10e63412d6cd92853e7683c4035b",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/8e990a3f8dd36423ae05eb41e534d967ea4e10e63412d6cd92853e7683c4035b.mp3",
+        "duration_seconds": 317.72,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 39,
+      "source_day_id": "80-days:day-39",
+      "original": {
+        "sha256": "cb652156ef76c1db714f380051cdbcfe97568e3e21d2eeaa29a93b7aeae7a704",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/cb652156ef76c1db714f380051cdbcfe97568e3e21d2eeaa29a93b7aeae7a704.mp3",
+        "duration_seconds": 306.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "dc0361e750f45220ba41f60d57185568d77e5b2d75ca2efbefda8e11b6f1658f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/dc0361e750f45220ba41f60d57185568d77e5b2d75ca2efbefda8e11b6f1658f.mp3",
+        "duration_seconds": 287.76,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 40,
+      "source_day_id": "80-days:day-40",
+      "original": {
+        "sha256": "159b28784eb684fb34369c9f0bea38cba64b5a8f09b54780a7c785a9daa83a44",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/159b28784eb684fb34369c9f0bea38cba64b5a8f09b54780a7c785a9daa83a44.mp3",
+        "duration_seconds": 300.584,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "4f4fe79528307e1207747385c80f906e1828d2277bacf82d00e84a91fd5d9d48",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/4f4fe79528307e1207747385c80f906e1828d2277bacf82d00e84a91fd5d9d48.mp3",
+        "duration_seconds": 244.945,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 41,
+      "source_day_id": "80-days:day-41",
+      "original": {
+        "sha256": "187e2779f9cc69a6ef92c8000bbd31957dd42bab4b14f370044ca5527708f3eb",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/187e2779f9cc69a6ef92c8000bbd31957dd42bab4b14f370044ca5527708f3eb.mp3",
+        "duration_seconds": 300.4,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "3eb5f87bca5f6dbdecb573457b1b643c0f51e8a504c21a4d86fbc765a00c13b8",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/3eb5f87bca5f6dbdecb573457b1b643c0f51e8a504c21a4d86fbc765a00c13b8.mp3",
+        "duration_seconds": 280.775,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 42,
+      "source_day_id": "80-days:day-42",
+      "original": {
+        "sha256": "6c69f189d61d7dc983a6d94763ef338e7a26020d69aab4174c1cbf1cc7de9409",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/6c69f189d61d7dc983a6d94763ef338e7a26020d69aab4174c1cbf1cc7de9409.mp3",
+        "duration_seconds": 288.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "f296f95d82eda6b7f46cfbf151babef8c5667f79a3446653f1cd6beab2dedc40",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/f296f95d82eda6b7f46cfbf151babef8c5667f79a3446653f1cd6beab2dedc40.mp3",
+        "duration_seconds": 282.545,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 43,
+      "source_day_id": "80-days:day-43",
+      "original": {
+        "sha256": "e32f821179e1eee07c98cfddeda89d9def9e08d60cc9c26125c600c3c573b0f3",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/e32f821179e1eee07c98cfddeda89d9def9e08d60cc9c26125c600c3c573b0f3.mp3",
+        "duration_seconds": 312.6,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "ebfb4e5e0dbead7b3e18cf08abf197b0b064d33192e910e011301bfdbf7ac682",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/ebfb4e5e0dbead7b3e18cf08abf197b0b064d33192e910e011301bfdbf7ac682.mp3",
+        "duration_seconds": 304.9,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 44,
+      "source_day_id": "80-days:day-44",
+      "original": {
+        "sha256": "f39095f7f36e09b053e90cdecfc0ab4fced18fc9e6df62021d1e9d9c46bb2f7c",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/f39095f7f36e09b053e90cdecfc0ab4fced18fc9e6df62021d1e9d9c46bb2f7c.mp3",
+        "duration_seconds": 417.2,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "bc51b0c5b7b5556b0cea0ebbd0b07050f7b760bdd5aae75bbdb0011bfb160fd1",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/bc51b0c5b7b5556b0cea0ebbd0b07050f7b760bdd5aae75bbdb0011bfb160fd1.mp3",
+        "duration_seconds": 267.855,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 45,
+      "source_day_id": "80-days:day-45",
+      "original": {
+        "sha256": "2232c46540f6b36b05a8ec5e6fa26cd1615fe04b9bd0e422fc8a46c0477ecf5e",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/2232c46540f6b36b05a8ec5e6fa26cd1615fe04b9bd0e422fc8a46c0477ecf5e.mp3",
+        "duration_seconds": 417.2,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "50c5e171429fd583a1506be408581e3b9a942bb904c97c7bb4a913191fb3d924",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/50c5e171429fd583a1506be408581e3b9a942bb904c97c7bb4a913191fb3d924.mp3",
+        "duration_seconds": 418.615,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 46,
+      "source_day_id": "80-days:day-46",
+      "original": {
+        "sha256": "822da4254ac246922d7ed4c0f44f05ba094f4cbb9e288337ecd37d249e595ecd",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/822da4254ac246922d7ed4c0f44f05ba094f4cbb9e288337ecd37d249e595ecd.mp3",
+        "duration_seconds": 354.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "da78d69b9ca3ca4caf06a8200213ba103407e21e072abdba00b81f60ce6a28ab",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/da78d69b9ca3ca4caf06a8200213ba103407e21e072abdba00b81f60ce6a28ab.mp3",
+        "duration_seconds": 338.53,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 47,
+      "source_day_id": "80-days:day-47",
+      "original": {
+        "sha256": "d75c8f89668fb2dd43dad0003d6274de6452c96433782a3177f9bd458a986bc8",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/d75c8f89668fb2dd43dad0003d6274de6452c96433782a3177f9bd458a986bc8.mp3",
+        "duration_seconds": 430.241,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "4a27d675bc8985465ad22c857613581457d9fc1f5a3ae68a52a36c4ea83b00dd",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/4a27d675bc8985465ad22c857613581457d9fc1f5a3ae68a52a36c4ea83b00dd.mp3",
+        "duration_seconds": 421.88,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 48,
+      "source_day_id": "80-days:day-48",
+      "original": {
+        "sha256": "2c3d7ad4e93084d2cd9f1838324831dfb09fd3742c3f4a344d149ecd346b21e9",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/2c3d7ad4e93084d2cd9f1838324831dfb09fd3742c3f4a344d149ecd346b21e9.mp3",
+        "duration_seconds": 313.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "f9529bae3f173ce67bc558d5e627eaa5828bc3bb8677837d71d166830f7d13d3",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/f9529bae3f173ce67bc558d5e627eaa5828bc3bb8677837d71d166830f7d13d3.mp3",
+        "duration_seconds": 270.525,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 49,
+      "source_day_id": "80-days:day-49",
+      "original": {
+        "sha256": "bebacf1a503860015e711e62fa61435a3f67f54f4f675fb7f52f0b21b1904fcb",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/bebacf1a503860015e711e62fa61435a3f67f54f4f675fb7f52f0b21b1904fcb.mp3",
+        "duration_seconds": 393.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "c6475e379a9607cf08da5d302250d8778283337fb4d06992bd6a530d7d6dcc48",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/c6475e379a9607cf08da5d302250d8778283337fb4d06992bd6a530d7d6dcc48.mp3",
+        "duration_seconds": 405.29,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 50,
+      "source_day_id": "80-days:day-50",
+      "original": {
+        "sha256": "39ed09ea618dde445eb50c3f2b57cdec3ff2078a0aa7c7eed8453ca1fb00a805",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/39ed09ea618dde445eb50c3f2b57cdec3ff2078a0aa7c7eed8453ca1fb00a805.mp3",
+        "duration_seconds": 340.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "bd9e80d694b7c1faca72f3789d5256ce9920322b8da8010882da784c749e3773",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/bd9e80d694b7c1faca72f3789d5256ce9920322b8da8010882da784c749e3773.mp3",
+        "duration_seconds": 328.59,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 51,
+      "source_day_id": "80-days:day-51",
+      "original": {
+        "sha256": "95a54ea4b527f996ef9e921687d11816aea2a58945f67abc596cc230b9f2cbc0",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/95a54ea4b527f996ef9e921687d11816aea2a58945f67abc596cc230b9f2cbc0.mp3",
+        "duration_seconds": 194.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "1aa9bf235c91d893f3fd49a80cd67d972ef064e8c9649703a21a9c4788359118",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/1aa9bf235c91d893f3fd49a80cd67d972ef064e8c9649703a21a9c4788359118.mp3",
+        "duration_seconds": 231.85,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Printed source labels a male-student turn W; retained verbatim.",
+          "Unusual printed wording in the four-o’clock turn is retained as curated source text; no semantic repair applied.",
+          "A single shared multiple-choice passage applies to both multi-select exercises; never invent another recording."
+        ]
+      }
+    },
+    {
+      "day": 52,
+      "source_day_id": "80-days:day-52",
+      "original": {
+        "sha256": "0211ebe8d118d70812728dbd169aaab0324df0e461f6021731e555a555599522",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/0211ebe8d118d70812728dbd169aaab0324df0e461f6021731e555a555599522.mp3",
+        "duration_seconds": 106.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "f39868a650e94b2828852f412d31704f6611fb76c868deef391c72d4e039aef0",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/f39868a650e94b2828852f412d31704f6611fb76c868deef391c72d4e039aef0.mp3",
+        "duration_seconds": 114.635,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Original source has six tracked fields; the preprinted Flat13 is not an extra blank.",
+          "All reference answers stay self-review, including alphanumeric registration; no audio heard or alignment certified.",
+          "The original prose contains outdated/generalized test claims and visibly nonstandard geographical spellings; preserved as source, not endorsed.",
+          "Source transcript includes the cashier continuation on PDF330; preserve it after the six asked fields.",
+          "Two-page solved story is outside the six positions and does not contribute to attempts or score."
+        ]
+      }
+    },
+    {
+      "day": 53,
+      "source_day_id": "80-days:day-53",
+      "original": {
+        "sha256": "40b457b457b79fe36a71d6ea35611c96d34b2232106646773c8819a51eff618d",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/40b457b457b79fe36a71d6ea35611c96d34b2232106646773c8819a51eff618d.mp3",
+        "duration_seconds": 142.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "ab06226c153226bf3ed96abf96179c3812fdf4e35597d7d4cdb6e2b73cdd875a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/ab06226c153226bf3ed96abf96179c3812fdf4e35597d7d4cdb6e2b73cdd875a.mp3",
+        "duration_seconds": 140.23,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Ten tracked notes positions; no additional story or independent exercise on source pages150–154.",
+          "Q4 printed shot/casual rides differs from source transcript short, casual rides; keep original key and editorial correction separate.",
+          "Printed teaching paragraphs include2 genuine OCR-missing rows153 after20/38; exact scan regions/insertion refs preserved, no invented OCR indexes.",
+          "Author saw embedded key and teaching before final adjudication; no blind audit, audio correctness or timing claim."
+        ]
+      }
+    },
+    {
+      "day": 54,
+      "source_day_id": "80-days:day-54",
+      "original": {
+        "sha256": "831eb468eb27fe2cfa1dc23fbd570360c846c556f2b50bff5237412c99da4ea2",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/831eb468eb27fe2cfa1dc23fbd570360c846c556f2b50bff5237412c99da4ea2.mp3",
+        "duration_seconds": 62.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "6cd31fb951c2fdf9afa4a4db99c74f994daab7cc54f8c76f0dcdb031def99c78",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/6cd31fb951c2fdf9afa4a4db99c74f994daab7cc54f8c76f0dcdb031def99c78.mp3",
+        "duration_seconds": 67.245,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Four tracked map labels, eight shared options A–H; source diagram retained once for the entire block.",
+          "Plan has no north arrow; reception is resolved using entry from SmithStreet, not assumed cardinal direction.",
+          "Source transcript literally says floor in the reception sentence; preserve source wording, map and direction provide spatial evidence.",
+          "Outdated/incorrect vocabulary and broad heuristics in teaching remain clearly identified as source notes, not editorial IELTS rules.",
+          "Source embedded keys were visible; no blind or audio/seek alignment certification."
+        ]
+      }
+    },
+    {
+      "day": 55,
+      "source_day_id": "80-days:day-55",
+      "original": {
+        "sha256": "ef21cca851115e59376a31d7f643cf3eae374e822e9e9f68f61a8f0b4ee05171",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/ef21cca851115e59376a31d7f643cf3eae374e822e9e9f68f61a8f0b4ee05171.mp3",
+        "duration_seconds": 139.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "e692e7ffc753f15d19e48aba9ace83ce795c1e1e764b05a228a320cc61062ed6",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/e692e7ffc753f15d19e48aba9ace83ce795c1e1e764b05a228a320cc61062ed6.mp3",
+        "duration_seconds": 136.225,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Six tracked table cells; allnine performers/acts retained in the question image, other table cells are contextual printed data.",
+          "Full printed monologue continues through Proffers and side shows331:41 even though they are outside the six asked blanks.",
+          "Question source160 has5:45 versus quarter to five/four forty-five mistake, declared in editorial resource note.",
+          "Source transcript Claude/Jacques wording near Flying act has8:00/9:00 contextual mismatch; preserve, do not fabricate a corrected timetable.",
+          "Source vocabulary/type-of-act variants are unscored references; no automatic synonym match, audio or alignment certification."
+        ]
+      }
+    },
+    {
+      "day": 56,
+      "source_day_id": "80-days:day-56",
+      "original": {
+        "sha256": "33675a00d778d8a6a06d9dc8b9bcc0e31756936329e47b3d2cd633bf2a483355",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/33675a00d778d8a6a06d9dc8b9bcc0e31756936329e47b3d2cd633bf2a483355.mp3",
+        "duration_seconds": 67.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "b2e9a7fc32296a741d8c2f788255dfdfa95d67b954650e8881559d6205b140b5",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/b2e9a7fc32296a741d8c2f788255dfdfa95d67b954650e8881559d6205b140b5.mp3",
+        "duration_seconds": 85.685,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Three original short-answer positions; original instruction printsTHERE, adjacent worked teaching explicitly confirmsTHREE.",
+          "Full transcript20bodyrows retains phone call, furniture, tomorrow appointment and bus72 continuation, not only three answers.",
+          "Source broad guessing/preposition/old test-frequency heuristics are preserved as source and not endorsed in Vietnamese instruction.",
+          "Author exposed to embedded keys; no blind, audio or seek certification; all self-review."
+        ]
+      }
+    },
+    {
+      "day": 57,
+      "source_day_id": "80-days:day-57",
+      "original": {
+        "sha256": "f48ebb9daf4196a78dd959b99be7e0239fe7fa8459b27b0f5bd683b40151d050",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/f48ebb9daf4196a78dd959b99be7e0239fe7fa8459b27b0f5bd683b40151d050.mp3",
+        "duration_seconds": 64.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "4e77f548021a8eeb1f61711d917181cab6e6c148a373aacf34d402322cb8863f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/4e77f548021a8eeb1f61711d917181cab6e6c148a373aacf34d402322cb8863f.mp3",
+        "duration_seconds": 55.635,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Two authentic picture-matching positions and all eight A–H figures; no invented question from story.",
+          "Original167OCR duplicates7/8 and9/10 visually refer to the same printed lines; resource keeps7 and9 once.",
+          "Full11-row printed introduction preserved untimed, including jobs and subsequent greetings.",
+          "Medical story is source-language material, not editorial treatment advice; author exposed to keys; audio not certified."
+        ]
+      }
+    },
+    {
+      "day": 58,
+      "source_day_id": "80-days:day-58",
+      "original": {
+        "sha256": "a131bf8aa3fbbb67c14cbb7fa20398276033b3a65e093541e97be4e875c963ef",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/a131bf8aa3fbbb67c14cbb7fa20398276033b3a65e093541e97be4e875c963ef.mp3",
+        "duration_seconds": 328.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "78dff457fa3cd6ce60b9a5b787d00f6c752ddb43f735e7cdec8ed4290e606b32",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/78dff457fa3cd6ce60b9a5b787d00f6c752ddb43f735e7cdec8ed4290e606b32.mp3",
+        "duration_seconds": 345.665,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "16 positions across two genuine exercises, each separately numbered; exampleWriting an agenda not a new question.",
+          "MatchingQ3/Q4 printedA/C contradict transcriptC/A and adjacent explanation; SUSPECT retains raw key and separate proposal.",
+          "Summary22wordbank retains repeated-use instruction and full passage; no invented wordlimit or health endorsement.",
+          "Full55untimed bodyrows preserve both talks; author exposed to embeddedkeys, no audio certification."
+        ]
+      }
+    },
+    {
+      "day": 59,
+      "source_day_id": "80-days:day-59",
+      "original": {
+        "sha256": "6c3dc6fd4dd940302cd7c2b6640b7927c10658e8c0ca1733b8c43ab24c399bd4",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/6c3dc6fd4dd940302cd7c2b6640b7927c10658e8c0ca1733b8c43ab24c399bd4.mp3",
+        "duration_seconds": 245.8,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "47b3a1986f001a617af07b83f0b2ce64ed41fc2aeba4aebc54030bb1f394066f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/47b3a1986f001a617af07b83f0b2ce64ed41fc2aeba4aebc54030bb1f394066f.mp3",
+        "duration_seconds": 231.955,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Ten original A/I/N statements plus one solved example; response uses existing single_choice transport.",
+          "NullOCR rowN on PDF176 is genuine reviewed insertion with image and approximate bbox; no fabricated index.",
+          "Q4 uses explicit illegal-copying statement, not flawed bags/disks inference;Q7 confined to spoken weekday class schedule.",
+          "Full46bodyrows retained untimed; source heuristics not promoted to inference rules; no audio or objective grading certification."
+        ]
+      }
+    },
+    {
+      "day": 60,
+      "source_day_id": "80-days:day-60",
+      "original": {
+        "sha256": "0ea8ee11ea1348eabe1f932811e3bb3c6326f05078de953d875bcd6b4b6450ac",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/0ea8ee11ea1348eabe1f932811e3bb3c6326f05078de953d875bcd6b4b6450ac.mp3",
+        "duration_seconds": 124.76,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "6994a042ff3ea93352321659a58baeafeb5f30487d5b017c86c7363bd11a5f5d",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/6994a042ff3ea93352321659a58baeafeb5f30487d5b017c86c7363bd11a5f5d.mp3",
+        "duration_seconds": 104.895,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Five authentic diagram labels,12wordbank entries, all arrows and prefilled crank/hosepipe preserved.",
+          "Q3 printedspay tube conflicts with wordbank/transcriptspray tube; SUSPECT and separate proposed correction, source untouched.",
+          "Original has no wordlimit and no per-item worked teaching; explanation sourced from diagram plus complete20bodyrows.",
+          "Audio alignment not reviewed; all objectivegradingoptouts; author exposed to printedkey."
+        ]
+      }
+    },
+    {
+      "day": 61,
+      "source_day_id": "80-days:day-61",
+      "original": null,
+      "kokoro": {
+        "sha256": "b96e782965edc21b01829ea54e79ba1bd75cc33e1e22a4958c2c648da210baff",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/b96e782965edc21b01829ea54e79ba1bd75cc33e1e22a4958c2c648da210baff.mp3",
+        "duration_seconds": 188.575,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 62,
+      "source_day_id": "80-days:day-62",
+      "original": null,
+      "kokoro": {
+        "sha256": "f4ee319c545f87d1fe9b6962f15045670ae5428d717620a8089d20ebabd2f965",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/f4ee319c545f87d1fe9b6962f15045670ae5428d717620a8089d20ebabd2f965.mp3",
+        "duration_seconds": 146.055,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 63,
+      "source_day_id": "80-days:day-63",
+      "original": null,
+      "kokoro": {
+        "sha256": "626f217be692df97907fe2a16288a2a9ace91d4b3a89b9a852e715de6a4c8811",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/626f217be692df97907fe2a16288a2a9ace91d4b3a89b9a852e715de6a4c8811.mp3",
+        "duration_seconds": 241.395,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 64,
+      "source_day_id": "80-days:day-64",
+      "original": null,
+      "kokoro": {
+        "sha256": "2b1d113e4d27e155216d39a8598722561a653f056629ab3cd77c33b0563a731f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/2b1d113e4d27e155216d39a8598722561a653f056629ab3cd77c33b0563a731f.mp3",
+        "duration_seconds": 308.99,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 65,
+      "source_day_id": "80-days:day-65",
+      "original": null,
+      "kokoro": {
+        "sha256": "0493690ff377d10fd5dfd6ba2ef0c1be6bbb4a55974ab2450664db25ea751cd8",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/0493690ff377d10fd5dfd6ba2ef0c1be6bbb4a55974ab2450664db25ea751cd8.mp3",
+        "duration_seconds": 193.345,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 66,
+      "source_day_id": "80-days:day-66",
+      "original": null,
+      "kokoro": {
+        "sha256": "cdacfa9da554196d74af73a2c3231fa0f93db5becbcd4ea0e81dfb43e1b90676",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/cdacfa9da554196d74af73a2c3231fa0f93db5becbcd4ea0e81dfb43e1b90676.mp3",
+        "duration_seconds": 73.44,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 67,
+      "source_day_id": "80-days:day-67",
+      "original": null,
+      "kokoro": {
+        "sha256": "36394d09cfbdd55d074825096ec5b03c295751fc33eba38331b48d2ecc411517",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/36394d09cfbdd55d074825096ec5b03c295751fc33eba38331b48d2ecc411517.mp3",
+        "duration_seconds": 252.13,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 68,
+      "source_day_id": "80-days:day-68",
+      "original": null,
+      "kokoro": {
+        "sha256": "8e43737520d17efac75017a3809087af48e4f037563501bbd001ae5fe5bde27c",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/8e43737520d17efac75017a3809087af48e4f037563501bbd001ae5fe5bde27c.mp3",
+        "duration_seconds": 317.505,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 69,
+      "source_day_id": "80-days:day-69",
+      "original": null,
+      "kokoro": {
+        "sha256": "f7258caf42232da309afdb676e61fba80cb2b518fdbc0d81695d28799972b0a5",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/f7258caf42232da309afdb676e61fba80cb2b518fdbc0d81695d28799972b0a5.mp3",
+        "duration_seconds": 160.055,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 70,
+      "source_day_id": "80-days:day-70",
+      "original": null,
+      "kokoro": {
+        "sha256": "5932498670a9a36b13dbc52dbba433c52b3f9bbbef385be6d9f8f0af4046ec9f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/5932498670a9a36b13dbc52dbba433c52b3f9bbbef385be6d9f8f0af4046ec9f.mp3",
+        "duration_seconds": 126.0,
+        "kind": "source_vocabulary_pronunciation_extension",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "No original listening recording/transcript exists for this day. New pronunciation study track reads English source terms; it is not a recreated test.",
+          "Chinese study stories are retained in source but not invented or translated into new English dialogue."
+        ]
+      }
+    },
+    {
+      "day": 71,
+      "source_day_id": "80-days:day-71",
+      "original": {
+        "sha256": "86e87e3fdea6abbcf23d145b715caa0d37f27c1794727a10149e4f440721302e",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/86e87e3fdea6abbcf23d145b715caa0d37f27c1794727a10149e4f440721302e.mp3",
+        "duration_seconds": 970.3,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "ab6a3df2b381575cac6b74d76340fb897267c3bb2e3ee9a2b71a8b565cc51e66",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/ab6a3df2b381575cac6b74d76340fb897267c3bb2e3ee9a2b71a8b565cc51e66.mp3",
+        "duration_seconds": 1014.375,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 72,
+      "source_day_id": "80-days:day-72",
+      "original": {
+        "sha256": "f72726808d5bd88e4bc791d0a2c98e3b0a3f80b1c6e76a281b68bd4170682932",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/f72726808d5bd88e4bc791d0a2c98e3b0a3f80b1c6e76a281b68bd4170682932.mp3",
+        "duration_seconds": 958.0,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "751cbc97e680a3da1ee1022bdad208c4a44de9e1122f770451b3219e8a70453f",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/751cbc97e680a3da1ee1022bdad208c4a44de9e1122f770451b3219e8a70453f.mp3",
+        "duration_seconds": 951.74,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 73,
+      "source_day_id": "80-days:day-73",
+      "original": {
+        "sha256": "1869bec55323f22a6159b6e62de016d682b159f3d7d585b11c6ffb1e60fd8106",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/1869bec55323f22a6159b6e62de016d682b159f3d7d585b11c6ffb1e60fd8106.mp3",
+        "duration_seconds": 1241.368,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "7d570379df2f1ba9467b242f6fccafdde6517e90d5762902e6a2912d09d8ff4b",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/7d570379df2f1ba9467b242f6fccafdde6517e90d5762902e6a2912d09d8ff4b.mp3",
+        "duration_seconds": 1202.46,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Printed not ally is corrected to not really in new speech using original recording evidence; original printed source_text retained."
+        ]
+      }
+    },
+    {
+      "day": 74,
+      "source_day_id": "80-days:day-74",
+      "original": {
+        "sha256": "9614440876865aaf1d062c1411853981038fa4a55864eebf14d0e6c6472d09d0",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/9614440876865aaf1d062c1411853981038fa4a55864eebf14d0e6c6472d09d0.mp3",
+        "duration_seconds": 1272.372,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "1a019ad72e2579706d67f8dc04b11520ab63fdbd23665096bccb5e573461a811",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/1a019ad72e2579706d67f8dc04b11520ab63fdbd23665096bccb5e573461a811.mp3",
+        "duration_seconds": 1208.565,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 75,
+      "source_day_id": "80-days:day-75",
+      "original": {
+        "sha256": "5ccf7432accc8cdfa61fd50c988c94e82efd5a70e7693d50fed0bce942e24ed0",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/5ccf7432accc8cdfa61fd50c988c94e82efd5a70e7693d50fed0bce942e24ed0.mp3",
+        "duration_seconds": 1047.3,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "d940e6a7f7b8b2b2923cfbd7371906c9076e809b31da0c08deaef28681dff878",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/d940e6a7f7b8b2b2923cfbd7371906c9076e809b31da0c08deaef28681dff878.mp3",
+        "duration_seconds": 1075.115,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 76,
+      "source_day_id": "80-days:day-76",
+      "original": {
+        "sha256": "6bdec1732890864d40bfd8a4dd51a829bbd42dfc1569c3253e07466244c7b0ac",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/6bdec1732890864d40bfd8a4dd51a829bbd42dfc1569c3253e07466244c7b0ac.mp3",
+        "duration_seconds": 594.732,
+        "partial": true
+      },
+      "kokoro": {
+        "sha256": "743a14b6465d67089c2f32fc15213fee40f3ed1b83196478bfb6edc67aea3f3a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/743a14b6465d67089c2f32fc15213fee40f3ed1b83196478bfb6edc67aea3f3a.mp3",
+        "duration_seconds": 1424.45,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 77,
+      "source_day_id": "80-days:day-77",
+      "original": null,
+      "kokoro": {
+        "sha256": "2d3d038caa0189e3d7f12e25069d0136db22fb7bb7b8ce69577ff9bbecb7b822",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/2d3d038caa0189e3d7f12e25069d0136db22fb7bb7b8ce69577ff9bbecb7b822.mp3",
+        "duration_seconds": 1096.44,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 78,
+      "source_day_id": "80-days:day-78",
+      "original": {
+        "sha256": "5ffd73b6988d50ea86b144cdc6f1cb305c4c7e9071266e2f2a372f44e398949a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/5ffd73b6988d50ea86b144cdc6f1cb305c4c7e9071266e2f2a372f44e398949a.mp3",
+        "duration_seconds": 1034.1,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "770b985b86b9abf512497b726d887aab9d906324e67ec5a364091af13c5aaf0b",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/770b985b86b9abf512497b726d887aab9d906324e67ec5a364091af13c5aaf0b.mp3",
+        "duration_seconds": 1345.19,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 79,
+      "source_day_id": "80-days:day-79",
+      "original": {
+        "sha256": "5270211b302c466e7590a585db463d7f99a4b1481f89097919654c26014db077",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/5270211b302c466e7590a585db463d7f99a4b1481f89097919654c26014db077.mp3",
+        "duration_seconds": 1061.418,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "612d22d944ecceab44d5ed9fa2a6c89cb7cc5a4223eaa032a6de1711eb7d99f6",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/612d22d944ecceab44d5ed9fa2a6c89cb7cc5a4223eaa032a6de1711eb7d99f6.mp3",
+        "duration_seconds": 1184.25,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": []
+      }
+    },
+    {
+      "day": 80,
+      "source_day_id": "80-days:day-80",
+      "original": {
+        "sha256": "361173c0de457b924079d628e28d58267f4ceca701f2c42b2c8f40f63f2f414a",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/361173c0de457b924079d628e28d58267f4ceca701f2c42b2c8f40f63f2f414a.mp3",
+        "duration_seconds": 1120.336,
+        "partial": false
+      },
+      "kokoro": {
+        "sha256": "a6f257b60533668622c9d73debd6d8e2889f4ca31ef1d3ff991a37b6fa256828",
+        "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/kokoro-v1/a6f257b60533668622c9d73debd6d8e2889f4ca31ef1d3ff991a37b6fa256828.mp3",
+        "duration_seconds": 1395.365,
+        "kind": "printed_transcript_recreation",
+        "timing_note_vi": "Khoảng nghỉ dựng mới: nghỉ 30 giây khi nguồn yêu cầu kiểm đáp án; thời gian đọc theo tốc độ Kokoro, không sao chép thời điểm từ bản ghi gốc.",
+        "caveats": [
+          "Printed intro hearth is corrected to health in new speech using original recording evidence; original printed source_text and later heart references retained."
+        ]
+      }
+    }
+  ]
+}
