@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { webcrypto } from 'node:crypto';
 import { createAttemptFlagCoordinator } from '../lib/attempt-review-flags.mjs';
 
 const turn = () => new Promise((resolve) => setImmediate(resolve));
@@ -26,6 +27,31 @@ function harness(options = {}) {
   });
   return { c, server, requests, apply, scope };
 }
+test('Safari without randomUUID saves a review flag and replays the same pending operation', async (t) => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: {
+    getRandomValues: webcrypto.getRandomValues.bind(webcrypto),
+  } });
+  t.after(() => Object.defineProperty(globalThis, 'crypto', descriptor));
+  let count = 0; let h;
+  h = harness({ makeOperationId: undefined, write: async (body) => {
+    h.requests.push(body); const reply = h.apply(body);
+    if (++count === 1) throw new Error('lost acknowledgement');
+    return reply;
+  } });
+  t.after(() => h.c.dispose());
+  h.c.subscribe(() => {}); // Real subscribers create the receipt before debounce.
+  await h.c.load(); h.c.update(1, true);
+  const pending = h.c.snapshot().pending[0].operation_id;
+  assert.match(pending, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(await h.c.flush(), false);
+  h.c.retryFailed(); await turn();
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.requests[0].operation_id, pending);
+  assert.deepEqual(h.requests[1], h.requests[0]);
+  assert.equal(h.server.get(1).flagged, true);
+  assert.equal(h.c.snapshot().states.size, 0);
+});
 test('reload restores flagged and explicitly unflagged canonical rows without answer writes', async () => {
   const { c, server, requests } = harness();
   server.set(1, row(1, true, 3)); server.set(2, row(2, false, 4));

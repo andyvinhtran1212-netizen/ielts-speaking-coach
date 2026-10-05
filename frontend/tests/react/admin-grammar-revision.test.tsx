@@ -73,6 +73,14 @@ function confirm() {
 const commitCalls = () => calls.filter((c) => c.method === 'POST' && c.path.endsWith('/commit'));
 
 describe('account-owned Grammar revision console', () => {
+  it('Safari without randomUUID commits a secure operation and verifies its canonical receipt', async () => {
+    vi.stubGlobal('crypto', { subtle: webcrypto.subtle, getRandomValues: webcrypto.getRandomValues.bind(webcrypto) });
+    render(<AdminGrammarRevision />); await preview(); confirm();
+    await screen.findByText('Receipt đã đối chiếu canonical');
+    expect(commitCalls()).toHaveLength(1);
+    expect((commitCalls()[0].body as { operation_id: string }).operation_id)
+      .toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
   it('actual local PG/ASGI public wire uses exact captured preview/commit body and explicit same-operation replay', async () => {
     const captured = fixture.actual_admin_capture;
     const [initial, checked, applied, replayed, current] = captured.requests;

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog } from '@/components/admin-directory-ui';
 import { adminGrammarRevisionApi } from '@/lib/admin-grammar-revision-api';
+import { secureRandomUuid } from '@/lib/secure-uuid.mjs';
 import {
   GRAMMAR_REVISION_CODES, commandFits, freezeRevisionCommand, grammarSourceHash,
   isGrammarRevisionCode, normalizeRevisionAck, normalizeRevisionPreview, normalizeRevisionRead,
@@ -178,7 +179,7 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
     let command = pending;
     if (!recover) {
       if (!confirm || !preview || previewSource !== sourceRef.current || pending) return;
-      command = freezeRevisionCommand(actor, code, previewSource, preview, globalThis.crypto.randomUUID());
+      command = freezeRevisionCommand(actor, code, previewSource, preview, secureRandomUuid());
       if (!command) { setNotice({ kind: 'error', message: 'Không tạo được thao tác từ bản xem trước hiện tại. Kiểm tra nguồn và lịch sử.' }); return; }
       setPending(command);
     }

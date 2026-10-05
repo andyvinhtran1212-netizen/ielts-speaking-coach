@@ -3,6 +3,7 @@ import {
   readWritingContentQuery, writingContentLibraryHref, writingContentHref,
   createWritingContentMarker, validWritingContentMarker, validWritingLibraryMarker,
 } from './writing-content-navigation.mjs';
+import { secureRandomUuid } from './secure-uuid.mjs';
 
 type Kind = 'tip' | 'prompt';
 type Filters = { tipFilter: string; tipTypeFilter: string; pbFilter: string };
@@ -159,7 +160,7 @@ export function createWritingContentDialog(options: Options) {
     if (!href || (selection().item?.kind === kind && selection().item?.id === id)) return false;
     trigger = card; triggerIdentity = { kind, id };
     const tab = kind === 'tip' ? 'tips' : 'prompt-bank';
-    const parentId = crypto.randomUUID();
+    const parentId = secureRandomUuid();
     const parent = clearMarker(merge());
     parent[WRITING_LIBRARY_MARKER] = { version: 1, account: options.account, tab, id: parentId,
       scroll: window.scrollY, ...options.filters() };
