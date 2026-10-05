@@ -67,12 +67,13 @@ def question_context(question: dict | None, snapshot: dict | None) -> dict:
     present = {"question_id": "id" in question or "question_id" in question}
     for name in ("instructions", "instruction", "options", "template", "max_words",
                  "paragraph_labels", "labels", "image_url", "image_alt", "template_kind",
-                 "variant", "word_limit", "word_limit_text", "response_type"):
+                 "variant", "word_limit", "word_limit_text", "response_type", "map_svg", "map_image_url"):
         present[name] = name in question or name in payload
         fields[name] = question[name] if name in question else payload.get(name)
-    if not present["options"] and "match_options" in metadata:
-        fields["options"] = metadata["match_options"]
-        present["options"] = True
+    for bank in ("match_options", "letter_options"):
+        if not present["options"] and bank in metadata:
+            fields["options"] = metadata[bank]
+            present["options"] = True
     template = fields.get("template") or {}
     if isinstance(template, dict):
         for name in ("image_url", "image_alt"):

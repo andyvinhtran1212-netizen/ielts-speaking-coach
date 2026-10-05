@@ -1,7 +1,10 @@
 """Immutable original versus explicit historical fallback; no regrading."""
 from copy import deepcopy
+import asyncio
+import json
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
 import pytest
@@ -104,3 +107,65 @@ def test_authored_flow_bank_and_display_metadata_preserve_presence():
     assert context["context_provenance"]["options"]=="submission_snapshot"
     question["payload"]["options"]=None
     assert question_context(question,source())["options"] is None
+
+
+def test_persisted_l025_map_context_reaches_review_without_private_map_hints():
+    fixture = json.loads((Path(__file__).resolve().parents[2] /
+        "frontend/tests/fixtures/listening-review-l025-map.json").read_text())
+    question = fixture["authored_question"]
+    before = deepcopy(question)
+    context = question_context(question, None)
+    assert context == fixture["expected_context"]
+    assert context["options"] == [{"text": "", "letter": letter} for letter in "ABCDEFGH"]
+    assert "map_description" not in json.dumps(context)
+    assert "map_image_custom_prompt" not in json.dumps(context)
+    assert "answers" not in context and "solutions" not in context
+    assert question == before
+
+
+def test_authored_letter_bank_fallback_preserves_explicit_empty_frozen_fields():
+    question = {"payload": {"map_svg": "", "metadata": {"letter_options": ["A", "C", "H"]}}}
+    context = question_context(question, source())
+    assert context["options"] == ["A", "C", "H"]
+    assert context["map_svg"] == ""
+    assert context["context_provenance"]["map_svg"] == "submission_snapshot"
+    assert context["context_provenance"]["options"] == "submission_snapshot"
+    question["payload"]["options"] = []
+    assert question_context(question, source())["options"] == []
+
+
+def test_native_listening_admin_preview_keeps_persisted_l025_map_and_bank(monkeypatch):
+    from routers import listening
+
+    fixture = json.loads((Path(__file__).resolve().parents[2] /
+        "frontend/tests/fixtures/listening-review-l025-map.json").read_text())
+    question = fixture["authored_question"]
+    exercise_id = question["id"].rsplit(":", 1)[0]
+    rows = {
+        "listening_tests": [{"id": fixture["test_uuid"], "test_id": "ILR-LIS-025-R12-STG-20261005",
+            "title": "Private L025", "metadata": {}, "test_type": "full"}],
+        "listening_content": [{"id": "section-2", "section_num": 2, "title": "Smart city expo"}],
+        "listening_exercises": [{"id": exercise_id, "payload": question["payload"]}],
+    }
+    db = MagicMock()
+
+    def table(name):
+        query = MagicMock()
+        for method in ("select", "eq", "limit", "order", "in_"):
+            getattr(query, method).return_value = query
+        query.execute.return_value = SimpleNamespace(data=rows[name])
+        return query
+
+    db.table.side_effect = table
+    monkeypatch.setattr(listening, "supabase_admin", db)
+    monkeypatch.setattr(listening, "require_admin", AsyncMock(return_value={"id": "admin"}))
+    monkeypatch.setattr(listening, "_student_audio_url_for_test", lambda _: (None, None, None))
+    monkeypatch.setattr("services.mock_review_context.attach_review_web_explanations", lambda *_: {})
+    result = asyncio.run(listening.admin_preview_listening_test(fixture["test_uuid"], "Bearer fixture"))
+    q16 = next(item for item in result["review"] if item["q_num"] == 16)
+    assert result["preview"] is True and result["score"] is None
+    assert q16["question_context"] == fixture["expected_context"]
+    assert q16["prompt"] == "Main hall"
+    assert q16["expected"] == "A"
+    assert q16["question_context"]["map_svg"] == question["payload"]["map_svg"]
+    assert "mock_paper_attempt_snapshots" not in [call.args[0] for call in db.table.call_args_list]

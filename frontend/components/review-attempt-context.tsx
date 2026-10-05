@@ -34,6 +34,11 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
   const options = Array.isArray(context.options) ? context.options
     : record(context.options) ? Object.entries(context.options).map(([label, text]) => ({ label, text })) : [];
   const template = record(context.template);
+  // Match the Listening player's inert SVG image path; never insert SVG markup.
+  const image = typeof context.map_svg === 'string' && context.map_svg.trim()
+    ? `data:image/svg+xml;utf8,${encodeURIComponent(context.map_svg)}`
+    : context.map_image_url || context.image_url;
+  const imageAlt = context.image_alt || (typeof template?.heading === 'string' && template.heading.trim()) || 'Sơ đồ của câu hỏi';
   const instruction = context.instructions || context.instruction || context.word_limit_text || context.word_limit;
   const provenance = record(context.context_provenance);
   const banks = options.length || list(context.paragraph_labels).length;
@@ -42,10 +47,10 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
     {context.max_words != null ? <p>Giới hạn: {context.max_words} từ.</p> : null}
     {banks && (provenance?.options === 'current_content_fallback' || provenance?.paragraph_labels === 'current_content_fallback') ? <p role="status">Nhóm lựa chọn từ đề hiện tại có thể đã thay đổi.</p> : null}
     {options.length ? <div className="review-context-bank"><strong>Nhóm lựa chọn</strong><ul>{options.map((option, index) => <li key={index}>
-      {typeof option === 'string' ? option : <><b>{option.label || option.id || option.value || ''}</b> {option.text || option.content || ''}</>}
+      {typeof option === 'string' ? option : <><b>{option.label || option.letter || option.id || option.value || ''}</b> {option.text || option.content || ''}</>}
     </li>)}</ul></div> : null}
     {list(context.paragraph_labels).length ? <p>Đoạn: {context.paragraph_labels.join(', ')}</p> : null}
-    {context.image_url ? <img src={context.image_url} alt={context.image_alt || 'Sơ đồ của câu hỏi'} loading="lazy" style={{ maxWidth: '100%', height: 'auto' }} /> : null}
+    {image ? <img src={image} alt={imageAlt} loading="lazy" style={{ maxWidth: '100%', height: 'auto' }} /> : null}
     {template ? <div className="review-context-template">
       {template.heading ? <h4>{segment(template.heading)}</h4> : null}
       {template.summary_text ? <p>{template.summary_text}</p> : null}

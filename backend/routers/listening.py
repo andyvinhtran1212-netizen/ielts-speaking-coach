@@ -8477,6 +8477,13 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     if exercise_rows:
         for row in exercise_rows:
             p = row.get("payload") or {}
+            # Callers already enforced review access. Sign this selected
+            # revision's raster map on a runtime copy, never on stored rows.
+            storage_path = p.get("map_image_storage_path")
+            inline_map = p.get("map_svg")
+            if storage_path and not (isinstance(inline_map, str) and inline_map.strip()):
+                p = dict(p)
+                p["map_image_url"] = _sign_map_image_url(storage_path, expires_in=7200)
             for q, sol in (p.get("solutions") or {}).items():
                 solutions_by_q[int(q)] = sol
             for q, w in (p.get("audio_windows") or {}).items():
