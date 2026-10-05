@@ -212,3 +212,19 @@ limited to implementation intent; it does not certify the demo, source content,
 answer correctness or release. This specification-only PR must land on staging
 before runtime or importer implementation. Source-first pilot preparation may
 continue outside the repository while that durable approval is pending.
+
+
+### Later user-approved synthetic study audio — 2026-10-05
+
+The user's later instruction to retain originals and create a new Kokoro version
+for each lesson, followed by authorization to continue the complete collection,
+adds optional, explicitly labelled synthetic free-study audio for all 80 days.
+Days 61–70 pronounce the existing English vocabulary; Day 77 reads the supplied
+printed English transcript. No missing Chinese story or dialogue is invented.
+These supplements are not supplied source recordings: all 69 originals and
+source-availability/coverage states remain unchanged. They do not enable
+Listening starts for Day 77 or vocabulary days, add question/key controls, or
+change practice audio, attempts or grading. The missing-source/non-fabrication
+protections in FR-004 and acceptance scenario 5 remain in force for source
+assets and independent practice. This later authorization permits labelled
+synthetic study tracks; it does not certify human listening acceptance.
