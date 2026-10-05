@@ -25,12 +25,12 @@ class _Rows:
     def execute(self): return SimpleNamespace(data=self.rows)
 
 
-def test_reviewed_package_has_separate_questions_and_real_articles():
-    package = content.load_version()
+def test_legacy_reviewed_package_has_separate_questions_and_real_articles():
+    package = content.load_version("v1")
     assert package["version"] == "v1"
     assert len(package["lessons"]) == 15
     assert sum(len(row["questions"]) for row in package["lessons"].values()) >= 120
-    assert content.lesson_content("M30-B02") is None
+    assert content.lesson_content("M30-B02", "v1") is None
     for lesson_id, row in package["lessons"].items():
         assert row["source_bank_code"].startswith("G-")
         assert len(row["questions"]) >= 8, lesson_id
@@ -52,9 +52,10 @@ def test_answer_key_is_visible_only_for_answered_question():
     assert second["id"] not in {first["id"]}
 
 
-def test_catalog_marks_unready_b02_and_ready_b04(monkeypatch):
+def test_catalog_marks_missing_practice_unready_instead_of_using_diagnostic(monkeypatch):
     monkeypatch.setattr(lessons, "_active_release", lambda: {"id": "release"})
     monkeypatch.setattr(lessons, "enabled", lambda: True)
+    monkeypatch.setattr(lessons, "lesson_content", lambda lesson_id: content.lesson_content(lesson_id, "v1"))
     rows = [{"id": str(uuid4()), "lesson_id": f"M30-B{number:02d}",
              "lesson_no": number, "title": f"Lesson {number}"}
             for number in range(1, 31)]
@@ -72,6 +73,20 @@ def test_catalog_marks_unready_b02_and_ready_b04(monkeypatch):
     assert "đã có câu hỏi" in b18["reason"]
     b09 = next(row for row in catalog if row["id"] == "M30-B09")
     assert "đã có nguồn" in b09["reason"]
+
+
+def test_current_all_thirty_catalog_requires_reviewed_practice_and_flag(monkeypatch):
+    monkeypatch.setattr(lessons, "_active_release", lambda: {"id": "release"})
+    rows = [{"id": str(uuid4()), "lesson_id": f"M30-B{number:02d}",
+             "lesson_no": number, "title": f"Lesson {number}"}
+            for number in range(1, 31)]
+    monkeypatch.setattr(lessons, "supabase_admin", SimpleNamespace(table=lambda name: _Rows(rows)))
+    monkeypatch.setattr(lessons, "enabled", lambda: True)
+    catalog = lessons.catalog()
+    assert len(catalog) == 30
+    assert all(row["ready"] and row["question_count"] == 12 and row["content_version"] == "v2" for row in catalog)
+    monkeypatch.setattr(lessons, "enabled", lambda: False)
+    assert all(not row["ready"] and "đang tắt" in row["reason"] for row in lessons.catalog())
 
 
 def test_give_requires_unique_request_id_and_fingerprint_changes_with_intent():
@@ -129,7 +144,7 @@ def test_paused_flag_keeps_completed_history_readable(monkeypatch):
     monkeypatch.setattr(lessons, "enabled", lambda: False)
     monkeypatch.setattr(lessons, "is_accepting_submissions", lambda _assignment: True)
     monkeypatch.setattr(lessons, "is_assignment_open", lambda _assignment: True)
-    lesson = content.lesson_content("M30-B04")
+    lesson = content.lesson_content("M30-B04", "v1")
     assert lesson is not None
     assignment = {"id": "assignment", "title": "B04", "content_config": {
         "lesson_id": "M30-B04", "lesson_title": "Articles", "content_version": "v1",

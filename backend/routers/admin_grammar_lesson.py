@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Header
 from pydantic import BaseModel
+from models.grammar_content import GrammarArticleRef
 
 from routers.admin import require_admin
 from routers.admin_class_assignments import _require_course_five
@@ -21,7 +22,7 @@ class CatalogEntry(BaseModel):
     reason: str | None = None
     focus: str | None = None
     question_count: int
-    article: dict | None = None
+    article: GrammarArticleRef | None = None
     content_version: str | None = None
 
 
@@ -45,7 +46,7 @@ class EducatorReport(BaseModel):
     question_count: int
     completed_at: str | None = None
     focus: str
-    article: dict
+    article: GrammarArticleRef | None = None
     questions: list[ReportQuestion]
 
 

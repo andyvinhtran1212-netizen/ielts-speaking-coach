@@ -20,7 +20,7 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-05 this branch's highest is `312`, so the next
+sequence is dense. As of 2026-10-05 the highest is `312`, so the next
 new migration is `313`.
 
 Migration `305` adds frozen Dictation grading versions/references and their

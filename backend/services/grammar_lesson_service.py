@@ -193,7 +193,9 @@ def _public_state(item: dict, assignment: dict, attempt: dict | None) -> dict:
         preview = lesson_content(config["lesson_id"], config["content_version"])
         lesson = {
             "focus": config.get("practice_focus") or "",
-            "article": preview["article"] if preview else None,
+            "article": preview.get("article") if preview else None,
+            "lesson_notes": preview.get("lesson_notes") if preview else None,
+            "learning_objectives": preview.get("learning_objectives", []) if preview else [],
             "questions": [],
         }
         status = (

@@ -6,6 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
+from models.grammar_content import GrammarArticleRef as Article
 
 from routers.auth import get_supabase_user
 from services import grammar_lesson_service as service
@@ -15,12 +16,6 @@ from services.runtime_flags import require_flag
 router = APIRouter(
     prefix="/api/grammar/lessons", tags=["grammar-lesson"],
 )
-
-
-class Article(BaseModel):
-    category: str
-    slug: str
-    title: str
 
 
 class Question(BaseModel):
@@ -48,6 +43,8 @@ class LessonState(BaseModel):
     attempt_id: str | None = None
     focus: str
     article: Article | None = None
+    lesson_notes: str | None = None
+    learning_objectives: list[str] = Field(default_factory=list)
     questions: list[Question]
 
 

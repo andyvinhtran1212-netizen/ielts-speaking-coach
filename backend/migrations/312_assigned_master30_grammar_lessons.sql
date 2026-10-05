@@ -91,7 +91,7 @@ BEGIN
        AND student.user_id = p_user_id
        AND ca.skill = 'grammar'
      FOR UPDATE OF cai, ca, membership;
-    IF NOT FOUND OR v_config ->> 'assignment_type' <> 'grammar_lesson' THEN
+    IF NOT FOUND OR v_config ->> 'assignment_type' IS DISTINCT FROM 'grammar_lesson' THEN
         RAISE EXCEPTION 'grammar_lesson_not_accessible' USING ERRCODE = '42501';
     END IF;
 
@@ -106,15 +106,15 @@ BEGIN
 
     v_now := clock_timestamp();
     v_count := jsonb_array_length(COALESCE(p_content_snapshot -> 'questions', '[]'::jsonb));
-    IF v_status <> 'published'
+    IF v_status IS DISTINCT FROM 'published'
        OR (v_publish_at IS NOT NULL AND v_publish_at > v_now)
        OR (v_due_at IS NOT NULL AND v_due_at <= v_now)
-       OR v_config ->> 'release_id' <> p_release_id::TEXT
-       OR v_config ->> 'lesson_id' <> p_lesson_id
-       OR v_config ->> 'content_version' <> p_content_version
-       OR v_config ->> 'content_sha256' <> p_content_sha256
-       OR p_content_snapshot ->> 'lesson_id' <> p_lesson_id
-       OR p_content_snapshot ->> 'version' <> p_content_version
+       OR v_config ->> 'release_id' IS DISTINCT FROM p_release_id::TEXT
+       OR v_config ->> 'lesson_id' IS DISTINCT FROM p_lesson_id
+       OR v_config ->> 'content_version' IS DISTINCT FROM p_content_version
+       OR v_config ->> 'content_sha256' IS DISTINCT FROM p_content_sha256
+       OR p_content_snapshot ->> 'lesson_id' IS DISTINCT FROM p_lesson_id
+       OR p_content_snapshot ->> 'version' IS DISTINCT FROM p_content_version
        OR v_count NOT BETWEEN 8 AND 20 THEN
         RAISE EXCEPTION 'grammar_lesson_not_accepting' USING ERRCODE = '55000';
     END IF;
@@ -173,7 +173,7 @@ BEGIN
        AND student.user_id = p_user_id
        AND ca.skill = 'grammar'
      FOR UPDATE OF cai, ca, membership;
-    IF NOT FOUND OR v_config ->> 'assignment_type' <> 'grammar_lesson' THEN
+    IF NOT FOUND OR v_config ->> 'assignment_type' IS DISTINCT FROM 'grammar_lesson' THEN
         RAISE EXCEPTION 'grammar_lesson_not_accessible' USING ERRCODE = '42501';
     END IF;
 
@@ -202,7 +202,7 @@ BEGIN
 
     v_now := clock_timestamp();
     IF v_attempt.status <> 'in_progress'
-       OR v_status <> 'published'
+       OR v_status IS DISTINCT FROM 'published'
        OR (v_publish_at IS NOT NULL AND v_publish_at > v_now)
        OR (v_due_at IS NOT NULL AND v_due_at <= v_now) THEN
         RAISE EXCEPTION 'grammar_lesson_not_accepting' USING ERRCODE = '55000';

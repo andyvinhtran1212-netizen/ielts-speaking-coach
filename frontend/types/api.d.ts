@@ -13556,15 +13556,6 @@ export interface components {
             /** Selected Index */
             selected_index: number;
         };
-        /** Article */
-        Article: {
-            /** Category */
-            category: string;
-            /** Slug */
-            slug: string;
-            /** Title */
-            title: string;
-        };
         /** AssignRow */
         AssignRow: {
             /** User Id */
@@ -14271,10 +14262,7 @@ export interface components {
             focus?: string | null;
             /** Question Count */
             question_count: number;
-            /** Article */
-            article?: {
-                [key: string]: unknown;
-            } | null;
+            article?: components["schemas"]["GrammarArticleRef"] | null;
             /** Content Version */
             content_version?: string | null;
         };
@@ -15609,10 +15597,7 @@ export interface components {
             completed_at?: string | null;
             /** Focus */
             focus: string;
-            /** Article */
-            article: {
-                [key: string]: unknown;
-            };
+            article?: components["schemas"]["GrammarArticleRef"] | null;
             /** Questions */
             questions: components["schemas"]["ReportQuestion"][];
         };
@@ -17187,7 +17172,11 @@ export interface components {
             attempt_id?: string | null;
             /** Focus */
             focus: string;
-            article?: components["schemas"]["Article"] | null;
+            article?: components["schemas"]["GrammarArticleRef"] | null;
+            /** Lesson Notes */
+            lesson_notes?: string | null;
+            /** Learning Objectives */
+            learning_objectives?: string[];
             /** Questions */
             questions: components["schemas"]["Question"][];
         };

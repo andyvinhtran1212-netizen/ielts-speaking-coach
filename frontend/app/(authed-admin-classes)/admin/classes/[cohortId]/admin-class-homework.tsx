@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
+import type { ApiGetJson } from '@/lib/openapi-contract';
 import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
 import {
   assignmentSummary,
@@ -209,9 +210,10 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     }
     if (draft.kind === 'daily' && draft.skill === 'grammar_lesson') {
       try {
-        const value = await window.api.get<Array<{ id: string; lesson_no: number; title: string; ready: boolean; reason: string | null; focus: string | null; question_count: number; article: CatalogOption['article'] }>>(`/admin/cohorts/${encodeURIComponent(cohortId)}/grammar-lessons/catalog`);
+        const value = await window.api.get<ApiGetJson<'/admin/cohorts/{cohort_id}/grammar-lessons/catalog'>>(`/admin/cohorts/${encodeURIComponent(cohortId)}/grammar-lessons/catalog`);
         if (requestId === catalogSequence.current) setCatalog(value.map((row) => ({
           ...row, code: row.id, part: null, already_given: false, exam_only: false,
+          reason: row.reason ?? null, focus: row.focus ?? null, article: row.article ?? null,
           cohort_ids: [], explanation_ready: false, explanation_state: 'not_applicable',
           explanation_count: null, explanation_ready_count: null, runtime: 'grammar_lesson',
           is_published: true, single_attempt_ready: false,
