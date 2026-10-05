@@ -107,8 +107,7 @@ reserved questions as homework would weaken later diagnostic evidence.
 
 ### Unready lesson
 
-- **Given** B02 has an ACTIVE canonical MASTER30 bank, but its separate
-  assignment practice package has not been imported and reviewed
+- **Given** B02 lacks a reviewed practice activity
 - **When** the teacher views the catalog or tries to assign B02
 - **Then** B02 is visibly blocked with a concrete reason and no homework ledger
   entry is created.

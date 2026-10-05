@@ -203,8 +203,61 @@ async function run(lessonId, width = 1366, theme = 'light', keyboard = false) {
     check(`${lessonId}: no application errors`, errors.length === 0);
   } finally { await context.close(); }
 }
+async function runTeacherReport() {
+  const context = await browser.newContext({ viewport: { width: 1366, height: 1000 } });
+  const page = await context.newPage(), errors = [];
+  let reads = 0;
+  const lesson = packageData.lessons['M30-B02'];
+  await context.addInitScript(() => {
+    window.__AVER_SUPABASE_CLIENT__ = { auth: {
+      getSession: async () => ({ data: { session: { access_token: 'synthetic-teacher-token', user: { id: 'synthetic-teacher', email: 'teacher@fixture.invalid' } } }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    } };
+  });
+  await context.route('**/*', async (route) => {
+    const request = route.request(), url = new URL(request.url());
+    if (url.origin === BASE) {
+      if (url.pathname === '/js/runtime-config.js') return route.fulfill({ contentType: 'application/javascript', body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});` });
+      return route.continue();
+    }
+    if (url.origin !== API) return route.abort();
+    const headers = { 'access-control-allow-origin': BASE, 'access-control-allow-methods': 'GET,POST,OPTIONS', 'access-control-allow-headers': 'authorization,content-type,x-request-id' };
+    const json = (value, status = 200) => route.fulfill({ status, headers, contentType: 'application/json', body: JSON.stringify(value) });
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
+    if (url.pathname === '/auth/me') return json({ id: 'synthetic-teacher', email: 'teacher@fixture.invalid', role: 'admin' });
+    if (url.pathname === '/admin/grammar-lessons/attempts/fixture-report') {
+      reads++;
+      if (reads === 1) return json({ detail: 'Report read failed' }, 503);
+      return json({ attempt_id: 'fixture-report', assignment_item_id: 'fixture-item',
+        assignment_title: 'Reviewed B02', lesson_id: 'M30-B02', status: 'completed',
+        correct_count: 11, question_count: 12, completed_at: null, article: null, focus: lesson.focus,
+        questions: lesson.questions.map((q, index) => ({ id: q.id, prompt: q.prompt, options: q.options,
+          selected_index: index === 0 ? (q.correct_index + 1) % 4 : q.correct_index,
+          correct_index: q.correct_index, is_correct: index !== 0, explanation: q.explanation })),
+      });
+    }
+    if (request.method() === 'GET' || url.pathname === '/api/analytics/events' || url.pathname === '/api/error-logs') return json({});
+    throw new Error(`Unexpected report mutation: ${request.method()} ${url.pathname}`);
+  });
+  page.on('pageerror', (error) => errors.push(String(error)));
+  page.setDefaultTimeout(15000);
+  try {
+    await page.goto(`${BASE}/admin/grammar-lessons?attempt=fixture-report`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('alert').filter({ hasText: 'Report read failed' }).waitFor();
+    check('teacher report cold bootstrap reaches visible read failure', reads === 1 && errors.length === 0);
+    await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
+    await page.getByRole('heading', { name: 'M30-B02 · Reviewed B02', exact: true }).waitFor();
+    check('teacher report retry loads canonical count', await page.getByText('11/12 câu đúng', { exact: true }).count() === 1);
+    for (const [index, q] of lesson.questions.entries()) check(`teacher report ${q.id}: reviewed feedback`, (await page.locator('.agl-feedback').nth(index).innerText()).includes(q.explanation));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.agl-feedback').nth(11).waitFor();
+    check('teacher report reload retains all corrections without application errors', reads === 3 && errors.length === 0);
+  } finally { await context.close(); }
+}
+
 try {
   await runTeacher();
+  await runTeacherReport();
   for (const id of Object.keys(packageData.lessons).sort()) await run(id);
   await run('M30-B02', 390, 'dark', true);
 } finally {

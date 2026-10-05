@@ -1616,6 +1616,7 @@ async def assignment_tally(
         lambda q: q.eq("assignment_id", assignment_id),
     )
     grammar_attempts: dict[str, dict] = {}
+    grammar_attempts_failed = False
     if (assignment.get("skill") == "grammar"
             and (assignment.get("content_config") or {}).get("assignment_type") == "grammar_lesson"):
         item_ids = [str(row["id"]) for row in items]
@@ -1629,6 +1630,7 @@ async def assignment_tally(
                 ):
                     grammar_attempts[str(attempt["class_assignment_item_id"])] = attempt
         except Exception as exc:
+            grammar_attempts_failed = True
             stale = True
             logger.warning("[class] grammar lesson tally failed asg=%s: %s", assignment_id, exc)
     # Tra theo ĐÚNG những học viên có mục trong bài giao này, không theo sĩ số
@@ -1850,7 +1852,8 @@ async def assignment_tally(
             "artifact_kind": it.get("artifact_kind"),
             "artifact_id":   it.get("artifact_id"),
             "grammar_attempt_id": (grammar_attempts.get(str(it["id"])) or {}).get("id"),
-            "grammar_answered": len((grammar_attempts.get(str(it["id"])) or {}).get("answers") or {}),
+            "grammar_answered": None if grammar_attempts_failed and str(it["id"]) not in grammar_attempts
+                else len((grammar_attempts.get(str(it["id"])) or {}).get("answers") or {}),
             "grammar_correct": (grammar_attempts.get(str(it["id"])) or {}).get("correct_count"),
             "grammar_question_count": (assignment.get("content_config") or {}).get("question_count")
                 if (assignment.get("content_config") or {}).get("assignment_type") == "grammar_lesson" else None,

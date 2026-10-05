@@ -3,6 +3,14 @@ const text = (value) => typeof value === 'string' ? value : '';
 const nullableText = (value) => text(value).trim() || null;
 const finite = (value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
 
+export function grammarLessonResult(row) {
+  if (row.grammar_answered == null || row.grammar_question_count == null) return 'Chưa đọc được tiến độ';
+  if (['submitted', 'late'].includes(row.status)) {
+    return row.grammar_correct == null ? 'Chưa đọc được kết quả' : `${row.grammar_correct}/${row.grammar_question_count}`;
+  }
+  return row.grammar_answered ? `${row.grammar_answered}/${row.grammar_question_count} câu` : 'Chưa làm';
+}
+
 export function normalizeTally(value) {
   const payload = object(value);
   const assignment = object(payload.assignment);
@@ -27,7 +35,7 @@ export function normalizeTally(value) {
       retakes: Math.max(0, finite(row.retakes) || 0), verdicts: Math.max(0, finite(row.verdicts) || 0),
       artifact_kind: nullableText(row.artifact_kind), artifact_id: nullableText(row.artifact_id),
       grammar_attempt_id: nullableText(row.grammar_attempt_id),
-      grammar_answered: Math.max(0, finite(row.grammar_answered) || 0),
+      grammar_answered: finite(row.grammar_answered),
       grammar_correct: finite(row.grammar_correct),
       grammar_question_count: finite(row.grammar_question_count),
       has_writing: row.has_writing === true, writing_expected: row.writing_expected === true,

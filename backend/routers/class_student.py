@@ -226,7 +226,7 @@ def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
 # `lesson_no` an toàn để hiện: nó là "Buổi 3", không phải nội dung đề.
 _DISPLAY_CONFIG_FIELDS = (
     "topic", "mode", "part", "test_title", "lesson_no",
-    "test_length", "module",
+    "test_length", "module", "assignment_type", "lesson_id", "lesson_title",
 )
 
 

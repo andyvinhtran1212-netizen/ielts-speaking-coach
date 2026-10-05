@@ -2,8 +2,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { AssignedGrammarLesson } from '@/app/(authed)/grammar-lessons/assigned/workspace';
+import { GrammarLessonReport } from '@/app/(authed-admin-grammar)/admin/grammar-lessons/report';
 
-vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('assignment_item=item-1') }));
+vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('assignment_item=item-1&attempt=attempt-1') }));
 const auth = vi.hoisted(() => ({
   status: 'signed-in' as 'initial-loading' | 'signed-in' | 'signed-out',
   user: { id: 'learner-one', email: null } as { id: string; email: string | null } | null,
@@ -109,4 +110,53 @@ it('rejects an older response after the authenticated learner changes', async ()
   await act(async () => { resolveOld(base); });
   expect(screen.queryByRole('heading', { name: 'M30-B04 · Articles' })).toBeNull();
   expect(screen.getByRole('heading', { name: 'M30-B04 · Current learner lesson' })).toBeTruthy();
+});
+
+const report = { attempt_id: 'attempt-1', assignment_item_id: 'item-1',
+  assignment_title: 'Teacher report', lesson_id: 'M30-B04', status: 'completed',
+  correct_count: 1, question_count: 1, completed_at: null, focus: 'Articles',
+  article: null, questions: [{ ...question, selected_index: 1, is_correct: true,
+    correct_index: 1, explanation: 'Use an before a vowel sound.' }] };
+
+it('waits for teacher auth bootstrap and removes report data on logout', async () => {
+  auth.status = 'initial-loading'; auth.user = null;
+  Object.defineProperty(window, 'api', { configurable: true, value: undefined });
+  const view = render(<GrammarLessonReport />);
+  expect(screen.getByText('Đang tải báo cáo…')).toBeTruthy();
+  const get = vi.fn(async () => report);
+  Object.defineProperty(window, 'api', { configurable: true, value: { get } });
+  auth.status = 'signed-in'; auth.user = { id: 'teacher-one', email: null };
+  view.rerender(<GrammarLessonReport />);
+  expect(await screen.findByRole('heading', { name: 'M30-B04 · Teacher report' })).toBeTruthy();
+  expect(get).toHaveBeenCalledOnce();
+  auth.status = 'signed-out'; auth.user = null;
+  view.rerender(<GrammarLessonReport />);
+  expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeTruthy();
+  expect(screen.queryByText('Use an before a vowel sound.')).toBeNull();
+});
+
+it('shows a failed teacher read and retries the same report', async () => {
+  const get = vi.fn().mockRejectedValueOnce(new Error('Không đọc được báo cáo')).mockResolvedValueOnce(report);
+  Object.defineProperty(window, 'api', { configurable: true, value: { get } });
+  render(<GrammarLessonReport />);
+  expect((await screen.findByRole('alert')).textContent).toContain('Không đọc được báo cáo');
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByRole('heading', { name: 'M30-B04 · Teacher report' })).toBeTruthy();
+  expect(get.mock.calls.map((call) => call[0])).toEqual([
+    '/admin/grammar-lessons/attempts/attempt-1', '/admin/grammar-lessons/attempts/attempt-1',
+  ]);
+});
+
+it('discards an older teacher report response after account change', async () => {
+  let resolveOld!: (value: typeof report) => void;
+  const get = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }))
+    .mockResolvedValueOnce({ ...report, assignment_title: 'Current teacher report' });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get } });
+  const view = render(<GrammarLessonReport />);
+  await waitFor(() => expect(get).toHaveBeenCalledOnce());
+  auth.user = { id: 'teacher-two', email: null };
+  view.rerender(<GrammarLessonReport />);
+  expect(await screen.findByRole('heading', { name: 'M30-B04 · Current teacher report' })).toBeTruthy();
+  await act(async () => { resolveOld(report); });
+  expect(screen.queryByRole('heading', { name: 'M30-B04 · Teacher report' })).toBeNull();
 });

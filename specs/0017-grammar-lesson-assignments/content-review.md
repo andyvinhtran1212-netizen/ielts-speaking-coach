@@ -8,7 +8,7 @@ Manifest SHA256: acf970a0dccc16a39867f601c97bb59c098913e6c29bc3bf0f491bc2bb53491
 
 Combined six-field content SHA256: 7aa8d107a6358862cb7bf37c575e136c75afea6e032f4809f740d207a6b1d352
 
-Both exact author artifact SHA256 values and closed per-lesson findings are in senior-review-final-evidence.json.
+Both exact author artifact SHA256 values and closed per-lesson findings are in [the committed review evidence](../../backend/content/master30-assigned-practice/v2-review-evidence.json).
 
 Protected semantic scope:1229 MCQs with text; authored prompts, every option and note examples screened. Final candidates0 after contextual review and substantive B16 revisions.
 
