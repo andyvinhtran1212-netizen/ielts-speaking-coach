@@ -3,6 +3,7 @@ import { afterEach, expect, it } from 'vitest';
 import { ReviewContextNotice, ReviewQuestionContext } from '@/components/review-attempt-context';
 import { normalizeReadingReview } from '@/lib/reading-review-model.mjs';
 import { normalizeListeningReview } from '@/lib/listening-review-model.mjs';
+import l025 from '../fixtures/listening-review-l025-map.json';
 afterEach(cleanup);
 it('distinguishes saved context, current fallback and unavailable context without asserting old source authenticity', () => {
   const view = render(<ReviewContextNotice value={{ provenance: 'submission_snapshot', possibly_changed: false }} />);
@@ -36,4 +37,25 @@ it('both review normalizers retain top-level and per-field provenance and empty 
     expect(result.contextSource).toEqual(context_source); expect(result.review[0].question_context.options).toEqual([]);
     expect(result.review[0].question_context.context_provenance.options).toBe('submission_snapshot');
   }
+});
+it('renders the persisted L025 authored A–H bank and map through the native review context', () => {
+  const result = normalizeListeningReview({ preview: true, status: 'submitted', score: null, max_score: 1,
+    sections: [{ section_num: 2 }], review: [{ q_num: 16, correct: false, question_context: l025.expected_context }] });
+  const { container } = render(<ReviewQuestionContext value={result.review[0].question_context} />);
+  const bank = screen.getByRole('list');
+  expect(within(bank).getAllByRole('listitem').map(item => item.textContent?.trim())).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+  const image = screen.getByRole('img', { name: 'Sơ đồ của câu hỏi' });
+  expect(image.getAttribute('src')).toBe(`data:image/svg+xml;utf8,${encodeURIComponent(l025.authored_question.payload.map_svg)}`);
+  expect(container.querySelector('svg')).toBeNull();
+  expect(container.textContent).not.toContain('SmartCity Expo venue');
+  expect(container.textContent).not.toContain('AI Image Generation');
+  expect(container.querySelector('input,select,textarea')).toBeNull();
+});
+it('keeps authored inline SVG inert and preserves the existing image URL and heading fallback', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script><text>Map</text></svg>';
+  const view = render(<ReviewQuestionContext value={{ map_svg: svg, template: { heading: 'Original map' } }} />);
+  expect(screen.getByRole('img', { name: 'Original map' }).getAttribute('src')).toBe(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);
+  expect(view.container.querySelector('svg,script')).toBeNull();
+  view.rerender(<ReviewQuestionContext value={{ map_svg: '', map_image_url: 'https://fixture.test/map.png', image_alt: 'Authored map' }} />);
+  expect(screen.getByRole('img', { name: 'Authored map' }).getAttribute('src')).toBe('https://fixture.test/map.png');
 });
