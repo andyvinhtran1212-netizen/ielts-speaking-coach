@@ -19,6 +19,7 @@
 | FR-013 | OpenAPI/type, migration and compatibility checks | PENDING |
 | FR-014 | Mobile/desktop, light/dark, keyboard and failure-state journeys | PENDING |
 | FR-015 | Independent review, local gates and exact release evidence | PENDING |
+| FR-016 | Existing audio catalogue/hash/auth/source-gap and UI no-attempt tests; live staging source choices; production publication below | PENDING |
 
 ## Initial evidence
 
@@ -415,3 +416,92 @@ Protected merge/exact staging deploy/integrated/live smoke, attested publication
 real source Auth/RLS/learner journeys and human demo approval precede production
 promotion/publication. All final FR001–015/T008–T010 gates stay pending; T007
 closure remains unpublished staging data preparation only.
+
+
+## Current checkpoint — 2026-10-05: native presentation and separate audio
+
+This supersedes the historical local-only release conclusions above. Editorial
+PR #1587 is merged; its revised explanations were checked on live staging. The
+immutable source package is already published on staging with manifest
+`29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841`.
+Production was checked directly and still has no 80-day package. Shared code
+promotion #1586 completed before this task integrates its own release.
+
+Current branch `codex/listening-native-display-20261005`, base `f2a73572`, adds
+private native presentation on real day/player/study routes and independent
+authenticated audio choices. All 453 runtime block bindings and all 195 forms
+match source; 350 question blocks / 1,676 positions, 41 layouts and 31 existing
+SVGs are covered. No source question route signs/displays PDF crops. Source
+keys, grading, original package and learner attempts remain unchanged.
+
+Kokoro choices bind all 80 final reviewed MP3 hashes; 69 originals remain
+separate, with truthful Day76 partial/Day77 missing/vocabulary-track states.
+The immutable upload CLI validates all 80 before writes and verifies private
+Storage readback. Staging bucket and package identity have been checked;
+all 80 objects were created and verified by hash, upload exit 0.
+Production content import has not run.
+
+Consolidated local evidence: full backend 9,746 passed / 646 skipped; full React
+417 passed; both TypeScript checks and webpack production build passed. Full
+frontend contracts passed 10,651 / zero failures or skips with the required
+loopback permission and no concurrent runtime-config generation. The committed
+null runtime stub is restored. Actual local Next checks at 375/1440px, light/dark
+passed table rows, SVG/zoom, study guard and multi-gap save with mocked auth/API.
+These are local acceptance, not deployed acceptance.
+
+One independent council code/data review accepted the complete native/audio
+patch with no blocker. It is not a new human audio or source-fidelity certificate.
+Next required evidence: exact-head CI, deployed native/audio staging journeys,
+then production code/content publication and actual production journeys.
+
+Before integration, a live staging inspection identified three instructions
+that still directed learners to PDF crops. These are now bound Vietnamese
+native instruction overrides for Day1 matching/closest-meaning and Day80
+fishing. Original English text, word/selection limits, question layouts,
+options and source digests remain unchanged. The council accepted this bounded
+correction; all 72 affected source/native/audio tests passed after adding the
+three real source-block fixtures.
+
+PR #1591's two P2 findings are corrected together: native lookup requires the
+active published package manifest and all 1,572 practice display-question hashes;
+the free-listening audio select has a 44px minimum target and explicit keyboard
+focus styling. The council accepted the bounded consolidated revision. Actual
+375px deployed selector measurement remains pending. The initial PR browser run
+failed one Admin Writing Tips request assertion: its page heading was visible
+before its list effect. The verifier now awaits the existing canonical item
+heading before making the same assertion; no product behavior/assertion is removed.
+The focused Admin Writing Tips browser journey now passes all 13 checks with
+canonical isolated runtime settings; initial missing-runtime local attempts
+failed before the product heading and are not passing evidence.
+Shared promotion #1586 has finished; this task may now proceed through its own
+exact-head CI and staging acceptance without racing that session.
+
+## FR-016 — synthetic free-study scope evidence, 2026-10-05
+
+The user's later explicit per-lesson Kokoro request authorizes this scope
+extension; it is not retroactively included in the September30 approval.
+Spec-only PR #1593 recorded that authorization after implementation. This
+clarification adds requirement traceability without changing runtime behavior.
+
+- `backend/tests/test_listening_source_audio.py`: all80 catalogue days,69
+  original recordings and days without originals, vocabulary/Day76/77 truth, wrong package/manifest/day fail
+  closed, authenticated route, unavailable signed assets, and upload tampering
+  rejection before writes. `frontend/tests/react/listening-source-audio.test.tsx`
+  checks original default, separate synthetic switching without attempt POST,
+  day/account media cleanup, unavailable media and retry. These passed in the
+  consolidated PR #1591 suites; unchanged product bytes retain that evidence.
+- All80 generated WAV/MP3/plan/receipt/ASR bindings were verified against the
+  final manifest `21bcf24a85984f68d4959a43455c3969bde96b9ad4cea3743c3ac66ef50f3199`.
+  Council evaluation is machine-based integrity/transcription assessment, not
+  a human naturalness certificate. The canonical staging upload readback
+  verified80 private MP3 objects;69 original files remain unchanged.
+- Authenticated live staging66a8374b played original and Kokoro Day1,
+  vocabulary-only Day61 and synthetic-only Day77 without media errors. Day77
+  retained zero Listening starts and protected40-question study; Day76 retained
+  original Section1–2 coverage. The375px selector was45px with visible keyboard
+  focus. Official smoke37261556465 passed and confirms frontend/backend both
+  serve `1d1b9e220ea17f07aa87194384b8e1f67314978d`; only spec prose changed after
+  the product acceptance. No human listening acceptance is asserted.
+- Production package import, private variant upload/publication and affected
+  live production journeys remain pending production access. Staging evidence
+  does not certify production content availability.

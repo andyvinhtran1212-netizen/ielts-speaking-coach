@@ -43,7 +43,9 @@ correctness.
 
 ## Non-goals
 
-- Inventing missing audio, transcript text, pictures, options or official keys.
+- Inventing missing supplied source recordings, transcript text, pictures,
+  options or official keys. Explicitly labelled synthetic study audio under
+  FR-016 is a separate supplement and never a recovered source recording.
 - Claiming IELTS band, CEFR, mastery, psychometric equivalence or a complete
   official 40-question exam from the source mock papers.
 - Replacing the existing General/IELTS packages, their active attempts, or the
@@ -148,6 +150,19 @@ correctness.
   journey after promotion. Each batch report states accepted/rejected counts,
   remaining work and release state without treating partial progress as done.
 
+- **FR-016:** Each of the 80 days provides an optional, explicitly labelled
+  Kokoro synthetic free-study track, separately from the 69 unchanged originals
+  and their source-availability/coverage states. Preserve supplied English
+  content and dialogue roles with declared editorial corrections; Days 61–70
+  pronounce existing English vocabulary and Day 77 reads its printed English
+  transcript without inventing missing Chinese stories or dialogue. These
+  tracks do not enable Listening starts for resource-only days, add question/key
+  controls, or change original practice audio, attempts or grading. Tracks are
+  private, authorized and bound to the exact package/manifest/day and reviewed
+  bytes; absent media is visibly unavailable. Machine integrity/transcription
+  review and human listening acceptance remain distinct, with no human
+  naturalness certification implied by machine checks.
+
 ## Acceptance scenarios
 
 1. Day 1 shows the original question block and permits answering. Its reviewed
@@ -161,9 +176,11 @@ correctness.
    inflate an accuracy or completion denominator.
 4. Day 51 exercises with repeated Q1 have different IDs and matching images,
    instructions and feedback. Solved teaching examples are labelled resources.
-5. Day 61 shows a complete curated topic vocabulary resource and no fake audio
-   or question-key controls. Day 77 shows source-study availability but no
-   Listening start; Day 76 starts only sections covered by actual audio.
+5. Day 61 shows a complete curated topic vocabulary resource, no invented
+   supplied-source recording and no question-key controls. Separately labelled
+   synthetic study playback follows FR-016. Day 77 shows source-study
+   availability but no Listening start; Day 76 starts only sections covered by
+   supplied source audio.
 6. Day 75 retains its 42 source positions and authentic sections. Local form
    numbers map explicitly to source labels without truncating or renumbering
    the original book as a standard 40-question test.
@@ -212,3 +229,19 @@ limited to implementation intent; it does not certify the demo, source content,
 answer correctness or release. This specification-only PR must land on staging
 before runtime or importer implementation. Source-first pilot preparation may
 continue outside the repository while that durable approval is pending.
+
+
+### Later user-approved synthetic study audio — 2026-10-05
+
+The user's later instruction to retain originals and create a new Kokoro version
+for each lesson, followed by authorization to continue the complete collection,
+adds optional, explicitly labelled synthetic free-study audio for all 80 days.
+Days 61–70 pronounce the existing English vocabulary; Day 77 reads the supplied
+printed English transcript. No missing Chinese story or dialogue is invented.
+These supplements are not supplied source recordings: all 69 originals and
+source-availability/coverage states remain unchanged. They do not enable
+Listening starts for Day 77 or vocabulary days, add question/key controls, or
+change practice audio, attempts or grading. The missing-source/non-fabrication
+protections in FR-004 and acceptance scenario 5 remain in force for source
+assets and independent practice. This later authorization permits labelled
+synthetic study tracks; it does not certify human listening acceptance.

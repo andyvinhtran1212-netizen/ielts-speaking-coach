@@ -5690,9 +5690,23 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
     source_fields = {}
     if source_required:
         from services.listening_source_collection import sign_source_block
+        source_manifest = None
+        if test.get("content_package_id"):
+            try:
+                packages = (supabase_admin.table("listening_content_packages").select("manifest_sha256")
+                            .eq("id", test["content_package_id"]).eq("programme_id", SOURCE_PROGRAMME)
+                            .eq("status", "published").limit(1).execute().data or [])
+            except Exception as exc:
+                raise HTTPException(503, "Không xác định được phiên bản đề nguồn; hãy thử lại.") from exc
+            if len(packages) == 1:
+                source_manifest = packages[0].get("manifest_sha256")
         for exercise in exercises:
             payload = exercise["payload"]
-            payload["source_blocks"] = [sign_source_block(block, _sign_programme_visual_url) for block in payload.get("source_blocks") or []]
+            payload["source_blocks"] = [sign_source_block(block, _sign_programme_visual_url,
+                manifest_sha256=source_manifest,
+                runtime_questions=[question for question in payload.get("questions") or []
+                                   if question.get("source_block_id") == block.get("block_id")])
+                for block in payload.get("source_blocks") or []]
             source_fields = {"source_collection_id": "80-days", "source_day": payload.get("source_day"),
                 "source_part_label": payload.get("source_part_label"), "audio_granularity": (test.get("metadata") or {}).get("timing_granularity", "whole_day"),
                 "source_blocks": payload["source_blocks"]}
@@ -5706,7 +5720,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                 question = dict(raw_question) if isinstance(raw_question, dict) else {}
                 question.pop("visual_url", None)
                 storage_path = question.pop("visual_storage_path", None)
-                if storage_path:
+                if storage_path and not source_required:
                     visual_url = _sign_programme_visual_url(storage_path)
                     if not visual_url:
                         raise HTTPException(
@@ -5730,7 +5744,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
                         if key in raw_translation
                     }
                     translated_storage_path = raw_translation.get("visual_storage_path")
-                    if translated_storage_path:
+                    if translated_storage_path and not source_required:
                         translated_url = _sign_programme_visual_url(translated_storage_path)
                         if not translated_url:
                             raise HTTPException(
@@ -8463,6 +8477,13 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     if exercise_rows:
         for row in exercise_rows:
             p = row.get("payload") or {}
+            # Callers already enforced review access. Sign this selected
+            # revision's raster map on a runtime copy, never on stored rows.
+            storage_path = p.get("map_image_storage_path")
+            inline_map = p.get("map_svg")
+            if storage_path and not (isinstance(inline_map, str) and inline_map.strip()):
+                p = dict(p)
+                p["map_image_url"] = _sign_map_image_url(storage_path, expires_in=7200)
             for q, sol in (p.get("solutions") or {}).items():
                 solutions_by_q[int(q)] = sol
             for q, w in (p.get("audio_windows") or {}).items():

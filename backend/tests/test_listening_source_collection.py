@@ -540,7 +540,7 @@ def test_real_day02_supplement_is_private_zero_item_study_and_requires_review(re
     assert resource['editorial_summary_vi'] not in str(before)
     signed=[];response=service.study_response(lesson,[resource['resource_id']],lambda path:signed.append(path) or 'private-signed')
     block=response['blocks'][0]
-    assert block['description']==resource['editorial_summary_vi'] and block['items']==[] and len(signed)==1
+    assert block['description']==resource['editorial_summary_vi'] and block['items']==[] and signed==[] and block['images']==[]
     assert response['independent_practice'] is False
     assert sum(x['item_count'] for x in plan.forms if x['source_lesson_id']=='80-days:day-02')==24
     image['visual_acceptance']['independent_review_status']='PENDING';_dump(path,day);_bind(release)
@@ -567,9 +567,10 @@ def test_multi_image_vocabulary_solved_story_and_not_expected_audio(release):
     lesson=next(x for x in plan.lessons if x['sequence_num']==61)|{'id':'vocab'}
     response=service.day_response(plan.package,lesson,[],{},lambda _: 'signed',False)
     assert response['availability']['audio']=='not_expected' and response['availability']['printed_key']=='not_expected'
-    assert len(response['blocks'][0]['images'])==2 and response['practice_item_count']==0
+    assert len(lesson['metadata']['source_book']['blocks'][0]['images'])==2  # archival evidence retained
+    assert response['blocks'][0]['images']==[] and response['practice_item_count']==0
     study=service.study_response(lesson,['80-days:day-61:solved-story'],lambda _: 'signed')
-    assert len(study['blocks'][0]['images'])==1 and study['blocks'][0]['transcript'][0]['quote']=='Nguồn đã giải.'
+    assert study['blocks'][0]['images']==[] and study['blocks'][0]['transcript'][0]['quote']=='Nguồn đã giải.'
     assert study['blocks'][0]['items']==[] and 'Không tính điểm' in study['blocks'][0]['description']
     raw['source_assets'][1]['visual_review']['independent_review']='PENDING';_dump(path,raw);_bind(release)
     with pytest.raises(PackageValidationError,match='crop'):importer.build_source_import_plan(release)

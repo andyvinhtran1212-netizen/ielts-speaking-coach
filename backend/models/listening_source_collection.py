@@ -59,6 +59,33 @@ class SourceImage(SourceModel):
     alt_vi: str
 
 
+class SourceNativeFigure(SourceModel):
+    figure_id: str
+    svg: str
+    width: int
+    height: int
+    alt_vi: str
+
+
+class SourceNativeQuestion(SourceModel):
+    item_id: str
+    source_display_number: str
+    prompt: str
+    options: list[SourceOption] = Field(default_factory=list)
+    fields: list[SourceResponseField] = Field(default_factory=list)
+
+
+class SourceNativePresentation(SourceModel):
+    title: str = ""
+    kind: Literal["questions", "passage", "form", "table", "vocabulary", "resource"] = "questions"
+    text: str = ""
+    columns: list[str] = Field(default_factory=list)
+    rows: list[list[str]] = Field(default_factory=list)
+    word_bank: list[str] = Field(default_factory=list)
+    figures: list[SourceNativeFigure] = Field(default_factory=list)
+    questions: list[SourceNativeQuestion] = Field(default_factory=list)
+
+
 class SourceBlock(SourceModel):
     block_id: str
     part_id: str
@@ -71,6 +98,7 @@ class SourceBlock(SourceModel):
     description: str = ""
     display_kind: Literal["practice", "source_study", "vocabulary"] = "practice"
     study_available: bool = False
+    native: SourceNativePresentation | None = None
 
 
 class SourceRegion(SourceModel):

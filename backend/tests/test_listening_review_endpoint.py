@@ -9,6 +9,10 @@ full-audio URL. Lesson 20 — assert the real joined VALUES.
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
+import json
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import HTTPException
@@ -247,3 +251,66 @@ def test_review_test_projection_selects_test_type():
     m = re.search(r'table\("listening_tests"\)[\s\S]{0,200}?select\("([^"]+)"', src)
     assert m, "listening_tests fetch not found in review route"
     assert "test_type" in m.group(1)
+
+
+@pytest.mark.parametrize("admin_preview", [False, True])
+@pytest.mark.parametrize("inline_svg", [False, True])
+def test_storage_map_review_and_admin_preview_sign_only_runtime_payload(monkeypatch, admin_preview, inline_svg):
+    fixture = json.loads((Path(__file__).resolve().parents[2] /
+        "frontend/tests/fixtures/listening-review-l025-map.json").read_text())
+    payload = deepcopy(fixture["authored_question"]["payload"])
+    if not inline_svg:
+        payload.pop("map_svg")
+    path = "maps/l025/original.png"
+    payload["map_image_storage_path"] = path
+    attempt = dict(_ATTEMPT_SUBMITTED, grading_details=[
+        {"q_num": 16, "correct": True, "user_answer": "A", "expected": "A"}])
+    _patch(monkeypatch, attempt)
+    db = _DB(attempt)
+    db._d["listening_exercises"] = [{"id": "map-block", "payload": payload}]
+    before = deepcopy(db._d)
+    monkeypatch.setattr(L, "supabase_admin", db)
+    monkeypatch.setattr(L, "_is_admin", AsyncMock(return_value=False))
+    monkeypatch.setattr(L, "require_admin", AsyncMock(return_value={"id": "admin"}))
+    signer = Mock(wraps=L._sign_map_image_url)
+    monkeypatch.setattr(L, "_sign_map_image_url", signer)
+    monkeypatch.setattr("services.mock_review_context.attach_review_web_explanations", lambda *_: {})
+    out = _run(L.admin_preview_listening_test("t-uuid", authorization="x") if admin_preview
+        else L.get_listening_test_attempt_review("att-1", authorization="x"))
+    context = next(row for row in out["review"] if row["q_num"] == 16)["question_context"]
+    assert context["options"] == fixture["expected_context"]["options"]
+    if inline_svg:
+        assert context["map_svg"] == payload["map_svg"]
+        assert context["map_image_url"] is None
+        signer.assert_not_called()
+    else:
+        assert context["map_image_url"] == f"https://signed/{path}?t=7200"
+        assert context["context_provenance"]["map_image_url"] == "current_content_fallback"
+        signer.assert_called_once_with(path, expires_in=7200)
+    assert db._d == before
+    assert "map_image_storage_path" not in context
+    assert "map_description" not in str(context)
+
+
+@pytest.mark.parametrize("guard,status", [("auth", 401), ("owner", 404),
+    ("status", 409), ("sealed", 403), ("confidence", 409)])
+def test_map_signing_runs_only_after_existing_review_guards(monkeypatch, guard, status):
+    attempt = dict(_ATTEMPT_SUBMITTED, status="in_progress" if guard == "status" else "submitted")
+    _patch(monkeypatch, attempt)
+    L.supabase_admin._d["listening_exercises"] = deepcopy(_EXERCISES)
+    L.supabase_admin._d["listening_exercises"][0]["payload"]["map_image_storage_path"] = "maps/private.png"
+    monkeypatch.setattr(L, "_is_admin", AsyncMock(return_value=False))
+    signer = Mock(return_value="https://signed/private-map")
+    monkeypatch.setattr(L, "_sign_map_image_url", signer)
+    if guard == "auth":
+        monkeypatch.setattr(L, "_require_auth", AsyncMock(side_effect=HTTPException(401, "unauthorized")))
+    elif guard == "owner":
+        monkeypatch.setattr(L, "_fetch_attempt_or_404", Mock(side_effect=HTTPException(404, "not owned")))
+    elif guard == "sealed":
+        monkeypatch.setattr(L, "_mock_sealed", lambda _: True)
+    elif guard == "confidence":
+        monkeypatch.setattr("services.mock_correction_service.capture_required_envelope", lambda *_: True)
+    with pytest.raises(HTTPException) as exc:
+        _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    assert exc.value.status_code == status
+    signer.assert_not_called()

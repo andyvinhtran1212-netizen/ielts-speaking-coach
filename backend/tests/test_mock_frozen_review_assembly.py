@@ -2,6 +2,7 @@
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import patch
+import pytest
 
 from routers import listening, reading_student
 
@@ -132,3 +133,38 @@ def test_reading_review_renews_pinned_diagram_urls_without_changing_frozen_diges
     assert first["review"][0]["question_context"]["image_url"] != second["review"][0]["question_context"]["image_url"]
     assert first["review"][0]["question_context"]["image_alt"]=="Diagram with numbered blanks"
     assert first["context_source"]["context_sha256"]==second["context_source"]["context_sha256"]
+
+
+@pytest.mark.parametrize("storage_path", ["maps/original.png", "", None])
+def test_listening_storage_map_uses_only_frozen_path_without_mutating_snapshot(storage_path):
+    class ChangingSigner(Signer):
+        def __init__(self): self.paths=[]
+        def create_signed_url(self,path,ttl):
+            self.paths.append(path)
+            return {"signedURL":f"https://signed.local/{path}?nonce={len(self.paths)}"}
+
+    marks=[{"id":"ex20","payload":{"variant":"mcq_letter_label",
+        "map_image_storage_path":storage_path,"metadata":{"letter_options":["A","B"]},
+        "questions":[{"q_num":20,"prompt":"Original place"}]}}]
+    private=snapshot("listening",marks,[],{"id":"t1","test_id":"ORIGINAL","metadata":{}})
+    db=DB({"mock_paper_attempt_snapshots":[private],"listening_exercises":[
+        {"id":"changed","payload":{"map_image_storage_path":"maps/current.png"}}]})
+    before=deepcopy(db.tables); saved=attempt(); saved_before=deepcopy(saved)
+    db.storage=ChangingSigner()
+    with patch.object(listening,"supabase_admin",db), \
+         patch("services.mock_correction_service.attach_web_explanations",return_value={"available":False}):
+        first=listening._assemble_listening_review(saved,"a1")
+        second=listening._assemble_listening_review(saved,"a1")
+    context=first["review"][0]["question_context"]
+    if storage_path:
+        assert context["map_image_url"]=="https://signed.local/maps/original.png?nonce=1"
+        assert second["review"][0]["question_context"]["map_image_url"]=="https://signed.local/maps/original.png?nonce=2"
+        assert context["context_provenance"]["map_image_url"]=="submission_snapshot"
+        assert db.storage.paths==[storage_path,storage_path]
+    else:
+        assert context["map_image_url"] is None
+        assert db.storage.paths==[]
+    assert context["options"]==["A","B"]
+    assert db.tables==before and saved==saved_before
+    assert first["context_source"]["context_sha256"]==second["context_source"]["context_sha256"]
+    assert db.calls==["mock_paper_attempt_snapshots","mock_paper_attempt_snapshots"]
