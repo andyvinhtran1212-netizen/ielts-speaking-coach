@@ -141,6 +141,41 @@ async def _tally(items, subs, *, mark=None):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("answered", [None, 0, 3, 12])
+async def test_grammar_tally_preserves_unknown_untouched_and_saved_progress(answered):
+    assignment = {**_ASG, "skill": "grammar", "status": "published", "due_at": None,
+                  "content_config": {"assignment_type": "grammar_lesson", "question_count": 12}}
+    item = {**_ITEM, "state": "submitted" if answered == 12 else "opened",
+            "submitted_at": "2026-10-01T12:00:00+00:00" if answered == 12 else None,
+            "score": None, "artifact_kind": "grammar_lesson_attempt", "artifact_id": "attempt-1"}
+    attempt = {"id": "attempt-1", "class_assignment_item_id": "it1",
+               "answers": {f"q{i}": {} for i in range(answered or 0)},
+               "correct_count": max(0, (answered or 0) - 1), "question_count": 12}
+    db = _db(class_assignments=[assignment], class_assignment_items=[item],
+             students=[{**_STUDENT, "user_id": "u1"}],
+             grammar_lesson_attempts=[attempt] if answered else [])
+    if answered is None:
+        table = db.table
+        db.table = lambda name: _BoomTable([]) if name == "grammar_lesson_attempts" else table(name)
+    with patch.object(adm, "require_admin", AsyncMock(return_value=None)), \
+         patch.object(adm, "_require_cohort", lambda _c: None), \
+         patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "reconcile_ledger_from_sessions"), \
+         patch.object(adm, "reconcile_test_attempts"), \
+         patch.object(adm, "reconcile_course_items"):
+        immediate = await adm.assignment_tally("co1", "a1", None)
+        reloaded = await adm.assignment_tally("co1", "a1", None)
+    assert immediate == reloaded
+    row = immediate["students"][0]
+    assert immediate.get("homework_stale", False) is (answered is None)
+    assert row["grammar_answered"] == answered
+    assert row["grammar_question_count"] == 12
+    assert row["grammar_correct"] == (attempt["correct_count"] if answered else None)
+    assert row["score"] is None
+    assert row["artifact_id"] == "attempt-1", "preserve the canonical review target even if progress lookup fails"
+
+
+@pytest.mark.asyncio
 async def test_tally_never_turns_one_section_into_a_multisection_hand_in():
     item = {"id": "it1", "assignment_id": "a1", "student_id": "s1",
             "submitted_at": None, "score": None, "state": "opened",

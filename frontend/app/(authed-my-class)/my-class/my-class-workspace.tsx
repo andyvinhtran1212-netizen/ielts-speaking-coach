@@ -47,6 +47,9 @@ type Assignment = {
       part: number | null;
       testTitle: string | null;
       lessonNo: number | null;
+      assignmentType: string | null;
+      grammarLessonId: string | null;
+      grammarLessonTitle: string | null;
     };
   };
 };
@@ -91,6 +94,7 @@ type StartTarget =
   | { kind: 'result'; url: string }
   | { kind: 'review'; url: string }
   | { kind: 'grammar'; url: string }
+  | { kind: 'grammar-lesson'; url: string }
   | { kind: 'grammar-report'; url: string }
   | { kind: 'create-speaking'; body: {
       mode: string; part: number; topic: string; class_assignment_item_id: string;
@@ -182,7 +186,7 @@ function TaskCard({
     <article className={`mc-item${row.isMissing ? ' is-missing' : ''}`}>
       <div className="mc-item-main">
         <div className="mc-item-meta">
-          <span className="mc-item-kind">{SKILL_LABEL[row.assignment.skill]}</span>
+          <span className="mc-item-kind">{row.assignment.content?.assignmentType === 'grammar_lesson' ? 'Grammar lesson' : SKILL_LABEL[row.assignment.skill]}</span>
           {row.assignment.cohortName && <span className="mc-item-class">{row.assignment.cohortName}</span>}
           <span className="mc-item-state" data-state={state}>{stateLabel}</span>
         </div>
@@ -600,7 +604,7 @@ export function MyClassWorkspace() {
         return;
       }
       if (target.kind === 'result' || target.kind === 'review'
-          || target.kind === 'grammar' || target.kind === 'grammar-report') {
+          || target.kind === 'grammar' || target.kind === 'grammar-report' || target.kind === 'grammar-lesson') {
         router.push(target.url);
         return;
       }

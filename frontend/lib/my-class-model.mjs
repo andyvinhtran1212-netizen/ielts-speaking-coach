@@ -156,6 +156,9 @@ function normalizeAssignment(value) {
         part: finiteNumber(cfg.part),
         testTitle: optionalText(cfg.test_title),
         lessonNo: finiteNumber(cfg.lesson_no),
+        assignmentType: optionalText(cfg.assignment_type),
+        grammarLessonId: optionalText(cfg.lesson_id),
+        grammarLessonTitle: optionalText(cfg.lesson_title),
       },
     },
   };
@@ -255,6 +258,12 @@ export function courseNeedsAction(row) {
 
 /** One canonical action decision for both current and history groups. */
 export function assignmentAction(row) {
+  if (row?.assignment?.skill === 'grammar'
+      && row.assignment.content?.assignmentType === 'grammar_lesson') {
+    if (row.submittedAt || (row.isMissing && row.state === 'opened')) {
+      return { kind: 'review', label: 'Xem bài & chữa lỗi' };
+    }
+  }
   if (row?.assignment?.skill === 'course') {
     const labels = {
       start: 'Làm bài',
@@ -284,6 +293,10 @@ export function assignmentAction(row) {
 
 export function assignmentSubtitle(row) {
   const cfg = row?.assignment?.content || {};
+  if (row?.assignment?.skill === 'grammar'
+      && cfg.assignmentType === 'grammar_lesson') {
+    return [cfg.grammarLessonId, cfg.grammarLessonTitle].filter(Boolean).join(' · ');
+  }
   if (row?.assignment?.skill === 'speaking') {
     return [cfg.topic, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
   }
@@ -372,6 +385,13 @@ export function normalizeClassStartResponse(value, expectedItemId) {
   const grammarReportSessionId = textOf(row.grammar_report_session_id);
   if (grammarReportSessionId && skill === 'grammar') {
     return { kind: 'grammar-report', url: `/grammar-checkup?session=${encodeURIComponent(grammarReportSessionId)}&view=report` };
+  }
+
+  const grammarLessonPath = textOf(row.grammar_lesson_path);
+  if (grammarLessonPath && skill === 'grammar') {
+    const expected = `/grammar-lessons/assigned?assignment_item=${encodeURIComponent(expectedItemId)}`;
+    if (grammarLessonPath !== expected) return null;
+    return { kind: 'grammar-lesson', url: expected };
   }
 
   const grammarPath = textOf(row.grammar_path);

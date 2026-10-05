@@ -20,8 +20,11 @@ from __future__ import annotations
 
 import logging
 import random
+import hashlib
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Literal, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
@@ -172,6 +175,8 @@ class AssignmentCreate(BaseModel):
     grammar_length: Literal["QUICK", "FULL"] = "QUICK"
     grammar_mode: Literal["ENTRY", "REVIEW"] = "REVIEW"
     grammar_module: Literal["GENERAL", "ACADEMIC"] = "GENERAL"
+    grammar_lesson_id: Optional[str] = Field(default=None, pattern=r"^M30-B(?:0[1-9]|[12][0-9]|30)$")
+    give_request_id: Optional[UUID] = None
 
     @model_validator(mode="after")
     def _check_kind(self):
@@ -190,9 +195,13 @@ class AssignmentCreate(BaseModel):
             return self
         if self.skill == "grammar":
             if self.kind != "daily":
-                raise ValueError("Grammar Diagnostic được giao như bài hằng ngày.")
+                raise ValueError("Grammar được giao như bài hằng ngày.")
             if self.completion_mode != "mastery":
                 raise ValueError("Cách hoàn thành này chỉ dùng cho bài tập theo buổi.")
+            if self.grammar_lesson_id and self.give_request_id is None:
+                raise ValueError("Bài Grammar lẻ cần mã yêu cầu để tránh giao trùng khi thử lại.")
+            if self.give_request_id and not self.grammar_lesson_id:
+                raise ValueError("Mã yêu cầu giao bài chỉ dùng cho bài Grammar lẻ.")
             return self
         if self.completion_mode != "mastery":
             raise ValueError("Cách hoàn thành này chỉ dùng cho bài tập theo buổi.")
@@ -1606,6 +1615,24 @@ async def assignment_tally(
         "passed_at, mastery",
         lambda q: q.eq("assignment_id", assignment_id),
     )
+    grammar_attempts: dict[str, dict] = {}
+    grammar_attempts_failed = False
+    if (assignment.get("skill") == "grammar"
+            and (assignment.get("content_config") or {}).get("assignment_type") == "grammar_lesson"):
+        item_ids = [str(row["id"]) for row in items]
+        try:
+            for offset in range(0, len(item_ids), _ID_CHUNK):
+                for attempt in _paged(
+                    supabase_admin, "grammar_lesson_attempts",
+                    "id, class_assignment_item_id, answers, correct_count, question_count",
+                    lambda q, ids=item_ids[offset:offset + _ID_CHUNK]:
+                        q.in_("class_assignment_item_id", ids),
+                ):
+                    grammar_attempts[str(attempt["class_assignment_item_id"])] = attempt
+        except Exception as exc:
+            grammar_attempts_failed = True
+            stale = True
+            logger.warning("[class] grammar lesson tally failed asg=%s: %s", assignment_id, exc)
     # Tra theo ĐÚNG những học viên có mục trong bài giao này, không theo sĩ số
     # lớp hiện tại. Mục bài tập CỐ Ý sống sót khi học viên chuyển lớp — lọc theo
     # `cohort_id` thì em đã chuyển đi hiện ra tên trống và trạng thái "chưa kích
@@ -1824,6 +1851,12 @@ async def assignment_tally(
             # kèm vì mỗi kỹ năng mở ở một trang khác — đoán từ id là đoán sai.
             "artifact_kind": it.get("artifact_kind"),
             "artifact_id":   it.get("artifact_id"),
+            "grammar_attempt_id": (grammar_attempts.get(str(it["id"])) or {}).get("id"),
+            "grammar_answered": None if grammar_attempts_failed and str(it["id"]) not in grammar_attempts
+                else len((grammar_attempts.get(str(it["id"])) or {}).get("answers") or {}),
+            "grammar_correct": (grammar_attempts.get(str(it["id"])) or {}).get("correct_count"),
+            "grammar_question_count": (assignment.get("content_config") or {}).get("question_count")
+                if (assignment.get("content_config") or {}).get("assignment_type") == "grammar_lesson" else None,
             # Có bài tự luận để đọc không. Chỉ hiện nút khi THẬT SỰ có — một
             # liên kết mở ra "chưa nộp gì" tệ hơn không có liên kết.
             "has_writing":   it["id"] in writing_by_item,
@@ -2495,6 +2528,56 @@ async def speaking_performance(
     }
 
 
+def _require_course_five(cohort_id: str) -> None:
+    course_id = _cohort_course_id(cohort_id)
+    rows = (supabase_admin.table("courses").select("code")
+            .eq("id", course_id).limit(1).execute().data) or []
+    if not rows or rows[0].get("code") != "C5":
+        raise HTTPException(400, "Bài Grammar MASTER30 chỉ giao cho lớp Course 5.")
+
+
+def _grammar_give_fingerprint(body: AssignmentCreate) -> str:
+    intent = {
+        "lesson_id": body.grammar_lesson_id,
+        "title": body.title.strip(),
+        "due_date": body.due_date,
+        "due_time": body.due_time or "19:00",
+        "instructions": body.instructions or "",
+        "student_ids": sorted(set(body.student_ids)) if body.student_ids is not None else None,
+    }
+    raw = json.dumps(intent, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _existing_grammar_give(cohort_id: str, request_id: str, fingerprint: str) -> dict | None:
+    rows = (supabase_admin.table("class_assignments").select("*")
+            .eq("cohort_id", cohort_id)
+            .contains("content_config", {"give_request_id": request_id})
+            .limit(1).execute().data) or []
+    if not rows:
+        return None
+    assignment = rows[0]
+    cfg = assignment.get("content_config") or {}
+    if (assignment.get("skill") != "grammar"
+            or cfg.get("assignment_type") != "grammar_lesson"
+            or cfg.get("give_fingerprint") != fingerprint):
+        raise HTTPException(409, "Mã yêu cầu này đã dùng cho nội dung khác.")
+    items = _paged(
+        supabase_admin, "class_assignment_items", "id, student_id",
+        lambda q: q.eq("assignment_id", assignment["id"]),
+    )
+    student_ids = [row["student_id"] for row in items]
+    students = []
+    for offset in range(0, len(student_ids), _ID_CHUNK):
+        students.extend(_paged(
+            supabase_admin, "students", "id, user_id",
+            lambda q, ids=student_ids[offset:offset + _ID_CHUNK]: q.in_("id", ids),
+        ))
+    missing_accounts = sum(row.get("user_id") is None for row in students)
+    return {**assignment, "student_count": len(items), "unactivated_count": missing_accounts,
+            "replayed": True}
+
+
 @router.post("/{cohort_id}/assignments", status_code=status.HTTP_201_CREATED)
 async def create_assignment(
     cohort_id: str,
@@ -2510,6 +2593,14 @@ async def create_assignment(
     admin = await require_admin(authorization)
     _require_cohort(cohort_id)
 
+    give_id = str(body.give_request_id) if body.grammar_lesson_id else None
+    fingerprint = _grammar_give_fingerprint(body) if give_id else None
+    if give_id:
+        _require_course_five(cohort_id)
+        replay = _existing_grammar_give(cohort_id, give_id, fingerprint)
+        if replay:
+            return replay
+
     content_id = None
     due_date = body.due_date
     if body.kind == "lesson":
@@ -2520,27 +2611,35 @@ async def create_assignment(
     elif body.skill == "speaking":
         content_id, content_config = _resolve_speaking_topic(cohort_id, body)
     elif body.skill == "grammar":
-        from services import runtime_flags
-        if not runtime_flags.is_enabled("master30_grammar_diagnostic", default=False):
-            raise HTTPException(503, "MASTER30 Grammar Diagnostic đang tạm khóa.")
-        active = (
-            supabase_admin.table("grammar_content_releases")
-            .select("id, validation").eq("status", "active").limit(1).execute().data
-        ) or []
-        if not active or not bool((active[0].get("validation") or {}).get("passed")):
-            raise HTTPException(503, "Nội dung Grammar Diagnostic chưa sẵn sàng.")
-        content_config = {
-            "test_title": (
-                "Quick Grammar Check-up · 28 câu" if body.grammar_length == "QUICK"
-                else "Full Grammar Diagnostic · tối đa 54 câu"
-            ),
-            "test_length": body.grammar_length,
-            "mode": body.grammar_mode,
-            "module": body.grammar_module,
-            "release_id": active[0]["id"],
-            "scoring": "objective_rules_based",
-            "productive_scoring": "teacher_assignment_only",
-        }
+        if body.grammar_lesson_id:
+            from services import grammar_lesson_service
+            content_id, content_config = grammar_lesson_service.prepare_assignment(
+                body.grammar_lesson_id
+            )
+            content_config.update({"give_request_id": give_id,
+                                   "give_fingerprint": fingerprint})
+        else:
+            from services import runtime_flags
+            if not runtime_flags.is_enabled("master30_grammar_diagnostic", default=False):
+                raise HTTPException(503, "MASTER30 Grammar Diagnostic đang tạm khóa.")
+            active = (
+                supabase_admin.table("grammar_content_releases")
+                .select("id, validation").eq("status", "active").limit(1).execute().data
+            ) or []
+            if not active or not bool((active[0].get("validation") or {}).get("passed")):
+                raise HTTPException(503, "Nội dung Grammar Diagnostic chưa sẵn sàng.")
+            content_config = {
+                "test_title": (
+                    "Quick Grammar Check-up · 28 câu" if body.grammar_length == "QUICK"
+                    else "Full Grammar Diagnostic · tối đa 54 câu"
+                ),
+                "test_length": body.grammar_length,
+                "mode": body.grammar_mode,
+                "module": body.grammar_module,
+                "release_id": active[0]["id"],
+                "scoring": "objective_rules_based",
+                "productive_scoring": "teacher_assignment_only",
+            }
     else:
         # The paper must exist and be published before it is given: assigning an
         # unpublished or deleted test hands students a task that opens to an
@@ -2643,6 +2742,10 @@ async def create_assignment(
         # response also guarantees no explanation state or audit event changed.
         raise HTTPException(400, str(exc))
     except Exception as exc:
+        if give_id and "uq_grammar_lesson_give_request" in str(exc):
+            replay = _existing_grammar_give(cohort_id, give_id, fingerprint)
+            if replay:
+                return replay
         raise HTTPException(500, f"Lỗi khi giao bài: {exc}")
 
     return result

@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-05 the highest is `311`, so the next new
-migration is `312`.
+sequence is dense. As of 2026-10-05 the highest is `312`, so the next
+new migration is `313`.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
@@ -33,6 +33,14 @@ The unapplied Grammar revision candidate was renamed from
 migrations used 306–308. Its SQL is unchanged; no applied ledger row is renamed
 or baselined. Verify the candidate is still unapplied on the target before
 release; an already applied old filename requires an additive follow-up.
+
+The unapplied assignment candidate was renamed from
+`307_assigned_master30_grammar_lessons.sql` to
+`312_assigned_master30_grammar_lessons.sql` after released Mock migrations used
+306–308. Read-only staging and production ledger checks on 2026-10-05 confirmed
+the old assignment filename was absent and the attempt table did not exist.
+Migration `312` adds assignment-scoped MASTER30 lesson practice attempts and a
+default-off runtime flag. It does not rewrite diagnostic items or learner history.
 
 ## Conventions
 

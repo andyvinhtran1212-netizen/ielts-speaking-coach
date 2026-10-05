@@ -1,0 +1,875 @@
+{
+  "reviewer_role": "senior_content_gate",
+  "decision": "approved",
+  "review_date": "2026-10-05",
+  "scope": "Independent content approval only: thirty named MASTER30 formative lessons with frozen teaching notes and12 newly authored MCQs each. Not a certification of original100-item banks, diagnostic bank or IELTS band. No automated grading of open-ended self-practice.",
+  "reviewed_fields": [
+    "title",
+    "focus",
+    "lesson_notes",
+    "learning_objectives",
+    "questions",
+    "coverage_review"
+  ],
+  "hash_algorithm": "SHA256 of sorted compact UTF8 JSON, ensure_ascii=False",
+  "input_artifact_sha256": {
+    "content-b01-b15.json": "f02abd3de5f8c762ea3adc75e4c2bfe2d8d349d3e72860e06439c540bc93cd74",
+    "content-b16-b30.json": "b17a82224750adb9c3fc19c01c829bba9d0bb2dfdf6162be50457745e75cb36a"
+  },
+  "combined_reviewed_content_sha256": "7aa8d107a6358862cb7bf37c575e136c75afea6e032f4809f740d207a6b1d352",
+  "read_extent": {
+    "notes": 30,
+    "mcqs": 360,
+    "all_options": 1440,
+    "all_explanations_and_distractor_feedback": true
+  },
+  "protected_independence": {
+    "scope": "Union of current diagnostic/confirmation/holdout status, runtime items, linked stimulus families/parallel sets, and historical protected IDs;1229 MCQs with text among1234 protected IDs.",
+    "screen": {
+      "protected_ids": 1234,
+      "protected_mcq_with_text": 1229,
+      "candidate_count": 0,
+      "candidates": []
+    },
+    "method": "Candidate discovery across English stimulus fragments in all authored prompts/options/notes and all protected prompts/options, plus contextual manual review of source and newly authored stories. Automated similarity is supporting evidence, not approval. Close B03/B07/B10/B16/B27 contexts rewritten; source banks retained.",
+    "final_B16_resolution": "Number-increasing example replaced by fixed pottery catalogue47.60%-water-used task replaced by quarter of equipment relocated by warehouse staff, retaining quantity agreement and perfect passive but changing amount, referent, action and context. Both complete final changes were independently re-read."
+  },
+  "pedagogical_verification": {
+    "B07": "Six strands B01–B06 covered in notes and question map; integrated NP/case task and targeted return routes.",
+    "B12": "Actual3time-by4aspect table and verb-chain procedure; avoids claiming every form tested.",
+    "B18": "Shared volunteer paragraph questions require comparison of multiple verb groups and past/current/future events; time and agreement repairs are coherent.",
+    "B30": "Task1 data accuracy plus integrated tense/agreement/passive/linking revision and learner self-diagnosis/48hour transfer plan.",
+    "distractors": "Three credible wrong options with accurate mechanisms; same N-label allowed for genuinely different actual errors. No three-distinct quota imported from original100-bank SPEC."
+  },
+  "sources_checked": [
+    "https://dictionary.cambridge.org/us/dictionary/english/confused",
+    "https://dictionary.cambridge.org/grammar/british-grammar/when-or-while",
+    "https://dictionary.cambridge.org/grammar/british-grammar/word-choice-stuff-or-staff",
+    "https://dictionary.cambridge.org/grammar/british-grammar/noun-phrases-order",
+    "https://dictionary.cambridge.org/grammar/british-grammar/future-be-going-to-i-am-going-to-",
+    "https://learnenglish.britishcouncil.org/free-resources/grammar/c1/patterns-reporting-verbs",
+    "https://learnenglish.britishcouncil.org/grammar/c1-grammar/participle-clauses",
+    "https://dictionary.cambridge.org/dictionary/english/illustratively",
+    "https://www.cambridge.org/core/books/abs/one-language-two-grammars/mandative-subjunctive/39A859FDAD907967392482CDBF53EB6A"
+  ],
+  "lessons": {
+    "M30-B01": {
+      "decision": "approved",
+      "content_sha256": "a08d42f57c75e3bcbfe3bc6dd8698d605120f4c35a57bc6d7d0bf213bcdf69c5",
+      "title": "Bản đồ khoá học & Bộ khung câu",
+      "teaching_note_words": 560,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu kiểm tra hữu hạn, bổ ngữ, khung câu, đủ S/V và trạng ngữ; chưa đo tự viết đoạn hoặc biến đổi mọi nghĩa đa khung của động từ.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B01",
+          "ids": "M30P2-B01-05",
+          "severity": "Medium",
+          "root_cause": "Dead or invented distractor concealed the SVOC target.",
+          "minimal_fix": "Replaced with real role confusion; every option now refers to coach, drill, useful or considered.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B02": {
+      "decision": "approved",
+      "content_sha256": "befc98aafb0370317fcd52c1ba9fb9bc50adf323e7cfbb628acb930141fbdda3",
+      "title": "Âm & chữ",
+      "teaching_note_words": 569,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu bao phủ đủ tám nhóm trục: đuôi -s/-ed, chính tả, trọng âm, IPA, bất quy tắc và ngữ cảnh. Không thay thế đánh giá phát âm qua ghi âm.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B02",
+          "ids": "M30P2-B02-01/02/05/07/08/11/12",
+          "severity": "Medium",
+          "root_cause": "Invented phonetic reasons, lexical giveaways and a false limit on irregular forms.",
+          "minimal_fix": "Rebuilt sound-rule/spelling distractors, removed ordinal explanations, retained be/have exceptions and both standard accents.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B03": {
+      "decision": "approved",
+      "content_sha256": "764f2fefbd47d83c6107e862068df16d819fbfa2f760212f6c4bc373fed784bf",
+      "title": "Danh từ",
+      "teaching_note_words": 584,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu bao phủ nhãn theo nghĩa, lượng từ, đơn vị, hòa hợp và sửa giữ nghĩa. Chưa đo hết danh từ hai nghĩa hoặc toàn bộ biến thể tập hợp.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B03",
+          "ids": "M30P2-B03-01/08/09/12",
+          "severity": "Critical",
+          "root_cause": "General-experience prompt admitted a negative answer; furniture stimulus was close to a reserved item.",
+          "minimal_fix": "Stated positive considerable expertise; replaced furniture purchase with two-item display on separate shelves; clarified data variation and plural feedback.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B04": {
+      "decision": "approved",
+      "content_sha256": "9ea4eb385f4785671ba714c46bea60df9e983aedc681d6d979b0d770e22198d1",
+      "title": "Định từ (1) — Mạo từ",
+      "teaching_note_words": 631,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu kiểm tra âm, số/đếm, khả năng xác định, tên riêng và định từ. Không kiểm tra mọi thành ngữ zero article hoặc toàn bộ địa danh.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B04",
+          "ids": "M30P2-B04-01/03/04/10",
+          "severity": "Critical",
+          "root_cause": "Underspecified definiteness, owner, scope and time permitted more than one answer.",
+          "minimal_fix": "Added unidentified introduction, no added owner, generic scope for both nouns, and current residence facts.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B05": {
+      "decision": "approved",
+      "content_sha256": "54989f589da4d0a2e4e36d5b04e6237770295250c22b110fe271f749b1ce9570",
+      "title": "Định từ (2) & Đại từ",
+      "teaching_note_words": 695,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu bao phủ đại từ S/O/sở hữu, sở hữu số ít/số nhiều/chung, chỉ định gần-xa và số, tập hợp, phản thân, neither và tham chiếu. Double genitive có notes nhưng không có MCQ; chưa đo every/each/all trong mọi cấu trúc.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B05",
+          "ids": "M30P2-B05-02/05/06; notes section3",
+          "severity": "Medium",
+          "root_cause": "Demonstratives missing; invented choices and positional feedback were unreliable.",
+          "minimal_fix": "Added number/distance demonstratives; rebuilt shared-ownership alternatives; feedback names exact forms, not positions.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B06": {
+      "decision": "approved",
+      "content_sha256": "da8fab6eb3764ffec577885cbdc53f481eb7d091ea38bbdcc9e68a9a3c5acc42",
+      "title": "Tính từ",
+      "teaching_note_words": 619,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đo hai vị trí, tính từ số lượng, -ed/-ing, danh từ bổ nghĩa, tính từ ghép và hạt nhân. Notes giải thích trật tự trung tính/dấu phẩy; mẫu chưa đo toàn bộ OSASCOMP hoặc đủ mọi tính từ thiên vị trí.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B06",
+          "ids": "M30P2-B06-07/08/09/12",
+          "severity": "Critical",
+          "root_cause": "Confused explanation could mean unclear; nonsense distractors weakened the adjective target.",
+          "minimal_fix": "Used interested/interesting with explicit source role; real noun-modifier errors; preferred neutral order rather than an absolute grammar rule.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B07": {
+      "decision": "approved",
+      "content_sha256": "5e497c4bb0d0a6d68e9a09df1e720a7e71ece93e32571fa52e59ea16b698474f",
+      "title": "Ôn + Kiểm tra 1",
+      "teaching_note_words": 648,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "Câu1–2B01,3–4B02,5–6B03,7–8B04,9–10B05,11B06,12 tích hợp. Không phải đề45phút nguồn; chưa đo tự viết đầy đủ hoặc toàn bộ trật tự OSASCOMP.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B07",
+          "ids": "notes section3; M30P2-B07-02/04/07",
+          "severity": "Medium",
+          "root_cause": "Possessive note contradicted its own valid the artisan example; sound rationale invented strength; corridor example resembled reserved stimulus.",
+          "minimal_fix": "Explained nested possessive determiner; used real voicing confusion; changed corridor to damp upholstery; constrained owner reference.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B08": {
+      "decision": "approved",
+      "content_sha256": "ac945cd42fdf1e9496017c7809f3d9ca5560b5a599222e556c3fdcd2605c0b04",
+      "title": "Trạng từ",
+      "teaching_note_words": 617,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu bao phủ dạng, nhóm nghĩa, vị trí giữa/cuối/đầu, degree và only. Không đo mọi vị trí nhấn mạnh của tần suất hoặc tất cả linking adverbs.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B08",
+          "ids": "M30P2-B08-01/02/03/06/09",
+          "severity": "Medium",
+          "root_cause": "Word-salad and an absolute position rule; quick feedback ignored its informal adverb use.",
+          "minimal_fix": "Credible verb/adverb errors; explicit neutral written scope and matching quick rationale.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B09": {
+      "decision": "approved",
+      "content_sha256": "7b00e1d1833874eadc07faea283f0601a3095b66d1142764e9f584c0168f6528",
+      "title": "So sánh",
+      "teaching_note_words": 615,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đo dạng, as...as, nhất/phạm vi, that/those, mức độ, so sánh kép và than ngầm. Notes có twice/as many nhưng chưa kiểm bằng MCQ.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B09",
+          "ids": "M30P2-B09-08/09",
+          "severity": "Critical",
+          "root_cause": "Higher and lower both satisfied a structure-only comparison prompt.",
+          "minimal_fix": "Supplied actual rent values and lower-fare direction; both compared objects remain price quantities.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B10": {
+      "decision": "approved",
+      "content_sha256": "960bb07dc6986eb2e755f350e6fad6058ab4cebd09a329ca3dd786a0bbc9fb58",
+      "title": "Giới từ",
+      "teaching_note_words": 614,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đo nơi/thời, khoảng/hạn, chuyển động, attachment, giới từ/liên từ và cụm phụ thuộc. Notes giới thiệu phrasal verbs; mẫu chưa kiểm tra tách particle.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B10",
+          "ids": "M30P2-B10-01/06/09",
+          "severity": "Medium",
+          "root_cause": "Key-in-box was close to a reserved location stimulus; explanations referred to wrong choice positions.",
+          "minimal_fix": "Changed to label on underside of lid with static surface relation; feedback quotes actual actions.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B11": {
+      "decision": "approved",
+      "content_sha256": "b162cbed4f6f67acd391a0f1354f4fe241c5873a752eea65f5ad04c4cb922613",
+      "title": "Từ vựng có hệ thống",
+      "teaching_note_words": 632,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu kiểm tra họ từ, ngoại lệ đuôi, giới từ phụ thuộc, danh từ hóa và chọn từ giữ nghĩa. Chưa đo danh từ hóa toàn đoạn hoặc mọi nghĩa của phrasal verbs.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B11",
+          "ids": "M30P2-B11-07/08/10",
+          "severity": "Medium",
+          "root_cause": "Nominalization added careful manner; recipient passive was incorrectly called ungrammatical.",
+          "minimal_fix": "Added carefully in original; recognized passive as grammatical but changed roles; replaced towelings with real provide-with placement errors.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B12": {
+      "decision": "approved",
+      "content_sha256": "f88bc07227b6c850913043cc869ee01ff47fc17cebecc61e6e8b5820fd06e4dd",
+      "title": "Cây động từ & Thuật toán đọc thì",
+      "teaching_note_words": 779,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu bao phủ trục, chuỗi trợ động từ, thời/thể, V2/V3, modal, finite/nonfinite và khung nội/ngoại. Notes map12dạng; không kiểm toàn bộ12ô bằng12câu.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B12",
+          "ids": "lesson_notes section6; M30P2-B12-01/02/08/09",
+          "severity": "Medium",
+          "root_cause": "Claimed12-form map absent and fictional distractor meanings.",
+          "minimal_fix": "Added complete3time-by4aspect table and chain reading; replaced distractors with actual auxiliary/form confusions.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B13": {
+      "decision": "approved",
+      "content_sha256": "e590083b9a167729ad5d2687400ba0d2992ecf0e75abf896dff2ec1162eac8e8",
+      "title": "Thì hiện tại & quá khứ",
+      "teaching_note_words": 650,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đo simple/progressive forms, trạng thái/hành động, did, chính tả, thái độ và while linh hoạt. Chưa đo tự xây dựng toàn đoạn hoặc mọi hiện tại chỉ lịch.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B13",
+          "ids": "M30P2-B13-04/10",
+          "severity": "Critical",
+          "root_cause": "Declarative confirmation question could be grammatical under the original neutral-looking prompt.",
+          "minimal_fix": "Specified neutral auxiliary inversion and acknowledged conversational confirmation form; removed unrelated walking.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B14": {
+      "decision": "approved",
+      "content_sha256": "cbd1dd9ddcbb4631a2e42e6c4cb8d70f4f3f56c961380a43774ffe8c7b2cca35",
+      "title": "Thì hoàn thành",
+      "teaching_note_words": 635,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đo mốc, V3, since/for, kết quả/quá trình, trạng thái, past/future perfect và không thêm dữ kiện. Chưa đo đầy đủ already/just/yet trong biến thể Mỹ/Anh.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B14",
+          "ids": "M30P2-B14-04/06",
+          "severity": "Medium",
+          "root_cause": "Wrong-meaning until-future distractor was itself incompatible with the present perfect; positional feedback stale.",
+          "minimal_fix": "Used explicit40-minute duration and coherent20-minute contrast; names exact forms.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B15": {
+      "decision": "approved",
+      "content_sha256": "0a43a53b42303024c2f630a35d8e96af21659baca3f9291d8632e5074526ffe9",
+      "title": "Diễn đạt tương lai",
+      "teaching_note_words": 698,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đo bốn phương tiện, will/goingto hình thức, mệnh đề thời gian vs câu hỏi gián tiếp, futurecontinuous/perfect và ý định quá khứ. Notes sửa luật nguồn quá tuyệt đối; chưa kiểm mọi chức năng will như willingness.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B15",
+          "ids": "M30P2-B15-05/10/12",
+          "severity": "Medium",
+          "root_cause": "Fictional future misunderstanding and incorrect positional references.",
+          "minimal_fix": "Replaced with real will/going-to overgeneralizations; preserved indirect-question/time-clause distinction.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B16": {
+      "decision": "approved",
+      "content_sha256": "529a326122702990a0138d9e346bde808618f651517f6162496c802d07a127e9",
+      "title": "Hoà hợp chủ ngữ–động từ",
+      "teaching_note_words": 571,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B16",
+          "ids": "M30P2-B16-08/10; lesson_notes",
+          "severity": "Critical",
+          "root_cause": "Waiting sentence admitted a different grammatical participle analysis; teaching note and60%-used stimulus too close to reserved material.",
+          "minimal_fix": "Required both persons waiting; changed number example to fixed pottery catalogue47; replaced60%water-used with quarter of equipment relocated to temporary warehouse.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B17": {
+      "decision": "approved",
+      "content_sha256": "22e0cf67b8469efe218aa88dc99014c7ccdf8a43e3dd4b90de03b9ad604fbba2",
+      "title": "Câu bị động",
+      "teaching_note_words": 622,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B17",
+          "ids": "M30P2-B17-07/12; lesson_notes",
+          "severity": "Critical",
+          "root_cause": "Alternative grammatical clause allowed by stem; impersonal reporting passive under-covered.",
+          "minimal_fix": "Required fault as subject of occur; added substantive impersonal-passive explanation and task.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B18": {
+      "decision": "approved",
+      "content_sha256": "7cc88b356c03ed13b02f10e2db667a6a4a9655fd259eb57cfdc218b216afedcf",
+      "title": "Ôn + Kiểm tra 2",
+      "teaching_note_words": 561,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "Q1–8 lấy mẫu B12–B17. Q9–12 đối chiếu2–3câu/cụm trong một đoạn: mốc thời gian, hoàn thành/tiếp diễn, chủ động/bị động và tóm tắt ba thời. Bài12câu là kiểm tra luyện tập ngắn, không chứng nhận làm chủ toàn bộ chương trình.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B18",
+          "ids": "M30P2-B18-09/10/11/12",
+          "severity": "Critical",
+          "root_cause": "Paragraph questions did not require integration; Yesterday plus present perfect remained after repair; afternoon recording could be future.",
+          "minimal_fix": "Rebuilt four paragraph comparisons; Recently for perfect; right now for ongoing passive; comparable analyses and real multi-sentence summary.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B19": {
+      "decision": "approved",
+      "content_sha256": "5a144f652e38b49fcc6fefb505c02d398eb444901abfbe637dd0d7f0f0e0f4dc",
+      "title": "Modal (1) — Cách dùng thông thường",
+      "teaching_note_words": 541,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B19",
+          "ids": "M30P2-B19-05/06/11",
+          "severity": "Medium",
+          "root_cause": "Copied keys, fabricated word order and an ungrammatical wrong-time option.",
+          "minimal_fix": "Removed key copies; used plausible have-to placement and coherent past ability question.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B20": {
+      "decision": "approved",
+      "content_sha256": "52c485514feb1518ce86c320e8395a1c2b61c581048207785ce7f6762828285c",
+      "title": "Modal (2) — Dự đoán & Hedging",
+      "teaching_note_words": 572,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B20",
+          "ids": "M30P2-B20-03/04/11/12; lesson_notes",
+          "severity": "Critical",
+          "root_cause": "Affirmative/negative deduction both allowed; distractors used impossible times or fictional obligation semantics.",
+          "minimal_fix": "Specified affirmative exhaustion deduction; coherent past/now contrasts; real certainty/time/polarity errors; Exit only/no entry evidence.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B21": {
+      "decision": "approved",
+      "content_sha256": "d085e119a265c0a339a92ed5e37e681059766c406d2c4258ef4288219c6d7261",
+      "title": "Câu điều kiện & Ước",
+      "teaching_note_words": 549,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B21",
+          "ids": "M30P2-B21-01",
+          "severity": "Critical",
+          "root_cause": "Both affirmative and negative future results were valid type1 conditionals.",
+          "minimal_fix": "Specified affirmative island visit if ferry runs.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B22": {
+      "decision": "approved",
+      "content_sha256": "aacd26c985c91f2755d0b9e2c64e0ee81b2ef3f853ede9cb8d237b1f24e5583c",
+      "title": "Non-finite (1) — Ving/V3ed",
+      "teaching_note_words": 553,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B22",
+          "ids": "M30P2-B22-02/05/07/09",
+          "severity": "Critical",
+          "root_cause": "Correct sentence copied in prompt; confused-film alternative valid; complete having-sold clause also satisfied original prompt.",
+          "minimal_fix": "Removed copied English keys; used fascinating/fascinated; specified Joel carrying camera; removed editorial review note.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B23": {
+      "decision": "approved",
+      "content_sha256": "bc348c95c3543dfb8f809b9fb2c2d31bfa50b8d8242ddc64977c851f0dd4655b",
+      "title": "Non-finite (2) — to-Vo & verb patterns",
+      "teaching_note_words": 534,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B23",
+          "ids": "M30P2-B23-07",
+          "severity": "Medium",
+          "root_cause": "Prompt displayed the exact correct look-forward sentence.",
+          "minimal_fix": "Kept only Vietnamese anticipation context and the required verb pattern.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B24": {
+      "decision": "approved",
+      "content_sha256": "b84c721500435d258ada6c27f435afa6dce975d56d24275cff4657cf3bd5bc70",
+      "title": "Câu ghép, liên từ & dấu câu",
+      "teaching_note_words": 553,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B24",
+          "ids": "M30P2-B24-01/08",
+          "severity": "Critical",
+          "root_cause": "Other grammatically correct outcomes met structure-only criteria.",
+          "minimal_fix": "Supplied opened-heavy-door contrast and postponed-picnic/wet-grass facts.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B25": {
+      "decision": "approved",
+      "content_sha256": "5fb7b90ee36710dcfd066ffc1191ed453c2be5fbb6f032b1b7bcc4affaac6769",
+      "title": "Mệnh đề danh từ & câu tường thuật",
+      "teaching_note_words": 546,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B25",
+          "ids": "M30P2-B25-10/12",
+          "severity": "Medium",
+          "root_cause": "Birdses was an implausible distractor; pronoun reference for Jules unstated.",
+          "minimal_fix": "Used grammatical singular-vs-plural meaning contrast; gave explicit person reference.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B26": {
+      "decision": "approved",
+      "content_sha256": "411f86e21e3dbf6c926be3635d483b7f638c4fcb0612c3f10b2c6db95becda14",
+      "title": "Mệnh đề trạng từ & mệnh đề quan hệ",
+      "teaching_note_words": 566,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B26",
+          "ids": "M30P2-B26-04/05/08/10/11",
+          "severity": "Critical",
+          "root_cause": "Who was supplied as answer; valid alternative events and get/leave met structural requirements.",
+          "minimal_fix": "Removed answer word; specified design won/thanks, Marina visit, mentor prompt reply and return-home event.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B27": {
+      "decision": "approved",
+      "content_sha256": "20216aaa935ec57ffc68ccc85d55a6af905e0c17f44163ddb4513aee0724f4f2",
+      "title": "Rút gọn mệnh đề",
+      "teaching_note_words": 571,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B27",
+          "ids": "M30P2-B27-05",
+          "severity": "Medium",
+          "root_cause": "Courier arriving late stimulus too close to source reduction example.",
+          "minimal_fix": "Used outdated address leading parcel to wrong office; preserved because-of gerund and subject control.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B28": {
+      "decision": "approved",
+      "content_sha256": "51be47312143e27b15f07bada4e7542ec63e9fb5711b1077159722a9b9dda5cc",
+      "title": "Nhấn mạnh",
+      "teaching_note_words": 549,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B28",
+          "ids": "M30P2-B28-09",
+          "severity": "Medium",
+          "root_cause": "Mandative base-form can have legitimate indicative variants or opposite required action if unconstrained.",
+          "minimal_fix": "Explicitly requested base-form mandative and affirmative signing; notes preserve valid variants and distinct assertive insist meaning.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B29": {
+      "decision": "approved",
+      "content_sha256": "516eccf9dc2f4766f38d4552be30f766a98e95c70005e127f2ac4b43da43d373",
+      "title": "Liên kết cấp độ đoạn",
+      "teaching_note_words": 583,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B29",
+          "ids": "M30P2-B29-09/10/11",
+          "severity": "Medium",
+          "root_cause": "Rationale vague about time; choice announced its own contradiction; scope could change implied drink preferences.",
+          "minimal_fix": "Accurate reduced/ reduce feedback; singular sketch fact in prompt; ordinary plural contrast; tea-only ellipsis context.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    },
+    "M30-B30": {
+      "decision": "approved",
+      "content_sha256": "ebc39362144ded1ede5ad54e1074cf2f709f630f5ca6f304fbe45bba5f52e446",
+      "title": "Ngôn ngữ số liệu & Tổng kết",
+      "teaching_note_words": 552,
+      "practice_count": 12,
+      "key_position_counts": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "coverage": "12 câu đi từ nhận diện cấu trúc đến sửa và áp dụng trong ngữ cảnh. Ba câu ở mỗi vị trí đáp án; nguồn câu mới tách khỏi bộ chẩn đoán. Mẫu12câu luyện tập ngắn, không chứng nhận toàn bộ ngân hàng.",
+      "unresolved_findings": [],
+      "resolved_findings": [
+        {
+          "lesson": "M30-B30",
+          "ids": "M30P2-B30-02/05/06/08",
+          "severity": "Medium",
+          "root_cause": "Fabricated froms and scrambled word choices; editorial cue in option; source bus/tram scenario too similar.",
+          "minimal_fix": "Real endpoint/change/direction contrasts; correct rise/raise explanation; explicit past-report prompt; gallery artwork ratio context.",
+          "status": "resolved",
+          "verification": "Read corrected prompt, every option, key, explanation and distractor rationale; checked facts, grammar, meaning preservation and named lesson coverage."
+        }
+      ],
+      "verification": "Full substantive read of teaching note, objectives, every prompt/option/key/explanation/rationale. Grammar, explicit facts, meaning preservation, plausible error paths and formative curriculum fit checked. Final changes re-read and field/question hashes compared."
+    }
+  },
+  "release_boundary": "Parent must verify software, schema, assignment snapshots, answer secrecy and exact-SHA staging/production before any deployment readiness claim. Addition of source_kind and optional article metadata outside six reviewed fields does not alter this approval.",
+  "integrated_package_verification": {
+    "path": "/Users/trantrongvinh/.codex/worktrees/grammar-lesson-assignments/ielts-speaking-coach/backend/content/master30-assigned-practice/v2.json",
+    "package_sha256": "b2addb2ae15f93d80d7882847b03805e7fd3742dfd3374de90434807fafc6591",
+    "manifest_sha256": "acf970a0dccc16a39867f601c97bb59c098913e6c29bc3bf0f491bc2bb534917",
+    "verification": "Independent read-only import of production content loader load_version(v2) passed. Thirty lessons and360 questions loaded; every six-field content hash equals final senior approval. Integrated manifest equals original approval exactly. Only article:null and source_kind:master30-authored-practice occur outside reviewed fields. CURRENT_VERSION observed v2. This confirms package content identity, not deployment.",
+    "reviewed_fields_changed": false
+  }
+}
