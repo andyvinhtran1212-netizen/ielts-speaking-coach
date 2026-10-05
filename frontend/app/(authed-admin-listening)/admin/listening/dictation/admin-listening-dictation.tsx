@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, RefObject } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { components } from '@/types/api';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { DictationRawText } from '@/components/dictation-evidence';
+import { dictationPolicyLabel } from '@/lib/listening-dictation-controller.mjs';
 import {
   dictationReportsHref,
   formatDictationDuration, formatDictationReportDate,
@@ -14,18 +17,20 @@ import {
 
 type Filters = { user: string; test: string; page: number; session: string };
 type User = { id: string; email: string | null; displayName: string | null };
-type Row = { id: string; user: User; totalSentences: number; correctCount: number; accuracy: number; sectionNumber: number | null; durationSeconds: number | null; testId: string | null; sectionTitle: string | null; completedAt: string | null; createdAt: string | null };
-type Sentence = { index: number; reference: string; userText: string; score: number; correctWords: number; totalWords: number; listenCount: number | null; timeSeconds: number | null; ops: { miss: number; wrong: number; extra: number } };
-type Detail = Row & { totalWords: number; correctWords: number; sentences: Sentence[]; malformedSentenceCount: number; missingSentenceCount: number; opCounts: { miss: number; wrong: number; extra: number } | null; associationLookupFailed: boolean; associationLookupFailures: string[] };
-type Aggregate = { sessionCount: number; meanAccuracy: number; topMissed: Array<{ label: string; count: number }>; topWrong: Array<{ label: string; count: number }>; malformedWordCount: number };
+type Row = { id: string; user: User; totalSentences: number | null; correctCount: number | null; accuracy: number | null; sectionNumber: number | null; durationSeconds: number | null; testId: string | null; sectionTitle: string | null; completedAt: string | null; createdAt: string | null; gradingVersion: string; referenceSha256: string | null };
+type Sentence = { index: number; reference: string | null; userText: string; score: number | null; correctWords: number | null; totalWords: number | null; listenCount: number | null; timeSeconds: number | null; ops: { miss: number; wrong: number; extra: number } | null; gradingEvidence: any };
+type Detail = Row & { totalWords: number | null; correctWords: number | null; sentences: Sentence[]; malformedSentenceCount: number; missingSentenceCount: number | null; opCounts: { miss: number; wrong: number; extra: number } | null; associationLookupFailed: boolean; associationLookupFailures: string[] };
+type AggregateWire = components['schemas']['DictationAggregateResponse'];
+type Aggregate = NonNullable<ReturnType<typeof normalizeDictationAggregate>>;
 type ListSnapshot = { key: string; rows: Row[]; total: number; malformedCount: number; associationLookupFailed: boolean; associationLookupFailures: string[]; readAt: string };
 type AggregateState = { key: string; phase: 'loading' } | { key: string; phase: 'ready'; value: Aggregate } | { key: string; phase: 'error'; message: string };
 type DetailState = { key: string; phase: 'loading' } | { key: string; phase: 'ready'; value: Detail } | { key: string; phase: 'error'; message: string };
 
 const PAGE_SIZE = 50;
 const messageOf = (caught: unknown) => caught instanceof Error ? caught.message : String(caught || 'Lỗi không xác định');
-const accuracyTone = (value: number) => value >= .85 ? 'is-high' : value >= .6 ? 'is-mid' : 'is-low';
-const accuracyLabel = (value: number) => value >= .85 ? 'Cao' : value >= .6 ? 'Đang cải thiện' : 'Cần xem lại';
+const accuracyText = (value: number | null) => value == null ? '—' : `${Math.round(value * 100)}%`;
+const accuracyTone = (value: number | null) => value == null ? '' : value >= .85 ? 'is-high' : value >= .6 ? 'is-mid' : 'is-low';
+const accuracyLabel = (value: number | null) => value == null ? 'Chưa có số liệu' : value >= .85 ? 'Cao' : value >= .6 ? 'Đang cải thiện' : 'Cần xem lại';
 
 export function AdminListeningDictation() {
   const profile = useAdminProfile();
@@ -86,7 +91,7 @@ export function AdminListeningDictation() {
     const owner = aggregateKey;
     setAggregate({ key: owner, phase: 'loading' });
     try {
-      const normalized = normalizeDictationAggregate(await window.api.get<unknown>(`/admin/listening/dictation-reports/aggregate?${queryForScope(false)}`)) as Aggregate | null;
+      const normalized = normalizeDictationAggregate(await window.api.get<AggregateWire>(`/admin/listening/dictation-reports/aggregate?${queryForScope(false)}`));
       if (!normalized) throw new Error('Phản hồi tổng hợp không đúng contract canonical.');
       if (request !== aggregateSequence.current || aggregateScope.current !== owner) return;
       setAggregate({ key: owner, phase: 'ready', value: normalized });
@@ -171,16 +176,27 @@ function AggregatePanel({ state, expectedKey, onRetry }: { state: AggregateState
   if (!current || current.phase === 'loading') return <section className="aldict-aggregate" aria-label="Tổng hợp dictation"><div className="aldict-state" role="status">Đang tính tổng hợp cùng phạm vi lọc…</div></section>;
   if (current.phase === 'error') return <section className="aldict-aggregate" aria-label="Tổng hợp dictation"><div className="alc-banner is-error" role="alert"><strong>Không tải được tổng hợp</strong><span>{current.message}</span><button className="adm-btn-secondary" type="button" onClick={onRetry}>Thử lại tổng hợp</button></div></section>;
   const value = current.value;
+  const emptyTrend = value.trendUnavailableSessions
+    ? (value.trendCompleteSessions ? 'Chưa ghi nhận trong các phiên đủ dữ liệu lỗi.' : 'Chưa có dữ liệu lỗi đầy đủ để kết luận.')
+    : 'Chưa ghi nhận lỗi loại này trong bảng đếm đã lưu.';
   return <section className="aldict-aggregate" aria-labelledby="aldict-aggregate-title">
     <div className="aldict-aggregate__head"><div><p className="alc-eyebrow">Aggregate</p><h3 id="aldict-aggregate-title">Tín hiệu trong phạm vi hiện tại</h3></div><span>Không lấy mẫu; backend đọc hết các trang dữ liệu.</span></div>
     {!!value.malformedWordCount && <div className="alc-banner is-warning" role="status"><strong>Từ lỗi sai contract</strong><span>Đã loại {value.malformedWordCount} mục trend không hợp lệ.</span></div>}
     <div className="aldict-kpis"><article><span>Số phiên</span><strong>{value.sessionCount}</strong><small>phiên hoàn tất</small></article><article><span>Chính xác trung bình</span><strong>{value.sessionCount ? `${Math.round(value.meanAccuracy * 100)}%` : '—'}</strong><small>{value.sessionCount ? accuracyLabel(value.meanAccuracy) : 'Chưa có dữ liệu'}</small></article></div>
-    <div className="aldict-trends"><WordTrend title="Từ hay bỏ sót" rows={value.topMissed} /><WordTrend title="Từ hay viết sai" rows={value.topWrong} /></div>
+    <p>Trung bình điểm các câu trong từng phiên, rồi trung bình các phiên. Không phải tỷ lệ tổng số từ đúng. {value.versions && value.versions.length > 1 ? 'Tổng quan gồm cả v1 và v2 với cách đếm từ khác nhau; hãy đọc điểm từng chính sách bên dưới.' : ''}</p>
+    {value.versions ? <div className="aldict-kpis" aria-label="Điểm theo chính sách chấm">{value.versions.map((version: { gradingVersion: string; meanAccuracy: number; sessionCount: number }) => <article key={version.gradingVersion}><span>{dictationPolicyLabel(version.gradingVersion)}</span><strong>{Math.round(version.meanAccuracy * 100)}%</strong><small>{version.sessionCount} phiên · trung bình điểm phiên</small></article>)}</div> : <p role="status">Máy chủ chưa cung cấp phân nhóm phiên theo chính sách; chưa thể so sánh v1 với v2.</p>}
+    {!!value.trendUnavailableSessions && <p role="status">{value.trendUnavailableSessions}/{value.sessionCount} phiên thiếu bảng lỗi đầy đủ. Danh sách từ và dấu câu chỉ tổng hợp {value.trendCompleteSessions} phiên đủ dữ liệu; điểm trung bình vẫn dùng toàn bộ các phiên.</p>}
+    <div className="aldict-trends"><WordTrend title="Từ hay bỏ sót" rows={value.topMissed} emptyNote={emptyTrend} /><WordTrend title="Từ hay viết sai" rows={value.topWrong} emptyNote={emptyTrend} /></div>
+    {value.punctuationClassified ? <details><summary>Dấu câu trong dữ liệu chấm cũ · {value.punctuationMissedTotal} bỏ sót / {value.punctuationWrongTotal} viết sai</summary>
+      <p>Dấu câu được tách khỏi danh sách từ cần luyện. Số đếm lấy từ bảng lỗi đã lưu, có thể không gồm dấu câu mà cách chấm cũ bỏ qua. Điểm và báo cáo từng phiên được giữ nguyên.</p>
+      <div className="aldict-trends"><WordTrend title="Dấu câu bỏ sót" rows={value.punctuationMissed} emptyNote={emptyTrend} /><WordTrend title="Dấu câu viết sai" rows={value.punctuationWrong} emptyNote={emptyTrend} /></div>
+      {!!(value.missingTokenMissedTotal || value.missingTokenWrongTotal) && <p role="status">Bảng đếm có token trống: {value.missingTokenMissedTotal} bỏ sót / {value.missingTokenWrongTotal} viết sai; cần kiểm tra dữ liệu nguồn.</p>}
+    </details> : <p role="status">Máy chủ chưa cung cấp phân loại từ và dấu câu; danh sách đang hiển thị số liệu theo cách chấm cũ.</p>}
   </section>;
 }
 
-function WordTrend({ title, rows }: { title: string; rows: Array<{ label: string; count: number }> }) {
-  return <article><h4>{title}</h4>{rows.length ? <ul>{rows.map((row) => <li key={row.label}><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul> : <p>Chưa có lỗi loại này trong phạm vi.</p>}</article>;
+function WordTrend({ title, rows, emptyNote }: { title: string; rows: Array<{ label: string; count: number }>; emptyNote: string }) {
+  return <article><h4>{title}</h4>{rows.length ? <ul>{rows.map((row) => <li key={row.label}><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul> : <p>{emptyNote}</p>}</article>;
 }
 
 function ReportRow({ row, lookupFailed, selected, onSelect }: { row: Row; lookupFailed: boolean; selected: boolean; onSelect: (id: string) => void }) {
@@ -188,8 +204,8 @@ function ReportRow({ row, lookupFailed, selected, onSelect }: { row: Row; lookup
     <td data-label="Hoàn thành"><time dateTime={row.completedAt || row.createdAt || undefined}>{formatDictationReportDate(row.completedAt || row.createdAt)}</time><code>{row.id}</code></td>
     <td data-label="Học viên"><strong>{lookupFailed ? '⚠ Lookup failed' : row.user.displayName || row.user.email || 'Association không còn'}</strong><small>{lookupFailed ? row.user.id : row.user.email || row.user.id}</small></td>
     <td data-label="Test & phần"><strong>{row.testId || 'Test đã xóa'}</strong><small>{row.sectionTitle || (row.sectionNumber == null ? 'Không rõ phần' : `Section ${row.sectionNumber}`)}</small></td>
-    <td data-label="Câu hoàn hảo"><strong>{row.correctCount}/{row.totalSentences}</strong><small>điểm câu = 100%</small></td>
-    <td data-label="Độ chính xác"><strong className={`aldict-accuracy ${accuracyTone(row.accuracy)}`}>{Math.round(row.accuracy * 100)}%</strong><small>{accuracyLabel(row.accuracy)}</small></td>
+    <td data-label="Câu hoàn hảo"><strong>{row.correctCount ?? '—'}/{row.totalSentences ?? '—'}</strong><small>điểm câu = 100%</small></td>
+    <td data-label="Độ chính xác"><strong className={`aldict-accuracy ${accuracyTone(row.accuracy)}`}>{accuracyText(row.accuracy)}</strong><small>{accuracyLabel(row.accuracy)}</small><small>{dictationPolicyLabel(row.gradingVersion)}</small></td>
     <td data-label="Thời lượng"><span>{formatDictationDuration(row.durationSeconds)}</span></td>
     <td data-label="Thao tác"><button className="aldict-open" type="button" aria-pressed={selected} onClick={() => onSelect(row.id)}>Xem từng câu</button></td>
   </tr>;
@@ -208,10 +224,12 @@ function ReportDetail({ state, expectedKey, headingRef, onClose }: { state: Deta
 function DetailBody({ detail }: { detail: Detail }) {
   const userName = detail.associationLookupFailed ? '⚠ Lookup failed' : detail.user.displayName || detail.user.email || detail.user.id;
   return <>
+    <p>{dictationPolicyLabel(detail.gradingVersion)}</p>
     {detail.associationLookupFailed && <div className="alc-banner is-warning" role="alert"><strong>Lookup học viên thất bại</strong><span>Không đọc được danh tính canonical cho phiên này; evidence vẫn được giữ nguyên.</span></div>}
     {!!detail.malformedSentenceCount && <div className="alc-banner is-warning" role="status"><strong>Chi tiết cần kiểm tra</strong><span>Đã loại {detail.malformedSentenceCount} câu sai hoặc trùng contract.</span></div>}
+    {detail.totalSentences == null && <p role="status">Tổng số câu không có trong bản lưu; chỉ hiển thị các câu có bằng chứng.</p>}
     {!!detail.missingSentenceCount && <div className="alc-banner is-warning" role="alert"><strong>Evidence chưa đầy đủ</strong><span>Thiếu {detail.missingSentenceCount}/{detail.totalSentences} câu so với tổng canonical; không dùng bảng dưới để thay thế kết quả tổng.</span></div>}
-    <div className="aldict-detail__summary"><div><span>Học viên</span><strong>{userName}</strong><small>{detail.user.email || detail.user.id}</small></div><div><span>Test & phần</span><strong>{detail.testId || 'Test đã xóa'}</strong><small>{detail.sectionTitle || `Section ${detail.sectionNumber ?? '?'}`}</small></div><div><span>Độ chính xác</span><strong>{Math.round(detail.accuracy * 100)}%</strong><small>{accuracyLabel(detail.accuracy)}</small></div><div><span>Câu hoàn hảo</span><strong>{detail.correctCount}/{detail.totalSentences}</strong><small>score = 100%</small></div><div><span>Từ đúng</span><strong>{detail.correctWords}/{detail.totalWords}</strong><small>word-level evidence</small></div><div><span>Thời lượng</span><strong>{formatDictationDuration(detail.durationSeconds)}</strong><small>{detail.opCounts ? `sót ${detail.opCounts.miss} · sai ${detail.opCounts.wrong} · thừa ${detail.opCounts.extra}` : 'Không có error trend'}</small></div></div>
-    {!detail.sentences.length ? <div className="aldict-state"><strong>Phiên không có evidence từng câu</strong><span>Summary vẫn là dữ liệu canonical; kiểm tra record nếu đây không phải dữ liệu cũ.</span></div> : <div className="aldict-sentence-wrap" role="region" aria-label="Chi tiết từng câu dictation" tabIndex={0}><table className="aldict-sentence-table"><thead><tr><th>Câu</th><th>Điểm</th><th>Câu chuẩn</th><th>Học viên gõ</th><th>Nghe & thời gian</th><th>Lỗi</th></tr></thead><tbody>{detail.sentences.map((sentence) => <tr key={sentence.index}><td data-label="Câu"><strong>{sentence.index + 1}</strong></td><td data-label="Điểm"><strong className={`aldict-accuracy ${accuracyTone(sentence.score)}`}>{Math.round(sentence.score * 100)}%</strong><small>{sentence.correctWords}/{sentence.totalWords} từ</small></td><td data-label="Câu chuẩn">{sentence.reference}</td><td data-label="Học viên gõ">{sentence.userText || <em>(bỏ trống)</em>}</td><td data-label="Nghe & thời gian"><span>{sentence.listenCount == null ? '— lượt nghe' : `${sentence.listenCount} lượt nghe`}</span><small>{formatDictationDuration(sentence.timeSeconds)}</small></td><td data-label="Lỗi"><span>sót {sentence.ops.miss}</span><small>sai {sentence.ops.wrong} · thừa {sentence.ops.extra}</small></td></tr>)}</tbody></table></div>}
+    <div className="aldict-detail__summary"><div><span>Học viên</span><strong>{userName}</strong><small>{detail.user.email || detail.user.id}</small></div><div><span>Test & phần</span><strong>{detail.testId || 'Test đã xóa'}</strong><small>{detail.sectionTitle || `Section ${detail.sectionNumber ?? '?'}`}</small></div><div><span>Độ chính xác</span><strong>{accuracyText(detail.accuracy)}</strong><small>{accuracyLabel(detail.accuracy)}</small></div><div><span>Câu hoàn hảo</span><strong>{detail.correctCount ?? '—'}/{detail.totalSentences ?? '—'}</strong><small>score = 100%</small></div><div><span>{detail.gradingVersion === 'lexical-v2' ? 'Từ tham chiếu khớp' : 'Token khớp theo cách chấm cũ'}</span><strong>{detail.correctWords ?? '—'}/{detail.totalWords ?? '—'}</strong><small>Từ thừa được ghi trong mẫu lỗi. Điểm phiên là trung bình điểm từng câu theo chính sách đã lưu.</small></div><div><span>Thời lượng</span><strong>{formatDictationDuration(detail.durationSeconds)}</strong><small>{detail.opCounts ? `sót ${detail.opCounts.miss} · sai ${detail.opCounts.wrong} · thừa ${detail.opCounts.extra}` : 'Không có error trend'}</small></div></div>
+    {!detail.sentences.length ? <div className="aldict-state"><strong>Phiên không có evidence từng câu</strong><span>Summary vẫn là dữ liệu canonical; kiểm tra record nếu đây không phải dữ liệu cũ.</span></div> : <div className="aldict-sentence-wrap" role="region" aria-label="Chi tiết từng câu dictation" tabIndex={0}><table className="aldict-sentence-table"><thead><tr><th>Câu</th><th>Điểm</th><th>Câu chuẩn</th><th>Học viên gõ</th><th>Nghe & thời gian</th><th>Lỗi</th></tr></thead><tbody>{detail.sentences.map((sentence) => <tr key={sentence.index}><td data-label="Câu"><strong>{sentence.index + 1}</strong></td><td data-label="Điểm"><strong className={`aldict-accuracy ${accuracyTone(sentence.score)}`}>{accuracyText(sentence.score)}</strong><small>{sentence.correctWords ?? '—'}/{sentence.totalWords ?? '—'} {detail.gradingVersion === 'lexical-v2' ? 'từ tham chiếu' : 'token cũ'}</small></td><td data-label="Câu chuẩn">{sentence.gradingEvidence ? <DictationRawText grade={sentence.gradingEvidence} side="reference" /> : sentence.reference ?? <em>Nguyên văn không có trong bản lưu.</em>}</td><td data-label="Học viên gõ">{sentence.gradingEvidence ? <DictationRawText grade={sentence.gradingEvidence} side="user" /> : sentence.userText || <em>(bỏ trống)</em>}</td><td data-label="Nghe & thời gian"><span>{sentence.listenCount == null ? '— lượt nghe' : `${sentence.listenCount} lượt nghe`}</span><small>{formatDictationDuration(sentence.timeSeconds)}</small></td><td data-label="Lỗi">{sentence.ops ? <><span>sót {sentence.ops.miss}</span><small>sai {sentence.ops.wrong} · thừa {sentence.ops.extra}</small></> : <em>Không có bảng lỗi đã lưu.</em>}</td></tr>)}</tbody></table></div>}
   </>;
 }

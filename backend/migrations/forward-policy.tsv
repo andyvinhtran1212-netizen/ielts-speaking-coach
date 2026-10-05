@@ -1,4 +1,5 @@
 # filename	state	group	reason
+308_activate_mock_paper_admission.sql	pending_feature	mock_content_remediation_activation	Opt-in only after306307 and verified exact backend SHA; preserves migration-before-code N-1 behavior.
 233_recover_bao_quyen_course_retries.sql	retired	-	Production-only recovery is complete; never replay account-scoped DML.
 234_vocab_curated_identity_and_editorial.sql	pending_feature	curated_vocab	Curated Vocabulary remains staging-first until an explicit production release.
 235_vocab_curated_tasks_attempts_mastery.sql	pending_feature	curated_vocab	Curated Vocabulary remains staging-first until an explicit production release.

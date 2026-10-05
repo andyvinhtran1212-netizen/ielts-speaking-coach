@@ -36,7 +36,9 @@ class _Q:
         self._or: str | None = None
         self._range: tuple[int, int] | None = None
 
-    def select(self, *_a, **_kw): return self
+    def select(self, *args, **_kw):
+        self.fake.selections.append((self.name, args[0] if args else '*'))
+        return self
     def eq(self, c, v): self._eq.append((c, v)); return self
     def in_(self, c, vals): self._in.append((c, list(vals))); return self
     def or_(self, expr): self._or = expr; return self
@@ -80,6 +82,7 @@ class _Fake:
             "listening_test_attempts": [], "listening_tests": [], "users": [],
         }
         self.fail_tables: set[str] = set()
+        self.selections: list[tuple[str, str]] = []
 
     def table(self, name): return _Q(self, name)
 
@@ -158,6 +161,56 @@ def test_list_accuracy_uses_python_four_decimal_rounding(fake):
     _seed(fake, score=1, gd_n=32)
     out = _list()
     assert out["items"][0]["accuracy"] == 0.0312
+
+
+def test_admin_report_only_uses_frozen_policy_without_inventing_a_score(fake):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    row = _seed(fake, score=0, gd_n=3)
+    row.update({
+        'score': None, 'band_estimate': None, 'scoring_policy': 'report_only',
+        'grading_details': [
+            {'q_num': 1, 'state': 'unscored', 'correct': None,
+             'response_type': 'written', 'user_answer': 'My answer',
+             'self_review': {'guidance': 'Compare your explanation.'}},
+            {'q_num': 2, 'state': 'blank', 'correct': None, 'user_answer': ''},
+            {'q_num': 3, 'state': 'checked', 'correct': True,
+             'response_type': 'single_choice', 'expected': ['A', 'B'],
+             'user_answer': 'A'},
+        ],
+    })
+    # A later current-test policy is not the policy this attempt captured.
+    fake.tables['listening_tests'][0]['scoring_policy'] = 'diagnostic'
+    app = FastAPI()
+    app.include_router(listening_router.admin_router)
+    with TestClient(app) as client:
+        listed = client.get('/admin/listening/attempts').json()
+        item = listed['items'][0]
+        assert item['scoring_policy'] == 'report_only'
+        assert item['total_questions'] == 3
+        assert item['score'] is None and item['accuracy'] is None
+        detail_response = client.get('/admin/listening/attempts/' + row['id'])
+        assert detail_response.status_code == 200
+        detail = detail_response.json()
+        assert detail['scoring_policy'] == 'report_only'
+        assert detail['band_estimate'] is None
+        assert detail['grading_details'][0]['correct'] is None
+        assert detail['grading_details'][0]['state'] == 'unscored'
+        assert detail['grading_details'][0]['self_review'] == row['grading_details'][0]['self_review']
+        assert detail['grading_details'][2]['expected'] == ['A', 'B']
+        assert detail['grading_details'][2]['correct'] is True
+    assert any(table == 'listening_test_attempts' and 'scoring_policy' in columns
+               for table, columns in fake.selections)
+
+
+def test_legacy_policy_default_and_unknown_policy_are_truthful(fake):
+    row = _seed(fake)
+    assert _list()['items'][0]['scoring_policy'] == 'diagnostic'
+    row['scoring_policy'] = 'invented'
+    with pytest.raises(HTTPException) as exc:
+        _list()
+    assert exc.value.status_code == 503
 
 
 def test_list_filters_by_status_and_rejects_bad_values(fake):

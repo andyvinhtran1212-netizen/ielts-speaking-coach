@@ -53,7 +53,7 @@ describe('/admin/writing/cohorts native ownership and UX', () => {
     assert.match(PAGE, /function AdminWritingCohortsPage/); assert.match(PAGE, /<AdminAccessGate>/);
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/cohorts['"]/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'cohorts.html')));
-    assert.match(HUB, /Lớp học[^\n]+NATIVE/); assert.match(LEDGER, /`\/admin\/writing\/cohorts`[^\n]+authed-admin-writing-cohorts[^\n]+native React ownership/);
+    assert.match(HUB, /Lớp học[^\n]+href: '\/admin\/writing\/cohorts'[^\n]+status: 'Quản lý'/); assert.match(LEDGER, /`\/admin\/writing\/cohorts`[^\n]+authed-admin-writing-cohorts[^\n]+native React ownership/);
   });
   test('renders canonical stale/malformed truth and only essay-backed actions', () => {
     assert.match(COMPONENT, /Snapshot cũ|snapshot cũ/); assert.match(COMPONENT, /sai contract/); assert.match(COMPONENT, /cell\.essayId \?/);

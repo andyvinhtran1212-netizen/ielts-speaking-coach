@@ -28,7 +28,7 @@ export function resolveQuizBank(query, payload) {
   return { kind: 'redirect', href: '/vocabulary/practice' };
 }
 
-export function normalizeQuizBank(payload) {
+export function normalizeQuizBank(payload, { expectedBankId } = {}) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
   const questions = Array.isArray(payload.questions)
     ? payload.questions.filter((row) => row
@@ -43,10 +43,148 @@ export function normalizeQuizBank(payload) {
     ? payload.bank
     : null;
   if (!bank || !questions?.length) return null;
+  if (expectedBankId !== undefined && bank.id !== expectedBankId) return null;
   const wordCards = payload.word_cards && typeof payload.word_cards === 'object' && !Array.isArray(payload.word_cards)
     ? payload.word_cards
     : {};
-  return { ...payload, bank, questions, word_cards: wordCards };
+  const normalized = { ...payload, bank, questions, word_cards: wordCards };
+  const declared = Object.hasOwn(bank.meta || {}, 'text_match_by_qid');
+  const managed = payload.grammar != null || bank.grammar_canonical_code != null
+    || bank.grammar_revision != null || bank.grammar_is_current === true;
+  if (managed || declared) {
+    try {
+      const canonical = canonicalQuizBankPolicy(payload, expectedBankId);
+      if (questions.length !== canonical.questions.length) return null;
+      if (canonical.questions.some((question) => Object.hasOwn(question, 'bank_id') && question.bank_id !== canonical.bankId)) return null;
+      if (managed && canonical.questions.some((question) => typeof question.skill !== 'string' || !question.skill.trim())) return null;
+      if (!managed && canonical.policy.requiresAck) return null;
+      normalized.engineBank = { meta: canonical.meta, questions: canonical.questions };
+      normalized.questions = canonical.questions;
+      normalized.managed = managed ? grammarContext(bank, payload.grammar, canonical.policy.requiresAck) : null;
+    } catch { return null; }
+  }
+  return normalized;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const REVISION = /^[0-9a-f]{64}$/;
+const validUuid = (value) => typeof value === 'string' && UUID.test(value);
+const validRevision = (value) => typeof value === 'string' && REVISION.test(value);
+// Runtime floor of the generated ManagedGrammarSessionState canonical_code enum.
+export const CANONICAL_GRAMMAR_CODES = Object.freeze([
+  'G-parts-of-speech-verbs', 'G-sentence-structures-passive-voice',
+  'G-tenses-past-continuous', 'G-tenses-present-continuous',
+  'G-tenses-present-perfect-continuous', 'G-tenses-present-simple',
+  'G-grammar-for-reading-participle-clauses', 'G-grammar-for-reading-long-sentence-untangling',
+  'G-grammar-for-reading-reduced-relative-clauses', 'G-tenses-past-perfect',
+  'G-foundations-phrase-vs-clause', 'G-error-clinic-dangling-modifiers',
+]);
+const validCanonicalCode = (value) => typeof value === 'string' && CANONICAL_GRAMMAR_CODES.includes(value);
+const STATE_FLAGS = ['new_starts_enabled', 'can_continue_legacy', 'can_continue_current', 'mastery_retained'];
+const record = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
+
+function grammarContext(bank, value, requiresAck) {
+  if (bank.skill_area !== 'grammar' || !validUuid(bank.id) || !validRevision(bank.grammar_revision)
+      || !validCanonicalCode(bank.grammar_canonical_code)
+      || typeof bank.grammar_is_current !== 'boolean') throw new Error('quiz-grammar-owner-invalid');
+  const context = Object.freeze({ bankId: bank.id, revision: bank.grammar_revision,
+    canonicalCode: bank.grammar_canonical_code, isCurrent: bank.grammar_is_current,
+    requiresAck, currentBankId: value?.current_bank_id, currentRevision: value?.current_bank_revision });
+  if (!validGrammarState(value, context)) throw new Error('quiz-grammar-state-invalid');
+  return context;
+}
+
+/** Verify the frozen selection; the current mapping never substitutes for it. */
+export function validGrammarState(value, context) {
+  if (!record(value) || !context || !validUuid(context.bankId) || !validRevision(context.revision)
+      || !validCanonicalCode(context.canonicalCode) || typeof context.isCurrent !== 'boolean'
+      || typeof context.requiresAck !== 'boolean' || !validUuid(context.currentBankId) || !validRevision(context.currentRevision)
+      || value.bank_id !== context.bankId || value.bank_revision !== context.revision
+      || value.canonical_code !== context.canonicalCode
+      || value.content_state !== (context.isCurrent ? 'current' : 'legacy')
+      || STATE_FLAGS.some((key) => typeof value[key] !== 'boolean')
+      || !validUuid(value.current_bank_id) || !validRevision(value.current_bank_revision)
+      || value.current_bank_id !== context.currentBankId || value.current_bank_revision !== context.currentRevision
+      || (context.isCurrent ? value.current_bank_id !== context.bankId || value.current_bank_revision !== context.revision
+        : value.current_bank_id === context.bankId)) return false;
+  return context.requiresAck ? value.text_match_policy === QUIZ_TEXT_MATCH_POLICY
+    : !Object.hasOwn(value, 'text_match_policy');
+}
+
+export function quizEngineBank(bank) { return bank.engineBank || bank; }
+
+export function validQuizResume(value, bank) {
+  if (!Array.isArray(value)) return false;
+  if (!bank.managed) return true;
+  const items = new Map();
+  for (const question of bank.questions) {
+    if (!items.has(question.item_key)) items.set(question.item_key, new Set());
+    items.get(question.item_key).add(question.skill);
+  }
+  const seen = new Set();
+  return value.every((row) => {
+    if (!record(row) || !items.has(row.item_key) || seen.has(row.item_key)) return false;
+    seen.add(row.item_key);
+    for (const key of ['credit_count', 'correct_count', 'wrong_count', 'attempts_to_master']) {
+      if (row[key] != null && (!Number.isSafeInteger(row[key]) || row[key] < 0)) return false;
+    }
+    if (row.production_done != null && typeof row.production_done !== 'boolean') return false;
+    if (row.skills_passed != null && (!Array.isArray(row.skills_passed)
+        || new Set(row.skills_passed).size !== row.skills_passed.length
+        || row.skills_passed.some((skill) => !items.get(row.item_key).has(skill)))) return false;
+    return row.provisional_skill == null || items.get(row.item_key).has(row.provisional_skill);
+  });
+}
+
+/** @returns {import('../types/api').paths['/api/quiz/sessions']['post']['requestBody']['content']['application/json']} */
+export function quizStartBody(bank, review) {
+  return { bank_id: bank.bank.id, kind: 'run', ...(bank.managed ? {
+    grammar_revision: bank.managed.revision, admission_kind: review ? 'review' : 'run',
+    ...(bank.managed.requiresAck ? { text_match_policy: QUIZ_TEXT_MATCH_POLICY } : {}),
+  } : {}) };
+}
+
+export function validQuizStart(value, bank) {
+  return record(value) && typeof value.session_id === 'string' && Boolean(value.session_id.trim())
+    && (!bank.managed || validUuid(value.session_id)) && validQuizResume(value.resume, bank)
+    && (!bank.managed || validGrammarState(value.grammar, bank.managed));
+}
+
+export function validQuizProgress(value, context, payload) {
+  return record(value) && value.ok === true && Number.isSafeInteger(value.attempts)
+    && value.attempts >= 0 && value.attempts <= payload.attempts.length
+    && Number.isSafeInteger(value.word_stats) && value.word_stats >= 0 && value.word_stats <= payload.word_stats.length
+    && validGrammarState(value.grammar, context);
+}
+
+export function validQuizEnd(value, sessionId, bank) {
+  // The scoped managed contract must not tighten unrelated legacy HTTP ACKs.
+  if (!bank.managed) return true;
+  if (!record(value) || value.id !== sessionId) return false;
+  return validOwnedQuizEnd(value, { sessionId, bankId: bank.managed.bankId,
+    revision: bank.managed.revision }, bank.managed);
+}
+
+/** Compatibility for an independently owned stored row, never inferred from ACK. */
+export function validOwnedQuizEnd(value, stored, bankContext) {
+  if (!record(value) || !stored || !validUuid(stored.sessionId) || !validUuid(stored.bankId)
+      || stored.revision !== null && !validRevision(stored.revision)
+      || value.id !== stored.sessionId || value.bank_id !== stored.bankId
+      || !Object.hasOwn(value, 'grammar_revision') || value.grammar_revision !== stored.revision
+      || typeof value.ended_at !== 'string' || !Number.isFinite(Date.parse(value.ended_at))
+      || !['completed', 'paused', 'time_cap'].includes(value.ended_by)) return false;
+  return !Object.hasOwn(value, 'grammar') || bankContext?.bankId === stored.bankId && validGrammarState(value.grammar, bankContext);
+}
+
+export function validQuizReset(value, bank) {
+  return record(value) && value.ok === true && (!bank.managed || validGrammarState(value.grammar, bank.managed));
+}
+
+export function quizAdmissionAllowed(bank, review = false) {
+  if (!bank.managed) return true;
+  const state = bank.grammar;
+  if (!bank.managed.isCurrent) return review || state.can_continue_legacy;
+  return state.new_starts_enabled || (!review && state.can_continue_current);
 }
 
 export function quizAreaModel(bank) {
@@ -147,6 +285,7 @@ export function quizResultModel(summary, durationSeconds, saved) {
   });
 }
 
+/** @returns {import('../types/api').paths['/api/quiz/sessions/{session_id}']['patch']['requestBody']['content']['application/json']} */
 export function quizEndPayload(summary, durationSeconds, saved) {
   return Object.freeze({
     duration_sec: Math.max(0, Math.round(Number(durationSeconds) || 0)),
@@ -156,5 +295,7 @@ export function quizEndPayload(summary, durationSeconds, saved) {
     words_mastered: Number(summary?.mastered) || 0,
     words_carried_over: Number(summary?.carried_over) || 0,
     ended_by: saved === true ? 'completed' : 'paused',
+    attempts: [],
   });
 }
+import { canonicalQuizBankPolicy, QUIZ_TEXT_MATCH_POLICY } from '../public/js/quiz-text-match-policy.js';

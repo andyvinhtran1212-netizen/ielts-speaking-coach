@@ -18,9 +18,7 @@ _BACKEND = Path(__file__).parent.parent
 GRADING_PY = (_BACKEND / "routers" / "grading.py").read_text(encoding="utf-8")
 MIG_077 = (_BACKEND / "migrations" / "077_responses_unique_session_question.sql").read_text(encoding="utf-8")
 
-_start = GRADING_PY.index("def _upsert_response")
-_end = GRADING_PY.index("\n        try:", _start)
-UPSERT_BODY = GRADING_PY[_start:_end]
+UPSERT_BODY = (_BACKEND / "services" / "speaking_submission.py").read_text(encoding="utf-8")
 # Code without comment lines — so substring checks don't match the explanatory
 # comment (which quotes the reverted on_conflict upsert).
 UPSERT_CODE = "\n".join(
@@ -38,7 +36,7 @@ def test_save_uses_read_then_write():
 
 def test_save_still_returns_row_id():
     # Downstream grammar_recommendations / pronunciation need response_id.
-    assert 'res.data[0]["id"]' in UPSERT_BODY
+    assert 'saved[0]["id"]' in UPSERT_BODY
 
 
 def test_save_does_not_use_on_conflict_against_partial_index():

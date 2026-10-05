@@ -10,6 +10,7 @@ Admin-only throughout — nothing here is ever student-facing.
 from __future__ import annotations
 
 from typing import Literal, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -33,12 +34,61 @@ class CohortsBody(BaseModel):
     cohort_ids: list[str] = Field(default_factory=list, max_length=200)
 
 
+class PublicOverlapReference(BaseModel):
+    mock_exam_id: UUID
+    paper_revision: int = Field(ge=0)
+    dependency_revision: str = Field(min_length=1, max_length=128)
+
+
+class PublicOverlapDecision(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+    paper_revision: int = Field(ge=0)
+    references: list[PublicOverlapReference] = Field(min_length=1, max_length=200)
+
+
 class VisibilityBody(BaseModel):
     is_public: bool
+    expected_revision: int | None = Field(default=None, ge=0)
+    overlap: PublicOverlapDecision | None = None
 
 
 class StatusBody(BaseModel):
     status: str = Field(min_length=1, max_length=20)
+    expected_revision: int | None = Field(default=None, ge=0)
+
+
+class RestorePolicyBody(BaseModel):
+    snapshot_id: UUID
+    expected_revision: int = Field(ge=0)
+
+
+class PaperPolicyReceipt(BaseModel):
+    id: str
+    policy_revision: int | None = None
+    status: str | None = None
+    is_public: bool | None = None
+
+
+class PaperPolicyDependency(BaseModel):
+    type: str
+    id: str
+    reason: str
+    mock_exam_id: str | None = None
+    code: str | None = None
+    title: str | None = None
+    paper_revision: int | None = None
+    dependency_revision: str | None = None
+
+
+class PaperPolicyInspection(BaseModel):
+    id: UUID
+    kind: Literal["reading", "listening"]
+    policy_revision: int
+    paper_revision: int
+    policy: dict
+    dependencies: list[PaperPolicyDependency]
+    protected_references: list[PublicOverlapReference]
+    restore_snapshots: list[dict]
 
 
 ExamContentKind = Literal["reading", "listening", "writing"]
@@ -152,30 +202,34 @@ async def list_exam_content_page(
         raise HTTPException(422, str(e))
 
 
-@router.patch("/{kind}/{content_id}/visibility")
+@router.patch("/{kind}/{content_id}/visibility", response_model=PaperPolicyReceipt)
 async def set_public_visibility(
     kind: str, content_id: str, body: VisibilityBody,
     authorization: str | None = Header(default=None),
 ):
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
     try:
-        row = svc.set_public_visibility(kind, content_id, body.is_public)
+        row = svc.set_public_visibility(kind, content_id, body.is_public,
+            actor_id=actor["id"], expected_revision=body.expected_revision,
+            overlap=body.overlap.model_dump(mode="json") if body.overlap else None)
     except svc.UnknownKindError as e:
         raise HTTPException(422, str(e))
     except LookupError as e:
         raise HTTPException(404, str(e))
-    return {"id": row.get("id"), "is_public": bool(row.get("is_public"))}
+    return {"id": row.get("id"), "is_public": bool(row.get("is_public")),
+            "policy_revision": row.get("policy_revision")}
 
 
-@router.patch("/{kind}/{content_id}/status")
+@router.patch("/{kind}/{content_id}/status", response_model=PaperPolicyReceipt)
 async def set_status(
     kind: str, content_id: str, body: StatusBody,
     authorization: str | None = Header(default=None),
 ):
     """Publish/archive from the one admin catalog used to assign papers."""
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
     try:
-        row = svc.set_status(kind, content_id, body.status)
+        row = svc.set_status(kind, content_id, body.status,
+                             actor_id=actor["id"], expected_revision=body.expected_revision)
     except svc.UnknownKindError as e:
         raise HTTPException(422, str(e))
     except svc.ContentNotReadyError as e:
@@ -190,7 +244,27 @@ async def set_status(
         raise HTTPException(422, str(e))
     except LookupError as e:
         raise HTTPException(404, str(e))
-    return {"id": row.get("id"), "status": row.get("status")}
+    return {"id": row.get("id"), "status": row.get("status"), "policy_revision": row.get("policy_revision")}
+
+
+@router.get("/{kind}/{content_id}/policy", response_model=PaperPolicyInspection)
+async def get_paper_policy(kind: Literal["reading", "listening"], content_id: UUID,
+                           authorization: str | None = Header(default=None)):
+    await require_admin(authorization)
+    from services.mock_paper_policy import inspect_policy
+    return inspect_policy(svc.supabase_admin, kind, str(content_id))
+
+
+@router.post("/{kind}/{content_id}/policy/restore", response_model=PaperPolicyReceipt)
+async def restore_paper_policy(kind: Literal["reading", "listening"], content_id: UUID,
+                               body: RestorePolicyBody,
+                               authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    from services.mock_paper_policy import mutate
+    row = mutate(svc.supabase_admin,kind,str(content_id),{},actor["id"],
+        expected_revision=body.expected_revision,snapshot_id=body.snapshot_id)
+    return {"id":row["id"],"status":row["status"],"is_public":row["is_public"],
+            "policy_revision":row["policy_revision"]}
 
 
 @router.patch("/{kind}/{content_id}/level")

@@ -1,0 +1,162 @@
+{
+  "provenance": {
+    "boundary": "real task-local PG commit/lifecycle + real ASGI; synthetic Auth and snapshot synchronous reads; no live RLS/publication proof",
+    "capture_sha256": "9adcb759a8906ec40afc6ccc3d12a72de3926f4c973f67d3b2fd0127ff853c7a",
+    "capture_source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
+    "history_before_sha256": {
+      "quiz_banks": "7524e178fae0c3fb1e77a76b90c0962403ed9f66c77d7379aa7995e9ef3cb07e",
+      "quiz_questions": "9ae6724c0c6f5dee2a01a65497426a2830cef848ab040877b482f1eb15794fc7",
+      "quiz_sessions": "e42b78e21f738d3a2174237cf81cbccc77434678fda269f8dde7a4ab68094787",
+      "quiz_attempts": "bfc5bad8ffb31590e5062e7c4b3bdbfb0e8a96862f74c21f3808384f1bee9e9b",
+      "quiz_word_stats": "09c5c70f12dd470c933d96bf0ff69aa12b075343a76e94e9fbcfdb2c5742633e",
+      "governance_audit": "c217dba3795ca0d9fb406825b9a5ea4cee320952ddcb77f1a659dbfc608f66e2"
+    },
+    "history_after_sha256": {
+      "quiz_banks": "7524e178fae0c3fb1e77a76b90c0962403ed9f66c77d7379aa7995e9ef3cb07e",
+      "quiz_questions": "9ae6724c0c6f5dee2a01a65497426a2830cef848ab040877b482f1eb15794fc7",
+      "quiz_sessions": "e42b78e21f738d3a2174237cf81cbccc77434678fda269f8dde7a4ab68094787",
+      "quiz_attempts": "bfc5bad8ffb31590e5062e7c4b3bdbfb0e8a96862f74c21f3808384f1bee9e9b",
+      "quiz_word_stats": "09c5c70f12dd470c933d96bf0ff69aa12b075343a76e94e9fbcfdb2c5742633e",
+      "governance_audit": "c217dba3795ca0d9fb406825b9a5ea4cee320952ddcb77f1a659dbfc608f66e2"
+    },
+    "history_write_calls": 0,
+    "only_typo_approved_bank": "none of the12 approved sources has a nonempty only-typo map"
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/quiz/progress?skill_area=grammar",
+      "request": null,
+      "status": 200,
+      "response": {
+        "banks": [
+          {
+            "bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+            "code": "G-tenses-present-simple",
+            "title": "Quick Check — Present Simple",
+            "skill_area": "grammar",
+            "words_count": 5,
+            "mastered": 0,
+            "in_progress": 1
+          },
+          {
+            "bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+            "code": "G-tenses-present-simple~97d6af8d735ff80c",
+            "title": "Quick Check — Present Simple",
+            "skill_area": "grammar",
+            "words_count": 5,
+            "mastered": 0,
+            "in_progress": 1
+          }
+        ],
+        "recent_sessions": [
+          {
+            "code": "G-tenses-present-simple~97d6af8d735ff80c",
+            "accuracy": 0,
+            "words_mastered": 0,
+            "total_questions": 1,
+            "total_correct": 0,
+            "duration_sec": 24,
+            "ended_at": "2026-10-01T03:36:06.297324+00:00",
+            "ended_by": "paused"
+          },
+          {
+            "code": "G-tenses-present-simple",
+            "accuracy": 0,
+            "words_mastered": 0,
+            "total_questions": 1,
+            "total_correct": 0,
+            "duration_sec": 12,
+            "ended_at": "2026-10-01T03:36:06.10596+00:00",
+            "ended_by": "paused"
+          }
+        ],
+        "totals": {
+          "sessions": 2,
+          "time_sec": 36,
+          "words_mastered": 0,
+          "avg_accuracy": 0.0
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/quiz/mistakes?skill_area=grammar",
+      "request": null,
+      "status": 200,
+      "response": {
+        "items": [
+          {
+            "bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+            "item_key": "ps-vs-present-continuous",
+            "code": "G-tenses-present-simple~97d6af8d735ff80c",
+            "title": "Quick Check — Present Simple",
+            "skill_area": "grammar",
+            "status": "testing",
+            "is_difficult": false,
+            "wrong_count": 1,
+            "correct_count": 0,
+            "last_wrong_at": "2026-10-01T03:36:06.203775+00:00",
+            "questions": [
+              {
+                "qid": "ps_vspc_a1",
+                "prompt": "Đúng hay Sai: 'I'm loving this holiday!' có thể diễn tả trải nghiệm đang rất thích thú, dù 'love' thường được xếp là stative verb.",
+                "hint": "",
+                "skill": "error_id",
+                "type": "boolean",
+                "your_answer": "Sai",
+                "correct_answer": "Đúng",
+                "explain": "ĐÚNG — Present Simple thường dùng cho sở thích ổn định ('I love this song'), còn 'I'm loving this holiday!' nhấn mạnh trải nghiệm rất thích thú hiện tại, nhất là trong văn phong thân mật. Không cấm continuous chỉ dựa vào nhãn stative.",
+                "article_url": "/grammar/tenses/present-simple",
+                "wrong_times": 1,
+                "last_wrong_at": "2026-10-01T03:36:06.203775+00:00"
+              }
+            ]
+          },
+          {
+            "bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
+            "item_key": "ps-vs-present-continuous",
+            "code": "G-tenses-present-simple",
+            "title": "Quick Check — Present Simple",
+            "skill_area": "grammar",
+            "status": "testing",
+            "is_difficult": false,
+            "wrong_count": 1,
+            "correct_count": 0,
+            "last_wrong_at": "2026-10-01T03:36:05.993568+00:00",
+            "questions": [
+              {
+                "qid": "ps_vspc_a1",
+                "prompt": "Đúng hay Sai: 'I'm loving this holiday!' có thể diễn tả trải nghiệm đang rất thích thú, dù 'love' thường được xếp là stative verb.",
+                "hint": "",
+                "skill": "error_id",
+                "type": "boolean",
+                "your_answer": "Đúng",
+                "correct_answer": "Sai",
+                "explain": "ĐÚNG — Present Simple thường dùng cho sở thích ổn định ('I love this song'), còn 'I'm loving this holiday!' nhấn mạnh trải nghiệm rất thích thú hiện tại, nhất là trong văn phong thân mật. Không cấm continuous chỉ dựa vào nhãn stative.",
+                "article_url": "/grammar/tenses/present-simple",
+                "wrong_times": 1,
+                "last_wrong_at": "2026-10-01T03:36:05.993568+00:00"
+              }
+            ]
+          }
+        ],
+        "total_missed_words": 2,
+        "attempts_scanned": 2,
+        "capped": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/quiz/mistakes?skill_area=grammar",
+      "request": null,
+      "status": 503,
+      "response": {
+        "detail": {
+          "error_code": "grammar_revision_unavailable",
+          "message": "Chưa xác minh được phiên bản Grammar đã lưu. Hãy thử tải lại."
+        }
+      }
+    }
+  ]
+}

@@ -93,7 +93,7 @@ test('sealed upload committed before a network failure reconciles and survives r
   let committed = false;
   const uploads = [];
   const session = () => fullSession(1, {
-    response_receipts: committed ? [{ id: 'sealed-r1', question_id: 'q1' }] : [],
+    response_receipts: committed ? [{ id: 'sealed-r1', question_id: 'q1', submission_id: uploads[0].body.match(/name="submission_id"\r\n\r\n([^\r]+)/)[1] }] : [],
   });
 
   await captureOutgoingAudioPayloads(page);
@@ -143,7 +143,7 @@ test('sealed upload committed before a network failure reconciles and survives r
   await expect(page.locator('#prep-q-counter')).toHaveText('Câu 2 / 9');
   await expect(page.locator('body')).not.toContainText('sealed-r1');
   expect(countCalls(calls, 'POST', `/sessions/${P3}/responses`)).toBe(1);
-  expect(countCalls(calls, 'GET', `/sessions/${P3}`)).toBe(3);
+  expect(countCalls(calls, 'GET', `/sessions/${P3}`)).toBe(4);
   expect(countCalls(calls, 'GET', `/sessions/${P3}/questions`)).toBe(2);
   expect(pageErrors).toEqual([]);
 });

@@ -6,7 +6,7 @@ import { LandingBehavior } from './landing-behavior';
 export const metadata: Metadata = {
   title: 'averlearning — Luyện IELTS toàn diện cùng AI',
   description:
-    '6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện.',
+    'Luyện Speaking, Writing, Reading và Listening cùng ngữ pháp và từ vựng. Speaking và Writing có phản hồi AI; các bài luyện có đáp án, giải thích và nội dung tra cứu.',
   alternates: { canonical: '/' },
 };
 
@@ -127,9 +127,9 @@ export default function LandingPreviewPage() {
               </h1>
 
               <p className="ix-hero__lead text-lg leading-relaxed mb-8 max-w-lg">
-                6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar
-                và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu
-                chí sau mỗi buổi luyện. Không chung chung, không chờ đợi.
+                Luyện Speaking, Writing, Reading và Listening, cùng ngữ pháp
+                và từ vựng trên một nền tảng. Speaking và Writing có phản hồi AI
+                theo tiêu chí IELTS; Reading và Listening có đáp án và giải thích.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
@@ -213,7 +213,7 @@ export default function LandingPreviewPage() {
                   <div className="ix-skill-mosaic__icon-wrap">✍</div>
                   <div className="ix-skill-mosaic__text">
                     <p className="ix-skill-mosaic__name">Writing</p>
-                    <p className="ix-skill-mosaic__sub">Task 1 &amp; 2 · Gemini AI</p>
+                    <p className="ix-skill-mosaic__sub">Task 1 &amp; 2 · Phản hồi AI</p>
                   </div>
                   <span className="ix-skill-mosaic__chip">AI Grader</span>
                 </div>
@@ -228,7 +228,7 @@ export default function LandingPreviewPage() {
                   <div className="ix-skill-mosaic__text">
                     <p className="ix-skill-mosaic__name">Reading</p>
                     <p className="ix-skill-mosaic__sub">
-                      Bài đọc chính hãng IELTS
+                      Bài đọc và câu hỏi luyện IELTS
                     </p>
                   </div>
                   <span className="ix-skill-mosaic__chip">Active</span>
@@ -257,7 +257,7 @@ export default function LandingPreviewPage() {
                   <div className="ix-skill-mosaic__icon-wrap">✦</div>
                   <div className="ix-skill-mosaic__text">
                     <p className="ix-skill-mosaic__name">Grammar</p>
-                    <p className="ix-skill-mosaic__sub">67 bài học · Roadmap</p>
+                    <p className="ix-skill-mosaic__sub">Grammar Wiki · Roadmap</p>
                   </div>
                   <span className="ix-skill-mosaic__chip">Wiki</span>
                 </div>
@@ -292,7 +292,7 @@ export default function LandingPreviewPage() {
                 <span data-stat="total_users">—</span>
               </p>
               <p className="ix-stat__label text-sm mt-1 font-medium">
-                Học viên đăng ký
+                Tài khoản đăng ký
               </p>
             </div>
             <div className="ix-stat--bordered">
@@ -300,13 +300,13 @@ export default function LandingPreviewPage() {
                 <span data-stat="sessions_completed">—</span>
               </p>
               <p className="ix-stat__label text-sm mt-1 font-medium">
-                Buổi luyện đã hoàn thành
+                Buổi Speaking đã hoàn thành
               </p>
             </div>
             <div>
               <p className="ix-stat__num text-4xl font-extrabold">6</p>
               <p className="ix-stat__label text-sm mt-1 font-medium">
-                Kỹ năng IELTS trên một nền tảng
+                Miền học trên một nền tảng
               </p>
             </div>
           </div>
@@ -321,12 +321,12 @@ export default function LandingPreviewPage() {
               Tính năng
             </span>
             <h2 className="ix-heading text-3xl sm:text-4xl font-extrabold leading-tight">
-              6 kỹ năng IELTS,
+              4 kỹ năng IELTS, ngữ pháp và từ vựng,
               <br />
               một nền tảng
             </h2>
             <p className="ix-subtitle mt-4 max-w-xl mx-auto text-lg leading-relaxed">
-              Speaking và Writing chấm bằng AI, Reading và Listening chính hãng,
+              Speaking và Writing có phản hồi AI, Reading và Listening có đáp án,
               từ vựng SRS thông minh và Grammar Wiki tra cứu nhanh — đủ để bạn
               luyện trọn vẹn mỗi ngày.
             </p>
@@ -338,11 +338,12 @@ export default function LandingPreviewPage() {
               <div className="ix-skill-card__icon">
                 <SkillIcon name="mic" />
               </div>
-              <p className="ix-skill-card__eyebrow">AI Coach realtime</p>
+              <p className="ix-skill-card__eyebrow">Phản hồi Speaking bằng AI</p>
               <h3 className="ix-skill-card__title">Speaking</h3>
               <p className="ix-skill-card__body">
-                Luyện Part 1, 2, 3 và Full Test cùng AI Claude — phản hồi sau mỗi
-                câu trả lời về phát âm, lưu loát, từ vựng, ngữ pháp.
+                Chế độ Luyện tập có phản hồi sau từng câu. Luyện từng Part và
+                Full Test có đánh giá tổng hợp cuối buổi về phát âm, lưu loát,
+                từ vựng và ngữ pháp.
               </p>
               <ul className="ix-skill-card__feats">
                 <li>4 chế độ luyện: Part 1, 2, 3, Full Test</li>
@@ -376,11 +377,11 @@ export default function LandingPreviewPage() {
               <div className="ix-skill-card__icon">
                 <SkillIcon name="pencil-line" />
               </div>
-              <p className="ix-skill-card__eyebrow">AI Grader Gemini</p>
+              <p className="ix-skill-card__eyebrow">Phản hồi Writing bằng AI</p>
               <h3 className="ix-skill-card__title">Writing</h3>
               <p className="ix-skill-card__body">
-                Task 1 (Academic + General Training) và Task 2 chấm chi tiết bằng
-                Gemini 2.5 Pro — chỉ ra đúng lỗi câu, gợi ý sửa cụ thể.
+                Task 1 (Academic + General Training) và Task 2 có phản hồi AI
+                theo bốn tiêu chí, với nhận xét câu và gợi ý sửa.
               </p>
               <ul className="ix-skill-card__feats">
                 <li>Academic + General Training</li>
@@ -410,7 +411,7 @@ export default function LandingPreviewPage() {
               <div className="ix-skill-card__icon">
                 <SkillIcon name="book-marked" />
               </div>
-              <p className="ix-skill-card__eyebrow">Bài đọc chính hãng IELTS</p>
+              <p className="ix-skill-card__eyebrow">Bài đọc và câu hỏi luyện IELTS</p>
               <h3 className="ix-skill-card__title">Reading</h3>
               <p className="ix-skill-card__body">
                 Bài đọc IELTS thực tế với phân tích cấu trúc đoạn, chiến lược tìm
@@ -481,12 +482,12 @@ export default function LandingPreviewPage() {
               <p className="ix-skill-card__eyebrow">SRS thông minh</p>
               <h3 className="ix-skill-card__title">Từ vựng</h3>
               <p className="ix-skill-card__body">
-                Flashcards lặp lại theo lịch tự động, tự thêm từ vựng sau mỗi
-                buổi Speaking, exercises ôn tập theo chủ đề.
+                Học từ vựng theo chủ đề, ôn flashcards theo lịch SRS và luyện
+                exercises với nội dung trong thư viện.
               </p>
               <ul className="ix-skill-card__feats">
                 <li>SRS rating: Quên · Khó · Dễ · Đã thuộc</li>
-                <li>Tự lưu từ "used well" sau buổi Speaking</li>
+                <li>Thư viện từ vựng theo chủ đề</li>
                 <li>Exercises ôn tập theo chủ đề</li>
               </ul>
               <Link href="/login" className="ix-skill-card__cta">
@@ -589,7 +590,7 @@ export default function LandingPreviewPage() {
                 Tạo tài khoản
               </h3>
               <p className="ix-step__body leading-relaxed max-w-xs mx-auto">
-                Đăng ký miễn phí bằng email hoặc Google, rồi kích hoạt bằng access
+                Đăng nhập miễn phí bằng Google, rồi kích hoạt bằng access
                 code từ lớp hoặc trung tâm của bạn.
               </p>
             </div>
@@ -618,8 +619,10 @@ export default function LandingPreviewPage() {
                 Chọn kỹ năng và luyện
               </h3>
               <p className="ix-step__body leading-relaxed max-w-xs mx-auto">
-                Chọn 1 trong 6 kỹ năng IELTS. Mỗi buổi luyện được AI chấm theo
-                đúng tiêu chí IELTS thực tế.
+                Chọn Speaking, Writing, Reading, Listening, Grammar hoặc Từ vựng.
+                Speaking và Writing có phản hồi AI theo tiêu chí IELTS;
+                các bài luyện còn lại có đáp án, giải thích hoặc nội dung tra cứu
+                phù hợp với từng bài.
               </p>
             </div>
 
@@ -979,145 +982,6 @@ export default function LandingPreviewPage() {
         </div>
       </section>
 
-      {/* ─── TESTIMONIALS ──────────────────────────────────────────── */}
-      <section className="ix-section py-20 md:py-28">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <span className="ix-eyebrow inline-block text-sm font-bold uppercase tracking-widest mb-3">
-              Học viên nói gì
-            </span>
-            <h2 className="ix-heading text-3xl sm:text-4xl font-extrabold">
-              Kết quả thực tế
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Testimonial 1 */}
-            <div className="ix-testimonial rounded-2xl p-8 relative">
-              <div
-                className="ix-testimonial__quote absolute top-4 left-6 select-none"
-                aria-hidden="true"
-              >
-                "
-              </div>
-              <div className="relative">
-                <p className="ix-testimonial__body leading-relaxed mb-6 text-base italic">
-                  "Mình luyện mỗi tối khoảng 30 phút, sau 6 tuần điểm Speaking tăng
-                  từ 6.0 lên 7.0. Điều mình thích nhất là phần nhận xét phát âm —
-                  nó chỉ ra đúng những từ mình phát âm sai mà mình không tự nhận
-                  ra."
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="ix-testimonial__avatar ix-testimonial__avatar--alt w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
-                    NT
-                  </div>
-                  <div>
-                    <p className="ix-testimonial__name font-bold text-sm">
-                      Nguyễn Thanh
-                    </p>
-                    <p className="ix-testimonial__meta text-xs">
-                      Band 7.0 Speaking · Hà Nội
-                    </p>
-                  </div>
-                  <div className="ml-auto flex gap-0.5">
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Testimonial 2 */}
-            <div className="ix-testimonial rounded-2xl p-8 relative">
-              <div
-                className="ix-testimonial__quote absolute top-4 left-6 select-none"
-                aria-hidden="true"
-              >
-                "
-              </div>
-              <div className="relative">
-                <p className="ix-testimonial__body leading-relaxed mb-6 text-base italic">
-                  "Trước kia mình ngại nói vì sợ mắc lỗi. Giờ luyện với AI mình
-                  không còn sợ vì biết rõ mình cần cải thiện gì. Phần phản hồi ngữ
-                  pháp rất cụ thể, không bị chung chung như các app khác."
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="ix-testimonial__avatar w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
-                    LA
-                  </div>
-                  <div>
-                    <p className="ix-testimonial__name font-bold text-sm">Lê Anh</p>
-                    <p className="ix-testimonial__meta text-xs">
-                      Band 6.5 Speaking · TP.HCM
-                    </p>
-                  </div>
-                  <div className="ml-auto flex gap-0.5">
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <svg
-                      className="ix-testimonial__star w-4 h-4 fill-current"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ─── CTA ───────────────────────────────────────────────────── */}
       <section className="ix-hero ix-hero--cta py-20 md:py-28 relative overflow-hidden">
         <div className="ix-hero__glow absolute inset-0 pointer-events-none" />
@@ -1129,8 +993,8 @@ export default function LandingPreviewPage() {
             hành trình IELTS?
           </h2>
           <p className="ix-hero__lead text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-            6 kỹ năng, một nền tảng, phản hồi AI tức thì. Kích hoạt bằng access
-            code từ lớp/trung tâm để bắt đầu.
+            Luyện bốn kỹ năng IELTS cùng ngữ pháp và từ vựng. Kích hoạt bằng
+            access code từ lớp/trung tâm để sử dụng các bài luyện được cấp quyền.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -1179,8 +1043,8 @@ export default function LandingPreviewPage() {
                 </span>
               </div>
               <p className="ix-footer__tagline text-sm leading-relaxed max-w-xs">
-                Nền tảng luyện IELTS toàn diện với AI — 6 kỹ năng, phản hồi tức
-                thì, chính xác.
+                Luyện IELTS cùng ngữ pháp và từ vựng, với phản hồi AI cho Speaking
+                và Writing, đáp án và giải thích cho các bài Reading và Listening.
               </p>
             </div>
 
@@ -1242,7 +1106,7 @@ export default function LandingPreviewPage() {
               © 2026 averlearning. Mọi quyền được bảo lưu.
             </p>
             <p className="ix-footer__powered text-xs">
-              Powered by Claude AI · Gemini AI · Whisper STT · Azure Pronunciation
+              Phản hồi AI cho Speaking và Writing
             </p>
           </div>
         </div>

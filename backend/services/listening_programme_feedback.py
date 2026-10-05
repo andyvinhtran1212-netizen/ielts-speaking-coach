@@ -16,6 +16,7 @@ def build_guided_feedback(
     first_answer: str,
     exercise_rows: list[dict[str, Any]],
     replay_policy: str,
+    *, source_required: bool = False, audio_granularity: str | None = None,
 ) -> dict[str, Any]:
     """Return only one revealed item's reviewed material, never the full key.
 
@@ -24,7 +25,7 @@ def build_guided_feedback(
     this function deliberately constructs an allowlisted single-item shape.
     """
     report = grade_report_only_attempt(
-        [{"q_num": q_num, "user_answer": first_answer}], exercise_rows,
+        [{"q_num": q_num, "user_answer": first_answer}], exercise_rows, source_required=source_required,
     )
     item = next(
         (value for value in report["per_question"] if value["q_num"] == q_num),
@@ -69,7 +70,7 @@ def build_guided_feedback(
                 and 0 <= start < end:
             window = {"start": start, "end": end}
 
-    return {
+    feedback = {
         "q_num": q_num,
         "first_answer": first_answer,
         "state": item["state"],
@@ -84,3 +85,18 @@ def build_guided_feedback(
         "answer_sentence": answer_sentence,
         "audio_window": window,
     }
+
+    if source_required or any((row.get("payload") or {}).get("source_contract") == "source_book_v1" for row in exercise_rows):
+        from services.listening_source_collection import source_explanation, source_response_fields
+        protected = solution if item["state"] == "checked" else self_review
+        question = next((question for row in exercise_rows for question in (row.get("payload") or {}).get("questions") or [] if question.get("q_num") == q_num), {})
+        explanation = source_explanation(protected.get("explanation"), item_id=question.get("source_item_id"))
+        try:
+            fields = source_response_fields(question, reference_answer=(explanation or {}).get("answer"))
+        except ValueError as exc:
+            raise FeedbackUnavailable("source blank metadata is unavailable") from exc
+        feedback.update({"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
+            "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
+            "explanation": explanation,
+            "audio_granularity": raw_window.get("granularity") if window else audio_granularity})
+    return feedback

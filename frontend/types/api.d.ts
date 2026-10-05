@@ -7398,6 +7398,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/dictation/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dictation Grading Capabilities */
+        get: operations["dictation_grading_capabilities_api_listening_tests_dictation_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/{test_id}/dictation/attempts/in-progress": {
         parameters: {
             query?: never;
@@ -7898,6 +7915,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/source-collections/80-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Collection */
+        get: operations["get_source_collection_api_listening_source_collections_80_days_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/source-collections/80-days/days/{day_number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Day */
+        get: operations["get_source_day_api_listening_source_collections_80_days_days__day_number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/source-collections/80-days/days/{day_number}/study": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Source Study */
+        post: operations["open_source_study_api_listening_source_collections_80_days_days__day_number__study_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/listening/content/{content_id}": {
         parameters: {
             query?: never;
@@ -8119,8 +8187,9 @@ export interface paths {
          * Admin Patch Listening Test
          * @description Update editable metadata fields on a listening_tests row.
          *
-         *     Allow-list: test_id, title, version, band_target, accent_profile,
-         *     themes. Only keys present in the request body land in the UPDATE.
+         *     Metadata-only requests retain the existing field allow-list. Requests
+         *     containing visibility fields use the serialized policy writer; mixed
+         *     metadata/policy requests are rejected atomically by its policy allow-list.
          */
         patch: operations["admin_patch_listening_test_admin_listening_tests__test_id__patch"];
         trace?: never;
@@ -8825,6 +8894,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/reading/content/passages/{slug}/grammar-focus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reading Grammar Focus */
+        get: operations["get_reading_grammar_focus_admin_reading_content_passages__slug__grammar_focus_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Reading Grammar Focus */
+        patch: operations["patch_reading_grammar_focus_admin_reading_content_passages__slug__grammar_focus_patch"];
+        trace?: never;
+    };
     "/admin/reading/content": {
         parameters: {
             query?: never;
@@ -9373,6 +9460,57 @@ export interface paths {
         get: operations["get_topic_bundle_admin_content_topics__topic_id__bundle_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/grammar-revisions/{canonical_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Grammar Revision */
+        get: operations["read_grammar_revision_admin_quiz_grammar_revisions__canonical_code__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/grammar-revisions/{canonical_code}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Grammar Revision */
+        post: operations["preview_grammar_revision_admin_quiz_grammar_revisions__canonical_code__preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz/grammar-revisions/{canonical_code}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit Grammar Revision */
+        post: operations["commit_grammar_revision_admin_quiz_grammar_revisions__canonical_code__commit_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10443,6 +10581,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reading/test/attempts/{attempt_id}/review-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reading Review Flags */
+        get: operations["get_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Reading Review Flags */
+        patch: operations["patch_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_patch"];
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/review-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Listening Review Flags */
+        get: operations["get_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Listening Review Flags */
+        patch: operations["patch_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_patch"];
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -10978,6 +11152,40 @@ export interface paths {
          * @description Publish/archive from the one admin catalog used to assign papers.
          */
         patch: operations["set_status_admin_exam_content__kind___content_id__status_patch"];
+        trace?: never;
+    };
+    "/admin/exam-content/{kind}/{content_id}/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Paper Policy */
+        get: operations["get_paper_policy_admin_exam_content__kind___content_id__policy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/exam-content/{kind}/{content_id}/policy/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Paper Policy */
+        post: operations["restore_paper_policy_admin_exam_content__kind___content_id__policy_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/admin/exam-content/{kind}/{content_id}/level": {
@@ -12335,6 +12543,117 @@ export interface components {
              */
             updated_at: string;
         };
+        /** AdminDictationReportDetailResponse */
+        AdminDictationReportDetailResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Test Id External */
+            test_id_external?: string | null;
+            /** Section Num */
+            section_num?: number | null;
+            /** Section Title */
+            section_title?: string | null;
+            /** Total Sentences */
+            total_sentences?: number | null;
+            /** Correct Count */
+            correct_count?: number | null;
+            /** Accuracy */
+            accuracy?: number | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            user: components["schemas"]["AdminDictationUser"];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256: string | null;
+            /** Test Id */
+            test_id?: string | null;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Client Request Id */
+            client_request_id?: string | null;
+            /** Total Words */
+            total_words?: number | null;
+            /** Correct Words */
+            correct_words?: number | null;
+            /** Results */
+            results: components["schemas"]["DictationSentenceResult"][];
+            error_trends?: components["schemas"]["DictationErrorTrends"] | null;
+            /** Association Lookup Failed */
+            association_lookup_failed: boolean;
+            /** Association Lookup Failures */
+            association_lookup_failures: "users"[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdminDictationReportItem */
+        AdminDictationReportItem: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Test Id External */
+            test_id_external?: string | null;
+            /** Section Num */
+            section_num?: number | null;
+            /** Section Title */
+            section_title?: string | null;
+            /** Total Sentences */
+            total_sentences?: number | null;
+            /** Correct Count */
+            correct_count?: number | null;
+            /** Accuracy */
+            accuracy?: number | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            user: components["schemas"]["AdminDictationUser"];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdminDictationReportListResponse */
+        AdminDictationReportListResponse: {
+            /** Items */
+            items: components["schemas"]["AdminDictationReportItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Association Lookup Failed */
+            association_lookup_failed: boolean;
+            /** Association Lookup Failures */
+            association_lookup_failures: "users"[];
+        };
+        /** AdminDictationUser */
+        AdminDictationUser: {
+            /** Id */
+            id: string | null;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+        };
         /** AdminErrorOverviewOut */
         AdminErrorOverviewOut: {
             /** Undismissed */
@@ -12470,6 +12789,134 @@ export interface components {
              * @default 10
              */
             count: number;
+        };
+        /** AdminListeningAttemptDetailResponse */
+        AdminListeningAttemptDetailResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "submitted" | "abandoned";
+            /**
+             * Scoring Policy
+             * @enum {string}
+             */
+            scoring_policy: "diagnostic" | "report_only";
+            /** Score */
+            score: number | null;
+            /** Total Questions */
+            total_questions: number | null;
+            /** Accuracy */
+            accuracy: number | null;
+            /** Duration Seconds */
+            duration_seconds: number | null;
+            /** Started At */
+            started_at: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Created At */
+            created_at: string | null;
+            user: components["schemas"]["AdminListeningAttemptUser"];
+            test: components["schemas"]["AdminListeningAttemptTest"];
+            /** Grading Details */
+            grading_details: components["schemas"]["AdminListeningQuestionRead"][];
+            /** Trap Analytics */
+            trap_analytics: {
+                [key: string]: unknown;
+            };
+            /** Band Estimate */
+            band_estimate: number | null;
+            /** Association Lookup Failed */
+            association_lookup_failed: boolean;
+            /** Association Lookup Failures */
+            association_lookup_failures: ("users" | "listening_tests")[];
+        };
+        /** AdminListeningAttemptItem */
+        AdminListeningAttemptItem: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "submitted" | "abandoned";
+            /**
+             * Scoring Policy
+             * @enum {string}
+             */
+            scoring_policy: "diagnostic" | "report_only";
+            /** Score */
+            score: number | null;
+            /** Total Questions */
+            total_questions: number | null;
+            /** Accuracy */
+            accuracy: number | null;
+            /** Duration Seconds */
+            duration_seconds: number | null;
+            /** Started At */
+            started_at: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Created At */
+            created_at: string | null;
+            user: components["schemas"]["AdminListeningAttemptUser"];
+            test: components["schemas"]["AdminListeningAttemptTest"];
+        };
+        /** AdminListeningAttemptListResponse */
+        AdminListeningAttemptListResponse: {
+            /** Items */
+            items: components["schemas"]["AdminListeningAttemptItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Association Lookup Failed */
+            association_lookup_failed: boolean;
+            /** Association Lookup Failures */
+            association_lookup_failures: ("users" | "listening_tests")[];
+        };
+        /** AdminListeningAttemptTest */
+        AdminListeningAttemptTest: {
+            /** Id */
+            id: string | null;
+            /** Test Id */
+            test_id: string | null;
+            /** Title */
+            title: string | null;
+            /** Test Type */
+            test_type: string | null;
+        };
+        /** AdminListeningAttemptUser */
+        AdminListeningAttemptUser: {
+            /** Id */
+            id: string | null;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+        };
+        /** AdminListeningQuestionRead */
+        AdminListeningQuestionRead: {
+            /** Q Num */
+            q_num: number;
+            /** Correct */
+            correct: boolean | null;
+            /** User Answer */
+            user_answer?: string | number | boolean | string[] | null;
+            /** Expected */
+            expected?: string | number | boolean | string[] | null;
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Response Type */
+            response_type?: string | null;
+            /** State */
+            state?: ("blank" | "checked" | "unscored" | "technical_error") | null;
+        } & {
+            [key: string]: unknown;
         };
         /** AdminMockExamListResponse */
         AdminMockExamListResponse: {
@@ -13485,6 +13932,10 @@ export interface components {
              * @description Audio recording (MP3 / WAV / WebM / OGG / MP4/M4A)
              */
             audio_file: string;
+            /** Submission Id */
+            submission_id?: string | null;
+            /** Expected Revision */
+            expected_revision?: string | null;
         };
         /** Body_import_bank_admin_quiz_import_post */
         Body_import_bank_admin_quiz_import_post: {
@@ -14367,6 +14818,54 @@ export interface components {
             /** Instructor Note */
             instructor_note?: string | null;
         };
+        /** DictationAggregateResponse */
+        DictationAggregateResponse: {
+            /** Session Count */
+            session_count: number;
+            /** Mean Accuracy */
+            mean_accuracy: number;
+            /**
+             * Mean Accuracy Basis
+             * @constant
+             */
+            mean_accuracy_basis: "mean_of_session_sentence_scores";
+            /** Versions */
+            versions: components["schemas"]["DictationVersionAggregate"][];
+            /**
+             * Trend Classification
+             * @constant
+             */
+            trend_classification: "lexical-v1";
+            /** Trend Complete Session Count */
+            trend_complete_session_count: number;
+            /** Trend Unavailable Session Count */
+            trend_unavailable_session_count: number;
+            /** Top Missed */
+            top_missed: components["schemas"]["DictationMissedWord"][];
+            /** Top Wrong */
+            top_wrong: components["schemas"]["DictationWrongWord"][];
+            /** Punctuation Missed */
+            punctuation_missed: components["schemas"]["DictationPunctuationTrend"][];
+            /** Punctuation Wrong */
+            punctuation_wrong: components["schemas"]["DictationPunctuationTrend"][];
+            /** Punctuation Missed Total */
+            punctuation_missed_total: number;
+            /** Punctuation Wrong Total */
+            punctuation_wrong_total: number;
+            /** Missing Token Missed Total */
+            missing_token_missed_total: number;
+            /** Missing Token Wrong Total */
+            missing_token_wrong_total: number;
+        };
+        /** DictationAmbiguity */
+        DictationAmbiguity: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Reason */
+            reason: string;
+        };
         /** DictationAttemptAnswerRequest */
         DictationAttemptAnswerRequest: {
             /**
@@ -14381,6 +14880,10 @@ export interface components {
             listen_count: number;
             /** Time Seconds */
             time_seconds?: number | null;
+            /** Grading Version */
+            grading_version?: ("legacy-whitespace-v1" | "lexical-v2") | null;
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
         };
         /** DictationAttemptRendererAffinityRequest */
         DictationAttemptRendererAffinityRequest: {
@@ -14390,10 +14893,115 @@ export interface components {
              */
             renderer_affinity: "legacy" | "next";
         };
+        /** DictationAttemptResponse */
+        DictationAttemptResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Test Id */
+            test_id: string;
+            /** Section Num */
+            section_num: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "completed" | "abandoned";
+            /** Renderer Affinity */
+            renderer_affinity?: ("legacy" | "next") | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Resume Expires At */
+            resume_expires_at?: string | null;
+            /** Units */
+            units: components["schemas"]["DictationUnit"][];
+            /** Answers */
+            answers: components["schemas"]["DictationSavedAnswer"][];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+        };
         /** DictationAttemptStartRequest */
         DictationAttemptStartRequest: {
             /** Renderer Affinity Protocol */
             renderer_affinity_protocol?: "claim-v1" | null;
+            /** Grading Version */
+            grading_version?: ("legacy-whitespace-v1" | "lexical-v2") | null;
+        };
+        /** DictationAttemptStartResponse */
+        DictationAttemptStartResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Test Id */
+            test_id: string;
+            /** Section Num */
+            section_num: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "completed" | "abandoned";
+            /** Renderer Affinity */
+            renderer_affinity?: ("legacy" | "next") | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Resume Expires At */
+            resume_expires_at?: string | null;
+            /** Units */
+            units: components["schemas"]["DictationUnit"][];
+            /** Answers */
+            answers: components["schemas"]["DictationSavedAnswer"][];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Created */
+            created: boolean;
+        };
+        /** DictationCapabilities */
+        DictationCapabilities: {
+            /** New Start Versions */
+            new_start_versions: ("legacy-whitespace-v1" | "lexical-v2")[];
+            /** Readable Versions */
+            readable_versions: ("legacy-whitespace-v1" | "lexical-v2")[];
+        };
+        /** DictationDiffOperation */
+        DictationDiffOperation: {
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "match" | "miss" | "wrong" | "extra";
+            /** Expected */
+            expected: string | null;
+            /** Actual */
+            actual: string | null;
+            /** Filler */
+            filler?: boolean | null;
+            expected_span?: components["schemas"]["DictationSpan"] | null;
+            actual_span?: components["schemas"]["DictationSpan"] | null;
+        };
+        /** DictationErrorTrends */
+        DictationErrorTrends: {
+            op_counts?: components["schemas"]["DictationOperationCounts"] | null;
+            /** Missed */
+            missed?: {
+                [key: string]: number;
+            } | null;
+            /** Wrong */
+            wrong?: {
+                [key: string]: number;
+            } | null;
+            /** Top Missed */
+            top_missed?: components["schemas"]["DictationTrendWord"][] | null;
+            /** Top Wrong */
+            top_wrong?: components["schemas"]["DictationTrendWrong"][] | null;
         };
         /** DictationFlagRequest */
         DictationFlagRequest: {
@@ -14407,6 +15015,208 @@ export interface components {
             category?: string | null;
             /** Note */
             note?: string | null;
+        };
+        /** DictationGrade */
+        DictationGrade: {
+            /** Score */
+            score: number;
+            /** Correct Words */
+            correct_words: number;
+            /** Total Words */
+            total_words: number;
+            /** Is Correct */
+            is_correct: boolean;
+            /** Diff */
+            diff: components["schemas"]["DictationDiffOperation"][];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Sentence Reference Sha256 */
+            sentence_reference_sha256?: string | null;
+            /** Offset Unit */
+            offset_unit?: "unicode_codepoint" | null;
+            /** Reference */
+            reference?: string | null;
+            /** User Text */
+            user_text?: string | null;
+            /** Reference Segments */
+            reference_segments?: components["schemas"]["DictationSegment"][] | null;
+            /** User Segments */
+            user_segments?: components["schemas"]["DictationSegment"][] | null;
+            /** Reference Ambiguities */
+            reference_ambiguities?: components["schemas"]["DictationAmbiguity"][] | null;
+            /** User Ambiguities */
+            user_ambiguities?: components["schemas"]["DictationAmbiguity"][] | null;
+        };
+        /** DictationMissedWord */
+        DictationMissedWord: {
+            /** Word */
+            word: string;
+            /** Count */
+            count: number;
+        };
+        /** DictationOperationCounts */
+        DictationOperationCounts: {
+            /** Miss */
+            miss: number;
+            /** Wrong */
+            wrong: number;
+            /** Extra */
+            extra: number;
+        };
+        /** DictationPolicyDetail */
+        DictationPolicyDetail: {
+            /** Error Code */
+            error_code: string;
+            /** Message */
+            message: string;
+        };
+        /** DictationPolicyErrorResponse */
+        DictationPolicyErrorResponse: {
+            /** Detail */
+            detail: components["schemas"]["DictationPolicyDetail"] | components["schemas"]["DictationValidationIssue"][] | string;
+        };
+        /** DictationPunctuationTrend */
+        DictationPunctuationTrend: {
+            /** Token */
+            token: string;
+            /** Count */
+            count: number;
+        };
+        /** DictationResumeResponse */
+        DictationResumeResponse: {
+            attempt: components["schemas"]["DictationAttemptResponse"] | null;
+        };
+        /** DictationSavedAnswer */
+        DictationSavedAnswer: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Sentence Idx */
+            sentence_idx: number;
+            /** User Transcript */
+            user_transcript: string;
+            /** Score */
+            score: number;
+            /** Correct Words */
+            correct_words: number;
+            /** Total Words */
+            total_words: number;
+            /** Diff */
+            diff: components["schemas"]["DictationDiffOperation"][];
+            /** Listen Count */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Sentence Reference Sha256 */
+            sentence_reference_sha256?: string | null;
+            grading_evidence?: components["schemas"]["DictationGrade"] | null;
+        };
+        /** DictationSegment */
+        DictationSegment: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "lexical" | "unscored" | "whitespace";
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Raw */
+            raw: string;
+            /** Reason */
+            reason: string;
+        };
+        /** DictationSentenceGrade */
+        DictationSentenceGrade: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Sentence Idx */
+            sentence_idx: number;
+            /** User Transcript */
+            user_transcript: string;
+            /** Score */
+            score: number;
+            /** Correct Words */
+            correct_words: number;
+            /** Total Words */
+            total_words: number;
+            /** Diff */
+            diff: components["schemas"]["DictationDiffOperation"][];
+            /** Listen Count */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Sentence Reference Sha256 */
+            sentence_reference_sha256?: string | null;
+            grading_evidence?: components["schemas"]["DictationGrade"] | null;
+            /** Is Correct */
+            is_correct: boolean;
+            /** Offset Unit */
+            offset_unit?: "unicode_codepoint" | null;
+            /** Reference */
+            reference?: string | null;
+            /** User Text */
+            user_text?: string | null;
+            /** Reference Segments */
+            reference_segments?: components["schemas"]["DictationSegment"][] | null;
+            /** User Segments */
+            user_segments?: components["schemas"]["DictationSegment"][] | null;
+            /** Reference Ambiguities */
+            reference_ambiguities?: components["schemas"]["DictationAmbiguity"][] | null;
+            /** User Ambiguities */
+            user_ambiguities?: components["schemas"]["DictationAmbiguity"][] | null;
+        };
+        /** DictationSentenceResult */
+        DictationSentenceResult: {
+            /** Sentence Idx */
+            sentence_idx: number;
+            /** Reference */
+            reference?: string | null;
+            /** User Text */
+            user_text: string;
+            /** Score */
+            score: number;
+            /** Correct Words */
+            correct_words: number;
+            /** Total Words */
+            total_words: number;
+            /** Diff */
+            diff?: components["schemas"]["DictationDiffOperation"][] | null;
+            /** Listen Count */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+            ops?: components["schemas"]["DictationOperationCounts"] | null;
+            /** Grading Version */
+            grading_version?: ("legacy-whitespace-v1" | "lexical-v2") | null;
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+            /** Sentence Reference Sha256 */
+            sentence_reference_sha256?: string | null;
+            grading_evidence?: components["schemas"]["DictationGrade"] | null;
         };
         /** DictationSentenceSubmit */
         DictationSentenceSubmit: {
@@ -14441,6 +15251,158 @@ export interface components {
             total_time_seconds?: number | null;
             /** Sentences */
             sentences?: components["schemas"]["DictationSentenceSubmit"][];
+            /** Grading Version */
+            grading_version?: ("legacy-whitespace-v1" | "lexical-v2") | null;
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+        };
+        /** DictationSessionResponse */
+        DictationSessionResponse: {
+            /** Session Id */
+            session_id: string;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Client Request Id */
+            client_request_id?: string | null;
+            /** Test Title */
+            test_title?: string | null;
+            /** Section Num */
+            section_num?: number | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Total Sentences */
+            total_sentences: number;
+            /** Correct Count */
+            correct_count: number;
+            /** Accuracy */
+            accuracy: number;
+            /** Total Words */
+            total_words: number;
+            /** Correct Words */
+            correct_words: number;
+            error_trends: components["schemas"]["DictationErrorTrends"];
+            /** Results */
+            results: components["schemas"]["DictationSentenceResult"][];
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256?: string | null;
+        };
+        /** DictationSpan */
+        DictationSpan: {
+            /** Segment Index */
+            segment_index: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+        };
+        /** DictationStoredSessionResponse */
+        DictationStoredSessionResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Test Id */
+            test_id?: string | null;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Client Request Id */
+            client_request_id?: string | null;
+            /** Test Id External */
+            test_id_external?: string | null;
+            /** Section Num */
+            section_num?: number | null;
+            /** Section Title */
+            section_title?: string | null;
+            /** Total Sentences */
+            total_sentences?: number | null;
+            /** Correct Count */
+            correct_count?: number | null;
+            /** Accuracy */
+            accuracy?: number | null;
+            /** Total Words */
+            total_words?: number | null;
+            /** Correct Words */
+            correct_words?: number | null;
+            /** Total Time Seconds */
+            total_time_seconds?: number | null;
+            /** Results */
+            results: components["schemas"]["DictationSentenceResult"][];
+            error_trends?: components["schemas"]["DictationErrorTrends"] | null;
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Reference Sha256 */
+            reference_sha256: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** DictationTrendWord */
+        DictationTrendWord: {
+            /** Word */
+            word: string;
+            /** Count */
+            count: number;
+        };
+        /** DictationTrendWrong */
+        DictationTrendWrong: {
+            /** Expected */
+            expected: string;
+            /** Count */
+            count: number;
+            /** Common Actual */
+            common_actual?: string[];
+        };
+        /** DictationUnit */
+        DictationUnit: {
+            /** Text */
+            text: string;
+            /** Start */
+            start?: number | null;
+            /** End */
+            end?: number | null;
+            /** Hints */
+            hints?: string[];
+        };
+        /** DictationValidationIssue */
+        DictationValidationIssue: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /** Type */
+            type: string;
+            /** Input */
+            input?: unknown | null;
+            /** Ctx */
+            ctx?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** DictationVersionAggregate */
+        DictationVersionAggregate: {
+            /**
+             * Grading Version
+             * @enum {string}
+             */
+            grading_version: "legacy-whitespace-v1" | "lexical-v2";
+            /** Session Count */
+            session_count: number;
+            /** Mean Accuracy */
+            mean_accuracy: number;
+        };
+        /** DictationWrongWord */
+        DictationWrongWord: {
+            /** Expected */
+            expected: string;
+            /** Count */
+            count: number;
         };
         /** DiscardImageRequest */
         DiscardImageRequest: {
@@ -15366,6 +16328,183 @@ export interface components {
             /** Issue */
             issue: string;
         };
+        /** GrammarRevisionChange */
+        GrammarRevisionChange: {
+            /** Qid */
+            qid: string;
+            /** Fields */
+            fields: string[];
+            /** Before Sha256 */
+            before_sha256: string;
+            /** After Sha256 */
+            after_sha256: string;
+        };
+        /** GrammarRevisionCommitRequest */
+        GrammarRevisionCommitRequest: {
+            /** Source Markdown */
+            source_markdown: string;
+            /** Expected Revision */
+            expected_revision: string;
+            /** Preview Fingerprint */
+            preview_fingerprint: string;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+        };
+        /** GrammarRevisionCommitResult */
+        GrammarRevisionCommitResult: {
+            /**
+             * Canonical Code
+             * @enum {string}
+             */
+            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "applied" | "already_applied";
+            /**
+             * Original Bank Id
+             * Format: uuid
+             */
+            original_bank_id: string;
+            /**
+             * Corrected Bank Id
+             * Format: uuid
+             */
+            corrected_bank_id: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Committed Revision */
+            committed_revision: string;
+            /** Current Revision */
+            current_revision: string;
+            /** Current Matches Committed */
+            current_matches_committed: boolean;
+            /** Original Questions Sha256 */
+            original_questions_sha256: string;
+            /** Original History Sha256 */
+            original_history_sha256: string;
+            canonical: components["schemas"]["GrammarRevisionRead"];
+        };
+        /** GrammarRevisionErrorDetail */
+        GrammarRevisionErrorDetail: {
+            /** Error Code */
+            error_code: string;
+            /** Message */
+            message: string;
+            /** Current Revision */
+            current_revision?: string | null;
+        };
+        /** GrammarRevisionErrorResponse */
+        GrammarRevisionErrorResponse: {
+            /** Detail */
+            detail: components["schemas"]["GrammarRevisionErrorDetail"] | components["schemas"]["GrammarRevisionValidationIssue"][];
+        };
+        /** GrammarRevisionFootprint */
+        GrammarRevisionFootprint: {
+            /** Actors */
+            actors: number;
+            /** Sessions */
+            sessions: number;
+            /** Stats */
+            stats: number;
+            /** Attempts */
+            attempts: number;
+            /** Assignments */
+            assignments: number;
+            /** Open Sessions */
+            open_sessions: number;
+            /** Paused Sessions */
+            paused_sessions: number;
+            /** Classifications */
+            classifications: {
+                [key: string]: number;
+            };
+            /** Authoritative Review Required */
+            authoritative_review_required: boolean;
+        };
+        /** GrammarRevisionPreview */
+        GrammarRevisionPreview: {
+            canonical: components["schemas"]["GrammarRevisionRead"];
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            /** Preview Fingerprint */
+            preview_fingerprint: string;
+            /** Proposed Revision */
+            proposed_revision: string;
+            /** Changed Questions */
+            changed_questions: components["schemas"]["GrammarRevisionChange"][];
+            /** Validation Messages */
+            validation_messages: string[];
+        };
+        /** GrammarRevisionPreviewRequest */
+        GrammarRevisionPreviewRequest: {
+            /** Source Markdown */
+            source_markdown: string;
+            /** Expected Revision */
+            expected_revision: string;
+        };
+        /** GrammarRevisionRead */
+        GrammarRevisionRead: {
+            /**
+             * Canonical Code
+             * @enum {string}
+             */
+            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            /**
+             * Original Bank Id
+             * Format: uuid
+             */
+            original_bank_id: string;
+            /**
+             * Current Bank Id
+             * Format: uuid
+             */
+            current_bank_id: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Revision */
+            revision: string;
+            /** Current Bank Revision */
+            current_bank_revision: string;
+            /** Original Questions Sha256 */
+            original_questions_sha256: string;
+            /** Original Metadata Sha256 */
+            original_metadata_sha256: string;
+            /** Is Managed */
+            is_managed: boolean;
+            /** New Starts Enabled */
+            new_starts_enabled: boolean;
+            footprint: components["schemas"]["GrammarRevisionFootprint"];
+        };
+        /** GrammarRevisionValidationIssue */
+        GrammarRevisionValidationIssue: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /** Type */
+            type: string;
+            /** Input */
+            input?: unknown | null;
+            /** Ctx */
+            ctx?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** GrammarSearchResult */
         GrammarSearchResult: {
             /** Slug */
@@ -15962,6 +17101,8 @@ export interface components {
             };
             /** Audio Url */
             audio_url?: string | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
             /** Audio Duration */
             audio_duration?: number | null;
             /** Section Offsets */
@@ -15988,6 +17129,7 @@ export interface components {
             web_explanation_access?: {
                 [key: string]: unknown;
             } | null;
+            context_source?: components["schemas"]["ReviewContextReference"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -16138,6 +17280,19 @@ export interface components {
         };
         /** ListeningGuidedFeedbackItem */
         ListeningGuidedFeedbackItem: {
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Source Display Number */
+            source_display_number?: string | null;
+            /** Review Status */
+            review_status?: ("CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED") | null;
+            /** Answer Provenance */
+            answer_provenance?: string | null;
+            explanation?: components["schemas"]["SourceExplanation"] | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
             /** Q Num */
             q_num: number;
             /** First Answer */
@@ -16328,6 +17483,14 @@ export interface components {
         ListeningPlayerResponse: {
             /** Id */
             id: string;
+            /** Attempt Purpose */
+            attempt_purpose?: string | null;
+            /** Mock Sitting Id */
+            mock_sitting_id?: string | null;
+            /** Paper Revision */
+            paper_revision?: number | null;
+            /** Policy Revision */
+            policy_revision?: number | null;
             /** Test Id */
             test_id?: string | null;
             /** Title */
@@ -16364,6 +17527,16 @@ export interface components {
             audio_storage_path?: string | null;
             /** Audio Duration Seconds */
             audio_duration_seconds?: number | null;
+            /** Source Collection Id */
+            source_collection_id?: string | null;
+            /** Source Day */
+            source_day?: number | null;
+            /** Source Part Label */
+            source_part_label?: string | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
+            /** Source Blocks */
+            source_blocks?: components["schemas"]["SourceBlock"][];
             /** Cue Points */
             cue_points?: unknown[];
             /** Sections */
@@ -16478,6 +17651,19 @@ export interface components {
         };
         /** ListeningReviewItem */
         ListeningReviewItem: {
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Source Display Number */
+            source_display_number?: string | null;
+            /** Review Status */
+            review_status?: ("CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED") | null;
+            /** Answer Provenance */
+            answer_provenance?: string | null;
+            explanation?: components["schemas"]["SourceExplanation"] | null;
+            /** Audio Granularity */
+            audio_granularity?: string | null;
             /** Q Num */
             q_num: number;
             /** State */
@@ -16516,8 +17702,106 @@ export interface components {
             };
             /** First Answer */
             first_answer?: string | null;
+            /** Question Context */
+            question_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Context Provenance */
+            context_provenance?: {
+                [key: string]: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            };
         } & {
             [key: string]: unknown;
+        };
+        /** ListeningSourceCollectionResponse */
+        ListeningSourceCollectionResponse: {
+            /**
+             * Collection Id
+             * @default 80-days
+             * @constant
+             */
+            collection_id: "80-days";
+            /** Package Id */
+            package_id: string;
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            /** Title */
+            title: string;
+            /** Groups */
+            groups: components["schemas"]["SourceGroup"][];
+            /**
+             * Partial Data
+             * @default false
+             */
+            partial_data: boolean;
+        };
+        /** ListeningSourceDayResponse */
+        ListeningSourceDayResponse: {
+            /**
+             * Collection Id
+             * @default 80-days
+             * @constant
+             */
+            collection_id: "80-days";
+            /** Package Id */
+            package_id: string;
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            /** Day */
+            day: number;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "short_practice" | "teaching" | "vocabulary" | "mock";
+            availability: components["schemas"]["SourceAvailability"];
+            /** Source Position Count */
+            source_position_count: number;
+            /** Practice Item Count */
+            practice_item_count: number;
+            /** Source Only Count */
+            source_only_count: number;
+            /** Parts */
+            parts: components["schemas"]["SourcePart"][];
+            /** Blocks */
+            blocks: components["schemas"]["SourceBlock"][];
+            /** Vocabulary Groups */
+            vocabulary_groups?: components["schemas"]["SourceVocabularyGroup"][];
+            /** Source Only Positions */
+            source_only_positions?: components["schemas"]["SourcePosition"][];
+            /**
+             * Partial Data
+             * @default false
+             */
+            partial_data: boolean;
+        };
+        /** ListeningSourceStudyRequest */
+        ListeningSourceStudyRequest: {
+            /** Block Ids */
+            block_ids: string[];
+        };
+        /** ListeningSourceStudyResponse */
+        ListeningSourceStudyResponse: {
+            /**
+             * Mode
+             * @default source_study
+             * @constant
+             */
+            mode: "source_study";
+            /**
+             * Independent Practice
+             * @default false
+             * @constant
+             */
+            independent_practice: false;
+            /** Day */
+            day: number;
+            /** Blocks */
+            blocks: components["schemas"]["SourceStudyBlock"][];
         };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {
@@ -16532,6 +17816,8 @@ export interface components {
              * @default
              */
             user_transcript: string;
+            /** Grading Version */
+            grading_version?: "legacy-whitespace-v1" | null;
         };
         /** ListeningTestListItem */
         ListeningTestListItem: {
@@ -16642,6 +17928,49 @@ export interface components {
         ListeningTestStatusPatchRequest: {
             /** Status */
             status: string;
+        };
+        /** ManagedGrammarSessionState */
+        ManagedGrammarSessionState: {
+            /**
+             * Canonical Code
+             * @enum {string}
+             */
+            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            /**
+             * Bank Id
+             * Format: uuid
+             */
+            bank_id: string;
+            /** Bank Revision */
+            bank_revision: string;
+            /**
+             * Content State
+             * @enum {string}
+             */
+            content_state: "original" | "current" | "legacy";
+            /** New Starts Enabled */
+            new_starts_enabled: boolean;
+            /** Can Continue Legacy */
+            can_continue_legacy: boolean;
+            /**
+             * Can Continue Current
+             * @default false
+             */
+            can_continue_current: boolean;
+            /**
+             * Mastery Retained
+             * @default false
+             */
+            mastery_retained: boolean;
+            /**
+             * Current Bank Id
+             * Format: uuid
+             */
+            current_bank_id: string;
+            /** Current Bank Revision */
+            current_bank_revision: string;
+            /** Text Match Policy */
+            text_match_policy?: "qid-exact-v1" | null;
         };
         /** MarkDeliveredRequest */
         MarkDeliveredRequest: {
@@ -16854,6 +18183,65 @@ export interface components {
             client_input_groups: number;
             /** Client Ids With Multiple Fingerprints */
             client_ids_with_multiple_fingerprints: number;
+        };
+        /** PaperPolicyDependency */
+        PaperPolicyDependency: {
+            /** Type */
+            type: string;
+            /** Id */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Mock Exam Id */
+            mock_exam_id?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Paper Revision */
+            paper_revision?: number | null;
+            /** Dependency Revision */
+            dependency_revision?: string | null;
+        };
+        /** PaperPolicyInspection */
+        PaperPolicyInspection: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reading" | "listening";
+            /** Policy Revision */
+            policy_revision: number;
+            /** Paper Revision */
+            paper_revision: number;
+            /** Policy */
+            policy: {
+                [key: string]: unknown;
+            };
+            /** Dependencies */
+            dependencies: components["schemas"]["PaperPolicyDependency"][];
+            /** Protected References */
+            protected_references: components["schemas"]["PublicOverlapReference"][];
+            /** Restore Snapshots */
+            restore_snapshots: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** PaperPolicyReceipt */
+        PaperPolicyReceipt: {
+            /** Id */
+            id: string;
+            /** Policy Revision */
+            policy_revision?: number | null;
+            /** Status */
+            status?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
         };
         /**
          * PasteLog
@@ -17185,6 +18573,27 @@ export interface components {
              */
             exam_only?: boolean | null;
         };
+        /** PublicOverlapDecision */
+        PublicOverlapDecision: {
+            /** Reason */
+            reason: string;
+            /** Paper Revision */
+            paper_revision: number;
+            /** References */
+            references: components["schemas"]["PublicOverlapReference"][];
+        };
+        /** PublicOverlapReference */
+        PublicOverlapReference: {
+            /**
+             * Mock Exam Id
+             * Format: uuid
+             */
+            mock_exam_id: string;
+            /** Paper Revision */
+            paper_revision: number;
+            /** Dependency Revision */
+            dependency_revision: string;
+        };
         /** PublicPolicyPatch */
         PublicPolicyPatch: {
             /** Is Public */
@@ -17227,6 +18636,79 @@ export interface components {
             }[] | null;
             /** Expected Updated At */
             expected_updated_at?: string | null;
+        };
+        /** QuestionReviewFlag */
+        QuestionReviewFlag: {
+            /** Q Num */
+            q_num: number;
+            /** Question Id */
+            question_id: string;
+            /** Flagged */
+            flagged: boolean;
+            /** Revision */
+            revision: number;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** QuizBankPlayResponse */
+        QuizBankPlayResponse: {
+            /** Bank */
+            bank: {
+                [key: string]: unknown;
+            };
+            /** Questions */
+            questions: {
+                [key: string]: unknown;
+            }[];
+            /** Word Cards */
+            word_cards: {
+                [key: string]: unknown;
+            };
+            grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** QuizSessionEndResponse */
+        QuizSessionEndResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Bank Id */
+            bank_id?: string | null;
+            /** Grammar Revision */
+            grammar_revision?: string | null;
+            grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** QuizSessionProgressResponse */
+        QuizSessionProgressResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Attempts */
+            attempts: number;
+            /** Word Stats */
+            word_stats: number;
+            grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** QuizSessionStartResponse */
+        QuizSessionStartResponse: {
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Resume */
+            resume: {
+                [key: string]: unknown;
+            }[];
+            grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
+        } & {
+            [key: string]: unknown;
         };
         /** ReadingAttemptTotalsOut */
         ReadingAttemptTotalsOut: {
@@ -17295,6 +18777,161 @@ export interface components {
             band: number;
             /** Count */
             count: number;
+        };
+        /** ReadingGrammarFocusEditItem */
+        ReadingGrammarFocusEditItem: {
+            /** Point */
+            point: string;
+            /** Example */
+            example?: string;
+            /** Analysis */
+            analysis?: string;
+            /** Review */
+            review?: string;
+            /** Tip */
+            tip?: string;
+        };
+        /** ReadingGrammarFocusEditRequest */
+        ReadingGrammarFocusEditRequest: {
+            /** Expected Revision */
+            expected_revision: string;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Grammar Focus */
+            grammar_focus: components["schemas"]["ReadingGrammarFocusEditItem"][];
+        };
+        /** ReadingGrammarFocusEditResult */
+        ReadingGrammarFocusEditResult: {
+            /**
+             * Passage Id
+             * Format: uuid
+             */
+            passage_id: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Library
+             * @constant
+             */
+            library: "l1_vocab";
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "updated" | "unchanged" | "already_applied";
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Committed Revision */
+            committed_revision: string;
+            /** Current Revision */
+            current_revision: string;
+            /** Current Matches Committed */
+            current_matches_committed: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Grammar Focus */
+            grammar_focus: components["schemas"]["ReadingGrammarFocusItem"][];
+            /**
+             * Source Sha256
+             * @description Committed operation source fingerprint, retained in its receipt.
+             */
+            source_sha256: string;
+            /**
+             * Unrelated Metadata Sha256
+             * @description Committed operation unrelated-metadata fingerprint.
+             */
+            unrelated_metadata_sha256: string;
+            /**
+             * Questions Sha256
+             * @description Committed operation question fingerprint; never raw answers.
+             */
+            questions_sha256: string;
+            /** Current Source Sha256 */
+            current_source_sha256: string;
+            /** Current Unrelated Metadata Sha256 */
+            current_unrelated_metadata_sha256: string;
+            /** Current Questions Sha256 */
+            current_questions_sha256: string;
+        };
+        /** ReadingGrammarFocusErrorDetail */
+        ReadingGrammarFocusErrorDetail: {
+            /**
+             * Error Code
+             * @enum {string}
+             */
+            error_code: "reading_grammar_focus_not_found" | "reading_grammar_focus_invalid_state" | "reading_grammar_focus_unavailable" | "reading_grammar_focus_lock_unavailable" | "reading_grammar_focus_revision_conflict" | "reading_grammar_focus_operation_conflict" | "reading_grammar_focus_receipt_invalid" | "reading_grammar_focus_request_invalid";
+            /** Message */
+            message: string;
+            /** Current Revision */
+            current_revision?: string | null;
+        };
+        /** ReadingGrammarFocusErrorResponse */
+        ReadingGrammarFocusErrorResponse: {
+            detail: components["schemas"]["ReadingGrammarFocusErrorDetail"];
+        };
+        /**
+         * ReadingGrammarFocusItem
+         * @description Legacy reads preserve omitted keys and do not invent empty strings.
+         */
+        ReadingGrammarFocusItem: {
+            /** Point */
+            point: string;
+            /** Example */
+            example?: string;
+            /** Analysis */
+            analysis?: string;
+            /** Review */
+            review?: string;
+            /** Tip */
+            tip?: string;
+        };
+        /** ReadingGrammarFocusRead */
+        ReadingGrammarFocusRead: {
+            /**
+             * Passage Id
+             * Format: uuid
+             */
+            passage_id: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Library
+             * @constant
+             */
+            library: "l1_vocab";
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+            /** Body Markdown */
+            body_markdown: string;
+            /** Grammar Focus */
+            grammar_focus: components["schemas"]["ReadingGrammarFocusItem"][];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Revision */
+            revision: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Unrelated Metadata Sha256 */
+            unrelated_metadata_sha256: string;
+            /** Questions Sha256 */
+            questions_sha256: string;
         };
         /** ReadingOverviewOut */
         ReadingOverviewOut: {
@@ -17459,6 +19096,16 @@ export interface components {
              */
             assistance_used: boolean;
         };
+        /** RestorePolicyBody */
+        RestorePolicyBody: {
+            /**
+             * Snapshot Id
+             * Format: uuid
+             */
+            snapshot_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+        };
         /** RetestBody */
         RetestBody: {
             /** Needs Retest */
@@ -17475,6 +19122,92 @@ export interface components {
             retest_flags?: {
                 [key: string]: boolean;
             };
+        };
+        /** ReviewContextReference */
+        ReviewContextReference: {
+            /**
+             * Provenance
+             * @enum {string}
+             */
+            provenance: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            /** Possibly Changed */
+            possibly_changed: boolean;
+            /** Paper Revision */
+            paper_revision?: number | null;
+            /** Policy Revision */
+            policy_revision?: number | null;
+            /** Context Sha256 */
+            context_sha256?: string | null;
+            /** Field Provenance */
+            field_provenance?: {
+                [key: string]: "submission_snapshot" | "verified_original_revision" | "current_content_fallback" | "unavailable";
+            };
+        };
+        /** ReviewFlagPatchRequest */
+        ReviewFlagPatchRequest: {
+            /** Q Num */
+            q_num: number;
+            /** Flagged */
+            flagged: boolean;
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+        };
+        /** ReviewFlagStateResponse */
+        ReviewFlagStateResponse: {
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /**
+             * Protocol
+             * @default question-cas-v1
+             * @constant
+             */
+            protocol: "question-cas-v1";
+            /** Review Flags */
+            review_flags: components["schemas"]["QuestionReviewFlag"][];
+        };
+        /** ReviewFlagWriteResponse */
+        ReviewFlagWriteResponse: {
+            /** Q Num */
+            q_num: number;
+            /** Question Id */
+            question_id: string;
+            /** Flagged */
+            flagged: boolean;
+            /** Revision */
+            revision: number;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /**
+             * Protocol
+             * @default question-cas-v1
+             * @constant
+             */
+            protocol: "question-cas-v1";
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Accepted */
+            accepted: boolean;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "applied" | "replayed" | "conflict";
         };
         /** RollbackRequest */
         RollbackRequest: {
@@ -17591,6 +19324,11 @@ export interface components {
             questions: components["schemas"]["SessionQuestion"][];
             /** Responses */
             responses: components["schemas"]["models__session_contracts__SessionResponse"][];
+            /**
+             * Submission Retry Safe
+             * @default false
+             */
+            submission_retry_safe: boolean;
             /** Response Receipts */
             response_receipts: components["schemas"]["SessionResponseReceipt"][];
             /** Question Lookup Failed */
@@ -17657,6 +19395,10 @@ export interface components {
             question_id: string;
             /** Persisted At */
             persisted_at: string | null;
+            /** Submission Id */
+            submission_id?: string | null;
+            /** Submission Revision */
+            submission_revision?: string | null;
         };
         /** SessionRetention */
         SessionRetention: {
@@ -17767,6 +19509,453 @@ export interface components {
             /** Last Session At */
             last_session_at: string | null;
         };
+        /** SourceAvailability */
+        SourceAvailability: {
+            /**
+             * Questions
+             * @default available
+             */
+            questions: string;
+            /**
+             * Audio
+             * @default missing
+             */
+            audio: string;
+            /**
+             * Transcript
+             * @default missing
+             */
+            transcript: string;
+            /**
+             * Printed Key
+             * @default missing
+             */
+            printed_key: string;
+            /**
+             * Explanations
+             * @default reviewed
+             */
+            explanations: string;
+        };
+        /** SourceBlock */
+        SourceBlock: {
+            /** Block Id */
+            block_id: string;
+            /** Part Id */
+            part_id: string;
+            /** Kind */
+            kind: string;
+            instruction: components["schemas"]["SourceInstruction"];
+            /** Item Ids */
+            item_ids?: string[];
+            /** Source Question Numbers */
+            source_question_numbers?: number[];
+            /** Images */
+            images?: components["schemas"]["SourceImage"][];
+            /** Shared Options */
+            shared_options?: components["schemas"]["SourceOption"][];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Display Kind
+             * @default practice
+             * @enum {string}
+             */
+            display_kind: "practice" | "source_study" | "vocabulary";
+            /**
+             * Study Available
+             * @default false
+             */
+            study_available: boolean;
+        };
+        /** SourceDayCard */
+        SourceDayCard: {
+            /** Day */
+            day: number;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "short_practice" | "teaching" | "vocabulary" | "mock";
+            availability: components["schemas"]["SourceAvailability"];
+            /** Source Position Count */
+            source_position_count: number;
+            /** Practice Item Count */
+            practice_item_count: number;
+            /** Source Only Count */
+            source_only_count: number;
+            /** Form Count */
+            form_count: number;
+            /**
+             * Completed Form Count
+             * @default 0
+             */
+            completed_form_count: number;
+            /**
+             * Independent Completed Form Count
+             * @default 0
+             */
+            independent_completed_form_count: number;
+            /**
+             * In Progress Form Count
+             * @default 0
+             */
+            in_progress_form_count: number;
+            /** Href */
+            href: string;
+        };
+        /** SourceDistractor */
+        SourceDistractor: {
+            /** Option */
+            option: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Reason Vi */
+            reason_vi: string;
+        };
+        /** SourceEvidence */
+        SourceEvidence: {
+            /** Source Kind */
+            source_kind: string;
+            /** Pdf Page */
+            pdf_page?: number | null;
+            /** Line Index 1 Based */
+            line_index_1_based?: number | null;
+            /** Quote */
+            quote: string;
+            /**
+             * Relation
+             * @default supports
+             */
+            relation: string;
+            /** Visual Reconstruction */
+            visual_reconstruction?: string | boolean | null;
+            /** Source Image Path */
+            source_image_path?: string | null;
+            /** Source Image Sha256 */
+            source_image_sha256?: string | null;
+            source_region?: components["schemas"]["SourceRegion"] | null;
+            /** Text Validation Source */
+            text_validation_source?: string | null;
+            /** Upstream Review State */
+            upstream_review_state?: string | null;
+            /** Raw Ocr Verbatim */
+            raw_ocr_verbatim?: boolean | null;
+            /** Source Pdf Sha256 */
+            source_pdf_sha256?: string | null;
+            /** Source Line Id */
+            source_line_id?: string | null;
+            /** Insertion After Line Index 1 Based */
+            insertion_after_line_index_1_based?: number | null;
+            /** Line Index Unavailable Reason */
+            line_index_unavailable_reason?: string | null;
+            /** Start */
+            start?: number | null;
+            /** End */
+            end?: number | null;
+        };
+        /** SourceExplanation */
+        SourceExplanation: {
+            printed_key?: components["schemas"]["SourcePrintedKey"] | null;
+            /** Answer */
+            answer?: string | string[] | {
+                [key: string]: string;
+            } | null;
+            /** Evidence */
+            evidence?: components["schemas"]["SourceEvidence"][];
+            /** Why Vi */
+            why_vi: string;
+            /** Distractors */
+            distractors?: components["schemas"]["SourceDistractor"][];
+            /**
+             * Paraphrase Vi
+             * @default
+             */
+            paraphrase_vi: string;
+            /**
+             * Trap Vi
+             * @default
+             */
+            trap_vi: string;
+            /**
+             * Format Vi
+             * @default
+             */
+            format_vi: string;
+            /** Source Answer Warning Vi */
+            source_answer_warning_vi?: string | null;
+            /** Next Action Vi */
+            next_action_vi?: string | null;
+        };
+        /** SourceForm */
+        SourceForm: {
+            /** Id */
+            id: string;
+            /** Source Form Id */
+            source_form_id: string;
+            /** Title */
+            title: string;
+            /** Item Count */
+            item_count: number;
+            /** Duration Seconds */
+            duration_seconds: number;
+            /**
+             * Status
+             * @default new
+             * @enum {string}
+             */
+            status: "new" | "in_progress" | "completed";
+            /**
+             * Assisted
+             * @default false
+             */
+            assisted: boolean;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Href */
+            href: string;
+        };
+        /** SourceGroup */
+        SourceGroup: {
+            /**
+             * Id
+             * @enum {string}
+             */
+            id: "short_practice" | "teaching" | "vocabulary" | "mock";
+            /** Title */
+            title: string;
+            /** Days */
+            days: components["schemas"]["SourceDayCard"][];
+        };
+        /** SourceImage */
+        SourceImage: {
+            /** Asset Id */
+            asset_id: string;
+            /** Url */
+            url: string;
+            /**
+             * Expires In
+             * @default 7200
+             */
+            expires_in: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Alt Vi */
+            alt_vi: string;
+        };
+        /** SourceInstruction */
+        SourceInstruction: {
+            /**
+             * Source En
+             * @default
+             */
+            source_en: string;
+            /**
+             * Student Vi
+             * @default
+             */
+            student_vi: string;
+            /** Word Limit */
+            word_limit?: number | null;
+            /** Select Count */
+            select_count?: number | null;
+        };
+        /** SourceKeyCitation */
+        SourceKeyCitation: {
+            /** Pdf Page */
+            pdf_page: number;
+            /** Line Index 1 Based */
+            line_index_1_based: number;
+        };
+        /** SourceOption */
+        SourceOption: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /** SourcePart */
+        SourcePart: {
+            /** Part Id */
+            part_id: string;
+            /** Source Label */
+            source_label: string;
+            /** Item Count */
+            item_count: number;
+            /** Source Position Count */
+            source_position_count: number;
+            /** Audio Status */
+            audio_status: string;
+            /**
+             * Timing Granularity
+             * @default none
+             * @enum {string}
+             */
+            timing_granularity: "whole_day" | "whole_part" | "question" | "none";
+            form?: components["schemas"]["SourceForm"] | null;
+        };
+        /** SourcePosition */
+        SourcePosition: {
+            /** Item Id */
+            item_id: string;
+            /** Source Display Number */
+            source_display_number: string;
+            /** Part Id */
+            part_id: string;
+            /** Block Id */
+            block_id: string;
+            /**
+             * Review Status
+             * @enum {string}
+             */
+            review_status: "CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED";
+            /**
+             * Reason Vi
+             * @default
+             */
+            reason_vi: string;
+        };
+        /** SourcePrintedKey */
+        SourcePrintedKey: {
+            /** Answer */
+            answer?: string | string[] | {
+                [key: string]: string;
+            } | null;
+            /** Source Pdf Page */
+            source_pdf_page?: number | null;
+            /** Source Ocr Line Index 1 Based */
+            source_ocr_line_index_1_based?: number | null;
+            /** Evidence Tier */
+            evidence_tier?: string | null;
+            /**
+             * Visual Correction
+             * @default false
+             */
+            visual_correction: boolean;
+            /** Source Lines */
+            source_lines?: components["schemas"]["SourceKeyCitation"][];
+        };
+        /** SourceRegion */
+        SourceRegion: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+        };
+        /**
+         * SourceResponseField
+         * @description Native blank metadata only; answer objects never belong here.
+         */
+        SourceResponseField: {
+            /** Field Id */
+            field_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Word Limit */
+            word_limit?: number | null;
+        };
+        /** SourceStudyBlock */
+        SourceStudyBlock: {
+            /** Block Id */
+            block_id: string;
+            /** Part Id */
+            part_id: string;
+            /** Kind */
+            kind: string;
+            instruction: components["schemas"]["SourceInstruction"];
+            /** Item Ids */
+            item_ids?: string[];
+            /** Source Question Numbers */
+            source_question_numbers?: number[];
+            /** Images */
+            images?: components["schemas"]["SourceImage"][];
+            /** Shared Options */
+            shared_options?: components["schemas"]["SourceOption"][];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Display Kind
+             * @default practice
+             * @enum {string}
+             */
+            display_kind: "practice" | "source_study" | "vocabulary";
+            /**
+             * Study Available
+             * @default false
+             */
+            study_available: boolean;
+            /** Items */
+            items?: components["schemas"]["SourceStudyItem"][];
+            /** Transcript */
+            transcript?: components["schemas"]["SourceEvidence"][];
+        };
+        /** SourceStudyItem */
+        SourceStudyItem: {
+            /** Item Id */
+            item_id: string;
+            /** Source Display Number */
+            source_display_number: string;
+            /**
+             * Review Status
+             * @enum {string}
+             */
+            review_status: "CONFIRMED" | "SUSPECT" | "AMBIGUOUS" | "UNRESOLVED";
+            /** Answer Provenance */
+            answer_provenance: string;
+            explanation: components["schemas"]["SourceExplanation"];
+        };
+        /** SourceVocabularyGroup */
+        SourceVocabularyGroup: {
+            /** Title */
+            title: string;
+            /** Source Heading */
+            source_heading?: string | null;
+            /** Editorial Heading En */
+            editorial_heading_en?: string | null;
+            /** Editorial Note Vi */
+            editorial_note_vi?: string | null;
+            /** Source Layout Note Vi */
+            source_layout_note_vi?: string | null;
+            /** Terms */
+            terms?: components["schemas"]["SourceVocabularyTerm"][];
+        };
+        /** SourceVocabularyTerm */
+        SourceVocabularyTerm: {
+            /** Term */
+            term: string;
+            /** Related Terms */
+            related_terms?: string[];
+            /** Meaning Vi */
+            meaning_vi?: string | null;
+            /**
+             * Editorial
+             * @default false
+             */
+            editorial: boolean;
+            /** Source Pdf Page */
+            source_pdf_page?: number | null;
+            /** Source Line Index 1 Based */
+            source_line_index_1_based?: number | null;
+        };
         /** SpeakingAssessmentBody */
         SpeakingAssessmentBody: {
             /** Bands */
@@ -17859,6 +20048,12 @@ export interface components {
              * @default run
              */
             kind: string;
+            /** Grammar Revision */
+            grammar_revision?: string | null;
+            /** Admission Kind */
+            admission_kind?: ("run" | "review") | null;
+            /** Text Match Policy */
+            text_match_policy?: "qid-exact-v1" | null;
         };
         /** StartSessionRequest */
         StartSessionRequest: {
@@ -17872,6 +20067,8 @@ export interface components {
         StatusBody: {
             /** Status */
             status: string;
+            /** Expected Revision */
+            expected_revision?: number | null;
         };
         /** StatusIn */
         StatusIn: {
@@ -18190,6 +20387,9 @@ export interface components {
         VisibilityBody: {
             /** Is Public */
             is_public: boolean;
+            /** Expected Revision */
+            expected_revision?: number | null;
+            overlap?: components["schemas"]["PublicOverlapDecision"] | null;
         };
         /** VocabFPReportRequest */
         VocabFPReportRequest: {
@@ -18574,6 +20774,10 @@ export interface components {
         _ListeningAttemptStartRequest: {
             /** Renderer Affinity Protocol */
             renderer_affinity_protocol?: "claim-v1" | null;
+            /** Purpose */
+            purpose?: ("practice" | "assigned_practice" | "mock_delivery") | null;
+            /** Mock Sitting Id */
+            mock_sitting_id?: string | null;
         };
         /** _ReadingAttemptRendererAffinityRequest */
         _ReadingAttemptRendererAffinityRequest: {
@@ -18594,6 +20798,10 @@ export interface components {
         _ReadingAttemptStartRequest: {
             /** Renderer Affinity Protocol */
             renderer_affinity_protocol?: "claim-v1" | null;
+            /** Purpose */
+            purpose?: ("practice" | "assigned_practice" | "mock_delivery") | null;
+            /** Mock Sitting Id */
+            mock_sitting_id?: string | null;
         };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {
@@ -18640,6 +20848,10 @@ export interface components {
             grading_status?: string | null;
             /** Stt Status */
             stt_status?: string | null;
+            /** Submission Id */
+            submission_id?: string | null;
+            /** Submission Revision */
+            submission_revision?: string | null;
             /** Persisted At */
             persisted_at?: string | null;
             /** Duration Seconds */
@@ -21551,7 +23763,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarArticleDocument"];
                 };
             };
             /** @description Validation Error */
@@ -31410,6 +33622,7 @@ export interface operations {
             query?: {
                 class_item?: string | null;
                 attempt_id?: string | null;
+                sitting_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -31495,7 +33708,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationGrade"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dictation_grading_capabilities_api_listening_tests_dictation_capabilities_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationCapabilities"];
                 };
             };
             /** @description Validation Error */
@@ -31530,16 +33774,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationResumeResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -31569,16 +33831,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationAttemptStartResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -31644,16 +33924,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationSentenceGrade"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -31679,16 +33977,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationSessionResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -31712,16 +34028,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationSessionResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -31745,16 +34079,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationStoredSessionResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -32205,6 +34557,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListeningAttemptReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_collection_api_listening_source_collections_80_days_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningSourceCollectionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_day_api_listening_source_collections_80_days_days__day_number__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                day_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningSourceDayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_source_study_api_listening_source_collections_80_days_days__day_number__study_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                day_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListeningSourceStudyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningSourceStudyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33480,7 +35933,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminDictationReportListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33490,6 +35943,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -33514,7 +35976,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DictationAggregateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33524,6 +35986,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -33547,7 +36018,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminDictationReportDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33557,6 +36028,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationPolicyErrorResponse"];
                 };
             };
         };
@@ -33585,7 +36065,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminListeningAttemptListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33618,7 +36098,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminListeningAttemptDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33628,6 +36108,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reading_grammar_focus_admin_reading_content_passages__slug__grammar_focus_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_reading_grammar_focus_admin_reading_content_passages__slug__grammar_focus_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadingGrammarFocusEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusEditResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingGrammarFocusErrorResponse"];
                 };
             };
         };
@@ -34554,6 +37158,194 @@ export interface operations {
             };
         };
     };
+    read_grammar_revision_admin_quiz_grammar_revisions__canonical_code__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                canonical_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionRead"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_grammar_revision_admin_quiz_grammar_revisions__canonical_code__preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                canonical_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrammarRevisionPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionPreview"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+        };
+    };
+    commit_grammar_revision_admin_quiz_grammar_revisions__canonical_code__commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                canonical_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrammarRevisionCommitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionCommitResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarRevisionErrorResponse"];
+                };
+            };
+        };
+    };
     import_bank_admin_quiz_import_post: {
         parameters: {
             query?: {
@@ -35023,7 +37815,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizBankPlayResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35229,7 +38021,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizSessionStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35544,7 +38336,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizSessionProgressResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35581,7 +38373,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizSessionEndResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35950,6 +38742,7 @@ export interface operations {
         parameters: {
             query?: {
                 class_item?: string | null;
+                sitting_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -36245,6 +39038,7 @@ export interface operations {
         parameters: {
             query?: {
                 class_item?: string | null;
+                sitting_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -36334,6 +39128,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_reading_review_flags_api_reading_test_attempts__attempt_id__review_flags_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewFlagPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagWriteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_listening_review_flags_api_listening_tests_attempts__attempt_id__review_flags_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewFlagPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewFlagWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37277,7 +40213,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PaperPolicyReceipt"];
                 };
             };
             /** @description Validation Error */
@@ -37315,7 +40251,79 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PaperPolicyReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_paper_policy_admin_exam_content__kind___content_id__policy_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: "reading" | "listening";
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperPolicyInspection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_paper_policy_admin_exam_content__kind___content_id__policy_restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: "reading" | "listening";
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestorePolicyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperPolicyReceipt"];
                 };
             };
             /** @description Validation Error */

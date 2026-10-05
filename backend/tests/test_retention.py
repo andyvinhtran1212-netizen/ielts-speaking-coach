@@ -274,6 +274,8 @@ def test_sealed_session_exposes_receipts_without_grading_payload(monkeypatch):
         "id": "resp-1",
         "question_id": "q-1",
         "persisted_at": "2026-08-11T00:20:00+00:00",
+        "submission_id": None,
+        "submission_revision": sessions_module.submission_revision(responses[0]),
     }]
     assert out["response_lookup_failed"] is False
     assert out["results_sealed"] is True

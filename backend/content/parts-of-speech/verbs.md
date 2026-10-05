@@ -27,7 +27,7 @@ related_pages:
 compare_with: []
 order: 2
 status: complete
-last_updated: 2026-04-23
+last_updated: 2026-09-30
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -79,7 +79,7 @@ Diễn tả hành động cụ thể, có thể nhìn thấy hoặc thực hiệ
 
 ### 2. Stative Verbs — Động từ trạng thái
 
-Diễn tả trạng thái tâm lý, cảm xúc, nhận thức, sở hữu — **không dùng với thì tiếp diễn (-ing)**:
+Diễn tả trạng thái tâm lý, cảm xúc, nhận thức, sở hữu — **thường dùng thì đơn khi nói trạng thái nói chung**:
 
 **Nhóm stative verbs phổ biến:**
 
@@ -92,7 +92,7 @@ Diễn tả trạng thái tâm lý, cảm xúc, nhận thức, sở hữu — **
 | Đo lường | cost, weigh, contain, include |
 
 - I **love** this city. ✅
-- I am loving this city. ❌ (ngoại trừ marketing slang)
+- I'm **loving** this city! ✅ (có thể nhấn mạnh trải nghiệm hiện tại trong lời nói thân mật)
 - She **knows** the answer. ✅
 - She is knowing the answer. ❌
 
@@ -101,6 +101,8 @@ Diễn tả trạng thái tâm lý, cảm xúc, nhận thức, sở hữu — **
 > - I **am having** a meeting. (action = đang thực hiện)
 > - This soup **tastes** great. (stative)
 > - I **am tasting** the soup to see if it's ready. (action)
+
+> Quy tắc cho stative verbs là "thường tránh tiếp diễn", không phải "mọi dạng -ing đều sai". Hãy xét nghĩa, thời điểm và sắc thái của cả câu.
 
 ### 3. Linking Verbs — Động từ nối
 
@@ -143,14 +145,14 @@ Câu hỏi thực tế nhất khi dùng verb trong câu: *"Tôi có dùng -ing �
 
 ### Kiểm tra nhanh:
 
-> Thử đặt câu với **am/is/are + verb-ing**. Nếu nghĩa trở nên vô lý hoặc câu không có hành động đang xảy ra — đây là stative verb, không dùng -ing.
+> Trước hết xác định nghĩa trong câu: đang nói trạng thái nói chung hay một hoạt động/trải nghiệm hiện tại? Stative verbs thường dùng thì đơn, nhưng phép thử với **am/is/are + verb-ing** không phải quy tắc tuyệt đối để kết luận câu sai.
 
 - "I **am running**." → đang chạy, có nghĩa → action ✅
 - "I **am knowing** the answer." → vô lý → stative, dùng "I **know**" ✅
 
 ### Động từ vừa là stative vừa là action (tùy nghĩa):
 
-| Động từ | Nghĩa stative (không dùng -ing) | Nghĩa action (dùng -ing được) |
+| Động từ | Nghĩa stative (thường dùng thì đơn) | Nghĩa action (dùng -ing được) |
 |---------|--------------------------------|------------------------------|
 | **have** | I **have** a car. *(sở hữu)* | I **am having** lunch. *(đang ăn)* |
 | **think** | I **think** it's right. *(ý kiến)* | I **am thinking** about it. *(đang suy nghĩ)* |
@@ -158,7 +160,7 @@ Câu hỏi thực tế nhất khi dùng verb trong câu: *"Tôi có dùng -ing �
 | **taste** | This **tastes** great. *(cảm nhận)* | I **am tasting** the sauce. *(đang nếm)* |
 | **look** | She **looks** tired. *(linking verb)* | She **is looking** at me. *(đang nhìn)* |
 
-> **Nguyên tắc chốt:** Nếu động từ mô tả **trạng thái** (sở hữu, cảm xúc, nhận thức) → không dùng -ing. Nếu mô tả **hành động đang diễn ra** → dùng -ing được.
+> **Nguyên tắc chốt:** Khi mô tả **trạng thái nói chung** (sở hữu, cảm xúc, nhận thức), thường dùng thì đơn. Khi mô tả **hành động đang diễn ra**, có thể dùng tiếp diễn. Một số động từ cảm xúc như love cũng có dạng tiếp diễn để nhấn mạnh trải nghiệm hiện tại, nhất là trong lời nói thân mật.
 
 ### Khi nào dùng linking verb thay vì action verb?
 
@@ -218,8 +220,8 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 
 - ❌ I am knowing you are right.
 - ✅ I **know** you are right.
-- ❌ She is wanting to learn English.
-- ✅ She **wants** to learn English.
+- **Mong muốn hiện tại, cách nói thông thường:** She **wants** to learn English.
+- **Nhấn mạnh mong muốn gần đây:** She's **been wanting** to learn English lately. Câu này có thể phù hợp; không xem mọi dạng "wanting" là sai.
 
 ### Lỗi 3: Nhầm past simple và past participle
 
@@ -281,7 +283,7 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 ## Tóm tắt nhanh
 
 - **Action verbs:** hành động → dùng được ở mọi thì
-- **Stative verbs:** trạng thái → KHÔNG dùng với -ing
+- **Stative verbs:** trạng thái → thường dùng thì đơn; xét nghĩa và ngữ cảnh trước khi chọn -ing
 - **Linking verbs:** nối Subject + Adjective (không phải Adverb!)
 - **Auxiliary verbs:** be/have/do → hỗ trợ tạo thì
 - **Modal verbs:** can/should/must... → khả năng, nghĩa vụ

@@ -222,7 +222,8 @@ def test_reading_detail_and_share_are_gated():
     # the shared gate exists and the detail builder calls it
     assert "def _assert_exam_content_allowed(" in src
     body = src[src.index("def _build_reading_test_detail("):]
-    assert "_assert_exam_content_allowed(test, user_id, class_item)" in body[:700]
+    assert "_assert_exam_content_allowed(test, user_id, class_item, sitting_id=sitting_id)" in body[:900]
+    assert body.index("_assert_exam_content_allowed(") < body.index("_require_test_unlocked(")
     # …and the anonymous share route refuses outright: no user, no sitting, so
     # there is nothing that could entitle it
     share = src[src.index("async def boot_shared_reading_test("):]
@@ -251,50 +252,91 @@ def test_listening_detail_dictation_and_attempt_start_are_gated():
         assert "_assert_listening_exam_content_allowed(" in seg, f"{fn} not gated"
 
 
-def test_hidden_listening_canonical_flag_beats_legacy_public_practice(monkeypatch):
-    """Migration 258 preserves public_practice_enabled on dual-use rows, but an
-    explicit admin hide must close ordinary detail and attempt-start access."""
-    from routers import listening
-    from services import mock_correction_service, mock_exam_service
+class _PaperAccessDB:
+    """Return a purpose-bound receipt only from seeded paper/owner joins."""
+    def __init__(self, *, entitlement=None):
+        self.paper = {"id": "lt1", "status": "published", "exam_only": True,
+                      "is_public": False, "public_practice_enabled": True}
+        self.items = ([{"id": "class-item-1", "user_id": "user-1", "test_id": "lt1"}]
+                      if entitlement == "class" else [])
+        self.exam = {"id": "e1", "status": "published", "active_section": "listening",
+                     "listening_test_id": "lt1"}
+        self.sittings = ([{"id": "s1", "user_id": "user-1", "mock_exam_id": "e1",
+                          "listening_attempt_id": "a1", "status": "lrw_in_progress"}]
+                         if entitlement == "mock" else [])
+        self.attempts = ([{"id": "a1", "user_id": "user-1", "test_id": "lt1",
+                          "sitting_id": "s1", "attempt_purpose": "mock_delivery"}]
+                         if entitlement == "mock" else [])
+        self.calls = []
 
-    monkeypatch.setattr(
-        mock_correction_service, "class_item_entitles_exam_only",
-        lambda *_a, **_k: False,
-    )
-    monkeypatch.setattr(
-        mock_exam_service, "user_may_open_exam_content",
-        lambda *_a, **_k: False,
-    )
+    def rpc(self, name, params):
+        assert name == "fn_resolve_mock_paper_access"
+        self.calls.append(params)
+        assert params["p_skill"] == "listening"
+        paper_matches = (params["p_test_id"] == self.paper["id"]
+                         and self.paper["status"] == "published")
+        assigned = any(item["id"] == params["p_class_item_id"]
+                       and item["user_id"] == params["p_user_id"]
+                       and item["test_id"] == params["p_test_id"] for item in self.items)
+        bound = next((sitting for sitting in self.sittings
+                      if sitting["id"] == params["p_sitting_id"]
+                      and sitting["user_id"] == params["p_user_id"]
+                      and sitting["mock_exam_id"] == self.exam["id"]
+                      and sitting["status"] != "void"
+                      and self.exam["status"] == "published"
+                      and self.exam["active_section"] == "listening"
+                      and self.exam["listening_test_id"] == params["p_test_id"]
+                      and any(attempt["id"] == sitting["listening_attempt_id"]
+                              and attempt["user_id"] == sitting["user_id"]
+                              and attempt["test_id"] == params["p_test_id"]
+                              and attempt["sitting_id"] == sitting["id"]
+                              and attempt["attempt_purpose"] == "mock_delivery"
+                              for attempt in self.attempts)), None)
+        allowed = paper_matches and (assigned or bound is not None) and params["p_purpose"] == "delivery"
+        receipt = {"allowed": bool(allowed),
+                   "attempt_purpose": ("mock_delivery" if bound else "assigned_practice") if allowed else None,
+                   "paper_revision": 1, "policy_revision": 1}
+        if allowed and bound:
+            receipt.update(mock_sitting_id=bound["id"], attempt_id=bound["listening_attempt_id"])
+        return type("RPC", (), {"execute": lambda _self: _Resp(receipt)})()
+
+
+def test_hidden_listening_canonical_flag_beats_legacy_public_practice(monkeypatch):
+    """A preserved legacy public-practice flag cannot grant a hidden paper."""
+    from routers import listening
+    db = _PaperAccessDB()
+    monkeypatch.setattr(listening, "supabase_admin", db)
     with pytest.raises(HTTPException) as exc:
-        listening._assert_listening_exam_content_allowed({
-            "id": "lt1",
-            "exam_only": True,
-            "is_public": False,
-            "public_practice_enabled": True,
-        }, "user-1")
+        listening._assert_listening_exam_content_allowed(db.paper, "user-1")
     assert exc.value.status_code == 404
+    assert db.calls[0]["p_sitting_id"] is None
 
 
 @pytest.mark.parametrize("entitlement", ["class", "mock"])
 def test_hidden_listening_still_allows_explicit_entitlements(monkeypatch, entitlement):
-    """Hiding from the web must not break assigned class work or mock sittings."""
+    """Only the canonical owned assignment or bound sitting grants delivery."""
     from routers import listening
-    from services import mock_correction_service, mock_exam_service
+    db = _PaperAccessDB(entitlement=entitlement)
+    monkeypatch.setattr(listening, "supabase_admin", db)
+    kwargs = {"sitting_id": "s1"} if entitlement == "mock" else {}
+    decision = listening._assert_listening_exam_content_allowed(
+        db.paper, "user-1", "class-item-1" if entitlement == "class" else None, **kwargs)
+    assert decision["attempt_purpose"] == ("mock_delivery" if entitlement == "mock" else "assigned_practice")
+    if entitlement == "mock":
+        assert decision["attempt_id"] == "a1" and decision["mock_sitting_id"] == "s1"
 
-    monkeypatch.setattr(
-        mock_correction_service, "class_item_entitles_exam_only",
-        lambda *_a, **_k: entitlement == "class",
-    )
-    monkeypatch.setattr(
-        mock_exam_service, "user_may_open_exam_content",
-        lambda *_a, **_k: entitlement == "mock",
-    )
-    listening._assert_listening_exam_content_allowed({
-        "id": "lt1",
-        "exam_only": True,
-        "is_public": False,
-        "public_practice_enabled": True,
-    }, "user-1", "class-item-1")
+
+@pytest.mark.parametrize("entitlement", ["class", "mock"])
+@pytest.mark.parametrize("purpose,user", [("dictation", "user-1"), ("delivery", "other-owner")])
+def test_delivery_entitlement_does_not_grant_transcript_or_another_owner(monkeypatch, entitlement, purpose, user):
+    from routers import listening
+    db = _PaperAccessDB(entitlement=entitlement)
+    monkeypatch.setattr(listening, "supabase_admin", db)
+    with pytest.raises(HTTPException) as exc:
+        listening._assert_listening_exam_content_allowed(
+            db.paper, user, "class-item-1" if entitlement == "class" else None,
+            purpose=purpose, sitting_id="s1" if entitlement == "mock" else None)
+    assert exc.value.status_code == 404
 
 
 def test_the_attempt_start_query_actually_selects_the_flag():
@@ -384,6 +426,7 @@ class _RecordingDB:
         self.updates = []
         self._pending = None
         self._inserted_row = None
+        self.rpc_calls = []
 
     def table(self, name):
         self._pending = name
@@ -394,12 +437,11 @@ class _RecordingDB:
         return self
 
     def insert(self, payload):
-        self._payload = payload
-        self._insert = True
-        return self
+        raise AssertionError("mock creation must be one atomic RPC, without a Python insert")
 
     def rpc(self, name, params):
-        assert name == "fn_update_mock_exam_with_explanation_approval"
+        assert name == "fn_create_mock_exam_with_paper_policy"
+        self.rpc_calls.append((name, params))
         self._rpc_params = params
         return self
 
@@ -408,15 +450,11 @@ class _RecordingDB:
         return self
 
     def execute(self):
-        if getattr(self, "_insert", False):
-            self._insert = False
-            self._inserted_row = dict(self._payload, id="e1")
-            return _Resp([self._inserted_row])
         if hasattr(self, "_rpc_params"):
             params = self._rpc_params
             del self._rpc_params
-            assert params["p_exam_id"] == "e1"
-            self._inserted_row.update(params["p_patch"])
+            assert params["p_actor_id"] == "admin"
+            self._inserted_row = dict(params["p_payload"], id="e1", created_by="admin")
             return _Resp(dict(self._inserted_row))
         self.updates.append((self._pending, self._payload, getattr(self, "_eq", None)))
         return _Resp([{"id": "e1"}])
@@ -434,6 +472,11 @@ def test_creating_an_exam_only_auto_reserves_writing_prompts(monkeypatch):
     assert reserved == {
         ("writing_prompts", "wp1"), ("writing_prompts", "wp2"),
     }
+    assert db.rpc_calls == [("fn_create_mock_exam_with_paper_policy", {
+        "p_payload": {"code": "X", "title": "X", "reading_test_id": "rt1",
+                      "listening_test_id": "lt1", "writing_task1_prompt_id": "wp1",
+                      "writing_task2_prompt_id": "wp2"}, "p_actor_id": "admin",
+    })]
 
 
 def test_an_exam_with_no_content_reserves_nothing(monkeypatch):
@@ -448,7 +491,7 @@ def test_reserving_never_breaks_exam_creation(monkeypatch):
     dynamic reserved_test_ids() filter still hides live-exam content meanwhile."""
     class _Broken(_RecordingDB):
         def execute(self):
-            if getattr(self, "_insert", False) or hasattr(self, "_rpc_params"):
+            if hasattr(self, "_rpc_params"):
                 return super().execute()
             raise RuntimeError("postgrest down")
 
@@ -508,7 +551,8 @@ def test_reading_has_a_way_to_set_the_flag_before_assignment():
     seg = src[src.index("async def admin_set_reading_exam_only("):]
     seg = seg[:seg.index("\n@")]
     assert "require_admin(authorization)" in seg
-    assert '.update({"exam_only": value})' in seg
+    assert 'mutate(supabase_admin, "reading", rows[0]["id"], {"exam_only": value}, actor["id"]' in seg
+    assert 'expected_revision=body.get("expected_revision")' in seg
     assert "404" in seg
 
 
@@ -534,7 +578,8 @@ def test_starting_a_reading_attempt_is_gated():
     src = _src("routers/reading_student.py")
     seg = src[src.index("async def start_reading_test_attempt("):]
     seg = seg[:seg.index("\n@")]
-    assert '_assert_exam_content_allowed(test, user["id"], class_item)' in seg
+    assert '_assert_exam_content_allowed(test, user["id"], class_item,' in seg
+    assert "allow_admission=True" in seg
     # …and BEFORE anything is written, not after
     assert seg.index("_assert_exam_content_allowed") < seg.index(".insert(")
 
@@ -677,40 +722,46 @@ def test_an_unknown_kind_is_a_programming_error_not_a_pass(exams_db):
 
 
 def test_all_three_endpoints_enforce_it_not_just_one():
-    """The rule lives at the source. A guard on one route is a guard the other
-    two routes route around."""
-    for rel, marker in (
-        ("routers/admin_reading.py", 'assert_can_unreserve("reading"'),
-        ("routers/listening.py", 'assert_can_unreserve("listening"'),
-        ("routers/admin_writing_prompts.py", 'assert_can_unreserve("writing"'),
-    ):
-        src = _src(rel)
-        assert marker in src, rel
-        assert "HTTPException(409" in src, f"{rel} must surface the refusal as 409"
+    """Reading/Listening mutations use the atomic guard; Writing keeps its gate."""
+    reading = _src("routers/admin_reading.py")
+    assert 'mutate(supabase_admin, "reading"' in reading
+    listening = _src("routers/listening.py")
+    segment = listening[listening.index("async def admin_patch_listening_test("):]
+    segment = segment[:segment.index("\n@")]
+    assert 'mutate(supabase_admin, "listening"' in segment
+    writing = _src("routers/admin_writing_prompts.py")
+    assert 'assert_can_unreserve("writing"' in writing
+    assert "HTTPException(409" in writing
 
 
-def test_turning_the_flag_ON_is_never_blocked():
-    """Reserving a paper is always safe — only releasing one can hurt."""
-    FALSE_GUARDS = ("if not value:", "if not body.exam_only:",
-                    'if patch.get("exam_only") is False:')
-    for rel in ("routers/admin_reading.py", "routers/listening.py",
-                "routers/admin_writing_prompts.py"):
-        lines = _src(rel).splitlines()
-        call = next(i for i, l in enumerate(lines) if "assert_can_unreserve(" in l)
-        # Walk BACK to the nearest line that is less indented than the call and
-        # opens an `if` — that is the branch the call actually sits in. A
-        # fixed-size text window guesses; this reads the structure, and the
-        # reading route has a whole lookup block between guard and call.
-        depth = len(lines[call]) - len(lines[call].lstrip())
-        guard = None
-        for i in range(call - 1, -1, -1):
-            l = lines[i]
-            if not l.strip():
-                continue
-            ind = len(l) - len(l.lstrip())
-            if ind < depth and l.lstrip().startswith("if "):
-                guard = l.strip()
-                break
-            if ind < depth:
-                depth = ind
-        assert guard in FALSE_GUARDS, f"{rel}: guarded by {guard!r}, not a false-check"
+def test_both_paper_flag_directions_use_the_atomic_policy_guard():
+    """Even hiding can conflict with active/frozen attempts; never bypass CAS."""
+    reading = _src("routers/admin_reading.py")
+    segment = reading[reading.index("async def admin_set_reading_exam_only("):]
+    segment = segment[:segment.index("\n@")]
+    assert 'mutate(supabase_admin, "reading"' in segment
+    assert 'if not value:' not in segment
+    listening = _src("routers/listening.py")
+    segment = listening[listening.index("async def admin_patch_listening_test("):]
+    segment = segment[:segment.index("\n@")]
+    assert 'mutate(supabase_admin, "listening"' in segment
+    assert 'if not body.exam_only:' not in segment
+
+
+def test_writing_reserve_still_checks_only_the_release_direction():
+    """The unchanged Writing legacy gate must not prevent staging a prompt."""
+    lines = _src("routers/admin_writing_prompts.py").splitlines()
+    call = next(i for i, line in enumerate(lines) if "assert_can_unreserve(" in line)
+    depth = len(lines[call]) - len(lines[call].lstrip())
+    guard = None
+    for i in range(call - 1, -1, -1):
+        line = lines[i]
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent < depth and line.lstrip().startswith("if "):
+            guard = line.strip()
+            break
+        if indent < depth:
+            depth = indent
+    assert guard == 'if patch.get("exam_only") is False:'

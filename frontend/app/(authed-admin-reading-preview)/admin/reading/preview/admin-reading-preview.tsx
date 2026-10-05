@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { adminReadingPreviewReturnHref } from '@/lib/admin-reading-navigation.mjs';
+
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, messageOf } from '@/components/admin-directory-ui';
 import {
@@ -13,8 +15,9 @@ import {
 
 type Option = { label: string; text: string };
 type ImagePrompt = { id: string | null; type: string | null; qrange: string | null; prompt: string };
+type SolutionSection = { key: string; label: string; values: string[] };
 type Passage = { id: string; order: number; slug: string; title: string; bodyMarkdown: string; wordCount: number | null; estimatedMinutes: number | null; topicTags: string[]; status: string | null; imagePrompts: ImagePrompt[] };
-type Question = { id: string | null; qNum: number; passageId: string; passageOrder: number | null; type: string; prompt: string; skillTag: string | null; subSkill: string | null; options: Option[]; imageUrl: string | null; template: { summaryText: string | null; imageStoragePath: string | null; imageSource: string | null; choose: number | null; paragraphLabels: string[]; extras: Record<string, unknown> }; answers: string[]; alternatives: string[]; explanation: string | null };
+type Question = { id: string | null; qNum: number; passageId: string; passageOrder: number | null; type: string; prompt: string; skillTag: string | null; subSkill: string | null; options: Option[]; imageUrl: string | null; template: { summaryText: string | null; imageStoragePath: string | null; imageSource: string | null; choose: number | null; paragraphLabels: string[]; extras: Record<string, unknown> }; answers: string[]; alternatives: string[]; explanation: string | null; solutionSections: SolutionSection[]; instruction: string | null; wordLimit: string | null };
 type Test = { id: string | null; testId: string; title: string; module: string | null; status: string | null; timeLimitMinutes: number | null; passageCount: number; totalQuestions: number; bandTarget: number | null; passages: Passage[]; questions: Question[] };
 type Snapshot = { key: string; test: Test; issues: string[]; readAt: string };
 type Banner = { kind: 'success' | 'warning' | 'error' | 'info'; title: string; detail: string };
@@ -49,6 +52,17 @@ function TemplateInspector({ question }: { question: Question }) {
   return <div className="arp-template"><strong>Template đã parse</strong>{template.summaryText && <pre>{template.summaryText}</pre>}<dl>{template.choose != null && <div><dt>Choose</dt><dd>{template.choose}</dd></div>}{template.paragraphLabels.length > 0 && <div><dt>Paragraph labels</dt><dd>{template.paragraphLabels.join(', ')}</dd></div>}{template.imageStoragePath && <div><dt>Image path</dt><dd><code>{template.imageStoragePath}</code></dd></div>}{Object.keys(template.extras).length > 0 && <div><dt>Extras</dt><dd><code>{JSON.stringify(template.extras)}</code></dd></div>}</dl></div>;
 }
 
+function SolutionInspector({ question }: { question: Question }) {
+  if (!question.explanation && !question.solutionSections.length) return <span className="arp-muted">Chưa có lời giải</span>;
+  return <div className="arp-solution">
+    {question.explanation && <p>{question.explanation}</p>}
+    {question.solutionSections.map((section) => <section key={section.key} aria-label={section.label}>
+      <strong>{section.label}</strong>
+      {section.values.length === 1 ? <p>{section.values[0]}</p> : <ul>{section.values.map((value, index) => <li key={index}>{value}</li>)}</ul>}
+    </section>)}
+  </div>;
+}
+
 function QuestionCard({ question, passageQuestions, index, passage, busy, onUpload, onDelete }: { question: Question; passageQuestions: Question[]; index: number; passage: Passage; busy: boolean; onUpload(question: Question, file: File): void; onDelete(question: Question): void }) {
   const role = diagramRole(passageQuestions, index) as { lead: boolean; leadQNum: number } | null;
   const prompt = role?.lead ? imagePromptForQuestion(passage, question.qNum) as ImagePrompt | null : null;
@@ -63,6 +77,10 @@ function QuestionCard({ question, passageQuestions, index, passage, busy, onUplo
   return <article className="arp-question" id={`q${question.qNum}`} data-question={question.qNum}>
     <header className="arp-question__head"><span className="arp-qnum">Q{question.qNum}</span><div><strong>{questionLabels[question.type] || question.type}</strong><code>{question.type}</code></div>{question.skillTag && <span className="arp-skill">{question.skillTag}</span>}</header>
     <div className="arp-question__body"><p className="arp-prompt">{question.prompt || <em>Không có prompt</em>}</p>
+      {(question.instruction || question.wordLimit) && <dl className="arp-rubric">
+        {question.instruction && <div><dt>Hướng dẫn</dt><dd>{question.instruction}</dd></div>}
+        {question.wordLimit && <div><dt>Giới hạn trả lời</dt><dd>{question.wordLimit}</dd></div>}
+      </dl>}
       {question.options.length > 0 && <ol className="arp-options">{question.options.map((option, optionIndex) => <li key={`${option.label}-${optionIndex}`}><strong>{option.label}</strong><span>{option.text}</span></li>)}</ol>}
       <TemplateInspector question={question}/>
       {role && !role.lead && <p className="arp-shared-image">Dùng chung ảnh sơ đồ với Q{role.leadQNum}; quản lý ảnh ở câu đầu block.</p>}
@@ -71,13 +89,14 @@ function QuestionCard({ question, passageQuestions, index, passage, busy, onUplo
         {prompt && <details className="arp-imgprompt"><summary>Prompt tạo ảnh được trích từ file</summary><div><code>{[prompt.id, prompt.type, prompt.qrange && `Q${prompt.qrange}`].filter(Boolean).join(' · ')}</code><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void copyPrompt()}>Copy prompt</button></div><pre id={`arp-imgprompt-${question.qNum}`}>{prompt.prompt}</pre></details>}
       </section>}
     </div>
-    <dl className="arp-keys"><div><dt>Đáp án canonical</dt><dd><AnswerList values={question.answers} empty="Thiếu đáp án"/></dd></div><div><dt>Đáp án thay thế</dt><dd><AnswerList values={question.alternatives} empty="Không có"/></dd></div><div className="is-wide"><dt>Lời giải</dt><dd>{question.explanation || <span className="arp-muted">Chưa có lời giải</span>}</dd></div></dl>
+    <dl className="arp-keys"><div><dt>Đáp án canonical</dt><dd><AnswerList values={question.answers} empty="Thiếu đáp án"/></dd></div><div><dt>Đáp án thay thế</dt><dd><AnswerList values={question.alternatives} empty="Không có"/></dd></div><div className="is-wide"><dt>Lời giải</dt><dd><SolutionInspector question={question}/></dd></div></dl>
   </article>;
 }
 
 export function AdminReadingPreview() {
   const profile = useAdminProfile(); const params = useSearchParams(); const testId = (params?.get('test_id') || '').trim(); const key = `${profile.id}:${testId}`;
   const scope = useRef(key); const sequence = useRef(0); const [snapshot, setSnapshot] = useState<Snapshot | null>(null); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState<string | null>(null); const [banner, setBanner] = useState<Banner | null>(null); const [activePassage, setActivePassage] = useState<string | null>(null); const [busyQuestion, setBusyQuestion] = useState<string | null>(null); const [deleteAction, setDeleteAction] = useState<DeleteAction>(null);
+  const returnHref = adminReadingPreviewReturnHref(params || undefined);
   const current = snapshot?.key === key ? snapshot : null; const test = current?.test || null; const passage = test?.passages.find((item) => item.id === activePassage) || test?.passages[0] || null;
   const passageQuestions = useMemo(() => passage && test ? questionsByPassage(test, passage.id) as Question[] : [], [passage, test]);
 
@@ -159,9 +178,9 @@ export function AdminReadingPreview() {
     } finally { if (scope.current === owner) setBusyQuestion(null); }
   };
 
-  if (!testId) return <main className="arp-shell"><div className="arp-state is-error" role="alert"><strong>Không có đề để xem trước</strong><p>URL cần tham số <code>test_id</code>. Hãy quay lại thư viện và chọn “Xem trước”.</p><a className="adm-btn-primary" href="/admin/reading/content">Về thư viện Reading</a></div></main>;
+  if (!testId) return <main className="arp-shell"><div className="arp-state is-error" role="alert"><strong>Không có đề để xem trước</strong><p>URL cần tham số <code>test_id</code>. Hãy quay lại thư viện và chọn “Xem trước”.</p><a className="adm-btn-primary" href={returnHref}>Về thư viện Reading</a></div></main>;
   return <main className="arp-shell">
-    <header className="arp-hero"><div><p className="arp-eyebrow">Reading · Paper QA</p><h1>{test?.title || 'Kiểm định đề Reading'}</h1><p>{test ? `${test.testId} · ${test.module || 'module chưa đặt'}` : `Đang đọc ${testId}`}</p></div><div className="arp-hero__actions"><a className="adm-btn-primary" href="/admin/reading/content">Về thư viện</a></div></header>
+    <header className="arp-hero"><div><p className="arp-eyebrow">Reading · Paper QA</p><h1>{test?.title || 'Kiểm định đề Reading'}</h1><p>{test ? `${test.testId} · ${test.module || 'module chưa đặt'}` : `Đang đọc ${testId}`}</p></div><div className="arp-hero__actions"><a className="adm-btn-primary" href={returnHref}>Về thư viện</a></div></header>
     <div className="arp-mode-note"><strong>Chế độ kiểm định admin</strong><span>Đáp án, alternatives và lời giải được mở để rà nội dung. Đây không phải mô phỏng lượt làm của học viên.</span></div>
     {banner && <div className={`arp-banner is-${banner.kind}`} role={banner.kind === 'error' ? 'alert' : 'status'}><div><strong>{banner.title}</strong><span>{banner.detail}</span></div><button type="button" aria-label="Đóng thông báo" onClick={() => setBanner(null)}>×</button></div>}
     {loadError && <div className="arp-banner is-error" role="alert"><div><strong>{current ? 'Đang giữ snapshot cũ' : 'Không tải được đề'}</strong><span>{loadError}{current ? ` · đọc lúc ${timeText(current.readAt)}` : ''}</span></div><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void load()} disabled={loading}>Thử lại</button></div>}

@@ -20,12 +20,15 @@ from __future__ import annotations
 
 import logging
 from uuid import UUID
+from typing import Literal
 
 from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel, Field
 
 from routers.auth import get_supabase_user
 from services import quiz_service
+from models.grammar_quiz_revisions import (Sha256,TextMatchPolicy,QuizBankPlayResponse,QuizSessionStartResponse,
+    QuizSessionProgressResponse,QuizSessionEndResponse)
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,9 @@ class StartSessionBody(BaseModel):
     class_item: str | None = None
     # 'retake' = phiên kiểm tra lại của cổng thuộc-bài (chỉ bank giáo trình).
     kind: str = "run"
+    grammar_revision: Sha256 | None = None
+    admission_kind: Literal['run','review'] | None = None
+    text_match_policy: TextMatchPolicy | None = None
 
 
 class CourseVerdictBody(BaseModel):
@@ -110,7 +116,7 @@ async def my_mistakes(
     return quiz_service.student_mistakes(user["id"], skill_area=skill_area)
 
 
-@router.get("/banks/{bank_id}")
+@router.get("/banks/{bank_id}",response_model=QuizBankPlayResponse,response_model_exclude_unset=True)
 async def get_bank(
     bank_id: UUID, class_item: str | None = None,
     authorization: str | None = Header(None),
@@ -173,12 +179,14 @@ async def reset_progress(bank_id: UUID, authorization: str | None = Header(None)
     return quiz_service.reset_progress(user_id=user["id"], bank_id=str(bank_id))
 
 
-@router.post("/sessions", status_code=201)
+@router.post("/sessions", status_code=201,response_model=QuizSessionStartResponse,response_model_exclude_unset=True)
 async def start_session(body: StartSessionBody, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
     return quiz_service.start_session(
         user_id=user["id"], bank_id=body.bank_id, kind=body.kind,
         assignment_item_id=body.class_item,
+        grammar_revision=body.grammar_revision, admission_kind=body.admission_kind,
+        text_match_policy=body.text_match_policy,
     )
 
 
@@ -309,7 +317,7 @@ async def course_verdict(body: CourseVerdictBody, authorization: str | None = He
     )
 
 
-@router.post("/sessions/{session_id}/progress")
+@router.post("/sessions/{session_id}/progress",response_model=QuizSessionProgressResponse,response_model_exclude_unset=True)
 async def log_progress(
     session_id: UUID, body: ProgressBody, authorization: str | None = Header(None)
 ):
@@ -320,7 +328,7 @@ async def log_progress(
     )
 
 
-@router.patch("/sessions/{session_id}")
+@router.patch("/sessions/{session_id}",response_model=QuizSessionEndResponse,response_model_exclude_unset=True)
 async def end_session(
     session_id: UUID, body: EndSessionBody, authorization: str | None = Header(None)
 ):

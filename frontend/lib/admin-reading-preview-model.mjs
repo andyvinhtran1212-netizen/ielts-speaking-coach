@@ -1,3 +1,5 @@
+import { adminReadingSearch } from './admin-reading-navigation.mjs';
+
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
 const optionalText = (value) => textOf(value) || null;
@@ -55,6 +57,35 @@ function normalizeOptions(value) {
   }).filter(Boolean);
 }
 
+function normalizeSolution(value) {
+  const texts = (raw) => (Array.isArray(raw) ? raw : [raw])
+    .filter((item) => typeof item === 'string' && item.trim());
+  if (typeof value === 'string') return texts(value).length ? [{ key: 'text', label: 'Lời giải authored', values: [value] }] : [];
+  const solution = objectOf(value); if (!solution) return [];
+  const steps = Array.isArray(solution.solution_steps)
+    ? solution.solution_steps.map((step) => textOf(objectOf(step)?.instruction_vi)).filter(Boolean) : [];
+  const distractors = Array.isArray(solution.distractor_analysis)
+    ? solution.distractor_analysis.map((entry) => {
+      const row = objectOf(entry); const why = textOf(row?.why_wrong_vi); const option = textOf(row?.option);
+      return why ? option ? `${option} — ${why}` : why : '';
+    }).filter(Boolean) : [];
+  const fields = [
+    ['question_text', 'Câu hỏi trong lời giải'], ['steps', 'Các bước giải'],
+    ['source_excerpt', 'Trích đoạn nguồn'], ['source_location', 'Vị trí nguồn'],
+    ['source_paragraph', 'Đoạn nguồn'],
+    ['vocab', 'Từ vựng'], ['paraphrase', 'Paraphrase'],
+    ['trap_analysis', 'Phân tích bẫy & kỹ năng'], ['tips', 'Mẹo làm bài'],
+    ['skill_code', 'Mã kỹ năng'], ['skill_name', 'Kỹ năng'],
+  ];
+  const sections = fields.map(([key, label]) => {
+    if (key === 'steps' && steps.length) return { key: 'solution_steps', label, values: steps };
+    if (key === 'trap_analysis' && distractors.length) return { key: 'distractor_analysis', label: 'Phân tích đáp án nhiễu', values: distractors };
+    return { key, label, values: texts(solution[key]) };
+  }).filter((section) => section.values.length);
+  if (typeof solution.band === 'number' && Number.isFinite(solution.band)) sections.push({ key: 'band', label: 'Band', values: [String(solution.band)] });
+  return sections;
+}
+
 function normalizeQuestion(raw, index, passageIds, issues) {
   const value = objectOf(raw); const qNum = integerOf(value?.q_num); const passageId = textOf(value?.passage_id);
   if (!value || qNum == null || qNum < 1 || !passageId || !passageIds.has(passageId)) {
@@ -64,6 +95,8 @@ function normalizeQuestion(raw, index, passageIds, issues) {
   const id = optionalText(value.id);
   if (!id) issues.push(`Question Q${qNum} thiếu id canonical; preview giữ nội dung nhưng khóa quản lý ảnh.`);
   const payload = objectOf(value.payload) || {}; const template = objectOf(payload.template) || {};
+  const paragraphLabels = Array.isArray(payload.paragraph_labels) && payload.paragraph_labels.length
+    ? payload.paragraph_labels : template.paragraph_labels;
   const answer = objectOf(value.answer) || {};
   const rawAnswer = answer.answer;
   const accepted = Array.isArray(rawAnswer) ? rawAnswer.map((item) => String(item)) : rawAnswer == null ? [] : [String(rawAnswer)];
@@ -76,10 +109,12 @@ function normalizeQuestion(raw, index, passageIds, issues) {
     template: {
       summaryText: typeof template.summary_text === 'string' ? template.summary_text : null,
       imageStoragePath: optionalText(template.image_storage_path), imageSource: optionalText(template.image_source),
-      choose: integerOf(template.choose), paragraphLabels: Array.isArray(template.paragraph_labels) ? template.paragraph_labels.map(textOf).filter(Boolean) : [],
+      choose: integerOf(template.choose), paragraphLabels: Array.isArray(paragraphLabels) ? paragraphLabels.map(textOf).filter(Boolean) : [],
       extras: Object.fromEntries(Object.entries(template).filter(([key]) => !['summary_text', 'image_storage_path', 'image_source', 'image_size_bytes', 'image_format', 'image_uploaded_at', 'image_uploaded_by', 'choose', 'paragraph_labels'].includes(key))),
     },
     answers: accepted, alternatives, explanation: optionalText(value.explanation),
+    solutionSections: normalizeSolution(payload.solution),
+    instruction: optionalText(payload.instruction), wordLimit: optionalText(payload.word_limit),
   };
 }
 
@@ -141,8 +176,14 @@ export function normalizeReadingImageDeleteAck(raw, questionId) {
   return value && textOf(value.question_id) === questionId && typeof value.deleted === 'boolean' ? { deleted: value.deleted } : null;
 }
 
-export function readingPreviewHref(testId, questionNumber = null) {
+/** @param {unknown} testId @param {unknown} questionNumber @param {object | null} context */
+export function readingPreviewHref(testId, questionNumber = null, context = null) {
   const qNum = integerOf(questionNumber);
   const anchor = qNum != null && qNum >= 1 ? `#q${qNum}` : '';
-  return `/admin/reading/preview?test_id=${encodeURIComponent(textOf(testId))}${anchor}`;
+  const query = new URLSearchParams({ test_id: textOf(testId) });
+  if (context) {
+    query.set('from', 'reading-content');
+    for (const [key, value] of new URLSearchParams(adminReadingSearch(context))) query.set(key, value);
+  }
+  return `/admin/reading/preview?${query.toString().replace(/\+/g, '%20')}${anchor}`;
 }

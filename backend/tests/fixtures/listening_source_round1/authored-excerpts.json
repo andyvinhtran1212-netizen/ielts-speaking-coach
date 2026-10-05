@@ -1,0 +1,2424 @@
+{
+  "source_artifact_sha256": {
+    "day01": "b80e358cf11fa94f59dada69d355682366753e0b2a7fa79ddf022a14ff975a47",
+    "day02": "53eb05c1aae5497cc49206ff7ad2eacd47d267a697eba44968764d64c75f4de3",
+    "day04_companion": "6242163d25f5c9eb078945a88c7934ac0ea93976455f21cedd8920bac34a61a7"
+  },
+  "day01_item": {
+    "item_id": "80-days:day-01:main:q-01",
+    "day_id": "80-days:day-01",
+    "part_id": "80-days:day-01:part-1",
+    "block_id": "80-days:day-01:part-1:block-1",
+    "exercise_id": "main",
+    "source_question_number": 1,
+    "source_display_number": "1",
+    "response": {
+      "type": "single_choice",
+      "prompt": "Chọn từ/cụm từ nghe được.",
+      "options": [
+        {
+          "id": "A",
+          "label": "A",
+          "text": "Grown",
+          "source_image_label": false
+        },
+        {
+          "id": "B",
+          "label": "B",
+          "text": "Brown",
+          "source_image_label": false
+        },
+        {
+          "id": "C",
+          "label": "C",
+          "text": "Crown",
+          "source_image_label": false
+        },
+        {
+          "id": "D",
+          "label": "D",
+          "text": "Clown",
+          "source_image_label": false
+        }
+      ],
+      "select_count": 1,
+      "word_limit": null
+    },
+    "source_question_ref": {
+      "pdf_pages": [
+        14
+      ],
+      "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+      "number_marker": {
+        "marker_type": "numbered_line",
+        "pdf_page": 14,
+        "line_index_1_based": 7,
+        "text": "1. A. Grown",
+        "bbox": [
+          [
+            116.0,
+            564.6
+          ],
+          [
+            268.6,
+            564.6
+          ],
+          [
+            268.6,
+            595.6
+          ],
+          [
+            116.0,
+            595.6
+          ]
+        ],
+        "visual_correction": false
+      },
+      "marker_semantics": "question_or_blank_number"
+    },
+    "answer_provenance": {
+      "printed_key": {
+        "question": 1,
+        "exercise": null,
+        "answer": "C",
+        "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+        "source_pdf_page": 399,
+        "source_ocr_line_index_1_based": 5,
+        "visual_correction": false,
+        "ocr_parsed_answer": null,
+        "visual_evidence_image": null
+      },
+      "editorial_answer": "C",
+      "editorial_answer_status": "AUTHOR_PROPOSAL_PENDING_INDEPENDENT_REVIEW",
+      "printed_key_replaced": false
+    },
+    "explanation_vi": {
+      "answer": "C",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 249,
+          "line_index_1_based": 6,
+          "quote": "1. Crown",
+          "relation": "supports"
+        }
+      ],
+      "why_vi": "Âm được ghi trong transcript là Crown, trùng lựa chọn C.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "Grown",
+          "reason_vi": "Grown bắt đầu bằng /ɡr/, khác /kr/ của crown."
+        },
+        {
+          "option": "B",
+          "text": "Brown",
+          "reason_vi": "Brown bắt đầu bằng /br/, khác /kr/."
+        },
+        {
+          "option": "D",
+          "text": "Clown",
+          "reason_vi": "Clown có /l/ thay cho /r/ trong cụm đầu."
+        }
+      ],
+      "paraphrase_vi": null,
+      "trap_vi": "Phân biệt cụm phụ âm đầu; grown còn có nguyên âm khác crown.",
+      "format_vi": "Chọn đúng một chữ cái A–D.",
+      "source_answer_warning_vi": null
+    },
+    "author_audit": {
+      "verdict": "CONFIRMED",
+      "confidence": "high",
+      "instruction_check": "PASS",
+      "alternatives_considered": [
+        "Grown bắt đầu bằng /ɡr/, khác /kr/ của crown.",
+        "Brown bắt đầu bằng /br/, khác /kr/.",
+        "Clown có /l/ thay cho /r/ trong cụm đầu."
+      ],
+      "blind_review": false,
+      "key_exposure": "Printed answers were exposed in preceding source-inspection context; source-first derivation is not a blind review."
+    },
+    "independent_review": {
+      "status": "PENDING",
+      "verdict": null
+    },
+    "safe_for_grading": false,
+    "display_mode": "self_review",
+    "source_issue": false
+  },
+  "day02_supplement": {
+    "resource_id": "80-days:day-02:supplement:park-story",
+    "title_vi": "Tư liệu bổ sung · Tham quan công viên",
+    "source_assets": [
+      {
+        "asset_id": "80-days:day-02:asset:supplemental-story",
+        "path": "assets/day-02-supplemental-story.png",
+        "sha256": "318674ed0afe1d57d9681feda04bb26194d628cf3d44c5e18be741001164c887",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_pdf_page": 17,
+        "source_image_path": "page-images/pdf-page-016.jpg",
+        "source_image_sha256": "7e54c71092255781483c11a5d91b98c314bc13853e7b0003a3cb25b828e4b0a7",
+        "source_rect": {
+          "x": 125,
+          "y": 1190,
+          "width": 1170,
+          "height": 571
+        },
+        "image_size": [
+          1170,
+          571
+        ],
+        "alt_vi": "Tư liệu bổ sung tiếng Trung về tham quan công viên; không phải câu hỏi chấm điểm.",
+        "visual_acceptance": {
+          "status": "ACCEPTED_BY_AUTHOR",
+          "answer_leakage": false,
+          "content_complete": true,
+          "requires_zoom_on_mobile": true,
+          "independent_review_status": "PENDING"
+        }
+      }
+    ],
+    "editorial_summary_vi": "Đoạn học thêm nói về mục đích nghiên cứu và giáo dục, ba khu của công viên và cách tham quan. Đây là tư liệu trong trang sách, không có câu hỏi hoặc điểm.",
+    "scored": false
+  },
+  "day04_companion": {
+    "schema_version": "80-days-untimed-transcript/1.0",
+    "day_id": "80-days:day-04",
+    "day": 4,
+    "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+    "source_package_sha256": "42cff7a69d52170137b25f7de11fcadd669c6bfebca88a5c0b69e6743abd464e",
+    "source_day_content_sha256": "88598d25b994affc87b7af2e64ed38b614becf1f990a572cad10c2969256341a",
+    "timing": "UNTIMED_PRINTED_SOURCE",
+    "audio_alignment_verified": false,
+    "parts": [
+      {
+        "part_id": "80-days:day-04:part-1",
+        "source_label": "Part 1",
+        "source_headings": [
+          {
+            "pdf_page": 252,
+            "line_index_1_based": 17,
+            "source_text": "Part 1",
+            "raw_ocr_text": "Part 1",
+            "text": "Part 1",
+            "source_image_path": "page-images/pdf-page-251.jpg",
+            "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+            "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+            "source_bbox": [
+              [
+                138.4,
+                964.1
+              ],
+              [
+                247.2,
+                964.1
+              ],
+              [
+                247.2,
+                1000.3
+              ],
+              [
+                138.4,
+                1000.3
+              ]
+            ],
+            "upstream_review_state": null,
+            "visual_correction": false,
+            "correction_basis": null
+          }
+        ],
+        "paragraphs": [
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-1",
+            "source_label": "1",
+            "source_label_editorial": false,
+            "text": "1. Please tell Jordan to meet me at school.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 18,
+                "source_text": "1. Please tell Jordan to meet me at school.",
+                "raw_ocr_text": "1. Pléase tell Jordan to meet me at school.",
+                "text": "1. Please tell Jordan to meet me at school.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    92.6,
+                    1033.3
+                  ],
+                  [
+                    501.6,
+                    1032.3
+                  ],
+                  [
+                    501.6,
+                    1060.1
+                  ],
+                  [
+                    92.6,
+                    1061.2
+                  ]
+                ],
+                "upstream_review_state": "VISUALLY_CORRECTED",
+                "visual_correction": true,
+                "correction_basis": "Author original-page visual reading; pending independent companion review"
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-2",
+            "source_label": "2",
+            "source_label_editorial": false,
+            "text": "2. Elaine said she would pick us up at 8:00.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 19,
+                "source_text": "2. Elaine said she would pick us up at 8:00.",
+                "raw_ocr_text": "2. Elaine said she would pick us up at 8:00.",
+                "text": "2. Elaine said she would pick us up at 8:00.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    91.6,
+                    1074.6
+                  ],
+                  [
+                    515.8,
+                    1074.6
+                  ],
+                  [
+                    515.8,
+                    1104.5
+                  ],
+                  [
+                    91.6,
+                    1104.5
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-3",
+            "source_label": "3",
+            "source_label_editorial": false,
+            "text": "3. I saw Sharon downtown near the train station.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 20,
+                "source_text": "3. I saw Sharon downtown near the train station.",
+                "raw_ocr_text": "3. I saw Sharon downtown near the train station.",
+                "text": "3. I saw Sharon downtown near the train station.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    91.6,
+                    1116.9
+                  ],
+                  [
+                    564.7,
+                    1115.9
+                  ],
+                  [
+                    564.7,
+                    1143.7
+                  ],
+                  [
+                    91.6,
+                    1144.8
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-4",
+            "source_label": "4",
+            "source_label_editorial": false,
+            "text": "4. We ran into Phil on our way home from the library.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 21,
+                "source_text": "4. We ran into Phil on our way home from the library.",
+                "raw_ocr_text": "4. We ran into Phil on our way home from the library.",
+                "text": "4. We ran into Phil on our way home from the library.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    92.6,
+                    1159.2
+                  ],
+                  [
+                    616.6,
+                    1159.2
+                  ],
+                  [
+                    616.6,
+                    1186.1
+                  ],
+                  [
+                    92.6,
+                    1186.1
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-5",
+            "source_label": "5",
+            "source_label_editorial": false,
+            "text": "5. Brittany has been using the Internet a lot these days.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 22,
+                "source_text": "5. Brittany has been using the Internet a lot these days.",
+                "raw_ocr_text": "5. Brittany has been using the Internet a lot these days.",
+                "text": "5. Brittany has been using the Internet a lot these days.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    93.6,
+                    1200.5
+                  ],
+                  [
+                    622.7,
+                    1200.5
+                  ],
+                  [
+                    622.7,
+                    1227.4
+                  ],
+                  [
+                    93.6,
+                    1227.4
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-6",
+            "source_label": "6",
+            "source_label_editorial": false,
+            "text": "6. I received an e-mail message from Tim this morning.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 23,
+                "source_text": "6. I received an e-mail message from Tim this morning.",
+                "raw_ocr_text": "6. I received an e-mail message from Tim this morning.",
+                "text": "6. I received an e-mail message from Tim this morning.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    92.6,
+                    1239.7
+                  ],
+                  [
+                    633.9,
+                    1240.8
+                  ],
+                  [
+                    633.9,
+                    1268.6
+                  ],
+                  [
+                    92.6,
+                    1267.6
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-7",
+            "source_label": "7",
+            "source_label_editorial": false,
+            "text": "7. I'm sorry, but Danielle is in a meeting right now.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 24,
+                "source_text": "7. I'm sorry, but Danielle is in a meeting right now.",
+                "raw_ocr_text": "7. I'm sorry, but Danielle is in a meeting right now.",
+                "text": "7. I'm sorry, but Danielle is in a meeting right now.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    93.6,
+                    1281.0
+                  ],
+                  [
+                    605.4,
+                    1282.1
+                  ],
+                  [
+                    605.4,
+                    1309.9
+                  ],
+                  [
+                    93.6,
+                    1308.9
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-8",
+            "source_label": "8",
+            "source_label_editorial": false,
+            "text": "8. My daughter's name is Alexis.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 25,
+                "source_text": "8. My daughter's name is Alexis.",
+                "raw_ocr_text": "8. My daughter's name is Alexis.",
+                "text": "8. My daughter's name is Alexis.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    92.6,
+                    1323.4
+                  ],
+                  [
+                    421.2,
+                    1321.3
+                  ],
+                  [
+                    421.2,
+                    1349.2
+                  ],
+                  [
+                    92.6,
+                    1351.2
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-9",
+            "source_label": "9",
+            "source_label_editorial": false,
+            "text": "9. Megan plans to spend the weekend with her family.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 26,
+                "source_text": "9. Megan plans to spend the weekend with her family.",
+                "raw_ocr_text": "9. Megan plans to spend the weekend with her family.",
+                "text": "9. Megan plans to spend the weekend with her family.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    93.6,
+                    1364.6
+                  ],
+                  [
+                    620.6,
+                    1364.6
+                  ],
+                  [
+                    620.6,
+                    1394.6
+                  ],
+                  [
+                    93.6,
+                    1394.6
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-1:paragraph-10",
+            "source_label": "10",
+            "source_label_editorial": false,
+            "text": "10. Please give these books to Kyle.",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 27,
+                "source_text": "10. Please give these books to Kyle.",
+                "raw_ocr_text": "10. Please give these books to Kyle.",
+                "text": "10. Please give these books to Kyle.",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    93.6,
+                    1405.9
+                  ],
+                  [
+                    445.6,
+                    1405.9
+                  ],
+                  [
+                    445.6,
+                    1435.9
+                  ],
+                  [
+                    93.6,
+                    1435.9
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          }
+        ],
+        "untimed": true,
+        "complete_part_source": true,
+        "independent_review_status": "PENDING"
+      },
+      {
+        "part_id": "80-days:day-04:part-2",
+        "source_label": "Part 2",
+        "source_headings": [
+          {
+            "pdf_page": 252,
+            "line_index_1_based": 28,
+            "source_text": "Part 2",
+            "raw_ocr_text": "Part 2",
+            "text": "Part 2",
+            "source_image_path": "page-images/pdf-page-251.jpg",
+            "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+            "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+            "source_bbox": [
+              [
+                138.4,
+                1465.8
+              ],
+              [
+                251.3,
+                1465.8
+              ],
+              [
+                251.3,
+                1501.9
+              ],
+              [
+                138.4,
+                1501.9
+              ]
+            ],
+            "upstream_review_state": null,
+            "visual_correction": false,
+            "correction_basis": null
+          }
+        ],
+        "paragraphs": [
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-2:paragraph-1",
+            "source_label": "11",
+            "source_label_editorial": false,
+            "text": "11. So, what does your father do for a living?",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 29,
+                "source_text": "11. So, what does your father do for a living?",
+                "raw_ocr_text": "11. So, what does your father do for a living?",
+                "text": "11. So, what does your father do for a living?",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    94.6,
+                    1536.0
+                  ],
+                  [
+                    542.3,
+                    1536.0
+                  ],
+                  [
+                    542.3,
+                    1565.9
+                  ],
+                  [
+                    94.6,
+                    1565.9
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-2:paragraph-2",
+            "source_label": "12",
+            "source_label_editorial": false,
+            "text": "12. How many people are in your family?",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 30,
+                "source_text": "12. How many people are in your family?",
+                "raw_ocr_text": "12. How many people are in your family?",
+                "text": "12. How many people are in your family?",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    94.6,
+                    1577.3
+                  ],
+                  [
+                    501.6,
+                    1577.3
+                  ],
+                  [
+                    501.6,
+                    1607.2
+                  ],
+                  [
+                    94.6,
+                    1607.2
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-2:paragraph-3",
+            "source_label": "13",
+            "source_label_editorial": false,
+            "text": "13. How old is your sister?",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 31,
+                "source_text": "13. How old is your sister?",
+                "raw_ocr_text": "13. How old is your sister?",
+                "text": "13. How old is your sister?",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    96.7,
+                    1619.6
+                  ],
+                  [
+                    359.2,
+                    1619.6
+                  ],
+                  [
+                    359.2,
+                    1646.5
+                  ],
+                  [
+                    96.7,
+                    1646.5
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-2:paragraph-4",
+            "source_label": "14",
+            "source_label_editorial": false,
+            "text": "14. Where do your parents live now?",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 32,
+                "source_text": "14. Where do your parents live now?",
+                "raw_ocr_text": "14. Where do your parents live now?",
+                "text": "14. Where do your parents live now?",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    94.6,
+                    1657.8
+                  ],
+                  [
+                    456.8,
+                    1657.8
+                  ],
+                  [
+                    456.8,
+                    1687.7
+                  ],
+                  [
+                    94.6,
+                    1687.7
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-2:paragraph-5",
+            "source_label": "15",
+            "source_label_editorial": false,
+            "text": "15. How many brothers and sisters do you have?",
+            "source_lines": [
+              {
+                "pdf_page": 252,
+                "line_index_1_based": 33,
+                "source_text": "15. How many brothers and sisters do you have?",
+                "raw_ocr_text": "15. How many brothers and sisters do you have?",
+                "text": "15. How many brothers and sisters do you have?",
+                "source_image_path": "page-images/pdf-page-251.jpg",
+                "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    95.6,
+                    1701.2
+                  ],
+                  [
+                    568.8,
+                    1701.2
+                  ],
+                  [
+                    568.8,
+                    1728.0
+                  ],
+                  [
+                    95.6,
+                    1728.0
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          }
+        ],
+        "untimed": true,
+        "complete_part_source": true,
+        "independent_review_status": "PENDING"
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "source_label": "Part 3",
+        "source_headings": [
+          {
+            "pdf_page": 253,
+            "line_index_1_based": 2,
+            "source_text": "Part 3",
+            "raw_ocr_text": "Part 3",
+            "text": "Part 3",
+            "source_image_path": "page-images/pdf-page-252.jpg",
+            "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+            "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+            "source_bbox": [
+              [
+                207.6,
+                249.8
+              ],
+              [
+                316.4,
+                249.8
+              ],
+              [
+                316.4,
+                284.9
+              ],
+              [
+                207.6,
+                284.9
+              ]
+            ],
+            "upstream_review_state": null,
+            "visual_correction": false,
+            "correction_basis": null
+          },
+          {
+            "pdf_page": 253,
+            "line_index_1_based": 5,
+            "source_text": "I.",
+            "raw_ocr_text": "I.",
+            "text": "I.",
+            "source_image_path": "page-images/pdf-page-252.jpg",
+            "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+            "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+            "source_bbox": [
+              [
+                157.7,
+                317.9
+              ],
+              [
+                187.2,
+                317.9
+              ],
+              [
+                187.2,
+                351.0
+              ],
+              [
+                157.7,
+                351.0
+              ]
+            ],
+            "upstream_review_state": null,
+            "visual_correction": false,
+            "correction_basis": null
+          },
+          {
+            "pdf_page": 253,
+            "line_index_1_based": 19,
+            "source_text": "II.",
+            "raw_ocr_text": "II.",
+            "text": "II.",
+            "source_image_path": "page-images/pdf-page-252.jpg",
+            "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+            "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+            "source_bbox": [
+              [
+                158.7,
+                977.5
+              ],
+              [
+                198.4,
+                977.5
+              ],
+              [
+                198.4,
+                1012.6
+              ],
+              [
+                158.7,
+                1012.6
+              ]
+            ],
+            "upstream_review_state": null,
+            "visual_correction": false,
+            "correction_basis": null
+          },
+          {
+            "pdf_page": 253,
+            "line_index_1_based": 20,
+            "source_text": "Michael's Family",
+            "raw_ocr_text": "Michael's Family",
+            "text": "Michael's Family",
+            "source_image_path": "page-images/pdf-page-252.jpg",
+            "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+            "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+            "source_bbox": [
+              [
+                645.1,
+                981.7
+              ],
+              [
+                836.3,
+                981.7
+              ],
+              [
+                836.3,
+                1009.5
+              ],
+              [
+                645.1,
+                1009.5
+              ]
+            ],
+            "upstream_review_state": null,
+            "visual_correction": false,
+            "correction_basis": null
+          },
+          {
+            "pdf_page": 253,
+            "line_index_1_based": 26,
+            "source_text": "Catherine's Family",
+            "raw_ocr_text": "Catherine's Family",
+            "text": "Catherine's Family",
+            "source_image_path": "page-images/pdf-page-252.jpg",
+            "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+            "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+            "source_bbox": [
+              [
+                625.7,
+                1226.3
+              ],
+              [
+                839.4,
+                1228.4
+              ],
+              [
+                839.4,
+                1259.4
+              ],
+              [
+                625.7,
+                1257.3
+              ]
+            ],
+            "upstream_review_state": null,
+            "visual_correction": false,
+            "correction_basis": null
+          }
+        ],
+        "paragraphs": [
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-3:paragraph-1",
+            "source_label": "I.",
+            "source_label_editorial": false,
+            "text": "Carl: Hi. My name's Carl. Nice to meet you.\nPancho: Nice to meet you, too. My name is Francisco.\nCarl: What?\nPancho: Francisco, but all my friends and family back in Italy call me Pancho.\nCarl:Okay, Pancho. So, tell me something about your family?\nPancho: Well, I have seven brothers and six sisters.\nCarl:Wow. That is a big family. So are you the oldest, Pancho?\nPancho : No. I'm the second oldest in my family.\nCarl: So, what do your parents do?\nPancho: My father is a taxi driver in Rome, Italy. It's a hard job, but he works hard to support the family.\nCarl: How about your mother?\nPancho : She helps run a small family store with some of my brothers and sisters.\nCarl: What kind of store?\nPancho: We mainly sell food, like bread, eggs, soft drinks, rice, sugar, and cookies. Things that people buy every day.",
+            "source_lines": [
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 6,
+                "source_text": "Carl: Hi. My name's Carl. Nice to meet you.",
+                "raw_ocr_text": "Carl: Hi. My name's Carl. Nice to meet you.",
+                "text": "Carl: Hi. My name's Carl. Nice to meet you.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    158.7,
+                    357.2
+                  ],
+                  [
+                    637.9,
+                    360.3
+                  ],
+                  [
+                    637.9,
+                    390.2
+                  ],
+                  [
+                    158.7,
+                    387.1
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 7,
+                "source_text": "Pancho: Nice to meet you, too. My name is Francisco.",
+                "raw_ocr_text": "Pancho: Nice to meet you, too. My name is Francisco.",
+                "text": "Pancho: Nice to meet you, too. My name is Francisco.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    160.8,
+                    401.5
+                  ],
+                  [
+                    703.1,
+                    401.5
+                  ],
+                  [
+                    703.1,
+                    431.5
+                  ],
+                  [
+                    160.8,
+                    431.5
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 8,
+                "source_text": "Carl: What?",
+                "raw_ocr_text": "Carl: What?",
+                "text": "Carl: What?",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    157.7,
+                    440.8
+                  ],
+                  [
+                    323.5,
+                    440.8
+                  ],
+                  [
+                    323.5,
+                    474.8
+                  ],
+                  [
+                    157.7,
+                    474.8
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 9,
+                "source_text": "Pancho: Francisco, but all my friends and family back in Italy call me Pancho.",
+                "raw_ocr_text": "Pancho: Francisco, but all my friends and family back in Italy call me Pancho.",
+                "text": "Pancho: Francisco, but all my friends and family back in Italy call me Pancho.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    158.7,
+                    484.1
+                  ],
+                  [
+                    937.1,
+                    487.2
+                  ],
+                  [
+                    937.1,
+                    517.2
+                  ],
+                  [
+                    158.7,
+                    514.1
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 10,
+                "source_text": "Carl:Okay, Pancho. So, tell me something about your family?",
+                "raw_ocr_text": "Carl:Okay, Pancho. So, tell me something about your family?",
+                "text": "Carl:Okay, Pancho. So, tell me something about your family?",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    159.7,
+                    525.4
+                  ],
+                  [
+                    818.0,
+                    527.5
+                  ],
+                  [
+                    818.0,
+                    558.5
+                  ],
+                  [
+                    159.7,
+                    556.4
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 11,
+                "source_text": "Pancho: Well, I have seven brothers and six sisters.",
+                "raw_ocr_text": "Pancho: Well, I have seven brothers and six sisters.",
+                "text": "Pancho: Well, I have seven brothers and six sisters.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    159.7,
+                    565.7
+                  ],
+                  [
+                    675.6,
+                    566.7
+                  ],
+                  [
+                    675.6,
+                    597.7
+                  ],
+                  [
+                    159.7,
+                    596.6
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 12,
+                "source_text": "Carl:Wow. That is a big family. So are you the oldest, Pancho?",
+                "raw_ocr_text": "Carl:Wow. That is a big family. So are you the oldest, Pancho?",
+                "text": "Carl:Wow. That is a big family. So are you the oldest, Pancho?",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    159.7,
+                    605.9
+                  ],
+                  [
+                    826.2,
+                    609.0
+                  ],
+                  [
+                    826.2,
+                    639.0
+                  ],
+                  [
+                    159.7,
+                    635.9
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 13,
+                "source_text": "Pancho : No. I'm the second oldest in my family.",
+                "raw_ocr_text": "Pancho : No. I'm the second oldest in my family.",
+                "text": "Pancho : No. I'm the second oldest in my family.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    159.7,
+                    648.3
+                  ],
+                  [
+                    646.1,
+                    650.3
+                  ],
+                  [
+                    646.1,
+                    680.3
+                  ],
+                  [
+                    159.7,
+                    678.2
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 14,
+                "source_text": "Carl: So, what do your parents do?",
+                "raw_ocr_text": "Carl: So, what do your parents do?",
+                "text": "Carl: So, what do your parents do?",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    159.7,
+                    688.5
+                  ],
+                  [
+                    546.4,
+                    691.6
+                  ],
+                  [
+                    546.4,
+                    721.5
+                  ],
+                  [
+                    159.7,
+                    718.5
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 15,
+                "source_text": "Pancho: My father is a taxi driver in Rome, Italy. It's a hard job, but he works hard to support the family.",
+                "raw_ocr_text": "Pa  nns   o    o     iy r      o  : mily.",
+                "text": "Pancho: My father is a taxi driver in Rome, Italy. It's a hard job, but he works hard to support the family.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    158.7,
+                    729.8
+                  ],
+                  [
+                    1205.7,
+                    733.9
+                  ],
+                  [
+                    1205.7,
+                    764.9
+                  ],
+                  [
+                    158.7,
+                    760.8
+                  ]
+                ],
+                "upstream_review_state": "VISUALLY_CORRECTED",
+                "visual_correction": true,
+                "correction_basis": "Author original-page visual reading; pending independent companion review"
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 16,
+                "source_text": "Carl: How about your mother?",
+                "raw_ocr_text": "Carl: How about your mother?",
+                "text": "Carl: How about your mother?",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    160.8,
+                    773.2
+                  ],
+                  [
+                    500.6,
+                    773.2
+                  ],
+                  [
+                    500.6,
+                    803.1
+                  ],
+                  [
+                    160.8,
+                    803.1
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 17,
+                "source_text": "Pancho : She helps run a small family store with some of my brothers and sisters.",
+                "raw_ocr_text": "Pancho : She helps run a small family store with some of my brothers and sisters.",
+                "text": "Pancho : She helps run a small family store with some of my brothers and sisters.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    159.7,
+                    813.4
+                  ],
+                  [
+                    954.4,
+                    816.5
+                  ],
+                  [
+                    954.4,
+                    846.5
+                  ],
+                  [
+                    159.7,
+                    843.4
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 18,
+                "source_text": "Carl: What kind of store?",
+                "raw_ocr_text": "Carl: What kind of store?",
+                "text": "Carl: What kind of store?",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    158.7,
+                    852.6
+                  ],
+                  [
+                    448.7,
+                    854.7
+                  ],
+                  [
+                    448.7,
+                    885.7
+                  ],
+                  [
+                    158.7,
+                    883.6
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": null,
+                "source_text": "Pancho: We mainly sell food, like bread, eggs, soft drinks, rice, sugar, and cookies. Things that people buy every day.",
+                "raw_ocr_text": null,
+                "text": "Pancho: We mainly sell food, like bread, eggs, soft drinks, rice, sugar, and cookies. Things that people buy every day.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    163.5,
+                    902.0
+                  ],
+                  [
+                    1290.0,
+                    929.0
+                  ]
+                ],
+                "upstream_review_state": "VISUALLY_INSERTED_FROM_SOURCE_SCAN",
+                "visual_correction": true,
+                "correction_basis": "Author original-page visual reading; pending independent companion review",
+                "source_line_id": "80-days:day-04:transcript:pdf-253:insert-after-18",
+                "insertion_after_line_index_1_based": 18,
+                "bbox_source": "APPLE_VISION_APPROXIMATE"
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-3:paragraph-2",
+            "source_label": "II. Michael’s Family",
+            "source_label_editorial": false,
+            "text": "My name is Michael. I have a mum and a dad and a brother, and all four of us live in a house. My dad is really\ntall. He has brown hair, and he has blue eyes, and that's where I get my blue eyes. My mum is really short. She has\nblond hair, and that's where I get my blond hair. My brother is fourteen-years old, and he'll be going into ninth\ngrade this year, and his name is David. We get along pretty well most of the time. Those are the people I live with.",
+            "source_lines": [
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 21,
+                "source_text": "My name is Michael. I have a mum and a dad and a brother, and all four of us live in a house. My dad is really",
+                "raw_ocr_text": "My name is Michael. I have a mum and a dad and a brother, and all four of us live in a house. My dad is really",
+                "text": "My name is Michael. I have a mum and a dad and a brother, and all four of us live in a house. My dad is really",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    208.6,
+                    1018.8
+                  ],
+                  [
+                    1312.5,
+                    1021.9
+                  ],
+                  [
+                    1312.5,
+                    1052.9
+                  ],
+                  [
+                    208.6,
+                    1049.8
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 22,
+                "source_text": "tall. He has brown hair, and he has blue eyes, and that's where I get my blue eyes. My mum is really short. She has",
+                "raw_ocr_text": "tall. He has brown hair, and he has blue eyes, and that's where I get my blue eyes. My mum is really short. She has",
+                "text": "tall. He has brown hair, and he has blue eyes, and that's where I get my blue eyes. My mum is really short. She has",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    158.7,
+                    1061.2
+                  ],
+                  [
+                    1314.5,
+                    1064.3
+                  ],
+                  [
+                    1314.5,
+                    1095.2
+                  ],
+                  [
+                    158.7,
+                    1092.1
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 23,
+                "source_text": "blond hair, and that's where I get my blond hair. My brother is fourteen-years old, and he'll be going into ninth",
+                "raw_ocr_text": "blond hair, and that's where I get my blond hair. My brother is fourteen-years old, and he'll be going into ninth",
+                "text": "blond hair, and that's where I get my blond hair. My brother is fourteen-years old, and he'll be going into ninth",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    158.7,
+                    1101.4
+                  ],
+                  [
+                    1312.5,
+                    1104.5
+                  ],
+                  [
+                    1312.5,
+                    1135.5
+                  ],
+                  [
+                    158.7,
+                    1132.4
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 24,
+                "source_text": "grade this year, and his name is David. We get along pretty well most of the time. Those are the people I live with.",
+                "raw_ocr_text": "grade this year, and his name is David. We get along pretty well most of the time. Those are the people I live with.",
+                "text": "grade this year, and his name is David. We get along pretty well most of the time. Those are the people I live with.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    158.7,
+                    1143.7
+                  ],
+                  [
+                    1283.0,
+                    1145.8
+                  ],
+                  [
+                    1283.0,
+                    1176.8
+                  ],
+                  [
+                    158.7,
+                    1174.7
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          },
+          {
+            "paragraph_id": "80-days:day-04:transcript:part-3:paragraph-3",
+            "source_label": "Catherine’s Family",
+            "source_label_editorial": false,
+            "text": "Hi, my name is Catherine, and I'm a first year college student. I’m going to tell you a little bit about my\nfamily. My mum's name is Sharon, and she works at an engineering company. My father's name is Bob and he\nworks as a manager at a welding company. I also have a brother named Brian. He is sixteen years old and a junior\nin high school. He plays football and baseball, and he works part time at a grocery store.",
+            "source_lines": [
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 27,
+                "source_text": "Hi, my name is Catherine, and I'm a first year college student. I’m going to tell you a little bit about my",
+                "raw_ocr_text": "Hi, my name is Catherine, and I'm a first year college student. I’m going to tell you a little bit about my",
+                "text": "Hi, my name is Catherine, and I'm a first year college student. I’m going to tell you a little bit about my",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    211.6,
+                    1266.6
+                  ],
+                  [
+                    1313.5,
+                    1269.7
+                  ],
+                  [
+                    1313.5,
+                    1300.6
+                  ],
+                  [
+                    211.6,
+                    1297.5
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 28,
+                "source_text": "family. My mum's name is Sharon, and she works at an engineering company. My father's name is Bob and he",
+                "raw_ocr_text": "family. My mum's name is Sharon, and she works at an engineering company. My father's name is Bob and he",
+                "text": "family. My mum's name is Sharon, and she works at an engineering company. My father's name is Bob and he",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    159.7,
+                    1308.9
+                  ],
+                  [
+                    1313.5,
+                    1311.0
+                  ],
+                  [
+                    1313.5,
+                    1341.9
+                  ],
+                  [
+                    159.7,
+                    1339.9
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 29,
+                "source_text": "works as a manager at a welding company. I also have a brother named Brian. He is sixteen years old and a junior",
+                "raw_ocr_text": "works as a manager at a welding company. I also have a brother named Brian. He is sixteen years old and a junior",
+                "text": "works as a manager at a welding company. I also have a brother named Brian. He is sixteen years old and a junior",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    158.7,
+                    1352.3
+                  ],
+                  [
+                    1313.5,
+                    1353.3
+                  ],
+                  [
+                    1313.5,
+                    1384.3
+                  ],
+                  [
+                    158.7,
+                    1383.2
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              },
+              {
+                "pdf_page": 253,
+                "line_index_1_based": 30,
+                "source_text": "in high school. He plays football and baseball, and he works part time at a grocery store.",
+                "raw_ocr_text": "in high school. He plays football and baseball, and he works part time at a grocery store.",
+                "text": "in high school. He plays football and baseball, and he works part time at a grocery store.",
+                "source_image_path": "page-images/pdf-page-252.jpg",
+                "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+                "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+                "source_bbox": [
+                  [
+                    157.7,
+                    1392.5
+                  ],
+                  [
+                    1030.7,
+                    1394.6
+                  ],
+                  [
+                    1030.7,
+                    1425.5
+                  ],
+                  [
+                    157.7,
+                    1423.5
+                  ]
+                ],
+                "upstream_review_state": null,
+                "visual_correction": false,
+                "correction_basis": null
+              }
+            ]
+          }
+        ],
+        "untimed": true,
+        "complete_part_source": true,
+        "independent_review_status": "PENDING"
+      }
+    ],
+    "paragraphs": [
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "1. Please tell Jordan to meet me at school.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 18,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 92.6,
+          "y": 1032.3,
+          "width": 409.0,
+          "height": 28.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "2. Elaine said she would pick us up at 8:00.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 19,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 91.6,
+          "y": 1074.6,
+          "width": 424.19999999999993,
+          "height": 29.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "3. I saw Sharon downtown near the train station.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 20,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 91.6,
+          "y": 1115.9,
+          "width": 473.1,
+          "height": 28.899999999999864
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "4. We ran into Phil on our way home from the library.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 21,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 92.6,
+          "y": 1159.2,
+          "width": 524.0,
+          "height": 26.899999999999864
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "5. Brittany has been using the Internet a lot these days.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 22,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 93.6,
+          "y": 1200.5,
+          "width": 529.1,
+          "height": 26.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "6. I received an e-mail message from Tim this morning.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 23,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 92.6,
+          "y": 1239.7,
+          "width": 541.3,
+          "height": 28.899999999999864
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "7. I'm sorry, but Danielle is in a meeting right now.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 24,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 93.6,
+          "y": 1281.0,
+          "width": 511.79999999999995,
+          "height": 28.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "8. My daughter's name is Alexis.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 25,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 92.6,
+          "y": 1321.3,
+          "width": 328.6,
+          "height": 29.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "9. Megan plans to spend the weekend with her family.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 26,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 93.6,
+          "y": 1364.6,
+          "width": 527.0,
+          "height": 30.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-1",
+        "text": "10. Please give these books to Kyle.",
+        "source_pdf_page": 252,
+        "line_index_1_based": 27,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 93.6,
+          "y": 1405.9,
+          "width": 352.0,
+          "height": 30.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-2",
+        "text": "11. So, what does your father do for a living?",
+        "source_pdf_page": 252,
+        "line_index_1_based": 29,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 94.6,
+          "y": 1536.0,
+          "width": 447.69999999999993,
+          "height": 29.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-2",
+        "text": "12. How many people are in your family?",
+        "source_pdf_page": 252,
+        "line_index_1_based": 30,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 94.6,
+          "y": 1577.3,
+          "width": 407.0,
+          "height": 29.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-2",
+        "text": "13. How old is your sister?",
+        "source_pdf_page": 252,
+        "line_index_1_based": 31,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 96.7,
+          "y": 1619.6,
+          "width": 262.5,
+          "height": 26.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-2",
+        "text": "14. Where do your parents live now?",
+        "source_pdf_page": 252,
+        "line_index_1_based": 32,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 94.6,
+          "y": 1657.8,
+          "width": 362.20000000000005,
+          "height": 29.90000000000009
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-2",
+        "text": "15. How many brothers and sisters do you have?",
+        "source_pdf_page": 252,
+        "line_index_1_based": 33,
+        "source_image_path": "page-images/pdf-page-251.jpg",
+        "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 95.6,
+          "y": 1701.2,
+          "width": 473.19999999999993,
+          "height": 26.799999999999955
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Carl: Hi. My name's Carl. Nice to meet you.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 6,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 158.7,
+          "y": 357.2,
+          "width": 479.2,
+          "height": 33.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Pancho: Nice to meet you, too. My name is Francisco.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 7,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 160.8,
+          "y": 401.5,
+          "width": 542.3,
+          "height": 30.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Carl: What?",
+        "source_pdf_page": 253,
+        "line_index_1_based": 8,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 157.7,
+          "y": 440.8,
+          "width": 165.8,
+          "height": 34.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Pancho: Francisco, but all my friends and family back in Italy call me Pancho.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 9,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 158.7,
+          "y": 484.1,
+          "width": 778.4000000000001,
+          "height": 33.10000000000002
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Carl:Okay, Pancho. So, tell me something about your family?",
+        "source_pdf_page": 253,
+        "line_index_1_based": 10,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 159.7,
+          "y": 525.4,
+          "width": 658.3,
+          "height": 33.10000000000002
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Pancho: Well, I have seven brothers and six sisters.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 11,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 159.7,
+          "y": 565.7,
+          "width": 515.9000000000001,
+          "height": 32.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Carl:Wow. That is a big family. So are you the oldest, Pancho?",
+        "source_pdf_page": 253,
+        "line_index_1_based": 12,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 159.7,
+          "y": 605.9,
+          "width": 666.5,
+          "height": 33.10000000000002
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Pancho : No. I'm the second oldest in my family.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 13,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 159.7,
+          "y": 648.3,
+          "width": 486.40000000000003,
+          "height": 32.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Carl: So, what do your parents do?",
+        "source_pdf_page": 253,
+        "line_index_1_based": 14,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 159.7,
+          "y": 688.5,
+          "width": 386.7,
+          "height": 33.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Pancho: My father is a taxi driver in Rome, Italy. It's a hard job, but he works hard to support the family.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 15,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 158.7,
+          "y": 729.8,
+          "width": 1047.0,
+          "height": 35.10000000000002
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Carl: How about your mother?",
+        "source_pdf_page": 253,
+        "line_index_1_based": 16,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 160.8,
+          "y": 773.2,
+          "width": 339.8,
+          "height": 29.899999999999977
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Pancho : She helps run a small family store with some of my brothers and sisters.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 17,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 159.7,
+          "y": 813.4,
+          "width": 794.7,
+          "height": 33.10000000000002
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Carl: What kind of store?",
+        "source_pdf_page": 253,
+        "line_index_1_based": 18,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 158.7,
+          "y": 852.6,
+          "width": 290.0,
+          "height": 33.10000000000002
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Pancho: We mainly sell food, like bread, eggs, soft drinks, rice, sugar, and cookies. Things that people buy every day.",
+        "source_pdf_page": 253,
+        "line_index_1_based": null,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 163.5,
+          "y": 902.0,
+          "width": 1126.5,
+          "height": 27.0
+        },
+        "source_line_id": "80-days:day-04:transcript:pdf-253:insert-after-18",
+        "insertion_after_line_index_1_based": 18,
+        "line_index_unavailable_reason": "No raw OCR line existed; exact source scan insertion, not a fabricated OCR index."
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "My name is Michael. I have a mum and a dad and a brother, and all four of us live in a house. My dad is really",
+        "source_pdf_page": 253,
+        "line_index_1_based": 21,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 208.6,
+          "y": 1018.8,
+          "width": 1103.9,
+          "height": 34.100000000000136
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "tall. He has brown hair, and he has blue eyes, and that's where I get my blue eyes. My mum is really short. She has",
+        "source_pdf_page": 253,
+        "line_index_1_based": 22,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 158.7,
+          "y": 1061.2,
+          "width": 1155.8,
+          "height": 34.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "blond hair, and that's where I get my blond hair. My brother is fourteen-years old, and he'll be going into ninth",
+        "source_pdf_page": 253,
+        "line_index_1_based": 23,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 158.7,
+          "y": 1101.4,
+          "width": 1153.8,
+          "height": 34.09999999999991
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "grade this year, and his name is David. We get along pretty well most of the time. Those are the people I live with.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 24,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 158.7,
+          "y": 1143.7,
+          "width": 1124.3,
+          "height": 33.09999999999991
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "Hi, my name is Catherine, and I'm a first year college student. I’m going to tell you a little bit about my",
+        "source_pdf_page": 253,
+        "line_index_1_based": 27,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 211.6,
+          "y": 1266.6,
+          "width": 1101.9,
+          "height": 34.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "family. My mum's name is Sharon, and she works at an engineering company. My father's name is Bob and he",
+        "source_pdf_page": 253,
+        "line_index_1_based": 28,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 159.7,
+          "y": 1308.9,
+          "width": 1153.8,
+          "height": 33.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "works as a manager at a welding company. I also have a brother named Brian. He is sixteen years old and a junior",
+        "source_pdf_page": 253,
+        "line_index_1_based": 29,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 158.7,
+          "y": 1352.3,
+          "width": 1154.8,
+          "height": 32.0
+        }
+      },
+      {
+        "part_id": "80-days:day-04:part-3",
+        "text": "in high school. He plays football and baseball, and he works part time at a grocery store.",
+        "source_pdf_page": 253,
+        "line_index_1_based": 30,
+        "source_image_path": "page-images/pdf-page-252.jpg",
+        "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+        "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+        "source_region": {
+          "x": 157.7,
+          "y": 1392.5,
+          "width": 873.0,
+          "height": 33.0
+        }
+      }
+    ],
+    "source_coverage": {
+      "transcript_body_line_count": 37,
+      "preserved_heading_count": 7,
+      "excluded_source_lines": [
+        {
+          "pdf_page": 252,
+          "line_index_1_based": 16,
+          "text": "Tapescript for Day",
+          "reason": "Book/day header, margin page number or publisher footer; not spoken transcript body"
+        },
+        {
+          "pdf_page": 252,
+          "line_index_1_based": 17,
+          "text": "Part 1",
+          "reason": "Heading preserved in parts.source_headings"
+        },
+        {
+          "pdf_page": 252,
+          "line_index_1_based": 28,
+          "text": "Part 2",
+          "reason": "Heading preserved in parts.source_headings"
+        },
+        {
+          "pdf_page": 252,
+          "line_index_1_based": 34,
+          "text": "www.TopSage.com",
+          "reason": "Book/day header, margin page number or publisher footer; not spoken transcript body"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 1,
+          "text": "录音原文",
+          "reason": "Book/day header, margin page number or publisher footer; not spoken transcript body"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 2,
+          "text": "Part 3",
+          "reason": "Heading preserved in parts.source_headings"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 3,
+          "text": "80",
+          "reason": "Book/day header, margin page number or publisher footer; not spoken transcript body"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 4,
+          "text": "天攻克IELTS听力",
+          "reason": "Book/day header, margin page number or publisher footer; not spoken transcript body"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 5,
+          "text": "I.",
+          "reason": "Heading preserved in parts.source_headings"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 19,
+          "text": "II.",
+          "reason": "Heading preserved in parts.source_headings"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 20,
+          "text": "Michael's Family",
+          "reason": "Heading preserved in parts.source_headings"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 25,
+          "text": "242",
+          "reason": "Book/day header, margin page number or publisher footer; not spoken transcript body"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 26,
+          "text": "Catherine's Family",
+          "reason": "Heading preserved in parts.source_headings"
+        }
+      ]
+    },
+    "author_notes": {
+      "source_pages_visually_inspected": [
+        252,
+        253
+      ],
+      "source_day_content_changed": false,
+      "paid_api_calls": 0,
+      "audio_listened": false,
+      "normalization": "Original source words, numbering and speakers retained; source line wraps preserved. Semantic/grammatical source errors are not silently repaired.",
+      "corrections": [
+        {
+          "pdf_page": 252,
+          "line_index_1_based": 18,
+          "raw_ocr_text": "1. Pléase tell Jordan to meet me at school.",
+          "source_text": "1. Please tell Jordan to meet me at school.",
+          "text": "1. Please tell Jordan to meet me at school.",
+          "source_image_sha256": "252e0013e0b2db2812a0d039c289034192a95c8a69ad99580a8ddee9b0dfcadf",
+          "basis": "Author original-page visual reading; pending independent companion review"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": 15,
+          "raw_ocr_text": "Pa  nns   o    o     iy r      o  : mily.",
+          "source_text": "Pancho: My father is a taxi driver in Rome, Italy. It's a hard job, but he works hard to support the family.",
+          "text": "Pancho: My father is a taxi driver in Rome, Italy. It's a hard job, but he works hard to support the family.",
+          "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+          "basis": "Author original-page visual reading; pending independent companion review"
+        },
+        {
+          "pdf_page": 253,
+          "line_index_1_based": null,
+          "raw_ocr_text": null,
+          "source_text": "Pancho: We mainly sell food, like bread, eggs, soft drinks, rice, sugar, and cookies. Things that people buy every day.",
+          "text": "Pancho: We mainly sell food, like bread, eggs, soft drinks, rice, sugar, and cookies. Things that people buy every day.",
+          "source_image_sha256": "4b480fd755a7fe2ee54d08bc561ca7fae104c3e6ca1e069224b38a0d6837a959",
+          "basis": "Author original-page visual reading; pending independent companion review"
+        }
+      ]
+    },
+    "independent_review": {
+      "status": "PENDING",
+      "reviewed_sha256": null
+    },
+    "publication": {
+      "reveal_policy": "existing_saved_submission_companion_guard",
+      "safe_for_grading": false,
+      "protected_from_initial_student_payload": true
+    }
+  }
+}

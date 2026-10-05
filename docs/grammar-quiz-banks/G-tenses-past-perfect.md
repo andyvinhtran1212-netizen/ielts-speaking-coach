@@ -13,6 +13,12 @@ cooldown: 2
 shuffle_options: true
 words_count: 5
 source: "authored-2026-07"
+text_match_by_qid:
+  pqp_form_i2: exact
+  pqp_seq_i2: exact
+  pqp_bytime_i2: exact
+  pqp_cond3_i2: exact
+  pqp_reported_i2: exact
 ---
 
 # ===== item_key 1 · Cấu trúc had + V3 (form cơ bản) =====
@@ -38,11 +44,11 @@ input: "choice"
 headword: "pqp-form"
 skill: "form"
 subtype: "basic"
-prompt: "They ____ the project when the deadline passed."
+prompt: "Dùng Past Perfect phủ định: They ____ the project when the deadline passed."
 options: ["hadn't finished", "haven't finished", "didn't finish", "wasn't finished"]
 answer: 0
 grammar_article_slug: "past-perfect"
-explain: "Phủ định Past Perfect: had not (hadn't) + V3 → hadn't finished."
+explain: "Theo yêu cầu Past Perfect phủ định, chọn 'hadn't finished': had not + V3. 'Didn't finish' cũng có thể tạo câu đúng ở Past Simple, nhưng không đáp ứng thì được yêu cầu."
 ---
 
 ---
@@ -52,11 +58,11 @@ input: "choice"
 headword: "pqp-form"
 skill: "usage"
 subtype: "intermediate"
-prompt: "____ you ____ him before the interview started?"
+prompt: "Dùng câu hỏi Past Perfect: ____ you ____ him before the interview started?"
 options: ["Did / meet", "Have / met", "Had / met", "Were / meeting"]
 answer: 2
 grammar_article_slug: "past-perfect"
-explain: "Câu hỏi Past Perfect: Had + S + V3? → Had you met."
+explain: "Theo yêu cầu câu hỏi Past Perfect, chọn Had + S + V3: 'Had you met'. 'Did you meet ... before ...?' cũng hợp ngữ pháp ở Past Simple, nhưng không đáp ứng thì được yêu cầu."
 ---
 
 ---
@@ -66,7 +72,7 @@ input: "text"
 headword: "pqp-form"
 skill: "production"
 subtype: "intermediate"
-prompt: "The manager ____ (already / leave) the office when the client called."
+prompt: "Dùng Past Perfect: The manager ____ (already / leave) the office when the client called."
 accept: ["had already left"]
 case_sensitive: false
 grammar_article_slug: "past-perfect"
@@ -123,11 +129,11 @@ input: "text"
 headword: "pqp-sequence"
 skill: "production"
 subtype: "intermediate"
-prompt: "She ____ (live) in Paris for 10 years before she moved to London."
+prompt: "Dùng Past Perfect Simple: She ____ (live) in Paris for 10 years before she moved to London."
 accept: ["had lived"]
 case_sensitive: false
 grammar_article_slug: "past-perfect"
-explain: "Sống ở Paris là hành động xảy ra TRƯỚC khi chuyển đến London (moved — Past Simple) → had lived."
+explain: "Theo yêu cầu Past Perfect Simple, điền 'had lived' để nhìn lại thời gian sống ở Paris từ mốc chuyển tới London. 'Before' đã chỉ thứ tự nên 'lived' cũng có thể đúng nếu bài không yêu cầu riêng Past Perfect; 'had been living' là một dạng perfect continuous khác."
 ---
 
 ---
@@ -150,11 +156,11 @@ input: "choice"
 headword: "pqp-sequence"
 skill: "contrast"
 subtype: "advanced"
-prompt: "In an IELTS Part 2 story about a job interview, which sentence correctly shows the interviewer had read your portfolio BEFORE the interview began?"
+prompt: "In an IELTS Part 2 story about a job interview, which sentence uses Past Perfect to show the interviewer had read your portfolio BEFORE the interview began?"
 options: ["The interviewer read my portfolio beforehand.", "It turned out that the interviewer had read my portfolio beforehand.", "The interviewer was reading my portfolio beforehand.", "The interviewer has read my portfolio beforehand."]
 answer: 1
 grammar_article_slug: "past-perfect"
-explain: "Việc đọc portfolio xảy ra TRƯỚC buổi phỏng vấn (một mốc quá khứ khác) → Past Perfect: had read."
+explain: "Chọn câu có 'had read' vì bài yêu cầu Past Perfect, nhìn lại việc đọc từ mốc buổi phỏng vấn. 'The interviewer read my portfolio beforehand' cũng diễn đạt việc đọc trước đó bằng Past Simple + beforehand, nhưng không dùng thì được yêu cầu."
 ---
 
 # ===== item_key 3 · by the time / before / after =====
@@ -166,11 +172,11 @@ input: "choice"
 headword: "pqp-by-the-time"
 skill: "form"
 subtype: "basic"
-prompt: "By the time the guests arrived, we ____ everything."
+prompt: "Dùng Past Perfect: By the time the guests arrived, we ____ everything."
 options: ["had prepared", "have prepared", "prepared", "were preparing"]
 answer: 0
 grammar_article_slug: "past-perfect"
-explain: "'By the time' + Past Simple (arrived) → hành động đã hoàn thành trước đó dùng Past Perfect: had prepared."
+explain: "Theo yêu cầu Past Perfect, chọn 'had prepared' để nhìn lại việc chuẩn bị từ mốc khách đến. Không chọn thì chỉ bằng từ khoá 'by the time'; các dạng khác cần được xét theo nghĩa và ngữ cảnh riêng."
 ---
 
 ---
@@ -180,11 +186,11 @@ input: "choice"
 headword: "pqp-by-the-time"
 skill: "usage"
 subtype: "intermediate"
-prompt: "By 2010, the company ____ to 20 countries."
+prompt: "Dùng Past Perfect: By 2010, the company ____ to 20 countries."
 options: ["had expanded", "expanded", "has expanded", "was expanding"]
 answer: 0
 grammar_article_slug: "past-perfect"
-explain: "'By + mốc thời gian trong quá khứ' (By 2010) → Past Perfect: had expanded."
+explain: "Theo yêu cầu Past Perfect, chọn 'had expanded', nhìn lại sự mở rộng tính tới mốc năm 2010. 'By 2010' cung cấp mốc tham chiếu quá khứ; không phải một từ khoá buộc mọi câu dùng cùng một thì bất kể nghĩa."
 ---
 
 ---
@@ -194,11 +200,11 @@ input: "text"
 headword: "pqp-by-the-time"
 skill: "production"
 subtype: "intermediate"
-prompt: "By the time the film started, they ____ (finish) dinner."
+prompt: "Dùng Past Perfect Simple: By the time the film started, they ____ (finish) dinner."
 accept: ["had finished"]
 case_sensitive: false
 grammar_article_slug: "past-perfect"
-explain: "'By the time' + mốc quá khứ (the film started) → hành động đã hoàn thành trước đó dùng Past Perfect: had finished."
+explain: "Theo yêu cầu Past Perfect Simple, điền 'had finished': việc ăn xong được nhìn lại từ thời điểm phim bắt đầu."
 ---
 
 ---
@@ -208,10 +214,10 @@ input: "boolean"
 headword: "pqp-by-the-time"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'By the time she was 30, she published three novels.'"
+prompt: "Đúng hay Sai: Trong câu 'By the time she was 30, she published three novels', 'published' dùng cấu trúc Past Perfect (had + V3)."
 answer: false
 grammar_article_slug: "past-perfect"
-explain: "SAI — 'by the time + mốc quá khứ' cần Past Perfect cho hành động đã hoàn thành trước đó: 'By the time she was 30, she had published three novels.'"
+explain: "SAI về nhận diện cấu trúc: 'published' ở đây là Past Simple, không có trợ động từ 'had'. Dạng Past Perfect là 'had published'. Bài kiểm tra tên/cấu trúc thì, không kết luận một câu sai ngữ pháp chỉ vì có 'by the time' mà thiếu Past Perfect."
 ---
 
 ---
@@ -236,7 +242,7 @@ input: "choice"
 headword: "pqp-conditional-3"
 skill: "form"
 subtype: "basic"
-prompt: "If I ____ harder, I would have passed the exam."
+prompt: "Dùng câu điều kiện loại 3 (Type 3): If I ____ harder, I would have passed the exam."
 options: ["had studied", "studied", "have studied", "study"]
 answer: 0
 grammar_article_slug: "past-perfect"
@@ -250,7 +256,7 @@ input: "choice"
 headword: "pqp-conditional-3"
 skill: "usage"
 subtype: "intermediate"
-prompt: "If she ____ the bus, she would have been on time for the meeting."
+prompt: "Dùng câu điều kiện loại 3 (Type 3): If she ____ the bus, she would have been on time for the meeting."
 options: ["hadn't missed", "didn't miss", "hasn't missed", "wouldn't miss"]
 answer: 0
 grammar_article_slug: "past-perfect"
@@ -264,7 +270,7 @@ input: "text"
 headword: "pqp-conditional-3"
 skill: "production"
 subtype: "intermediate"
-prompt: "If stricter regulations ____ (introduce) earlier, the environmental damage would have been far less severe."
+prompt: "Dùng câu điều kiện loại 3 (Type 3): If stricter regulations ____ (introduce) earlier, the environmental damage would have been far less severe."
 accept: ["had been introduced"]
 case_sensitive: false
 grammar_article_slug: "past-perfect"
@@ -293,11 +299,11 @@ input: "choice"
 headword: "pqp-reported-speech"
 skill: "form"
 subtype: "basic"
-prompt: "Direct: \"I have finished the report.\" Reported: She said she ____ the report."
+prompt: "Áp dụng lùi thì (backshift): Direct: \"I have finished the report.\" Reported: She said she ____ the report."
 options: ["had finished", "has finished", "finished", "was finishing"]
 answer: 0
 grammar_article_slug: "past-perfect"
-explain: "Khi tường thuật, Present Perfect lùi về Past Perfect: had finished."
+explain: "Bài yêu cầu backshift, nên Present Perfect chuyển thành Past Perfect: 'had finished'. 'Has finished' vẫn có thể phù hợp nếu việc hoàn tất còn liên quan hiện tại, nhưng không thực hiện lùi thì theo yêu cầu này."
 ---
 
 ---
@@ -307,11 +313,11 @@ input: "choice"
 headword: "pqp-reported-speech"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Direct: \"They have arrived.\" Reported: He told me they ____."
+prompt: "Áp dụng lùi thì (backshift): Direct: \"They have arrived.\" Reported: He told me they ____."
 options: ["had arrived", "have arrived", "arrived", "were arriving"]
 answer: 0
 grammar_article_slug: "past-perfect"
-explain: "Present Perfect ('have arrived') trong câu trực tiếp lùi thành Past Perfect ('had arrived') khi tường thuật."
+explain: "Theo yêu cầu backshift, 'have arrived' chuyển thành 'had arrived'. Giữ 'have arrived' có thể đúng khi thông tin vẫn liên quan hiện tại, nhưng không đáp ứng thao tác lùi thì được yêu cầu."
 ---
 
 ---
@@ -321,11 +327,11 @@ input: "text"
 headword: "pqp-reported-speech"
 skill: "production"
 subtype: "intermediate"
-prompt: "Direct: \"I have submitted my application.\" Reported: She said she ____ (submit) her application."
+prompt: "Áp dụng lùi thì (backshift): Direct: \"I have submitted my application.\" Reported: She said she ____ (submit) her application."
 accept: ["had submitted"]
 case_sensitive: false
 grammar_article_slug: "past-perfect"
-explain: "Present Perfect trong lời nói trực tiếp → Past Perfect khi tường thuật: had submitted."
+explain: "Theo yêu cầu backshift, điền 'had submitted'. Không suy ra mọi câu tường thuật đều bắt buộc đổi thì nếu thông tin vẫn đúng hoặc còn liên quan hiện tại."
 ---
 
 ---
@@ -335,8 +341,8 @@ input: "boolean"
 headword: "pqp-reported-speech"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: Câu trực tiếp 'We have moved to a new office' khi tường thuật đúng là 'She said they have moved to a new office.'"
+prompt: "Đúng hay Sai: Khi áp dụng lùi thì từ Present Perfect sang Past Perfect cho 'We have moved to a new office', câu 'She said they have moved to a new office' đã thực hiện đúng thao tác lùi thì."
 answer: false
 grammar_article_slug: "past-perfect"
-explain: "SAI — khi tường thuật, Present Perfect phải lùi thành Past Perfect: 'She said they had moved to a new office.'"
+explain: "SAI về thao tác backshift: 'have moved' vẫn là Present Perfect, còn dạng lùi thì là 'had moved'. Câu với 'have moved' không tự nó sai ngữ pháp: người nói có thể giữ thì khi việc chuyển văn phòng vẫn còn liên quan hiện tại."
 ---

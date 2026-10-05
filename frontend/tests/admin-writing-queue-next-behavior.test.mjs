@@ -114,8 +114,7 @@ describe('/admin/writing/queue native ownership and UX contract', () => {
     assert.match(PAGE, /function AdminWritingQueuePage/);
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/queue['"]/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'queue.html')));
-    assert.ok(HUB.includes("href: '/admin/writing/queue'"));
-    assert.ok(HUB.includes("status: 'NATIVE'"));
+    assert.match(HUB, /Hàng chờ chấm[^\n]+href: '\/admin\/writing\/queue'[^\n]+status: 'Quản lý'/);
     assert.match(CHROME, /slug: 'queue'[^\n]+href: '\/admin\/writing\/queue'/);
     assert.match(MOCK, /return '\/admin\/writing\/queue\?embed=1&mocklane=1'/);
     assert.match(LEDGER, /`\/admin\/writing\/queue`[^\n]+authed-admin-writing-queue[^\n]+native React ownership/);

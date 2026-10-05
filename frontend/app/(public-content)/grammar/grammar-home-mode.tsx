@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { grammarMode, grammarModeHref } from '@/lib/grammar-navigation-context.mjs';
 import { articleUrl } from './grammar-cards';
 
 type DashboardArticle = { slug: string; title: string; category: string };
@@ -15,10 +17,14 @@ type Dashboard = {
 type Roadmap = { mode?: string; weak_count?: number; nodes?: Array<DashboardArticle & { status?: string; is_weak?: boolean }> };
 
 export function GrammarModeSwitcher({ reference, learning }: { reference: ReactNode; learning: ReactNode }) {
-  const [mode, setMode] = useState<'reference' | 'learning'>('reference');
+  const params = useSearchParams();
+  const mode = grammarMode(params || undefined);
+  const setMode = (next: 'reference' | 'learning') => {
+    window.history.replaceState(null, '', grammarModeHref({ mode: next }));
+  };
   const selectMode = (next: 'reference' | 'learning') => {
     setMode(next);
-    requestAnimationFrame(() => document.getElementById(`grammar-mode-${next}`)?.focus());
+    document.getElementById(`grammar-mode-${next}`)?.focus();
   };
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -46,7 +52,7 @@ function ArticleList({ title, items, empty }: { title: string; items?: Dashboard
     <section className="gw-learning-card">
       <h3>{title}</h3>
       {items?.length ? <ul>{items.slice(0, 4).map((item) => (
-        <li key={item.slug}><Link href={articleUrl(item.category, item.slug)}>{item.title}<span>→</span></Link></li>
+        <li key={item.slug}><Link href={articleUrl(item.category, item.slug, 'learning')}>{item.title}<span>→</span></Link></li>
       ))}</ul> : <p>{empty}</p>}
     </section>
   );
@@ -90,7 +96,7 @@ export function GrammarLearningDashboard() {
       <section className="gw-next-step">
         <div><span className="gw-lab-eyebrow">Bước tiếp theo</span><h3>{nextNodes[0]?.title || 'Làm một bài kiểm tra để dựng lộ trình'}</h3>
           <p>{nextNodes[0] ? (nextNodes[0].is_weak ? 'Điểm yếu được phát hiện từ kết quả luyện tập.' : 'Nền tảng cần củng cố trước điểm yếu tiếp theo.') : 'Hệ thống chỉ cá nhân hóa khi có evidence thật từ bài luyện.'}</p></div>
-        <Link href={nextNodes[0] ? articleUrl(nextNodes[0].category, nextNodes[0].slug) : '/grammar/exercises'}>{nextNodes[0] ? 'Học tiếp →' : 'Chọn bài luyện →'}</Link>
+        <Link href={nextNodes[0] ? articleUrl(nextNodes[0].category, nextNodes[0].slug, 'learning') : '/grammar/exercises'}>{nextNodes[0] ? 'Học tiếp →' : 'Chọn bài luyện →'}</Link>
       </section>
       <div className="gw-learning-grid">
         <ArticleList title="Vừa xem" items={dashboard.recently_viewed} empty="Chưa có lịch sử đọc." />

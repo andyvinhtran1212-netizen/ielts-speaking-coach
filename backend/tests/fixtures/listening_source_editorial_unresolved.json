@@ -1,0 +1,3217 @@
+[
+  {
+    "day": 1,
+    "item_id": "80-days:day-01:main:q-09",
+    "part_id": "80-days:day-01:part-1",
+    "block_id": "80-days:day-01:part-1:block-2",
+    "source_display_number": "9",
+    "explanation": {
+      "printed_key": {
+        "answer": "Lightful",
+        "source_pdf_page": 399,
+        "source_ocr_line_index_1_based": 6,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": "Lightful",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 249,
+          "line_index_1_based": 14,
+          "quote": "9. Bright",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": null,
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Key in ghép Bright với từ Lightful như được in trong danh sách. Nguồn không giải thích nghĩa của từ Lightful, nên chưa chứng nhận đây là cặp đồng nghĩa chuẩn.",
+      "distractors": [
+        {
+          "option": "Fragile",
+          "text": "",
+          "reason_vi": "Fragile: yếu, dễ vỡ/dễ tổn thương, khác với Bright = sáng."
+        },
+        {
+          "option": "Surprise",
+          "text": "",
+          "reason_vi": "Surprise: sự ngạc nhiên, khác với Bright = sáng."
+        },
+        {
+          "option": "Fast",
+          "text": "",
+          "reason_vi": "Fast: nhanh, khác với Bright = sáng."
+        }
+      ],
+      "paraphrase_vi": "Bright → Lightful (theo key in).",
+      "trap_vi": "Giữ nguyên từ Lightful trên nguồn; không tự đổi thành Light hoặc Bright.",
+      "format_vi": "Chọn một từ trong danh sách cho mỗi số audio; không nhập số hàng của lựa chọn.",
+      "source_answer_warning_vi": "Cặp ghép của nguồn đang cần rà soát về nghĩa; không dùng làm đáp án chấm.",
+      "next_action_vi": "Đối chiếu lại câu 9 với audio và danh sách từ trên trang gốc; từ Lightful của nguồn chưa có nghĩa chuẩn được xác minh, nên chưa dùng câu này để chấm đúng/sai."
+    }
+  },
+  {
+    "day": 2,
+    "item_id": "80-days:day-02:main:q-14",
+    "part_id": "80-days:day-02:part-2",
+    "block_id": "80-days:day-02:part-2:block-1",
+    "source_display_number": "14",
+    "explanation": {
+      "printed_key": {
+        "answer": "A",
+        "source_pdf_page": 399,
+        "source_ocr_line_index_1_based": 14,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": "A",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 250,
+          "line_index_1_based": 20,
+          "quote": "The boy's father is a worker.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": null,
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Key in chọn nhà máy, nhưng worker chỉ nói người lao động/công nhân; câu nghe không nêu nơi làm việc.",
+      "distractors": [
+        {
+          "option": "B",
+          "text": "The boy's father works on a farm.",
+          "reason_vi": "B không được nguồn xác nhận hoặc phủ định vì worker có thể làm ở nhiều nơi."
+        },
+        {
+          "option": "C",
+          "text": "The boy's father works in a shop.",
+          "reason_vi": "C cũng thêm nơi làm việc chưa được nói."
+        },
+        {
+          "option": "D",
+          "text": "The boy's father works in a school.",
+          "reason_vi": "D cũng thêm nơi làm việc chưa được nói."
+        }
+      ],
+      "paraphrase_vi": "Key in chọn nhà máy, nhưng worker chỉ nói người lao động/công nhân; câu nghe không nêu nơi làm việc.",
+      "trap_vi": "Không tự suy nghề worker thành một địa điểm duy nhất.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Transcript chỉ cho nghề worker, không có thông tin nơi làm việc. Key A chưa được bằng chứng nguồn xác lập; câu này chưa giải quyết được, chỉ tự đối chiếu.",
+      "next_action_vi": "Nghe lại câu14 để kiểm tra thông tin bị thiếu. Nếu audio vẫn chỉ nói worker, giữ câu không chấm hoặc biên tập câu hỏi/đáp án rồi kiểm duyệt riêng; không suy đoán factory."
+    }
+  },
+  {
+    "day": 5,
+    "item_id": "80-days:day-05:main:q-11",
+    "part_id": "80-days:day-05:part-2",
+    "block_id": "80-days:day-05:part-2:block-1",
+    "source_display_number": "11",
+    "explanation": {
+      "printed_key": {
+        "answer": "C",
+        "source_pdf_page": 399,
+        "source_ocr_line_index_1_based": 35,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": "C",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 254,
+          "line_index_1_based": 6,
+          "quote": "I can fly, but going by sea would be cheaper.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Key C dựa vào gợi ý đi đường biển rẻ hơn, nhưng người phụ nữ chỉ so sánh khả năng bay với giá đường biển; chưa nói quyết định sẽ đi phương tiện nào. C là ý định nguồn có thể nhắm tới, chưa được xác lập.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "By plane.",
+          "reason_vi": "A là khả năng cô ấy nói có thể chọn, nhưng cũng chưa là quyết định."
+        },
+        {
+          "option": "B",
+          "text": "By train.",
+          "reason_vi": "B đi tàu hỏa không được nêu."
+        },
+        {
+          "option": "D",
+          "text": "By bike.",
+          "reason_vi": "D đi xe đạp không được nêu."
+        }
+      ],
+      "paraphrase_vi": "Key C dựa vào gợi ý đi đường biển rẻ hơn, nhưng người phụ nữ chỉ so sánh khả năng bay với giá đường biển; chưa nói quyết định sẽ đi phương tiện nào. C là ý định nguồn có thể nhắm tới, chưa được xác lập.",
+      "trap_vi": "Would be cheaper là so sánh chi phí, không đồng nghĩa I will go by sea.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Chưa có lựa chọn phương tiện dứt khoát trong transcript. Không có đáp án duy nhất được bằng chứng nguồn chứng minh; key C chưa đủ căn cứ để chấm.",
+      "next_action_vi": "Nghe lại đoạn 11 để kiểm tra câu bị thiếu. Nếu audio vẫn chỉ so sánh chi phí, giữ không chấm hoặc biên tập câu hỏi thành phương tiện nào rẻ hơn rồi kiểm duyệt riêng."
+    }
+  },
+  {
+    "day": 7,
+    "item_id": "80-days:day-07:main:q-06",
+    "part_id": "80-days:day-07:part-1",
+    "block_id": "80-days:day-07:part-1:block-1",
+    "source_display_number": "6",
+    "explanation": {
+      "printed_key": {
+        "answer": "C",
+        "source_pdf_page": 400,
+        "source_ocr_line_index_1_based": 14,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": "C",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 256,
+          "line_index_1_based": 22,
+          "quote": "How many people are there in your family?",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "C là ý định key vì chứa con số về anh/em trai, nhưng ba anh/em trai không cho tổng số người trong gia đình. Không lựa chọn nào đáp rõ tổng người mà câu hỏi yêu cầu.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "I'm getting married soon.",
+          "reason_vi": "A sắp cưới không cho tổng số người."
+        },
+        {
+          "option": "B",
+          "text": "My father is a doctor.",
+          "reason_vi": "B nghề bố không cho tổng số người."
+        },
+        {
+          "option": "D",
+          "text": "I am the oldest.",
+          "reason_vi": "D con lớn nhất không cho tổng số người."
+        }
+      ],
+      "paraphrase_vi": "C là ý định key vì chứa con số về anh/em trai, nhưng ba anh/em trai không cho tổng số người trong gia đình. Không lựa chọn nào đáp rõ tổng người mà câu hỏi yêu cầu.",
+      "trap_vi": "Không suy tổng người từ số anh/em trai khi chưa biết bố mẹ hay chị/em gái.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "C nêu ba anh em trai, nhưng câu nghe hỏi tổng số người trong gia đình. Không phương án nào trả lời được tổng số; C chỉ là ý định gần chủ đề, không là đáp án đúng đã xác lập.",
+      "next_action_vi": "Giữ không chấm; kiểm tra audio/câu hỏi gốc. Nếu biên tập để chỉ còn một phản hồi đúng, kiểm duyệt bản sửa riêng."
+    }
+  },
+  {
+    "day": 7,
+    "item_id": "80-days:day-07:main:q-12",
+    "part_id": "80-days:day-07:part-2",
+    "block_id": "80-days:day-07:part-2:block-1",
+    "source_display_number": "12",
+    "explanation": {
+      "printed_key": {
+        "answer": "B",
+        "source_pdf_page": 400,
+        "source_ocr_line_index_1_based": 15,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": "B",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 256,
+          "line_index_1_based": 32,
+          "quote": "She was born in Switzerland and grew up in Sweden, but now she is a citizen of England.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn cho nơi sinh, nơi lớn lên và hiện là citizen of England. Quốc tịch/tư cách công dân không xác lập quốc gia Suzanne hiện gọi là nhà hay đang sống. B là ý định key từ now nhưng thiếu bằng chứng home.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "America.",
+          "reason_vi": "A Mỹ không được nêu."
+        },
+        {
+          "option": "C",
+          "text": "Switzerland.",
+          "reason_vi": "C là nơi sinh, chưa xác lập nơi ở hiện tại."
+        },
+        {
+          "option": "D",
+          "text": "Sweden.",
+          "reason_vi": "D nơi lớn lên, cũng chưa xác lập nơi ở hiện tại."
+        }
+      ],
+      "paraphrase_vi": "Nguồn cho nơi sinh, nơi lớn lên và hiện là citizen of England. Quốc tịch/tư cách công dân không xác lập quốc gia Suzanne hiện gọi là nhà hay đang sống. B là ý định key từ now nhưng thiếu bằng chứng home.",
+      "trap_vi": "Không tự đồng nhất citizen với residence hoặc cảm nhận home.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Không có phát biểu nơi ở hiện tại hoặc quốc gia cô ấy gọi là nhà. England chỉ được gắn với citizen trong nguồn; key B chưa được hỏi–đáp khớp bằng chứng.",
+      "next_action_vi": "Kiểm tra audio xem có thông tin home bị thiếu. Nếu không có, giữ không chấm hoặc sửa câu hỏi sang tư cách công dân rồi kiểm duyệt riêng."
+    }
+  },
+  {
+    "day": 13,
+    "item_id": "80-days:day-13:main:q-07",
+    "part_id": "80-days:day-13:part-1",
+    "block_id": "80-days:day-13:part-1:block-1",
+    "source_display_number": "7",
+    "explanation": {
+      "printed_key": {
+        "answer": "004287",
+        "source_pdf_page": 401,
+        "source_ocr_line_index_1_based": 28,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 265,
+          "line_index_1_based": 13,
+          "quote": "004287",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Bản quét in 004287 liên tục, không thấy dấu thập phân. Nguồn câu hỏi không cho đơn vị hay cách phân nhóm. Không tự sửa thành 0.04287; chưa có căn cứ xác định dạng số chuẩn khi chưa nghe audio.",
+      "distractors": [],
+      "paraphrase_vi": "Bản quét in 004287 liên tục, không thấy dấu thập phân. Nguồn câu hỏi không cho đơn vị hay cách phân nhóm. Không tự sửa thành 0.04287; chưa có căn cứ xác định dạng số chuẩn khi chưa nghe audio.",
+      "trap_vi": "Không suy dấu thập phân từ đáp án tham chiếu.",
+      "format_vi": "Điền theo yêu cầu của khối câu hỏi.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Cần nghe audio gốc của câu 7 và đối chiếu bản quét độ phân giải cao để xác định dấu thập phân; chưa đưa câu vào phần luyện chấm đúng/sai."
+    }
+  },
+  {
+    "day": 24,
+    "item_id": "80-days:day-24:main:q-05",
+    "part_id": "80-days:day-24:part-1",
+    "block_id": "80-days:day-24:part-1:block-1",
+    "source_display_number": "5",
+    "explanation": {
+      "printed_key": {
+        "answer": "A",
+        "source_pdf_page": 404,
+        "source_ocr_line_index_1_based": 12,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_PARSED_REVIEW_REQUIRED",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": "A",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 281,
+          "line_index_1_based": 22,
+          "quote": "Computers have come into our daily life.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Câu nghe chỉ nói máy tính đã đi vào đời sống hằng ngày. A useful là suy luận tác giả có thể định chọn nhưng không phải nghĩa được xác lập; không lựa chọn nào diễn đạt đúng nội dung daily life.",
+      "distractors": [
+        {
+          "option": "B",
+          "text": "We must buy computers.",
+          "reason_vi": "B thêm nghĩa bắt buộc mua."
+        },
+        {
+          "option": "C",
+          "text": "Everything should be computed by computers.",
+          "reason_vi": "C thêm everything và should."
+        },
+        {
+          "option": "D",
+          "text": "Workers are no longer needed.",
+          "reason_vi": "D thêm kết luận không còn cần lao động."
+        }
+      ],
+      "paraphrase_vi": "Câu nghe chỉ nói máy tính đã đi vào đời sống hằng ngày. A useful là suy luận tác giả có thể định chọn nhưng không phải nghĩa được xác lập; không lựa chọn nào diễn đạt đúng nội dung daily life.",
+      "trap_vi": "Hiện diện trong đời sống không tự chứng minh hữu ích.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Không phương án nào diễn đạt máy tính đi vào đời sống. Key A useful là suy luận bổ sung, không được câu nguồn xác lập.",
+      "next_action_vi": "Giữ không chấm; cần tác giả sửa lựa chọn để có diễn đạt daily life hoặc bổ sung câu nghe."
+    }
+  },
+  {
+    "day": 27,
+    "item_id": "80-days:day-27:main:q-19",
+    "part_id": "80-days:day-27:part-3",
+    "block_id": "80-days:day-27:part-3:block-1",
+    "source_display_number": "19",
+    "explanation": {
+      "printed_key": null,
+      "answer": "level-three",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 287,
+          "line_index_1_based": 17,
+          "quote": "current periodicals and journals",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 287,
+          "line_index_1_based": 18,
+          "quote": "back issues of periodicals and journals older than six months on this",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 287,
+          "line_index_1_based": 19,
+          "quote": "level.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Tầng ba cho số báo cũ hơn sáu tháng. Key level three giả định January 1996 là cũ trên sáu tháng; bài không nêu ngày diễn ra tour để kiểm ngưỡng. Giữ tham chiếu dự kiến, không tự lấy ngày hiện tại làm ngày trong bài.",
+      "distractors": [
+        {
+          "option": "level-one",
+          "text": "level one",
+          "reason_vi": "Level one không kho báo."
+        },
+        {
+          "option": "level-two",
+          "text": "level two",
+          "reason_vi": "Level two có current periodicals; có thể phù hợp nếu tour gần January 1996, chưa có mốc loại."
+        },
+        {
+          "option": "level-four",
+          "text": "level four",
+          "reason_vi": "Level four microfilm không nêu số Time này."
+        }
+      ],
+      "paraphrase_vi": "Tầng ba cho số báo cũ hơn sáu tháng. Key level three giả định January 1996 là cũ trên sáu tháng; bài không nêu ngày diễn ra tour để kiểm ngưỡng. Giữ tham chiếu dự kiến, không tự lấy ngày hiện tại làm ngày trong bài.",
+      "trap_vi": "Không tự gán hiện tại cho câu chuyện nguồn.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Ngưỡng older than six months cần ngày tour. January 1996 tự nó chưa đủ xác định tầng trong thời điểm câu chuyện.",
+      "next_action_vi": "Giữ không chấm; bổ sung mốc tour nguồn hoặc đổi stem thành một số báo rõ older than six months."
+    }
+  },
+  {
+    "day": 28,
+    "item_id": "80-days:day-28:main:q-09",
+    "part_id": "80-days:day-28:part-1",
+    "block_id": "80-days:day-28:part-1:block-2",
+    "source_display_number": "9",
+    "explanation": {
+      "printed_key": null,
+      "answer": "C",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 288,
+          "line_index_1_based": 9,
+          "quote": "It's too late. Good night, Dad.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Key C Close the door có thể là lời bố dặn trước khi con đi ngủ, nhưng không có cửa hay hành động mở cửa trong nguồn. Không lựa chọn nào đáp Good night trực tiếp; B cũng có thể kết thúc trò chuyện. Chưa có cơ sở chọn duy nhất C.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "Watch your step.",
+          "reason_vi": "A cảnh báo bước chân cần tình huống di chuyển chưa nêu."
+        },
+        {
+          "option": "B",
+          "text": "I'm glad to have talked with you.",
+          "reason_vi": "B có thể lời kết thúc trò chuyện, không bị nguồn loại."
+        },
+        {
+          "option": "D",
+          "text": "Will you come here next time?",
+          "reason_vi": "D hỏi lần tới thiếu ngữ cảnh với con đang chúc bố ngủ."
+        }
+      ],
+      "paraphrase_vi": "Key C Close the door có thể là lời bố dặn trước khi con đi ngủ, nhưng không có cửa hay hành động mở cửa trong nguồn. Không lựa chọn nào đáp Good night trực tiếp; B cũng có thể kết thúc trò chuyện. Chưa có cơ sở chọn duy nhất C.",
+      "trap_vi": "Không tự thêm cửa đang mở để hợp thức hóa key.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Key Close the door cần cửa/bối cảnh chưa được nói. Không đáp án trực tiếp Good night, B cũng có thể kết thúc trò chuyện.",
+      "next_action_vi": "Giữ không chấm; thêm lời đáp Good night hoặc tình huống cửa mở có nguồn."
+    }
+  },
+  {
+    "day": 29,
+    "item_id": "80-days:day-29:main:q-13",
+    "part_id": "80-days:day-29:part-2",
+    "block_id": "80-days:day-29:part-2:block-1",
+    "source_display_number": "13",
+    "explanation": {
+      "printed_key": null,
+      "answer": "C",
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 290,
+          "line_index_1_based": 13,
+          "quote": "afternoon at 2:45.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 290,
+          "line_index_1_based": 15,
+          "quote": "wait for mommy because she's at a meeting right now.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Phim bắt đầu 2:45 chiều nhưng không có thời gian đi lại hay giờ mẹ họp xong. C 2:00 chỉ là một mốc đoán trước phim, không đáp án được xác lập; key nguồn không còn đáp án rõ.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "9:30 AM",
+          "reason_vi": "A 9:30 sáng không mốc được nói và không biết lịch họp."
+        },
+        {
+          "option": "B",
+          "text": "12:45 PM",
+          "reason_vi": "B 12:45 cũng trước phim nhưng không được loại bằng thời gian đi lại."
+        },
+        {
+          "option": "D",
+          "text": "1:00 PM",
+          "reason_vi": "D 1:00 cũng có thể trước phim, không đủ dữ kiện loại."
+        }
+      ],
+      "paraphrase_vi": "Phim bắt đầu 2:45 chiều nhưng không có thời gian đi lại hay giờ mẹ họp xong. C 2:00 chỉ là một mốc đoán trước phim, không đáp án được xác lập; key nguồn không còn đáp án rõ.",
+      "trap_vi": "Không tự tạo thời gian đi rạp từ giờ chiếu.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Giờ phim 2:45 không xác lập giờ rời nhà. Không có thời gian hành trình hoặc giờ mẹ họp xong; printed key không có đáp án còn lại. C chỉ là đề xuất yếu, không dùng đánh giá đúng sai.",
+      "next_action_vi": "Giữ không chấm; cần audio/ngữ cảnh nguồn có giờ đi hoặc sửa câu hỏi thành giờ phim bắt đầu."
+    }
+  },
+  {
+    "day": 31,
+    "item_id": "80-days:day-31:main:q-17",
+    "part_id": "80-days:day-31:part-2",
+    "block_id": "80-days:day-31:part-2:block-1",
+    "source_display_number": "17",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 293,
+          "line_index_1_based": 26,
+          "quote": "a dishwasher",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 293,
+          "line_index_1_based": 27,
+          "quote": "two bathrooms",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Muốn máy rửa bát, điều hòa trung tâm và hai phòng tắm (dòng 27). Nếu giữ nguyên các cụm nguồn, danh sách đầy đủ vượt bốn từ; chưa xác nhận cách rút gọn giữ đủ ý và tuân thủ giới hạn. Không ép một đáp án duy nhất.",
+      "distractors": [],
+      "paraphrase_vi": "Muốn máy rửa bát, điều hòa trung tâm và hai phòng tắm (dòng 27). Nếu giữ nguyên các cụm nguồn, danh sách đầy đủ vượt bốn từ; chưa xác nhận cách rút gọn giữ đủ ý và tuân thủ giới hạn. Không ép một đáp án duy nhất.",
+      "trap_vi": "Không tự ý bỏ một đặc điểm hoặc sửa đề.",
+      "format_vi": "Không quá 4 từ.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Người rà soát nghe audio và đề xuất sửa giới hạn hoặc tách trường; giữ đề gốc và không chấm câu này."
+    }
+  },
+  {
+    "day": 32,
+    "item_id": "80-days:day-32:main:q-07",
+    "part_id": "80-days:day-32:part-1",
+    "block_id": "80-days:day-32:part-1:block-1",
+    "source_display_number": "7",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 294,
+          "line_index_1_based": 17,
+          "quote": "Emily",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 294,
+          "line_index_1_based": 18,
+          "quote": "if she exercises more",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn gọi Emily và nói một cô gái chạy sau có thể thành đối thủ; đề lại dùng Susan và hạng nhanh/chậm nhất lớp. Không có phương án nào được chứng minh.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "Susan ran as fast as the woman.",
+          "reason_vi": "Không nhắc Susan hay chạy ngang tốc độ."
+        },
+        {
+          "option": "B",
+          "text": "The woman couldn't run as fast as Susan.",
+          "reason_vi": "Không nói người nói chậm hơn Susan."
+        },
+        {
+          "option": "C",
+          "text": "The woman ran the fastest in the class.",
+          "reason_vi": "Không xác nhận nhanh nhất lớp."
+        },
+        {
+          "option": "D",
+          "text": "The woman ran the slowest in the class.",
+          "reason_vi": "Không xác nhận chậm nhất lớp."
+        }
+      ],
+      "paraphrase_vi": "Nguồn gọi Emily và nói một cô gái chạy sau có thể thành đối thủ; đề lại dùng Susan và hạng nhanh/chậm nhất lớp. Không có phương án nào được chứng minh.",
+      "trap_vi": "Không suy hạng toàn lớp từ chạy sau.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Reviewer nghe audio và kiểm tra đề khác; chỉ đưa bản sửa tách biệt nếu tìm được căn cứ."
+    }
+  },
+  {
+    "day": 32,
+    "item_id": "80-days:day-32:main:q-11",
+    "part_id": "80-days:day-32:part-2",
+    "block_id": "80-days:day-32:part-2:block-1",
+    "source_display_number": "11",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 294,
+          "line_index_1_based": 41,
+          "quote": "as high as $200",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn chỉ nói giá có thể cao tới 200 đô la, không cho giá thông thường được đề hỏi. Không xác định được đáp án cho usually; 200 đô la chỉ là tham khảo riêng cho bản sửa hỏi mức tối đa.",
+      "distractors": [],
+      "paraphrase_vi": "Nguồn chỉ nói giá có thể cao tới 200 đô la, không cho giá thông thường được đề hỏi. Không xác định được đáp án cho usually; 200 đô la chỉ là tham khảo riêng cho bản sửa hỏi mức tối đa.",
+      "trap_vi": "Không đổi as high as thành usual.",
+      "format_vi": "Không quá 3 từ.",
+      "source_answer_warning_vi": "Không có giá thông thường trong nguồn; as high as là mức cao nhất được nhắc, không usual.",
+      "next_action_vi": "Nghe audio hoặc kiểm tra bản nguồn khác để tìm giá thông thường. Nếu không có, chỉ tạo bản sửa riêng hỏi mức tối đa được nhắc, giữ nguyên prompt gốc và đáp án chưa xác định."
+    }
+  },
+  {
+    "day": 33,
+    "item_id": "80-days:day-33:main:q-10",
+    "part_id": "80-days:day-33:part-1",
+    "block_id": "80-days:day-33:part-1:block-1",
+    "source_display_number": "10",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 295,
+          "line_index_1_based": 38,
+          "quote": "air conditioner in the ship",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 295,
+          "line_index_1_based": 39,
+          "quote": "real sunshine",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Ấm trên tàu là nhờ điều hòa; bờ biển có nắng thật. Không khẳng định nhiệt độ bờ biển, chi phí hay thiết bị có hoạt động không nên không lựa chọn nào đủ căn cứ.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "The weather is warm on the coast.",
+          "reason_vi": "Nắng không tự chứng minh bờ biển ấm."
+        },
+        {
+          "option": "B",
+          "text": "The extreme weather conditions make expenses high.",
+          "reason_vi": "Không nói thời tiết cực đo an hay chi phí."
+        },
+        {
+          "option": "C",
+          "text": "I'm not sure whether or not it's operating.",
+          "reason_vi": "Không nghi ngờ máy có chạy; nguồn xác định điều hòa tạo ấm."
+        },
+        {
+          "option": "D",
+          "text": "The weather is cold on the coast.",
+          "reason_vi": "Không nói bờ biển lạnh."
+        }
+      ],
+      "paraphrase_vi": "Ấm trên tàu là nhờ điều hòa; bờ biển có nắng thật. Không khẳng định nhiệt độ bờ biển, chi phí hay thiết bị có hoạt động không nên không lựa chọn nào đủ căn cứ.",
+      "trap_vi": "Không đồng nhất sunshine với nhiệt độ.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Nghe audio và kiểm tra nguồn khác để xác định phương án; giữ câu gốc chưa chấm."
+    }
+  },
+  {
+    "day": 33,
+    "item_id": "80-days:day-33:main:q-11",
+    "part_id": "80-days:day-33:part-2",
+    "block_id": "80-days:day-33:part-2:block-1",
+    "source_display_number": "11",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 296,
+          "line_index_1_based": 4,
+          "quote": "kitchen utensils",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 296,
+          "line_index_1_based": 5,
+          "quote": "stationery",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Hai người nói đợt giảm giá đồ bếp/văn phòng phẩm. Không có bằng chứng cửa hàng ở đại học; apartment store cũng là từ nguồn bất thường. Không đủ cơ sở gán T hay F.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T thêm địa điểm trường đại học chưa nêu."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F cũng chưa được chứng minh bằng địa điểm trái ngược."
+        }
+      ],
+      "paraphrase_vi": "Hai người nói đợt giảm giá đồ bếp/văn phòng phẩm. Không có bằng chứng cửa hàng ở đại học; apartment store cũng là từ nguồn bất thường. Không đủ cơ sở gán T hay F.",
+      "trap_vi": "Thiếu dữ kiện không tự động bằng False.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Reviewer kiểm tra audio về địa điểm; nếu không có, giữ trạng thái thiếu bằng chứng."
+    }
+  },
+  {
+    "day": 33,
+    "item_id": "80-days:day-33:main:q-19",
+    "part_id": "80-days:day-33:part-2",
+    "block_id": "80-days:day-33:part-2:block-2",
+    "source_display_number": "19",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 296,
+          "line_index_1_based": 23,
+          "quote": "don't know what I'm going to say",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Anh chưa nói với chủ nhà và lo không biết nói gì, hỏi liệu chủ nhà cho đi. Nguồn không nói tăng tiền thuê, không có thời gian hoặc muốn đi càng sớm càng tốt.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "The man has already talked to his landlady.",
+          "reason_vi": "Anh trả lời No, chưa nói."
+        },
+        {
+          "option": "B",
+          "text": "The man have no time to talk tohis landlady.",
+          "reason_vi": "Không nêu thiếu thời gian."
+        },
+        {
+          "option": "C",
+          "text": "The man is afraid of the raise of the rent for the house.",
+          "reason_vi": "Không nêu tăng tiền thuê."
+        },
+        {
+          "option": "D",
+          "text": "The man wants to move out of the house as soon as possible.",
+          "reason_vi": "Câu hỏi được cho đi không xác định mong đi ngay sớm nhất."
+        }
+      ],
+      "paraphrase_vi": "Anh chưa nói với chủ nhà và lo không biết nói gì, hỏi liệu chủ nhà cho đi. Nguồn không nói tăng tiền thuê, không có thời gian hoặc muốn đi càng sớm càng tốt.",
+      "trap_vi": "Không biến candidate C thành key khi nguồn không nhắc tiền.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Reviewer nghe audio về rent; nếu vẫn vắng, cần sửa phương án độc lập thay vì ép chọn."
+    }
+  },
+  {
+    "day": 34,
+    "item_id": "80-days:day-34:main:q-19",
+    "part_id": "80-days:day-34:part-3",
+    "block_id": "80-days:day-34:part-3:block-1",
+    "source_display_number": "19",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 298,
+          "line_index_1_based": 14,
+          "quote": "many journeys",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 298,
+          "line_index_1_based": 15,
+          "quote": "poetry.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 298,
+          "line_index_1_based": 17,
+          "quote": "after World War II",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nông trại là trọng tâm thơ; nguồn cũng nêu nhiều chuyến đi và đỉnh nổi tiếng sau Thế chiến II. Không xác nhận sống yên bình ở nông thôn sau Thế chiến II. Với câu ghép, chưa đủ cơ sở khẳng định T hay phủ định bằng F.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T thêm trạng thái sống yên bình sau mốc thời gian chưa nêu."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F chưa được chứng minh bằng sự kiện trái ngược đúng mốc sau Thế chiến II."
+        }
+      ],
+      "paraphrase_vi": "Nông trại là trọng tâm thơ; nguồn cũng nêu nhiều chuyến đi và đỉnh nổi tiếng sau Thế chiến II. Không xác nhận sống yên bình ở nông thôn sau Thế chiến II. Với câu ghép, chưa đủ cơ sở khẳng định T hay phủ định bằng F.",
+      "trap_vi": "Không đồng nhất quê nhà với cư trú yên bình suốt thời kỳ.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Reviewer nghe audio để tìm mệnh đề sau WWII; nếu vắng, giữ chưa xác định hoặc đề xuất câu sửa riêng."
+    }
+  },
+  {
+    "day": 35,
+    "item_id": "80-days:day-35:main:q-20",
+    "part_id": "80-days:day-35:part-3",
+    "block_id": "80-days:day-35:part-3:block-1",
+    "source_display_number": "20",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 300,
+          "line_index_1_based": 12,
+          "quote": "each gram it weighs",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 300,
+          "line_index_1_based": 13,
+          "quote": "each gram it weights",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn so oxy trên mỗi gram và khác biệt kích thước các loài, nhưng không khẳng định quy luật phụ thuộc cả size and shape. A cũng liên quan body weight khi đo tổng oxy; chưa có cơ sở chọn duy nhất C.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "its body weight",
+          "reason_vi": "A có liên quan tới khối lượng trong đơn vị đo, không được loại bằng nguồn hiện có."
+        },
+        {
+          "option": "B",
+          "text": "the food it eats",
+          "reason_vi": "Không cho ra quy luật theo loại thức ăn."
+        },
+        {
+          "option": "C",
+          "text": "its general size and shape",
+          "reason_vi": "C thêm shape chưa được đoạn xác nhận."
+        },
+        {
+          "option": "D",
+          "text": "its blood in its body",
+          "reason_vi": "Không nêu phụ thuộc lượng máu."
+        }
+      ],
+      "paraphrase_vi": "Nguồn so oxy trên mỗi gram và khác biệt kích thước các loài, nhưng không khẳng định quy luật phụ thuộc cả size and shape. A cũng liên quan body weight khi đo tổng oxy; chưa có cơ sở chọn duy nhất C.",
+      "trap_vi": "Không dùng kiến thức ngoài đoạn để bổ sung mệnh đề thiếu.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Nghe audio/kiểm tra phiên bản đoạn có mệnh đề size and shape; nếu vắng cần phương án sửa riêng."
+    }
+  },
+  {
+    "day": 37,
+    "item_id": "80-days:day-37:main:q-17",
+    "part_id": "80-days:day-37:part-2",
+    "block_id": "80-days:day-37:part-2:block-2",
+    "source_display_number": "17",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 303,
+          "line_index_1_based": 32,
+          "quote": "go camping or go shopping this Sunday",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 303,
+          "line_index_1_based": 33,
+          "quote": "I like camping very much.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Người phụ nữ cân nhắc camping hoặc shopping; người đàn ông thích camping, nhưng cô chưa chọn hoặc đồng ý đi cùng. Chưa đủ xác định probably go camping với người đàn ông.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T chỉ là khả năng, chưa có lời đồng ý."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F cũng không chắc vì camping vẫn là lựa chọn đang cân nhắc."
+        }
+      ],
+      "paraphrase_vi": "Người phụ nữ cân nhắc camping hoặc shopping; người đàn ông thích camping, nhưng cô chưa chọn hoặc đồng ý đi cùng. Chưa đủ xác định probably go camping với người đàn ông.",
+      "trap_vi": "Không biến sở thích của người đàn ông thành quyết định của người phụ nữ.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Nghe audio/kiểm tra lượt nói tiếp có thỏa thuận; nếu không có, giữ câu chưa xác định hoặc viết câu hỏi sửa riêng."
+    }
+  },
+  {
+    "day": 38,
+    "item_id": "80-days:day-38:main:q-14",
+    "part_id": "80-days:day-38:part-2",
+    "block_id": "80-days:day-38:part-2:block-1",
+    "source_display_number": "14",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 305,
+          "line_index_1_based": 25,
+          "quote": "on whole wheat. Hold the mayonnaise",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "On whole wheat là phần bánh được gọi, nhưng khách yêu cầu bỏ mayonnaise trong khi câu hỏi in with mayonnaise. Không có cách điền ô này làm toàn câu vừa giữ nguyên đề vừa đúng đơn gọi món.",
+      "distractors": [],
+      "paraphrase_vi": "On whole wheat là phần bánh được gọi, nhưng khách yêu cầu bỏ mayonnaise trong khi câu hỏi in with mayonnaise. Không có cách điền ô này làm toàn câu vừa giữ nguyên đề vừa đúng đơn gọi món.",
+      "trap_vi": "Không sửa with thành without âm thầm.",
+      "format_vi": "Không quá 4 từ.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Giữ đề gốc và cảnh báo; bản sửa riêng có thể dùng “A veggie sandwich ____ without mayonnaise” với on whole wheat."
+    }
+  },
+  {
+    "day": 40,
+    "item_id": "80-days:day-40:main:q-04",
+    "part_id": "80-days:day-40:part-1",
+    "block_id": "80-days:day-40:part-1:block-1",
+    "source_display_number": "4",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 308,
+          "line_index_1_based": 6,
+          "quote": "In spite of the meeting at 3 o'clock",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 308,
+          "line_index_1_based": 6,
+          "quote": "I will go to see him",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn nói dù có họp 3 giờ vẫn sẽ đi gặp một người quan trọng cho đàm phán ngày mai. Không nêu giờ gặp người đó hoặc xác nhận bỏ họp; chưa có phương án được xác nhận duy nhất.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "The group will meet at 2 o'clock.",
+          "reason_vi": "A sai mốc họp 2 giờ; nguồn 3 giờ."
+        },
+        {
+          "option": "B",
+          "text": "There will be two meetings in the afternoon.",
+          "reason_vi": "B thêm hai cuộc họp không có nguồn."
+        },
+        {
+          "option": "C",
+          "text": "He will not go to the meeting.",
+          "reason_vi": "C có thể là suy luận dự kiến nhưng nguồn chưa nói sẽ bỏ họp."
+        },
+        {
+          "option": "D",
+          "text": "He will go to meet the group at 3 o'clock.",
+          "reason_vi": "D đổi gặp him thành group và ấn định lúc 3 giờ không được xác nhận."
+        }
+      ],
+      "paraphrase_vi": "Nguồn nói dù có họp 3 giờ vẫn sẽ đi gặp một người quan trọng cho đàm phán ngày mai. Không nêu giờ gặp người đó hoặc xác nhận bỏ họp; chưa có phương án được xác nhận duy nhất.",
+      "trap_vi": "Không biến in spite of thành lời xác nhận bỏ một lịch hẹn.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Nghe audio và kiểm tra câu bổ sung về thời điểm/bỏ họp; nếu không có, giữ unresolved hoặc viết câu sửa riêng."
+    }
+  },
+  {
+    "day": 40,
+    "item_id": "80-days:day-40:main:q-14",
+    "part_id": "80-days:day-40:part-2",
+    "block_id": "80-days:day-40:part-2:block-1",
+    "source_display_number": "14",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 308,
+          "line_index_1_based": 35,
+          "quote": "Would you like a cash advance?",
+          "relation": "supports",
+          "visual_reconstruction": true,
+          "source_image_path": "page-images/pdf-page-307.jpg",
+          "source_image_sha256": "5125deb64a69ac7f1870890f384ab4f46418d6566a6aabc47ff1a50bc025879f",
+          "source_region": {
+            "x": 83.4,
+            "y": 1272.8,
+            "width": 792.6,
+            "height": 29.90000000000009
+          },
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": "VISUALLY_CORRECTED",
+          "raw_ocr_verbatim": false,
+          "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 308,
+          "line_index_1_based": 37,
+          "quote": "withdraw money",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 308,
+          "line_index_1_based": 43,
+          "quote": "Sign next to",
+          "relation": "supports",
+          "visual_reconstruction": true,
+          "source_image_path": "page-images/pdf-page-307.jpg",
+          "source_image_sha256": "5125deb64a69ac7f1870890f384ab4f46418d6566a6aabc47ff1a50bc025879f",
+          "source_region": {
+            "x": 84.4,
+            "y": 1560.8,
+            "width": 556.6,
+            "height": 30.90000000000009
+          },
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": "VISUALLY_CORRECTED",
+          "raw_ocr_verbatim": false,
+          "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Không có lời Richard xác nhận cách trả bill. Cash advance được giải thích là rút tiền, không trực tiếp phương thức thanh toán; ký tên/nhấn nút gợi giao dịch thẻ nhưng không xác định loại. B charge và D credit card còn chồng nghĩa.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "He will use the cash.",
+          "reason_vi": "A không có xác nhận dùng tiền mặt."
+        },
+        {
+          "option": "B",
+          "text": "He will use his by way of charge.",
+          "reason_vi": "B có thể phù hợp giao dịch ký tên nhưng không được Richard nói; chồng với D."
+        },
+        {
+          "option": "C",
+          "text": "He will use a cash advance.",
+          "reason_vi": "C chỉ là dịch vụ rút tiền được đề nghị, không xác nhận dùng để trả bill."
+        },
+        {
+          "option": "D",
+          "text": "He will use his credit card.",
+          "reason_vi": "D là suy luận từ nút/ký tên; chưa có tên loại thẻ hay lời xác nhận."
+        }
+      ],
+      "paraphrase_vi": "Không có lời Richard xác nhận cách trả bill. Cash advance được giải thích là rút tiền, không trực tiếp phương thức thanh toán; ký tên/nhấn nút gợi giao dịch thẻ nhưng không xác định loại. B charge và D credit card còn chồng nghĩa.",
+      "trap_vi": "Không lấy cash advance làm đồng nghĩa với cách thanh toán.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Nghe audio/kiểm tra lượt xác nhận phương thức; nếu thiếu, giữ câu không xác định hoặc sửa phương án B/D và bổ sung căn cứ ở bản biên tập riêng."
+    }
+  },
+  {
+    "day": 40,
+    "item_id": "80-days:day-40:main:q-20",
+    "part_id": "80-days:day-40:part-3",
+    "block_id": "80-days:day-40:part-3:block-1",
+    "source_display_number": "20",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 309,
+          "line_index_1_based": 10,
+          "quote": "those who live nearby",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 309,
+          "line_index_1_based": 11,
+          "quote": "close friends and their relatives who live far away",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Đoạn liệt kê người sống gần, bạn thân và họ hàng xa. Cụm friends and relatives vừa 3 từ nhưng không giữ rõ nhóm those who live nearby; chưa có key hay bản rút gọn 3 từ được kiểm chứng bao quát đủ nhóm.",
+      "distractors": [],
+      "paraphrase_vi": "Đoạn liệt kê người sống gần, bạn thân và họ hàng xa. Cụm friends and relatives vừa 3 từ nhưng không giữ rõ nhóm those who live nearby; chưa có key hay bản rút gọn 3 từ được kiểm chứng bao quát đủ nhóm.",
+      "trap_vi": "Không tuyên bố toàn danh sách có thể chép trong 3 từ hoặc tự biến mọi người sống gần thành bạn/họ hàng.",
+      "format_vi": "Không quá 3 từ.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Rà soát key/audio hoặc cách tóm tắt 3 từ có căn cứ; nếu không có, bản sửa riêng tăng giới hạn hoặc hỏi một nhóm cụ thể."
+    }
+  },
+  {
+    "day": 41,
+    "item_id": "80-days:day-41:main:q-06",
+    "part_id": "80-days:day-41:part-1",
+    "block_id": "80-days:day-41:part-1:block-1",
+    "source_display_number": "6",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 309,
+          "line_index_1_based": 32,
+          "quote": "black community",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 309,
+          "line_index_1_based": 33,
+          "quote": "general trend toward intermarriage.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Câu nói một bộ phận cộng đồng da đen đi học, vào tầng lớp trung lưu và chuyển ra ngoại ô, cũng theo xu hướng hôn nhân khác nhóm. J thêm racial segregation không được nguồn nói; không coi black community là đồng nghĩa segregation.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "trainings",
+          "reason_vi": "Train là huấn luyện ong trong câu 10, không quan hệ được hỏi ở câu này."
+        },
+        {
+          "option": "B",
+          "text": "in thirty or forty years",
+          "reason_vi": "Thirty or forty years là thời gian dự đoán ở câu 7, không mốc trong câu này."
+        },
+        {
+          "option": "C",
+          "text": "information on circumstances",
+          "reason_vi": "Circumstances gắn với kiến thức đọc báo ở câu 8, khác ý câu này."
+        },
+        {
+          "option": "D",
+          "text": "political asylum",
+          "reason_vi": "Political asylum là tị nạn chính trị của Mr Write ở câu 1, không sự việc câu này."
+        },
+        {
+          "option": "E",
+          "text": "cancer of the liver",
+          "reason_vi": "Cancer of the liver là ung thư gan được liên hệ alcohol ở câu 5, khác nội dung câu này."
+        },
+        {
+          "option": "F",
+          "text": "first try",
+          "reason_vi": "First try diễn đạt first attempt điệu Scottish reel ở câu 4, không sự kiện của câu này."
+        },
+        {
+          "option": "G",
+          "text": "free computer",
+          "reason_vi": "Free computer là máy tính có quảng cáo ở câu 2, không nội dung câu này."
+        },
+        {
+          "option": "H",
+          "text": "$ 5 billion and delay",
+          "reason_vi": "Chi phí trên 5 tỷ và trì hoãn do phản đối ở câu 9, không hệ quả trong câu này."
+        },
+        {
+          "option": "I",
+          "text": "terrible task",
+          "reason_vi": "Terrible task diễn đạt dreadful job cai ngục ở câu 3, khác nội dung câu này."
+        },
+        {
+          "option": "J",
+          "text": "racial segregation community",
+          "reason_vi": "J là phương án dự kiến theo chủ đề black community, nhưng thêm racial segregation không được đoạn nguồn nêu. Không có lựa chọn nào khớp đầy đủ."
+        }
+      ],
+      "paraphrase_vi": "Câu nói một bộ phận cộng đồng da đen đi học, vào tầng lớp trung lưu và chuyển ra ngoại ô, cũng theo xu hướng hôn nhân khác nhóm. J thêm racial segregation không được nguồn nói; không coi black community là đồng nghĩa segregation.",
+      "trap_vi": "Không gán phân biệt/tách biệt chủng tộc từ tên cộng đồng.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Câu nói một bộ phận cộng đồng da đen đi học, vào tầng lớp trung lưu và chuyển ra ngoại ô, cũng theo xu hướng hôn nhân khác nhóm. J thêm racial segregation không được nguồn nói; không coi black community là đồng nghĩa segregation.",
+      "next_action_vi": "Giữ tự đối chiếu và không chấm; cần duyệt sửa phương án J theo nội dung nguồn hoặc đối chiếu audio/ngữ cảnh đầy đủ để xác định có thông tin còn thiếu. Không tự sửa đề nguồn."
+    }
+  },
+  {
+    "day": 42,
+    "item_id": "80-days:day-42:main:q-05",
+    "part_id": "80-days:day-42:part-1",
+    "block_id": "80-days:day-42:part-1:block-1",
+    "source_display_number": "5",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 311,
+          "line_index_1_based": 29,
+          "quote": "seemed to be enjoying themselves",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 311,
+          "line_index_1_based": 29,
+          "quote": "only pretending to be",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 311,
+          "line_index_1_based": 30,
+          "quote": "happy. How can they be at ease in such a serious situation?",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Không lựa chọn nào giữ đầy đủ ý: trẻ chỉ tỏ ra vui nhưng người nói nghĩ giả vờ. A chỉ phản ánh vẻ ngoài và bỏ seemed/pretending, nên không phải kết luận được nguồn xác lập.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "The children were enjoying themselves.",
+          "reason_vi": "A bỏ seemed và lời nhận xét only pretending; vẻ ngoài vui không xác lập trẻ thực sự vui."
+        },
+        {
+          "option": "B",
+          "text": "The children did not come to the party.",
+          "reason_vi": "B trẻ có mặt ở tiệc."
+        },
+        {
+          "option": "C",
+          "text": "The children were not behaving themselves in the party.",
+          "reason_vi": "C không nói trẻ cư xử hư; không thoải mái khác misbehaving."
+        },
+        {
+          "option": "D",
+          "text": "The children was frightened by the adults.",
+          "reason_vi": "D không nêu người lớn làm trẻ sợ, chỉ serious situation."
+        }
+      ],
+      "paraphrase_vi": "Không lựa chọn nào giữ đầy đủ ý: trẻ chỉ tỏ ra vui nhưng người nói nghĩ giả vờ. A chỉ phản ánh vẻ ngoài và bỏ seemed/pretending, nên không phải kết luận được nguồn xác lập.",
+      "trap_vi": "Seemed/pretending khác thực sự enjoying.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Các lựa chọn không diễn đạt trẻ chỉ giả vờ vui; A bỏ dấu hiệu seemed và lời đính chính, C/D thêm điều không nói.",
+      "next_action_vi": "Giữ câu ở chế độ tự đối chiếu, không chấm; chỉ dùng chấm sau khi duyệt sửa một phương án phản ánh They were only pretending to be happy hoặc đối chiếu audio có bằng chứng khác."
+    }
+  },
+  {
+    "day": 42,
+    "item_id": "80-days:day-42:main:q-24",
+    "part_id": "80-days:day-42:part-3",
+    "block_id": "80-days:day-42:part-3:block-1",
+    "source_display_number": "24",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 312,
+          "line_index_1_based": 28,
+          "quote": "a journey of 214 miles by car from one to",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 312,
+          "line_index_1_based": 29,
+          "quote": "the other.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn chỉ cho quãng đường lái xe 214 miles, không thời lượng. 214 miles là thông tin tham khảo đúng đơn vị khoảng cách, không đáp câu hỏi how long it will take; thiếu tốc độ/thời gian nên không chấm.",
+      "distractors": [],
+      "paraphrase_vi": "Nguồn chỉ cho quãng đường lái xe 214 miles, không thời lượng. 214 miles là thông tin tham khảo đúng đơn vị khoảng cách, không đáp câu hỏi how long it will take; thiếu tốc độ/thời gian nên không chấm.",
+      "trap_vi": "12 miles là khoảng cách qua hẻm giữa hai rim, không đường xe; không đổi miles thành giờ.",
+      "format_vi": "Không quá 3 từ.",
+      "source_answer_warning_vi": "How long it will take hỏi thời lượng nhưng nguồn chỉ có 214 miles quãng đường, không thời gian.",
+      "next_action_vi": "Sửa hỏi How far is the drive hoặc bổ sung thời lượng thực tế nguồn trước khi dùng chấm."
+    }
+  },
+  {
+    "day": 44,
+    "item_id": "80-days:day-44:main:q-09",
+    "part_id": "80-days:day-44:part-1",
+    "block_id": "80-days:day-44:part-1:block-2",
+    "source_display_number": "9",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 315,
+          "line_index_1_based": 10,
+          "quote": "as a reporter and present at most of the",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 315,
+          "line_index_1_based": 11,
+          "quote": "important battles of that war.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Reporter được xác lập, còn tried to catch every news không được nói. Có mặt tại most important battles không chứng minh cũng không phủ định mục tiêu cố thu mọi tin. Cả T và F đều thiếu bằng chứng cho mệnh đề đầy đủ; không có đáp án được xác lập trong bộ T/F hiện tại.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T bổ sung mục tiêu every news không được nói; most battles không tương đương mọi tin."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "Không có lời phủ định mục tiêu tried to catch every news; sự vắng bằng chứng và việc có mặt tại most important battles không làm F được xác lập."
+        }
+      ],
+      "paraphrase_vi": "Reporter được xác lập, còn tried to catch every news không được nói. Có mặt tại most important battles không chứng minh cũng không phủ định mục tiêu cố thu mọi tin. Cả T và F đều thiếu bằng chứng cho mệnh đề đầy đủ; không có đáp án được xác lập trong bộ T/F hiện tại.",
+      "trap_vi": "Most important battles khác every news; không dùng vắng chứng cứ như phủ định tuyệt đối.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Không có thông tin tried to catch every news; most battles không đủ chứng minh đúng hay phủ định mục tiêu này.",
+      "next_action_vi": "Giữ tự đối chiếu, không chấm; cần duyệt bổ sung Not Given hoặc sửa phát biểu thành nội dung nguồn xác lập, hay đối chiếu audio đầy đủ trước dùng chấm."
+    }
+  },
+  {
+    "day": 47,
+    "item_id": "80-days:day-47:main:q-03",
+    "part_id": "80-days:day-47:part-1",
+    "block_id": "80-days:day-47:part-1:block-1",
+    "source_display_number": "3",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 320,
+          "line_index_1_based": 14,
+          "quote": "I was startled when I heard Kevin play the piano",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 320,
+          "line_index_1_based": 15,
+          "quote": "that was the way he has always been talking.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "C có thể là ý dự kiến nếu người nói ngạc nhiên vì Kevin chơi giỏi dù tự nhận mới học. Nhưng bản in chỉ startled và câu kết talking không giải thích trình độ; không có chứng cứ trực tiếp very well, recent progress hay beginner thật. C là giả thuyết tham khảo, chưa xác nhận.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "He has just begun to take piano lessons.",
+          "reason_vi": "A chỉ là điều người nói previously thought, không sự thật đã xác nhận."
+        },
+        {
+          "option": "B",
+          "text": "He always gives piano lessons.",
+          "reason_vi": "B taking lessons khác gives lessons; nguồn không nói dạy."
+        },
+        {
+          "option": "D",
+          "text": "He has made great progress in piano in recent days.",
+          "reason_vi": "D không có mốc tiến bộ gần đây; bất ngờ không bằng recent progress."
+        },
+        {
+          "option": "C",
+          "text": "He plays piano very well.",
+          "reason_vi": "C là ý dự kiến, nhưng startled không chứng minh very well; nguồn không xác nhận trình độ Kevin."
+        }
+      ],
+      "paraphrase_vi": "C có thể là ý dự kiến nếu người nói ngạc nhiên vì Kevin chơi giỏi dù tự nhận mới học. Nhưng bản in chỉ startled và câu kết talking không giải thích trình độ; không có chứng cứ trực tiếp very well, recent progress hay beginner thật. C là giả thuyết tham khảo, chưa xác nhận.",
+      "trap_vi": "Không tự phục dựng talking thành playing để tạo chứng cứ.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Bản in có talking và không chứng minh trình độ very well; startled chưa đủ xác nhận.",
+      "next_action_vi": "Giữ null và tự đối chiếu, chưa chấm; xác minh audio hoặc duyệt bản sửa riêng nêu rõ trình độ piano trước khi chấm khách quan."
+    }
+  },
+  {
+    "day": 47,
+    "item_id": "80-days:day-47:main:q-15",
+    "part_id": "80-days:day-47:part-2",
+    "block_id": "80-days:day-47:part-2:block-1",
+    "source_display_number": "15",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 321,
+          "line_index_1_based": 15,
+          "quote": "we're going to get a tree today.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Get a tree today không xác định mua, tự làm hay tự chặt. Get a tree chỉ trích tham khảo hành động đã nói, không trả lời được lựa chọn make/buy.",
+      "distractors": [],
+      "paraphrase_vi": "Get a tree today không xác định mua, tự làm hay tự chặt. Get a tree chỉ trích tham khảo hành động đã nói, không trả lời được lựa chọn make/buy.",
+      "trap_vi": "Không ép get thành buy trong thiếu ngữ cảnh.",
+      "format_vi": "Không quá 5 từ.",
+      "source_answer_warning_vi": "Get a tree không xác định make versus buy; câu hỏi thiếu chứng cứ lựa chọn.",
+      "next_action_vi": "Giữ null cho lựa chọn make/buy và chưa chấm; get a tree chỉ là hành động trong nguồn. Cần duyệt bản sửa riêng hỏi When will Jack get a tree? (today), hoặc xác minh nguồn nói rõ mua/làm."
+    }
+  },
+  {
+    "day": 49,
+    "item_id": "80-days:day-49:main:q-02",
+    "part_id": "80-days:day-49:part-1",
+    "block_id": "80-days:day-49:part-1:block-1",
+    "source_display_number": "2",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 324,
+          "line_index_1_based": 9,
+          "quote": "our bodies need.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 324,
+          "line_index_1_based": 10,
+          "quote": "fruits, vegetables or some medicines",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 324,
+          "line_index_1_based": 11,
+          "quote": "vitamin C?",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "D có thể là mục tiêu từ vựng của bài: Narcissus là tên hoa, khác nhóm thực phẩm/thuốc được câu nêu. Nhưng nguồn không cho hàm lượng từng lựa chọn, thành phần multivitamins hay dữ kiện để xét rich in vitamin C. Không dùng câu này để khuyên ăn/uống bất kỳ lựa chọn nào; D chỉ tham khảo chưa xác nhận.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "Strawberry",
+          "reason_vi": "A nguồn nói trái cây nói chung, không thông tin hàm lượng strawberry."
+        },
+        {
+          "option": "B",
+          "text": "Multivitamins",
+          "reason_vi": "B nguồn nói some medicines, không chỉ định thành phần multivitamins cụ thể."
+        },
+        {
+          "option": "C",
+          "text": "Lettuce",
+          "reason_vi": "C nguồn nói vegetables nói chung, không thông tin hàm lượng lettuce."
+        },
+        {
+          "option": "D",
+          "text": "Narcissus",
+          "reason_vi": "D là tên hoa có thể được dự kiến, nhưng nguồn không cung cấp dữ kiện hàm lượng vitamin C để kết luận đáp án."
+        }
+      ],
+      "paraphrase_vi": "D có thể là mục tiêu từ vựng của bài: Narcissus là tên hoa, khác nhóm thực phẩm/thuốc được câu nêu. Nhưng nguồn không cho hàm lượng từng lựa chọn, thành phần multivitamins hay dữ kiện để xét rich in vitamin C. Không dùng câu này để khuyên ăn/uống bất kỳ lựa chọn nào; D chỉ tham khảo chưa xác nhận.",
+      "trap_vi": "Không tự dùng phân nhóm chung làm chứng cứ định lượng dinh dưỡng.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Không có hàm lượng vitaminC cho từng lựa chọn; thuốc multivitamins không được chỉ định thành phần. D là ý dự kiến từ vựng chứ chưa đáp án suy được chỉ từ nguồn.",
+      "next_action_vi": "Giữ không chấm; thêm dữ kiện phân loại rõ trong nguồn nghe hoặc chuyển câu thành nhận diện tên hoa, không bài tư vấn dinh dưỡng."
+    }
+  },
+  {
+    "day": 50,
+    "item_id": "80-days:day-50:main:q-05",
+    "part_id": "80-days:day-50:part-1",
+    "block_id": "80-days:day-50:part-1:block-1",
+    "source_display_number": "5",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 326,
+          "line_index_1_based": 29,
+          "quote": "30 students in our class",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 326,
+          "line_index_1_based": 29,
+          "quote": "15 join the football team and 18 join the baseball team.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "D chỉ đúng nếu cả 30 người thuộc ít nhất một đội:15+18−30=3. Nguồn không cho hợp hai nhóm bằng 30. Giao có thể từ 3 đến 15 người; không thể suy số chính xác. Giữ 3 là tham chiếu điều kiện, chưa xác nhận.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "30 students",
+          "reason_vi": "A giao tối đa 15, không 30."
+        },
+        {
+          "option": "B",
+          "text": "15 students",
+          "reason_vi": "B 15 có thể nếu cả football nằm trong baseball, nguồn không loại khả năng này."
+        },
+        {
+          "option": "C",
+          "text": "18 students",
+          "reason_vi": "C 18 vượt đội football 15 nên không thể là giao."
+        },
+        {
+          "option": "D",
+          "text": "3 students",
+          "reason_vi": "D là cận dưới 3 người hoặc giao khi giả định hợp cả lớp; nguồn thiếu điều kiện nên không xác nhận đúng 3."
+        }
+      ],
+      "paraphrase_vi": "D chỉ đúng nếu cả 30 người thuộc ít nhất một đội:15+18−30=3. Nguồn không cho hợp hai nhóm bằng 30. Giao có thể từ 3 đến 15 người; không thể suy số chính xác. Giữ 3 là tham chiếu điều kiện, chưa xác nhận.",
+      "trap_vi": "Không dùng tổng lớp làm hợp hai nhóm khi có thể có người không tham gia đội nào.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Không nói tất cả 30 người tham gia ít nhất một đội; 3 chỉ tối thiểu, giao có thể 3–15.",
+      "next_action_vi": "Giữ null và chưa chấm; cần duyệt bản sửa riêng thêm every student joins at least one team hoặc hỏi minimum possible number trước khi dùng 3 làm đáp án."
+    }
+  },
+  {
+    "day": 50,
+    "item_id": "80-days:day-50:main:q-19",
+    "part_id": "80-days:day-50:part-3",
+    "block_id": "80-days:day-50:part-3:block-1",
+    "source_display_number": "19",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 327,
+          "line_index_1_based": 38,
+          "quote": "Middle East and South Asia.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 327,
+          "line_index_1_based": 39,
+          "quote": "History is used as the basis for almost any modern action.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 327,
+          "line_index_1_based": 40,
+          "quote": "an Arab won't start a talk or a speech or analyze a problem without first developing the historical aspects",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "T là suy luận dự kiến từ khái quát The Arab. Nhưng nguồn không nhắc Kuwait, không cho chứng cứ mọi/người Kuwait thuộc trường hợp nêu. Không áp khuôn mẫu nhóm rộng để xác nhận hành vi của quốc gia cụ thể. Giữ T tham khảo chưa xác nhận.",
+      "distractors": [
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F cũng không được nguồn chứng minh vì không nhắc Kuwait; true/false thiếu Not given."
+        },
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T dựa khái quát Arab nhưng Kuwait không được nhắc; không có bằng chứng riêng xác nhận hành vi người Kuwait."
+        }
+      ],
+      "paraphrase_vi": "T là suy luận dự kiến từ khái quát The Arab. Nhưng nguồn không nhắc Kuwait, không cho chứng cứ mọi/người Kuwait thuộc trường hợp nêu. Không áp khuôn mẫu nhóm rộng để xác nhận hành vi của quốc gia cụ thể. Giữ T tham khảo chưa xác nhận.",
+      "trap_vi": "Nhóm khu vực/Arab rộng không thay dữ kiện quốc gia riêng.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Kuwait không xuất hiện; khái quát Arab/khu vực không đủ chứng cứ riêng về người Kuwait.",
+      "next_action_vi": "Giữ null và chưa chấm; cần duyệt bản sửa riêng theo The Arab according to the passage hoặc thêm Not Given, không suy Kuwait từ nhóm rộng."
+    }
+  },
+  {
+    "day": 71,
+    "item_id": "80-days:day-71:main:q-34",
+    "part_id": "80-days:day-71:part-4",
+    "block_id": "80-days:day-71:part-4:block-1",
+    "source_display_number": "34",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 341,
+          "line_index_1_based": 25,
+          "quote": "Shylock is Jewish",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn nói Shylock Jewish, một căn tính dân tộc/tôn giáo, không quốc tịch được xác định theo nationality của câu hỏi. Không tự biến Jewish thành tên quốc gia hay thêm quốc tịch từ kiến thức ngoài.",
+      "distractors": [],
+      "paraphrase_vi": "Nguồn nói Shylock Jewish, một căn tính dân tộc/tôn giáo, không quốc tịch được xác định theo nationality của câu hỏi. Không tự biến Jewish thành tên quốc gia hay thêm quốc tịch từ kiến thức ngoài.",
+      "trap_vi": "Jewish không tự chứng minh quốc tịch cụ thể.",
+      "format_vi": "Điền theo yêu cầu của khối câu hỏi.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Giữ câu nguồn với cảnh báo; bản sửa riêng có thể hỏi identity/background thay nationality và dùng Jewish theo đoạn."
+    }
+  },
+  {
+    "day": 72,
+    "item_id": "80-days:day-72:main:q-40",
+    "part_id": "80-days:day-72:part-4",
+    "block_id": "80-days:day-72:part-4:block-3",
+    "source_display_number": "40",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 346,
+          "line_index_1_based": 5,
+          "quote": "Reduced to a quarter of the original",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 346,
+          "line_index_1_based": 7,
+          "quote": "sales are over now",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 346,
+          "line_index_1_based": 17,
+          "quote": "one or two things at sale price",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "A quarter là giá đợt sale trước. Nhân viên nói sale hết, chỉ vài món còn sale; không xác nhận giá hiện tại của chính bộ vừa tìm thấy. Không dùng quarter cho now.",
+      "distractors": [],
+      "paraphrase_vi": "A quarter là giá đợt sale trước. Nhân viên nói sale hết, chỉ vài món còn sale; không xác nhận giá hiện tại của chính bộ vừa tìm thấy. Không dùng quarter cho now.",
+      "trap_vi": "Không chuyển giá quá khứ thành giá hiện tại.",
+      "format_vi": "Điền theo yêu cầu của khối câu hỏi.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Giữ null cho giá now; bản sửa riêng có thể hỏi giá during the sale và trả lời a quarter of original price."
+    }
+  },
+  {
+    "day": 73,
+    "item_id": "80-days:day-73:main:q-19",
+    "part_id": "80-days:day-73:part-2",
+    "block_id": "80-days:day-73:part-2:block-3",
+    "source_display_number": "19",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 348,
+          "line_index_1_based": 25,
+          "quote": "very large classes",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 348,
+          "line_index_1_based": 27,
+          "quote": "more individual attention",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 348,
+          "line_index_1_based": 28,
+          "quote": "needs just aren't passed over",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Vấn đề trực tiếp là lớp quá đông, làm khó chăm sóc riêng; không có phương án nêu đúng. C dùng can’t be passed over là mục tiêu sau giảm sĩ số, không vấn đề needs are passed over. D lặp chủ đề chung không phân biệt. Giữ null thay ép C.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "the division of the students at the age of eleven.",
+          "reason_vi": "A là vấn đề phân nhóm cũ, không one of our great problems ở đoạn được hỏi."
+        },
+        {
+          "option": "B",
+          "text": "the quality of the teachers.",
+          "reason_vi": "B không phê chất lượng giáo viên."
+        },
+        {
+          "option": "C",
+          "text": "each child’s own particular need can’t be passed over.",
+          "reason_vi": "C phủ định bỏ qua nhu cầu, gần mục tiêu cải thiện nhưng không biểu đạt lớp đông gây bỏ sót."
+        },
+        {
+          "option": "D",
+          "text": "the problem of education system.",
+          "reason_vi": "D quá chung, không nêu vấn đề cụ thể được phát biểu."
+        }
+      ],
+      "paraphrase_vi": "Vấn đề trực tiếp là lớp quá đông, làm khó chăm sóc riêng; không có phương án nêu đúng. C dùng can’t be passed over là mục tiêu sau giảm sĩ số, không vấn đề needs are passed over. D lặp chủ đề chung không phân biệt. Giữ null thay ép C.",
+      "trap_vi": "Không đảo trạng thái desired outcome thành hiện trạng.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Bản sửa riêng thêm large classes/lack of individual attention; giữ C nguyên bản và null khi chưa sửa câu."
+    }
+  },
+  {
+    "day": 73,
+    "item_id": "80-days:day-73:main:q-35",
+    "part_id": "80-days:day-73:part-4",
+    "block_id": "80-days:day-73:part-4:block-1",
+    "source_display_number": "35",
+    "explanation": {
+      "printed_key": {
+        "answer": "C",
+        "source_pdf_page": 405,
+        "source_ocr_line_index_1_based": 7,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_VISUALLY_CHECKED_PAGE",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 350,
+          "line_index_1_based": 18,
+          "quote": "Chairman",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 350,
+          "line_index_1_based": 26,
+          "quote": "Mrs Armstrong",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 350,
+          "line_index_1_based": 33,
+          "quote": "Herr Miller",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 350,
+          "line_index_1_based": 44,
+          "quote": "Sr Cordoba",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 351,
+          "line_index_1_based": 10,
+          "quote": "Mrs Patel",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn xác định năm vai phát biểu: Chairman, Armstrong, Miller, Cordoba, Patel. Không có tổng số người tham dự hoặc bằng chứng không còn người im lặng; vì vậy không thể xác định một trong bốn lựa chọn cho attending.",
+      "distractors": [
+        {
+          "option": "A",
+          "text": "four",
+          "reason_vi": "Đã có năm vai phát biểu, nên four không khớp số vai đã xác định; tổng attendees vẫn không được nêu."
+        },
+        {
+          "option": "B",
+          "text": "six",
+          "reason_vi": "Có thể có người im lặng thứ sáu nhưng nguồn không xác nhận six."
+        },
+        {
+          "option": "C",
+          "text": "five",
+          "reason_vi": "Five chỉ là số vai phát biểu được xác định; không chứng minh tổng người tham dự cũng là five."
+        },
+        {
+          "option": "D",
+          "text": "seven",
+          "reason_vi": "Có thể có thêm người im lặng nhưng nguồn không xác nhận seven."
+        }
+      ],
+      "paraphrase_vi": "Nguồn xác định năm vai phát biểu: Chairman, Armstrong, Miller, Cordoba, Patel. Không có tổng số người tham dự hoặc bằng chứng không còn người im lặng; vì vậy không thể xác định một trong bốn lựa chọn cho attending.",
+      "trap_vi": "Attending khác speaking; không dùng năm tên để chứng nhận không ai khác.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Bản sửa riêng hỏi số vai phát biểu để có tham chiếu five, hoặc bổ sung nguồn xác nhận tổng attendees; giữ attending gốc với đáp án trống."
+    }
+  },
+  {
+    "day": 73,
+    "item_id": "80-days:day-73:main:q-38",
+    "part_id": "80-days:day-73:part-4",
+    "block_id": "80-days:day-73:part-4:block-2",
+    "source_display_number": "38",
+    "explanation": {
+      "printed_key": {
+        "answer": "F",
+        "source_pdf_page": 405,
+        "source_ocr_line_index_1_based": 11,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_VISUALLY_CHECKED_PAGE",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 350,
+          "line_index_1_based": 19,
+          "quote": "ladies and gentlemen",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 350,
+          "line_index_1_based": 24,
+          "quote": "exploratory",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Chỉ có vai trong cuộc họp, không nghề hoặc tình trạng là vận động viên của mọi người. T không được xác nhận; F cũng cần phản ví dụ chưa có. Khối chỉ T/F thiếu lựa chọn không biết, nên giữ null.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T không có căn cứ cho allpeople."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F không được chứng minh bằng một người không phải vận động viên."
+        }
+      ],
+      "paraphrase_vi": "Chỉ có vai trong cuộc họp, không nghề hoặc tình trạng là vận động viên của mọi người. T không được xác nhận; F cũng cần phản ví dụ chưa có. Khối chỉ T/F thiếu lựa chọn không biết, nên giữ null.",
+      "trap_vi": "Không suy nghề từ việc bàn Olympics.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Bản sửa riêng thêm lựa chọn Not Given; giữ T/F nguồn và null cho bản gốc."
+    }
+  },
+  {
+    "day": 74,
+    "item_id": "80-days:day-74:main:q-22",
+    "part_id": "80-days:day-74:part-3",
+    "block_id": "80-days:day-74:part-3:block-1",
+    "source_display_number": "22",
+    "explanation": {
+      "printed_key": {
+        "answer": "T",
+        "source_pdf_page": 405,
+        "source_ocr_line_index_1_based": 39,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_VISUALLY_CHECKED_PAGE",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 355,
+          "line_index_1_based": 39,
+          "quote": "employers prefer young executives",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 355,
+          "line_index_1_based": 44,
+          "quote": "too much conservatism",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn là employers muốn trang phục bảo thủ; đề in employees. Không biết nhiều nhân viên tự nghĩ gì. T không căn cứ, F cũng chưa có bằng chứng họ không bảo thủ. Giữ null, không sửa một chữ ngầm.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T chuyển quan điểm nhà tuyển dụng sang nhân viên."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F chưa được chứng minh: bài không nêu nhân viên tự phản đối trang phục bảo thủ."
+        }
+      ],
+      "paraphrase_vi": "Nguồn là employers muốn trang phục bảo thủ; đề in employees. Không biết nhiều nhân viên tự nghĩ gì. T không căn cứ, F cũng chưa có bằng chứng họ không bảo thủ. Giữ null, không sửa một chữ ngầm.",
+      "trap_vi": "Employers và employees là hai vai khác nhau.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Bản sửa riêng đổi employees thành employers, khi đó T theo ý Pauline; bản nguồn giữ null."
+    }
+  },
+  {
+    "day": 75,
+    "item_id": "80-days:day-75:main:q-03",
+    "part_id": "80-days:day-75:part-1",
+    "block_id": "80-days:day-75:part-1:block-1",
+    "source_display_number": "3",
+    "explanation": {
+      "printed_key": {
+        "answer": "F",
+        "source_pdf_page": 405,
+        "source_ocr_line_index_1_based": 65,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_VISUALLY_CHECKED_PAGE",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 358,
+          "line_index_1_based": 6,
+          "quote": "America's recognition",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 358,
+          "line_index_1_based": 7,
+          "quote": "People's Republic of China",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn nói tận dụng việc Mỹ công nhận Trung Quốc để phát triển quan hệ địa phương; không chứng minh quan hệ San Francisco giúp bình thường hóa ngoại giao hai nước. Không có phản chứng chắc cho False.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T thêm quan hệ nhân quả ngoại giao chưa được phát biểu."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F cũng chưa được chứng minh; thiếu căn cứ hỗ trợ không tự bằng phủ định."
+        }
+      ],
+      "paraphrase_vi": "Nguồn nói tận dụng việc Mỹ công nhận Trung Quốc để phát triển quan hệ địa phương; không chứng minh quan hệ San Francisco giúp bình thường hóa ngoại giao hai nước. Không có phản chứng chắc cho False.",
+      "trap_vi": "Thứ tự recognition trước dự án địa phương không tự chứng minh nguyên nhân theo chiều ngược.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Bản sửa riêng hỏi việc công nhận tạo cơ hội cho quan hệ địa phương, hoặc thêm Not Given; bản T/F gốc giữ null."
+    }
+  },
+  {
+    "day": 75,
+    "item_id": "80-days:day-75:main:q-04",
+    "part_id": "80-days:day-75:part-1",
+    "block_id": "80-days:day-75:part-1:block-1",
+    "source_display_number": "4",
+    "explanation": {
+      "printed_key": {
+        "answer": "F",
+        "source_pdf_page": 405,
+        "source_ocr_line_index_1_based": 66,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_VISUALLY_CHECKED_PAGE",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 358,
+          "line_index_1_based": 36,
+          "quote": "China has got friendship-city relationships",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 358,
+          "line_index_1_based": 37,
+          "quote": "first city",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Bản in nói China has got...with any city in the United States, nhưng ngay sau muốn become the first city. Hai ý mâu thuẫn; câu hỏi còn không giới hạn US, nên không kết luận many cities toàn thế giới. Không tự thêm not vào transcript.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T dựa câu has got nhưng không giải quyết first city và phạm vi US."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F suy chưa có ở US thành không có many cities toàn thế giới, vượt phạm vi; nguồn cũng mâu thuẫn."
+        }
+      ],
+      "paraphrase_vi": "Bản in nói China has got...with any city in the United States, nhưng ngay sau muốn become the first city. Hai ý mâu thuẫn; câu hỏi còn không giới hạn US, nên không kết luận many cities toàn thế giới. Không tự thêm not vào transcript.",
+      "trap_vi": "Giữ lỗi nguồn, không thêm phủ định chỉ để hợp candidate.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Cần bản nguồn khác/audio kiểm chứng has got/not và câu hỏi phạm vi; hiện giữ null."
+    }
+  },
+  {
+    "day": 75,
+    "item_id": "80-days:day-75:main:q-08",
+    "part_id": "80-days:day-75:part-1",
+    "block_id": "80-days:day-75:part-1:block-3",
+    "source_display_number": "8",
+    "explanation": {
+      "printed_key": {
+        "answer": "5 million short tones",
+        "source_pdf_page": 405,
+        "source_ocr_line_index_1_based": 70,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_VISUALLY_CHECKED_PAGE",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 358,
+          "line_index_1_based": 5,
+          "quote": "5 million short tons of cargo",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Nguồn là 5 million short tons of cargo. Ô kết thúc trước cargo nên cụm đủ đơn vị và of cần vượt giới hạn 3 từ. Viết 5000000 tons of vừa 3 từ nhưng bỏ short làm đơn vị không còn chính xác; không chứng nhận một đáp án đầy đủ thỏa cả hai điều kiện.",
+      "distractors": [],
+      "paraphrase_vi": "Nguồn là 5 million short tons of cargo. Ô kết thúc trước cargo nên cụm đủ đơn vị và of cần vượt giới hạn 3 từ. Viết 5000000 tons of vừa 3 từ nhưng bỏ short làm đơn vị không còn chính xác; không chứng nhận một đáp án đầy đủ thỏa cả hai điều kiện.",
+      "trap_vi": "Không bỏ of hoặc short chỉ để vừa giới hạn; không lẫn 2.5 triệu đã xử lý với 5 triệu công suất.",
+      "format_vi": "Không quá 3 từ.",
+      "source_answer_warning_vi": "Nguồn có vấn đề cần rà soát; chỉ dùng tự đối chiếu, không chấm tự động.",
+      "next_action_vi": "Bản sửa riêng in short tons of cargo sau ô và hỏi 5 million; hoặc tăng giới hạn phù hợp. Giữ nguyên đề/crop và null cho bản gốc."
+    }
+  },
+  {
+    "day": 76,
+    "item_id": "80-days:day-76:main:q-19",
+    "part_id": "80-days:day-76:part-2",
+    "block_id": "80-days:day-76:part-2:block-tornado-true-false",
+    "source_display_number": "19",
+    "explanation": {
+      "printed_key": {
+        "answer": "T",
+        "source_pdf_page": 406,
+        "source_ocr_line_index_1_based": 23,
+        "evidence_tier": "SURVIVING_PRINTED_KEY_VISUALLY_CHECKED_PAGE",
+        "visual_correction": false,
+        "source_lines": []
+      },
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 366,
+          "line_index_1_based": 18,
+          "quote": "warnings broadcast on the television and",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 366,
+          "line_index_1_based": 19,
+          "quote": "radio.",
+          "relation": "supports",
+          "visual_reconstruction": true,
+          "source_image_path": "page-images/pdf-page-365.jpg",
+          "source_image_sha256": "d9665bc192c2802cc9bfe4e2a0dea13499ed6afea60d1516256abd5c07b01db3",
+          "source_region": {
+            "x": 116.0,
+            "y": 849.5,
+            "width": 68.19999999999999,
+            "height": 34.10000000000002
+          },
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": "VISUALLY_CORRECTED",
+          "raw_ocr_verbatim": false,
+          "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Key in T được giữ riêng. Transcript xác nhận có sirens và cảnh báo phát trên television/radio, nhưng không nói ai phát sóng; thêm the government là suy diễn. Sirens cũng không được nói là phát qua TV/radio; chỉ warnings có cụm broadcast. Không đủ bằng chứng để chọn T hoặc F cho toàn bộ phát biểu, nên đáp án đề xuất để trống và UNRESOLVED.",
+      "distractors": [
+        {
+          "option": "T",
+          "text": "True",
+          "reason_vi": "T cần xác nhận chính phủ là chủ thể và sirens được phát qua TV/radio; cả hai đều chưa có bằng chứng."
+        },
+        {
+          "option": "F",
+          "text": "False",
+          "reason_vi": "F cần bằng chứng phủ định chủ thể chính phủ hoặc phương tiện của sirens; nguồn không đưa phủ định."
+        }
+      ],
+      "paraphrase_vi": "Key in T được giữ riêng. Transcript xác nhận có sirens và cảnh báo phát trên television/radio, nhưng không nói ai phát sóng; thêm the government là suy diễn. Sirens cũng không được nói là phát qua TV/radio; chỉ warnings có cụm broadcast. Không đủ bằng chứng để chọn T hoặc F cho toàn bộ phát biểu, nên đáp án đề xuất để trống và UNRESOLVED.",
+      "trap_vi": "Giữ riêng sự tồn tại cảnh báo với người phát và phương tiện.",
+      "format_vi": "Chọn đúng một phương án.",
+      "source_answer_warning_vi": "Đề thêm chủ thể government và gán sirens cho TV/radio; nguồn chỉ xác nhận warnings được broadcast. Chưa đủ căn cứ cho T hoặc F.",
+      "next_action_vi": "Nghe audio Section 2 để kiểm chủ thể và phương tiện cảnh báo; nếu nguồn vẫn thiếu, cần thu hẹp phát biểu hoặc thêm lựa chọn Not Given với provenance rõ. Giữ câu gốc và đáp án đề xuất chưa xác định."
+    }
+  },
+  {
+    "day": 80,
+    "item_id": "80-days:day-80:main:q-10",
+    "part_id": "80-days:day-80:part-2",
+    "block_id": "80-days:day-80:part-2:block-paper-short",
+    "source_display_number": "10",
+    "explanation": {
+      "printed_key": null,
+      "answer": null,
+      "evidence": [
+        {
+          "source_kind": "source_question_image",
+          "pdf_page": 244,
+          "line_index_1_based": null,
+          "quote": "Câu 10 hỏi số giấy dùng mỗi người năm 1990.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": "page-images/pdf-page-243.jpg",
+          "source_image_sha256": "70a8b958d7e5e431f884e8908c954b223c79c0ded854ea687fb0023a581b2e1f",
+          "source_region": {
+            "x": 48.0,
+            "y": 560.0,
+            "width": 1061.0,
+            "height": 212.0
+          },
+          "text_validation_source": null,
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": "2fb3ea88532eeae81d4baecd627dda4cb4016376a047b88e205e3958254d8d64",
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 392,
+          "line_index_1_based": 40,
+          "quote": "In 1900, the",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        },
+        {
+          "source_kind": "printed_transcript",
+          "pdf_page": 392,
+          "line_index_1_based": 41,
+          "quote": "world's use of paper was about one kilogram for each person.",
+          "relation": "supports",
+          "visual_reconstruction": null,
+          "source_image_path": null,
+          "source_image_sha256": null,
+          "source_region": null,
+          "text_validation_source": "days-reviewed curated transcript, not necessarily raw OCR",
+          "upstream_review_state": null,
+          "raw_ocr_verbatim": null,
+          "source_pdf_sha256": null,
+          "source_line_id": null,
+          "insertion_after_line_index_1_based": null,
+          "line_index_unavailable_reason": null,
+          "start": null,
+          "end": null
+        }
+      ],
+      "why_vi": "Không thể chốt đáp án cho năm 1990: bản in câu hỏi ghi 1990, bản in transcript ghi 1900. About one kilogram là số liệu của 1900 trong nguồn; không tự chuyển nó sang 1990, không sửa đề hay gọi đó là đáp án chính thức.",
+      "distractors": [],
+      "paraphrase_vi": "Không thể chốt đáp án cho năm 1990: bản in câu hỏi ghi 1990, bản in transcript ghi 1900. About one kilogram là số liệu của 1900 trong nguồn; không tự chuyển nó sang 1990, không sửa đề hay gọi đó là đáp án chính thức.",
+      "trap_vi": "Kiểm đúng năm trước khi lấy con số.",
+      "format_vi": "Không quá 3 từ.",
+      "source_answer_warning_vi": "Đề hỏi 1990, transcript ghi 1900; số one kilogram không trả lời đúng năm được hỏi.",
+      "next_action_vi": "Nghe bản audio thực ở Section 2 và đối chiếu năm với ảnh 244/392; giữ chưa xác định đến khi giải quyết sự khác biệt, không tự sửa đề."
+    }
+  }
+]

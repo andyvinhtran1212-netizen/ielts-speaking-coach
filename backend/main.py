@@ -26,6 +26,7 @@ from services.errors import safe_detail, GENERIC_MESSAGE
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
+from routers.mock_attempt_flags import router as mock_attempt_flags_router
 from services.server_timing import (
     format_header as format_server_timing_header,
     install_supabase_timing,
@@ -82,6 +83,7 @@ from routers.listening import (
     user_router as listening_user_router,
     admin_router as listening_admin_router,
 )
+from routers.listening_source_collection import router as listening_source_collection_router
 from routers.health import router as health_router
 from routers.dashboard import router as dashboard_router
 from routers.student_home import router as student_home_router
@@ -285,6 +287,7 @@ app.include_router(exercises_user_router)
 app.include_router(exercises_admin_router)
 app.include_router(flashcards_user_router)
 app.include_router(listening_user_router)
+app.include_router(listening_source_collection_router)
 app.include_router(listening_admin_router)
 app.include_router(admin_reading_content_router)
 app.include_router(admin_reading_questions_router)
@@ -294,6 +297,7 @@ app.include_router(admin_quiz_router)
 app.include_router(quiz_player_router)
 app.include_router(course_pronunciation_router)
 app.include_router(reading_student_router)
+app.include_router(mock_attempt_flags_router)
 app.include_router(feedback_router)
 app.include_router(kp_router)
 app.include_router(exams_router)
@@ -474,6 +478,12 @@ def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
 # immediately; logging happens in the background.
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
+    from services.mock_paper_policy import safe_database_error
+    policy_error = safe_database_error(exc, operator=request.url.path.startswith(("/api/admin/", "/admin/")))
+    if policy_error is not None:
+        status, detail = policy_error
+        return JSONResponse(status_code=status, content={"detail": detail},
+                            headers=_cors_headers_for_origin(request.headers.get("origin")))
     import asyncio as _asyncio
     import traceback as _traceback
     import uuid as _uuid

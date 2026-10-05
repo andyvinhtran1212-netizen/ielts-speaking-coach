@@ -96,7 +96,7 @@ describe('/mock-exam native runner ownership', () => {
     assert.doesNotMatch(enter, /if \(params\?\.sittingId && typeof hook\?\.attach/);
   });
 
-  test('waits for the mock bridge on both Listening start and resume', () => {
+  test('verifies canonical mock binding and preserves the bridge for legacy Listening start/resume', () => {
     const attach = LISTENING_PLAYER.split('const attachMockAttempt')[1].split('const enterAttempt')[0];
     const enter = LISTENING_PLAYER.split('const enterAttempt')[1].split('const resume')[0];
     const start = LISTENING_PLAYER.split('const startFresh')[1].split('useEffect')[0];
@@ -104,8 +104,10 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(attach, /if \(!hookReady\) throw new Error/);
     assert.ok(attach.indexOf('await whenGlobalReady') < attach.indexOf("attach('listening'"));
     assert.match(enter, /if \(attach\) await attachMockAttempt\(nextAttempt\.attempt_id\)/);
-    assert.match(start, /await attachMockAttempt\(String\(started\.attempt_id\)\)/);
-    assert.ok(start.indexOf('await attachMockAttempt') < start.indexOf('normalizeListeningResume'));
+    assert.match(enter, /nextAttempt\.attempt_purpose === 'mock_delivery'/);
+    assert.match(enter, /nextAttempt\.mock_sitting_id !== params\.sittingId/);
+    assert.match(start, /await enterAttempt\(ownedAttempt, listeningAnswersFromRows\(canonical\.answers\), true, confirmedTest\)/);
+    assert.ok(start.indexOf('normalizeListeningResume') < start.indexOf('await enterAttempt'));
   });
 
   test('serializes Writing autosave and reuses one immutable final payload', () => {

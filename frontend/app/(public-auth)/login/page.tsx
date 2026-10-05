@@ -34,7 +34,7 @@ export default function LoginPage() {
       <aside className="lx-pitch" aria-label="Giới thiệu Aver Learning">
         <a className="lx-logo" href="/">Aver<span>Learning</span></a>
         <p className="lx-eyebrow">Nền tảng luyện IELTS cùng AI</p>
-        <h2 className="lx-headline">Mở khóa cả 6 kỹ năng IELTS trong một nền tảng</h2>
+        <h2 className="lx-headline">Luyện 4 kỹ năng IELTS cùng ngữ pháp và từ vựng</h2>
         <div className="lx-skills">
           {skills.map(([slug, name, tag], index) => (
             <div className="lx-skill-row" key={slug}>
@@ -46,7 +46,7 @@ export default function LoginPage() {
         </div>
         <div className="lx-stat">
           <span className="lx-stat-number" id="pitch-stat">—</span>
-          <span className="lx-stat-label">buổi luyện đã hoàn thành<br />trên nền tảng</span>
+          <span className="lx-stat-label">buổi Speaking đã hoàn thành<br />trên nền tảng</span>
         </div>
       </aside>
 

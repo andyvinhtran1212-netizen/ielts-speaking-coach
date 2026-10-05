@@ -45,11 +45,39 @@ describe('Admin Listening dictation model', () => {
   });
 
   test('aggregate distinguishes no sessions from zero accuracy and counts malformed words', () => {
-    assert.deepEqual(normalizeDictationAggregate({ session_count: 0, mean_accuracy: 0, top_missed: [], top_wrong: [] }), { sessionCount: 0, meanAccuracy: 0, topMissed: [], topWrong: [], malformedWordCount: 0 });
+    assert.deepEqual(normalizeDictationAggregate({ session_count: 0, mean_accuracy: 0, top_missed: [], top_wrong: [] }), {
+      sessionCount: 0, meanAccuracy: 0, topMissed: [], topWrong: [], malformedWordCount: 0, versions: null,
+      punctuationClassified: false, punctuationMissed: [], punctuationWrong: [],
+      trendCompleteSessions: null, trendUnavailableSessions: null,
+      punctuationMissedTotal: 0, punctuationWrongTotal: 0, missingTokenMissedTotal: 0, missingTokenWrongTotal: 0,
+    });
     const aggregate = normalizeDictationAggregate({ session_count: 3, mean_accuracy: 0.625, top_missed: [{ word: 'Brighton', count: 4 }, { word: '', count: 1 }], top_wrong: [{ expected: 'address', count: 2 }] });
     assert.equal(aggregate.meanAccuracy, 0.625);
     assert.equal(aggregate.malformedWordCount, 1);
     assert.equal(normalizeDictationAggregate({ session_count: 0, mean_accuracy: 1, top_missed: [], top_wrong: [] }), null);
+  });
+
+  test('classified projection separates punctuation and preserves historical mean', () => {
+    const payload = { session_count: 303, mean_accuracy: .9349,
+      mean_accuracy_basis: 'mean_of_session_sentence_scores', trend_classification: 'lexical-v1',
+      trend_complete_session_count: 303, trend_unavailable_session_count: 0,
+      top_missed: [{ word: 'the', count: 533 }], top_wrong: [{ expected: 'a', count: 156 }],
+      punctuation_missed: [{ token: '—', count: 2684 }], punctuation_wrong: [{ token: '—', count: 412 }],
+      punctuation_missed_total: 2684, punctuation_wrong_total: 412,
+      missing_token_missed_total: 0, missing_token_wrong_total: 0 };
+    const result = normalizeDictationAggregate(payload);
+    assert.equal(result.meanAccuracy, .9349);
+    assert.equal(result.topMissed[0].label, 'the');
+    assert.equal(result.punctuationMissed[0].label, '—');
+    assert.equal(result.punctuationClassified, true);
+    assert.equal(normalizeDictationAggregate({ ...payload, top_missed: [{ word: '—', count: 2684 }] }), null);
+    assert.equal(normalizeDictationAggregate({ ...payload, punctuation_missed_total: 1 }), null);
+    assert.equal(normalizeDictationAggregate({ ...payload, mean_accuracy_basis: 'weighted_words' }), null);
+    const unknown = normalizeDictationAggregate({ ...payload, trend_complete_session_count: 0,
+      trend_unavailable_session_count: 303, top_missed: [], top_wrong: [], punctuation_missed: [],
+      punctuation_wrong: [], punctuation_missed_total: 0, punctuation_wrong_total: 0 });
+    assert.equal(unknown.trendUnavailableSessions, 303);
+    assert.equal(unknown.meanAccuracy, .9349);
   });
 
   test('detail keeps the reference sentence and filters duplicate/malformed evidence', () => {

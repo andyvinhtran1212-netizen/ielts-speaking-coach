@@ -46,6 +46,9 @@ on:
       - 'frontend/public/css/mock-hub.css'
       - 'frontend/app/(authed-writing)/**'
       - 'frontend/tooling/verify-writing-admission-flow.mjs'
+      - 'frontend/tooling/verify-learning-context-flow.mjs'
+      - 'frontend/tooling/verify-grammar-navigation-flow.mjs'
+      - 'frontend/tooling/grammar-navigation-fixtures.mjs'
       - 'frontend/public/pages/writing-dashboard.html'
       - 'frontend/public/css/writing-dashboard.css'
       - 'frontend/app/(authed-writing-result)/**'
@@ -757,6 +760,23 @@ jobs:
       - name: Kiểm luồng Quiz native
         run: node tooling/verify-quiz-flow.mjs "http://localhost:$TEST_PORT"
 
+      # Source-bound full-bank payloads exercise managed admission, exact-form
+      # grading and stale/reset ACKs with isolated auth and HTTP transports.
+      - name: Kiểm Grammar revision và exact-form Quiz native
+        env:
+          GRAMMAR_NATIVE_OUTPUT: /tmp/grammar-managed-quiz-browser.json
+        run: node tooling/verify-grammar-managed-quiz-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm lịch sử Grammar giữ nguyên câu hỏi và đáp án
+        env:
+          GRAMMAR_HISTORY_OUTPUT: /tmp/grammar-quiz-history-browser.json
+        run: node tooling/verify-grammar-quiz-history-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm Admin Grammar preview và phục hồi receipt
+        env:
+          ADMIN_GRAMMAR_BROWSER_EVIDENCE: /tmp/admin-grammar-revision-browser.json
+        run: node tooling/verify-admin-grammar-revision-flow.mjs "http://localhost:$TEST_PORT"
+
       - name: Kiểm luồng Exam player native
         run: node tooling/verify-exam-flow.mjs "http://localhost:$TEST_PORT"
 
@@ -766,8 +786,20 @@ jobs:
       - name: Kiểm luồng Mock Exam runner native
         run: node tooling/verify-mock-exam-flow.mjs "http://localhost:$TEST_PORT"
 
+      - name: Kiểm history và focus nội dung Writing
+        run: node tooling/verify-writing-content-history-flow.mjs "http://localhost:$TEST_PORT"
+
       - name: Kiểm luồng Writing learner native
         run: node tooling/verify-writing-admission-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm context Reading và Listening
+        run: node tooling/verify-learning-context-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm lifecycle Listening programme
+        run: node tooling/verify-listening-programme-context-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm context Grammar
+        run: node tooling/verify-grammar-navigation-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$TEST_PORT"
@@ -888,6 +920,13 @@ jobs:
       # requires exact request-id GET reconciliation before success is shown.
       - name: Kiểm luồng Listening Dictation native
         run: node tooling/verify-listening-dictation-session-flow.mjs "http://localhost:$TEST_PORT"
+
+      # Frozen v1/v2 receipts, raw Unicode spans and owned report reloads use
+      # intercepted contracts; this runner performs no live backend writes.
+      - name: Kiểm chính sách Dictation v1 và v2 native
+        env:
+          DICTATION_BROWSER_EVIDENCE: /tmp/dictation-versioned-browser.json
+        run: node tooling/verify-dictation-versioned-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin` cần role admin nên snapshot parity bằng probe thường không thể
       # chứng minh dashboard thật. Runner này fixture `/auth/me` + ba read API,
@@ -1147,6 +1186,22 @@ jobs:
       - name: Kiểm luồng Admin Grammar Articles native
         run: node tooling/verify-admin-grammar-articles-flow.mjs "http://localhost:$TEST_PORT"
 
+      # PDF findings 18–22 span the shared learner/admin feedback renderer,
+      # rating lifecycle, preview retry and truthful failed/stale read states.
+      # The only write is an explicitly clicked rating Save intercepted locally.
+      - name: Kiểm khắc phục feedback và trạng thái đọc admin
+        run: node tooling/verify-admin-remediation-flow.mjs "http://localhost:$TEST_PORT"
+
+      # Inline detail panels keep keyboard focus without a modal trap. Fixture
+      # journeys also cover the PDF viewport and dynamic Mock iframe sizing.
+      - name: Kiểm Escape, focus và bố cục admin
+        run: node tooling/verify-admin-accessibility-remediation-flow.mjs "http://localhost:$TEST_PORT"
+
+      # Frozen report-only policies preserve null scores and question states;
+      # Published tabs select a view, and audio counts state their section scope.
+      - name: Kiểm nhãn vận hành và phạm vi dữ liệu admin
+        run: node tooling/verify-admin-clarity-remediation-flow.mjs "http://localhost:$TEST_PORT"
+
       # `/admin/grammar/analytics` is read-only canonical aggregation. The fixture
       # pins URL windows, stale snapshots, degraded sources and responsive tables.
       - name: Kiểm luồng Admin Grammar Analytics native
@@ -1211,6 +1266,10 @@ jobs:
           path: |
             /tmp/next-native-browser.log
             /tmp/next-native-fixture-api.log
+            /tmp/dictation-versioned-browser.json
+            /tmp/grammar-managed-quiz-browser.json
+            /tmp/grammar-quiz-history-browser.json
+            /tmp/admin-grammar-revision-browser.json
 
       - name: Dừng Next
         if: ${{ always() }}

@@ -21,7 +21,7 @@
 //      giả định script đã nạp.
 //   3. `alert()` của `startPractice` giữ nguyên — nó là hành vi người dùng thấy;
 //      đổi sang toast là thay đổi ngoài phạm vi port.
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import type { AuthMeWire } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -30,6 +30,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { isSpeakingApiReady } from '@/lib/speaking-api-readiness.mjs';
 import { createSpeakingStartController, clearSpeakingStartIntents } from '@/lib/speaking-start-intent.mjs';
 import { coreOperationHeaders } from '@/lib/core-operation-intent.mjs';
+import { createLearnerTabDrafts, clearLearnerTabDraftAccount, type TabDraft } from '@/lib/learner-tab-drafts.mjs';
 import {
   CUE_CARD_HINT_DEFAULT_HTML, CUE_CARD_HINT_PART2_HTML,
   CUE_CARD_PLACEHOLDER_DEFAULT, CUE_CARD_PLACEHOLDER_PART2,
@@ -54,7 +55,80 @@ type State = {
   mainTab: string;
   dead: boolean;
   starter: ReturnType<typeof createSpeakingStartController> | null;
+  accountId: string | null;
+  permissionsReady: boolean;
+  permissionAccount: string | null;
+  drafts: Map<string, TabDraft<any>>;
+  wantedTopics: Record<string, string>;
+  topicReads: Record<string, { part: number; request: number; titles: string[] }>;
+  saveDraft: () => void;
+  restoreMode: (scope: string) => void;
 };
+
+const PREPARATION_FIELDS = ['prac-custom-q', 'prac-topic-custom', 'pbp-topic-custom',
+  'topic-custom-input', 'myq-input', 'ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic'];
+const PREPARATION_SELECTS = ['prac-topic-select', 'pbp-topic-select', 'topic-select'];
+const exactDraft = (value: any, fields: string[]) => value && typeof value === 'object'
+  && !Array.isArray(value) && Object.keys(value).length === fields.length
+  && fields.every(field => Object.hasOwn(value, field));
+function validSpeakingPreparation(scope: string, value: any): boolean {
+  const part = (v: unknown) => v === 1 || v === 2 || v === 3;
+  const text = (v: unknown) => typeof v === 'string';
+  if (scope === 'panel') return exactDraft(value, ['panel', 'modalOpen', 'part', 'mode'])
+    && ['dashboard', 'practice', 'partbpart', 'fulltest'].includes(value.panel)
+    && typeof value.modalOpen === 'boolean' && part(value.part) && ['practice', 'test_part'].includes(value.mode);
+  if (scope === 'practice') return exactDraft(value, ['part', 'topicPart', 'questions', 'customTopic', 'topic'])
+    && part(value.part) && part(value.topicPart) && [value.questions, value.customTopic, value.topic].every(text);
+  if (scope === 'partbpart') return exactDraft(value, ['part', 'customTopic', 'topic'])
+    && part(value.part) && [value.customTopic, value.topic].every(text);
+  if (scope === 'fulltest') return exactDraft(value, ['topics']) && Array.isArray(value.topics)
+    && value.topics.length === 4 && value.topics.every(text);
+  return /^modal:(practice|test_part):[123]$/.test(scope)
+    && exactDraft(value, ['tab', 'questions', 'customTopic', 'topic'])
+    && ['list', 'custom', 'myq'].includes(value.tab) && [value.questions, value.customTopic, value.topic].every(text);
+}
+
+function draftNotice(status: string, restored = false) {
+  for (const id of ['speaking-draft-notice', 'speaking-modal-draft-notice']) {
+    const notice = $(id);
+    if (!notice) continue;
+    notice.textContent = status === 'unavailable'
+      ? 'Nháp chưa được lưu trong tab này. Bạn vẫn có thể luyện tập; hãy giữ trang mở để tránh mất nội dung.'
+      : status === 'topic-unavailable' ? 'Chủ đề đã lưu hiện không có trong danh sách. Hãy chọn hoặc nhập chủ đề để tiếp tục.'
+      : restored ? 'Đã khôi phục nháp trong tab này.' : status === 'saved' ? 'Nháp đã được lưu trong tab này.'
+        : status === 'discarded' ? 'Đã bỏ nháp của mode hiện tại.' : '';
+  }
+}
+
+function selectedTopic(st: State, selectId: string, part: number) {
+  const row = st.topicReads[selectId];
+  const value = val(selectId);
+  return row?.part === part && row.titles.includes(value) ? value : '';
+}
+
+function resetPreparation(st: State) {
+  PREPARATION_FIELDS.forEach(id => { const input = $(id) as HTMLInputElement | null; if (input) input.value = ''; });
+  PREPARATION_SELECTS.forEach(id => { const select = $(id) as HTMLSelectElement | null; if (select) { select.value = ''; select.disabled = true; } });
+  st.pracPart = 1; st.pracTopicPart = 1; st.pbpPart = 1;
+  st.modalPart = 1; st.modalMode = 'practice'; st.wantedTopics = {}; st.topicReads = {};
+  [1, 2, 3].forEach(p => {
+    $('prac-part-' + p)?.classList.toggle('selected', p === 1);
+    $('prac-tp-part-' + p)?.classList.toggle('selected', p === 1);
+    $('pbp-card-' + p)?.classList.remove('selected');
+  });
+  applyCueCardCopy('prac-custom-q', 1);
+  applyCueCardCopy('myq-input', 1);
+  evaluateCueCardWarning('prac-custom-q', 'prac-custom-q-length-warning', 1);
+  evaluateCueCardWarning('myq-input', 'myq-input-length-warning', 1);
+  switchTopicTab('list', st);
+  const modal = $('topic-modal');
+  if (modal) { modal.hidden = true; modal.inert = true; modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+  for (const id of ['speaking-draft-controls', 'speaking-modal-draft-controls']) { const bar = $(id); if (bar) bar.hidden = true; }
+  document.body.style.overflow = '';
+  const section = $('pbp-topic-section'); if (section) section.style.display = 'none';
+  switchMainTab('dashboard', st, null, []);
+  draftNotice('empty');
+}
 
 // ── Quyền ────────────────────────────────────────────────────────────────────
 
@@ -203,11 +277,14 @@ function loadMainTabData(tab: string, st: State, api: any) {
 }
 
 function switchMainTab(tab: string, st: State, api: any | null, cleanups: Array<() => void>) {
+  if (st.mainTab !== tab) st.restoreMode?.(tab);
   st.mainTab = tab;
   ['dashboard', 'practice', 'partbpart', 'fulltest'].forEach((t) => {
     const panel = $('tab-' + t);
     if (panel) panel.classList.toggle('active', t === tab);
   });
+  const discard = $('speaking-draft-discard') as HTMLButtonElement | null;
+  if (discard) discard.disabled = tab === 'dashboard';
   if (api) loadMainTabData(tab, st, api);
 }
 
@@ -222,16 +299,26 @@ function switchMainTab(tab: string, st: State, api: any | null, cleanups: Array<
 async function loadTopicsInto(selectId: string, part: number, api: any, st: State) {
   const select = $(selectId) as HTMLSelectElement | null;
   if (!select) return;
+  const existing = selectedTopic(st, selectId, part);
+  if (existing && st.wantedTopics[selectId] === undefined) st.wantedTopics[selectId] = existing;
   select.innerHTML = '<option value="" disabled selected>— Đang tải... —</option>';
   select.disabled = true;
+  const request = (st.topicReads[selectId]?.request || 0) + 1;
+  const pending = { part, request, titles: [] as string[] };
+  st.topicReads[selectId] = pending;
   try {
     const topics = await api.get('/topics?part=' + part);
-    if (st.dead) return;
+    if (st.dead || st.topicReads[selectId] !== pending) return;
+    if (!Array.isArray(topics) || topics.some(t => typeof t?.title !== 'string' || !t.title.trim())) throw new Error('topics');
     select.innerHTML = '';
     if (!topics || topics.length === 0) {
-      select.innerHTML = '<option value="" disabled selected>— Không có chủ đề —</option>';
+      select.innerHTML = selectId === 'topic-select'
+        ? '<option value="" disabled selected>— Không có chủ đề nào —</option>'
+        : '<option value="" disabled selected>— Không có chủ đề —</option>';
     } else {
-      select.innerHTML = '<option value="" disabled selected>— Chọn chủ đề —</option>';
+      select.innerHTML = selectId === 'topic-select'
+        ? '<option value="" disabled selected>— Chọn một chủ đề —</option>'
+        : '<option value="" disabled selected>— Chọn chủ đề —</option>';
       topics.forEach((t: any) => {
         const o = document.createElement('option');
         o.value = t.title;
@@ -239,9 +326,20 @@ async function loadTopicsInto(selectId: string, part: number, api: any, st: Stat
         select.appendChild(o);
       });
     }
+    pending.titles = topics.map(t => t.title);
+    const wanted = st.wantedTopics[selectId];
+    if (wanted) {
+      if (pending.titles.includes(wanted)) select.value = wanted;
+      else draftNotice('topic-unavailable');
+      delete st.wantedTopics[selectId];
+    }
     select.disabled = false;
   } catch {
-    select.innerHTML = '<option value="" disabled selected>— Không thể tải —</option>';
+    if (st.dead || st.topicReads[selectId] !== pending) return;
+    select.innerHTML = selectId === 'topic-select'
+      ? '<option value="" disabled selected>— Không thể tải danh sách —</option>'
+      : '<option value="" disabled selected>— Không thể tải —</option>';
+    if (st.wantedTopics[selectId]) draftNotice('topic-unavailable');
   }
 }
 
@@ -328,6 +426,20 @@ function switchTopicTab(tab: State['activeTopicTab'], st: State) {
 
 let topicModalTrigger: HTMLElement | null = null;
 
+function syncTopicModalViewport() {
+  const modal = $('topic-modal');
+  if (!modal?.classList.contains('open')) return;
+  const viewport = window.visualViewport;
+  const height = viewport && Number.isFinite(viewport.height) && viewport.height > 0
+    ? viewport.height : window.innerHeight;
+  const top = viewport && Number.isFinite(viewport.offsetTop) ? Math.max(0, viewport.offsetTop) : 0;
+  // A keyboard can shrink/pan only the visual viewport while the layout stays
+  // tall. Fit the backdrop there; the dialog scrolls within its padded height.
+  modal.style.top = `${top}px`;
+  modal.style.bottom = 'auto';
+  modal.style.height = `${height}px`;
+}
+
 function closeTopicModal() {
   const modal = $('topic-modal');
   modal?.classList.remove('open');
@@ -353,9 +465,12 @@ async function openTopicModal(part: number, mode: string, st: State, api: any) {
   if (err) err.textContent = '';
   const custom = $('topic-custom-input') as HTMLInputElement | null;
   if (custom) custom.value = '';
+  const myQuestions = $('myq-input') as HTMLTextAreaElement | null;
+  if (myQuestions) myQuestions.value = '';
   applyCueCardCopy('myq-input', part);
   evaluateCueCardWarning('myq-input', 'myq-input-length-warning', part);
   switchTopicTab('list', st);
+  st.restoreMode(`modal:${st.modalMode}:${part}`);
 
   const select = $('topic-select') as HTMLSelectElement | null;
   if (select) {
@@ -369,30 +484,11 @@ async function openTopicModal(part: number, mode: string, st: State, api: any) {
     modal.setAttribute('aria-hidden', 'false');
     modal.classList.add('open');
   }
+  syncTopicModalViewport();
   document.body.style.overflow = 'hidden';
   ($('modal-close') as HTMLButtonElement | null)?.focus();
-
-  try {
-    const topics = await api.get('/topics?part=' + part);
-    if (st.dead || !select) return;
-    select.innerHTML = '';
-    if (!topics || topics.length === 0) {
-      select.innerHTML = '<option value="" disabled selected>— Không có chủ đề nào —</option>';
-      switchTopicTab('custom', st);   // không có chủ đề ⇒ đẩy thẳng sang tự nhập
-    } else {
-      select.innerHTML = '<option value="" disabled selected>— Chọn một chủ đề —</option>';
-      topics.forEach((t: any) => {
-        const opt = document.createElement('option');
-        opt.value = t.title;
-        opt.textContent = t.title + (t.category ? ' · ' + t.category : '');
-        select.appendChild(opt);
-      });
-      select.disabled = false;
-    }
-  } catch {
-    if (select) select.innerHTML = '<option value="" disabled selected>— Không thể tải danh sách —</option>';
-    switchTopicTab('custom', st);
-  }
+  st.saveDraft();
+  await loadTopicsInto('topic-select', part, api, st);
 }
 
 /**
@@ -491,6 +587,16 @@ function selectPbpPart(part: number, st: State, api: any) {
 
 export function SpeakingBehavior() {
   const { status, user } = useAuth();
+  const account = status === 'signed-in' ? user?.id || null : null;
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const accountRef = useRef(account);
+  accountRef.current = account;
+  const syncDraftRef = useRef<((account: string | null) => void) | null>(null);
+  useLayoutEffect(() => {
+    if (syncDraftRef.current) syncDraftRef.current(account);
+    else PREPARATION_FIELDS.forEach(id => { const input = $(id) as HTMLInputElement | null; if (input) input.value = ''; });
+  }, [account, status]);
 
   // Cổng fail-closed (ADR-011): rời trang bằng replace() để nút Back không dựng
   // lại trang riêng tư từ lịch sử. Bản legacy tương ứng: `requireAuth()` đẩy về
@@ -509,10 +615,179 @@ export function SpeakingBehavior() {
       perms: [...DEFAULT_PERMISSIONS],
       modalPart: 1, modalMode: 'practice', activeTopicTab: 'list',
       pracPart: 1, pracTopicPart: 1, pbpPart: 1, mainTab: 'dashboard', dead: false, starter: null,
+      accountId: null, permissionsReady: false, permissionAccount: null, drafts: new Map(), wantedTopics: {}, topicReads: {}, saveDraft: () => {}, restoreMode: () => {},
     };
     const cleanups: Array<() => void> = [];
     let runtimeApi: any | null = null;
     let runtimeApiPromise: Promise<any | null> | null = null;
+    let edited = false;
+    let initialConfirmation = true;
+    let profileRead = 0;
+    const pendingEdits = new Map<string, { base: any; patch: Record<string, any> }>();
+    const syncDraftControls = () => {
+      const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
+      const visible = Boolean(st.accountId) || edited;
+      const pageBar = $('speaking-draft-controls');
+      const modalBar = $('speaking-modal-draft-controls');
+      if (pageBar) pageBar.hidden = !visible || modalOpen;
+      if (modalBar) modalBar.hidden = !visible || !modalOpen;
+      const discard = $('speaking-draft-discard') as HTMLButtonElement | null;
+      if (discard) discard.disabled = modalOpen || st.mainTab === 'dashboard';
+    };
+    const draft = (scope: string) => {
+      if (!st.accountId || st.accountId !== accountRef.current) return null;
+      if (!st.drafts.has(scope)) st.drafts.set(scope, createLearnerTabDrafts({
+        accountId: st.accountId, scope: 'speaking:' + scope, version: 'preparation-v1',
+        getAccountId: () => st.accountId === accountRef.current ? st.accountId : null,
+        validate: value => validSpeakingPreparation(scope, value),
+      }));
+      return st.drafts.get(scope)!;
+    };
+    const preparation = (scope: string): any => {
+      if (scope.startsWith('modal:')) return { tab: st.activeTopicTab,
+        questions: val('myq-input'), customTopic: val('topic-custom-input'),
+        topic: st.wantedTopics['topic-select'] ?? selectedTopic(st, 'topic-select', st.modalPart) };
+      if (scope === 'practice') return { part: st.pracPart, topicPart: st.pracTopicPart,
+        questions: val('prac-custom-q'), customTopic: val('prac-topic-custom'),
+        topic: st.wantedTopics['prac-topic-select'] ?? selectedTopic(st, 'prac-topic-select', st.pracTopicPart) };
+      if (scope === 'partbpart') return { part: st.pbpPart, customTopic: val('pbp-topic-custom'),
+        topic: st.wantedTopics['pbp-topic-select'] ?? selectedTopic(st, 'pbp-topic-select', st.pbpPart) };
+      return { topics: ['ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic'].map(val) };
+    };
+    const markEdit = (scope: string, ...keys: string[]) => {
+      if (st.permissionsReady) return;
+      const value = preparation(scope);
+      const pending = pendingEdits.get(scope) ?? { base: value, patch: {} };
+      for (const key of keys) pending.patch[key] = key.startsWith('topics:') ? value.topics[Number(key.slice(7))] : value[key];
+      pendingEdits.set(scope, pending);
+    };
+    const savePreparation = (scope: string) => {
+      const handle = draft(scope);
+      let value = preparation(scope);
+      if (!st.permissionsReady) {
+        // Blank controls awaiting identity/permissions are not empty edits.
+        // Preserve the validated account draft and apply only actual actions;
+        // old values become visible only through the permission-gated restore.
+        const saved = handle?.read();
+        const pending = pendingEdits.get(scope);
+        value = { ...(saved?.restored ? saved.value : pending?.base ?? value) };
+        if (Array.isArray(value.topics)) value.topics = [...value.topics];
+        for (const [key, text] of Object.entries(pending?.patch ?? {})) {
+          if (key.startsWith('topics:')) value.topics[Number(key.slice(7))] = text;
+          else value[key] = text;
+        }
+      }
+      return handle?.save(value);
+    };
+    st.saveDraft = () => {
+      if (st.dead) return;
+      edited = true;
+      syncDraftControls();
+      if (!st.accountId) { draftNotice('unavailable'); return; }
+      const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
+      const panel = draft('panel')?.save({ panel: st.mainTab, modalOpen, part: st.modalPart, mode: st.modalMode });
+      const scopes = new Set(st.permissionsReady ? [] : pendingEdits.keys());
+      const scope = modalOpen ? `modal:${st.modalMode}:${st.modalPart}` : st.mainTab;
+      if (scope !== 'dashboard') scopes.add(scope);
+      const saved = [...scopes].map(savePreparation);
+      draftNotice(panel?.status === 'unavailable' || saved.some(result => result?.status === 'unavailable') ? 'unavailable' : 'saved');
+    };
+    st.restoreMode = (scope: string) => {
+      if (!st.accountId || !st.permissionsReady || st.permissionAccount !== st.accountId || st.dead) return;
+      const permission = scope === 'practice' || scope.startsWith('modal:practice:') ? 'practice_single'
+        : scope === 'partbpart' || scope.startsWith('modal:test_part:') ? 'practice_part' : scope === 'fulltest' ? 'practice_full' : null;
+      if (permission && !hasPermission(st.perms, permission)) return;
+      const saved = draft(scope)?.read();
+      if (saved?.restored) {
+        const v = saved.value;
+        const set = (id: string, text: string) => { const input = $(id) as HTMLInputElement | null; if (input) input.value = text; };
+        if (scope === 'practice') {
+          st.pracPart = v.part; st.pracTopicPart = v.topicPart;
+          [1, 2, 3].forEach(p => { $('prac-part-' + p)?.classList.toggle('selected', p === v.part); $('prac-tp-part-' + p)?.classList.toggle('selected', p === v.topicPart); });
+          set('prac-custom-q', v.questions); set('prac-topic-custom', v.customTopic);
+          st.wantedTopics['prac-topic-select'] = v.topic;
+          applyCueCardCopy('prac-custom-q', v.part); evaluateCueCardWarning('prac-custom-q', 'prac-custom-q-length-warning', v.part);
+        } else if (scope === 'partbpart') { st.pbpPart = v.part; set('pbp-topic-custom', v.customTopic); st.wantedTopics['pbp-topic-select'] = v.topic; }
+        else if (scope === 'fulltest') ['ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic'].forEach((id, i) => set(id, v.topics[i]));
+        else if (scope.startsWith('modal:')) {
+          set('myq-input', v.questions); set('topic-custom-input', v.customTopic);
+          switchTopicTab(v.tab, st); st.wantedTopics['topic-select'] = v.topic;
+          evaluateCueCardWarning('myq-input', 'myq-input-length-warning', st.modalPart);
+        }
+        draftNotice('ready', true);
+      }
+    };
+    const restoreDraft = () => {
+      if (edited || !st.accountId || !st.permissionsReady || st.permissionAccount !== st.accountId || st.dead) return;
+      const panel = draft('panel')?.read();
+      if (panel?.status === 'unavailable') { draftNotice('unavailable'); return; }
+      if (!panel?.restored) return;
+      const value = panel.value;
+      const scope = value.panel;
+      const permission = scope === 'practice' ? 'practice_single' : scope === 'partbpart' ? 'practice_part' : scope === 'fulltest' ? 'practice_full' : null;
+      if (permission && !hasPermission(st.perms, permission)) return;
+      st.restoreMode(scope);
+      switchMainTab(scope, st, runtimeApi, cleanups);
+      draftNotice('ready', true);
+      if (value.modalOpen && runtimeApi && hasPermission(st.perms, value.mode === 'practice' ? 'practice_single' : 'practice_part')) {
+        // Create the guarded modal handle before opening; topic restore awaits its list.
+        draft(`modal:${value.mode}:${value.part}`);
+        void openTopicModal(value.part, value.mode, st, runtimeApi);
+      }
+    };
+    const syncDraftIdentity = (next: string | null) => {
+      const previous = st.accountId;
+      if (!next && statusRef.current === 'signed-out') {
+        initialConfirmation = false;
+        if (!previous) { pendingEdits.clear(); resetPreparation(st); edited = false; const bar = $('speaking-draft-controls'); if (bar) bar.hidden = true; }
+      }
+      if (previous === next) return;
+      // Initial mount already cleared browser-filled values before wiring any
+      // input handlers. Keep preparation entered since then when that document
+      // first confirms its account; later account/return boundaries still clear.
+      const keepFreshPreparation = initialConfirmation && !previous && Boolean(next) && edited;
+      if (next) initialConfirmation = false;
+      profileRead++; st.permissionsReady = false; st.permissionAccount = null;
+      st.drafts.forEach(handle => handle.dispose()); st.drafts.clear();
+      st.accountId = null;
+      if (!keepFreshPreparation) { pendingEdits.clear(); resetPreparation(st); edited = false; }
+      if (previous && previous !== next && (next || statusRef.current === 'signed-out')) clearLearnerTabDraftAccount(previous);
+      st.accountId = next;
+      syncDraftControls();
+      if (next) {
+        ['panel', 'practice', 'partbpart', 'fulltest', ...['practice', 'test_part'].flatMap(mode => [1, 2, 3].map(part => `modal:${mode}:${part}`))].forEach(draft);
+        if (keepFreshPreparation) st.saveDraft();
+        else restoreDraft();
+        if (runtimeApi && st.permissionAccount !== next) void loadProfile(runtimeApi);
+      }
+    };
+    syncDraftRef.current = syncDraftIdentity;
+    // Clear browser-filled values before any optional draft reads.
+    resetPreparation(st);
+    syncDraftIdentity(accountRef.current);
+    const loadProfile = async (api: any) => {
+      const account = st.accountId;
+      if (!account) return;
+      const read = ++profileRead;
+      st.permissionsReady = false; st.permissionAccount = null;
+      try {
+        const profile = await api.get('/auth/me') as AuthMeWire;
+        if (st.dead || read !== profileRead || st.accountId !== account
+            || profile?.id !== account || profile.id !== accountRef.current) return;
+        renderUser(profile, api, st);
+        st.permissionAccount = profile.id;
+        st.permissionsReady = Array.isArray(profile.permissions);
+        if (edited) {
+          st.restoreMode(st.mainTab);
+          loadMainTabData(st.mainTab, st, api);
+          if ($('topic-modal')?.classList.contains('open')) {
+            st.restoreMode(`modal:${st.modalMode}:${st.modalPart}`);
+            void loadTopicsInto('topic-select', st.modalPart, api, st);
+          }
+        } else restoreDraft();
+        if (st.permissionsReady) pendingEdits.clear();
+      } catch { if (!st.dead && read === profileRead && st.accountId === account) { st.permissionsReady = false; draftNotice('unavailable'); } }
+    };
     const resolveRuntimeApi = () => {
       if (runtimeApi) return Promise.resolve(runtimeApi);
       if (!runtimeApiPromise) {
@@ -535,11 +810,57 @@ export function SpeakingBehavior() {
     };
     // `document` không phải `Element` — uỷ quyền sự kiện ở cấp tài liệu là có
     // thật (nút "quay lại dashboard"), nên kiểu phải nhận cả hai.
-    const on = (el: Element | Document | null, ev: string, fn: any) => {
+    const on = (el: Element | Document | Window | VisualViewport | null, ev: string, fn: any) => {
       if (!el) return;
       el.addEventListener(ev, fn);
       cleanups.push(() => el.removeEventListener(ev, fn));
     };
+    const inputEdit = (id: string) => {
+      const field = id === 'prac-custom-q' || id === 'myq-input' ? 'questions'
+        : id.endsWith('-select') ? 'topic' : 'customTopic';
+      const scope = id.startsWith('prac-') ? 'practice' : id.startsWith('pbp-') ? 'partbpart'
+        : id.startsWith('ft-') ? 'fulltest' : `modal:${st.modalMode}:${st.modalPart}`;
+      const fullIndex = ['ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic'].indexOf(id);
+      markEdit(scope, fullIndex < 0 ? field : `topics:${fullIndex}`);
+      st.saveDraft();
+    };
+    for (const id of PREPARATION_FIELDS) on($(id), 'input', () => inputEdit(id));
+    for (const id of PREPARATION_SELECTS) on($(id), 'change', () => inputEdit(id));
+    const discardPreparation = () => {
+      const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
+      const scope = modalOpen ? `modal:${st.modalMode}:${st.modalPart}` : st.mainTab;
+      pendingEdits.delete(scope);
+      const discarded = draft(scope)?.discard();
+      const clear = (ids: string[]) => ids.forEach(id => { const input = $(id) as HTMLInputElement | null; if (input) input.value = ''; });
+      if (modalOpen) { clear(['myq-input', 'topic-custom-input', 'topic-select']); delete st.wantedTopics['topic-select']; switchTopicTab('list', st); }
+      else if (scope === 'practice') {
+        clear(['prac-custom-q', 'prac-topic-custom', 'prac-topic-select']); delete st.wantedTopics['prac-topic-select'];
+        st.pracPart = 1; st.pracTopicPart = 1;
+        [1, 2, 3].forEach(p => { $('prac-part-' + p)?.classList.toggle('selected', p === 1); $('prac-tp-part-' + p)?.classList.toggle('selected', p === 1); });
+        applyCueCardCopy('prac-custom-q', 1); evaluateCueCardWarning('prac-custom-q', 'prac-custom-q-length-warning', 1);
+        if (runtimeApi) void loadTopicsInto('prac-topic-select', 1, runtimeApi, st);
+      } else if (scope === 'partbpart') { clear(['pbp-topic-custom', 'pbp-topic-select']); delete st.wantedTopics['pbp-topic-select']; st.pbpPart = 1; if (runtimeApi) selectPbpPart(1, st, runtimeApi); }
+      else if (scope === 'fulltest') clear(['ft-p1-topic-1', 'ft-p1-topic-2', 'ft-p1-topic-3', 'ft-p2-topic']);
+      edited = true;
+      draft('panel')?.save({ panel: st.mainTab, modalOpen, part: st.modalPart, mode: st.modalMode });
+      draftNotice(discarded?.status === 'unavailable' ? 'unavailable' : 'discarded');
+    };
+    on($('speaking-draft-discard'), 'click', discardPreparation);
+    on($('speaking-modal-draft-discard'), 'click', discardPreparation);
+    const conceal = () => { initialConfirmation = false; pendingEdits.clear(); profileRead++; st.permissionsReady = false; st.permissionAccount = null; st.accountId = null; resetPreparation(st); const bar = $('speaking-draft-controls'); if (bar) bar.hidden = true; };
+    on(window, 'pagehide', conceal);
+    const resume = async (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      conceal();
+      try {
+        const result = await (window as any).getSupabase()?.auth.getSession();
+        if (st.dead) return;
+        const current = result?.error ? null : result?.data?.session?.user?.id;
+        if (current && current === accountRef.current) { edited = false; syncDraftIdentity(current); }
+        else { st.drafts.forEach(handle => handle.dispose()); st.drafts.clear(); }
+      } catch { /* Concealed until a confirmed session is available. */ }
+    };
+    on(window, 'pageshow', resume);
 
     // Bind the route's primary navigation synchronously with the effect. It
     // must not wait for afterInteractive globals or `/auth/me`: these actions
@@ -548,6 +869,7 @@ export function SpeakingBehavior() {
       on(card, 'click', (e: Event) => {
         e.preventDefault();
         switchMainTab(card.dataset.mode || 'dashboard', st, runtimeApi, cleanups);
+        st.saveDraft();
       });
     });
     on(document, 'click', (e: any) => {
@@ -555,11 +877,13 @@ export function SpeakingBehavior() {
       if (back && back.closest('#tab-practice, #tab-partbpart, #tab-fulltest')) {
         e.preventDefault();
         switchMainTab('dashboard', st, runtimeApi, cleanups);
+        st.saveDraft();
       }
     });
     on($('dash-empty-start'), 'click', (e: Event) => {
       e.preventDefault();
       switchMainTab('practice', st, runtimeApi, cleanups);
+      st.saveDraft();
     });
     // Part selection is local UI state and must not wait for window.api. A
     // staging journey exposed the race: the learner selected Part 2 while the
@@ -573,11 +897,16 @@ export function SpeakingBehavior() {
         [1, 2, 3].forEach((q) => $('prac-part-' + q)?.classList.toggle('selected', q === p));
         applyCueCardCopy('prac-custom-q', p);
         evaluateCueCardWarning('prac-custom-q', 'prac-custom-q-length-warning', p);
+        markEdit('practice', 'part');
+        st.saveDraft();
       });
       on($('prac-tp-part-' + p), 'click', () => {
         st.pracTopicPart = p;
+        delete st.wantedTopics['prac-topic-select'];
         [1, 2, 3].forEach((q) => $('prac-tp-part-' + q)?.classList.toggle('selected', q === p));
         if (runtimeApi) void loadTopicsInto('prac-topic-select', p, runtimeApi, st);
+        markEdit('practice', 'topicPart', 'topic');
+        st.saveDraft();
       });
     });
     // Validation must exist as soon as the panel can be opened. Keeping this
@@ -587,7 +916,10 @@ export function SpeakingBehavior() {
     on($('prac-topic-start'), 'click', async (e: any) => {
       e.preventDefault();
       const btn = e.currentTarget as HTMLButtonElement;
-      const topic = val('prac-topic-custom').trim() || val('prac-topic-select');
+      const topic = val('prac-topic-custom').trim() || selectedTopic(st, 'prac-topic-select', st.pracTopicPart);
+      // Submit the selection made at this click. Auth readiness may reset the
+      // preparation UI while the runtime is loading; it must not change Part.
+      const part = st.pracTopicPart;
       const err = $('prac-topic-error');
       if (err) err.textContent = '';
       if (!topic) {
@@ -610,7 +942,7 @@ export function SpeakingBehavior() {
         return;
       }
       return startFromTopic({
-        topic, mode: 'practice', part: st.pracTopicPart, errorId: 'prac-topic-error',
+        topic, mode: 'practice', part, errorId: 'prac-topic-error',
         btn, idleLabel, api, st,
       });
     });
@@ -638,8 +970,11 @@ export function SpeakingBehavior() {
       bindWatcher('myq-input', 'myq-input-length-warning', () => st.modalPart);
 
       // ── Modal chủ đề ────────────────────────────────────────────────────
+      on(window, 'resize', syncTopicModalViewport);
+      on(window.visualViewport, 'resize', syncTopicModalViewport);
+      on(window.visualViewport, 'scroll', syncTopicModalViewport);
       on($('topic-modal'), 'click', (e: any) => {
-        if (e.target === $('topic-modal')) closeTopicModal();
+        if (e.target === $('topic-modal')) { closeTopicModal(); st.saveDraft(); }
       });
       on(document, 'keydown', (e: KeyboardEvent) => {
         const modal = $('topic-modal');
@@ -647,6 +982,7 @@ export function SpeakingBehavior() {
         if (e.key === 'Escape') {
           e.preventDefault();
           closeTopicModal();
+          st.saveDraft();
           return;
         }
         if (e.key !== 'Tab') return;
@@ -673,9 +1009,9 @@ export function SpeakingBehavior() {
       // Modal chỉ có MỘT nút đóng trong bản legacy — không có nút "Huỷ" riêng.
       // Bản đầu của tệp này gắn thêm `modal-cancel`, một id không tồn tại ở đâu
       // cả; chốt chặn `speaking-behavior-hooks.test.mjs` bắt được.
-      on($('modal-close'), 'click', () => closeTopicModal());
+      on($('modal-close'), 'click', () => { closeTopicModal(); st.saveDraft(); });
       (['list', 'custom', 'myq'] as const).forEach((t) => {
-        on($('tab-' + t), 'click', () => switchTopicTab(t, st));
+        on($('tab-' + t), 'click', () => { switchTopicTab(t, st); markEdit(`modal:${st.modalMode}:${st.modalPart}`, 'tab'); st.saveDraft(); });
       });
       on($('btn-confirm'), 'click', async () => {
         const btn = $('btn-confirm') as HTMLButtonElement | null;
@@ -688,7 +1024,7 @@ export function SpeakingBehavior() {
           return;
         }
         const topic = st.activeTopicTab === 'list'
-          ? val('topic-select')
+          ? selectedTopic(st, 'topic-select', st.modalPart)
           : val('topic-custom-input').trim();
         if (!topic) {
           const err = $('modal-error');
@@ -707,7 +1043,7 @@ export function SpeakingBehavior() {
 
       // ── Panel Luyện tập ─────────────────────────────────────────────────
       [1, 2, 3].forEach((p) => {
-        on($('pbp-card-' + p), 'click', () => selectPbpPart(p, st, api));
+        on($('pbp-card-' + p), 'click', () => { delete st.wantedTopics['pbp-topic-select']; selectPbpPart(p, st, api); markEdit('partbpart', 'part', 'topic'); st.saveDraft(); });
       });
 
       on($('prac-custom-q-start'), 'click', (e: any) => startFromCustomQuestions({
@@ -717,7 +1053,7 @@ export function SpeakingBehavior() {
 
       // ── Từng Part ───────────────────────────────────────────────────────
       on($('pbp-start'), 'click', (e: any) => {
-        const topic = val('pbp-topic-custom').trim() || val('pbp-topic-select');
+        const topic = val('pbp-topic-custom').trim() || selectedTopic(st, 'pbp-topic-select', st.pbpPart);
         const err = $('pbp-error');
         if (err) err.textContent = '';
         if (!topic) {
@@ -783,18 +1119,14 @@ export function SpeakingBehavior() {
       // An toàn khi gắn trước: quyền chỉ ẨN/KHOÁ giao diện, còn backend vẫn gác
       // thật. Người không có quyền bấm được nút trong vài trăm ms đầu thì cũng
       // chỉ nhận 403 — khác hẳn với việc người CÓ quyền bấm mà không có gì xảy ra.
-      try {
-        const user = await api.get('/auth/me') as AuthMeWire;
-        if (st.dead) return;
-        renderUser(user || {}, api, st);
-      } catch {
-        if (!st.dead) renderUser({}, api, st);
-      }
+      await loadProfile(api);
     })();
 
     return () => {
       st.dead = true;
       st.starter?.dispose();
+      st.drafts.forEach(handle => handle.dispose());
+      syncDraftRef.current = null;
       cleanups.forEach((fn) => fn());
     };
   // Listener wiring is intentionally independent of the asynchronous auth

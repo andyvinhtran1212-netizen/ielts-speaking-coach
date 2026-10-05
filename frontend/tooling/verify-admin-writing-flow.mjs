@@ -33,7 +33,9 @@ await page.getByRole('heading', { name: 'Writing workspace', exact: true }).wait
 check('backend-owned admin gate chạy', requests.includes('GET /auth/me'));
 check('learner preview là canonical route', await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/writing/dashboard');
 check('ba chặng và mười workspace có full-card anchor', await page.locator('.wth-group').count() === 3 && await page.locator('a.wth-card[href]').count() === 10);
-check('ownership hiển thị đúng', await page.getByText('NATIVE', { exact: true }).count() === 10 && await page.getByText('MIGRATING', { exact: true }).count() === 0);
+const destinations = ['/admin/writing/new', '/admin/writing/prompts', '/admin/writing/tips', '/admin/writing/queue', '/admin/writing/regrade-requests', '/admin/writing/instructor-queue', '/admin/writing/grade', '/admin/writing/assignments', '/admin/writing/cohorts', '/admin/students'];
+const cardHrefs = await page.locator('a.wth-card[href]').evaluateAll((cards) => cards.map((card) => card.getAttribute('href')));
+check('mười nhãn Quản lý gắn đúng canonical workspace', await page.getByText('Quản lý', { exact: true }).count() === 10 && destinations.length === cardHrefs.length && destinations.every((href) => cardHrefs.includes(href)) && await page.getByText('MIGRATING', { exact: true }).count() === 0);
 check('mobile một cột và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.wth-grid')).gridTemplateColumns.split(' ').length === 1 && document.documentElement.scrollWidth <= innerWidth));
 
 await page.setViewportSize({ width: 1440, height: 900 });

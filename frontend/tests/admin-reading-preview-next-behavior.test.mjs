@@ -18,6 +18,7 @@ const CSS = read('public', 'css', 'admin-reading-preview-next.css');
 const CONTENT = read('app', '(authed-admin-reading-content)', 'admin', 'reading', 'content', 'admin-reading-content.tsx');
 const FEEDBACK_MODEL = read('lib', 'admin-feedback-model.mjs');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
+const CANONICAL = JSON.parse(read('tests', 'fixtures', 'reading-admin-canonical-solutions.json'));
 
 const payload = (overrides = {}) => ({
   id: 'uuid-t1', test_id: 'T 1', title: 'Reading paper', module: 'academic',
@@ -51,6 +52,87 @@ test('normalizes the answer-key contract without turning nullable values into ze
   const untitled = normalizeReadingAdminPreview(payload({ title: '' }));
   assert.equal(untitled.test.title, 'T 1');
   assert.ok(untitled.issues.some((issue) => issue.includes('thiếu title')));
+});
+
+test('shows native top-level paragraph labels ahead of legacy template labels and retains template-only papers', () => {
+  const source = payload();
+  source.questions[0].payload = { paragraph_labels: ['A', 'F', 'I'], template: { paragraph_labels: ['A', 'H'] } };
+  source.questions[1].payload = { template: { paragraph_labels: ['A', 'G'] } };
+  const original = JSON.stringify(source);
+  const normalized = normalizeReadingAdminPreview(source).test;
+  assert.deepEqual(normalized.questions[0].template.paragraphLabels, ['A', 'F', 'I']);
+  assert.deepEqual(normalized.questions[1].template.paragraphLabels, ['A', 'G']);
+  assert.equal(JSON.stringify(source), original);
+});
+
+test('retains authored solutions and rubrics alongside legacy explanations without changing keys or source', () => {
+  const source = payload();
+  source.questions[0].payload = { instruction: 'Complete the notes.', word_limit: 'ONE WORD ONLY', solution: {
+    question_text: 'Original question', steps: 'Locate the line.\nRead the noun.',
+    source_excerpt: 'The outer layer of sheep intestines.', source_paragraph: 'A', vocab: ['intestines = ruột'],
+    paraphrase: 'animals ↔ sheep', trap_analysis: 'Do not add a second word.', tips: 'Keep the plural.', skill_code: 'LEX', band: 6.5,
+  } };
+  source.questions[1].payload.solution = 'Authored plain-text solution';
+  const original = JSON.stringify(source);
+  const rows = normalizeReadingAdminPreview(source).test.questions;
+  assert.equal(rows[0].explanation, 'Because A');
+  assert.equal(rows[0].instruction, 'Complete the notes.');
+  assert.equal(rows[0].wordLimit, 'ONE WORD ONLY');
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'steps').values, ['Locate the line.\nRead the noun.']);
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'vocab').values, ['intestines = ruột']);
+  // AVR001 Q1 and native packets use source_paragraph independently of source_location.
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'source_paragraph'), { key: 'source_paragraph', label: 'Đoạn nguồn', values: ['A'] });
+  assert.deepEqual(rows[0].solutionSections.find(({ key }) => key === 'band').values, ['6.5']);
+  assert.deepEqual(rows[1].solutionSections, [{ key: 'text', label: 'Lời giải authored', values: ['Authored plain-text solution'] }]);
+  assert.deepEqual(rows[0].answers, ['A']);
+  assert.equal(JSON.stringify(source), original);
+});
+
+test('does not invent prose from malformed or empty solution/rubric values', () => {
+  const source = payload();
+  source.questions[0].payload = { instruction: {}, word_limit: 2, solution: { steps: {}, vocab: ['', null, {}, 42], band: '6.5' } };
+  source.questions[1].payload.solution = [];
+  source.questions[2].payload.solution = '  ';
+  const rows = normalizeReadingAdminPreview(source).test.questions;
+  assert.deepEqual(rows.map(({ solutionSections }) => solutionSections), [[], [], []]);
+  assert.equal(rows[0].instruction, null); assert.equal(rows[0].wordLimit, null);
+  assert.equal(rows[0].explanation, 'Because A');
+});
+
+test('renders the actual structured L3 Q10 and canonical MCQ distractor without a root explanation', () => {
+  const source = payload({ total_questions: 2, questions: [CANONICAL.q10, CANONICAL.mcq] });
+  const before = JSON.stringify(source);
+  const rows = normalizeReadingAdminPreview(source).test.questions;
+  const q10 = rows.find((row) => row.qNum === 10);
+  assert.equal(q10.explanation, null);
+  assert.deepEqual(q10.solutionSections.find(({ key }) => key === 'solution_steps')?.values,
+    CANONICAL.q10.payload.solution.solution_steps.map((step) => step.instruction_vi));
+  assert.deepEqual(q10.answers, ['coal']);
+  const mcq = rows.find((row) => row.qNum === 1);
+  assert.deepEqual(mcq.solutionSections.find(({ key }) => key === 'distractor_analysis')?.values,
+    ["B — " + CANONICAL.mcq.payload.solution.distractor_analysis[0].why_wrong_vi]);
+  assert.equal(JSON.stringify(source), before);
+});
+
+test('guards structured entries and preserves legacy prose when structured fields contain no readable content', () => {
+  const source = payload();
+  source.questions[0].payload.solution = { solution_steps: [null, 42, {}, { instruction_vi: ' ' }],
+    distractor_analysis: [null, { why_wrong_vi: {} }], steps: 'Legacy steps.', trap_analysis: 'Legacy trap.' };
+  source.questions[1].payload.solution = { solution_steps: {}, distractor_analysis: 'not an array' };
+  const rows = normalizeReadingAdminPreview(source).test.questions;
+  assert.deepEqual(rows[0].solutionSections.map(({ values }) => values), [['Legacy steps.'], ['Legacy trap.']]);
+  assert.deepEqual(rows[1].solutionSections, []);
+});
+
+test('uses canonical instructions and distractors ahead of legacy fallbacks without hiding other prose fields', () => {
+  const source = payload();
+  source.questions[0].payload.solution = { ...CANONICAL.mcq.payload.solution,
+    steps: 'Old prose steps.', trap_analysis: 'Old prose trap.', source_excerpt: 'Original source.' };
+  const sections = normalizeReadingAdminPreview(source).test.questions[0].solutionSections;
+  assert.equal(sections.some(({ key }) => key === 'steps' || key === 'trap_analysis'), false);
+  assert.equal(sections.find(({ key }) => key === 'solution_steps').values.length, 2);
+  assert.equal(sections.find(({ key }) => key === 'distractor_analysis').values.length, 1);
+  assert.deepEqual(sections.find(({ key }) => key === 'source_excerpt').values, ['Original source.']);
 });
 
 test('reports malformed/count drift instead of inventing preview rows', () => {
@@ -114,7 +196,7 @@ test('native route owns QA without a retired HTML rollback and retains student-l
   assert.match(LAYOUT, /markdown\.js/);
   assert.doesNotMatch(CLIENT, /\/pages\/admin\/reading\/preview\.html/);
   assert.match(CLIENT, /\/reading\/review\?admin_test_id=/);
-  assert.match(CONTENT, /readingPreviewHref\(row\.slug\)/);
+  assert.match(CONTENT, /readingPreviewHref\(row\.slug, null, context\)/);
   assert.match(FEEDBACK_MODEL, /return readingPreviewHref\(item\.testId, item\.questionNumber\)/);
   assert.doesNotMatch(CLIENT, /window\.confirm|window\.alert/);
 });

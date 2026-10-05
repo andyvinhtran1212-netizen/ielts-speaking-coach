@@ -11,6 +11,8 @@ Pins:
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
+import json
 from uuid import uuid4
 
 import pytest
@@ -335,6 +337,107 @@ def test_patch_test_metadata_rejects_bad_band(monkeypatch):
             test_id=t["id"], body=body, authorization=authz,
         ))
     assert excinfo.value.status_code == 422
+
+
+def _install_policy_writer(monkeypatch, fake, *, fail=None):
+    """Model306's allowlist/CAS before writing; track all direct row updates."""
+    calls, direct = [], []
+    original_update = _Query.update
+    def tracked_update(query, payload):
+        if query.name == "listening_tests": direct.append(deepcopy(payload))
+        return original_update(query, payload)
+    monkeypatch.setattr(_Query, "update", tracked_update)
+    def rpc(name, params):
+        assert name == "fn_mutate_mock_paper_policy"
+        calls.append(deepcopy(params))
+        def execute():
+            if fail: raise RuntimeError(fail)
+            patch = params["p_patch"]
+            if set(patch) - {"is_public", "exam_only"}:
+                raise RuntimeError("invalid_mock_paper_policy_field")
+            row = next(row for row in fake.tables["listening_tests"] if row["id"] == params["p_test_id"])
+            assert params["p_expected_revision"] == row["policy_revision"]
+            row.update(patch)
+            row["policy_revision"] += 1
+            return _Resp(deepcopy(row))
+        return type("RPC", (), {"execute": staticmethod(execute)})()
+    fake.rpc = rpc
+    return calls, direct
+
+
+@pytest.mark.parametrize("patch", [{"is_public": True}, {"exam_only": False},
+    {"is_public": False, "exam_only": True}])
+def test_patch_test_policy_uses_actor_cas_and_canonical_receipt(monkeypatch, patch):
+    fake, authz = _patch(monkeypatch)
+    row = _seed_test(fake, is_public=False, exam_only=True, policy_revision=7)
+    calls, direct = _install_policy_writer(monkeypatch, fake)
+
+    out = _run(listening_router.admin_patch_listening_test(row["id"],
+        listening_router.ListeningTestPatchRequest(**patch), authorization=authz))
+
+    assert direct == []
+    assert calls == [{"p_skill": "listening", "p_test_id": row["id"], "p_patch": patch,
+        "p_actor_id": "admin-1", "p_expected_revision": 7, "p_overlap": None, "p_snapshot_id": None}]
+    assert out["policy_revision"] == 8
+    assert all(out[field] == value for field, value in patch.items())
+
+
+@pytest.mark.parametrize("reason,status", [("protected_dependency", 409), ("verification_unavailable", 503)])
+def test_patch_test_policy_rpc_failure_never_reports_success_or_direct_writes(monkeypatch, reason, status):
+    from services.mock_paper_policy import PaperPolicyError
+    fake, authz = _patch(monkeypatch)
+    row = _seed_test(fake, is_public=False, exam_only=True, policy_revision=7)
+    before = deepcopy(row)
+    calls, direct = _install_policy_writer(monkeypatch, fake, fail="mock_paper_policy:" + json.dumps({
+        "reason": reason, "current_revision": 7, "dependencies": [{"id": "protected-mock"}]}))
+
+    with pytest.raises(PaperPolicyError) as error:
+        _run(listening_router.admin_patch_listening_test(row["id"],
+            listening_router.ListeningTestPatchRequest(is_public=True), authorization=authz))
+
+    assert error.value.status_code == status
+    assert row == before and direct == [] and len(calls) == 1
+
+
+def test_patch_test_mixed_policy_metadata_rejected_atomically_by_existing_allowlist(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    row = _seed_test(fake, is_public=False, policy_revision=7)
+    before = deepcopy(row)
+    calls, direct = _install_policy_writer(monkeypatch, fake)
+
+    with pytest.raises(HTTPException) as error:
+        _run(listening_router.admin_patch_listening_test(row["id"],
+            listening_router.ListeningTestPatchRequest(is_public=True, title="Updated title"), authorization=authz))
+
+    assert error.value.status_code == 422
+    assert calls[0]["p_patch"] == {"is_public": True, "title": "Updated title"}
+    assert row == before and direct == []
+
+
+def test_patch_test_policy_missing_revision_cannot_fall_back_to_direct_update(monkeypatch):
+    from services.mock_paper_policy import PaperPolicyError
+    fake, authz = _patch(monkeypatch)
+    row = _seed_test(fake, is_public=False)
+    calls, direct = _install_policy_writer(monkeypatch, fake)
+
+    with pytest.raises(PaperPolicyError) as error:
+        _run(listening_router.admin_patch_listening_test(row["id"],
+            listening_router.ListeningTestPatchRequest(is_public=True), authorization=authz))
+
+    assert error.value.status_code == 503
+    assert row["is_public"] is False and calls == [] and direct == []
+
+
+def test_patch_test_ordinary_metadata_keeps_existing_writer(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    row = _seed_test(fake, policy_revision=7)
+    calls, direct = _install_policy_writer(monkeypatch, fake)
+
+    out = _run(listening_router.admin_patch_listening_test(row["id"],
+        listening_router.ListeningTestPatchRequest(title="Updated title"), authorization=authz))
+
+    assert calls == [] and direct == [{"title": "Updated title"}]
+    assert out["title"] == "Updated title"
 
 
 # ── PATCH /tests/{id}/status ────────────────────────────────────────────────

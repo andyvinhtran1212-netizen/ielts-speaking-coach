@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
 import { getArticle } from '@/lib/grammar-api';
+import { grammarSource } from '@/lib/grammar-navigation-context.mjs';
 import { ArticleShell } from './page-shell';
 import { ArticleBehavior } from './article-behavior';
 
@@ -17,7 +18,10 @@ import { ArticleBehavior } from './article-behavior';
 // is an EDGE-runtime-only segment config (ignored on this Node route; review
 // #757). sin1 is optimal for both the backend AND the users (Vietnam ≈ 30ms).
 
-type Params = { params: Promise<{ category: string; slug: string }> };
+type Params = {
+  params: Promise<{ category: string; slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { category, slug } = await params;
@@ -47,14 +51,15 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
-export default async function GrammarArticlePage({ params }: Params) {
+export default async function GrammarArticlePage({ params, searchParams }: Params) {
   const { category, slug } = await params;
   const article = await getArticle(category, slug); // memoized — same fetch as metadata
   if (!article) notFound();
+  const source = grammarSource(await searchParams);
 
   return (
     <>
-      <ArticleShell article={article} />
+      <ArticleShell article={article} source={source} />
       <ArticleBehavior
         slug={article.slug}
         category={article.category}

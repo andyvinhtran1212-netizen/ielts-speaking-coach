@@ -31,6 +31,19 @@ These are dated integration observations, not per-feature acceptance evidence.
 | [LISTENING-0007](0007-listening-editorial-revision/verification.md) | v1.1 publication and migration 303 read back on both environments; v1.0 archived | Reconcile historical T003–T009 items individually. Deliberately failed-publish rollback rehearsal and authenticated mobile/screen-reader acceptance remain missing. Preserve two local editorial worktrees and their review ledger until comparison is complete. |
 | [MOCKATTACH-0008](0008-mock-attempt-integrity/verification.md) | T001–T005 and subsequent retake-expiry fix integrated; production promotion completed | T006 focused learner/operator persisted-link, collect/advance and reload journey remains unverified. |
 
+## Grammar remediation approval checkpoint — 2026-10-01
+
+The separate spec-only change approves the synchronized twelve-code
+GRAMMARCUTOVER-0014 amendment and GRAMMARTEXT-0015 contract. Exact technical
+review, authored-source approval and immutable bounds are recorded in
+[approval.md](0015-grammar-exact-form-policy/approval.md). Approved intent must
+land on the base before new feature code; no implementation/migration is included.
+
+| Spec / evidence | Approved or recorded | Remaining acceptance / next action |
+| --- | --- | --- |
+| [GRAMMARCUTOVER-0014](0014-grammar-bank-revision-cutover/verification.md) | Independent twelve-code technical amendment/source bindings; historical six-code/erasure approvals retained | All10FR PENDING: additive schema/grants/actual PostgreSQL races, immutable history/cohort/reset/admission proof, missing staging predecessors, fresh canonical extras/why_wrong/backup, exact deployed SHAs and explicit single-final-bundle cutover/rollback. |
+| [GRAMMARTEXT-0015](0015-grammar-exact-form-policy/verification.md) | Exact final18 authored-source hashes independently approved;75question/133field/fivearticle deltas;49exact/9legacy text policies | All12FR PENDING: raw META/canonical wire ownership, typed matching ACK, pure preflight/engine activation, lost ACK/reset-stale/terminal/history behavior, actual map persistence, canonical publication and staging/production release. Source approval does not close feature gates. |
+
 ## Closing a row
 
 The domain maintainer taking the next feature task owns the evidence update.

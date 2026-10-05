@@ -2,10 +2,12 @@
 // Browser requests are fulfilled by each verifier; this server only covers
 // data fetched by React Server Components, which Playwright cannot intercept.
 import { createServer } from 'node:http';
+import { grammarNavigationArticle, grammarNavigationHome } from './grammar-navigation-fixtures.mjs';
 
 const HOST = '127.0.0.1';
 const PORT = Number.parseInt(process.env.NEXT_NATIVE_FIXTURE_PORT || '3999', 10);
 const GRAMMAR_DELAY_MS = Math.max(0, Number.parseInt(process.env.NEXT_NATIVE_GRAMMAR_DELAY_MS || '0', 10) || 0);
+const grammarNavigationReads = new Set();
 
 const summaries = [
   { slug: 'academic-growth', category: 'education', headword: 'academic growth', level: 'B2', part_of_speech: 'noun phrase', pronunciation: '', gloss_vi: 'sự tiến bộ học thuật', audio_headword: '' },
@@ -72,6 +74,8 @@ function article(category, slug) {
 }
 
 function grammarArticle(category, slug) {
+  const navigationArticle = grammarNavigationArticle(category, slug);
+  if (navigationArticle) return navigationArticle;
   if (category !== 'tenses' || slug !== 'present-simple') return null;
   return {
     slug,
@@ -110,7 +114,15 @@ const server = createServer(async (request, response) => {
   response.setHeader('cache-control', 'no-store');
 
   if (request.method === 'GET' && url.pathname === '/health') {
-    response.writeHead(200).end(JSON.stringify({ ok: true }));
+    response.writeHead(200).end(JSON.stringify({ ok: true, fixture: 'next-native-browser', grammar_navigation_version: 1, grammar_navigation_reads: [...grammarNavigationReads] }));
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/api/grammar/home') {
+    response.writeHead(200).end(JSON.stringify(grammarNavigationHome));
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/api/grammar/groups') {
+    response.writeHead(200).end('[]');
     return;
   }
   if (request.method === 'GET' && url.pathname === '/api/vocabulary/categories') {
@@ -129,7 +141,10 @@ const server = createServer(async (request, response) => {
   }
   const grammarMatch = url.pathname.match(/^\/api\/grammar\/article\/([^/]+)\/([^/]+)$/);
   if (request.method === 'GET' && grammarMatch) {
-    const value = grammarArticle(decodeURIComponent(grammarMatch[1]), decodeURIComponent(grammarMatch[2]));
+    const category = decodeURIComponent(grammarMatch[1]);
+    const slug = decodeURIComponent(grammarMatch[2]);
+    const value = grammarArticle(category, slug);
+    if (value && grammarNavigationArticle(category, slug)) grammarNavigationReads.add(`${category}/${slug}`);
     if (GRAMMAR_DELAY_MS) await new Promise((resolve) => setTimeout(resolve, GRAMMAR_DELAY_MS));
     response.writeHead(value ? 200 : 404).end(JSON.stringify(value || { detail: 'Not found' }));
     return;
@@ -138,7 +153,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Next-native fixture API listening on http://${HOST}:${PORT}`);
+  console.log(`Next-native fixture API listening on http://${HOST}:${server.address().port}`);
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

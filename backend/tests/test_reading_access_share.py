@@ -1,9 +1,9 @@
 """reading-access-tracking Part B — shareable links + ANONYMOUS attempts.
 
 Security-first. The invariants pinned here:
-  • A valid, unexpired share token IS the access grant — it BYPASSES the F1
-    password lock (the boot bundle is returned for a LOCKED test) but still
-    strips answer keys + solution during the test.
+  • A valid, unexpired share token bypasses the F1 password lock for public
+    practice, but cannot override a protected mock reservation. The boot
+    bundle still strips answer keys + solution during the test.
   • An expired / rotated / unknown share token is rejected (403 / 404).
   • An anonymous attempt is owned ONLY by its secret anon_id capability token:
     a different anon_id (or none) is 403'd on review — not "any anonymous".
@@ -63,9 +63,36 @@ class _DB:
         self.data = data
         self.inserts: list[tuple] = []
         self.updates: list[tuple] = []
+        self.rpc_calls: list[tuple[str, dict]] = []
 
     def table(self, name):
         return _Q(self, name)
+
+    def rpc(self, name, params):
+        assert name == "fn_resolve_mock_paper_access"
+        assert params["p_skill"] == "reading"
+        assert params["p_purpose"] == "practice"
+        assert params["p_user_id"] is None
+        assert params["p_sitting_id"] is None
+        assert params["p_allow_admission"] is False
+        self.rpc_calls.append((name, dict(params)))
+        paper = next((row for row in self.data.get("reading_tests", [])
+                      if row.get("id") == params["p_test_id"]), None)
+        reserved = any(
+            exam.get("reading_test_id") == params["p_test_id"]
+            and (exam.get("status") == "draft"
+                 or (exam.get("status") == "published" and exam.get("active_section") != "done"))
+            for exam in self.data.get("mock_exams", [])
+        )
+        if not paper or paper.get("status") != "published" or not paper.get("is_public") or reserved:
+            result = {"allowed": False, "reason": "denied"}
+        else:
+            result = {
+                "allowed": True, "attempt_purpose": "practice",
+                "paper_revision": paper["mock_content_revision"],
+                "policy_revision": paper["policy_revision"],
+            }
+        return MagicMock(execute=MagicMock(return_value=MagicMock(data=result)))
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────
@@ -83,6 +110,7 @@ def _shared_test(token="TOK", days=1, locked=False):
         "id": "t-uuid", "test_id": "T1", "title": "Mock", "module": "academic",
         "time_limit_minutes": 60, "passage_count": 1, "total_questions": 1,
         "band_target": None, "status": "published", "updated_at": None,
+        "is_public": True, "policy_revision": 0, "mock_content_revision": 0,
         "metadata": md,
     }
 
@@ -174,6 +202,23 @@ def test_share_boot_expired_token_403():
     with patch("routers.reading_student.supabase_admin", db):
         r = _client().get("/api/reading/test/share/TOK/boot")
     assert r.status_code == 403
+
+
+def test_valid_share_cannot_boot_or_start_a_paper_reserved_for_future_mock():
+    db = _DB({
+        "reading_tests": [_shared_test(locked=True)],
+        "mock_exams": [{"id": "future-exam", "status": "draft", "reading_test_id": "t-uuid"}],
+        "reading_test_attempts": [],
+    })
+    with patch("routers.reading_student.supabase_admin", db):
+        boot = _client().get("/api/reading/test/share/TOK/boot")
+        start = _client().post("/api/reading/test/share/TOK/attempts")
+    assert boot.status_code == start.status_code == 404
+    assert db.inserts == []
+    assert db.updates == []
+    assert len(db.rpc_calls) == 2
+    assert all(params["p_purpose"] == "practice" and params["p_test_id"] == "t-uuid"
+               for _, params in db.rpc_calls)
 
 
 # ── anonymous start: mints anon_id, salted anon_src, user_id NULL ──────

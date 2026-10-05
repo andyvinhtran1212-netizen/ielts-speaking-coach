@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+import { adminReadingContext, adminReadingLibraryHref } from '@/lib/admin-reading-navigation.mjs';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import {
@@ -25,8 +28,14 @@ export function AdminReadingContent() {
   const profile = useAdminProfile();
   const account = useRef(profile.id);
   const sequence = useRef(0);
-  const [library, setLibrary] = useState<Library>('');
-  const [offset, setOffset] = useState(0);
+  const params = useSearchParams();
+  const context = adminReadingContext(params || undefined);
+  const library = context.library as Library;
+  const offset = (context.page - 1) * PAGE_SIZE;
+  const setOffset = (next: number) => {
+    const latest = adminReadingContext(new URLSearchParams(window.location.search));
+    window.history.replaceState(null, '', adminReadingLibraryHref({ library: latest.library, page: Math.floor(next / PAGE_SIZE) + 1 }));
+  };
   const [snapshot, setSnapshot] = useState<{ key: string; rows: Row[]; total: number; malformed: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -217,9 +226,16 @@ export function AdminReadingContent() {
     finally { setBusy(false); }
   };
 
-  const chooseLibrary = (next: Library) => { sequence.current += 1; setLibrary(next); setOffset(0); setBanner(null); };
+  const chooseLibrary = (next: Library) => { sequence.current += 1; window.history.replaceState(null, '', adminReadingLibraryHref({ library: next, page: 1 })); setBanner(null); };
   const maxPage = current ? Math.max(1, Math.ceil(current.total / PAGE_SIZE)) : 1;
   const page = Math.floor(offset / PAGE_SIZE) + 1;
+  useEffect(() => {
+    // This endpoint reports an exact total: an out-of-range deep link can safely
+    // return to the last actual page, including page 1 of an empty library.
+    if (current && page > maxPage) {
+      window.history.replaceState(null, '', adminReadingLibraryHref({ library, page: maxPage }));
+    }
+  }, [current, page, maxPage, library]);
 
   return <main className="arc-shell">
     <header className="arc-hero"><div><p className="arc-eyebrow">Reading · Content operations</p><h1>Thư viện nội dung Reading</h1><p>Kiểm định file trước khi ghi, rồi vận hành passage và full test trên trạng thái canonical của backend.</p></div><a href="/admin/reading">← Reading workspace</a></header>
@@ -248,7 +264,7 @@ export function AdminReadingContent() {
       {!!current?.malformed && <div className="arc-read-error is-warning" role="status">Đã loại {current.malformed} dòng sai contract; tổng từ server vẫn giữ nguyên.</div>}
       {loading && !current && <div className="arc-empty" role="status">Đang đọc thư viện…</div>}
       {current && !current.rows.length && <div className="arc-empty"><strong>Chưa có nội dung trong nhóm này</strong><span>Import file ở phía trên để bắt đầu.</span></div>}
-      {!!current?.rows.length && <div className="arc-table-wrap" role="region" aria-label="Bảng nội dung Reading" tabIndex={0}><table className="arc-table"><thead><tr><th>Nội dung</th><th>Thư viện</th><th>Trạng thái</th><th>Cập nhật</th><th>Thao tác</th></tr></thead><tbody>{current.rows.map((row) => <tr key={row.id}><td data-label="Nội dung"><strong>{row.title}</strong><code>{row.slug}</code><small>{[row.skillFocus, row.difficultyLevel].filter(Boolean).join(' · ') || 'Chưa có mô tả kỹ năng'}</small></td><td data-label="Thư viện"><span className="arc-library-pill">{READING_LIBRARY_LABEL[row.library]}</span>{row.library === 'l3_test' && <small>{row.isPublic ? 'Công khai trên web' : 'Đang ẩn'}</small>}</td><td data-label="Trạng thái"><span className={`adm-status-pill is-${row.status === 'published' ? 'live' : row.status === 'archived' ? 'failed' : 'new'}`}>{row.status}</span>{row.contentAuditStatus && <small title={row.contentAuditedAt ? `Audit ${formatReadingContentDate(row.contentAuditedAt)}` : undefined}>{['passed', 'passed_after_fix'].includes(row.contentAuditStatus) ? '✓ Nội dung đã audit' : '⚠ Audit cần xử lý'}</small>}{row.locked && <small>🔒 Có mật khẩu</small>}{row.shareActive && <small>🔗 Đang chia sẻ</small>}</td><td data-label="Cập nhật"><time dateTime={row.updatedAt || undefined}>{formatReadingContentDate(row.updatedAt)}</time></td><td data-label="Thao tác"><div className="arc-actions">{row.library === 'l3_test' ? <><a href={readingPreviewHref(row.slug)} target="_blank" rel="noreferrer">Xem trước</a><button type="button" disabled={busy} onClick={() => setAction({ kind: 'exam', row })}>{row.isPublic ? 'Ẩn khỏi web' : 'Mở công khai'}</button><button type="button" disabled={busy} onClick={() => setAction({ kind: 'lock', row })}>{row.locked ? 'Mở khóa' : 'Khóa'}</button><button type="button" disabled={busy} onClick={() => { setShareRow(row); setShareUrl(''); setShareReadbackWarning(null); }}>Chia sẻ</button></> : <a href={row.library === 'l1_vocab' ? `/reading/vocab/${encodeURIComponent(row.slug)}` : `/reading/skill/${encodeURIComponent(row.slug)}`} target="_blank" rel="noreferrer">Xem bài</a>}<button type="button" onClick={() => { document.querySelector('.arc-import')?.scrollIntoView({ behavior: 'smooth' }); setBanner({ kind: 'info', text: `Để sửa “${row.title}”, import lại file cùng ${row.library === 'l3_test' ? 'test_id' : 'slug'}; backend sẽ cập nhật idempotent.` }); }}>Sửa</button><button className="is-danger" type="button" disabled={busy} onClick={() => setAction({ kind: 'delete', row })}>Xóa</button></div></td></tr>)}</tbody></table></div>}
+      {!!current?.rows.length && <div className="arc-table-wrap" role="region" aria-label="Bảng nội dung Reading" tabIndex={0}><table className="arc-table"><thead><tr><th>Nội dung</th><th>Thư viện</th><th>Trạng thái</th><th>Cập nhật</th><th>Thao tác</th></tr></thead><tbody>{current.rows.map((row) => <tr key={row.id}><td data-label="Nội dung"><strong>{row.title}</strong><code>{row.slug}</code><small>{[row.skillFocus, row.difficultyLevel].filter(Boolean).join(' · ') || 'Chưa có mô tả kỹ năng'}</small></td><td data-label="Thư viện"><span className="arc-library-pill">{READING_LIBRARY_LABEL[row.library]}</span>{row.library === 'l3_test' && <small>{row.isPublic ? 'Công khai trên web' : 'Đang ẩn'}</small>}</td><td data-label="Trạng thái"><span className={`adm-status-pill is-${row.status === 'published' ? 'live' : row.status === 'archived' ? 'failed' : 'new'}`}>{row.status}</span>{row.contentAuditStatus && <small title={row.contentAuditedAt ? `Audit ${formatReadingContentDate(row.contentAuditedAt)}` : undefined}>{['passed', 'passed_after_fix'].includes(row.contentAuditStatus) ? '✓ Nội dung đã audit' : '⚠ Audit cần xử lý'}</small>}{row.locked && <small>🔒 Có mật khẩu</small>}{row.shareActive && <small>🔗 Đang chia sẻ</small>}</td><td data-label="Cập nhật"><time dateTime={row.updatedAt || undefined}>{formatReadingContentDate(row.updatedAt)}</time></td><td data-label="Thao tác"><div className="arc-actions">{row.library === 'l3_test' ? <><a href={readingPreviewHref(row.slug, null, context)} target="_blank" rel="noreferrer">Xem trước</a><button type="button" disabled={busy} onClick={() => setAction({ kind: 'exam', row })}>{row.isPublic ? 'Ẩn khỏi web' : 'Mở công khai'}</button><button type="button" disabled={busy} onClick={() => setAction({ kind: 'lock', row })}>{row.locked ? 'Mở khóa' : 'Khóa'}</button><button type="button" disabled={busy} onClick={() => { setShareRow(row); setShareUrl(''); setShareReadbackWarning(null); }}>Chia sẻ</button></> : <a href={row.library === 'l1_vocab' ? `/reading/vocab/${encodeURIComponent(row.slug)}` : `/reading/skill/${encodeURIComponent(row.slug)}`} target="_blank" rel="noreferrer">Xem bài</a>}<button type="button" onClick={() => { document.querySelector('.arc-import')?.scrollIntoView({ behavior: 'smooth' }); setBanner({ kind: 'info', text: `Để sửa “${row.title}”, import lại file cùng ${row.library === 'l3_test' ? 'test_id' : 'slug'}; backend sẽ cập nhật idempotent.` }); }}>Sửa</button><button className="is-danger" type="button" disabled={busy} onClick={() => setAction({ kind: 'delete', row })}>Xóa</button></div></td></tr>)}</tbody></table></div>}
       {current && current.total > PAGE_SIZE && <nav className="arc-pagination" aria-label="Phân trang thư viện"><button type="button" disabled={loading || offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>← Trước</button><span>Trang {page}/{maxPage} · {current.total} nội dung</span><button type="button" disabled={loading || offset + PAGE_SIZE >= current.total} onClick={() => setOffset(offset + PAGE_SIZE)}>Sau →</button></nav>}
     </section>
 

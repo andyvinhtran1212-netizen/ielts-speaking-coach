@@ -11,6 +11,8 @@
  * ESM with a CommonJS fallback so both the browser and node tests can load it.
  */
 
+import { resolveQuizEnginePolicy, quizTextMatchMode } from './quiz-text-match-policy.js';
+
 // ── Grading helpers ──────────────────────────────────────────────────
 
 export function normalizeText(s, opts) {
@@ -28,7 +30,7 @@ export function normalizeText(s, opts) {
  *  - text:            answer = typed string
  * Returns true/false.
  */
-export function gradeQuestion(q, answer) {
+export function gradeQuestion(q, answer, textMatchMode) {
   switch (q.input) {
     case 'choice':
     case 'syllable':
@@ -36,7 +38,7 @@ export function gradeQuestion(q, answer) {
     case 'boolean':
       return Boolean(answer) === (q.answer === 1 || q.answer === true);
     case 'text':
-      return gradeText(q, answer).correct;
+      return gradeText(q, answer, textMatchMode).correct;
     default:
       return false;
   }
@@ -49,7 +51,12 @@ export function gradeQuestion(q, answer) {
  *               fuzzy accept can show the learner the correct spelling
  * Exact is tried first, so anything that passed before still passes.
  */
-export function gradeText(q, answer) {
+export function gradeText(q, answer, textMatchMode) {
+  // Omitted mode keeps every existing direct helper call unchanged. The engine
+  // supplies only a mode captured from its validated, bank-owned META map.
+  if (textMatchMode !== undefined && textMatchMode !== 'exact' && textMatchMode !== 'typo_tolerant') {
+    throw new Error('Invalid quiz text-match mode');
+  }
   var accept = Array.isArray(q.accept) ? q.accept : [];
   var norm = normalizeText(answer, { caseSensitive: q.case_sensitive });
   for (var i = 0; i < accept.length; i++) {
@@ -68,12 +75,14 @@ export function gradeText(q, answer) {
       return { correct: true, exact: true, canonical: accept[i] };
     }
   }
+  // Form-sensitive Grammar items stop here, including long spelling phrases.
+  if (textMatchMode === 'exact') return { correct: false, exact: false, canonical: null };
   // Bounded typo tolerance for RECALL production (§Fix E): accept an answer one edit
   // away from a canonical form, but ONLY when the target is long enough that a single
   // edit is unambiguous, the FIRST character matches (a leading-char edit is what
   // creates dangerous minimal pairs like affect/effect), and never for
   // orthography-graded types.
-  if (!textFuzzyAllowed(q)) return { correct: false, exact: false, canonical: null };
+  if (!textFuzzyAllowed(q, textMatchMode)) return { correct: false, exact: false, canonical: null };
   for (var j = 0; j < accept.length; j++) {
     var na = normalizeText(accept[j], { caseSensitive: q.case_sensitive });
     if (na.length >= FUZZY_MIN_LEN && norm.charAt(0) === na.charAt(0)
@@ -107,11 +116,9 @@ function isLongPhrase(s) {
 
 // Fuzzy text matching is OFF for orthography-graded types (spelling / missing_letters)
 // and for case-sensitive answers (implies precise). Control is by the question's
-// persisted `type` — deliberately NOT by ad-hoc exact/fuzzy flags: the importer + RPC
-// + quiz_questions schema only persist the fixed columns, so such flags never reach a
-// served question and advertising them as an opt-out would be a lie. An author who
-// needs a text answer graded literally uses type spelling/missing_letters.
-function textFuzzyAllowed(q) {
+// persisted `type` — deliberately NOT by dropped ad-hoc q-level exact/fuzzy flags.
+// Validated bank META may select exact matching before this legacy fuzzy branch.
+function textFuzzyAllowed(q, textMatchMode) {
   if (q.case_sensitive) return false;
   var t = String(q.type || '');
   if (t !== 'spelling' && t !== 'missing_letters') return true;
@@ -119,6 +126,14 @@ function textFuzzyAllowed(q) {
   // "every", not "any" — one short alternative (e.g. the "csr" abbreviation) is
   // exactly the minimal pair that must keep grading strictly.
   var accept = Array.isArray(q.accept) ? q.accept : [];
+  if (textMatchMode !== undefined) {
+    // Bank policy has validated dense own forms. Consume those values rather
+    // than a caller-supplied `every` method; keep the same all-long-phrase rule.
+    for (var i = 0; i < accept.length; i++) {
+      if (!isLongPhrase(accept[i])) return false;
+    }
+    return accept.length > 0;
+  }
   return accept.length > 0 && accept.every(isLongPhrase);
 }
 
@@ -159,8 +174,9 @@ export function createEngine(bank, options) {
   function pickOne(arr) { return rng ? arr[Math.floor(rng() * arr.length)] : arr[0]; }
   // Accept either {meta, questions} or the raw API shape {bank:{...,meta}, questions}
   // so imported META controls (correct_to_master, cooldown, …) are always honored.
-  var meta = (bank && (bank.meta || (bank.bank && bank.bank.meta))) || {};
-  var questions = (bank && bank.questions) || [];
+  var bankPolicy = resolveQuizEnginePolicy(bank);
+  var meta = bankPolicy.meta;
+  var questions = bankPolicy.questions;
 
   var CORRECT_TO_MASTER = num(meta.correct_to_master, 2);
   var REQUIRE_DISTINCT = meta.require_distinct_skill !== false;
@@ -179,11 +195,18 @@ export function createEngine(bank, options) {
   var SUPPORTED_INPUTS = { choice: 1, text: 1, boolean: 1, syllable: 1 };
   var pools = {};
   var order = [];
-  questions.forEach(function (q) {
+  function poolQuestion(q) {
     if (!SUPPORTED_INPUTS[q.input]) return;
     if (!pools[q.item_key]) { pools[q.item_key] = []; order.push(q.item_key); }
     pools[q.item_key].push(q);
-  });
+  }
+  if (bankPolicy.policy.requiresAck) {
+    // Nonempty policy owns dense data slots; no caller collection callback may
+    // substitute another question after validation.
+    for (var questionIndex = 0; questionIndex < questions.length; questionIndex++) poolQuestion(questions[questionIndex]);
+  } else {
+    questions.forEach(poolQuestion);
+  }
   // Randomize word entry order when seeded (the cooldown/rotate loop still governs
   // mid-session spacing; this only decides where each word STARTS in the queue).
   if (rng) shuffleInPlace(order, rng);
@@ -309,7 +332,7 @@ export function createEngine(bank, options) {
     // canonical spelling to the learner. Other inputs stay boolean-graded.
     var corrected = null, correct;
     if (q.input === 'text') {
-      var gt = gradeText(q, answer);
+      var gt = gradeText(q, answer, quizTextMatchMode(bankPolicy.policy, q.qid));
       correct = gt.correct;
       if (correct && !gt.exact) corrected = gt.canonical;
     } else {

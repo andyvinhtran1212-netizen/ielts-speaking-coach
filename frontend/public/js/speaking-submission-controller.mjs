@@ -10,6 +10,24 @@ const AUDIO_EXTENSIONS = Object.freeze({
   'audio/x-m4a': 'm4a',
 });
 
+// Match the existing Full Test wait budget; readback needs a shorter deadline
+// so a failed upload cannot move the same infinite wait into GET /sessions.
+const SUBMISSION_TIMEOUT_MS = 180_000;
+const READBACK_TIMEOUT_MS = 15_000;
+
+// Safari 15.0–15.3 has secure random bytes but no crypto.randomUUID.
+export function speakingSubmissionId(cryptoProvider = globalThis.crypto) {
+  if (typeof cryptoProvider?.randomUUID === 'function') return cryptoProvider.randomUUID();
+  if (typeof cryptoProvider?.getRandomValues !== 'function') {
+    throw new SpeakingSubmissionError('runtime_unavailable', 'Trình duyệt không hỗ trợ mã gửi bài an toàn.');
+  }
+  const bytes = cryptoProvider.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function speakingAudioFilename(blob) {
   const mime = String(blob?.type || '').split(';', 1)[0].trim().toLowerCase();
   return `response.${AUDIO_EXTENSIONS[mime] || 'webm'}`;
@@ -124,6 +142,9 @@ function classifySubmissionError(error, sessionId, questionId) {
   // could be accepted. Network errors, malformed 2xx responses and 5xx errors
   // are ambiguous: the response row may already be canonical.
   const definitelyRejected = new Set([400, 413, 415, 422]);
+  if (context.status === 409 && ['submission_superseded', 'submission_audio_changed'].includes(detail?.code)) {
+    return new SpeakingSubmissionError('submission_rejected', detail.message || 'Bản ghi đã thay đổi. Hãy thử gửi lại.', context);
+  }
   if (definitelyRejected.has(context.status)) {
     return new SpeakingSubmissionError(
       'submission_rejected',
@@ -144,7 +165,12 @@ export class SpeakingSubmissionController {
     this.upload = environment.upload;
     this.getSession = environment.getSession;
     this.FormDataCtor = environment.FormDataCtor || globalThis.FormData;
+    this.submissionTimeoutMs = environment.submissionTimeoutMs ?? SUBMISSION_TIMEOUT_MS;
+    this.readbackTimeoutMs = environment.readbackTimeoutMs ?? READBACK_TIMEOUT_MS;
+    this.recordingIds = new WeakMap();
+    this.createSubmissionId = environment.createSubmissionId || speakingSubmissionId;
     this.pending = new Map();
+    this.unconfirmed = new Map();
     this.disposed = false;
   }
 
@@ -202,8 +228,8 @@ export class SpeakingSubmissionController {
     };
     const run = () => this.#submitOnce(submission);
     // Same question + same blob is one idempotent caller. A genuinely new take
-    // must never alias the old promise: serialize it so the canonical upsert's
-    // last take wins and no recording is silently discarded.
+    // must never alias the old promise. Serialize active UI callers; the server
+    // revision also protects newer recordings from uploads that finish late.
     const operation = existing
       ? existing.promise.then(run, run)
       : run();
@@ -216,23 +242,72 @@ export class SpeakingSubmissionController {
   }
 
   async #submitOnce({ sessionId, questionId, blob, filename, priorResponseId }) {
+    const key = `${sessionId}\u0000${questionId}`;
+    const previous = this.unconfirmed.get(key);
+    let submissionId = this.recordingIds.get(blob);
+    if (!submissionId) {
+      submissionId = this.createSubmissionId();
+      this.recordingIds.set(blob, submissionId);
+    }
+    let snapshot;
+    try {
+      snapshot = await this.#snapshot(sessionId, questionId);
+    } catch (error) {
+      throw previous?.error || classifySubmissionError(error, sessionId, questionId);
+    }
+    const saved = this.#matchingReceipt(snapshot.row, submissionId);
+    if (saved) {
+      this.unconfirmed.delete(key);
+      return saved;
+    }
+    if (!snapshot.retrySafe) {
+      throw new SpeakingSubmissionError(
+        'ambiguous_commit',
+        'Máy chủ đang cập nhật bộ gửi bài. Bản ghi vẫn được giữ; hãy thử lại sau.',
+        { sessionId, questionId },
+      );
+    }
+    if (this.disposed) {
+      throw new SpeakingSubmissionError('disposed', 'Trang làm bài đã đóng. Hãy mở lại phiên học.');
+    }
+    const expectedRevision = previous?.blob === blob
+      ? previous.expectedRevision
+      : snapshot.row?.submission_revision || 'absent';
     const formData = new this.FormDataCtor();
     formData.append('question_id', questionId);
     formData.append('audio_file', blob, filename);
+    formData.append('submission_id', submissionId);
+    formData.append('expected_revision', expectedRevision);
 
+    const attempt = { blob, submissionId, expectedRevision, error: null };
+    this.unconfirmed.set(key, attempt);
     let direct;
     try {
-      direct = await this.upload(
-        `/sessions/${encodeURIComponent(sessionId)}/responses`,
-        formData,
+      direct = await this.#requestWithin(
+        (signal) => {
+          return this.upload(
+            `/sessions/${encodeURIComponent(sessionId)}/responses`, formData, { signal },
+          );
+        },
+        this.submissionTimeoutMs,
+        { sessionId, questionId },
       );
     } catch (error) {
       const classified = classifySubmissionError(error, sessionId, questionId);
-      if (classified.code !== 'ambiguous_commit') throw classified;
-      return this.#reconcile(classified, sessionId, questionId, priorResponseId);
+      if (classified.code !== 'ambiguous_commit') {
+        this.unconfirmed.delete(key);
+        throw classified;
+      }
+      attempt.error = classified;
+      const recovered = await this.#reconcile(classified, sessionId, questionId, submissionId);
+      this.unconfirmed.delete(key);
+      return recovered;
     }
 
-    if (responseId(direct)) return direct;
+    if (responseId(direct) && !direct._replayed) {
+      this.unconfirmed.delete(key);
+      return direct;
+    }
 
     // A 2xx/empty or 2xx/malformed payload is not proof of persistence. Older
     // backend versions had exactly this silent-success failure mode.
@@ -241,26 +316,64 @@ export class SpeakingSubmissionController {
       'Máy chủ phản hồi nhưng chưa xác nhận mã bản ghi.',
       { sessionId, questionId },
     );
-    return this.#reconcile(malformed, sessionId, questionId, priorResponseId);
+    attempt.error = malformed;
+    const recovered = await this.#reconcile(malformed, sessionId, questionId, submissionId);
+    this.unconfirmed.delete(key);
+    return recovered;
   }
 
-  async #reconcile(originalError, sessionId, questionId, priorResponseId) {
+  async #requestWithin(request, milliseconds, context) {
+    const controller = new AbortController();
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new SpeakingSubmissionError(
+          'ambiguous_commit',
+          'Chờ máy chủ quá lâu. Chưa thể xác nhận bản ghi đã được lưu.',
+          context,
+        ));
+        controller.abort();
+      }, milliseconds);
+    });
     try {
-      const session = await this.getSession(
-        `/sessions/${encodeURIComponent(sessionId)}`,
-      );
-      const row = findPersistedSpeakingResponse(session, questionId);
-      // Readback of the same row that existed before a retake is not proof that
-      // this new audio committed. Without a backend revision/idempotency token,
-      // the only safe answer is still "ambiguous" and a retry (the upsert key is
-      // session_id + question_id, so retry cannot create a second response row).
-      if (row && (!priorResponseId || String(row.id) !== priorResponseId)) {
-        return {
-          response_id: row.id,
-          _reconciled: true,
-          _persisted_response: row,
-        };
-      }
+      return await Promise.race([request(controller.signal), deadline]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async #snapshot(sessionId, questionId) {
+    const session = await this.#requestWithin(
+      (signal) => this.getSession(`/sessions/${encodeURIComponent(sessionId)}`, { signal }),
+      this.readbackTimeoutMs,
+      { sessionId, questionId },
+    );
+    if (session?.response_lookup_failed) {
+      throw new SpeakingSubmissionError('ambiguous_commit', 'Chưa thể đọc trạng thái bản ghi.', { sessionId, questionId });
+    }
+    return {
+      row: findPersistedSpeakingResponse(session, questionId),
+      retrySafe: session?.submission_retry_safe === true,
+    };
+  }
+
+  #matchingReceipt(row, submissionId) {
+    return row?.submission_id === submissionId ? {
+      response_id: row.id,
+      _reconciled: true,
+      _persisted_response: row,
+    } : null;
+  }
+
+  async #readback(sessionId, questionId, submissionId) {
+    const snapshot = await this.#snapshot(sessionId, questionId);
+    return this.#matchingReceipt(snapshot.row, submissionId);
+  }
+
+  async #reconcile(originalError, sessionId, questionId, submissionId) {
+    try {
+      const recovered = await this.#readback(sessionId, questionId, submissionId);
+      if (recovered) return recovered;
     } catch {
       // GET /sessions itself can fail. Absence of readback is never proof that
       // the mutation did not commit, so preserve the original ambiguity.

@@ -65,6 +65,7 @@ draft -> approved -> implementing -> verified -> shipped
 | GRAMMAR-0001 | Timed grammar midterm assessment banks | implementing | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |
 | AVOC-0002 | Advanced Vocabulary self-paced core 30 | implementing | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
 | MASTER30-0003 | MASTER30 Grammar Diagnostic and Adaptive Review | implementing | high | [spec](0003-master30-grammar-diagnostic/spec.md) |
+| GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | approved | high | [spec](0017-grammar-lesson-assignments/spec.md) |
 | AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
 | LISTENING-0005 | Listening content programmes, import and learner hub | implementing | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |
@@ -72,5 +73,20 @@ draft -> approved -> implementing -> verified -> shipped
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | implementing | high | [spec](0006-admin-mock-test-operations/spec.md) |
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | implementing | high | [spec](0007-writing-navigation-contract/spec.md) |
 | MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
+| LISTENING80-0009 | Source-faithful 80-day Listening practice collection | approved | high | [spec](0009-listening-80-days/spec.md) |
+
+| DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | approved | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
+
+| READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | implementing | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
+
+| WRITINGMODAL-0013 | Make Writing content dialogs follow browser history and keyboard focus | implementing | medium | [spec](0013-writing-content-modal-history/spec.md) |
+
+| GRAMMARCUTOVER-0014 | Preserve Grammar quiz history during bounded bank revision cutover | approved | high | [spec](0014-grammar-bank-revision-cutover/spec.md) |
+
+| GRAMMARTEXT-0015 | Require exact authored forms for bounded Grammar questions while preserving old work | approved | high | [spec](0015-grammar-exact-form-policy/spec.md) |
+
+| MOCKREPAIR-0016 | Preserve mock paper security and repair Reading and Listening work truthfully | approved | critical | [spec](0016-mock-content-remediation/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
+
+| LEARNERDRAFT-0010 | Preserve Reading answers and Speaking preparation within a browser tab | implementing | medium | [spec](0010-learner-draft-preservation/spec.md) |

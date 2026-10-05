@@ -27,6 +27,11 @@ import re
 import unicodedata
 from typing import Any
 
+from services.mock_response_policy import (
+    ResponsePolicyError, attach_response_policies, policy_answer_matches,
+    policy_alternatives, response_policy_ref, validate_option_group,
+)
+
 
 # ── Answer normalisation ───────────────────────────────────────────────────
 
@@ -173,7 +178,8 @@ def _expected_letters(grp: list[dict[str, Any]]) -> list[str]:
     return [normalize_answer(g.get("answer") or "") for g in grp]
 
 
-def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> bool:
+def answer_matches(user: str | None, expected: str, alternatives: list[str],
+                   *, response_policy: dict | None = None) -> bool:
     """Compare a user answer against the canonical answer + its
     alternatives. Cambridge answer keys sometimes retain their printed
     shorthand in persisted rows: "(food) consumption" means both
@@ -185,6 +191,8 @@ def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> 
     Hyphenated forms count as single words (no special handling required —
     normalisation keeps the hyphen).
     """
+    if response_policy is not None:
+        return policy_answer_matches(user, response_policy)
     raw_user = str(user or "").strip()
     norm_user = normalize_answer(user)
     if not norm_user:
@@ -354,6 +362,35 @@ def grade_attempt(
                 continue
             graded_mm.add(gk)
             grp = sorted(mm_groups[gk], key=lambda r: r.get("q_num") or 0)
+            pinned = [g.get("response_policy") for g in grp]
+            if any(policy is not None for policy in pinned):
+                if not all(policy is not None and policy.get("kind") == "option_id" for policy in pinned):
+                    raise ResponsePolicyError("A grouped task requires coherent pinned option policies")
+                validate_option_group(grp)
+                # Consume canonical rows, rather than a normalized label set:
+                # no punctuation stripping or duplicate selection credit.
+                remaining_rows = list(grp)
+                group_expected = ", ".join(str(row.get("answer") or "") for row in grp)
+                matched_by_q_num = {}
+                for g in grp:
+                    user_answer = (user_by_q.get(g["q_num"]) or {}).get("user_answer")
+                    matched = next((row for row in remaining_rows if policy_answer_matches(user_answer, row["response_policy"])), None)
+                    if matched is not None:
+                        remaining_rows.remove(matched)
+                    matched_by_q_num[g["q_num"]] = matched
+                for g in grp:
+                    user_answer = (user_by_q.get(g["q_num"]) or {}).get("user_answer")
+                    matched = matched_by_q_num[g["q_num"]]
+                    rationale = matched if matched is not None else remaining_rows.pop(0)
+                    per_question.append({
+                        "q_num": g["q_num"], "correct": matched is not None,
+                        "user_answer": user_answer or "", "expected": group_expected,
+                        "alternatives": policy_alternatives(rationale["response_policy"], rationale.get("answer")),
+                        "trap_mechanisms": rationale.get("trap_mechanisms") or [],
+                        "group": "mcq_multi", "response_policy_ref": response_policy_ref(rationale["response_policy"]),
+                        "rationale_q_num": rationale["q_num"],
+                    })
+                continue
             remaining = _expected_letters(grp)
             for g in grp:
                 gq = g.get("q_num")
@@ -374,11 +411,14 @@ def grade_attempt(
 
         expected = ak.get("answer") or ""
         alternatives = ak.get("alternatives") or []
+        if ak.get("response_policy") is not None:
+            alternatives = policy_alternatives(ak["response_policy"], expected)
         trap_mechanisms = ak.get("trap_mechanisms") or []
 
         ua_row = user_by_q.get(q_num) or {}
         user_answer = ua_row.get("user_answer")
-        is_correct = answer_matches(user_answer, expected, alternatives)
+        is_correct = answer_matches(user_answer, expected, alternatives,
+                                    response_policy=ak.get("response_policy"))
 
         per_question.append({
             "q_num":            q_num,
@@ -387,6 +427,8 @@ def grade_attempt(
             "expected":         expected,
             "alternatives":     alternatives,
             "trap_mechanisms":  trap_mechanisms,
+            **({"response_policy_ref": response_policy_ref(ak["response_policy"])}
+               if ak.get("response_policy") is not None else {}),
         })
 
     per_question.sort(key=lambda r: r.get("q_num") or 0)
@@ -404,13 +446,17 @@ def grade_attempt(
 # ── Helpers — extract answer key from exercise rows ────────────────────────
 
 
-def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def collect_answer_key(exercise_rows: list[dict[str, Any]],
+                       *, pinned_policies: dict | None = None) -> list[dict[str, Any]]:
     """Walk a test's exercise rows and flatten the per-question
     answer entries into a single list, ready for ``grade_attempt``.
 
     ``exercise_rows`` is the raw ``listening_exercises`` DB shape:
     each row has a ``payload`` dict carrying ``answers`` (the
     Sprint 13.4.2 parser output).
+
+    Only callers supplying a protected admission snapshot may pass
+    ``pinned_policies``; authored metadata is ignored by legacy callers.
     """
     out: list[dict[str, Any]] = []
     for row in exercise_rows:
@@ -434,12 +480,13 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, An
                 "template_kind":   tk,
                 "group_key":       group_key,
             })
-    return out
+    return attach_response_policies(out, pinned_policies)
 
 
 def grade_report_only_attempt(
     user_answers: list[dict[str, Any]],
     exercise_rows: list[dict[str, Any]],
+    *, source_required: bool = False,
 ) -> dict[str, Any]:
     """Classify programme-form answers without producing a score or band.
 
@@ -454,6 +501,7 @@ def grade_report_only_attempt(
     }
     questions: dict[int, dict[str, Any]] = {}
     keys: dict[int, dict[str, Any]] = {}
+    source_payload_valid = True
     review = {
         "solutions": {},
         "self_review": {},
@@ -464,9 +512,12 @@ def grade_report_only_attempt(
         payload = row.get("payload") if isinstance(row, dict) else None
         if not isinstance(payload, dict) or payload.get("variant") != "programme_form_v1":
             continue
+        is_source = source_required or payload.get("source_contract") == "source_book_v1"
+        if is_source and payload.get("source_contract") != "source_book_v1":
+            source_payload_valid = False
         for question in payload.get("questions") or []:
             if isinstance(question, dict) and isinstance(question.get("q_num"), int):
-                questions[question["q_num"]] = question
+                questions[question["q_num"]] = dict(question, _source_item=is_source)
         for answer in payload.get("answers") or []:
             if isinstance(answer, dict) and isinstance(answer.get("q_num"), int):
                 keys[answer["q_num"]] = answer
@@ -498,9 +549,44 @@ def grade_report_only_attempt(
             "user_answer": raw,
             "correct": None,
         }
-        if not raw.strip():
+        source_item = question.get("_source_item") is True
+        mode = question.get("evaluation_mode") if source_item else None
+        protected = (review["solutions"].get(str(q_num)) if mode == "objective_exact"
+                     else review["self_review"].get(str(q_num))) or {}
+        valid_source = (source_payload_valid and isinstance(protected, dict)
+                        and mode in {"objective_exact", "self_review"}
+                        and protected.get("review_accepted") is True
+                        and protected.get("reviewer")
+                        and protected.get("review_status") in {"CONFIRMED", "SUSPECT", "AMBIGUOUS"})
+        if source_item:
+            from services.listening_source_collection import source_explanation
+            explanation = source_explanation(protected.get("explanation"))
+            valid_source = valid_source and bool(explanation and explanation["why_vi"].strip() and explanation["evidence"] and all(row["quote"].strip() for row in explanation["evidence"]))
+            if mode == "objective_exact":
+                valid_source = valid_source and protected.get("review_status") == "CONFIRMED" and response_type in objective_types
+                eligibility = protected.get("objective_eligibility") or {}
+                valid_source = (valid_source and isinstance(eligibility, dict)
+                                and eligibility.get("eligible") is True
+                                and eligibility.get("status") in {"ACCEPTED", "APPROVED"}
+                                and bool(eligibility.get("reviewer"))
+                                and bool(re.fullmatch(r"[0-9a-f]{64}", str(eligibility.get("reviewed_content_sha256") or ""))))
+                source_key = keys.get(q_num) or {}
+                values = source_key.get("answers") or []
+                options = question.get("options") or {}
+                valid_source = valid_source and bool(values) and all(value in options for value in values) and set(values) == set(protected.get("expected") or [])
+            result.update({"source_display_number": question.get("source_display_number"),
+                "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance")})
+        if source_item and not valid_source:
+            result["state"] = "technical_error"
+            counts["technical_error_count"] += 1
+        elif not raw.strip():
             result["state"] = "blank"
             counts["blank_count"] += 1
+        elif source_item and mode == "self_review":
+            result["state"] = "unscored"
+            result["self_review"] = protected
+            counts["unscored_count"] += 1
+            counts["completion_count"] += 1
         elif response_type in objective_types:
             key = keys.get(q_num) or {}
             expected = [str(value).strip() for value in (key.get("answers") or [])
@@ -607,6 +693,37 @@ def strip_answer_keys(exercise_rows: list[dict[str, Any]]) -> list[dict[str, Any
         # hoặc sập cả endpoint (codex cục bộ #967).
         raw_payload = copy.get("payload")
         payload = dict(raw_payload) if isinstance(raw_payload, dict) else {}
+        if payload.get("source_contract") == "source_book_v1":
+            # Source authoring may have arbitrary nested protected fields. Only
+            # declared display fields survive; source blocks are signed/projected
+            # separately at the canonical test boundary.
+            allowed_questions = {"q_num", "source_item_id", "source_display_number", "source_block_id", "prompt",
+                "response_type", "options", "selection_count", "word_limit", "evaluation_mode", "review_status", "choice_label_only", "fields"}
+            payload = {key: payload[key] for key in ("variant", "source_contract", "source_collection_id", "source_day", "source_part_label") if key in payload} | {
+                "questions": [{key: question[key] for key in allowed_questions if key in question}
+                    for question in payload.get("questions") or [] if isinstance(question, dict)],
+                "source_blocks": payload.get("source_blocks") or [],
+            }
+            for key in ("source_collection_id", "source_part_label", "variant"):
+                if key in payload and not isinstance(payload[key], str):
+                    payload.pop(key)
+            if "source_day" in payload and not isinstance(payload["source_day"], int):
+                payload.pop("source_day")
+            for question in payload["questions"]:
+                for key in ("q_num", "selection_count", "word_limit"):
+                    if key in question and question[key] is not None and not isinstance(question[key], int):
+                        question.pop(key)
+                if "choice_label_only" in question and not isinstance(question["choice_label_only"], bool):
+                    question.pop("choice_label_only")
+                for key in ("source_item_id", "source_display_number", "source_block_id", "prompt", "response_type", "evaluation_mode", "review_status"):
+                    if key in question and not isinstance(question[key], str):
+                        question.pop(key)
+                question["options"] = {str(key): str(value) for key, value in (question.get("options") or {}).items() if isinstance(value, str)}
+                question["fields"] = [{key: field[key] for key in ("field_id", "prompt", "word_limit") if key in field and
+                                        (isinstance(field[key], str) if key != "word_limit" else isinstance(field[key], int))}
+                                      for field in question.get("fields") or [] if isinstance(field, dict)]
+            from services.listening_source_collection import safe_source_block_metadata
+            payload["source_blocks"] = [safe_source_block_metadata(block) for block in payload["source_blocks"] if isinstance(block, dict)]
         for key in _STUDENT_FORBIDDEN_PAYLOAD_KEYS:
             payload.pop(key, None)
         for list_key, item_key in _STUDENT_FORBIDDEN_NESTED:

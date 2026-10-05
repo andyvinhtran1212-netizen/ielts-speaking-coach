@@ -249,6 +249,7 @@ export class AverAudioPlayer extends HTMLElement {
     this._audio = null;
     this._refetched = false;
     this._loopTimer = null;
+    this._segmentTimer = null;
   }
 
   connectedCallback() {
@@ -270,7 +271,7 @@ export class AverAudioPlayer extends HTMLElement {
   }
 
   disconnectedCallback() {
-    if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
+    this._clearPlaybackTimers();
     if (this._audio) {
       try { this._audio.pause(); } catch { /* swallow */ }
       this._audio.src = '';
@@ -286,30 +287,42 @@ export class AverAudioPlayer extends HTMLElement {
     } else if (name === 'duration-hint') {
       this._applyDurationHint(val);
     } else if (name === 'segment-start' || name === 'segment-end') {
+      this._clearPlaybackTimers();
       this._applySegmentBounds();
+      this._scheduleSegmentEnd();
+    } else if (name === 'auto-loop') {
+      if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
     }
-    // auto-loop is read on demand inside the ended handler.
   }
 
   // ── Public methods ────────────────────────────────────────────────
 
-  play() { if (this._audio) return this._audio.play(); }
-  pause() { if (this._audio) this._audio.pause(); }
+  play() {
+    if (!this._audio) return;
+    this._clearPlaybackTimers();
+    if (this._isSegmentMode() && this._audio.currentTime >= this._segmentEnd() - 0.01) {
+      this._audio.currentTime = this._segmentStart();
+    }
+    const playback = this._audio.play();
+    this._scheduleSegmentEnd();
+    return playback;
+  }
+  pause() { this._clearPlaybackTimers(); if (this._audio) this._audio.pause(); }
   getCurrentTime() {
     const value = this._audio?.currentTime;
     return Number.isFinite(value) ? value : null;
   }
   reset() {
     if (!this._audio) return;
+    this._clearPlaybackTimers();
     this._audio.pause();
     this._audio.currentTime = this._segmentStart();
   }
-  // listening-review polish — full-track "locate": seek to an absolute second
-  // and keep playing to the end (no segment window). Caller should NOT set
-  // segment-start/-end when using this (otherwise segment-mode would constrain
-  // playback). Additive; existing segment-mode callers are unaffected.
+  // Seek and start playback. Callers choose bounded replay with segment attrs,
+  // or continuous playback by removing both bounds before seeking.
   seekTo(sec) {
     if (!this._audio) return;
+    this._clearPlaybackTimers();
     const t = Math.max(0, Number(sec) || 0);
     try { this._audio.currentTime = t; } catch (e) { /* metadata not ready yet */ }
     this._audio.play().catch(() => { /* error event handles it */ });
@@ -340,6 +353,46 @@ export class AverAudioPlayer extends HTMLElement {
     if (raw === null) return false;
     const v = raw.toLowerCase();
     return v === '' || v === 'true' || v === '1';   // bare attribute counts as on
+  }
+
+  _clearPlaybackTimers() {
+    if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
+    if (this._segmentTimer) { clearTimeout(this._segmentTimer); this._segmentTimer = null; }
+  }
+
+  _enforceSegmentEnd() {
+    const a = this._audio;
+    if (!a || !this._isSegmentMode()) return;
+    const end = this._segmentEnd();
+    if (a.currentTime < end - 0.01) return;
+    const wasPlaying = !a.paused;
+    if (wasPlaying) a.pause();
+    if (a.currentTime !== end) a.currentTime = end;
+    if (wasPlaying && this._isAutoLoop()) {
+      if (this._loopTimer) clearTimeout(this._loopTimer);
+      this._loopTimer = setTimeout(() => {
+        this._loopTimer = null;
+        if (!this._audio || !this._audio.paused || !this._isSegmentMode() || !this._isAutoLoop()) return;
+        this._audio.currentTime = this._segmentStart();
+        this._audio.play().catch(() => {});
+      }, 500);
+    }
+  }
+
+  // Native timeupdate can arrive too slowly for a short answer clip. Schedule
+  // the boundary using playbackRate, then recheck actual media time to avoid
+  // ending early while the audio is buffering. Seeks/rate changes reschedule.
+  _scheduleSegmentEnd() {
+    if (this._segmentTimer) { clearTimeout(this._segmentTimer); this._segmentTimer = null; }
+    const a = this._audio;
+    if (!a || a.paused || !this._isSegmentMode()) return;
+    const remaining = this._segmentEnd() - a.currentTime;
+    const rate = Math.max(0.1, Number(a.playbackRate) || 1);
+    this._segmentTimer = setTimeout(() => {
+      this._segmentTimer = null;
+      this._enforceSegmentEnd();
+      this._scheduleSegmentEnd();
+    }, Math.max(16, remaining / rate * 1000));
   }
 
   _applySegmentBounds() {
@@ -383,6 +436,7 @@ export class AverAudioPlayer extends HTMLElement {
 
   _applySrc(url) {
     if (!this._audio) return;
+    this._clearPlaybackTimers();
     if (!url) { this._audio.src = ''; return; }
     this._audio.src = url;
     this._audio.load();
@@ -433,12 +487,13 @@ export class AverAudioPlayer extends HTMLElement {
 
   _bindControls() {
     this._$('btn-play').addEventListener('click', () => {
-      if (this._audio.paused) this._audio.play().catch(() => { /* error event handles */ });
-      else this._audio.pause();
+      if (this._audio.paused) this.play().catch(() => { /* error event handles */ });
+      else this.pause();
     });
 
     this._$('btn-replay').addEventListener('click', () => {
       if (!this._audio) return;
+      this._clearPlaybackTimers();
       // Segment mode: rewind to segment start (common dictation pattern).
       // Free mode: rewind 5s.
       const target = this._isSegmentMode()
@@ -450,6 +505,7 @@ export class AverAudioPlayer extends HTMLElement {
 
     this._$('scrub').addEventListener('input', (e) => {
       if (!this._audio) return;
+      this._clearPlaybackTimers();
       let t = Number(e.target.value);
       if (this._isSegmentMode()) {
         const start = this._segmentStart();
@@ -487,40 +543,32 @@ export class AverAudioPlayer extends HTMLElement {
     a.addEventListener('timeupdate', () => {
       this._$('scrub').value = a.currentTime || 0;
       this._updateTimeReadout();
-      // Segment auto-pause: stop at segment-end.
-      if (this._isSegmentMode()) {
-        const end = this._segmentEnd();
-        if (a.currentTime >= end - 0.01 && !a.paused) {
-          a.pause();
-          a.currentTime = end;
-          // Auto-loop: restart after a brief pause if configured.
-          if (this._isAutoLoop()) {
-            if (this._loopTimer) clearTimeout(this._loopTimer);
-            this._loopTimer = setTimeout(() => {
-              this._loopTimer = null;
-              if (!this._audio) return;
-              this._audio.currentTime = this._segmentStart();
-              this._audio.play().catch(() => {});
-            }, 500);
-          }
-        }
-      }
+      this._enforceSegmentEnd();
     });
 
     a.addEventListener('play', () => {
+      this._scheduleSegmentEnd();
       this._syncIcon();
       this._emit('av-audio-play');
     });
 
     a.addEventListener('pause', () => {
+      if (this._segmentTimer) { clearTimeout(this._segmentTimer); this._segmentTimer = null; }
       this._syncIcon();
       this._emit('av-audio-pause');
     });
 
     a.addEventListener('ended', () => {
+      this._clearPlaybackTimers();
       this._syncIcon();
       this._emit('av-audio-ended');
     });
+
+    a.addEventListener('seeking', () => {
+      if (this._segmentTimer) { clearTimeout(this._segmentTimer); this._segmentTimer = null; }
+    });
+    a.addEventListener('seeked', () => { this._enforceSegmentEnd(); this._scheduleSegmentEnd(); });
+    a.addEventListener('ratechange', () => this._scheduleSegmentEnd());
 
     a.addEventListener('error', () => {
       const refetchUrl = this.getAttribute('refetch-url');

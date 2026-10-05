@@ -132,7 +132,7 @@ describe('parity với trang legacy', () => {
   });
 
   test('link bài viết trỏ URL sạch canonical (route Next của pilot 2)', () => {
-    assert.match(CARDS, /\/grammar\/\$\{encodeURIComponent\(category\)\}\/\$\{encodeURIComponent\(slug\)\}/);
+    assert.match(CARDS, /grammarArticleHref\(category, slug, source\)/);
   });
 
   test('mỗi nhóm chỉ mở trước một phần danh sách và cho mở rộng bằng details native', () => {

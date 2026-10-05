@@ -9,8 +9,10 @@ class is a mistake nobody notices until the exam is under way.
 from __future__ import annotations
 
 import copy
+import json
 import re
 import inspect
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -21,6 +23,7 @@ from fastapi.routing import APIRoute
 import services.exam_content_service as svc
 from routers.admin_exam_content import router as content_router
 from services import mock_exam_service
+from services.mock_paper_policy import PaperPolicyError
 
 BACKEND = Path(__file__).resolve().parents[1]
 
@@ -128,15 +131,91 @@ class _DB:
     def __init__(self):
         self.t: dict = {}
         self.page_calls: list[dict] = []
+        self.policy_calls: list[dict] = []
 
     def table(self, name):
         return _Q(self, name)
+
+    def _policy_dependencies(self, kind, content_id):
+        """Only the canonical dependency types exercised by this module."""
+        now = datetime.now(timezone.utc)
+        dependencies = []
+        for exam in self.t.get("mock_exams", []):
+            if exam.get(f"{kind}_test_id") != content_id:
+                continue
+            reason = None
+            if exam.get("status") == "draft":
+                reason = "planned_mock"
+            elif exam.get("status") == "published":
+                section = exam.get("active_section")
+                if not section or (section in {"reading", "listening"}
+                                   and not exam.get(f"{section}_started_at")):
+                    reason = "verification_unavailable"
+                elif section != "done":
+                    reason = "future_admission"
+            if reason:
+                dependencies.append({"type": "mock_exam", "id": exam["id"],
+                                     "code": exam.get("code"), "reason": reason})
+        for assignment in self.t.get("class_assignments", []):
+            due = assignment.get("due_at")
+            if (assignment.get("skill") == kind and assignment.get("content_id") == content_id
+                    and assignment.get("status") == "published"
+                    and (due is None or datetime.fromisoformat(due) >= now)):
+                dependencies.append({"type": "class_assignment", "id": assignment["id"],
+                                     "title": assignment.get("title"), "reason": "future_admission"})
+        for attempt in self.t.get(f"{kind}_test_attempts", []):
+            deadline = attempt.get("resume_expires_at")
+            if (attempt.get("test_id") == content_id and attempt.get("status") == "in_progress"
+                    and (deadline is None or datetime.fromisoformat(deadline) > now)):
+                dependencies.append({"type": "attempt", "id": attempt["id"],
+                                     "reason": "valid_resume" if deadline else "verification_unavailable"})
+        return dependencies
+
+    def _mutate_policy(self, params):
+        kind, content_id = params["p_skill"], params["p_test_id"]
+        assert kind in {"reading", "listening"}
+        assert params["p_snapshot_id"] is None
+        assert params["p_overlap"] is None  # overlap approvals have actual-Postgres coverage
+        row = next((r for r in self.t.get(f"{kind}_tests", []) if r["id"] == content_id), None)
+        if row is None:
+            raise RuntimeError("public_test_not_found")
+        revision = row.get("policy_revision", 0)
+        dependencies = self._policy_dependencies(kind, content_id)
+
+        def reject(operation, reason, refs=()):
+            raise RuntimeError("mock_paper_policy:" + json.dumps({
+                "operation": operation, "reason": reason, "kind": kind,
+                "content_id": content_id, "current_revision": revision,
+                "dependencies": list(refs), "next_actions": ["inspect_policy"],
+            }))
+
+        if params["p_expected_revision"] is not None and params["p_expected_revision"] != revision:
+            reject("policy_update", "stale_revision")
+        patch = params["p_patch"]
+        assert set(patch) <= {"status", "is_public"}
+        if (row.get("status") == "published" and patch.get("status", "published") != "published"
+                and dependencies):
+            reason = "verification_unavailable" if any(
+                ref["reason"] == "verification_unavailable" for ref in dependencies
+            ) else "protected_dependency"
+            reject("status", reason, dependencies)
+        if (patch.get("is_public") is True and row.get("is_public") is not True
+                and any(ref["type"] == "mock_exam" for ref in dependencies)):
+            reject("visibility", "public_overlap_unapproved", dependencies)
+        changed = any(row.get(key) != value for key, value in patch.items())
+        row.update(patch)
+        row["policy_revision"] = revision + int(changed)
+        row.setdefault("mock_content_revision", 0)
+        return _Deferred(copy.deepcopy(row))
 
     # fn_set_exam_content_cohorts (mig 172) — modelled with the SAME semantics
     # the SQL implements (one transaction, ON CONFLICT DO NOTHING, delete of the
     # complement), like the fakes for mig 163/168/169. A stub would make these
     # tests assert against a stub.
     def rpc(self, name, params):
+        if name == "fn_mutate_mock_paper_policy":
+            self.policy_calls.append(copy.deepcopy(params))
+            return self._mutate_policy(params)
         if name == "fn_admin_exam_content_levels":
             table, _ = svc._KINDS[params["p_kind"]]
             return _Deferred(sorted({str(row["course_level"]).strip()
@@ -329,32 +408,46 @@ def test_ready_listening_can_be_published_from_the_catalog(db):
     assert svc.set_status("listening", "l1", "published")["status"] == "published"
 
 
-def test_published_paper_with_active_assignment_cannot_return_to_draft(db, monkeypatch):
+def test_published_paper_with_active_assignment_cannot_return_to_draft(db):
     db.t["reading_tests"] = [{
         "id": "r1", "status": "published", "passage_count": 3, "total_questions": 40,
     }]
-    monkeypatch.setattr(svc, "active_exam_assignment_references", lambda *_a: [{
-        "id": "give-1", "title": "Bài kiểm tra tuần 4",
-    }])
-    with pytest.raises(svc.ActiveAssignmentError, match="Bài kiểm tra tuần 4"):
+    db.t["class_assignments"] = [{
+        "id": "give-1", "title": "Bài kiểm tra tuần 4", "skill": "reading",
+        "content_id": "r1", "status": "published", "due_at": None,
+    }]
+    with pytest.raises(PaperPolicyError) as error:
         svc.set_status("reading", "r1", "draft")
+    assert error.value.status_code == 409
+    assert error.value.detail["reason"] == "protected_dependency"
+    assert error.value.detail["dependencies"] == [{
+        "type": "class_assignment", "id": "give-1", "title": "Bài kiểm tra tuần 4",
+        "reason": "future_admission",
+    }]
+    assert db.t["reading_tests"][0]["status"] == "published"
 
 
-def test_published_paper_in_live_mock_exam_cannot_leave_published(db, monkeypatch):
+def test_published_paper_in_live_mock_exam_cannot_leave_published(db):
     db.t["reading_tests"] = [{
         "id": "r1", "status": "published", "passage_count": 3, "total_questions": 40,
     }]
     db.t["mock_exams"] = [
         {"id": "m-draft", "code": "MOCK-DRAFT", "status": "draft", "reading_test_id": "r1"},
-        {"id": "m-live", "code": "MOCK-LIVE", "status": "published", "reading_test_id": "r1"},
+        {"id": "m-live", "code": "MOCK-LIVE", "status": "published", "reading_test_id": "r1",
+         "active_section": "reading", "reading_started_at": datetime.now(timezone.utc).isoformat()},
         {"id": "m-old", "code": "MOCK-OLD", "status": "archived", "reading_test_id": "r1"},
     ]
-    monkeypatch.setattr(svc, "active_exam_assignment_references", lambda *_a: [])
-    monkeypatch.setattr(mock_exam_service, "supabase_admin", db)
-
     for next_status in ("draft", "archived"):
-        with pytest.raises(svc.ActiveMockExamError, match="MOCK-DRAFT, MOCK-LIVE"):
+        with pytest.raises(PaperPolicyError) as error:
             svc.set_status("reading", "r1", next_status)
+        assert error.value.status_code == 409
+        assert error.value.detail["reason"] == "protected_dependency"
+        assert [(ref["type"], ref["id"], ref["reason"])
+                for ref in error.value.detail["dependencies"]] == [
+            ("mock_exam", "m-draft", "planned_mock"),
+            ("mock_exam", "m-live", "future_admission"),
+        ]
+        assert db.t["reading_tests"][0]["status"] == "published"
 
 
 def test_archived_mock_exam_does_not_block_depublishing_paper(db, monkeypatch):
@@ -736,8 +829,52 @@ def test_visibility_write_is_targeted_and_independent(db):
     _seed_three(db)
     row = svc.set_public_visibility("reading", "r1", True)
     assert row["is_public"] is True
-    assert row["exam_only"] is False
+    assert row["exam_only"] is True
+    assert row["policy_revision"] == 1
+    assert db.policy_calls[-1]["p_patch"] == {"is_public": True}
     assert db.t["listening_tests"][0]["is_public"] is True
+
+
+def test_policy_mutation_returns_revision_and_rejects_stale_operator_update(db):
+    _seed_three(db)
+    db.t["reading_tests"][0]["policy_revision"] = 7
+    row = svc.set_public_visibility("reading", "r1", True, actor_id="admin", expected_revision=7)
+    assert row["policy_revision"] == 8
+    assert db.policy_calls[-1]["p_actor_id"] == "admin"
+    assert db.policy_calls[-1]["p_expected_revision"] == 7
+    with pytest.raises(PaperPolicyError) as error:
+        svc.set_public_visibility("reading", "r1", False, actor_id="admin", expected_revision=7)
+    assert error.value.status_code == 409
+    assert error.value.detail["reason"] == "stale_revision"
+    assert error.value.detail["current_revision"] == 8
+    assert db.t["reading_tests"][0]["is_public"] is True
+    assert db.t["reading_tests"][0]["policy_revision"] == 8
+
+
+def test_future_mock_blocks_public_visibility_without_explicit_overlap(db):
+    _seed_three(db)
+    db.t["mock_exams"] = [{"id": "planned", "status": "draft", "reading_test_id": "r1"}]
+    with pytest.raises(PaperPolicyError) as error:
+        svc.set_public_visibility("reading", "r1", True)
+    assert error.value.status_code == 409
+    assert error.value.detail["reason"] == "public_overlap_unapproved"
+    assert error.value.detail["dependencies"][0]["reason"] == "planned_mock"
+    assert db.t["reading_tests"][0]["is_public"] is False
+
+
+def test_valid_practice_resume_blocks_depublishing_but_expired_resume_does_not(db):
+    _seed_three(db)
+    attempt = {"id": "attempt-1", "test_id": "r1", "status": "in_progress",
+               "resume_expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}
+    db.t["reading_test_attempts"] = [attempt]
+    with pytest.raises(PaperPolicyError) as error:
+        svc.set_status("reading", "r1", "draft")
+    assert error.value.status_code == 409
+    assert error.value.detail["dependencies"] == [{
+        "type": "attempt", "id": "attempt-1", "reason": "valid_resume",
+    }]
+    attempt["resume_expires_at"] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+    assert svc.set_status("reading", "r1", "draft")["status"] == "draft"
 
 
 def test_list_surfaces_mock_usage_without_changing_visibility(db):

@@ -13,6 +13,10 @@ cooldown: 2
 shuffle_options: true
 words_count: 4
 source: "authored-2026-07"
+text_match_by_qid:
+  dm_subj_i2: exact
+  dm_clause_i2: exact
+  dm_toinf_i2: exact
 ---
 
 # ===== item_key 1 · Dangling participle mở đầu câu (V-ing/V3 đầu câu, chủ ngữ sai) =====
@@ -38,10 +42,10 @@ input: "boolean"
 headword: "dm-participle-opening"
 skill: "error_id"
 subtype: "basic"
-prompt: "Đúng hay Sai: 'Having finished the report, the printer broke down.' là một câu đúng ngữ pháp và hợp lý."
+prompt: "Đúng hay Sai: Nếu người viết muốn nói một người đã hoàn tất việc viết và kiểm tra báo cáo, câu 'Having finished the report, the printer broke down.' nêu rõ người đó là chủ thể của 'Having finished'."
 answer: false
 grammar_article_slug: "dangling-modifiers"
-explain: "SAI — máy in ('the printer') không thể 'finish the report'. Câu bị treo. Sửa: 'Having finished the report, I noticed the printer had broken down.'"
+explain: "SAI với ý nghĩa được yêu cầu: chủ ngữ viết ra là 'the printer', không phải người đã viết và kiểm tra báo cáo. Có thể sửa 'Having finished the report, I noticed the printer had broken down.' Không kết luận máy in không bao giờ có thể 'finish a report': trong ngữ cảnh in ấn, cụm này có thể nói về việc in xong."
 ---
 
 ---
@@ -65,12 +69,12 @@ input: "text"
 headword: "dm-participle-opening"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền chủ ngữ đúng ngay sau dấu phẩy để cụm phân từ không bị treo: 'Arriving late for the interview, ____ apologised to the panel.'"
+prompt: "Điền một trong bốn chủ ngữ được cho: the candidate / she / he / the applicant. 'Arriving late for the interview, ____ apologised to the panel.'"
 hint: "điền cụm danh từ ngắn làm chủ ngữ — ai mới là người đến muộn?"
 accept: ["the candidate", "she", "he", "the applicant"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"
-explain: "'Arriving late' phải gắn với người thực sự đến muộn — ứng viên (the candidate/she/he/the applicant), không phải 'the panel' hay vật vô tri."
+explain: "Cả bốn chủ ngữ được cho đều có thể chỉ người đến muộn và xin lỗi. Bài chỉ yêu cầu chọn trong bốn cách diễn đạt này; không kết luận rằng các chủ ngữ người khác như 'the interviewee' sai ngữ pháp."
 ---
 
 ---
@@ -83,7 +87,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: Trong Writing Task 2, câu 'Being cheap, everyone bought the phone.' diễn đạt đúng ý 'vì điện thoại rẻ nên mọi người mua nó'."
 answer: false
 grammar_article_slug: "dangling-modifiers"
-explain: "SAI — 'Being cheap' bị hiểu là bổ nghĩa cho 'everyone' (mọi người rẻ tiền?!), vô lý. Sửa: 'Being cheap, the phone sold quickly.'"
+explain: "SAI với ý được yêu cầu: 'Being cheap' gắn với 'everyone', không nêu rằng chiếc điện thoại có giá rẻ. 'Cheap' có thể mô tả người ở một nghĩa khác, nhưng không truyền đạt ý điện thoại rẻ nên được mua. Có thể viết 'Being cheap, the phone sold quickly.'"
 ---
 
 ---
@@ -123,10 +127,10 @@ input: "boolean"
 headword: "dm-fix-change-subject"
 skill: "error_id"
 subtype: "basic"
-prompt: "Đúng hay Sai: Để sửa 'Having studied all night, the exam felt easy.', ta chỉ cần đổi chủ ngữ thành người học, ví dụ 'Having studied all night, I found the exam easy.'"
+prompt: "Đúng hay Sai: Sửa 'Having studied all night, the exam felt easy.' thành 'Having studied all night, I found the exam easy.' đã nêu đúng người học làm chủ ngữ mệnh đề chính và điều chỉnh vị ngữ để diễn đạt trải nghiệm của người đó."
 answer: true
 grammar_article_slug: "dangling-modifiers"
-explain: "ĐÚNG — 'the exam' không thể 'study all night'. Đổi chủ ngữ ngay sau phẩy thành 'I' (người thực sự học) là một cách sửa hợp lệ theo bài Wiki."
+explain: "ĐÚNG — I là người đã học và thấy bài thi dễ. Phép sửa thay chủ ngữ và điều chỉnh vị ngữ felt easy thành found the exam easy; không phải chỉ thay the exam bằng I rồi giữ nguyên mọi từ còn lại."
 ---
 
 ---
@@ -140,7 +144,7 @@ prompt: "Original (dangling): 'Determined to pass the IELTS test, months of prep
 options: ["Determined to pass the IELTS test, she spent months preparing.", "Determined to pass the IELTS test, months of preparation was needed.", "Determined to pass the IELTS test, preparation happened for months.", "Determined to pass the IELTS test, it took months."]
 answer: 0
 grammar_article_slug: "dangling-modifiers"
-explain: "'Determined to pass the IELTS test' chỉ mô tả một người có quyết tâm. Đổi chủ ngữ thành 'she' (người quyết tâm) khớp đúng với cụm phân từ."
+explain: "Đáp án nêu she là người quyết tâm và đã dành nhiều tháng chuẩn bị. Nó vừa đổi chủ ngữ vừa điều chỉnh vị ngữ thành spent months preparing; không phải thay months of preparation bằng she rồi giữ followed nguyên vẹn."
 ---
 
 ---
@@ -150,11 +154,11 @@ input: "text"
 headword: "dm-fix-change-subject"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa câu treo bằng cách đổi chủ ngữ: 'Worried about the deadline, the essay was rushed.' → 'Worried about the deadline, ____ the essay.'"
+prompt: "Dùng một trong bốn chủ ngữ the student / she / he / the writer và động từ rush ở Past Simple: 'Worried about the deadline, ____ the essay.'"
 accept: ["the student rushed", "she rushed", "he rushed", "the writer rushed"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"
-explain: "'Worried about the deadline' chỉ người mới lo lắng được, không phải 'the essay'. Đổi chủ ngữ ngay sau phẩy thành người viết (the student/she/he/the writer) là đúng cách sửa 1 trong bài."
+explain: "Người lo về hạn nộp là chủ ngữ của 'rushed': the student rushed / she rushed / he rushed / the writer rushed. Bài yêu cầu bốn chủ ngữ được cho và Past Simple, không chấm mọi cách viết tự do. 'Worried' ở câu này mô tả người viết, không phải bản thân bài luận."
 ---
 
 ---
@@ -177,11 +181,11 @@ input: "choice"
 headword: "dm-fix-change-subject"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Which revision fixes this dangling modifier strictly by changing the subject, keeping the participle phrase unchanged: 'Frustrated by the traffic congestion, several new policies were proposed.'?"
+prompt: "Choose the revision that explicitly names the city council as the frustrated agent and keeps 'Frustrated by the traffic congestion' unchanged: 'Frustrated by the traffic congestion, several new policies were proposed.'"
 options: ["Frustrated by the traffic congestion, the city council proposed several new policies.", "Frustrated by the traffic congestion, congestion policies were proposed by councils.", "Frustration by the traffic congestion led to policies.", "Frustrated by the traffic congestion, it proposed several new policies."]
 answer: 0
 grammar_article_slug: "dangling-modifiers"
-explain: "'Frustrated by the traffic congestion' chỉ mô tả một thực thể biết bực bội — 'the city council' (con người/tổ chức có cảm xúc), không phải 'several new policies' (vật vô tri)."
+explain: "Đáp án A nêu rõ 'the city council' là chủ thể bực bội và đề xuất chính sách. 'It' có thể chỉ hội đồng nếu ngữ cảnh đã cung cấp tiền ngữ, nhưng bài này yêu cầu gọi tên hội đồng rõ ràng, nên không chọn phương án dùng 'it'."
 ---
 
 # ===== item_key 3 · Sửa bằng cách biến thành mệnh đề phụ đầy đủ (thêm chủ ngữ cho cụm) =====
@@ -193,11 +197,11 @@ input: "choice"
 headword: "dm-fix-full-clause"
 skill: "form"
 subtype: "basic"
-prompt: "Which revision fixes 'After finishing the report, the printer broke down.' by turning the opening phrase into a full clause (adding its own subject)?"
+prompt: "Người viết muốn nói chính mình đã hoàn tất việc viết và kiểm tra báo cáo. Which revision makes that person the expressed subject of a full opening clause while retaining the printer as the main-clause subject? 'After finishing the report, the printer broke down.'"
 options: ["After I finished the report, the printer broke down.", "After finished the report, the printer broke down.", "The printer, after finishing the report, broke down.", "After finishing a report, printers break down."]
 answer: 0
 grammar_article_slug: "dangling-modifiers"
-explain: "Cách sửa 2: biến cụm phân từ thành mệnh đề đầy đủ bằng cách thêm chủ ngữ riêng ('I') và động từ chia ('finished') cho mệnh đề phụ — máy in ('the printer') vẫn giữ nguyên vai trò chủ ngữ mệnh đề chính."
+explain: "Chọn 'After I finished the report, the printer broke down': I là người viết/kiểm tra báo cáo được nêu ở đề, finished là động từ hữu hạn của mệnh đề phụ. Không kết luận máy in không thể finish a report trong ngữ cảnh in ấn; nhiệm vụ ở đây là viết rõ tác nhân người và giữ chủ ngữ chính the printer."
 ---
 
 ---
@@ -207,10 +211,10 @@ input: "boolean"
 headword: "dm-fix-full-clause"
 skill: "error_id"
 subtype: "basic"
-prompt: "Đúng hay Sai: 'Before signing the contract, the terms should be read carefully.' cần được sửa vì chủ ngữ 'the terms' không thể 'sign the contract'."
+prompt: "Đúng hay Sai: Trong 'Before you sign the contract, the terms should be read carefully', mệnh đề phụ 'Before you sign the contract' có chủ ngữ riêng you và động từ hữu hạn sign."
 answer: true
 grammar_article_slug: "dangling-modifiers"
-explain: "ĐÚNG — 'the terms' (các điều khoản) không thể tự ký hợp đồng. Một cách sửa: 'Before you sign the contract, the terms should be read carefully.' (thêm chủ ngữ 'you' biến cụm thành mệnh đề đầy đủ)."
+explain: "ĐÚNG — mệnh đề phụ viết rõ 'you' là người ký; mệnh đề chính bị động có chủ ngữ 'the terms'. Đây là bài nhận diện cấu trúc đã viết rõ tác nhân, không phán rằng mọi câu 'Before signing...' đi với bị động đều sai trong mọi ngữ cảnh."
 ---
 
 ---
@@ -220,11 +224,11 @@ input: "choice"
 headword: "dm-fix-full-clause"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Original (dangling): 'While reviewing the applications, several errors were found.' Which revision fixes it by adding a subject to make a full subordinate clause?"
+prompt: "Original: 'While reviewing the applications, several errors were found.' Which revision explicitly names the committee as the reviewing agent in a full subordinate clause, while retaining several errors as the main-clause subject?"
 options: ["While the committee reviewed the applications, several errors were found.", "While reviewed the applications, several errors were found.", "While review the applications, errors found.", "While reviewing applications, error was found by committee."]
 answer: 0
 grammar_article_slug: "dangling-modifiers"
-explain: "Thêm chủ ngữ 'the committee' và chia động từ 'reviewed' biến cụm phân từ rút gọn thành mệnh đề phụ đầy đủ ('While the committee reviewed the applications'), tách biệt rõ với chủ ngữ mệnh đề chính 'several errors'."
+explain: "Chọn 'While the committee reviewed the applications, several errors were found': mệnh đề phụ có chủ ngữ the committee và động từ hữu hạn reviewed. While dùng với Past Simple được trong cách kể này. Câu gốc có thể gợi tác nhân ngầm trong ngữ cảnh; bài này yêu cầu viết rõ tác nhân trong một mệnh đề phụ đầy đủ."
 ---
 
 ---
@@ -234,11 +238,11 @@ input: "text"
 headword: "dm-fix-full-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Biến 'Having lived abroad for years, the language barrier was no longer a problem.' thành mệnh đề đầy đủ: 'After _____ abroad for years, the language barrier was no longer a problem.'"
-accept: ["she had lived", "she lived", "she has lived"]
+prompt: "Kể về một giai đoạn quá khứ đã kết thúc: dùng chủ ngữ she và động từ live ở Past Simple hoặc Past Perfect Simple để hoàn thành mệnh đề có chủ ngữ riêng: 'After ____ abroad for years, the language barrier was no longer a problem.'"
+accept: ["she lived", "she had lived"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"
-explain: "'Having lived abroad for years' phải gắn với người thực sự đã sống ở nước ngoài. Thêm chủ ngữ ('she') và chia động từ ('had lived') biến cụm thành mệnh đề phụ đầy đủ ('After she had lived...'), tách biệt khỏi chủ ngữ mệnh đề chính 'the language barrier'."
+explain: "Nhận 'she lived' và 'she had lived': 'After' đã chỉ thứ tự quá khứ, còn Past Perfect nhấn mạnh thời gian sống trước mốc 'was'. 'She has lived' nhìn từ hiện tại và không đáp ứng khung kể quá khứ đã kết thúc được yêu cầu. Chủ ngữ riêng 'she' xác định người sống ở nước ngoài."
 ---
 
 ---
@@ -261,11 +265,11 @@ input: "choice"
 headword: "dm-fix-full-clause"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Which revision fixes this dangling modifier by turning it into a full subordinate clause (adding a subject), rather than changing the main clause's subject: 'Upon completing the internship, a permanent contract was offered.'?"
+prompt: "Người hoàn tất kỳ thực tập là she. Which revision names her as the expressed subject of a full subordinate clause while keeping a permanent contract as the main-clause subject? 'Upon completing the internship, a permanent contract was offered.'"
 options: ["Upon completing the internship, several interns were offered a permanent contract.", "After she completed the internship, a permanent contract was offered.", "Upon complete the internship, a contract offered.", "Completing the internship, offered a permanent contract."]
 answer: 1
 grammar_article_slug: "dangling-modifiers"
-explain: "Cách 2 giữ nguyên chủ ngữ mệnh đề chính ('a permanent contract') nhưng thêm chủ ngữ riêng ('she') và liên từ ('After') để biến cụm phân từ thành mệnh đề phụ đầy đủ — khác với phương án A vốn đổi chủ ngữ mệnh đề chính (đó là cách sửa 1)."
+explain: "Chọn 'After she completed the internship, a permanent contract was offered': she là chủ ngữ riêng của mệnh đề phụ, a permanent contract vẫn là chủ ngữ chính. Phương án đổi chủ ngữ chính sang interns có thể là một cách viết khác nhưng không đáp ứng nhiệm vụ này; không phán mọi generic passive gốc luôn sai."
 ---
 
 # ===== item_key 4 · Dangling to-infinitive / reduced clause đầu câu =====
@@ -281,7 +285,7 @@ prompt: "Which sentence correctly names the agent who must act, avoiding a dangl
 options: ["To improve health, exercise is essential.", "To improve health, people should exercise regularly.", "To improve health, essential exercise.", "To improving health, exercise regularly."]
 answer: 1
 grammar_article_slug: "dangling-modifiers"
-explain: "'To improve health' cần một chủ ngữ biết chủ động hành động — 'people' (con người tập thể dục), không phải 'exercise' (bản thân việc tập thể dục không 'improve health' một cách chủ động)."
+explain: "Đáp án 'people should exercise regularly' viết rõ người thực hiện hành động trong mệnh đề chính. 'To improve health, exercise is essential' có thể diễn đạt mục đích hợp lý trong ngữ cảnh khác; ở đây bài yêu cầu gọi rõ tác nhân phải hành động, không chỉ nêu sự cần thiết của việc tập thể dục."
 ---
 
 ---
@@ -291,10 +295,10 @@ input: "boolean"
 headword: "dm-toinf-reduced-clause"
 skill: "error_id"
 subtype: "basic"
-prompt: "Đúng hay Sai: 'To pass the exam, hard work is needed.' mắc lỗi dangling modifier vì chủ ngữ 'hard work' không phải người 'pass the exam'."
+prompt: "Đúng hay Sai: Trong 'To pass the exam, students must work hard', chủ ngữ students nêu rõ người cần làm việc chăm chỉ để đạt mục đích pass the exam."
 answer: true
 grammar_article_slug: "dangling-modifiers"
-explain: "ĐÚNG — cụm to-infinitive 'To pass the exam' cần tác nhân là người thi, không phải 'hard work'. Sửa: 'To pass the exam, students must work hard.'"
+explain: "ĐÚNG — 'students' nêu rõ tác nhân của việc học và mục đích thi đỗ. Bài nhận diện cách diễn đạt tác nhân rõ ràng này, không tuyên bố mọi câu 'To pass the exam, hard work is needed' đều sai ngữ pháp."
 ---
 
 ---
@@ -318,12 +322,12 @@ input: "text"
 headword: "dm-toinf-reduced-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Nêu rõ tác nhân sau cụm to-infinitive để câu không bị treo: 'To reduce plastic waste effectively, _____.'"
+prompt: "Ghép một trong ba bộ từ cho sẵn thành mệnh đề chính, giữ đúng modal: governments / must / regulate; consumers / should / recycle; everyone / must / help. 'To reduce plastic waste effectively, ____.'"
 hint: "gõ chủ ngữ + động từ khiếm khuyết + động từ chính"
 accept: ["governments must regulate", "consumers should recycle", "everyone must help"]
 case_sensitive: false
 grammar_article_slug: "dangling-modifiers"
-explain: "'To reduce plastic waste effectively' cần một tác nhân cụ thể có thể hành động (governments/consumers/people), không thể để trống hoặc gắn với vật vô tri — đây là cách sửa 3 trong bài: nêu rõ tác nhân."
+explain: "Ba mệnh đề được yêu cầu là 'governments must regulate', 'consumers should recycle' và 'everyone must help'. Chúng nêu rõ chủ thể hành động để giảm rác nhựa. Đây là bài ghép ba bộ từ đã cho; các đề xuất khác có thể đúng về ngữ pháp/ý nghĩa nhưng nằm ngoài yêu cầu này."
 ---
 
 ---
@@ -333,10 +337,10 @@ input: "boolean"
 headword: "dm-toinf-reduced-clause"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: Trong Writing Task 2, câu 'To address youth unemployment, more vocational training programmes should be introduced by the government.' là một câu đúng, không bị dangling, vì cụm to-infinitive rút gọn không cần nêu tác nhân khi mệnh đề chính đã bị động."
+prompt: "Đúng hay Sai: Chỉ cần mệnh đề chính ở thể bị động thì mọi câu mở đầu bằng To + V chỉ mục đích đều luôn có tác nhân rõ ràng, không cần xét ý nghĩa hay ngữ cảnh."
 answer: false
 grammar_article_slug: "dangling-modifiers"
-explain: "SAI — mệnh đề chính ở dạng bị động khiến chủ ngữ ngay sau phẩy là 'more vocational training programmes', vật này không thể 'address youth unemployment' một cách chủ động dù có 'by the government' phía sau. Sửa: 'To address youth unemployment, the government should introduce more vocational training programmes.'"
+explain: "SAI — thể bị động tự nó không bảo đảm người đọc xác định được tác nhân của mục đích. Cần xét hành động, tác nhân được viết ra hoặc ngầm hiểu và ngữ cảnh; có thể viết chủ động hoặc dùng by + tác nhân để làm rõ khi phù hợp. Không suy ra một câu bị động cụ thể như 'To address youth unemployment, more vocational training programmes should be introduced by the government' luôn sai."
 ---
 
 ---
@@ -346,9 +350,9 @@ input: "choice"
 headword: "dm-toinf-reduced-clause"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Which revision best fixes the dangling to-infinitive in: 'To compete in the global job market, strong English skills are required for graduates.'?"
+prompt: "Which revision explicitly names graduates as the subject who must compete in the global job market? 'To compete in the global job market, strong English skills are required for graduates.'"
 options: ["To compete in the global job market, graduates need strong English skills.", "To competing in the global job market, strong English skills required.", "To compete in the global job market, it is required strong English skills.", "Competing in the global job market, strong English skills are required for graduates."]
 answer: 0
 grammar_article_slug: "dangling-modifiers"
-explain: "'To compete in the global job market' cần tác nhân là người cạnh tranh — 'graduates' (người thực sự đi cạnh tranh việc làm), không phải 'strong English skills' (vật vô tri, dù có 'for graduates' bổ nghĩa phía sau vẫn không sửa được lỗi vị trí chủ ngữ)."
+explain: "Đáp án A viết rõ 'graduates' là chủ ngữ của 'need' và người có mục đích cạnh tranh việc làm. Câu gốc có thể cho phép hiểu tác nhân qua 'for graduates' tùy ngữ cảnh; bài này yêu cầu phiên bản nêu tác nhân trực tiếp, không cấm mọi câu bị động chỉ mục đích."
 ---

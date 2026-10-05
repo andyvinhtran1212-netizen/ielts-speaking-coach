@@ -1181,7 +1181,8 @@ def test_reset_progress_404_when_bank_unpublished():
 # ── progress logging ─────────────────────────────────────────────────
 
 def _session_resp(user_id=_USER):
-    return {("quiz_sessions", "select"): [{"id": _SESS, "user_id": user_id, "bank_id": _BANK}]}
+    return {("quiz_sessions", "select"): [{"id": _SESS, "user_id": user_id, "bank_id": _BANK}],
+            ("quiz_banks", "select"): [{"id": _BANK, "skill_area": "vocab", "grammar_canonical_code": None}]}
 
 
 def test_log_progress_rejects_foreign_session():
@@ -1245,6 +1246,8 @@ def test_timed_course_progress_uses_atomic_admission_timestamp_rpc():
         "answer_given": "0", "response_time_ms": 1250, "attempt_no": 1,
     }
     fake = _FakeSupabase(responses={
+        # Session FK points to an ordinary unmanaged bank.
+        ("quiz_banks", "select"): [{"id": _BANK, "skill_area": "course", "grammar_canonical_code": None}],
         ("quiz_sessions", "select"): [{
             "id": _SESS, "user_id": _USER, "bank_id": _BANK,
             "class_assignment_item_id": "item-timed",
@@ -1287,6 +1290,8 @@ def test_superseded_timed_progress_returns_a_stable_conflict_code(rpc_error):
         "answer_given": "0", "response_time_ms": 1250, "attempt_no": 1,
     }
     fake = _FakeSupabase(responses={
+        # Session FK points to an ordinary unmanaged bank.
+        ("quiz_banks", "select"): [{"id": _BANK, "skill_area": "course", "grammar_canonical_code": None}],
         ("quiz_sessions", "select"): [{
             "id": _SESS, "user_id": _USER, "bank_id": _BANK,
             "class_assignment_item_id": "item-timed",
@@ -2347,6 +2352,8 @@ def test_time_cap_passes_final_client_ids_to_the_verification_rpc():
         "answer_given": "4", "response_time_ms": 59_100.8, "attempt_no": 1.0,
     }
     fake = _FakeSupabase(responses={
+        # Session FK points to an ordinary unmanaged bank.
+        ("quiz_banks", "select"): [{"id": _BANK, "skill_area": "course", "grammar_canonical_code": None}],
         ("rpc", "quiz_finalize_timed_course_session"): [canonical],
     })
 
@@ -2386,6 +2393,8 @@ def test_time_cap_terminal_retry_proves_final_attempts_are_persisted():
         "answer_given": "4", "response_time_ms": 59_100, "attempt_no": 1,
     }
     fake = _FakeSupabase(responses={
+        # Session FK points to an ordinary unmanaged bank.
+        ("quiz_banks", "select"): [{"id": _BANK, "skill_area": "course", "grammar_canonical_code": None}],
         ("rpc", "quiz_finalize_timed_course_session"): [terminal],
     })
 
@@ -2412,6 +2421,8 @@ def test_time_cap_terminal_retry_rejects_an_unpersisted_final_batch():
         "item_key": "x", "qid": "q-final", "is_correct": True,
     }
     fake = _FakeSupabase(responses={
+        # Session FK points to an ordinary unmanaged bank.
+        ("quiz_banks", "select"): [{"id": _BANK, "skill_area": "course", "grammar_canonical_code": None}],
         ("rpc", "quiz_finalize_timed_course_session"):
             Exception("timed_course_final_batch_missing"),
     })
@@ -2445,6 +2456,8 @@ def test_end_session_concurrent_terminal_write_preserves_the_winner(requested, w
         "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": winner,
     }
     fake = _FakeSupabase(responses={
+        # Session FK points to an ordinary unmanaged bank.
+        ("quiz_banks", "select"): [{"id": _BANK, "skill_area": "vocab", "grammar_canonical_code": None}],
         # Empty update representation means the terminal-null CAS lost.
         ("quiz_sessions", "update"): [],
     })

@@ -27,6 +27,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
   const busyRef = useRef(busy);
   const closeRef = useRef(onClose);
 
@@ -37,7 +38,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = openerRef.current || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     panelRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !busyRef.current) closeRef.current();
@@ -65,13 +66,18 @@ export function Dialog({ open, title, description, children, actions, onClose, b
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
-      previous?.focus?.();
+      openerRef.current = null;
+      if (previous?.isConnected) previous.focus();
     };
   }, [open]);
 
   if (!open) return null;
   return (
-    <div className="acd-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+    <div className="acd-dialog-backdrop" onFocusCapture={(event) => {
+      // A child's autoFocus runs before the panel effect; its first focus-in still carries the opener.
+      const previous = event.relatedTarget;
+      if (!openerRef.current && previous instanceof HTMLElement && previous.isConnected && !event.currentTarget.contains(previous)) openerRef.current = previous;
+    }} onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
       <div ref={panelRef} className={`acd-dialog${panelClassName ? ` ${panelClassName}` : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="acd-dialog__head">
           <div><h2 id={titleId}>{title}</h2>{description && <div className="acd-dialog__description">{description}</div>}</div>

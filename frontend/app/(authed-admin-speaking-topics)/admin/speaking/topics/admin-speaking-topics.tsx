@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { useDisclosureFocus } from '@/lib/use-disclosure-focus';
 import {
   normalizeBulkCreate,
   normalizeBulkTopicResult,
@@ -102,6 +103,7 @@ export function AdminSpeakingTopics() {
   const listSequence = useRef(0);
   const questionSequence = useRef(0);
   const mutationLock = useRef(false);
+  const detailHeadingRef = useRef<HTMLHeadingElement>(null);
   const profileRef = useRef(profile.id); profileRef.current = profile.id;
   const rows = snapshot?.account === profile.id ? snapshot.rows : [];
   const visibleRows = useMemo(() => rows.filter((row) => topicMatches(row, part, search)), [rows, part, search]);
@@ -112,6 +114,13 @@ export function AdminSpeakingTopics() {
   const navigate = useCallback((nextPart: 1 | 2 | 3, nextSearch = search, topicId: string | null = selectedId) => {
     router.replace(`/admin/speaking/topics?${speakingTopicsQuery(nextPart, nextSearch, topicId)}`, { scroll: false });
   }, [router, search, selectedId]);
+
+  const detailKeyDown = useDisclosureFocus({
+    identity: selectedTopic ? `${profile.id}:${selectedTopic.id}` : null,
+    headingRef: detailHeadingRef,
+    onClose: () => navigate(part, search, null),
+    busy,
+  });
 
   const changePart = (nextPart: 1 | 2 | 3) => {
     setSelected(new Set());
@@ -398,7 +407,7 @@ export function AdminSpeakingTopics() {
       setSelected(new Set());
       setBanner(partialFailure
         ? { kind: 'error', text: `${text} ${partialFailure}` }
-        : { kind: 'success', text: `${text} Đã đồng bộ trạng thái canonical.` });
+        : { kind: 'success', text: `${text} Đã đối chiếu trạng thái đã lưu.` });
       if (selectedId && !canonical.rows.some((row) => row.id === selectedId)) navigate(part, search, null);
     } catch (caught) { if (profileRef.current === account) setBanner({ kind: 'error', text: `Không hoàn tất thao tác: ${messageOf(caught)}` }); }
     finally { mutationLock.current = false; setBusy(false); setConfirming(null); }
@@ -450,7 +459,7 @@ export function AdminSpeakingTopics() {
 
     <div className={`ast-workspace${selectedTopic ? ' has-detail' : ''}`}>
       <section className="ast-library" aria-labelledby="ast-library-title"><header><div><p className="acd-eyebrow">{PART_COPY[part].subtitle}</p><h2 id="ast-library-title">Thư viện {PART_COPY[part].title}</h2><p>{PART_COPY[part].note}</p></div><button className="adm-btn-secondary adm-btn-sm" type="button" disabled={loading} onClick={() => void loadTopics()}>{loading ? 'Đang tải…' : 'Làm mới'}</button></header>
-        {loading && !snapshot && <div className="acd-state" aria-live="polite"><strong>Đang tải topic…</strong><span>Đọc dữ liệu canonical từ máy chủ.</span></div>}
+        {loading && !snapshot && <div className="acd-state" aria-live="polite"><strong>Đang tải topic…</strong><span>Đọc dữ liệu đã lưu từ máy chủ.</span></div>}
         {!loading && !listError && visibleRows.length === 0 && <div className="acd-state"><strong>Không có topic phù hợp</strong><span>{search ? 'Thử từ khoá khác hoặc xoá bộ lọc.' : `Thêm topic đầu tiên cho Part ${part}.`}</span></div>}
         {visibleRows.length > 0 && <div className="ast-table-wrap"><table className="ast-table"><thead><tr><th className="ast-check"><input type="checkbox" aria-label="Chọn tất cả topic đang hiển thị" checked={visibleSelected} onChange={() => setSelected(visibleSelected ? new Set([...selected].filter((id) => !visibleRows.some((row) => row.id === id))) : new Set([...selected, ...visibleRows.map((row) => row.id)]))} /></th><th>Topic</th><th>Trạng thái</th><th>Cập nhật</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{visibleRows.map((topic) => {
           const status = topicStatus(topic); const active = selectedId === topic.id;
@@ -458,7 +467,7 @@ export function AdminSpeakingTopics() {
         })}</tbody></table></div>}
       </section>
 
-      {selectedTopic && <aside className="ast-detail" aria-labelledby="ast-detail-title"><header><div><p className="acd-eyebrow">Part {selectedTopic.part} · Question library</p><h2 id="ast-detail-title">{selectedTopic.title}</h2><p>{selectedTopic.category || 'Chưa phân loại'}</p></div><button className="acd-icon-button" type="button" aria-label="Đóng chi tiết topic" onClick={() => navigate(part, search, null)}>×</button></header>
+      {selectedTopic && <aside className="ast-detail" aria-labelledby="ast-detail-title" onKeyDown={detailKeyDown}><header><div><p className="acd-eyebrow">Part {selectedTopic.part} · Question library</p><h2 id="ast-detail-title" ref={detailHeadingRef} tabIndex={-1}>{selectedTopic.title}</h2><p>{selectedTopic.category || 'Chưa phân loại'}</p></div><button className="acd-icon-button" type="button" aria-label="Đóng chi tiết topic" disabled={busy} onClick={() => navigate(part, search, null)}>×</button></header>
         <div className="ast-detail__actions"><button className="adm-btn-primary" type="button" onClick={() => openQuestionEditor(null)}>+ Thêm câu hỏi</button><button className="adm-btn-secondary" type="button" disabled={busy || selectedTopic.questionMetadataLookupFailed} onClick={() => setConfirming({ kind: 'generate', topic: selectedTopic, mode: 'missing_only' })}>AI sinh khi trống</button><button className="adm-btn-danger" type="button" disabled={busy} onClick={() => setConfirming({ kind: 'generate', topic: selectedTopic, mode: 'replace_all' })}>AI thay toàn bộ</button></div>
         {questionsError && <div className="ast-warning" role="alert"><strong>Không tải được câu hỏi.</strong><span>{questionsError}</span><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void loadQuestions(selectedTopic.id)}>Thử lại</button></div>}
         {questionsLoading && !questions && <div className="acd-state"><strong>Đang tải câu hỏi…</strong><span>Không giả dữ liệu lỗi thành danh sách trống.</span></div>}

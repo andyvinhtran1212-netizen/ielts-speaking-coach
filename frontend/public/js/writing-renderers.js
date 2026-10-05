@@ -489,9 +489,24 @@
       '<div class="counter-status">' +
         '<span class="counter-pill ' + pillCls + '">' + pillLbl + '</span>' +
       '</div>';
-    if (v.context)    html += '<div class="prose-block" style="margin-bottom:0.5rem;">' + renderString(String(v.context)) + '</div>';
-    if (v.feedback)   html += '<div class="prose-block">' + renderString(String(v.feedback)) + '</div>';
-    if (v.suggestion) html += '<div class="callout-action" style="margin-top:0.625rem;"><span class="callout-label">💡 Gợi ý</span>' + renderString(typeof v.suggestion === 'string' ? v.suggestion : (v.suggestion.instruction || '')) + '</div>';
+    // Current feedback stores context as ContextInsertion, while older essays
+    // can still carry a string. Never stringify an unrecognised payload.
+    var contextHtml = '';
+    if (typeof v.context === 'string' && v.context.trim()) {
+      contextHtml = renderString(v.context);
+    } else if (v.context && typeof v.context === 'object' && !Array.isArray(v.context)) {
+      if (typeof v.context.insertionPoint === 'string' && v.context.insertionPoint.trim()) {
+        contextHtml += '<strong>Vị trí bổ sung:</strong>' + renderString(v.context.insertionPoint);
+      }
+      if (typeof v.context.reasoning === 'string' && v.context.reasoning.trim()) {
+        contextHtml += '<strong>Lý do:</strong>' + renderString(v.context.reasoning);
+      }
+    }
+    if (contextHtml) html += '<div class="prose-block" style="margin-bottom:0.5rem;">' + contextHtml + '</div>';
+    if (typeof v.feedback === 'string' && v.feedback.trim()) html += '<div class="prose-block">' + renderString(v.feedback) + '</div>';
+    var suggestion = typeof v.suggestion === 'string' ? v.suggestion
+      : v.suggestion && typeof v.suggestion.instruction === 'string' ? v.suggestion.instruction : '';
+    if (suggestion.trim()) html += '<div class="callout-action" style="margin-top:0.625rem;"><span class="callout-label">💡 Gợi ý</span>' + renderString(suggestion) + '</div>';
     html += '</div>';
     return html;
   }

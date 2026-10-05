@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import ts from 'typescript';
 import { anonymousReadingScope, createCoreOperationTransport, coreOperationHeaders, clearCoreOperationIntents } from '../lib/core-operation-intent.mjs';
+import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '../lib/learner-tab-drafts.mjs';
 
 const HEADER = 'X-Core-Operation-ID';
 const files = {
@@ -15,7 +16,7 @@ const files = {
   mock: '../app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx',
 };
 function actualHandler(file, name, scope) {
-  scope = { anonymousReadingScope, ...scope };
+  scope = { anonymousReadingScope, admissionRequired: false, flagApi: { flush: async () => true }, ...scope };
   const source = readFileSync(new URL(files[file], import.meta.url), 'utf8');
   const ast = ts.createSourceFile('handler.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let found;
@@ -202,7 +203,7 @@ for (const file of ['reading', 'listening']) {
     await actualHandler(file, 'startFresh', { ...scope, coreOperationRequest: harnessTransport(h) })();
     assert.deepEqual(calls[0], calls[1]);
     assert.ok(calls[0][0].endsWith('?class_item=class-1'));
-    assert.deepEqual(calls[0][1], { renderer_affinity_protocol: 'claim-v1' });
+    assert.deepEqual(calls[0][1], { renderer_affinity_protocol: 'claim-v1', purpose: 'assigned_practice' });
     assert.ok(calls[0][2][HEADER]);
     if (file === 'reading') assert.equal(calls[0][2]['X-Reading-Password'], 'test-only-password');
     assert.ok(!JSON.stringify([...h.rows]).includes('test-only-password'));
@@ -223,7 +224,11 @@ test('actual AuthProvider transitions clear account hints without erasing capabi
   assert.ok(anonymousRow);
   rows.set('unrelated', 'preserved');
   const states = [];
-  const transition = actualHandler('auth', 'applySession', { clearCoreOperationIntents, window: { sessionStorage: store },
+  const browser = { sessionStorage: store, name: '' };
+  const transition = actualHandler('auth', 'applySession', { clearCoreOperationIntents, window: browser,
+    sessionReadRef: { current: 0 }, confirmedAccountRef: { current: null },
+    clearLearnerTabDraftAccount: account => clearLearnerTabDraftAccount(account, browser),
+    invalidateLearnerTabDraftOwner: () => invalidateLearnerTabDraftOwner(browser),
     setUser() {}, setStatus: value => states.push(value) });
   transition({ user: { id: userId } });
   assert.equal(rows.size, 3);

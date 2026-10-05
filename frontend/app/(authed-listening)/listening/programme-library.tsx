@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+import { listeningLessonHref, listeningLibraryFilter, listeningLibraryHref } from '@/lib/listening-library-context.mjs';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import type { ListeningOverviewWire, ListeningProgrammeLessonsWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { ListeningSourceEntry } from './ielts/80-days/source-collection';
 
 type Filter = 'all' | 'new' | 'in_progress' | 'completed';
 interface Lesson {
@@ -45,7 +49,16 @@ const IELTS_MODES = [
 export function ListeningProgrammeLibrary({ programmeId, title, description, showIeltsModes = false }: { programmeId: string; title: string; description: string; showIeltsModes?: boolean }) {
   const { status, user } = useAuth();
   const [state, setState] = useState<State>({ status: 'loading' });
-  const [filter, setFilter] = useState<Filter>('all');
+  const params = useSearchParams();
+  const filter = listeningLibraryFilter(params || undefined) as Filter;
+  const programmePath = programmeId === 'general-listening-practice' ? 'general' : 'ielts';
+  const scrollKey = status === 'signed-in' && user?.id
+    ? `aver:listening-library-scroll:v1:${user.id}:${listeningLibraryHref(programmePath, { filter })}` : null;
+  const rememberScroll = () => {
+    if (!scrollKey) return;
+    try { window.sessionStorage.setItem(scrollKey, String(window.scrollY)); } catch { /* navigation remains usable */ }
+  };
+  const setFilter = (next: Filter) => window.history.replaceState(null, '', listeningLibraryHref(programmePath, { filter: next }));
 
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');
@@ -103,7 +116,21 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
   const visible = useMemo(() => state.status === 'ready'
     ? state.lessons.filter((lesson) => filter === 'all' || lessonState(lesson) === filter)
     : [], [filter, state]);
-  const programmePath = programmeId === 'general-listening-practice' ? 'general' : 'ielts';
+  useEffect(() => {
+    if (state.status !== 'ready' || !scrollKey) return;
+    let savedTop: number | null = null;
+    try {
+      const raw = window.sessionStorage.getItem(scrollKey);
+      const top = Number(raw);
+      if (raw !== null && Number.isFinite(top) && top >= 0) savedTop = top;
+    } catch { /* scroll restoration is optional */ }
+    const frame = requestAnimationFrame(() => {
+      if (savedTop !== null) window.scrollTo({ top: savedTop, behavior: 'instant' });
+    });
+    window.addEventListener('scroll', rememberScroll, { passive: true });
+    window.addEventListener('pagehide', rememberScroll);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', rememberScroll); window.removeEventListener('pagehide', rememberScroll); };
+  }, [state.status, scrollKey]);
 
   return (
     <main className="shell listening-library">
@@ -113,6 +140,7 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
         <h1>{title}</h1>
         <p>{description}</p>
       </header>
+      {showIeltsModes ? <ListeningSourceEntry /> : null}
       <nav className="listening-filter" aria-label="Lọc bài học">
         {FILTERS.map(([value, label]) => (
           <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>
@@ -127,7 +155,7 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
         {visible.map((lesson) => {
           const statusValue = lessonState(lesson);
           const percent = lesson.formCount ? Math.round((lesson.completed / lesson.formCount) * 100) : 0;
-          return <a className="listening-lesson-card" href={`/listening/${programmePath}/${lesson.id}`} key={lesson.id}>
+          return <a className="listening-lesson-card" href={listeningLessonHref(programmePath, lesson.id, { filter })} onClick={rememberScroll} key={lesson.id}>
             <div className="listening-lesson-card__top"><span>Bài {lesson.sequence}</span><em data-state={statusValue}>{statusValue === 'completed' ? 'Đã xong' : statusValue === 'in_progress' ? 'Đang học' : 'Mới'}</em></div>
             <h2>{lesson.title}</h2>
             <p>{lesson.instructions || lesson.outcomes[0] || 'Luyện nghe theo nội dung và mục tiêu của bài.'}</p>

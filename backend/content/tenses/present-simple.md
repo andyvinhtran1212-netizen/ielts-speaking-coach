@@ -24,7 +24,7 @@ compare_with:
 - present-continuous
 order: 1
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-09-30
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -174,7 +174,7 @@ Thời gian biểu của tàu, máy bay, lớp học, sự kiện lặp lại.
 
 ### 4. Trạng thái và cảm xúc
 
-Với các động từ trạng thái (stative verbs) — những điều không thay đổi được dễ dàng.
+Với các động từ trạng thái (stative verbs), dùng Present Simple khi nói sở thích, niềm tin, nhận thức hoặc sở hữu nói chung. Chọn thì theo nghĩa và ngữ cảnh, không chỉ theo tên động từ.
 
 - I **love** Vietnamese food.
 - She **believes** in hard work.
@@ -222,7 +222,7 @@ Với các động từ trạng thái (stative verbs) — những điều không
 |---|---|---|
 | **Dùng cho** | Thói quen, sự thật, lịch trình | Hành động đang xảy ra, tạm thời |
 | **Dấu hiệu** | always, usually, every... | now, right now, currently |
-| **Stative verbs** | ✅ Dùng được | ❌ Không dùng |
+| **Stative verbs** | Thường dùng để nói trạng thái nói chung | Thường tránh; có ngoại lệ theo nghĩa và ngữ cảnh |
 | **Ví dụ** | I work here. | I'm working here (today). |
 | **Dùng "do/does"** | ✅ Có | ❌ Không |
 
@@ -290,27 +290,27 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 
 ### Chia động từ đúng (Present Simple)
 
-1. She _____ (go) to work by bus every day.
-2. Water _____ (freeze) at 0 degrees Celsius.
-3. They _____ (not/watch) TV on weekdays.
-4. _____ he _____ (like) Vietnamese coffee?
-5. The flight _____ (depart) at 10:30 PM.
-6. My sister _____ (work) as a teacher in Ho Chi Minh City.
-7. _____ you _____ (speak) English fluently?
+1. She `_____` (go) to work by bus every day.
+2. Water `_____` (freeze) at 0 degrees Celsius.
+3. They `_____` (not/watch) TV on weekdays.
+4. `_____` he `_____` (like) Vietnamese coffee?
+5. The flight `_____` (depart) at 10:30 PM.
+6. My sister `_____` (work) as a teacher in Ho Chi Minh City.
+7. `_____` you `_____` (speak) English fluently?
 
 ### Sửa lỗi
 
 1. He don't like spicy food.
 2. Does she goes to the gym?
 3. My brother work in District 7.
-4. I am loving coffee in the morning.
+4. I am loving coffee in the morning. (Diễn đạt sở thích/thói quen nói chung.)
 5. She doesn't go to school on Sunday — that are true.
 
 ### Viết câu hỏi dựa vào câu trả lời
 
-1. ____________? — Yes, I like reading books.
-2. ____________? — She works as a doctor.
-3. ____________? — They go to the beach every summer.
+1. `____________`? — Yes, I like reading books.
+2. `____________`? — She works as a doctor.
+3. `____________`? — They go to the beach every summer. (Hỏi nơi đến.)
 
 ## Đáp án
 
@@ -327,22 +327,24 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 1. He **doesn't like** spicy food. (doesn't + V nguyên thể)
 2. **Does** she **go** to the gym? (goes → go)
 3. My brother **works** in District 7. (thêm -s)
-4. I **love** coffee in the morning. (love không dùng continuous)
+4. I **love** coffee in the morning. (Nói sở thích/thói quen nói chung nên dùng Present Simple. Trong lời nói thân mật, "I'm loving this coffee!" có thể nhấn mạnh trải nghiệm hiện tại.)
 5. She **doesn't go** to school on Sunday — **that is** true. (doesn't go / is)
 
 **Câu hỏi:**
 1. Do you like reading books?
-2. What does she do? / Where does she work?
-3. Do they go to the beach every summer?
+2. What does she do? / What does she do for a living? (Hỏi nghề nghiệp; "as a doctor" không trả lời nơi làm việc.)
+3. Where do they go every summer? (Hỏi nơi đến; "to the beach" cung cấp địa điểm.)
 
 ## Tóm tắt nhanh
 
 | Cách dùng | Cấu trúc | Dấu hiệu | Ví dụ |
 |-----------|---------|----------|-------|
-| Thói quen | S + V-s/-es | always, usually, often, every... | I work every day. |
-| Sự thật | S + V-s/-es | — | Water boils at 100°C. |
-| Lịch trình | S + V-s/-es | on [day], at [time] | The meeting starts at 2 PM. |
-| Cảm xúc/trạng thái | S + V-s/-es | — | She loves music. |
+| Thói quen | I/you/we/they + V; he/she/it + V-s/-es | always, usually, often, every... | I work every day. |
+| Sự thật | I/you/we/they + V; he/she/it + V-s/-es | — | Water boils at 100°C. |
+| Lịch trình | I/you/we/they + V; he/she/it + V-s/-es | on [day], at [time] | The meeting starts at 2 PM. |
+| Cảm xúc/trạng thái | I/you/we/they + V; he/she/it + V-s/-es | — | She loves music. |
+
+Chủ ngữ ngôi thứ ba số ít như **water**, **the meeting** và **my sister** cũng theo nhóm **he/she/it**. Bảng này áp dụng cho động từ thường; **be** dùng **am/is/are**.
 
 **Quy tắc vàng:**
 1. **He/She/It + V-s/-es** — LUÔN nhớ thêm s

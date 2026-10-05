@@ -13,6 +13,16 @@ cooldown: 2
 shuffle_options: true
 words_count: 5
 source: "authored-2026-07"
+text_match_by_qid:
+  ps_3s_i2: exact
+  ps_3s_i3: exact
+  ps_dd_i2: exact
+  ps_dd_i3: exact
+  ps_truth_i2: exact
+  ps_truth_i3: exact
+  ps_adv_i2: exact
+  ps_adv_i3: exact
+  ps_vspc_i2: exact
 ---
 
 # ===== item_key 1 · Chia -s/-es với he/she/it (ngôi thứ ba số ít) =====
@@ -24,11 +34,11 @@ input: "choice"
 headword: "ps-third-person-s"
 skill: "form"
 subtype: "basic"
-prompt: "My brother ____ football every weekend."
+prompt: "Nêu thói quen hiện tại bằng Present Simple: My brother ____ football every weekend."
 options: ["play", "plays", "playing", "played"]
 answer: 1
 grammar_article_slug: "present-simple"
-explain: "Chủ ngữ ngôi thứ ba số ít (he/she/it, hoặc danh từ số ít như 'my brother') LUÔN thêm -s/-es ở câu khẳng định present simple."
+explain: "Theo yêu cầu Present Simple, my brother là ngôi thứ ba số ít nên dùng plays. Played có thể nêu thói quen quá khứ, nhưng không đáp ứng thì hiện tại được yêu cầu; every weekend không tự quyết định hiện tại hay quá khứ."
 ---
 
 ---
@@ -66,7 +76,7 @@ input: "text"
 headword: "ps-third-person-s"
 skill: "production"
 subtype: "intermediate"
-prompt: "This machine ____ (wash) up to ten kilograms of clothes at once."
+prompt: "Chia Present Simple: This machine ____ (wash) up to ten kilograms of clothes at once."
 accept: ["washes"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
@@ -80,7 +90,7 @@ input: "text"
 headword: "ps-third-person-s"
 skill: "production"
 subtype: "intermediate"
-prompt: "Our teacher always ____ (explain) grammar rules with real examples."
+prompt: "Chia Present Simple: Our teacher always ____ (explain) grammar rules with real examples."
 accept: ["explains"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
@@ -164,7 +174,7 @@ input: "text"
 headword: "ps-do-does"
 skill: "production"
 subtype: "intermediate"
-prompt: "My father ____ (not/drink) coffee in the evening because it keeps him awake."
+prompt: "Chia Present Simple: My father ____ (not/drink) coffee in the evening because it keeps him awake."
 accept: ["doesn't drink", "does not drink"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
@@ -178,7 +188,7 @@ input: "text"
 headword: "ps-do-does"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (you/believe) that online courses can replace traditional classrooms?"
+prompt: "Chia Present Simple: ____ (you/believe) that online courses can replace traditional classrooms?"
 accept: ["do you believe"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
@@ -220,11 +230,11 @@ input: "choice"
 headword: "ps-general-truth-habit"
 skill: "usage"
 subtype: "basic"
-prompt: "Water ____ at 100 degrees Celsius at sea level."
+prompt: "Nêu một sự thật khoa học chung ở hiện tại, thay vì một lần đun nước đang diễn ra: Water ____ at 100 degrees Celsius at sea level."
 options: ["boil", "boils", "is boiling", "boiled"]
 answer: 1
 grammar_article_slug: "present-simple"
-explain: "Sự thật khoa học luôn đúng → present simple: boils (chủ ngữ 'water' số ít)."
+explain: "Chọn boils để nêu sự thật chung; water số ít và động từ ở Present Simple. Is boiling có thể tả một lần nước đang sôi, nhưng không phải cách nhìn sự thật chung được yêu cầu."
 ---
 
 ---
@@ -252,7 +262,7 @@ prompt: "Please be quiet — the baby ____ right now."
 options: ["sleeps", "is sleeping", "sleep", "slept"]
 answer: 1
 grammar_article_slug: "present-simple"
-explain: "'right now' báo hiệu hành động đang diễn ra tại thời điểm nói → dùng Present Continuous (is sleeping), không dùng Present Simple."
+explain: "Trong ngữ cảnh xin giữ yên lặng vì em bé đang ngủ, chọn 'is sleeping' để trình bày hoạt động đang diễn ra. Right now là ngữ cảnh của câu này, không phải lệnh cấm mọi Present Simple có cụm right now."
 ---
 
 ---
@@ -262,7 +272,7 @@ input: "text"
 headword: "ps-general-truth-habit"
 skill: "production"
 subtype: "intermediate"
-prompt: "Many researchers ____ (argue) that regular exercise improves mental health."
+prompt: "Chia Present Simple: Many researchers ____ (argue) that regular exercise improves mental health."
 accept: ["argue"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
@@ -276,7 +286,7 @@ input: "text"
 headword: "ps-general-truth-habit"
 skill: "production"
 subtype: "intermediate"
-prompt: "The museum ____ (close) at 5 PM on weekdays, according to the schedule."
+prompt: "Chia Present Simple: The museum ____ (close) at 5 PM on weekdays, according to the schedule."
 accept: ["closes"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
@@ -290,10 +300,10 @@ input: "boolean"
 headword: "ps-general-truth-habit"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'I study right now, so please don't disturb me.'"
+prompt: "Đúng hay Sai: Người nói đang ở giữa buổi học ngay lúc phát ngôn và muốn nói rõ hoạt động đang diễn ra: 'I study right now, so please don't disturb me.' phù hợp với cách diễn đạt thông thường cho ý đó."
 answer: false
 grammar_article_slug: "present-simple"
-explain: "SAI — 'right now' đòi hỏi Present Continuous vì diễn tả hành động đang xảy ra. Sửa: 'I'm studying right now, so please don't disturb me.'"
+explain: "SAI với ý đang ở giữa một buổi học ngay lúc nói được nêu: 'I'm studying right now, so please don't disturb me' tự nhiên hơn. Không suy ra right now luôn bắt buộc continuous khi câu nói về vai trò, lịch trình hoặc cách nhìn khác."
 ---
 
 # ===== item_key 4 · Trạng từ tần suất (always/usually/often/never...) =====
@@ -333,11 +343,11 @@ input: "choice"
 headword: "ps-adverbs-frequency"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Public transport in this city ____ reliable, so many commuters rarely drive."
+prompt: "Chọn trật tự trạng từ ở vị trí giữa câu thông thường trong lời kể trung tính, không nhấn mạnh be: Public transport in this city ____ reliable, so many commuters rarely drive."
 options: ["is usually", "usually is", "usually", "be usually"]
 answer: 0
 grammar_article_slug: "present-simple"
-explain: "Với động từ 'to be' (is), trạng từ tần suất đứng SAU be: is usually reliable."
+explain: "Chọn 'is usually' cho cách kể trung tính. 'Usually is' có thể dùng khi nhấn mạnh is; không đánh nó sai ngữ pháp trong mọi ngữ cảnh. Usually một mình hoặc be usually không tạo động từ hữu hạn phù hợp ở đây."
 ---
 
 ---
@@ -347,7 +357,7 @@ input: "text"
 headword: "ps-adverbs-frequency"
 skill: "production"
 subtype: "intermediate"
-prompt: "Employees at this company ____ (often/work) overtime during the year-end period."
+prompt: "Chia Present Simple: Employees at this company ____ (often/work) overtime during the year-end period."
 accept: ["often work"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
@@ -361,11 +371,11 @@ input: "text"
 headword: "ps-adverbs-frequency"
 skill: "production"
 subtype: "intermediate"
-prompt: "He ____ (rarely/be) late for meetings — punctuality matters a lot to him."
+prompt: "Chia Present Simple và đặt rarely ở vị trí giữa câu thông thường, với cách nói trung tính không nhấn mạnh be: He ____ (rarely / be) late for meetings — punctuality matters a lot to him."
 accept: ["is rarely"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
-explain: "Với 'be', trạng từ tần suất đứng sau: is rarely late."
+explain: "Theo yêu cầu vị trí giữa câu trung tính, dùng 'is rarely'. Khi nhấn mạnh be, 'rarely is' cũng có thể dùng; dạng đó không đáp ứng cách nói trung tính được yêu cầu, không phải lỗi ngữ pháp trong mọi ngữ cảnh."
 ---
 
 ---
@@ -375,10 +385,10 @@ input: "boolean"
 headword: "ps-adverbs-frequency"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'I always am tired after a long shift at the hospital.'"
-answer: false
+prompt: "Đúng hay Sai: Đáp lại người nghi ngờ mình có thực sự mệt hay không, người nói nhấn mạnh AM trong 'I always AM tired after a long shift at the hospital.' Cách đặt always trước be có thể dùng trong cách nhấn mạnh này."
+answer: true
 grammar_article_slug: "present-simple"
-explain: "SAI — trạng từ tần suất phải đứng SAU 'be', không phải trước. Sửa: 'I am always tired after a long shift at the hospital.'"
+explain: "ĐÚNG — khi be được nhấn mạnh, trạng từ tần suất có thể đứng trước be: always AM. Cách nói trung tính thường là 'I am always tired'; không bắt buộc sửa trật tự của lời đáp có nhấn mạnh này."
 ---
 
 # ===== item_key 5 · Present Simple vs Present Continuous (tương phản) =====
@@ -394,7 +404,7 @@ prompt: "Look! The bus ____ — hurry up!"
 options: ["comes", "is coming", "come", "came"]
 answer: 1
 grammar_article_slug: "present-simple"
-explain: "'Look!' báo hiệu hành động đang xảy ra ngay lúc nói → Present Continuous: is coming, không phải Present Simple."
+explain: "Chọn 'is coming' cho chiếc xe đang tới trong tình huống người nói chỉ cho người nghe nhìn và giục nhanh lên. Không biến Look thành một từ khóa buộc mọi câu sau nó dùng continuous bất kể ý nghĩa."
 ---
 
 ---
@@ -404,11 +414,11 @@ input: "choice"
 headword: "ps-vs-present-continuous"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "Normally I ____ from home, but this month I ____ at the office because of a big project."
+prompt: "Chọn cặp thể hiện thói quen thông thường bằng Present Simple và giai đoạn làm tại văn phòng tạm thời đang diễn ra bằng Present Continuous: Normally I ____ from home, but this month I ____ at the office because of a big project."
 options: ["work / am working", "am working / work", "work / work", "am working / am working"]
 answer: 0
 grammar_article_slug: "present-simple"
-explain: "'Normally' (thói quen chung) → present simple: work. 'This month' (tình huống tạm thời) → present continuous: am working."
+explain: "Chọn 'work / am working' cho hai góc nhìn được yêu cầu. 'Work / work' có thể trình bày cả hai sự việc như nhận định đơn ở ngữ cảnh khác; this month không tự làm Present Simple sai."
 ---
 
 ---
@@ -418,7 +428,7 @@ input: "text"
 headword: "ps-vs-present-continuous"
 skill: "production"
 subtype: "intermediate"
-prompt: "She usually ____ (not/eat) breakfast, but today she is having a big meal before her exam."
+prompt: "Chia Present Simple: She usually ____ (not/eat) breakfast, but today she is having a big meal before her exam."
 accept: ["doesn't eat", "does not eat"]
 case_sensitive: false
 grammar_article_slug: "present-simple"
@@ -432,10 +442,10 @@ input: "boolean"
 headword: "ps-vs-present-continuous"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'I love this song — I'm loving it every time I hear it.'"
-answer: false
+prompt: "Đúng hay Sai: 'I'm loving this holiday!' có thể diễn tả trải nghiệm đang rất thích thú, dù 'love' thường được xếp là stative verb."
+answer: true
 grammar_article_slug: "present-simple"
-explain: "SAI — 'love' là stative verb (động từ trạng thái), không dùng continuous. Sửa: 'I love this song — I love it every time I hear it.'"
+explain: "ĐÚNG — Present Simple thường dùng cho sở thích ổn định ('I love this song'), còn 'I'm loving this holiday!' nhấn mạnh trải nghiệm rất thích thú hiện tại, nhất là trong văn phong thân mật. Không cấm continuous chỉ dựa vào nhãn stative."
 ---
 
 ---
@@ -445,8 +455,8 @@ input: "boolean"
 headword: "ps-vs-present-continuous"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'She's studying medicine at university, but right now she's studying for a chemistry test.'"
-answer: false
+prompt: "Đúng hay Sai: Cô ấy đang theo học một khóa y khoa có thời hạn tại đại học; ngay lúc nói cô ấy đang ôn cho một bài kiểm tra: 'She's studying medicine at university, but right now she's studying for a chemistry test.' Hai cách dùng studying có thể phù hợp trong bối cảnh này."
+answer: true
 grammar_article_slug: "present-simple"
-explain: "SAI — 'studying medicine' diễn tả chuyên ngành/việc lâu dài của cô ấy nên phải dùng Present Simple: 'studies'. 'studying for a test' (đang diễn ra ngay lúc nói) mới đúng khi dùng Present Continuous. Sửa: 'She studies medicine at university, but right now she's studying for a chemistry test.'"
+explain: "ĐÚNG — studying medicine có thể nói về khóa học đang theo đuổi trong giai đoạn hiện tại, dù khóa kéo dài nhiều năm; studying for a chemistry test nói về việc ôn đang diễn ra ngay lúc nói. Một hoạt động dài không tự bắt buộc dùng Present Simple."
 ---

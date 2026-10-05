@@ -35,6 +35,16 @@ from fastapi import (
 from pydantic import BaseModel, ConfigDict, Field
 
 from config import settings
+from models.dictation_grading import (
+    DictationAttemptStartResponse, DictationCapabilities, DictationGrade,
+    DictationPolicyErrorResponse, DictationResumeResponse, DictationSentenceGrade,
+    DictationSessionResponse, DictationStoredSessionResponse,
+)
+from services.dictation_grading_version import (
+    DictationPolicyError, LEGACY_POLICY_VERSION, LEXICAL_POLICY_VERSION,
+    frozen_contract, grade_frozen_sentence, persisted_policy_identity, reference_sha256,
+    require_write_contract, session_contract, text_sha256, validate_new_lexical_source,
+)
 from database import supabase_admin
 from services.core_attempt_observation import (
     admit_start, bind_owned_attempt, note_abandoned_dictation_attempt, note_abandoned_exam_attempts, note_persisted_exam_result, observe_operation,
@@ -50,6 +60,15 @@ from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
 from services.pg_search import ilike_or_filter
+from services.dictation_trends import classify_trends
+from models.listening_dictation import (
+    AdminDictationReportDetailResponse, AdminDictationReportListResponse,
+    DictationAggregateResponse,
+)
+from models.admin_listening_attempts import (
+    AdminListeningAttemptDetailResponse,
+    AdminListeningAttemptListResponse,
+)
 from services.listening_grader import (
     aggregate_dictation_report,
     grade_dictation,
@@ -67,6 +86,7 @@ from services.active_player_lifecycle import (
     require_resume_active,
     resume_expires_at,
 )
+from models.listening_source_collection import SOURCE_PROGRAMME, SOURCE_CONTRACT
 from models.listening_programmes import (
     ListeningAttemptReviewResponse,
     ListeningGuidedStateResponse,
@@ -1071,6 +1091,8 @@ def _grade_and_save_dictation(
         "total_words":      graded["total_words"],
         "is_correct":       graded["is_correct"],
         "diff":             graded["diff"],
+        "grading_version":  LEGACY_POLICY_VERSION,
+        "sentence_reference_sha256": text_sha256(reference_transcript),
     }
 
 
@@ -1754,6 +1776,14 @@ async def admin_upsert_listening_exercise(
     ):
         validated_payload = dict(current_exercise.get("payload") or {})
 
+    from services.mock_response_policy import authored_response_policies, ResponsePolicyError
+    from services.listening_test_grader import collect_answer_key
+    try:
+        policies = authored_response_policies("listening", [{"payload": validated_payload}])
+        collect_answer_key([{"payload": validated_payload}], pinned_policies=policies)
+    except ResponsePolicyError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
     payload = {
         "content_id":    body.content_id,
         "exercise_type": body.exercise_type,
@@ -2278,6 +2308,7 @@ async def admin_list_listening_tests(
         supabase_admin.table("listening_tests")
         .select("*", count="exact")
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
     if test_type == "exam":
@@ -2290,6 +2321,9 @@ async def admin_list_listening_tests(
         q = q.ilike("test_id", f"%{search.strip()}%")
 
     res = q.execute()
+    total = getattr(res, "count", None)
+    if not isinstance(total, int) or isinstance(total, bool) or total < 0:
+        raise HTTPException(503, "Không xác định được tổng số đề Listening. Vui lòng tải lại.")
     items = res.data or []
 
     # Annotate each test with audio-readiness counts. One round-trip per
@@ -2318,7 +2352,7 @@ async def admin_list_listening_tests(
 
     return {
         "items":  items,
-        "total":  getattr(res, "count", None) or 0,
+        "total":  total,
         "limit":  limit,
         "offset": offset,
     }
@@ -2435,10 +2469,11 @@ async def admin_patch_listening_test(
 ):
     """Update editable metadata fields on a listening_tests row.
 
-    Allow-list: test_id, title, version, band_target, accent_profile,
-    themes. Only keys present in the request body land in the UPDATE.
+    Metadata-only requests retain the existing field allow-list. Requests
+    containing visibility fields use the serialized policy writer; mixed
+    metadata/policy requests are rejected atomically by its policy allow-list.
     """
-    await require_admin(authorization)
+    actor = await require_admin(authorization)
 
     existing = (
         supabase_admin.table("listening_tests")
@@ -2477,19 +2512,10 @@ async def admin_patch_listening_test(
         update["title"] = title
 
     if body.exam_only is not None:
-        if not body.exam_only:
-            from services import mock_exam_service
-            try:
-                mock_exam_service.assert_can_unreserve("listening", test_id)
-            except mock_exam_service.SittingConflictError as e:
-                raise HTTPException(409, str(e))
-            except mock_exam_service.MockExamError as e:
-                raise HTTPException(503, str(e))
         update["exam_only"] = bool(body.exam_only)
 
     if body.is_public is not None:
         update["is_public"] = bool(body.is_public)
-        update["exam_only"] = False
 
     if body.version is not None:
         update["version"] = body.version.strip() or "1.0"
@@ -2511,6 +2537,13 @@ async def admin_patch_listening_test(
 
     if not update:
         return current
+
+    if "exam_only" in update or "is_public" in update:
+        from services.mock_paper_policy import mutate, unavailable
+        if not isinstance(current.get("policy_revision"), int):
+            raise unavailable("policy_update", "listening", test_id)
+        return mutate(supabase_admin, "listening", test_id, update, actor["id"],
+                      expected_revision=current["policy_revision"])
 
     res = (
         supabase_admin.table("listening_tests")
@@ -4775,6 +4808,8 @@ class _ListeningAttemptStartRequest(BaseModel):
     """
 
     renderer_affinity_protocol: Literal["claim-v1"] | None = None
+    purpose: Literal["practice", "assigned_practice", "mock_delivery"] | None = None
+    mock_sitting_id: uuid.UUID | None = None
 
 
 class _ListeningAttemptRendererAffinityRequest(BaseModel):
@@ -4900,6 +4935,7 @@ def _published_content_ids() -> list[str]:
 
 
 _PROGRAMME_COPY = {
+    SOURCE_PROGRAMME: {"title": "80 ngày luyện Listening", "description": "Bài luyện và tài liệu nguồn theo 80 ngày; không tính band IELTS."},
     "general-listening-practice": {
         "title": "General Listening",
         "description": "Luyện nghe theo bài học, tình huống và mục tiêu cụ thể.",
@@ -4910,6 +4946,7 @@ _PROGRAMME_COPY = {
     },
 }
 _PROGRAMME_ORDER = {
+    SOURCE_PROGRAMME: 2,
     "general-listening-practice": 0,
     "ielts-listening-practice": 1,
 }
@@ -5028,7 +5065,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
             .execute().data or []
         )
         tests = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select(
                 "id,title,programme_id,listening_lesson_id,source_item_count,created_at"
             )
@@ -5161,7 +5198,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     tests: dict[str, int] = {}
     for kind in ("full", "mini", "drill", "practice"):
         q = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select("id", count="exact")
             .eq("status", "published")
             .eq("test_type", kind)
@@ -5204,7 +5241,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     practice_groups: dict[str, int] = {}
     if tests.get("practice"):
         pgq = (
-            supabase_admin.table("listening_tests")
+            supabase_admin.table("listening_public_practice_catalog")
             .select("metadata")
             .eq("status", "published")
             .eq("test_type", "practice")
@@ -5260,7 +5297,7 @@ async def list_listening_programme_lessons(
     all_lessons = lessons_response.data or []
     lesson_ids = [str(row["id"]) for row in all_lessons]
     forms = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select("id,listening_lesson_id")
         .eq("programme_id", programme_id)
         .eq("status", "published")
@@ -5336,7 +5373,7 @@ async def get_listening_programme_lesson(
         raise HTTPException(404, "Listening lesson not found")
     lesson = rows[0]
     forms = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select(
             "id,test_id,source_form_id,title,form_purpose,replay_policy,"
             "support_policy,scoring_policy,source_item_count,"
@@ -5469,7 +5506,7 @@ async def list_published_listening_tests(
         raise HTTPException(422, "programme_id is not supported")
 
     q = (
-        supabase_admin.table("listening_tests")
+        supabase_admin.table("listening_public_practice_catalog")
         .select("*", count="exact")
         .eq("status", "published")
         # Audio-readiness is filtered in SQL, BEFORE .range(). It used to be a
@@ -5593,8 +5630,9 @@ def _listening_test_is_public(test: dict) -> bool:
 
 
 def _assert_listening_exam_content_allowed(
-    test: dict, user_id, class_item: str | None = None, *, allow_public: bool = True
-) -> None:
+    test: dict, user_id, class_item: str | None = None, *, allow_public: bool = True,
+    purpose="delivery", sitting_id=None, allow_admission=False
+) -> dict:
     """A test reserved for mock exams is served ONLY to a student sitting one.
 
     Hiding it from the browse list is not enough — a direct link went straight
@@ -5606,24 +5644,13 @@ def _assert_listening_exam_content_allowed(
     404, not 403: to anyone without a sitting the paper does not exist, and
     "forbidden" would confirm the test id is real.
     """
-    if _listening_test_is_public(test):
-        return
-    from services import mock_correction_service
-    # public_practice_enabled is deploy-order compatibility only. Once the
-    # canonical column is present, an explicit is_public=false must win.
-    if (allow_public and "is_public" not in test
-            and test.get("public_practice_enabled")):
-        return
-    if mock_correction_service.class_item_entitles_exam_only(
-        user_id, class_item, skill="listening", test_id=test.get("id")
-    ):
-        return
-    from services import mock_exam_service
-    if not mock_exam_service.user_may_open_exam_content(user_id, "listening", test.get("id")):
-        raise HTTPException(404, "Test bundle not found or not published")
+    from services.mock_paper_policy import authorize
+    return authorize(supabase_admin, "listening", test["id"], user_id,
+        purpose=purpose if allow_public else "dictation", class_item_id=class_item,
+        sitting_id=sitting_id, allow_admission=allow_admission)
 
 
-def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True) -> dict:
+def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True, snapshot=None) -> dict:
     """Build the student-safe player contract for public and admin preview."""
     from services import listening_test_grader as grader
 
@@ -5636,22 +5663,40 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
         if not audio_url:
             raise HTTPException(422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.")
 
-    section_rows = (
-        supabase_admin.table("listening_content")
-        .select("id,section_num,title,transcript,metadata")
-        .eq("test_id", test_id).order("section_num").execute().data or []
-    )
-    section_ids = [section["id"] for section in section_rows]
-    exercises_res = (
-        supabase_admin.table("listening_exercises")
-        .select("id,content_id,exercise_type,payload,order_num")
-        .in_("content_id", section_ids).order("order_num").execute()
-        if section_ids else None
-    )
-    exercises = grader.strip_answer_keys([
-        exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
-        if not _is_standalone_authoring_exercise(exercise)
-    ])
+    if snapshot is not None:
+        from services.mock_player_context import listening_snapshot_sources
+        section_rows, raw_exercises = listening_snapshot_sources(snapshot)
+        raw_exercises = [exercise for exercise in raw_exercises if not _is_standalone_authoring_exercise(exercise)]
+    else:
+        section_rows = (
+            supabase_admin.table("listening_content")
+            .select("id,section_num,title,transcript,metadata")
+            .eq("test_id", test_id).order("section_num").execute().data or []
+        )
+        section_ids = [section["id"] for section in section_rows]
+        exercises_res = (
+            supabase_admin.table("listening_exercises")
+            .select("id,content_id,exercise_type,payload,order_num")
+            .in_("content_id", section_ids).order("order_num").execute()
+            if section_ids else None
+        )
+        raw_exercises = [exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
+                         if not _is_standalone_authoring_exercise(exercise)]
+    source_required = test.get("programme_id") == SOURCE_PROGRAMME
+    if source_required and (not raw_exercises or any((exercise.get("payload") or {}).get("source_contract") != SOURCE_CONTRACT for exercise in raw_exercises)):
+        raise HTTPException(503, "Hợp đồng nội dung nguồn chưa hợp lệ.")
+    from services.mock_player_context import without_private_marking
+    exercises = grader.strip_answer_keys(without_private_marking(raw_exercises))
+    source_fields = {}
+    if source_required:
+        from services.listening_source_collection import sign_source_block
+        for exercise in exercises:
+            payload = exercise["payload"]
+            payload["source_blocks"] = [sign_source_block(block, _sign_programme_visual_url) for block in payload.get("source_blocks") or []]
+            source_fields = {"source_collection_id": "80-days", "source_day": payload.get("source_day"),
+                "source_part_label": payload.get("source_part_label"), "audio_granularity": (test.get("metadata") or {}).get("timing_granularity", "whole_day"),
+                "source_blocks": payload["source_blocks"]}
+
     for exercise in exercises:
         payload = exercise.get("payload") or {}
         if payload.get("variant") == "programme_form_v1":
@@ -5730,6 +5775,7 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
             "exercises": by_content.get(section["id"], []),
         })
     return {
+        **source_fields,
         "id": test["id"],
         "test_id": test.get("test_id"),
         "title": test.get("title"),
@@ -5773,6 +5819,7 @@ async def get_published_listening_test(
     test_id: uuid.UUID,
     class_item: str | None = None,
     attempt_id: uuid.UUID | None = None,
+    sitting_id: uuid.UUID | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a published test bundle for the student player.
@@ -5797,19 +5844,29 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
-    _assert_listening_exam_content_allowed(test, _user.get("id"), class_item)
+    decision = _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
+    from services.mock_paper_policy import owned_delivery_snapshot, attempt_receipt
+    attempt, snapshot = owned_delivery_snapshot(supabase_admin, "listening", test_id, _user["id"], decision,
+                                               attempt_id=attempt_id)
+    if snapshot is not None:
+        test = snapshot["paper_row"]
     include_audio = True
     if test.get("replay_policy") == "once":
         if attempt_id is None:
             raise HTTPException(409, "Bài nghe một lượt cần một attempt đang hoạt động.")
-        attempt = _fetch_attempt_or_404(str(attempt_id), _user["id"])
+        attempt = attempt or _fetch_attempt_or_404(str(attempt_id), _user["id"])
         if str(attempt.get("test_id")) != test_id:
             raise HTTPException(422, "Attempt không thuộc bài nghe này.")
         if attempt.get("status") != "in_progress":
             raise HTTPException(422, "Attempt không còn hoạt động.")
         require_resume_active(attempt)
         include_audio = not bool(attempt.get("playback_started_at"))
-    return _assemble_listening_player_payload(test, include_audio=include_audio)
+    payload = _assemble_listening_player_payload(test, include_audio=include_audio, snapshot=snapshot)
+    if attempt is not None:
+        from services.mock_attempt_flags import review_flag_state
+        payload.update(attempt_receipt(attempt))
+        payload.update(review_flag_state(supabase_admin, "listening", attempt))
+    return payload
 
 
 # ── Test-linked dictation (chép chính tả) ────────────────────────────
@@ -5942,9 +5999,10 @@ class ListeningTestDictationGradeRequest(BaseModel):
     section_num:     int
     sentence_idx:    int = Field(ge=0)
     user_transcript: str = Field(default="", max_length=10_000)
+    grading_version: Literal["legacy-whitespace-v1"] | None = None
 
 
-@user_router.post("/tests/dictation/grade")
+@user_router.post("/tests/dictation/grade", response_model=DictationGrade, response_model_exclude_unset=True)
 async def grade_listening_test_dictation(
     body: ListeningTestDictationGradeRequest,
     authorization: str | None = Header(default=None),
@@ -5986,11 +6044,14 @@ async def grade_listening_test_dictation(
             f"(section có {len(units)} câu).",
         )
 
-    return grade_dictation(
+    grade = grade_dictation(
         reference_transcript=units[body.sentence_idx]["text"],
         user_transcript=body.user_transcript,
         ignore_fillers=True,   # don't penalise missed hesitations (um / er / oh)
     )
+    return {**grade, "grading_version": LEGACY_POLICY_VERSION,
+            "reference_sha256": None,
+            "sentence_reference_sha256": text_sha256(units[body.sentence_idx]["text"])}
 
 
 # ── Dictation completion report (persisted) + content flags ──────────
@@ -6031,12 +6092,15 @@ class DictationSentenceSubmit(BaseModel):
 
 class DictationAttemptStartRequest(BaseModel):
     renderer_affinity_protocol: Literal["claim-v1"] | None = None
+    grading_version: Literal["legacy-whitespace-v1", "lexical-v2"] | None = None
 
 
 class DictationAttemptAnswerRequest(BaseModel):
     user_transcript: str = Field(default="", max_length=10_000)
     listen_count:    int = Field(default=0, ge=0)
     time_seconds:    int | None = Field(default=None, ge=0)
+    grading_version: Literal["legacy-whitespace-v1", "lexical-v2"] | None = None
+    reference_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class DictationAttemptRendererAffinityRequest(BaseModel):
@@ -6051,11 +6115,37 @@ class DictationSessionRequest(BaseModel):
     started_at:         str | None = None
     total_time_seconds: int | None = Field(default=None, ge=0)
     sentences:          list[DictationSentenceSubmit] = Field(default_factory=list, max_length=200)
+    grading_version: Literal["legacy-whitespace-v1", "lexical-v2"] | None = None
+    reference_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+_DICTATION_POLICY_ERRORS = {code: {"model": DictationPolicyErrorResponse}
+                            for code in (409, 422, 503)}
+
+
+def _dictation_policy(action, *args, **kwargs):
+    try:
+        return action(*args, **kwargs)
+    except DictationPolicyError as exc:
+        raise HTTPException(exc.status_code, {"error_code": exc.code, "message": exc.message}) from None
+
+
+@user_router.get("/tests/dictation/capabilities", response_model=DictationCapabilities)
+async def dictation_grading_capabilities(authorization: str | None = Header(default=None)):
+    await _require_auth(authorization)
+    return {"new_start_versions": [LEGACY_POLICY_VERSION] + (
+        [LEXICAL_POLICY_VERSION] if settings.DICTATION_LEXICAL_V2_ENABLED else []),
+        "readable_versions": [LEGACY_POLICY_VERSION, LEXICAL_POLICY_VERSION]}
 
 
 def _dictation_submission_fingerprint(body: DictationSessionRequest) -> str:
     """Bind an idempotency key to one exact canonical submission payload."""
-    payload = body.model_dump(mode="json", exclude={"client_request_id"})
+    exclude = {"client_request_id"}
+    if body.grading_version != LEXICAL_POLICY_VERSION:
+        # Old receipts must keep their exact byte identity, including explicit
+        # legacy ACKs added by a new consumer. No historical fingerprint rewrite.
+        exclude.update({"grading_version", "reference_sha256"})
+    payload = body.model_dump(mode="json", exclude=exclude)
     canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -6063,6 +6153,7 @@ def _dictation_submission_fingerprint(body: DictationSessionRequest) -> str:
 def _dictation_session_response(row: dict, test_title: str | None = None) -> dict:
     """Return the stable completion contract from a persisted canonical row."""
     return {
+        **_dictation_policy(session_contract, row),
         "session_id":         row.get("id"),
         "attempt_id":         row.get("attempt_id"),
         "client_request_id":  row.get("client_request_id"),
@@ -6110,7 +6201,19 @@ def _dictation_attempt_answers(attempt_id: str) -> list[dict]:
 
 
 def _dictation_attempt_response(row: dict) -> dict:
+    contract = _dictation_policy(frozen_contract, row)
+    answers = []
+    for answer in _dictation_attempt_answers(str(row.get("id"))):
+        version = (LEGACY_POLICY_VERSION if answer.get("grading_version") is None
+                   else answer["grading_version"])
+        if version != contract["grading_version"] or (
+                version == LEXICAL_POLICY_VERSION
+                and answer.get("reference_sha256") != contract["reference_sha256"]):
+            raise HTTPException(503, {"error_code": "dictation_policy_evidence_unavailable",
+                                     "message": "Chính sách của câu đã lưu chưa khớp lượt Dictation."})
+        answers.append({**answer, "grading_version": version})
     return {
+        **contract,
         "attempt_id": row.get("id"),
         "test_id": row.get("test_id"),
         "section_num": row.get("section_num"),
@@ -6119,7 +6222,7 @@ def _dictation_attempt_response(row: dict) -> dict:
         "started_at": row.get("started_at") or row.get("created_at"),
         "resume_expires_at": row.get("resume_expires_at"),
         "units": row.get("units_snapshot") or [],
-        "answers": _dictation_attempt_answers(str(row.get("id"))),
+        "answers": answers,
     }
 
 
@@ -6169,7 +6272,8 @@ def _dictation_section_units_snapshot(test_id: str, section_num: int) -> list[di
     ]
 
 
-@user_router.get("/tests/{test_id}/dictation/attempts/in-progress")
+@user_router.get("/tests/{test_id}/dictation/attempts/in-progress", response_model=DictationResumeResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 async def get_in_progress_dictation_attempt(
     test_id: str,
     section_num: int = Query(ge=1),
@@ -6181,7 +6285,8 @@ async def get_in_progress_dictation_attempt(
     return {"attempt": _dictation_attempt_response(row) if row else None}
 
 
-@user_router.post("/tests/{test_id}/dictation/attempts")
+@user_router.post("/tests/{test_id}/dictation/attempts", response_model=DictationAttemptStartResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 @observe_operation("listening_dictation", "start", correlate_by=("test_id", "section_num", "body"))
 async def start_dictation_attempt(
     test_id: str,
@@ -6198,6 +6303,17 @@ async def start_dictation_attempt(
     if previous and is_resume_active(previous):
         bind_owned_attempt(previous)
         return {**_dictation_attempt_response(previous), "created": False}
+    requested_version = body.grading_version if body else None
+    if requested_version == LEXICAL_POLICY_VERSION and not settings.DICTATION_LEXICAL_V2_ENABLED:
+        raise HTTPException(503, {"error_code": "dictation_new_policy_disabled",
+                                 "message": "Chính sách chấm từ mới chưa được mở cho lượt mới."})
+    # V2 author/content gates run before retiring an expired parent or any
+    # write. Default legacy retains its deployed retirement/error ordering.
+    units_snapshot = None
+    frozen_hash = None
+    if requested_version == LEXICAL_POLICY_VERSION:
+        units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
+        frozen_hash = _dictation_policy(validate_new_lexical_source, units_snapshot)
     admit_start()
     if previous:
         # Preserve every answer row, but retire the expired parent from the
@@ -6218,7 +6334,10 @@ async def start_dictation_attempt(
                 user_id=user["id"], section_num=section_num,
             )
 
-    units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
+    if units_snapshot is None:
+        units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
+        if requested_version:
+            frozen_hash = _dictation_policy(reference_sha256, units_snapshot)
     now = datetime.now(timezone.utc).isoformat()
     expires_at = resume_expires_at(now)
     attempt_id = str(uuid.uuid4())
@@ -6234,6 +6353,8 @@ async def start_dictation_attempt(
         "created_at": now,
         "updated_at": now,
     }
+    if requested_version:
+        payload.update(grading_version=requested_version, reference_sha256=frozen_hash)
     affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
     if affinity_aware:
         payload["renderer_affinity"] = None
@@ -6290,7 +6411,9 @@ async def claim_dictation_attempt_renderer_affinity(
     return {"attempt_id": str(attempt_id), "renderer_affinity": affinity}
 
 
-@user_router.post("/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}")
+@user_router.post("/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}",
+                 response_model=DictationSentenceGrade, response_model_exclude_unset=True,
+                 responses=_DICTATION_POLICY_ERRORS)
 @observe_operation("listening_dictation", "save", correlate_by=("attempt_id", "sentence_idx", "body"))
 async def grade_and_save_dictation_attempt_sentence(
     attempt_id: uuid.UUID,
@@ -6312,11 +6435,8 @@ async def grade_and_save_dictation_attempt_sentence(
         raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
     if sentence_idx >= len(units):
         raise HTTPException(422, f"sentence_idx {sentence_idx} ngoài phạm vi.")
-    grade = grade_dictation(
-        reference_transcript=units[sentence_idx]["text"],
-        user_transcript=body.user_transcript,
-        ignore_fillers=True,
-    )
+    grade = _dictation_policy(grade_frozen_sentence, attempt, sentence_idx, body.user_transcript,
+        grading_version=body.grading_version, acknowledged_reference_sha256=body.reference_sha256)
     now = datetime.now(timezone.utc).isoformat()
     row = {
         "attempt_id": str(attempt_id),
@@ -6330,6 +6450,9 @@ async def grade_and_save_dictation_attempt_sentence(
         "time_seconds": body.time_seconds,
         "updated_at": now,
     }
+    if grade["grading_version"] == LEXICAL_POLICY_VERSION:
+        row.update(grading_version=LEXICAL_POLICY_VERSION, reference_sha256=grade["reference_sha256"],
+                   sentence_reference_sha256=grade["sentence_reference_sha256"], grading_evidence=grade)
     try:
         supabase_admin.table("dictation_attempt_answers").upsert(
             row, on_conflict="attempt_id,sentence_idx",
@@ -6371,6 +6494,14 @@ def _assert_dictation_request_replay(
     body: DictationSessionRequest,
     fingerprint: str,
 ) -> None:
+    # Even a pre-fingerprint receipt cannot accept an old-client write to v2.
+    contract = _dictation_policy(session_contract, row)
+    _dictation_policy(require_write_contract, {
+        **contract, "grading_version": row.get("grading_version"),
+        "units_snapshot": [{"text": item["reference"]} for item in sorted(
+            row.get("results") or [], key=lambda item: item.get("sentence_idx", -1))]
+        if contract["reference_sha256"] else None,
+    }, grading_version=body.grading_version, acknowledged_reference_sha256=body.reference_sha256)
     if row.get("test_id") != body.test_id or row.get("section_num") != body.section_num:
         raise HTTPException(409, "Mã gửi lại đã được dùng cho một bài chép chính tả khác.")
     if body.attempt_id and row.get("attempt_id") != str(body.attempt_id):
@@ -6429,7 +6560,8 @@ def _mark_dictation_attempt_completed(row: dict, user_id: str) -> None:
         raise HTTPException(500, "Kết quả đã ghi nhưng chưa đóng được lượt làm bài; hãy thử xác nhận lại.")
 
 
-@user_router.post("/tests/dictation/session")
+@user_router.post("/tests/dictation/session", response_model=DictationSessionResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 @observe_operation("listening_dictation", "submit", correlate_by=("body",))
 async def submit_listening_dictation_session(
     body: DictationSessionRequest,
@@ -6470,7 +6602,12 @@ async def submit_listening_dictation_session(
         bind_owned_attempt(attempt)
         if attempt.get("status") != "in_progress":
             raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
+        _dictation_policy(require_write_contract, attempt, grading_version=body.grading_version,
+                          acknowledged_reference_sha256=body.reference_sha256)
         _assert_dictation_attempt_submission(attempt, body)
+    elif body.grading_version == LEXICAL_POLICY_VERSION or body.reference_sha256 is not None:
+        raise HTTPException(409, {"error_code": "dictation_versioned_attempt_required",
+                                 "message": "Chính sách mới cần một lượt Dictation đã lưu; hãy tải lại."})
 
     test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
@@ -6498,8 +6635,10 @@ async def submit_listening_dictation_session(
     results: list[dict] = []
     for s in body.sentences:
         reference = units[s.sentence_idx]["text"]
-        g = grade_dictation(reference_transcript=reference,
-                            user_transcript=s.user_transcript, ignore_fillers=True)
+        g = (_dictation_policy(grade_frozen_sentence, attempt, s.sentence_idx, s.user_transcript,
+             grading_version=body.grading_version, acknowledged_reference_sha256=body.reference_sha256)
+             if attempt else grade_dictation(reference_transcript=reference,
+                                             user_transcript=s.user_transcript, ignore_fillers=True))
         graded.append(g)
         ops = {"miss": 0, "wrong": 0, "extra": 0}
         for op in g["diff"]:
@@ -6517,6 +6656,10 @@ async def submit_listening_dictation_session(
             "time_seconds":  s.time_seconds,
             "ops":           ops,
         })
+        if g.get("grading_version") == LEXICAL_POLICY_VERSION:
+            results[-1].update(grading_version=LEXICAL_POLICY_VERSION,
+                reference_sha256=g["reference_sha256"], sentence_reference_sha256=g["sentence_reference_sha256"],
+                grading_evidence=g)
 
     report = aggregate_dictation_report(graded)
     session_id = str(uuid.uuid4())
@@ -6539,6 +6682,8 @@ async def submit_listening_dictation_session(
         "started_at":         body.started_at,
         "completed_at":       datetime.now(timezone.utc).isoformat(),
     }
+    if attempt and attempt.get("grading_version"):
+        row.update(grading_version=attempt["grading_version"], reference_sha256=attempt.get("reference_sha256"))
     # Preserve the legacy no-receipt write shape during a migration-first
     # rollout: old clients keep working even if code reaches an instance before
     # migration 210, while the dark Next route remains gated until schema-ready.
@@ -6574,7 +6719,8 @@ async def submit_listening_dictation_session(
     return _dictation_session_response(row, test.get("title"))
 
 
-@user_router.get("/tests/dictation/session/by-request/{client_request_id}")
+@user_router.get("/tests/dictation/session/by-request/{client_request_id}", response_model=DictationSessionResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 async def get_listening_dictation_session_by_request(
     client_request_id: uuid.UUID,
     authorization: str | None = Header(default=None),
@@ -6588,7 +6734,8 @@ async def get_listening_dictation_session_by_request(
     return _dictation_session_response(row)
 
 
-@user_router.get("/tests/dictation/session/{session_id}")
+@user_router.get("/tests/dictation/session/{session_id}", response_model=DictationStoredSessionResponse,
+                 response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 async def get_listening_dictation_session(
     session_id: str,
     authorization: str | None = Header(default=None),
@@ -6604,7 +6751,7 @@ async def get_listening_dictation_session(
     row = res.data[0]
     if row.get("user_id") != user["id"]:
         raise HTTPException(403, "Phiên này thuộc người dùng khác.")
-    return row
+    return {**row, **_dictation_policy(session_contract, row)}
 
 
 class DictationFlagRequest(BaseModel):
@@ -6720,7 +6867,9 @@ def _dictation_list_rows_for_users(
     return rows, total
 
 
-@admin_router.get("/dictation-reports")
+@admin_router.get("/dictation-reports", response_model=AdminDictationReportListResponse,
+                  response_model_exclude_unset=True,
+                  responses={503: {"model": DictationPolicyErrorResponse}})
 async def admin_list_dictation_reports(
     test_id: str | None = Query(default=None),
     user_query: str | None = Query(default=None),
@@ -6735,7 +6884,7 @@ async def admin_list_dictation_reports(
     await require_admin(authorization)
     select_fields = ("id,user_id,test_id_external,section_num,section_title,"
                      "total_sentences,correct_count,accuracy,total_time_seconds,"
-                     "completed_at,created_at")
+                     "completed_at,created_at,grading_version,reference_sha256")
     if user_query:
         uids = _all_dictation_user_ids(user_query)
         if not uids:
@@ -6757,6 +6906,7 @@ async def admin_list_dictation_reports(
                .range(offset, offset + limit - 1).execute())
         items = res.data or []
         total = getattr(res, "count", None) or 0
+    items = [{**row, **_dictation_policy(persisted_policy_identity, row)} for row in items]
     lookup_failures: set[str] = set()
     users = _rows_by_id("users", [r.get("user_id") for r in items],
                         "id,email,display_name", lookup_failures=lookup_failures)
@@ -6778,7 +6928,7 @@ def _all_dictation_aggregate_rows(test_id: str | None, user_ids: list | None) ->
         offset = 0
         while True:
             q = supabase_admin.table("dictation_sessions").select(
-                "test_id_external,section_num,accuracy,total_sentences,error_trends")
+                "test_id_external,section_num,accuracy,total_sentences,error_trends,grading_version,reference_sha256")
             if test_id:
                 q = q.eq("test_id_external", test_id)
             if user_batch is not None:
@@ -6792,7 +6942,8 @@ def _all_dictation_aggregate_rows(test_id: str | None, user_ids: list | None) ->
     return rows
 
 
-@admin_router.get("/dictation-reports/aggregate")
+@admin_router.get("/dictation-reports/aggregate", response_model=DictationAggregateResponse,
+                  responses={503: {"model": DictationPolicyErrorResponse}})
 async def admin_dictation_reports_aggregate(
     test_id: str | None = Query(default=None),
     user_query: str | None = Query(default=None),
@@ -6808,35 +6959,46 @@ async def admin_dictation_reports_aggregate(
         user_ids = _all_dictation_user_ids(user_query)
         if not user_ids:
             return {"session_count": 0, "mean_accuracy": 0.0,
-                    "top_missed": [], "top_wrong": []}
+                    "mean_accuracy_basis": "mean_of_session_sentence_scores",
+                    "versions": [],
+                    **classify_trends([])}
     rows = _all_dictation_aggregate_rows(test_id, user_ids)
 
-    # Sum the FULL per-session word counters (error_trends.missed/.wrong maps),
-    # not a truncated top list — a word below any single session's top-N would
-    # otherwise vanish from the cross-session view even if it's the most common.
-    missed: dict[str, int] = {}
-    wronged: dict[str, int] = {}
-    for r in rows:
-        et = r.get("error_trends") or {}
-        for w, c in (et.get("missed") or {}).items():
-            missed[w] = missed.get(w, 0) + int(c or 0)
-        for w, c in (et.get("wrong") or {}).items():
-            wronged[w] = wronged.get(w, 0) + int(c or 0)
-    accs = [float(r.get("accuracy") or 0) for r in rows]
-
-    def _top(counter, label, n=15):
-        return [{label: w, "count": c}
-                for w, c in sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
+    # Classify the complete persisted counters before top-N truncation. This
+    # changes only the analytics projection, never reference diffs or grades.
+    try:
+        classified = classify_trends(rows)
+    except ValueError:
+        raise HTTPException(503, "Dữ liệu lỗi Dictation cần kiểm tra. Không thể tổng hợp chính xác.")
+    accs = []
+    by_version: dict[str, list[float]] = {}
+    for row in rows:
+        version = _dictation_policy(persisted_policy_identity, row)['grading_version']
+        # NULL/missing/bool/non-finite accuracy cannot masquerade as a clean zero.
+        value = row.get('accuracy')
+        try:
+            accuracy = float(value)
+        except (TypeError, ValueError, OverflowError):
+            raise HTTPException(503, 'Chưa xác minh được điểm Dictation đã lưu.') from None
+        if isinstance(value, bool) or not 0 <= accuracy <= 1:
+            raise HTTPException(503, 'Chưa xác minh được điểm Dictation đã lưu.')
+        accs.append(accuracy)
+        by_version.setdefault(version, []).append(accuracy)
 
     return {
         "session_count": len(rows),
         "mean_accuracy": round(sum(accs) / len(accs), 4) if accs else 0.0,
-        "top_missed":    _top(missed, "word"),
-        "top_wrong":     _top(wronged, "expected"),
+        "mean_accuracy_basis": "mean_of_session_sentence_scores",
+        "versions": [{"grading_version": version, "session_count": len(scores),
+                      "mean_accuracy": round(sum(scores) / len(scores), 4)}
+                     for version, scores in sorted(by_version.items())],
+        **classified,
     }
 
 
-@admin_router.get("/dictation-reports/{session_id}")
+@admin_router.get("/dictation-reports/{session_id}", response_model=AdminDictationReportDetailResponse,
+                  response_model_exclude_unset=True,
+                  responses={503: {"model": DictationPolicyErrorResponse}})
 async def admin_get_dictation_report(
     session_id: str,
     authorization: str | None = Header(default=None),
@@ -6848,6 +7010,7 @@ async def admin_get_dictation_report(
     if not res.data:
         raise HTTPException(404, "Không tìm thấy phiên chép chính tả.")
     row = dict(res.data[0])
+    row.update(_dictation_policy(session_contract, row))
     lookup_failures: set[str] = set()
     users = _rows_by_id("users", [row.get("user_id")], "id,email,display_name",
                         lookup_failures=lookup_failures)
@@ -6914,9 +7077,15 @@ def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
     score = r.get("score")
     u = users.get(r.get("user_id")) or {}
     t = tests.get(r.get("test_id")) or {}
+    # Never infer a historical attempt's policy from an edited current test.
+    # Unversioned legacy rows use the same diagnostic default as submit/review.
+    scoring_policy = r.get("scoring_policy") or "diagnostic"
+    if scoring_policy not in {"diagnostic", "report_only"}:
+        raise HTTPException(503, "Không đọc được chế độ tính điểm đã lưu của lượt làm bài.")
     return {
         "id":               r.get("id"),
         "status":           r.get("status"),
+        "scoring_policy":   scoring_policy,
         "score":            score,
         "total_questions":  total_q,
         "accuracy":         (round(score / total_q, 4)
@@ -6935,7 +7104,7 @@ def _attempt_public_shape(r: dict, users: dict, tests: dict) -> dict:
     }
 
 
-@admin_router.get("/attempts")
+@admin_router.get("/attempts", response_model=AdminListeningAttemptListResponse)
 async def admin_list_listening_attempts(
     user_query: str | None = Query(default=None),
     test_query: str | None = Query(default=None),
@@ -6994,7 +7163,7 @@ async def admin_list_listening_attempts(
 
     q = (supabase_admin.table("listening_test_attempts")
          .select("id,user_id,test_id,status,score,grading_details,started_at,"
-                 "submitted_at,created_at", count="exact"))
+                 "submitted_at,created_at,scoring_policy", count="exact"))
     if status:
         q = q.eq("status", status)
     if user_ids is not None:
@@ -7020,7 +7189,7 @@ async def admin_list_listening_attempts(
     }
 
 
-@admin_router.get("/attempts/{attempt_id}")
+@admin_router.get("/attempts/{attempt_id}", response_model=AdminListeningAttemptDetailResponse)
 async def admin_get_listening_attempt(
     attempt_id: str,
     authorization: str | None = Header(default=None),
@@ -7083,7 +7252,8 @@ async def get_in_progress_listening_attempt(
         supabase_admin.table("listening_test_attempts")
         .select(
             "id, started_at, created_at, answers, renderer_affinity, "
-            "resume_expires_at, status, playback_started_at"
+            "resume_expires_at, status, playback_started_at,user_id,test_id,sitting_id,"
+            "class_assignment_item_id,attempt_purpose,paper_revision,policy_revision"
         )
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
@@ -7119,8 +7289,13 @@ async def get_in_progress_listening_attempt(
     if not res.data or not is_resume_active(res.data[0]):
         return {"attempt": None}
     row = res.data[0]
+    from services.mock_paper_policy import guard_owned_attempt, attempt_receipt
+    guard_owned_attempt(supabase_admin, "listening", row, purpose="resume")
+    from services.mock_attempt_flags import review_flag_state
     return {
         "attempt": {
+            **attempt_receipt(row),
+            **review_flag_state(supabase_admin, "listening", row),
             "attempt_id": row["id"],
             "started_at": row.get("started_at") or row.get("created_at"),
             # Only answers with real content — a blank row is not progress and
@@ -7172,10 +7347,24 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
-    _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item)
+    decision = _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item,
+        purpose=body.purpose if body and body.purpose else "delivery",
+        sitting_id=body.mock_sitting_id if body else None, allow_admission=True)
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
+
+    if decision["attempt_purpose"] == "mock_delivery":
+        if standalone or class_item:
+            raise HTTPException(422, "mock_delivery cannot be combined with standalone or class_item")
+        from services.mock_paper_policy import admit_mock_attempt
+        admit_start()
+        admitted = admit_mock_attempt(supabase_admin, "listening", test_id, user["id"],
+            decision["mock_sitting_id"], affinity_protocol=body.renderer_affinity_protocol if body else None)
+        bind_owned_attempt({"id": admitted["attempt_id"], "test_id": test_id,
+            "user_id": user["id"], "status": admitted["status"]}, started=not admitted.get("acquired_existing"))
+        from services.mock_attempt_flags import review_flag_state
+        return {**admitted, **review_flag_state(supabase_admin, "listening", {"id": admitted["attempt_id"]})}
 
     # Imported programme forms have one canonical standalone resume-or-create
     # path. The legacy start-over path abandons the previous row before its
@@ -7205,7 +7394,7 @@ async def start_listening_test_attempt(
     if standalone and test_row.get("scoring_policy") == "report_only":
         try:
             acquired = supabase_admin.rpc(
-                "fn_acquire_listening_programme_attempt",
+                "fn_acquire_listening_programme_attempt_v2",
                 {
                     "p_test_id": test_id,
                     "p_user_id": user["id"],
@@ -7246,7 +7435,13 @@ async def start_listening_test_attempt(
             "renderer_affinity": acquired_row.get("attempt_renderer_affinity"),
         }
         bind_owned_attempt(observation_row, started=created)
+        canonical = _fetch_attempt_or_404(attempt_id, user["id"])
+        from services.mock_paper_policy import attempt_receipt, guard_owned_attempt
+        from services.mock_attempt_flags import review_flag_state
+        guard_owned_attempt(supabase_admin, "listening", canonical, purpose="resume")
         return {
+            **attempt_receipt(canonical),
+            **review_flag_state(supabase_admin, "listening", canonical),
             "attempt_id": attempt_id,
             "status": observation_row["status"],
             "started_at": acquired_row.get("attempt_started_at"),
@@ -7283,6 +7478,7 @@ async def start_listening_test_attempt(
         "id":      attempt_id,
         "test_id": test_id,
         "user_id": user["id"],
+        "attempt_purpose": decision["attempt_purpose"],
         "status":  "in_progress",
         "answers": [],
         "scoring_policy": test_row.get("scoring_policy") or "diagnostic",
@@ -7295,13 +7491,18 @@ async def start_listening_test_attempt(
     # never has to work it out afterwards (mig 181).
     if class_item:
         payload["class_assignment_item_id"] = class_item
-    (
+    inserted = (
         supabase_admin.table("listening_test_attempts")
         .insert(payload)
         .execute()
     )
     bind_owned_attempt(payload, started=True)
+    from services.mock_paper_policy import attempt_receipt
+    from services.mock_attempt_flags import review_flag_state
+    canonical = inserted.data[0] if inserted.data else payload
     return {
+        **attempt_receipt(canonical),
+        **review_flag_state(supabase_admin, "listening", canonical),
         "attempt_id": attempt_id,
         "status": "in_progress",
         "started_at": started_at,
@@ -7548,6 +7749,14 @@ def _attempt_test_type(attempt: dict) -> str:
     return kind
 
 
+def _source_required_for_test(test_id: str) -> bool:
+    rows = (supabase_admin.table("listening_tests").select("programme_id")
+            .eq("id", test_id).limit(1).execute().data or [])
+    if len(rows) != 1:
+        raise HTTPException(503, "Không xác định được chương trình của lượt làm; hãy thử lại.")
+    return rows[0].get("programme_id") == SOURCE_PROGRAMME
+
+
 def _practice_exercise_payloads(test_id: str, *, published_only: bool = False) -> list[dict]:
     """Every exercise payload belonging to a test, via its section rows."""
     sections = supabase_admin.table("listening_content").select("id").eq("test_id", test_id)
@@ -7573,17 +7782,20 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
             or attempt.get("class_assignment_item_id")
             or attempt.get("sitting_id")):
         raise HTTPException(422, "Đối chiếu từng câu không áp dụng cho bài này.")
+    from services.mock_paper_policy import guard_owned_attempt, load_marking_snapshot
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="guided_feedback")
+    snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
     result = (
         supabase_admin.table("listening_tests")
-        .select("id,status,is_public,scoring_policy,programme_id,replay_policy,content_package_id")
+        .select("id,status,is_public,scoring_policy,programme_id,replay_policy,content_package_id,metadata")
         .eq("id", attempt["test_id"]).limit(1).execute()
     )
-    test = result.data[0] if result.data else None
+    test = snapshot["paper_row"] if snapshot else (result.data[0] if result.data else None)
     if (not test or test.get("status") != "published"
             or not test.get("is_public")
             or test.get("scoring_policy") != "report_only"
             or test.get("programme_id") not in {
-                "general-listening-practice", "ielts-listening-practice",
+                "general-listening-practice", "ielts-listening-practice", SOURCE_PROGRAMME,
             }
             or not test.get("content_package_id")):
         raise HTTPException(422, "Bài luyện này chưa hỗ trợ đối chiếu từng câu.")
@@ -7594,11 +7806,12 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
     )
     if not package.data or package.data[0].get("status") != "published":
         raise HTTPException(422, "Nội dung bài luyện hiện không khả dụng.")
-    return test, _practice_exercise_payloads(attempt["test_id"], published_only=True)
+    return test, snapshot["marking_rows"] if snapshot else _practice_exercise_payloads(attempt["test_id"], published_only=True)
 
 
 def _programme_guided_item(
-    reveal: dict, exercise_rows: list[dict], replay_policy: str,
+    reveal: dict, exercise_rows: list[dict], replay_policy: str, *, source_required: bool = False,
+    audio_granularity: str | None = None,
 ) -> dict:
     from services.listening_programme_feedback import (
         FeedbackUnavailable, build_guided_feedback,
@@ -7607,7 +7820,7 @@ def _programme_guided_item(
     try:
         feedback = build_guided_feedback(
             int(reveal["q_num"]), str(reveal["first_answer"]),
-            exercise_rows, replay_policy,
+            exercise_rows, replay_policy, source_required=source_required, audio_granularity=audio_granularity,
         )
     except FeedbackUnavailable:
         logger.error("[listening-programmes] revealed item has no review material")
@@ -7634,7 +7847,8 @@ async def get_listening_programme_guided_state(
         .eq("attempt_id", attempt_id_str).order("q_num").execute()
     )
     items = [
-        _programme_guided_item(row, exercise_rows, test.get("replay_policy") or "allowed")
+        _programme_guided_item(row, exercise_rows, test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME,
+            audio_granularity=(test.get("metadata") or {}).get("timing_granularity") if test.get("programme_id") == SOURCE_PROGRAMME else None)
         for row in (result.data or [])
     ]
     return {"attempt_id": attempt_id_str, "assisted": bool(items), "items": items}
@@ -7665,7 +7879,7 @@ async def reveal_listening_programme_question(
     try:
         build_guided_feedback(
             q_num, "content-check", exercise_rows,
-            test.get("replay_policy") or "allowed",
+            test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME,
         )
     except FeedbackUnavailable:
         raise HTTPException(503, "Câu này chưa có nội dung đối chiếu hợp lệ.") from None
@@ -7692,7 +7906,8 @@ async def reveal_listening_programme_question(
         raise HTTPException(503, "Chưa xác minh được câu trả lời đã lưu. Hãy thử lại.")
     item = _programme_guided_item(
         {"q_num": q_num, **reveal}, exercise_rows,
-        test.get("replay_policy") or "allowed",
+        test.get("replay_policy") or "allowed", source_required=test.get("programme_id") == SOURCE_PROGRAMME,
+        audio_granularity=(test.get("metadata") or {}).get("timing_granularity") if test.get("programme_id") == SOURCE_PROGRAMME else None,
     )
     return {"attempt_id": attempt_id_str, "assisted": True, "items": [item]}
 
@@ -7732,6 +7947,8 @@ async def get_practice_audio_windows(
     if (test_row.get("test_type") != "practice"
             or test_row.get("scoring_policy") != "diagnostic"):
         raise HTTPException(422, "Chỉ bài Luyện nhanh mới có cửa sổ audio theo câu.")
+
+    _assert_listening_exam_content_allowed(test_row, _user["id"], purpose="practice")
 
     windows: dict[str, dict] = {}
     offsets = (test_row.get("metadata") or {}).get("section_offsets") or {}
@@ -7786,6 +8003,8 @@ async def check_listening_practice_answer(
 
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
+    if attempt.get("sitting_id") or attempt.get("attempt_purpose") == "mock_delivery":
+        raise HTTPException(404, "Practice feedback unavailable")
     if not body.reveal:
         # A per-question grade is an operation, never a new attempt or final
         # result. Reveal is read-only and must not claim mutation evidence.
@@ -7794,6 +8013,9 @@ async def check_listening_practice_answer(
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
     require_resume_active(attempt)
 
+    from services.mock_paper_policy import guard_owned_attempt, load_marking_snapshot, frozen_answer_key
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="practice_feedback")
+    snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,test_type,metadata")
@@ -7801,7 +8023,7 @@ async def check_listening_practice_answer(
     )
     if not test_res.data:
         raise HTTPException(404, "Test bundle not found")
-    test_row = test_res.data[0]
+    test_row = snapshot["paper_row"] if snapshot else test_res.data[0]
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         raise HTTPException(
             422,
@@ -7813,8 +8035,10 @@ async def check_listening_practice_answer(
             "Chấm từng câu chỉ dành cho Luyện nhanh. Bài thi chấm một lần khi nộp.",
         )
 
-    payloads = _practice_exercise_payloads(attempt["test_id"])
-    answer_key = grader.collect_answer_key(payloads)
+    payloads = snapshot["marking_rows"] if snapshot else _practice_exercise_payloads(attempt["test_id"])
+    answer_key = frozen_answer_key(supabase_admin, "listening", attempt)
+    if answer_key is None:
+        answer_key = grader.collect_answer_key(payloads)
     key_row = next((k for k in answer_key if k.get("q_num") == body.q_num), None)
     if key_row is None:
         raise HTTPException(404, f"Câu {body.q_num} không thuộc bài này.")
@@ -7933,7 +8157,7 @@ async def submit_listening_test_attempt(
         if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
             exercise_rows = _practice_exercise_payloads(attempt["test_id"])
             report = grader.grade_report_only_attempt(
-                attempt.get("answers") or [], exercise_rows,
+                attempt.get("answers") or [], exercise_rows, source_required=_source_required_for_test(attempt["test_id"]),
             )
             stored_summary = attempt.get("result_summary") or {}
             stored_details = attempt.get("grading_details") or []
@@ -7968,25 +8192,32 @@ async def submit_listening_test_attempt(
 
     # Pull the test's exercises + extract the answer key.
     test_id = attempt["test_id"]
-    sec_res = (
-        supabase_admin.table("listening_content")
-        .select("id")
-        .eq("test_id", test_id)
-        .execute()
-    )
-    section_ids = [r["id"] for r in (sec_res.data or [])]
-    if not section_ids:
-        raise HTTPException(500, "Test bundle thiếu section rows.")
+    from services.mock_paper_policy import load_marking_snapshot, guard_owned_attempt
+    guard_owned_attempt(supabase_admin, "listening", attempt, purpose="submit")
+    marking_snapshot = load_marking_snapshot(supabase_admin, "listening", attempt)
+    if marking_snapshot is not None:
+        from types import SimpleNamespace
+        ex_res = SimpleNamespace(data=marking_snapshot["marking_rows"])
+    else:
+        sec_res = (
+            supabase_admin.table("listening_content")
+            .select("id")
+            .eq("test_id", test_id)
+            .execute()
+        )
+        section_ids = [r["id"] for r in (sec_res.data or [])]
+        if not section_ids:
+            raise HTTPException(500, "Test bundle thiếu section rows.")
 
-    ex_res = (
-        supabase_admin.table("listening_exercises")
-        .select("payload")
-        .in_("content_id", section_ids)
-        .execute()
-    )
+        ex_res = (
+            supabase_admin.table("listening_exercises")
+            .select("payload")
+            .in_("content_id", section_ids)
+            .execute()
+        )
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         report = grader.grade_report_only_attempt(
-            attempt.get("answers") or [], ex_res.data or [],
+            attempt.get("answers") or [], ex_res.data or [], source_required=_source_required_for_test(test_id),
         )
         summary = {
             key: report[key] for key in (
@@ -8023,11 +8254,15 @@ async def submit_listening_test_attempt(
             "status": "submitted",
             **report,
         }
-    answer_key = grader.collect_answer_key(ex_res.data or [])
     from services import mock_correction_service
-    answer_key = mock_correction_service.apply_scoring_overrides(
-        "listening", test_id, answer_key
-    )
+    from services.mock_paper_policy import frozen_answer_key
+    answer_key = frozen_answer_key(supabase_admin, "listening", attempt)
+    if answer_key is None:
+        answer_key = grader.collect_answer_key(ex_res.data or [])
+        from services import mock_correction_service
+        answer_key = mock_correction_service.apply_scoring_overrides(
+            "listening", test_id, answer_key
+        )
 
     result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -8158,17 +8393,39 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     every user_answer blank. `attempt_id` is None there, and the caller owns all
     authorisation: this function checks nothing.
     """
-    test_id = attempt["test_id"]
-    test_res = (
-        supabase_admin.table("listening_tests")
-        .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
-                "full_audio_storage_path,assembled_audio_storage_path,"
-                "full_audio_duration_seconds,themes,programme_id,scoring_policy,"
-                "form_purpose,replay_policy,support_policy,claim_policy,"
-                "listening_lesson_id")
-        .eq("id", test_id).limit(1).execute()
+    from services.mock_review_context import (
+        attach_review_web_explanations, context_reference, load_review_snapshot,
+        provenance, question_context,
     )
-    test_row = (test_res.data or [{}])[0]
+    snapshot = load_review_snapshot(supabase_admin, "listening", attempt)
+    test_id = attempt["test_id"]
+    if snapshot is not None:
+        test_row = snapshot["paper_row"]
+        content_rows = snapshot["source_rows"]
+        exercise_rows = snapshot["marking_rows"]
+    else:
+        test_res = (
+            supabase_admin.table("listening_tests")
+            .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
+                    "full_audio_storage_path,assembled_audio_storage_path,"
+                    "full_audio_duration_seconds,themes,programme_id,scoring_policy,"
+                    "form_purpose,replay_policy,support_policy,claim_policy,"
+                    "listening_lesson_id")
+            .eq("id", test_id).limit(1).execute()
+        )
+        test_row = (test_res.data or [{}])[0]
+        content_res = (
+            supabase_admin.table("listening_content")
+            .select("id,section_num,title,transcript,metadata")
+            .eq("test_id", test_id).order("section_num").execute()
+        )
+        content_rows = content_res.data or []
+        section_ids = [row["id"] for row in content_rows]
+        exercise_rows = []
+        if section_ids:
+            ex_res = (supabase_admin.table("listening_exercises")
+                      .select("id,payload").in_("content_id", section_ids).execute())
+            exercise_rows = ex_res.data or []
     audio_url, _, audio_duration = _student_audio_url_for_test(test_row)
     scoring_policy = attempt.get("scoring_policy") or test_row.get("scoring_policy") or "diagnostic"
     if scoring_policy == "report_only" and not audio_url:
@@ -8179,22 +8436,19 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     meta = test_row.get("metadata") or {}
 
     # Per-section transcripts (content rows).
-    content_res = (
-        supabase_admin.table("listening_content")
-        .select("id,section_num,title,transcript,metadata")
-        .eq("test_id", test_id).order("section_num").execute()
-    )
     sections = []
-    section_ids = []
-    for c in (content_res.data or []):
-        section_ids.append(c["id"])
+    for c in content_rows:
         cmeta = c.get("metadata") or {}
-        sections.append({
+        section = {
             "section_num": c.get("section_num"),
             "title":       c.get("title"),
             "theme":       cmeta.get("theme"),
             "transcript":  c.get("transcript"),
-        })
+        }
+        section["context_provenance"] = {key: provenance(value, snapshot,
+            present=(key in cmeta if key == "theme" else key in c))
+            for key, value in section.items()}
+        sections.append(section)
 
     # Per-question solution + audio window + prompt/type (from exercise payloads).
     solutions_by_q: dict[int, dict] = {}
@@ -8202,14 +8456,12 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     anchors_by_q: dict[int, int] = {}
     prompt_by_q: dict[int, str] = {}
     type_by_q: dict[int, str] = {}
+    source_questions_by_q: dict[int, dict] = {}
+    question_context_by_q: dict[int, dict] = {}
     self_review_by_q: dict[int, dict] = {}
     controlled_transcripts: dict[str, list] = {}
-    if section_ids:
-        ex_res = (
-            supabase_admin.table("listening_exercises")
-            .select("payload").in_("content_id", section_ids).execute()
-        )
-        for row in (ex_res.data or []):
+    if exercise_rows:
+        for row in exercise_rows:
             p = row.get("payload") or {}
             for q, sol in (p.get("solutions") or {}).items():
                 solutions_by_q[int(q)] = sol
@@ -8221,12 +8473,20 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
                 self_review_by_q[int(q)] = value
             for stimulus_id, value in (p.get("controlled_transcripts") or {}).items():
                 if isinstance(value, list):
+                    if test_row.get("programme_id") == SOURCE_PROGRAMME:
+                        from services.listening_source_collection import safe_source_transcript
+                        value = safe_source_transcript(value)
                     controlled_transcripts[str(stimulus_id)] = value
             variant = p.get("variant")
             for qq in (p.get("questions") or []):
                 if qq.get("q_num") is not None:
                     prompt_by_q[qq["q_num"]] = qq.get("prompt")
                     type_by_q[qq["q_num"]] = qq.get("response_type") or variant
+                    source_questions_by_q[qq["q_num"]] = qq
+                    authored = {**qq, "payload": p}
+                    if not authored.get("id") and row.get("id"):
+                        authored["id"] = qq.get("question_id") or f'{row["id"]}:{qq["q_num"]}'
+                    question_context_by_q[qq["q_num"]] = question_context(authored, snapshot)
 
     # A mini test's audio is its SINGLE section premixed alone (the mp3 starts at
     # ~0), but the stored audio_window is full-test-ABSOLUTE (= section-relative +
@@ -8256,8 +8516,27 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     review = []
     for g in (attempt.get("grading_details") or []):
         q = g.get("q_num")
-        win = _rebase_audio_window(windows_by_q.get(q), is_mini, sec_offsets)
-        review.append({
+        rationale_q = g.get("rationale_q_num")
+        solution_q = rationale_q if type(rationale_q) is int else q
+        win = _rebase_audio_window(windows_by_q.get(solution_q), is_mini, sec_offsets)
+        source_fields = {}
+        source_explanation_present = False
+        if test_row.get("programme_id") == SOURCE_PROGRAMME:
+            from services.listening_source_collection import source_explanation, source_response_fields
+            question = source_questions_by_q.get(q) or {}
+            protected = solutions_by_q.get(solution_q) or self_review_by_q.get(solution_q)
+            protected = protected or {}
+            source_explanation_present = "explanation" in protected
+            explanation = source_explanation(protected.get("explanation"), item_id=question.get("source_item_id"))
+            try:
+                fields = source_response_fields(question, reference_answer=(explanation or {}).get("answer"))
+            except ValueError:
+                raise HTTPException(503, "Chưa tải được thông tin chỗ trống để đối chiếu. Hãy thử lại.") from None
+            source_fields = {"fields": fields, "source_item_id": question.get("source_item_id"), "source_display_number": question.get("source_display_number"),
+                "review_status": protected.get("review_status"), "answer_provenance": protected.get("answer_provenance"),
+                "explanation": explanation, "audio_granularity": (win or {}).get("granularity") or meta.get("timing_granularity")}
+        item = {
+            **source_fields,
             "q_num":         q,
             "state":         g.get("state"),
             "correct":       g.get("correct"),
@@ -8267,19 +8546,34 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "prompt":        prompt_by_q.get(q),
             "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
             "section":       (win or {}).get("section"),
-            "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
-            "solution":      solutions_by_q.get(q) or {},
-            "self_review":   self_review_by_q.get(q) or g.get("self_review") or {},
+            "transcript_anchor": anchors_by_q.get(solution_q),
+            "solution":      ({key: value for key, value in (solutions_by_q.get(solution_q) or {}).items() if key in {"expected", "rationale"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else solutions_by_q.get(solution_q) or {}),
+            "self_review":   ({key: value for key, value in (self_review_by_q.get(solution_q) or {}).items() if key in {"reference_answers", "rationale", "required_facts", "optional_facts"}}
+                               if test_row.get("programme_id") == SOURCE_PROGRAMME else self_review_by_q.get(solution_q) or g.get("self_review") or {}),
             "first_answer":  first_answers_by_q.get(q),
-        })
+            "question_context": question_context_by_q.get(q),
+        }
+        item["context_provenance"] = {
+            "prompt": provenance(item["prompt"], snapshot, present=q in prompt_by_q),
+            "question_type": provenance(item["question_type"], snapshot, present=q in type_by_q),
+            "solution": provenance(item["solution"], snapshot, present=solution_q in solutions_by_q),
+            "audio_window": provenance(win, snapshot, present=solution_q in windows_by_q),
+            "transcript_anchor": provenance(item["transcript_anchor"], snapshot, present=solution_q in anchors_by_q),
+            "self_review": provenance(item["self_review"], snapshot, persisted="self_review" in g,
+                present=solution_q in self_review_by_q or "self_review" in g),
+            "explanation": provenance(item.get("explanation"), snapshot, present=source_explanation_present),
+            "question_context": provenance(item["question_context"], snapshot, present=q in question_context_by_q),
+        }
+        if "self_review" in g and test_row.get("programme_id") != SOURCE_PROGRAMME:
+            item["self_review"] = g["self_review"] or {}
+            item["context_provenance"]["self_review"] = "submission_snapshot"
+        review.append(item)
 
     if scoring_policy == "report_only":
         web_access = {"available": False, "reason": "report_only"}
     else:
-        from services import mock_correction_service
-        web_access = mock_correction_service.attach_web_explanations(
-            "listening", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
-        )
+        web_access = attach_review_web_explanations("listening", attempt, review, snapshot)
 
     return {
         "attempt_id":      attempt_id,
@@ -8300,6 +8594,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "claim_policy":    test_row.get("claim_policy"),
         "trap_analytics":  attempt.get("trap_analytics") or {},
         "audio_url":       audio_url,
+        "audio_granularity": meta.get("timing_granularity") if test_row.get("programme_id") == SOURCE_PROGRAMME else None,
         "audio_duration":  audio_duration,
         "section_offsets": meta.get("section_offsets") or {},
         "cue_points":      test_row.get("cue_points") or [],
@@ -8308,6 +8603,13 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "review":          review,
         "controlled_transcripts": controlled_transcripts,
         "web_explanation_access": web_access,
+        "context_source": {**context_reference(snapshot), "field_provenance": {
+            "audio_url": provenance(audio_url, snapshot,
+                present=bool(test_row.get("full_audio_storage_path") or test_row.get("assembled_audio_storage_path"))),
+            "audio_duration": provenance(audio_duration, snapshot, present="full_audio_duration_seconds" in test_row),
+            "cue_points": provenance(test_row.get("cue_points"), snapshot, present="cue_points" in test_row),
+            "section_offsets": provenance(meta.get("section_offsets"), snapshot, present="section_offsets" in meta),
+        }},
     }
 
 @user_router.get(

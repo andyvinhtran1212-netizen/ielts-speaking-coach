@@ -33,6 +33,8 @@ from services.class_assignment_service import (
 from services.class_membership_service import active_cohort_ids_for_student
 
 from database import supabase_admin
+from services import grammar_quiz_session
+from services.grammar_quiz_resolution import current_banks
 
 logger = logging.getLogger(__name__)
 
@@ -775,8 +777,11 @@ def unavailable_course_admin_summary(
 
 
 def list_published_banks(*, skill_area: str | None = None, topic_id: str | None = None) -> list[dict]:
+    public_columns = ("id", "topic_id", "code", "title", "skill_area", "words_count", "updated_at")
     q = supabase_admin.table("quiz_banks").select(
-        "id, topic_id, code, title, skill_area, words_count, updated_at"
+        ", ".join(public_columns) + ", grammar_canonical_code, grammar_revision, "
+        "grammar_is_current, grammar_predecessor_bank_id, grammar_new_starts_enabled",
+        count="exact",
     ).eq("is_published", True)
     # KHÔNG bao giờ liệt kê bank theo buổi ở đây. `skill_area` do người gọi
     # truyền, nên không loại trừ nghĩa là bất kỳ học viên nào gọi
@@ -790,7 +795,21 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
     if topic_id:
         q = q.eq("topic_id", topic_id)
     try:
-        return q.order("code").execute().data or []
+        response = q.order("code").execute()
+        rows = response.data
+        # The current resolver needs both physical revisions. A truncated read
+        # must not turn a missing predecessor into an empty/ambiguous learner CTA.
+        if (not isinstance(rows, list) or type(response.count) is not int
+                or len(rows) != response.count):
+            raise HTTPException(503, "Danh sách bài luyện chưa được đọc đầy đủ. Hãy thử lại.")
+        grammar = current_banks([row for row in rows if row.get("skill_area") == "grammar"])
+        selected = [row for row in rows if row.get("skill_area") != "grammar"] + grammar
+        # Preserve the list response shape and canonical article codes; legacy
+        # bank IDs remain available through the separately authorized play path.
+        return [{key: row.get(key) for key in public_columns}
+                for row in sorted(selected, key=lambda row: row["code"])]
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn banks: {exc}")
 
@@ -1231,6 +1250,9 @@ def get_bank_for_play(
                 mastery_state["initial_session_id"] = initial_session_id
 
     out = {"bank": bank, "questions": questions, "word_cards": word_cards}
+    grammar_quiz_session.validate_bank_policy(bank,questions)
+    if user_id and grammar_quiz_session.is_managed(bank):
+        out['grammar'] = grammar_quiz_session.bank_state(supabase_admin,str(user_id),bank)
     if mastery_state is not None:
         out["mastery"] = mastery_state
     return out
@@ -1586,7 +1608,7 @@ def _bank_meta_or_404(
     try:
         b = (
             supabase_admin.table("quiz_banks").select(
-                "id, code, is_published, skill_area, meta"
+                "*"
             )
             .eq("id", bank_id).limit(1).execute()
         ).data
@@ -1732,6 +1754,19 @@ def _owned_session(session_id: str, user_id: str) -> dict:
     return rows[0]
 
 
+def _grammar_bank_for_session(session: dict) -> dict | None:
+    """Old admitted sessions can have NULL revision/code. Query their bank;
+    never infer that absence grants an unmanaged write path after cutover."""
+    try:
+        rows = (supabase_admin.table('quiz_banks').select('*')
+                .eq('id',session['bank_id']).limit(1).execute().data)
+    except Exception as exc:
+        raise grammar_quiz_session.unavailable() from exc
+    if not isinstance(rows,list) or len(rows)!=1:
+        raise grammar_quiz_session.unavailable()
+    return rows[0] if grammar_quiz_session.is_managed(rows[0]) else None
+
+
 def _assert_retake_allowed(item: dict | None) -> None:
     """A short retake is legal only after the immediately prior near-pass."""
     if not item:
@@ -1869,6 +1904,8 @@ def _ensure_timed_course_session(
 def start_session(
     *, user_id: str, bank_id: str, kind: str = "run",
     assignment_item_id: str | None = None,
+    grammar_revision: str | None = None, admission_kind: str | None = None,
+    text_match_policy: str | None = None,
 ) -> dict:
     """Create a session and return {session_id, resume} — resume = prior word_stats
     so the engine continues carry-over.
@@ -1878,12 +1915,26 @@ def start_session(
     upsert would then overwrite a previously mastered/provisional word with lower
     counts. A read failure → 500, no session row, no destructive write."""
     bank = _bank_meta_or_404(bank_id, user_id)   # cổng (published HOẶC bài giao)
+    if text_match_policy is not None and text_match_policy != 'qid-exact-v1':
+        raise HTTPException(422,{'error_code':'grammar_text_match_policy_invalid',
+            'message':'Xác nhận cách chấm Grammar không hợp lệ.'})
     if kind not in _SESSION_KINDS:
         raise HTTPException(422, "kind phải là 'run' hoặc 'retake'")
     if kind == "retake" and bank.get("skill_area") != COURSE_AREA:
         # Kiểm tra lại là khái niệm của cổng thuộc-bài; bank tự chọn không có
         # ngưỡng đạt nên một phiên 'retake' ở đó chỉ làm nhiễu số liệu.
         raise HTTPException(422, "Chỉ bài tập theo buổi mới có kiểm tra lại")
+    if grammar_quiz_session.is_managed(bank):
+        if assignment_item_id or kind != 'run':
+            raise HTTPException(422,'Lượt Grammar tự chọn không thuộc bài giáo trình hoặc retake.')
+        return grammar_quiz_session.start(supabase_admin,user_id=user_id,bank=bank,
+            revision=grammar_revision,admission_kind=admission_kind,
+            text_match_policy=text_match_policy)
+    if grammar_revision is not None or admission_kind is not None:
+        raise HTTPException(409,'Bộ đề này chưa có phiên bản Grammar cần xác nhận. Hãy tải lại.')
+    # Absent/empty legacy META permits a harmless supported redundant ACK.
+    # A stored nonempty/invalid unmanaged policy must never enter legacy starts.
+    grammar_quiz_session.validate_bank_policy(bank)
     resume = get_resume(user_id=user_id, bank_id=bank_id)   # raises on read failure
     # Ghi lại mục bài giao NGAY LÚC TẠO PHIÊN, không đoán về sau. Suy ra "lượt
     # này thuộc bài giao nào" từ thời điểm và người làm là một phép đoán, và phép
@@ -1940,6 +1991,8 @@ def start_session(
         try:
             res = supabase_admin.table("quiz_sessions").insert(row).execute()
         except Exception as exc:  # noqa: BLE001
+            if bank.get('code') in grammar_quiz_session.REVIEWED_SOURCES:
+                raise grammar_quiz_session.storage_error(exc) from exc
             raise HTTPException(500, f"Lỗi tạo session: {exc}")
         if not res.data:
             raise HTTPException(500, "Insert session không trả về dòng nào")
@@ -2612,7 +2665,9 @@ def reset_progress(*, user_id: str, bank_id: str) -> dict:
     test (used by the "Làm lại từ đầu" action once every word is already mastered).
     Session/attempt HISTORY in quiz_sessions/quiz_attempts is untouched (append-only
     log of what actually happened); only the current mastery cache is cleared."""
-    _bank_meta_or_404(bank_id)   # 404 unless the bank exists + is published
+    bank = _bank_meta_or_404(bank_id)   # 404 unless the bank exists + is published
+    if grammar_quiz_session.is_managed(bank):
+        return grammar_quiz_session.reset(supabase_admin,user_id=user_id,bank=bank)
     try:
         supabase_admin.table("quiz_word_stats").delete() \
             .eq("user_id", user_id).eq("bank_id", bank_id).execute()
@@ -2742,7 +2797,26 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
     """Batch-persist attempts (append) + word_stats (upsert by user+bank+item).
     The client owns the mastery decision; we store its snapshots."""
     session = _owned_session(session_id, user_id)
-    write_policy = _assert_quiz_progress_writable(session)
+    # A reset-marked row may have been history-only terminalized. The managed
+    # serialized boundary owns reset-stale precedence, even after that end;
+    # preserve the existing closed fast refusal for every unmarked legacy row.
+    write_policy = _assert_quiz_progress_writable(session) if session.get('grammar_reset_at') is None else None
+    managed_bank = _grammar_bank_for_session(session)
+    if managed_bank is not None:
+        if (not isinstance(attempts,list) or not isinstance(word_stats,list)
+                or any(not isinstance(row,dict) or type(row.get('is_correct')) is not bool for row in attempts)
+                or any(not isinstance(row,dict) for row in word_stats)):
+            raise HTTPException(422,'Dữ liệu tiến độ Grammar không hợp lệ.')
+        clean_attempts = [{**{key:row.get(key) for key in _ATTEMPT_FIELDS},
+            'response_time_ms':_coerce_int(row.get('response_time_ms')),
+            'attempt_no':_coerce_int(row.get('attempt_no'))} for row in attempts]
+        clean_stats = [{key:row.get(key) for key in _WORD_STAT_FIELDS} for row in word_stats]
+        response, inserted = grammar_quiz_session.progress(supabase_admin,user_id=user_id,
+            session=session,bank=managed_bank,attempts=clean_attempts,stats=clean_stats)
+        _record_quiz_kp_evidence(user_id,session['bank_id'],inserted)
+        return response
+    if write_policy is None:
+        write_policy = _assert_quiz_progress_writable(session)
     timed_course = bool(write_policy.get("timed"))
     bank_id = session["bank_id"]
 
@@ -2925,6 +2999,12 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     if ((session.get("ended_at") or session.get("ended_by"))
             and not timed_course_final_batch):
         return session
+    managed_bank = _grammar_bank_for_session(session)
+    if managed_bank is not None:
+        if final_attempts:
+            raise HTTPException(422,'Lưu đáp án Grammar qua tiến độ trước khi kết thúc lượt.')
+        return grammar_quiz_session.end(supabase_admin,user_id=user_id,session=session,bank=managed_bank,
+            summary={**data,'ended_by':ended_by})
 
     if ended_by == "time_cap" and session.get("class_assignment_item_id"):
         attempt_rows = []
@@ -6606,7 +6686,8 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
         meta = {
             r["id"]: r for r in (
                 supabase_admin.table("quiz_banks")
-                .select("id, code, title, skill_area")
+                .select("id, code, title, skill_area, grammar_canonical_code, "
+                        "grammar_revision, grammar_is_current")
                 .in_("id", list({k[0] for k in by_q})).execute()
             ).data or []
         }
@@ -6630,6 +6711,12 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
     for (bank_id, qid), slot in by_q.items():
         question = questions.get((bank_id, qid))
         if not question:
+            bank = meta.get(bank_id, {})
+            if bank.get("grammar_canonical_code") is not None:
+                # Managed revisions retain their original questions. Missing
+                # frozen content is unavailable history, not an empty review.
+                grammar_quiz_session.is_managed(bank)
+                raise grammar_quiz_session.unavailable()
             continue          # question retired since the attempt — nothing to show
         a = slot["attempt"]
         item_key = question.get("item_key") or a.get("item_key") or ""

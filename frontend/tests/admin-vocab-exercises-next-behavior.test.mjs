@@ -23,7 +23,7 @@ describe('Admin Vocabulary Exercises native ownership', () => {
     assert.match(CLIENT, /Promise\.all\(EXERCISE_STATUSES\.map/);
     assert.match(CLIENT, /normalizeExerciseList/);
     assert.match(CLIENT, /exercise_type=D1&limit=\$\{LIMIT\}/);
-    assert.match(CLIENT, /Mỗi queue hiển thị tối đa \{LIMIT\}/);
+    assert.match(CLIENT, /Mỗi nhóm hiển thị tối đa \{LIMIT\}/);
   });
 
   test('requires exact single/bulk ACKs and canonical three-queue readback', () => {

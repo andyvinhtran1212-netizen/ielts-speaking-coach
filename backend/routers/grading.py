@@ -17,6 +17,7 @@ Pipeline (sequential, ~15–30 s):
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -29,6 +30,9 @@ from fastapi import APIRouter, BackgroundTasks, Form, Header, HTTPException, Upl
 from config import settings
 from database import supabase_admin
 from services.band_rounding import ielts_round
+from services.speaking_submission import (
+    SubmissionReplay, load_response, check_submission, save_response, submission_revision,
+)
 from services.pron_calibration import pron_band
 from services import fluency_signals
 from services.db_async import aexecute
@@ -472,6 +476,8 @@ async def grade_response_endpoint(
     audio_file:  UploadFile = File(..., description="Audio recording (MP3 / WAV / WebM / OGG / MP4/M4A)"),
     authorization: str | None = Header(default=None),
     background_tasks: BackgroundTasks = BackgroundTasks(),
+    submission_id: str | None = Form(default=None),
+    expected_revision: str | None = Form(default=None),
 ):
     """
     Nhận file ghi âm, chạy pipeline Whisper → Claude, trả kết quả chấm điểm đầy đủ.
@@ -525,14 +531,10 @@ async def grade_response_endpoint(
         question_text: str = q_res.data[0]["question_text"]
         bind_owned_attempt(session)
 
-        # ── Daily grading rate-limit (B5 / Mục 5) ─────────────────────────────
-        # The pipeline below runs Whisper + Claude on every call; cap per-user/day
-        # so one account can't spam the expensive path (re-recording one question
-        # 100×). Fail-open (services.rate_limit). Record AFTER the cap check so
-        # this request counts toward the next one's limit.
-        step = "rate_limit"
-        enforce_grading_rate_limit(user_id, settings.MAX_GRADINGS_PER_USER_PER_DAY)
-        record_grading_attempt(user_id)
+        retry_safe = isinstance(submission_id, str) and bool(submission_id)
+        if not retry_safe:
+            enforce_grading_rate_limit(user_id, settings.MAX_GRADINGS_PER_USER_PER_DAY)
+            record_grading_attempt(user_id)
 
         # ── STEP 2: File size guard ───────────────────────────────────────────
         step = "read_file"
@@ -548,6 +550,36 @@ async def grade_response_endpoint(
                 413,
                 f"File quá lớn ({file_size / (1024*1024):.1f} MB). Giới hạn là 50 MB."
             )
+
+        # A stable recording UUID + audio hash makes lost acknowledgements replayable.
+        # The read revision prevents a late, older take from replacing a newer one.
+        baseline = load_response(supabase_admin, session_id, question_id)
+        if retry_safe:
+            try:
+                submission_id = str(uuid.UUID(submission_id))
+            except ValueError:
+                raise HTTPException(422, "Invalid submission_id")
+            if not isinstance(expected_revision, str) or not expected_revision:
+                raise HTTPException(422, "Missing expected_revision")
+            ext = _guess_ext(audio_file.filename, audio_file.content_type)
+            storage_path = f"{user_id}/{session_id}/{question_id}.{submission_id}.{hashlib.sha256(audio_bytes).hexdigest()}{ext}"
+            check_submission(baseline, submission_id, storage_path, expected_revision)
+
+        else:
+            submission_id = str(uuid.uuid4())
+            expected_revision = submission_revision(baseline)
+            ext = _guess_ext(audio_file.filename, audio_file.content_type)
+            storage_path = f"{user_id}/{session_id}/{question_id}.{submission_id}.{hashlib.sha256(audio_bytes).hexdigest()}{ext}"
+
+        # ── Daily grading rate-limit (B5 / Mục 5) ─────────────────────────────
+        # The pipeline below runs Whisper + Claude on every call; cap per-user/day
+        # so one account can't spam the expensive path (re-recording one question
+        # 100×). Fail-open (services.rate_limit). Record AFTER the cap check so
+        # this request counts toward the next one's limit.
+        step = "rate_limit"
+        if retry_safe:
+            enforce_grading_rate_limit(user_id, settings.MAX_GRADINGS_PER_USER_PER_DAY)
+            record_grading_attempt(user_id)
 
         # ── STEP 3: Whisper STT (directly from in-memory bytes) ──────────────
         # Transcribe BEFORE uploading to storage so we never hit CDN caching:
@@ -571,7 +603,6 @@ async def grade_response_endpoint(
 
         # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
         step = "storage_upload"
-        storage_path = f"{user_id}/{session_id}/{question_id}{ext}"
         audio_uploaded = False
 
         try:
@@ -603,6 +634,11 @@ async def grade_response_endpoint(
                     "Create it in the Supabase dashboard (Storage → New bucket) as a private bucket.",
                     _AUDIO_BUCKET,
                 )
+
+        if retry_safe and not audio_uploaded:
+            # Never advertise replay safety without a durable recording identity.
+            # The browser retains the audio and can retry when Storage recovers.
+            raise HTTPException(503, {"code": "recording_storage_unavailable"})
 
         transcript: str       = stt.get("transcript", "").strip()
         duration_sec: float   = stt.get("duration_seconds", 0.0)
@@ -1067,50 +1103,10 @@ async def grade_response_endpoint(
                          "feedback", "overall_band", "stt_status", "grading_status"}
 
         def _upsert_response(row: dict) -> str | None:
-            # Sprint 15.1.1 (P0 hotfix) — REVERTED the Sprint 14.8.2 atomic
-            # `.upsert(..., on_conflict="session_id,question_id")` back to
-            # read-then-write. PostgREST's ON CONFLICT cannot target migration
-            # 077's *partial* unique index (`WHERE session_id IS NOT NULL AND
-            # question_id IS NOT NULL`) — Postgres needs the index predicate in
-            # the ON CONFLICT clause, which PostgREST cannot emit. In production
-            # every upsert raised "no unique or exclusion constraint matching the
-            # ON CONFLICT specification"; the save is best-effort (try/except +
-            # core-row fallback that ALSO upsert-failed) so /responses returned
-            # 200 but persisted NO row → /complete found 0 responses → 422.
-            # Read-then-write works against any index state. Duplicate prevention
-            # (Codex F3's actual goal) is still enforced by the 077 index itself
-            # — a racing insert errors rather than duplicating. The single-round-
-            # trip atomicity is the only thing lost; re-introducing it cleanly
-            # needs a NON-partial unique index (deferred, separate migration).
-            existing = (
-                supabase_admin.table("responses")
-                .select("id")
-                .eq("session_id",  session_id)
-                .eq("question_id", question_id)
-                .limit(1)
-                .execute()
+            return save_response(
+                supabase_admin, row, baseline=baseline, token=submission_id,
+                storage_path=storage_path, expected_revision=expected_revision,
             )
-            if existing.data:
-                rid = existing.data[0]["id"]
-                supabase_admin.table("responses").update(row).eq("id", rid).execute()
-                return rid
-            res = supabase_admin.table("responses").insert(row).execute()
-            if res.data:
-                return res.data[0]["id"]
-            # Mục 4 (B2): insert returned no representation (return=minimal / RLS
-            # readback). Re-read to recover the id — the row may well have
-            # persisted; returning None would silently drop grammar-rec + vocab
-            # downstream. If still not found, the fallback helper treats this None
-            # as a failure (→ core-row retry → fail loud).
-            recovered = (
-                supabase_admin.table("responses")
-                .select("id")
-                .eq("session_id", session_id)
-                .eq("question_id", question_id)
-                .limit(1)
-                .execute()
-            )
-            return recovered.data[0]["id"] if recovered.data else None
 
         # Persist with full-row → core-row fallback → FAIL LOUD if both fail.
         # Extracted to a module-level helper so the exact branch semantics are
@@ -1131,9 +1127,12 @@ async def grade_response_endpoint(
         # Xoá riêng ở đây, hỏng thì thôi — bản ghi của học viên đã an toàn.
         if partial and response_id and not grading:
             try:
-                supabase_admin.table("responses").update(
+                query = supabase_admin.table("responses").update(
                     {"final_overall_band": None, "final_band_p": None}
-                ).eq("id", response_id).execute()
+                ).eq("id", response_id)
+                path = db_row["audio_storage_path"]
+                query = query.eq("audio_storage_path", path) if path else query.is_("audio_storage_path", "null")
+                query.execute()
             except Exception as exc:
                 logger.warning(
                     "[grading] không xoá được final_* của dòng chấm hỏng %s: %s",
@@ -1179,6 +1178,7 @@ async def grade_response_endpoint(
                 )
                 _persist_curated_vocab_feedback_blob(
                     response_id, grading=grading, signals=signals,
+                    expected_audio_path=db_row["audio_storage_path"],
                 )
 
             # ── Phase 1: feed the same grammar signals into the unified KP
@@ -1257,6 +1257,10 @@ async def grade_response_endpoint(
             backend_release_sha=_backend_release_sha(),
         )
 
+    except SubmissionReplay as replay:
+        # Receipt only: reconciliation uses the owned session read, including its seal.
+        return {"response_id": replay.response_id, "_replayed": True,
+                "backend_release_sha": _backend_release_sha()}
     except HTTPException:
         raise
     except Exception as e:
@@ -1289,6 +1293,8 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
             # the row actually persisted, else fails loud).
             raise ValueError("response upsert returned no row id (empty insert representation)")
         return rid, False
+    except (SubmissionReplay, HTTPException):
+        raise
     except Exception as e:
         if is_active_player_expired_error(e):
             raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
@@ -1302,6 +1308,8 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
             logger.warning("[grading][metric] response_persist_partial=1 session=%s question=%s — core row only, full metadata lost; run migrations 006/007/008",
                            session_id, question_id)
             return rid, True
+        except (SubmissionReplay, HTTPException):
+            raise
         except Exception as e2:
             if is_active_player_expired_error(e2):
                 raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e2
@@ -1480,6 +1488,7 @@ def _persist_curated_vocab_feedback_blob(
     *,
     grading: dict,
     signals: dict,
+    expected_audio_path: str | None = "",
 ) -> bool:
     """Persist only DB-confirmed curated recommendations into feedback.
 
@@ -1488,9 +1497,12 @@ def _persist_curated_vocab_feedback_blob(
     the initial blob remains valid and simply omits the optional recommendations.
     """
     try:
-        supabase_admin.table("responses").update({
+        query = supabase_admin.table("responses").update({
             "feedback": _serialize_feedback(grading, signals),
-        }).eq("id", response_id).execute()
+        }).eq("id", response_id)
+        if expected_audio_path != "":
+            query = query.eq("audio_storage_path", expected_audio_path) if expected_audio_path else query.is_("audio_storage_path", "null")
+        query.execute()
         return True
     except Exception as exc:  # noqa: BLE001 — optional feedback enrichment
         logger.warning(

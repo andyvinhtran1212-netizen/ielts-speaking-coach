@@ -1,0 +1,527 @@
+{
+  "spec_id": "DICTATIONTOKEN-0011",
+  "policy_version": "lexical-v2",
+  "review_status": "approved_independent_root_and_admin_labels",
+  "label_convention": "Omitted miss/wrong/extra/forgiven counts mean zero; invalid references have no grade. Counts exclude forgiven filler operations.",
+  "production_provenance": "Four deidentified structural examples from production-canonical-probe.json; proper names replaced consistently. No session/student identifiers. This does not assert source/audio correctness or repair historical sessions.",
+  "cases": [
+    {
+      "id": "P01",
+      "source": "production_deidentified:sample1/sentence4",
+      "reference": "Thank you — Sample-Name, got it. And could I take a phone number?",
+      "user": "Thank you, Sample-Name got it, and could I take  a phone number",
+      "correct_words": 12,
+      "total_words": 12,
+      "score": 1.0
+    },
+    {
+      "id": "P02",
+      "source": "production_deidentified:sample1/sentence11",
+      "reference": "Yes, it's an anniversary — my parents' anniversary, in fact. So an anniversary, please.",
+      "user": "Yes it’s an anniversary \nMy parents’ anniversary in fact\nSo an anniversary please",
+      "correct_words": 13,
+      "total_words": 13,
+      "score": 1.0
+    },
+    {
+      "id": "P03",
+      "source": "production_deidentified:sample2/sentence7",
+      "reference": "It's a bungalow , so let's put bungalow, please. Not a flat.",
+      "user": "it's a bungalow so let's put bungalow please not a flat",
+      "correct_words": 11,
+      "total_words": 11,
+      "score": 1.0
+    },
+    {
+      "id": "P04",
+      "source": "production_deidentified:sample1/sentence19",
+      "reference": "Yes — one guest is vegetarian . Just the one, vegetarian, please.",
+      "user": "Yes one guest is vegetarian just the one vegetarian please one",
+      "correct_words": 10,
+      "total_words": 10,
+      "score": 1.0,
+      "extra": 1
+    },
+    {
+      "id": "A01",
+      "source": "approved_matrix",
+      "reference": "— Hello there.",
+      "user": "Hello there.",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A02",
+      "source": "approved_matrix",
+      "reference": "hello—world",
+      "user": "hello world",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A03",
+      "source": "approved_matrix",
+      "reference": "hello–world",
+      "user": "hello world",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A04",
+      "source": "approved_matrix",
+      "reference": "hello—world",
+      "user": "helloworld",
+      "correct_words": 0,
+      "total_words": 2,
+      "score": 0.0,
+      "miss": 1,
+      "wrong": 1
+    },
+    {
+      "id": "A05",
+      "source": "approved_matrix",
+      "reference": "“hello”",
+      "user": "hello",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A06",
+      "source": "approved_matrix",
+      "reference": "'hello'",
+      "user": "hello",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A07",
+      "source": "approved_matrix",
+      "reference": "(hello)",
+      "user": "hello",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A08",
+      "source": "approved_matrix",
+      "reference": "[“hello world”]",
+      "user": "hello world",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A09",
+      "source": "approved_matrix",
+      "reference": "“hello,”",
+      "user": "hello",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A10",
+      "source": "approved_matrix",
+      "reference": "“don't”",
+      "user": "don't",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A11",
+      "source": "approved_matrix",
+      "reference": "don't",
+      "user": "dont",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1
+    },
+    {
+      "id": "A12",
+      "source": "approved_matrix",
+      "reference": "'cause",
+      "user": "cause",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1
+    },
+    {
+      "id": "A13",
+      "source": "approved_matrix",
+      "reference": "’em",
+      "user": "em",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1
+    },
+    {
+      "id": "A14",
+      "source": "approved_matrix",
+      "reference": "state-of-the-art",
+      "user": "state of the art",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1,
+      "extra": 3
+    },
+    {
+      "id": "A15",
+      "source": "approved_matrix",
+      "reference": "-42",
+      "user": "42",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1
+    },
+    {
+      "id": "A16",
+      "source": "approved_matrix",
+      "reference": "+42",
+      "user": "42",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1
+    },
+    {
+      "id": "A17",
+      "source": "approved_matrix",
+      "reference": "−42",
+      "user": "42",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1
+    },
+    {
+      "id": "A18",
+      "source": "approved_matrix",
+      "reference": "$42 50% 3.5 10:30",
+      "user": "$42 50% 3.5 10:30",
+      "correct_words": 4,
+      "total_words": 4,
+      "score": 1.0
+    },
+    {
+      "id": "A19",
+      "source": "approved_matrix",
+      "reference": "— . , “ ” ( )",
+      "user": "",
+      "invalid_reference": true
+    },
+    {
+      "id": "A20",
+      "source": "approved_matrix",
+      "reference": "hello — there",
+      "user": "hello . there",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A21",
+      "source": "authored_adversarial",
+      "reference": "hello—world",
+      "user": "hello wurld",
+      "correct_words": 1,
+      "total_words": 2,
+      "score": 0.5,
+      "wrong": 1
+    },
+    {
+      "id": "A22",
+      "source": "authored_adversarial",
+      "reference": "hello—world",
+      "user": "hello",
+      "correct_words": 1,
+      "total_words": 2,
+      "score": 0.5,
+      "miss": 1
+    },
+    {
+      "id": "A23",
+      "source": "authored_adversarial",
+      "reference": "hello—world",
+      "user": "hello brave world",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0,
+      "extra": 1
+    },
+    {
+      "id": "A24",
+      "source": "authored_adversarial",
+      "reference": "Um — hello.",
+      "user": "hello",
+      "ignore_fillers": true,
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0,
+      "forgiven": 1
+    },
+    {
+      "id": "A25",
+      "source": "authored_adversarial",
+      "reference": "Um hello",
+      "user": "uh hello",
+      "ignore_fillers": true,
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0,
+      "forgiven": 1
+    },
+    {
+      "id": "A26",
+      "source": "authored_adversarial",
+      "reference": "'He said 'hello' again'",
+      "user": "He said hello again",
+      "correct_words": 1,
+      "total_words": 4,
+      "score": 0.25,
+      "miss": 1,
+      "wrong": 2,
+      "extra": 1,
+      "ambiguous_reference": true
+    },
+    {
+      "id": "A27",
+      "source": "authored_adversarial",
+      "reference": "🙂 — “café”",
+      "user": "café",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A28",
+      "source": "authored_adversarial",
+      "reference": "([hello)]",
+      "user": "hello",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1,
+      "ambiguous_reference": true
+    },
+    {
+      "id": "A29",
+      "source": "authored_adversarial",
+      "reference": "“John's book”",
+      "user": "John’s book",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A30",
+      "source": "authored_adversarial",
+      "reference": "'hello world'",
+      "user": "hello world",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A31",
+      "source": "legacy_control",
+      "reference": "Um hello",
+      "user": "um hello",
+      "ignore_fillers": true,
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A32",
+      "source": "legacy_control",
+      "reference": "Um",
+      "user": "",
+      "ignore_fillers": true,
+      "correct_words": 0,
+      "total_words": 0,
+      "score": 0.0,
+      "forgiven": 1
+    },
+    {
+      "id": "A33",
+      "source": "authored_adversarial",
+      "reference": " \t\n",
+      "user": "",
+      "invalid_reference": true
+    },
+    {
+      "id": "A34",
+      "source": "authored_adversarial",
+      "reference": "£ $ + − —",
+      "user": "",
+      "invalid_reference": true
+    },
+    {
+      "id": "A35",
+      "source": "authored_adversarial",
+      "reference": "“hello”, there",
+      "user": "hello there",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A36",
+      "source": "authored_adversarial",
+      "reference": "'$42'",
+      "user": "$42",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A37",
+      "source": "authored_adversarial",
+      "reference": "hello",
+      "user": "— . ( hello ) ,”",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A38",
+      "source": "authored_adversarial",
+      "reference": "pre(hello)post",
+      "user": "prehellopost",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1
+    },
+    {
+      "id": "A39",
+      "source": "authored_adversarial",
+      "reference": "™",
+      "user": "TM",
+      "invalid_reference": true
+    },
+    {
+      "id": "A40",
+      "source": "authored_adversarial",
+      "reference": "“foo(bar)”",
+      "user": "foo(bar)",
+      "correct_words": 1,
+      "total_words": 1,
+      "score": 1.0
+    },
+    {
+      "id": "A41",
+      "source": "authored_adversarial",
+      "reference": "[“pre(hello)post”]",
+      "user": "prehellopost",
+      "correct_words": 0,
+      "total_words": 1,
+      "score": 0.0,
+      "wrong": 1
+    },
+    {
+      "id": "A42",
+      "source": "authored_adversarial",
+      "reference": "'cause we left'",
+      "user": "cause we left",
+      "correct_words": 1,
+      "total_words": 3,
+      "score": 0.3333,
+      "wrong": 2,
+      "ambiguous_reference": true
+    },
+    {
+      "id": "A43",
+      "source": "authored_adversarial",
+      "reference": "’em and ‘hello’",
+      "user": "’em and hello",
+      "correct_words": 3,
+      "total_words": 3,
+      "score": 1.0
+    },
+    {
+      "id": "A44",
+      "source": "independent_review_adversarial",
+      "reference": "'parents' anniversary'",
+      "user": "parents anniversary'",
+      "correct_words": 1,
+      "total_words": 2,
+      "score": 0.5,
+      "wrong": 1,
+      "ambiguous_reference": true
+    },
+    {
+      "id": "A45",
+      "source": "independent_review_adversarial",
+      "reference": "'students' books'",
+      "user": "students books'",
+      "correct_words": 1,
+      "total_words": 2,
+      "score": 0.5,
+      "wrong": 1,
+      "ambiguous_reference": true
+    },
+    {
+      "id": "A46",
+      "source": "independent_review_adversarial",
+      "reference": "'my parents' anniversary'",
+      "user": "my parents' anniversary",
+      "correct_words": 1,
+      "total_words": 3,
+      "score": 0.3333,
+      "wrong": 2,
+      "ambiguous_reference": true
+    },
+    {
+      "id": "A47",
+      "source": "authored_adversarial",
+      "reference": "“parents' anniversary”",
+      "user": "parents' anniversary",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    },
+    {
+      "id": "A48",
+      "source": "authored_adversarial",
+      "reference": "“parents' anniversary”",
+      "user": "parents anniversary",
+      "correct_words": 1,
+      "total_words": 2,
+      "score": 0.5,
+      "wrong": 1
+    },
+    {
+      "id": "A49",
+      "source": "authored_adversarial",
+      "reference": "\"students' books\"",
+      "user": "students' books",
+      "correct_words": 2,
+      "total_words": 2,
+      "score": 1.0
+    }
+  ],
+  "academic_review": {
+    "date": "2026-09-30",
+    "reviewers": [
+      "root",
+      "admin_engineering_council"
+    ],
+    "reviewed_input_sha256": "68e7b407a8a498958a852db9a5f8e8526cdcbf04a6de2e848974660e4ac9c053",
+    "reviewed_policy_module_sha256": "856c05ea00e8aa546f2b08924f67980f1554cce77641db33da60e2c8e6d3e066",
+    "cases_sha256": "5a4f4e01353dba5920573ded2681945b5f08d6560dbff388c42c89ba3be6e36f",
+    "ambiguous_reference_gate": "A26/A28/A42/A44/A45/A46 approved only as conservative baseline with mandatory author review; not approved for new-start publication"
+  }
+}

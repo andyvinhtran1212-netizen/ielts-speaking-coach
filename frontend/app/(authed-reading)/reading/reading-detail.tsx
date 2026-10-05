@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+import { readingVocabReturnHref } from '@/lib/reading-vocab-context.mjs';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { clearLearnerTabDraftAccount, createLearnerTabDrafts, type TabDraft } from '@/lib/learner-tab-drafts.mjs';
 import {
   answerForQuestion,
   normalizeReadingCheck,
@@ -35,6 +39,7 @@ type Detail = {
   questions: Question[];
 };
 type CheckResult = { qNum: number; correct: boolean; expected: string; explanation: string | null; skillTag: string | null };
+type ReadingDraft = { answers: Record<string, string> };
 type ContextLink = { requestTerm: string; unitSlug: string; title: string; rationale: string; level: string };
 type DialogState =
   | { kind: 'glossary'; entry: GlossaryEntry }
@@ -127,22 +132,90 @@ function glossaryHtml(html: string, glossary: GlossaryEntry[]) {
 
 export function ReadingDetail({ library, slug }: { library: Library; slug: string }) {
   const { status, user } = useAuth();
+  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
+  const [returnState, setReturnState] = useState<'active' | 'checking'>('active');
+  const [returnGeneration, setReturnGeneration] = useState(0);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const returnEpoch = useRef(0);
+  const authAccount = useRef(accountKey);
+  authAccount.current = accountKey;
+  const currentAccount = useRef(accountKey);
+  currentAccount.current = returnState === 'active' ? accountKey : null;
+  const previousAccount = useRef(accountKey);
+  useLayoutEffect(() => {
+    // A checking→active transition can be batched; always reconcile the
+    // synchronous pagehide concealment after the fresh workspace is mounted.
+    if (workspaceRef.current) workspaceRef.current.hidden = returnState !== 'active';
+  }, [returnGeneration, returnState]);
+  useLayoutEffect(() => {
+    // Rechecking a persisted page is not logout. Keep the last confirmed
+    // account until auth supplies a signed-in or signed-out result.
+    if (status === 'initial-loading') return;
+    if (previousAccount.current && previousAccount.current !== accountKey) {
+      clearLearnerTabDraftAccount(previousAccount.current);
+    }
+    previousAccount.current = accountKey;
+    setReturnState('active');
+  }, [accountKey, status]);
+  useEffect(() => {
+    if (library !== 'vocab') return undefined;
+    let disposed = false;
+    const conceal = () => {
+      returnEpoch.current += 1;
+      currentAccount.current = null;
+      if (workspaceRef.current) workspaceRef.current.hidden = true;
+      setReturnState('checking');
+    };
+    const resume = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      conceal();
+      const epoch = returnEpoch.current;
+      void (async () => {
+        try {
+          const ready = await whenGlobalReady(() => typeof window.getSupabase === 'function', 'Reading return account');
+          if (!ready || disposed || epoch !== returnEpoch.current) return;
+          const client = window.getSupabase() as { auth?: { getSession(): Promise<{ data?: { session?: { user?: { id?: string } } | null } }> } } | null;
+          const account = (await client?.auth?.getSession())?.data?.session?.user?.id;
+          if (disposed || epoch !== returnEpoch.current) return;
+          if (account && account === authAccount.current) {
+            setReturnGeneration(epoch);
+            setReturnState('active');
+          }
+          else if (previousAccount.current) clearLearnerTabDraftAccount(previousAccount.current);
+        } catch { /* Keep private answers concealed until the real account is confirmed. */ }
+      })();
+    };
+    window.addEventListener('pagehide', conceal);
+    window.addEventListener('pageshow', resume);
+    return () => {
+      disposed = true;
+      returnEpoch.current += 1;
+      window.removeEventListener('pagehide', conceal);
+      window.removeEventListener('pageshow', resume);
+    };
+  }, [library]);
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
-  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
   return (
-    <ReadingDetailWorkspace
-      accountKey={accountKey}
-      key={`${accountKey || status}|${library}|${slug}`}
-      library={library}
-      slug={slug}
-    />
+    <>
+      {returnState === 'checking' && <ReadingDetailState kind="loading" message="Đang xác nhận tài khoản…" />}
+      <div hidden={returnState === 'checking'} ref={workspaceRef}>
+        {returnState === 'active' && <ReadingDetailWorkspace
+          accountKey={accountKey}
+          getAccountId={() => currentAccount.current}
+          key={`${accountKey || status}|${library}|${slug}|${returnGeneration}`}
+          library={library}
+          slug={slug}
+        />}
+      </div>
+    </>
   );
 }
 
-function ReadingDetailWorkspace({ accountKey, library, slug }: {
+function ReadingDetailWorkspace({ accountKey, getAccountId, library, slug }: {
   accountKey: string | null;
+  getAccountId(): string | null;
   library: Library;
   slug: string;
 }) {
@@ -197,7 +270,8 @@ function ReadingDetailWorkspace({ accountKey, library, slug }: {
   if (state.status === 'error') {
     return <ReadingDetailState kind="error" message={messageFor(library, 'error')} />;
   }
-  return <ReadingWorkspace accountKey={accountKey} detail={state.detail} library={library} />;
+  const version = JSON.stringify([state.detail.id, state.detail.slug, state.detail.questions.map(({ qNum, type, prompt, options }) => ({ qNum, type, prompt, options }))]);
+  return <ReadingWorkspace accountKey={accountKey} getAccountId={getAccountId} detail={state.detail} key={version} library={library} version={version} />;
 }
 
 function ReadingDetailState({ kind, message }: { kind: 'loading' | 'empty' | 'error'; message: string }) {
@@ -212,17 +286,90 @@ function ReadingDetailState({ kind, message }: { kind: 'loading' | 'empty' | 'er
   );
 }
 
-function ReadingWorkspace({ accountKey, detail, library }: {
+function ReadingWorkspace({ accountKey, getAccountId, detail, library, version }: {
   accountKey: string | null;
+  getAccountId(): string | null;
   detail: NonNullable<Detail>;
   library: Library;
+  version: string;
 }) {
+  const params = useSearchParams();
   const articleRef = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [results, setResults] = useState<Record<number, CheckResult>>({});
   const [contextLinks, setContextLinks] = useState<ContextLink[]>([]);
+  const [draftReady, setDraftReady] = useState(library !== 'vocab');
+  const [draftNotice, setDraftNotice] = useState<'restored' | 'unsaved' | 'discarded' | null>(null);
+  const draft = useRef<TabDraft<ReadingDraft> | null>(null);
+  const unchecked = useRef<Record<string, string>>({});
+  const currentAnswers = useRef<Record<number, string>>({});
+  const currentResults = useRef<Record<number, CheckResult>>({});
+  const active = useRef(false);
+  const accountGetter = useRef(getAccountId);
+  accountGetter.current = getAccountId;
+  const isCurrent = () => active.current && accountGetter.current() === accountKey;
   const correct = Object.values(results).filter((result) => result.correct).length;
+
+  useLayoutEffect(() => {
+    active.current = true;
+    if (library !== 'vocab' || !accountKey) return () => { active.current = false; };
+    const numbers = new Set(detail.questions.map((question) => String(question.qNum)));
+    const session = createLearnerTabDrafts<ReadingDraft>({
+      accountId: accountKey, scope: `reading-vocab:${detail.slug}`, version,
+      getAccountId: () => accountGetter.current(),
+      validate: (value: unknown) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)
+          || Object.keys(value).length !== 1 || !Object.hasOwn(value, 'answers')) return false;
+        const values = (value as ReadingDraft).answers;
+        return Boolean(values && typeof values === 'object' && !Array.isArray(values)
+          && Object.entries(values).every(([number, answer]) => numbers.has(number) && typeof answer === 'string'));
+      },
+    });
+    draft.current = session;
+    const restored = session.read();
+    const values = restored.value?.answers || {};
+    unchecked.current = { ...values };
+    currentAnswers.current = { ...values };
+    setAnswers({ ...values });
+    setDraftNotice(restored.status === 'unavailable' ? 'unsaved' : restored.restored ? 'restored' : null);
+    setDraftReady(true);
+    return () => {
+      active.current = false;
+      session.dispose();
+      if (draft.current === session) draft.current = null;
+    };
+  }, [accountKey, detail, library, version]);
+
+  const persist = () => {
+    if (draft.current?.save({ answers: unchecked.current }).status === 'unavailable') setDraftNotice('unsaved');
+  };
+  const changeAnswer = (number: number, value: string) => {
+    if (!isCurrent() || !draftReady || currentResults.current[number]) return;
+    currentAnswers.current = { ...currentAnswers.current, [number]: value };
+    unchecked.current = { ...unchecked.current, [number]: value };
+    setAnswers(currentAnswers.current);
+    if (library === 'vocab') persist(); // The latest raw edit, including empty, is stored before navigation.
+  };
+  const acceptResult = (result: CheckResult, submittedAnswer: string) => {
+    if (!isCurrent() || (library === 'vocab' && currentAnswers.current[result.qNum] !== submittedAnswer) || currentResults.current[result.qNum]) return;
+    currentResults.current = { ...currentResults.current, [result.qNum]: result };
+    setResults(currentResults.current);
+    if (library === 'vocab') {
+      const next = { ...unchecked.current };
+      delete next[result.qNum];
+      unchecked.current = next;
+      persist();
+    }
+  };
+  const discardDraft = () => {
+    if (!isCurrent()) return;
+    const discarded = draft.current?.discard();
+    unchecked.current = {};
+    currentAnswers.current = Object.fromEntries(Object.entries(currentAnswers.current).filter(([number]) => currentResults.current[Number(number)]));
+    setAnswers(currentAnswers.current);
+    setDraftNotice(discarded?.status === 'unavailable' ? 'unsaved' : 'discarded');
+  };
 
   useEffect(() => {
     const update = () => {
@@ -279,7 +426,7 @@ function ReadingWorkspace({ accountKey, detail, library }: {
     };
   }, [accountKey, detail.glossary]);
 
-  const backHref = library === 'vocab' ? '/reading/vocab' : '/reading/skill';
+  const backHref = library === 'vocab' ? readingVocabReturnHref(params || undefined) : '/reading/skill';
   const kicker = library === 'vocab' ? 'READING LAB · VOCAB' : 'READING LAB · SKILL PRACTICE';
   const heading = library === 'vocab' ? 'Kiểm tra mức độ hiểu' : 'Luyện đúng kỹ năng';
   const description = library === 'vocab'
@@ -319,15 +466,23 @@ function ReadingWorkspace({ accountKey, detail, library }: {
                     <div className="rq-head__copy"><span className="rq-kicker">SAU KHI ĐỌC</span><h2 className="rq-title">{heading}</h2><p className="rq-description">{description}</p></div>
                     <div className="rq-summary" aria-live="polite">Đúng {correct}/{detail.questions.length}</div>
                   </div>
-                  {detail.questions.map((question, index) => (
+                  {library === 'vocab' && draftReady && <div className="rq-draft">
+                    <p role="status" aria-live="polite">{draftNotice === 'unsaved'
+                      ? 'Nháp chưa được lưu. Bạn vẫn có thể tiếp tục làm bài.'
+                      : draftNotice === 'restored' ? 'Đã khôi phục nháp trong tab này.'
+                        : draftNotice === 'discarded' ? 'Đã bỏ nháp của bài đọc này.' : 'Câu trả lời chưa kiểm tra được giữ trong tab này.'}</p>
+                    <button className="rq-check rq-draft__discard" onClick={discardDraft} type="button">Bỏ nháp bài này</button>
+                  </div>}
+                  {draftReady && detail.questions.map((question, index) => (
                     <QuestionCard
                       answer={answers[question.qNum] || ''}
                       key={question.qNum}
                       library={library}
                       lockedResult={results[question.qNum] || null}
                       number={index + 1}
-                      onAnswer={(value) => setAnswers((current) => ({ ...current, [question.qNum]: value }))}
-                      onResult={(result) => setResults((current) => current[result.qNum] ? current : ({ ...current, [result.qNum]: result }))}
+                      isCurrent={isCurrent}
+                      onAnswer={(value) => changeAnswer(question.qNum, value)}
+                      onResult={acceptResult}
                       question={question}
                       slug={detail.slug}
                     />
@@ -482,13 +637,14 @@ function ReadingDialog({ contextLink, dialog, onClose }: { contextLink: ContextL
   </div>;
 }
 
-function QuestionCard({ answer, library, lockedResult, number, onAnswer, onResult, question, slug }: {
+function QuestionCard({ answer, isCurrent, library, lockedResult, number, onAnswer, onResult, question, slug }: {
   answer: string;
+  isCurrent(): boolean;
   library: Library;
   lockedResult: CheckResult | null;
   number: number;
   onAnswer(value: string): void;
-  onResult(result: CheckResult): void;
+  onResult(result: CheckResult, submittedAnswer: string): void;
   question: Question;
   slug: string;
 }) {
@@ -517,17 +673,18 @@ function QuestionCard({ answer, library, lockedResult, number, onAnswer, onResul
   }, [lockedResult, question.qNum, slug]);
   const submit = async () => {
     const value = answerForQuestion(question, { [question.qNum]: answer });
-    if (!value || lock.current || lockedResult) return;
+    if (!value || lock.current || lockedResult || !isCurrent()) return;
     lock.current = true; setChecking(true); setError(false);
     try {
       const ready = await whenGlobalReady(() => Boolean(window.api?.post), 'window.api POST (Reading detail)');
+      if (!mounted.current || !isCurrent()) return;
       if (!ready) throw new Error('api-unavailable');
       const raw = await window.api.post<unknown>(`/api/reading/${library}/${encodeURIComponent(slug)}/check`, {
         answers: [{ q_num: question.qNum, user_answer: value }],
       });
       const result = normalizeReadingCheck(raw, question.qNum) as CheckResult | null;
       if (!result) throw new Error('invalid-check-contract');
-      if (mounted.current) onResult(result);
+      if (mounted.current && isCurrent()) onResult(result, answer);
     } catch {
       if (mounted.current) setError(true);
     } finally {

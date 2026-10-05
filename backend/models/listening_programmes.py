@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from models.listening_source_collection import SourceBlock, SourceExplanation, SourceResponseField, ReviewVerdict
+from models.mock_review_context import ContextProvenance, ReviewContextReference
 
 
 class ListeningProgrammeCard(BaseModel):
@@ -111,6 +113,10 @@ class ListeningPlayerResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str
+    attempt_purpose: str | None = None
+    mock_sitting_id: str | None = None
+    paper_revision: int | None = None
+    policy_revision: int | None = None
     test_id: str | None = None
     title: str | None = None
     test_type: str | None = None
@@ -126,6 +132,11 @@ class ListeningPlayerResponse(BaseModel):
     audio_url: str | None = None
     audio_storage_path: str | None = None
     audio_duration_seconds: int | float | None = None
+    source_collection_id: str | None = None
+    source_day: int | None = None
+    source_part_label: str | None = None
+    audio_granularity: str | None = None
+    source_blocks: list[SourceBlock] = Field(default_factory=list)
     cue_points: list[Any] = Field(default_factory=list)
     sections: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -182,6 +193,13 @@ class ListeningReportOnlyResult(BaseModel):
 
 
 class ListeningGuidedFeedbackItem(BaseModel):
+    fields: list[SourceResponseField] = Field(default_factory=list)
+    source_item_id: str | None = None
+    source_display_number: str | None = None
+    review_status: ReviewVerdict | None = None
+    answer_provenance: str | None = None
+    explanation: SourceExplanation | None = None
+    audio_granularity: str | None = None
     q_num: int
     first_answer: str
     revealed_at: str
@@ -205,6 +223,13 @@ class ListeningGuidedStateResponse(BaseModel):
 
 
 class ListeningReviewItem(BaseModel):
+    fields: list[SourceResponseField] = Field(default_factory=list)
+    source_item_id: str | None = None
+    source_display_number: str | None = None
+    review_status: ReviewVerdict | None = None
+    answer_provenance: str | None = None
+    explanation: SourceExplanation | None = None
+    audio_granularity: str | None = None
     model_config = ConfigDict(extra="allow")
 
     q_num: int
@@ -220,6 +245,8 @@ class ListeningReviewItem(BaseModel):
     solution: dict[str, Any] = Field(default_factory=dict)
     self_review: dict[str, Any] = Field(default_factory=dict)
     first_answer: str | None = None
+    question_context: dict[str, Any] | None = None
+    context_provenance: dict[str, ContextProvenance] = Field(default_factory=dict)
 
 
 class ListeningAttemptReviewResponse(BaseModel):
@@ -250,6 +277,7 @@ class ListeningAttemptReviewResponse(BaseModel):
     claim_policy: str | None = None
     trap_analytics: dict[str, Any] = Field(default_factory=dict)
     audio_url: str | None = None
+    audio_granularity: str | None = None
     audio_duration: int | float | None = None
     section_offsets: dict[str, Any] = Field(default_factory=dict)
     cue_points: list[Any] = Field(default_factory=list)
@@ -258,6 +286,7 @@ class ListeningAttemptReviewResponse(BaseModel):
     review: list[ListeningReviewItem] = Field(default_factory=list)
     controlled_transcripts: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     web_explanation_access: dict[str, Any] | None = None
+    context_source: ReviewContextReference | None = None
 
 
 class ListeningPackageStatusRequest(BaseModel):

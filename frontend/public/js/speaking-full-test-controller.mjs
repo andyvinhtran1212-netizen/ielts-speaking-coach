@@ -1,7 +1,9 @@
 const LEGACY_CHAIN_KEY = 'ielts_ft_session_ids';
 const STATE_KEY = 'ielts_ft_state_v2';
 const ACCEPTED_SESSION_STATUSES = new Set(['submitted', 'completed', 'analysis_failed']);
-const DEFAULT_SUBMISSION_SETTLE_MS = 180_000;
+// Include a retry's 15s preflight, the 180s upload, its 15s reconciliation,
+// and a small scheduling margin before declaring the recording retryable.
+const DEFAULT_SUBMISSION_SETTLE_MS = 211_000;
 const DEFAULT_FINALIZE_SETTLE_MS = 30_000;
 let controllerSequence = 0;
 
