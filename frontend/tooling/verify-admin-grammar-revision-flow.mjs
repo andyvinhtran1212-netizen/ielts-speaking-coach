@@ -21,6 +21,7 @@ try {
   try { browser = await chromium.launch(); }
   catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform !== 'darwin' || !existsSync(chrome)) throw error; browser = await chromium.launch({ executablePath: chrome }); }
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await context.addInitScript(() => Object.defineProperty(crypto, 'randomUUID', { value: undefined }));
   const user = { id: fixture.actor, email: 'grammar-admin@example.test', role: 'authenticated' };
   await context.addInitScript(([key, session]) => localStorage.setItem(key, JSON.stringify(session)), [storageKey(SB), { access_token: 'synthetic-admin-grammar-not-a-key', refresh_token: 'synthetic', expires_at: Math.floor(Date.now() / 1000) + 3600, user }]);
   const page = await context.newPage(); page.on('pageerror', (error) => errors.push(String(error)));

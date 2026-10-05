@@ -1,11 +1,12 @@
 import { createListeningSaveCoordinator } from './listening-test-controller.mjs';
+import { secureRandomUuid } from './secure-uuid.mjs';
 
 const PROTOCOL = 'question-cas-v1';
 const fail = (message, status) => Object.assign(new Error(message), { status });
 
 /** Reuse the existing serial save queue; flags have separate per-question CAS. */
 export function createAttemptFlagCoordinator({
-  attemptId, read, write, makeOperationId = () => crypto.randomUUID(),
+  attemptId, read, write, makeOperationId = secureRandomUuid,
   debounceMs = 100, requestTimeoutMs = 15000,
   restoredPending = /** @type {unknown[]} */ ([]),
 }) {
