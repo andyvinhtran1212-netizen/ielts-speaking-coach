@@ -14,6 +14,7 @@ DB = os.environ.get("TEST_PG_URL", "")
 SQL = (Path(__file__).resolve().parents[1] / "migrations/306_mock_paper_policy_and_admission.sql").read_text()
 FLAGS_SQL = (Path(__file__).resolve().parents[1] / "migrations/307_mock_attempt_review_flags.sql").read_text()
 ACTIVATION_SQL = (Path(__file__).resolve().parents[1] / "migrations/308_activate_mock_paper_admission.sql").read_text()
+FINALIZE_SQL = (Path(__file__).resolve().parents[1] / "migrations/310_mock_attempt_submitted_finalization.sql").read_text()
 
 
 async def run(sql, *args):
@@ -106,6 +107,7 @@ def _policy_probe(*, active):
         query(migrated)
         query(migrated)  # idempotent forward application, no hidden baseline DML
         query(migrated_flags)
+        query(FINALIZE_SQL.replace('public.', schema + '.').replace('search_path=public,', 'search_path=' + schema + ','))
         if active:
             activate(schema)
         yield schema
@@ -308,6 +310,92 @@ def test_server_collection_can_finalize_after_parent_claim(policy_probe):
     query(f"UPDATE {s}.mock_exams SET collected_section='reading' WHERE id=$1",m)
     query(f"UPDATE {s}.reading_test_attempts SET status='submitted',score=0 WHERE id=$1",UUID(receipt["attempt_id"]))
     assert query(f"SELECT status FROM {s}.reading_test_attempts WHERE id=$1",UUID(receipt["attempt_id"]))[0]["status"]=='submitted'
+
+
+def _admitted_retake(schema, skill):
+    p=paper(schema,skill); owner=uuid4(); m=room(schema,p,skill,True,'retake')
+    sid=query(f"INSERT INTO {schema}.mock_exam_sittings(mock_exam_id,user_id,assigned_skills,{skill}_started_at) VALUES($1,$2,ARRAY[$3],now()) RETURNING id",m,owner,skill)[0]['id']
+    admitted=json.loads(query(f"SELECT {schema}.fn_admit_mock_paper_attempt($1,$2,$3,$4,'legacy') receipt",skill,p,owner,sid)[0]['receipt'])
+    return p,m,sid,UUID(admitted['attempt_id'])
+
+
+@pytest.mark.parametrize('skill',['reading','listening'])
+@pytest.mark.parametrize('boundary',['expired_clock','claimed_stamp'])
+def test_finalized_answers_survive_section_finish_boundary(policy_probe,skill,boundary):
+    s=policy_probe; _,m,sid,aid=_admitted_retake(s,skill)
+    answers=json.dumps([{'q_num':3,'user_answer':'hairs'}])
+    if skill=='reading':
+        query(f"INSERT INTO {s}.reading_attempt_answers(attempt_id,q_num,user_answer) VALUES($1,3,'hairs')",aid)
+    if boundary=='expired_clock':
+        query(f"UPDATE {s}.mock_exam_sittings SET {skill}_started_at=now()-interval'10 minutes' WHERE id=$1",sid)
+        query(f"UPDATE {s}.mock_exams SET reading_minutes=1 WHERE id=$1",m)
+    else:
+        query(f"UPDATE {s}.mock_exam_sittings SET {skill}_submitted_at=now() WHERE id=$1",sid)
+    # The older zero-score collection test left answers unchanged, so it did
+    # not exercise the authoritative saved-answer write during finalization.
+    command=f"UPDATE {s}.{skill}_test_attempts SET status='submitted',answers=$2::jsonb,score=1,grading_details='[{{\"q_num\":3,\"correct\":true}}]' WHERE id=$1"
+    query(command,aid,answers)
+    first=dict(query(f"SELECT * FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0])
+    assert first['status']=='submitted' and first['score']==1
+    assert json.loads(first['answers'])==json.loads(answers)
+    query(command,aid,answers)  # exact retry is idempotent
+    assert dict(query(f"SELECT * FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0])==first
+
+
+@pytest.mark.parametrize('skill',['reading','listening'])
+def test_expired_abandoned_answer_write_still_denied(policy_probe,skill):
+    s=policy_probe; _,m,sid,aid=_admitted_retake(s,skill)
+    query(f"UPDATE {s}.mock_exam_sittings SET {skill}_started_at=now()-interval'10 minutes' WHERE id=$1",sid)
+    query(f"UPDATE {s}.mock_exams SET reading_minutes=1 WHERE id=$1",m)
+    with pytest.raises(asyncpg.RaiseError,match='invalid_resume') as rejected:
+        query(f"UPDATE {s}.{skill}_test_attempts SET status='abandoned',answers='[{{\"q_num\":3,\"user_answer\":\"late\"}}]' WHERE id=$1",aid)
+    assert 'answer_write' in str(rejected.value)
+    assert query(f"SELECT status FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0]['status']=='in_progress'
+
+
+@pytest.mark.parametrize('skill',['reading','listening'])
+def test_expired_autosave_still_denied(policy_probe,skill):
+    s=policy_probe; _,m,sid,aid=_admitted_retake(s,skill)
+    query(f"UPDATE {s}.mock_exam_sittings SET {skill}_started_at=now()-interval'10 minutes' WHERE id=$1",sid)
+    query(f"UPDATE {s}.mock_exams SET reading_minutes=1 WHERE id=$1",m)
+    with pytest.raises(asyncpg.RaiseError,match='invalid_resume') as rejected:
+        query(f"UPDATE {s}.{skill}_test_attempts SET answers='[{{\"q_num\":3,\"user_answer\":\"late\"}}]' WHERE id=$1",aid)
+    assert 'answer_write' in str(rejected.value)
+    if skill=='reading':
+        with pytest.raises(asyncpg.RaiseError,match='invalid_resume'):
+            query(f"INSERT INTO {s}.reading_attempt_answers(attempt_id,q_num,user_answer) VALUES($1,3,'late')",aid)
+
+
+@pytest.mark.parametrize('skill',['reading','listening'])
+@pytest.mark.parametrize('mismatch',['owner','pointer','purpose','parent_owner','ttl'])
+def test_finalize_keeps_admission_and_submit_guards(policy_probe,skill,mismatch):
+    s=policy_probe; _,_,sid,aid=_admitted_retake(s,skill)
+    updates={'owner':"user_id=gen_random_uuid()",'pointer':"sitting_id=gen_random_uuid()",'purpose':"attempt_purpose='practice'"}
+    if mismatch in updates:
+        with pytest.raises(asyncpg.RaiseError,match='immutable_admission'):
+            query(f"UPDATE {s}.{skill}_test_attempts SET status='submitted',answers='[{{\"q_num\":3,\"user_answer\":\"hairs\"}}]',{updates[mismatch]} WHERE id=$1",aid)
+    elif mismatch=='parent_owner':
+        query(f"UPDATE {s}.mock_exam_sittings SET user_id=gen_random_uuid() WHERE id=$1",sid)
+        with pytest.raises(asyncpg.RaiseError,match='ambiguous_orphan'):
+            query(f"UPDATE {s}.{skill}_test_attempts SET status='submitted',answers='[{{\"q_num\":3,\"user_answer\":\"hairs\"}}]' WHERE id=$1",aid)
+    else:
+        query(f"UPDATE {s}.{skill}_test_attempts SET resume_expires_at=now()-interval'1 second' WHERE id=$1",aid)
+        parent=json.loads(query(f"SELECT to_jsonb(a) parent FROM {s}.{skill}_test_attempts a WHERE id=$1",aid)[0]['parent'])
+        with pytest.raises(asyncpg.RaiseError,match='invalid_resume'):
+            query(f"SELECT {s}.fn_guard_owned_mock_attempt($1,$2::jsonb,'submit')",skill,json.dumps(parent))
+    assert query(f"SELECT status FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0]['status']=='in_progress'
+
+
+@pytest.mark.parametrize('skill',['reading','listening'])
+def test_finalize_migration_preserves_historical_rows_on_reapply(rollout_probe,skill):
+    s=rollout_probe; p=paper(s,skill)
+    aid=query(f"INSERT INTO {s}.{skill}_test_attempts(test_id,user_id,status,answers,score,grading_details) VALUES($1,$2,'submitted','[{{\"q_num\":3,\"user_answer\":\"hair\"}}]',27,'[{{\"legacy\":true}}]') RETURNING id",p,uuid4())[0]['id']
+    before=dict(query(f"SELECT * FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0])
+    assert before['paper_revision'] is None
+    migration=FINALIZE_SQL.replace('public.',s+'.').replace('search_path=public,','search_path='+s+',')
+    query(migration)
+    query(migration)
+    assert dict(query(f"SELECT * FROM {s}.{skill}_test_attempts WHERE id=$1",aid)[0])==before
 
 
 def test_unfinished_orphan_never_becomes_public_by_ended_room_badge(policy_probe):
