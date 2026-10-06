@@ -29,3 +29,23 @@ legacy scores. Clean only task fixtures after verification, retaining private pr
 Stable error/content/attempt IDs without answer text/secrets. Observe blocked
 hashes, failed E writes, unavailable/exhausted diagnostics. Receipts preserve
 content/deployment hashes, counts and cleanup; credentials never committed.
+
+The release executor owns observation on staging and production from activation
+through all-thirty acceptance and at least fifteen minutes after activation.
+Gate receipts count valid E writes, unexpected failed writes, reread mismatches,
+diagnostic exposure violations and expected exhaustion separately. One lost or
+overwritten valid E answer, one wrong-objective-denominator result, one leaked
+unsubmitted key or one exposed diagnostic item counted as independent stops the
+release: disable full-bank creation, retain history/exposure guards, record the
+failure and repair before retry. One unexplained 5xx on a valid E write triggers
+canonical reread and a single idempotent retry; a repeated 5xx or mismatched saved
+text invokes the same stop. Expected owner/deadline rejection and honest diagnostic
+exhaustion after practice are safety outcomes, not automatic rollback incidents.
+Exhaustion without relevant exposure or a silent fallback is a stop condition.
+
+This is the existing release gate's bounded observation, not a new monitoring
+platform. Verification injects E read/write failure and exposed/exhausted
+diagnostic cases in local UI/API tests, confirms visible errors and gate failure
+classification, and checks staging disable/re-enable preserves saved history.
+After passing acceptance, the normal administrator owns subsequent operational
+triage using these same stable errors and rollback flag.
