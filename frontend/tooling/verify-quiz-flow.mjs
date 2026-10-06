@@ -61,6 +61,7 @@ async function fixture({
   progressFailures = 0,
   resetAmbiguous = false,
   sessionDelayMs = 0,
+  endDelayMs = 0,
   viewport = { width: 390, height: 844 },
 } = {}) {
   const context = await browser.newContext({ viewport });
@@ -128,6 +129,7 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
     }
     if (request.method() === 'PATCH' && url.pathname === `/api/quiz/sessions/${sessionId}`) {
       endBodies.push(body());
+      if (endDelayMs) await new Promise((resolve) => setTimeout(resolve, endDelayMs));
       return json({ ok: true });
     }
     if (request.method() === 'POST' && url.pathname === '/api/quiz/banks/bank-1/reset') {
@@ -155,13 +157,18 @@ await signedOut.page.waitForURL('**/login');
 check('không có session thì fail closed về canonical /login', signedOut.sessionBodies.length === 0);
 await signedOut.context.close();
 
-const run = await fixture({ progressFailures: 1 });
+const run = await fixture({ progressFailures: 1, endDelayMs: 150 });
 await run.page.goto(`${BASE}/quiz?bank=bank-1`, { waitUntil: 'domcontentloaded' });
 await run.page.getByRole('heading', { name: 'Fixture Quick-Check' }).waitFor();
 let answered = 0;
 let choseWrong = false;
 let modalContract = false;
 for (let guard = 0; guard < 8; guard += 1) {
+  // Finalization temporarily has neither a prompt nor the completed heading.
+  // Wait for either stable state instead of requesting a vanished prompt.
+  await run.page.locator('.qz-prompt')
+    .or(run.page.getByRole('heading', { name: '🎉 Hoàn tất phiên!' }))
+    .first().waitFor();
   if (await run.page.getByRole('heading', { name: '🎉 Hoàn tất phiên!' }).count()) break;
   const prompt = await run.page.locator('.qz-prompt').innerText();
   if (prompt.includes('Choose alpha')) {
@@ -200,7 +207,7 @@ for (let guard = 0; guard < 8; guard += 1) {
     node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
-  await run.page.waitForTimeout(25);
+  await next.waitFor({ state: 'detached' });
 }
 await run.page.getByRole('heading', { name: '🎉 Hoàn tất phiên!' }).waitFor();
 await run.page.getByRole('button', { name: /Hiện tất cả/ }).click();

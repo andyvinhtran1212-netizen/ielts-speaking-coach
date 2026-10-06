@@ -66,6 +66,7 @@ draft -> approved -> implementing -> verified -> shipped
 | AVOC-0002 | Advanced Vocabulary self-paced core 30 | implementing | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
 | MASTER30-0003 | MASTER30 Grammar Diagnostic and Adaptive Review | implementing | high | [spec](0003-master30-grammar-diagnostic/spec.md) |
 | GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | approved | high | [spec](0017-grammar-lesson-assignments/spec.md) |
+| MASTER30FULL-0018 | Assign the complete original MASTER30 Grammar banks | approved | high | [spec](0018-master30-full-bank-assignments/spec.md) |
 | AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
 | LISTENING-0005 | Listening content programmes, import and learner hub | implementing | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |

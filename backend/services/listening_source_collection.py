@@ -18,9 +18,9 @@ GROUP_TITLES = {
     "mock": "Đề mô phỏng từ sách · Day 71–80",
 }
 
-SOURCE_ONLY_UNRESOLVED = "Chưa đủ căn cứ từ nguồn để mở câu này thành bài luyện. Xem tài liệu tự học để đối chiếu."
-SOURCE_ONLY_MISSING_AUDIO = "Phần này chưa có audio trong nguồn. Bạn có thể xem tài liệu tự học."
-SOURCE_ONLY_STUDY = "Câu này được giữ trong tài liệu tự học để đối chiếu."
+SOURCE_ONLY_UNRESOLVED = "Chưa đủ dữ kiện đáng tin cậy để mở câu này thành bài luyện."
+SOURCE_ONLY_MISSING_AUDIO = "Câu này chưa có bản ghi gốc phù hợp để xác minh và mở luyện."
+SOURCE_ONLY_STUDY = "Câu này chưa đủ điều kiện làm bài luyện độc lập."
 UNOPENED_STUDY_DESCRIPTION = "Tài liệu tự học từ nguồn. Mở để xem nội dung đối chiếu."
 UNOPENED_STUDY_INSTRUCTION = "Đây là tài liệu tự học; mở nội dung sẽ chuyển sang chế độ có hỗ trợ."
 
@@ -91,18 +91,23 @@ def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study
         native = native_presentation(source_block, study_opened=study_opened, manifest_sha256=manifest_sha256,
                                      runtime_questions=runtime_questions)
         instruction_vi = native_instruction_vi(source_block, manifest_sha256=manifest_sha256) if native is not None else None
+        images = []
+        if native is not None and native["figures"]:
+            from services.listening_source_figures import signed_figures
+            images = signed_figures(native, manifest_sha256, signer)
+            native = {**native, "figures": []}
         block = safe_source_block_metadata(block, study_opened=study_opened)
         if instruction_vi is not None:
             block["instruction"]["student_vi"] = instruction_vi
     except (ValidationError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
     # Archival PDF crops remain source evidence, never learner question content.
-    # SVG bytes are delivered through this authenticated response, not public assets.
+    # Generated images are signed only after the exact native revision is bound.
     try:
         return SourceBlock.model_validate({
             key: block[key] for key in ("block_id", "part_id", "kind", "instruction", "item_ids",
                 "source_question_numbers", "shared_options", "description", "display_kind", "study_available") if key in block
-        } | {"images": [], "native": native}).model_dump()
+        } | {"images": images, "native": native}).model_dump()
     except (ValidationError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
 
@@ -111,7 +116,8 @@ def day_card(lesson: dict, forms: list[dict], states: dict) -> dict:
     meta = source_metadata(lesson)
     own = [form for form in forms if str(form.get("listening_lesson_id")) == str(lesson["id"])]
     return {
-        "day": lesson["sequence_num"], "lesson_id": str(lesson["id"]), "title": lesson["title"],
+        "day": lesson["sequence_num"], "lesson_id": str(lesson["id"]),
+        "title": "Mock 7 · Nghe audio buổi học" if lesson["sequence_num"] == 77 else lesson["title"],
         "group": meta["group"], "availability": meta["availability"],
         "source_position_count": meta["source_position_count"],
         "practice_item_count": sum(int(form.get("source_item_count") or 0) for form in own),
@@ -123,7 +129,7 @@ def day_card(lesson: dict, forms: list[dict], states: dict) -> dict:
     }
 
 
-def public_source_position(position: dict, parts: list[dict]) -> dict:
+def public_source_position(position: dict, parts: list[dict], manifest_sha256: str | None = None) -> dict:
     """Limitations are public states, not excerpts from protected explanations."""
     try:
         safe = SourcePosition.model_validate({key: position[key] for key in (
@@ -132,6 +138,10 @@ def public_source_position(position: dict, parts: list[dict]) -> dict:
         safe["reason_vi"] = (SOURCE_ONLY_UNRESOLVED if safe["review_status"] == "UNRESOLVED"
                              else SOURCE_ONLY_MISSING_AUDIO if part["audio_status"] == "missing"
                              else SOURCE_ONLY_STUDY)
+        if (manifest_sha256 == "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841"
+                and safe["item_id"] == "80-days:day-29:main:q-13"
+                and safe["review_status"] == "UNRESOLVED"):
+            safe["reason_vi"] = "Audio không nêu giờ khởi hành được hỏi ở câu này; chưa đủ dữ kiện để mở luyện."
         return safe
     except (ValidationError, KeyError, TypeError, StopIteration) as exc:
         raise HTTPException(503, "Thông tin vị trí nguồn chưa hợp lệ.") from exc
@@ -166,7 +176,7 @@ def day_response(package: dict, lesson: dict, forms: list[dict], states: dict,
         "parts": parts, "blocks": [sign_source_block(block, signer, manifest_sha256=package.get("manifest_sha256"))
                                     for block in meta["blocks"]],
         "vocabulary_groups": meta.get("vocabulary_groups") or [],
-        "source_only_positions": [public_source_position(position, parts)
+        "source_only_positions": [public_source_position(position, parts, package.get("manifest_sha256"))
                                   for position in meta.get("source_only_positions") or []], "partial_data": partial}
 
 

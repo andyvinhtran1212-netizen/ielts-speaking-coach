@@ -10,7 +10,24 @@ import { AdminWritingGradeBehavior } from '@/app/(authed-admin-writing-grade)/ad
 const params = vi.hoisted(() => new URLSearchParams({ id: 'essay-1' }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => params }));
 vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: 'admin-1', email: 'admin@example.test' }) }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  params.set('id', 'essay-1');
+});
+
+it('guides an authenticated admin with no essay id without making an essay request', async () => {
+  params.delete('id');
+  const get = vi.fn();
+  const post = vi.fn();
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, post } });
+  render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+
+  expect((await screen.findByRole('alert')).textContent).toContain('Chọn một bài trong hàng chờ Writing');
+  expect(screen.getByRole('link', { name: '← Quay lại Writing' }).getAttribute('href')).toBe('/admin/writing');
+  expect(get).not.toHaveBeenCalled();
+  expect(post).not.toHaveBeenCalled();
+  expect(document.querySelector('#grade-rating-panel')).toBeNull();
+});
 
 it('keeps one rating panel and its unsaved state through repeated tabs under StrictMode', async () => {
   const runtime = { window: {} as { WritingRenderers?: unknown } };

@@ -29,7 +29,7 @@ const groups = [
       { title: 'Hàng chờ chấm', detail: 'Duyệt · Chấm · Trả bài', href: '/admin/writing/queue', status: 'Quản lý', statusClass: 'is-live' },
       { title: 'Yêu cầu chấm lại', detail: 'Duyệt yêu cầu · Đối chiếu quyết định', href: '/admin/writing/regrade-requests', status: 'Quản lý', statusClass: 'is-live' },
       { title: 'Hàng đợi Instructor', detail: 'Nhận bài chấm · Đối chiếu người phụ trách', href: '/admin/writing/instructor-queue', status: 'Quản lý', statusClass: 'is-live' },
-      { title: 'Workspace chấm bài', detail: '13 phần · Trả bài · Chấm lại', href: '/admin/writing/grade', status: 'Quản lý', statusClass: 'is-live' },
+      { title: 'Workspace chấm bài', detail: 'Chọn bài từ hàng chờ · Mở workspace 13 phần', href: '/admin/writing/queue', status: 'Quản lý', statusClass: 'is-live' },
     ],
   },
   {

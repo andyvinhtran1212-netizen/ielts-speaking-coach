@@ -1,0 +1,10 @@
+# Tasks
+
+- [x] T001 Approve correction intent on staging before implementation. PR1600 merged at `6b5091c746e3dd34e0cd4e543f7c7a8d89ba743c`; exact spec head `6d4ef61b3d305c10de5a09b793200ea100d4986d` passed required checks. `owns: primary`
+- [x] T002 Correct/read every original item and obtain exact independent senior approval. All30/3100 independently read and revised fields reread; exact packaged approval SHA `04d195eb…`. `owns: B01–15/B16–30 authors, senior`
+- [x] T003 Implement typed frozen snapshot, atomic MCQ/E persistence and truthful counts. Actual PostgreSQL and exact release golden checks pass. `depends: T001; owns: primary backend/schema`
+- [x] T004 Protect diagnostic pending/concurrent/finalization from full-bank exposure. Actual PostgreSQL race orders, frozen source closure, canonical links and flag/history checks pass; hosted gate remains T007/T008. `depends: T001; owns: primary backend/schema`
+- [x] T005 Add learner/teacher/admin UI and generated contracts, preserving history. React431, strict/legacy types, build and legacy584/fullv3 native5145 checks pass. `depends: T003; owns: primary frontend`
+- [x] T006 Integrate approved content; focused then full local suites/native browser. Actual approved release43 focused checks, all30 browser5145 checks, full backend10510 pass/30 explicit prerequisite skips and full frontend10658 pass/0 skips. React431, both typechecks/build and spec21 pass. `depends: T002,T003,T004,T005`
+- [x] T007 Audit/merge implementation to staging; exact-SHA all-thirty hosted acceptance. PR1602 merged at `8a7bca20b2ce30b2c2b77f96dc1719c72d39a3fa`; actual all30/3100 API4355 and deployed browser23378 checks passed at `50691a5360d66658c4273c9b426458be9f862977`, required exact-SHA CI passed, and owned synthetic staging fixtures were cleaned. See verification.md for historical SHA bindings and warning classification. `depends: T006`
+- [ ] T008 Apply production schema/promote verified SHA; all-thirty acceptance, cleanup and readiness. `depends: T007`

@@ -27,4 +27,10 @@
 .agl-notes td,.agl-notes th{padding:8px;border:1px solid var(--av-border-default)}
 .agl-notes-loading{white-space:pre-wrap}
 .agl-shell :focus-visible{outline:3px solid var(--av-accent);outline-offset:3px}
+.agl-text{line-height:1.65;overflow-wrap:anywhere}
+.agl-prewrap{white-space:pre-wrap;overflow-wrap:anywhere}
+.agl-source-id{font-size:.8rem;color:var(--av-text-muted)}
+.agl-writing{display:block;margin:16px 0;font-weight:600}
+.agl-writing textarea{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid var(--av-border-default);border-radius:10px;background:var(--av-surface-card);color:var(--av-text-primary);font:inherit;font-weight:400;resize:vertical}
+.agl-feedback h4{margin:18px 0 8px}
 @media(max-width:600px){.agl-shell{padding:18px 12px 48px}.agl-hero,.agl-card{border-radius:12px;padding:18px}}

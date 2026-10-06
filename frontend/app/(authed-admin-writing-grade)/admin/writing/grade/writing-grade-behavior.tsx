@@ -272,8 +272,8 @@ export function AdminWritingGradeBehavior() {
   }, []);
 
   useEffect(() => {
-    if (!requestKey) {
-      setGradeState({ key: '', value: { phase: 'error', message: 'Thiếu essay id trong URL (?id=… hoặc ?essay_id=…).' } });
+    if (!requestKey || !essayId) {
+      setGradeState({ key: requestKey, value: { phase: 'error', message: 'Chọn một bài trong hàng chờ Writing để mở workspace chấm bài.' } });
       return;
     }
     let dead = false;

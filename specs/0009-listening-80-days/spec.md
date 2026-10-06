@@ -150,18 +150,37 @@ correctness.
   journey after promotion. Each batch report states accepted/rejected counts,
   remaining work and release state without treating partial progress as done.
 
-- **FR-016:** Each of the 80 days provides an optional, explicitly labelled
-  Kokoro synthetic free-study track, separately from the 69 unchanged originals
-  and their source-availability/coverage states. Preserve supplied English
-  content and dialogue roles with declared editorial corrections; Days 61–70
-  pronounce existing English vocabulary and Day 77 reads its printed English
-  transcript without inventing missing Chinese stories or dialogue. These
-  tracks do not enable Listening starts for resource-only days, add question/key
-  controls, or change original practice audio, attempts or grading. Tracks are
-  private, authorized and bound to the exact package/manifest/day and reviewed
-  bytes; absent media is visibly unavailable. Machine integrity/transcription
-  review and human listening acceptance remain distinct, with no human
-  naturalness certification implied by machine checks.
+- **FR-016:** Each day retains private, authorized original and newly generated
+  audio, bound to the exact package/manifest/day and reviewed bytes. Eligible
+  80-day practice defaults to the new recording; learners may select the original
+  as an alternative. Learner-facing labels are “Bản luyện nghe” and “Bản ghi gốc”
+  and omit the engine name and generation implementation details. Operator
+  provenance retains synthetic status, reviewed hashes, timing and quality limits.
+  New recordings preserve English content and dialogue roles, including declared
+  editorial corrections. Days 61–70 retain vocabulary pronunciation; Day 77 is
+  still a resource-only day. No new question/key controls, false source coverage,
+  correctness verdicts or precise source-timeline anchors are introduced. New
+  recording replay is whole-day only. Existing attempt/history/reveal guards and
+  machine-versus-human review distinctions remain intact.
+- **FR-017:** Clicking an eligible day opens the actual practice workspace
+  immediately, with Part/Section tabs for its available parts. There is no
+  intermediate source preview or second start click. Each part retains its
+  canonical persisted attempt, saved first/revised answers and controlled feedback.
+  Switching tabs preserves draft answers and prevents stale writes/media from
+  leaking between parts. The learner page does not expose the source-question
+  preview, source-document study section or protected transcripts/solutions.
+  Actual task instructions, options and necessary figures remain in the player.
+  Vocabulary and zero-form days show their permitted learning activity with a
+  concise unavailable-practice state; they do not invent independently scored work.
+- **FR-018:** Every displayed picture-question figure is replaced with a GPT
+  generated image that preserves its source subjects, letters, option count,
+  map/diagram geometry and required visual distinctions. Generated imagery must
+  not expose answer keys or add clues absent from the task. Tables, passages,
+  options and response controls remain native text. Final assets are checked
+  visually against the existing curated figure and served through authorized
+  private media with digest-bound mappings. Missing generated assets fail visibly,
+  without falling back to PDF crops. Image zoom, accessible text, both themes,
+  mobile layout and keyboard access are retained.
 
 ## Acceptance scenarios
 
@@ -177,8 +196,7 @@ correctness.
 4. Day 51 exercises with repeated Q1 have different IDs and matching images,
    instructions and feedback. Solved teaching examples are labelled resources.
 5. Day 61 shows a complete curated topic vocabulary resource, no invented
-   supplied-source recording and no question-key controls. Separately labelled
-   synthetic study playback follows FR-016. Day 77 shows source-study
+   supplied-source recording and no question-key controls. Vocabulary playback follows FR-016. Day 77 shows source-study
    availability but no Listening start; Day 76 starts only sections covered by
    supplied source audio.
 6. Day 75 retains its 42 source positions and authentic sections. Local form
@@ -231,17 +249,15 @@ before runtime or importer implementation. Source-first pilot preparation may
 continue outside the repository while that durable approval is pending.
 
 
-### Later user-approved synthetic study audio — 2026-10-05
+### User-directed learner-flow revision — 2026-10-06
 
-The user's later instruction to retain originals and create a new Kokoro version
-for each lesson, followed by authorization to continue the complete collection,
-adds optional, explicitly labelled synthetic free-study audio for all 80 days.
-Days 61–70 pronounce the existing English vocabulary; Day 77 reads the supplied
-printed English transcript. No missing Chinese story or dialogue is invented.
-These supplements are not supplied source recordings: all 69 originals and
-source-availability/coverage states remain unchanged. They do not enable
-Listening starts for Day 77 or vocabulary days, add question/key controls, or
-change practice audio, attempts or grading. The missing-source/non-fabrication
-protections in FR-004 and acceptance scenario 5 remain in force for source
-assets and independent practice. This later authorization permits labelled
-synthetic study tracks; it does not certify human listening acceptance.
+The owner explicitly requested: hide the source-question/document preview;
+remove Kokoro/generation details from learner audio labels; open the practice
+workspace directly from each day with Part 1/2/3 toggles where those parts exist;
+default eligible practice to the new recording; and use GPT generated images for
+picture questions. This approves FR-016's revised audio selection and FR-017/018.
+It supersedes the earlier requirement to name Kokoro on the learner surface and
+keep the new recording confined to a separate free-study widget. Original bytes,
+source eligibility, owner/save/reveal/history guards and unconfirmed-item grading
+restrictions remain protected. Approval covers preparing the complete changes
+and a reviewable demonstration; release follows the existing staging-first flow.

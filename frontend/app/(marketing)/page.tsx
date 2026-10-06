@@ -346,7 +346,7 @@ export default function LandingPreviewPage() {
                 từ vựng và ngữ pháp.
               </p>
               <ul className="ix-skill-card__feats">
-                <li>4 chế độ luyện: Part 1, 2, 3, Full Test</li>
+                <li>3 chế độ: Luyện tập · Luyện từng Part · Full Test</li>
                 <li>Chấm 4 tiêu chí: FC · LR · GRA · P</li>
                 <li>Lịch sử band và tiến độ theo tuần</li>
               </ul>

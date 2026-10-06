@@ -105,7 +105,10 @@ def test_authenticated_day_and_explicit_study_serialization(monkeypatch, manifes
     monkeypatch.setattr(collection, 'source_forms', lambda *_: [])
     from routers import listening
     monkeypatch.setattr(listening, '_programme_attempt_state', lambda *_: ({}, False))
-    monkeypatch.setattr(router, '_sign', lambda _: pytest.fail('Never sign PDF crops'))
+    def generated_only(path):
+        assert '/figures/gpt-v1/' in path
+        return 'https://private.example/generated.png'
+    monkeypatch.setattr(router, '_sign', generated_only)
     app = FastAPI(); app.include_router(router.router)
     async def check():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://fixture') as client:
@@ -119,8 +122,10 @@ def test_authenticated_day_and_explicit_study_serialization(monkeypatch, manifes
             opened = await client.post(path+'/study', json={'block_ids':[RESOURCE]}, headers={'Authorization':'Bearer learner'})
             assert opened.status_code == 200
             assert opened.json()['independent_practice'] is False
-            assert opened.json()['blocks'][0]['native'] == (full if manifest == SOURCE_MANIFEST else None)
-            assert opened.json()['blocks'][0]['images'] == []
+            assert opened.json()['blocks'][0]['native'] == ({**full, 'figures': []} if manifest == SOURCE_MANIFEST else None)
+            images = opened.json()['blocks'][0]['images']
+            assert len(images) == (len(full['figures']) if manifest == SOURCE_MANIFEST else 0)
+            assert all(image['asset_id'].startswith('gpt-v1:') for image in images)
     asyncio.run(check())
 
 
