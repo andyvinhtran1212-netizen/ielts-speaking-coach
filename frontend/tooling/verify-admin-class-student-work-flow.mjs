@@ -53,6 +53,7 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/courses') return json({ courses: [{ id: 'course-1', code: 'C1', name: 'Khoá 1', is_active: true }] });
   if (parsed.pathname === `/admin/cohorts/${cohortId}/members`) return json({ cohort, member_count: 1, members });
   if (parsed.pathname === `/admin/cohorts/${cohortId}/progress`) return json({ students: [{ student_id: 'st-a', student_code: 'A001', name: 'An <img src=x>', activated: true, target_band: 7, skills: { speaking: { attempts: 1, last_activity: null, last_band: 6.5, recent_bands: [6.5] }, writing: { attempts: 0, recent_bands: [] }, reading: { attempts: 0, recent_bands: [] }, listening: { attempts: 0, recent_bands: [] } }, homework: { assigned: 3, submitted: 2, late: 1, missing: 1, on_time_pct: 50 } }], degraded: [] });
+  if (parsed.pathname === `/admin/cohorts/${cohortId}/students/st-a/work`) await new Promise((resolve) => setTimeout(resolve, 150));
   if (parsed.pathname === `/admin/cohorts/${cohortId}/students/st-a/work`) return json({
     student: { id: 'st-a', name: 'An <img src=x>', student_code: 'A001', activated: true }, homework_stale: true,
     items: [
@@ -74,6 +75,7 @@ await page.getByRole('heading', { name: cohort.name }).waitFor({ state: 'visible
 await page.locator('tr').filter({ hasText: 'An <img src=x>' }).getByRole('button', { name: 'Xem bài' }).click();
 const dialog = page.getByRole('dialog');
 await dialog.getByRole('heading', { name: 'An <img src=x>' }).waitFor({ state: 'visible' });
+await dialog.locator('.acw-content').waitFor({ state: 'visible' });
 check('roster mở lịch sử bằng endpoint một-học-viên', requests.some((item) => item.path.endsWith('/students/st-a/work')) && new URL(page.url()).searchParams.get('student_id') === 'st-a');
 check('React escape tên và lịch sử giữ đủ trạng thái chuẩn', await dialog.locator('img').count() === 0 && await dialog.locator('.acw-item').filter({ hasText: 'Grammar 2' }).getByText('Đã nộp', { exact: true }).count() === 1 && await dialog.locator('.acw-item').filter({ hasText: 'Speaking daily' }).getByText('Nộp trễ', { exact: true }).count() === 1 && await dialog.locator('.acw-item').filter({ hasText: 'Reading chưa nộp' }).getByText('Không nộp', { exact: true }).count() === 1);
 check('partial reconcile được cảnh báo thay vì giả danh sách đầy đủ', await dialog.getByText(/Danh sách hoặc trạng thái bên dưới có thể còn thiếu/).count() === 1);

@@ -49,9 +49,9 @@ describe('DEBT-I (favicon half) — the shipped favicon is the brand mark', () =
   });
 
   test('still the single shared icon both stacks resolve', () => {
-    // If a second icon ever appears (an /icon.png, a Next metadata.icons entry),
-    // this test is the place that notices — the "ship it alone" argument above
-    // only holds while there is exactly one.
+    // Both stacks and Next metadata.icons must reference /favicon.svg.
+    // A metadata reference to this public asset does not introduce another
+    // icon; the "ship it alone" argument holds while the asset stays shared.
     const pages = [];
     const walk = (dir) => {
       for (const ent of readdirSync(dir, { withFileTypes: true })) {
@@ -69,7 +69,7 @@ describe('DEBT-I (favicon half) — the shipped favicon is the brand mark', () =
     assert.deepEqual(wrong, [], 'every page must resolve the same /favicon.svg');
 
     const nextLayout = read('frontend/app/layout.tsx');
-    assert.ok(!/icons\s*:/.test(nextLayout),
-      'a Next metadata.icons entry would override public/favicon.svg — update this test if one is added');
+    assert.match(nextLayout, /icons\s*:\s*\{\s*icon\s*:\s*['"]\/favicon\.svg['"]\s*\}/,
+      'native Next metadata must resolve the same canonical public/favicon.svg');
   });
 });

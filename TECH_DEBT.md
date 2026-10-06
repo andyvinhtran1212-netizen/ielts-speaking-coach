@@ -73,7 +73,8 @@ material, not active backlog.
   The "apply it twice" argument that blocks this item does **not** hold for the
   favicon: there is exactly **one** `frontend/public/favicon.svg`, all 55 pages
   reference the same absolute `/favicon.svg`, Next serves it from `public/` too,
-  and `app/layout.tsx` declares no `metadata.icons` to override it. One file, one
+  and `app/layout.tsx` declares `metadata.icons` pointing to that same public
+  `/favicon.svg` so native pages resolve the canonical asset. One file, one
   path, both stacks — so it shipped on its own, and it closed a real colour
   inconsistency on the way (the old file used teal-500 `#14b8a6`, the dark-theme
   step, on a fixed asset; brand teal is `#0F766E`).
