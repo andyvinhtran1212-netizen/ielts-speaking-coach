@@ -38,6 +38,7 @@ export const metadata: Metadata = {
   // preview thay vì domain thật.
   metadataBase: new URL('https://averlearning.com'),
   applicationName: 'Aver Learning',
+  icons: { icon: '/favicon.svg' },
   manifest: '/manifest.webmanifest',
   title: 'averlearning',
   description:
