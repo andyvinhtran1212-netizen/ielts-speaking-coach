@@ -21,6 +21,11 @@ source mirror/shape validation cannot approve these full banks.
 
 ## Ownership and handoff
 
+Independent senior reviewed product intent and approved the narrow existing-player
+direction. Clarification before implementation: required output instructions are
+visible before E submission; only answer-bearing model/variants/rubric are hidden.
+Full-content review remains pending and does not inherit mini-practice approval.
+
 Checkout `/Users/trantrongvinh/.codex/worktrees/grammar-full-original-banks/ielts-speaking-coach`,
 branch `codex/grammar-full-original-banks`, base staging
 `57f56c5995145ccc15d1489fd49a6f036e32ca6d`. Source/primary checkout remain untouched.
