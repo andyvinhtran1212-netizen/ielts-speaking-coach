@@ -6,7 +6,9 @@ const finite = (value) => value !== null && value !== undefined && value !== '' 
 export function grammarLessonResult(row) {
   if (row.grammar_answered == null || row.grammar_question_count == null) return 'Chưa đọc được tiến độ';
   if (['submitted', 'late'].includes(row.status)) {
-    return row.grammar_correct == null ? 'Chưa đọc được kết quả' : `${row.grammar_correct}/${row.grammar_question_count}`;
+    if (row.grammar_correct == null) return 'Chưa đọc được kết quả';
+    const objective = row.grammar_objective_count ?? row.grammar_question_count;
+    return `${row.grammar_correct}/${objective}${row.grammar_writing_count ? ` trắc nghiệm · ${row.grammar_writing_answered_count ?? '?'}/${row.grammar_writing_count} viết (chưa chấm)` : ''}`;
   }
   return row.grammar_answered ? `${row.grammar_answered}/${row.grammar_question_count} câu` : 'Chưa làm';
 }
@@ -38,6 +40,9 @@ export function normalizeTally(value) {
       grammar_answered: finite(row.grammar_answered),
       grammar_correct: finite(row.grammar_correct),
       grammar_question_count: finite(row.grammar_question_count),
+      grammar_objective_count: finite(row.grammar_objective_count),
+      grammar_writing_count: finite(row.grammar_writing_count),
+      grammar_writing_answered_count: finite(row.grammar_writing_answered_count),
       has_writing: row.has_writing === true, writing_expected: row.writing_expected === true,
     };
   }).filter(Boolean);

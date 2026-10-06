@@ -194,6 +194,16 @@ def _require_session_accepting(user_id: str, session: dict[str, Any]) -> None:
 
 def _translate_assignment_write_error(exc: Exception) -> None:
     message = str(exc).lower()
+    if "grammar_practice_exposed" in message:
+        raise HTTPException(409, detail={
+            "error_code": "diagnostic_practice_exposed",
+            "message": "Bạn đã mở bài luyện có câu liên quan. Phiên này không còn đủ bằng chứng độc lập.",
+        }) from exc
+    if "grammar_practice_history_invalid" in message:
+        raise HTTPException(503, detail={
+            "error_code": "exposure_history_unavailable",
+            "message": "Chưa kiểm tra được lịch sử bài luyện; vui lòng thử lại.",
+        }) from exc
     if "grammar_assignment_not_accessible" in message:
         raise HTTPException(404, "Không tìm thấy bài Grammar được giao") from exc
     if "grammar_response_conflict" in message:
@@ -378,12 +388,18 @@ def next_item(user_id: str, session_id: str) -> dict[str, Any]:
     content = _content({"id": session["release_id"]})
     responses = _responses(session_id)
     exposures = _exposures(session_id)
+    practice = _practice_exposure(user_id)
     answered_ids = {str(row["item_id"]) for row in responses}
     pending = next((row for row in exposures if str(row["item_id"]) not in answered_ids), None)
     if pending:
         item = content["by_id"].get(str(pending["item_id"]))
         if not item:
             raise HTTPException(409, "Câu đang làm không còn trong release của phiên")
+        if _practised(item, practice):
+            raise HTTPException(409, detail={
+                "error_code": "diagnostic_practice_exposed",
+                "message": "Câu đang làm liên quan bài luyện đã mở; không thể dùng làm bằng chứng độc lập.",
+            })
         return {"complete": False, "item": _public_item(item, pending["phase"], len(responses) + 1, session["objective_limit"])}
     if len(responses) >= int(session["objective_limit"]):
         finalize_session(user_id, session_id)
@@ -407,9 +423,9 @@ def next_item(user_id: str, session_id: str) -> dict[str, Any]:
             "error_code": "exposure_history_unavailable",
             "message": "Chưa đọc được lịch sử câu hỏi; hệ thống không lặp câu để giữ độ tin cậy.",
         }) from exc
-    used_items = {str(row.get("item_id") or "") for row in history}
-    used_families = {str(row.get("stimulus_family") or "") for row in history}
-    used_parallel = {str(row.get("parallel_set_id") or "") for row in history if row.get("parallel_set_id")}
+    used_items = {str(row.get("item_id") or "") for row in history} | practice["item_ids"]
+    used_families = {str(row.get("stimulus_family") or "") for row in history} | practice["stimulus_families"]
+    used_parallel = {str(row.get("parallel_set_id") or "") for row in history if row.get("parallel_set_id")} | practice["parallel_set_ids"]
     counts = Counter(str(row["attribute_id"]) for row in responses)
     candidates = []
     for attribute in _selection_attribute(session, phase, responses):
@@ -456,6 +472,11 @@ def next_item(user_id: str, session_id: str) -> dict[str, Any]:
         raced_item = content["by_id"].get(str(raced["item_id"]))
         if not raced_item:
             raise HTTPException(409, "Câu đang làm không còn trong release của phiên") from exc
+        if _practised(raced_item, _practice_exposure(user_id)):
+            raise HTTPException(409, detail={
+                "error_code": "diagnostic_practice_exposed",
+                "message": "Câu này liên quan bài luyện đã mở; không thể tiếp tục phiên độc lập.",
+            }) from exc
         return {
             "complete": False,
             "item": _public_item(
@@ -464,6 +485,36 @@ def next_item(user_id: str, session_id: str) -> dict[str, Any]:
             ),
         }
     return {"complete": False, "item": _public_item(item, phase, len(responses) + 1, session["objective_limit"])}
+
+
+def _practice_exposure(user_id: str) -> dict[str, set[str]]:
+    """Read every actual served v3 snapshot, regardless of assignment/flag state.
+
+    The DB aggregate has no PostgREST row limit and fails on missing frozen
+    closure. Mutation triggers serialize races after this selector read.
+    """
+    try:
+        value = supabase_admin.rpc("master30_full_practice_exposure", {
+            "p_user_id": user_id,
+        }).execute().data
+        fields = ("item_ids", "stimulus_families", "parallel_set_ids")
+        if (not isinstance(value, dict)
+                or any(not isinstance(value.get(key), list)
+                       or not all(isinstance(v, str) and v for v in value[key])
+                       for key in fields)):
+            raise ValueError("Incomplete actual served-practice history")
+        return {key: set(value[key]) for key in fields}
+    except Exception as exc:
+        raise HTTPException(503, detail={
+            "error_code": "exposure_history_unavailable",
+            "message": "Chưa kiểm tra được lịch sử bài luyện; hệ thống không lặp câu để giữ độ tin cậy.",
+        }) from exc
+
+
+def _practised(item: dict, history: dict[str, set[str]]) -> bool:
+    return (str(item["item_id"]) in history["item_ids"]
+            or str(item.get("stimulus_family") or "") in history["stimulus_families"]
+            or str(item.get("parallel_set_id") or "") in history["parallel_set_ids"])
 
 
 def record_response(

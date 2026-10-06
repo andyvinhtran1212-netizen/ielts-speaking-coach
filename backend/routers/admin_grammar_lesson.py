@@ -9,6 +9,7 @@ from models.grammar_content import GrammarArticleRef
 from routers.admin import require_admin
 from routers.admin_class_assignments import _require_course_five
 from services import grammar_lesson_service as service
+from routers.grammar_lesson import Question
 
 
 router = APIRouter(prefix="/admin", tags=["admin", "grammar-lesson"])
@@ -24,16 +25,11 @@ class CatalogEntry(BaseModel):
     question_count: int
     article: GrammarArticleRef | None = None
     content_version: str | None = None
-
-
-class ReportQuestion(BaseModel):
-    id: str
-    prompt: str
-    options: list[str]
-    selected_index: int | None = None
-    is_correct: bool | None = None
-    correct_index: int | None = None
-    explanation: str | None = None
+    practice_kind: str = "mini_practice"
+    objective_count: int = 0
+    writing_count: int = 0
+    core_count: int = 0
+    supplementary_count: int = 0
 
 
 class EducatorReport(BaseModel):
@@ -44,10 +40,16 @@ class EducatorReport(BaseModel):
     status: str
     correct_count: int
     question_count: int
+    content_version: str | None = None
+    objective_count: int | None = None
+    writing_count: int = 0
+    writing_answered_count: int = 0
+    core_count: int | None = None
+    supplementary_count: int = 0
     completed_at: str | None = None
     focus: str
     article: GrammarArticleRef | None = None
-    questions: list[ReportQuestion]
+    questions: list[Question]
 
 
 @router.get("/cohorts/{cohort_id}/grammar-lessons/catalog",

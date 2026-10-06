@@ -1624,10 +1624,17 @@ async def assignment_tally(
             for offset in range(0, len(item_ids), _ID_CHUNK):
                 for attempt in _paged(
                     supabase_admin, "grammar_lesson_attempts",
-                    "id, class_assignment_item_id, answers, correct_count, question_count",
+                    "id, class_assignment_item_id, answers, correct_count, question_count, content_snapshot",
                     lambda q, ids=item_ids[offset:offset + _ID_CHUNK]:
                         q.in_("class_assignment_item_id", ids),
                 ):
+                    from services.grammar_lesson_full_content import question_counts
+                    snapshot = attempt.get("content_snapshot") or {}
+                    attempt.update(question_counts(snapshot, attempt.get("answers"))
+                                   if snapshot.get("questions") else {
+                                       "objective_count": attempt.get("question_count"),
+                                       "writing_count": 0, "writing_answered_count": 0,
+                                   })
                     grammar_attempts[str(attempt["class_assignment_item_id"])] = attempt
         except Exception as exc:
             grammar_attempts_failed = True
@@ -1855,8 +1862,12 @@ async def assignment_tally(
             "grammar_answered": None if grammar_attempts_failed and str(it["id"]) not in grammar_attempts
                 else len((grammar_attempts.get(str(it["id"])) or {}).get("answers") or {}),
             "grammar_correct": (grammar_attempts.get(str(it["id"])) or {}).get("correct_count"),
-            "grammar_question_count": (assignment.get("content_config") or {}).get("question_count")
+            "grammar_question_count": (grammar_attempts.get(str(it["id"])) or {}).get("question_count",
+                (assignment.get("content_config") or {}).get("question_count"))
                 if (assignment.get("content_config") or {}).get("assignment_type") == "grammar_lesson" else None,
+            "grammar_objective_count": (grammar_attempts.get(str(it["id"])) or {}).get("objective_count"),
+            "grammar_writing_count": (grammar_attempts.get(str(it["id"])) or {}).get("writing_count"),
+            "grammar_writing_answered_count": (grammar_attempts.get(str(it["id"])) or {}).get("writing_answered_count"),
             # Có bài tự luận để đọc không. Chỉ hiện nút khi THẬT SỰ có — một
             # liên kết mở ra "chưa nộp gì" tệ hơn không có liên kết.
             "has_writing":   it["id"] in writing_by_item,

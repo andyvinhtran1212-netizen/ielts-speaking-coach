@@ -2,7 +2,8 @@
 
 v1 retains reviewed Grammar Wiki Quick Checks. v2 uses independently authored
 MASTER30 practice and frozen teaching notes, approved by a senior content gate.
-Neither package selects diagnostic, confirmation or holdout questions.
+v3 preserves full original banks, including typed writing. Its actual served
+snapshots protect later diagnostic evidence through the full-bank guards.
 """
 
 from __future__ import annotations
@@ -71,6 +72,9 @@ def _validate_v2_review(data: dict[str, Any]) -> None:
 def load_version(version: str = CURRENT_VERSION) -> dict[str, Any]:
     if not _VERSION_RE.fullmatch(version):
         raise ValueError("Invalid Grammar lesson practice version")
+    if version == "v3":
+        from services.grammar_lesson_full_content import load_full_package
+        return load_full_package(PRACTICE_ROOT, load_version("v2"))
     path = PRACTICE_ROOT / f"{version}.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("version") != version or not isinstance(data.get("lessons"), dict):
@@ -155,14 +159,29 @@ def public_lesson(
             "prompt": row["prompt"],
             "options": row["options"],
         }
+        if row.get("type"):
+            question.update(type=row["type"], format_code=row.get("format_code"),
+                            supplementary=bool(row.get("supplementary")))
+        if row.get("type") == "writing":
+            question["output_requirements"] = row["output_requirements"]
         saved = answered.get(row["id"])
         if isinstance(saved, dict):
-            question.update({
-                "selected_index": saved["selected_index"],
-                "is_correct": saved["is_correct"],
-                "correct_index": row["correct_index"],
-                "explanation": row["explanation"],
-            })
+            if row.get("type") == "writing":
+                question.update(answer_text=saved["answer_text"],
+                                explanation=row["explanation"],
+                                writing_feedback={key: row[key] for key in (
+                                    "model_answer", "accepted_variants", "rubric",
+                                    "detailed_rubric", "writing_skill",
+                                )})
+            else:
+                question.update({
+                    "selected_index": saved["selected_index"],
+                    "is_correct": saved["is_correct"],
+                    "correct_index": row["correct_index"],
+                    "explanation": row["explanation"],
+                })
+                if row.get("distractor_explanations"):
+                    question["distractor_explanations"] = row["distractor_explanations"]
         questions.append(question)
     return {
         "focus": lesson["focus"],

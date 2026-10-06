@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-05 the highest is `312`, so the next
-new migration is `313`.
+sequence is dense. As of 2026-10-06 the highest is `313`, so the next
+new migration is `314`.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
@@ -41,6 +41,11 @@ The unapplied assignment candidate was renamed from
 the old assignment filename was absent and the attempt table did not exist.
 Migration `312` adds assignment-scoped MASTER30 lesson practice attempts and a
 default-off runtime flag. It does not rewrite diagnostic items or learner history.
+
+Migration `313` adds the default-off original full-bank version: 90 scored
+MCQs and 10–30 ungraded writing responses per frozen attempt. It preserves
+legacy attempts and serializes practice exposure with diagnostic admission and
+finalization. Content publication and staged activation are separate release steps.
 
 ## Conventions
 

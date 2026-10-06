@@ -13554,7 +13554,9 @@ export interface components {
             /** Question Id */
             question_id: string;
             /** Selected Index */
-            selected_index: number;
+            selected_index?: number | null;
+            /** Answer Text */
+            answer_text?: string | null;
         };
         /** AssignRow */
         AssignRow: {
@@ -14265,6 +14267,31 @@ export interface components {
             article?: components["schemas"]["GrammarArticleRef"] | null;
             /** Content Version */
             content_version?: string | null;
+            /**
+             * Practice Kind
+             * @default mini_practice
+             */
+            practice_kind: string;
+            /**
+             * Objective Count
+             * @default 0
+             */
+            objective_count: number;
+            /**
+             * Writing Count
+             * @default 0
+             */
+            writing_count: number;
+            /**
+             * Core Count
+             * @default 0
+             */
+            core_count: number;
+            /**
+             * Supplementary Count
+             * @default 0
+             */
+            supplementary_count: number;
         };
         /** ClaimRendererAffinityBody */
         ClaimRendererAffinityBody: {
@@ -15593,13 +15620,34 @@ export interface components {
             correct_count: number;
             /** Question Count */
             question_count: number;
+            /** Content Version */
+            content_version?: string | null;
+            /** Objective Count */
+            objective_count?: number | null;
+            /**
+             * Writing Count
+             * @default 0
+             */
+            writing_count: number;
+            /**
+             * Writing Answered Count
+             * @default 0
+             */
+            writing_answered_count: number;
+            /** Core Count */
+            core_count?: number | null;
+            /**
+             * Supplementary Count
+             * @default 0
+             */
+            supplementary_count: number;
             /** Completed At */
             completed_at?: string | null;
             /** Focus */
             focus: string;
             article?: components["schemas"]["GrammarArticleRef"] | null;
             /** Questions */
-            questions: components["schemas"]["ReportQuestion"][];
+            questions: components["schemas"]["Question"][];
         };
         /** EducatorReportResponse */
         EducatorReportResponse: {
@@ -17168,6 +17216,27 @@ export interface components {
             correct_count: number;
             /** Question Count */
             question_count: number;
+            /** Content Version */
+            content_version?: string | null;
+            /** Objective Count */
+            objective_count?: number | null;
+            /**
+             * Writing Count
+             * @default 0
+             */
+            writing_count: number;
+            /**
+             * Writing Answered Count
+             * @default 0
+             */
+            writing_answered_count: number;
+            /** Core Count */
+            core_count?: number | null;
+            /**
+             * Supplementary Count
+             * @default 0
+             */
+            supplementary_count: number;
             /** Attempt Id */
             attempt_id?: string | null;
             /** Focus */
@@ -18820,6 +18889,26 @@ export interface components {
             correct_index?: number | null;
             /** Explanation */
             explanation?: string | null;
+            /**
+             * Type
+             * @default mcq
+             * @enum {string}
+             */
+            type: "mcq" | "writing";
+            /** Format Code */
+            format_code?: string | null;
+            /**
+             * Supplementary
+             * @default false
+             */
+            supplementary: boolean;
+            /** Output Requirements */
+            output_requirements?: string | null;
+            /** Answer Text */
+            answer_text?: string | null;
+            writing_feedback?: components["schemas"]["WritingFeedback"] | null;
+            /** Distractor Explanations */
+            distractor_explanations?: string[] | null;
         };
         /**
          * QuestionEditRequest
@@ -19279,23 +19368,6 @@ export interface components {
              * @default in_app
              */
             channel: string;
-        };
-        /** ReportQuestion */
-        ReportQuestion: {
-            /** Id */
-            id: string;
-            /** Prompt */
-            prompt: string;
-            /** Options */
-            options: string[];
-            /** Selected Index */
-            selected_index?: number | null;
-            /** Is Correct */
-            is_correct?: boolean | null;
-            /** Correct Index */
-            correct_index?: number | null;
-            /** Explanation */
-            explanation?: string | null;
         };
         /** ResponseAccepted */
         ResponseAccepted: {
@@ -21004,6 +21076,19 @@ export interface components {
             /** Started */
             started: boolean;
             timer: components["schemas"]["WritingAdmissionTimer"];
+        };
+        /** WritingFeedback */
+        WritingFeedback: {
+            /** Model Answer */
+            model_answer: string;
+            /** Accepted Variants */
+            accepted_variants: string[];
+            /** Rubric */
+            rubric: string;
+            /** Detailed Rubric */
+            detailed_rubric: string;
+            /** Writing Skill */
+            writing_skill: string;
         };
         /** WritingOverviewOut */
         WritingOverviewOut: {
