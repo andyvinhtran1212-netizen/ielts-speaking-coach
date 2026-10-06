@@ -110,6 +110,17 @@ it.each(['allowed', 'once', undefined, 'unknown'])('source null-window result ex
   expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
 });
 
+it('preserves reviewed answer provenance in submitted source review while hiding source documents and full transcripts', async () => {
+  const payload = resultPayload('SOURCE', true, null);
+  window.api.getWith = vi.fn(async () => ({ ...payload, review: [{ ...payload.review[0], answer_provenance: 'printed_key_verified', explanation: { answer: 'Crown', printed_key: { answer: 'Crown', evidence_tier: 'PRINTED', source_pdf_page: 249 }, why_vi: 'Đối chiếu âm nghe được.', evidence: [{ source_kind: 'printed_transcript', pdf_page: 249, quote: 'Crown.' }] } }] }));
+  render(<ProgrammeResult attemptId="source-review" />);
+  await screen.findByText('SOURCE_TITLE');
+  expect(screen.getByText('Đáp án in trong sách:')).toBeTruthy();
+  expect(screen.getByText(/Đáp án in đã được đối chiếu/)).toBeTruthy();
+  expect(screen.getByText('Transcript in trong sách')).toBeTruthy();
+  expect(screen.queryByText(/PDF trang|SOURCE_TRANSCRIPT/)).toBeNull();
+});
+
 it('preserves generic exact-clip stop and never upgrades null windows to whole-day controls', async () => {
   const payload = resultPayload('GENERIC'); payload.review.push({ ...payload.review[0], q_num: 2, prompt: 'Second clip', audio_window: { start: 6, end: 9 } });
   window.api.getWith = vi.fn(async () => payload); render(<ProgrammeResult attemptId="generic-attempt" />); await screen.findByText('GENERIC_TITLE');

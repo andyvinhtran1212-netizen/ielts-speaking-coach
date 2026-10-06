@@ -18,9 +18,9 @@ GROUP_TITLES = {
     "mock": "Đề mô phỏng từ sách · Day 71–80",
 }
 
-SOURCE_ONLY_UNRESOLVED = "Chưa đủ căn cứ từ nguồn để mở câu này thành bài luyện. Xem tài liệu tự học để đối chiếu."
-SOURCE_ONLY_MISSING_AUDIO = "Phần này chưa có audio trong nguồn. Bạn có thể xem tài liệu tự học."
-SOURCE_ONLY_STUDY = "Câu này được giữ trong tài liệu tự học để đối chiếu."
+SOURCE_ONLY_UNRESOLVED = "Chưa đủ dữ kiện đáng tin cậy để mở câu này thành bài luyện."
+SOURCE_ONLY_MISSING_AUDIO = "Câu này chưa có bản ghi gốc phù hợp để xác minh và mở luyện."
+SOURCE_ONLY_STUDY = "Câu này chưa đủ điều kiện làm bài luyện độc lập."
 UNOPENED_STUDY_DESCRIPTION = "Tài liệu tự học từ nguồn. Mở để xem nội dung đối chiếu."
 UNOPENED_STUDY_INSTRUCTION = "Đây là tài liệu tự học; mở nội dung sẽ chuyển sang chế độ có hỗ trợ."
 
@@ -128,7 +128,7 @@ def day_card(lesson: dict, forms: list[dict], states: dict) -> dict:
     }
 
 
-def public_source_position(position: dict, parts: list[dict]) -> dict:
+def public_source_position(position: dict, parts: list[dict], manifest_sha256: str | None = None) -> dict:
     """Limitations are public states, not excerpts from protected explanations."""
     try:
         safe = SourcePosition.model_validate({key: position[key] for key in (
@@ -137,6 +137,10 @@ def public_source_position(position: dict, parts: list[dict]) -> dict:
         safe["reason_vi"] = (SOURCE_ONLY_UNRESOLVED if safe["review_status"] == "UNRESOLVED"
                              else SOURCE_ONLY_MISSING_AUDIO if part["audio_status"] == "missing"
                              else SOURCE_ONLY_STUDY)
+        if (manifest_sha256 == "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841"
+                and safe["item_id"] == "80-days:day-29:main:q-13"
+                and safe["review_status"] == "UNRESOLVED"):
+            safe["reason_vi"] = "Audio không nêu giờ khởi hành được hỏi ở câu này; chưa đủ dữ kiện để mở luyện."
         return safe
     except (ValidationError, KeyError, TypeError, StopIteration) as exc:
         raise HTTPException(503, "Thông tin vị trí nguồn chưa hợp lệ.") from exc
@@ -171,7 +175,7 @@ def day_response(package: dict, lesson: dict, forms: list[dict], states: dict,
         "parts": parts, "blocks": [sign_source_block(block, signer, manifest_sha256=package.get("manifest_sha256"))
                                     for block in meta["blocks"]],
         "vocabulary_groups": meta.get("vocabulary_groups") or [],
-        "source_only_positions": [public_source_position(position, parts)
+        "source_only_positions": [public_source_position(position, parts, package.get("manifest_sha256"))
                                   for position in meta.get("source_only_positions") or []], "partial_data": partial}
 
 

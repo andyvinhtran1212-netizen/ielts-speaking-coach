@@ -32,6 +32,7 @@ function DayWorkspace({ data }: { data: ListeningSourceDayWire }) {
   return <>
     <header className="source-hero"><p className="source-kicker">Ngày {data.day}/80</p><h1>{data.title}</h1><p>{groups.length ? 'Nghe và học từ vựng theo chủ đề.' : `${data.practice_item_count} câu luyện`}</p></header>
     {data.partial_data ? <p className="source-notice" role="status">Tiến độ chưa tải đầy đủ. Bạn vẫn có thể làm bài đã xuất bản.</p> : null}
+    {data.source_only_positions?.length ? <details className="source-notice"><summary>{data.source_only_positions.length} câu chưa mở luyện — xem lý do</summary><ul>{data.source_only_positions.map((position) => <li key={position.item_id}><strong>{data.parts.find((part) => part.part_id === position.part_id)?.source_label} · Câu {position.source_display_number}:</strong> {position.reason_vi}</li>)}</ul></details> : null}
     {parts.length ? <>
       <link rel="stylesheet" href="/css/listening-programme-runner.css" />
       <div ref={tabs} className="source-part-tabs" role="tablist" aria-label="Chọn phần luyện nghe">{parts.map((part, index) => <button type="button" key={part.part_id} id={`source-tab-${index}`} role="tab" aria-controls={`source-panel-${index}`} aria-selected={selected === part.part_id} tabIndex={selected === part.part_id ? 0 : -1} onClick={() => choose(part.part_id)} onKeyDown={(event) => {

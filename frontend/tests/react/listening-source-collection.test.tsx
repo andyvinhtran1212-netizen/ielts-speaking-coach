@@ -239,6 +239,46 @@ it('translates canonical explanation provenance and retains precise evidence ref
   expect(screen.queryByText(/editorial_verified|printed_transcript/)).toBeNull();
 });
 
+it('keeps answer provenance and printed-key distinction without exposing PDF document references', () => {
+  render(<ListeningSourceExplanation showSourceReferences={false} provenance="editorial_verified" explanation={{ answer: 'wreaths', printed_key: { answer: 'wreath', evidence_tier: 'PRINTED', source_pdf_page: 203 }, why_vi: 'Nghe số nhiều.', evidence: [{ source_kind: 'printed_transcript', pdf_page: 203, line_index_1_based: 10, quote: 'wreaths' }] }} />);
+  expect(screen.getByText('Đáp án in trong sách:').parentElement?.textContent).toContain('wreath');
+  expect(screen.getByText(/Đáp án biên tập đã được đối chiếu/)).toBeTruthy();
+  expect(screen.getByText('Transcript in trong sách')).toBeTruthy();
+  expect(screen.queryByText(/PDF trang|dòng 10/)).toBeNull();
+});
+
+it('shows safe authored limitations alongside eligible practice without source previews', async () => {
+  installPracticeApi();
+  const get = window.api.getWith;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => url.endsWith('/days/29') ? { ...practiceDay(29), source_only_positions: [{ item_id: 'q13', part_id: 'p2', source_display_number: '13', reason_vi: 'Audio không nêu giờ khởi hành được hỏi ở câu này; chưa đủ dữ kiện để mở luyện.' }] } : get(url, ...args));
+  render(<ListeningSourceDay day={29} />);
+  await screen.findByText('Question form1');
+  fireEvent.click(screen.getByText('1 câu chưa mở luyện — xem lý do'));
+  expect(screen.getByText('Part 2 · Câu 13:')).toBeTruthy();
+  expect(screen.getByText(/Audio không nêu giờ khởi hành/)).toBeTruthy();
+  expect(screen.queryByText('Đề và tài liệu nguồn')).toBeNull();
+});
+
+it('allows an explicit original fallback after variants fail and retry restores the new default without a new attempt', async () => {
+  installPracticeApi();
+  const get = window.api.getWith;
+  let unavailable = true;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => { if (url.endsWith('/audio') && unavailable) throw new Error('temporary outage'); return get(url, ...args); });
+  const view = render(<ListeningSourceDay day={1} />);
+  await screen.findByText('Question form1');
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toBeNull();
+  expect(screen.getByText(/Bạn có thể chọn Bản ghi gốc hoặc tải lại/)).toBeTruthy();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Phiên bản audio' }), { target: { value: 'original' } });
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/original.mp3');
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'retained during retry' } });
+  unavailable = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Tải lại audio' }));
+  await waitFor(() => expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/new.mp3'));
+  expect((screen.getByRole('combobox', { name: 'Phiên bản audio' }) as HTMLSelectElement).value).toBe('kokoro-v1');
+  expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('retained during retry');
+  expect(window.api.postWith).toHaveBeenCalledTimes(1);
+});
+
 it('groups a matching block once, hides solutions until saved reveal, and preserves source numbering', async () => {
   const sourceQuestions = [7, 8].map((number, index) => ({ q_num: index + 1, source_item_id: `q${number}`, source_display_number: String(number), source_block_id: 'matching', prompt: `Từ audio ${number}`, visual_url: '/legacy-pdf-crop.png', response_type: 'single_choice', options: { fragile: 'Fragile', fast: 'Fast' } }));
   window.api.postWith = vi.fn(async (url: string) => url.endsWith('/reveal') ? { items: [{ q_num: 1, state: 'unscored', correct: null, first_answer: 'fast', explanation: { answer: 'Fast', why_vi: 'Quick và fast cùng chỉ tốc độ.', evidence: [{ source_kind: 'printed_transcript', pdf_page: 249, line_index_1_based: 6, quote: '7. Quick' }] } }] } : { attempt_id: 'source-attempt', answers: [] });

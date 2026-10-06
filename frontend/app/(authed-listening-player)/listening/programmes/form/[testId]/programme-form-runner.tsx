@@ -60,7 +60,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
   const audioSource = useRef('');
   const [audioVariant, setAudioVariant] = useState('kokoro-v1');
   const [audioRetrying, setAudioRetrying] = useState(false);
-  const playbackUrl = state.status === 'ready' ? state.form.audioVariants?.find((variant) => variant.variant_id === audioVariant)?.url || (state.form.sourceDay ? '' : state.form.audioUrl) : '';
+  const playbackUrl = state.status === 'ready' ? state.form.audioVariants?.find((variant) => variant.variant_id === audioVariant)?.url || (!state.form.sourceDay || audioVariant === 'original' ? state.form.audioUrl : '') : '';
   const Container = embedded ? 'section' : 'main';
   const mediaGeneration = useRef(0);
   audioSource.current = active ? playbackUrl : '';
@@ -384,6 +384,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
       const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${day}/audio`, undefined, { signal: scope.controller.signal });
       if (!current(scope) || response.day !== day || !Array.isArray(response.variants)) return;
       setState((value) => value.status === 'ready' ? { ...value, form: { ...value.form, audioVariants: response.variants, audioLoadError: false } } : value);
+      setAudioVariant('kokoro-v1');
       setAudioError('');
     } catch { if (current(scope)) setAudioError('Chưa tải được audio. Hãy thử lại.'); }
     finally { if (current(scope)) setAudioRetrying(false); }
@@ -405,8 +406,8 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
     <div className="programme-learning-workspace">
       <aside className="programme-audio" aria-label="Audio và tiến độ bài nghe">
         <h2>Nghe và khám phá</h2>
-        {state.form.sourceDay ? <label>Phiên bản audio <select className="source-audio-select" value={audioVariant} onChange={(event) => setAudioVariant(event.target.value)}><option value="kokoro-v1">Bản luyện nghe</option>{state.form.audioVariants?.some((variant) => variant.variant_id === 'original') ? <option value="original">Bản ghi gốc</option> : null}</select></label> : null}
-        {state.form.sourceDay && (!playbackUrl || state.form.audioLoadError || audioError) ? <><p role="alert">Bản audio này chưa sẵn sàng để phát.</p><button type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Đang tải audio…' : 'Tải lại audio'}</button></> : null}
+        {state.form.sourceDay ? <label>Phiên bản audio <select className="source-audio-select" value={audioVariant} onChange={(event) => setAudioVariant(event.target.value)}><option value="kokoro-v1">Bản luyện nghe</option>{state.form.audioUrl || state.form.audioVariants?.some((variant) => variant.variant_id === 'original') ? <option value="original">Bản ghi gốc</option> : null}</select></label> : null}
+        {state.form.sourceDay && (!playbackUrl || state.form.audioLoadError || audioError) ? <><p role="alert">{state.form.audioLoadError ? `Chưa tải được danh sách audio.${state.form.audioUrl ? ' Bạn có thể chọn Bản ghi gốc hoặc tải lại.' : ' Hãy tải lại audio.'}` : 'Bản audio này chưa sẵn sàng để phát.'}</p><button type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Đang tải audio…' : 'Tải lại audio'}</button></> : null}
         {state.form.replayPolicy === 'once' ? <><audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} preload="metadata" onEnded={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setOnceState('done'); }} onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} /><button type="button" onClick={() => void controlOnce()} disabled={onceState === 'starting' || onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'starting' ? 'Đang bắt đầu…' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : onceState === 'unconfirmed' ? 'Xác nhận lượt nghe' : 'Đã sử dụng lượt nghe'}</button>{onceMessage ? <p role="status">{onceMessage}</p> : null}</> : <audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} controls preload="metadata" onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} />}
         {audioError ? <p role="alert">{audioError}</p> : null}
         <p>{state.form.replayPolicy === 'once' ? 'Bài này chỉ cho phép bắt đầu audio một lần trong lượt làm hiện tại. Chuyển cách luyện không tạo lượt nghe mới.' : state.form.audioGranularity === 'whole_day' ? 'Audio toàn ngày. Các phần dùng chung file; chưa có mốc nghe riêng từng câu.' : 'Bạn có thể nghe lại toàn bài trong lúc làm hoặc sửa câu trả lời.'}</p>
