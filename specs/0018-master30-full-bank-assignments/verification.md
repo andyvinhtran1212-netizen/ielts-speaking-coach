@@ -11,7 +11,7 @@
 | FR-005 | reviewer=primary operator; environment=staging; date=2026-10-06; observed=all30 completed100–120 banks,90 objective denominator, actual teacher tally/E counts/reload, with lookup failures covered locally. | MANUAL |
 | FR-006 | reviewer=primary operator; environment=staging; date=2026-10-06; observed=actual served exposure, diagnostic/practice pending and finalization races, frozen source closure, exclusion and honest exhaustion in bound live receipt. | MANUAL |
 | FR-007 | reviewer=primary operator; environment=staging; date=2026-10-06; observed=generated OpenAPI/types/React local gates plus deployed all30 learner/teacher reload/mobile/theme journeys at exact50691a5360d66658c4273c9b426458be9f862977. | MANUAL |
-| FR-008 | reviewer=primary operator; environment=production; date=2026-10-07; observed=exact frontend/backend deployments and required main CI at45bfd33e83f12fd4c9c772e7573c5cfb54290b4c, actual all30/3100 API3862/browser23378, post-browser observation, owned cleanup and enabled flag/controller release in bound receipts below. Historical staging acceptance remains bound to50691a5360d66658c4273c9b426458be9f862977. | MANUAL |
+| FR-008 | reviewer=primary operator; environment=production; date=2026-10-06; observed=exact frontend/backend deployments and required main CI at45bfd33e83f12fd4c9c772e7573c5cfb54290b4c, actual all30/3100 API3862/browser23378, post-browser observation, owned cleanup and enabled flag/controller release in bound receipts below. Historical staging acceptance remains bound to50691a5360d66658c4273c9b426458be9f862977. | MANUAL |
 
 ## Historical baseline
 
@@ -86,6 +86,10 @@ Authors work on isolated release copies. No real learner acceptance mutations.
   and full-v3/all30 native5145 remain the affected-layer evidence. Spec21 and
   whitespace checks pass.
 ## Hosted integration and release status (2026-10-07)
+
+Manual evidence dates use UTC, matching the receipt timestamps and CI. The
+report date above uses Asia/Ho_Chi_Minh; production acceptance on 2026-10-06 UTC
+falls on 2026-10-07 in that timezone.
 
 - Intent PR1600 merged to staging at
   `6b5091c746e3dd34e0cd4e543f7c7a8d89ba743c`.
