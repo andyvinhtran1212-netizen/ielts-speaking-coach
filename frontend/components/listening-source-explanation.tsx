@@ -2,7 +2,7 @@ import type { ListeningSourceExplanationWire } from '@/lib/listening-source-coll
 import { sourceAnswerProvenanceLabel, sourceEvidenceLabel, sourcePrintedKeyLabel, sourceReviewLabel } from '@/lib/listening-source-collection-api';
 import { displaySourceReferenceAnswer } from '@/lib/listening-source-responses.mjs';
 
-export function ListeningSourceExplanation({ explanation, reviewStatus, provenance, fields }: { explanation: ListeningSourceExplanationWire; reviewStatus?: string | null; provenance?: string | null; fields?: Array<{ field_id: string; prompt: string }> }) {
+export function ListeningSourceExplanation({ explanation, reviewStatus, provenance, fields, showSourceReferences = true }: { explanation: ListeningSourceExplanationWire; reviewStatus?: string | null; provenance?: string | null; fields?: Array<{ field_id: string; prompt: string }>; showSourceReferences?: boolean }) {
   const answer = displaySourceReferenceAnswer(explanation.answer, fields);
   const printedAnswer = displaySourceReferenceAnswer(explanation.printed_key?.answer, fields);
   const printedKey = explanation.printed_key;
@@ -10,10 +10,10 @@ export function ListeningSourceExplanation({ explanation, reviewStatus, provenan
   return <section className="source-explanation" aria-label="Lời giải có bằng chứng">
     <header><h3>Lời giải</h3>{reviewStatus ? <span className="source-badge">{sourceReviewLabel(reviewStatus)}</span> : null}</header>
     {answer ? <p><strong>Đáp án tham khảo:</strong> {answer}</p> : null}
-    {printedAnswer ? <p><strong>{sourcePrintedKeyLabel(printedKey?.evidence_tier)}:</strong> {printedAnswer}{keyCitations.length ? <small> · {keyCitations.join(' · ')}</small> : null}</p> : null}
-    {provenance ? <p className="source-explanation__provenance">Nguồn đáp án: {sourceAnswerProvenanceLabel(provenance)}</p> : null}
+    {showSourceReferences && printedAnswer ? <p><strong>{sourcePrintedKeyLabel(printedKey?.evidence_tier)}:</strong> {printedAnswer}{keyCitations.length ? <small> · {keyCitations.join(' · ')}</small> : null}</p> : null}
+    {showSourceReferences && provenance ? <p className="source-explanation__provenance">Nguồn đáp án: {sourceAnswerProvenanceLabel(provenance)}</p> : null}
     {explanation.source_answer_warning_vi ? <p className="source-notice" role="note">{explanation.source_answer_warning_vi}</p> : null}
-    {explanation.evidence?.length ? <div><h4>Bằng chứng</h4>{explanation.evidence.map((evidence, index) => <blockquote key={index}><p lang="en">{evidence.quote}</p><cite>{sourceEvidenceLabel(evidence.source_kind)}{evidence.pdf_page != null ? ` · PDF trang ${evidence.pdf_page}` : ''}{evidence.line_index_1_based != null ? `, dòng ${evidence.line_index_1_based}` : ''}{evidence.visual_reconstruction ? ' · Đã đối chiếu chữ trên ảnh trang gốc' : ''}</cite></blockquote>)}</div> : null}
+    {explanation.evidence?.length ? <div><h4>Bằng chứng</h4>{explanation.evidence.map((evidence, index) => <blockquote key={index}><p lang="en">{evidence.quote}</p>{showSourceReferences ? <cite>{sourceEvidenceLabel(evidence.source_kind)}{evidence.pdf_page != null ? ` · PDF trang ${evidence.pdf_page}` : ''}{evidence.line_index_1_based != null ? `, dòng ${evidence.line_index_1_based}` : ''}{evidence.visual_reconstruction ? ' · Đã đối chiếu chữ trên ảnh trang gốc' : ''}</cite> : null}</blockquote>)}</div> : null}
     <div><h4>Vì sao chọn đáp án này?</h4><p>{explanation.why_vi}</p></div>
     {explanation.distractors?.length ? <details><summary>Đối chiếu các phương án còn lại</summary><ul>{explanation.distractors.map((option) => <li key={option.option}><strong>{option.text || option.option}:</strong> {option.reason_vi}</li>)}</ul></details> : null}
     {explanation.paraphrase_vi ? <p><strong>Cách diễn đạt tương đương:</strong> {explanation.paraphrase_vi}</p> : null}

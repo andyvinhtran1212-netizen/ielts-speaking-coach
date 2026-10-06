@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import type { ApiGetJson } from '@/lib/openapi-contract';
 import type { AuthStatus } from '@/lib/auth/auth-provider';
 import { ListeningSourceBlock } from '@/components/listening-source-block';
 import { ListeningSourceExplanation } from '@/components/listening-source-explanation';
@@ -19,7 +20,8 @@ import type { ListeningGuidedStateWire, ListeningProgrammePlayerWire } from '@/l
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 interface Question { q_num: number; source_item_id: string; prompt: string; response_type: string; options: Record<string, string>; visual_url?: string; visual_accessibility?: string; editorial_translation?: unknown; source_block_id?: string; source_display_number?: string; selection_count?: number; fields?: ListeningSourceResponseFieldWire[] }
-interface FormData { title: string; programmeId: string; lessonId: string; replayPolicy: string; audioUrl: string; questions: Question[]; guidanceAvailable: boolean; sourceDay?: number; sourceBlocks: ListeningSourceBlockWire[]; audioGranularity?: string }
+type SourceAudio = ApiGetJson<'/api/listening/source-collections/80-days/days/{day_number}/audio'>;
+interface FormData { audioVariants?: SourceAudio['variants']; audioLoadError?: boolean; title: string; programmeId: string; lessonId: string; replayPolicy: string; audioUrl: string; questions: Question[]; guidanceAvailable: boolean; sourceDay?: number; sourceBlocks: ListeningSourceBlockWire[]; audioGranularity?: string }
 type FeedbackItem = NonNullable<ListeningGuidedStateWire['items']>[number];
 type LoadState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; form: FormData; attemptId: string };
 interface FormScope { active: boolean; controller: AbortController }
@@ -31,12 +33,12 @@ function feedbackResponseFields(question: Question, item: FeedbackItem | undefin
   return item.fields?.length ? item.fields : question.fields || [];
 }
 
-export function ProgrammeFormRunner({ testId }: { testId: string }) {
+export function ProgrammeFormRunner({ testId, active = true, embedded = false }: { testId: string; active?: boolean; embedded?: boolean }) {
   const { status, user } = useAuth();
-  return <ProgrammeFormView key={JSON.stringify([status, user?.id ?? null, testId])} testId={testId} status={status} userId={user?.id ?? null} />;
+  return <ProgrammeFormView key={JSON.stringify([status, user?.id ?? null, testId])} testId={testId} status={status} userId={user?.id ?? null} active={active} embedded={embedded} />;
 }
 
-function ProgrammeFormView({ testId, status, userId }: { testId: string; status: AuthStatus; userId: string | null }) {
+function ProgrammeFormView({ testId, status, userId, active, embedded }: { testId: string; status: AuthStatus; userId: string | null; active: boolean; embedded: boolean }) {
   const params = useSearchParams();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -56,8 +58,12 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
   const scopeRef = useRef<FormScope | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioSource = useRef('');
+  const [audioVariant, setAudioVariant] = useState('kokoro-v1');
+  const [audioRetrying, setAudioRetrying] = useState(false);
+  const playbackUrl = state.status === 'ready' ? state.form.audioVariants?.find((variant) => variant.variant_id === audioVariant)?.url || (state.form.sourceDay ? '' : state.form.audioUrl) : '';
+  const Container = embedded ? 'section' : 'main';
   const mediaGeneration = useRef(0);
-  audioSource.current = state.status === 'ready' ? state.form.audioUrl : '';
+  audioSource.current = active ? playbackUrl : '';
   const replayController = useRef<ReturnType<typeof createProgrammeReplayController> | null>(null);
   if (!replayController.current) replayController.current = createProgrammeReplayController(() => audioRef.current);
   const groupHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -96,6 +102,19 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
       bindAudio(null);
     };
   }, [bindAudio, status, userId]);
+
+  useLayoutEffect(() => {
+    mediaGeneration.current += 1;
+    replayController.current?.dispose();
+    const media = audioRef.current;
+    if (media) {
+      media.pause();
+      if (active && playbackUrl) media.setAttribute('src', playbackUrl);
+      else media.removeAttribute('src');
+      media.load();
+    }
+    setAudioError('');
+  }, [active, playbackUrl]);
 
   useEffect(() => {
     try {
@@ -172,9 +191,23 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
       onceClaimId.current = crypto.randomUUID();
       setOnceMessage('');
       const replayPolicy = String(test.replay_policy || 'allowed');
+      let audioVariants: SourceAudio['variants'] | undefined;
+      let audioLoadError = false;
+      const sourceDay = test.programme_id === 'ielts-80-days-listening' ? Number(test.source_day) || undefined : undefined;
+      if (sourceDay) {
+        try {
+          const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${sourceDay}/audio`, undefined, { signal: scope.controller.signal });
+          if (response.day !== sourceDay || !Array.isArray(response.variants)) throw new Error('Audio không khớp buổi học.');
+          audioVariants = response.variants;
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') throw error;
+          audioLoadError = true;
+        }
+      }
+      if (!active || !current(scope)) return;
       const audioUrl = String(test.audio_url || '');
       setOnceState(attempt.playback_started_at || (replayPolicy === 'once' && !audioUrl) ? 'done' : 'ready');
-      setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy, audioUrl, questions, guidanceAvailable: guided !== null, sourceDay: Number(test.source_day) || undefined, sourceBlocks: Array.isArray(test.source_blocks) ? test.source_blocks as ListeningSourceBlockWire[] : [], audioGranularity: test.audio_granularity ? String(test.audio_granularity) : undefined } });
+      setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy, audioUrl, audioVariants, audioLoadError, questions, guidanceAvailable: guided !== null, sourceDay, sourceBlocks: Array.isArray(test.source_blocks) ? test.source_blocks as ListeningSourceBlockWire[] : [], audioGranularity: test.audio_granularity ? String(test.audio_granularity) : undefined } });
     })().catch((error: unknown) => { if (active && current(scope) && !(error instanceof DOMException && error.name === 'AbortError')) setState({ status: 'error', message: error instanceof Error ? error.message : 'Không tải được bài nghe.' }); });
     return () => { active = false; scope.controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); pending.current = {}; saveQueue.current = null; draftStore.current = null; submitLock.current = false; replayController.current?.dispose(); revealPromises.current.clear(); };
   }, [status, testId, userId]);
@@ -332,24 +365,38 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
   function replayQuestion(item: FeedbackItem) {
     const scope = scopeRef.current;
     const generation = mediaGeneration.current;
-    if (state.status !== 'ready' || state.form.replayPolicy !== 'allowed' || !current(scope)) return;
+    if (state.status !== 'ready' || state.form.replayPolicy !== 'allowed' || !active || !playbackUrl || !current(scope)) return;
     setAudioError('');
     replayController.current?.dispose();
     const controller = createProgrammeReplayController(() => audioRef.current);
     replayController.current = controller;
-    void controller.replay(item.audio_window).then((started) => {
+    void controller.replay(state.form.sourceDay && audioVariant !== 'original' ? { start: 0, end: null } : item.audio_window).then((started) => {
       if (current(scope) && generation === mediaGeneration.current && replayController.current === controller && !started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại hoặc dùng audio toàn bài.');
     });
   }
 
-  if (state.status === 'loading') return <main className="programme-runner programme-state shell" role="status">Đang chuẩn bị bài nghe…</main>;
-  if (state.status === 'error') return <main className="programme-runner programme-state shell is-error" role="alert"><p>{state.message}</p><a href="/listening">Về trang Luyện nghe</a></main>;
+  async function retryAudio() {
+    const scope = scopeRef.current;
+    if (state.status !== 'ready' || !state.form.sourceDay || !current(scope) || audioRetrying) return;
+    const day = state.form.sourceDay;
+    setAudioRetrying(true);
+    try {
+      const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${day}/audio`, undefined, { signal: scope.controller.signal });
+      if (!current(scope) || response.day !== day || !Array.isArray(response.variants)) return;
+      setState((value) => value.status === 'ready' ? { ...value, form: { ...value.form, audioVariants: response.variants, audioLoadError: false } } : value);
+      setAudioError('');
+    } catch { if (current(scope)) setAudioError('Chưa tải được audio. Hãy thử lại.'); }
+    finally { if (current(scope)) setAudioRetrying(false); }
+  }
+
+  if (state.status === 'loading') return <Container className="programme-runner programme-state shell" role="status">Đang chuẩn bị bài nghe…</Container>;
+  if (state.status === 'error') return <Container className="programme-runner programme-state shell is-error" role="alert"><p>{state.message}</p><a href="/listening">Về trang Luyện nghe</a></Container>;
   const lessonHref = state.form.programmeId === 'ielts-80-days-listening'
     ? programmeLessonPath(state.form.programmeId, state.form.lessonId, state.form.sourceDay)
     : listeningProgrammeLessonHref(state.form.programmeId, state.form.lessonId, params || undefined);
-  return <main className="programme-runner shell">
+  return <Container className="programme-runner shell">
     {state.form.sourceDay ? <link rel="stylesheet" href="/css/listening-source-collection.css" /> : null}
-    <header className="programme-runner__header"><a href={lessonHref}>← Bài học</a><div><p>Luyện nghe theo nhịp của bạn</p><h1>{state.form.title}</h1><span>Nghe, thử trả lời và sửa lại. Đây không phải bài tính band IELTS.</span></div><span>{answeredCount}/{state.form.questions.length} câu đã thử</span></header>
+    <header className="programme-runner__header">{!embedded ? <a href={lessonHref}>← Bài học</a> : null}<div><p>Luyện nghe theo nhịp của bạn</p><h1>{state.form.title}</h1><span>Nghe, thử trả lời và sửa lại. Đây không phải bài tính band IELTS.</span></div><span>{answeredCount}/{state.form.questions.length} câu đã thử</span></header>
     <section className="programme-learning-controls" aria-label="Tùy chọn luyện nghe">
       <div><span>Cách luyện</span><div className="programme-segmented" role="group" aria-label="Cách luyện"><button type="button" aria-pressed={mode === 'continuous'} onClick={() => chooseMode('continuous')}>Làm liền mạch</button><button type="button" aria-pressed={mode === 'guided'} onClick={() => chooseMode('guided')}>Luyện từng bước</button></div></div>
       <div><span>Ngôn ngữ câu hỏi</span>{languages.length ? <div className="programme-segmented" role="group" aria-label="Ngôn ngữ câu hỏi"><button type="button" aria-pressed={activeLanguage === 'vi'} onClick={() => chooseLanguage('vi')}>Tiếng Việt</button><button type="button" aria-pressed={activeLanguage === 'en'} onClick={() => chooseLanguage('en')}>English</button></div> : <p className="programme-language-note">Đang hiển thị bản gốc; bản dịch được biên tập dần theo bài.</p>}{bilingualWritten ? <p className="programme-language-note">Đổi ngôn ngữ chỉ đổi câu hỏi, không đổi cách đối chiếu đáp án. Với câu điền, hãy ghi từ hoặc cụm từ nghe được trong audio.</p> : null}</div>
@@ -358,7 +405,9 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
     <div className="programme-learning-workspace">
       <aside className="programme-audio" aria-label="Audio và tiến độ bài nghe">
         <h2>Nghe và khám phá</h2>
-        {state.form.replayPolicy === 'once' ? <><audio ref={bindAudio} src={state.form.audioUrl || undefined} preload="metadata" onEnded={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setOnceState('done'); }} onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} /><button type="button" onClick={() => void controlOnce()} disabled={onceState === 'starting' || onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'starting' ? 'Đang bắt đầu…' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : onceState === 'unconfirmed' ? 'Xác nhận lượt nghe' : 'Đã sử dụng lượt nghe'}</button>{onceMessage ? <p role="status">{onceMessage}</p> : null}</> : <audio ref={bindAudio} src={state.form.audioUrl} controls preload="metadata" onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} />}
+        {state.form.sourceDay ? <label>Phiên bản audio <select className="source-audio-select" value={audioVariant} onChange={(event) => setAudioVariant(event.target.value)}><option value="kokoro-v1">Bản luyện nghe</option>{state.form.audioVariants?.some((variant) => variant.variant_id === 'original') ? <option value="original">Bản ghi gốc</option> : null}</select></label> : null}
+        {state.form.sourceDay && (!playbackUrl || state.form.audioLoadError || audioError) ? <><p role="alert">Bản audio này chưa sẵn sàng để phát.</p><button type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Đang tải audio…' : 'Tải lại audio'}</button></> : null}
+        {state.form.replayPolicy === 'once' ? <><audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} preload="metadata" onEnded={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setOnceState('done'); }} onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} /><button type="button" onClick={() => void controlOnce()} disabled={onceState === 'starting' || onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'starting' ? 'Đang bắt đầu…' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : onceState === 'unconfirmed' ? 'Xác nhận lượt nghe' : 'Đã sử dụng lượt nghe'}</button>{onceMessage ? <p role="status">{onceMessage}</p> : null}</> : <audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} controls preload="metadata" onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} />}
         {audioError ? <p role="alert">{audioError}</p> : null}
         <p>{state.form.replayPolicy === 'once' ? 'Bài này chỉ cho phép bắt đầu audio một lần trong lượt làm hiện tại. Chuyển cách luyện không tạo lượt nghe mới.' : state.form.audioGranularity === 'whole_day' ? 'Audio toàn ngày. Các phần dùng chung file; chưa có mốc nghe riêng từng câu.' : 'Bạn có thể nghe lại toàn bài trong lúc làm hoặc sửa câu trả lời.'}</p>
         <div className="programme-learning-progress"><strong>Đường nghe</strong><span>{answeredCount}/{state.form.questions.length} câu đã thử · {Object.keys(feedback).length} câu đã đối chiếu</span><ol aria-label="Tiến độ các câu hỏi">{groups.map((group, index) => <li key={group.key} data-current={mode === 'guided' && index === selectedGroup} data-answered={group.questions.every((question) => !!answers[question.q_num]?.trim())} data-revealed={group.questions.every((question) => !!feedback[question.q_num])}><button type="button" onClick={() => { chooseMode('guided'); moveToGroup(index); }} aria-label={`Đến câu ${group.questions[0].q_num}${feedback[group.questions[0].q_num] ? ', đã đối chiếu' : ''}`}>{group.questions[0].q_num}</button></li>)}</ol></div>
@@ -378,10 +427,10 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
           <div className="programme-question-feedback__status"><span>Nhìn lại câu vừa nghe</span><strong>{item.state === 'checked' ? item.correct ? 'Bạn nghe đúng từ lần đầu' : 'Đây là chỗ đáng nghe lại' : 'Tự đối chiếu với gợi ý'}</strong></div>
           <div className="programme-question-feedback__sequence"><div><span>Câu trả lời đầu</span><p>{displaySourceAnswer(item.first_answer, question.response_type, feedbackFields)}</p></div><div><span>Tham chiếu</span><p>{referenceAnswer || 'Xem gợi ý bên dưới'}</p></div><div><span>Bản sửa hiện tại</span><p>{answers[question.q_num] !== item.first_answer ? displaySourceAnswer(answers[question.q_num], question.response_type, feedbackFields) : 'Bạn có thể sửa câu trả lời phía trên'}</p></div></div>
           {!item.explanation && (item.rationale || item.self_review_rationale) ? <p className="programme-question-feedback__rationale">{item.rationale || item.self_review_rationale}</p> : null}
-          {item.explanation ? <ListeningSourceExplanation explanation={item.explanation} reviewStatus={item.review_status} provenance={item.answer_provenance} fields={feedbackFields} /> : null}
+          {item.explanation ? <ListeningSourceExplanation explanation={item.explanation} reviewStatus={item.review_status} provenance={item.answer_provenance} fields={feedbackFields} showSourceReferences={!state.form.sourceDay} /> : null}
           {item.required_facts?.length ? <div className="programme-question-feedback__facts"><span>Ý cần nghe được</span><ul>{item.required_facts.map((fact) => <li key={fact}>{fact}</li>)}</ul></div> : null}
           {item.optional_facts?.length ? <p className="programme-question-feedback__rationale">Ý bổ sung: {item.optional_facts.join(' · ')}</p> : null}
-          {item.audio_window?.start != null && state.form.replayPolicy === 'allowed' ? <button className="programme-question-feedback__replay" type="button" onClick={() => replayQuestion(item)}>▶ {item.audio_granularity === 'whole_day' ? 'Nghe toàn ngày' : item.audio_granularity === 'whole_part' ? 'Nghe lại phần này' : 'Nghe lại đoạn này'}</button> : null}
+          {item.audio_window?.start != null && state.form.replayPolicy === 'allowed' ? <button className="programme-question-feedback__replay" type="button" onClick={() => replayQuestion(item)}>▶ {state.form.sourceDay && audioVariant !== 'original' || item.audio_granularity === 'whole_day' ? 'Nghe toàn ngày' : item.audio_granularity === 'whole_part' ? 'Nghe lại phần này' : 'Nghe lại đoạn này'}</button> : null}
         </section> : null}
         </div>
       </article>; })}</section>)}
@@ -390,5 +439,5 @@ function ProgrammeFormView({ testId, status, userId }: { testId: string; status:
       </section>
     </div>
     <footer className="programme-submit"><span aria-live="polite">{saveState === 'saving' ? 'Đang lưu…' : saveState === 'saved' ? 'Đã lưu' : saveState === 'error' ? 'Có câu chưa lưu được — hãy thử lại' : 'Câu trả lời được tự động lưu'}{Object.keys(feedback).length ? ' · Lượt học có hỗ trợ' : ''}</span><button type="button" onClick={() => void submit()} disabled={submitting || Object.values(revealStatus).includes('revealing')}>{submitting ? 'Đang hoàn thành…' : 'Hoàn thành và xem lại'}</button></footer>
-  </main>;
+  </Container>;
 }

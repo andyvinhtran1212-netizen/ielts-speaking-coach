@@ -25,6 +25,9 @@ def test_all_days_have_new_audio_and_original_gaps_remain_truthful():
             return "https://private.example/signed"
         result = audio.audio_response(package(), lesson(day), signer)
         assert result["day"] == day
+        assert result["variants"][-1]["label_vi"] == "Bản luyện nghe"
+        assert "Kokoro" not in result["variants"][-1]["label_vi"]
+        assert "tổng hợp" not in result["variants"][-1]["note_vi"]
         assert result["variants"][-1]["synthetic"] is True
         assert result["variants"][-1]["variant_id"] == "kokoro-v1"
         originals += len(result["variants"]) == 2

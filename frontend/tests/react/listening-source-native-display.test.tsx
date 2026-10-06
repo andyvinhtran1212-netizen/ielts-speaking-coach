@@ -59,3 +59,15 @@ it('avoids repeated question content in the persisted player and reports missing
   expect(screen.getByRole('alert').textContent).toContain('Chưa có bản trình bày chữ và hình');
   expect(view.container.querySelector('img')).toBeNull();
 });
+
+it('renders authorized GPT images with zoom and shows unavailable images without displaying archival crops', () => {
+  const source = block(Object.keys(bindings)[0]);
+  const view = render(<ListeningSourceBlock block={{ ...source, native: { ...source.native!, figures: [] }, images: [{ asset_id: 'gpt-v1:figure.svg', url: 'https://private.example/generated.png', width: 1536, height: 1024, alt_vi: 'Các lựa chọn A–D' }] }} showQuestions={false} />);
+  expect(view.container.querySelector('img')?.src).toBe('https://private.example/generated.png');
+  expect(view.container.querySelector('dialog')).toBeTruthy();
+  expect(view.container.textContent).not.toContain('Mô tả đề bằng chữ');
+  view.rerender(<ListeningSourceBlock block={{ ...source, native: { ...source.native!, figures: [] }, images: [{ asset_id: 'gpt-v1:missing.svg', url: '', width: 1536, height: 1024, alt_vi: 'Unavailable figure' }] }} />);
+  expect(view.container.querySelector('img')).toBeNull();
+  expect(view.container.querySelector('[role="alert"]')?.textContent).toContain('Chưa tải được hình đề');
+  expect(view.container.innerHTML).not.toContain('NEVER_DISPLAY_PDF');
+});

@@ -91,18 +91,23 @@ def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study
         native = native_presentation(source_block, study_opened=study_opened, manifest_sha256=manifest_sha256,
                                      runtime_questions=runtime_questions)
         instruction_vi = native_instruction_vi(source_block, manifest_sha256=manifest_sha256) if native is not None else None
+        images = []
+        if native is not None and native["figures"]:
+            from services.listening_source_figures import signed_figures
+            images = signed_figures(native, manifest_sha256, signer)
+            native = {**native, "figures": []}
         block = safe_source_block_metadata(block, study_opened=study_opened)
         if instruction_vi is not None:
             block["instruction"]["student_vi"] = instruction_vi
     except (ValidationError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
     # Archival PDF crops remain source evidence, never learner question content.
-    # SVG bytes are delivered through this authenticated response, not public assets.
+    # Generated images are signed only after the exact native revision is bound.
     try:
         return SourceBlock.model_validate({
             key: block[key] for key in ("block_id", "part_id", "kind", "instruction", "item_ids",
                 "source_question_numbers", "shared_options", "description", "display_kind", "study_available") if key in block
-        } | {"images": [], "native": native}).model_dump()
+        } | {"images": images, "native": native}).model_dump()
     except (ValidationError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
 
