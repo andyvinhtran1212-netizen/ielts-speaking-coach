@@ -3693,7 +3693,21 @@ async def admin_get_test_audit(
     call this to render health without a re-import."""
     await require_admin(authorization)
     test, contents, exercises = _fetch_test_audit_rows(test_id)
-    _require_standard_audit_contract(exercises)
+    try:
+        _require_standard_audit_contract(exercises)
+    except HTTPException as exc:
+        if exc.status_code != 409:
+            raise
+        saved = _load_audit_row(test_id)
+        if saved:
+            saved = {**saved, "issues": listening_audit_svc.with_issue_sources(saved.get("issues"))}
+        raise HTTPException(409, {
+            "code": "unsupported_audit_contract",
+            "uuid": test_id,
+            "test_id": test.get("test_id"),
+            "message": exc.detail,
+            "saved": saved,
+        }) from exc
     h = listening_audit_svc.hydrate_test(test, contents, exercises)
     report = listening_audit_svc.run_structural(h)
     saved = _load_audit_row(test_id)

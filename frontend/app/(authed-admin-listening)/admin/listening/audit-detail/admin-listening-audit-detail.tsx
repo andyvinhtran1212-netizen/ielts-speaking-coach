@@ -5,6 +5,7 @@ import type { KeyboardEvent } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog } from '@/components/admin-directory-ui';
+import { normalizeListeningAuditUnsupported } from '@/lib/admin-listening-audit-model.mjs';
 import {
   buildListeningAuditQuestionPatch,
   buildListeningAuditReceipt,
@@ -28,6 +29,7 @@ type AuditHealth = { errorCount: number; warningCount: number; status: string; r
 type Snapshot = { id: string; testId: string; title: string; status: string; type: string; questionCount: number; sectionCount: number; sections: Section[]; live: { health: AuditHealth; issues: Issue[] }; saved: null | { status: 'pending' | 'passed' | 'has_issues' | 'fixed'; notes: string; auditor: string | null; auditedAt: string | null; updatedAt: string; health: AuditHealth | null; issues: Issue[] } };
 type AudioSet = { assembled: string | null; full: string | null; sectionUrls: Map<number, string | null> };
 type Receipt = { version: 1; accountId: string; testId: string; requestId: string; baselineAuditedAt: string | null; startedAt: string; acknowledgedAuditedAt: string | null };
+type UnsupportedAudit = { id: string; testId: string; message: string; saved: { status: keyof typeof statusLabel; auditedAt: string | null } };
 type AudioElement = HTMLElement & { seekTo?: (seconds: number) => void; play?: () => Promise<void> | void };
 type Draft = { prompt: string; answer: string; alternatives: string; traps: string; options: string; solution: string; windowStart: string; windowEnd: string; requiredRepairs: RepairField[]; hadAudioWindow: boolean };
 
@@ -46,6 +48,7 @@ export function AdminListeningAuditDetail({ testId }: { testId: string }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unsupported, setUnsupported] = useState<UnsupportedAudit | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmRun, setConfirmRun] = useState(false);
   const [confirmDiscardReceipt, setConfirmDiscardReceipt] = useState(false);
@@ -72,23 +75,31 @@ export function AdminListeningAuditDetail({ testId }: { testId: string }) {
   }, [profile.id, testId]);
 
   const load = useCallback(async () => {
-    setLoading(true); setError(null); setAudioError(null); setNotice(null);
+    const owner = profile.id;
+    setLoading(true); setError(null); setAudioError(null); setNotice(null); setUnsupported(null);
+    const pending = readCanonical({ syncTriage: true });
+    const request = sequence.current;
     try {
       const [next, audioResult] = await Promise.all([
-        readCanonical({ syncTriage: true }),
+        pending,
         window.api.get<unknown>(`/admin/listening/tests/${encodeURIComponent(testId)}/audio/signed-urls`)
           .then((raw) => ({ raw, caught: null as unknown }))
           .catch((caught: unknown) => ({ raw: null, caught })),
       ]);
-      if (!next) return;
+      if (!next || request !== sequence.current || activeAccount.current !== owner) return;
       if (audioResult.caught) { setAudio(null); setAudioError(messageOf(audioResult.caught)); }
       else {
         const normalized = normalizeListeningAuditAudio(audioResult.raw) as AudioSet | null;
         setAudio(normalized); setAudioError(normalized ? null : 'Audio signed-URL response sai contract.');
       }
-    } catch (caught) { setError(messageOf(caught)); }
-    finally { setLoading(false); }
-  }, [readCanonical, testId]);
+    } catch (caught) {
+      if (request !== sequence.current || activeAccount.current !== owner) return;
+      const nextUnsupported = normalizeListeningAuditUnsupported(caught, { id: testId }) as UnsupportedAudit | null;
+      if (nextUnsupported) { setSnapshot(null); setUnsupported(nextUnsupported); }
+      else setError(messageOf(caught));
+    }
+    finally { if (request === sequence.current && activeAccount.current === owner) setLoading(false); }
+  }, [readCanonical, testId, profile.id]);
 
   useEffect(() => {
     sequence.current += 1; activeAccount.current = profile.id; setSnapshot(null); setAudio(null); setAudioError(null); setReceipt(null); setEditorEpoch(0);
@@ -233,6 +244,7 @@ export function AdminListeningAuditDetail({ testId }: { testId: string }) {
   }, [snapshot]);
 
   if (loading && !snapshot) return <main className="alqad-shell"><div className="alqad-state" role="status">Đang đọc audit và audio canonical…</div></main>;
+  if (unsupported) return <main className="alqad-shell"><nav className="alqad-breadcrumb" aria-label="Breadcrumb"><a href="/admin/listening/audit">Quality audit</a><span aria-hidden="true">/</span><strong>{unsupported.testId}</strong></nav><div className="alc-banner is-warning" role="status"><h1>Health chưa được xác minh</h1><span>{unsupported.message}</span></div><section className="alqad-state"><strong>Full audit đã lưu · lịch sử</strong><span>{statusLabel[unsupported.saved.status]}</span><span>{unsupported.saved.auditedAt ? `Chạy ${unsupported.saved.auditedAt}` : unsupported.saved.status === 'pending' ? 'Chưa có full run đã lưu' : 'Đã chạy · không rõ thời điểm'}</span><a href={`/admin/listening/tests/${encodeURIComponent(testId)}`}>Mở test</a></section></main>;
   if (!snapshot) return <main className="alqad-shell"><div className="alc-banner is-error" role="alert"><strong>Không thể mở audit workspace</strong><span>{error || 'Không có snapshot hợp lệ.'}</span><button className="adm-btn-secondary" type="button" onClick={() => void load()}>Thử lại</button></div></main>;
 
   return <main className="alqad-shell" aria-busy={Boolean(busy)}>
