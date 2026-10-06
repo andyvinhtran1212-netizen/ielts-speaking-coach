@@ -11,9 +11,9 @@
 | FR-005 | reviewer=primary operator; environment=staging; date=2026-10-06; observed=all30 completed100–120 banks,90 objective denominator, actual teacher tally/E counts/reload, with lookup failures covered locally. | MANUAL |
 | FR-006 | reviewer=primary operator; environment=staging; date=2026-10-06; observed=actual served exposure, diagnostic/practice pending and finalization races, frozen source closure, exclusion and honest exhaustion in bound live receipt. | MANUAL |
 | FR-007 | reviewer=primary operator; environment=staging; date=2026-10-06; observed=generated OpenAPI/types/React local gates plus deployed all30 learner/teacher reload/mobile/theme journeys at exact50691a5360d66658c4273c9b426458be9f862977. | MANUAL |
-| FR-008 | Staging all30 acceptance/cleanup and exact-SHA CI passed at50691a5360d66658c4273c9b426458be9f862977, production migration313 applied with hash below. Promotion and exact production all30 API/browser/cleanup evidence remain T008. | PENDING |
+| FR-008 | reviewer=primary operator; environment=production; date=2026-10-07; observed=exact frontend/backend deployments and required main CI at45bfd33e83f12fd4c9c772e7573c5cfb54290b4c, actual all30/3100 API3862/browser23378, post-browser observation, owned cleanup and enabled flag/controller release in bound receipts below. Historical staging acceptance remains bound to50691a5360d66658c4273c9b426458be9f862977. | MANUAL |
 
-## Baseline
+## Historical baseline
 
 Before promotion, production serves12-question v2 with the full-bank flag off.
 Original inventory3100=2700MCQ+400E:
@@ -85,7 +85,7 @@ Authors work on isolated release copies. No real learner acceptance mutations.
   Final React431 pass, strict/legacy types, production build, native legacy584
   and full-v3/all30 native5145 remain the affected-layer evidence. Spec21 and
   whitespace checks pass.
-## Hosted integration and release status (2026-10-06)
+## Hosted integration and release status (2026-10-07)
 
 - Intent PR1600 merged to staging at
   `6b5091c746e3dd34e0cd4e543f7c7a8d89ba743c`.
@@ -117,23 +117,61 @@ Authors work on isolated release copies. No real learner acceptance mutations.
   modified.
 - Migration313 is applied to staging and production with hash
   `2a382176a1b0c4af94cda2319d5c63129fbbc0527a035ee41050f5d950cca005`.
-  Production used the advisory-locked migration runner; its full-bank flag
-  remains off pending exact deployed production acceptance. Service-role-only
-  RPC permissions and the migration ledger were verified.
-- [Promotion PR1608](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1608)
-  is open, targeting main from staging. The user approved the combined release;
-  all31 reviewed Listening PNG assets were uploaded immutably to private
-  production storage and their hashes/dimensions verified. Promotion is pending
-  this documentation correction and checks on the resulting staging head.
-  There is no resulting production merge/deployment SHA yet. Record that exact
-  SHA and production all30/3100 API/browser/cleanup evidence before readiness.
+  Production used the advisory-locked migration runner. Service-role-only RPC
+  permissions and the migration ledger were verified. The full-bank flag is
+  now enabled after the exact production acceptance below.
+- The user approved the combined Grammar/Listening/Writing/Speaking release.
+  All31 reviewed Listening PNG assets were uploaded immutably to private
+  production storage and their hashes/dimensions verified;149 private audio
+  objects were independently checked for availability. Audio availability is
+  not an all-audio semantic or byte-hash approval.
+- Initial [promotion PR1608](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1608)
+  merged to main at `5f698eaa1aa0d1737affa422dae5bb75d0391159`.
+  Its incomplete production QA exposed a missing canonical favicon and an
+  operator figure selector issue; the owned fixtures were cleaned and the
+  full-bank flag kept off. Original failures were preserved.
+- Focused repairs [PR1610](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1610)
+  and [PR1612](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1612)
+  corrected browser verifier readiness waits. [PR1611](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1611)
+  declared the existing canonical favicon SVG. All required exact staging
+  checks, live smoke and backend deployment passed at
+  `5e639b39cc590948342023e3588aa14b93612e39` before promotion.
+- Final [promotion PR1613](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1613)
+  merged that staging head to main at
+  `45bfd33e83f12fd4c9c772e7573c5cfb54290b4c`; both trees are
+  `41bd9034332f9a6890f0943c024bc5d14ac71c56`.
+  Actual production frontend and backend deployments succeeded at this exact
+  main SHA. All seven required main push workflows and their required jobs
+  passed; the final production gate has no pending or failed checks.
+- Fresh production acceptance at that exact SHA passed3862 live API checks,
+  including all30 banks/all3100 actual submissions, history preservation,
+  exposure races and post-browser observation. Deployed learner/teacher pages
+  passed23378 checks over all30/all3100, reload, mobile and both themes.
+  Production console/page errors, application HTTP failures and preview
+  warnings were zero. The separate approved Listening/Writing/Speaking journey
+  passed22 checks, including actual audio playback, private PNG/zoom, truthful
+  Day29/61/77 states, Writing entry, Speaking modes and the canonical favicon.
+- Observation after the deployed browser run passed; the activation window
+  covered1785 seconds. All owned synthetic Auth/public users, cohort,
+  assignments, Grammar/diagnostic history and all3 owned Listening attempts
+  were erased. Readiness=true; the full-bank flag remains enabled and its
+  erased QA controller was released. No real learner was assigned or modified.
+  Earlier incomplete runs at this SHA had operator panel/admission timing
+  failures; each was independently cleaned, archived and excluded from the
+  successful fresh namespace. Failed evidence was never relabeled as success.
 
 Private logs and review copies live under `/tmp/master30-fullbank-2026-10-06/`.
 Hosted receipts are `staging-live-report.json`, `staging-browser-report.json`,
 `staging-cleanup-report.json` and `staging-exact-gate.json`; production schema
-and media prerequisites are `production-migration-proof.json` and
-`production-listening-figures-proof.json`. These operator files contain binding
+and media prerequisites are `production-migration-proof.json`,
+`production-listening-figures-proof.json` and
+`production-listening-audio-availability-proof.json`. Production readiness is
+bound by `production-deployment-proof.json`, `production-live-report.json`,
+`production-browser-report.json`, `production-integrated-browser-report.json`,
+`production-cleanup-report.json`, `production-owned-listening-cleanup-proof.json`
+and `production-exact-gate.json`; the namespace-specific controller release
+receipt proves the flag remains enabled. These operator files contain binding
 and verification evidence; private synthetic identity grants are never committed.
-T006–T007 are complete. T008 production promotion, activation, all-thirty
-acceptance and cleanup remain in progress. Staging acceptance is complete;
-production readiness is not yet claimed.
+T006–T008 are complete. Production readiness is verified at
+`45bfd33e83f12fd4c9c772e7573c5cfb54290b4c`. This documentation update retains
+the actual accepted SHA and does not claim a new all-bank deployment binding.
