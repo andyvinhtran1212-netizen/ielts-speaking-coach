@@ -21,6 +21,9 @@
 | FR-015 | Independent review, local gates and exact release evidence | PENDING |
 | FR-016 | Existing audio catalogue/hash/auth/source-gap and UI no-attempt tests; live staging source choices; production publication below | PENDING |
 
+| FR-017 | Direct day-to-player, part switching/save-reload/media cleanup and no source-preview UI tests | PENDING |
+| FR-018 | GPT image visual/geometry review, private digest-bound signing and zoom tests | PENDING |
+
 ## Initial evidence
 
 Worktree: `/Volumes/Kingston SSD/Code/ielts-listening-80-days`.
