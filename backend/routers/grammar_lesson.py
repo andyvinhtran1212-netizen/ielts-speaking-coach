@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from models.grammar_content import GrammarArticleRef as Article
 
 from routers.auth import get_supabase_user
@@ -18,6 +18,14 @@ router = APIRouter(
 )
 
 
+class WritingFeedback(BaseModel):
+    model_answer: str
+    accepted_variants: list[str]
+    rubric: str
+    detailed_rubric: str
+    writing_skill: str
+
+
 class Question(BaseModel):
     id: str
     prompt: str
@@ -26,6 +34,13 @@ class Question(BaseModel):
     is_correct: bool | None = None
     correct_index: int | None = None
     explanation: str | None = None
+    type: Literal["mcq", "writing"] = "mcq"
+    format_code: str | None = None
+    supplementary: bool = False
+    output_requirements: str | None = None
+    answer_text: str | None = None
+    writing_feedback: WritingFeedback | None = None
+    distractor_explanations: list[str] | None = None
 
 
 class LessonState(BaseModel):
@@ -40,6 +55,12 @@ class LessonState(BaseModel):
     answered_count: int
     correct_count: int
     question_count: int
+    content_version: str | None = None
+    objective_count: int | None = None
+    writing_count: int = 0
+    writing_answered_count: int = 0
+    core_count: int | None = None
+    supplementary_count: int = 0
     attempt_id: str | None = None
     focus: str
     article: Article | None = None
@@ -50,7 +71,15 @@ class LessonState(BaseModel):
 
 class AnswerBody(BaseModel):
     question_id: str = Field(min_length=1, max_length=160)
-    selected_index: int = Field(ge=0, le=20)
+    selected_index: int | None = Field(default=None, ge=0, le=20)
+    answer_text: str | None = Field(default=None, min_length=1, max_length=8000)
+
+    @model_validator(mode="after")
+    def one_answer(self):
+        if ((self.selected_index is None) == (self.answer_text is None)
+                or self.answer_text is not None and not self.answer_text.strip()):
+            raise ValueError("Submit one choice or a nonempty writing answer")
+        return self
 
 
 @router.get("/items/{item_id}", response_model=LessonState)
@@ -72,4 +101,5 @@ async def answer_item(item_id: str, body: AnswerBody,
                       authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
     return service.answer_item(user["id"], item_id,
-                               body.question_id, body.selected_index)
+                               body.question_id, body.selected_index,
+                               answer_text=body.answer_text)

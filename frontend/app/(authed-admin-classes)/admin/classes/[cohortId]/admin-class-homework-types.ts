@@ -28,7 +28,8 @@ export type AssignmentPayload = {
   reconcile_failed: boolean;
 };
 
-export type CatalogOption = {
+export type CatalogOption = Partial<Pick<components['schemas']['CatalogEntry'],
+  'objective_count' | 'writing_count' | 'core_count' | 'supplementary_count' | 'practice_kind'>> & {
   id: string;
   title: string;
   category?: string | null;

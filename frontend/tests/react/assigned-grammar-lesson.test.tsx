@@ -160,3 +160,57 @@ it('discards an older teacher report response after account change', async () =>
   await act(async () => { resolveOld(report); });
   expect(screen.queryByRole('heading', { name: 'M30-B04 · Teacher report' })).toBeNull();
 });
+
+it('shows writing requirements before submission, preserves a failed draft, and keeps writing ungraded', async () => {
+  const writing = { id: 'B04-E1-01', type: 'writing', format_code: 'E1',
+    prompt: 'Rewrite **the sentence**.\n<script>bad()</script>', options: [],
+    output_requirements: 'Write two sentences and explain the choice.' };
+  const opened = { ...base, content_version: 'v3', status: 'in_progress', attempt_id: 'attempt-1',
+    question_count: 100, objective_count: 90, writing_count: 10, writing_answered_count: 0,
+    answered_count: 99, correct_count: 89, questions: [writing] };
+  const raw = 'My own sentence.\nMy reason.';
+  const saved = { ...opened, status: 'completed', can_submit: false, answered_count: 100,
+    writing_answered_count: 10, questions: [{ ...writing, answer_text: raw,
+      writing_feedback: { model_answer: 'An example sentence.', accepted_variants: ['Another valid sentence.'],
+        rubric: 'Keep the original meaning.', detailed_rubric: 'Explain your grammar choice.', writing_skill: 'Revision' } }] };
+  const get = vi.fn(async () => opened);
+  const post = vi.fn().mockRejectedValueOnce(new Error('Không lưu được bài viết')).mockImplementationOnce(async (_url, body) => {
+    expect(body).toEqual({ question_id: writing.id, answer_text: raw });
+    return saved;
+  });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, post } });
+  const view = render(<AssignedGrammarLesson />);
+  const input = await screen.findByRole('textbox', { name: 'Bài viết câu 1' });
+  expect(screen.getByText(writing.output_requirements)).toBeTruthy();
+  expect(view.container.querySelector('script')).toBeNull();
+  expect(await screen.findByText('the sentence', { selector: 'strong' })).toBeTruthy();
+  expect(screen.queryByText('An example sentence.')).toBeNull();
+  fireEvent.change(input, { target: { value: raw } });
+  fireEvent.click(screen.getByRole('button', { name: 'Lưu và đối chiếu' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('Không lưu được bài viết');
+  expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe(raw);
+  fireEvent.click(screen.getByRole('button', { name: 'Tải lại' }));
+  await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+  expect((await screen.findByRole('textbox') as HTMLTextAreaElement).value).toBe(raw);
+  fireEvent.click(screen.getByRole('button', { name: 'Lưu và đối chiếu' }));
+  expect(await screen.findByText('An example sentence.')).toBeTruthy();
+  expect(screen.getByText(/Đã hoàn thành: 89\/90 câu đúng/)).toBeTruthy();
+  expect(screen.getByText('Đã lưu bài viết · Chưa chấm điểm')).toBeTruthy();
+  expect(view.container.querySelector('.agl-feedback.is-incorrect')).toBeNull();
+  expect(screen.queryByRole('textbox')).toBeNull();
+});
+
+it('teacher report separates objective accuracy from raw writing and reference feedback', async () => {
+  Object.defineProperty(window, 'api', { configurable: true, value: { get: vi.fn(async () => ({
+    ...report, question_count: 120, objective_count: 90, writing_count: 30, writing_answered_count: 30,
+    questions: [{ id: 'B26-E1-01', type: 'writing', prompt: 'Write a sentence.', options: [],
+      answer_text: 'Learner text with an error.', writing_feedback: { model_answer: 'Reference only.',
+        accepted_variants: [], rubric: 'Meaning and grammar.', detailed_rubric: 'Review the form.', writing_skill: 'Accuracy' } }],
+  })) } });
+  render(<GrammarLessonReport />);
+  expect(await screen.findByText('1/90 câu trắc nghiệm đúng')).toBeTruthy();
+  expect(screen.getByText('Đã lưu 30/30 câu viết · Chưa chấm điểm')).toBeTruthy();
+  expect(screen.getByText('Learner text with an error.')).toBeTruthy();
+  expect(await screen.findByText('Reference only.')).toBeTruthy();
+  expect(screen.queryByText('Cần sửa')).toBeNull();
+});

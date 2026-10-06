@@ -176,6 +176,29 @@ async def test_grammar_tally_preserves_unknown_untouched_and_saved_progress(answ
 
 
 @pytest.mark.asyncio
+async def test_full_grammar_tally_reads_frozen_counts_instead_of_current_assignment_shape():
+    assignment={**_ASG,'skill':'grammar','status':'published','due_at':None,
+                'content_config':{'assignment_type':'grammar_lesson','question_count':100}}
+    item={**_ITEM,'state':'submitted','submitted_at':'2026-10-01T12:00:00+00:00','score':None,
+          'artifact_kind':'grammar_lesson_attempt','artifact_id':'attempt-1'}
+    questions=[{'id':f'a{i}','type':'mcq'} for i in range(90)]+[{'id':f'e{i}','type':'writing'} for i in range(30)]
+    attempt={'id':'attempt-1','class_assignment_item_id':'it1','question_count':120,'correct_count':89,
+             'answers':{q['id']:{} for q in questions},'content_snapshot':{'questions':questions}}
+    db=_db(class_assignments=[assignment],class_assignment_items=[item],students=[{**_STUDENT,'user_id':'u1'}],grammar_lesson_attempts=[attempt])
+    with patch.object(adm,'require_admin',AsyncMock(return_value=None)), \
+         patch.object(adm,'_require_cohort',lambda _:None),patch.object(adm,'supabase_admin',db), \
+         patch.object(adm,'reconcile_ledger_from_sessions'),patch.object(adm,'reconcile_test_attempts'), \
+         patch.object(adm,'reconcile_course_items'):
+        immediate=await adm.assignment_tally('co1','a1',None)
+        assert immediate==await adm.assignment_tally('co1','a1',None)
+    row=immediate['students'][0]
+    assert row['grammar_question_count']==row['grammar_answered']==120
+    assert row['grammar_correct']==89 and row['grammar_objective_count']==90
+    assert row['grammar_writing_answered_count']==row['grammar_writing_count']==30
+    assert row['score'] is None
+
+
+@pytest.mark.asyncio
 async def test_tally_never_turns_one_section_into_a_multisection_hand_in():
     item = {"id": "it1", "assignment_id": "a1", "student_id": "s1",
             "submitted_at": None, "score": None, "state": "opened",
