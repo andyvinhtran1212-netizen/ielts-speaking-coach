@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import html as html_module
+import io
 
 import pytest
+from docx import Document
 
 from models.writing_feedback import WritingFeedback
 from services.writing_render import (
@@ -12,6 +15,7 @@ from services.writing_render import (
     render_feedback_html,
     render_plain_text,
 )
+from services.writing_word_exporter import render_essay_to_docx
 
 
 # ── Reusable feedback fixtures ───────────────────────────────────────
@@ -369,6 +373,68 @@ def test_render_counterargument_skipped_for_task1():
         task_type="task1_academic", student_name="A",
     )
     assert "Counterargument" not in html
+
+
+@pytest.mark.parametrize("context,expected", [
+    ({"insertionPoint": "Sau đoạn 2 <script>alert(1)</script>",
+      "reasoning": "Giữ liên kết với luận điểm."},
+     ["Sau đoạn 2 <script>alert(1)</script>", "Giữ liên kết với luận điểm."]),
+    ({"reasoning": "Phản đề chưa được hỗ trợ."}, ["Phản đề chưa được hỗ trợ."]),
+    ("Sau phần mở bài.", ["Sau phần mở bài."]),
+    (None, []),
+    ({}, []),
+    (["bad context"], []),
+])
+@pytest.mark.parametrize("task_type", ["task2", "task1_academic", "task1_general"])
+@pytest.mark.parametrize("has_narrative", [True, False])
+def test_counterargument_context_matches_html_clipboard_and_word(
+    context, expected, task_type, has_narrative,
+):
+    payload = _l5_feedback()
+    payload["counterargumentAnalysis"] = {
+        "isPresent": True,
+        "feedback": "Phản đề phù hợp." if has_narrative else "",
+        "suggestion": "Bổ sung dẫn chứng." if has_narrative else "",
+        "context": deepcopy(context),
+    }
+    original_payload = deepcopy(payload)
+    feedback = WritingFeedback(**payload)
+    original_feedback = feedback.model_dump(mode="json")
+    html = render_feedback_html(
+        feedback=feedback, essay_text="My essay.", prompt_text="QA prompt.",
+        task_type=task_type, student_name="QA Export",
+    )
+    plain = render_plain_text(html)
+    word_bytes, _ = render_essay_to_docx(
+        feedback=feedback, essay_text="My essay.", prompt_text="QA prompt.",
+        task_type=task_type, student_name="QA Export", student_code="QA_EXPORT",
+    )
+    doc = Document(io.BytesIO(word_bytes))
+    word = "\n".join(
+        [p.text for p in doc.paragraphs]
+        + [cell.text for table in doc.tables for row in table.rows for cell in row.cells]
+    )
+    if task_type.startswith("task1"):
+        assert "Counterargument" not in html
+        assert "Counterargument" not in word
+        for text in expected:
+            assert text not in plain
+            assert text not in word
+    else:
+        for text in expected:
+            assert html_module.escape(text) in html
+            assert text in plain
+            assert text in word
+        if not has_narrative and expected:
+            assert "Counterargument" in html
+            assert "Counterargument" in word
+    assert "<script>alert(1)</script>" not in html
+    for text in (html, plain, word):
+        assert "[object Object]" not in text
+        assert "undefined" not in text
+        assert "bad context" not in text
+    assert payload == original_payload
+    assert feedback.model_dump(mode="json") == original_feedback
 
 
 # ── Smoke: ensure deepcopy of payload doesn't mutate fixtures ────────

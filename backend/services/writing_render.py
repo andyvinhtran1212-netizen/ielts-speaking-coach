@@ -507,23 +507,18 @@ def _extract_idea_paragraphs(ida: Any) -> list[dict]:
 def _extract_counterargument(ca: Any, task_type: str) -> Optional[dict]:
     """Map Pydantic counterargumentAnalysis → {summary, points}.
 
-    Skipped for Task 1. Pulls `feedback` as the summary and folds
-    `suggestion` into a single-item points list since the spec asks for
-    a bulleted points block. `isPresent: True` collapses the whole
-    section (the student already wrote one).
+    Skipped for Task 1. Pulls `feedback` as the summary, folds
+    `suggestion` into a single-item points list, and preserves the
+    insertion location and reasoning for HTML, clipboard and Word.
     """
     if not ca:
         return None
     if task_type and task_type.startswith("task1"):
         return None
     if isinstance(ca, str):
-        return {"summary": ca, "points": []}
+        return {"summary": ca, "points": [], "context": {"insertionPoint": "", "reasoning": ""}}
 
     get = (ca.get if isinstance(ca, dict) else lambda k, default="": getattr(ca, k, default))
-    is_present = bool(get("isPresent", False))
-    if is_present and not get("feedback") and not get("suggestion"):
-        return None
-
     summary = get("summary") or get("feedback") or ""
     points = get("points") or []
     if isinstance(points, str):
@@ -532,9 +527,21 @@ def _extract_counterargument(ca: Any, task_type: str) -> Optional[dict]:
         sugg = get("suggestion")
         if sugg:
             points = [str(sugg)]
-    if not summary and not points:
+    raw_context = get("context", None)
+    if isinstance(raw_context, str):
+        insertion_point, reasoning = raw_context, ""
+    else:
+        context_get = (raw_context.get if isinstance(raw_context, dict)
+                       else lambda k, default="": getattr(raw_context, k, default))
+        insertion_point = context_get("insertionPoint", "")
+        reasoning = context_get("reasoning", "")
+    context = {
+        "insertionPoint": insertion_point.strip() if isinstance(insertion_point, str) else "",
+        "reasoning": reasoning.strip() if isinstance(reasoning, str) else "",
+    }
+    if not summary and not points and not any(context.values()):
         return None
-    return {"summary": str(summary), "points": [str(p) for p in points]}
+    return {"summary": str(summary), "points": [str(p) for p in points], "context": context}
 
 
 # ── Improved essay + AI content ──────────────────────────────────────
