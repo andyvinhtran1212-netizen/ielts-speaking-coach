@@ -1,0 +1,255 @@
+{
+  "schema": "80-days-generated-figures/1",
+  "package_id": "80-days-source-v1",
+  "manifest_sha256": "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841",
+  "figures": {
+    "day-01-q16-animals.svg": {
+      "file": "day-01-q16-animals.png",
+      "source_svg_sha256": "2791a3a686f4c4edee6125105b2e9d87f64d2ed821fc10ba3cccdcc8740395e3",
+      "sha256": "fa4abb03c45dd1eb2bdb68c6f2e892d13d27e968aa558147618b71faffa3906c",
+      "width": 2170,
+      "height": 725,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/fa4abb03c45dd1eb2bdb68c6f2e892d13d27e968aa558147618b71faffa3906c.png"
+    },
+    "day-03-picture-pool-11-15.svg": {
+      "file": "day-03-picture-pool-11-15.png",
+      "source_svg_sha256": "b43a3137cdefd53b4979b54859f748a0d920891abe2a164e24021a73c220ffb8",
+      "sha256": "091be1580a8587be1aa92d0f45fee0815dc0f5a085b1d61c3c3658a547fa8251",
+      "width": 1402,
+      "height": 1122,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/091be1580a8587be1aa92d0f45fee0815dc0f5a085b1d61c3c3658a547fa8251.png"
+    },
+    "day-11-shopping-1-2.svg": {
+      "file": "day-11-shopping-1-2.png",
+      "source_svg_sha256": "a262af6c95bb62f3997fc852ffcfac3c0e31f287772b3f922f6b6bea86284a63",
+      "sha256": "75f5526b145b7ce876c03f86f4cf44c1f8b89087006c6a6c0a89ffb998998108",
+      "width": 1599,
+      "height": 984,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/75f5526b145b7ce876c03f86f4cf44c1f8b89087006c6a6c0a89ffb998998108.png"
+    },
+    "day-11-weather-3.svg": {
+      "file": "day-11-weather-3.png",
+      "source_svg_sha256": "0cca2cafdc6b9cc3d93701dae77d2f33c18bc2255ea081116341d7852cb96f07",
+      "sha256": "a8ace3f298b9b42f673f9c979588051616a067d62d53495931c0533130488572",
+      "width": 2141,
+      "height": 734,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/a8ace3f298b9b42f673f9c979588051616a067d62d53495931c0533130488572.png"
+    },
+    "day-11-wallet-4-5.svg": {
+      "file": "day-11-wallet-4-5.png",
+      "source_svg_sha256": "e521b467846e698e3e76c8508af16f13639b32caa0c7e60b04b086c5e2c09792",
+      "sha256": "f5b0df0f3abe8cdc577533bd1a3a3558e2fa875a03e97d2607a0a0dcf134850f",
+      "width": 1528,
+      "height": 1029,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/f5b0df0f3abe8cdc577533bd1a3a3558e2fa875a03e97d2607a0a0dcf134850f.png"
+    },
+    "day-12-classroom-1-3.svg": {
+      "file": "day-12-classroom-1-3.png",
+      "source_svg_sha256": "6e7c5928a378586f4c436d716efc915e4d2ed3cba9351afa86e42a0024b3764e",
+      "sha256": "49561eead24874481a33480696300d5bebd1dac3ba27ba6c7eeb14e81319706f",
+      "width": 1567,
+      "height": 1004,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/49561eead24874481a33480696300d5bebd1dac3ba27ba6c7eeb14e81319706f.png"
+    },
+    "day-12-expenses-4.svg": {
+      "file": "day-12-expenses-4.png",
+      "source_svg_sha256": "a935926ffac291f7bfbeed6d8268d2d812d9e3b9b2573a37c2cbbd2139febf94",
+      "sha256": "150c8a1f40906b90cd173c2d6f1a3b0fd9b400eed48f029214c95d23378b5ba9",
+      "width": 1619,
+      "height": 971,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/150c8a1f40906b90cd173c2d6f1a3b0fd9b400eed48f029214c95d23378b5ba9.png"
+    },
+    "day-12-traffic-5.svg": {
+      "file": "day-12-traffic-5.png",
+      "source_svg_sha256": "ddb17b019fddf90c938fb48b79b146d774aae68b365cd9bebc8e5e989145a293",
+      "sha256": "839d4a508a1225de9551f4312ed0db011810470f85df4062060a354bcf2d2eb8",
+      "width": 1913,
+      "height": 822,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/839d4a508a1225de9551f4312ed0db011810470f85df4062060a354bcf2d2eb8.png"
+    },
+    "day-17-map-1-10.svg": {
+      "file": "day-17-map-1-10.png",
+      "source_svg_sha256": "3559a456d9a0b3e8fdb93abe55d5f266f4f01ccf2bc6a68d11da92f36d7d529d",
+      "sha256": "4bdb3a04b5cd89f801c52de4c05509113dd263465abb569e58f4dcecc1720998",
+      "width": 1648,
+      "height": 954,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/4bdb3a04b5cd89f801c52de4c05509113dd263465abb569e58f4dcecc1720998.png"
+    },
+    "day-18-map-1-10.svg": {
+      "file": "day-18-map-1-10.png",
+      "source_svg_sha256": "7ab1b682f25edbb4e111f3275cdaf6c4b26f8da6b33f12f43cac93d2495f7d16",
+      "sha256": "f7a3754c554161609ba442e352db9e2c5dc4f556972ba90e0f92a024cf133907",
+      "width": 1482,
+      "height": 1062,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/f7a3754c554161609ba442e352db9e2c5dc4f556972ba90e0f92a024cf133907.png"
+    },
+    "day-31-q1-calendars.svg": {
+      "file": "day-31-q1-calendars.png",
+      "source_svg_sha256": "4a62699ff1fcefe6523a475a43f41f97d25c284a9e380c9798999a76dbd321b2",
+      "sha256": "adf2b2d40110b5f6236021539af2e1b7335156dc3a105a77419e847af7169ba3",
+      "width": 2103,
+      "height": 748,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/adf2b2d40110b5f6236021539af2e1b7335156dc3a105a77419e847af7169ba3.png"
+    },
+    "day-34-q1-media.svg": {
+      "file": "day-34-q1-media.png",
+      "source_svg_sha256": "a891f3f3c0a9d63ce446305abc8c13c7f603c003b1f3f6735abf4ac8aaede7f3",
+      "sha256": "0a9fa14ddcb94eec9134c35361f96ca7d2d731717cb9c5af9c707150e325502d",
+      "width": 2048,
+      "height": 768,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/0a9fa14ddcb94eec9134c35361f96ca7d2d731717cb9c5af9c707150e325502d.png"
+    },
+    "day-35-map-11-15.svg": {
+      "file": "day-35-map-11-15.png",
+      "source_svg_sha256": "adf4aa80c5a0354dc150de42066eccc8038f49dc7fc8481d2583d53bae45aefd",
+      "sha256": "2a216c3c60b22e22fd87f33771371bccdc83f525f65e9e40e3fbfe2359ca1b62",
+      "width": 1730,
+      "height": 909,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/2a216c3c60b22e22fd87f33771371bccdc83f525f65e9e40e3fbfe2359ca1b62.png"
+    },
+    "day-37-q8-transport.svg": {
+      "file": "day-37-q8-transport.png",
+      "source_svg_sha256": "7b791104e02229aae2f3871dada4aed01cf9812f1e78f4ddbd926e920bcc7e45",
+      "sha256": "516437165b6af5c0fa0a4ccf09b226bfbcb21490fbac2e1ca1269a039e9573de",
+      "width": 2170,
+      "height": 725,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/516437165b6af5c0fa0a4ccf09b226bfbcb21490fbac2e1ca1269a039e9573de.png"
+    },
+    "day-40-q10-bus-stop.svg": {
+      "file": "day-40-q10-bus-stop.png",
+      "source_svg_sha256": "7f4c5bdc69f781ae86ab5534d8cc6af5b80d76eb022383456a587bbbf60f5723",
+      "sha256": "88f14c84e072fec0775c5d8320620afa9b5d695d532f1df9ebbaca34645d4c0c",
+      "width": 1821,
+      "height": 864,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/88f14c84e072fec0775c5d8320620afa9b5d695d532f1df9ebbaca34645d4c0c.png"
+    },
+    "day-42-q13-activities.svg": {
+      "file": "day-42-q13-activities.png",
+      "source_svg_sha256": "cfd93d6e52f2fa57a78a11cad866b895a2635252eb0f0e7e7afc5b4351b874fe",
+      "sha256": "75ef457baabb8d8081089bfe971a2d47cfc7a116df67da3b005b5124f1c3f734",
+      "width": 2172,
+      "height": 724,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/75ef457baabb8d8081089bfe971a2d47cfc7a116df67da3b005b5124f1c3f734.png"
+    },
+    "day-45-q9-groups.svg": {
+      "file": "day-45-q9-groups.png",
+      "source_svg_sha256": "12e014e90b7b6487a56fefa992191da033e607d01a077cd833636d7867f918e8",
+      "sha256": "edd65ecd813dfa555489c69ae17f5ba5515130483772b635ce39a83b6e6c5627",
+      "width": 2172,
+      "height": 724,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/edd65ecd813dfa555489c69ae17f5ba5515130483772b635ce39a83b6e6c5627.png"
+    },
+    "day-46-map-11-15.svg": {
+      "file": "day-46-map-11-15.png",
+      "source_svg_sha256": "13c3b205372d30a25b390803a13eb0c36e4a390b2c268cd3c789851e8329e3d0",
+      "sha256": "fba94bdfd9dc6fe83de30fe818cbf93d1a9956a48afe4c106ac37776ffaa7152",
+      "width": 1796,
+      "height": 876,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/fba94bdfd9dc6fe83de30fe818cbf93d1a9956a48afe4c106ac37776ffaa7152.png"
+    },
+    "day-47-q1-occupations.svg": {
+      "file": "day-47-q1-occupations.png",
+      "source_svg_sha256": "13d173542f37413852c37240b230f728ff8739ac03d0e8f6b462d46d8571a0c3",
+      "sha256": "1c54548d65f65038568395cd4cbd3bd6129adcb23189975a1dfa455cf259227f",
+      "width": 2160,
+      "height": 728,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/1c54548d65f65038568395cd4cbd3bd6129adcb23189975a1dfa455cf259227f.png"
+    },
+    "day-48-q4-junction.svg": {
+      "file": "day-48-q4-junction.png",
+      "source_svg_sha256": "f514a0d648459e79bd18c9955c6a1964cfe0a1dcf32b0acb4d54a0c3dbb5186a",
+      "sha256": "d6f49f291fd49324e8a995f55e94bf5159750995163dc330cf924426b42fabc7",
+      "width": 1576,
+      "height": 998,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/d6f49f291fd49324e8a995f55e94bf5159750995163dc330cf924426b42fabc7.png"
+    },
+    "day-49-q9-room-signs.svg": {
+      "file": "day-49-q9-room-signs.png",
+      "source_svg_sha256": "830c407492017b45c766b6b3911a6211949769448ea6b368a8e9be4ad0f3844f",
+      "sha256": "2ac55fa1c41676cde1b0a5ad2be42f3a83dcffa38131374d31e3760b2c54dd1e",
+      "width": 2172,
+      "height": 724,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/2ac55fa1c41676cde1b0a5ad2be42f3a83dcffa38131374d31e3760b2c54dd1e.png"
+    },
+    "day-50-q3-sports.svg": {
+      "file": "day-50-q3-sports.png",
+      "source_svg_sha256": "ab444423a1410a67483226ddea0aed0b299d8a054fe3aea72609aecb88995f51",
+      "sha256": "309245763c9d4f47959fa759409f5eb33b7b219f79c61af25973dded8391efcc",
+      "width": 1942,
+      "height": 809,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/309245763c9d4f47959fa759409f5eb33b7b219f79c61af25973dded8391efcc.png"
+    },
+    "day-50-q10-scenes.svg": {
+      "file": "day-50-q10-scenes.png",
+      "source_svg_sha256": "92b66663d7dc6b1bc3ea15333c9532dc5f80d42242338c7f4af013d19e8a20f5",
+      "sha256": "7b0733703689deb211b5a0f1b7ece392aa5f59ac961c2e8b6ce4932cf46ba1c1",
+      "width": 2056,
+      "height": 765,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/7b0733703689deb211b5a0f1b7ece392aa5f59ac961c2e8b6ce4932cf46ba1c1.png"
+    },
+    "day-54-building-plan.svg": {
+      "file": "day-54-building-plan.png",
+      "source_svg_sha256": "b49540b2298cdd2dfee2379abb292befe07721ba2c836876dd0ae08c19b36aaf",
+      "sha256": "13358bfe67be934f7d891dea12e33d6bd679e13a8a45050737026a37a5637e51",
+      "width": 1591,
+      "height": 988,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/13358bfe67be934f7d891dea12e33d6bd679e13a8a45050737026a37a5637e51.png"
+    },
+    "day-57-people-1-2.svg": {
+      "file": "day-57-people-1-2.png",
+      "source_svg_sha256": "e0c58a10dda46543f73a32dae1def477d8fcdd3e2160f95813d346e8a4adff8c",
+      "sha256": "ffe12872f0e22d4b131e6581f30ccb25ab7012c165b2cfe24237bfd402d9bff5",
+      "width": 1619,
+      "height": 971,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/ffe12872f0e22d4b131e6581f30ccb25ab7012c165b2cfe24237bfd402d9bff5.png"
+    },
+    "day-60-sprinkler-1-5.svg": {
+      "file": "day-60-sprinkler-1-5.png",
+      "source_svg_sha256": "0fb157617278a1e734b881ea7cbccb0c059b577a57d35e2dc3162ce272580fd7",
+      "sha256": "f6ba82c029e1cfa4d4806c9ae834c64cef302839c05e9bb30c75966b1c138d2c",
+      "width": 1653,
+      "height": 952,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/f6ba82c029e1cfa4d4806c9ae834c64cef302839c05e9bb30c75966b1c138d2c.png"
+    },
+    "day-76-q13-geography-figures.svg": {
+      "file": "day-76-q13-geography-figures.png",
+      "source_svg_sha256": "2df66cc530d0774be550ce18e0b74f633c15794081aede24fa7fe78bb0735495",
+      "sha256": "0a4f5efcdd4788942567356351b76589faeb4eac99be93ac877aa73ea5a6834c",
+      "width": 2172,
+      "height": 724,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/0a4f5efcdd4788942567356351b76589faeb4eac99be93ac877aa73ea5a6834c.png"
+    },
+    "day-77-q36-portraits.svg": {
+      "file": "day-77-q36-portraits.png",
+      "source_svg_sha256": "9f215ac3ae3556f12c45eeb5f90d6ad0b3fc20716d7fb70529645b97108421ae",
+      "sha256": "be4d20d110873d978256951ec98ed9081311f3a4eaf6a1d087e8d9a6d61ee5d3",
+      "width": 2172,
+      "height": 724,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/be4d20d110873d978256951ec98ed9081311f3a4eaf6a1d087e8d9a6d61ee5d3.png"
+    },
+    "day-79-diet-pyramid-40-41.svg": {
+      "file": "day-79-diet-pyramid-40-41.png",
+      "source_svg_sha256": "2794b34d576c757113e9853cb707033450bdcf5cf146175c5ae3b05ba4be7e76",
+      "sha256": "fbf51a8ce9aeab19b9ed98000d7cdada40c494edbf09afca68a57fd97cad0bf7",
+      "width": 1490,
+      "height": 1056,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/fbf51a8ce9aeab19b9ed98000d7cdada40c494edbf09afca68a57fd97cad0bf7.png"
+    },
+    "day-80-q2-net-shapes.svg": {
+      "file": "day-80-q2-net-shapes.png",
+      "source_svg_sha256": "e678152fbf6e8b6feceb98e9568ac84ec3cccceb1be098779a2023d82995b567",
+      "sha256": "c72b6b484a126a376269c60649b8f51fb60de51c1e663c869bcc858940d4d141",
+      "width": 1983,
+      "height": 793,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/c72b6b484a126a376269c60649b8f51fb60de51c1e663c869bcc858940d4d141.png"
+    },
+    "day-80-q3-lines.svg": {
+      "file": "day-80-q3-lines.png",
+      "source_svg_sha256": "3c14861c306acfbe00fee6ecadef3339d3f498c11815abfd1d1531f829e89db5",
+      "sha256": "4a2030a17a55bf5afcd67ecb1de3805ce9934215ee81a840fc776a8a9551661f",
+      "width": 1983,
+      "height": 793,
+      "storage_path": "source-collections/80-days-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/figures/gpt-v1/4a2030a17a55bf5afcd67ecb1de3805ce9934215ee81a840fc776a8a9551661f.png"
+    }
+  }
+}

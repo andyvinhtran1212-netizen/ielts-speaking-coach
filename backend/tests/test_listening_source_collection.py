@@ -218,6 +218,16 @@ def test_public_limitations_use_part_state_and_unresolved_precedence(release):
         assert position['reason_vi'] not in str(before)
 
 
+def test_day29_departure_limitation_is_public_without_disclosing_candidate_answer():
+    position = dict(item_id='80-days:day-29:main:q-13', source_display_number='13', part_id='part-2', block_id='block', review_status='UNRESOLVED', reason_vi='SECRET_CANDIDATE_TIME')
+    parts = [dict(part_id='part-2', audio_status='available')]
+    manifest = '29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841'
+    result = service.public_source_position(position, parts, manifest)
+    assert 'khởi hành' in result['reason_vi']
+    assert 'SECRET_CANDIDATE_TIME' not in str(result)
+    assert service.public_source_position(position, parts, 'another-revision')['reason_vi'] == service.SOURCE_ONLY_UNRESOLVED
+
+
 @pytest.mark.parametrize('mutation',[
     lambda position:position.update(review_status='UNKNOWN'),
     lambda position:position.update(part_id='unknown-part'),

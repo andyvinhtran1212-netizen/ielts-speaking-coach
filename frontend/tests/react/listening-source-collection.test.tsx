@@ -165,57 +165,71 @@ it('routes the three programme cards and a source next action to their own libra
   expect(window.api.postWith).not.toHaveBeenCalled(); expect(window.api.patchWith).not.toHaveBeenCalled();
 });
 
-it('opens missing-audio study explicitly without starting or completing a practice attempt', async () => {
-  const studyBlock = { ...block, display_kind: 'source_study', images: [] };
-  window.api.getWith = vi.fn(async () => ({ collection_id: '80-days', package_id: 'release', manifest_sha256: 'hash', day: 77, lesson_id: 'day77', title: 'Ngày thiếu audio', group: 'mock', availability, source_position_count: 2, practice_item_count: 0, source_only_count: 2, parts: [{ part_id: 'part1', source_label: 'Section 1', item_count: 0, source_position_count: 2, audio_status: 'missing', timing_granularity: 'none', form: null }], blocks: [studyBlock], vocabulary_groups: [], source_only_positions: [] }));
-  window.api.postWith = vi.fn(async () => ({ mode: 'source_study', independent_practice: false, day: 77, blocks: [{ ...studyBlock, items: [{ item_id: 'q7', source_display_number: '7', review_status: 'AMBIGUOUS', answer_provenance: 'Tài liệu nguồn', explanation: { answer: 'reference-only', why_vi: 'Giải thích của tài liệu.', evidence: [] } }], transcript: [] }] }));
-  render(<ListeningSourceDay day={77} />);
-  await screen.findByText('Ngày thiếu audio');
-  expect(screen.queryByRole('link', { name: /Bắt đầu luyện/ })).toBeNull();
-  expect(screen.queryByText('reference-only')).toBeNull();
-  expect(window.api.postWith).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'Mở tài liệu tự học' }));
-  await screen.findByText(/reference-only/);
-  expect(window.api.postWith).toHaveBeenCalledWith('/api/listening/source-collections/80-days/days/77/study', { block_ids: ['matching'] }, undefined, { signal: expect.any(AbortSignal) });
-  expect(screen.getByText(/không phải lượt làm độc lập/)).toBeTruthy();
-});
-
 function studyDay(day: number) {
   return { collection_id: '80-days', package_id: 'release', manifest_sha256: 'hash', day, lesson_id: `day${day}`, title: `Ngày ${day} đang học`, group: 'mock', availability, source_position_count: 2, practice_item_count: 0, source_only_count: 2, parts: [], blocks: [{ ...block, display_kind: 'source_study', images: [] }], vocabulary_groups: [], source_only_positions: [] };
 }
-function studyReply(day: number, answer: string) {
-  return { mode: 'source_study', independent_practice: false, day, blocks: [{ ...block, images: [], items: [{ item_id: 'q7', source_display_number: '7', explanation: { answer, why_vi: 'Chỉ tài liệu đúng ngày và tài khoản mới được hiển thị.', evidence: [] } }], transcript: [] }] };
-}
-
-it.each(['day', 'account'])('discards an old study POST when the %s changes', async (boundary) => {
-  let resolve!: (value: unknown) => void;
-  window.api.getWith = vi.fn(async (url: string) => studyDay(Number(url.split('/').pop())));
-  window.api.postWith = vi.fn(() => new Promise((done) => { resolve = done; }));
-  const view = render(<ListeningSourceDay day={77} />);
+it('keeps unsupported days as audio-only without exposing source documents or starting an attempt', async () => {
+  window.api.getWith = vi.fn(async (url: string) => url.endsWith('/audio') ? { day: 77, variants: [{ variant_id: 'kokoro-v1', label_vi: 'Bản luyện nghe', url: '/new77.mp3' }] } : studyDay(77));
+  render(<ListeningSourceDay day={77} />);
   await screen.findByText('Ngày 77 đang học');
-  fireEvent.click(screen.getByRole('button', { name: 'Mở tài liệu tự học' }));
-  const signal = (window.api.postWith as ReturnType<typeof vi.fn>).mock.calls[0][3].signal;
-  if (boundary === 'account') auth.user = { id: 'another-learner' };
-  view.rerender(<ListeningSourceDay day={boundary === 'day' ? 78 : 77} />);
-  await screen.findByRole('button', { name: 'Mở tài liệu tự học' });
-  expect(signal.aborted).toBe(true);
-  await act(async () => { resolve(studyReply(77, 'OLD_SCOPE_ANSWER')); });
-  expect(screen.queryByText(/OLD_SCOPE_ANSWER/)).toBeNull();
-  window.api.postWith = vi.fn(async () => studyReply(boundary === 'day' ? 78 : 77, 'CURRENT_SCOPE_ANSWER'));
-  fireEvent.click(screen.getByRole('button', { name: 'Mở tài liệu tự học' }));
-  await screen.findByText(/CURRENT_SCOPE_ANSWER/);
+  expect(screen.getByText(/chưa có bài tập đủ dữ kiện/)).toBeTruthy();
+  expect(screen.queryByRole('tab')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Mở tài liệu tự học' })).toBeNull();
+  expect(screen.queryByText('Đề và tài liệu nguồn')).toBeNull();
+  expect(screen.queryByText('Native shared context')).toBeNull();
+  expect(window.api.postWith).not.toHaveBeenCalled();
 });
 
-it('clears already opened study immediately when the authenticated account changes', async () => {
-  window.api.getWith = vi.fn(async () => studyDay(77));
-  window.api.postWith = vi.fn(async () => studyReply(77, 'FIRST_ACCOUNT_ANSWER'));
-  const view = render(<ListeningSourceDay day={77} />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Mở tài liệu tự học' }));
-  await screen.findByText(/FIRST_ACCOUNT_ANSWER/);
-  auth.user = { id: 'second-account' };
-  view.rerender(<ListeningSourceDay day={77} />);
-  expect(screen.queryByText(/FIRST_ACCOUNT_ANSWER/)).toBeNull();
-  await screen.findByRole('button', { name: 'Mở tài liệu tự học' });
+function practiceDay(day = 1) {
+  return { ...studyDay(day), practice_item_count: 3, parts: [1, 2, 3].map((n) => ({ part_id: `p${n}`, source_label: `Part ${n}`, item_count: 1, form: { id: `form${n}`, status: 'new' } })) };
+}
+function installPracticeApi() {
+  window.api.getWith = vi.fn(async (url: string) => {
+    if (url.endsWith('/audio')) return { day: 1, variants: [{ variant_id: 'original', label_vi: 'Bản ghi gốc', url: '/original.mp3' }, { variant_id: 'kokoro-v1', label_vi: 'Bản luyện nghe', url: '/new.mp3' }] };
+    if (url.includes('/source-collections/')) return practiceDay();
+    if (url.endsWith('/guided-state')) return { items: [] };
+    const id = url.match(/tests\/(form\d)/)?.[1] || 'form1';
+    return { title: id, programme_id: 'ielts-80-days-listening', source_day: 1, scoring_policy: 'report_only', replay_policy: 'allowed', audio_url: '/original.mp3', source_blocks: [], sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: [{ q_num: 1, source_item_id: `${id}-q1`, prompt: `Question ${id}`, response_type: 'short_answer', options: {} }] } }] }] };
+  });
+  window.api.postWith = vi.fn(async (url: string) => ({ attempt_id: `attempt-${url.match(/tests\/(form\d)/)?.[1]}`, answers: [] }));
+}
+
+it('opens the first actual part immediately, retains drafts and pauses hidden media across mouse and keyboard tabs', async () => {
+  installPracticeApi();
+  const view = render(<ListeningSourceDay day={1} />);
+  await screen.findByText('Question form1');
+  expect(window.api.postWith).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('link', { name: /Bắt đầu luyện/ })).toBeNull();
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/new.mp3');
+  const first = view.container.querySelector('audio')!;
+  const input = screen.getByRole('textbox');
+  fireEvent.change(input, { target: { value: 'unsent draft' } });
+  fireEvent.click(screen.getByRole('tab', { name: /Part 2/ }));
+  await screen.findByText('Question form2');
+  expect(first.getAttribute('src')).toBeNull();
+  await waitFor(() => expect(window.api.patchWith).toHaveBeenCalledWith('/api/listening/tests/attempts/attempt-form1/answers', { q_num: 1, user_answer: 'unsent draft' }, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) })));
+  fireEvent.keyDown(screen.getByRole('tab', { name: /Part 2/ }), { key: 'ArrowLeft' });
+  expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('unsent draft');
+  expect(screen.getByRole('tab', { name: /Part 1/ }).getAttribute('aria-selected')).toBe('true');
+  expect(document.activeElement).toBe(screen.getByRole('tab', { name: /Part 1/ }));
+  expect(window.api.postWith).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText(/Kokoro|Đề và tài liệu nguồn|Tài liệu tự học/)).toBeNull();
+});
+
+it.each(['day', 'account'] as const)('aborts pending practice and discards stale answers on %s boundary', async (boundary) => {
+  installPracticeApi();
+  let resolve!: (value: unknown) => void;
+  window.api.postWith = vi.fn(() => new Promise((done) => { resolve = done; }));
+  const view = render(<ListeningSourceDay day={1} />);
+  await waitFor(() => expect(window.api.postWith).toHaveBeenCalledTimes(1));
+  const signal = (window.api.postWith as ReturnType<typeof vi.fn>).mock.calls[0][3].signal;
+  const oldResolve = resolve;
+  if (boundary === 'account') auth.user = { id: 'another-learner' };
+  view.rerender(<ListeningSourceDay day={boundary === 'day' ? 2 : 1} />);
+  expect(signal.aborted).toBe(true);
+  await act(async () => oldResolve({ attempt_id: 'OLD_ATTEMPT', answers: [{ q_num: 1, user_answer: 'OLD_SCOPE_ANSWER' }] }));
+  expect(view.container.textContent).not.toContain('OLD_SCOPE_ANSWER');
+  expect((window.api.getWith as ReturnType<typeof vi.fn>).mock.calls.every((call) => !String(call[0]).includes('OLD_ATTEMPT'))).toBe(true);
 });
 
 it('translates canonical explanation provenance and retains precise evidence references', () => {
@@ -223,6 +237,46 @@ it('translates canonical explanation provenance and retains precise evidence ref
   expect(screen.getByText(/Đáp án biên tập đã được đối chiếu/)).toBeTruthy();
   expect(screen.getByText('Transcript in trong sách · PDF trang 249, dòng 6')).toBeTruthy();
   expect(screen.queryByText(/editorial_verified|printed_transcript/)).toBeNull();
+});
+
+it('keeps answer provenance and printed-key distinction without exposing PDF document references', () => {
+  render(<ListeningSourceExplanation showSourceReferences={false} provenance="editorial_verified" explanation={{ answer: 'wreaths', printed_key: { answer: 'wreath', evidence_tier: 'PRINTED', source_pdf_page: 203 }, why_vi: 'Nghe số nhiều.', evidence: [{ source_kind: 'printed_transcript', pdf_page: 203, line_index_1_based: 10, quote: 'wreaths' }] }} />);
+  expect(screen.getByText('Đáp án in trong sách:').parentElement?.textContent).toContain('wreath');
+  expect(screen.getByText(/Đáp án biên tập đã được đối chiếu/)).toBeTruthy();
+  expect(screen.getByText('Transcript in trong sách')).toBeTruthy();
+  expect(screen.queryByText(/PDF trang|dòng 10/)).toBeNull();
+});
+
+it('shows safe authored limitations alongside eligible practice without source previews', async () => {
+  installPracticeApi();
+  const get = window.api.getWith;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => url.endsWith('/days/29') ? { ...practiceDay(29), source_only_positions: [{ item_id: 'q13', part_id: 'p2', source_display_number: '13', reason_vi: 'Audio không nêu giờ khởi hành được hỏi ở câu này; chưa đủ dữ kiện để mở luyện.' }] } : get(url, ...args));
+  render(<ListeningSourceDay day={29} />);
+  await screen.findByText('Question form1');
+  fireEvent.click(screen.getByText('1 câu chưa mở luyện — xem lý do'));
+  expect(screen.getByText('Part 2 · Câu 13:')).toBeTruthy();
+  expect(screen.getByText(/Audio không nêu giờ khởi hành/)).toBeTruthy();
+  expect(screen.queryByText('Đề và tài liệu nguồn')).toBeNull();
+});
+
+it('allows an explicit original fallback after variants fail and retry restores the new default without a new attempt', async () => {
+  installPracticeApi();
+  const get = window.api.getWith;
+  let unavailable = true;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => { if (url.endsWith('/audio') && unavailable) throw new Error('temporary outage'); return get(url, ...args); });
+  const view = render(<ListeningSourceDay day={1} />);
+  await screen.findByText('Question form1');
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toBeNull();
+  expect(screen.getByText(/Bạn có thể chọn Bản ghi gốc hoặc tải lại/)).toBeTruthy();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Phiên bản audio' }), { target: { value: 'original' } });
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/original.mp3');
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'retained during retry' } });
+  unavailable = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Tải lại audio' }));
+  await waitFor(() => expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/new.mp3'));
+  expect((screen.getByRole('combobox', { name: 'Phiên bản audio' }) as HTMLSelectElement).value).toBe('kokoro-v1');
+  expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('retained during retry');
+  expect(window.api.postWith).toHaveBeenCalledTimes(1);
 });
 
 it('groups a matching block once, hides solutions until saved reveal, and preserves source numbering', async () => {
@@ -257,4 +311,23 @@ it('restores multiple blanks and saves them under one original source position',
   await waitFor(() => expect(window.api.patchWith).toHaveBeenCalledWith('/api/listening/tests/attempts/gap-attempt/answers', { q_num: 1, user_answer: '{"activity":"dinner","place":"New York"}' }, undefined, expect.objectContaining({ signal: expect.any(AbortSignal) })));
   expect(screen.getAllByText('Không quá 2 từ cho chỗ trống này.')).toHaveLength(2);
   expect(screen.getByText('1/1 câu đã thử')).toBeTruthy();
+});
+
+it('replays the new recording from zero and retains original timing only after explicitly choosing the original', async () => {
+  installPracticeApi();
+  const get = window.api.getWith;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => url.endsWith('/guided-state') ? { items: [{ q_num: 1, source_item_id: 'form1-q1', first_answer: 'draft', state: 'unscored', correct: null, audio_window: { start: 12, end: 16 }, audio_granularity: 'question', explanation: { answer: 'reference', why_vi: 'AUDIO_TIMING_REFERENCE', evidence: [] } }] } : get(url, ...args));
+  vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  const view = render(<ListeningSourceDay day={1} />);
+  await screen.findByText('AUDIO_TIMING_REFERENCE');
+  const audio = view.container.querySelector('audio')!;
+  audio.currentTime = 5;
+  fireEvent.click(screen.getByRole('button', { name: /Nghe toàn ngày/ }));
+  expect(audio.currentTime).toBe(0);
+  expect(audio.getAttribute('src')).toBe('/new.mp3');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Phiên bản audio' }), { target: { value: 'original' } });
+  expect(audio.getAttribute('src')).toBe('/original.mp3');
+  fireEvent.click(screen.getByRole('button', { name: /Nghe lại đoạn này/ }));
+  expect(audio.currentTime).toBe(12);
+  expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
 });

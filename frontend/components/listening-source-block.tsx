@@ -21,7 +21,7 @@ function QuestionImage({ image }: { image: SourceImage }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
   const [zoom, setZoom] = useState(100);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(!image.url);
   return <figure className="source-image">
     {failed ? <div className="source-notice is-error" role="alert"><p>Chưa tải được hình đề. Hãy tải lại để lấy liên kết mới.</p><button type="button" onClick={() => window.location.reload()}>Tải lại ảnh</button></div> : <>
       <button type="button" className="source-image__open" onClick={() => { setZoom(100); dialog.current?.showModal(); }} aria-label={`Phóng to ảnh đề: ${image.alt_vi}`}>
@@ -29,7 +29,7 @@ function QuestionImage({ image }: { image: SourceImage }) {
       </button>
       <figcaption><button type="button" onClick={() => { setZoom(100); dialog.current?.showModal(); }}>Phóng to ảnh đề</button><span>Có thể cuộn ảnh và dùng phím mũi tên khi phóng to.</span></figcaption>
       <dialog ref={dialog} className="source-image-dialog" aria-labelledby={headingId}>
-        <header><h2 id={headingId}>Hình vẽ lại từ đề gốc</h2><button type="button" onClick={() => dialog.current?.close()}>Đóng</button></header>
+        <header><h2 id={headingId}>Hình bài tập</h2><button type="button" onClick={() => dialog.current?.close()}>Đóng</button></header>
         <label className="source-image-dialog__zoom">Độ phóng đại {zoom}%<input type="range" min="100" max="250" step="25" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
         <div className="source-image-dialog__viewport" tabIndex={0} role="region" aria-label="Ảnh đề có thể cuộn ngang và dọc"><img src={image.url} alt={image.alt_vi} style={{ width: `${zoom}%`, maxWidth: 'none' }} /></div>
         <p>{image.alt_vi}</p>
@@ -43,9 +43,10 @@ export function ListeningSourceBlock({ block, showQuestions = true }: { block: L
   return <section className="source-block" aria-label={block.source_question_numbers?.length ? `Khối câu hỏi ${block.source_question_numbers.join(', ')}` : 'Tài liệu nguồn'}>
     {instruction.source_en ? <p className="source-block__original" lang="en">{instruction.source_en}</p> : null}
     {instruction.student_vi ? <p className="source-block__instruction">{instruction.student_vi}</p> : null}
-    {instruction.word_limit != null ? <p className="source-block__limit">Giới hạn: {instruction.word_limit} từ theo hướng dẫn nguồn.</p> : null}
-    {instruction.select_count != null ? <p className="source-block__limit">Chọn {instruction.select_count} phương án theo hướng dẫn nguồn.</p> : null}
+    {instruction.word_limit != null ? <p className="source-block__limit">Giới hạn: {instruction.word_limit} từ theo hướng dẫn bài tập.</p> : null}
+    {instruction.select_count != null ? <p className="source-block__limit">Chọn {instruction.select_count} phương án theo hướng dẫn bài tập.</p> : null}
+    {block.images?.filter((image) => image.asset_id.startsWith('gpt-v1:')).map((image) => <QuestionImage key={image.asset_id} image={image} />)}
     {block.native ? <NativeContent native={block.native} showQuestions={showQuestions} /> : <p className="source-notice is-error" role="alert">Chưa có bản trình bày chữ và hình của đề này. Hãy tải lại hoặc thử lại sau.</p>}
-    {block.description ? <details className="source-block__text"><summary>{block.display_kind === 'source_study' ? 'Ghi chú tài liệu bằng tiếng Việt' : 'Mô tả đề bằng chữ'}</summary><p>{block.description}</p></details> : null}
+    {showQuestions && block.description ? <details className="source-block__text"><summary>{block.display_kind === 'source_study' ? 'Ghi chú tài liệu bằng tiếng Việt' : 'Mô tả đề bằng chữ'}</summary><p>{block.description}</p></details> : null}
   </section>;
 }

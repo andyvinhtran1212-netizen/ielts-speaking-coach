@@ -34,16 +34,9 @@ def audio_response(package: dict, lesson: dict, signer: Callable[[str], str | No
             "duration_seconds": original["duration_seconds"], "url": signer(original["storage_path"]),
             "note_vi": "Nguồn chỉ có Section 1–2." if original["partial"] else "Bản ghi được giữ nguyên từ nguồn."})
     new = row["kokoro"]
-    note = ("Track phát âm từ vựng tiếng Anh; không phải hội thoại hoặc bản đọc câu chuyện tiếng Trung."
+    note = ("Luyện phát âm từ vựng tiếng Anh; không phải hội thoại."
             if new["kind"] == "source_vocabulary_pronunciation_extension"
-            else "Giọng tổng hợp đọc lại transcript in trong sách, phân vai theo hội thoại.")
-    note += " " + new["timing_note_vi"] + " Đã kiểm bằng máy; chưa có duyệt nghe của người dùng."
-    if day == 26:
-        note += " Phát âm cụm tiếng Đức chưa được xác minh."
-    if day == 77:
-        note += " Nguồn không có bản ghi gốc cho ngày này."
-    if day in {73, 80}:
-        note += " Một cụm từ lỗi trong transcript in đã được sửa khi đọc theo bằng chứng từ bản ghi gốc."
-    variants.append({"variant_id": "kokoro-v1", "label_vi": "Kokoro · bản đọc mới", "synthetic": True,
+            else "Audio toàn buổi. Bạn có thể nghe lại trong khi làm bài.")
+    variants.append({"variant_id": "kokoro-v1", "label_vi": "Bản luyện nghe", "synthetic": True,
         "duration_seconds": new["duration_seconds"], "url": signer(new["storage_path"]), "note_vi": note})
     return SourceAudioResponse(day=day, variants=variants).model_dump()

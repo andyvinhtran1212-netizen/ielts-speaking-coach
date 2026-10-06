@@ -19,10 +19,10 @@
 | FR-013 | OpenAPI/type, migration and compatibility checks | PENDING |
 | FR-014 | Mobile/desktop, light/dark, keyboard and failure-state journeys | PENDING |
 | FR-015 | Independent review, local gates and exact release evidence | PENDING |
-| FR-016 | Existing audio catalogue/hash/auth/source-gap and UI no-attempt tests; live staging source choices; production publication below | PENDING |
+| FR-016 | `backend/tests/test_listening_source_audio.py`; `frontend/tests/react/listening-source-audio.test.tsx`; new-vs-original replay timing in `frontend/tests/react/listening-source-collection.test.tsx`. Local PASS; live release acceptance pending. | PENDING |
 
-| FR-017 | Direct day-to-player, part switching/save-reload/media cleanup and no source-preview UI tests | PENDING |
-| FR-018 | GPT image visual/geometry review, private digest-bound signing and zoom tests | PENDING |
+| FR-017 | `frontend/tests/react/listening-source-collection.test.tsx`: immediate first-part admission, retained draft/flush, hidden media cleanup, keyboard tabs and stale day/account responses. Local PASS; staging/production journey pending. | PENDING |
+| FR-018 | 31 GPT figures visually compared and hash-bound in `backend/content/listening/80-days-generated-figures-v1.json`; `backend/tests/test_listening_source_figures.py`; `frontend/tests/react/listening-source-native-display.test.tsx`. Private staging upload/readback: 31 created, hash verified. Live release acceptance pending. | PENDING |
 
 ## Initial evidence
 
