@@ -116,7 +116,8 @@ def day_card(lesson: dict, forms: list[dict], states: dict) -> dict:
     meta = source_metadata(lesson)
     own = [form for form in forms if str(form.get("listening_lesson_id")) == str(lesson["id"])]
     return {
-        "day": lesson["sequence_num"], "lesson_id": str(lesson["id"]), "title": lesson["title"],
+        "day": lesson["sequence_num"], "lesson_id": str(lesson["id"]),
+        "title": "Mock 7 · Nghe audio buổi học" if lesson["sequence_num"] == 77 else lesson["title"],
         "group": meta["group"], "availability": meta["availability"],
         "source_position_count": meta["source_position_count"],
         "practice_item_count": sum(int(form.get("source_item_count") or 0) for form in own),
