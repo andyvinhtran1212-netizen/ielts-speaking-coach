@@ -216,6 +216,28 @@ it('opens the first actual part immediately, retains drafts and pauses hidden me
   expect(screen.queryByText(/Kokoro|Đề và tài liệu nguồn|Tài liệu tự học/)).toBeNull();
 });
 
+it('keeps the active part radio selected when a hidden part finishes saving the same local question number', async () => {
+  installPracticeApi();
+  const get = window.api.getWith;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => {
+    const payload = await get(url, ...args);
+    if (!url.includes('/tests/form')) return payload;
+    const id = url.match(/tests\/(form\d)/)?.[1];
+    return { ...payload, sections: [{ exercises: [{ payload: { variant: 'programme_form_v1', questions: [{ q_num: 1, source_item_id: `${id}-q1`, prompt: `Radio ${id}`, response_type: 'single_choice', options: { A: `Choice A ${id}`, B: `Choice B ${id}` } }] } }] }] };
+  });
+  let finishFirst!: (value: unknown) => void;
+  window.api.patchWith = vi.fn((url: string) => url.includes('attempt-form1') ? new Promise(done => { finishFirst = done; }) : Promise.resolve({}));
+  render(<ListeningSourceDay day={1} />);
+  fireEvent.click(await screen.findByRole('radio', { name: 'A Choice A form1' }));
+  await waitFor(() => expect(finishFirst).toBeDefined());
+  fireEvent.click(screen.getByRole('tab', { name: /Part 2/ }));
+  fireEvent.click(await screen.findByRole('radio', { name: 'B Choice B form2' }));
+  await act(async () => finishFirst({}));
+  expect((screen.getByRole('radio', { name: 'B Choice B form2' }) as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(screen.getByRole('tab', { name: /Part 1/ }));
+  expect((screen.getByRole('radio', { name: 'A Choice A form1' }) as HTMLInputElement).checked).toBe(true);
+});
+
 it.each(['day', 'account'] as const)('aborts pending practice and discards stale answers on %s boundary', async (boundary) => {
   installPracticeApi();
   let resolve!: (value: unknown) => void;
