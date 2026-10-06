@@ -147,7 +147,8 @@ async def list_banks(
     await require_admin(authorization)
     q = supabase_admin.table("quiz_banks").select(
         "id, topic_id, code, title, skill_area, words_count, source, version, "
-        "is_published, updated_at"
+        "is_published, updated_at, grammar_canonical_code, grammar_revision, "
+        "grammar_is_current, grammar_new_starts_enabled"
     )
     if topic_id:
         q = q.eq("topic_id", topic_id)

@@ -220,7 +220,9 @@ def get_topic_bundle(topic_id: str) -> dict:
     try:
         banks = (
             supabase_admin.table("quiz_banks")
-            .select("id, code, title, skill_area, words_count, is_published, updated_at")
+            .select("id, code, title, skill_area, words_count, is_published, updated_at, "
+                    "grammar_canonical_code, grammar_revision, grammar_is_current, "
+                    "grammar_new_starts_enabled")
             .eq("topic_id", topic_id)
             .order("code")
             .execute()

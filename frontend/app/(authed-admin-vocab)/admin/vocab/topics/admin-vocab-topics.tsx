@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation';
 import { useAdminProfile } from '@/components/admin-access-gate';
 import {
   CONTENT_SKILLS,
+  bankCanManage,
+  bankStateLabel,
   contentSkillQuery,
   isUuid,
   normalizeBankAck,
@@ -18,7 +20,7 @@ import {
 
 type Skill = 'vocab' | 'grammar';
 type Topic = { id: string; slug: string; title: string; skillArea: Skill; titleVi: string; description: string; order: number; published: boolean };
-type Bank = { id: string; topicId: string; code: string; title: string; skillArea: Skill; wordsCount: number; published: boolean };
+type Bank = { id: string; topicId: string; code: string; title: string; skillArea: Skill; wordsCount: number; published: boolean; revisionState: string; canonicalCode: string; newStartsEnabled: boolean | null };
 type Bundle = { topic: Topic; cards: { id: string; slug: string; headword: string }[]; banks: Bank[]; counts: { vocabCards: number; quizBanks: number } };
 type Analytics = { sessionCount: number; items: { label: string; total: number; wrong: number; errorRate: number }[]; skills: { label: string; total: number; wrong: number; errorRate: number }[] };
 type Draft = { title: string; titleVi: string; description: string; order: string; published: boolean };
@@ -169,7 +171,7 @@ export function AdminVocabTopics() {
 
   const deleteConfirmed = async () => {
     const target = confirmState;
-    if (!target || mutationLock.current) return;
+    if (!target || mutationLock.current || (target.kind === 'bank' && !bankCanManage(target.item))) return;
     mutationLock.current = true; setBusy(true); setNotice(null);
     const requestId = ++sequence.current; const account = profile.id;
     try {
@@ -198,7 +200,7 @@ export function AdminVocabTopics() {
   };
 
   const toggleBank = async (bank: Bank) => {
-    if (!bundle || mutationLock.current) return;
+    if (!bundle || mutationLock.current || !bankCanManage(bank)) return;
     mutationLock.current = true; setBusy(true); setNotice(null);
     const requestId = ++sequence.current; const account = profile.id;
     try {
@@ -261,7 +263,7 @@ export function AdminVocabTopics() {
 
           <section className="avv-linked-section">
             <header><div><p className="avv-eyebrow">Ngân hàng kiểm tra</p><h3>Quick‑Check banks</h3></div><a className="btn-secondary" href={`/admin/vocab/quiz?skill_area=${skill}&topic=${bundle.topic.id}`}>+ Import bank</a></header>
-            {bundle.banks.length === 0 ? <div className="avv-state">Chưa có bank gắn với topic này.</div> : <div className="avv-bank-list">{bundle.banks.map((bank) => <article key={bank.id}><div><strong>{bank.code}</strong><span>{bank.title || 'Chưa đặt tiêu đề'} · {bank.wordsCount} từ</span></div><span className={`avv-chip is-${bank.published ? 'teal' : 'muted'}`}>{bank.published ? 'published' : 'hidden'}</span><div><button className="btn-secondary" type="button" disabled={busy} onClick={() => void showAnalytics(bank)}>Phân tích</button><button className="btn-secondary" type="button" disabled={busy} onClick={() => void toggleBank(bank)}>{bank.published ? 'Ẩn' : 'Hiện'}</button><button className="btn-danger" type="button" disabled={busy} onClick={() => setConfirmState({ kind: 'bank', item: bank })}>Xoá</button></div></article>)}</div>}
+            {bundle.banks.length === 0 ? <div className="avv-state">Chưa có bank gắn với topic này.</div> : <div className="avv-bank-list">{bundle.banks.map((bank) => <article key={bank.id}><div><strong>{bank.code}</strong><span>{bank.title || 'Chưa đặt tiêu đề'} · {bank.wordsCount} từ</span>{bank.canonicalCode && <small>Nguồn: {bank.canonicalCode}</small>}</div><span className={`avv-chip is-${bank.revisionState === 'unknown' ? 'warning' : bank.published ? 'teal' : 'muted'}`}>{bankStateLabel(bank)}</span><div><button className="btn-secondary" type="button" disabled={busy} onClick={() => void showAnalytics(bank)}>Phân tích</button><button className="btn-secondary" type="button" disabled={busy || !bankCanManage(bank)} onClick={() => void toggleBank(bank)}>{bank.published ? 'Ẩn' : 'Hiện'}</button><button className="btn-danger" type="button" disabled={busy || !bankCanManage(bank)} onClick={() => setConfirmState({ kind: 'bank', item: bank })}>Xoá</button></div></article>)}</div>}
             {analyticsBankId ? <div className="avv-inline-analytics">{!analytics ? <p>Đang tải phân tích…</p> : <><header><strong>Từ dễ sai</strong><span>{analytics.sessionCount} phiên</span></header>{analytics.items.length ? <div className="avv-table-wrap"><table className="avv-table"><thead><tr><th>Từ / điểm</th><th>Sai</th><th>Lần</th><th>Tỉ lệ sai</th></tr></thead><tbody>{analytics.items.slice(0, 10).map((row) => <tr key={row.label}><td data-label="Từ / điểm"><strong>{row.label}</strong></td><td data-label="Sai">{row.wrong}</td><td data-label="Lần">{row.total}</td><td data-label="Tỉ lệ sai">{Math.round(row.errorRate * 100)}%</td></tr>)}</tbody></table></div> : <p>Chưa có lượt làm nào.</p>}{analytics.skills.length ? <p className="avv-skill-summary">Theo kỹ năng: {analytics.skills.map((row) => `${row.label} ${Math.round(row.errorRate * 100)}%`).join(' · ')}</p> : null}</>}</div> : null}
           </section>
 
