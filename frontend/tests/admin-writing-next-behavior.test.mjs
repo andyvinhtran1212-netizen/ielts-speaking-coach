@@ -46,11 +46,12 @@ describe('/admin/writing native operations hub', () => {
     for (const href of [
       '/admin/writing/new', '/admin/writing/prompts', '/admin/writing/tips',
       '/admin/writing/queue', '/admin/writing/regrade-requests',
-      '/admin/writing/instructor-queue', '/admin/writing/grade',
+      '/admin/writing/instructor-queue',
       '/admin/writing/assignments', '/admin/writing/cohorts', '/admin/students',
       '/writing/dashboard',
     ]) assert.ok(PAGE.includes(`href: '${href}'`) || PAGE.includes(`href="${href}"`), href);
     assert.equal((PAGE.match(/href: '/g) || []).length, 10);
+    assert.match(PAGE, /title: 'Workspace chấm bài'[^\n]+href: '\/admin\/writing\/queue'/);
     assert.equal((PAGE.match(/status: 'Quản lý'/g) || []).length, 10);
     assert.equal((PAGE.match(/status: 'MIGRATING'/g) || []).length, 0);
     assert.match(PAGE, /Chuẩn bị → Chấm → Giao & theo dõi/);
