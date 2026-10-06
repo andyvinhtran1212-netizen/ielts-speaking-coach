@@ -17,6 +17,15 @@ const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER = read('tooling', 'verify-admin-class-submissions-flow.mjs');
 
 describe('admin class submissions model', () => {
+  test('full-bank completion shows objective denominator and separate ungraded writing', () => {
+    const out = normalizeTally({ assignment: { id: 'a1', title: 'B26', skill: 'grammar' }, students: [{
+      student_id: 's1', status: 'submitted', grammar_answered: 120, grammar_correct: 89,
+      grammar_question_count: 120, grammar_objective_count: 90, grammar_writing_count: 30,
+      grammar_writing_answered_count: 30,
+    }], counts: {} });
+    assert.equal(grammarLessonResult(out.students[0]), '89/90 trắc nghiệm · 30/30 viết (chưa chấm)');
+    assert.equal(grammarLessonResult({ ...out.students[0], status: 'pending', grammar_answered: 99 }), '99/120 câu');
+  });
   test('does not turn a failed Grammar progress lookup into zero correct answers', () => {
     const out = normalizeTally({ assignment: { id: 'a1', title: 'B02', skill: 'grammar' },
       homework_stale: true, students: [{ student_id: 's1', status: 'submitted',

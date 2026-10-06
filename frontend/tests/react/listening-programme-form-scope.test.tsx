@@ -26,7 +26,7 @@ function item(test: string) { return { q_num: 1, source_item_id: `source-${test}
 function installAPI() {
   Object.assign(window, { api: {
     postWith: vi.fn(async (url: string) => url.endsWith('/reveal') ? { items: [item('OLD')] } : url.endsWith('/playback-started') ? { accepted: true } : { attempt_id: attemptId(url.match(/tests\/([^/]+)\/attempts/)?.[1] || 'UNKNOWN'), answers: revealed ? [{ q_num: 1, user_answer: 'A' }] : [] }),
-    getWith: vi.fn(async (url: string) => url.endsWith('/guided-state') ? { assisted: revealed, items: revealed ? [item(url.includes('-OLD/') ? 'OLD' : 'CURRENT')] : [] } : payload(url.match(/tests\/([^/?]+)/)?.[1] || 'UNKNOWN')),
+    getWith: vi.fn(async (url: string) => url.endsWith('/audio') ? { day: 4, variants: [{ variant_id: 'kokoro-v1', label_vi: 'Bản luyện nghe', url: '/NEW.mp3' }, { variant_id: 'original', label_vi: 'Bản ghi gốc', url: '/OLD.mp3' }] } : url.endsWith('/guided-state') ? { assisted: revealed, items: revealed ? [item(url.includes('-OLD/') ? 'OLD' : 'CURRENT')] : [] } : payload(url.match(/tests\/([^/?]+)/)?.[1] || 'UNKNOWN')),
     patchWith: vi.fn(async () => ({})),
   } });
 }
@@ -140,7 +140,7 @@ it.each(['source', 'generic', 'once'] as const)('releases %s media in hidden Act
   if (kind === 'generic') expect(remove).toHaveBeenCalledWith('timeupdate', expect.any(Function));
   fireEvent.error(audio); fireEvent.ended(audio);
   view.rerender(<Activity mode="visible"><ProgrammeFormRunner testId="OLD" /></Activity>); await ready();
-  await waitFor(() => expect(document.querySelector('audio')?.getAttribute('src')).toBe('/OLD.mp3'));
+  await waitFor(() => expect(document.querySelector('audio')?.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3'));
   expect(screen.getByText('OLD_PRIVATE_WHY')).toBeTruthy(); expect(screen.queryByRole('alert')).toBeNull();
   if (once) expect(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ }).hasAttribute('disabled')).toBe(false);
   expect(window.api.patchWith).not.toHaveBeenCalled(); expect(vi.mocked(window.api.postWith).mock.calls.every(call => String(call[0]) === '/api/listening/tests/OLD/attempts?standalone=true')).toBe(true);
@@ -153,7 +153,7 @@ it.each(['source', 'once'] as const)('StrictMode exercises cleanup and restores 
     expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts).toContain(audio);
     expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).toContain(audio);
   });
-  expect(audio.getAttribute('src')).toBe('/OLD.mp3');
+  expect(audio.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3');
   if (once) { fireEvent.click(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ })); await screen.findByRole('button', { name: 'Tạm dừng' }); expect(vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'))).toHaveLength(1); fireEvent.ended(audio); const ended = await screen.findByRole('button', { name: 'Đã sử dụng lượt nghe' }); expect(ended.hasAttribute('disabled')).toBe(true); }
   view.unmount(); expect(audio.getAttribute('src')).toBeNull();
 });
@@ -177,7 +177,7 @@ it.each(['accept', 'deny', 'reject'] as const)('a late once acknowledgement %s c
   view.rerender(<Activity mode="hidden"><ProgrammeFormRunner testId="OLD" /></Activity>);
   expect(audio.isConnected).toBe(true); expect(audio.getAttribute('src')).toBeNull();
   view.rerender(<Activity mode="visible"><ProgrammeFormRunner testId="OLD" /></Activity>); await ready();
-  expect(document.querySelector('audio')).toBe(audio); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
+  expect(document.querySelector('audio')).toBe(audio); expect(audio.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3');
   fireEvent.click(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ })); await screen.findByRole('button', { name: 'Tạm dừng' });
   const calls = vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'));
   expect(calls).toHaveLength(2); expect(calls[0][1]).not.toEqual(calls[1][1]);
@@ -185,7 +185,7 @@ it.each(['accept', 'deny', 'reject'] as const)('a late once acknowledgement %s c
   await act(async () => { if (outcome === 'reject') oldAck.reject(new Error('old acknowledgement unavailable')); else oldAck.resolve({ accepted: outcome === 'accept' }); }); await settle();
   expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses);
   expect(screen.getByRole('button', { name: 'Tạm dừng' })).toBeTruthy(); expect(screen.queryByRole('alert')).toBeNull();
-  expect(screen.queryByText(/cửa sổ hoặc thiết bị khác|chưa xác nhận được/)).toBeNull(); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
+  expect(screen.queryByText(/cửa sổ hoặc thiết bị khác|chưa xác nhận được/)).toBeNull(); expect(audio.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3');
   expect(vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'))).toHaveLength(2);
 });
 
@@ -214,7 +214,7 @@ it.each(['Activity return', 'direct replacement'] as const)('late generic Form c
   fireEvent.click(screen.getAllByRole('button', { name: /Nghe lại đoạn này/ })[boundary === 'direct replacement' ? 1 : 0]); await settle(); expect(audio.currentTime).toBe(6);
   const pauses = vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio).length;
   await act(async () => { oldPlay.reject(new Error('old clip unavailable')); }); await settle();
-  expect(screen.queryByRole('alert')).toBeNull(); expect(screen.queryByText(/Không phát được đoạn nghe/)).toBeNull(); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
+  expect(screen.queryByRole('alert')).toBeNull(); expect(screen.queryByText(/Không phát được đoạn nghe/)).toBeNull(); expect(audio.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3');
   audio.currentTime = 4; fireEvent(audio, new Event('timeupdate'));
   expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses);
   audio.currentTime = 9; fireEvent(audio, new Event('timeupdate'));

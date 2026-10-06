@@ -1,7 +1,7 @@
 ---
 id: MASTER30FULL-0018
 title: Assign the complete original MASTER30 Grammar banks
-status: approved
+status: shipped
 risk: high
 owner: product
 ---

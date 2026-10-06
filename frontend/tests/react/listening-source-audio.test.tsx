@@ -7,7 +7,7 @@ vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => auth }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
 function payload(day = 1, original = true) {
   const variant = (id: string, label: string) => ({ variant_id: id, label_vi: label, synthetic: id !== 'original', url: `https://private.example/${day}-${id}.mp3`, duration_seconds: 100, note_vi: `${label} — ghi chú nguồn` });
-  return { day, variants: [...(original ? [variant('original', 'Bản ghi gốc')] : []), variant('kokoro-v1', 'Kokoro · bản đọc mới')] };
+  return { day, variants: [...(original ? [variant('original', 'Bản ghi gốc')] : []), variant('kokoro-v1', 'Bản luyện nghe')] };
 }
 beforeEach(() => {
   auth.status = 'signed-in'; auth.user = { id: 'learner-a' };
@@ -17,13 +17,14 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-it('retains original as default, switches to synthetic without creating attempts and clears old media', async () => {
+it('defaults to the new recording, switches to the original without creating attempts and clears old media', async () => {
   const view = render(<ListeningSourceAudio day={1} />);
   const select = await screen.findByRole('combobox', { name: 'Phiên bản audio' });
   const old = view.container.querySelector('audio')!;
-  expect(old.getAttribute('src')).toContain('1-original');
-  fireEvent.change(select, { target: { value: 'kokoro-v1' } });
-  expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('1-kokoro-v1');
+  expect(old.getAttribute('src')).toContain('1-kokoro-v1');
+  expect(screen.queryByText(/Kokoro/)).toBeNull();
+  fireEvent.change(select, { target: { value: 'original' } });
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('1-original');
   expect(old.getAttribute('src')).toBeNull();
   expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
   expect(window.api.postWith).not.toHaveBeenCalled();
@@ -54,7 +55,7 @@ it.each(['day', 'account', 'status'] as const)('removes signed media immediately
   if (boundary !== 'status') {
     await waitFor(() => expect(window.api.getWith).toHaveBeenCalledTimes(1));
     await act(async () => resolve(payload(2)));
-    expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('2-original');
+    expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('2-kokoro-v1');
   }
 });
 

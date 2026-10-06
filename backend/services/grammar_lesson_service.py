@@ -21,13 +21,35 @@ from services.grammar_lesson_content import (
     public_lesson,
 )
 from services import runtime_flags
+from services.grammar_lesson_full_content import FULL_VERSION, question_counts
 
 
 FLAG = "master30_grammar_lesson_assignments"
+FULL_FLAG = "master30_original_full_banks"
 
 
 def enabled() -> bool:
     return runtime_flags.is_enabled(FLAG, default=False)
+
+
+def full_enabled() -> bool:
+    return runtime_flags.is_enabled(FULL_FLAG, default=False)
+
+
+def _version_enabled(version: str) -> bool:
+    return enabled() and (version != FULL_VERSION or full_enabled())
+
+
+def _current_version() -> str:
+    return FULL_VERSION if full_enabled() else CURRENT_VERSION
+
+
+def _current_content(lesson_id: str, version: str) -> dict | None:
+    try:
+        return (lesson_content(lesson_id) if version == CURRENT_VERSION
+                else lesson_content(lesson_id, version))
+    except (ValueError, OSError, KeyError) as exc:
+        raise HTTPException(503, "Ngân hàng Grammar chưa có bản đầy đủ được duyệt đúng phiên bản.") from exc
 
 
 def _unready_reason(lesson_id: str) -> str:
@@ -66,12 +88,16 @@ def catalog() -> list[dict[str, Any]]:
         raise HTTPException(503, "Kho MASTER30 chưa đủ 30 bài.")
     # Validate the frozen practice package once. An invalid package is an
     # operational error, never an apparently empty catalog.
-    load_version(CURRENT_VERSION)
+    version = _current_version()
+    try:
+        load_version(version)
+    except (ValueError, OSError, KeyError) as exc:
+        raise HTTPException(503, "Ngân hàng Grammar chưa có bản đầy đủ được duyệt đúng phiên bản.") from exc
     available = enabled()
     result = []
     for row in rows:
         lesson_id = str(row["lesson_id"])
-        content = lesson_content(lesson_id)
+        content = _current_content(lesson_id, version)
         reason = (_unready_reason(lesson_id) if content is None else
                   "Tính năng giao bài Grammar lẻ đang tắt." if not available else None)
         result.append({
@@ -83,7 +109,9 @@ def catalog() -> list[dict[str, Any]]:
             "focus": content["focus"] if content else None,
             "question_count": len(content["questions"]) if content else 0,
             "article": content["article"] if content else None,
-            "content_version": CURRENT_VERSION if content else None,
+            "content_version": version if content else None,
+            "practice_kind": "full_original_bank" if version == FULL_VERSION else "mini_practice",
+            **question_counts(content or {}),
         })
     return result
 
@@ -100,24 +128,26 @@ def prepare_assignment(lesson_id: str) -> tuple[str, dict[str, Any]]:
     ) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy bài Grammar này.")
-    content = lesson_content(lesson_id)
+    version = _current_version()
+    content = _current_content(lesson_id, version)
     if content is None:
         raise HTTPException(409, "Bài Grammar này chưa có bài luyện riêng được rà soát.")
-    snapshot = _snapshot(lesson_id, CURRENT_VERSION)
+    snapshot = _snapshot(lesson_id, version)
     return str(rows[0]["id"]), {
         "assignment_type": "grammar_lesson",
         "release_id": str(release["id"]),
         "lesson_id": lesson_id,
         "lesson_title": rows[0]["title"],
-        "content_version": CURRENT_VERSION,
+        "content_version": version,
         "content_sha256": content_sha256(snapshot),
         "practice_focus": content["focus"],
         "question_count": len(content["questions"]),
+        **question_counts(content),
     }
 
 
 def _snapshot(lesson_id: str, version: str) -> dict[str, Any]:
-    content = lesson_content(lesson_id, version)
+    content = _current_content(lesson_id, version)
     if content is None:
         raise HTTPException(409, "Phiên bản bài Grammar được giao không còn sẵn sàng.")
     return {"lesson_id": lesson_id, "version": version, **content}
@@ -178,19 +208,26 @@ def _owned_attempt(item_id: str, user_id: str) -> dict[str, Any] | None:
 
 def _public_state(item: dict, assignment: dict, attempt: dict | None) -> dict:
     config = assignment.get("content_config") or {}
-    can_submit = enabled() and is_accepting_submissions(assignment)
+    version = (attempt or {}).get("content_version") or config.get("content_version") or CURRENT_VERSION
+    active = _version_enabled(str(version))
+    can_submit = active and is_accepting_submissions(assignment)
     if attempt:
         snapshot = attempt["content_snapshot"]
         lesson = public_lesson(snapshot, attempt.get("answers") or {})
         status = (
             "completed" if attempt["status"] == "completed" else
-            "paused" if not enabled() else
+            "paused" if not active else
             "in_progress" if can_submit else "expired"
         )
         answered = len(attempt.get("answers") or {})
         correct = int(attempt.get("correct_count") or 0)
+        total = int(attempt.get("question_count") or config["question_count"])
+        counts = question_counts(snapshot, attempt.get("answers") or {})
+        if not snapshot.get("questions"):
+            counts["objective_count"] = total
+            counts["core_count"] = total
     else:
-        preview = lesson_content(config["lesson_id"], config["content_version"])
+        preview = _current_content(config["lesson_id"], config["content_version"])
         lesson = {
             "focus": config.get("practice_focus") or "",
             "article": preview.get("article") if preview else None,
@@ -199,11 +236,17 @@ def _public_state(item: dict, assignment: dict, attempt: dict | None) -> dict:
             "questions": [],
         }
         status = (
-            "paused" if not enabled() else
+            "paused" if not active else
             "not_started" if can_submit else
             "scheduled" if not is_assignment_open(assignment) else "expired"
         )
         answered = correct = 0
+        total = int(config["question_count"])
+        counts = {"objective_count": int(config.get("objective_count", total)),
+                  "writing_count": int(config.get("writing_count", 0)),
+                  "writing_answered_count": 0,
+                  "core_count": int(config.get("core_count", total)),
+                  "supplementary_count": int(config.get("supplementary_count", 0))}
     return {
         "assignment_item_id": str(item["id"]),
         "assignment_id": str(assignment["id"]),
@@ -215,7 +258,9 @@ def _public_state(item: dict, assignment: dict, attempt: dict | None) -> dict:
         "can_submit": bool(can_submit and status != "completed"),
         "answered_count": answered,
         "correct_count": correct,
-        "question_count": int(config["question_count"]),
+        "question_count": total,
+        "content_version": version,
+        **counts,
         "attempt_id": str(attempt["id"]) if attempt else None,
         **lesson,
     }
@@ -238,6 +283,9 @@ def _translate_write_error(exc: Exception) -> None:
         raise HTTPException(422, "Câu trả lời không hợp lệ.") from exc
     if "grammar_lesson_answer_conflict" in message:
         raise HTTPException(409, "Câu này đã được trả lời khác trước đó.") from exc
+    if "grammar_practice_history_invalid" in message:
+        raise HTTPException(503, detail={"error_code": "exposure_history_unavailable",
+                                        "message": "Chưa kiểm tra được lịch sử bài Grammar. Vui lòng thử lại."}) from exc
 
 
 def start_item(user_id: str, item_id: str) -> dict:
@@ -246,6 +294,8 @@ def start_item(user_id: str, item_id: str) -> dict:
     existing = _owned_attempt(item_id, user_id)
     if existing:
         return _public_state(item, assignment, existing)
+    if not _version_enabled(config["content_version"]):
+        raise HTTPException(503, "Ngân hàng Grammar đang tạm khóa. Lịch sử đã lưu vẫn được giữ.")
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Bài Grammar đã đóng hoặc quá hạn.")
     snapshot = _snapshot(config["lesson_id"], config["content_version"])
@@ -270,15 +320,24 @@ def start_item(user_id: str, item_id: str) -> dict:
     return _public_state(item, assignment, attempt)
 
 
-def answer_item(user_id: str, item_id: str, question_id: str, selected_index: int) -> dict:
+def answer_item(user_id: str, item_id: str, question_id: str,
+                selected_index: int | None = None, *, answer_text: str | None = None) -> dict:
     item, assignment = _entitlement(user_id, item_id)
+    existing = _owned_attempt(item_id, user_id)
+    version = (existing or {}).get("content_version") or (assignment.get("content_config") or {}).get("content_version", CURRENT_VERSION)
+    if not _version_enabled(version):
+        raise HTTPException(503, "Ngân hàng Grammar đang tạm khóa. Tiến độ đã lưu vẫn được giữ.")
+    if (selected_index is None) == (answer_text is None):
+        raise HTTPException(422, "Hãy gửi đúng một lựa chọn hoặc câu trả lời viết.")
+    rpc = "record_assigned_grammar_lesson_answer"
+    payload = {"p_user_id": user_id, "p_item_id": item_id, "p_question_id": question_id}
+    if answer_text is not None:
+        rpc = "record_assigned_grammar_lesson_writing_answer"
+        payload["p_answer_text"] = answer_text
+    else:
+        payload["p_selected_index"] = selected_index
     try:
-        supabase_admin.rpc("record_assigned_grammar_lesson_answer", {
-            "p_user_id": user_id,
-            "p_item_id": item_id,
-            "p_question_id": question_id,
-            "p_selected_index": selected_index,
-        }).execute()
+        supabase_admin.rpc(rpc, payload).execute()
     except Exception as exc:
         _translate_write_error(exc)
         raise
@@ -318,6 +377,8 @@ def educator_report(attempt_id: str) -> dict:
         "status": attempt["status"],
         "correct_count": attempt["correct_count"],
         "question_count": attempt["question_count"],
+        "content_version": attempt["content_version"],
+        **question_counts(snapshot, attempt.get("answers") or {}),
         "completed_at": attempt.get("completed_at"),
         **public_lesson(snapshot, attempt.get("answers") or {}),
     }
