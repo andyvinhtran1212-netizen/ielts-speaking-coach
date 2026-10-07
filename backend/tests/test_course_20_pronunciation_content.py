@@ -34,6 +34,12 @@ def test_all_twenty_lessons_have_exactly_fifteen_medium_length_sentences():
                 "B13_Non-finite pronunciation list (user attachment, 2026-09-26)"
             )
             assert data["selection_seed"] == 20260926
+        elif lesson == 16:
+            assert data["source_document"] == (
+                "B16_Menh-de-tinh-tu-Quan-he pronunciation list "
+                "(user attachment, 2026-10-07)"
+            )
+            assert data["selection_seed"] == 20261007
         else:
             assert data["source_document"] == SOURCE_DOCUMENT
             assert data["selection_seed"] == 20260914
@@ -50,7 +56,7 @@ def test_all_twenty_lessons_have_exactly_fifteen_medium_length_sentences():
         word_counts = [len(WORD_RE.findall(row["text"])) for row in sentences]
         assert min(word_counts) >= 7
         assert max(word_counts) <= 23
-        assert 7 <= sum(word_counts) / len(word_counts) <= 14
+        assert 7 <= sum(word_counts) / len(word_counts) <= (16 if lesson == 16 else 14)
         assert len({row["source_section"] for row in sentences}) >= 5
         assert len(content_hash) == 64
 
@@ -85,3 +91,17 @@ def test_b13_revision_covers_all_eight_non_finite_topics():
         "Gerund V-ing", "to V0 noun role", "Noun plus to V0",
         "to V0 purpose", "Bare V0 after modal", "Bare V0 after let",
     }
+
+
+def test_b16_revision_covers_relative_roles_and_invalidates_v1_recordings():
+    data = json.loads((CONTENT / "C1-B16.json").read_text(encoding="utf-8"))
+    sentences = data["sentences"]
+    assert [row["id"] for row in sentences] == [
+        f"C1-B16-PRON-V2-{order:02d}" for order in range(1, 16)
+    ]
+    assert {row["source_section"] for row in sentences} == {
+        "who subject", "which/that subject", "which/whom object",
+        "omitted object pronoun", "defining relative", "non-defining relative",
+        "relative where", "relative when",
+    }
+    assert all(10 <= len(WORD_RE.findall(row["text"])) <= 16 for row in sentences)
