@@ -42,6 +42,7 @@ function normalizeBank(value, expectedSkill) {
     || value.skill_area !== expectedSkill
     || !isCount(value.words_count)
     || typeof value.is_published !== 'boolean') return null;
+  const revision = normalizeBankRevision(value, expectedSkill);
   return {
     id: value.id,
     topicId: value.topic_id ?? '',
@@ -50,7 +51,39 @@ function normalizeBank(value, expectedSkill) {
     skillArea: value.skill_area,
     wordsCount: value.words_count,
     published: value.is_published,
+    ...revision,
   };
+}
+
+// Revision state comes from the persisted fields, never from a physical code
+// suffix or the shared publication flag. Missing Grammar metadata is unknown.
+function normalizeBankRevision(value, skill) {
+  const unknown = { revisionState: 'unknown', canonicalCode: '', newStartsEnabled: null };
+  const fields = ['grammar_canonical_code', 'grammar_revision', 'grammar_is_current', 'grammar_new_starts_enabled'];
+  if (!fields.every((key) => Object.hasOwn(value, key))) {
+    return skill === 'vocab' && fields.every((key) => !Object.hasOwn(value, key))
+      ? { revisionState: 'unmanaged', canonicalCode: '', newStartsEnabled: null } : unknown;
+  }
+  if (typeof value.grammar_is_current !== 'boolean' || typeof value.grammar_new_starts_enabled !== 'boolean') return unknown;
+  if (value.grammar_canonical_code === null && value.grammar_revision === null && !value.grammar_is_current) {
+    return { revisionState: 'unmanaged', canonicalCode: '', newStartsEnabled: null };
+  }
+  if (skill !== 'grammar' || typeof value.grammar_canonical_code !== 'string' || !value.grammar_canonical_code.trim()
+    || typeof value.grammar_revision !== 'string' || !/^[a-f0-9]{64}$/.test(value.grammar_revision)) return unknown;
+  return { revisionState: value.grammar_is_current ? 'current' : 'legacy',
+    canonicalCode: value.grammar_canonical_code, newStartsEnabled: value.grammar_new_starts_enabled };
+}
+
+export function bankStateLabel(bank) {
+  if (bank.revisionState === 'current') return bank.newStartsEnabled
+    ? 'Bản hiện hành · Cho phép lượt mới' : 'Bản hiện hành · Tạm ngừng lượt mới';
+  if (bank.revisionState === 'legacy') return 'Bản gốc · Giữ lịch sử';
+  if (bank.revisionState === 'unknown') return 'Chưa xác minh phiên bản';
+  return bank.published ? 'published' : 'hidden';
+}
+
+export function bankCanManage(bank) {
+  return bank.revisionState === 'unmanaged';
 }
 
 export function normalizeTopicList(value, expectedSkill) {

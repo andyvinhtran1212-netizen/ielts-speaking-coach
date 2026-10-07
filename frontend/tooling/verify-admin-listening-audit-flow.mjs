@@ -57,6 +57,7 @@ await page.route('**/*', async (route) => {
     const index = Number(match[1]);
     const count = (auditReads.get(index) || 0) + 1; auditReads.set(index, count);
     if (index === 2 && count === 1) return json({ detail: 'fixture lookup unavailable' }, 503);
+    if (index === 4) return json({ detail: { code: 'unsupported_audit_contract', uuid: 'test-004', test_id: 'ILR-AUD-004', message: 'Health chưa được xác minh; dạng bài chưa hỗ trợ audit chuẩn.', saved: { ...auditPayload(3).saved, test_id: 'test-004' } } }, 409);
     return json(auditPayload(index));
   }
   return json({ detail: `unhandled fixture ${method} ${parsed.pathname}` }, 404);
@@ -74,6 +75,16 @@ check('live error, warning và saved status tách riêng',
   && await page.locator('tr[data-test-id="test-003"] td[data-label="Saved full audit"]').getByText('Có lỗi đã lưu', { exact: true }).count() === 1);
 check('hostile title được React escape', await page.getByText('Hostile <script> title', { exact: true }).count() === 1 && await page.locator('script').filter({ hasText: 'Hostile' }).count() === 0);
 check('dashboard đi tới native audit detail', await page.locator('tr[data-test-id="test-000"] a').filter({ hasText: 'Mở audit detail' }).getAttribute('href') === '/admin/listening/audit-detail?id=test-000');
+const unsupportedRow = page.locator('tr[data-test-id="test-004"]');
+check('unsupported form is unverified with historical saved audit and no retry', await unsupportedRow.getByText('Chưa xác minh', { exact: true }).count() === 1
+  && await unsupportedRow.locator('td[data-label="Saved full audit"]').getByText('Có lỗi đã lưu', { exact: true }).count() === 1
+  && await unsupportedRow.getByRole('button', { name: 'Đọc lại GET' }).count() === 0);
+await page.getByRole('combobox', { name: 'Live health' }).selectOption('unverified');
+await page.getByRole('button', { name: 'Áp dụng' }).click();
+await page.waitForFunction(() => new URL(location.href).searchParams.get('health') === 'unverified');
+check('unverified filter contains only unsupported form', await page.locator('.alqa-table tbody tr').count() === 1 && await unsupportedRow.count() === 1);
+await page.getByRole('button', { name: 'Xóa lọc' }).click();
+await page.waitForFunction(() => !new URL(location.href).searchParams.has('health'));
 
 await page.getByRole('combobox', { name: 'Live health' }).selectOption('lookup');
 await page.getByRole('button', { name: 'Áp dụng' }).click();
@@ -86,6 +97,7 @@ await page.getByRole('button', { name: 'Retry 1 lookup failed' }).click();
 await page.getByText('Live scan hoàn tất', { exact: true }).waitFor();
 await page.waitForFunction(() => document.querySelector('.alqa-summary>div:nth-child(4) strong')?.textContent === '0');
 check('retry chỉ GET lại đúng hàng lỗi và khép lookup banner', auditReads.get(2) === 2 && [...auditReads.entries()].filter(([index, count]) => index !== 2 && count !== 1).length === 0 && await page.getByText(/test không đọc được audit/).count() === 0);
+check('lookup retry does not re-read deterministic unsupported form', auditReads.get(4) === 1 && await unsupportedRow.getByText('Chưa xác minh', { exact: true }).count() === 1);
 
 const mobile = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth, cards: getComputedStyle(document.querySelector('.alqa-table thead')).position }));
 check('mobile cards không tràn ngang', mobile.scroll <= mobile.width && mobile.cards === 'absolute', JSON.stringify(mobile));

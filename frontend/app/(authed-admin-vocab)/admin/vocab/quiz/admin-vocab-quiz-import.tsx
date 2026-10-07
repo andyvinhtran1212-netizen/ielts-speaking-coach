@@ -8,6 +8,8 @@ import { AdminGrammarRevision } from './admin-grammar-revision';
 import { isGrammarRevisionCode, type RevisionCode } from '@/lib/admin-grammar-revision-model';
 import {
   CONTENT_SKILLS,
+  bankCanManage,
+  bankStateLabel,
   contentSkillQuery,
   isUuid,
   normalizeBankList,
@@ -18,7 +20,7 @@ import {
 
 type Skill = 'vocab' | 'grammar';
 type Topic = { id: string; slug: string; title: string; skillArea: Skill; titleVi: string; description: string; order: number; published: boolean };
-type Bank = { id: string; topicId: string; code: string; title: string; skillArea: Skill; wordsCount: number; published: boolean };
+type Bank = { id: string; topicId: string; code: string; title: string; skillArea: Skill; wordsCount: number; published: boolean; revisionState: string; canonicalCode: string; newStartsEnabled: boolean | null };
 type ImportPreview = { dryRun: boolean; meta: { code: string; title: string; skillArea: Skill } | null; errors: { block: number; qid: string; field: string; message: string }[]; summary: { words: number; questions: number; errors: number; pools: number }; committedBankId: string };
 type Notice = { kind: 'success' | 'error'; message: string };
 
@@ -161,7 +163,7 @@ export function AdminVocabQuizImport() {
 
   const confirmDelete = async () => {
     const target = deleteBank;
-    if (!target || mutationLock.current) return;
+    if (!target || mutationLock.current || !bankCanManage(target)) return;
     mutationLock.current = true; setBusy(true); setNotice(null);
     const requestId = ++sequence.current; const account = profile.id;
     try {
@@ -209,7 +211,7 @@ export function AdminVocabQuizImport() {
 
     <section className="avv-linked-section avv-bank-catalog">
       <header><div><p className="avv-eyebrow">Canonical inventory</p><h2>Banks đã có</h2></div><span>{banks.length} bank</span></header>
-      {loading ? <div className="avv-state">Đang tải danh sách bank…</div> : banks.length === 0 ? <div className="avv-state">Chưa có bank trong khu vực này.</div> : <div className="avv-table-wrap"><table className="avv-table"><thead><tr><th>Bank</th><th>Topic</th><th>Số từ</th><th>Trạng thái</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{banks.map((bank) => { const topic = topics.find((row) => row.id === bank.topicId); return <tr key={bank.id}><td data-label="Bank"><strong>{bank.code}</strong><small>{bank.title || 'Chưa đặt tiêu đề'}</small></td><td data-label="Topic">{topic ? <a href={`/admin/vocab/topics?skill_area=${skill}&topic=${topic.id}`}>{topic.title}</a> : <span className="avv-chip is-warning">Không thấy topic</span>}</td><td data-label="Số từ">{bank.wordsCount}</td><td data-label="Trạng thái"><span className={`avv-chip is-${bank.published ? 'teal' : 'muted'}`}>{bank.published ? 'published' : 'hidden'}</span></td><td className="avv-row-actions"><button className="btn-danger" type="button" disabled={busy} onClick={() => setDeleteBank(bank)}>Xoá</button></td></tr>; })}</tbody></table></div>}
+      {loading ? <div className="avv-state">Đang tải danh sách bank…</div> : banks.length === 0 ? <div className="avv-state">Chưa có bank trong khu vực này.</div> : <div className="avv-table-wrap"><table className="avv-table"><thead><tr><th>Bank</th><th>Topic</th><th>Số từ</th><th>Trạng thái</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{banks.map((bank) => { const topic = topics.find((row) => row.id === bank.topicId); return <tr key={bank.id}><td data-label="Bank"><strong>{bank.code}</strong><small>{bank.title || 'Chưa đặt tiêu đề'}</small>{bank.canonicalCode && <small>Nguồn: {bank.canonicalCode}</small>}</td><td data-label="Topic">{topic ? <a href={`/admin/vocab/topics?skill_area=${skill}&topic=${topic.id}`}>{topic.title}</a> : <span className="avv-chip is-warning">Không thấy topic</span>}</td><td data-label="Số từ">{bank.wordsCount}</td><td data-label="Trạng thái"><span className={`avv-chip is-${bank.revisionState === 'unknown' ? 'warning' : bank.published ? 'teal' : 'muted'}`}>{bankStateLabel(bank)}</span></td><td className="avv-row-actions"><button className="btn-danger" type="button" disabled={busy || !bankCanManage(bank)} onClick={() => setDeleteBank(bank)}>Xoá</button></td></tr>; })}</tbody></table></div>}
     </section>
 
     {deleteBank ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="quiz-delete-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setDeleteBank(null); }}><section className="av-modal avv-dialog-card"><p className="avv-eyebrow">Thao tác không hoàn tác</p><h2 id="quiz-delete-title">Xoá Quick‑Check bank?</h2><p>Bank và toàn bộ câu hỏi của bank sẽ bị xoá. UI chỉ cập nhật sau khi backend ACK và canonical list không còn bank này.</p><strong>{deleteBank.code} · {deleteBank.title || 'Chưa đặt tiêu đề'}</strong><div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => setDeleteBank(null)}>Hủy</button><button className="btn-danger" type="button" disabled={busy} onClick={() => void confirmDelete()}>{busy ? 'Đang xác minh…' : 'Xoá bank'}</button></div></section></div> : null}

@@ -2,7 +2,7 @@ import { normalizeListeningTestList } from './admin-listening-content-model.mjs'
 
 const TEST_TYPES = new Set(['all', 'full', 'mini', 'drill', 'practice']);
 const TEST_STATUSES = new Set(['draft', 'published', 'archived']);
-const HEALTH_FILTERS = new Set(['all', 'error', 'warning', 'clean', 'lookup']);
+const HEALTH_FILTERS = new Set(['all', 'error', 'warning', 'clean', 'lookup', 'unverified']);
 const SAVED_FILTERS = new Set(['all', 'pending', 'passed', 'has_issues', 'fixed']);
 const SAVED_STATUSES = new Set(['pending', 'passed', 'has_issues', 'fixed']);
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
@@ -14,7 +14,7 @@ export const LISTENING_AUDIT_TYPE_LABEL = Object.freeze({
   all: 'Mọi loại', full: 'Full test', mini: 'Lesson / Mini', drill: 'Skill drill', practice: 'Luyện nhanh',
 });
 export const LISTENING_AUDIT_HEALTH_LABEL = Object.freeze({
-  all: 'Mọi live health', error: 'Có lỗi', warning: 'Có cảnh báo', clean: 'Sạch', lookup: 'Lookup failed',
+  all: 'Mọi live health', error: 'Có lỗi', warning: 'Có cảnh báo', clean: 'Sạch', lookup: 'Lookup failed', unverified: 'Chưa xác minh',
 });
 export const LISTENING_AUDIT_SAVED_LABEL = Object.freeze({
   all: 'Mọi full-audit', pending: 'Chưa chạy full audit', passed: 'Đã đạt', has_issues: 'Có lỗi đã lưu', fixed: 'Đã đánh dấu sửa',
@@ -116,7 +116,21 @@ export function normalizeListeningAuditSnapshot(raw, expected) {
     live: { ...liveHealth, issueCount: liveIssues.length }, saved };
 }
 
+export function normalizeListeningAuditUnsupported(caught, expected) {
+  const error = objectOf(caught);
+  const detail = objectOf(error?.detail);
+  const id = textOf(detail?.uuid);
+  const testId = textOf(detail?.test_id);
+  if (error?.status !== 409 || detail?.code !== 'unsupported_audit_contract'
+    || id !== expected.id || !testId || (expected.testId && testId !== expected.testId)
+    || !textOf(detail.message)) return null;
+  const saved = normalizeSaved(detail.saved, id);
+  if (!saved) return null;
+  return { id, testId, message: detail.message, saved };
+}
+
 export function classifyListeningAudit(state) {
+  if (state?.phase === 'unverified') return 'unverified';
   if (!state || state.phase !== 'ready') return state?.phase === 'error' ? 'lookup' : 'loading';
   if (state.value.live.errorCount > 0) return 'error';
   if (state.value.live.warningCount > 0) return 'warning';
@@ -128,7 +142,7 @@ export function filterListeningAuditRows(rows, filters = {}) {
   const query = value.search.toLocaleLowerCase('vi');
   return (Array.isArray(rows) ? rows : []).filter((row) => {
     const health = classifyListeningAudit(row.audit);
-    const saved = row.audit?.phase === 'ready' ? row.audit.value.saved.status : null;
+    const saved = ['ready', 'unverified'].includes(row.audit?.phase) ? row.audit.value.saved.status : null;
     const searchMatches = !query || `${row.test.testId} ${row.test.title}`.toLocaleLowerCase('vi').includes(query);
     return searchMatches && (value.type === 'all' || row.test.type === value.type)
       && (value.health === 'all' || health === value.health)
@@ -137,12 +151,12 @@ export function filterListeningAuditRows(rows, filters = {}) {
 }
 
 export function summarizeListeningAuditRows(rows) {
-  const summary = { total: 0, loading: 0, lookup: 0, error: 0, warning: 0, clean: 0, savedPending: 0 };
+  const summary = { total: 0, loading: 0, lookup: 0, error: 0, warning: 0, clean: 0, unverified: 0, savedPending: 0 };
   for (const row of Array.isArray(rows) ? rows : []) {
     summary.total += 1;
     const health = classifyListeningAudit(row.audit);
     summary[health] += 1;
-    if (row.audit?.phase === 'ready' && row.audit.value.saved.status === 'pending') summary.savedPending += 1;
+    if (['ready', 'unverified'].includes(row.audit?.phase) && row.audit.value.saved.status === 'pending') summary.savedPending += 1;
   }
   return summary;
 }

@@ -3596,6 +3596,25 @@ def _load_audit_row(test_id: str) -> dict | None:
     return r.data[0] if r.data else None
 
 
+def _require_standard_audit_contract(exercises: list[dict]) -> None:
+    """Programme forms have response/self-review and whole-day timing contracts.
+
+    The standard audit/editor assumes template_kind, answer and per-question
+    audio windows. Applying it to a programme form invents defects and can
+    rewrite the source response contract through the standard question editor.
+    """
+    for exercise in exercises:
+        payload = exercise.get("payload")
+        if exercise.get("exercise_type") == "programme_form" or (
+            isinstance(payload, dict) and payload.get("variant") == "programme_form_v1"
+        ):
+            raise HTTPException(
+                409,
+                "Bài nguồn programme_form_v1 chưa hỗ trợ audit hoặc sửa câu theo template chuẩn. "
+                "Health chưa được xác minh; không dùng báo cáo này để sửa đáp án hay audio của bài nguồn.",
+            )
+
+
 @admin_router.get("/tests/{test_id}/preview")
 async def admin_preview_listening_test(
     test_id: str,
@@ -3674,6 +3693,21 @@ async def admin_get_test_audit(
     call this to render health without a re-import."""
     await require_admin(authorization)
     test, contents, exercises = _fetch_test_audit_rows(test_id)
+    try:
+        _require_standard_audit_contract(exercises)
+    except HTTPException as exc:
+        if exc.status_code != 409:
+            raise
+        saved = _load_audit_row(test_id)
+        if saved:
+            saved = {**saved, "issues": listening_audit_svc.with_issue_sources(saved.get("issues"))}
+        raise HTTPException(409, {
+            "code": "unsupported_audit_contract",
+            "uuid": test_id,
+            "test_id": test.get("test_id"),
+            "message": exc.detail,
+            "saved": saved,
+        }) from exc
     h = listening_audit_svc.hydrate_test(test, contents, exercises)
     report = listening_audit_svc.run_structural(h)
     saved = _load_audit_row(test_id)
@@ -3754,6 +3788,7 @@ async def admin_run_test_audit(
     result."""
     user = await require_admin(authorization)
     test, contents, exercises = _fetch_test_audit_rows(test_id)
+    _require_standard_audit_contract(exercises)
     h = listening_audit_svc.hydrate_test(test, contents, exercises)
 
     issues = (listening_audit_svc.structural_checks(h)
@@ -3921,6 +3956,7 @@ async def admin_edit_exercise_question(
     a fresh structural/audio re-check for it."""
     await require_admin(authorization)
     ex, content, test = _fetch_exercise_ctx(exercise_id)
+    _require_standard_audit_contract([ex])
     expected_updated_at = (body.expected_updated_at or "").strip() or None
     if expected_updated_at and not _same_timestamp(ex.get("updated_at"), expected_updated_at):
         raise HTTPException(

@@ -15,6 +15,7 @@ let siblingPrompt = 'Sibling prompt';
 let question = { prompt: 'Original prompt', answer: 'A', alternatives: ['one'], trap_mechanisms: ['contrast'], options: [{ letter: 'A', text: 'One' }], solution: 'Original reason', audio_window: { start: 4, end: 7, section: 'S2' } };
 let saved = { test_id: testId, status: 'has_issues', notes: '', auditor: adminId, audited_at: '2026-08-14T02:00:00Z', updated_at: '2026-08-14T02:00:00Z', health: { error_count: 1, warning_count: 0, status: 'has_issues' }, issues: [{ q_num: 1, dimension: 'solution', severity: 'error', source: 'llm', code: 'answer_in_script', message: 'Không thấy đáp án', resolved: false }] };
 let postCount = 0; let triageCount = 0; let receiptBeforePost = false; let audioFail = false; let lastRunRequestId = null;
+let unsupportedForm = false; let auditLookupFail = false;
 const auditPayload = () => ({ uuid: testId, test_id: 'ILR-AUD-DETAIL', title: 'Canonical repair fixture', status: 'published', test_type: 'full', question_count: 2, section_count: 2,
   sections: [{ section_num: 2, content_id: 'content-2', content_updated_at: contentVersion, audio_offset: 100, transcript, questions: [{ q_num: 1, exercise_id: 'exercise-1', exercise_updated_at: exerciseVersion, template_kind: 'mcq_3option', ...question, audio_window: { ...question.audio_window, start: 104, end: 107 } },
     { q_num: 2, exercise_id: 'exercise-1', exercise_updated_at: exerciseVersion, template_kind: 'mcq_3option', prompt: siblingPrompt, answer: 'B', alternatives: [], trap_mechanisms: [], options: [{ letter: 'A', text: 'One' }, { letter: 'B', text: 'Two' }], solution: 'Sibling reason', audio_window: { start: 108, end: 110, section: 'S2' } }] },
@@ -35,7 +36,11 @@ await page.route('**/*', async (route) => {
   const parsed = new URL(url); const method = request.method(); requests.push(`${method} ${parsed.pathname}`);
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'audit-detail@local', role: 'admin' });
-  if (parsed.pathname === `/admin/listening/tests/${testId}/audit` && method === 'GET') return json(auditPayload());
+  if (parsed.pathname === `/admin/listening/tests/${testId}/audit` && method === 'GET') {
+    if (auditLookupFail) return json({ detail: 'temporary audit lookup failure' }, 503);
+    if (unsupportedForm) return json({ detail: { code: 'unsupported_audit_contract', uuid: testId, test_id: 'ILR-AUD-DETAIL', message: 'Health chưa được xác minh; programme form chưa hỗ trợ audit chuẩn.', saved } }, 409);
+    return json(auditPayload());
+  }
   if (parsed.pathname === `/admin/listening/tests/${testId}/audio/signed-urls`) return audioFail ? json({ detail: 'audio fixture offline' }, 503) : json({ assembled: null, full: null, sections: [{ section_num: 1, signed_url: 'https://cdn.test/section-1.mp3' }, { section_num: 2, signed_url: 'https://cdn.test/section-2.mp3' }, { section_num: 3, signed_url: null }] });
   if (parsed.pathname === '/admin/listening/content/content-2' && method === 'PATCH') {
     const body = request.postDataJSON(); if (body.expected_updated_at !== contentVersion) return json({ detail: 'stale' }, 409);
@@ -122,6 +127,23 @@ audioFail = true; await page.reload({ waitUntil: 'domcontentloaded' }); await pa
 check('audio lookup failure stays unknown rather than missing audio', await page.getByText('Không kết luận rằng test thiếu audio.', { exact: false }).count() === 1);
 await page.setViewportSize({ width: 1440, height: 900 }); check('desktop workspace does not overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('no JavaScript errors', jsErrors.length === 0, jsErrors.join(' | '));
+
+const mutationsBeforeUnsupported = requests.filter((item) => /^(POST|PATCH) /.test(item)).length;
+const businessMutationsBeforeUnsupported = requests.filter((item) => /^(POST|PATCH) \/admin\/listening\//.test(item)).length;
+unsupportedForm = true;
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Health chưa được xác minh' }).waitFor();
+check('unsupported detail explains unverified health and preserves historical saved status', await page.getByText('Full audit đã lưu · lịch sử', { exact: true }).count() === 1 && await page.getByText('Đã sửa', { exact: true }).count() === 1);
+check('unsupported detail offers no retry, paid audit or standard editor', await page.getByRole('button', { name: 'Thử lại' }).count() === 0 && await page.getByRole('button', { name: 'Chạy full audit' }).count() === 0 && await page.getByRole('textbox').count() === 0);
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Health chưa được xác minh' }).waitFor();
+const newMutations = requests.filter((item) => /^(POST|PATCH) /.test(item)).slice(mutationsBeforeUnsupported);
+check('unsupported reload never submits Listening mutations', requests.filter((item) => /^(POST|PATCH) \/admin\/listening\//.test(item)).length === businessMutationsBeforeUnsupported, JSON.stringify(newMutations));
+unsupportedForm = false; auditLookupFail = true;
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.getByText('Không thể mở audit workspace', { exact: true }).waitFor();
+check('ordinary audit lookup failure still offers retry', await page.getByRole('button', { name: 'Thử lại' }).count() === 1 && await page.getByRole('heading', { name: 'Health chưa được xác minh' }).count() === 0);
+check('unsupported and lookup branches have no JavaScript errors', jsErrors.length === 0, jsErrors.join(' | '));
 
 await browser.close(); const failed = checks.filter((item) => !item.ok);
 console.log(`\nAdmin Listening audit detail flow: ${checks.length - failed.length}/${checks.length} checks passed`);

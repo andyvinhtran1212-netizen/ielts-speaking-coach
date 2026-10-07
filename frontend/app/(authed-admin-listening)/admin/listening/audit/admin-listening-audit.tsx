@@ -17,16 +17,18 @@ import {
   normalizeListeningAuditFilters,
   normalizeListeningAuditInventoryPage,
   normalizeListeningAuditSnapshot,
+  normalizeListeningAuditUnsupported,
   summarizeListeningAuditRows,
 } from '@/lib/admin-listening-audit-model.mjs';
 
 type TestType = 'all' | 'full' | 'mini' | 'drill' | 'practice';
-type HealthFilter = 'all' | 'error' | 'warning' | 'clean' | 'lookup';
+type HealthFilter = 'all' | 'error' | 'warning' | 'clean' | 'lookup' | 'unverified';
 type SavedStatus = 'all' | 'pending' | 'passed' | 'has_issues' | 'fixed';
 type Filters = { search: string; type: TestType; health: HealthFilter; saved: SavedStatus };
 type TestRow = { id: string; testId: string; title: string; status: 'draft' | 'published' | 'archived'; type: Exclude<TestType, 'all'>; sectionCount: number; audioReadyCount: number; examOnly: boolean; updatedAt: string | null; createdAt: string | null };
 type AuditValue = { id: string; testId: string; title: string; status: TestRow['status']; type: TestRow['type']; questionCount: number; sectionCount: number; live: { errorCount: number; warningCount: number; status: 'passed' | 'has_issues'; issueCount: number }; saved: { status: Exclude<SavedStatus, 'all'>; health: { errorCount: number; warningCount: number; status: string } | null; auditedAt: string | null; updatedAt: string | null } };
-type AuditState = { phase: 'loading' } | { phase: 'ready'; value: AuditValue } | { phase: 'error'; message: string };
+type UnsupportedAudit = { id: string; testId: string; message: string; saved: AuditValue['saved'] };
+type AuditState = { phase: 'loading' } | { phase: 'ready'; value: AuditValue } | { phase: 'unverified'; value: UnsupportedAudit } | { phase: 'error'; message: string };
 type CombinedRow = { test: TestRow; audit: AuditState };
 
 const PAGE_LIMIT = 100;
@@ -84,6 +86,8 @@ export function AdminListeningAudit() {
             if (!value || value.type !== test.type || value.status !== test.status) throw new Error('Audit GET không khớp identity, loại, status hoặc health contract.');
             return [test.id, { phase: 'ready', value } as AuditState] as const;
           } catch (caught) {
+            const unsupported = normalizeListeningAuditUnsupported(caught, { id: test.id, testId: test.testId }) as UnsupportedAudit | null;
+            if (unsupported) return [test.id, { phase: 'unverified', value: unsupported } as AuditState] as const;
             return [test.id, { phase: 'error', message: messageOf(caught) } as AuditState] as const;
           }
         }));
@@ -156,7 +160,7 @@ export function AdminListeningAudit() {
 
   const combined: CombinedRow[] = tests.map((test) => ({ test, audit: auditById[test.id] || { phase: 'loading' } }));
   const visible = filterListeningAuditRows(combined, filters) as CombinedRow[];
-  const summary = summarizeListeningAuditRows(combined) as { total: number; loading: number; lookup: number; error: number; warning: number; clean: number; savedPending: number };
+  const summary = summarizeListeningAuditRows(combined) as { total: number; loading: number; lookup: number; error: number; warning: number; clean: number; unverified: number; savedPending: number };
   const activeFilterCount = [filters.search, filters.type !== 'all', filters.health !== 'all', filters.saved !== 'all'].filter(Boolean).length;
   const failedTests = combined.filter((row) => row.audit.phase === 'error').map((row) => row.test);
 
@@ -191,7 +195,7 @@ export function AdminListeningAudit() {
     </section>
 
     <section className="alqa-library" aria-labelledby="alqa-list-title" aria-busy={inventoryLoading || scanning}>
-      <div className="alqa-section-head"><div><p>Phạm vi đã đọc</p><h2 id="alqa-list-title">Test health inventory</h2><span>{hasInventory ? `${visible.length}/${summary.total} test · ${activeFilterCount} bộ lọc · ${summary.savedPending} chưa full audit` : inventoryLoading ? 'Đang đọc từ backend…' : 'Chưa có snapshot inventory hoàn tất'}</span></div><div><button className="adm-btn-secondary" type="button" disabled={inventoryLoading || scanning} onClick={() => void load()}>{inventoryLoading ? 'Đang tải…' : inventoryError ? 'Thử lại inventory' : 'Làm mới toàn bộ'}</button>{failedTests.length > 0 && <button className="adm-btn-secondary" type="button" disabled={inventoryLoading || scanning} onClick={retryFailed}>Retry {failedTests.length} lookup failed</button>}</div></div>
+      <div className="alqa-section-head"><div><p>Phạm vi đã đọc</p><h2 id="alqa-list-title">Test health inventory</h2><span>{hasInventory ? `${visible.length}/${summary.total} test · ${activeFilterCount} bộ lọc · ${summary.savedPending} chưa full audit · ${summary.unverified} chưa xác minh` : inventoryLoading ? 'Đang đọc từ backend…' : 'Chưa có snapshot inventory hoàn tất'}</span></div><div><button className="adm-btn-secondary" type="button" disabled={inventoryLoading || scanning} onClick={() => void load()}>{inventoryLoading ? 'Đang tải…' : inventoryError ? 'Thử lại inventory' : 'Làm mới toàn bộ'}</button>{failedTests.length > 0 && <button className="adm-btn-secondary" type="button" disabled={inventoryLoading || scanning} onClick={retryFailed}>Retry {failedTests.length} lookup failed</button>}</div></div>
 
       <form className="alqa-filters" onSubmit={applyFilters}>
         <label><span>Test</span><input type="search" value={draft.search} placeholder="Test ID hoặc tiêu đề" onChange={(event) => setDraft((value) => ({ ...value, search: event.target.value }))} /></label>
@@ -215,15 +219,15 @@ export function AdminListeningAudit() {
 
 function AuditRow({ row, busy, onRetry }: { row: CombinedRow; busy: boolean; onRetry: (test: TestRow) => void }) {
   const { test, audit } = row;
-  const health = classifyListeningAudit(audit) as 'loading' | 'lookup' | 'error' | 'warning' | 'clean';
-  const healthLabel = health === 'loading' ? 'Đang đọc' : health === 'lookup' ? 'Lookup failed' : health === 'error' ? `${audit.phase === 'ready' ? audit.value.live.errorCount : 0} lỗi` : health === 'warning' ? `${audit.phase === 'ready' ? audit.value.live.warningCount : 0} cảnh báo` : 'Sạch';
+  const health = classifyListeningAudit(audit) as 'loading' | 'lookup' | 'error' | 'warning' | 'clean' | 'unverified';
+  const healthLabel = health === 'unverified' ? 'Chưa xác minh' : health === 'loading' ? 'Đang đọc' : health === 'lookup' ? 'Lookup failed' : health === 'error' ? `${audit.phase === 'ready' ? audit.value.live.errorCount : 0} lỗi` : health === 'warning' ? `${audit.phase === 'ready' ? audit.value.live.warningCount : 0} cảnh báo` : 'Sạch';
   const healthClass = health === 'clean' ? 'is-live' : health === 'error' || health === 'lookup' ? 'is-failed' : health === 'warning' ? 'is-warning' : 'is-muted';
-  const saved = audit.phase === 'ready' ? audit.value.saved : null;
+  const saved = audit.phase === 'ready' || audit.phase === 'unverified' ? audit.value.saved : null;
   return <tr data-test-id={test.id}>
     <td data-label="Test"><a className="alqa-test" href={`/admin/listening/tests/${encodeURIComponent(test.id)}`}>{test.testId}</a><strong>{test.title}</strong><small><span className={`adm-status-pill ${testStatusClass(test.status)}`}>{testStatusLabel[test.status]}</span> · {LISTENING_AUDIT_TYPE_LABEL[test.type]}</small></td>
     <td data-label="Cấu trúc"><strong>{audit.phase === 'ready' ? `${audit.value.questionCount} câu` : `${test.sectionCount} section`}</strong><small>{audit.phase === 'ready' ? `${audit.value.sectionCount} section đã lưu` : `${test.audioReadyCount}/${test.sectionCount} section có audio`}</small></td>
-    <td data-label="Live structural"><span className={`adm-status-pill ${healthClass}`}>{healthLabel}</span>{audit.phase === 'ready' && <small>{audit.value.live.errorCount} error · {audit.value.live.warningCount} warning</small>}{audit.phase === 'error' && <small>{audit.message}</small>}</td>
+    <td data-label="Live structural"><span className={`adm-status-pill ${healthClass}`}>{healthLabel}</span>{audit.phase === 'ready' && <small>{audit.value.live.errorCount} error · {audit.value.live.warningCount} warning</small>}{audit.phase === 'error' && <small>{audit.message}</small>}{audit.phase === 'unverified' && <small>{audit.value.message}</small>}</td>
     <td data-label="Saved full audit">{saved ? <><span className={`adm-status-pill ${savedStatusClass(saved.status)}`}>{LISTENING_AUDIT_SAVED_LABEL[saved.status]}</span><small>{saved.auditedAt ? `Chạy ${formatListeningAuditDate(saved.auditedAt)}` : saved.status === 'pending' ? 'Chưa có full run đã lưu' : 'Đã chạy · không rõ thời điểm'}</small></> : <><span className="adm-status-pill is-muted">Chưa xác định</span><small>Chờ live GET</small></>}</td>
-    <td data-label="Thao tác"><div className="alqa-actions"><a href={listeningAuditDetailHref(test.id)}>Mở audit detail ↗</a><a href={`/admin/listening/tests/${encodeURIComponent(test.id)}`}>Mở test</a><button type="button" disabled={busy} onClick={() => onRetry(test)}>Đọc lại GET</button></div></td>
+    <td data-label="Thao tác"><div className="alqa-actions"><a href={listeningAuditDetailHref(test.id)}>Mở audit detail ↗</a><a href={`/admin/listening/tests/${encodeURIComponent(test.id)}`}>Mở test</a>{audit.phase !== 'unverified' && <button type="button" disabled={busy} onClick={() => onRetry(test)}>Đọc lại GET</button>}</div></td>
   </tr>;
 }

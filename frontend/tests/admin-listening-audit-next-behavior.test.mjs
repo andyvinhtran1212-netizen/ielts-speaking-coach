@@ -12,6 +12,7 @@ import {
   normalizeListeningAuditFilters,
   normalizeListeningAuditInventoryPage,
   normalizeListeningAuditSnapshot,
+  normalizeListeningAuditUnsupported,
   summarizeListeningAuditRows,
 } from '../lib/admin-listening-audit-model.mjs';
 
@@ -100,9 +101,34 @@ describe('audit model rejects incomplete truth', () => {
       { test: { id: 'c', testId: 'C', title: 'Gamma', type: 'drill' }, audit: { phase: 'error', message: '503' } },
     ];
     assert.equal(classifyListeningAudit(rows[2].audit), 'lookup');
-    assert.deepEqual(summarizeListeningAuditRows(rows), { total: 3, loading: 0, lookup: 1, error: 0, warning: 1, clean: 1, savedPending: 2 });
+    assert.deepEqual(summarizeListeningAuditRows(rows), { total: 3, loading: 0, lookup: 1, error: 0, warning: 1, clean: 1, unverified: 0, savedPending: 2 });
     assert.deepEqual(filterListeningAuditRows(rows, { health: 'lookup' }).map((row) => row.test.id), ['c']);
     assert.deepEqual(filterListeningAuditRows(rows, { search: 'alp', saved: 'pending' }).map((row) => row.test.id), ['a']);
+  });
+
+  it('keeps unsupported health unverified and saved history filterable', () => {
+    const saved = { test_id: 'form', status: 'fixed', issues: [], health: { error_count: 1, warning_count: 0, status: 'has_issues' }, audited_at: '2026-08-14T02:00:00Z' };
+    const caught = { status: 409, detail: { code: 'unsupported_audit_contract', uuid: 'form', test_id: 'FORM', message: 'Health chưa được xác minh', saved } };
+    const value = normalizeListeningAuditUnsupported(caught, { id: 'form', testId: 'FORM' });
+    assert.equal(value.saved.status, 'fixed');
+    const rows = [{ test: { id: 'form', testId: 'FORM', title: 'Form', type: 'mini' }, audit: { phase: 'unverified', value } },
+      { test: { id: 'offline', testId: 'OFFLINE', title: 'Offline', type: 'mini' }, audit: { phase: 'error', message: '503' } }];
+    assert.equal(classifyListeningAudit(rows[0].audit), 'unverified');
+    assert.deepEqual(summarizeListeningAuditRows(rows), { total: 2, loading: 0, lookup: 1, error: 0, warning: 0, clean: 0, unverified: 1, savedPending: 0 });
+    assert.equal(listeningAuditHref({ health: 'unverified' }), '/admin/listening/audit?health=unverified');
+    assert.deepEqual(filterListeningAuditRows(rows, { health: 'unverified', saved: 'fixed' }).map((row) => row.test.id), ['form']);
+    assert.deepEqual(filterListeningAuditRows(rows, { health: 'lookup' }).map((row) => row.test.id), ['offline']);
+    for (const mutate of [
+      (raw) => { raw.status = 503; },
+      (raw) => { raw.detail.code = 'stale'; },
+      (raw) => { raw.detail.uuid = 'other'; },
+      (raw) => { raw.detail.test_id = 'other'; },
+      (raw) => { raw.detail.saved.test_id = 'other'; },
+    ]) {
+      const raw = structuredClone(caught); mutate(raw);
+      assert.equal(normalizeListeningAuditUnsupported(raw, { id: 'form', testId: 'FORM' }), null);
+    }
+    assert.equal(normalizeListeningAuditUnsupported({ status: 409, detail: 'stale' }, { id: 'form' }), null);
   });
 });
 
