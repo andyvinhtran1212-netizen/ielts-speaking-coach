@@ -522,7 +522,7 @@ function DiagramImageRun({ run, answers, saveStates, flagged, flagReady, current
 
 function MatchingMatrixRun({ run, answers, saveStates, flagged, flagReady, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
   const options = questionOptions(run[0]);
-  return <div className="reading-next-match-matrix-wrap">
+  return <div className="reading-next-match-matrix-wrap" role="region" aria-label={`Lựa chọn câu ${run[0].q_num} đến ${run.at(-1)?.q_num}`} tabIndex={0}>
     <table className="reading-next-match-matrix">
       <thead><tr><th scope="col">Statement</th>{options.map((option) => <th scope="col" key={optionValue(option)}>{optionValue(option)}</th>)}<th scope="col">Review</th></tr></thead>
       <tbody>{run.map((question) => <tr
@@ -532,10 +532,10 @@ function MatchingMatrixRun({ run, answers, saveStates, flagged, flagReady, curre
         onClick={() => onCurrent(question.q_num)}
         onFocus={() => onCurrent(question.q_num)}
       >
-        <th scope="row"><span className="exam-q__num">{question.q_num}</span><span>{question.prompt || ''}</span></th>
+        <th scope="row"><div className="reading-next-matrix-statement"><span className="exam-q__num">{question.q_num}</span><span>{question.prompt || ''}</span></div></th>
         {options.map((option) => {
           const value = optionValue(option);
-          return <td key={value}><label aria-label={`Question ${question.q_num}: ${value}`}>
+          return <td key={value}><label aria-label={`Question ${question.q_num}: ${value}`} onFocus={(event) => event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}>
             <input type="radio" name={`q-${question.q_num}`} value={value} checked={answers.get(question.q_num) === value} onChange={() => onAnswer(question.q_num, value)} />
             <span className="reading-next-matrix-letter" aria-hidden="true">{value}</span>
           </label></td>;
