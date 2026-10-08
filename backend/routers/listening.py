@@ -8520,12 +8520,27 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             if storage_path and not (isinstance(inline_map, str) and inline_map.strip()):
                 p = dict(p)
                 p["map_image_url"] = _sign_map_image_url(storage_path, expires_in=7200)
+            # Older imports can retain an adjacent block's solution copy.
+            # Only this exercise's actual slots may contribute review fields;
+            # otherwise unordered DB rows can overwrite a corrected owner.
+            owned_questions = {
+                int(item["q_num"])
+                for rows in (p.get("questions"), p.get("answers"))
+                if isinstance(rows, list)
+                for item in rows
+                if isinstance(item, dict) and item.get("q_num") is not None
+            }
+            if isinstance(p.get("answers"), dict):
+                owned_questions.update(int(q) for q in p["answers"] if str(q).isdigit())
             for q, sol in (p.get("solutions") or {}).items():
-                solutions_by_q[int(q)] = sol
+                if int(q) in owned_questions:
+                    solutions_by_q[int(q)] = sol
             for q, w in (p.get("audio_windows") or {}).items():
-                windows_by_q[int(q)] = w
+                if int(q) in owned_questions:
+                    windows_by_q[int(q)] = w
             for q, idx in (p.get("transcript_anchors") or {}).items():
-                anchors_by_q[int(q)] = idx
+                if int(q) in owned_questions:
+                    anchors_by_q[int(q)] = idx
             for q, value in (p.get("self_review") or {}).items():
                 self_review_by_q[int(q)] = value
             for stimulus_id, value in (p.get("controlled_transcripts") or {}).items():

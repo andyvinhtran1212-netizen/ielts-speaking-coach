@@ -77,6 +77,17 @@ async function installReadingHarness(page, {
       access_token: 'reading-native-token', refresh_token: 'refresh', expires_at: 4_102_444_800,
       user: { id: owner, email: 'reading-native@test.local' },
     } : null;
+    window.__AVER_SUPABASE_CLIENT__ = { auth: {
+      getSession: async () => ({ data: { session: window.__READING_NATIVE_SESSION__ } }),
+      onAuthStateChange: (listener) => {
+        window.__READING_NATIVE_AUTH_LISTENERS__.push(listener);
+        return { data: { subscription: { unsubscribe() {
+          const index = window.__READING_NATIVE_AUTH_LISTENERS__.indexOf(listener);
+          if (index >= 0) window.__READING_NATIVE_AUTH_LISTENERS__.splice(index, 1);
+        } } } };
+      },
+      signOut: async () => ({ error: null }),
+    } };
     window.__emitReadingNativeAuth = (session) => {
       window.__READING_NATIVE_SESSION__ = session;
       const event = session ? 'SIGNED_IN' : 'SIGNED_OUT';

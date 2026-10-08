@@ -51,6 +51,52 @@ function normalizeWindow(raw) {
   };
 }
 
+const SOLUTION_BODY_FIELDS = ['translation_vi', 'vocab_focus', 'vocab', 'paraphrase',
+  'why_correct', 'script', 'trap'];
+const SHARED_SOLUTION_FIELDS = [...SOLUTION_BODY_FIELDS, 'skills', 'relisten',
+  'paraphrase_map', 'trap_mechanisms'];
+const hasSolutionBody = (solution) => SOLUTION_BODY_FIELDS.some((key) => text(solution?.[key]));
+
+function inheritMultiAnswerSolutions(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const context = item.question_context;
+    if (item.question_type !== 'mcq_multi' || context?.template_kind !== 'mcq_multi') continue;
+    // The server's authored question identity includes its exercise UUID. Do
+    // not infer group membership from adjacent numbers or a repeated prompt.
+    const identity = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(\d+)$/i
+      .exec(text(context.question_id));
+    if (!identity || Number(identity[2]) !== item.q_num) continue;
+    const members = groups.get(identity[1]) || [];
+    members.push(item);
+    groups.set(identity[1], members);
+  }
+  const inherited = new Map();
+  for (const members of groups.values()) {
+    // A corrupt combined block is not a shared rationale group. The content
+    // repair must first restore the authored Choose TWO/THREE boundaries.
+    if (![2, 3].includes(members.length) || !text(members[0].prompt)
+        || members.some((item) => item.prompt !== members[0].prompt
+          || listeningReviewSection(item) !== listeningReviewSection(members[0]))) continue;
+    const authors = members.filter((item) => hasSolutionBody(item.solution));
+    if (authors.length !== 1) continue;
+    const author = authors[0];
+    for (const item of members) {
+      if (item === author || item.web_explanation_object || hasSolutionBody(item.solution)) continue;
+      const solution = { ...item.solution };
+      for (const key of SHARED_SOLUTION_FIELDS) {
+        // An explicitly empty per-slot field remains empty. Inherit only a
+        // missing display field, never the shared answer or replay window.
+        if (!(key in solution) && key in author.solution) solution[key] = author.solution[key];
+      }
+      if (hasSolutionBody(solution)) inherited.set(item.q_num, { ...item, solution,
+        solution_group: { question_numbers: members.map((member) => member.q_num),
+          source_question_number: author.q_num } });
+    }
+  }
+  return items.map((item) => inherited.get(item.q_num) || item);
+}
+
 export function normalizeListeningReview(payload) {
   if (!payload || typeof payload !== 'object'
       || !Array.isArray(payload.sections) || !Array.isArray(payload.review)) {
@@ -77,7 +123,7 @@ export function normalizeListeningReview(payload) {
   }).sort((a, b) => a.section_num - b.section_num);
 
   const seenQuestions = new Set();
-  const review = payload.review.map((row) => {
+  const review = inheritMultiAnswerSolutions(payload.review.map((row) => {
     if (!row || typeof row !== 'object') throw new Error('invalid-listening-review-item');
     const qNum = Number(row.q_num);
     if (!Number.isInteger(qNum) || qNum < 1 || seenQuestions.has(qNum)
@@ -101,7 +147,7 @@ export function normalizeListeningReview(payload) {
       audio_window: normalizeWindow(row.audio_window),
       solution: row.solution && typeof row.solution === 'object' ? row.solution : {},
     };
-  }).sort((a, b) => a.q_num - b.q_num);
+  }).sort((a, b) => a.q_num - b.q_num));
 
   const score = finiteNumber(payload.score);
   const maxScore = finiteNumber(payload.max_score);
@@ -143,13 +189,34 @@ export function listeningBandLabel(review) {
   return `Dưới band ${Math.min(...bands).toFixed(1)}`;
 }
 
+export function listeningTranscriptDisplayText(raw, keepStress = false) {
+  return String(raw ?? '').replace(/\[([^\]]*)\]/g, (match, body, offset, source) => {
+    const content = body.trim();
+    const spokenCue = /^(stress|digits)\s*:\s*([\s\S]*)$/i.exec(content);
+    if (spokenCue) {
+      const value = spokenCue[2];
+      return keepStress && spokenCue[1].toLowerCase() === 'stress' ? `[stress:${value}]` : value;
+    }
+    // Match the defined authoring cue vocabulary; ordinary editorial words
+    // such as [I], [will] and [alight] are part of the spoken sentence.
+    if (/^(?:pace|pause|emphasis|emotion|hesitation|chuckle|hesitate|breath|sigh|sfx|tone|ambience)(?:\s*:[\s\S]*)?$/i.test(content)
+        || /^[MFN]\s*-\s*[A-Za-z]+(?:\s*-\s*(?:\d+s|teens|adult))?(?:\s*-\s*[A-Za-z][A-Za-z-]*)?$/i.test(content)) return '';
+    if (!/^[\p{L}\p{N}'’\s-]+$/u.test(content)) return match;
+    const before = /[\p{L}\p{N}]$/u.test(source.slice(0, offset))
+      && /^[\p{L}\p{N}]/u.test(content) ? ' ' : '';
+    const after = /^[\p{L}\p{N}]/u.test(source.slice(offset + match.length))
+      && /[\p{L}\p{N}]$/u.test(content) ? ' ' : '';
+    return `${before}${content}${after}`;
+  }).replace(/\s{2,}/g, ' ');
+}
+
 export function listeningTranscriptParagraphs(raw) {
   return String(raw ?? '').split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean)
     .map((paragraph) => {
       const match = /^\*\*([^*]+?)\*\*\s*([\s\S]*)$/.exec(paragraph);
       return {
         speaker: match ? text(match[1]).replace(/[\s:]+$/, '') : '',
-        text: text(match ? match[2] : paragraph).replace(/\[[^\]]*\]/g, '').replace(/\s{2,}/g, ' '),
+        text: listeningTranscriptDisplayText(text(match ? match[2] : paragraph)).trim(),
       };
     });
 }
