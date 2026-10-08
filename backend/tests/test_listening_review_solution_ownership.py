@@ -62,3 +62,36 @@ def test_foreign_window_and_anchor_do_not_override_the_question_owner():
         item = listening._assemble_listening_review(saved, "a1")["review"][0]
     assert item["audio_window"] == owner["payload"]["audio_windows"]["35"]
     assert item["transcript_anchor"] == owner["payload"]["transcript_anchors"]["35"]
+
+
+@pytest.mark.parametrize("frozen", [False, True])
+@pytest.mark.parametrize("with_questions", [False, True])
+def test_legacy_answer_map_owns_slots_in_current_and_frozen_review(frozen, with_questions):
+    marks = deepcopy(FIXTURE["exercises"])
+    owner = next(row for row in marks if row["id"] == "6662cd3e-f641-5f00-aaaf-867cc0b44563")
+    owner["payload"]["answers"] = {
+        str(row["q_num"]): row["answer"] for row in owner["payload"]["answers"]
+    }
+    if not with_questions:
+        owner["payload"].pop("questions", None)
+    sources = [{"id": "s4", "section_num": 4, "transcript": "Corrected native transcript"}]
+    paper = {"id": "t1", "test_id": "L001-REV01", "metadata": {}}
+    saved = {"id": "a1", "test_id": "t1", "status": "submitted", "score": 1,
+             "grading_details": [{"q_num": 35, "expected": "arc", "correct": True,
+                                  "user_answer": "arc"}]}
+    tables = {"listening_tests": [paper], "listening_content": sources,
+              "listening_exercises": marks}
+    if frozen:
+        saved["paper_revision"] = 2
+        tables["mock_paper_attempt_snapshots"] = [snapshot("listening", marks, sources, paper)]
+    db = DB(tables)
+    before = deepcopy(db.tables), deepcopy(saved)
+    with patch.object(listening, "supabase_admin", db), \
+         patch("services.mock_correction_service.attach_web_explanations",
+               return_value={"available": False}):
+        result = listening._assemble_listening_review(saved, "a1")
+    item = result["review"][0]
+    assert item["solution"] == owner["payload"]["solutions"]["35"]
+    assert item["audio_window"] == owner["payload"]["audio_windows"]["35"]
+    assert item["expected"] == "arc" and result["score"] == 1
+    assert (db.tables, saved) == before

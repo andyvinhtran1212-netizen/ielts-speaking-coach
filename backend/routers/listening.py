@@ -8525,9 +8525,13 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             # otherwise unordered DB rows can overwrite a corrected owner.
             owned_questions = {
                 int(item["q_num"])
-                for item in [*(p.get("questions") or []), *(p.get("answers") or [])]
-                if item.get("q_num") is not None
+                for rows in (p.get("questions"), p.get("answers"))
+                if isinstance(rows, list)
+                for item in rows
+                if isinstance(item, dict) and item.get("q_num") is not None
             }
+            if isinstance(p.get("answers"), dict):
+                owned_questions.update(int(q) for q in p["answers"] if str(q).isdigit())
             for q, sol in (p.get("solutions") or {}).items():
                 if int(q) in owned_questions:
                     solutions_by_q[int(q)] = sol
