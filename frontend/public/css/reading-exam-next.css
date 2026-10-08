@@ -222,10 +222,18 @@
 }
 
 .reading-next-match-matrix-wrap {
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   margin-bottom: 16px;
   border: 1px solid var(--exam-border-default);
+}
+
+/* Palette navigation must not put an opaque sticky bank over its target row. */
+.reading-next-player-page .exam-questions__group[data-question-type="matching_features"] .exam-features-box {
+  position: static;
+  z-index: auto;
 }
 
 .reading-next-match-matrix {
@@ -254,11 +262,14 @@
 }
 
 .reading-next-match-matrix tbody th {
+  min-width: 260px;
+  font-weight: 500;
+}
+
+.reading-next-matrix-statement {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  min-width: 260px;
-  font-weight: 500;
 }
 
 .reading-next-match-matrix tbody tr.is-current {
@@ -272,8 +283,8 @@
   justify-content: center;
   place-items: center;
   gap: 6px;
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 40px;
+  min-height: 40px;
   cursor: pointer;
 }
 

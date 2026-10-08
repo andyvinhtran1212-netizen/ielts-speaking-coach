@@ -16,14 +16,23 @@ export function ReviewContextNotice({ value }: { value: unknown }) {
   return message ? <p className="review-context-notice" role="status">{message}</p> : null;
 }
 
+function numberedBlanks(value: string): ReactNode {
+  return value.split(/(\{\{\s*\d{1,3}\s*\}\})/g).map((part, index) => {
+    const match = /^\{\{\s*(\d{1,3})\s*\}\}$/.exec(part);
+    return match ? <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${Number(match[1])}`}>
+      <strong>[Câu {Number(match[1])}]</strong> ______
+    </span> : part;
+  });
+}
+
 function segment(value: unknown): ReactNode {
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'string' || typeof value === 'number') return numberedBlanks(String(value));
   if (Array.isArray(value)) return value.map((part, index) => <Fragment key={index}>{index ? ' ' : ''}{segment(part)}</Fragment>);
   const item = record(value);
   if (!item) return null;
-  return <>{item.label ? `${item.label}: ` : ''}{item.prefix || item.text || ''}
+  return <>{item.label ? segment(`${item.label}: `) : null}{segment(item.prefix || item.text || '')}
     {item.q_num != null ? <strong> [Câu {item.q_num}] </strong> : null}
-    {item.segments ? segment(item.segments) : null}{item.suffix || ''}{item.example != null ? ` ${item.example} (Example)` : ''}
+    {item.segments ? segment(item.segments) : null}{segment(item.suffix || '')}{item.example != null ? segment(` ${item.example} (Example)`) : null}
   </>;
 }
 
@@ -42,6 +51,11 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
   const instruction = context.instructions || context.instruction || context.word_limit_text || context.word_limit;
   const provenance = record(context.context_provenance);
   const banks = options.length || list(context.paragraph_labels).length;
+  const hasTable = Array.isArray(template?.rows?.[0]);
+  // Importers retain a Markdown serialization beside the structured table.
+  // Prefer its cells, but keep any independently authored summary/description.
+  const serializedTable = hasTable && typeof template?.summary_text === 'string'
+    && /^\s*\|?\s*:?-{2,}:?\s*\|(?:\s*:?-{2,}:?\s*\|?)+\s*$/m.test(template.summary_text);
   return <section className="review-question-context" aria-label="Ngữ cảnh câu hỏi">
     {instruction ? <p>{segment(instruction)}</p> : null}
     {context.max_words != null ? <p>Giới hạn: {context.max_words} từ.</p> : null}
@@ -53,9 +67,9 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
     {image ? <img src={image} alt={imageAlt} loading="lazy" style={{ maxWidth: '100%', height: 'auto' }} /> : null}
     {template ? <div className="review-context-template">
       {template.heading ? <h4>{segment(template.heading)}</h4> : null}
-      {template.summary_text ? <p>{template.summary_text}</p> : null}
+      {template.summary_text && !serializedTable ? <p style={{ whiteSpace: 'pre-wrap' }}>{segment(template.summary_text)}</p> : null}
       {list(template.rows).length ? Array.isArray(template.rows[0]) ? <div style={{ overflowX: 'auto' }}><table>
-        {list(template.headers).length ? <thead><tr>{template.headers.map((cell: unknown, index: number) => <th key={index}>{segment(cell)}</th>)}</tr></thead> : null}
+        {list(template.headers).length ? <thead><tr>{template.headers.map((cell: unknown, index: number) => <th scope="col" key={index}>{segment(cell)}</th>)}</tr></thead> : null}
         <tbody>{template.rows.map((row: any[], index: number) => <tr key={index}>{row.map((cell, column) => <td key={column}>{segment(cell)}</td>)}</tr>)}</tbody>
       </table></div> : <ul>{template.rows.map((row: unknown, index: number) => <li key={index}>{segment(row)}</li>)}</ul> : null}
       {list(template.groups).map((group, index) => <div key={index}>

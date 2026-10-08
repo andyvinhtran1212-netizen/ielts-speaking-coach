@@ -4,7 +4,44 @@ import { ReviewContextNotice, ReviewQuestionContext } from '@/components/review-
 import { normalizeReadingReview } from '@/lib/reading-review-model.mjs';
 import { normalizeListeningReview } from '@/lib/listening-review-model.mjs';
 import l025 from '../fixtures/listening-review-l025-map.json';
+import revisedContexts from '../fixtures/reading-mock-repair-contexts.json';
 afterEach(cleanup);
+it.each(revisedContexts.cases)('renders numbered blanks in the actual authored context of $test_id without changing its data', ({ context }) => {
+  const original = JSON.stringify(context);
+  const sourceMarkers = [...original.matchAll(/\{\{\s*(\d{1,3})\s*\}\}/g)].map(match => Number(match[1]));
+  const view = render(<ReviewQuestionContext value={context} />);
+  expect(view.container.textContent).not.toMatch(/\{\{\s*\d+\s*\}\}/);
+  for (const qNum of new Set(sourceMarkers)) {
+    expect(screen.getAllByLabelText(`Chỗ trống câu ${qNum}`).length).toBeGreaterThan(0);
+  }
+  const template = context.template as Record<string, any>;
+  if (Array.isArray(template.rows?.[0])) {
+    const table = screen.getByRole('table');
+    expect(within(table).getAllByRole('row')).toHaveLength(template.rows.length + (template.headers?.length ? 1 : 0));
+    expect(view.container.querySelector('.review-context-template > p')).toBeNull();
+  }
+  expect(view.container.querySelector('input,select,textarea')).toBeNull();
+  expect(JSON.stringify(context)).toBe(original);
+});
+it('keeps table source content once, marks blanks in nested text, and escapes hostile text', () => {
+  const context = { template: {
+    heading: 'Heading {{1}}', summary_text: 'Section | Comment\n--- | ---\nDuplicated serialized table {{1}}', headers: ['Section', 'Comment'],
+    rows: [['Website', ['allowed businesses to {{1}} information regularly', '<img src=x onerror=alert(1)> {{ 2 }}']]],
+    groups: [{ heading_segments: ['Group {{3}}'], items: [{ prefix: 'From {{4}}', suffix: 'toward {{5}}' }] }],
+    steps: [{ label: 'Stage {{6}}', text: 'Through {{7}}', segments: ['Past {{8}}'] }],
+  } };
+  const { container } = render(<ReviewQuestionContext value={context} />);
+  expect(container.textContent).not.toContain('Duplicated serialized table');
+  expect(container.textContent).not.toContain('{{');
+  for (let qNum = 1; qNum <= 8; qNum++) expect(screen.getAllByLabelText(`Chỗ trống câu ${qNum}`).length).toBeGreaterThan(0);
+  expect(screen.getByText(/<img src=x onerror=alert\(1\)>/)).toBeTruthy();
+  expect(container.querySelector('img')).toBeNull();
+});
+it('retains an authored description alongside structured table cells', () => {
+  render(<ReviewQuestionContext value={{ template: { summary_text: 'Read the table below before completing {{1}}.', headers: ['Place', 'Comment'], rows: [['Library', 'arrival at {{1}}']] } }} />);
+  expect(screen.getByText(/Read the table below before completing/)).toBeTruthy();
+  expect(screen.getAllByLabelText('Chỗ trống câu 1')).toHaveLength(2);
+});
 it('distinguishes saved context, current fallback and unavailable context without asserting old source authenticity', () => {
   const view = render(<ReviewContextNotice value={{ provenance: 'submission_snapshot', possibly_changed: false }} />);
   expect(screen.getByText('Ngữ cảnh của lượt làm này đã được lưu.')).toBeTruthy();

@@ -1,0 +1,403 @@
+{
+  "source_production_uuid": "5c542864-f831-5863-b02f-8fc36d0e00c1",
+  "exercises": [
+    {
+      "id": "b8b997a0-f48f-5759-b8b5-0ee03a60d089",
+      "payload": {
+        "answers": [
+          {
+            "q_num": 31,
+            "answer": "crime",
+            "alternatives": []
+          },
+          {
+            "q_num": 32,
+            "answer": "police",
+            "alternatives": [
+              "the police"
+            ]
+          },
+          {
+            "q_num": 33,
+            "answer": "networks",
+            "alternatives": []
+          },
+          {
+            "q_num": 34,
+            "answer": "evening",
+            "alternatives": []
+          }
+        ],
+        "variant": "dictation_gap_fill",
+        "template": {
+          "groups": [
+            {
+              "items": [
+                {
+                  "text": "Travellers used torches or hired linkboys."
+                },
+                {
+                  "q_num": 31,
+                  "prefix": "Main risk after dark was high rate of",
+                  "suffix": ""
+                },
+                {
+                  "text": "Used candle lanterns at street corners."
+                },
+                {
+                  "q_num": 32,
+                  "prefix": "Main purpose: reduce crime and assist",
+                  "suffix": ""
+                },
+                {
+                  "text": "First gas street: Pall Mall, London, 1807."
+                },
+                {
+                  "q_num": 33,
+                  "prefix": "By 1820, most large British cities had gas",
+                  "suffix": ""
+                },
+                {
+                  "q_num": 34,
+                  "prefix": "Major social effect: emergence of urban nightlife — theatres, restaurants, and shops stayed open into the",
+                  "suffix": ""
+                }
+              ]
+            }
+          ],
+          "heading": "HISTORY OF PUBLIC LIGHTING"
+        },
+        "questions": [
+          {
+            "q_num": 31,
+            "prompt": "",
+            "variant": "inline"
+          },
+          {
+            "q_num": 32,
+            "prompt": "",
+            "variant": "inline"
+          },
+          {
+            "q_num": 33,
+            "prompt": "",
+            "variant": "inline"
+          },
+          {
+            "q_num": 34,
+            "prompt": "",
+            "variant": "inline"
+          }
+        ],
+        "solutions": {
+          "31": {
+            "trap": "**Polarity flip**: \"wasn't just stumbling — it was crime\"; \"stumbling\" là mồi. Đánh vào **K3**.",
+            "vocab": "- **crime** /kraɪm/ — illegal activity; tội phạm / tội ác\n- **linkboys** /ˈlɪŋk.bɔɪz/ — historical boys who lit travellers' way with torches at night; cậu bé cầm đuốc dẫn đường ban đêm\n- **flourish (v)** /ˈflʌr.ɪʃ/ — to thrive or grow rapidly; phát triển mạnh / hoành hành\n- **under cover of darkness** /ˈʌn.də ˈkʌv.ə əv ˈdɑːk.nəs/ — protected by the night; lợi dụng bóng tối",
+            "answer": "crime",
+            "script": "```\n[F-BrE-40s-professional]\nLet's begin with the early history. Before public lighting existed, cities at night were genuinely dangerous. People who ventured out carried their own torches or were accompanied by paid linkboys — young men who guided travellers through dark streets for a small fee. The risk wasn't just stumbling — it was the high rate of crime (Q31) that flourished under cover of darkness.\n```",
+            "skills": "K3, K2",
+            "relisten": "Section 4, turn ~2 — speaker `[F-BrE-40s-professional]`\n\n---",
+            "paraphrase": "high rate of ___ → \"the high rate of crime\" (crime)",
+            "vocab_focus": "- **crime** /kraɪm/ (n) — tội phạm\n- **linkboys** /ˈlɪŋk.bɔɪz/ (n) — cậu bé cầm đuốc dẫn đường\n- **flourish** /ˈflʌr.ɪʃ/ (v) — hoành hành / phát triển mạnh",
+            "why_correct": "_(From answer key notes):_ Direct mention\n\nThe lecturer uses a polarity flip: \"The risk **wasn't just** stumbling — it **was** the high rate of **crime** that flourished under cover of darkness.\" The note slot is \"high rate of ___\" → **crime**. Stumbling (vấp ngã) is mentioned but explicitly downgraded as \"not just\" the main risk; **crime** is what really mattered.\n\nGiảng viên dùng cú `polarity_flip`: \"The risk **wasn't just** stumbling (vấp ngã) — it was the high rate of **crime** that flourished under cover of darkness\" (tỷ lệ tội phạm cao). Khung notes: \"high rate of ___\" → **crime**. Stumbling được nhắc nhưng bị đánh giá thấp; **crime** mới là rủi ro thật.",
+            "audio_window": {
+              "end": 1381.08,
+              "file": "full_test.mp3",
+              "start": 1357.61,
+              "section": "S4"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| high rate of ___ | _the high rate of crime that flourished under cover of darkness_ | \"wasn't just stumbling — it was…\" = polarity to crime |",
+            "translation_vi": "\"Rủi ro không chỉ là vấp ngã — mà là tỷ lệ **tội phạm** cao hoành hành dưới màn đêm.\"",
+            "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym\n- `polarity_flip` — Đảo cực — \"not X but Y\" / phủ định chuyển thành khẳng định"
+          },
+          "32": {
+            "trap": "**Polarity flip**: \"wasn't beautification\" loại mồi \"beautification\". Đánh vào **K3**.",
+            "vocab": "- **police** /pəˈliːs/ — official force maintaining public order; cảnh sát\n- **systematic** /ˌsɪs.təˈmæt.ɪk/ — organised on a planned method; có hệ thống / có quy củ\n- **beautification** /ˌbjuː.tɪ.fɪˈkeɪ.ʃən/ — making something more attractive; làm đẹp / mỹ hóa\n- **householders** /ˈhaʊs.həʊl.dəz/ — people who own or rent a home; chủ hộ / hộ dân",
+            "answer": "(the) police",
+            "script": "```\n[F-BrE-40s-professional]\nThe first city to introduce systematic public lighting was Paris, in 1667. King Louis XIV's police chief installed thousands of candle lanterns at street corners, paid for by householders. The reason wasn't beautification — it was specifically to reduce crime and assist the police (Q32).\n```",
+            "skills": "K3, K2",
+            "relisten": "Section 4, turn ~3 — speaker `[F-BrE-40s-professional]`\n\n---",
+            "paraphrase": "assist ___ → \"to reduce crime and assist the police\" ((the) police)",
+            "vocab_focus": "- **police** /pəˈliːs/ (n) — cảnh sát\n- **beautification** /ˌbjuː.tɪ.fɪˈkeɪ.ʃən/ (n) — làm đẹp / mỹ hóa\n- **householders** /ˈhaʊs.həʊl.dəz/ (n) — chủ hộ",
+            "why_correct": "_(From answer key notes):_ Article optional\n\nAnother polarity flip: \"The reason **wasn't beautification** — it was specifically to **reduce crime and assist the police**.\" The note slot reads \"reduce crime and assist ___\" → **(the) police**. The article *the* is optional in the answer key. Beautification (làm đẹp đô thị) is a tempting distractor — it sounds plausible for 17th-century Paris but is explicitly ruled out.\n\nMột cú `polarity_flip` khác: \"The reason **wasn't beautification** — it was specifically to **reduce crime and assist the police**\" (giảm tội phạm và hỗ trợ cảnh sát). Khung notes: \"reduce crime and assist ___\" → **(the) police**. Article \"the\" tùy chọn (key chấp nhận cả 2 cách). Beautification (mỹ hóa đô thị) là distractor hấp dẫn — nghe hợp lý với Paris thế kỷ 17 nhưng bị loại thẳng.",
+            "audio_window": {
+              "end": 1398.67,
+              "file": "full_test.mp3",
+              "start": 1379.52,
+              "section": "S4"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| reduce crime and assist ___ | _to reduce crime and assist the police_ | \"wasn't beautification — it was…\" = polarity |",
+            "translation_vi": "\"Lý do không phải để làm đẹp — mà cụ thể là để giảm tội phạm và hỗ trợ **cảnh sát**.\"",
+            "trap_mechanisms": "- `paraphrase_t0` — Lặp gần nguyên văn — chỉ thay 1 từ"
+          },
+          "33": {
+            "trap": "**Definition vs example**: \"gas works, pipes\" là thành phần, không phải đáp án. Đánh vào **K2/K5**.",
+            "vocab": "- **network** /ˈnet.wɜːk/ — interconnected system of supply lines; mạng lưới\n- **transformative** /trænsˈfɔː.mə.tɪv/ — causing major change; mang tính chuyển đổi / đột phá\n- **lamp-lighter** /ˈlæmp ˌlaɪ.tə/ — person who used to ignite gas street lamps; người thắp đèn đường (gas)\n- **ignite** /ɪɡˈnaɪt/ — to set on fire; thắp / châm lửa",
+            "answer": "networks",
+            "script": "```\n[F-BrE-40s-professional]\nThe first city to be lit by gas was [stress:Pall Mall]  — in London — in 1807. And gas was a transformative technology, because it was significantly brighter than oil lamps, and could be piped to lamps across a whole district. By 1820, most large British cities had [stress:gas networks]  (Q33). The infrastructure required — gas works, underground pipes, and lamp-lighters who would come each evening with a long pole to ignite each lamp — was huge.\n```",
+            "skills": "K2, K5",
+            "relisten": "Section 4, turn ~5 — speaker `[F-BrE-40s-professional]`\n\n---",
+            "paraphrase": "gas ___ → \"most large British cities had gas networks\" (networks)",
+            "vocab_focus": "- **network** /ˈnet.wɜːk/ (n) — mạng lưới\n- **transformative** /trænsˈfɔː.mə.tɪv/ (adj) — mang tính đột phá\n- **lamp-lighter** /ˈlæmp ˌlaɪ.tə/ (n) — người thắp đèn đường",
+            "why_correct": "_(From answer key notes):_ Paraphrase tier 2\n\nThe lecturer states \"By 1820, most large British cities had **gas networks**.\" The note slot is \"gas ___\" → **networks**. The follow-up \"gas works, underground pipes\" describes the *infrastructure components* of the network — these are PARTS, not the umbrella term. The umbrella keyword is `networks`. Bẫy `definition_vs_example`.\n\nGiảng viên nói \"By 1820, most large British cities had **gas networks**\" (mạng lưới khí ga). Khung notes: \"gas ___\" → **networks**. Cụm \"gas works, underground pipes\" mô tả *thành phần hạ tầng* — đây là PARTS, không phải tên tổng quát. Từ tổng quát là `networks`. Bẫy `definition_vs_example`.",
+            "audio_window": {
+              "end": 1452.88,
+              "file": "full_test.mp3",
+              "start": 1421.67,
+              "section": "S4"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| had gas ___ | _most large British cities had gas networks_ | \"networks\" precedes the listed infrastructure components |",
+            "translation_vi": "\"Đến năm 1820, hầu hết các thành phố lớn của Anh đã có **mạng lưới** khí ga. Hạ tầng cần thiết — nhà máy khí, ống ngầm, và người thắp đèn — là khổng lồ.\"",
+            "trap_mechanisms": "- `paraphrase_t2` — Paraphrase tier 2 — restructure phrase\n- `definition_vs_example` — Định nghĩa vs ví dụ — term được give 3 examples"
+          },
+          "34": {
+            "trap": "Bẫy từ gần: \"night life\" ngay sau dễ khiến ghi \"night\" thay vì \"evening\". Đánh vào **K2/K5**.",
+            "vocab": "- **evening** /ˈiːv.nɪŋ/ — early part of the night, approx. 6–9 pm; buổi tối\n- **night life** /ˈnaɪt.laɪf/ — entertainment available at night; cuộc sống về đêm\n- **urban behaviour** /ˈɜː.bən bɪˈheɪ.vjə/ — patterns of activity in cities; hành vi đô thị",
+            "answer": "evening",
+            "script": "```\n[F-BrE-40s-professional]\nGas lighting also had a major social effect. Streets became safer at night, and this changed urban behaviour. Theatres, restaurants, and shops began to stay open into the evening (Q34). The very idea of \"night life\" as we know it is essentially a creation of public lighting.\n```",
+            "skills": "K2, K5",
+            "relisten": "Section 4, turn ~6 — speaker `[F-BrE-40s-professional]`\n\n---\n## Questions 35-37 — SENTENCE block",
+            "paraphrase": "stayed open into the ___ → \"stay open into the evening\" (evening)",
+            "vocab_focus": "- **evening** /ˈiːv.nɪŋ/ (n) — buổi tối\n- **night life** /ˈnaɪt.laɪf/ (n) — cuộc sống về đêm\n- **urban behaviour** /ˈɜː.bən bɪˈheɪ.vjə/ (n) — hành vi đô thị",
+            "why_correct": "The note slot \"stayed open into the ___\" maps directly to the lecturer's phrase \"stay open into the **evening**.\" Direct lexical match. Be careful not to write \"night\" — the follow-up sentence says \"the very idea of 'night life'\" which could trick you, but the specific window when shops stayed open is the **evening**.\n\nKhung notes \"stayed open into the ___\" khớp đúng cụm \"stay open into the **evening**\" (mở cửa tới tối). Lexical match trực tiếp. Cẩn thận không viết \"night\" — câu sau có cụm \"night life\" có thể đánh lừa, nhưng cửa hàng mở đến **evening** (tối) chứ không phải \"night\" (đêm khuya). Bẫy nhẹ về phân biệt evening vs night.",
+            "audio_window": {
+              "end": 1471.07,
+              "file": "full_test.mp3",
+              "start": 1451.29,
+              "section": "S4"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| stayed open into the ___ | _began to stay open into the evening_ | direct phrase match; beware \"night life\" distractor |",
+            "translation_vi": "\"Rạp hát, nhà hàng và cửa hàng bắt đầu mở cửa đến **buổi tối**. Chính ý niệm về \"cuộc sống về đêm\" về cơ bản là sản phẩm của chiếu sáng công cộng.\"",
+            "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym"
+          },
+          "35": {
+            "trap": "Bẫy địa lý: Cleveland (không phải New York/London) là polarity_flip cho thành phố, không liên quan câu này. Đánh vào **K2**.",
+            "vocab": "- **arc lamp** /ɑːk læmp/ — early electric lamp with bright light from an electric arc; đèn hồ quang\n- **carbon rods** /ˈkɑː.bən rɒdz/ — sticks of carbon used to conduct electricity in arc lamps; thanh than (cacbon)\n- **thoroughfare** /ˈθʌr.ə.feə/ — major road; đường lớn / đường chính",
+            "answer": "arc",
+            "script": "```\n[F-BrE-40s-professional]\nThen came electricity. The first city to install electric street lighting was Cleveland, Ohio, in 1879 — not New York or London, as you might expect. The technology used was the [stress:arc lamp]  (Q35), which produced an intensely bright light by passing electricity through two carbon rods. Arc lamps were too bright for residential streets — but ideal for industrial areas and main thoroughfares.\n```",
+            "skills": "K2, K1",
+            "relisten": "Section 4, turn ~7 — speaker `[F-BrE-40s-professional]`\n\n---",
+            "paraphrase": "the ___ lamp → \"the technology used was the arc lamp\" (arc)",
+            "vocab_focus": "- **arc lamp** /ɑːk læmp/ (n) — đèn hồ quang\n- **carbon rods** /ˈkɑː.bən rɒdz/ (n) — thanh than (cacbon)\n- **thoroughfare** /ˈθʌr.ə.feə/ (n) — đường lớn",
+            "why_correct": "_(From answer key notes):_ Technical noun, unglossed\n\nThe sentence frame is \"the ___ lamp\" → answer: **arc**. The lecturer says directly \"The technology used was the **arc lamp**.\" An *arc lamp* produces light by an electric arc between two carbon rods — very bright but not suitable for residential streets. The geographical distractors (Cleveland vs New York/London) are `polarity_flip` items for the city — not relevant to this question, but worth noticing.\n\nKhung câu \"the ___ lamp\" → đáp án: **arc**. Giảng viên nói trực tiếp \"The technology used was the **arc lamp**\" (đèn hồ quang). Đèn hồ quang phát sáng bằng cách phóng điện qua 2 thanh carbon — rất sáng nhưng không phù hợp khu dân cư. Distractor về địa lý (Cleveland chứ không phải New York/London) là `polarity_flip` cho thành phố — không liên quan câu này.",
+            "audio_window": {
+              "end": 1497.84,
+              "file": "full_test.mp3",
+              "start": 1469.52,
+              "section": "S4"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| ___ lamp | _The technology used was the arc lamp_ | direct lexical match before \"lamp\" |",
+            "translation_vi": "\"Công nghệ được dùng là **đèn hồ quang (arc lamp)**, tạo ánh sáng cực mạnh bằng cách cho điện đi qua hai thanh carbon.\"",
+            "trap_mechanisms": "- `paraphrase_t0` — Lặp gần nguyên văn — chỉ thay 1 từ"
+          },
+          "36": {
+            "trap": "**Definition vs example**: sao/chim/phòng ngủ là biểu hiện, không phải đáp án. Đánh vào **K2/K5**.",
+            "vocab": "- **light pollution** /laɪt pəˈluː.ʃən/ — excessive artificial light in the night sky; ô nhiễm ánh sáng\n- **migratory birds** /maɪˈɡreɪ.tər.i bɜːdz/ — birds that travel seasonally; chim di cư\n- **disoriented** /dɪsˈɔː.ri.en.tɪd/ — confused about direction; mất phương hướng\n- **astronomers** /əˈstrɒn.ə.məz/ — scientists who study stars and space; nhà thiên văn",
+            "answer": "light pollution",
+            "script": "```\n[F-BrE-40s-professional]\n[emotion:professional] But — and this is important — electric lighting brought new problems. [sigh] [stress:Light pollution]  (Q36) became visible as a concept by the early twentieth century. Astronomers began complaining about being unable to see stars in cities. Wildlife — particularly migratory birds — were disoriented by city lights. And residents complained about light spilling into their bedrooms.\n```",
+            "skills": "K2, K5",
+            "relisten": "Section 4, turn ~9 — speaker `[F-BrE-40s-professional]`\n\n---",
+            "paraphrase": "concerns about ___ → \"Light pollution became visible as a concept\" (light pollution)",
+            "vocab_focus": "- **light pollution** /laɪt pəˈluː.ʃən/ (n) — ô nhiễm ánh sáng\n- **migratory birds** /maɪˈɡreɪ.tər.i bɜːdz/ (n) — chim di cư\n- **disoriented** /dɪsˈɔː.ri.en.tɪd/ (adj) — mất phương hướng",
+            "why_correct": "_(From answer key notes):_ 2-word compound\n\nThe lecturer states: \"**Light pollution** became visible as a concept by the early twentieth century.\" Sentence frame \"concerns about ___\" → **light pollution** (2-word compound). The three examples that follow — astronomers unable to see stars, disoriented migratory birds, residents complaining about light in bedrooms — are *manifestations* of light pollution, not the answer term. Bẫy `definition_vs_example`.\n\nGiảng viên nói: \"**Light pollution** became visible as a concept by the early twentieth century\" (ô nhiễm ánh sáng trở thành khái niệm nhận biết được vào đầu thế kỷ 20). Khung \"concerns about ___\" → **light pollution** (cụm 2 từ). Ba ví dụ sau — astronomers, migratory birds, residents — là *biểu hiện* của light pollution, không phải đáp án. Bẫy `definition_vs_example`.",
+            "audio_window": {
+              "end": 1538.76,
+              "file": "full_test.mp3",
+              "start": 1513.74,
+              "section": "S4"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| concerns about ___ | _Light pollution became visible as a concept by the early twentieth century_ | direct match; 3 examples = manifestations, not answer |",
+            "translation_vi": "\"Nhưng — và điều này quan trọng — chiếu sáng điện mang lại vấn đề mới. **Ô nhiễm ánh sáng** trở thành một khái niệm nhận biết được vào đầu thế kỷ 20. Các nhà thiên văn bắt đầu phàn nàn không thấy sao…\"",
+            "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym\n- `definition_vs_example` — Định nghĩa vs ví dụ — term được give 3 examples"
+          }
+        },
+        "instruction": "Complete the notes below. Write NO MORE THAN TWO WORDS for each answer.",
+        "audio_windows": {
+          "31": {
+            "end": 1381.08,
+            "start": 1357.61,
+            "section": "S4"
+          },
+          "32": {
+            "end": 1398.67,
+            "start": 1379.52,
+            "section": "S4"
+          },
+          "33": {
+            "end": 1452.88,
+            "start": 1421.67,
+            "section": "S4"
+          },
+          "34": {
+            "end": 1471.07,
+            "start": 1451.29,
+            "section": "S4"
+          },
+          "35": {
+            "end": 1497.84,
+            "start": 1469.52,
+            "section": "S4"
+          },
+          "36": {
+            "end": 1538.76,
+            "start": 1513.74,
+            "section": "S4"
+          }
+        },
+        "template_kind": "notes_completion",
+        "transcript_anchors": {
+          "31": 1,
+          "32": 2,
+          "33": 4,
+          "34": 5,
+          "35": 6,
+          "36": 8
+        }
+      }
+    },
+    {
+      "id": "6662cd3e-f641-5f00-aaaf-867cc0b44563",
+      "payload": {
+        "answers": [
+          {
+            "q_num": 35,
+            "answer": "arc",
+            "alternatives": []
+          },
+          {
+            "q_num": 36,
+            "answer": "light pollution",
+            "alternatives": []
+          },
+          {
+            "q_num": 37,
+            "answer": "distorted",
+            "alternatives": []
+          }
+        ],
+        "variant": "dictation_gap_fill",
+        "template": {
+          "sentences": [
+            {
+              "q_num": 35,
+              "prefix": "The electric street lighting technology demonstrated in Cleveland in 1879 used the",
+              "suffix": "lamp."
+            },
+            {
+              "q_num": 36,
+              "prefix": "By the early twentieth century, electric lighting created concerns about",
+              "suffix": ""
+            },
+            {
+              "q_num": 37,
+              "prefix": "Sodium lamps had a narrow spectrum, which made colours look",
+              "suffix": "at night."
+            }
+          ]
+        },
+        "questions": [
+          {
+            "q_num": 35,
+            "prompt": "The electric street lighting technology demonstrated in Cleveland in 1879 used the ___ lamp.",
+            "variant": "sentence_inline"
+          },
+          {
+            "q_num": 36,
+            "prompt": "By the early twentieth century, electric lighting created concerns about ___",
+            "variant": "sentence_inline"
+          },
+          {
+            "q_num": 37,
+            "prompt": "Sodium lamps had a narrow spectrum, which made colours look ___ at night.",
+            "variant": "sentence_inline"
+          }
+        ],
+        "solutions": {
+          "35": {
+            "trap": "Lamp đã in sẵn nên chỉ điền arc. Câu hỏi mới và lời giải không yêu cầu suy đoán thứ tự thành phố trên thế giới.",
+            "answer": "arc",
+            "script": "The technology used was the arc lamp, which produced an intensely bright light by passing electricity through two carbon rods.",
+            "why_correct": "Chỗ trống đứng trước lamp; thuật ngữ được nói là arc lamp nên điền arc. Mốc Cleveland 1879 được giới hạn thành một cuộc trình diễn tại thành phố này; không dùng khẳng định đây là thành phố đầu tiên trên thế giới.",
+            "audio_window": {
+              "end": 1497.84,
+              "file": "full_test.mp3",
+              "start": 1469.52,
+              "section": "S4"
+            },
+            "translation_vi": "Công nghệ được dùng là đèn hồ quang, tạo ánh sáng rất mạnh bằng cách cho điện đi qua hai thanh carbon.",
+            "history_sources": [
+              "https://case.edu/ech/articles/s/street-lighting",
+              "https://americanhistory.si.edu/lighting/scripts/s19a.htm",
+              "https://en.bie-paris.org/site/en/latest/blog/entry/a-to-z-of-innovation-at-expos-yablochkov-candle"
+            ],
+            "audio_regeneration_required": true
+          },
+          "36": {
+            "trap": "**Definition vs example**: sao/chim/phòng ngủ là biểu hiện, không phải đáp án. Đánh vào **K2/K5**.",
+            "vocab": "- **light pollution** /laɪt pəˈluː.ʃən/ — excessive artificial light in the night sky; ô nhiễm ánh sáng\n- **migratory birds** /maɪˈɡreɪ.tər.i bɜːdz/ — birds that travel seasonally; chim di cư\n- **disoriented** /dɪsˈɔː.ri.en.tɪd/ — confused about direction; mất phương hướng\n- **astronomers** /əˈstrɒn.ə.məz/ — scientists who study stars and space; nhà thiên văn",
+            "answer": "light pollution",
+            "script": "```\n[F-BrE-40s-professional]\n[emotion:professional] But — and this is important — electric lighting brought new problems. [sigh] [stress:Light pollution]  (Q36) became visible as a concept by the early twentieth century. Astronomers began complaining about being unable to see stars in cities. Wildlife — particularly migratory birds — were disoriented by city lights. And residents complained about light spilling into their bedrooms.\n```",
+            "skills": "K2, K5",
+            "relisten": "Section 4, turn ~9 — speaker `[F-BrE-40s-professional]`\n\n---",
+            "paraphrase": "concerns about ___ → \"Light pollution became visible as a concept\" (light pollution)",
+            "vocab_focus": "- **light pollution** /laɪt pəˈluː.ʃən/ (n) — ô nhiễm ánh sáng\n- **migratory birds** /maɪˈɡreɪ.tər.i bɜːdz/ (n) — chim di cư\n- **disoriented** /dɪsˈɔː.ri.en.tɪd/ (adj) — mất phương hướng",
+            "why_correct": "_(From answer key notes):_ 2-word compound\n\nThe lecturer states: \"**Light pollution** became visible as a concept by the early twentieth century.\" Sentence frame \"concerns about ___\" → **light pollution** (2-word compound). The three examples that follow — astronomers unable to see stars, disoriented migratory birds, residents complaining about light in bedrooms — are *manifestations* of light pollution, not the answer term. Bẫy `definition_vs_example`.\n\nGiảng viên nói: \"**Light pollution** became visible as a concept by the early twentieth century\" (ô nhiễm ánh sáng trở thành khái niệm nhận biết được vào đầu thế kỷ 20). Khung \"concerns about ___\" → **light pollution** (cụm 2 từ). Ba ví dụ sau — astronomers, migratory birds, residents — là *biểu hiện* của light pollution, không phải đáp án. Bẫy `definition_vs_example`.",
+            "audio_window": {
+              "end": 1538.76,
+              "file": "full_test.mp3",
+              "start": 1513.74,
+              "section": "S4"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| concerns about ___ | _Light pollution became visible as a concept by the early twentieth century_ | direct match; 3 examples = manifestations, not answer |",
+            "translation_vi": "\"Nhưng — và điều này quan trọng — chiếu sáng điện mang lại vấn đề mới. **Ô nhiễm ánh sáng** trở thành một khái niệm nhận biết được vào đầu thế kỷ 20. Các nhà thiên văn bắt đầu phàn nàn không thấy sao…\"",
+            "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym\n- `definition_vs_example` — Định nghĩa vs ví dụ — term được give 3 examples"
+          },
+          "37": {
+            "trap": "Bẫy chính tả: D-I-S-T-O-R-T-E-D; \"-ed\" = /ɪd/. Đánh vào **K1**.",
+            "vocab": "- **distorted** /dɪˈstɔː.tɪd/ — twisted out of true shape or colour; bị méo / biến dạng (về màu sắc)\n- **sodium lamp** /ˈsəʊ.di.əm læmp/ — orange-yellow street lamp using sodium vapour; đèn natri (đường phố)\n- **spectrum** /ˈspek.trəm/ — full range of light wavelengths; quang phổ\n- **cost-effectiveness** /kɒst ɪˈfek.tɪv.nəs/ — being good value for money; hiệu quả về chi phí",
+            "answer": "distorted",
+            "script": "```\n[F-BrE-40s-professional]\nThroughout the twentieth century, the dominant streetlight became the [stress:sodium]  lamp. You'll recognise these as the orange-yellow lights of suburban streets. Sodium lamps were efficient and long-lasting — however, their narrow spectrum made colours look [stress:distorted]  (Q37) at night. They were still preferred by councils for their cost-effectiveness.\n```",
+            "skills": "K2, K1",
+            "relisten": "Section 4, turn ~10 — speaker `[F-BrE-40s-professional]`\n\n---\n## Questions 38-40 — SUMMARY block",
+            "paraphrase": "made colours look ___ → \"made colours look distorted\" (distorted)",
+            "vocab_focus": "- **distorted** /dɪˈstɔː.tɪd/ (adj) — bị méo / biến dạng (màu)\n- **sodium lamp** /ˈsəʊ.di.əm læmp/ (n) — đèn natri\n- **spectrum** /ˈspek.trəm/ (n) — quang phổ",
+            "why_correct": "_(From answer key notes):_ Past participle as adjective\n\nSentence frame \"made colours look ___\" → **distorted** (past participle used as adjective: \"made/look + distorted\"). The lecturer says \"their narrow spectrum made colours look **distorted** at night.\" *Sodium lamps* (the orange-yellow streetlights) emit a narrow yellow band, so other colours appear washed-out or incorrectly hued. Spell *distorted* (D-I-S-T-O-R-T-E-D) — common spelling error in dictation.\n\nKhung câu \"made colours look ___\" → **distorted** (quá khứ phân từ dùng như tính từ). Giảng viên nói \"narrow spectrum made colours look **distorted**\" (làm màu trông bị méo / biến dạng). *Sodium lamps* (đèn natri vàng cam) phát quang phổ hẹp chỉ vùng vàng, các màu khác trông nhạt nhòa hoặc lệch màu. Chính tả: D-I-S-T-O-R-T-E-D — dễ sai khi viết chính tả.",
+            "audio_window": {
+              "end": 1558.02,
+              "file": "full_test.mp3",
+              "start": 1537.19,
+              "section": "S4"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| made colours look ___ | _their narrow spectrum made colours look distorted_ | \"look + adjective\" frame; past participle |",
+            "translation_vi": "\"Đèn natri hiệu quả và bền — tuy nhiên, quang phổ hẹp khiến màu sắc trông **bị méo** vào ban đêm.\"",
+            "trap_mechanisms": "- `paraphrase_t1` — Paraphrase tier 1 — đổi 1 cụm với synonym"
+          }
+        },
+        "instruction": "Complete the sentences below. Write NO MORE THAN TWO WORDS for each answer.",
+        "audio_windows": {
+          "35": {
+            "end": 1497.84,
+            "start": 1469.52,
+            "section": "S4"
+          },
+          "36": {
+            "end": 1538.76,
+            "start": 1513.74,
+            "section": "S4"
+          },
+          "37": {
+            "end": 1558.02,
+            "start": 1537.19,
+            "section": "S4"
+          }
+        },
+        "template_kind": "sentence_completion",
+        "transcript_anchors": {
+          "35": 6,
+          "36": 8,
+          "37": 9
+        }
+      }
+    }
+  ]
+}

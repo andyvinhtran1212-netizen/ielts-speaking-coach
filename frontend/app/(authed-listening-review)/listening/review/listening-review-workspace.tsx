@@ -20,6 +20,7 @@ import {
   listeningReviewParams,
   listeningReviewSection,
   listeningSkillsToPractise,
+  listeningTranscriptDisplayText,
   listeningTranscriptParagraphs,
   normalizeListeningReview,
 } from '@/lib/listening-review-model.mjs';
@@ -125,7 +126,7 @@ function ScriptBlock({ value }: { value: unknown }) {
   const rows = source.split(/\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
     const only = /^\[([^\]]+)\]$/.exec(line);
     if (only && speakers[only[1]]) return { speaker: speakers[only[1]], parts: [] as ReactNode[] };
-    const stripped = line.replace(/\[(?!stress:)[^\]]*\]/g, '').replace(/\s{2,}/g, ' ').trim();
+    const stripped = listeningTranscriptDisplayText(line, true).trim();
     const parts = stripped.split(/(\[stress:[^\]]+\]|\(Q\d+\))/g).filter(Boolean).map((part, index) => {
       const stress = /^\[stress:([^\]]+)\]$/.exec(part);
       if (stress) return <strong className="lr-stress" key={`${index}-${part}`}>{stress[1].trim()}</strong>;
@@ -235,6 +236,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
     </div>
     {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button><button type="button" className="lr-card__ts" onClick={onListenContinuously}>Nghe tiếp từ {clock(win.start)}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
+      {item.solution_group ? <p className="lr-sol__group">Lời giải chung cho câu {item.solution_group.question_numbers.join(', ')}.</p> : null}
       {webExplanation && expanded
         ? <WebExplanationPanel
             object={webExplanation}

@@ -1,0 +1,372 @@
+{
+  "m01_after_groups": [
+    {
+      "id": "c2278997-dd52-52ce-9450-6c1fb80f5235",
+      "content_id": "c09c3779-e5ac-5448-81bf-1978ed1f42f5",
+      "exercise_type": "dictation",
+      "payload": {
+        "answers": [
+          {
+            "q_num": 21,
+            "answer": "C, E",
+            "alternatives": []
+          },
+          {
+            "q_num": 22,
+            "answer": "C, E",
+            "alternatives": []
+          }
+        ],
+        "variant": "mcq_multi",
+        "metadata": {
+          "choose": 2,
+          "match_options": [
+            {
+              "letter": "A",
+              "text": "social media"
+            },
+            {
+              "letter": "B",
+              "text": "smaller nuclear families"
+            },
+            {
+              "letter": "C",
+              "text": "urban design"
+            },
+            {
+              "letter": "D",
+              "text": "longer lifespans"
+            },
+            {
+              "letter": "E",
+              "text": "a mobile workforce"
+            }
+          ],
+          "letter_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+          ]
+        },
+        "questions": [
+          {
+            "q_num": 21,
+            "prompt": "Which TWO things do the students both believe are responsible for the increase in loneliness?",
+            "variant": "sentence_inline"
+          },
+          {
+            "q_num": 22,
+            "prompt": "Which TWO things do the students both believe are responsible for the increase in loneliness?",
+            "variant": "sentence_inline"
+          }
+        ],
+        "solutions": {
+          "21": {
+            "trap": "A (social media) — cả hai nói \"does more good than harm\" → loại. D (longer lifespans) — \"nothing really to do with longer lifespans\" → loại. B (smaller families) — Tamara nêu nhưng Dev bác: \"that all changed decades ago… loneliness is a more recent problem\" → không đồng thuận.",
+            "answer": "C, E",
+            "script": "```\nSpeaker 1 (Tamara): I'd say loneliness has a lot to do with the way cities are designed.\nPeople living in high-rise flats with not much opportunity to speak to their neighbour. (C)\nSpeaker 2 (Dev): I think you're right.\nSpeaker 1 (Tamara): Another possible reason is that people are having fewer children and\ndon't live in large extended family groups.\nSpeaker 2 (Dev): But in this country anyway, that all changed decades ago. And yet\nloneliness is a more recent problem.\nSpeaker 1 (Tamara): I suppose so. A more plausible explanation is that people are having\nto move around for work and often end up living miles away from their family and friends. (E)\nSpeaker 2 (Dev): Yeah, it's true.\n```",
+            "skills": "K3, K7.\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — urban design (C) → \"the way cities are designed\"; a mobile workforce (E) → \"people are having to move around for work\". Phương án bị loại luôn được nói **trước** — treo bút tới hết lượt. Lượt mở ra bằng *“Speaker 1 (Tamara): I'd say loneliness has a lot…”* — thứ nghe được đầu tiên ở đây chưa phải thứ được chốt. Nó bật ra **ngay đầu lượt** — còn đang xử lý câu trước là trôi mất.",
+            "relisten": "Part 3, đoạn đầu bàn nguyên nhân cô đơn gia tăng.\n\n---",
+            "paraphrase": "urban design (C) → \"the way cities are designed\"; a mobile workforce (E) → \"people are having to move around for work\"",
+            "vocab_focus": "- **high-rise flats** /ˌhaɪ.raɪz flæts/ (n) — chung cư cao tầng\n- **move around for work** /muːv əˈraʊnd fə wɜːk/ (phr) — di chuyển vì công việc\n- **plausible** /ˈplɔː.zə.bəl/ (adj) — hợp lý, có lý",
+            "why_correct": "Both agree on **C** (urban design → \"the way cities are designed\", \"I think you're right\") and **E** (mobile workforce → \"move around for work\", \"it's true\"). A, B, D are each raised then rejected or downgraded.\n\nCả hai đồng ý **C** (thiết kế đô thị → \"cách các thành phố được thiết kế\", \"I think you're right\") và **E** (lực lượng lao động di động → \"move around for work\", \"it's true\"). A, B, D lần lượt bị bác hoặc hạ giá trị.",
+            "audio_window": {
+              "end": 1118.15,
+              "file": "full_test.mp3",
+              "start": 1108.85,
+              "section": "S3"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| urban design | _the way cities are designed… high-rise flats_ | \"I think you're right\" |\n| a mobile workforce | _having to move around for work… miles away_ | \"it's true\" |",
+            "translation_vi": "Tamara: \"Tôi cho rằng cô đơn liên quan nhiều đến cách các thành phố được thiết kế — người ta sống trong các chung cư cao tầng, ít cơ hội trò chuyện với hàng xóm.\" — Dev: \"Tôi nghĩ bạn đúng.\" … Tamara: \"Một cách lý giải hợp lý hơn là người ta phải di chuyển vì công việc và thường sống cách xa gia đình, bạn bè.\" — Dev: \"Ừ, đúng vậy.\"",
+            "trap_mechanisms": "- `distractor_drop` — cả 5 nguyên nhân được nhắc, chỉ 2 được đồng thuận\n- `polarity_flip` — A, D bị đảo cực; B bị hạ giá trị"
+          },
+          "22": {
+            "audio_window": {
+              "end": 1387.81,
+              "file": "full_test.mp3",
+              "start": 1379.21,
+              "section": "S3"
+            }
+          }
+        },
+        "instruction": "Choose TWO letters, A-E. Which TWO things do the students both believe are responsible for the increase in loneliness?",
+        "audio_windows": {
+          "21": {
+            "end": 1118.15,
+            "start": 1108.85,
+            "section": "S3"
+          },
+          "22": {
+            "end": 1387.81,
+            "start": 1379.21,
+            "section": "S3"
+          }
+        },
+        "template_kind": "mcq_multi",
+        "transcript_anchors": {}
+      },
+      "order_num": 1,
+      "cefr_level": null,
+      "status": "draft"
+    },
+    {
+      "id": "8c821e30-ecc5-5bc2-a4db-f61aa9537f33",
+      "content_id": "c09c3779-e5ac-5448-81bf-1978ed1f42f5",
+      "exercise_type": "dictation",
+      "payload": {
+        "answers": [
+          {
+            "q_num": 23,
+            "answer": "A, C",
+            "alternatives": []
+          },
+          {
+            "q_num": 24,
+            "answer": "A, C",
+            "alternatives": []
+          }
+        ],
+        "variant": "mcq_multi",
+        "metadata": {
+          "choose": 2,
+          "match_options": [
+            {
+              "letter": "A",
+              "text": "a weakened immune system"
+            },
+            {
+              "letter": "B",
+              "text": "dementia"
+            },
+            {
+              "letter": "C",
+              "text": "cancer"
+            },
+            {
+              "letter": "D",
+              "text": "obesity"
+            },
+            {
+              "letter": "E",
+              "text": "cardiovascular disease"
+            }
+          ],
+          "letter_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+          ]
+        },
+        "questions": [
+          {
+            "q_num": 23,
+            "prompt": "Which TWO health risks associated with loneliness do the students agree are based on solid evidence?",
+            "variant": "sentence_inline"
+          },
+          {
+            "q_num": 24,
+            "prompt": "Which TWO health risks associated with loneliness do the students agree are based on solid evidence?",
+            "variant": "sentence_inline"
+          }
+        ],
+        "solutions": {
+          "23": {
+            "trap": "D (obesity) — \"not sure there's enough evidence\" → loại. B (dementia) — \"some found no association… not exactly reliable\" → loại. E (cardiovascular) — \"hard to reach a judgment… too subjective\" → loại. Chỉ **cancer** (được ủng hộ) và **immune system** (dữ liệu vững) là đồng thuận.",
+            "answer": "A, C",
+            "script": "```\nSpeaker 1 (Tamara): what about that one in Finland which showed that loneliness increased\nthe risk of cancer by about 10%. And those findings have been supported by other studies,\ntoo. (C)\nSpeaker 2 (Dev): You're right about that one. I was actually thinking of the studies on\ndementia. Some found no association… and others found the opposite.\nSpeaker 1 (Tamara): Not exactly reliable…\nSpeaker 2 (Dev): …but there's no doubt that loneliness contributes to a weakened immune\nsystem. (A)\nSpeaker 1 (Tamara): unquestionably the data on that is sound.\n```",
+            "skills": "K7, K5.\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nChỗ đề và audio không trùng mặt chữ — based on solid evidence → \"supported by other studies too\"; \"the data on that is sound\"; \"there's no doubt\". Nhiều thứ cùng khớp mặt chữ; chỉ khác nhau ở chỗ cái nào bị bác. Lượt mở ra bằng *“Speaker 1 (Tamara): what about that one in Finland…”* — thứ nghe được đầu tiên ở đây chưa phải thứ được chốt. Nó bật ra **ngay đầu lượt** — còn đang xử lý câu trước là trôi mất.",
+            "relisten": "Part 3, đoạn \"studies on health risks and loneliness\".\n\n---",
+            "paraphrase": "based on solid evidence → \"supported by other studies too\"; \"the data on that is sound\"; \"there's no doubt\"",
+            "vocab_focus": "- **weakened immune system** /ˈwiː.kənd ɪˈmjuːn ˈsɪs.təm/ (n) — hệ miễn dịch suy yếu\n- **solid / sound evidence** /ˈsɒl.ɪd ˈev.ɪ.dəns/ (phr) — bằng chứng vững chắc\n- **cardiovascular disease** /ˌkɑː.di.əʊˈvæs.kjə.lə dɪˈziːz/ (n) — bệnh tim mạch",
+            "audio_window": {
+              "end": 1450.15,
+              "file": "full_test.mp3",
+              "start": 1440.37,
+              "section": "S3"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| solid evidence (cancer) | _supported by other studies, too_ | \"You're right about that one\" |\n| solid evidence (immune) | _no doubt… the data on that is sound_ | \"unquestionably… sound\" |",
+            "translation_vi": "Tamara: \"Còn nghiên cứu ở Phần Lan cho thấy cô đơn làm tăng nguy cơ **ung thư** khoảng 10%. Và các phát hiện đó được nhiều nghiên cứu khác ủng hộ.\" — Dev: \"Bạn nói đúng về cái đó.\" … Dev: \"…nhưng không nghi ngờ gì việc cô đơn góp phần làm **suy giảm hệ miễn dịch**.\" — Tamara: \"Chắc chắn rồi, dữ liệu về cái đó là vững chắc.\"",
+            "trap_mechanisms": "- `distractor_drop` — 5 rủi ro nêu ra, chỉ 2 có bằng chứng vững\n- `polarity_flip` — B, D, E bị hạ độ tin cậy"
+          },
+          "24": {
+            "audio_window": {
+              "end": 1458.15,
+              "file": "full_test.mp3",
+              "start": 1450.15,
+              "section": "S3"
+            }
+          }
+        },
+        "instruction": "Choose TWO letters, A-E. Which TWO health risks associated with loneliness do the students agree are based on solid evidence?",
+        "audio_windows": {
+          "23": {
+            "end": 1450.15,
+            "start": 1440.37,
+            "section": "S3"
+          },
+          "24": {
+            "end": 1458.15,
+            "start": 1450.15,
+            "section": "S3"
+          }
+        },
+        "template_kind": "mcq_multi",
+        "transcript_anchors": {}
+      },
+      "order_num": 2,
+      "cefr_level": null,
+      "status": "draft"
+    },
+    {
+      "id": "cd95a307-c7d0-5663-bf49-518b52f349d7",
+      "content_id": "c09c3779-e5ac-5448-81bf-1978ed1f42f5",
+      "exercise_type": "dictation",
+      "payload": {
+        "answers": [
+          {
+            "q_num": 25,
+            "answer": "A, B",
+            "alternatives": []
+          },
+          {
+            "q_num": 26,
+            "answer": "A, B",
+            "alternatives": []
+          }
+        ],
+        "variant": "mcq_multi",
+        "metadata": {
+          "choose": 2,
+          "match_options": [
+            {
+              "letter": "A",
+              "text": "It has little practical relevance."
+            },
+            {
+              "letter": "B",
+              "text": "It needs further investigation."
+            },
+            {
+              "letter": "C",
+              "text": "It is misleading."
+            },
+            {
+              "letter": "D",
+              "text": "It should be more widely accepted."
+            },
+            {
+              "letter": "E",
+              "text": "It is difficult to understand."
+            }
+          ],
+          "letter_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+          ]
+        },
+        "questions": [
+          {
+            "q_num": 25,
+            "prompt": "Which TWO opinions do both the students express about the evolutionary theory of loneliness?",
+            "variant": "sentence_inline"
+          },
+          {
+            "q_num": 26,
+            "prompt": "Which TWO opinions do both the students express about the evolutionary theory of loneliness?",
+            "variant": "sentence_inline"
+          }
+        ],
+        "solutions": {
+          "25": {
+            "trap": "C (\"misleading\") — SAI vì Tamara thấy ý tưởng cốt lõi \"quite convincing\". D (\"more widely accepted\") — ngược, họ nói cần thêm bằng chứng. E (\"difficult to understand\") — không được nói.",
+            "answer": "A, B",
+            "script": "```\nSpeaker 2 (Dev): There are a few studies which support the theory, but not conclusively\nenough. More evidence is needed. (B)\nSpeaker 1 (Tamara): And anyway, this theory is not really useful when it comes to solving\nthe problem of loneliness today. (A)\nSpeaker 2 (Dev): true.\n```",
+            "skills": "K6, K2.\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio viết lại cả cấu trúc một nẻo — needs further investigation (B) → \"More evidence is needed\"; little practical relevance (A) → \"not really useful… solving the problem of loneliness today\". Từ khó không phải vấn đề; **khoảng cách giữa hai cách nói** mới là vấn đề. Chỗ này nằm ở **câu đầu tiên của lượt**, trước khi tai kịp chuyển kênh.",
+            "relisten": "Part 3, đoạn \"the evolutionary theory of loneliness\".\n\n---",
+            "paraphrase": "needs further investigation (B) → \"More evidence is needed\"; little practical relevance (A) → \"not really useful… solving the problem of loneliness today\"",
+            "vocab_focus": "- **evolutionary theory** /ˌiː.vəˈluː.ʃən.ər.i ˈθɪə.ri/ (n) — thuyết tiến hóa\n- **not conclusively enough** /nɒt kənˈkluː.sɪv.li/ (phr) — chưa đủ dứt khoát\n- **practical relevance** /ˈpræk.tɪ.kəl ˈrel.ə.vəns/ (n) — tính thiết thực/ứng dụng",
+            "audio_window": {
+              "end": 1466.15,
+              "file": "full_test.mp3",
+              "start": 1458.15,
+              "section": "S3"
+            },
+            "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| needs further investigation | _not conclusively enough. More evidence is needed_ | \"more evidence is needed\" |\n| little practical relevance | _not really useful… solving loneliness today_ | \"not really useful\" |",
+            "translation_vi": "Tamara: \"Tôi không nghĩ có đủ bằng chứng để khẳng định có một nhóm nơ-ron trong não khiến ta thấy tệ khi ở một mình.\" — Dev: \"Có vài nghiên cứu ủng hộ thuyết này, nhưng chưa đủ thuyết phục. **Cần thêm bằng chứng**.\" — Tamara: \"Và dù sao, thuyết này cũng **không thực sự hữu ích** khi giải quyết vấn đề cô đơn ngày nay.\" — Dev: \"Đúng vậy.\"",
+            "trap_mechanisms": "- `paraphrase_t2` — \"practical relevance\" ↔ \"useful… solving the problem today\"\n- `polarity_flip` — C, D bị đảo so với quan điểm thật"
+          },
+          "26": {
+            "audio_window": {
+              "end": 1474.15,
+              "file": "full_test.mp3",
+              "start": 1466.15,
+              "section": "S3"
+            }
+          }
+        },
+        "instruction": "Choose TWO letters, A-E. Which TWO opinions do both the students express about the evolutionary theory of loneliness?",
+        "audio_windows": {
+          "25": {
+            "end": 1466.15,
+            "start": 1458.15,
+            "section": "S3"
+          },
+          "26": {
+            "end": 1474.15,
+            "start": 1466.15,
+            "section": "S3"
+          }
+        },
+        "template_kind": "mcq_multi",
+        "transcript_anchors": {}
+      },
+      "order_num": 3,
+      "cefr_level": null,
+      "status": "draft"
+    }
+  ],
+  "m08_question_after": {
+    "id": "e3ac5635-b2ec-4793-9001-95e5611c5191",
+    "q_num": 21,
+    "question_type": "summary_completion",
+    "prompt": "(see summary above)",
+    "payload": {
+      "solution": {
+        "band": 6.5,
+        "skill_code": "LEX",
+        "skill_name": "Từ vựng/dạng từ/giới hạn từ",
+        "source_paragraph": "B",
+        "source_excerpt": "Bleaching is the cumulative result of stress, of which elevated sea temperature is by far the most important.",
+        "question_text": "Of the various pressures that can cause bleaching, the most significant by far is elevated {{21}}.",
+        "steps": "(1) Định vị đoạn B nói về các tác nhân gây tẩy trắng san hô. (2) most significant by far ở tóm tắt tương ứng với by far the most important trong nguồn. (3) Cụm danh từ đứng sau elevated là sea temperature. (4) Điền sea temperature vào ô 21; hai từ, đúng giới hạn không quá hai từ. (5) elevated đã có sẵn trong câu, nên không chép lại từ này.",
+        "paraphrase": "the most significant by far ↔ by far the most important; elevated sea temperature được giữ nguyên nghĩa",
+        "trap_analysis": "low salinity, ultraviolet radiation và sediment cũng được liệt kê, nhưng không phải tác nhân quan trọng nhất. Đoạn B nhấn chỉ ocean warming gây tẩy trắng ở quy mô toàn hành tinh. zooxanthellae là tên vi tảo được hỏi ở ô 20, không phải yếu tố gây stress ở ô 21.",
+        "tips": "Chép cụm hai từ sea temperature ngay sau elevated; không thêm elevated vì đề đã cho sẵn.",
+        "vocab": [
+          "elevated (adj.) = tăng cao",
+          "sea temperature (n.) = nhiệt độ nước biển",
+          "stressor (n.) = tác nhân gây stress"
+        ]
+      }
+    },
+    "answer": {
+      "answer": "sea temperature",
+      "alternatives": [
+        "ocean temperature"
+      ]
+    },
+    "explanation": "Đoạn B xác định elevated sea temperature là tác nhân quan trọng nhất gây tẩy trắng. most significant by far ở tóm tắt tương ứng với by far the most important; ô 21 cần sea temperature, gồm hai từ.",
+    "skill_tag": "vocabulary_in_context",
+    "sub_skill": "LEX",
+    "order_num": 8,
+    "passage_id": "e70f74c6-62d3-4838-9b7f-b380701bb244",
+    "passage_order": 2
+  }
+}
