@@ -184,6 +184,8 @@
   {# Counterargument (Task 2 only) #}
   {% if counterargument %}
   <h3 style="color:{{ C_SUBHEAD }};font-size:13pt;margin:16pt 0 8pt;">Counterargument Analysis</h3>
+  {% if counterargument.context.insertionPoint %}<p style="margin:0 0 8pt;"><b>Vị trí bổ sung:</b> {{ counterargument.context.insertionPoint }}</p>{% endif %}
+  {% if counterargument.context.reasoning %}<p style="margin:0 0 8pt;"><b>Lý do:</b> {{ counterargument.context.reasoning }}</p>{% endif %}
   {% if counterargument.summary %}<p style="margin:0 0 8pt;">{{ counterargument.summary }}</p>{% endif %}
   {% if counterargument.points %}
   <ul style="margin:0;padding-left:20pt;">

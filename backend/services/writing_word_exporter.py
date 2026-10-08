@@ -332,6 +332,11 @@ def _build_document(
 
     if counterargument:
         doc.add_heading("Counterargument", level=3)
+        context = counterargument.get("context", {})
+        if context.get("insertionPoint"):
+            _kv_paragraph(doc, "Vị trí bổ sung:", context["insertionPoint"])
+        if context.get("reasoning"):
+            _kv_paragraph(doc, "Lý do:", context["reasoning"])
         if counterargument.get("summary"):
             doc.add_paragraph(counterargument["summary"])
         for pt in counterargument.get("points", []):

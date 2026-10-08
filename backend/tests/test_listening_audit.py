@@ -265,6 +265,35 @@ def test_get_audit_requires_admin(monkeypatch):
     assert ex.value.status_code == 403
 
 
+@pytest.mark.parametrize("marker", ["variant", "exercise_type"])
+@pytest.mark.parametrize("with_saved", [False, True])
+def test_get_programme_form_has_unknown_health_instead_of_standard_defects(monkeypatch, marker, with_saved):
+    async def _ok(_a): return {"id": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    t, c, e = _rows("MCQ")
+    if marker == "variant":
+        e[0]["payload"] = {"variant": "programme_form_v1", "questions": [{"q_num": 1}],
+                           "self_review": {"1": {"reference_answers": ["example"]}}, "audio_windows": {}}
+    else:
+        e[0]["exercise_type"] = "programme_form"
+    stub = _AuditGetStub(t, c, e)
+    saved = {"test_id": "t-uuid", "status": "has_issues", "issues": [],
+             "health": {"error_count": 1, "warning_count": 0, "status": "has_issues"},
+             "audited_at": "2026-08-14T02:00:00Z"}
+    if with_saved:
+        stub._data["listening_audit"] = [saved]
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    monkeypatch.setattr(audit, "run_structural", lambda _h: pytest.fail("standard audit must not run"))
+    with pytest.raises(HTTPException) as err:
+        _run(listening_module.admin_get_test_audit(test_id="t-uuid", authorization="x"))
+    assert err.value.status_code == 409
+    assert err.value.detail["code"] == "unsupported_audit_contract"
+    assert err.value.detail["uuid"] == "t-uuid"
+    assert err.value.detail["test_id"] == t["test_id"]
+    assert "Health chưa được xác minh" in err.value.detail["message"]
+    assert err.value.detail["saved"] == (saved if with_saved else None)
+
+
 # ── per-question in-place edit (PATCH exercises/{id}/questions/{q}) ─────────
 
 class _EditStub:
@@ -322,6 +351,19 @@ def test_edit_answer_and_solution(monkeypatch):
     assert stub.updated_payload["solutions"]["1"]["why_correct"] == "vì trong script nói Z"
     assert stub.updated_payload["solutions"]["1"]["answer"] == "Z"
     assert out["updated_at"] == stub.last_update["updated_at"]
+
+
+def test_standard_question_editor_cannot_rewrite_programme_response_contract(monkeypatch):
+    ex, c, t = _edit_ctx()
+    ex["payload"] = {"variant": "programme_form_v1", "questions": [{"q_num": 1}],
+                     "self_review": {"1": {"reference_answers": ["example"]}}, "audio_windows": {}}
+    original = copy.deepcopy(ex["payload"])
+    stub = _EditStub(ex, c, t)
+    with pytest.raises(HTTPException) as err:
+        _patch(monkeypatch, ex["id"], 1, {"prompt": "rewrite", "answer": "A"}, stub)
+    assert err.value.status_code == 409
+    assert stub.last_update is None
+    assert ex["payload"] == original
 
 
 def test_edit_rejects_stale_version_token(monkeypatch):
@@ -448,6 +490,22 @@ class _FakeProvider:
     async def invoke(self, system, user, **kw):
         if self._exc: raise self._exc
         return self._raw
+
+
+def test_programme_full_audit_never_calls_provider_or_rewrites_saved_audit(monkeypatch):
+    async def _ok(_a): return {"id": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    t, c, e = _rows("MCQ")
+    e[0]["exercise_type"] = "programme_form"
+    saved = {"test_id": "t-uuid", "status": "passed", "issues": [], "health": {"status": "passed"}}
+    stub = _AuditRunStub(t, c, e, existing_audit=copy.deepcopy(saved))
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    monkeypatch.setattr(listening_module, "_audit_provider", lambda: pytest.fail("paid provider must not be built"))
+    with pytest.raises(HTTPException) as err:
+        _run(listening_module.admin_run_test_audit(test_id="t-uuid", authorization="x"))
+    assert err.value.status_code == 409
+    assert stub.inserted is None and stub.updated is None
+    assert stub._data["listening_audit"] == [saved]
 
 
 def test_audit_run_persists_with_llm(monkeypatch):

@@ -2,6 +2,8 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  bankCanManage,
+  bankStateLabel,
   normalizeBankList,
   normalizeDeleteAck,
   normalizeImportResult,
@@ -40,5 +42,36 @@ describe('Admin Vocabulary Topics + Quiz strict models', () => {
   test('delete ACK must match both id and deleted=true', () => {
     assert.equal(normalizeDeleteAck({ id: bankId, deleted: true }, bankId), true);
     assert.equal(normalizeDeleteAck({ id: topicId, deleted: true }, bankId), false);
+  });
+
+  test('distinguishes current, paused and preserved banks using canonical fields rather than codes or published', () => {
+    const grammar = { ...bank, skill_area: 'grammar', grammar_canonical_code: 'G-tenses-present-simple',
+      grammar_revision: 'a'.repeat(64), grammar_is_current: true, grammar_new_starts_enabled: true };
+    const current = normalizeBankList([grammar], 'grammar')[0];
+    assert.equal(bankStateLabel(current), 'Bản hiện hành · Cho phép lượt mới');
+    assert.equal(bankCanManage(current), false);
+    const paused = normalizeBankList([{ ...grammar, grammar_new_starts_enabled: false }], 'grammar')[0];
+    assert.equal(bankStateLabel(paused), 'Bản hiện hành · Tạm ngừng lượt mới');
+    const legacy = normalizeBankList([{ ...grammar, grammar_is_current: false }], 'grammar')[0];
+    assert.equal(bankStateLabel(legacy), 'Bản gốc · Giữ lịch sử');
+    assert.equal(bankCanManage(legacy), false);
+    const unmanaged = normalizeBankList([{ ...grammar, code: 'G-looking-managed~abcdef',
+      grammar_canonical_code: null, grammar_revision: null, grammar_is_current: false }], 'grammar')[0];
+    assert.equal(bankStateLabel(unmanaged), 'published');
+    assert.equal(bankCanManage(unmanaged), true);
+  });
+
+  test('missing or malformed Grammar revision metadata remains unknown and blocks generic mutation', () => {
+    const grammar = { ...bank, skill_area: 'grammar', grammar_canonical_code: 'G-tenses-present-simple',
+      grammar_revision: 'a'.repeat(64), grammar_is_current: true, grammar_new_starts_enabled: true };
+    for (const changed of [{ ...bank, skill_area: 'grammar' }, { ...grammar, grammar_revision: null },
+      { ...grammar, grammar_is_current: 1 }, { ...grammar, grammar_new_starts_enabled: 'false' },
+      { ...grammar, grammar_canonical_code: [] }, { ...grammar, grammar_canonical_code: null }]) {
+      const value = normalizeBankList([changed], 'grammar')[0];
+      assert.equal(bankStateLabel(value), 'Chưa xác minh phiên bản');
+      assert.equal(bankCanManage(value), false);
+    }
+    assert.equal(bankCanManage(normalizeBankList([bank], 'vocab')[0]), true);
+    assert.equal(bankCanManage(normalizeBankList([{ ...bank, grammar_is_current: false }], 'vocab')[0]), false);
   });
 });
