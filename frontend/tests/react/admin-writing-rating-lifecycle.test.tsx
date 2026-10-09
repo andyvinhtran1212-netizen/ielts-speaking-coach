@@ -60,3 +60,52 @@ it('keeps one rating panel and its unsaved state through repeated tabs under Str
   expect(document.querySelector('#content-counterargument')?.textContent).toContain('Sau đoạn 2');
   expect(post).not.toHaveBeenCalled();
 });
+
+it('G-U04 resets rating to the second essay identity while preserving unsaved tab state without writes', async () => {
+  const runtime = { window: {} as { WritingRenderers?: unknown } };
+  runInNewContext(readFileSync(resolve(process.cwd(), 'public/js/writing-renderers.js'), 'utf8'), runtime);
+  Object.defineProperty(window, 'WritingRenderers', { configurable: true, value: runtime.window.WritingRenderers });
+  const essays = {
+    'essay-1': { id: 'essay-1', selected_model: 'model-essay-1', grade_rating: { rating: 2, note: 'Persisted first essay' } },
+    'essay-2': { id: 'essay-2', selected_model: 'model-essay-2', grade_rating: { rating: 5, note: 'Persisted second essay' } },
+  };
+  const original = JSON.stringify(essays);
+  const get = vi.fn(async (path: string) => ({
+    ...structuredClone(essays[path.endsWith('essay-2') ? 'essay-2' : 'essay-1']),
+    status: 'graded', task_type: 'task2', grading_tier: 'standard', analysis_level: 3,
+    essay_text: 'Owned synthetic essay fixture.', student: { full_name: 'Fixture student' },
+    feedback: { overall_band_score: 6.5, feedback_json: {} },
+  }));
+  const post = vi.fn(), patch = vi.fn(), remove = vi.fn();
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, post, patch, delete: remove } });
+  const view = render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+  await screen.findByText('model-essay-1');
+  fireEvent.click(screen.getByRole('button', { name: '3 sao' }));
+  fireEvent.change(screen.getByPlaceholderText(/Ghi chú ngắn/), { target: { value: 'Unsaved first essay' } });
+  fireEvent.click(screen.getAllByRole('tab')[1]);
+  expect(screen.getByRole('button', { name: '3 sao' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByPlaceholderText<HTMLTextAreaElement>(/Ghi chú ngắn/).value).toBe('Unsaved first essay');
+
+  params.set('id', 'essay-2');
+  view.rerender(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+  await screen.findByText('model-essay-2');
+  expect(document.querySelectorAll('#grade-rating-panel')).toHaveLength(1);
+  expect(screen.getByRole('button', { name: '5 sao' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByRole('button', { name: '3 sao' }).getAttribute('aria-pressed')).toBe('false');
+  expect(screen.getByPlaceholderText<HTMLTextAreaElement>(/Ghi chú ngắn/).value).toBe('Persisted second essay');
+  fireEvent.click(screen.getByRole('button', { name: '4 sao' }));
+  fireEvent.change(screen.getByPlaceholderText(/Ghi chú ngắn/), { target: { value: 'Unsaved second essay' } });
+  fireEvent.click(screen.getAllByRole('tab')[0]);
+  expect(screen.getByRole('button', { name: '4 sao' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByPlaceholderText<HTMLTextAreaElement>(/Ghi chú ngắn/).value).toBe('Unsaved second essay');
+
+  params.set('id', 'essay-1');
+  view.rerender(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+  await screen.findByText('model-essay-1');
+  expect(screen.getByRole('button', { name: '2 sao' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByPlaceholderText<HTMLTextAreaElement>(/Ghi chú ngắn/).value).toBe('Persisted first essay');
+  expect(get).toHaveBeenCalledWith('/admin/writing/essays/essay-1');
+  expect(get).toHaveBeenCalledWith('/admin/writing/essays/essay-2');
+  expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
+  expect(JSON.stringify(essays)).toBe(original);
+});

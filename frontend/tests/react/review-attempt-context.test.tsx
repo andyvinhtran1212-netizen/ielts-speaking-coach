@@ -25,13 +25,14 @@ it.each(revisedContexts.cases)('renders numbered blanks in the actual authored c
 });
 it('keeps table source content once, marks blanks in nested text, and escapes hostile text', () => {
   const context = { template: {
-    heading: 'Heading {{1}}', summary_text: 'Section | Comment\n--- | ---\nDuplicated serialized table {{1}}', headers: ['Section', 'Comment'],
+    heading: 'Heading {{1}}', summary_text: 'Section | Comment\n--- | ---\nWebsite | allowed businesses to {{1}} information regularly; <img src=x onerror=alert(1)> {{ 2 }}', headers: ['Section', 'Comment'],
     rows: [['Website', ['allowed businesses to {{1}} information regularly', '<img src=x onerror=alert(1)> {{ 2 }}']]],
     groups: [{ heading_segments: ['Group {{3}}'], items: [{ prefix: 'From {{4}}', suffix: 'toward {{5}}' }] }],
     steps: [{ label: 'Stage {{6}}', text: 'Through {{7}}', segments: ['Past {{8}}'] }],
   } };
   const { container } = render(<ReviewQuestionContext value={context} />);
-  expect(container.textContent).not.toContain('Duplicated serialized table');
+  expect(container.querySelector('.review-context-template > p')).toBeNull();
+  expect(screen.getAllByText(/allowed businesses to/)).toHaveLength(1);
   expect(container.textContent).not.toContain('{{');
   for (let qNum = 1; qNum <= 8; qNum++) expect(screen.getAllByLabelText(`Chỗ trống câu ${qNum}`).length).toBeGreaterThan(0);
   expect(screen.getByText(/<img src=x onerror=alert\(1\)>/)).toBeTruthy();
@@ -41,6 +42,42 @@ it('retains an authored description alongside structured table cells', () => {
   render(<ReviewQuestionContext value={{ template: { summary_text: 'Read the table below before completing {{1}}.', headers: ['Place', 'Comment'], rows: [['Library', 'arrival at {{1}}']] } }} />);
   expect(screen.getByText(/Read the table below before completing/)).toBeTruthy();
   expect(screen.getAllByLabelText('Chỗ trống câu 1')).toHaveLength(2);
+});
+it.each([
+  { summary: 'Independent instruction before table.\n\n| Item | Result |\n| --- | --- |\n| A | {{1}} |', before: 'Independent instruction before table.', after: '' },
+  { summary: '| Item | Result |\n| --- | --- |\n| A | {{1}} |\n\nIndependent qualification after table.', before: '', after: 'Independent qualification after table.' },
+  { summary: 'Independent instruction.\n\n| Item | Result |\n| --- | --- |\n| A | {{1}} |\n\nIndependent exception.', before: 'Independent instruction.', after: 'Independent exception.' },
+  { summary: '| Item | Result |\n| --- | --- |\n| A | {{1}} |', before: '', after: '' },
+])('preserves independent prose in source order around a proven duplicate table: $summary', ({ summary, before, after }) => {
+  const context = { template: { headers: ['Item', 'Result'], rows: [['A', '{{1}}']], summary_text: summary } };
+  const original = JSON.stringify(context);
+  const { container } = render(<ReviewQuestionContext value={context} />);
+  const table = screen.getByRole('table');
+  expect(screen.getAllByRole('table')).toHaveLength(1);
+  expect(screen.getAllByLabelText('Chỗ trống câu 1')).toHaveLength(1);
+  if (before) {
+    const prose = screen.getByText(before, { exact: true });
+    expect(prose.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  }
+  if (after) {
+    const prose = screen.getByText(after, { exact: true });
+    expect(table.compareDocumentPosition(prose) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  }
+  expect(container.querySelectorAll('.review-context-template > p')).toHaveLength(Number(Boolean(before)) + Number(Boolean(after)));
+  expect(container.textContent).not.toContain('{{');
+  expect(JSON.stringify(context)).toBe(original);
+});
+it.each([
+  { summary: '| Item | Result |\n| --- | --- |\n| A | {{1}} |', headers: [], rows: [] },
+  { summary: '| Item | Result |\n| A | {{1}} |', headers: ['Item', 'Result'], rows: [['A', '{{1}}']] },
+  { summary: '| Item | Result |\n| --- | --- |\n| Different item | {{1}} |', headers: ['Item', 'Result'], rows: [['A', '{{1}}']] },
+  { summary: '| Item | Result |\n| --- | --- |\n| A | {{1}} |', headers: ['Item', 'Result'], rows: [['A', { text: '{{1}}' }]] },
+])('retains summary content when duplicate equivalence cannot be established: $summary', ({ summary, headers, rows }) => {
+  const { container } = render(<ReviewQuestionContext value={{ template: { summary_text: summary, headers, rows } }} />);
+  const prose = container.querySelector('.review-context-template > p')!;
+  expect(prose).toBeTruthy();
+  expect(prose.textContent).toContain(summary.split('{{1}}')[0]);
+  expect(within(prose as HTMLElement).getByLabelText('Chỗ trống câu 1')).toBeTruthy();
 });
 it('distinguishes saved context, current fallback and unavailable context without asserting old source authenticity', () => {
   const view = render(<ReviewContextNotice value={{ provenance: 'submission_snapshot', possibly_changed: false }} />);
