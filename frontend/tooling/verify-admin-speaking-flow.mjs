@@ -33,7 +33,15 @@ await page.getByRole('heading', { name: 'Speaking workspace', exact: true }).wai
 check('backend-owned admin gate chạy', requests.includes('GET /auth/me'));
 check('learner preview là canonical route', await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/speaking');
 check('ba workspace có full-card anchor', await page.locator('a.sph-card[href]').count() === 3);
-check('hub, Sessions và Topics đều hiển thị đúng native ownership', await page.getByText('NATIVE', { exact: true }).count() === 3 && await page.getByText('LEGACY WORKSPACE', { exact: true }).count() === 0);
+const workspaceLabels = [
+  ['/admin/speaking/sessions', 'KIỂM BÀI'],
+  ['/admin/speaking/topics', 'BIÊN TẬP'],
+  ['/admin/system', 'THEO DÕI'],
+];
+const labelsMatch = await Promise.all(workspaceLabels.map(async ([href, label]) => (
+  await page.locator(`a.sph-card[href="${href}"] .adm-status-pill`).textContent()
+)?.trim() === label));
+check('ba workspace có đúng nhãn tác vụ theo route và không còn nhãn vận hành cũ', labelsMatch.every(Boolean) && await page.getByText(/^(?:NATIVE|LEGACY(?: WORKSPACE)?)$/).count() === 0);
 check('mobile một cột và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.sph-grid')).gridTemplateColumns.split(' ').length === 1 && document.documentElement.scrollWidth <= innerWidth));
 
 await page.setViewportSize({ width: 1440, height: 900 });
