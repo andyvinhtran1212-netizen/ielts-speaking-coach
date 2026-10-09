@@ -286,6 +286,7 @@ async def get_dashboard_data(
     now = datetime.now(timezone.utc)
     t14 = (now - timedelta(days=14)).isoformat()
     t30 = (now - timedelta(days=30)).isoformat()
+    eligible_slugs = list(grammar_service.articles_by_slug)
 
     # ── Fetch all data in parallel (sequential calls — Supabase client is sync) ─
     try:
@@ -294,6 +295,7 @@ async def get_dashboard_data(
             .select("recommended_slug, recommended_title, created_at")
             .eq("user_id", user_id)
             .gte("created_at", t14)
+            .in_("recommended_slug", eligible_slugs)
             .execute()
         )
         recs_30_res = (
@@ -301,6 +303,7 @@ async def get_dashboard_data(
             .select("recommended_slug, recommended_title, created_at")
             .eq("user_id", user_id)
             .gte("created_at", t30)
+            .in_("recommended_slug", eligible_slugs)
             .execute()
         )
         views_res = (
@@ -309,7 +312,7 @@ async def get_dashboard_data(
             .eq("user_id", user_id)
             # Filter before the top-five limit so obsolete/document history
             # cannot hide older views of eligible lessons. Keep history intact.
-            .in_("article_slug", list(grammar_service.articles_by_slug))
+            .in_("article_slug", eligible_slugs)
             .order("last_viewed_at", desc=True)
             .limit(5)
             .execute()
@@ -320,12 +323,14 @@ async def get_dashboard_data(
             supabase_admin.table("article_views")
             .select("article_slug")
             .eq("user_id", user_id)
+            .in_("article_slug", eligible_slugs)
             .execute()
         )
         saved_res = (
             supabase_admin.table("saved_articles")
             .select("article_slug, article_title, saved_at")
             .eq("user_id", user_id)
+            .in_("article_slug", eligible_slugs)
             .order("saved_at", desc=True)
             .execute()
         )
