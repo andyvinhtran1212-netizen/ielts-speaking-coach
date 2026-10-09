@@ -16,7 +16,12 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
-it.each([true, false])('keeps the actual C13 R1 source table, options, translation and solution in review (preview=%s)', async (preview) => {
+it.each([true, false].flatMap(preview => [
+  { preview, before: '', after: '' },
+  { preview, before: 'Independent instruction before table.', after: '' },
+  { preview, before: '', after: 'Independent qualification after table.' },
+  { preview, before: 'Independent instruction.', after: 'Independent exception.' },
+]))('keeps the actual C13 R1 source table and independent prose in review (preview=$preview, before=$before, after=$after)', async ({ preview, before, after }) => {
   const source = contexts.cases.find(item => item.revised_uuid === '6c8922a4-1a9e-47f2-9505-c3f9429a8a5a')!;
   window.history.replaceState(null, '', preview ? `/reading/review?admin_test_id=${source.revised_uuid}` : '/reading/review?attempt_id=numbered-context');
   const fixture = {
@@ -24,7 +29,8 @@ it.each([true, false])('keeps the actual C13 R1 source table, options, translati
     score: preview ? null : 0, max_score: 1, context_source: { provenance: 'submission_snapshot', possibly_changed: false }, skill_breakdown: {},
     passages: [{ passage_order: 1, title: 'New Zealand tourism', body_markdown: 'Original source passage.', translation_vi: 'Bản dịch nguồn vẫn được giữ.' }],
     review: [{ q_num: 1, passage_order: 1, correct: false, question_type: 'table_completion', prompt: '(see summary above)', expected: 'update', user_answer: '',
-      question_context: { ...source.context, options: [{ label: 'A', text: 'Authored display bank' }] },
+      question_context: { ...source.context, options: [{ label: 'A', text: 'Authored display bank' }],
+        template: { ...source.context.template, summary_text: [before, source.context.template.summary_text, after].filter(Boolean).join('\n\n') } },
       solution: { question_text: 'Allowed businesses to 1 ____ information regularly.', steps: 'Định vị thông tin trong bảng.', source_excerpt: 'Businesses were able to update the details they gave on a regular basis.' },
     }],
   };
@@ -36,6 +42,10 @@ it.each([true, false])('keeps the actual C13 R1 source table, options, translati
   const context = within(view.container.querySelector('.review-question-context') as HTMLElement);
   expect(context.getByRole('table')).toBeTruthy();
   expect(context.getAllByLabelText('Chỗ trống câu 1')).toHaveLength(1);
+  expect(context.getAllByRole('table')).toHaveLength(1);
+  const table = context.getByRole('table');
+  if (before) expect(context.getByText(before, { exact: true }).compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  if (after) expect(table.compareDocumentPosition(context.getByText(after, { exact: true })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(context.getByText('Authored display bank')).toBeTruthy();
   expect(view.container.textContent).not.toMatch(/\{\{\s*\d+\s*\}\}/);
   expect(screen.getByText('Định vị thông tin trong bảng.')).toBeTruthy();

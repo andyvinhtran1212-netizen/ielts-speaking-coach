@@ -63,6 +63,9 @@ function completionBundle() {
 
 async function installReadingHarness(page, {
   signedIn = true,
+  authOwner = OWNER,
+  authStateKey = null,
+  apiBase = API,
   inProgress = null,
   handleApi = null,
   route = '/reading/exam/session?test_id=RD-NATIVE-1',
@@ -71,12 +74,15 @@ async function installReadingHarness(page, {
   const calls = [];
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
-  await page.addInitScript(({ owner, signedIn }) => {
+  await page.addInitScript(({ owner, signedIn, authStateKey }) => {
     window.__READING_NATIVE_AUTH_LISTENERS__ = [];
-    window.__READING_NATIVE_SESSION__ = signedIn ? {
+    const persisted = authStateKey ? localStorage.getItem(authStateKey) : null;
+    const initialOwner = persisted === 'signed-out' ? null : persisted || (signedIn ? owner : null);
+    const sessionFor = (id) => id ? {
       access_token: 'reading-native-token', refresh_token: 'refresh', expires_at: 4_102_444_800,
-      user: { id: owner, email: 'reading-native@test.local' },
+      user: { id, email: 'reading-native@test.local' },
     } : null;
+    window.__READING_NATIVE_SESSION__ = sessionFor(initialOwner);
     window.__AVER_SUPABASE_CLIENT__ = { auth: {
       getSession: async () => ({ data: { session: window.__READING_NATIVE_SESSION__ } }),
       onAuthStateChange: (listener) => {
@@ -86,14 +92,21 @@ async function installReadingHarness(page, {
           if (index >= 0) window.__READING_NATIVE_AUTH_LISTENERS__.splice(index, 1);
         } } } };
       },
-      signOut: async () => ({ error: null }),
+      signOut: async () => {
+        if (authStateKey) window.__emitReadingNativeAuth(null);
+        return { error: null };
+      },
     } };
     window.__emitReadingNativeAuth = (session) => {
       window.__READING_NATIVE_SESSION__ = session;
+      if (authStateKey) localStorage.setItem(authStateKey, session?.user?.id || 'signed-out');
       const event = session ? 'SIGNED_IN' : 'SIGNED_OUT';
       for (const listener of [...window.__READING_NATIVE_AUTH_LISTENERS__]) listener(event, session);
     };
-  }, { owner: OWNER, signedIn });
+    if (authStateKey) addEventListener('storage', (event) => {
+      if (event.key === authStateKey) window.__emitReadingNativeAuth(sessionFor(event.newValue === 'signed-out' ? null : event.newValue));
+    });
+  }, { owner: authOwner, signedIn, authStateKey });
 
   await page.route(SUPABASE_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript',
@@ -111,7 +124,7 @@ async function installReadingHarness(page, {
   await page.route('https://fonts.googleapis.com/**', (route) => route.abort());
   await page.route('https://fonts.gstatic.com/**', (route) => route.abort());
 
-  await page.route(`${API}/**`, async (route) => {
+  await page.route(`${apiBase}/**`, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const entry = {

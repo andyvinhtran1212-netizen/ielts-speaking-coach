@@ -286,6 +286,7 @@ async def get_dashboard_data(
     now = datetime.now(timezone.utc)
     t14 = (now - timedelta(days=14)).isoformat()
     t30 = (now - timedelta(days=30)).isoformat()
+    eligible_slugs = list(grammar_service.articles_by_slug)
 
     # ── Fetch all data in parallel (sequential calls — Supabase client is sync) ─
     try:
@@ -294,6 +295,7 @@ async def get_dashboard_data(
             .select("recommended_slug, recommended_title, created_at")
             .eq("user_id", user_id)
             .gte("created_at", t14)
+            .in_("recommended_slug", eligible_slugs)
             .execute()
         )
         recs_30_res = (
@@ -301,12 +303,16 @@ async def get_dashboard_data(
             .select("recommended_slug, recommended_title, created_at")
             .eq("user_id", user_id)
             .gte("created_at", t30)
+            .in_("recommended_slug", eligible_slugs)
             .execute()
         )
         views_res = (
             supabase_admin.table("article_views")
             .select("article_slug, article_title, article_category, last_viewed_at")
             .eq("user_id", user_id)
+            # Filter before the top-five limit so obsolete/document history
+            # cannot hide older views of eligible lessons. Keep history intact.
+            .in_("article_slug", eligible_slugs)
             .order("last_viewed_at", desc=True)
             .limit(5)
             .execute()
@@ -317,20 +323,24 @@ async def get_dashboard_data(
             supabase_admin.table("article_views")
             .select("article_slug")
             .eq("user_id", user_id)
+            .in_("article_slug", eligible_slugs)
             .execute()
         )
         saved_res = (
             supabase_admin.table("saved_articles")
             .select("article_slug, article_title, saved_at")
             .eq("user_id", user_id)
+            .in_("article_slug", eligible_slugs)
             .order("saved_at", desc=True)
             .execute()
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi truy vấn dữ liệu: {e}")
 
-    recs_14 = recs_14_res.data or []
-    recs_30 = recs_30_res.data or []
+    # The content index owns eligibility, titles and categories. Stored history
+    # may refer to removed content or operational documents, but is not deleted.
+    recs_14 = [r for r in (recs_14_res.data or []) if grammar_service.get_article_by_slug(r.get("recommended_slug"))]
+    recs_30 = [r for r in (recs_30_res.data or []) if grammar_service.get_article_by_slug(r.get("recommended_slug"))]
 
     # ── grammar_focus_this_week ───────────────────────────────────────────────
     slug_counts_14 = Counter(r["recommended_slug"] for r in recs_14 if r.get("recommended_slug"))
@@ -390,22 +400,24 @@ async def get_dashboard_data(
     recently_viewed = [
         {
             "slug":           v["article_slug"],
-            "title":          v.get("article_title") or v["article_slug"],
-            "category":       v.get("article_category") or "",
+            "title":          article["title"],
+            "category":       article["category"],
             "last_viewed_at": v["last_viewed_at"],
         }
         for v in (views_res.data or [])
+        if (article := grammar_service.get_article_by_slug(v.get("article_slug")))
     ]
 
     # ── saved_articles ────────────────────────────────────────────────────────
     saved_articles_list = [
         {
             "slug":     s["article_slug"],
-            "title":    s.get("article_title") or s["article_slug"],
-            "category": (grammar_service.get_article_by_slug(s["article_slug"]) or {}).get("category", ""),
+            "title":    article["title"],
+            "category": article["category"],
             "saved_at": s["saved_at"],
         }
         for s in (saved_res.data or [])
+        if (article := grammar_service.get_article_by_slug(s.get("article_slug")))
     ]
 
     return {
