@@ -135,6 +135,11 @@ async def test_current_admin_asgi_capture_uses_real_pg_and_public_models(canonic
     async def admin_gate(_):return {'id':str(pg.actor)}
     monkeypatch.setattr(admin_quiz,'require_admin',admin_gate)
     monkeypatch.setattr(admin,'_db_engine',engine)
+    from test_grammar_quiz_revisions import canonical_engine
+    def request_engine(url,*,poolclass):
+        assert url==engine.url
+        return canonical_engine(pg,poolclass=poolclass)
+    monkeypatch.setattr(admin_quiz,'create_async_engine',request_engine)
     app=FastAPI();app.include_router(admin_quiz.router)
     path='/admin/quiz/grammar-revisions/G-tenses-present-simple'
     captured=[]

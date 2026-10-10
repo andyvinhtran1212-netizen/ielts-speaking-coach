@@ -14,11 +14,11 @@ from test_grammar_quiz_revision_boundary import pg, encoded, CODE
 SOURCE = (Path(__file__).parents[2] / 'docs/grammar-quiz-banks' / (CODE + '.md')).read_text()
 
 
-def canonical_engine(pg, *, timezone=None):
+def canonical_engine(pg, *, timezone=None,poolclass=None):
     settings={'search_path':pg.schema+',public','statement_timeout':'5000'}
     if timezone is not None: settings['TimeZone']=timezone
     engine = create_async_engine(pg.dsn.replace('postgresql://','postgresql+asyncpg://',1),
-        connect_args={'server_settings':settings})
+        connect_args={'server_settings':settings},**({'poolclass':poolclass} if poolclass else {}))
     # Test-only schema adaptation: product SQL is fixed to canonical public;
     # only SQL identifiers/regclass parameters are mapped to the random fixture.
     @event.listens_for(engine.sync_engine,'before_cursor_execute',retval=True)
@@ -313,6 +313,32 @@ async def test_corrected_readback_refuses_trigger_map_or_extra_loss_and_rolls_ba
     assert error.value.code=='grammar_corrected_readback_mismatch'
     assert await pg.c.fetchval('SELECT count(*) FROM quiz_banks')==1
     assert await pg.c.fetchval('SELECT count(*) FROM governance_audit')==0
+
+
+@pytest.mark.asyncio
+async def test_late_question_insert_failure_rolls_back_complete_cutover(canonical):
+    pg,engine=canonical
+    request=await commit_request(canonical)
+    before=await pg.c.fetchval('''SELECT jsonb_build_object(
+      'bank',(SELECT to_jsonb(b) FROM quiz_banks b WHERE id=$1),
+      'questions',(SELECT jsonb_agg(to_jsonb(q) ORDER BY "order",id)
+                   FROM quiz_questions q WHERE bank_id=$1))::text''',pg.old)
+    last_qid=await pg.c.fetchval('SELECT qid FROM quiz_questions WHERE bank_id=$1 ORDER BY "order" DESC LIMIT 1',pg.old)
+    await pg.c.execute('''CREATE FUNCTION reject_last_clone() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.qid=TG_ARGV[0] THEN RAISE EXCEPTION 'late_clone_failure'; END IF;
+        RETURN NEW; END $$;''')
+    await pg.c.execute("CREATE TRIGGER zzz_reject_last_clone BEFORE INSERT ON quiz_questions "
+                       "FOR EACH ROW EXECUTE FUNCTION reject_last_clone('"+last_qid+"')")
+    with pytest.raises(service.GrammarRevisionError) as error:
+        await service.commit_revision(engine,CODE,pg.actor,request)
+    assert error.value.code=='grammar_storage_unavailable'
+    assert await pg.c.fetchval('SELECT count(*) FROM quiz_banks')==1
+    assert await pg.c.fetchval('SELECT count(*) FROM governance_audit')==0
+    after=await pg.c.fetchval('''SELECT jsonb_build_object(
+      'bank',(SELECT to_jsonb(b) FROM quiz_banks b WHERE id=$1),
+      'questions',(SELECT jsonb_agg(to_jsonb(q) ORDER BY "order",id)
+                   FROM quiz_questions q WHERE bank_id=$1))::text''',pg.old)
+    assert after==before
 
 
 @pytest.mark.asyncio

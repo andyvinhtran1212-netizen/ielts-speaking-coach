@@ -624,12 +624,22 @@ async def commit_revision(engine: AsyncEngine | None, canonical_code: str, actor
         expected_bank = _physical_row((await c.execute(text('SELECT to_jsonb(jsonb_populate_record(NULL::public.quiz_banks,CAST(:row AS jsonb)))::text'),
             {'row':_json(new_bank)})).scalar_one())
         await c.execute(text('INSERT INTO public.quiz_banks SELECT (jsonb_populate_record(NULL::public.quiz_banks,CAST(:row AS jsonb))).*'),{'row':_json(new_bank)})
-        expected_questions = []
-        for original,reviewed in zip(scope.questions,source.questions):
-            cloned = {**original,**reviewed,'id':str(uuid4()),'bank_id':str(new_id),'created_at':now}
-            expected_questions.append(_physical_row((await c.execute(text('SELECT to_jsonb(jsonb_populate_record(NULL::public.quiz_questions,CAST(:row AS jsonb)))::text'),
-                {'row':_json(cloned)})).scalar_one()))
-            await c.execute(text('INSERT INTO public.quiz_questions SELECT (jsonb_populate_record(NULL::public.quiz_questions,CAST(:row AS jsonb))).*'),{'row':_json(cloned)})
+        cloned_questions = [
+            {**original,**reviewed,'id':str(uuid4()),'bank_id':str(new_id),'created_at':now}
+            for original,reviewed in zip(scope.questions,source.questions)
+        ]
+        # Keep the global cutover gate short: canonicalize the complete rows
+        # and insert them in two round trips, rather than two per question.
+        # The same row triggers, typed timestamps and full readback apply.
+        question_rows = {'rows':_json(cloned_questions)}
+        expected_questions = [_physical_row(row) for row in (await c.execute(text('''
+          SELECT to_jsonb(jsonb_populate_record(NULL::public.quiz_questions,item.value))::text
+          FROM jsonb_array_elements(CAST(:rows AS jsonb)) WITH ORDINALITY AS item(value,position)
+          ORDER BY item.position'''),question_rows)).scalars().all()]
+        await c.execute(text('''INSERT INTO public.quiz_questions
+          SELECT (jsonb_populate_record(NULL::public.quiz_questions,item.value)).*
+          FROM jsonb_array_elements(CAST(:rows AS jsonb)) WITH ORDINALITY AS item(value,position)
+          ORDER BY item.position'''),question_rows)
         updated = await _scope(c,canonical_code)
         if _hash(updated.current)!=_hash(expected_bank) or _hash(updated.current_questions)!=_hash(expected_questions):
             raise _unavailable('grammar_corrected_readback_mismatch')
