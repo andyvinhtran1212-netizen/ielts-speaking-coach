@@ -29,7 +29,10 @@ def wire(monkeypatch):
         raise HTTPException(401,'Permission denied')
     monkeypatch.setattr(admin_quiz,'require_admin',admin_gate)
     monkeypatch.setattr(quiz,'get_supabase_user',learner_gate)
-    monkeypatch.setattr(admin,'_db_engine','existing-configured-owner')
+    engine=MagicMock(url='postgresql+asyncpg://fixture@127.0.0.1/aver_ux_wire')
+    engine.dispose=AsyncMock()
+    monkeypatch.setattr(admin,'_db_engine',engine)
+    monkeypatch.setattr(admin_quiz,'create_async_engine',MagicMock(return_value=engine))
     app=FastAPI(); app.include_router(admin_quiz.router); app.include_router(quiz.router)
     return TestClient(app),app
 
@@ -65,7 +68,7 @@ def test_concrete_wire_uses_existing_engine_authenticated_actor_and_keeps_curren
     read=AsyncMock(return_value=canonical()); monkeypatch.setattr(revisions,'read_revision',read)
     response=client.get(PATH,headers={'Authorization':'Bearer admin'})
     assert response.status_code==200 and response.json()['footprint']['sessions']==0
-    read.assert_awaited_once_with('existing-configured-owner',CODE)
+    read.assert_awaited_once_with(admin._db_engine,CODE)
     payload=commit_payload()
     result={'canonical_code':CODE,'operation_id':payload['operation_id'],'outcome':'already_applied',
         'original_bank_id':OLD,'corrected_bank_id':NEW,'source_sha256':'f'*64,'committed_revision':'a'*64,
@@ -74,13 +77,69 @@ def test_concrete_wire_uses_existing_engine_authenticated_actor_and_keeps_curren
     commit=AsyncMock(return_value=result); monkeypatch.setattr(revisions,'commit_revision',commit)
     response=client.post(PATH+'/commit',json=payload,headers={'Authorization':'Bearer admin'})
     assert response.status_code==200 and response.json()['current_matches_committed'] is False
-    assert commit.await_args.args[:3]==('existing-configured-owner',CODE,ACTOR)
+    assert commit.await_args.args[:3]==(admin._db_engine,CODE,ACTOR)
+    from sqlalchemy.pool import NullPool
+    assert admin_quiz.create_async_engine.call_count==2
+    admin_quiz.create_async_engine.assert_called_with(admin._db_engine.url,poolclass=NullPool)
+    assert admin._db_engine.dispose.await_count==2
     assert commit.await_args.args[3].model_dump(mode='json')==payload
     schema=app.openapi(); paths=schema['paths']['/admin/quiz/grammar-revisions/{canonical_code}/commit']
     assert paths['post']['requestBody']['content']['application/json']['schema']['$ref'].endswith('GrammarRevisionCommitRequest')
     assert paths['post']['responses']['200']['content']['application/json']['schema']['$ref'].endswith('GrammarRevisionCommitResult')
     assert paths['post']['responses']['503']['content']['application/json']['schema']['$ref'].endswith('GrammarRevisionErrorResponse')
     assert 'ManagedGrammarSessionState' in schema['components']['schemas']
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('operation',['read','preview','commit'])
+async def test_revision_owner_completes_while_legacy_writer_blocks_http_event_loop(wire,monkeypatch,operation):
+    import asyncio
+    import threading
+    from httpx import ASGITransport,AsyncClient
+    _,app=wire
+    payload=commit_payload()
+    gate_owned=threading.Event()
+    gate_released=threading.Event()
+    async def owner_action(engine,*args):
+        gate_owned.set()
+        await asyncio.sleep(.05)
+        gate_released.set()
+        if operation=='read':return canonical()
+        if operation=='preview':return {'canonical':canonical(),'source_sha256':'f'*64,
+            'manifest_sha256':'f'*64,'preview_fingerprint':'e'*64,'proposed_revision':'a'*64,
+            'changed_questions':[],'validation_messages':[]}
+        return {'canonical_code':CODE,'operation_id':payload['operation_id'],'outcome':'applied',
+            'original_bank_id':OLD,'corrected_bank_id':NEW,'source_sha256':'f'*64,'committed_revision':'a'*64,
+            'current_revision':'a'*64,'current_matches_committed':True,'original_questions_sha256':'c'*64,
+            'original_history_sha256':'d'*64,'canonical':canonical()}
+    def legacy_writer(**kwargs):
+        # This is the existing synchronous PostgREST wait in the async route.
+        # The owner must release its gate without needing this HTTP event loop.
+        assert gate_released.wait(1),'Revision owner could not release its gate while the HTTP loop was blocked'
+        return {'session_id':OLD,'resume':[]}
+    monkeypatch.setattr(revisions,operation+'_revision',owner_action)
+    monkeypatch.setattr(quiz_service,'start_session',legacy_writer)
+    async with AsyncClient(transport=ASGITransport(app=app),base_url='http://fixture.local') as client:
+        command=(client.get(PATH,headers={'Authorization':'Bearer admin'}) if operation=='read' else
+            client.post(PATH+'/'+operation,json=payload if operation=='commit' else preview_payload(),headers={'Authorization':'Bearer admin'}))
+        publishing=asyncio.create_task(command)
+        try:
+            assert await asyncio.to_thread(gate_owned.wait,1)
+            writer=await client.post('/api/quiz/sessions',json={'bank_id':OLD},headers={'Authorization':'Bearer learner'})
+            assert writer.status_code==201
+            assert (await publishing).status_code==200
+        finally:
+            await publishing
+    admin._db_engine.dispose.assert_awaited_once()
+
+
+def test_cutover_disposes_request_connection_after_storage_failure(wire,monkeypatch):
+    client,_=wire
+    error=revisions.GrammarRevisionError(503,'grammar_storage_unavailable','Unavailable')
+    monkeypatch.setattr(revisions,'commit_revision',AsyncMock(side_effect=error))
+    response=client.post(PATH+'/commit',json=commit_payload(),headers={'Authorization':'Bearer admin'})
+    assert response.status_code==503 and response.json()['detail']['error_code']=='grammar_storage_unavailable'
+    admin._db_engine.dispose.assert_awaited_once()
 
 
 @pytest.mark.parametrize('mutation',[{'actor_id':ACTOR},{'bank_id':OLD},{'source_markdown':'\ud800'},{'expected_revision':True},{'operation_id':'invalid'}])
