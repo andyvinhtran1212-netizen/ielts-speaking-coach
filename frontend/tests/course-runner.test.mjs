@@ -116,17 +116,18 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
         if (failSession) throw new Error('mạng hỏng');
         n += 1;
         itemOf.set('sess-' + n, myItem());
+        answered.set('sess-' + n, []);
         return { id: 'sess-' + n, ...(sessionTimer ? { timer: sessionTimer } : {}) };
       }
       if (failProgress) throw new Error('progress hỏng');
       noteAttempts(path, body);
-      return {};
+      return { ok: true, attempts: body.attempts?.length || 0 };
     },
     async postWith(path, body, _h, opts) {
       calls.postWith.push({ path, body, opts });
       if (failProgress) throw new Error('progress hỏng');
       noteAttempts(path, body);
-      return {};
+      return { ok: true, attempts: body.attempts?.length || 0 };
     },
     async patch(path, body) {
       calls.patch.push({ path, body });
@@ -784,7 +785,7 @@ test('timed load fails closed when no post-payload timer sample is available', a
   assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
 });
 
-test('failed resume history read retains the independent post-payload timer sample', async () => {
+test('failed resume blocks controls while retaining the post-payload timer sample', async () => {
   let clock = 0;
   const api = fakeApi({
     questions: [mcq(1)], failResume: true,
@@ -815,7 +816,8 @@ test('failed resume history read retains the independent post-payload timer samp
     return response;
   };
   const runner = createRunner({ api, storage: null, now: () => clock });
-  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  await assert.rejects(runner.load('b1', { assignmentItemId: 'item-timed' }), /tiến độ đã lưu/);
+  assert.equal(api.calls.post.length, 0);
   assert.equal(runner.timeRemainingSeconds(), 58);
   clock = 64999;
   assert.equal(runner.timeRemainingSeconds(), 1);
@@ -823,7 +825,8 @@ test('failed resume history read retains the independent post-payload timer samp
 
 function memStore() {
   const m = new Map();
-  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v), _m: m };
+  return { get length() { return m.size; }, key: (i) => [...m.keys()][i] ?? null, removeItem: (k) => m.delete(k),
+    getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v), _m: m };
 }
 
 async function run(opts = {}) {
@@ -1194,20 +1197,14 @@ describe('rời trang', () => {
 // ── Quay lại làm tiếp ─────────────────────────────────────────────────────
 
 describe('nhớ chỗ đang làm', () => {
-  test('bỏ dở giữa chặng thì làm lại CHẶNG ấy — hợp đồng đổi có chủ đích', async () => {
-    // Bản đầu khôi phục đúng `at` — dễ chịu hơn, nhưng SAI: bốn lượt đã trả
-    // lời nằm trong một phiên mồ côi (không bao giờ completed, không có tên
-    // trong lượt xét đạt), nên "đi tiếp từ câu 5" nghĩa là bốn câu đầu vĩnh
-    // viễn không có kết quả và verdict phủ-đủ-đề bác cả lượt, không đường sửa
-    // ngoài xoá localStorage (codex #928 R7). Làm lại mười câu là giá của một
-    // lần đóng tab giữa chặng; VỊ TRÍ CHẶNG thì vẫn được nhớ.
+  test('bỏ dở giữa chặng thì khôi phục đáp án chưa gửi từ máy', async () => {
     const store = memStore();
     const a = await run({ storage: store });
     for (let i = 0; i < 4; i++) { a.r.show(); a.r.answer(0); a.r.next(); }
     const b = await run({ storage: store });
-    assert.equal(b.r.stage, 0, 'chặng đang làm vẫn được nhớ');
-    assert.equal(b.r.at, 0, 'trong chặng thì làm lại từ đầu — xem lý do ở trên');
-    assert.equal(b.r.marks.length, 0);
+    assert.equal(b.r.stage, 0);
+    assert.equal(b.r.at, 4);
+    assert.equal(b.r.marks.length, 4);
   });
 
   test('tải lại trang ở MÀN KẾT QUẢ thì sang chặng sau, không làm lại', async () => {
@@ -1240,11 +1237,9 @@ describe('nhớ chỗ đang làm', () => {
     assert.ok(r.current(), 'phải có câu để làm');
   });
 
-  test('bộ nhớ trình duyệt bị chặn thì vẫn làm bài được', async () => {
-    const blocked = { getItem() { throw new Error('chặn'); }, setItem() { throw new Error('chặn'); } };
-    const { r } = await run({ storage: blocked });
-    r.show();
-    assert.equal(r.answer(0).correct, true);
+  test('bộ nhớ trình duyệt bị chặn thì báo lỗi thay vì nhận đáp án dễ mất', async () => {
+    const blocked = { get length() { throw new Error('chặn'); }, getItem() { throw new Error('chặn'); }, setItem() { throw new Error('chặn'); } };
+    await assert.rejects(run({ storage: blocked }));
   });
 });
 
@@ -1393,7 +1388,7 @@ describe('bài kiểm tra lại', () => {
     const rng = seededRng('revision-1');
     const expected = shuffled(questions, rng).slice(0, 20).map((q) => retakeClone(q, rng));
     const resume = {
-      item_id: 'it-1', completed: ['run-1'], stage: 3,
+      item_id: 'it-1', completed: ['run-1'], stage: 3, answered: [],
       retake: {
         session_id: 'revision-1', completed: false,
         answered: expected.slice(0, 2).map((q, i) => ({ qid: q.qid, is_correct: i === 0 })),
@@ -1420,7 +1415,7 @@ describe('bài kiểm tra lại', () => {
       questions,
       mastery: { item_id: 'it-1', retakes: 0, retake_size: 20 },
       resume: {
-        item_id: 'it-1', completed: ['run-1'], stage: 3,
+        item_id: 'it-1', completed: ['run-1'], stage: 3, answered: [],
         retake: {
           session_id: 'revision-done', completed: true, right: 16, graded: 20,
           answered: expected.map((q, i) => ({ qid: q.qid, is_correct: i < 16 })),
@@ -1801,66 +1796,40 @@ describe('bỏ dở GIỮA chặng rồi quay lại — báo cáo thật của h
       'chốt đúng phiên đã mở từ trước khi đóng tab');
   });
 
-  test('máy chủ trả về câu KHÔNG khớp bộ đề thì không nhận bừa', async () => {
-    // Máy mới (chưa có gì trong localStorage) nên không có vân tay để so, mà bộ
-    // đề đã được soạn lại kể từ lúc phiên kia mở. Nhận bừa là đếm sai chỗ đang
-    // đứng: học viên bị nhảy cóc qua những câu mình chưa hề làm.
-    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
-    const { r, api } = await run({
-      questions: qsn,
-      resume: { session_id: 'sess-cu', item_id: null,
-                answered: [{ qid: 'DA-XOA-1', is_correct: true },
-                           { qid: 'DA-XOA-2', is_correct: true }],
-                completed: [] },
-    });
-    assert.equal(r.at, 0, 'không khớp thì bắt đầu lại chặng, không nhảy cóc');
-    assert.deepEqual(r.marks, []);
-    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 1,
-      'phải mở phiên MỚI — dùng tiếp phiên của bản đề cũ là trộn hai bài vào nhau');
+  test('a mismatched server prefix blocks load without creating another session', async () => {
+    const api = fakeApi({ questions: Array.from({ length: 20 }, (_, i) => mcq(i)),
+      resume: { session_id: 'old', item_id: null, completed: [],
+        answered: [{ qid: 'REMOVED', is_correct: true }] } });
+    const r = createRunner({ api, storage: memStore() });
+    await assert.rejects(r.load('b1'), /thứ tự câu/);
+    assert.equal(api.calls.post.length, 0);
   });
 
-  test('nhận đúng khi khớp: một câu lệch ở giữa cũng bị từ chối', async () => {
-    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
-    const { r } = await run({
-      questions: qsn,
-      resume: { session_id: 'sess-cu', item_id: null, completed: [],
-                answered: [{ qid: qsn[0].qid, is_correct: true },
-                           { qid: 'LECH', is_correct: true },
-                           { qid: qsn[2].qid, is_correct: true }] },
-    });
-    assert.equal(r.at, 0, 'khớp một phần KHÔNG phải là khớp');
-  });
-
-  test('mất mạng lúc hỏi máy chủ thì vẫn mở được bài (đường lùi cũ)', async () => {
-    const store = memStore();
-    const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
-    const { r, api } = await run({ storage: store, questions: qsn, failResume: true });
-    assert.equal(r.at, 0);
-    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 1,
-      'không hỏi được thì mở phiên mới — chặn học viên khỏi bài tập mới là tệ hơn');
+  test('a failed resume read blocks load and retains the saved answer', async () => {
+    const storage = memStore();
+    const api = fakeApi({ questions: [mcq(0)], failResume: true });
+    const r = createRunner({ api, storage });
+    await assert.rejects(r.load('b1'), /tiến độ đã lưu/);
+    assert.equal(api.calls.post.length, 0);
   });
 });
 
-describe('reload GIỮA chặng (codex #928 R7)', () => {
-  test('chặng dang dở làm lại từ câu đầu — không đi tiếp với câu đã rơi vào phiên mồ côi', async () => {
-    const store = memStore();
-    const qsn = Array.from({ length: 10 }, (_, i) => mcq(i));
-    const first = await run({ storage: store, questions: qsn });
-    // Trả lời 4 câu rồi đóng tab mà lượt làm CHƯA KỊP TỚI MÁY CHỦ (chưa đủ lô,
-    // và `leave()` cũng không chạy). Máy chủ không có gì để trả lại, nên chỉ
-    // trong ca này mới làm lại chặng từ đầu — khác hẳn ca đã đẩy được, xem
-    // `bỏ dở GIỮA chặng rồi quay lại`.
+describe('reload with durable unacknowledged answers', () => {
+  test('recovers four answers after abrupt shutdown before any batch was sent', async () => {
+    const storage = memStore();
+    const questions = Array.from({ length: 10 }, (_, i) => mcq(i));
+    const api = fakeApi({ questions });
+    const first = await run({ storage, questions, api });
     for (let i = 0; i < 4; i++) { first.r.show(); first.r.answer(0); first.r.next(); }
-    const second = await run({ storage: store, questions: qsn });
-    assert.equal(second.r.at, 0, 'đi tiếp từ câu 5 là 4 câu đầu vĩnh viễn không có kết quả — verdict bác mãi');
-    assert.equal(second.r.marks.length, 0);
-    // làm trọn chặng bằng phiên MỚI thì mọi câu đều có lượt làm trong phiên được nêu tên
-    await playStage(second.r);
-    const flushed = second.api.calls.post
-      .filter((c) => c.path.includes('/progress'))
-      .flatMap((c) => c.body.attempts).map((a) => a.qid).sort();
-    assert.deepEqual(flushed, qsn.map((q) => q.qid).sort(),
-      'đủ 10 câu trong phiên mới — không câu nào kẹt lại ở phiên mồ côi');
+    const saved = storedAttempts(storage);
+    const second = await run({ storage, questions, api });
+    assert.equal(second.r.at, 4);
+    assert.equal(second.r.current().qid, 'Q4');
+    const sent = api.calls.post.filter((c) => c.path.endsWith('/progress'))[0];
+    assert.deepEqual(sent.body.attempts.map((a) => a.client_id), saved.map((a) => a.client_id));
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 1);
+    for (let i = 4; i < 10; i++) { second.r.show(); second.r.answer(0); second.r.next(); }
+    assert.equal((await second.r.finishStage()).persisted, true);
   });
 });
 
@@ -2106,9 +2075,200 @@ describe('sang chặng sau', () => {
   test('hỏi hỏng thì cộng một như cũ', async () => {
     // Một lượt gọi mạng hỏng không được chặn em ấy học tiếp.
     const qsn = Array.from({ length: 90 }, (_, i) => mcq(i));
-    const { r } = await run({ questions: qsn, failResume: true });
+    const api = fakeApi({ questions: qsn });
+    const { r } = await run({ questions: qsn, api });
+    const get = api.get.bind(api);
+    api.get = async (path) => { if (path.includes('/course-resume')) throw new Error('offline'); return get(path); };
     const before = r.stage;
     await r.nextStage();
     assert.equal(r.stage, before + 1);
   });
+});
+
+function storedAttempts(storage) {
+  return [...storage._m].filter(([key]) => key.startsWith('cx-outbox:'))
+    .flatMap(([, value]) => JSON.parse(value));
+}
+
+describe('durable answer recovery and acknowledgement', () => {
+  test('timed offline crash resumes the same session, choice and running clock', async () => {
+    let clock = 1000;
+    const storage = memStore();
+    const mastery = { item_id: 'timed', is_timed: true, time_remaining_seconds: 60, answers_sealed: true };
+    const api = fakeApi({ questions: [mcq(0), mcq(1)], mastery });
+    const post = api.post.bind(api);
+    let offline = true;
+    api.post = (path, body) => path.endsWith('/progress') && offline
+      ? Promise.reject(new Error('offline')) : post(path, body);
+    const first = createRunner({ api, storage, userId: 'learner', now: () => clock, schedule: () => 0 });
+    await first.load('b1');
+    first.show(); first.answer(1); // no next(), pagehide() or unload event
+    await Promise.resolve(); await Promise.resolve();
+    const id = storedAttempts(storage)[0].client_id;
+    offline = false; clock = 11000; mastery.time_remaining_seconds = 50;
+    const second = createRunner({ api, storage, userId: 'learner', now: () => clock, schedule: () => 0 });
+    await second.load('b1');
+    assert.equal(second.current().qid, 'Q1');
+    assert.deepEqual(second.marks, ['answered']);
+    assert.equal(second.timeRemainingSeconds(), 50);
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 1);
+    assert.equal(api.calls.post.find((c) => c.path.endsWith('/progress')).body.attempts[0].client_id, id);
+    assert.equal(storedAttempts(storage).length, 0);
+  });
+
+  test('lost server ACK replays the same ID once and recovers canonical correctness', async () => {
+    const storage = memStore();
+    const ledger = newLedger();
+    const api = fakeApi({ questions: [mcq(0), mcq(1)], ledger });
+    const first = createRunner({ api, storage, userId: 'learner' });
+    await first.load('b1'); first.show(); first.answer(1);
+    const post = api.postWith.bind(api);
+    api.postWith = async (...args) => { await post(...args); throw new Error('lost ACK'); };
+    await first.leave();
+    assert.equal(storedAttempts(storage).length, 1);
+    const second = createRunner({ api, storage, userId: 'learner' });
+    await second.load('b1');
+    assert.equal(second.at, 1);
+    assert.deepEqual(second.marks, ['wrong']);
+    assert.equal(ledger.answered.get('sess-1').length, 1);
+    assert.equal(storedAttempts(storage).length, 0);
+  });
+
+  test('malformed or incomplete ACK retains durable rows', async () => {
+    const storage = memStore();
+    const api = fakeApi({ questions: [mcq(0)] });
+    const r = createRunner({ api, storage, userId: 'learner' });
+    await r.load('b1'); r.show(); r.answer(0);
+    api.postWith = async () => ({ ok: true, attempts: 0 });
+    await r.leave();
+    assert.equal(r.pendingCount, 1);
+    assert.equal(storedAttempts(storage).length, 1);
+  });
+
+  test('an in-flight answer survives a crash before server admission', async () => {
+    const storage = memStore();
+    const api = fakeApi({ questions: [mcq(0), mcq(1)], mastery: {
+      item_id: 'timed', is_timed: true, time_remaining_seconds: 60,
+    } });
+    const post = api.post.bind(api);
+    let reject;
+    api.post = (path, body) => path.endsWith('/progress')
+      ? new Promise((_resolve, no) => { reject = no; }) : post(path, body);
+    const first = createRunner({ api, storage, userId: 'learner', schedule: () => 0 });
+    await first.load('b1'); first.show(); first.answer(1);
+    await Promise.resolve();
+    assert.equal(first.pendingCount, 0);
+    assert.equal(storedAttempts(storage).length, 1);
+    api.post = post;
+    const second = createRunner({ api, storage, userId: 'learner', schedule: () => 0 });
+    await second.load('b1');
+    assert.equal(second.at, 1);
+    assert.deepEqual(second.marks, ['wrong']);
+    reject(new Error('tab closed'));
+    await Promise.resolve();
+  });
+
+  test('different accounts, assignment items and session generations cannot replay old rows', async () => {
+    const storage = memStore();
+    const questions = [mcq(0), mcq(1)];
+    const first = createRunner({ api: fakeApi({ questions, mastery: { item_id: 'a' } }), storage, userId: 'one' });
+    await first.load('b1'); first.show(); first.answer(1);
+    for (const [userId, item, session_id] of [['two', 'a', 'sess-1'], ['one', 'b', 'sess-1'], ['one', 'a', 'new-generation']]) {
+      const api = fakeApi({ questions, mastery: { item_id: item }, resume: {
+        session_id, item_id: item, answered: [], completed: [], stage: 0,
+      } });
+      const r = createRunner({ api, storage, userId });
+      await r.load('b1');
+      assert.equal(r.at, 0);
+      assert.equal(api.calls.post.length, 0);
+    }
+    assert.equal(storedAttempts(storage).length, 1);
+  });
+
+  test('storage quota errors do not acknowledge the choice and allow choosing again', async () => {
+    const storage = memStore();
+    const api = fakeApi({ questions: [mcq(0)] });
+    const r = createRunner({ api, storage, userId: 'learner' });
+    await r.load('b1'); r.show();
+    const set = storage.setItem;
+    storage.setItem = () => { throw new Error('quota'); };
+    assert.throws(() => r.answer(0), /Chưa lưu được đáp án/);
+    assert.deepEqual(r.marks, []);
+    assert.equal(r.pendingCount, 0);
+    storage.setItem = set;
+    assert.equal(r.answer(0).correct, true);
+  });
+
+  test('expired recovery keeps local answers but cannot admit them or reset the timer', async () => {
+    const storage = memStore();
+    const mastery = { item_id: 'timed', is_timed: true, time_remaining_seconds: 60 };
+    const api = fakeApi({ questions: [mcq(0), mcq(1)], mastery, failProgress: true });
+    const first = createRunner({ api, storage, userId: 'learner', schedule: () => 0 });
+    await first.load('b1'); first.show(); first.answer(0);
+    await Promise.resolve(); await Promise.resolve();
+    mastery.time_remaining_seconds = 0;
+    const before = api.calls.post.length;
+    const second = createRunner({ api, storage, userId: 'learner', schedule: () => 0 });
+    await second.load('b1');
+    assert.equal(second.isTimedOut(), true);
+    assert.equal(second.answer(0), null);
+    assert.equal(api.calls.post.length, before);
+    const finish = await second.finishStage({ endedBy: 'time_cap' });
+    assert.equal(finish.answersOmitted, true);
+    assert.equal(storedAttempts(storage).length, 1);
+  });
+});
+
+test('retake crash preserves the original choice through deterministic shuffling', async () => {
+  const storage = memStore();
+  const questions = Array.from({ length: 30 }, (_, i) => mcq(i));
+  const mastery = { item_id: 'retake-item', retake_size: 20 };
+  const api = fakeApi({ questions, mastery });
+  const first = createRunner({ api, storage, userId: 'learner' });
+  await first.load('b1');
+  await first.startRetake(20);
+  const q = first.current();
+  first.show(); first.answer(1);
+  const saved = storedAttempts(storage)[0];
+  assert.equal(saved.answer_given, String(q._perm[1]));
+  const get = api.get.bind(api);
+  api.get = (path) => path.includes('/course-resume') ? Promise.resolve({
+    item_id: 'retake-item', session_id: null, completed: [], answered: [], stage: 0,
+    retake: { session_id: 'sess-2', completed: false, answered: [] },
+  }) : get(path);
+  const second = createRunner({ api, storage, userId: 'learner' });
+  await second.load('b1');
+  assert.equal(second.mode, 'retake');
+  assert.equal(second.at, 1);
+  assert.deepEqual(second.stageQuestions()[0].options, q.options);
+  const sent = api.calls.post.find((c) => c.path.endsWith('/progress'));
+  assert.equal(sent.body.attempts[0].client_id, saved.client_id);
+  assert.equal(sent.body.attempts[0].answer_given, saved.answer_given);
+});
+
+test('acknowledging one tab cannot erase another tab\'s durable answer', async () => {
+  const storage = memStore();
+  const api = fakeApi({ questions: [mcq(0), mcq(1)] });
+  const a = createRunner({ api, storage, userId: 'learner' });
+  const b = createRunner({ api, storage, userId: 'learner' });
+  await a.load('b1'); await b.load('b1');
+  a.show(); a.answer(0); b.show(); b.answer(1);
+  const before = storedAttempts(storage).map((row) => row.client_id);
+  assert.equal(before.length, 2);
+  await a.sync();
+  const remaining = storedAttempts(storage);
+  assert.equal(remaining.length, 1);
+  assert.equal(remaining[0].client_id, before[1]);
+  await b.sync();
+  assert.equal(storedAttempts(storage).length, 0);
+});
+
+test('malformed resume cannot silently open a new session', async () => {
+  for (const resume of [{}, { completed: [], answered: [], stage: -1 },
+    { completed: [], answered: [{ qid: 'Q0' }], session_id: null }]) {
+    const api = fakeApi({ questions: [mcq(0)], resume });
+    const r = createRunner({ api, storage: memStore(), userId: 'learner' });
+    await assert.rejects(r.load('b1'), /tiến độ đã lưu/);
+    assert.equal(api.calls.post.length, 0);
+  }
 });

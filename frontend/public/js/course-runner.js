@@ -147,7 +147,7 @@ export function retakeClone(q, rng) {
 }
 
 export function createRunner({
-  api, storage, now = () => Date.now(),
+  api, storage, userId = null, now = () => Date.now(),
   schedule = (fn, delay) => setTimeout(fn, delay),
   onSuperseded = () => {},
 }) {
@@ -211,7 +211,53 @@ export function createRunner({
   let eagerRetryScheduled = false;
   let superseded = false;
 
-  const key = () => 'cx:' + (bank && bank.id);
+  const key = () => 'cx:' + (userId ? userId + ':' : '') + (bank && bank.id);
+  // Keep unacknowledged rows (including a request in flight) across abrupt
+  // shutdowns. Session identity separates stages and retry generations; the
+  // account, assignment and fingerprint separate different learners/banks.
+  const outboxKey = () => 'cx-outbox:' + JSON.stringify([
+    userId, bank && bank.id, itemId, rev, sessionId,
+  ]) + ':';
+  function readOutbox() {
+    if (!storage || !sessionId) return [];
+    const prefix = outboxKey();
+    const keys = [];
+    for (let i = 0; i < storage.length; i++) {
+      const name = storage.key(i);
+      if (name && name.startsWith(prefix)) keys.push(name);
+    }
+    const rows = keys.map((name) => storage.getItem(name))
+      .filter((value) => value !== null).map((value) => JSON.parse(value));
+    const allowed = new Set(stageQuestions().map((q) => q.qid));
+    if (rows.some((row) => !row || typeof row.client_id !== 'string'
+        || !row.client_id || !allowed.has(row.qid) || !row.item_key
+        || typeof row.is_correct !== 'boolean' || typeof row.answer_given !== 'string')) {
+      throw new Error('Bản lưu đáp án không khớp phiên làm bài.');
+    }
+    return rows;
+  }
+  function writeOutbox(rows, acknowledged = []) {
+    if (!storage || !sessionId) return;
+    // One atomic storage entry per client ID: concurrent tabs can neither
+    // overwrite another answer nor erase rows outside their acknowledged batch.
+    const prefix = outboxKey();
+    rows.forEach((row) => storage.setItem(prefix + row.client_id, JSON.stringify(row)));
+    acknowledged.forEach((id) => storage.removeItem(prefix + id));
+  }
+  function recoverOutbox() {
+    if (!sessionId || sessionEnded) return;
+    try { pending = readOutbox(); } catch (e) {
+      throw new Error('Chưa đọc được đáp án lưu trên máy. Kiểm tra quyền lưu của trình duyệt rồi thử tải lại tiến độ.');
+    }
+    const list = stageQuestions();
+    const byQid = new Map(pending.map((row) => [row.qid, row]));
+    // Server marks already occupy the admitted prefix. Recover the remaining
+    // local prefix without exposing correctness in a sealed assessment.
+    while (at < list.length && byQid.has(list[at].qid)) {
+      const row = byQid.get(list[at].qid);
+      marks[at++] = answersSealed ? 'answered' : (row.is_correct ? 'right' : 'wrong');
+    }
+  }
   // Vân tay bộ đề: đổi câu HOẶC đổi đáp án (re-import) đều đổi vân tay. Trạng
   // thái lưu của bản đề cũ mà đem dùng tiếp thì phiên cũ lẫn vào lượt xét
   // (verdict bác mãi) hoặc lượt làm cũ bị chấm bằng thước mới (codex #928 R4).
@@ -339,7 +385,7 @@ export function createRunner({
    * còn lý do gì để vứt mười câu của học viên.
    *
    * Đây cũng là thứ duy nhất sống qua đổi máy và xoá bộ nhớ trình duyệt.
-   * Hỏng thì im lặng lùi về đường cũ — bài tập vẫn mở được.
+   * A failed read must never look like a new, empty attempt.
    */
   async function adoptServerState() {
     if (!qs.length) return false;
@@ -348,10 +394,20 @@ export function createRunner({
     try {
       sv = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id) + '/course-resume'
         + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
-    } catch (e) { return false; }
-    if (!sv) return false;
+    } catch (e) {
+      throw new Error('Chưa tải được tiến độ đã lưu. Hãy thử lại khi có mạng.');
+    }
+    if (!sv || !Array.isArray(sv.answered) || !Array.isArray(sv.completed)
+        || sv.completed.some((id) => typeof id !== 'string')
+        || (sv.stage !== undefined && (!Number.isInteger(sv.stage) || sv.stage < 0))
+        || (sv.session_id != null && typeof sv.session_id !== 'string')
+        || (!sv.session_id && sv.answered.length > 0)) {
+      throw new Error('Chưa xác nhận được tiến độ đã lưu. Hãy thử lại.');
+    }
     // Mục bài giao khác = lượt của một bài giao khác (chuyển lớp, giao lại).
-    if ((sv.item_id || null) !== itemId) return false;
+    if ((sv.item_id || null) !== itemId) {
+      throw new Error('Tiến độ không khớp bài giao. Hãy tải lại bài.');
+    }
     // Resume is also a learner-facing API.  In one-sitting mode the server
     // returns only which questions were answered, never their correctness.
     // Keep the neutral mark through reload/device changes instead of turning
@@ -370,6 +426,9 @@ export function createRunner({
     // hệt trên tab/máy khác mà không cần đưa đáp án vào storage riêng.
     const rr = sv.retake;
     if (rr && rr.session_id) {
+      if (typeof rr.session_id !== 'string' || !Array.isArray(rr.answered)) {
+        throw new Error('Chưa xác nhận được tiến độ bài kiểm tra lại. Hãy thử lại.');
+      }
       mode = 'retake';
       sessionId = rr.session_id;
       sessionEnded = Boolean(rr.completed);
@@ -453,7 +512,9 @@ export function createRunner({
       stageStartedAt = now();
       return true;
     }
-    // Có phiên nhưng bộ đề đã đổi (re-import) — không nhận, mở phiên mới.
+    if (sv.session_id) {
+      throw new Error('Chưa xác nhận được thứ tự câu đã làm. Hãy thử tải lại tiến độ.');
+    }
     return false;
   }
 
@@ -605,8 +666,13 @@ export function createRunner({
       // `keepalive` thật của fetch, không phải một cờ tự đặt: đóng tab giữa
       // chừng thì request thường bị huỷ, và mất lượt làm nghĩa là giáo viên đọc
       // một con số thấp hơn thực tế rồi tưởng em ấy bỏ bài.
-      if (keepalive && api.postWith) await api.postWith(path, body, null, { keepalive: true });
-      else await api.post(path, body);
+      const ack = keepalive && api.postWith
+        ? await api.postWith(path, body, null, { keepalive: true })
+        : await api.post(path, body);
+      if (!ack || ack.ok !== true || ack.attempts !== batch.length) {
+        throw new Error('Máy chủ chưa xác nhận lưu đủ đáp án.');
+      }
+      writeOutbox([], batch.map((row) => row.client_id));
       if (!keepalive) eagerRetryAttempt = 0;
     } catch (err) {
       if (isSupersededTimedProgress(err)) {
@@ -680,14 +746,24 @@ export function createRunner({
     // đi là gửi vào hư không; ghi một giá trị đúng/sai bịa ra thì làm sai chính
     // con số giáo viên đọc.
     if (ok === null) return;
-    pending.push({
+    const row = {
       client_id: uuid(),
       item_key: q.item_key || q.qid,
       qid: q.qid, skill: q.skill, type: q.type, subtype: q.subtype,
       is_correct: ok, answer_given: given,
       response_time_ms: Math.max(0, now() - shownAt),
       attempt_no: 1,
-    });
+    };
+    // Persist before the UI acknowledges the choice or permits navigation.
+    // Storage errors are actionable; silently accepting a volatile answer
+    // would reintroduce the crash-loss bug.
+    if (userId && (!storage || !sessionId)) {
+      throw new Error('Chưa có phiên lưu đáp án. Hãy tải lại bài rồi thử lại.');
+    }
+    try { writeOutbox([row]); } catch (e) {
+      throw new Error('Chưa lưu được đáp án trên máy. Kiểm tra dung lượng hoặc quyền lưu của trình duyệt rồi chọn lại.');
+    }
+    pending.push(row);
   }
 
   return {
@@ -824,6 +900,13 @@ export function createRunner({
         sessionId = null; sessionEnded = true;
         sessionFailed = false; stageStartedAt = now();
       }
+      if (userId && sessionFailed) {
+        throw new Error('Chưa mở được phiên lưu đáp án. Hãy thử tải lại tiến độ.');
+      }
+      recoverOutbox();
+      if (pending.length && !this.isTimedOut()) {
+        try { await flush(); } catch (e) { /* local rows remain durable for retry */ }
+      }
       shownAt = now();
       return bank;
     },
@@ -833,23 +916,24 @@ export function createRunner({
     /** Trả lời một câu trắc nghiệm. */
     answer(picked) {
       if (answered || this.isTimedOut()) return null;
-      answered = true;
       const q = this.current();
       if (answersSealed) {
-        marks[at] = 'answered';
         // The backend replaces this placeholder with server-owned correctness
         // before persistence.  Nothing in this response reveals the key.
         queue(q, false, String(q._perm ? q._perm[picked] : picked));
+        answered = true;
+        marks[at] = 'answered';
         if (pending.length >= BATCH || (mastery && mastery.is_timed)) {
           inflight = inflight.then(() => flush()).catch(() => {});
         }
         return { sealed: true, correct: null, trap: null, explain: '' };
       }
       const ok = picked === q.answer;
-      marks[at] = ok ? 'right' : 'wrong';
       // Gửi vị trí GỐC của phương án, không phải vị trí hiển thị: ở bài kiểm
       // tra lại đáp án đã trộn, và màn xem lại lỗi sai đọc theo bộ đề gốc.
       queue(q, ok, String(q._perm ? q._perm[picked] : picked));
+      answered = true;
+      marks[at] = ok ? 'right' : 'wrong';
       if (pending.length >= BATCH || (mastery && mastery.is_timed)) {
         // Nuốt lỗi Ở ĐÂY là đúng (đang giữa chặng, không có gì để nói với học
         // viên), nhưng phải NHỚ lời hứa để `finishStage` chờ được.
@@ -922,7 +1006,10 @@ export function createRunner({
             ...(endedBy === 'time_cap' ? { attempts: pending.slice() } : {}),
           };
           await api.patch('/api/quiz/sessions/' + sessionId, finishPayload);
-          if (endedBy === 'time_cap') pending = [];
+          if (endedBy === 'time_cap') {
+            writeOutbox([], pending.map((row) => row.client_id));
+            pending = [];
+          }
           sessionEnded = true;
           // Chỉ phiên ĐÃ CHỐT mới có tên trong lượt xét đạt — server từ chối
           // phiên dang dở, và một phiên hỏng không được kéo cả lượt xuống.
@@ -1028,6 +1115,8 @@ export function createRunner({
       shownAt = now();
       return !sessionFailed;
     },
+
+    async sync() { await inflight; await flush(); },
 
     /** Đóng tab giữa chừng: đẩy nốt bằng fetch keepalive. */
     leave() { return flush({ keepalive: true }).catch(() => { /* hết cách */ }); },

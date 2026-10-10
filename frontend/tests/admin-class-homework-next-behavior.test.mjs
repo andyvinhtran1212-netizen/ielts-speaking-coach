@@ -358,3 +358,10 @@ describe('admin class homework — integration contracts', () => {
     assert.doesNotMatch(UI, /dangerouslySetInnerHTML|\.innerHTML|window\.confirm|alert\(/);
   });
 });
+
+test('rejects a stale timer for a hybrid bank even in mastery mode', () => {
+  const draft = { ...homeworkDraft(), skill: 'course', title: 'B12', contentId: 'hybrid', timeLimitMinutes: '75' };
+  const hybrid = [{ id: 'hybrid', ready: true, single_attempt_ready: false }];
+  assert.match(validateHomeworkDraft(draft, hybrid).error, /trắc nghiệm thuần/);
+  assert.equal(validateHomeworkDraft({ ...draft, timeLimitMinutes: '' }, hybrid).ok, true);
+});
