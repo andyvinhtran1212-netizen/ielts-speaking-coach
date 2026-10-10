@@ -1,7 +1,7 @@
 ---
 id: GRAMMARAUDIT-0019
 title: Close the October Grammar audit while preserving every learner revision
-status: draft
+status: approved
 risk: high
 owner: product
 ---
@@ -20,16 +20,17 @@ follow-up correction for Long Sentence Untangling already revised on staging.
 
 ## Scope
 
-The exact source files, qids and changed fields in source-scope.json: 130 article
+The exact source files, qids and changed fields in source-scope.json: 131 article
 corrections, 79 bank sources with 134 changed questions and three Grammar label
 files. Existing twelve reviewed sources remain supported as immutable historical
 identities; the union is ninety canonical codes, not permission to edit ninety
 arbitrary banks. The entire audit remains tracked by its original GA IDs,
 including already corrected and context-dependent conclusions.
 
-This is a draft approval proposal. No expanded publication implementation or
-live database mutation is included. New technical behavior requires a separate
-approved spec-only change landed on staging before its implementation.
+This technical intent was independently approved on 10 October; the source bundle
+was independently reviewed and the concrete corrections integrated. This spec-only
+change includes no expanded publication implementation or live database mutation.
+It must land on staging before the separately scoped high-risk implementation.
 
 ## Non-goals
 
@@ -86,6 +87,10 @@ fingerprints/UUIDs/points remain intact, and no unauthorized learner mutation oc
 
 ## Open questions
 
-Production bank/question/footprint read access and one independent source/technical
-review are pending. Final source approval, per-environment canonical extras and
-bounded LSU follow-up design review must precede approval and implementation.
+No user permission question remains. The user approved the two independent reviews
+and the three database-variable reads on 10 October; inherited backend/database
+authorization remains in force. A fresh repeatable-read, read-only production
+snapshot contains all 148 physical Grammar banks/questions and bounded history
+fingerprints. No question has nonempty why_wrong extras. Technical review approved
+the bounded design. Final source hashes and environment-specific CAS/footprints
+remain executable release evidence, rather than additional permission checkpoints.

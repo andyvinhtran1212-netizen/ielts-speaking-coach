@@ -12,6 +12,11 @@
       "after_sha256": "b792cea5f15995780e76b793bc0cc0093f11c320e5da07deec4273d2fd723f5d"
     },
     {
+      "path": "backend/content/error-clinic/dangling-modifiers.md",
+      "before_sha256": "cc455e30d1f802d00e2a82eb819b3b7f35c88dd6a3825c36aa8bb222be71b366",
+      "after_sha256": "962e1ccd25429bf66fdf5861e70c31e8598a533a2b8fd97de72a187c6229ac53"
+    },
+    {
       "path": "backend/content/error-clinic/do-vs-make.md",
       "before_sha256": "edd847011b7531c384de78741d13970eeb35f3fbc1fe89ddefcc65363241c551",
       "after_sha256": "4ee71fd6e08df5f73ebc287a6d4c4994c53964ff630c0c3480833cddf9386d95"
@@ -19,7 +24,7 @@
     {
       "path": "backend/content/error-clinic/double-subject-errors.md",
       "before_sha256": "c2b9d10a95bb845b8e3b982dae31e8bb3b17427684cc38014c9ebb4462807730",
-      "after_sha256": "c2eacd65719891c7ddb39bc92d6325a06b2cd3fb26ceec70a3f3b49fd018d55c"
+      "after_sha256": "e5365d1d0d2f51facf2bebb4fe1002e343d17dc5fe312c8f1002a0f62cf2beed"
     },
     {
       "path": "backend/content/error-clinic/economic-vs-economical.md",
@@ -29,7 +34,7 @@
     {
       "path": "backend/content/error-clinic/historic-vs-historical.md",
       "before_sha256": "a338c48b39abb6bfea49786aca001d19f177d0d4026a69b54e98f2f746c97602",
-      "after_sha256": "19401195ca0683e94fed6b1aacb7350e5b6e3ff762be1a14a1dcc945d92b88b3"
+      "after_sha256": "33b970c4831b10dec34b32ea057f6a63a703397f9a4f9509fee94c3e7404b963"
     },
     {
       "path": "backend/content/error-clinic/missing-main-verbs.md",
@@ -214,7 +219,7 @@
     {
       "path": "backend/content/grammar-for-meaning/discourse-markers-spoken.md",
       "before_sha256": "29e63c797b1563082e1ca5626f11a7925de073ac59523212cdd73aed562f6c61",
-      "after_sha256": "32320d004b12e84d2d6982a24cd39f4cd2fa7fb6fe843f07d8367f9b1e4b9354"
+      "after_sha256": "bcb16b11977773edfa82c1c9e635df0a23d0a067cffb88f287ee486e7a4f5fbc"
     },
     {
       "path": "backend/content/grammar-for-meaning/discourse-markers.md",
@@ -229,7 +234,7 @@
     {
       "path": "backend/content/grammar-for-meaning/hedging-language.md",
       "before_sha256": "019db51d9f56dd96fb025319b0074a7b77e517b0996546529e9fdc14c43f6551",
-      "after_sha256": "4e534a438f837bb804e88301161f53f439ca7b9828f3e1234b8cff370d0ad49e"
+      "after_sha256": "c5ba93aa630d5f942ee6d420b72efd3e30835c69e4a3e8957506172b88175e82"
     },
     {
       "path": "backend/content/grammar-for-meaning/quantifiers.md",
@@ -324,7 +329,7 @@
     {
       "path": "backend/content/grammar-for-writing/task1-trend-grammar.md",
       "before_sha256": "f4c076f558dc8c6643b1d1adcc19c9ce3b0f091d509c89b574d12804629c20cf",
-      "after_sha256": "efb06c8ee5aa980d6d2c97d072107a1c287019cb1b5aa87a607d4d7a26697b29"
+      "after_sha256": "8e79420f9cd227aeab36190bf479cd0fc37169f7e93a899bdab9c00f1d44f05b"
     },
     {
       "path": "backend/content/ielts-grammar-lab/adding-contrast-naturally.md",
@@ -349,7 +354,7 @@
     {
       "path": "backend/content/ielts-grammar-lab/avoiding-repetitive-sentence-openings.md",
       "before_sha256": "c640a150bd97683a5f5038d27a71aa5ee0311a2fd1eaa6b014bd3b66ddb55a1a",
-      "after_sha256": "4d359d21fd797dcadedc877494e150aee88ed2b66406ef082a88acc6109b6574"
+      "after_sha256": "9dc67120d0742a41d2abe46ef713b684591977a0f8a016d99568b03e1494d7ef"
     },
     {
       "path": "backend/content/ielts-grammar-lab/balanced-arguments-grammar.md",
@@ -389,7 +394,7 @@
     {
       "path": "backend/content/ielts-grammar-lab/grammar-for-band7plus.md",
       "before_sha256": "a47d23ac78bc59b9b7b4eda7729eb06743fd6ea1878549b0e79a563a94f6767f",
-      "after_sha256": "a35ca4acd1d5e824baa516342a1bb53227c86f22956a775167b1ae716e0d73aa"
+      "after_sha256": "66657bf5738c8dde84b17f87cbec3883bf78633562d658ea15f2bca1610215fb"
     },
     {
       "path": "backend/content/ielts-grammar-lab/grammar-in-speaking.md",
@@ -419,7 +424,7 @@
     {
       "path": "backend/content/ielts-grammar-lab/strong-vs-cautious-opinions.md",
       "before_sha256": "718497b2d7690450f7c4531409b4a19bf7ce24d902456f7b29ea359835cb6d7d",
-      "after_sha256": "17a8f8b61dde3bfc8905f5aed4f576be998c5855a5cffbaf51d346bd0d9a2b74"
+      "after_sha256": "7c86f811c6d8eda21c0ea903248c0369b45b3c8c1c38670e87f96a6d8e38ff20"
     },
     {
       "path": "backend/content/ielts-grammar-lab/talking-about-changes-over-time.md",
@@ -429,7 +434,7 @@
     {
       "path": "backend/content/ielts-grammar-lab/talking-about-future-plans.md",
       "before_sha256": "193399977e366d39a364d6bc40bad315953f3eaf4c61e32234520c5838fda343",
-      "after_sha256": "94b59f31b3bfd1c1b77a251a9e555af1e542cf4b4c868da50acf9507e3ce2c2a"
+      "after_sha256": "0ba69b9219ad19a60262dddb11aeb943c0cfea19bd9f38e4cb4e89cadb04d296"
     },
     {
       "path": "backend/content/ielts-grammar-lab/talking-about-habits-and-routines.md",
@@ -489,7 +494,7 @@
     {
       "path": "backend/content/parts-of-speech/nouns.md",
       "before_sha256": "723e86ab5b839fe6261ed7ef9ecc39b9c01c9366ab4c76b51e616cf4bf41aa6a",
-      "after_sha256": "b6cf088f940eb4288e721496880a8524c4fc51c8599019607ac3216b8f0058ab"
+      "after_sha256": "46376c925ff865c87e73c7af100d8f0982f0edabee4517e37f566be596a13401"
     },
     {
       "path": "backend/content/parts-of-speech/prepositions.md",
@@ -619,7 +624,7 @@
     {
       "path": "backend/content/verb-patterns/gerund-vs-infinitive.md",
       "before_sha256": "ab557bc3acdc15d18cc39c265c17beefa70f1cbcf8ca25b34fa6ba0718ac5b5f",
-      "after_sha256": "84471fe54cf0d65f7491b6ce5d5774dd46aad17d7437c54de72b2b25ea8a408f"
+      "after_sha256": "2573b3872b93910914005f0f4f4d7ee9d02b7e44fc853f6adaabe45637147ea2"
     },
     {
       "path": "backend/content/verb-patterns/gerund.md",
@@ -1943,7 +1948,7 @@
     {
       "path": "docs/grammar-quiz-banks/G-grammar-for-reading-appositives-and-parentheticals.md",
       "before_sha256": "cf325d683c99f4b431e1b663933859087c5a0e811c258211775406f312f8697f",
-      "after_sha256": "4652c7e07d1056175a294a8be104aca16c1e74484636eb25c9e44f181abf08ee",
+      "after_sha256": "2af8326d139cf2e5d7ee712e89f4674a586a1e1d801cc328aa0756a5d645c965",
       "code": "G-grammar-for-reading-appositives-and-parentheticals",
       "question_count": 20,
       "changed_questions": [
@@ -3728,7 +3733,7 @@
     {
       "path": "docs/grammar-quiz-banks/G-modifiers-order-of-adjectives.md",
       "before_sha256": "d79bc62012e45fa436d96db8c36b655dff6d9b56826389a5d801dbb9d2d5c1eb",
-      "after_sha256": "48b5ab61c65839f124cb3b2457f9e18591207e2cc52eef421b7dc5bb14c39be6",
+      "after_sha256": "1b847a986f8c7e37c9f3b0590b17e098594b0e6ca83ad1557642cb1bfeaca132",
       "code": "G-modifiers-order-of-adjectives",
       "question_count": 27,
       "changed_questions": [
@@ -5502,7 +5507,7 @@
     {
       "path": "docs/grammar-quiz-banks/G-grammar-for-reading-appositives-and-parentheticals.md",
       "before_sha256": "cf325d683c99f4b431e1b663933859087c5a0e811c258211775406f312f8697f",
-      "after_sha256": "4652c7e07d1056175a294a8be104aca16c1e74484636eb25c9e44f181abf08ee",
+      "after_sha256": "2af8326d139cf2e5d7ee712e89f4674a586a1e1d801cc328aa0756a5d645c965",
       "code": "G-grammar-for-reading-appositives-and-parentheticals",
       "question_count": 20,
       "changed_questions": [
@@ -5595,7 +5600,14 @@
           }
         }
       ],
-      "metadata_changes": {},
+      "metadata_changes": {
+        "text_match_by_qid": {
+          "before": null,
+          "after": {
+            "app_punct_i1": "exact"
+          }
+        }
+      },
       "previously_managed": false
     },
     {
@@ -7287,7 +7299,7 @@
     {
       "path": "docs/grammar-quiz-banks/G-modifiers-order-of-adjectives.md",
       "before_sha256": "d79bc62012e45fa436d96db8c36b655dff6d9b56826389a5d801dbb9d2d5c1eb",
-      "after_sha256": "48b5ab61c65839f124cb3b2457f9e18591207e2cc52eef421b7dc5bb14c39be6",
+      "after_sha256": "1b847a986f8c7e37c9f3b0590b17e098594b0e6ca83ad1557642cb1bfeaca132",
       "code": "G-modifiers-order-of-adjectives",
       "question_count": 27,
       "changed_questions": [
@@ -7310,7 +7322,14 @@
           }
         }
       ],
-      "metadata_changes": {},
+      "metadata_changes": {
+        "text_match_by_qid": {
+          "before": null,
+          "after": {
+            "oa_cc_i3": "exact"
+          }
+        }
+      },
       "previously_managed": false
     },
     {

@@ -92,4 +92,4 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | LEARNERDRAFT-0010 | Preserve Reading answers and Speaking preparation within a browser tab | implementing | medium | [spec](0010-learner-draft-preservation/spec.md) |
 
-| GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | draft | high | [spec](0019-grammar-audit-remediation/spec.md) |
+| GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | approved | high | [spec](0019-grammar-audit-remediation/spec.md) |

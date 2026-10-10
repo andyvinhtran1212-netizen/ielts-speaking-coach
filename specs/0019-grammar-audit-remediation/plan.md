@@ -6,7 +6,7 @@ Extend existing grammar_quiz_revision_source, policy/model allowlists, revision
 resolution and the serialized DB publication/admission guards. Reuse the current
 admin endpoints and native player; no new worker, editor, persistence platform or
 scoring algorithm. The only multi-publication case is the named LSU follow-up.
-Do not implement before this draft receives separate base-branch approval.
+Implement only after this independently approved spec-only change lands on staging.
 
 ## Data and contracts
 
