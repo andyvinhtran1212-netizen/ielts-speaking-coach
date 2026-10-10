@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReadingExamSession } from '@/app/(authed-reading-player)/reading/exam/session/reading-exam-session';
 import c20EndingStems from '../fixtures/reading-c20-matching-ending-stems.json';
+import c21People from '../fixtures/reading-c21-t1-people.json';
 
 vi.mock('@/lib/auth/auth-provider', () => ({
   useAuth: () => ({ status: 'signed-in', user: { id: 'admin-fixture', email: 'fixture@example.test' } }),
@@ -35,6 +36,26 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('source-authored Reading controls in the native player', () => {
+  it('shows the C21 T1 authored People bank and singular-person rubric while allowing letter reuse', async () => {
+    const fixture = { ...paper({}), questions: c21People.questions };
+    const original = JSON.stringify(fixture);
+    get.mockResolvedValue(fixture);
+    render(<ReadingExamSession />);
+    const bank = await screen.findByRole('complementary', { name: 'List of People' });
+    expect(within(bank).getByText('List of People')).toBeTruthy();
+    expect(screen.queryByRole('complementary', { name: 'List of Features' })).toBeNull();
+    expect(screen.getByText(/Match each statement with the correct person, A, B, C, or D/)).toBeTruthy();
+    expect(screen.getByText(/NB You may use any letter more than once/)).toBeTruthy();
+    const first = screen.getByRole('radio', { name: 'Question 22: C' });
+    const last = screen.getByRole('radio', { name: 'Question 26: C' });
+    fireEvent.click(first); fireEvent.click(last);
+    expect((first as HTMLInputElement).checked).toBe(true);
+    expect((last as HTMLInputElement).checked).toBe(true);
+    expect(within(bank).getAllByRole('listitem')).toHaveLength(4);
+    expect(JSON.stringify(fixture)).toBe(original);
+    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
+  });
+
   it('keeps the original C20 T1 Q31–35 sentence beginnings visible beside their dropdowns', async () => {
     const fixture = paper({});
     fixture.passages[0].passage_order = 3;
@@ -67,6 +88,7 @@ describe('source-authored Reading controls in the native player', () => {
     expect(first.closest('label')?.textContent).toBe('A');
     expect(last.closest('label')?.textContent).toBe('F'); // Do not relabel this as the second alphabetical value.
     expect(view.container.querySelectorAll('.exam-features-box__item')).toHaveLength(2);
+    expect(screen.getByRole('complementary', { name: 'List of Features' })).toBeTruthy();
     fireEvent.click(last);
     expect((last as HTMLInputElement).checked).toBe(true);
     expect((last as HTMLInputElement).value).toBe('F');

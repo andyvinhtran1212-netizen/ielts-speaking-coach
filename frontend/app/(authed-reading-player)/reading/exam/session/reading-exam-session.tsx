@@ -47,6 +47,7 @@ type Question = {
     options?: Option[];
     image_url?: string;
     instruction?: string;
+    option_bank_title?: string;
     word_limit?: string;
     paragraph_labels?: string[];
     template?: {
@@ -364,8 +365,9 @@ function SaveHint({ state }: { state?: 'pending' | 'retrying' | 'failed' }) {
   </small>;
 }
 
-function QuestionBank({ type, options }: { type: string; options: Option[] }) {
-  const title = BANK_TITLES[type];
+function QuestionBank({ type, options, authoredTitle }: { type: string; options: Option[]; authoredTitle?: string }) {
+  const title = typeof authoredTitle === 'string' && authoredTitle.trim()
+    ? authoredTitle.trim() : BANK_TITLES[type];
   if (!title || !options.length) return null;
   const family = type === 'matching_headings' ? 'headings'
     : type === 'matching_features' ? 'features'
@@ -603,7 +605,7 @@ function QuestionRun({ run, part, answers, saveStates, flagged, flagReady, curre
     <div className="exam-questions__instructions exam-questions__instructions--type" data-question-type={type}>
       {readingQuestionInstruction(run, part)}
     </div>
-    {hasBank ? <QuestionBank type={type} options={options} /> : null}
+    {hasBank ? <QuestionBank type={type} options={options} authoredTitle={first.payload?.option_bank_title} /> : null}
     {groupedMcq ? <GroupedMcqRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} onAnswer={onAnswer} onFlag={onFlag} />
       : type === 'matching_features' && options.length ? <MatchingMatrixRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
       : hasImageVariant ? <DiagramImageRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
