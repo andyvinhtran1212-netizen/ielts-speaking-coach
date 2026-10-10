@@ -64,14 +64,17 @@ snapshot remains 148 physical banks and 3262 questions before the 79 cutovers.
 
 ## Requirement coverage
 
+Result describes closure of the entire requirement. Partial source/staging evidence
+does not close a requirement whose production proof remains outstanding.
+
 | Requirement | Evidence required | Result |
 | --- | --- | --- |
-| FR-001 | reviewer=Codex; environment=staging; date=2026-10-10; observed=All 589 IDs covered by independent review; current per-ID disposition and final environment proof. SOURCE/STAGING COMPLETE; final production reconciliation pending | MANUAL |
-| FR-002 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Real submit/credit cases; all six current-frame negative controls, distinguishing old literals made valid by repaired frames. LOCAL/STAGING PASS; production served-engine replay pending | MANUAL |
-| FR-003 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Whole-lesson semantic review and full rendered equality for all 137 articles; qualified context/band/Task 1 claims. SOURCE/STAGING PASS; final production readback pending | MANUAL |
-| FR-004 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Frozen source/qid/field approval; 79 owner publications and 11 prior revisions with complete extras/readback. LOCAL/STAGING PASS; 79 production publications pending | MANUAL |
-| FR-005 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Actual PG preservation/races/rollback; before/after staging original question/history equality. LOCAL/STAGING PASS; production cutover receipts and final preserved-history comparison pending | MANUAL |
+| FR-001 | reviewer=Codex; environment=staging; date=2026-10-10; observed=All 589 IDs covered by independent review; current per-ID disposition and final environment proof. SOURCE/STAGING COMPLETE; final production reconciliation pending | PENDING |
+| FR-002 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Real submit/credit cases; all six current-frame negative controls, distinguishing old literals made valid by repaired frames. LOCAL/STAGING PASS; production served-engine replay pending | PENDING |
+| FR-003 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Whole-lesson semantic review and full rendered equality for all 137 articles; qualified context/band/Task 1 claims. SOURCE/STAGING PASS; final production readback pending | PENDING |
+| FR-004 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Frozen source/qid/field approval; 79 owner publications and 11 prior revisions with complete extras/readback. LOCAL/STAGING PASS; 79 production publications pending | PENDING |
+| FR-005 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Actual PG preservation/races/rollback; before/after staging original question/history equality. LOCAL/STAGING PASS; production cutover receipts and final preserved-history comparison pending | PENDING |
 | FR-006 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Complete production predecessor snapshot, reviewed 78-bank staging seed, all original 24 banks preserved, no learner copy. PASS | MANUAL |
-| FR-007 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Actual PG original/revised/follow-up/continuation/reset/receipt tests and deployed staging three-bank LSU chain. LOCAL/STAGING PASS; production final first cutover pending | MANUAL |
-| FR-008 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Generated OpenAPI/runtime validation, native managed/legacy/conflict/history fixtures; staging Read/Preview and four-concept CTA. LOCAL/STAGING PASS; production served labels/CTA/current availability pending | MANUAL |
-| FR-009 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Local and actual PG evidence, both migrations, exact integrated CI and staging live provenance. COMPLETE THROUGH STAGING AND PRODUCTION MIGRATION; promotion and live production acceptance pending | MANUAL |
+| FR-007 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Actual PG original/revised/follow-up/continuation/reset/receipt tests and deployed staging three-bank LSU chain. LOCAL/STAGING PASS; production final first cutover pending | PENDING |
+| FR-008 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Generated OpenAPI/runtime validation, native managed/legacy/conflict/history fixtures; staging Read/Preview and four-concept CTA. LOCAL/STAGING PASS; production served labels/CTA/current availability pending | PENDING |
+| FR-009 | reviewer=Codex; environment=staging; date=2026-10-10; observed=Local and actual PG evidence, both migrations, exact integrated CI and staging live provenance. COMPLETE THROUGH STAGING AND PRODUCTION MIGRATION; promotion and live production acceptance pending | PENDING |
