@@ -152,11 +152,11 @@ input: "text"
 headword: "svc-cautious-modal"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with ONE word: 'This ____ potentially lead to greater inequality in the long term.' (cautious modal meaning 'possibility')"
-accept: ["could"]
+prompt: "Use a cautious modal could, may or might (ONE word): 'This ____ potentially lead to greater inequality in the long term.'"
+accept: ["could", "may", "might"]
 case_sensitive: false
 grammar_article_slug: "strong-vs-cautious-opinions"
-explain: "'This could potentially + verb' diễn đạt khả năng, không chắc chắn — modal hedging 'could'."
+explain: "Could, may và might đều diễn đạt khả năng trong khung câu này. Potentially không loại may/might; mức độ chắc chắn còn phụ thuộc ngữ cảnh, không có thứ hạng phần trăm cố định."
 ---
 
 ---

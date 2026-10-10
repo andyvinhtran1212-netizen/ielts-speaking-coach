@@ -93,7 +93,7 @@ Hiểu zero article giúp tránh cả hai lỗi này.
 <!-- anchor: zero-article.generic.plural-nouns -->
 ## TRƯỜNG HỢP 1: Plural Noun — Nghĩa chung (generic)
 
-Khi nói về **tất cả thành viên của một nhóm** theo nghĩa chung — không chỉ một nhóm cụ thể đã biết — dùng zero article.
+Danh từ số nhiều không mạo từ có thể nói về một loại nói chung hoặc một nhóm chưa được nhận diện. Nó không tự mang nghĩa tất cả thành viên: Scientists are still searching... không khẳng định mọi nhà khoa học đều đang làm việc ấy.
 
 ```
 ∅ + plural noun (general meaning)
@@ -139,7 +139,7 @@ Tương tự với danh từ không đếm được khi nói theo nghĩa chung:
 | **∅ Music** calms the mind. (chung) | **The music** at the concert was amazing. (cụ thể) |
 | **∅ Water** is vital. (chung) | **The water** in this river is polluted. (cụ thể) |
 
-> **Quy tắc vàng:** Hỏi "Đang nói về tất cả X nói chung, hay một X cụ thể?" Nếu chung → zero article. Nếu cụ thể → the.
+> Xét người nghe có nhận diện được đối tượng hay không, cùng loại danh từ và quy ước của cụm. The dùng khi đối tượng được nhận diện; một đối tượng cụ thể nhưng chưa được nhận diện vẫn có thể dùng a/an, some hoặc zero article tùy cấu trúc. Ví dụ: “I met a doctor yesterday. The doctor was kind.”
 
 ---
 
@@ -178,7 +178,7 @@ play/do/love/enjoy + ∅ sport/activity
 - I've been doing **∅ yoga** for two years.
 - **∅ Basketball** is extremely popular in the US.
 
-> Không có ngoại lệ đặc biệt ở đây — môn thể thao luôn dùng zero article.
+> Tên môn khi nói chung thường không mạo từ: play tennis / love tennis. Một cách dùng đã được xác định có thể có the: “The tennis we watched yesterday was exciting.”
 
 ---
 
@@ -201,9 +201,7 @@ be good at/study/major in + ∅ subject
 - He majored in **∅ computer science**.
 - **∅ Mathematics** is often called the language of the universe.
 
-**Ngoại lệ — "the" khi dùng như tính từ:**
-- She's studying **the** English **language** (= the English language as a subject with modifier)
-- Thực tế: đây là trường hợp rất ít gặp, trong practice hầu như luôn dùng zero article.
+**Phân biệt tên ngôn ngữ với cụm có danh từ trung tâm language:** English là tên ngôn ngữ và thường không mạo từ; the English language có language làm trung tâm và English bổ nghĩa. Đối chiếu a foreign language / foreign languages: có tính từ không tự buộc dùng the.
 
 ---
 
@@ -216,8 +214,8 @@ Những danh từ này mang ý nghĩa **chức năng** (không phải địa đi
 |-------------------|-------|----------------------|
 | go to **∅ school** | đi học (với tư cách học sinh) | go to **the** school (đến tòa nhà trường đó) |
 | go to **∅ university/college** | đi học đại học | go to **the** university (đến tòa nhà đại học) |
-| go to **∅ hospital** | đi nhập viện | go to **the** hospital (đến bệnh viện cụ thể, vd. thăm ai đó) |
-| go to **∅ prison/jail** | bị tù | go to **the** prison (thăm nhà tù, không phải bị tù) |
+| go to **∅ hospital** | đi nhập viện, thường trong Anh–Anh | go to **the** hospital có thể là bệnh nhân trong Anh–Mỹ hoặc đến một bệnh viện được nhận diện |
+| go to **∅ prison/jail** | thường nói việc bị giam | go to **the** prison xác định cơ sở; phải xét ngữ cảnh, không tự chứng minh người đó chỉ đến thăm |
 | go to **∅ church** | đi lễ | go to **the** church (đến tòa nhà nhà thờ) |
 | at **∅ home** | ở nhà | at **the** home (của ai đó — ít phổ biến) |
 | at **∅ work** | đang làm việc | at **the** work (không chuẩn) |

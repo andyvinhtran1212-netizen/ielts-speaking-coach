@@ -76,7 +76,7 @@ IELTS Writing dùng **văn viết trang trọng** (bán trang trọng cho Task 2
 | get better | improve |
 | big problem | major issue |
 | kids | children |
-| I think… | It can be argued that… |
+| I think… | Có thể giữ cho ý kiến bản thân; It can be argued that diễn đạt khả năng lập luận, không tự giữ cùng lập trường |
 
 Giọng học thuật thường **khách quan** hơn: dùng bị động, danh hoá, và tránh *you*.
 
@@ -101,5 +101,5 @@ Nêu quan điểm trực tiếp thay vì hỏi ngược người đọc.
 ## Tóm tắt nhanh
 
 - Tránh viết tắt, phrasal verb thông tục, tiếng lóng, câu hỏi tu từ
-- Thay *a lot of/get/kids* bằng *many/obtain/children*
+- Chọn theo nghĩa và cấu trúc: “a lot of people → many people”, “a lot of research → much/a great deal of research”; get không luôn là obtain (get worse → deteriorate) và kids thường → children
 - Giọng khách quan; hạn chế *you*

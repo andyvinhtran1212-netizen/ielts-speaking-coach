@@ -148,6 +148,8 @@ Dùng khi không xác định cụ thể:
 | everyone / everybody | everything | everywhere |
 | no one / nobody | nothing | nowhere |
 
+Nhóm chỉ **người/vật** ở đây là đại từ; somewhere/anywhere/everywhere/nowhere thường là **trạng từ chỉ nơi**, được đặt cạnh để đối chiếu nghĩa, không phải cùng một từ loại.
+
 - **Someone** left their bag in the classroom.
 - Is there **anything** I can help with?
 - **Everyone** deserves a second chance.
@@ -164,7 +166,7 @@ Nối mệnh đề quan hệ với danh từ đứng trước:
 | | Người | Vật |
 |--|-------|-----|
 | Chủ ngữ | who / that | which / that |
-| Tân ngữ | whom / that | which / that |
+| Tân ngữ | who / whom / that | which / that |
 | Sở hữu | whose | whose |
 
 - The student **who** won the prize is from my class.
@@ -235,7 +237,7 @@ Dùng đại từ đúng cách tạo ra **cohesion** — mạch văn liền mạ
 
 ### Nguyên tắc 1: Antecedent phải rõ ràng
 
-Mỗi đại từ phải chỉ đến đúng một danh từ đã nhắc trước đó. Nếu không rõ, người đọc sẽ hiểu nhầm:
+Tham chiếu phải đủ rõ để người đọc hiểu người/vật hoặc nội dung đang nói đến. Không bắt buộc thay đúng một danh từ đã nhắc: I/you có thể được hiểu từ tình huống, it có thể là chủ ngữ giả, they có thể gom hai nhóm, this có thể chỉ cả mệnh đề. Who làm tân ngữ thông dụng; whom trang trọng hơn, đặc biệt sau giới từ đưa lên trước.
 
 - ❌ "The government and the public disagree. **They** think it is unfair." *(They = ai?)*
 - ✅ "The government and the public disagree. **The public** think it is unfair."
@@ -290,7 +292,7 @@ Sau khi nhắc một danh từ lần đầu, dùng *it* (số ít) hoặc *they/
 1. Between you and **me**
 2. Everyone **is** responsible...
 3. **It's** a beautiful day...
-4. She hurt **herself** while playing tennis. (bỏ "by she")
+4. She hurt **herself** while she was playing tennis **by herself**. (Đổi by she thành by herself để giữ ý một mình; có thể hiểu là cô ấy tập tennis một mình.)
 
 ## Tóm tắt nhanh
 

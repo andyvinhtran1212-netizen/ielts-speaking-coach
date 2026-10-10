@@ -79,16 +79,17 @@ learning_blocks:
   - id: modal-strength-scale
     type: visual
     variant: flow
-    eyebrow: Meaning scale
-    title: Modal verbs thay đổi “độ mạnh” của phát biểu
+    eyebrow: Meaning in context
+    title: Modal verbs thể hiện khả năng, kỳ vọng và suy luận
     items:
-      - label: Khả năng thấp
-        value: might · could
-      - label: Khả năng hợp lý
-        value: may · should
+      - label: Khả năng chưa chắc chắn
+        value: may · might · could
+        note: Không có thứ hạng hay tỷ lệ cố định; xét ngữ cảnh và ngữ điệu
+      - label: Kỳ vọng
+        value: should
       - label: Suy luận mạnh
         value: must
-      - label: Chắc chắn không
+      - label: Suy luận không thể
         value: can't
         note: modal + bare infinitive, không thêm to
 ---
@@ -98,7 +99,7 @@ learning_blocks:
 <!-- anchor: modal-verbs.overview -->
 ## Tóm tắt
 
-> **Quy tắc cơ bản:** Modal verbs LUÔN đi với **bare infinitive** (động từ nguyên mẫu KHÔNG "to"):
+> **Quy tắc cơ bản:** Modal cốt lõi (can/could/may/might/will/would/shall/should/must) đi với **bare infinitive** (động từ nguyên mẫu KHÔNG "to"):
 >
 > <!-- anchor: modal-verbs.structure.bare-infinitive-required -->
 >
@@ -124,7 +125,7 @@ Modal verbs cho phép diễn đạt nhiều sắc thái: chắc chắn / không 
 
 ## Đặc điểm ngữ pháp của Modal Verbs
 
-Modal verbs khác động từ thường ở những điểm sau:
+Các modal cốt lõi khác động từ thường ở những điểm sau. Ought to có to; have to/need to là cụm liên quan, có has to/needs to và dùng do để hỏi/phủ định. Need khi dùng như modal có needn’t + V-bare.
 
 | Đặc điểm | Ví dụ |
 |-----------|-------|
@@ -170,9 +171,9 @@ Diễn tả sự không chắc chắn — từ ít chắc đến chắc hơn:
 might (ít chắc) → may → could (chắc hơn một chút)
 ```
 
-- It **might** rain this afternoon. (~30-40% — có thể)
-- It **may** rain this afternoon. (~40-50% — có thể)
-- It **could** rain — you should take an umbrella. (~50%+)
+- It **might** rain this afternoon. (khả năng chưa chắc chắn)
+- It **may** rain this afternoon. (khả năng chưa chắc chắn)
+- It **could** rain — you should take an umbrella. (khả năng chưa chắc chắn; khuyên chuẩn bị)
 
 **Quá khứ** (suy luận về điều có thể đã xảy ra):
 - She **may have missed** the bus. (có thể đã lỡ xe)
@@ -210,12 +211,14 @@ Dùng khi dự đoán điều gì đó sẽ xảy ra theo kỳ vọng:
 
 | | **Must** | **Have to** |
 |--|---------|------------|
-| Nghĩa vụ từ | Người nói (internal) | Quy tắc bên ngoài (external) |
+| Xu hướng về nghĩa vụ | Thường nhấn thái độ người nói | Thường nhấn hoàn cảnh/quy tắc |
 | Ngữ cảnh | Cá nhân, cảm xúc | Chính sách, luật pháp |
 | Ví dụ | You **must** try this cake! | You **have to** show your ID at the border. |
 
 - I **must** remember to call my mother. (tôi tự nhắc mình)
 - Students **have to** submit assignments by Friday. (quy định của trường)
+
+Must và have to có thể dùng cho cùng một nghĩa vụ; phân biệt internal/external chỉ là xu hướng, không phải phép chấm cứng.
 
 **Phủ định — ý nghĩa KHÁC NHAU:**
 - You **mustn't** smoke here. = cấm không được (prohibition)
@@ -262,13 +265,13 @@ Dùng khi dự đoán điều gì đó sẽ xảy ra theo kỳ vọng:
 
 ## Modal Verbs + Have + V3 (Perfect Modal)
 
-Diễn tả suy luận hoặc đánh giá về **quá khứ**:
+Diễn tả hành động trước một mốc tham chiếu, thường là quá khứ nhưng có thể trước mốc tương lai: “By tomorrow, she should have finished”. Should have còn chỉ kỳ vọng: “They should have arrived by now”; không tự chứng minh họ chưa đến. Ngữ cảnh quyết định nghĩa suy luận, cơ hội hay hối tiếc.
 
 | Cấu trúc | Nghĩa | Ví dụ |
 |----------|-------|-------|
 | must have + V3 | chắc chắn đã... | She **must have worked** very hard. |
 | can't have + V3 | không thể đã... | He **can't have left** — his car is still here. |
-| should have + V3 | đáng lẽ phải... (nhưng không làm) | You **should have told** me earlier! |
+| should have + V3 | kỳ vọng hoặc đáng lẽ phải... tùy ngữ cảnh | You **should have told** me earlier! |
 | shouldn't have + V3 | đáng lẽ không nên... (nhưng đã làm) | I **shouldn't have eaten** so much. |
 | could have + V3 | đáng lẽ có thể đã... | They **could have won** if they'd practised more. |
 | might/may have + V3 | có thể đã... | She **might have missed** the deadline. |
@@ -340,7 +343,7 @@ Diễn tả suy luận hoặc đánh giá về **quá khứ**:
 1. You ___ park here — it's a no-parking zone. (cấm)
 2. She ___ speak five languages — she's incredibly talented. (suy luận chắc chắn)
 3. ___ I use your charger for a moment? (xin phép lịch sự)
-4. It ___ snow tomorrow — the forecast says 20% chance. (khả năng thấp)
+4. It ___ snow tomorrow — the forecast is uncertain. (nêu khả năng, không xác suất cố định)
 5. We ___ have left earlier — we missed the first half. (hối tiếc về quá khứ)
 
 ### Sửa lỗi
@@ -373,7 +376,7 @@ Diễn tả suy luận hoặc đánh giá về **quá khứ**:
 | Xác suất trung bình | may / could |
 | Xác suất thấp | might |
 | Bắt buộc (chủ quan) | must |
-| Bắt buộc (khách quan) | have to |
+| Nghĩa vụ do hoàn cảnh/quy tắc (xu hướng) | have to; must cũng có thể phù hợp |
 | Cấm | mustn't |
 | Không bắt buộc | don't have to / needn't |
 | Lời khuyên | should / ought to |

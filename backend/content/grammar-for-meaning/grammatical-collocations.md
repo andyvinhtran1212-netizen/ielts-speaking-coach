@@ -57,7 +57,7 @@ anchors:
     location: "## Phần 1: Verb + Preposition collocations"
     type: section
   - id: grammatical-collocations.no-preposition-trap
-    location: "### Verbs that take NO preposition (often calque-error trap)"
+    location: "### Verbs that take NO preposition in these meanings (often calque-error trap)"
     type: pitfall
   - id: grammatical-collocations.adjective-preposition
     location: "## Phần 2: Adjective + Preposition collocations"
@@ -130,8 +130,8 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 | **apologise for** | xin lỗi vì | "I apologise for being late." |
 | **apply for** | nộp đơn (việc, hộ chiếu) | "I applied for a scholarship." |
 | **apply to** | áp dụng vào / nộp cho (đại học) | "She applied to Harvard." |
-| **arrive at (small place)** | đến (chỗ nhỏ) | "I arrived at the station." |
-| **arrive in (city / country)** | đến (chỗ lớn) | "I arrived in Vietnam yesterday." |
+| **arrive at (point/venue)** | đến (điểm/địa điểm hoạt động) | "I arrived at the station." |
+| **arrive in (city / country)** | đến (khu vực/thành phố/quốc gia) | "I arrived in Vietnam yesterday." |
 | **believe in** | tin vào | "I believe in hard work." |
 | **complain about** | than phiền về | "He complained about the noise." |
 | **concentrate on** | tập trung vào | "Concentrate on your studies." |
@@ -147,7 +147,7 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 | **worry about** | lo về | "Don't worry about it." |
 
 <!-- anchor: grammatical-collocations.no-preposition-trap -->
-### Verbs that take NO preposition (often calque-error trap)
+### Verbs that take NO preposition in these meanings (often calque-error trap)
 
 | Verb | Đừng thêm preposition | Lỗi VN |
 |---|---|---|
@@ -232,7 +232,7 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 | **firmly believe** | "I firmly believe in equal rights." |
 | **seriously consider** | "I'm seriously considering moving abroad." |
 
-> Lưu ý: trong Speaking, các adverb collocations này nâng tone từ "Band 6 plain" lên "Band 7+ specific". Thay vì "I really agree" → "I strongly agree" / "I firmly believe".
+> I really agree / I strongly agree / I firmly believe khác sắc thái và động từ chính. Chọn theo lập trường; thêm trạng từ không tự nâng band. Discuss something nhưng discuss it with somebody; enter a room nhưng enter into an agreement.
 
 ## Lỗi thường gặp (chuyên cho người Việt)
 
@@ -248,7 +248,7 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 
 - ❌ "It depends of the weather."
 - ✅ "It depends **on** the weather."
-- **TẠI SAO:** Translation từ "phụ thuộc vào". VN dùng "vào" → người học chọn "of" vì nghe gần "vào". Nhưng English fixes: depend ON.
+- **TẠI SAO:** Trong nghĩa “phụ thuộc”, kết hợp chuẩn là depend ON. Không có căn cứ ở đây để quy lỗi cho phát âm tiếng Việt.
 
 <!-- anchor: grammatical-collocations.common-mistake.discuss-about-error -->
 ### Lỗi 3: "discuss about" thay vì "discuss"

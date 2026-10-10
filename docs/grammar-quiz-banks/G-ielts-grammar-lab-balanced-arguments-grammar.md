@@ -19,16 +19,16 @@ source: "authored-2026-07"
 
 ---
 id: "bag_hand_b1"
-type: "mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "bag-one-hand-other-hand"
 skill: "form"
 subtype: "basic"
-prompt: "____ hand, tourism creates jobs and income. On the other hand, it can strain local infrastructure."
-options: ["On the one", "On one", "In the one", "At the one"]
-answer: 0
+prompt: "Use On one or On the one: '____ hand, tourism creates jobs and income. On the other hand, it can strain local infrastructure.'"
 grammar_article_slug: "balanced-arguments-grammar"
-explain: "Cấu trúc chuẩn (trang trọng) là 'On the one hand... on the other hand...' để trình bày hai mặt song song của vấn đề."
+explain: "On the one hand là cụm đầy đủ thông dụng; On one hand cũng được dùng. Cả hai tạo khung trình bày hai mặt cùng On the other hand trong câu này."
+accept: ["On one", "On the one"]
+case_sensitive: false
 ---
 
 ---
@@ -66,10 +66,10 @@ input: "boolean"
 headword: "bag-one-hand-other-hand"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: mở đầu một đoạn bằng 'On the one hand, remote work saves commuting time.' mà không có 'on the other hand' ở đâu trong bài là ổn về mặt cấu trúc."
-answer: false
+prompt: "Đúng hay Sai: Sau on the one hand, mặt đối lập có thể được giới thiệu bằng but, however hoặc but then again; không bắt buộc lặp nguyên cụm on the other hand."
+answer: true
 grammar_article_slug: "balanced-arguments-grammar"
-explain: "SAI — nếu đã mở bằng 'on the one hand', bắt buộc phải có mặt đối lập 'on the other hand' theo sau; thiếu vế sau khiến cấu trúc không hoàn chỉnh."
+explain: "ĐÚNG — on the one hand tạo kỳ vọng có một mặt khác được phát triển. Có thể dùng cách nối khác để đưa mặt đó vào; thiếu nguyên cụm on the other hand không tự làm lập luận sai cấu trúc. Vẫn cần tránh mở hai mặt rồi bỏ dở ý tương phản."
 ---
 
 # ===== item_key 2 · while / although it is true that — nhượng bộ rồi phản biện =====
@@ -111,10 +111,10 @@ skill: "production"
 subtype: "intermediate"
 prompt: "Q: Do you think working from home is a good idea overall? A: ____ it is true that remote work can feel isolating, I still believe it improves overall well-being."
 hint: "từ đầu tiên mở đầu ý nhượng bộ"
-accept: ["While"]
+accept: ["While", "Although", "Though", "Even though"]
 case_sensitive: false
 grammar_article_slug: "balanced-arguments-grammar"
-explain: "'While' mở đầu cấu trúc nhượng bộ mạnh 'While it is true that', công nhận điểm đối lập (remote work can feel isolating) trước khi bảo vệ quan điểm chính."
+explain: "While, Although, Though và Even though có thể mở mệnh đề nhượng bộ 'it is true that remote work can feel isolating'. Chúng công nhận hạn chế trước nhận định chính; đề không giới hạn riêng While."
 ---
 
 ---

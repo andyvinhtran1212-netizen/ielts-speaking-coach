@@ -165,10 +165,10 @@ headword: "pperr-adjective-collocation"
 skill: "production"
 subtype: "intermediate"
 prompt: "Many small businesses are heavily dependent ____ (viết giới từ đúng) tourism during the summer season."
-accept: ["on"]
+accept: ["on", "upon"]
 case_sensitive: false
 grammar_article_slug: "preposition-errors"
-explain: "'dependent on' là collocation cố định."
+explain: "Dependent on và dependent upon đều đúng trong khung này; upon thường trang trọng hơn. Đề không giới hạn văn phong nên chấp nhận cả hai."
 ---
 
 ---
@@ -179,9 +179,9 @@ headword: "pperr-adjective-collocation"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'The survey results were quite different than what the researchers had expected.'"
-answer: false
+answer: true
 grammar_article_slug: "preposition-errors"
-explain: "SAI trong văn phong academic — 'different from' là chuẩn học thuật. 'different than' phổ biến trong tiếng Anh Mỹ thông tục nhưng không khuyến khích cho IELTS Writing. Sửa: 'different from what the researchers had expected.'"
+explain: "ĐÚNG — different than là cách dùng được chấp nhận trong Anh–Mỹ, nhất là trước mệnh đề what.... Different from dùng rộng rãi và là lựa chọn an toàn; ưu tiên from không biến than thành lỗi ngữ pháp khi đề không giới hạn biến thể hay quy ước văn phong."
 ---
 
 ---

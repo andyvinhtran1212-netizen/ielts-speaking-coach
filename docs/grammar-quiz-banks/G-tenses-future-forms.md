@@ -291,9 +291,9 @@ headword: "ff-present-continuous-arrangement"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'I will fly to Hanoi next Tuesday morning — my ticket is already booked.'"
-answer: false
+answer: true
 grammar_article_slug: "future-forms"
-explain: "SAI — vé đã đặt là lịch trình xác nhận, tự nhiên hơn khi dùng Present Continuous. Sửa: 'I'm flying to Hanoi next Tuesday morning.'"
+explain: "ĐÚNG — will có thể phát biểu hành động tương lai được tin là sẽ xảy ra. I'm flying nhấn mạnh lịch đã sắp xếp và rất tự nhiên khi vé đã đặt, nhưng sự ưu tiên đó không khiến I will fly sai ngữ pháp."
 ---
 
 # ===== item_key 4 · Lỗi lạm dụng "will" cho mọi tình huống tương lai =====

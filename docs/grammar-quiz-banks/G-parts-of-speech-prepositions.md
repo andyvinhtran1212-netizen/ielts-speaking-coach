@@ -293,10 +293,10 @@ headword: "prep-adjective-collocation"
 skill: "production"
 subtype: "intermediate"
 prompt: "This year's results are quite different ____ (viết giới từ đúng) what analysts had predicted."
-accept: ["from"]
+accept: ["from", "than"]
 case_sensitive: false
 grammar_article_slug: "prepositions"
-explain: "Cụm cố định: different from (không phải 'different with' hay 'different than' trong văn phong Anh chuẩn)."
+explain: "Different from là lựa chọn dùng rộng rãi. Different than cũng được dùng trong tiếng Anh Mỹ, nhất là trước mệnh đề như what analysts had predicted. Different with không phù hợp trong khung câu này."
 ---
 
 ---

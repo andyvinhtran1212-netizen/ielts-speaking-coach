@@ -77,20 +77,11 @@ learning_blocks:
 
 ## Tại sao quan trọng
 
-Complex sentences là cấu trúc **bắt buộc** cho điểm cao trong IELTS:
-
-| IELTS Band | Đặc điểm cấu trúc câu |
-|-----------|----------------------|
-| Band 5 | Chủ yếu simple sentences, một số compound |
-| Band 6 | Dùng được compound sentences, bắt đầu có complex |
-| Band 7 | Dùng thành thạo complex sentences với variety |
-| Band 8–9 | Complex sentences phong phú, linh hoạt, ít lỗi |
-
-Theo Band Descriptors của IELTS, Band 7 yêu cầu: *"uses a variety of complex structures"*. Không có complex sentences = không thể đạt Band 7.
+Complex sentences giúp thể hiện quan hệ chính phụ. Theo tiêu chí IELTS, Grammatical Range and Accuracy xét sự đa dạng và linh hoạt của cấu trúc, độ chính xác, mức độ lỗi và tác động tới giao tiếp trên toàn bài. Không có bảng quy đổi câu đơn = band 5, câu ghép = band 6, câu phức = band 7.
 
 Trong IELTS Writing Task 2:
-- ❌ Band 5: "There are many benefits of technology. Technology helps communication. It also helps education."
-- ✅ Band 7: "**Although technology has transformed communication**, its impact on education **—especially in areas where access is limited—** is still debated by researchers **who emphasise the importance** of equal opportunity."
+- Ví dụ các câu đơn: "There are many benefits of technology. Technology helps communication. It also helps education."
+- Ví dụ câu phức, có thêm thông tin: "**Although technology has transformed communication**, its impact on education **—especially in areas where access is limited—** is still debated by researchers **who emphasise the importance** of equal opportunity."
 
 ## Định nghĩa
 
@@ -194,7 +185,7 @@ Mệnh đề đóng vai trò như một danh từ trong câu — làm chủ ng�
 - *The researchers **whose findings challenged the consensus** faced significant scrutiny.*
 
 **Non-restrictive — thêm chi tiết không thiết yếu:**
-- *Finland, **which consistently tops international education rankings**, invests significantly in teacher training.*
+- *Finland, **which is in Northern Europe**, has a population of several million.* (Ví dụ minh họa mệnh đề bổ sung; không khẳng định Phần Lan luôn đứng đầu mọi bảng xếp hạng.)
 
 ### 3. Noun clauses — Diễn đạt ý kiến, niềm tin
 
@@ -246,10 +237,10 @@ Complex sentences có thể chứa nhiều dependent clauses:
 
 ### Ví dụ IELTS Writing Task 2
 
-**Band 5 (simple + basic compound):**
+**Ví dụ câu đơn và phối hợp cơ bản:**
 > "Social media has benefits. It connects people. But it also has problems. Young people spend too much time on it."
 
-**Band 7 (complex sentences):**
+**Ví dụ câu phức, có thêm thông tin:**
 > "**Although social media has revolutionised the way people communicate**, enabling individuals **who live in different countries** to maintain close relationships, there is growing concern **that excessive use is damaging young people's mental health**. **Since the brain is still developing during adolescence**, exposure to carefully curated online images — **which often present an unrealistic ideal** — can lead to anxiety and low self-esteem."
 
 Phân tích câu 1:
@@ -271,9 +262,9 @@ Phân tích câu 2:
 
 ### Lỗi 2: Dùng sai dấu phẩy với relative clause
 
-- ❌ SAI: *The students, who study hard, tend to succeed.* (nếu muốn nói về tất cả sinh viên nói chung — restrictive)
-- ✅ ĐÚNG: *The students who study hard tend to succeed.* (restrictive — chỉ những em học chăm)
-- ❌ SAI: *My brother who lives in Hanoi is a teacher.* (nếu chỉ có một người anh — non-restrictive)
+- *The students, who study hard, tend to succeed.* bổ sung nhận xét rằng nhóm sinh viên đã biết đều học chăm.
+- *The students who study hard tend to succeed.* chọn ra tập con những em học chăm; không nói mọi sinh viên đều học chăm.
+- *My brother who lives in Hanoi is a teacher.* dùng mệnh đề để xác định người anh nào.
 - ✅ ĐÚNG: *My brother, who lives in Hanoi, is a teacher.* (non-restrictive — thêm thông tin về người đã biết)
 - **TẠI SAO:** Dấu phẩy thay đổi nghĩa của relative clause.
 
@@ -304,7 +295,7 @@ Phân tích câu 2:
 
 - ❌ SAI: *Although the economy grew inequality remained high.*
 - ✅ ĐÚNG: *Although the economy grew**,** inequality remained high.*
-- **TẠI SAO:** Khi dependent clause đứng trước independent clause, bắt buộc có dấu phẩy ngăn cách.
+- **TẠI SAO:** Mệnh đề trạng ngữ đưa lên đầu thường có dấu phẩy, nhất là khi dài. Không áp dụng cho mệnh đề danh từ làm chủ ngữ: **What matters most is effort**, không đặt phẩy trước is.
 
 ## So sánh với
 
@@ -315,7 +306,7 @@ Phân tích câu 2:
 | **Ví dụ** | *She works.* | *She works hard, so she succeeds.* | *Because she works hard, she succeeds.* |
 | **Hai vế bình đẳng?** | — | Có | Không (dependent phụ thuộc main) |
 | **Emphasizes** | Một ý | Hai ý bình đẳng | Một ý chính + ý phụ/bổ trợ |
-| **IELTS target** | Band 5 | Band 6 | Band 7+ |
+| **Vai trò** | Nêu một ý | Phối hợp các ý | Làm rõ quan hệ chính phụ |
 
 **Khi nào dùng compound vs. complex:**
 - **Compound** (*She studied hard, **so** she passed*): Hai ý ngang nhau, bình đẳng về tầm quan trọng
@@ -351,9 +342,9 @@ Trong Speaking Part 3, các examiner tìm kiếm:
 - *"**Although I understand why** some people prefer online learning, I personally believe **that** face-to-face interaction is irreplaceable."*
 - *"**Since technology is advancing so rapidly**, it's difficult to predict **what** jobs will exist in 20 years."*
 
-### IELTS Writing Task 2 — Building a Band 7 paragraph
+### IELTS Writing Task 2 — Xây dựng đoạn văn rõ quan hệ ý
 
-**Cấu trúc một luận điểm Band 7:**
+**Một cách triển khai luận điểm:**
 1. **Topic sentence** (có thể simple hoặc compound)
 2. **Explanation** (complex sentence với *because/since/as*)
 3. **Concession** (complex sentence với *although/while/even though*)
@@ -519,7 +510,7 @@ Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực 
 
 **+Kết quả:** "...noise pollution, **which** can disrupt sleep and contribute to chronic stress."
 
-**+Tương phản:** "**While** urban environments are inevitably noisier than rural areas, **which** some residents find deeply disruptive, others argue that the energy and vibrancy of city life **more than compensates** for the drawback of noise."
+**+Tương phản:** "**While** urban environments are often noisier than rural areas, **which** some residents find deeply disruptive, others argue that the energy and vibrancy of city life **more than compensate** for the drawback of noise."
 
 **+Điều kiện:** "**While** urban noise levels **are unlikely to** decrease significantly in the near future, their health impacts **can be** mitigated **if** city planners prioritise green spaces, noise barriers, and pedestrianised zones in urban design."
 
@@ -529,9 +520,9 @@ Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực 
 
 **Q: "Do you think social media is good for society?"**
 
-**Band 5 answer:** "I think social media is good. It helps people communicate. But it also has problems."
+**Câu trả lời ngắn:** "I think social media is good. It helps people communicate. But it also has problems."
 
-**Band 7 answer:** "I think social media **has real benefits**, **particularly** in terms of enabling people to stay connected with friends and family across long distances. **However**, platforms **that** prioritise engagement over accuracy **have also contributed** to the spread of misinformation — **which is a problem that governments and tech companies are increasingly struggling to address**. On balance, I'd say the benefits outweigh the drawbacks, **as long as** users develop critical media literacy skills."
+**Câu trả lời mở rộng, có thêm thông tin:** "I think social media **has real benefits**, **particularly** in terms of enabling people to stay connected with friends and family across long distances. **However**, platforms **that** prioritise engagement over accuracy **have also contributed** to the spread of misinformation — **which is a problem that governments and tech companies are increasingly struggling to address**. On balance, I'd say the benefits outweigh the drawbacks, **as long as** users develop critical media literacy skills."
 
 ---
 
@@ -601,10 +592,13 @@ BƯỚC 1 — +LÝ DO:
 
 BƯỚC 2 — +KẾT QUẢ:
   "...so people learn faster."
-  "..., which means that / therefore / as a result, ..."
+  "[Main clause], which means that [result]."
+  "[Main clause]. Therefore / As a result, [main clause]."
 
 BƯỚC 3 — +TƯƠNG PHẢN:
-  "..., but / although / while / however, ..."
+  "[Main clause], but [main clause]."
+  "Although / While [clause], [main clause]."
+  "[Main clause]. However, [main clause]."
 
 BƯỚC 4 — +RELATIVE CLAUSE:
   "Social media, which connects billions of people, ..."
@@ -642,9 +636,9 @@ MỤC TIÊU: Câu CHÍNH XÁC và CÓ CHIỀU SÂU — không phải câu DÀI.
 | "I like coffee. I don't drink it at night." | "I like coffee **but** don't drink it at night." |
 | "The plan was good. It didn't work." | "The plan was good **but** didn't work out." |
 
-### Tránh lặp chủ ngữ khi dùng "and/but":
+### Có thể dùng chung chủ ngữ khi phối hợp vị ngữ:
 
-- ❌ "She studied hard. She passed the exam."
+- "She studied hard. She passed the exam." và "She studied hard and she passed the exam" đều đúng.
 - ✅ "She studied hard **and** passed the exam." *(bỏ "she" thứ hai vì cùng chủ ngữ)*
 
 ---
@@ -772,7 +766,7 @@ Before/After/When + [Sentence], [Main sentence].
 > "I visited Hội An. It was beautiful. There were many old buildings. I liked the lanterns. I took many photos."
 
 **✅ Câu kết hợp tự nhiên:**
-> "I visited Hội An last year, **which** is a small ancient town in central Vietnam **that** is famous for its colourful lanterns and well-preserved architecture. I was genuinely amazed by the old buildings **lining** the riverside, **where** I spent most of the afternoon **taking photos and exploring** the local streets."
+> "Last year, I visited Hội An, **which** is an ancient town in central Vietnam **that** is famous for its colourful lanterns and well-preserved architecture. I was genuinely amazed by the old buildings **lining** the riverside, **where** I spent most of the afternoon **taking photos and exploring** the local streets."
 
 ### Part 3 — Phân tích có chiều sâu:
 
@@ -801,9 +795,9 @@ Before/After/When + [Sentence], [Main sentence].
 - ❌ "**Walking to school**, the weather suddenly changed."
 - ✅ "**Walking to school**, I noticed the weather suddenly change."
 
-### Lỗi 4: Lặp chủ ngữ khi không cần
+### Lựa chọn nhịp câu: lặp hoặc dùng chung chủ ngữ
 
-- ❌ "She studied hard and **she** passed the exam."
+- "She studied hard and **she** passed the exam." đúng; lặp she có thể giúp nhấn mạnh hoặc tạo nhịp.
 - ✅ "She studied hard and passed the exam."
 
 ---
@@ -836,7 +830,7 @@ Before/After/When + [Sentence], [Main sentence].
 ## Tóm tắt nhanh
 
 ```
-AND / BUT → thêm thông tin hoặc tương phản (cùng chủ ngữ: bỏ "she/he/it" thứ hai):
+AND / BUT → thêm thông tin hoặc tương phản (cùng chủ ngữ: có thể bỏ "she/he/it" thứ hai):
   She studied and passed. | The city is exciting but expensive.
 
 BECAUSE / SINCE / AS → giải thích lý do:
@@ -900,4 +894,4 @@ BEFORE / AFTER / WHILE:
 3. Dependent clause đứng đầu câu → **dấu phẩy** sau nó
 4. Relative clause **restrictive** (xác định) → không dấu phẩy; **non-restrictive** (thêm thông tin) → có dấu phẩy
 5. Lỗi phổ biến: *although...but* (chọn một), *despite + clause* (sai — dùng *despite + noun/gerund*), dependent clause đứng một mình
-6. Complex sentences là **yêu cầu bắt buộc** cho IELTS Band 7+ (Grammatical Range & Accuracy)
+6. IELTS đánh giá phạm vi, độ linh hoạt và độ chính xác trên toàn bài; không suy band từ một câu riêng lẻ

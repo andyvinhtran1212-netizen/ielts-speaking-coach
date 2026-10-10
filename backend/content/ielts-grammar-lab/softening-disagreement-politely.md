@@ -110,7 +110,7 @@ Kỹ thuật quan trọng nhất: **thừa nhận có giá trị trong quan đi�
 | **That's a fair point, but...** | Trung lập, lịch sự |
 | **I can see where that's coming from, but...** | Thấu hiểu quan điểm đối lập |
 | **There's certainly some truth in that, though...** | Thừa nhận một phần |
-| **I understand why people might think that, however...** | Đồng cảm nhưng không đồng ý |
+| **I understand why people might think that; however, I disagree.** | Đồng cảm nhưng không đồng ý |
 | **That's one way of looking at it, but I think...** | Mở ra góc nhìn khác |
 | **You could argue that, but on the other hand...** | Thừa nhận là lập luận hợp lệ |
 
@@ -127,7 +127,7 @@ Kỹ thuật quan trọng nhất: **thừa nhận có giá trị trong quan đi�
 <!-- anchor: softening-disagreement-politely.phan-2-partial-agreement-dong-y-mot-phan -->
 ## PHẦN 2: PARTIAL AGREEMENT — Đồng ý một phần
 
-Khi bạn không hoàn toàn đồng ý và không hoàn toàn phản đối — câu trả lời thực tế nhất và cũng thể hiện tư duy tốt nhất.
+Khi bạn không hoàn toàn đồng ý và không hoàn toàn phản đối — một lựa chọn hợp lệ; phản đối hoàn toàn có lý do và ngữ điệu phù hợp cũng lịch sự.
 
 ### Cấu trúc:
 
@@ -159,7 +159,8 @@ Sử dụng modal verbs để "hạ nhiệt" sự phản đối:
 ### Cấu trúc:
 
 ```
-I'm not sure (that) I would / could / agree with...
+I’m not sure (that) I would/could agree with...
+I agree with...
 I wouldn't say (that)...
 I'm not entirely convinced that...
 ```
@@ -255,7 +256,7 @@ Sau khi đưa ra phản đối, luôn phát triển ý hoặc đưa bằng chứ
 - ❌ "**Actually**, that's not really true."
 - ✅ "**I think there's a different way of looking at that** — actually, some research suggests..."
   
-  *(Nếu dùng "actually", đặt nó ở giữa câu, không phải đầu câu)*
+  *(Actually có thể ở đầu hoặc giữa câu; độ lịch sự tùy ngữ điệu và ngữ cảnh.)*
 
 ---
 

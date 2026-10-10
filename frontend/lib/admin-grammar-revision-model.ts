@@ -1,12 +1,96 @@
 import type { components } from '../types/api';
 
 export const GRAMMAR_REVISION_CODES = Object.freeze([
-  'G-parts-of-speech-verbs', 'G-sentence-structures-passive-voice',
-  'G-tenses-past-continuous', 'G-tenses-present-continuous',
-  'G-tenses-present-perfect-continuous', 'G-tenses-present-simple',
-  'G-grammar-for-reading-participle-clauses', 'G-grammar-for-reading-long-sentence-untangling',
-  'G-grammar-for-reading-reduced-relative-clauses', 'G-tenses-past-perfect',
-  'G-foundations-phrase-vs-clause', 'G-error-clinic-dangling-modifiers',
+  'G-parts-of-speech-verbs',
+  'G-sentence-structures-passive-voice',
+  'G-tenses-past-continuous',
+  'G-tenses-present-continuous',
+  'G-tenses-present-perfect-continuous',
+  'G-tenses-present-simple',
+  'G-grammar-for-reading-participle-clauses',
+  'G-grammar-for-reading-long-sentence-untangling',
+  'G-grammar-for-reading-reduced-relative-clauses',
+  'G-tenses-past-perfect',
+  'G-foundations-phrase-vs-clause',
+  'G-error-clinic-dangling-modifiers',
+  'G-error-clinic-affect-vs-effect',
+  'G-error-clinic-article-errors',
+  'G-error-clinic-do-vs-make',
+  'G-error-clinic-double-subject-errors',
+  'G-error-clinic-economic-vs-economical',
+  'G-error-clinic-historic-vs-historical',
+  'G-error-clinic-overusing-i-think',
+  'G-error-clinic-preposition-errors',
+  'G-error-clinic-run-on-sentences',
+  'G-error-clinic-say-tell-speak-talk',
+  'G-error-clinic-sentence-fragments',
+  'G-error-clinic-subject-verb-agreement',
+  'G-error-clinic-tense-consistency',
+  'G-error-clinic-wrong-pronoun-reference',
+  'G-foundations-articles-a-an-sound-rules',
+  'G-foundations-countable-vs-uncountable',
+  'G-foundations-few-a-few-little-a-little',
+  'G-foundations-noun-phrase-basics',
+  'G-foundations-parts-of-speech',
+  'G-foundations-singular-vs-plural',
+  'G-foundations-this-that-these-those-in-use',
+  'G-foundations-word-order',
+  'G-foundations-zero-article',
+  'G-grammar-for-meaning-although-though-even-though',
+  'G-grammar-for-meaning-comparison',
+  'G-grammar-for-meaning-conditionals',
+  'G-grammar-for-meaning-discourse-markers',
+  'G-grammar-for-meaning-discourse-markers-spoken',
+  'G-grammar-for-meaning-hedging-language',
+  'G-grammar-for-meaning-so-vs-such',
+  'G-grammar-for-reading-appositives-and-parentheticals',
+  'G-grammar-for-reading-comparison-structures-in-reading',
+  'G-grammar-for-reading-complex-noun-phrases',
+  'G-grammar-for-reading-ellipsis-and-substitution',
+  'G-grammar-for-reading-hedging-and-certainty-in-reading',
+  'G-grammar-for-reading-logical-connectors-in-reading',
+  'G-grammar-for-reading-nominalization',
+  'G-grammar-for-reading-paraphrase-patterns',
+  'G-grammar-for-reading-punctuation-as-meaning-signals',
+  'G-grammar-for-reading-reference-and-cohesion',
+  'G-grammar-for-writing-cohesion-devices-in-writing',
+  'G-grammar-for-writing-complex-sentences-for-task2',
+  'G-grammar-for-writing-grammar-in-task1',
+  'G-grammar-for-writing-parallel-structure',
+  'G-grammar-for-writing-punctuation-for-writing',
+  'G-grammar-for-writing-relative-clauses-in-writing',
+  'G-grammar-for-writing-task1-trend-grammar',
+  'G-ielts-grammar-lab-adding-contrast-naturally',
+  'G-ielts-grammar-lab-adding-reasons-clearly',
+  'G-ielts-grammar-lab-agreeing-and-disagreeing-naturally',
+  'G-ielts-grammar-lab-avoiding-repetitive-sentence-openings',
+  'G-ielts-grammar-lab-balanced-arguments-grammar',
+  'G-ielts-grammar-lab-comparing-ideas-in-speaking',
+  'G-ielts-grammar-lab-conditionals-in-speaking',
+  'G-ielts-grammar-lab-giving-examples-naturally',
+  'G-ielts-grammar-lab-grammar-for-band7plus',
+  'G-ielts-grammar-lab-grammar-in-speaking',
+  'G-ielts-grammar-lab-speculating-about-the-future',
+  'G-ielts-grammar-lab-strong-vs-cautious-opinions',
+  'G-ielts-grammar-lab-talking-about-future-plans',
+  'G-ielts-grammar-lab-talking-about-habits-and-routines',
+  'G-modifiers-adverbs',
+  'G-modifiers-compound-adjectives',
+  'G-modifiers-intensifiers-and-mitigators',
+  'G-modifiers-order-of-adjectives',
+  'G-parts-of-speech-conjunctions',
+  'G-parts-of-speech-nouns',
+  'G-parts-of-speech-prepositions',
+  'G-parts-of-speech-word-formation-adjective-suffixes',
+  'G-parts-of-speech-word-formation-noun-suffixes',
+  'G-sentence-structures-complex-sentence',
+  'G-sentence-structures-inversion',
+  'G-sentence-structures-reported-speech',
+  'G-tenses-future-forms',
+  'G-tenses-present-perfect',
+  'G-verb-patterns-gerund-vs-infinitive',
+  'G-verb-patterns-infinitive',
+  'G-verb-patterns-phrasal-verbs',
 ] as const);
 export type RevisionCode = typeof GRAMMAR_REVISION_CODES[number];
 export type RevisionRead = components['schemas']['GrammarRevisionRead'];
@@ -15,7 +99,7 @@ export type RevisionAck = components['schemas']['GrammarRevisionCommitResult'];
 export type CommitBody = components['schemas']['GrammarRevisionCommitRequest'];
 export type FrozenRevisionCommand = Readonly<{
   actor: string; code: RevisionCode; body: Readonly<CommitBody>;
-  sourceHash: string; proposedRevision: string; originalBankId: string; topicId: string;
+  sourceHash: string; proposedRevision: string; originalBankId: string; rootBankId: string; topicId: string;
   originalQuestionsHash: string; originalMetadataHash: string;
 }>;
 export const MAX_GRAMMAR_SOURCE_BYTES = 256 * 1024;
@@ -51,12 +135,22 @@ export async function grammarSourceHash(source: string): Promise<string> {
   return Array.from(new Uint8Array(result), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 export function normalizeRevisionRead(value: unknown, code: RevisionCode): RevisionRead | null {
-  if (!record(value) || !keys(value, ['canonical_code', 'original_bank_id', 'current_bank_id', 'topic_id', 'revision', 'current_bank_revision', 'original_questions_sha256', 'original_metadata_sha256', 'is_managed', 'new_starts_enabled', 'footprint'])
+  if (!record(value) || !keys(value, ['canonical_code', 'original_bank_id', 'canonical_root_bank_id', 'bank_ids', 'publication_available', 'current_bank_id', 'topic_id', 'revision', 'current_bank_revision', 'original_questions_sha256', 'original_metadata_sha256', 'is_managed', 'new_starts_enabled', 'footprint'])
       || value.canonical_code !== code || !isGrammarRevisionCode(code)
-      || !['original_bank_id', 'current_bank_id', 'topic_id'].every((key) => uuid(value[key]))
+      || !['original_bank_id', 'canonical_root_bank_id', 'current_bank_id', 'topic_id'].every((key) => uuid(value[key]))
       || !['revision', 'current_bank_revision', 'original_questions_sha256', 'original_metadata_sha256'].every((key) => sha(value[key]))
       || typeof value.is_managed !== 'boolean' || typeof value.new_starts_enabled !== 'boolean'
-      || (value.is_managed ? value.original_bank_id === value.current_bank_id : value.original_bank_id !== value.current_bank_id)) return null;
+      || typeof value.publication_available !== 'boolean'
+      || !Array.isArray(value.bank_ids) || value.bank_ids.length < 1 || value.bank_ids.length > 3
+      || !value.bank_ids.every(uuid) || new Set(value.bank_ids).size !== value.bank_ids.length
+      || value.bank_ids[0] !== value.canonical_root_bank_id || value.bank_ids.at(-1) !== value.current_bank_id
+      || !value.bank_ids.some(id => id === value.original_bank_id)
+      || (value.is_managed ? value.bank_ids.length < 2 : value.bank_ids.length !== 1)
+      || (value.publication_available && value.is_managed && (code !== 'G-grammar-for-reading-long-sentence-untangling'
+        || value.bank_ids.length !== 2 || value.original_bank_id !== value.current_bank_id))
+      || (!value.is_managed && (!value.publication_available || value.original_bank_id !== value.current_bank_id))
+      || (value.bank_ids.length === 3 && (code !== 'G-grammar-for-reading-long-sentence-untangling'
+        || value.publication_available || value.original_bank_id !== value.bank_ids[1]))) return null;
   const f = value.footprint;
   if (!record(f) || !keys(f, ['actors', 'sessions', 'stats', 'attempts', 'assignments', 'open_sessions', 'paused_sessions', 'classifications', 'authoritative_review_required'])
       || !count(f.actors, 128) || !count(f.sessions, 2048) || !count(f.stats, 8192) || !count(f.attempts, 32768)
@@ -72,7 +166,8 @@ export function normalizeRevisionRead(value: unknown, code: RevisionCode): Revis
   if (total !== f.actors) return null;
   return { ...value, footprint: { ...f, classifications: { ...f.classifications } } } as RevisionRead;
 }
-const sameScope = (a: RevisionRead, b: RevisionRead) => ['canonical_code', 'original_bank_id', 'current_bank_id', 'topic_id', 'revision', 'current_bank_revision', 'original_questions_sha256', 'original_metadata_sha256', 'is_managed', 'new_starts_enabled'].every((k) => a[k as keyof RevisionRead] === b[k as keyof RevisionRead]);
+const REVIEWED_INPUT_QIDS: Partial<Record<RevisionCode, readonly string[]>> = {"G-error-clinic-subject-verb-agreement": ["sva_coll_b1"], "G-error-clinic-tense-consistency": ["tc_pastnar_a1"], "G-grammar-for-reading-ellipsis-and-substitution": ["sub_ds_i1"], "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings": ["arso_front_b1"], "G-ielts-grammar-lab-balanced-arguments-grammar": ["bag_hand_b1"], "G-modifiers-intensifiers-and-mitigators": ["im_rather_b1", "im_rather_i1"], "G-tenses-present-perfect": ["pp_vs_b1"]};
+const sameScope = (a: RevisionRead, b: RevisionRead) => ['canonical_code', 'original_bank_id', 'canonical_root_bank_id', 'bank_ids', 'publication_available', 'current_bank_id', 'topic_id', 'revision', 'current_bank_revision', 'original_questions_sha256', 'original_metadata_sha256', 'is_managed', 'new_starts_enabled'].every((k) => JSON.stringify(a[k as keyof RevisionRead]) === JSON.stringify(b[k as keyof RevisionRead]));
 export function normalizeRevisionPreview(value: unknown, canonical: RevisionRead, sourceHash: string): RevisionPreview | null {
   if (!record(value) || !keys(value, ['canonical', 'source_sha256', 'manifest_sha256', 'preview_fingerprint', 'proposed_revision', 'changed_questions', 'validation_messages'])
       || value.source_sha256 !== sourceHash || !sha(sourceHash)
@@ -86,7 +181,7 @@ export function normalizeRevisionPreview(value: unknown, canonical: RevisionRead
     if (!record(q) || !keys(q, ['qid', 'fields', 'before_sha256', 'after_sha256']) || typeof q.qid !== 'string' || !q.qid.length || seen.has(q.qid)
         || !sha(q.before_sha256) || !sha(q.after_sha256) || q.before_sha256 === q.after_sha256
         || !Array.isArray(q.fields) || !q.fields.length || new Set(q.fields).size !== q.fields.length
-        || !q.fields.every((x) => typeof x === 'string' && ['prompt', 'hint', 'options', 'answer', 'accept', 'explain'].includes(x))) return null;
+        || !q.fields.every((x) => typeof x === 'string' && (['prompt', 'hint', 'options', 'answer', 'accept', 'explain'].includes(x) || ['type', 'input'].includes(x) && REVIEWED_INPUT_QIDS[canonical.canonical_code]?.includes(q.qid as string)))) return null;
     seen.add(q.qid);
   }
   return {
@@ -100,11 +195,11 @@ export function freezeRevisionCommand(actor: string, code: RevisionCode, source:
   const canonical = normalizeRevisionRead(preview?.canonical, code);
   if (!canonical || !normalizeRevisionPreview(preview, canonical, preview.source_sha256)) return null;
   if (!uuid(actor) || !uuid(operation) || !isGrammarRevisionCode(code) || sourceBytes(source) === null
-      || preview.canonical.canonical_code !== code || preview.canonical.is_managed || preview.canonical.footprint.authoritative_review_required) return null;
+      || preview.canonical.canonical_code !== code || !preview.canonical.publication_available || preview.canonical.footprint.authoritative_review_required) return null;
   const body = Object.freeze({ source_markdown: source, expected_revision: preview.canonical.revision, preview_fingerprint: preview.preview_fingerprint, operation_id: operation });
   if (!commandFits(body)) return null;
   return Object.freeze({ actor, code, body, sourceHash: preview.source_sha256, proposedRevision: preview.proposed_revision,
-    originalBankId: preview.canonical.original_bank_id, topicId: preview.canonical.topic_id,
+    originalBankId: preview.canonical.original_bank_id, rootBankId: preview.canonical.canonical_root_bank_id, topicId: preview.canonical.topic_id,
     originalQuestionsHash: preview.canonical.original_questions_sha256, originalMetadataHash: preview.canonical.original_metadata_sha256 });
 }
 export function normalizeRevisionAck(value: unknown, command: FrozenRevisionCommand): RevisionAck | null {
@@ -116,9 +211,16 @@ export function normalizeRevisionAck(value: unknown, command: FrozenRevisionComm
       || !['committed_revision', 'current_revision', 'original_history_sha256'].every((k) => sha(value[k]))
       || typeof value.current_matches_committed !== 'boolean' || value.current_matches_committed !== (value.current_revision === value.committed_revision)) return null;
   const read = normalizeRevisionRead(value.canonical, command.code);
-  if (!read || !read.is_managed || read.original_bank_id !== command.originalBankId || read.current_bank_id !== value.corrected_bank_id
-      || read.topic_id !== command.topicId || read.revision !== value.current_revision || read.current_bank_revision !== command.proposedRevision
-      || read.original_questions_sha256 !== command.originalQuestionsHash || read.original_metadata_sha256 !== command.originalMetadataHash) return null;
+  if (!read || !read.is_managed || read.canonical_root_bank_id !== command.rootBankId
+      || read.topic_id !== command.topicId || read.revision !== value.current_revision) return null;
+  const originalIndex = read.bank_ids.indexOf(command.originalBankId);
+  if (originalIndex < 0 || read.bank_ids[originalIndex + 1] !== value.corrected_bank_id) return null;
+  if (value.current_matches_committed || read.current_bank_id === value.corrected_bank_id) {
+    if (read.original_bank_id !== command.originalBankId || read.current_bank_id !== value.corrected_bank_id
+      || read.current_bank_revision !== command.proposedRevision || read.original_questions_sha256 !== command.originalQuestionsHash
+      || read.original_metadata_sha256 !== command.originalMetadataHash) return null;
+  } else if (value.outcome !== 'already_applied' || command.code !== 'G-grammar-for-reading-long-sentence-untangling'
+      || read.bank_ids.length !== 3 || originalIndex !== 0) return null;
   return { ...value, canonical: read } as RevisionAck;
 }
 /** Footprint may grow after commit. Content identities must still match the ACK. */

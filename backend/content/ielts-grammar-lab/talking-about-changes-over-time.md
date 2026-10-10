@@ -118,7 +118,7 @@ Trong Writing Task 1, line chart và map đòi hỏi mô tả sự thay đổi t
 - "Families **used to spend** more time together at home because there were fewer entertainment options outside."
 - "Shopping **used to be** an entirely physical experience — now it's largely done online."
 
-**Writing Task 2:**
+**Đoạn minh họa trong thân bài Task 2 (không phải bài mẫu hoàn chỉnh):**
 
 - "A generation ago, people **used to change** jobs far less frequently — a single employer for an entire career was not uncommon."
 - "Women **used to be** largely excluded from the workforce; today, they make up nearly half of the working population in most developed countries."
@@ -204,7 +204,7 @@ Over the course of [period], [subject] has [change].
 - "**Over the thirty-year period shown**, car ownership in the region increased by nearly 200%."
 - "**Between 1990 and 2020**, the proportion of women in senior management roles rose significantly."
 
-**Writing Task 2:**
+**Đoạn minh họa trong thân bài Task 2 (không phải bài mẫu hoàn chỉnh):**
 
 - "**Over the past century**, the nature of work has shifted from predominantly agricultural and manual labour to service and knowledge-based industries."
 
@@ -254,8 +254,8 @@ Over the course of [period], [subject] has [change].
 
 - "**Used to + verb**" = thói quen quá khứ đã kết thúc
 - "**Be used to + V-ing**" = quen với điều gì đó (hiện tại hoặc quá khứ)
-- ❌ "I am used to go to school by bus." → ✅ "I **used to go** to school by bus."
-- ❌ "People used to using smartphones." → ✅ "People **are used to using** smartphones."
+- ❌ “I am used to go to school by bus.” → ✅ “I am used to **going** to school by bus” (đã quen). “I **used to go**...” chỉ thói quen quá khứ, đổi nghĩa.
+- ❌ “People used to using smartphones.” → “People **used to use**...” (thói quen trước kia) hoặc “People **are used to using**...” (đã quen), tùy ý đích.
 
 ### Lỗi 2: Dùng "has changed" với thời gian quá khứ cụ thể
 
@@ -264,7 +264,7 @@ Over the course of [period], [subject] has [change].
 
 ### Lỗi 3: "No longer" đặt sai vị trí
 
-- ❌ "People no longer are relying on..." *(sai vị trí)*
+- ✅ “People no longer are relying on...” *(có thể nhấn tương phản; vị trí mặc định trung tính là are no longer relying)*
 - ✅ "People **are no longer relying** on..." / "People **no longer rely** on..."
 
 ### Lỗi 4: Chỉ mô tả thay đổi mà không giải thích tại sao

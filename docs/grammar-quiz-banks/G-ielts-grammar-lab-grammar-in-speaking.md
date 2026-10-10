@@ -225,7 +225,7 @@ prompt: "If we ____ (invest, quá khứ hoàn thành) in renewable energy earlie
 accept: ["had invested"]
 case_sensitive: false
 grammar_article_slug: "grammar-in-speaking"
-explain: "Conditional Type 3 (nhìn lại quá khứ, giả định trái với sự thật đã xảy ra): If + past perfect (had invested), S + would (not) + have/be + V."
+explain: "Đây là điều kiện hỗn hợp: If + past perfect (had invested) nói giả định trái quá khứ, would not be facing + now nói hệ quả trái hiện tại. Điều kiện loại 3 thuần quá khứ dùng would have + V3 ở mệnh đề kết quả."
 ---
 
 ---

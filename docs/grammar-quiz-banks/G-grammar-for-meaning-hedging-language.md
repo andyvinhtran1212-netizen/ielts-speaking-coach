@@ -56,7 +56,7 @@ prompt: "The policy ____ (could / have) unintended consequences that are difficu
 accept: ["could have"]
 case_sensitive: false
 grammar_article_slug: "hedging-language"
-explain: "'could have' (modal + have + V3) diễn đạt khả năng ở mức trung bình, phù hợp khi hậu quả 'difficult to predict'."
+explain: "Could là modal, have là động từ chính nhận tân ngữ unintended consequences. Đây là modal + động từ nguyên mẫu, diễn đạt khả năng; không phải modal perfect could have + V3 vì câu này không có V3."
 ---
 
 ---
@@ -270,7 +270,7 @@ prompt: "____ that exercise improves mental health, based on numerous studies."
 options: ["It is believed", "It believed", "It is belief", "Is believed it"]
 answer: 0
 grammar_article_slug: "hedging-language"
-explain: "Cấu trúc chuẩn: It + is/are + past participle (believed) + that + mệnh đề."
+explain: "Cấu trúc hiện tại trong câu này: It + is + past participle (believed) + that-clause. It là số ít, không dùng It are. Những khung thời khác gồm It was believed hoặc It has been believed."
 ---
 
 ---

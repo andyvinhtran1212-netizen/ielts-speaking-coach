@@ -102,7 +102,7 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 - ✅ "The report discussed the budget and the timeline, but **neither** was clearly explained."
 
 **Ví dụ 3:**
-- ❌ "Technology has improved education. But **it** has also created problems."
+- ✅ “Technology has improved education. But **it** has also created problems.”
 - → Câu này thực ra ổn vì "it" = technology là rõ nhất
 - ✅ Nếu muốn rõ hơn: "Technology has improved education, but **technology** has also created problems." *(hoặc giữ "it" — tuỳ ngữ cảnh)*
 
@@ -124,7 +124,7 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 - ✅ "Parents and teachers both care about children, but **teachers** tend to be stricter in academic matters."
 
 **Ví dụ 2:**
-- ❌ "The government and businesses need to cooperate. **They** should invest more."
+- ✅ “The government and businesses need to cooperate. **They** should invest more.” *(they có thể chỉ cả hai; chỉ cần đổi nếu muốn riêng một bên)*
 - → Ai đầu tư? Cả hai? Chỉ một bên?
 - ✅ "The government and businesses need to cooperate. **Both parties** should invest more in infrastructure."
 
@@ -153,7 +153,7 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 - → Câu này ổn — "this" rõ ràng chỉ "the fact that young people prefer working from home"
 - ✅ Có thể viết rõ hơn: "**This preference for remote work** makes some employers uncomfortable."
 
-**Mẹo hay:** Thay "this" bằng **"this + noun"** — "this trend", "this problem", "this approach", "this finding" — để luôn rõ ràng và nâng band.
+**Mẹo hay:** Thay "this" bằng **"this + noun"** — "this trend", "this problem", "this approach", "this finding" — khi tham chiếu cần làm rõ. This đứng một mình vẫn hợp lệ nếu ý quy chiếu rõ; thêm danh từ không tự nâng band.
 
 ---
 
@@ -233,7 +233,7 @@ Một cách nhanh để nâng band là thay "this/that" bằng "this + specific 
 
 1. "The teacher spoke to the student about **the student's** performance. **The student** seemed nervous." / "...performance. **He** seemed nervous" *(ổn nếu rõ "he" = student từ ngữ cảnh)*
 2. "Air pollution and water contamination are both serious. **Both problems** need to be addressed immediately." / "**These issues** need to be addressed..."
-3. "Scientists and politicians discussed climate change. **The two sides** couldn't agree on a solution." / "**Neither group** could agree..."
+3. “Scientists and politicians discussed climate change. **The two groups could not agree with each other** on a solution.” *(không đổi sang neither group, vốn có thể chỉ bất đồng nội bộ)*
 4. "She told her sister that **her sister** should apply for the job." / "She encouraged **her sister** to apply for the job."
 5. "Many countries have introduced new laws. **These laws** have been effective in some places."
 

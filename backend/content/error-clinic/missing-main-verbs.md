@@ -69,8 +69,8 @@ anchors:
 | Kiểu lỗi | Ví dụ sai | Vấn đề |
 |----------|-----------|--------|
 | Thiếu động từ "be" | "She a doctor." | Không có main verb |
-| Dùng V-ing làm main verb | "The children playing in the park." | V-ing không là main verb nếu không có "be" |
-| Dùng V-ed (past participle) làm main verb | "The report written by the manager." | Passive không đủ — thiếu "be" |
+| Cụm phân từ thiếu động từ hữu hạn | “The children playing in the park.” | Playing là động từ không hữu hạn; nếu diễn đạt câu tiếp diễn cần are playing |
+| Cụm phân từ thiếu động từ hữu hạn | “The report written by the manager.” | Written là phân từ; có thể thêm was (bị động) hoặc was useful để cả NP làm chủ ngữ |
 | Chỉ có noun phrase | "A very important issue in modern society." | Không có predicate |
 
 ---
@@ -225,7 +225,7 @@ Luyện thêm "be" vào các câu mô tả:
 1. "Education **is** very important for the development of any country."
 2. "The students **were** working on a group project when the teacher arrived."
 3. "The new policy **was** introduced by the government last year."
-4. "One of the most effective solutions **is** to reduce traffic congestion." / "**Carpooling** is one of the most effective solutions to reduce traffic congestion."
+4. “**Carpooling is** one of the most effective ways to reduce traffic congestion.” *(nêu biện pháp thay vì gọi mục tiêu là giải pháp)*
 5. "Many young people **are** moving to cities in search of better opportunities."
 6. "His argument **was** completely unconvincing."
 

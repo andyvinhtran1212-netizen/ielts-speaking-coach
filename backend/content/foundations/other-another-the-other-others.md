@@ -61,8 +61,8 @@ Năm cấu trúc, một bảng tổng hợp:
 
 | Từ | Nghĩa cốt lõi | Dùng với | Ví dụ |
 |----|--------------|---------|-------|
-| **another** | thêm một (không xác định) | số ít đếm được | another coffee |
-| **other** | những cái khác (số nhiều/uncountable) | plural noun / uncountable | other people |
+| **another** | thêm một / một cái khác | thường số ít đếm được; cũng another + số đếm + plural | another coffee; another three months |
+| **other** | khác | thường plural/uncountable; singular khi có định từ trước | other people; my other hand |
 | **the other** | cái còn lại (đã xác định) | số ít hoặc số nhiều xác định | the other day |
 | **others** | những người/vật khác (đại từ) | không đi với noun | others think differently |
 | **the others** | những người/vật còn lại (đại từ) | không đi với noun | the others are waiting |
@@ -105,7 +105,7 @@ another + singular countable noun
 - "This pen doesn't work." — "Here, use **another** (one)."
 - I didn't like that idea — do you have **another**?
 
-> **Lưu ý:** "another" KHÔNG dùng với plural noun hay uncountable noun.
+> Another thường đi trực tiếp với danh từ đếm được số ít. Mẫu another + số đếm + danh từ số nhiều cũng đúng: another three options / another three months. Không nhầm nó với another options không có số đếm.
 > - ❌ another people / another information
 > - ✅ other people / other information
 
@@ -118,6 +118,8 @@ another + singular countable noun
 Dùng với:
 - **Danh từ số nhiều** (plural countable)
 - **Danh từ không đếm được** (uncountable)
+
+Khi có một định từ khác đứng trước, other còn bổ nghĩa cho danh từ số ít: my other hand, no other option, the other book. The other book nói cuốn còn lại trong tập đã xác định; the other day là thành ngữ về một ngày gần đây, cần học riêng.
 
 ```
 other + plural noun
@@ -216,8 +218,8 @@ The others + verb (không theo sau noun)
 
 | | Đứng trước noun? | Số | Xác định? | Ví dụ hoàn chỉnh |
 |--|------------------|----|-----------|-----------------|
-| **another** | ✅ (singular) | Số ít | Không | another student |
-| **other** | ✅ (plural/uncountable) | Số nhiều / Không đếm | Không | other students |
+| **another** | ✅ | Thường số ít; số đếm + số nhiều | Không | another student; another three months |
+| **other** | ✅ | Số nhiều / không đếm; số ít với định từ trước | Theo định từ | other students; my other hand |
 | **the other** | ✅ hoặc dùng một mình | Số ít hoặc nhiều | Có (the) | the other student(s) |
 | **others** | ❌ (đại từ) | Số nhiều | Không | Others agreed. |
 | **the others** | ❌ (đại từ) | Số nhiều | Có (the) | The others agreed. |
@@ -280,7 +282,7 @@ The others + verb (không theo sau noun)
 
 ### Điền another / other / the other / others / the others
 
-1. I've met two of the candidates. ___ will be interviewed tomorrow.
+1. There are three candidates. I've met two of them. ___ will be interviewed tomorrow.
 2. Some students finished the test early; ___ were still writing when time was called.
 3. Could I have ___ glass of water, please?
 4. There are ___ reasons why this policy has failed.
@@ -291,7 +293,7 @@ The others + verb (không theo sau noun)
 
 ### Đáp án
 
-1. **The other** (còn lại trong một nhóm đã xác định)
+1. **The other** — còn đúng một ứng viên trong nhóm ba người đã xác định.
 2. **others** (đại từ, không xác định rõ)
 3. **another** (thêm một ly nữa — singular)
 4. **other** (đứng trước plural noun)
@@ -308,10 +310,12 @@ The others + verb (không theo sau noun)
 ANOTHER   = thêm 1 (số ít, không xác định)
             → another + singular noun
             → another coffee, another option
+            → another + số đếm + plural: another three months
 
 OTHER     = những cái khác (số nhiều / uncountable)
             → other + plural/uncountable noun
             → other people, other information
+            → singular với định từ trước: my other hand, no other option
 
 THE OTHER = cái còn lại (đã xác định)
             → the other + noun, hoặc dùng như đại từ

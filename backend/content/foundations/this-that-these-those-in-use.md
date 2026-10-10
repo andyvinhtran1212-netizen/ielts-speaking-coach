@@ -118,7 +118,7 @@ Khi không cần lặp lại danh từ:
 
 Đây là chức năng quan trọng nhất trong writing và speaking chính thức.
 
-### "This" chỉ lại một ý vừa nói (cataphoric/anaphoric reference):
+### "This" chỉ lại một ý đã nói (anaphoric reference):
 
 ```
 [Idea/Statement]. This + verb...
@@ -128,6 +128,8 @@ Khi không cần lặp lại danh từ:
 - "The government increased taxes significantly. **This** led to widespread public discontent." *(this = the tax increase)*
 - "Many young people are choosing to delay marriage. **This trend** reflects changing social values."
 - "Access to clean water remains a challenge in many regions. **This problem** requires urgent attention."
+
+**Cataphoric reference** chỉ tới phần xuất hiện sau: "Remember **this**: the deadline is Friday." Hai hướng tham chiếu này khác nhau.
 
 > **Kỹ thuật "this + summary noun":**
 > Thay vì chỉ viết "this", dùng "this + danh từ tóm tắt" sẽ vừa chỉ lại, vừa làm rõ ý:
@@ -139,10 +141,11 @@ Khi không cần lặp lại danh từ:
 - "Poverty, inequality, and lack of access to education are interconnected. **These factors** create a cycle that is difficult to break."
 - "Renewable energy, electric vehicles, and sustainable agriculture are key areas. **These initiatives** require government support."
 
-### "That" chỉ lại ý đã nói khá lâu trước:
+### "That" có thể chỉ lại ý vừa nói hoặc ý trước đó:
 
 - "The study published in 2010 argued that lifestyle factors are the primary cause of obesity. **That** conclusion remains controversial today."
 - "She mentioned an idea earlier in the discussion. **That** idea is worth revisiting."
+- "**That's** a fair point." có thể phản hồi ngay lời vừa nghe. That không bắt buộc chỉ ý đã nói từ lâu.
 
 ---
 
@@ -156,9 +159,9 @@ Khi không cần lặp lại danh từ:
 
 ### Phân biệt hai đối tượng:
 
-Khi đang so sánh hai thứ: dùng "this" cho cái gần/vừa đề cập, "that" cho cái xa/đề cập trước:
+Khi so sánh hai thứ, this/that phụ thuộc vị trí, cử chỉ và trọng tâm diễn ngôn; không tự ánh xạ với thứ nhất/thứ hai:
 
-- "We have two options. **This** one *(= the second)* is cheaper, but **that** one *(= the first)* is more durable."
+- Khi người nói chỉ phương án thứ hai ở ngay trước mặt và phương án thứ nhất ở phía xa: "We have two options. **This** one is cheaper, but **that** one is more durable."
 - "I've read both articles. **This** *(the recent one)* is more convincing than **that** *(the older one)*."
 
 ---
@@ -229,10 +232,11 @@ So sánh:
 <!-- anchor: this-that-these-those-in-use.loi-thuong-gap -->
 ## Lỗi thường gặp
 
-### Lỗi 1: Dùng "this" không có danh từ rõ ràng — người đọc không hiểu "this" là gì
+### Làm rõ phạm vi của "this" khi cần
 
-- ❌ "The economy is growing, and inequality is rising. **This** is a problem."
-- ✅ "The economy is growing, and inequality is rising. **This contradiction** poses a serious challenge."
+- "The economy is growing, and inequality is rising. **This** is a problem." có thể chỉ cả tình huống; không tự sai.
+- Để gọi rõ tình huống: "The economy is growing, and inequality is rising. **This combination** poses a challenge."
+- "This contradiction" thêm cách đánh giá của người viết, phù hợp nếu đã giải thích vì sao hai xu hướng trái với kỳ vọng; không phải paraphrase bắt buộc.
 
 ### Lỗi 2: Dùng "these informations" — information là uncountable
 
@@ -246,10 +250,10 @@ So sánh:
 - ❌ "**These** study is important."
 - ✅ "**This** study is important."
 
-### Lỗi 4: Bỏ qua "this" dẫn đến không có cohesion
+### Có thể dùng "this" để làm rõ liên kết
 
-- ❌ "Climate change causes floods. [ý tiếp theo không được nối] The government must act."
-- ✅ "Climate change causes catastrophic floods. **This growing threat** demands immediate government action."
+- "Climate change causes floods. The government must act." có quan hệ ý dễ hiểu và không sai vì thiếu this.
+- Một cách nối rõ hơn: "Climate change causes floods. **This threat** means that the government must act." Các từ catastrophic, growing hoặc immediate sẽ thêm thông tin và chỉ dùng khi có căn cứ.
 
 ---
 
@@ -272,16 +276,16 @@ Dùng "this/these + noun" để nối đoạn và nối ý:
 
 ### Điền this, that, these, hoặc those
 
-1. ___ is a fascinating topic that deserves more attention.
+1. (Người nói chỉ chủ đề trên trang đang cầm.) ___ is a fascinating topic that deserves more attention.
 2. She has two proposals — ___ (gần/vừa đề cập) is more practical than ___ (xa/đề cập trước).
-3. Access to education remains unequal. ___ problem needs to be addressed urgently.
+3. Access to education remains unequal. ___ problem needs to be addressed urgently. (Có thể dùng this để giữ trọng tâm, hoặc that để chỉ lại ý đã nêu.)
 4. Do you remember ___ days when we used to play outside every afternoon?
-5. ___ are the main reasons why I chose to study abroad.
+5. (Người nói chỉ danh sách ngay trước mặt.) ___ are the main reasons why I chose to study abroad.
 6. The report raised serious concerns. ___ concerns were later confirmed by further research.
 
 ### Đáp án
 
-1. This | 2. This / that | 3. This | 4. those | 5. These | 6. These / Those
+1. This | 2. This / that | 3. This / That | 4. those | 5. These | 6. These / Those
 
 ---
 

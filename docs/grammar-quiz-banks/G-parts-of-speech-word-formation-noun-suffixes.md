@@ -262,11 +262,11 @@ input: "text"
 headword: "wf-noun-ity-ness-ance"
 skill: "production"
 subtype: "intermediate"
-prompt: "The rapid ____ of the local economy surprised even government economists. (perform)"
+prompt: "The strong ____ of the local economy surprised even government economists. (perform)"
 accept: ["performance"]
 case_sensitive: false
 grammar_article_slug: "word-formation-noun-suffixes"
-explain: "Sau tính từ 'rapid' cần danh từ. 'perform' + -ance → performance, đúng kiểu danh hoá (nominalization) hay dùng trong Writing học thuật."
+explain: "Sau strong cần danh từ; dạng danh từ của perform trong câu này là performance. Strong performance diễn đạt kết quả hoạt động tốt của nền kinh tế; rapid không phải kết hợp phù hợp để diễn đạt ý này."
 ---
 
 ---

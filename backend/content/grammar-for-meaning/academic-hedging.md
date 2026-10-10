@@ -202,8 +202,8 @@ Adverbs giới hạn phạm vi của nhận định mà không thay đổi cấu
 | Adverb | Mức chắc chắn |
 |--------|-------------|
 | **certainly / undoubtedly** | Rất cao (dùng cẩn thận) |
-| **largely / predominantly** | Cao — phần lớn là đúng |
-| **arguably** | Trung bình — có thể được lập luận như vậy |
+| **largely / predominantly** | Phạm vi/tỷ trọng, không phải xác suất |
+| **arguably** | Có thể lập luận cho nhận định, không xác suất cố định |
 | **probably / likely** | Trung bình |
 | **possibly / perhaps** | Thấp |
 
@@ -233,6 +233,8 @@ It could be argued that + [clause]
 - **It can reasonably be argued that** stricter environmental legislation is now essential.
 
 ### It is widely believed / acknowledged / recognised that...
+
+Đây là dẫn nguồn/nhận định về đồng thuận rộng, không tự là hedge. Cần căn cứ cho widely và giữ nguồn cụ thể nếu đã biết.
 
 ```
 It is widely/generally/commonly + [believed/acknowledged/recognised/accepted] that + [clause]
@@ -342,7 +344,7 @@ at least in part... / largely, though not entirely...
 
 ### Lỗi 2: Dùng "maybe" thay vì academic hedges
 
-- ❌ "**Maybe** social media is bad for society."
+- ✅ “**Maybe** social media is bad for society.” *(đúng; may thường phù hợp hơn khi cần văn phong trang trọng)*
 - ✅ "Social media **may** have negative consequences for social cohesion."
 
 ### Lỗi 3: Hedge mọi thứ, kể cả sự thật rõ ràng
@@ -352,9 +354,9 @@ at least in part... / largely, though not entirely...
 
 ### Lỗi 4: Dùng "I think" khi cần impersonal hedge
 
-- ❌ "**I think** poverty is linked to crime." (quá personal trong academic writing)
+- ✅ “**I think** poverty is linked to crime.” *(có thể dùng để nêu lập trường trong IELTS Task 2; nhận định vẫn cần căn cứ)*
 - ✅ "**It can be argued that** poverty is linked to higher crime rates."
-- ✅ "**Research suggests** a correlation between poverty and crime."
+- “Research suggests a correlation...” chỉ dùng khi có nghiên cứu thật làm căn cứ; không thêm nguồn giả để tạo vẻ khách quan.
 
 ---
 
@@ -370,7 +372,7 @@ at least in part... / largely, though not entirely...
 ### Gợi ý đáp án
 
 1. "Smartphones **may be contributing to** a decline in concentration spans **among some young people**, **particularly** those who use them excessively."
-2. "**It can be argued that** governments **should** consider stricter regulations on fast food advertising, **particularly** content targeting children."
+2. “There may be a case for **banning** fast-food advertising.” *(giữ biện pháp cấm; đổi sang regulate hoặc chỉ nhắm trẻ em là thay chính sách/phạm vi)*
 3. "Higher education **tends to** be associated with better long-term earnings, **although** this **varies considerably** depending on the field of study and individual circumstances."
 4. "Heavy use of social media **appears to** be linked to higher rates of anxiety and depression **in certain groups**, **particularly** adolescents — **although** the causal relationship is still debated."
 

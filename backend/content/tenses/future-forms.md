@@ -212,10 +212,10 @@ Khi bạn **nhìn thấy bằng chứng ngay trước mắt** và dự đoán đ
 
 Khi bạn **đã sắp xếp cụ thể** với người khác — có lịch, có địa điểm, hai bên đều biết:
 
-- I**'m having** lunch with my manager tomorrow. *(Đã đặt bàn / đã nhắn tin hẹn nhau)*
-- We**'re flying** to Da Nang on Friday morning. *(Đã đặt vé)*
-- She**'s starting** her new job on Monday. *(Đã xác nhận với công ty)*
-- They**'re getting** married in June. *(Đã đặt lịch, gửi thiệp)*
+- I**'m having** lunch with my manager tomorrow. *(Ví dụ bối cảnh: đã hẹn nhau; thì này không tự chứng minh đã đặt bàn)*
+- We**'re flying** to Da Nang on Friday morning. *(Ví dụ bối cảnh: đã đặt vé; đây không phải thông tin do riêng thì cung cấp)*
+- She**'s starting** her new job on Monday. *(Ví dụ bối cảnh: đã xác nhận với công ty)*
+- They**'re getting** married in June. *(Ví dụ bối cảnh: đã đặt lịch; câu không chứng minh đã gửi thiệp)*
 
 **Dấu hiệu:** Thường có thời gian cụ thể (*tomorrow, on Friday, at 3pm*); liên quan đến sắp xếp với người khác.
 
@@ -235,7 +235,7 @@ Khi bạn **đã sắp xếp cụ thể** với người khác — có lịch, c
 
 - "I**'ll go** to the beach." *(Bộc phát — vừa nghĩ ra)*
 - "I**'m going to go** to the beach." *(Đã có kế hoạch, đã quyết định trước)*
-- "I**'m going** to the beach this Saturday." *(Đã đặt phòng khách sạn, mua vé xe)*
+- "I**'m going** to the beach this Saturday." *(Đã sắp xếp chuyến đi; câu không cho biết đã đặt phòng hay mua vé)*
 
 **Tình huống:** Cửa hàng vừa hết đồ bạn muốn mua
 
@@ -286,7 +286,7 @@ Khi bạn **đã sắp xếp cụ thể** với người khác — có lịch, c
 
 ### Lỗi 3: Dùng "will" thay Present Continuous cho lịch trình cố định
 
-- ❌ SAI: "I **will fly** to Singapore next Monday morning." *(Vé đã đặt)*
+- ✅ "I **will fly** to Singapore next Monday morning." *(Thông báo/cam kết có thể dùng will; việc đã đặt vé không khiến câu sai)*
 - ✅ ĐÚNG: "I**'m flying** to Singapore next Monday morning."
 - **TẠI SAO:** Khi đề cập đến lịch trình đã xác nhận cụ thể (vé đã mua, lịch đã đặt), Present Continuous tự nhiên hơn nhiều.
 
@@ -347,7 +347,7 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
    - "I**'m going to study** medicine." *(Đã quyết định trước)*
 
 3. **Đã sắp xếp cụ thể với người khác, có thời gian/địa điểm?** → **Present Continuous**
-   - "I**'m having** dinner with her at 7." *(Đã đặt nhà hàng, đã nhắn tin hẹn)*
+   - "I**'m having** dinner with her at 7." *(Đã hẹn ăn tối; chưa biết có đặt nhà hàng hay không)*
 
 4. **Dự đoán về tương lai (không có bằng chứng trực tiếp)?** → **will**
    - "I think prices **will continue** to rise."

@@ -116,7 +116,7 @@ Câu điều kiện (Conditional Sentences) gồm hai phần:
 - **If-clause (điều kiện):** nêu điều kiện
 - **Main clause (kết quả):** nêu kết quả nếu điều kiện xảy ra
 
-**If it rains**, I will stay home.  
+**If it rains**, I will stay home.
 (Nếu trời mưa, tôi sẽ ở nhà.)
 
 ## Tại sao quan trọng
@@ -200,7 +200,7 @@ If + Past Simple, would + V-bare
 > - If I **were** rich... ✅ (không phải "was" — trong văn phong chính thức)
 > - If he **were** here... ✅
 > - If she **were** to apply... ✅
-> 
+>
 > Trong giao tiếp thông thường, "was" được chấp nhận; trong IELTS Writing, ưu tiên "were".
 
 **Các biến thể:**
@@ -288,8 +288,8 @@ Unless [condition], [result].
 - "**Unless** significant investment is made in renewable energy infrastructure now, the transition away from fossil fuels **will be** far slower and more costly than necessary."
 - "Young people **are unlikely to** remain in rural areas **unless** governments invest in job creation and essential services."
 
-> **Lưu ý:** Không dùng "unless" với câu điều kiện giả định loại 2 (were to / would). Trong trường hợp đó, dùng "if... not".
-> - ❌ "Unless it were cheaper, people would buy it." *(không tự nhiên)*
+> **Lưu ý:** Unless thường nêu ngoại lệ; vẫn có thể dùng trong điều kiện giả định. Chọn theo nghĩa, không cấm chỉ vì có would/were.
+> - “Unless it were cheaper, people would buy it” có nghĩa mua trừ trường hợp rẻ hơn; nếu ý đích là giá giảm giúp bán được thì dùng câu dưới.
 > - ✅ "**If** it **weren't** so expensive, more people **would** buy it."
 
 ---
@@ -397,9 +397,9 @@ Dưới đây là ví dụ nâng cấp dần một câu bằng cách thêm đi�
 - ❌ "I'll call you in case you're free." *(dùng khi không chắc bạn rảnh → should be "if")*
 - ✅ "I'll call you **if** you're free." / "I'll take your number **in case** I need to call you later."
 
-### Lỗi 3: "Unless" + phủ định (tạo câu phủ định kép)
+### Lỗi 3: Chọn unless không đúng ý ngoại lệ
 
-- ❌ "Unless governments don't act, the situation will worsen."
+- ❌ "Unless governments don't act, the situation will worsen." *(nếu ý đích là không hành động thì tình hình xấu đi; bản thân unless + phủ định không tự sai cấu trúc)*
 - ✅ "**Unless** governments act, the situation will worsen." / "**If** governments **don't** act, the situation will worsen."
 
 ### Lỗi 4: "Provided" không có that (formal, ít phổ biến hơn nhưng OK)
@@ -420,8 +420,8 @@ Dưới đây là ví dụ nâng cấp dần một câu bằng cách thêm đi�
 
 ### Đáp án:
 
-1. **Provided that** all parties agree, the merger can proceed.
-2. Remote working can be effective, **as long as** employees have clear targets.
+1. **If / provided that / as long as** all parties agree, the merger can proceed (hai mẫu sau nhấn điều kiện).
+2. Remote working can be effective, **if / as long as / provided that** employees have clear targets.
 3. **Unless** urgent action is taken, public health will deteriorate.
 4. Always back up your files **in case** your hard drive fails.
 5. **Unless** investment in education increases, the skills gap will persist.
@@ -489,8 +489,8 @@ If + Past Simple, would have + V3
 - **Unless** you hurry, you'll miss the bus. (= If you **don't** hurry, you'll miss the bus.)
 - I won't go **unless** you come with me. (= I won't go **if** you **don't** come.)
 
-Không dùng "unless" cùng phủ định:
-- ❌ Unless you don't hurry (sai — double negative)
+Unless có thể đi với phủ định khi ý ngoại lệ cần phủ định: “I will go unless you don’t want me to”. Với ý “nếu không nhanh sẽ trễ”:
+- ❌ Unless you don't hurry (không diễn đạt ý “nếu không nhanh”)
 - ✅ Unless you hurry
 
 ## Other Conditional Expressions
@@ -511,7 +511,7 @@ Không dùng "unless" cùng phủ định:
 
 - ❌ If it **will rain** tomorrow, we'll cancel the trip.
 - ✅ If it **rains** tomorrow, we'll cancel the trip.
-- **Tại sao:** Mệnh đề "if" chỉ thì tương lai bằng cách dùng Present Simple — không dùng "will".
+- **Tại sao:** Trong điều kiện dự báo thời tiết thông thường này, dùng Present Simple. Will vẫn có thể xuất hiện trong if-clause với nghĩa sẵn lòng, kiên quyết hoặc kết quả sau đó; không cấm trong mọi ngữ cảnh.
 
 ### Lỗi 2: Sai thì trong điều kiện loại 2
 
@@ -606,7 +606,7 @@ Không dùng "unless" cùng phủ định:
 | **Mixed** | Past Perfect | would + V | Quá khứ → ảnh hưởng hiện tại |
 
 **Quy tắc vàng:**
-- **KHÔNG bao giờ** dùng "will" hoặc "would" trong if-clause (loại 1 và 2)
+- Trong mẫu dự đoán/giả định cơ bản, không dùng will/would chỉ để đánh dấu tương lai. Có thể dùng cho sự sẵn lòng hoặc kết quả được điều kiện hóa: “If you will help, we can finish”; “If it will help, I’ll explain again”.
 - Loại 2 if-clause: **Past Simple** (were, had, did...)
 - Loại 3 if-clause: **Past Perfect** (had been, had done, had gone...)
-- **Unless** = if...not (không dùng cùng phủ định)
+- **Unless** nêu ngoại lệ, gần if...not trong nhiều câu; phủ định được phép nếu đúng nghĩa.

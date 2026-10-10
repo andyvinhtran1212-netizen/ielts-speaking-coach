@@ -78,7 +78,7 @@ Bị động cũng xuất hiện dạng **rút gọn** (mệnh đề quan hệ b
 Ai làm hành động (agent) thường **bị lược**. Nếu có, nó đi sau **by**:
 
 - *The theory was proposed **by Einstein**.* → tác nhân = Einstein.
-- *Mistakes were made.* → tác nhân **bị giấu** có chủ đích.
+- *Mistakes were made.* → tác nhân không được nêu; có thể làm mờ trách nhiệm nhưng chưa đủ chứng minh ý định che giấu.
 
 Khi câu hỏi hỏi "ai/ cái gì gây ra", hãy tìm cụm *by…* hoặc suy từ ngữ cảnh.
 
@@ -94,10 +94,10 @@ Khi câu hỏi hỏi "ai/ cái gì gây ra", hãy tìm cụm *by…* hoặc suy 
 ### Chiến lược giải mã
 1. Thấy **be + V3** → chủ ngữ là **đối tượng chịu tác động**.
 2. Tìm tác nhân ở cụm *by* (nếu có).
-3. Với *is said/thought to* → thông tin là **quan điểm/tin đồn**, không chắc chắn tuyệt đối.
+3. Với *is said/thought to* → xác định nguồn và lập trường; tường thuật bị động không tự biến thông tin thành tin đồn.
 
 ## Tóm tắt nhanh
 
 - Bị động = be + V3; chủ ngữ là đối tượng chịu tác động
 - Tác nhân đi sau *by*, thường bị lược
-- *is said/thought to* = mức độ chắc chắn thấp hơn
+- *is said/thought to* tường thuật nguồn chưa được nêu; mức chắc chắn tùy nguồn và ngữ cảnh, không tự thấp hơn mọi câu chủ động

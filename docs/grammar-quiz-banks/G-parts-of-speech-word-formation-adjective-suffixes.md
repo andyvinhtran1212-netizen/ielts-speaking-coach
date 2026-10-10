@@ -70,7 +70,7 @@ prompt: "Public transport in this city is affordable and ____ (depend) — buses
 accept: ["dependable"]
 case_sensitive: false
 grammar_article_slug: "word-formation-adjective-suffixes"
-explain: "'depend' (v) là gốc thuần Anh (không phải Latinh) → nhóm đa số dùng -able: dependable (đáng tin cậy)."
+explain: "Dạng tính từ được dùng của depend là dependable, nghĩa là đáng tin cậy. Depend có nguồn gốc qua tiếng Pháp từ Latin dependere; không thể chọn -able/-ible chỉ bằng quy tắc 'gốc Anh hay gốc Latin'. Cần kiểm tra từ vựng và cách dùng của từng từ."
 ---
 
 ---

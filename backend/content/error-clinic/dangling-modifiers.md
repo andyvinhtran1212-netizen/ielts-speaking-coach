@@ -55,10 +55,11 @@ anchors:
 <!-- anchor: dangling-modifiers.overview -->
 ## Tóm tắt
 
-Cụm phân từ mở đầu câu bổ nghĩa cho **chủ ngữ ngay sau dấu phẩy**. Nếu chủ ngữ đó không làm được hành động phân từ, câu bị **treo**:
+Cụm phân từ mở đầu không có chủ ngữ riêng thường gắn với **chủ ngữ chính ngay sau dấu phẩy**. Xét cả ý nghĩa và thể: V-ing chủ động diễn tả điều chủ ngữ làm/trải qua, còn V3 bị động có thể diễn tả điều chủ ngữ nhận. Không bắt buộc chủ ngữ phải là người thực hiện hành động trong cả hai kiểu:
 
 - ❌ *Walking home, the rain started.* *(mưa không "walking home"!)*
 - ✅ *Walking home, **I** was caught in the rain.*
+- ✅ *Looked after carefully, **these boots** will last for years.* *(boots nhận sự chăm sóc, không tự chăm sóc)*
 
 <!-- anchor: dangling-modifiers.why -->
 ### Vì sao câu bị treo
@@ -83,7 +84,7 @@ Người viết ngầm có một chủ thể trong đầu, nhưng chủ ngữ gh
 <!-- anchor: dangling-modifiers.pitfall -->
 ## Lỗi thường gặp
 
-### Lỗi 1: Chủ ngữ sau phẩy không làm được hành động
+### Lỗi 1: Chủ ngữ không khớp ý nghĩa và thể của cụm phân từ
 - Với ý **điện thoại rẻ nên được mua**, *Being cheap, everyone bought the phone* gắn *cheap* với *everyone* thay vì chiếc điện thoại. *Cheap* cũng có thể mô tả một người ở nghĩa khác, nên lỗi ở đây là không đúng ý định diễn đạt.
 - ✅ *Being cheap, the phone sold quickly.*
 
@@ -102,5 +103,5 @@ Với kiểu phân từ mở đầu không có chủ ngữ riêng, hỏi: *"Ch�
 ## Tóm tắt nhanh
 
 - Cụm phân từ mở đầu thuộc về chủ ngữ ngay sau phẩy
-- Chủ ngữ ngầm hiểu phải khớp chủ ngữ chính theo ý nghĩa; không áp dụng máy móc thành quy tắc chỉ người mới có thể là tác nhân
+- Chủ ngữ ngầm hiểu phải khớp chủ ngữ chính theo ý nghĩa và thể: chủ động có tác nhân, bị động có đối tượng nhận hành động; không bắt buộc mọi chủ ngữ đều thực hiện hành động
 - Sửa: đổi chủ ngữ, hoặc thêm chủ ngữ cho cụm, hoặc nêu rõ tác nhân

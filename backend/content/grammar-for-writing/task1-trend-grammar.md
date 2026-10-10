@@ -81,7 +81,7 @@ anchors:
 <!-- anchor: task1-trend-grammar.overview -->
 ## Tóm tắt
 
-Một biểu đồ theo thời gian = một chuỗi thay đổi. Band 6 viết "went up" mãi; Band 7 luân phiên động từ, dạng danh từ, và mức độ — đúng giới từ. Bốn mảng:
+Một biểu đồ theo thời gian thể hiện thay đổi. Luyện động từ, dạng danh từ, mức độ và giới từ để mô tả dữ liệu chính xác; không suy Band 6/7 chỉ từ việc dùng went up hay luân phiên từ đồng nghĩa. Band phụ thuộc cách đáp ứng yêu cầu và chất lượng toàn bài. Bốn mảng:
 
 | Mảng | Công cụ | Ví dụ |
 |------|---------|-------|
@@ -96,7 +96,7 @@ Một biểu đồ theo thời gian = một chuỗi thay đổi. Band 6 viết "
 
 ## Tại sao quan trọng
 
-Task 1 chấm nặng **Lexical Resource** và **Grammatical Range**. Lặp "increased... increased... increased" và "went up by" giới hạn bạn ở Band 6. Đa dạng động từ xu hướng + chuyển đổi động từ↔danh từ + giới từ chính xác là cách trực tiếp nhất nâng cả hai tiêu chí.
+Task 1 chấm đều bốn tiêu chí. Lặp increased không tự giới hạn band; ưu tiên mô tả đúng dữ liệu rồi luyện đa dạng phù hợp. Đa dạng động từ xu hướng + chuyển đổi động từ↔danh từ + giới từ chính xác là cách trực tiếp nhất nâng cả hai tiêu chí.
 
 ---
 
@@ -244,8 +244,7 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 
 ### Lỗi 3: Lặp một động từ
 
-- ❌ increased... increased... increased...
-- ✅ rose / climbed / surged / grew
+- Increased/rose/grew có thể thay nhau theo ngữ cảnh; climbed/surged thêm sắc thái mức tăng, chỉ dùng khi biểu đồ hỗ trợ. Không thay increased chỉ để tránh lặp.
 
 ### Lỗi 4: Lệch dạng adv/adj
 

@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-06 the highest is `313`, so the next
-new migration is `314`.
+sequence is dense. As of 2026-10-10 the highest is `314`, so the next
+new migration is `315`.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
@@ -46,6 +46,11 @@ Migration `313` adds the default-off original full-bank version: 90 scored
 MCQs and 10–30 ungraded writing responses per frozen attempt. It preserves
 legacy attempts and serializes practice exposure with diagnostic admission and
 finalization. Content publication and staged activation are separate release steps.
+
+Migration `314` extends the guarded Grammar publication owner to the exact
+reviewed audit sources. It retains historical receipts and learner rows, and
+allows only the named long-sentence follow-up revision. It changes functions,
+not bank content; content publication remains a separate guarded operation.
 
 ## Conventions
 

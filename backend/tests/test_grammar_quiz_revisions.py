@@ -697,7 +697,7 @@ async def test_private_evidence_json_exact_decimal_key_order_unicode_and_grants(
     for code in REVIEWED_SOURCES:
         raw=(Path(__file__).parents[2]/'docs/grammar-quiz-banks'/(code+'.md')).read_text()
         source=parse_reviewed_source(code,raw)
-        binding=json.loads(await pg.c.fetchval('SELECT grammar_quiz_reviewed_binding($1)',code))
+        binding=json.loads(await pg.c.fetchval('SELECT grammar_quiz_audit_binding($1,$2)',code,source.raw_sha256))
         assert binding['metadata']==source.metadata and binding['manifest_sha256']==source.manifest_sha256
         assert binding['source_sha256']==source.raw_sha256
     for role in pg.roles.values():

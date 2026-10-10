@@ -102,7 +102,7 @@ Gắn vào **động từ**, thường giữ nguyên gốc:
 <!-- anchor: word-formation-noun-suffixes.suffix.state -->
 ### -ity / -ness / -ance / -ence — trạng thái, tính chất
 
-Gắn chủ yếu vào **tính từ** để chỉ trạng thái hoặc phẩm chất:
+Nhóm -ity/-ness thường gắn với tính từ; -ance/-ence có thể liên quan tính từ **hoặc động từ**, như perform → performance:
 
 | Hậu tố | Ví dụ |
 |---|---|
@@ -137,7 +137,7 @@ Chỉ **người** thực hiện hành động hoặc nghề nghiệp:
 
 ### Lỗi 3: Quên đổi chính tả khi thêm hậu tố
 
-- happy → happi**ness** (y → i); able → abil**ity** (bỏ -e)
+- happy → happi**ness** (y → i); able → **ability** có thân abil-, không chỉ bỏ e rồi ghép ity (sẽ thành ablity). Học dạng chính tả của cả từ.
 
 ## Ứng dụng trong bài thi
 
@@ -151,8 +151,8 @@ Chuyển sang danh từ:
 1. decide → ?
 2. improve → ?
 3. aware → ?
-4. perform → ?
-5. produce → ?
+4. perform → danh từ chỉ sự thực hiện/buổi biểu diễn?
+5. produce → danh từ chỉ quá trình sản xuất?
 
 ### Đáp án
 1. decision 2. improvement 3. awareness 4. performance 5. production
@@ -160,6 +160,7 @@ Chuyển sang danh từ:
 ## Tóm tắt nhanh
 
 - **-tion/-sion, -ment** ← động từ (hành động/kết quả)
-- **-ity, -ness, -ance/-ence** ← tính từ (trạng thái/phẩm chất)
-- **-er/-or/-ist/-ant** = người
+- **-ity, -ness** thường từ tính từ; **-ance/-ence** còn có thể từ động từ
+- **-er/-or/-ist/-ant** thường chỉ người; er/or còn có thể chỉ dụng cụ/vật, như opener/projector
+- Các hậu tố tạo từ ở đây khác đuôi biến tố -s số nhiều hoặc -ed quá khứ; không phải mọi hậu tố đều đổi từ loại
 - Nhìn vị trí trống → nếu cần danh từ, chọn dạng có hậu tố danh từ

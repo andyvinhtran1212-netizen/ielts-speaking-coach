@@ -92,16 +92,16 @@ anchors:
 <!-- anchor: discourse-markers-spoken.overview -->
 ## Tóm tắt
 
-Discourse markers (DMs) trong nói tiếng Anh là những từ và cụm từ ngắn — *well, you know, I mean, kind of, anyway* — giúp người nói: (1) câu giờ để suy nghĩ, (2) báo hiệu chuyển hướng ý, (3) làm mềm phát biểu, (4) duy trì kết nối với người nghe. Chúng KHÁC với DM trong viết (Furthermore, Moreover) — dùng nhầm sẽ làm bài Speaking nghe sách vở, hạ điểm Fluency.
+Discourse markers (DMs) trong nói tiếng Anh là những từ và cụm từ ngắn — *well, you know, I mean, kind of, anyway* — giúp người nói: (1) có thời gian suy nghĩ, (2) báo hiệu chuyển hướng ý, (3) làm mềm phát biểu, (4) duy trì kết nối với người nghe. Chọn từ theo chức năng và mức độ trang trọng; furthermore/moreover có thể phù hợp trong lập luận trang trọng, nhưng không nên gượng ép vào hội thoại thân mật.
 
 ## Tại sao quan trọng
 
-IELTS Speaking chấm Fluency and Coherence (FC) — 25% tổng điểm. Band 7 FC mô tả: "uses a range of connectives and discourse markers with some flexibility." Chữ then-chốt là **range** (đa dạng) và **flexibility** (linh hoạt theo ngữ cảnh nói). Người chỉ dùng "and / but / so / because" và đôi khi "however" sẽ kẹt ở Band 6.
+IELTS Speaking chấm Fluency and Coherence (FC) — 25% tổng điểm. [IELTS Speaking band descriptors](https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf), Band 7 FC, nêu: "Flexible use of spoken discourse markers, connectives and cohesive features." Cần dùng phương tiện liên kết linh hoạt theo ngữ cảnh. Danh sách hoặc số lượng từ nối không tự xác định band; phải đánh giá độ mạch lạc, phù hợp và sự trôi chảy của toàn bài.
 
 Người Việt học IELTS gặp ba vấn đề riêng:
 
 1. Được dạy DM **viết** ở trường (Furthermore, Moreover, In addition) → bê vào Speaking → nghe gượng và non-natural.
-2. Quen dùng "thật ra" mở thoại → tự dịch thành "actually" → dùng sai chức năng (actually trong English signal correction, không phải topic-opener).
+2. Quen dùng "thật ra" mở thoại → tự dịch thành "actually" → dùng sai chức năng (actually có thể đính chính, thêm chi tiết, làm mềm lời nói hoặc chuyển chủ đề theo ngữ cảnh; không chỉ có một chức năng).
 3. Không có thói quen dùng DM để **câu giờ** trong khi VN trong nói thường dùng "ờ", "à", "thì", "kiểu" — rất tự nhiên trong VN nhưng không transfer sang English fillers.
 
 ## 6 nhóm DM trong nói
@@ -131,7 +131,7 @@ Dùng giữa câu khi cần dừng để chọn từ hoặc tổ chức ý.
 - "*Let me think* — probably about five years ago."
 - "*Let me see* — yes, I'd say my brother is the most influential person in my life."
 
-> **Quan trọng:** *you know* và *I mean* dùng vừa phải. Quá nhiều = thừa thãi. 1–2 lần mỗi câu trả lời dài là hợp lý.
+> **Quan trọng:** *you know* và *I mean* dùng vừa phải. Quá nhiều = thừa thãi. Không có số lần bắt buộc mỗi câu trả lời; xét chức năng và sự lặp trong bản ghi âm.
 
 <!-- anchor: discourse-markers-spoken.softening.kind-of-sort-of -->
 ### Nhóm 3 — Làm mềm / hedging: *kind of, sort of, I guess, I suppose*
@@ -179,7 +179,7 @@ Dùng để xác nhận hoặc đáp lại câu hỏi của examiner. Đặc bi�
 
 > "*Well*, I'd like to talk about a trip I took to Đà Nẵng about three years ago. *So*, I went there with my family during the summer holidays — it was my first time visiting Central Vietnam. *Now*, what made it really special was the food. *I mean*, I'd eaten Vietnamese food my whole life, *obviously*, but the local dishes there were just on another level. *Actually*, *to be honest*, I think the *mì Quảng* I had at a small street stall was the best thing I've ever eaten. *Anyway*, *the thing is*, that trip kind of changed how I think about travel. *I guess* before that I always thought of holidays as needing to be in fancy resorts, but *actually*, the most memorable moments came from just walking around and trying random food. *You know*, sometimes the simplest experiences are the most memorable. *So*, that's the trip I'd choose to talk about."
 
-Đếm DM: well, so, now, I mean, obviously, actually, to be honest, anyway, the thing is, kind of, I guess, actually, you know, so → 14 DM trong ~150 từ. Nghe rất tự nhiên — không phải overuse vì mỗi DM serve mục đích khác nhau.
+Đếm DM: well, so, now, I mean, obviously, actually, to be honest, anyway, the thing is, kind of, I guess, actually, you know, so → 14 DM trong đoạn mẫu; số lượng không chứng minh tự nhiên. Cần nghe ngữ điệu, nhịp và xét từng chức năng.
 
 ## Lỗi thường gặp
 
@@ -212,28 +212,28 @@ Một số học viên xem nhiều YouTube/TV Mỹ và bắt chước "like" m�
 
 - ❌ "I went, *like*, to the market and bought, *like*, some food and it was, *like*, really cheap."
 
-Trong IELTS Speaking, "like" làm DM bị tính filler — hạ điểm. Dùng có chủ ý:
+Like có chức năng ước lượng, dẫn lời hoặc làm mềm: “It took, like, two hours”, “She was like, ‘No!’”. Lặp thừa có thể cản trở, nhưng không tự trừ điểm chỉ vì dùng like. Dùng có chủ ý:
 - ✅ "*Like* I said earlier, I really enjoy cooking." (= as I said)
 - ✅ "Things *like* football and badminton." (= such as)
 
-**Cách fix:** Đếm "like" trong recording riêng. Mục tiêu < 3 lần/2 phút.
+**Cách fix:** Đếm "like" trong recording riêng. Không có ngưỡng điểm theo số lần; thử bỏ một lượt thừa và nghe lại độ rõ nghĩa.
 
 <!-- anchor: discourse-markers-spoken.common-mistake.written-dm-in-speaking -->
 ### Lỗi 4: Dùng DM viết trong nói
 
-Bê "Furthermore", "Moreover", "Consequently", "Nevertheless" vào Speaking nghe rất sách vở.
+"Furthermore", "Moreover", "Consequently", "Nevertheless" có sắc thái trang trọng. Chúng có thể phù hợp khi lập luận, nhưng gượng ép vào hội thoại thân mật dễ khiến cách diễn đạt thiếu tự nhiên.
 
-- ❌ "I love coffee. *Furthermore*, I drink it every morning."
+- Trong câu trả lời thân mật, "I love coffee. *Furthermore*, I drink it every morning" đúng cấu trúc nhưng khá trang trọng; không phải lỗi ngữ pháp tự động.
 - ✅ "I love coffee. *In fact*, I drink it every morning." / "I love coffee, *and what's more*, I drink it every morning."
 
-**Cách fix:** Khi practice Speaking, ghi chú sẵn 5–7 DM nói tự nhiên (well, so, actually, the thing is, you know, I mean, to be honest) và force yourself dùng chúng. DM viết để dành cho Writing.
+**Cách luyện:** Chọn một chỗ cần nối ý và thử một DM phù hợp (well, so, actually, the thing is, you know, I mean, to be honest). Có thể giữ từ nối trang trọng khi sắc thái phù hợp; không ép dùng một danh sách trong mọi câu trả lời.
 
 <!-- anchor: discourse-markers-spoken.ielts.part1-2-3-applications -->
 ## Ứng dụng IELTS theo Part
 
 ### Part 1 — câu trả lời ngắn
 
-Dùng 1 opener + 1 hedger là đủ:
+Ví dụ mở câu và diễn đạt mức độ chắc chắn khi cần; không có số lượng opener/hedger bắt buộc:
 
 > *Q: Do you enjoy reading?*
 >
@@ -241,7 +241,7 @@ Dùng 1 opener + 1 hedger là đủ:
 
 ### Part 2 — long turn
 
-Dùng 4–6 DM phân bổ qua 2 phút. Mở đầu (well/so), thân bài (you know, I mean, anyway, the thing is), kết bài (so, that's why).
+Dùng DM ở chỗ chúng giúp người nghe theo dõi: mở ý (well/so), làm rõ hoặc chuyển ý (I mean/anyway), kết ý (so/that's why). Không có chỉ tiêu số DM cho hai phút; ưu tiên phát triển nội dung mạch lạc và tránh lặp thừa.
 
 ### Part 3 — discussion
 
@@ -253,13 +253,13 @@ Dùng softening DM nhiều hơn (kind of, I suppose, I guess, sort of) và evide
 
 ## Bài tập tự luyện
 
-1. **Recording exercise:** Ghi âm 1-phút trả lời câu "Tell me about your hometown" mà KHÔNG dùng "and / but / so" làm DM. Phải dùng ít nhất 5 DM khác.
-2. **Substitution exercise:** Lấy 1 đoạn Speaking đã viết. Thay mỗi "and" bằng một DM khác.
+1. **Recording exercise:** Ghi âm một câu trả lời về hometown; nghe lại và chọn một chỗ nối ý để sửa theo chức năng, không cấm and/but/so.
+2. **Substitution exercise:** Lấy 1 đoạn Speaking đã viết. Chọn một chỗ lặp and để thay, giữ hoặc lược bỏ theo quan hệ ý; không thay mọi and.
 3. **Listening transfer:** Nghe 1 đoạn IELTS Speaking sample (Band 8+). Đếm DM và phân loại theo 6 nhóm trên.
 
 ## Tóm tắt nhanh
 
 - 6 nhóm DM nói: **opener** (well, so) — **thinking** (you know, I mean) — **softener** (kind of, I guess) — **transition** (anyway, by the way) — **emphasis** (actually, the thing is) — **response** (exactly, absolutely)
-- Mục tiêu: 4–6 DM mỗi câu trả lời Part 2 dài
-- Tránh: actually-as-opener, like-as-filler, written DM trong nói (Furthermore, Moreover)
-- Band 7+ yêu cầu **range** (đa dạng) và **flexibility** (chọn DM phù hợp ngữ cảnh)
+- Chọn DM theo chức năng và ngữ cảnh; không đếm đủ một quota để suy band.
+- Actually, like và từ nối trang trọng có thể phù hợp; tránh dùng gượng ép hoặc lặp thừa làm khó theo dõi ý.
+- Band 7 FC xét cách dùng linh hoạt phương tiện liên kết cùng sự trôi chảy và mạch lạc của toàn bài.

@@ -137,12 +137,12 @@ input: "text"
 headword: "np-adjective-order"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete the noun phrase with adjectives in correct order: 'a ____ population'"
-hint: "gõ 2 tính từ theo đúng trật tự (kích thước trước chủng loại)"
-accept: ["large urban"]
+prompt: "Choose one adjective pair (large / urban or small / rural) and put it in the usual order: 'a ____ population'."
+hint: "gõ 2 tính từ: kích thước trước loại dân cư"
+accept: ["large urban", "small rural"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"
-explain: "Theo OSASCOMP, size (large) đứng trước classifier (urban) → 'large urban population' (ví dụ này xuất hiện trực tiếp trong bài Wiki, mục 1.2)."
+explain: "'Large urban' và 'small rural' đều đặt tính từ chỉ kích thước trước tính từ phân loại. Hai cặp có nghĩa khác nhau và đều được đề cho phép."
 ---
 
 ---
@@ -167,11 +167,11 @@ input: "choice"
 headword: "np-post-modifiers"
 skill: "form"
 subtype: "basic"
-prompt: "Choose the correct post-modifier: \"the factors ____ economic growth\"."
+prompt: "Choose the post-modifier meaning 'the factors that influence economic growth': \"the factors ____ economic growth\"."
 options: ["affecting", "affect", "affected by", "to affecting"]
 answer: 0
 grammar_article_slug: "noun-phrase-basics"
-explain: "Participial phrase (V-ing) bổ nghĩa cho danh từ khi danh từ là chủ thể thực hiện hành động: 'the factors affecting economic growth'."
+explain: "'Affecting' diễn đạt các yếu tố tác động tới tăng trưởng. 'Affected by' cũng có thể tạo cụm đúng ngữ pháp nhưng đảo chiều tác động, không giữ nghĩa được yêu cầu trong đề này."
 ---
 
 ---
@@ -195,12 +195,12 @@ input: "text"
 headword: "np-post-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete the noun phrase with a relative clause: 'the researchers ____ the study last year.'"
+prompt: "Use who or that + the past tense of conduct or publish: 'the researchers ____ the study last year'."
 hint: "gõ đại từ quan hệ + động từ"
-accept: ["who published", "that published"]
+accept: ["who conducted", "that conducted", "who published", "that published"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"
-explain: "Mệnh đề quan hệ bổ nghĩa danh từ với relative pronoun (who/that) + verb: 'the researchers who/that published the study last year'."
+explain: "'Who/that conducted' và 'who/that published' đều tạo mệnh đề quan hệ bổ nghĩa cho researchers. Conduct = thực hiện nghiên cứu; publish = công bố nghiên cứu. Đề cho phép cả hai sự việc."
 ---
 
 ---
@@ -213,7 +213,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'The report identified several problems facing by small businesses during the recession.'"
 answer: false
 grammar_article_slug: "noun-phrase-basics"
-explain: "SAI — 'businesses' là đối tượng bị ảnh hưởng (bị động) nên phải dùng V3: 'The report identified several problems faced by small businesses during the recession.'"
+explain: "SAI — trong 'small businesses face problems', businesses là chủ thể của face, còn problems là đối tượng. Cụm bổ nghĩa cho problems phải là 'problems faced by small businesses'; 'facing by' ghép chủ động với by sai cấu trúc."
 ---
 
 # ===== item_key 4 · Noun modifier (danh từ bổ nghĩa danh từ) không thêm -s =====
@@ -253,12 +253,12 @@ input: "text"
 headword: "np-noun-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite 'a system for managing data' as a compact noun-modifier phrase: 'a ____'"
-hint: "gõ danh từ-bổ-nghĩa + danh từ (2 từ)"
-accept: ["data management"]
+prompt: "Rewrite 'a system for managing data' using the words data, management and system: 'a ____'."
+hint: "gõ đủ cụm 3 từ; có thể nối data-management bằng gạch nối"
+accept: ["data management system", "data-management system"]
 case_sensitive: false
 grammar_article_slug: "noun-phrase-basics"
-explain: "Danh từ có thể ghép trực tiếp làm noun modifier: 'data management' (hoặc 'a data management system' đầy đủ hơn); không thêm -s vào phần modifier. Lưu ý: 'management system' KHÔNG đúng nghĩa — đó là hệ thống quản lý nói chung, mất đi đối tượng cụ thể là 'data'."
+explain: "'A data management system' giữ danh từ trung tâm 'system' và đối tượng được quản lý là 'data'. Chỉ điền 'data management' sẽ mất nghĩa hệ thống. Dạng 'data-management system' cũng được chấp nhận; gợi ý tính theo ba thành phần từ vựng."
 ---
 
 ---

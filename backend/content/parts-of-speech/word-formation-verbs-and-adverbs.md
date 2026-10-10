@@ -84,6 +84,8 @@ Câu word-form có thể hỏi bất kỳ dạng nào. Sau khi nhận diện dan
 | **-en** | làm cho … hơn | wide → widen, strength → strengthen, short → shorten |
 | **-ify** | làm cho | simple → simplify, pure → purify, class → classify |
 
+Đây là cách nhận diện họ từ, không phải công thức suy đầy đủ nghĩa. **Realize** còn nghĩa nhận ra; **organize** nghĩa tổ chức, không thể hiểu máy móc là làm thành một organ trong tiếng Anh hiện đại.
+
 <!-- anchor: word-formation-verbs-and-adverbs.suffix.adverb -->
 ### Hậu tố tạo trạng từ: -ly
 
@@ -144,5 +146,5 @@ Lưu ý các trường hợp đặc biệt:
 
 - Động từ: **-ize, -en, -ify**
 - Trạng từ: tính từ **+ -ly** (chú ý *fast/hard/hardly*)
-- Tiền tố **un-/dis-/re-/en-/mis-** đổi nghĩa, không đổi từ loại
-- Luôn xác định họ từ đủ 4 dạng để chọn đúng ở câu word-form
+- Tiền tố **un-/dis-/re-/mis-** thường đổi nghĩa; **en-/em-** có thể tạo động từ và đổi từ loại
+- Học các dạng thông dụng trong họ từ; không bắt buộc đủ cả bốn dạng, không tự tạo trạng từ khi từ đó không có cách dùng phù hợp

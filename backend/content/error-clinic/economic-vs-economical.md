@@ -218,7 +218,7 @@ an economical + noun
 
 ### Lỗi 2: Dùng "economic" khi muốn nói về sự tiết kiệm
 
-- ❌ "This solution is more **economic** than the previous one."
+- ✅ “This solution is more **economic** than the previous one.” *(economic cũng có nghĩa sinh lợi/tiết kiệm theo ngữ cảnh; economical thường rõ hơn nếu muốn nói ít tốn nguồn lực)*
 - ✅ "This solution is more **economical** than the previous one."
 
 - ❌ "She drives an **economic** car."

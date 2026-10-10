@@ -53,7 +53,7 @@ anchors:
 <!-- anchor: compound-adjectives.overview -->
 ## Tóm tắt
 
-Tính từ ghép = hai hay nhiều từ nối bằng **dấu gạch nối (-)** cùng bổ nghĩa một danh từ:
+Tính từ ghép gồm hai hay nhiều thành phần cùng bổ nghĩa một danh từ. Nhiều cụm có **dấu gạch nối (-)** trước danh từ, nhưng chính tả còn phụ thuộc từ điển và cách cấu tạo:
 
 - *a **well-known** author, a **high-quality** product, a **five-year-old** child*
 
@@ -65,7 +65,10 @@ Tính từ ghép = hai hay nhiều từ nối bằng **dấu gạch nối (-)** 
 | số + danh từ (số ít!) | *a **ten-minute** break, a **three-hour** flight* |
 | trạng từ + phân từ | *a **well-paid** job, a **fast-growing** market* |
 | danh từ + phân từ | *a **time-consuming** task, an **English-speaking** country* |
-| tính từ + danh từ+ed | *a **left-handed** player, a **long-term** plan* |
+| tính từ + danh từ + ed | *a **left-handed** player* |
+| tính từ + danh từ | *a **long-term** plan* |
+
+Không gạch nối sau trạng từ đuôi **-ly** trong các mẫu như **a clearly structured report**, **a highly qualified teacher**. Các từ ghép cố định có cách viết riêng; kiểm tra từ điển khi chưa chắc.
 
 Khi con số + danh từ đứng **trước** danh từ chính, danh từ trong cụm ghép **về số ít**:
 
@@ -84,8 +87,8 @@ Nhưng khi đứng **sau** động từ, dùng bình thường: *The boy is **fi
 ### Lỗi 2: Quên dấu gạch nối
 - ❌ *a well known writer* → ✅ *a **well-known** writer* *(khi đứng trước danh từ)*
 
-### Lỗi 3: Dùng gạch nối sau danh từ
-- *The writer is well known.* *(không gạch nối khi đứng sau to-be)*
+### Cách viết khi làm vị ngữ
+- *The writer is well known.* thường không có gạch nối ở vị trí này. Đây không phải quy tắc bỏ mọi gạch nối sau be: **The plan is long-term** có thể giữ dạng từ ghép theo từ điển/văn phong.
 
 ## Ứng dụng trong bài thi
 
@@ -93,6 +96,6 @@ Nhưng khi đứng **sau** động từ, dùng bình thường: *The boy is **fi
 
 ## Tóm tắt nhanh
 
-- Tính từ ghép nối bằng gạch nối khi đứng trước danh từ
+- Nhiều tính từ ghép có gạch nối trước danh từ; trạng từ -ly thường không nối
 - Số + danh từ trong cụm ghép → **số ít** (five-year, không five-years)
-- Sau to-be thì viết thường, không gạch nối
+- Khi làm vị ngữ, nhiều cụm mở ra; dạng đã cố định cần theo từ điển

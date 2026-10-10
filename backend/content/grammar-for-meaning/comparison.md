@@ -81,7 +81,7 @@ Tiếng Anh có ba mức so sánh:
 
 | Mức | Tên gọi | Ý nghĩa | Ví dụ |
 |-----|---------|---------|-------|
-| Bình thường | Positive | như nhau | big, beautiful |
+| Dạng gốc | Positive | chưa đánh dấu so sánh; so sánh bằng cần as...as | big, beautiful |
 | So sánh hơn | Comparative | A hơn B | bigger, more beautiful |
 | So sánh nhất | Superlative | nhất trong nhóm | the biggest, the most beautiful |
 
@@ -206,7 +206,7 @@ much / far / a lot / even / slightly + comparative
 
 ### 3. The + comparative, the + comparative
 
-Diễn tả mối quan hệ tỉ lệ thuận:
+Diễn tả quan hệ giữa hai mức biến thiên: có thể cùng chiều (the more...the more) hoặc ngược chiều (the more...the less).
 
 ```
 The + comparative..., the + comparative...
@@ -242,8 +242,8 @@ the least + Adjective
 |-------------|----------|-------|
 | A cao hơn B | A is higher/greater than B | Sales in 2020 were **higher than** in 2019. |
 | A thấp hơn B | A is lower/smaller than B | UK rates were **lower than** those in the US. |
-| A cao nhất | A has the highest... | China has **the highest** population. |
-| A thấp nhất | A has the lowest... | Iceland has **the lowest** crime rate. |
+| A cao nhất | A has the highest... | In the hypothetical 2020 table, Country A had **the largest** population. |
+| A thấp nhất | A has the lowest... | In the hypothetical 2020 table, Country B had **the lowest** crime rate. |
 | Gần bằng nhau | A is almost as high as B | France's figures were **almost as high as** Germany's. |
 | Gấp đôi | A is twice as high as B | The rate in 2020 was **twice as high as** in 2010. |
 | Chênh lệch nhỏ | slightly / marginally higher/lower | Figures were **slightly higher** in urban areas. |
@@ -339,7 +339,7 @@ the least + Adjective
 
 ## Tóm tắt nhanh
 
-**Tính từ ngắn (1-2 âm tiết):** -er / the -est
+**Tính từ một âm tiết thường:** -er / the -est. Tính từ hai âm tiết tùy từ: simpler, more careful, cleverer/more clever; trạng từ -ly thường dùng more/most (more slowly). Tra từ điển khi không chắc.
 - Thêm -er/-est: tall → taller → the tallest
 - Nhân đôi phụ âm: big → bigger → the biggest
 - -y → -ier/-iest: happy → happier → the happiest

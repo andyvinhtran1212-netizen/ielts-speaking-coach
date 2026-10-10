@@ -13,6 +13,8 @@ cooldown: 2
 shuffle_options: true
 words_count: 4
 source: "authored-2026-07"
+text_match_by_qid:
+  app_punct_i1: exact
 ---
 
 # ===== item_key 1 · appositive-recognition (Nhận ra phần chêm) =====
@@ -51,11 +53,11 @@ input: "text"
 headword: "appositive-recognition"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền từ bắt đầu phần chêm: 'The report, ____ by the consulting firm last month, recommended significant changes.'"
-accept: ["submitted"]
+prompt: "Use the past participle of write or submit: 'The report, ____ by the consulting firm last month, recommended significant changes.'"
+accept: ["written", "submitted"]
 case_sensitive: false
 grammar_article_slug: "appositives-and-parentheticals"
-explain: "Phần chêm bắt đầu với 'submitted' (past participle) định nghĩa lại 'report'. Toàn bộ appositive: 'submitted by the consulting firm last month'."
+explain: "Written và submitted đều tạo phần bổ nghĩa bị động phù hợp theo hai động từ được cho, nhưng nói hai hành động khác nhau. Written/submitted by... là mệnh đề phân từ bị động bổ sung, không phải cụm danh từ đồng vị theo định nghĩa hẹp của bài."
 ---
 
 ---
@@ -65,10 +67,10 @@ input: "boolean"
 headword: "appositive-recognition"
 skill: "error_id"
 subtype: "intermediate"
-prompt: "Đúng hay Sai: 'The scientist, who discovered the vaccine, received international recognition.' Phần 'who discovered the vaccine' là appositive."
+prompt: "Đúng hay Sai theo định nghĩa hẹp appositive = cụm danh từ đồng vị: trong 'The scientist, who discovered the vaccine, received international recognition', who discovered the vaccine là cụm danh từ đồng vị."
 answer: false
 grammar_article_slug: "appositives-and-parentheticals"
-explain: "SAI — 'who discovered the vaccine' là relative clause (mệnh đề quan hệ), không phải appositive. Appositive là cụm danh từ (không động từ), nhưng reduced clause này kích hoạt bởi 'who'."
+explain: "SAI theo định nghĩa đã nêu: who discovered the vaccine là mệnh đề quan hệ bổ sung đầy đủ, có who và động từ hữu hạn discovered; không phải reduced clause. Một số tài liệu dùng appositive rộng hơn cho loại thông tin bổ sung, nhưng bài này phân biệt rõ mệnh đề quan hệ với cụm danh từ đồng vị."
 ---
 
 ---
@@ -122,11 +124,11 @@ input: "text"
 headword: "appositive-with-punctuation"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại phần chêm dùng gạch ngang (thay cho dấu phẩy): 'The company, a multinational corporation, invests heavily in research.' Phần chêm: ____"
-accept: ["a multinational corporation"]
+prompt: "Rewrite the parenthetical with a pair of dashes instead of commas: 'The company, a multinational corporation, invests heavily in research.' Type the three lexical words together with both dashes: ____"
+accept: ["—a multinational corporation—", "— a multinational corporation —", "–a multinational corporation–", "– a multinational corporation –", "-a multinational corporation-", "- a multinational corporation -"]
 case_sensitive: false
 grammar_article_slug: "appositives-and-parentheticals"
-explain: "Gạch ngang cô lập appositive 'a multinational corporation' và nhấn mạnh hơn dấu phẩy: 'The company — a multinational corporation — invests heavily in research.'"
+explain: "Phần chêm gồm ba từ a multinational corporation và một cặp dấu bao. Nhận các kiểu dash và có/không có khoảng cách theo quy ước trình bày; dấu dash không tính là từ vựng. Không bỏ hai dấu khi nhiệm vụ yêu cầu viết cả phần chêm bằng dash."
 ---
 
 ---
@@ -264,11 +266,11 @@ input: "text"
 headword: "appositive-reading-strategy"
 skill: "production"
 subtype: "intermediate"
-prompt: "Bỏ phần chêm và cho biết mệnh đề chính (S–V + bổ ngữ): 'The economic crisis, a result of unchecked inflation and rising unemployment, prompted immediate government intervention.' Mệnh đề chính: ____"
-accept: ["prompted intervention", "prompted immediate intervention"]
+prompt: "Bỏ phần chêm và hoàn thành mệnh đề chính bằng động từ chính: 'The economic crisis, a result of unchecked inflation and rising unemployment, prompted immediate government intervention.' → 'The economic crisis ____ immediate government intervention.'"
+accept: ["prompted"]
 case_sensitive: false
 grammar_article_slug: "appositives-and-parentheticals"
-explain: "Bỏ appositive 'a result of unchecked inflation and rising unemployment' → mệnh đề chính: 'The economic crisis prompted immediate government intervention'."
+explain: "Bỏ cụm danh từ đồng vị a result of unchecked inflation and rising unemployment thì còn mệnh đề chính đầy đủ 'The economic crisis prompted immediate government intervention'. Giữ chủ ngữ và toàn bộ tân ngữ; prompted intervention chỉ là mảnh vị ngữ thiếu thông tin."
 ---
 
 ---

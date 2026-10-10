@@ -113,7 +113,7 @@ Dùng đúng causative structures thể hiện Grammatical Range in Band 7+.
 ### 1. have + Object + bare infinitive — Nhờ ai làm gì
 
 ```
-Subject + have + Object (person) + bare infinitive
+Subject + have + Object (bên thực hiện hành động) + bare infinitive
 ```
 
 A sắp xếp, chỉ đạo để B làm gì cho A.
@@ -126,7 +126,7 @@ A sắp xếp, chỉ đạo để B làm gì cho A.
 ### 2. have + Object + past participle (V3) — Để gì được làm
 
 ```
-Subject + have + Object (thing) + past participle (V3)
+Subject + have + Object (bên nhận hành động) + past participle (V3)
 ```
 
 Nhấn mạnh vào kết quả — vật được làm (không đề cập ai làm).
@@ -146,7 +146,7 @@ Nhấn mạnh vào kết quả — vật được làm (không đề cập ai l�
 ### 1. get + Object + to-infinitive — Thuyết phục / mất công nhờ
 
 ```
-Subject + get + Object (person) + to-infinitive
+Subject + get + Object (bên thực hiện hành động) + to-infinitive
 ```
 
 Nghĩa tương tự "have sb do sth" nhưng ngụ ý **phải cố gắng, thuyết phục** hơn.
@@ -158,7 +158,7 @@ Nghĩa tương tự "have sb do sth" nhưng ngụ ý **phải cố gắng, thuy�
 ### 2. get + Object + past participle — Để gì được làm (thường informal)
 
 ```
-Subject + get + Object (thing) + past participle
+Subject + get + Object (bên nhận hành động) + past participle
 ```
 
 - I need to **get** my glasses **fixed**. (nhờ sửa kính)
@@ -173,7 +173,7 @@ Subject + get + Object (thing) + past participle
 <!-- anchor: causative-verbs.make-usage -->
 ## Causative MAKE
 
-### make + Object + bare infinitive — Bắt buộc, cưỡng ép
+### make + Object + bare infinitive — Gây ra hành động/phản ứng hoặc bắt buộc
 
 ```
 Subject + make + Object + bare infinitive
@@ -208,7 +208,8 @@ Cho phép ai làm gì — không ngăn cản.
 
 > **let vs allow:**
 > - **let + bare inf:** Let me know. (informal)
-> - **allow + to-inf:** He was allowed to leave. (formal)
+> - **allow + O + to-inf:** They allowed me to leave.
+> - **allow bị động + to-inf:** I was allowed to leave. (formal)
 
 <!-- anchor: causative-verbs.help-usage -->
 ## Causative HELP
@@ -231,12 +232,12 @@ Cả bare infinitive và to-infinitive đều chấp nhận được, nhưng bar
 
 | Causative | Dạng V theo sau | Ý nghĩa | Ví dụ |
 |-----------|----------------|---------|-------|
-| **make** | bare infinitive | Bắt buộc, cưỡng ép | She made him apologise. |
+| **make** | bare infinitive | Khiến/gây ra hoặc bắt buộc | She made him apologise. |
 | **let** | bare infinitive | Cho phép | He let her leave early. |
-| **have** (người) | bare infinitive | Nhờ / chỉ đạo | I had him fix it. |
-| **have** (vật) | V3 | Để được làm | I had it fixed. |
-| **get** (người) | to-infinitive | Thuyết phục | She got him to help. |
-| **get** (vật) | V3 | Để được làm | I got it repaired. |
+| **have** (O thực hiện hành động) | bare infinitive | Nhờ / chỉ đạo | I had him fix it. |
+| **have** (O nhận hành động) | V3 | Để được làm | I had it fixed. |
+| **get** (O thực hiện hành động) | to-infinitive | Thuyết phục | She got him to help. |
+| **get** (O nhận hành động) | V3 | Để được làm | I got it repaired. |
 | **help** | (to) infinitive | Giúp | She helped me (to) study. |
 
 <!-- anchor: causative-verbs.common-mistakes -->
@@ -263,9 +264,9 @@ Cả bare infinitive và to-infinitive đều chấp nhận được, nhưng bar
 
 ### Lỗi 4: Nhầm let và make
 
-- ❌ My parents **let** me study every day. (không ai "bắt" học)
+- ✅ My parents **let** me study every day. (cho phép; nếu ý đích là “bắt học” thì cần make)
 - ✅ My parents **made** me study every day. (bắt buộc)
-- ❌ She **made** her daughter wear anything she wanted. (không cưỡng ép)
+- ✅ She **made** her daughter wear anything she wanted. (buộc con tự chọn; khác ý “cho phép”)
 - ✅ She **let** her daughter wear anything she wanted. (cho phép)
 
 <!-- anchor: causative-verbs.ielts-applications -->
@@ -337,7 +338,9 @@ Cả bare infinitive và to-infinitive đều chấp nhận được, nhưng bar
 | Giúp đỡ | help | help + O + (to) inf |
 
 **Quy tắc vàng:**
-- **make / let / have (người)** → bare infinitive (không "to")
-- **get (người)** → to-infinitive
-- **have / get (vật)** → past participle (V3)
+- **make / let / have (O thực hiện hành động)** → bare infinitive (không "to")
+- **get (O thực hiện hành động)** → to-infinitive
+- **have / get (O nhận hành động)** → past participle (V3)
 - Passive của make: **was/were made to + inf** (thêm "to")
+
+> Vai trò của tân ngữ quyết định mẫu, không phải người hay vật: “I had the children vaccinated” (người nhận hành động), “I got the engine to start” (vật thực hiện hành động). Make còn chỉ phản ứng không chủ ý: “The film made me cry”.
