@@ -74,7 +74,7 @@ Sau *were very* + không có danh từ theo sau → cần **tính từ** → *cl
 <!-- anchor: word-formation-adjective-suffixes.suffix.able-ible -->
 ### -able / -ible — có thể… được
 
-Gắn vào **động từ**, nghĩa "có thể (bị) … ":
+Nhiều dạng gắn với động từ và có nghĩa "có thể (bị) …", nhưng đây không phải công thức dự đoán mọi nghĩa hay tạo từ mới:
 
 | Gốc | Tính từ |
 |---|---|
@@ -85,6 +85,8 @@ Gắn vào **động từ**, nghĩa "có thể (bị) … ":
 | flex | flex**ible** |
 
 Đa số là **-able**; một nhóm gốc Latinh dùng **-ible** (possible, visible, sensible) — học thuộc nhóm -ible vì ít hơn.
+
+Responsible = có trách nhiệm, sensible = hợp lý, possible = có thể; học nghĩa của cả từ. Responsible không đơn giản nghĩa "có thể được đáp lại"; quan hệ trong họ từ không cho phép ghép tùy ý trong tiếng Anh hiện đại.
 
 <!-- anchor: word-formation-adjective-suffixes.suffix.ive-ous-al -->
 ### -ive / -ous / -al — có tính chất…
@@ -97,7 +99,7 @@ Gắn vào **động từ**, nghĩa "có thể (bị) … ":
 | **-ful / -less** | đầy / thiếu | care → careful / careless, use → useful / useless |
 | **-ic** | thuộc về | base → basic, hero → heroic, economy → economic |
 
-> **-ful vs -less** là cặp trái nghĩa: *helpful ↔ helpless, harmful ↔ harmless*.
+> **-ful vs -less** không luôn tạo cặp trái nghĩa trực tiếp. Helpful = hữu ích/sẵn lòng giúp, helpless = bất lực; **unhelpful** mới phủ định trực tiếp helpful. Harmful/harmless là cặp gần đối lập trong nghĩa gây hại/không gây hại.
 
 <!-- anchor: word-formation-adjective-suffixes.pitfall -->
 ## Lỗi thường gặp
@@ -135,7 +137,7 @@ Chuyển sang tính từ:
 
 ## Tóm tắt nhanh
 
-- **-able/-ible** = có thể … được
+- **-able/-ible** thường gợi khả năng, nhưng nhiều từ có nghĩa riêng cần học
 - **-ive/-ous/-al/-ic** = có tính chất, thuộc về
-- **-ful/-less** = đầy / thiếu (trái nghĩa)
+- **-ful/-less** thường gợi có/thiếu; kiểm tra nghĩa cả từ, không luôn là cặp trái nghĩa
 - Trước danh từ hoặc sau to-be → tính từ; sau động từ thường → trạng từ (-ly)

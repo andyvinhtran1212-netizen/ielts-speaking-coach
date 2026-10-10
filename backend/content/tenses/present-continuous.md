@@ -88,7 +88,7 @@ Present Continuous dùng để diễn tả:
 2. Hành động xảy ra **xung quanh thời điểm hiện tại** (around now — tạm thời)
 3. **Xu hướng đang thay đổi** (changing trends)
 4. Kế hoạch đã **sắp xếp cố định** trong tương lai gần
-5. Thói quen gây **khó chịu/bực bội** (với "always" — mang tính chỉ trích)
+5. Hành động lặp lại kèm thái độ người nói (với always; có thể bực bội hoặc ngưỡng mộ)
 
 <!-- anchor: present-continuous.structure.am-is-are-ving -->
 ## Cấu trúc
@@ -130,10 +130,10 @@ Am/Is/Are + Subject + V-ing ...?
 | Trường hợp | Quy tắc | Ví dụ |
 |-----------|---------|-------|
 | Hầu hết động từ | + ing | work → work**ing** |
-| Tận cùng bằng -e | Bỏ -e, thêm -ing | make → mak**ing**, write → writ**ing** |
-| Một âm tiết, tận cùng CVC (C=consonant, V=vowel) | Nhân đôi phụ âm cuối + ing | sit → sit**ting**, run → run**ning**, swim → swim**ming** |
+| Tận cùng bằng -e câm | Thường bỏ -e, thêm -ing | make → making; giữ e trong seeing, dyeing |
+| Nguyên âm đơn + phụ âm cuối, âm tiết cuối có trọng âm | Thường nhân đôi phụ âm, trừ w/x/y | sit → sitting, begin → beginning; row → rowing, fix → fixing |
 | Tận cùng -ie | Đổi -ie → -y + ing | lie → ly**ing**, die → dy**ing** |
-| Tận cùng -l (British) | Nhân đôi l | travel → travel**l**ing |
+| Nguyên âm đơn + -l (British) | Thường nhân đôi l kể cả âm tiết không nhấn | travel → travelling; không suy mọi từ cuối l đều nhân đôi |
 
 **Ngoại lệ phổ biến:** open → opening (không nhân đôi vì 2 âm tiết, nhấn ở âm đầu)
 
@@ -180,9 +180,9 @@ Phải có sự sắp xếp cụ thể từ trước, không phải kế hoạch
 - They **'re flying** to Singapore next week. *(đã mua vé)*
 - She **'s starting** a new job on Monday. *(đã xác nhận)*
 
-### 5. Thói quen gây bực bội (với "always/constantly/forever")
+### 5. Hành động lặp lại và thái độ (với "always/constantly/forever")
 
-Khác với Present Simple (thói quen bình thường), Present Continuous + always diễn tả sự phàn nàn.
+Present Continuous + always nhấn mạnh sự lặp lại và thái độ. Có thể phàn nàn, nhưng cũng có thể ngưỡng mộ: **She is always helping other people**.
 
 - He **'s always leaving** the lights on! *(bực mình — anh ta cứ để đèn hoài)*
 - She **'s constantly checking** her phone during dinner. *(khó chịu)*
@@ -227,13 +227,13 @@ Khác với Present Simple (thói quen bình thường), Present Continuous + al
 
 - ❌ SAI: She **working** in the garden.
 - ✅ ĐÚNG: She **is working** in the garden.
-- **TẠI SAO:** Tiếng Việt không cần "đang" phải kết hợp với trợ động từ; "Cô ấy làm vườn đang" không cần thêm gì. Nhưng tiếng Anh **bắt buộc** có be + V-ing.
+- **TẠI SAO:** Tiếng Việt nói **Cô ấy đang làm vườn**, không có trợ động từ tương đương be. Cấu trúc Present Continuous tiếng Anh cần be + V-ing.
 
 ### Lỗi 2: Quên thêm -ing
 
 - ❌ SAI: I am study English now.
 - ✅ ĐÚNG: I am **studying** English now.
-- **TẠI SAO:** am/is/are không đứng một mình — luôn phải có V-ing theo sau.
+- **TẠI SAO:** Trong **Present Continuous**, am/is/are đi với V-ing. Các cách dùng khác như **She is a teacher/happy** không cần V-ing.
 
 <!-- anchor: present-continuous.stative-verbs.do-not-use-ing -->
 ### Lỗi 3: Dùng stative verbs với Present Continuous
@@ -248,13 +248,12 @@ Khác với Present Simple (thói quen bình thường), Present Continuous + al
 
 - ❌ SAI: runming, siteing
 - ✅ ĐÚNG: **runn**ing, **sitti**ng
-- **TẠI SAO:** Động từ một âm tiết kết thúc bằng CVC phải nhân đôi phụ âm cuối.
+- **TẠI SAO:** Sit/run có nguyên âm đơn + phụ âm cuối nên nhân đôi; không nhân đôi w/x/y (rowing/fixing). Từ nhiều âm tiết có trọng âm cuối như begin cũng có thể nhân đôi.
 
 ### Lỗi 5: Dùng Present Continuous thay Present Simple cho thói quen
 
-- ❌ KHÔNG CHÍNH XÁC: I **am drinking** coffee every morning.
-- ✅ ĐÚNG: I **drink** coffee every morning.
-- **TẠI SAO:** Thói quen cố định → Present Simple. Present Continuous chỉ dùng cho hành động đang xảy ra hoặc tạm thời.
+- Thói quen ổn định: **I drink coffee every morning**.
+- Thói quen tạm thời trong giai đoạn đang nói: **I am drinking coffee every morning** có thể phù hợp. Every morning không tự loại tiếp diễn dù this week/lately chưa được viết trong câu.
 
 ## So sánh với
 
@@ -275,7 +274,7 @@ Khác với Present Simple (thói quen bình thường), Present Continuous + al
 |---|---|---|
 | She **teaches** English. | She **'s teaching** a class right now. | Nghề vs. đang làm |
 | I **live** in Hanoi. | I **'m living** with friends temporarily. | Cố định vs. tạm thời |
-| He **always talks** loudly. | He **'s always talking** loudly! | Nhận xét vs. phàn nàn |
+| He **always talks** loudly. | He **'s always talking** loudly! | Thói quen vs. lặp lại kèm thái độ theo ngữ cảnh |
 | Water **boils** at 100°C. | The water **is boiling** — turn it off! | Sự thật vs. đang xảy ra |
 
 ## Lưu ý cho người học Việt Nam
@@ -345,5 +344,5 @@ Tiếng Việt dùng phó từ thời gian ("đang", "vừa", "sắp") để di�
 1. Cấu trúc: Subject + **am/is/are** + **V-ing**
 2. Dùng cho: hành động đang xảy ra / tình huống tạm thời / xu hướng thay đổi / kế hoạch cố định
 3. Stative verbs thường dùng thì đơn khi nói trạng thái nói chung; kiểm nghĩa và ngữ cảnh trước khi chọn tiếp diễn.
-4. Nhớ quy tắc -ing: nhân đôi phụ âm (sit→sitting), bỏ -e (make→making), đổi -ie→-y (lie→lying)
+4. Nhớ điều kiện -ing: bỏ e câm (có ngoại lệ), nhân đôi phụ âm sau nguyên âm đơn khi phù hợp trọng âm (trừ w/x/y), đổi ie→y
 5. Phân biệt với Present Simple: tạm thời vs. cố định; đang xảy ra vs. thói quen

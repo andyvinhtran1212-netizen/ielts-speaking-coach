@@ -83,7 +83,7 @@ Từ nối cho biết **quan hệ** giữa hai ý. Chúng là tín hiệu mạnh
 - Thấy *therefore / as a result* → ý sau là **hệ quả** của ý trước.
 - Thấy *although…* đầu câu → mệnh đề chính sẽ **đối lập** với mệnh đề nhượng bộ.
 
-Với câu hỏi điền từ nối hoặc "ý chính đoạn", quan hệ do từ nối báo hiệu chính là đáp án.
+Với câu hỏi điền từ nối hoặc "ý chính đoạn", từ nối là dấu hiệu định hướng. Đọc nội dung hai mệnh đề và vai trò trong lập luận trước khi chọn đáp án.
 
 <!-- anchor: logical-connectors-in-reading.pitfall -->
 ## Bẫy khi đọc
@@ -97,7 +97,7 @@ Với câu hỏi điền từ nối hoặc "ý chính đoạn", quan hệ do t�
 ### Chiến lược giải mã
 1. Khoanh từ nối — chúng là "biển báo" của lập luận.
 2. Dựa vào loại quan hệ để đoán vai trò của câu (chính/phụ, thuận/nghịch).
-3. Ở câu nhượng bộ, ý **sau** dấu phẩy mới là quan điểm chính.
+3. Với “Although A, B”, B là mệnh đề chính; “B, although A” có mệnh đề chính trước dấu phẩy. Xác định chức năng, không chỉ vị trí.
 
 ## Tóm tắt nhanh
 

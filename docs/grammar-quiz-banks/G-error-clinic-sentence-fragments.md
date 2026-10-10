@@ -79,11 +79,11 @@ input: "text"
 headword: "sf-subordinate-alone"
 skill: "production"
 subtype: "intermediate"
-prompt: "Hoàn thành mệnh đề chính để hết fragment: 'Although online courses are convenient, many ____ (= thiếu động lực) to complete them.'"
-accept: ["lack motivation", "lack the motivation", "don't have motivation", "do not have motivation", "don't have the motivation", "do not have the motivation"]
+prompt: "Complete using lack motivation (students optional after many): 'Although online courses are convenient, many ____ to complete them.'"
+accept: ["lack motivation", "lack the motivation", "students lack motivation", "students lack the motivation"]
 case_sensitive: false
 grammar_article_slug: "sentence-fragments"
-explain: "Mệnh đề phụ 'Although online courses are convenient' cần một mệnh đề chính có chủ ngữ + động từ để hoàn chỉnh. Ví dụ: 'many lack the motivation to complete them.'"
+explain: "Many có thể đứng một mình như đại từ hoặc bổ nghĩa cho students. Cả many lack motivation và many students lack motivation đều tạo mệnh đề chính đầy đủ; đề đã giới hạn phần diễn đạt đích để chấm được các biến thể đã cho."
 ---
 
 ---

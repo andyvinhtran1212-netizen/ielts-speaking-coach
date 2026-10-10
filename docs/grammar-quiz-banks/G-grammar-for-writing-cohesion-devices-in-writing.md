@@ -248,10 +248,10 @@ input: "boolean"
 headword: "cohesion-topic-chain"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: đoạn văn sau có mạch chủ đề tốt: 'Remote work has become common. Employees value flexibility. Companies save on office costs. Cities have less traffic.'"
+prompt: "Đúng hay Sai: Đoạn 'Remote work has become common. Employees value flexibility. Companies save on office costs. Cities have less traffic' đã giải thích tường minh các mối liên hệ giữa những lợi ích của remote work."
 answer: false
 grammar_article_slug: "cohesion-devices-in-writing"
-explain: "SAI — mỗi câu nhảy sang một chủ đề mới (remote work → employees → companies → cities) mà không có câu nào lấy ý CUỐI của câu trước làm chủ đề mở đầu, nên đoạn đọc rời rạc dù mỗi câu riêng lẻ đúng ngữ pháp."
+explain: "SAI đối với yêu cầu giải thích tường minh: các câu có thể cùng nói về remote work nhưng liên hệ còn ngầm và giống danh sách lợi ích. Có thể bổ sung quan hệ giữa làm từ xa, ít nhu cầu văn phòng và đi lại. Mạch ý không bắt buộc mọi ý cuối câu trước phải thành chủ đề đầu câu sau; còn có chủ đề chung và các chủ đề nhánh."
 ---
 
 ---

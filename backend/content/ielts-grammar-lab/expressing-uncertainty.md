@@ -2,7 +2,7 @@
 title: Expressing Uncertainty — Diễn đạt sự không chắc chắn trong IELTS
 slug: expressing-uncertainty
 category: ielts-grammar-lab
-summary: 'Nói chắc nịch về mọi thứ ("It is always...", "Everyone knows...") nghe ngây thơ và dễ bị phản biện. Người bản xứ — và thí sinh Band 7+ — liên tục giảm nhẹ độ chắc chắn bằng modal verbs (might, could), trạng từ (perhaps, possibly), và động từ nhận thức (it seems, it tends to). Bài này tổng hợp ngữ pháp hedging để diễn đạt sự không chắc chắn tự nhiên trong cả Speaking và Writing.
+summary: 'Bài này dạy cách diễn đạt khả năng và giới hạn của nhận định bằng modal verbs (might, could), trạng từ (perhaps, possibly) và cụm như it seems, it tends to. Dùng theo bằng chứng và ngữ cảnh trong Speaking và Writing; không phải mọi câu đều cần hedge và một cấu trúc không tự xác định band.
 
   '
 level: intermediate
@@ -71,7 +71,7 @@ anchors:
 <!-- anchor: expressing-uncertainty.tom-tat -->
 ## Tóm tắt
 
-Khả năng diễn đạt **mức độ chắc chắn** là dấu hiệu của người dùng tiếng Anh trưởng thành. Thay vì "X is true", người Band 7+ nói "X **might** be true" / "X **tends to** be true" / "It **seems** that X". Các công cụ chính:
+Chọn **mức độ chắc chắn** theo bằng chứng: "X is true" phù hợp khi đã xác minh; "X **might** be true" chỉ khả năng, "X **tends to** be true" chỉ xu hướng, "It **seems** that X" nêu điều có vẻ đúng. Các công cụ chính:
 
 | Nhóm | Patterns | Độ chắc chắn |
 |------|----------|--------------|
@@ -104,7 +104,7 @@ S + might/may/could + V (bare)
 
 | Modal | Sắc thái |
 |-------|----------|
-| **might** | khả năng thấp–trung bình (phổ biến nhất khi hedging) |
+| **might** | khả năng chưa chắc chắn; mức độ tùy ngữ cảnh và ngữ điệu |
 | **may** | giống might, trang trọng hơn một chút |
 | **could** | khả năng / tiềm năng ("có thể dẫn tới") |
 
@@ -178,10 +178,10 @@ S + tend(s) to + V
 **Quá tuyệt đối (rủi ro):**
 *"Banning cars will solve air pollution. Everyone will benefit and the environment will recover completely."*
 
-**Hedged (học thuật — Band 7+):**
-*"Restricting car use **could** significantly reduce air pollution. **Most** urban residents **would probably** benefit from cleaner air, although the environment **may** take years to recover **fully**."*
+**Hedged (giới hạn nhận định):**
+*"Banning cars **could help reduce** air pollution. **Some** people **may** benefit, and the environment **might** recover more fully. *(Giữ chính sách cấm; phạm vi/kết quả cần theo dữ kiện.)*"*
 
-**Phân tích:** could / most / would probably / may / fully — chuyển một tuyên bố ngây thơ thành lập luận cân nhắc.
+**Phân tích:** could/may/might chỉ khả năng; some chỉ phạm vi; fully chỉ mức hoàn toàn, không phải hedge về xác suất.
 
 ---
 
@@ -267,6 +267,6 @@ S + tend(s) to + V
 
 **Quy tắc vàng:**
 - Tránh "all / always / never / everyone" trong câu lập luận — dùng "most / often / tend to"
-- Chọn MỘT lớp hedging mỗi câu, đừng chồng nhiều lớp
+- Tránh chồng những từ gần nghĩa dư thừa; vẫn có thể kết hợp giới hạn xác suất, phạm vi và nguồn vì chúng có chức năng khác nhau
 - Speaking: "I'm not 100% sure, but..." vừa hedging vừa mua thời gian
 - Hedging thể hiện tư duy có sắc thái — là điểm cộng, không phải yếu đuối

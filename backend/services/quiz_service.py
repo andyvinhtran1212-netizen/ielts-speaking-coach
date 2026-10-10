@@ -2470,6 +2470,7 @@ def get_course_resume(
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] course-resume mastery read failed item=%s: %s",
                            item_id, exc)
+            raise HTTPException(503, "Chưa tải được tiến độ đã lưu. Hãy thử lại.") from exc
 
     try:
         q = (supabase_admin.table("quiz_sessions")
@@ -2479,10 +2480,10 @@ def get_course_resume(
              .order("created_at", desc=False))
         rows = (q.execute().data) or []
     except Exception as exc:  # noqa: BLE001
-        # Đọc hỏng thì trả RỖNG, không ném: trang vẫn mở bài mới được. Ném ở đây
-        # là chặn học viên khỏi bài tập vì một lỗi đọc phụ trợ.
+        # An unavailable ledger is not evidence of an empty attempt. Fail
+        # closed so the browser cannot abandon work by opening a new session.
         logger.warning("[quiz] course-resume read failed bank=%s: %s", bank_id, exc)
-        return empty
+        raise HTTPException(503, "Chưa tải được tiến độ đã lưu. Hãy thử lại.") from exc
 
     # Phiên của MỤC BÀI GIAO khác (chuyển lớp, giao lại cùng bank) là lượt khác.
     # So sánh cả hai chiều: mục None chỉ khớp mục None.
@@ -2547,20 +2548,17 @@ def get_course_resume(
     #
     # Đây là luật `course_verdict` và `_course_work_is_done` vẫn dùng: ĐẾM CÂU,
     # đừng đếm phiên. Một chặng làm hai lần vẫn là một chặng.
-    # MỘT lượt đọc thứ tự chuẩn cho cả hai việc: tính chặng, và xếp lại câu đang
-    # dở. Hỏng thì lùi về cách cũ (đếm phiên) — sai ở các ca lẻ nhưng đúng ở ca
-    # thường, còn chặn học viên khỏi bài tập vì một lượt đọc phụ trợ thì tệ hơn.
+    # Both stage coverage and the current prefix require canonical order.
+    # Do not synthesize a fallback stage if either read is unavailable.
     try:
         order = _course_mcq_order(bank_id)
         order_ok = True
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] course-resume order read failed bank=%s: %s", bank_id, exc)
-        order = []
-        order_ok = False
+        raise HTTPException(503, "Chưa tải được tiến độ đã lưu. Hãy thử lại.") from exc
     answered_all = _course_answered_qids(completed) if order else None
-    # Không đọc được thứ tự đề HAY không đọc được câu đã làm ⇒ lùi về cách cũ
-    # (đếm phiên). Cách cũ sai ở các ca lẻ, nhưng nó KHÔNG bao giờ trả 0 cho một
-    # em đã xong 8 chặng.
+    if order and answered_all is None:
+        raise HTTPException(503, "Chưa tải được tiến độ đã lưu. Hãy thử lại.")
     usable = order_ok and bool(order) and answered_all is not None
     result = {"session_id": None, "answered": [], "completed": completed,
               "item_id": item_id, "last_stage": result_last,
@@ -2580,7 +2578,7 @@ def get_course_resume(
                .execute().data) or []
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] course-resume attempts failed bank=%s: %s", bank_id, exc)
-        return result
+        raise HTTPException(503, "Chưa tải được tiến độ đã lưu. Hãy thử lại.") from exc
 
     # Client cũ từng ghi Reading/Listening/Pronunciation (và MCQ opt-out) vào
     # chính quiz session. Nếu đếm các dòng ấy để chọn phiên, một phiên bổ trợ

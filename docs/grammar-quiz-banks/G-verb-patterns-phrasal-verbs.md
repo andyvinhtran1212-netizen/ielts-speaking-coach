@@ -291,11 +291,11 @@ input: "text"
 headword: "pv-formal-equivalent"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết từ học thuật formal thay cho 'point out' trong câu: 'The report ____ (formal for 'points out') several flaws in the current system.'"
-accept: ["highlights", "indicates"]
+prompt: "Dùng một trong các động từ highlight, indicate hoặc identify ở dạng phù hợp để thay points out: 'The report ____ several flaws in the current system.'"
+accept: ["highlights", "indicates", "identifies"]
 case_sensitive: false
 grammar_article_slug: "phrasal-verbs"
-explain: "'highlight' hoặc 'indicate' là từ học thuật tương đương của phrasal verb 'point out' (chỉ ra)."
+explain: "Trong câu về báo cáo chỉ ra các thiếu sót, highlights, indicates và identifies đều phù hợp. Highlights nhấn mạnh; identifies xác định/chỉ ra. Chúng không đồng nghĩa hoàn toàn trong mọi ngữ cảnh."
 ---
 
 ---

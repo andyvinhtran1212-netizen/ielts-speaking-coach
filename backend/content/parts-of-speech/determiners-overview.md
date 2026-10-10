@@ -99,9 +99,9 @@ Quy tắc lõi:
 - **many, (a) few** + danh từ **đếm được số nhiều**
 - **much, (a) little** + danh từ **không đếm được**
 - **some** thường trong câu khẳng định; **any** trong câu phủ định/nghi vấn
-- **a lot of / lots of / plenty of** dùng được cho **cả hai** — an toàn khi không chắc
+- **a lot of / lots of / plenty of** dùng với danh từ đếm được **số nhiều** hoặc không đếm được; vẫn cần chọn đúng dạng danh từ. Plenty of thường hàm ý đủ/dư, khác a lot of chỉ lượng lớn.
 
-> **few** (ít, mang nghĩa tiêu cực) ≠ **a few** (một vài, đủ dùng). Tương tự *little* ≠ *a little*.
+> **Few/little** thường nhấn mạnh lượng ít so với kỳ vọng; **a few/a little** nhấn mạnh có một lượng nhỏ, không bảo đảm đủ dùng. Few errors có thể là tin tốt; a few chairs vẫn có thể chưa đủ cho mọi người.
 
 <!-- anchor: determiners-overview.pitfall -->
 ## Lỗi thường gặp

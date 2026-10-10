@@ -36,6 +36,7 @@ export function CourseBehavior() {
     let onLeave: (() => void) | null = null;
     let onInput: ((e: Event) => void) | null = null;
     let onHide: (() => void) | null = null;
+    let onOnline: (() => void) | null = null;
     let timerInterval: number | null = null;
     let expiryRefreshTimeout: number | null = null;
     let pauseSectionTimers: () => void = () => {};
@@ -110,6 +111,7 @@ export function CourseBehavior() {
       runner = createRunner({
         api: courseApi,
         storage: window.localStorage,
+        userId: user.id,
         onSuperseded() {
           setSaveState('saving', 'Lượt làm đã đổi · đang tải tiến độ mới nhất…');
           window.location.reload();
@@ -122,7 +124,14 @@ export function CourseBehavior() {
         });
       } catch (err: any) {
         if (disposed) return;
-        return fail('Không mở được bài tập: ' + (err?.message || err));
+        fail('Không mở được bài tập: ' + (err?.message || err));
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'av-button av-button-primary';
+        retry.textContent = 'Thử tải lại tiến độ';
+        retry.onclick = () => window.location.reload();
+        $('cx-error')?.appendChild(retry);
+        return;
       }
       if (disposed) return;
       const title = $('cx-title');
@@ -320,9 +329,13 @@ export function CourseBehavior() {
 
       function onAnswered(picked: number) {
         const q = runner.current();
-        const res = runner.answer(picked);
+        let res;
+        try { res = runner.answer(picked); } catch (err: any) {
+          setSaveState('error', err?.message || 'Chưa lưu được đáp án. Hãy chọn lại.');
+          return;
+        }
         if (!res) return;
-        setSaveState(runner.sessionFailed ? 'error' : 'saving');
+        setSaveState('saving', 'Đã lưu trên máy · đang đồng bộ với máy chủ…');
         if (res.sealed) {
           document.querySelectorAll('.cx-opt').forEach((node) => {
             const el = node as HTMLButtonElement;
@@ -1362,6 +1375,15 @@ export function CourseBehavior() {
       };
       window.addEventListener('pagehide', onLeave);
       document.addEventListener('visibilitychange', onHide);
+      onOnline = () => {
+        if (runner.reviewOnly || runner.isTimedOut()) return;
+        runner.sync().then(() => {
+          if (!disposed) setSaveState('saved');
+        }).catch(() => {
+          if (!disposed) setSaveState('error', 'Đáp án vẫn lưu trên máy · chưa đồng bộ được với máy chủ');
+        });
+      };
+      window.addEventListener('online', onOnline);
     })();
 
     return () => {
@@ -1381,6 +1403,7 @@ export function CourseBehavior() {
       if (onInput) document.removeEventListener('input', onInput);
       if (onLeave) window.removeEventListener('pagehide', onLeave);
       if (onHide) document.removeEventListener('visibilitychange', onHide);
+      if (onOnline) window.removeEventListener('online', onOnline);
       if (timerInterval != null) window.clearInterval(timerInterval);
       if (expiryRefreshTimeout != null) window.clearTimeout(expiryRefreshTimeout);
     };

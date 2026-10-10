@@ -97,7 +97,7 @@ Sửa bằng một trong ba cách:
 
 ## Ứng dụng trong bài thi
 
-**Writing:** phần lớn lỗi trừ điểm accuracy là **comma splice** — kiểm tra mọi dấu phẩy nối hai mệnh đề độc lập.
+**Writing:** comma splice là một loại lỗi accuracy cần kiểm; không có dữ liệu ở đây để gọi là phần lớn — kiểm tra mọi dấu phẩy nối hai mệnh đề độc lập.
 
 ## Tóm tắt nhanh
 

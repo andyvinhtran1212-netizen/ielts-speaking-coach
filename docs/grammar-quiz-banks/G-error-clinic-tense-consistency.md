@@ -66,24 +66,24 @@ headword: "tc-past-narrative"
 skill: "production"
 subtype: "intermediate"
 prompt: "The government introduced a new policy last year. The policy ____ (help) thousands of people by providing financial support."
-accept: ["helped"]
+accept: ["helped", "helps", "has helped"]
 case_sensitive: false
 grammar_article_slug: "tense-consistency"
-explain: "Câu trước dùng Past Simple (introduced, mốc 'last year') → câu sau phải giữ nguyên chủ đạo quá khứ: helped (không phải 'helps')."
+explain: "Helped kể lợi ích trong quá khứ; helps nói tác dụng hiện tại; has helped nối tác dụng đã xảy ra với hiện tại. Introduced last year chỉ định thời gian ban hành, không tự giới hạn mọi tác dụng của chính sách vào quá khứ."
 ---
 
 ---
 id: "tc_pastnar_a1"
-type: "mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "tc-past-narrative"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Scientists in the 17th century believed the earth was the centre of the universe. However, Galileo later proved that the earth ____ the sun."
-options: ["orbited", "orbits", "had orbited", "was orbiting"]
-answer: 1
+prompt: "Use orbits or orbited: 'The teacher explained yesterday that the earth ____ the sun.'"
 grammar_article_slug: "tense-consistency"
-explain: "Đây là sự thật khoa học vĩnh cửu xen vào narrative quá khứ → Present Simple 'orbits' vẫn HỢP LỆ dù câu chuyện đang ở quá khứ (không backshift sự thật bất biến)."
+explain: "Orbits giữ hiện tại để nhấn mạnh sự thật vẫn đúng. Orbited áp dụng backshift sau explained ở quá khứ, không tự hàm ý Trái Đất hiện nay đã ngừng quay quanh Mặt Trời. Không bắt buộc bỏ backshift cho mọi sự thật khoa học."
+accept: ["orbits", "orbited"]
+case_sensitive: false
 ---
 
 # ===== item_key 2 · Nhảy thì vô lý (random tense shift) sang Present giữa đoạn Past =====

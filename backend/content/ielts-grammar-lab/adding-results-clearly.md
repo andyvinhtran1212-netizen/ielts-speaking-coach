@@ -46,7 +46,7 @@ anchors:
     location: '## NHÓM 3: SO...THAT / SUCH...THAT — cấu trúc nhấn mạnh kết quả'
     type: structure
   - id: adding-results-clearly.nhom-4-cum-phan-tu-gioi-tu-noi-ket-qua-gon-gang
-    location: '## NHÓM 4: CỤM PHÂN TỪ & GIỚI TỪ — nối kết quả gọn gàng'
+    location: '## NHÓM 4: CỤM PHÂN TỪ, GIỚI TỪ & MỆNH ĐỀ QUAN HỆ — nối kết quả'
     type: section
   - id: adding-results-clearly.loi-thuong-gap
     location: '## Lỗi thường gặp'
@@ -71,14 +71,14 @@ pathways:
 <!-- anchor: adding-results-clearly.tom-tat -->
 ## Tóm tắt
 
-Nêu được kết quả rõ ràng là nửa còn lại của việc lập luận (nửa kia là đưa ra lý do — xem bài **Adding Reasons Clearly**). Nhưng đa số thí sinh chỉ biết mỗi "so" — và lặp lại đến mức câu nghe trẻ con. Dùng đúng và đa dạng result connectors là điểm khác biệt giữa Band 6 và Band 7+:
+Nêu được kết quả rõ ràng là nửa còn lại của việc lập luận (nửa kia là đưa ra lý do — xem bài **Adding Reasons Clearly**). Nhưng đa số thí sinh chỉ biết mỗi "so" — và lặp lại đến mức câu nghe trẻ con. Dùng result connectors theo quan hệ ý; không có danh sách xác định band:
 
 | Nhóm | Patterns | Vị trí & dấu câu |
 |------|----------|------------------|
 | **Liên từ (clause)** | so | ..., **so** + mệnh đề |
 | **Trạng từ liên kết (đầu mệnh đề)** | therefore, consequently, as a result, thus, hence | **. Therefore,** ... / **; therefore,** ... |
 | **Cấu trúc nhấn mạnh** | so + adj/adv + that; such + (a/an) + noun + that | trong cùng một câu |
-| **Cụm phân từ / giới từ** | resulting in, leading to, which is why | nối vào câu trước |
+| **Cụm phân từ / giới từ / mệnh đề quan hệ** | resulting in, leading to, which is why | nối vào câu trước |
 
 > Quy tắc cốt lõi: **"so" là liên từ** (dùng dấu phẩy), còn **"therefore / consequently / as a result" là trạng từ** (dùng dấu chấm hoặc chấm phẩy — KHÔNG phải dấu phẩy). Nhầm chỗ này là lỗi câu chạy (run-on) phổ biến nhất.
 
@@ -108,7 +108,7 @@ Result connectors được chấm ở **hai** tiêu chí: **Grammatical Range** 
 
 > "So" tự nhiên, hơi thân mật — tuyệt vời cho Speaking, dùng được trong Writing nhưng đừng lạm dụng (Writing học thuật thích therefore/consequently hơn).
 
-⚠ **Đừng nhầm với "so that" (mục đích):** "so that" = *để mà* (purpose), KHÔNG phải kết quả.
+So that thường chỉ mục đích nhưng cũng chỉ kết quả: “The roads flooded, so that no buses could run”. So có thể lược that khi chỉ mục đích; xét nghĩa và ngữ cảnh.
 - He saved money **so that** he could travel. (mục đích — *để* đi du lịch)
 - He saved money, **so** he could travel. (kết quả — vì thế anh ấy *đã có thể* đi)
 
@@ -117,7 +117,7 @@ Result connectors được chấm ở **hai** tiêu chí: **Grammatical Range** 
 <!-- anchor: adding-results-clearly.nhom-2-therefore-consequently-as-a-result-trang-tu-lien-ket-formal -->
 ## NHÓM 2: THEREFORE, CONSEQUENTLY, AS A RESULT — trạng từ liên kết (formal)
 
-Đây là **conjunctive adverbs** — chúng KHÔNG nối hai mệnh đề bằng dấu phẩy. Phải dùng **dấu chấm** hoặc **dấu chấm phẩy**, và có **dấu phẩy sau** chúng.
+Đây là **conjunctive adverbs** — chúng KHÔNG nối hai mệnh đề bằng dấu phẩy. Trong mẫu nối hai mệnh đề độc lập, dùng dấu chấm/chấm phẩy thay vì chỉ dấu phẩy. Trạng từ còn đứng giữa câu: “Demand therefore rose”; “Demand rose; hence prices increased” không buộc dấu phẩy sau hence.
 
 ```
 [Clause]. Therefore, [clause].
@@ -164,12 +164,12 @@ Khi muốn nhấn mạnh **mức độ** dẫn tới kết quả, dùng cấu tr
 - There was **so much demand that** the product sold out within hours.
 - **So many people** applied **that** the deadline had to be extended.
 
-> Quy tắc phân biệt: **so + tính từ** (so difficult), **such + (mạo từ) + danh từ** (such a problem). Đây là điểm ngữ pháp band 6.5–7.0 examiner để ý.
+> Quy tắc phân biệt: **so + tính từ** (so difficult), **such + (mạo từ) + danh từ** (such a problem). Chọn đúng cấu trúc và nghĩa; một mẫu riêng không xác định band.
 
 ---
 
 <!-- anchor: adding-results-clearly.nhom-4-cum-phan-tu-gioi-tu-noi-ket-qua-gon-gang -->
-## NHÓM 4: CỤM PHÂN TỪ & GIỚI TỪ — nối kết quả gọn gàng
+## NHÓM 4: CỤM PHÂN TỪ, GIỚI TỪ & MỆNH ĐỀ QUAN HỆ — nối kết quả
 
 Cách nâng cao để tránh lúc nào cũng tách thành câu mới:
 
@@ -177,8 +177,8 @@ Cách nâng cao để tránh lúc nào cũng tách thành câu mới:
 |---------|-------------|-------|
 | **resulting in** | noun / V-ing | Tourism collapsed, **resulting in** widespread unemployment. |
 | **leading to** | noun / V-ing | Deforestation continued, **leading to** the loss of countless species. |
-| **giving rise to** | noun | Rapid growth gave rise to serious housing shortages. |
-| **which is why** | clause | Cities are overcrowded, **which is why** governments are investing in transport. |
+| **giving rise to** | noun | Rapid growth continued, **giving rise to** serious housing shortages. |
+| **which is why** (mệnh đề quan hệ bổ sung) | clause | Cities are overcrowded, **which is why** governments are investing in transport. |
 | **as a consequence of** | noun (đứng đầu) | **As a consequence of** the reforms, literacy rates improved. |
 
 - Wages stagnated for a decade, **resulting in** a sharp fall in living standards.

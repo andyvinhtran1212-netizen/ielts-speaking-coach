@@ -69,7 +69,11 @@ export default {
     // chặng lẫn xét đạt (bot bắt ở #1012).
     [/\/api\/quiz\/sessions$/, { session_id: SNEW, resume: null }],
     [/\/api\/quiz\/sessions\/[^/?]+(\?|$)/, {}],
-    [/\/progress$/, {}],
+    // The real progress endpoint acknowledges the submitted row count. An
+    // empty 200 body must keep the durable outbox pending, not finalize it.
+    [/\/progress$/, (request) => ({
+      ok: true, attempts: request.postDataJSON().attempts.length, word_stats: 0,
+    })],
     [/\/course\/verdict$/, { passed: true, score: 0.9, threshold: 0.8 }],
   ],
 

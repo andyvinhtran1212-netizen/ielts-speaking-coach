@@ -211,7 +211,7 @@ How much + uncountable + ?
 
 Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phong phú hơn:
 
-### Thay thế cho "many":
+### Cách diễn đạt lượng và nghĩa cần giữ:
 
 | Từ/cụm | Mức trang trọng | Ví dụ |
 |--------|----------------|-------|
@@ -219,9 +219,11 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 | **a large number of** | Formal | **A large number of** young people... |
 | **a considerable number of** | Formal | **A considerable number of** respondents... |
 | **a significant number of** | Formal | **A significant number of** countries... |
-| **the majority of** | Formal | **The majority of** students... |
-| **a wide range of** | Formal | **A wide range of** factors... |
-| **countless** | Emphatic | **Countless** attempts have been made... |
+| **the majority of** | Formal, hơn một nửa | Chỉ dùng khi tỷ lệ thực sự trên 50% |
+| **a wide range of** | Formal, đa dạng | Thêm nghĩa nhiều loại, không chỉ nhiều về số lượng |
+| **countless** | Emphatic, cường điệu | Chỉ dùng khi sự nhấn mạnh phù hợp với thông tin |
+
+**Many** không bảo đảm **majority**: 40 trong 100 người có thể là many, nhưng không phải the majority. Không thay từ chỉ để làm câu trang trọng hơn nếu đổi lượng hoặc thêm ý đa dạng.
 
 ### Thay thế cho "much":
 
@@ -245,7 +247,8 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 | Formal/Informal | Neutral | Neutral (negative/question) | Informal |
 | Câu khẳng định | ✓ | Hơi cứng khi đứng một mình | ✓ |
 | Câu phủ định | ✓ | ✓ | ✓ |
-| Câu hỏi | ✓ (How many) | ✓ (How much) | Ít dùng |
+| Câu hỏi có/không | ✓ | ✓ | ✓: Do you have a lot of work? |
+| Câu hỏi số lượng | How many + C số nhiều | How much + U | Không thay trực tiếp how many/how much |
 
 ---
 
@@ -262,15 +265,15 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 - ❌ "She doesn't have **many** time."
 - ✅ "She doesn't have **much** time."
 
-### Lỗi 3: Dùng "a lot of" quá nhiều trong IELTS Writing
+### Lưu ý văn phong: lặp "a lot of" trong IELTS Writing
 
-- ❌ "There are **a lot of** reasons for this. **A lot of** research has been done. **A lot of** people are affected."
-- ✅ "There are **numerous** reasons for this. **Extensive** research has been conducted. **A large number of** people are affected."
+- Câu sau đúng ngữ pháp nhưng lặp cách diễn đạt: "There are **a lot of** reasons for this. **A lot of** research has been done. **A lot of** people are affected."
+- Có thể dùng "numerous reasons", "a large amount of research", "a large number of people" khi giữ đúng thông tin. "Extensive research" còn nhấn mạnh phạm vi nghiên cứu, không phải phép thay tự động.
 
 ### Lỗi 4: "Too many/much" dùng trong ngữ cảnh trung tính
 
-- ❌ "She has **too many** qualifications." *(nghe như là vấn đề)*
-- ✅ "She has **many** qualifications."
+- "She has **many** qualifications." mô tả số lượng.
+- "She has **too many** qualifications." đánh giá số lượng vượt mức phù hợp; câu đúng nếu đó là ý người nói, không phải phép sửa thuần ngữ pháp.
 
 ### Lỗi 5: "So much/many" ở văn học thuật
 
@@ -283,7 +286,7 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 <!-- anchor: many-much-a-lot-of.bai-tap-luyen -->
 ## Bài tập luyện
 
-### Điền many, much, a lot of, too many, hoặc too much
+### Điền many, much, a lot of, too many, hoặc too much. Một số câu cho phép nhiều lựa chọn; too thêm ý vượt mức phù hợp.
 
 1. She doesn't have ___ experience in this field.
 2. There are ___ factors to consider before making a decision.
@@ -296,7 +299,7 @@ Trong IELTS Writing Task 2 và academic writing, dùng nhiều biến thể phon
 
 ### Đáp án
 
-1. much | 2. many | 3. too much | 4. much | 5. many | 6. a lot of / too much | 7. many / too many | 8. much
+1. much / a lot of | 2. many / a lot of | 3. too much (ý lượng cà phê gây hại) | 4. much / a lot of | 5. many | 6. a lot of / much; too much nếu muốn nói quá tải | 7. many / a lot of; too many nếu muốn nói vượt mức chấp nhận | 8. much
 
 ---
 

@@ -81,7 +81,7 @@ Lỗi subject-verb agreement bị trừ điểm trong cả Writing (Grammatical 
 Chỉ **một** người, vật, hoặc khái niệm. Dùng với:
 - Mạo từ *a/an*: *a book*, *an apple*
 - Mạo từ *the* + danh từ số ít: *the book*
-- Động từ số ít: *is, was, has, does, goes, works*
+- Với danh ngữ ngôi ba số ít: is, was, has, does, goes, works. I và you có dạng riêng: I am/I have; you are/you have. They có thể chỉ một người và vẫn dùng they are.
 
 ### Plural (Số nhiều)
 Chỉ **hai trở lên**. Dùng với:
@@ -148,7 +148,9 @@ Một số danh từ **luôn ở dạng số nhiều** và dùng động từ s�
 | Từ | Ví dụ |
 |----|-------|
 | **Đồ dùng gồm 2 phần** | *scissors, glasses, trousers, jeans, shorts, tights, pliers, binoculars* |
-| **Từ khác** | *stairs, surroundings, outskirts, headquarters, remains, thanks, belongings* |
+| **Từ khác** | *stairs, surroundings, outskirts, remains, thanks, belongings* |
+
+Headquarters giữ nguyên hình thức và có thể hòa hợp số ít/số nhiều: *The company's headquarters is/are in Amsterdam*. Không xếp từ này vào nhóm luôn dùng are.
 
 - *The scissors **are** on the table.* (không phải *is*)
 - *My glasses **need** cleaning.*
@@ -200,9 +202,10 @@ Một số danh từ **luôn ở dạng số nhiều** và dùng động từ s�
 
 ### 3. Danh từ đo lường
 
-Khi dùng danh từ đo lường, động từ theo **số của danh từ chính**, không phải đơn vị đo:
+Với lượng xem như một khối, có thể dùng động từ số ít; với vật chứa riêng biệt, hòa hợp theo các vật được nói đến. A lot of là lượng từ, khác cấu trúc đơn vị đo:
 
 - *Five kilos of rice **is** enough.* (five kilos = một lượng → coi là một khối)
+- *Two bottles of water **are** on the table.* (hai chai riêng biệt)
 - *A lot of students **are** interested.* (students = plural)
 - *A lot of water **has** been wasted.* (water = uncountable singular)
 
@@ -246,7 +249,7 @@ Phân tích:
 - *media* → Có thể singular hoặc plural trong văn phong hiện đại; *play* (plural) cũng được chấp nhận
 - *The number of* + plural noun → *is* (singular) ✅
 - *many people* → Plural → *lack* ✅
-- *the means* → Plural-only noun → không thêm *-s*
+- Means trong nghĩa phương cách giữ hình thức ở số ít/số nhiều: a means / several means. Nghĩa nguồn lực tài chính thường dùng số nhiều; không gọi mọi means là plural-only.
 
 **(Speaking Part 2):** "There are two **criteria** I use to judge a good book: the **depth** of its characters and the **originality** of its **themes**."
 
@@ -273,8 +276,8 @@ Phân tích:
 
 ### Lỗi 3: Dùng sai irregular plural
 
-- ❌ SAI: *The childrens are playing outside.* / *The peoples of this country...*
-- ✅ ĐÚNG: *The children are playing outside.* / *The people of this country...*
+- ❌ *The childrens are playing outside.* → ✅ *The children are playing outside.*
+- *The people of this country* = người dân nước này; *the peoples of this country* = các dân tộc của nước này. Peoples đúng trong nghĩa thứ hai.
 - ❌ SAI: *The phenomenons observed...* / *The criterions for success...*
 - ✅ ĐÚNG: *The phenomena observed...* / *The criteria for success...*
 - **TẠI SAO:** Những từ gốc Latin/Greek giữ nguyên dạng plural bất quy tắc.
@@ -374,7 +377,7 @@ Trong speaking, lỗi subject-verb agreement bị phát hiện ngay:
 2. A number of solutions (has / have) been proposed.
 3. Each of the students (need / needs) to register.
 4. The media (play / plays) an important role.
-5. Neither of the answers (is / are) correct.
+5. Neither of the answers (is / are) correct. *(Chọn dạng thường dùng trong văn viết học thuật trang trọng.)*
 6. The criteria for selection (has / have) changed.
 7. Everyone in the classes (know / knows) the rule.
 8. The scissors (is / are) in the drawer.
@@ -398,17 +401,17 @@ Trong speaking, lỗi subject-verb agreement bị phát hiện ngay:
 2. **have** (*a number of solutions* = plural)
 3. **needs** (*each* = singular)
 4. **play** hoặc **plays** (cả hai được chấp nhận — *media* đang chuyển tiếp)
-5. **is** (*neither* = singular)
+5. **is** theo văn phong trang trọng được yêu cầu. Are có thể gặp với neither of + danh từ số nhiều trong cách dùng khác; chưa có quan sát chấm trực tiếp biến thể đó.
 6. **have** (*criteria* = plural)
 7. **knows** (*everyone* = singular)
 8. **are** (*scissors* = plural-only noun)
 
 ## Tóm tắt nhanh
-1. **Singular** (một) → *a/an*, động từ số ít (*is, was, has*)
+1. Danh từ đếm được số ít có thể dùng a/an khi chưa xác định; danh ngữ ngôi ba số ít thường dùng is/was/has. I, you và singular they có hòa hợp riêng.
 2. **Plural** (hai+) → động từ số nhiều (*are, were, have*)
 3. Quy tắc thông thường: thêm *-s/-es*, đổi *-y → -ies*
 4. Irregular plurals quan trọng: *children, men, women, teeth, feet, phenomena, criteria, analyses*
 5. Không đổi: *sheep, fish, deer, series, species, aircraft*
-6. Plural-only (luôn dùng are): *scissors, trousers, glasses, headquarters*
+6. Plural-only trong nghĩa đồ vật tương ứng: scissors, trousers, glasses. Headquarters có thể dùng is/are.
 7. **The number of** + plural → singular verb; **A number of** + plural → plural verb
 8. *Each/every/either/neither* + singular noun → singular verb

@@ -149,11 +149,11 @@ input: "text"
 headword: "lsu-strip-modifiers"
 skill: "production"
 subtype: "intermediate"
-prompt: "Tạm nhóm các phần bổ nghĩa rồi viết khung chủ ngữ + động từ chính (S + main V); có thể viết thêm tân ngữ/bổ ngữ: 'The results of the experiment, which lasted for eighteen months and involved hundreds of participants, demonstrated a clear correlation.' → ____"
-accept: ["the results demonstrated", "The results demonstrated", "results demonstrated a clear correlation", "the results demonstrated a clear correlation"]
+prompt: "Tạm nhóm các phần bổ nghĩa rồi viết khung S + main V; có thể giữ hoặc bỏ tính từ clear và viết thêm tân ngữ: 'The results of the experiment, which lasted for eighteen months and involved hundreds of participants, demonstrated a clear correlation.' → ____"
+accept: ["the results demonstrated", "the results demonstrated a correlation", "the results demonstrated a clear correlation"]
 case_sensitive: false
 grammar_article_slug: "long-sentence-untangling"
-explain: "Tạm nhóm 'of the experiment' (cụm giới từ) và 'which lasted for eighteen months and involved hundreds of participants' (mệnh đề quan hệ). Khung S + main V được nhận là 'the results demonstrated'; mệnh đề chính đầy đủ là 'The results demonstrated a clear correlation'. Ghép lại phần bổ nghĩa khi đọc nghĩa, không bỏ thông tin khỏi cách hiểu câu."
+explain: "Khung S + main V là the results demonstrated. A correlation là tân ngữ, không phải modifier có thể mặc nhiên xóa khỏi nghĩa. Đề nhận khung ngắn hoặc mệnh đề có tân ngữ; clear có thể được giữ hoặc tạm nhóm theo nhiệm vụ, nhưng khi đọc toàn câu cần khôi phục thông tin ấy."
 ---
 
 ---

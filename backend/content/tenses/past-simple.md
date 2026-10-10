@@ -230,7 +230,7 @@ Phải **học thuộc** — không có quy tắc chung.
 <!-- anchor: past-simple.usage.completed-past -->
 ### 1. Hành động hoàn thành tại thời điểm xác định
 
-Phải có (hoặc ngầm hiểu) thời gian cụ thể: yesterday, last week, in 2020, three years ago...
+Khung quá khứ có thể được ghi rõ hoặc cung cấp từ ngữ cảnh kể chuyện; không bắt buộc mỗi câu có trạng ngữ ngày tháng. Mốc cụ thể cũng có thể đi với Past Continuous (**I was working at nine**) hoặc Past Perfect (**I had finished by nine**) theo nghĩa đích.
 
 - I **visited** Da Nang **last summer**.
 - She **graduated** from university **two years ago**.
@@ -248,7 +248,7 @@ Rất quan trọng cho IELTS Speaking Part 2 — kể về một sự kiện the
 
 Khi muốn nói về điều gì đó đúng trong quá khứ nhưng không còn đúng nữa.
 
-- When I **was** a child, I **loved** playing outside. *(giờ không còn nữa)*
+- When I **was** a child, I **loved** playing outside. (Không tự khẳng định hiện tại đã hết thích.)
 - We **used to live** in the countryside, but we **moved** to Hanoi in 2010.
 - She **worked** as a nurse for ten years before she **retired**.
 
@@ -339,12 +339,12 @@ Khi muốn nói về điều gì đó đúng trong quá khứ nhưng không còn
 | | Past Simple | Present Perfect |
 |---|---|---|
 | **Thời gian** | Xác định (last year, in 2020...) | Không xác định hoặc "ever/never/just/already/yet" |
-| **Kết nối hiện tại** | Không — kết thúc hoàn toàn | Có — ảnh hưởng đến hiện tại |
+| **Góc nhìn** | Khung quá khứ; vẫn có thể giải thích hiện tại | Kết nối với hiện tại |
 | **Câu hỏi** | When did you do it? | Have you ever done it? |
 | **Ví dụ** | I **visited** London **in 2019**. | I **have visited** London. *(kinh nghiệm, không biết khi nào)* |
 | **Ví dụ 2** | She **finished** the report **an hour ago**. | She **has just finished** the report. *(vừa xong, ảnh hưởng hiện tại)* |
 
-**Nguyên tắc vàng:** Thấy thời gian cụ thể trong quá khứ → Past Simple. Không thấy thời gian hoặc chỉ biết "đã có lúc nào đó" → Present Perfect.
+**Định hướng:** Chọn thì theo khung thời gian và góc nhìn. Không ghi ngày tháng không tự buộc dùng Present Perfect: **I saw him** có thể nằm trong câu chuyện quá khứ. Dạng quá khứ còn có thể diễn tả khoảng cách với thực tế trong điều kiện, không chỉ sự việc đã hoàn tất.
 
 ### Past Simple vs Past Continuous
 

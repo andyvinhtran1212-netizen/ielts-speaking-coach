@@ -136,7 +136,7 @@ tell + someone + something
 - He **told** us **to** wait outside.
 - Can you **tell** me the way to the station?
 
-> **Quy tắc vàng:** "Tell" **luôn luôn** đi kèm tân ngữ chỉ người nghe. Nếu không có người nghe, không dùng tell.
+> **Quy tắc vàng:** Trong tell someone that/to, cần người nghe. Những nghĩa/mẫu khác không bắt buộc người nghe: tell the truth, tell a story, tell the difference, I can’t tell.
 
 <!-- anchor: say-tell-speak-talk.loi-thuong-gap -->
 ## Lỗi thường gặp:
@@ -302,7 +302,7 @@ talk about / on + topic
 ### Writing Task 2:
 
 - Research **suggests** / Studies **indicate** (thay cho "say" trong văn viết trang trọng)
-- Experts **argue / claim / assert** (thay cho "say" trong học thuật)
+- Experts **argue / claim / assert** chỉ dùng khi nguồn thực sự lập luận/khẳng định; said là trung tính, không tự thay đổi thái độ của nguồn
 - The government **announced / stated** (thay cho "said" khi formal)
 
 > **IELTS Writing tip:** Trong Writing, tránh dùng "say" quá nhiều — thay bằng **argue, claim, suggest, state, assert, maintain**.
@@ -335,7 +335,7 @@ talk about / on + topic
 ### Đáp án
 
 **Điền:**
-1. speak | 2. told | 3. say | 4. talk | 5. speaks | 6. tell | 7. said | 8. talk | 9. speak | 10. tells
+1. speak / talk | 2. told | 3. say | 4. talk / speak | 5. speaks | 6. tell | 7. said | 8. talk / speak | 9. speak / talk | 10. tells
 
 **Sửa lỗi:**
 1. She **said** that the exam was difficult. / She **told us** that the exam was difficult.
@@ -358,6 +358,6 @@ talk about / on + topic
 
 **Quy tắc vàng:**
 - **Say** = nội dung; **Tell** = nội dung + ai
-- **Tell** luôn cần tân ngữ người nghe → "tell *me* / tell *him* / tell *someone*"
-- **Speak** cần giới từ → speak **to** / speak **with**
-- **Talk** thân mật hơn speak; cũng cần giới từ → talk **to** / talk **with** / talk **about**
+- **Tell someone that/to** cần tân ngữ người nghe → "tell *me* / tell *him* / tell *someone*"
+- **Speak to/with someone** cần giới từ cho người nghe; speak English/speak loudly/speak at a conference có mẫu khác → speak **to** / speak **with**
+- **Talk** thân mật hơn speak; talk có thể không có bổ ngữ: “We talked”; khi thêm người/chủ đề → talk **to** / talk **with** / talk **about**

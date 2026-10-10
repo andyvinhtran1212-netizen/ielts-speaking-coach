@@ -127,7 +127,8 @@ As [S + V], [Main clause]
 ```
 
 - **As** urban populations continue to grow, pressure on infrastructure intensifies.
-- **As** the evidence suggests, early intervention is far more effective than later treatment.
+- **As** the clinic is closed, patients must wait until morning. *(nguyên nhân)*
+- “As the evidence suggests...” dẫn nguồn/theo bằng chứng, không phải as nguyên nhân.
 
 > "As" trang trọng hơn "because" một chút — phù hợp Writing Task 2 hơn Speaking.
 
@@ -194,7 +195,7 @@ Seeing as [S + V], [Main clause]
 - **Seeing as** you've already started the project, it makes sense to continue.
 - **Seeing as** the economy is struggling, job creation should be the priority.
 
-> "Seeing as" trang trọng hơn "because" nhưng ít formal hơn "given that" — phù hợp Speaking Part 3.
+> Seeing as thường thân mật, phù hợp lời nói. Because trung tính; given that thường trang trọng hơn.
 
 ### IN THAT — theo nghĩa rằng, ở chỗ (giải thích cụ thể hơn)
 
@@ -296,7 +297,7 @@ Trong Speaking Part 3, đưa lý do theo kiểu **thân mật hơn** — tránh 
 
 ### Lỗi 3: "This is because" mà không có câu trước
 
-- ❌ Bắt đầu đoạn văn bằng "This is because..."
+- ✅ Bắt đầu đoạn bằng “This is because...” nếu this quy chiếu rõ về nhận định trước đó, kể cả ở đoạn trước.
 - ✅ "This is because" phải theo sau một statement đã nêu trước đó.
 
 ### Lỗi 4: Nêu lý do nhưng không develop
@@ -354,6 +355,6 @@ Trong Speaking Part 3, đưa lý do theo kiểu **thân mật hơn** — tránh 
 
 **Quy tắc vàng:**
 - Mỗi luận điểm PHẢI có lý do hỗ trợ
-- Xen kẽ ít nhất 3 cấu trúc khác nhau trong một bài viết
+- Chọn cấu trúc theo quan hệ ý và văn phong; không có số loại tối thiểu để đạt band
 - Writing: dùng trang trọng hơn (given that, due to, this is because)
 - Speaking: dùng tự nhiên hơn (because, the reason is, it's mainly because)

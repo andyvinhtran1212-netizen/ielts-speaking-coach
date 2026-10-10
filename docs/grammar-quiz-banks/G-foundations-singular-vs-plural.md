@@ -11,7 +11,7 @@ require_distinct_skill: true
 require_production_to_master: true
 cooldown: 2
 shuffle_options: true
-words_count: 5
+words_count: 4
 source: "authored-2026-07"
 ---
 

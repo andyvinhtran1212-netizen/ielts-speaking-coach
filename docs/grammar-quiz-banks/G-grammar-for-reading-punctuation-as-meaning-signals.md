@@ -265,12 +265,12 @@ input: "text"
 headword: "punctuation-reading-strategy"
 skill: "production"
 subtype: "intermediate"
-prompt: "Identify the error: 'The survey identified key barriers: lack of funding, inadequate training, and limited access. Interestingly ____ these factors were expected.'"
-hint: "gõ DẤU CÂU đang bị dùng sai (không phải dấu sửa lại)"
+prompt: "Identify the punctuation mark used incorrectly: 'The survey identified key barriers: lack of funding, inadequate training, and limited access. Interestingly; these factors were expected.' → ____"
+hint: "gõ dấu đang sai sau Interestingly, không gõ dấu sửa"
 accept: [";", "semicolon", "dấu chấm phẩy"]
 case_sensitive: false
 grammar_article_slug: "punctuation-as-meaning-signals"
-explain: "SAI: 'Interestingly; these factors' — 'Interestingly' là adverbial, không phải mệnh đề độc lập. Dấu chấm phẩy yêu cầu hai mệnh đề độc lập. Sửa: 'Interestingly, these factors were expected.' (dấu phẩy) hoặc 'Interestingly — these factors were expected.' (gạch ngang)."
+explain: "Dấu đang sai là semicolon sau Interestingly; nó đã được in trong đề để nhận diện. Interestingly là trạng từ, không phải mệnh đề độc lập. Cách sửa thông dụng: 'Interestingly, these factors were expected.'"
 ---
 
 ---

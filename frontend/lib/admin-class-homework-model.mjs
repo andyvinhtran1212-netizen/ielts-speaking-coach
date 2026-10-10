@@ -150,6 +150,7 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     const retake = draft.retakeSize === '' ? null : Number(draft.retakeSize);
     const timeLimit = draft.timeLimitMinutes === '' ? null : Number(draft.timeLimitMinutes);
     if (completionMode === 'single_attempt' && selected.single_attempt_ready !== true) return { ok: false, error: 'Chế độ một lượt chỉ dùng cho bộ trắc nghiệm thuần.' };
+    if (timeLimit != null && selected.single_attempt_ready !== true) return { ok: false, error: 'Giới hạn thời gian chỉ áp dụng cho bộ trắc nghiệm thuần.' };
     if (completionMode === 'mastery' && pass != null && (!Number.isInteger(pass) || pass < 50 || pass > 100)) return { ok: false, error: 'Ngưỡng đạt phải trong khoảng 50–100%.' };
     if (completionMode === 'mastery' && retake != null && (!Number.isInteger(retake) || retake < 5 || retake > 100)) return { ok: false, error: 'Số câu kiểm tra lại phải trong khoảng 5–100.' };
     if (timeLimit != null && (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 720)) return { ok: false, error: 'Thời gian tối đa phải từ 1 đến 720 phút.' };

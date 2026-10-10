@@ -42,7 +42,7 @@ prompt: "The scientists published their data, and ____ was soon challenged. Choo
 options: ["it", "they", "them", "its"]
 answer: 0
 grammar_article_slug: "reference-and-cohesion"
-explain: "'It' thay cho 'data' (danh từ số ít, không chỉ người). 'They/them' thay cho danh từ số nhiều hay các người; 'data' là số ít nên cần 'it'."
+explain: "It phù hợp với cách dùng data như danh từ khối/số ít trong khung đã có was. Data cũng được dùng như số nhiều, khi đó sẽ là they were. Không suy từ đáp án của một khung câu rằng data luôn số ít."
 ---
 
 ---
@@ -166,10 +166,10 @@ headword: "rc-this-such-reference"
 skill: "production"
 subtype: "intermediate"
 prompt: "Complete with 'this', 'these', or 'such': 'Artificial intelligence has surpassed human performance in certain domains. ____ advances have raised ethical concerns about AI deployment.'"
-accept: ["These", "these"]
+accept: ["These", "Such"]
 case_sensitive: false
 grammar_article_slug: "reference-and-cohesion"
-explain: "'Advances' là danh từ số nhiều. 'These advances' = những tiến bộ như vừa mô tả. Cũng có thể dùng 'Such advances' (những tiến bộ kiểu như vừa nêu)."
+explain: "These advances chỉ các tiến bộ vừa nêu; Such advances chỉ những tiến bộ thuộc loại đó. Cả hai phù hợp với advances số nhiều. This không trực tiếp bổ nghĩa cho advances ở số nhiều."
 ---
 
 ---

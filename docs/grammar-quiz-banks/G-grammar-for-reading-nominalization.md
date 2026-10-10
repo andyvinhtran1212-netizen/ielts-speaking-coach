@@ -24,11 +24,11 @@ input: "choice"
 headword: "nom-recognise"
 skill: "form"
 subtype: "basic"
-prompt: "Which word in this sentence is a nominalization (verb/adjective turned into noun)? 'The reduction in emissions was a major achievement.'"
+prompt: "Which word is the nominalization formed from reduce? 'The reduction in emissions was a major achievement.'"
 options: ["reduction", "emissions", "major", "achievement"]
 answer: 0
 grammar_article_slug: "nominalization"
-explain: "'Reduction' là danh hoá từ động từ 'reduce'. Nó thay cho 'emissions were reduced'. Danh hoá thường có hậu tố -tion, -ment, -ity, -ness, v.v."
+explain: "Reduction được tạo từ reduce. Achievement được tạo từ achieve và cũng là danh hóa; đề mới giới hạn rõ từ gốc reduce để không loại một danh hóa hợp lệ khác trong cùng câu."
 ---
 
 ---
@@ -38,11 +38,11 @@ input: "choice"
 headword: "nom-recognise"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Identify the nominalization in: 'The government's implementation of the policy faced significant resistance.'"
+prompt: "Identify the nominalization formed from implement: 'The government's implementation of the policy faced significant resistance.'"
 options: ["government", "implementation", "policy", "resistance"]
 answer: 1
 grammar_article_slug: "nominalization"
-explain: "'Implementation' là danh hoá từ 'implement'. Nó đóng gói ý 'the policy was implemented'. Chú ý hậu tố -tion."
+explain: "Implementation là danh hóa của implement được đề yêu cầu. Resistance cũng là danh từ phái sinh từ resist và có thể biểu đạt sự phản đối; đề cũ hỏi chung một nominalization có nhiều đáp án hợp lệ."
 ---
 
 ---

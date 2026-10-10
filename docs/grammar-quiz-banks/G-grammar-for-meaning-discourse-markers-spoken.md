@@ -96,10 +96,10 @@ headword: "dms-thinking-fillers"
 skill: "usage"
 subtype: "intermediate"
 prompt: "It's a bit difficult to explain — ____, the food in my hometown is just different from anywhere else."
-options: ["I mean,", "In conclusion,", "Therefore,", "Hence,"]
+options: ["I mean", "In conclusion", "Therefore", "Hence"]
 answer: 0
 grammar_article_slug: "discourse-markers-spoken"
-explain: "'I mean' dùng giữa câu khi cần dừng lại để làm rõ hoặc chọn từ — tự nhiên trong nói. 'In conclusion/Therefore/Hence' là DM viết trang trọng."
+explain: "I mean báo hiệu người nói làm rõ điều vừa nói trong câu này. Dấu phẩy sau ô trống đã được in sẵn, nên các lựa chọn không kèm thêm dấu phẩy. Therefore/Hence thường thể hiện quan hệ kết quả; In conclusion thường báo kết luận."
 ---
 
 ---
@@ -240,10 +240,10 @@ input: "boolean"
 headword: "dms-emphasis"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: câu 'Actually, my hometown is Hanoi.' là cách dùng 'actually' đúng chuẩn khi mở một chủ đề mới trong IELTS Speaking."
-answer: false
+prompt: "Đúng hay Sai: Actually có chức năng giới thiệu chủ đề/thông tin mới, nên 'Actually, my hometown is Hanoi' có thể phù hợp trong một ngữ cảnh hội thoại."
+answer: true
 grammar_article_slug: "discourse-markers-spoken"
-explain: "SAI (actually_misuse) — 'actually' báo hiệu correction hoặc surprising contrast với một expectation đã có; không có gì để 'correct' ở đây nên dùng làm topic-opener là sai. Nên nói: 'Well, my hometown is Hanoi.'"
+explain: "ĐÚNG về khả năng sử dụng: actually không chỉ dùng để đính chính; từ điển còn ghi nhận chức năng giới thiệu chủ đề. Độ tự nhiên của lượt nói cụ thể cần xét câu trước và ngữ điệu, không thể bảo đảm chỉ từ câu viết này."
 ---
 
 ---
@@ -253,10 +253,10 @@ input: "boolean"
 headword: "dms-emphasis"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Actually, I love coffee.' là cách dùng 'actually' tự nhiên vì không có expectation nào bị đối lập."
+prompt: "Đúng hay Sai: Actually chỉ đúng khi đính chính một kỳ vọng; từ này không thể giới thiệu một chủ đề hoặc thông tin mới."
 answer: false
 grammar_article_slug: "discourse-markers-spoken"
-explain: "SAI (actually_misuse) — không có sự tương phản/bất ngờ nào ở đây nên 'actually' bị dùng sai như filler mở đầu. Đúng: 'I love coffee. Actually, I drink three cups a day.' (actually báo hiệu chi tiết vượt kỳ vọng)."
+explain: "SAI — actually còn có thể thu hút chú ý, giới thiệu chủ đề/thông tin mới hoặc chuyển hướng một cách lịch sự. Việc dùng tự nhiên vẫn phụ thuộc ngữ cảnh và ngữ điệu; có hoặc không có tương phản đều không tự bảo đảm độ phù hợp."
 ---
 
 # ===== item_key 5 · Overuse of and/but/so — cần đa dạng connector =====

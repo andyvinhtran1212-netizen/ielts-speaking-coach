@@ -73,7 +73,7 @@ anchors:
 
 ## Tại sao quan trọng
 
-Người Việt thường dùng "some" trong câu hỏi (❌ "Do you have some...?") hoặc dùng "any" trong câu khẳng định (❌ "I have any questions.") — cả hai đều sai trong hầu hết ngữ cảnh. Ngoài ra, các hợp chất như *someone/anyone/no one* thường bị nhầm khi viết (hai từ hay một từ?) và dùng trong ngữ cảnh sai.
+Some trong câu hỏi đúng khi mong đợi câu trả lời có: “Do you have some ideas for the project?”. Any có cách dùng khẳng định mang nghĩa lựa chọn tự do: “Any student can apply”. Chọn theo nghĩa, không chỉ loại câu. Ngoài ra, các hợp chất như *someone/anyone/no one* thường bị nhầm khi viết (hai từ hay một từ?) và dùng trong ngữ cảnh sai.
 
 ---
 
@@ -223,23 +223,23 @@ Các hợp chất được tạo bằng cách ghép some/any/no với -one/-body
 
 **Lưu ý ngữ pháp với nothing/nobody/no one:**
 
-Khi chủ ngữ là *nothing, nobody, no one* — dùng động từ **số ít** và **không dùng thêm "not"**:
+Khi chủ ngữ là *nothing, nobody, no one*, dùng hòa hợp **số ít**. Để diễn đạt **một ý phủ định** trong tiếng Anh chuẩn, không thêm "not":
 
 - **Nothing** is wrong. *(không cần "not")*
 - **Nobody** knows the answer.
 - **No one** has called today.
-- ❌ "Nobody doesn't know." → ✅ "Nobody knows."
+- Nếu ý đích là **không ai biết**: ✅ "Nobody knows." Hai phủ định có chủ ý trong "Nobody doesn't know" có thể mang nghĩa **ai cũng biết**, nên xóa "doesn't" không giữ nghĩa đó.
 
 ---
 
 ## Lỗi thường gặp
 
-### Lỗi 1: Dùng "some" trong câu hỏi thật
+### Chọn "some" hoặc "any" theo kỳ vọng trong câu hỏi
 
-- ❌ "Do you have **some** problems with the assignment?"
-- ✅ "Do you have **any** problems with the assignment?"
+- Hỏi trung tính, chưa biết có vấn đề hay không: "Do you have **any** problems with the assignment?"
+- Khi đã thấy dấu hiệu khó khăn và trông đợi câu trả lời có: "Do you have **some** problems with the assignment?" cũng hợp lệ.
 
-*(Trừ khi bạn đang mời: "Would you like **some** help with that?")*
+Khi mời hoặc đề nghị, thường dùng some: "Would you like **some** help with that?"
 
 ### Lỗi 2: Dùng "any" trong câu khẳng định (không có nghĩa "bất kỳ")
 
@@ -269,7 +269,7 @@ Khi chủ ngữ là *nothing, nobody, no one* — dùng động từ **số ít*
 
 - ❌ "She is **no** happy about this."
 - ✅ "She is **not** happy about this."
-*(Dùng "no" chỉ trước danh từ, không trước tính từ đứng một mình)*
+Trong vai trò **định từ** đang học, no đứng trước cụm danh từ. Ngoài phạm vi này còn có cách dùng như **no better**, **no longer**; chúng không cho phép "no happy".
 
 ---
 
@@ -299,22 +299,22 @@ Khi chủ ngữ là *nothing, nobody, no one* — dùng động từ **số ít*
 
 ## Bài tập luyện
 
-### Điền some, any, hoặc no vào chỗ trống
+### Điền some, any, no, none, hoặc một từ ghép phù hợp (anywhere, anybody, something, nowhere)
 
 1. I'd like ___ information about the course.
 2. Do you have ___ spare time this evening?
 3. There is ___ point in arguing — the decision has been made.
 4. Would you like ___ more tea?
 5. She didn't make ___ mistakes in the exam.
-6. I can sit ___ where — it doesn't matter to me.
-7. ___ of the students passed, which was disappointing.
-8. Is there ___ body in the office right now?
-9. He said ___ thing that really made me think.
-10. There is ___ where to park near the station.
+6. I can sit ___ — it doesn't matter to me.
+7. ___ of the students passed: not a single student succeeded.
+8. Is there ___ in the office right now?
+9. He said ___ that really made me think.
+10. There is ___ to park near the station: every space is occupied.
 
 ### Đáp án
 
-1. some | 2. any | 3. no | 4. some | 5. any | 6. any | 7. None / Some | 8. any | 9. some | 10. nowhere
+1. some | 2. any (some nếu có kỳ vọng câu trả lời có) | 3. no | 4. some | 5. any | 6. anywhere | 7. None | 8. anybody | 9. something | 10. nowhere
 
 ---
 
@@ -339,5 +339,7 @@ HỢP CHẤT:
   any-  → phủ định / câu hỏi: anyone, anything, anywhere
   no-   → phủ định dứt khoát: no one, nothing, nowhere
 
-  LƯU Ý: nothing/nobody/no one + động từ số ít, KHÔNG dùng "not" thêm
+  LƯU Ý: nothing/nobody/no one hòa hợp số ít.
+  Với một ý phủ định trong tiếng Anh chuẩn, không thêm "not".
+  Quá khứ went dùng cùng hình thức cho chủ ngữ số ít và số nhiều.
 ```

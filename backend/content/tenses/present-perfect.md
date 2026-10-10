@@ -291,10 +291,10 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 
 | Dấu hiệu | Vị trí | Ví dụ |
 |----------|--------|-------|
-| **ever** | Câu hỏi/phủ định | **Have** you **ever** been abroad? |
+| **ever** | Thường câu hỏi/phủ định; còn trong so sánh, điều kiện | **Have** you **ever** been abroad? / the best book I have ever read |
 | **never** | Câu phủ định | I have **never** tried skydiving. |
 | **just** | Mới xảy ra | She has **just** arrived. |
-| **already** | Khẳng định | I have **already** eaten. |
+| **already** | Thường khẳng định; cũng câu hỏi thể hiện ngạc nhiên | I have **already** eaten. / Have you finished already? |
 | **yet** | Câu hỏi/phủ định | Haven't you finished **yet**? |
 | **recently** | Thời gian gần đây | He has **recently** moved to Hanoi. |
 | **lately** | Thời gian gần đây | Have you been busy **lately**? |
@@ -332,13 +332,12 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 
 - ❌ SAI: I **have visited** Hanoi **last year**.
 - ✅ ĐÚNG: I **visited** Hanoi last year.
-- **TẠI SAO:** Khi có mốc thời gian cụ thể trong quá khứ (*last year, yesterday, in 2020, when I was young*), bắt buộc dùng Past Simple. Present Perfect không đi cùng thời gian xác định.
+- **TẠI SAO:** Trạng ngữ định vị sự việc trong **khoảng quá khứ đã kết thúc**, như last year, thường đi với thì quá khứ. Không cấm mọi mốc cụ thể: **has lived here since 2018** dùng mốc bắt đầu của khoảng kéo đến nay. Past Continuous/Past Perfect cũng có thể đi với mốc quá khứ theo nghĩa đích.
 
 ### Lỗi 2: Dùng Past Simple khi nên dùng Present Perfect
 
-- ❌ SAI: Did you ever try sushi?
-- ✅ ĐÚNG: **Have** you ever tried sushi?
-- **TẠI SAO:** "Ever" hỏi về trải nghiệm cuộc đời — cần Present Perfect.
+- **Have you ever tried sushi?** hỏi trải nghiệm tính tới nay, thông dụng trong Anh Anh.
+- **Did you ever try sushi?** có thể đúng trong Anh Mỹ hoặc khi nói về một khoảng quá khứ; không sai chỉ vì có ever.
 
 ### Lỗi 3: Nhầm "been" và "gone"
 
@@ -348,9 +347,8 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 
 ### Lỗi 4: Quên "have/has" — dùng V3 trơn
 
-- ❌ SAI: She **finished** her assignment already.
-- ✅ ĐÚNG: She **has finished** her assignment already.
-- **TẠI SAO:** Present Perfect bắt buộc có have/has — không thể bỏ trợ động từ.
+- **She has finished her assignment already** dùng Present Perfect, có have/has + V3.
+- **She finished her assignment already** có thể là Past Simple, đặc biệt trong Anh Mỹ; finished ở đây là động từ hữu hạn, không phải phân từ bị bỏ trợ động từ.
 
 ### Lỗi 5: Nhầm V2 và V3
 
@@ -381,9 +379,9 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 | **Tập trung vào** | Kết quả hiện tại / trải nghiệm | Thời điểm cụ thể trong quá khứ |
 | **Thời gian** | Không đề cập / *since, for, ever, just* | Cụ thể: *yesterday, last year, in 2019* |
 | **Ví dụ** | I've visited Japan (3 times in my life). | I visited Japan in 2022. |
-| **Tính liên quan** | Còn liên quan đến hiện tại | Đã kết thúc hoàn toàn |
+| **Góc nhìn** | Kết nối với hiện tại | Đặt trong khung quá khứ; vẫn có thể giải thích tình huống hiện tại |
 
-**Quy tắc vàng:** Nếu câu có mốc thời gian cụ thể → Past Simple. Nếu hỏi về trải nghiệm / kết quả hiện tại → Present Perfect.
+**Định hướng:** Xét khung thời gian và góc nhìn của cả ngữ cảnh, không chỉ từ báo hiệu. Since + mốc bắt đầu vẫn dùng với Present Perfect; thiếu trạng ngữ ngày tháng không tự buộc dùng Present Perfect.
 
 ### Ví dụ cặp so sánh
 
@@ -404,7 +402,7 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 
 **Mẹo quyết định nhanh:**
 
-1. Có mốc thời gian cụ thể (*yesterday, last week, in 2020*)? → **Past Simple**
+1. Định vị sự việc trong khoảng quá khứ đã kết thúc? → thường một thì quá khứ, chọn thì/thể theo nghĩa đích
 2. Hỏi "đã bao giờ...?" hoặc "từng...?" → **Present Perfect + ever**
 3. Hành động vừa xảy ra và ảnh hưởng đến ngay bây giờ? → **Present Perfect + just**
 4. Tình trạng từ quá khứ đến nay? → **Present Perfect + since/for**
@@ -454,7 +452,7 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 2. **Have** you ever **tried** (trải nghiệm cuộc đời → Present Perfect)
 3. **has lived** (tình trạng from 2018 đến nay → Present Perfect)
 4. **won** (in the 1990s = mốc cụ thể → Past Simple)
-5. **has just discovered** (vừa xảy ra, còn liên quan hiện tại → Present Perfect)
+5. **have just discovered** (Scientists số nhiều → have + V3)
 
 **Viết lại:**
 1. I have learned English for eight years.
@@ -465,13 +463,13 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 1. I **met** her last week (last week = mốc cụ thể)
 2. Have you **finished** (V3, không phải nguyên thể)
 3. She has **gone** (V3 of go, không phải went)
-4. We **haven't seen** each other for three years (tình trạng kéo dài đến hiện tại)
+4. **We didn't see each other for three years** đúng nếu khoảng ấy đã kết thúc. **We haven't seen each other for three years** nói khoảng kéo tới nay; đề gốc thiếu ngữ cảnh nên không buộc đổi.
 
 ## Tóm tắt nhanh
 1. Cấu trúc: Subject + **have/has** + **V3 (Past Participle)**
 2. Dùng cho: trải nghiệm cuộc đời / hành động vừa xảy ra / tình trạng kéo dài / thành tựu tính đến nay
 3. Dấu hiệu: *ever, never, just, already, yet, since, for, recently, in recent years*
-4. **Không dùng** với mốc thời gian cụ thể (*yesterday, last year, in 2020*) — phải dùng Past Simple
+4. Thường không dùng với trạng ngữ định vị sự việc trong khoảng quá khứ đã kết thúc; since + mốc bắt đầu vẫn phù hợp
 5. *Since* + thời điểm; *for* + khoảng thời gian
 6. *Been* = đã trải nghiệm (và có thể đã về); *gone* = đã đi và vẫn còn ở đó
 
@@ -489,10 +487,10 @@ Nếu time frame **vẫn mở** đến hiện tại (today, this week, this mont
 ❌ "I lived in Hanoi for 10 years." (sai nếu vẫn ở Hanoi)
 ✅ "I have lived in Hanoi for 10 years." (vẫn ở; time frame "for 10 years" mở đến nay)
 
-❌ "I never visited Japan." (technically có thể đúng nhưng nghe lạ)
-✅ "I have never visited Japan." (kinh nghiệm tổng đến nay)
+"I never visited Japan" có thể nói về một khoảng quá khứ đã qua.
+"I have never visited Japan" nói kinh nghiệm tổng đến nay.
 
-❌ "Did you eat breakfast?" (sai nếu morning vẫn diễn ra)
-✅ "Have you eaten breakfast?" (this morning vẫn mở)
+"Did you eat breakfast?" có thể hỏi về bữa sáng đã kết thúc dù vẫn còn buổi sáng.
+"Have you eaten breakfast?" nhìn kết quả/trải nghiệm tính tới hiện tại.
 
 **IELTS Speaking high-leverage:** Part 1 questions như "Have you ever...?" và Part 2 "I've always loved...", "I've been doing this for..." — đây là present perfect contexts cố định.

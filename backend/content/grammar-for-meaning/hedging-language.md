@@ -2,7 +2,7 @@
 title: Hedging Language — Diễn đạt thận trọng và không chắc chắn
 slug: hedging-language
 category: grammar-for-meaning
-summary: 'Hedging language là cách dùng ngôn ngữ để thể hiện mức độ không chắc chắn, tránh khẳng định tuyệt đối, hoặc trình bày quan điểm một cách thận trọng: "it seems that", "tends to", "is likely to", "may", "could", "apparently"... Đây là đặc trưng của văn phong học thuật và là yếu tố phân biệt Band 6 với Band 7+ trong IELTS Writing.
+summary: 'Hedging language giúp giới hạn nhận định theo bằng chứng: "it seems that", "tends to", "is likely to", "may", "could", "apparently"... Chọn cách diễn đạt theo mức chắc chắn, phạm vi và ngữ cảnh; số lượng hedge không quyết định band IELTS.
 
   '
 level: advanced
@@ -68,7 +68,7 @@ anchors:
     location: '## Lỗi phổ biến của người Việt — Quá tự tin / không hedging'
     type: pitfall
   - id: hedging-language.common-mistake.over-hedging
-    location: "### Lỗi 4: Lạm dụng hedging — quá nhiều hedges làm mất điểm Task Achievement"
+    location: "### Lỗi 4: Lạm dụng hedging làm ý thiếu rõ ràng"
     type: pitfall
   - id: hedging-language.ielts.part3-cautious-opinions
     location: "### Speaking Part 3 — thảo luận ý kiến học thuật:"
@@ -93,10 +93,12 @@ So sánh:
 ## Tại sao quan trọng
 
 Trong IELTS Writing và Speaking, hedging language giúp:
-1. **Band 7+:** Examiners đánh giá cao khả năng phân biệt fact vs opinion, certain vs uncertain
+1. **Nghĩa rõ:** Phân biệt fact vs opinion, certain vs uncertain
 2. **Độ chính xác:** Tránh overgeneralisation — lỗi phổ biến khiến mất điểm Task Response
-3. **Văn phong học thuật:** Academic writing luôn dùng hedges; không có hedges = không đủ sophisticated
-4. **Speaking Band 7+:** Sử dụng hedging khi thảo luận ý kiến trừu tượng trong Part 3
+3. **Văn phong học thuật:** Dùng hedge khi bằng chứng cần giới hạn; nhận định mạnh có căn cứ vẫn phù hợp
+4. **Speaking Part 3:** Diễn đạt điều chưa chắc chắn khi thảo luận ý kiến trừu tượng
+
+[Tiêu chí IELTS Speaking](https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf) đánh giá cách dùng ngôn ngữ trên toàn bài. Một hedge hay số lượng hedge không tự xác định band.
 
 <!-- anchor: hedging-language.modal-hedges -->
 ## Nhóm 1: Modal Verbs (Động từ khuyết thiếu)
@@ -105,12 +107,12 @@ Modal verbs là cách hedging phổ biến nhất:
 
 | Modal | Mức chắc chắn | Ví dụ |
 |-------|--------------|-------|
-| **will** | ~95% | Technology **will** continue to advance. |
-| **should** | ~80% | This approach **should** reduce costs. |
-| **would** | ~75% (giả định) | This **would** be beneficial in theory. |
-| **may** | ~50% | Social media **may** have negative effects. |
-| **might** | ~40% | This trend **might** reverse in the future. |
-| **could** | ~35% | The policy **could** have unintended consequences. |
+| **will** | dự đoán/khẳng định của người nói | Technology **will** continue to advance. |
+| **should** | kỳ vọng trong ví dụ này | This approach **should** reduce costs. |
+| **would** | kết quả giả định trong ví dụ này | This **would** be beneficial in theory. |
+| **may** | khả năng chưa chắc chắn | Social media **may** have negative effects. |
+| **might** | khả năng chưa chắc chắn | This trend **might** reverse in the future. |
+| **could** | khả năng chưa chắc chắn | The policy **could** have unintended consequences. |
 | **can** | khả năng/khái quát | Stress **can** lead to serious health problems. |
 
 **Dùng trong IELTS Writing Task 2:**
@@ -149,8 +151,8 @@ Modal verbs là cách hedging phổ biến nhất:
 
 | Mức chắc chắn | Adverb/Phrase |
 |--------------|----------------|
-| Rất chắc chắn | **clearly, obviously, certainly, undoubtedly** |
-| Khá chắc chắn | **probably, generally, typically, largely** |
+| Tăng mức khẳng định (boosters) | **clearly, obviously, certainly, undoubtedly** |
+| Xác suất / tần suất / phạm vi | **probably** / **generally, typically** / **largely** — ba chức năng khác nhau |
 | Không chắc | **possibly, perhaps, apparently, presumably** |
 | Ít chắc hơn | **conceivably, theoretically, potentially** |
 
@@ -208,7 +210,7 @@ Subject + passive verb + to-infinitive
 | **It is often claimed that** | **It is often claimed that** technology creates jobs. |
 
 **Chuyển từ active sang passive:**
-- "Researchers believe that..." → "**It is believed that...**"
+- “Researchers believe that...” → “It is believed that...” bỏ nguồn cụ thể; nếu đã biết nguồn, nên giữ “The researchers in this study believe...”. Bị động không tự thêm bằng chứng hay tính khách quan.
 - "Some argue that..." → "**It is argued that...**"
 - "Studies show that..." → "**It has been shown that...**"
 
@@ -254,19 +256,20 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 
 ### Lỗi 3: Nhầm "may" và "might" với "maybe"
 
-- ❌ **Maybe** the government should invest more. (informal — tránh trong Writing)
-- ✅ The government **may** need to invest more. (modal verb — formal)
-- ✅ **Perhaps** the government should consider increasing investment. (adverb — formal)
+- **Maybe** the government should invest more. (đúng cấu trúc; maybe có thể hội thoại hơn perhaps)
+- **Perhaps** the government should invest more. (giữ nguyên khuyến nghị should)
+- The government **may** need to invest more. (đúng cấu trúc, nhưng chuyển sang khả năng có nhu cầu; không hoàn toàn cùng mức khẳng định với should)
+- Maybe/perhaps là trạng từ; may/might là động từ tình thái đi với động từ nguyên mẫu. Chọn theo ý nghĩa và văn phong, không tự coi maybe là lỗi.
 
 <!-- anchor: hedging-language.common-mistake.over-hedging -->
-### Lỗi 4: Lạm dụng hedging — quá nhiều hedges làm mất điểm Task Achievement
+### Lỗi 4: Lạm dụng hedging làm ý thiếu rõ ràng
 
 - ❌ It **might possibly perhaps** be the case that technology **could** potentially have **some** effects.
 - ✅ Technology **may** have significant effects on mental health **in certain contexts**.
 
 ### Lỗi 5: Dùng "seem" sai cấu trúc
 
-- ❌ It seems **like** the policy has failed.
+- ✅ It seems **like** the policy has failed. (đúng cấu trúc, thường hội thoại hơn)
 - ✅ It seems **that** the policy has failed. (formal writing)
 - ✅ The policy **seems to have** failed. (subject + seem + to-inf)
 
@@ -344,10 +347,10 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 | **Noun phrases** | there tends to be, there appears to be a link |
 
 **Quy tắc vàng:**
-- Khẳng định tuyệt đối (all, never, always, proves) → hầu như luôn cần được hedge
-- Dùng 1–2 hedges mỗi câu — quá nhiều làm câu lủng củng
+- Kiểm tra bằng chứng trước khi dùng all, never, always hoặc proves; không tự làm yếu một nhận định đã được chứng minh.
+- Dùng hedge khi bằng chứng cần giới hạn; không có số hedge bắt buộc mỗi câu. Khẳng định mạnh có căn cứ cũng phù hợp.
 - Trong IELTS Writing: hedging không phải là "thiếu tự tin" — nó là **văn phong học thuật chuẩn**
-- "May/might/could + V" → hedge mạnh nhất và tự nhiên nhất trong Writing
+- "May/might/could + V" diễn đạt khả năng; chọn theo ý nghĩa và ngữ cảnh, không có một hedge tốt nhất cho mọi câu.
 
 ## Lỗi phổ biến của người Việt — Quá tự tin / không hedging
 
@@ -358,10 +361,9 @@ Người học VN thường mạnh quá: "Definitely yes!", "I strongly agree!",
 ❌ "Definitely, social media is bad for young people." (tuyệt đối, defensible thấp)
 ✅ "I'd say social media can be problematic for young people, particularly in terms of attention span."
 
-❌ "I strongly agree." (overdone)
-✅ "I tend to agree, although I think it depends on the context."
+"I strongly agree" phù hợp khi lập trường và lập luận hỗ trợ sự đồng ý mạnh. Nếu chỉ đồng ý có điều kiện, có thể nói "I tend to agree, although I think it depends on the context". Hai câu không có cùng mức cam kết.
 
-Hedging KHÔNG phải yếu — nó là Band 7+ marker thể hiện phán đoán cẩn trọng (critical thinking). Examiner đánh giá cao.
+Hedging giúp diễn đạt giới hạn của nhận định. Dùng phù hợp hỗ trợ độ chính xác về nghĩa; bản thân cấu trúc không bảo đảm Band 7+.
 
 <!-- anchor: hedging-language.distancing-phrases -->
 ## Nhóm 7: Distancing phrases (Khoảng cách hóa)
@@ -377,9 +379,9 @@ Ba modal verbs này đều diễn đạt khả năng — nhưng với sắc thá
 
 | Modal | Sắc thái | Ví dụ |
 |-------|---------|-------|
-| **may** | Khả năng chung (neutral) | This **may** lead to unemployment. |
-| **might** | Ít chắc hơn "may" | The policy **might** have unintended consequences. |
-| **could** | Khả năng trong số nhiều khả năng | Remote work **could** become the norm. |
+| **may** | khả năng chưa chắc chắn | This **may** lead to unemployment. |
+| **might** | khả năng chưa chắc chắn | The policy **might** have unintended consequences. |
+| **could** | khả năng chưa chắc chắn | Remote work **could** become the norm. |
 
 ### Dùng trong Part 3:
 
@@ -403,10 +405,10 @@ Perhaps/Possibly, [full sentence].
 
 | Trạng từ | Mức độ chắc chắn | Ví dụ |
 |----------|-----------------|-------|
-| **certainly / definitely** | Rất chắc (~90%+) | This will **certainly** continue. |
-| **probably** | Khá chắc (~70%) | This will **probably** continue. |
+| **certainly / definitely** | Nhấn mạnh sự chắc chắn | This will **certainly** continue. |
+| **probably** | Có khả năng cao theo người nói | This will **probably** continue. |
 | **likely** | Khá chắc | Change is **likely** to happen. |
-| **possibly / perhaps** | Không chắc (~50%) | This **might possibly** cause issues. |
+| **possibly / perhaps** | Khả năng chưa chắc chắn | This **might possibly** cause issues. |
 | **presumably** | Suy đoán từ bằng chứng | People are **presumably** more stressed. |
 | **conceivably** | Chỉ là lý thuyết | This **could conceivably** work. |
 

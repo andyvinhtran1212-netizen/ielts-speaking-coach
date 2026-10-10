@@ -82,9 +82,9 @@ headword: "ec-historic-significance"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'The moon landing was a historical achievement that inspired generations.'"
-answer: false
+answer: true
 grammar_article_slug: "historic-vs-historical"
-explain: "SAI — đây là thành tựu có tầm quan trọng lớn, tạo ra dấu mốc lịch sử, phải dùng 'historic': 'The moon landing was a historic achievement that inspired generations.'"
+explain: "ĐÚNG — historic thường nhấn mạnh tầm quan trọng tạo dấu mốc; historical còn có nghĩa được biết đến/quan trọng trong lịch sử nên historical achievement không tự sai. Historic achievement là lựa chọn thông dụng rõ hơn cho ý dấu mốc."
 ---
 
 ---
@@ -182,9 +182,9 @@ headword: "ec-historical-general"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'The study uses historic data from the 19th century to model economic growth.'"
-answer: false
+answer: true
 grammar_article_slug: "historic-vs-historical"
-explain: "SAI — đây là bối cảnh nghiên cứu học thuật với số liệu quá khứ, không nhấn mạnh tầm quan trọng → phải dùng 'historical': 'The study uses historical data from the 19th century to model economic growth.'"
+explain: "ĐÚNG — historic data có cách dùng chỉ dữ liệu quá khứ trong văn bản nghiên cứu và tổ chức. Historical data là lựa chọn mặc định rõ, phổ biến cho người học; ngữ cảnh học thuật không cấm tuyệt đối historic ở nghĩa này."
 ---
 
 # ===== item_key 3 · Lỗi collocation thường gặp giữa historic và historical =====

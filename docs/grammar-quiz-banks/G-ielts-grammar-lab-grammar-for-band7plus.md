@@ -152,10 +152,10 @@ headword: "gb7-cleft-sentences"
 skill: "production"
 subtype: "intermediate"
 prompt: "Complete the it-cleft with ONE word: 'It ____ the 2008 financial crisis that exposed the vulnerability of deregulated banking systems.'"
-accept: ["was"]
+accept: ["was", "is"]
 case_sensitive: false
 grammar_article_slug: "grammar-for-band7plus"
-explain: "Sự kiện đã xảy ra trong quá khứ (2008) → dùng 'It was' (quá khứ), không phải 'It is'."
+explain: "Was là cách tự nhiên khi nhấn mạnh sự kiện quá khứ. Is cũng có thể dùng để đưa ra nhận định hiện tại về sự kiện 2008: năm của sự kiện không tự buộc động từ trong phần It-cleft phải ở quá khứ. Đề không giới hạn thời điểm của nhận định."
 ---
 
 ---
@@ -321,11 +321,11 @@ input: "text"
 headword: "gb7-hedging-language"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with ONE word: 'Technology ____ to be transforming the nature of work, though more research is needed.'"
-accept: ["appears"]
+prompt: "Use appears or seems (ONE word): 'Technology ____ to be transforming the nature of work, though more research is needed.'"
+accept: ["appears", "seems"]
 case_sensitive: false
 grammar_article_slug: "grammar-for-band7plus"
-explain: "'appears to + V' là epistemic modal hedging verb — diễn đạt nhận định thận trọng, không khẳng định tuyệt đối."
+explain: "Appears to và seems to đều thể hiện nhận định thận trọng dựa trên quan sát trong khung câu này. Đây là hedging bằng động từ, không phải trợ động từ modal như may/might."
 ---
 
 ---

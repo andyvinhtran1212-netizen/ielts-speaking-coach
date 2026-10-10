@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -11,15 +12,7 @@ from yaml.tokens import AliasToken, AnchorToken, KeyToken, ScalarToken
 
 TEXT_MATCH_POLICY = 'qid-exact-v1'
 POLICY_KEY = 'text_match_by_qid'
-CANONICAL_CODES = frozenset({
-    'G-parts-of-speech-verbs', 'G-sentence-structures-passive-voice',
-    'G-tenses-past-continuous', 'G-tenses-present-continuous',
-    'G-tenses-present-perfect-continuous', 'G-tenses-present-simple',
-    'G-grammar-for-reading-participle-clauses',
-    'G-grammar-for-reading-long-sentence-untangling',
-    'G-grammar-for-reading-reduced-relative-clauses', 'G-tenses-past-perfect',
-    'G-foundations-phrase-vs-clause', 'G-error-clinic-dangling-modifiers',
-})
+CANONICAL_CODES = frozenset(json.loads(Path(__file__).with_name('grammar_quiz_reviewed_sources.json').read_text()))
 MAX_MAP_BYTES = 16 * 1024
 MAX_MAP_ENTRIES = 200
 MAX_SOURCE_BYTES = 256 * 1024

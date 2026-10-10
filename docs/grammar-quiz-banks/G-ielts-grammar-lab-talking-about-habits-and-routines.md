@@ -80,11 +80,11 @@ input: "text"
 headword: "thr-present-habits"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with ONE word: 'I go to the gym three times a ____.' (a regular time period)"
-accept: ["week"]
+prompt: "Use day, week, month or year (ONE word): 'I go to the gym three times a ____.'"
+accept: ["day", "week", "month", "year"]
 case_sensitive: false
 grammar_article_slug: "talking-about-habits-and-routines"
-explain: "'three times a week' là cụm thời gian cụ thể hóa tần suất — dùng để thay thế trạng từ chung chung."
+explain: "Mỗi đơn vị thời gian được cho đều tạo một tần suất đúng cấu trúc. Week và month khác lịch tập nhưng đề không cung cấp lịch bắt buộc một đơn vị riêng; chọn theo ý muốn diễn đạt."
 ---
 
 ---

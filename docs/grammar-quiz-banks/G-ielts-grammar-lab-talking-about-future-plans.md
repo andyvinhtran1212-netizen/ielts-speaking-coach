@@ -219,11 +219,11 @@ input: "choice"
 headword: "tfp-present-continuous-arrangement"
 skill: "usage"
 subtype: "intermediate"
-prompt: "'I can't meet tomorrow — ____ see my supervisor at 2pm.' (đã hẹn cụ thể, xác nhận rồi)"
+prompt: "Chọn Present Continuous để nhấn mạnh cuộc hẹn đã xác nhận: 'I can't meet tomorrow — ____ my supervisor at 2pm.'"
 options: ["I'm seeing", "I'll see", "I see", "I'm going to seeing"]
 answer: 0
 grammar_article_slug: "talking-about-future-plans"
-explain: "Cuộc hẹn đã xác nhận có giờ cụ thể (2pm) → present continuous: 'I'm seeing my supervisor at 2pm.'"
+explain: "I'm seeing my supervisor at 2pm dùng Present Continuous cho cuộc hẹn đã sắp xếp. Ô trống bao gồm cả seeing; see không còn được in thêm sau ô. I'll see có thể đúng trong ngữ cảnh khác nhưng không thực hiện yêu cầu Present Continuous của đề."
 ---
 
 ---

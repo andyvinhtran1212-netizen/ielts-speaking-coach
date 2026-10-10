@@ -79,9 +79,9 @@ anchors:
 Trong tiếng Việt, **bỏ chủ ngữ là hoàn toàn bình thường** khi người nghe đã hiểu từ ngữ cảnh:
 
 > "Hôm qua đi học muộn." ← Ai đi? Không cần nói, người nghe tự hiểu.
-> "Học tiếng Anh rất khó." ← Ai học? Không cần chủ ngữ.
+> “Học tiếng Anh rất khó” có chủ ngữ là hoạt động học; khác “Hôm qua đi học muộn” lược người thực hiện.
 
-Tiếng Anh **không cho phép** điều này (ngoại trừ câu mệnh lệnh). Mọi câu khẳng định hoặc phủ định đều phải có chủ ngữ rõ ràng.
+Mệnh đề hữu hạn trong văn viết chuẩn thường cần chủ ngữ. Hội thoại có tỉnh lược khôi phục được: “Seems like it’s changing fast”; mệnh lệnh và vị ngữ phối hợp dùng chung chủ ngữ có quy tắc riêng.
 
 > "Yesterday went to school late." ← ❌ Sai hoàn toàn trong tiếng Anh.
 > "I went to school late yesterday." ← ✅ Đúng.
@@ -140,7 +140,7 @@ Khi câu có nhiều vế, người học hay quên thêm subject cho vế sau �
 | "He studied economics at university, helped him get a good job." | "He studied economics at university, **which** helped him get a good job." / "Studying economics at university **helped** him get a good job." |
 | "The company launched a new product and was a great success." | "The company launched a new product and **it** was a great success." |
 
-**Mẹo nhận biết:** Đọc lại câu sau dấu phẩy hoặc "and/but" — có subject không? Nếu câu sau bắt đầu bằng động từ (was, helped, were...) mà không có subject → lỗi.
+**Mẹo nhận biết:** Đọc lại câu sau dấu phẩy hoặc "and/but" — có subject không? Nếu vị ngữ sau dùng chung chủ ngữ đã rõ thì không phải lỗi: “She cooked and washed the dishes”. Khi đổi chủ thể, cần viết rõ chủ ngữ.
 
 ---
 

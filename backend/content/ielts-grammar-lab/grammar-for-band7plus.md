@@ -2,7 +2,7 @@
 title: Grammar cho Band 7+
 slug: grammar-for-band7plus
 category: ielts-grammar-lab
-summary: 'Những cấu trúc ngữ pháp nâng cao giúp đạt Band 7+ trong IELTS: inversion để nhấn mạnh, cleft sentences, complex noun phrases, mixed conditionals, advanced passive constructions, và hedging language tinh tế.
+summary: 'Luyện lựa chọn cấu trúc linh hoạt và chính xác: inversion để nhấn mạnh, cleft sentences, complex noun phrases, mixed conditionals, advanced passive constructions và hedging. Band IELTS phụ thuộc toàn bài; việc dùng một cấu trúc nâng cao không bảo đảm Band 7+.
 
   '
 level: advanced
@@ -83,7 +83,7 @@ anchors:
 <!-- anchor: grammar-for-band7plus.compare.band-7-vs-8 -->
 ## Tóm tắt
 
-Band 7 yêu cầu "a variety of complex structures with some flexibility and accuracy." Band 8 yêu cầu "a wide range of structures used with flexibility and accuracy." Bài viết này giới thiệu các cấu trúc nâng cao giúp nâng điểm Grammar từ 6.5 lên 7+ — những cấu trúc hiếm gặp trong bài thí sinh trung bình, nhưng tự nhiên với người dùng tiếng Anh học thuật.
+Tóm lược GRA: phạm vi cấu trúc, sự linh hoạt và độ chính xác được đánh giá trên toàn bài. Nguồn: [IELTS Writing band descriptors](https://ielts.org/cdn/ielts-guides/ielts-writing-band-descriptors.pdf), bản công khai 2023. Bài viết giới thiệu các cấu trúc để luyện lựa chọn và sử dụng theo mục đích diễn đạt. Chúng không tự chuyển một bài từ 6.5 lên 7+; hiệu quả phụ thuộc sự phù hợp và độ chính xác trong toàn bài.
 
 ## Tại sao quan trọng
 
@@ -144,7 +144,7 @@ Were + S + to + V / Had + S + V3 / Should + S + V (formal)
 - **Should any problems arise**, the team is ready to respond immediately.
   *(= If any problems arise...)*
 
-> **Khi nào dùng:** Chỉ dùng inversion trong Writing (trang trọng). Trong Speaking, chỉ dùng ở Band 8+ khi nói rất tự tin. Không nên cố nhét inversion vào Speaking nếu chưa quen.
+> **Khi nào dùng:** Inversion thường trang trọng; dùng trong nói hoặc viết nếu phù hợp và trôi chảy. Không có ngưỡng band cho phép dùng cấu trúc này.
 
 ---
 
@@ -259,7 +259,7 @@ S + is + V3 (to + V)          →     cách khác của reporting passive
 |--------|-------|
 | It is argued that | **It is argued that** economic growth alone cannot solve inequality. |
 | It is widely believed that | **It is widely believed that** early intervention improves long-term outcomes. |
-| It has been shown that | Research **has shown that** exercise improves cognitive function. |
+| It has been shown that | **It has been shown that** exercise improves cognitive function. *(ví dụ cấu trúc; cần nguồn nghiên cứu thật khi dùng làm bằng chứng)* |
 | S + is said to + V | The gap between rich and poor **is said to be** widening. |
 | S + is thought to + V | The policy **is thought to have had** limited success. |
 | S + is considered to + V | Access to clean water **is considered to be** a fundamental human right. |
@@ -284,7 +284,7 @@ Passive gerund: being + V3
 <!-- anchor: grammar-for-band7plus.high-leverage.hedging-and-modality -->
 ## Phần 6: Hedging Language — Diễn đạt thận trọng
 
-Văn học thuật Band 7+ không nói tuyệt đối. Hedging thể hiện sự tinh tế học thuật.
+Văn học thuật cần mức khẳng định phù hợp bằng chứng. Hedging thể hiện sự tinh tế học thuật.
 
 ### Hedging mức độ khẳng định
 
@@ -367,7 +367,7 @@ Noun + V-ing/V3, S + V
 
 *"**Not only does** urbanisation create economic opportunities, **but it also** places enormous pressure on infrastructure and housing. **What is particularly concerning** is the rate at which rural communities are being depopulated, **which** risks undermining agricultural productivity. **Were governments to** invest more strategically in rural development, **it is possible that** migration flows **would be** significantly reduced. **Having recognised this**, several countries **have begun** implementing incentive programmes — **a development that** many experts consider **to have been** long overdue."*
 
-Các cấu trúc trong đoạn này: Not only...but also (inversion), what-cleft, non-defining relative clause, conditional inversion (were to), hedging (it is possible that), participle clause (having recognised), it-cleft (a development that), passive + perfect infinitive (to have been).
+Các cấu trúc trong đoạn này: Not only...but also (inversion), what-cleft, non-defining relative clause, conditional inversion (were to), hedging (it is possible that), participle clause (having recognised), cụm danh từ bổ sung + relative clause (a development that), perfect infinitive với bổ ngữ tính từ (to have been long overdue; không phải bị động).
 
 ### Conclusion — cấu trúc đa dạng
 
@@ -422,9 +422,9 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 ### Đáp án
 
 1. **Never before have** governments faced such a complex challenge.
-2. **It is education** that offers the most effective path to reducing poverty.
+2. **It is education** that is the most effective tool for reducing poverty. *(giữ nội dung gốc)*
 3. **What people often fail to realise** is that small individual actions can have large collective impacts.
-4. **Had stricter regulations been introduced** earlier, the environment **would be** in better condition now.
+4. **Had we introduced stricter regulations** earlier, the environment **would be** in better condition now. *(giữ we; nếu dùng bị động là đổi trọng tâm và lược tác nhân)*
 
 ---
 
@@ -444,21 +444,21 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 | **Gerund làm chủ ngữ** | Doing X + is/requires | Phong cách học thuật |
 | **Hedging** | appears to, tends to, arguably | Thận trọng học thuật |
 
-**Quy tắc vàng cho Band 7+:**
+**Nguyên tắc thực hành:**
 - **Không cần** nhồi nhét mọi cấu trúc vào — 2-3 cấu trúc phức tạp dùng đúng tốt hơn 10 cấu trúc dùng sai
 - Cấu trúc phục vụ **ý nghĩa**, không phải ngược lại
 - Inversion và cleft sentences đặc biệt hiệu quả ở **câu mở bài** và **câu chủ đề đoạn**
-- **Hedging** là bắt buộc ở Band 7+ — nói tuyệt đối là dấu hiệu của Band 5-6
+- **Hedging** phù hợp khi bằng chứng cần giới hạn; khẳng định mạnh có căn cứ vẫn đúng. Không suy band chỉ từ một hedge.
 
 <!-- anchor: grammar-for-band7plus.high-leverage.cleft-inversion-conditional -->
 ## High-leverage structures
 
-Các cấu trúc ngữ pháp tạo đòn bẩy cao trong IELTS Speaking — sử dụng có chiến lược để nâng band điểm Grammar Range and Accuracy.
+Các cấu trúc dưới đây giúp luyện phạm vi diễn đạt trong IELTS Speaking. Chỉ dùng khi chúng phục vụ ý nghĩa và bạn kiểm soát được độ chính xác; không có cấu trúc nào tự bảo đảm tăng band.
 
 
 ## PHẦN 1: THAY THẾ "I THINK"
 
-Dùng "I think" không phải lỗi — nhưng lặp 5 lần trong một bài trả lời thì mất điểm. Xen kẽ với:
+Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự động mất điểm. Nếu lặp thừa làm câu trả lời khó theo dõi, thử giữ, lược bỏ hoặc đổi cách diễn đạt theo chức năng; không cần thay mọi lần dùng. Một số lựa chọn:
 
 ### Diễn đạt quan điểm cá nhân:
 
@@ -612,7 +612,7 @@ Dùng "I think" không phải lỗi — nhưng lặp 5 lần trong một bài tr
 
 ### Lỗi 2: Bắt đầu bằng "Also" ở đầu câu (informal, awkward)
 
-- ❌ "**Also**, I think education is important."
+- ✅ “**Also**, I think education is important.” *(thêm vào quan điểm vừa nêu; lựa chọn đúng khi có ngữ cảnh)*
 - ✅ "**In addition,** education plays a fundamental role..." / "**Education is also** a critical factor..."
 
 ### Lỗi 3: Lặp "Basically" hoặc "Actually" quá nhiều

@@ -2,7 +2,7 @@
 title: Order of Adjectives — Trật tự nhiều tính từ
 slug: order-of-adjectives
 category: modifiers
-summary: 'Khi nhiều tính từ cùng bổ nghĩa một danh từ, chúng theo một trật tự cố định: ý kiến → kích cỡ → tuổi → hình dạng → màu → nguồn gốc → chất liệu → mục đích. Dùng đúng trật tự giúp cụm danh từ nghe tự nhiên.
+summary: 'OSASCOMP là mẹo về trật tự mặc định của tính từ bổ nghĩa tích lũy. Trọng tâm, tương phản và cách phối hợp có thể thay đổi thứ tự; dấu phẩy phụ thuộc cấu trúc, không chỉ nhóm nghĩa.
 
   '
 level: intermediate
@@ -51,7 +51,7 @@ anchors:
 <!-- anchor: order-of-adjectives.overview -->
 ## Tóm tắt
 
-Nhiều tính từ đứng trước danh từ theo **một trật tự cố định** — người bản ngữ cảm nhận ngay khi sai:
+Nhiều tính từ bổ nghĩa tích lũy đứng trước danh từ theo **trật tự mặc định**. OSASCOMP là mẹo học, không phải luật tuyệt đối; các bảng ngữ pháp còn có biến thiên giữa một số nhóm như tuổi và hình dạng:
 
 - ✅ *a **beautiful small old round** table*
 - ❌ *a round old small beautiful table*
@@ -84,8 +84,9 @@ Ví dụ đầy đủ: *a **lovely little old Italian silk** scarf*.
 - ❌ *a Vietnamese old tradition* → ✅ *an **old Vietnamese** tradition*
 
 ### Lỗi 3: Dùng phẩy sai
-- Cùng loại (đều là ý kiến): dùng phẩy — *a cheap, unreliable car.*
-- Khác loại: **không** phẩy — *a big black dog.*
+- **Coordinate adjectives** cùng mô tả danh từ một cách độc lập: thường có thể nối bằng and hoặc đổi thứ tự mà giữ nghĩa; dùng phẩy, như *a cheap, unreliable car*.
+- **Cumulative adjectives** bổ nghĩa tích lũy cho cụm phía sau: không dùng phẩy, như *a big black dog*.
+- Cùng nhóm nghĩa không tự bảo đảm cấu trúc coordinate, và khác nhóm không tự cấm dấu phẩy. Đánh giá cách đọc của cụm trong ngữ cảnh.
 
 ## Ứng dụng trong bài thi
 
@@ -93,6 +94,6 @@ Ví dụ đầy đủ: *a **lovely little old Italian silk** scarf*.
 
 ## Tóm tắt nhanh
 
-- Trật tự: Opinion → Size → Age → Shape → Colour → Origin → Material → Purpose
-- Khác loại thì không dùng phẩy giữa các tính từ
+- Mẹo trật tự mặc định: Opinion → Size → Age → Shape → Colour → Origin → Material → Purpose
+- Dấu phẩy: coordinate có phẩy; cumulative không có phẩy
 - Thực tế chỉ dùng 2–3 tính từ

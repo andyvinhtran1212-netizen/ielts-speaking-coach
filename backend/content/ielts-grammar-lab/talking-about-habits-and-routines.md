@@ -129,7 +129,7 @@ Thay vì chỉ dùng trạng từ, thêm cụm thời gian để cụ thể hơn
 <!-- anchor: talking-about-habits-and-routines.phan-2-tend-to-noi-ve-thoi-quen-tu-nhien-hon -->
 ## PHẦN 2: TEND TO — Nói về thói quen tự nhiên hơn
 
-"Tend to" nghe tự nhiên hơn "usually" và không quá tuyệt đối:
+Tend to chỉ xu hướng; usually chỉ tần suất. Cả hai tự nhiên theo ngữ cảnh, không có thứ hạng chung:
 
 - "I **tend to** wake up quite early — usually around 6."
 - "I **tend to** prefer mornings for anything that requires focus."
@@ -247,7 +247,7 @@ Câu trả lời Part 1 lý tưởng: **2-4 câu** — không quá ngắn, khôn
 
 ### Lỗi 2: Quên dùng "used to" cho thói quen quá khứ
 
-- ❌ "When I was a child, I watched TV a lot." *(đúng nhưng không phân biệt rõ với hiện tại)*
+- ✅ “When I was a child, I watched TV a lot.” *(thói quen quá khứ; chưa nói hiện nay khác ra sao)*
 - ✅ "I **used to** watch a lot of TV as a child, but I **barely** watch it now."
 
 ### Lỗi 3: Dùng "would" cho trạng thái

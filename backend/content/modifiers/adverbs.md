@@ -176,11 +176,12 @@ degree adverb + adjective/adverb
 | absolutely / completely / entirely | 100%, nhấn mạnh tuyệt đối | I'm **absolutely** certain. |
 | extremely / incredibly | Rất cao | It's **extremely** important. |
 | very | Cao | She's **very** intelligent. |
-| quite / fairly | Khá, vừa phải | The film was **quite** good. |
+| quite / fairly | Khá, vừa phải trong cách dùng này; quite còn có nghĩa hoàn toàn | The film was **quite** good; you are **quite** right. |
 | rather | Hơi / khá *(thường có sắc thái ngạc nhiên)* | It's **rather** cold today. |
 | pretty *(informal)* | Khá | That's **pretty** impressive. |
 | a bit / a little | Một chút | I'm **a bit** tired. |
-| slightly / barely | Rất ít, vừa đủ | She's **slightly** taller than me. |
+| slightly | Hơi, chênh lệch nhỏ | She's **slightly** taller than me. |
+| barely | Chỉ vừa / gần như không | He was **barely** able to stand. |
 
 - The problem is **incredibly complex**.
 - She speaks English **fairly fluently**.
@@ -216,7 +217,7 @@ Trả lời **Where?** (Ở đâu?)
 - He looked **everywhere** for his keys.
 - The children were playing **outside**.
 
-**Vị trí:** Thường đứng cuối câu, sau time adverbs nếu dùng cùng nhau:
+**Vị trí:** Thường đứng cuối câu, trước time adverbs nếu dùng cùng nhau; có thể đổi vị trí để đặt trọng tâm:
 - I'll meet you **here tomorrow**. *(place → time)*
 
 ### 6. Sentence Adverbs (Trạng từ bình luận cả câu)
@@ -282,9 +283,8 @@ Sentence adverb, + subject + verb...
 - ✅ ĐÚNG: I **always** drink coffee in the morning.
 - ❌ SAI: She is late never.
 - ✅ ĐÚNG: She is **never** late.
-- ❌ SAI: Often I go to the gym.
-- ✅ ĐÚNG: I **often** go to the gym. *(Trừ khi muốn nhấn mạnh đặc biệt)*
-- **TẠI SAO:** Frequency adverbs phải đứng TRƯỚC động từ thường và SAU "be" — không đứng sau động từ thường.
+- "I **often** go to the gym" là vị trí giữa câu thông dụng. "**Often** I go to the gym" và "I go to the gym **often**" cũng có thể dùng theo trọng tâm.
+- **TẠI SAO:** Vị trí giữa câu là mặc định hữu ích, nhưng often/sometimes không có mọi hạn chế giống always/never. Không đặt always giữa động từ và tân ngữ trong mẫu trung tính "I drink always coffee".
 
 ### Lỗi 2: Dùng "good" thay vì "well"
 
@@ -300,7 +300,7 @@ Sentence adverb, + subject + verb...
 - ✅ ĐÚNG: She drives **carefully**.
 - ❌ SAI: He answered **quick**.
 - ✅ ĐÚNG: He answered **quickly**.
-- **TẠI SAO:** Tiếng Việt không phân biệt tính từ và trạng từ ("cô ấy lái xe **cẩn thận**"), nhưng tiếng Anh bắt buộc thêm -ly khi bổ nghĩa cho động từ.
+- **TẠI SAO:** Cần chọn từ có chức năng trạng từ khi mô tả cách thực hiện hành động. Nhiều trạng từ có -ly, nhưng fast, hard, early, well không theo phép thêm -ly; friendly lại là tính từ.
 
 ### Lỗi 4: Dùng "very" với comparative adjectives
 
@@ -422,8 +422,8 @@ Trong tiếng Anh, cần phân biệt rõ:
 ## Tóm tắt nhanh
 1. Adverb bổ nghĩa cho **động từ, tính từ, adverb khác, hoặc cả câu**
 2. **Manner** (how): quickly, carefully, well — đứng sau động từ (và tân ngữ)
-3. **Frequency** (how often): always, usually, often, sometimes, rarely, never — đứng TRƯỚC động từ thường, SAU "be"
+3. **Frequency** (how often): vị trí giữa câu thường trước động từ chính/sau be; often/sometimes còn có thể đứng đầu hoặc cuối câu
 4. **Degree** (how much): very, quite, extremely, rather — đứng TRƯỚC tính từ/adverb
-5. **"good"** = tính từ; **"well"** = adverb *(bất quy tắc!)*
+5. **"good"** là tính từ; **"well"** là trạng từ khi nói làm tốt, hoặc tính từ khi nói khỏe
 6. **Sentence adverbs** (However, Furthermore, Therefore) đứng đầu câu + dấu phẩy
 7. Adverb KHÔNG đứng giữa động từ và tân ngữ: "speaks English **fluently**" *(không phải "speaks fluently English")*
