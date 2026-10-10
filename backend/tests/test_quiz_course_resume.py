@@ -10,6 +10,8 @@ những câu đã trả lời nằm lại trong một phiên không bao giờ đ
 from __future__ import annotations
 
 import inspect
+import pytest
+from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone
 
 from services import quiz_service as qs
@@ -58,12 +60,6 @@ def test_the_kind_column_is_actually_selected():
     assert "kind" in sel, "lọc theo `kind` thì phải CHỌN `kind`"
     assert "ended_at" in sel and "class_assignment_item_id" in sel
 
-
-def test_a_read_failure_returns_empty_instead_of_blocking_the_student():
-    """Ném ở đây là chặn học viên khỏi bài tập vì một lỗi đọc phụ trợ."""
-    src = _src()
-    assert "except Exception" in src
-    assert "return empty" in src or "return result" in src
 
 
 def test_non_course_banks_are_untouched():
@@ -621,5 +617,27 @@ def test_an_unreadable_attempt_table_does_NOT_send_a_finished_student_to_stage_0
             patch.object(qs, "_bank_meta_or_404",
                          lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
             patch.object(qs, "_assignment_item_for", lambda *_a, **_k: {"id": ITEM}):
-        sv = qs.get_course_resume(user_id=USER, bank_id=BANK)
-    assert sv["stage"] == 8, "lùi về đếm phiên, KHÔNG về 0"
+        with pytest.raises(HTTPException) as error:
+            qs.get_course_resume(user_id=USER, bank_id=BANK)
+    assert error.value.status_code == 503
+
+@pytest.mark.parametrize("failed_table", ["class_assignment_items", "quiz_sessions", "quiz_questions", "quiz_attempts"])
+def test_resume_read_failures_are_retryable_not_empty_progress(failed_table):
+    class Unavailable(_DB):
+        def table(self, name):
+            if name == failed_table:
+                raise RuntimeError("temporary outage")
+            return super().table(name)
+
+    db = Unavailable({
+        "quiz_sessions": [_sess("open")],
+        "quiz_questions": [{"bank_id": BANK, "qid": "q00", "type": "mcq", "order": 0}],
+        "quiz_attempts": [{"session_id": "open", "qid": "q00", "is_correct": True}],
+    })
+    with patch.object(qs, "supabase_admin", db), \
+            patch.object(qs, "_bank_meta_or_404", lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
+            patch.object(qs, "_assignment_item_for", lambda *_a, **_k: {"id": ITEM}):
+        with pytest.raises(HTTPException) as error:
+            qs.get_course_resume(user_id=USER, bank_id=BANK)
+    assert error.value.status_code == 503
+    assert "tiến độ đã lưu" in error.value.detail

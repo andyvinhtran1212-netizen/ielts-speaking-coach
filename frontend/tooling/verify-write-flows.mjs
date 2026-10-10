@@ -301,8 +301,9 @@ async function runFlow(browser, flow) {
     if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) {
       return route.continue();
     }
-    for (const [re, payload] of flow.canned || []) {
+    for (const [re, canned] of flow.canned || []) {
       if (re.test(url)) {
+        const payload = typeof canned === 'function' ? canned(req) : canned;
         if (payload && payload.__delayMs) await new Promise((r) => setTimeout(r, payload.__delayMs));
         // `__status` cho phép dựng ĐƯỜNG HỎNG. Không có nó thì mọi lời gọi đều
         // 200, và các nhánh chỉ chạy khi máy chủ lỗi — như báo động "máy chủ
