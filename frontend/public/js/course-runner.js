@@ -334,7 +334,15 @@ export function createRunner({
   function restore() {
     if (!storage) return 'fresh';
     let v = {};
-    try { v = JSON.parse(storage.getItem(key()) || '{}'); } catch (e) { return 'fresh'; }
+    let legacyKey = false;
+    try {
+      let raw = storage.getItem(key());
+      if (!raw && userId) {
+        raw = storage.getItem('cx:' + bank.id);
+        legacyKey = Boolean(raw);
+      }
+      v = JSON.parse(raw || '{}');
+    } catch (e) { return 'fresh'; }
     if (typeof v.stage !== 'number') return 'fresh';
     // Khác mục bài giao (chuyển lớp, giao lại) = lượt của một BÀI GIAO khác.
     if ((v.item || null) !== itemId) return 'stale';
@@ -347,6 +355,9 @@ export function createRunner({
       // Re-import thật (đổi QID/đáp án) vẫn là một bài khác và phải reset sạch.
       return 'stale';
     }
+    // Old keys have no account identity. Use their bank/item guard, but never
+    // import another account's marks or session IDs from a shared browser.
+    if (legacyKey) return 'fresh';
     stage = v.stage;
     runSessions = Array.isArray(v.runSessions)
       ? v.runSessions.filter((s) => typeof s === 'string')

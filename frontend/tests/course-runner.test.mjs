@@ -1598,6 +1598,60 @@ describe('chặng chốt hỏng phải SỬA LẠI được (codex #928 R3)', ()
 });
 
 describe('re-import bộ đề CÙNG độ dài (codex #928 R4)', () => {
+  test('account-key upgrade still rejects old sessions when legacy answers changed', async () => {
+    const storage = memStore();
+    const questions = Array.from({ length: 5 }, (_, i) => mcq(i));
+    const first = await run({ storage, questions });
+    await playStage(first.r);
+    const legacy = storage.getItem('cx:b1');
+    const api = fakeApi({
+      questions: questions.map((q) => ({ ...q, answer: 1 })),
+      ledger: ledgerFor(storage),
+    });
+    const upgraded = createRunner({ api, storage, userId: 'learner' });
+    await upgraded.load('b1');
+    assert.equal(upgraded.at, 0);
+    assert.equal(upgraded.runSessionCount, 0);
+    assert.equal(api.calls.get.some((p) => p.includes('/course-resume')), false);
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 1);
+    assert.equal(storage.getItem('cx:b1'), legacy, 'unowned legacy data is preserved');
+  });
+
+  test('account-key upgrade uses canonical progress without importing legacy session IDs', async () => {
+    const storage = memStore();
+    const questions = Array.from({ length: 15 }, (_, i) => mcq(i));
+    const first = await run({ storage, questions });
+    await playStage(first.r);
+    const legacy = JSON.parse(storage.getItem('cx:b1'));
+    legacy.runSessions = ['another-account-session'];
+    storage.setItem('cx:b1', JSON.stringify(legacy));
+    const api = first.api;
+    const upgraded = createRunner({ api, storage, userId: 'learner' });
+    await upgraded.load('b1');
+    assert.equal(upgraded.stage, 1);
+    assert.equal(upgraded.runSessionCount, 1);
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 2);
+    await playStage(upgraded);
+    await upgraded.verdict();
+    assert.deepEqual(api.calls.post.find((c) => c.path === '/api/quiz/course/verdict')
+      .body.session_ids, ['sess-1', 'sess-2']);
+  });
+
+  test('account-key upgrade keeps the legacy assignment-item stale guard', async () => {
+    const storage = memStore();
+    const questions = [mcq(0)];
+    const first = await run({ storage, questions, mastery: { item_id: 'old-item' } });
+    first.r.show(); first.r.answer(0); first.r.next();
+    const api = fakeApi({ questions, mastery: { item_id: 'new-item' }, resume: {
+      session_id: 'wrong-old-session', answered: [], completed: [], stage: 0,
+    } });
+    const upgraded = createRunner({ api, storage, userId: 'learner' });
+    await upgraded.load('b1');
+    assert.equal(api.calls.get.some((p) => p.includes('/course-resume')), false);
+    assert.equal(api.calls.post.find((c) => c.path === '/api/quiz/sessions')
+      .body.class_item, 'new-item');
+  });
+
   test('đổi đáp án là đổi bài: trạng thái cũ bỏ, lượt mới sạch', async () => {
     const store = memStore();
     const v1 = Array.from({ length: 5 }, (_, i) => mcq(i));
