@@ -209,19 +209,19 @@ The reality is more nuanced than...
 
 ## Bảng mẫu câu đầy đủ
 
-### Bắt đầu câu opinion (sorted by strength)
+### Bắt đầu câu opinion theo chức năng
 
-| Độ mạnh | Cấu trúc | Ngữ cảnh dùng |
+| Chức năng | Cấu trúc | Ngữ cảnh dùng |
 |---------|---------|--------------|
-| ★★★★★ | It is undeniable that... | Sự thật khó bác bỏ |
-| ★★★★★ | There is no doubt that... | Tự tin hoàn toàn |
-| ★★★★☆ | I strongly believe that... | Quan điểm cá nhân mạnh |
-| ★★★★☆ | It is clear that... | Dựa trên bằng chứng rõ |
-| ★★★☆☆ | I believe / think that... | Quan điểm cá nhân trung bình |
-| ★★★☆☆ | It is often argued that... | Ý kiến phổ biến |
-| ★★☆☆☆ | It could be argued that... | Quan điểm còn tranh luận |
-| ★★☆☆☆ | To some extent... | Chỉ đúng một phần |
-| ★☆☆☆☆ | It might be suggested that... | Giả thuyết, không chắc chắn |
+| Theo chức năng/ngữ cảnh | It is undeniable that... | Sự thật khó bác bỏ |
+| Theo chức năng/ngữ cảnh | There is no doubt that... | Tự tin hoàn toàn |
+| Theo chức năng/ngữ cảnh | I strongly believe that... | Quan điểm cá nhân mạnh |
+| Theo chức năng/ngữ cảnh | It is clear that... | Dựa trên bằng chứng rõ |
+| Theo chức năng/ngữ cảnh | I believe / think that... | Quan điểm cá nhân trung bình |
+| Theo chức năng/ngữ cảnh | It is often argued that... | Ý kiến phổ biến |
+| Theo chức năng/ngữ cảnh | It could be argued that... | Quan điểm còn tranh luận |
+| Theo chức năng/ngữ cảnh | To some extent... | Chỉ đúng một phần |
+| Theo chức năng/ngữ cảnh | It might be suggested that... | Giả thuyết, không chắc chắn |
 
 ---
 
@@ -232,7 +232,7 @@ The reality is more nuanced than...
 
 **Q: Should governments ban fast food advertising aimed at children?**
 
-> "**I strongly believe that** governments should impose strict regulations on fast food advertising directed at children. **It is undeniable that** children are highly susceptible to advertising, and the rise in childhood obesity over the past two decades is **clear evidence** that current measures are insufficient. **However**, it could be argued that** parents ultimately bear the primary responsibility for their children's diet, and that blanket bans may infringe on commercial freedom. **That said**, **I am convinced that** the health of future generations must take precedence over commercial interests."
+> "**I strongly believe that** governments should ban fast-food advertising directed at children. **It is undeniable that** children are highly susceptible to advertising, but trends in childhood obesity alone do not prove that current advertising measures caused the problem. **However**, it could be argued that** parents ultimately bear the primary responsibility for their children's diet, and that blanket bans may infringe on commercial freedom. **That said**, **I am convinced that** the health of future generations must take precedence over commercial interests."
 
 **Phân tích cấu trúc:**
 - Câu 1: Strong stance (I strongly believe)
@@ -258,7 +258,7 @@ The reality is more nuanced than...
 ### Lỗi 3: Strong opinion không có bằng chứng
 
 - ❌ "**I am completely sure** that social media is bad." (không chứng minh được)
-- ✅ "**I strongly believe that** social media has significant negative effects on mental health, **particularly** among teenagers, **as** numerous studies have shown a correlation between heavy social media use and depression."
+- ✅ "**I strongly believe that** heavy social-media use is associated with poorer mental-health outcomes in some groups. *(Khi có nghiên cứu phù hợp; liên hệ không tự chứng minh nhân quả.)*"
 
 ### Lỗi 4: Cautious cả bài — nghe thiếu lập trường
 
@@ -336,8 +336,8 @@ CAUTIOUS OPINIONS:
   While it is true that..., it is also...
 
 CHIẾN LƯỢC IELTS:
-  → Band 6: Chỉ dùng "I think" → nhàm, kém đa dạng
-  → Band 7+: Mix strong + cautious theo ngữ cảnh
-  → Luôn có ít nhất 1 strong claim rõ ràng trong mỗi đoạn
+  → Chọn strong/cautious theo ý định và bằng chứng; "I think" không tự xác định band
+  → Band IELTS xét phạm vi, độ chính xác và sự phù hợp trên toàn bài
+  → Giữ lập trường rõ và mức khẳng định phù hợp bằng chứng; không bắt buộc một strong claim mỗi đoạn
   → Dùng cautious khi acknowledge counter-arguments
 ```

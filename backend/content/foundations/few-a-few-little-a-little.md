@@ -2,7 +2,7 @@
 title: Few / A few / Little / A little — Phân biệt từ chỉ số lượng nhỏ
 slug: few-a-few-little-a-little
 category: foundations
-summary: '"Few", "a few", "little", và "a little" đều nói về số lượng nhỏ, nhưng mang sắc thái hoàn toàn khác nhau. "Few" và "little" (không có "a") mang nghĩa tiêu cực — gần như không có gì. "A few" và "a little" (có "a") mang nghĩa tích cực — có một ít, đủ dùng. Ngoài ra, "few/a few" dùng với danh từ đếm được (số nhiều), còn "little/a little" dùng với danh từ không đếm được. Nhầm lẫn bốn từ này là lỗi phổ biến của người học tiếng Anh ở mọi trình độ.
+summary: '"Few", "a few", "little", và "a little" đều nói về số lượng nhỏ. Few/little thường nhấn mạnh lượng ít hơn mong đợi; a few/a little nhấn mạnh có một lượng nhỏ. Không dạng nào tự bảo đảm đủ dùng hoặc kết quả tốt/xấu: few errors có thể là điều tốt, a little progress vẫn có thể chưa đủ. Ngoài ra, "few/a few" dùng với danh từ đếm được (số nhiều), còn "little/a little" dùng với danh từ không đếm được. Nhầm lẫn bốn từ này là lỗi phổ biến của người học tiếng Anh ở mọi trình độ.
 
   '
 level: beginner
@@ -71,9 +71,9 @@ Bốn từ, hai tiêu chí để phân biệt:
 | **Tích cực** (có một ít) | **a few** | **a little** |
 | **Tiêu cực** (gần như không) | **few** | **little** |
 
-- *We have **a few** minutes* → chúng ta có một ít phút (đủ để làm gì đó)
+- *We have **a few** minutes* → chúng ta có một ít phút; đủ hay không cần xét nhu cầu
 - *We have **few** minutes* → chúng ta hầu như không có phút nào (tiêu cực)
-- *There is **a little** water* → có một ít nước (đủ dùng)
+- *There is **a little** water* → có một ít nước; chưa chắc đủ dùng
 - *There is **little** water* → gần như không có nước (lo ngại)
 
 ---
@@ -90,17 +90,17 @@ Trong IELTS Writing, dùng nhầm "few" thay vì "a few" hoặc ngược lại c
 
 ---
 
-## A FEW — một ít (đủ dùng) + Danh từ đếm được số nhiều
+## A FEW — một vài + Danh từ đếm được số nhiều
 
-**Sắc thái:** Có một số lượng nhỏ — đủ, không tồi.
+**Sắc thái:** Nhấn mạnh có một số lượng nhỏ; không tự suy ra đủ cho mục đích.
 
 ```
 a few + countable noun (plural)
 ```
 
-- I have **a few** minutes to spare. (Tôi có vài phút rảnh — đủ để nói chuyện)
+- I have **a few** minutes to spare. (Tôi có vài phút rảnh; cần xét cuộc nói chuyện dài bao lâu)
 - She made **a few** mistakes. (Cô ấy mắc vài lỗi — bình thường)
-- There are **a few** good restaurants near here. (Có một vài nhà hàng — đủ lựa chọn)
+- There are **a few** good restaurants near here. (Có một vài nhà hàng; đủ lựa chọn hay không tùy nhu cầu)
 - He sent **a few** emails this morning. (Gửi được vài email — tốt)
 
 > **"A few" ≈ some** — mang nghĩa tích cực hoặc trung tính.
@@ -109,7 +109,7 @@ a few + countable noun (plural)
 
 ## FEW — rất ít (hầu như không có) + Danh từ đếm được số nhiều
 
-**Sắc thái:** Gần như không đủ — thiếu, đáng lo ngại, tiêu cực.
+**Sắc thái:** Nhấn số lượng ít, thường ít hơn mong đợi. Đủ hay không và tốt hay xấu phụ thuộc danh từ, nhu cầu và ngữ cảnh; few errors có thể là điều tốt.
 
 ```
 few + countable noun (plural)
@@ -124,18 +124,18 @@ few + countable noun (plural)
 
 ---
 
-## A LITTLE — một chút (đủ dùng) + Danh từ không đếm được
+## A LITTLE — một chút + Danh từ không đếm được
 
-**Sắc thái:** Có một lượng nhỏ — đủ, không tồi.
+**Sắc thái:** Nhấn mạnh có một lượng nhỏ; không tự suy ra đủ cho mục đích.
 
 ```
 a little + uncountable noun
 ```
 
-- I have **a little** time. (Tôi có một ít thời gian — đủ để làm gì đó)
+- I have **a little** time. (Tôi có một ít thời gian; chưa xác định đủ cho việc gì)
 - Can I have **a little** sugar? (Cho tôi ít đường — yêu cầu nhỏ)
 - She has **a little** experience in teaching. (Cô ấy có ít kinh nghiệm — ổn)
-- We have **a little** money left. (Chúng ta còn một ít tiền — đủ dùng)
+- We have **a little** money left. (Chúng ta còn một ít tiền; chưa xác định đủ dùng)
 
 > **"A little" ≈ some (small amount)** — tích cực hoặc trung tính.
 
@@ -143,7 +143,7 @@ a little + uncountable noun
 
 ## LITTLE — rất ít (hầu như không có) + Danh từ không đếm được
 
-**Sắc thái:** Gần như không đủ — thiếu, tiêu cực.
+**Sắc thái:** Nhấn lượng ít, thường ít hơn mong đợi. Little pollution có thể là điều tốt; little không tự chứng minh lượng đó không đủ.
 
 ```
 little + uncountable noun
@@ -173,7 +173,7 @@ little + uncountable noun
 <!-- anchor: few-a-few-little-a-little.so-sanh-doi-chieu-cung-chu-de-khac-y-nghia -->
 ## So sánh đối chiếu — cùng chủ đề, khác ý nghĩa
 
-| A FEW / A LITTLE (tích cực) | FEW / LITTLE (tiêu cực) |
+| A FEW / A LITTLE (có một lượng nhỏ) | FEW / LITTLE (nhấn mạnh lượng ít) |
 |-----------------------------|------------------------|
 | We have **a few** options. (Có lựa chọn.) | We have **few** options. (Hầu như không có lựa chọn.) |
 | He has **a few** supporters. (Có người ủng hộ.) | He has **few** supporters. (Gần như không ai ủng hộ.) |
@@ -187,7 +187,7 @@ little + uncountable noun
 ### Dùng với "only" để nhấn mạnh tính tiêu cực
 
 - Only **a few** people voted. (Chỉ có một số ít người bầu — không nhiều như mong đợi)
-- Only **a little** progress was made. (Chỉ tiến triển một ít — không đủ)
+- Only **a little** progress was made. (Chỉ tiến triển một ít; đủ hay không cần xét mục tiêu)
 
 ### Dùng "quite a few" / "quite a little" — khá nhiều
 
@@ -271,12 +271,12 @@ little + uncountable noun
 1. We have ___ time before the train leaves — let's hurry!
 2. She speaks ___ Spanish, enough to order food.
 3. ___ students scored above 90 in the test — it was very hard.
-4. I have ___ close friends but they're all very supportive.
-5. There is ___ hope of recovery at this stage.
-6. ___ furniture was damaged in the move, but nothing serious.
-7. He ate ___ rice — he wasn't very hungry.
+4. I have ___ close friends but they're all very supportive. *(Nhấn mạnh có một vài người bạn.)*
+5. There is ___ hope of recovery at this stage. *(Nhấn mạnh gần như không còn hy vọng.)*
+6. ___ furniture was damaged in the move, but nothing serious. *(Nhấn mạnh có một lượng nhỏ đồ bị hỏng.)*
+7. He ate ___ rice — he wasn't very hungry. *(Nhấn mạnh đã ăn một lượng nhỏ.)*
 8. Can I have ___ more time to finish this?
-9. ___ scientists have studied this phenomenon in depth.
+9. ___ scientists have studied this phenomenon in depth. *(Nhấn mạnh chưa có nhiều người nghiên cứu.)*
 10. We made ___ errors — overall it went very smoothly.
 
 ### Sửa lỗi
@@ -285,12 +285,12 @@ little + uncountable noun
 2. I only need little minutes to explain.
 3. Few progress has been made in solving the crisis.
 4. We received a few useful information from the survey.
-5. There were little people at the party.
+5. There were little people at the party. *(Muốn nói có ít người, không nói người có vóc dáng nhỏ.)*
 
 ### Đáp án
 
 **Chọn từ:**
-1. little | 2. a little | 3. Few | 4. a few | 5. little | 6. A little | 7. a little | 8. a little | 9. Few | 10. a few
+1. little là cách tự nhiên để nhấn thời gian ít; a little vẫn có thể dùng nếu chỉ nói còn một ít. 2. a little. 3. Few là lựa chọn theo ý ít người đạt cao; a few có thể nhấn có một nhóm đạt cao. 4. a few theo ý đã cho. 5. little theo ý đã cho. 6. A little theo ý đã cho. 7. a little theo ý đã cho. 8. a little. 9. Few theo ý đã cho. 10. few hoặc a few: đều có thể nói số lỗi nhỏ, với trọng tâm khác nhau.
 
 **Sửa lỗi:**
 1. She has **little** knowledge about nutrition. (knowledge = uncountable → little)
@@ -305,16 +305,16 @@ little + uncountable noun
 
 ```
 Đếm được (countable) + số nhiều:
-  ✅ Tích cực → A FEW    (a few friends, a few minutes)
-  ❌ Tiêu cực → FEW      (few opportunities, few supporters)
+  Có một số lượng nhỏ → A FEW    (a few friends, a few minutes)
+  Nhấn mạnh lượng ít → FEW      (few opportunities, few supporters)
 
 Không đếm được (uncountable):
-  ✅ Tích cực → A LITTLE  (a little time, a little money)
-  ❌ Tiêu cực → LITTLE    (little hope, little evidence)
+  Có một lượng nhỏ → A LITTLE  (a little time, a little money)
+  Nhấn mạnh lượng ít → LITTLE    (little hope, little evidence)
 ```
 
 **Mẹo nhớ:**
-- Có chữ **"a"** = có một ít = **tích cực** (như "a bit of something")
-- Không có **"a"** = gần như không có = **tiêu cực**
+- Có a nhấn mạnh có một lượng nhỏ, không tự bảo đảm đủ hay tốt: a little water, but not enough for everyone.
+- Few/little nhấn mạnh lượng ít; giá trị tốt/xấu tùy đối tượng: few errors thường là điều tốt.
 - **Few/a few** = đếm được → luôn theo sau là danh từ số nhiều
 - **Little/a little** = không đếm được → theo sau là danh từ không có số nhiều

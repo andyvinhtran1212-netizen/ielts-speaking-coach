@@ -234,7 +234,9 @@
     {
       "path": "backend/content/grammar-for-meaning/hedging-language.md",
       "before_sha256": "019db51d9f56dd96fb025319b0074a7b77e517b0996546529e9fdc14c43f6551",
-      "after_sha256": "c5ba93aa630d5f942ee6d420b72efd3e30835c69e4a3e8957506172b88175e82"
+      "after_sha256": "7fed3fbaec0ca672b063f7f2651fbe0a6a72062558a74b43f588bd54b58ae488",
+      "reviewed_article_sha256": "c5ba93aa630d5f942ee6d420b72efd3e30835c69e4a3e8957506172b88175e82",
+      "anchor_location_correction": "Align declared location with the independently reviewed body heading; body text and anchor ID unchanged."
     },
     {
       "path": "backend/content/grammar-for-meaning/quantifiers.md",
@@ -3524,7 +3526,7 @@
     {
       "path": "docs/grammar-quiz-banks/G-modifiers-compound-adjectives.md",
       "before_sha256": "9941d144995ab22c470b4dfacd25c982939a33cc1b2fd6886350eabee636b0fa",
-      "after_sha256": "33778f5930e63a302296dd0bff6fe7a221c0d12946a7cd92b8fd5889a86bb03d",
+      "after_sha256": "7f1539c7bfbf7d831617c55389d9c5aa64849a138eb52a35238af7a0c4af0478",
       "code": "G-modifiers-compound-adjectives",
       "question_count": 25,
       "changed_questions": [
@@ -3597,7 +3599,9 @@
         }
       ],
       "metadata_changes": {},
-      "previously_managed": false
+      "previously_managed": false,
+      "reviewed_parser_equivalent_sha256": "33778f5930e63a302296dd0bff6fe7a221c0d12946a7cd92b8fd5889a86bb03d",
+      "packaging_correction": "Removed identical repeated YAML keys in ca_adv_i3 and ca_adv_a2; decoded authored questions unchanged; bounded parser rejects duplicates."
     },
     {
       "path": "docs/grammar-quiz-banks/G-modifiers-intensifiers-and-mitigators.md",
@@ -7090,7 +7094,7 @@
     {
       "path": "docs/grammar-quiz-banks/G-modifiers-compound-adjectives.md",
       "before_sha256": "9941d144995ab22c470b4dfacd25c982939a33cc1b2fd6886350eabee636b0fa",
-      "after_sha256": "33778f5930e63a302296dd0bff6fe7a221c0d12946a7cd92b8fd5889a86bb03d",
+      "after_sha256": "7f1539c7bfbf7d831617c55389d9c5aa64849a138eb52a35238af7a0c4af0478",
       "code": "G-modifiers-compound-adjectives",
       "question_count": 25,
       "changed_questions": [
@@ -7163,7 +7167,9 @@
         }
       ],
       "metadata_changes": {},
-      "previously_managed": false
+      "previously_managed": false,
+      "reviewed_parser_equivalent_sha256": "33778f5930e63a302296dd0bff6fe7a221c0d12946a7cd92b8fd5889a86bb03d",
+      "packaging_correction": "Removed identical repeated YAML keys in ca_adv_i3 and ca_adv_a2; decoded authored questions unchanged; bounded parser rejects duplicates."
     },
     {
       "path": "docs/grammar-quiz-banks/G-modifiers-intensifiers-and-mitigators.md",

@@ -67,17 +67,17 @@ anchors:
 <!-- anchor: reference-and-cohesion.pronoun-ref -->
 ### Đại từ thay danh từ: it / they / them
 
-Đại từ trỏ về danh từ gần nhất **hợp về số và nghĩa**:
+Đại từ có thể trỏ về đối tượng/cả sự việc hợp về số và nghĩa; không bắt buộc danh từ gần nhất:
 
 - *The scientists published their data, and **it** was soon challenged.* → *it* = the data (không phải scientists).
 - **they/them** thay danh từ số nhiều; **it** thay số ít hoặc một khái niệm.
 
-Luôn hỏi: *"it/they đang thay cho danh từ nào ở câu trước?"*
+Hỏi it/they quy chiếu đối tượng hay sự việc nào? “It is raining” có it giả không tiền ngữ; “He lost his job. It upset him” có it chỉ cả sự việc.
 
 <!-- anchor: reference-and-cohesion.this-such -->
 ### this / these / such thay cả một ý
 
-Khác đại từ, **this/these/such** có thể trỏ về **cả một mệnh đề/ý** vừa nêu:
+**This/these/such** có thể trỏ về **cả một mệnh đề/ý** vừa nêu:
 
 - *Sea levels are rising. **This trend** threatens cities.* → this trend = việc mực nước biển dâng.
 - *Some claim the data is flawed. **Such criticism** is common.* → such criticism = lời chê data sai.
@@ -101,5 +101,5 @@ Danh từ **gần nhất** chưa chắc đúng — phải hợp cả **số** l�
 ## Tóm tắt nhanh
 
 - Từ tham chiếu trỏ ngược để tránh lặp
-- it/they = thay danh từ; this/such = thay cả một ý
+- it/they và this/such có nhiều cách quy chiếu; this book chỉ một vật, it có thể chỉ sự việc hoặc là chủ ngữ giả
 - Truy "cái được thay" theo cả số lẫn nghĩa, không chỉ vị trí

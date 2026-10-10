@@ -118,6 +118,8 @@ Sau linking verb dùng **adjective**, không phải adverb:
 - She **looks beautiful**. ✅ (không phải "beautifully")
 - The soup **tastes good**. ✅ (không phải "well")
 
+Đây là mẫu mô tả chủ ngữ bằng tính từ; linking verb cũng có thể nhận cụm danh từ, như **She became a doctor**. Động từ be còn đi với bổ ngữ chỉ nơi chốn.
+
 ### 4. Auxiliary Verbs — Động từ trợ
 
 Hỗ trợ động từ chính để tạo thì hoặc thể:
@@ -132,7 +134,7 @@ Hỗ trợ động từ chính để tạo thì hoặc thể:
 
 Diễn tả khả năng, nghĩa vụ, sự cho phép:
 
-*can, could, will, would, shall, should, may, might, must, have to, need to, ought to*
+Core modals: *can, could, will, would, shall, should, may, might, must*. Các cụm *have to, need to, ought to* diễn đạt nghĩa liên quan nhưng không theo mọi quy tắc của core modals: **She has to leave**, **Does she need to leave?** có biến tố hoặc trợ động từ do.
 
 - You **should** practice every day.
 - She **can** speak three languages.
@@ -149,6 +151,8 @@ Câu hỏi thực tế nhất khi dùng verb trong câu: *"Tôi có dùng -ing �
 
 - "I **am running**." → đang chạy, có nghĩa → action ✅
 - "I **am knowing** the answer." → vô lý → stative, dùng "I **know**" ✅
+
+Không dùng cảm giác "nghe vô lý" như phép thử độc lập cho người mới. Phân biệt tiếp diễn hữu hạn với gerund/non-finite **Knowing the answer**, **having free time**; hạn chế tiếp diễn không cấm mọi dạng -ing.
 
 ### Động từ vừa là stative vừa là action (tùy nghĩa):
 
@@ -234,8 +238,8 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 
 - ❌ She not like vegetables.
 - ✅ She **doesn't** like vegetables.
-- ❌ You understand?
-- ✅ **Do** you understand?
+- Trung tính, đầy đủ: **Do you understand?**
+- **You understand?** là câu trần thuật lên giọng để xác nhận trong hội thoại; không sai trong mọi ngữ cảnh.
 
 ### Lỗi 5: Sau linking verb dùng adverb thay adjective
 
@@ -276,7 +280,7 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 
 **Sửa lỗi:**
 1. knows (stative → không dùng -ing)
-2. have gone (past participle)
+2. **have been to Japan twice** nếu nói hai chuyến đi đã trở về. **Have gone** sửa hình thái went thành past participle, nhưng gone và been có khác biệt về nghĩa/ngữ cảnh; không kết luận mọi have gone twice đều sai.
 3. sounds beautiful (adjective sau linking verb)
 4. doesn't work (auxiliary "does" cần thiết)
 

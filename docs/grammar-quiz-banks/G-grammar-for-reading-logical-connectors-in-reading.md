@@ -208,10 +208,10 @@ skill: "production"
 subtype: "advanced"
 prompt: "Identify the main point and complete with concession: '____ the massive scale of international climate agreements, emission reduction targets have consistently been missed. This suggests...'"
 hint: "dùng 1 từ nối nhượng bộ"
-accept: ["Despite", "Although", "Even though"]
+accept: ["Despite"]
 case_sensitive: false
 grammar_article_slug: "logical-connectors-in-reading"
-explain: "'Despite/Although/Even though' báo nhượng bộ: mệnh đề với từ nối là ý phụ (bối cảnh), ý sau là kết luận chính sự thất bại."
+explain: "Despite nhận cụm danh từ the massive scale..., không phải mệnh đề hữu hạn. Although/Even though cần mệnh đề, nên không thể chèn chúng nguyên dạng vào ô này. Mệnh đề chính nêu mục tiêu giảm phát thải bị bỏ lỡ; phần despite nêu bối cảnh nhượng bộ."
 ---
 
 # ===== item_key 3 · Nguyên nhân → kết quả (causation): therefore, thus, hence, as a result, consequently =====

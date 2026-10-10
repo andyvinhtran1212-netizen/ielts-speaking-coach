@@ -263,10 +263,11 @@ Tiếng Anh cho phép dùng danh từ để bổ nghĩa cho danh từ khác — 
 | **job** market | thị trường việc làm |
 | **tax** system | hệ thống thuế |
 
-> **Lưu ý:** Noun modifier không có "s" dù ngữ nghĩa là số nhiều:
+> **Lưu ý:** Noun modifier thường ở dạng số ít; đây là mặc định, không phải lệnh cấm mọi dạng -s:
 > - ❌ "a cars factory" → ✅ "a **car** factory"
 > - ❌ "a books store" → ✅ "a **book** store"
 > - ❌ "a problems solution" → ✅ "a **problem** solution"
+> Tổ hợp cố định có thể dùng số nhiều: **sports facilities**, **sales figures**, **admissions office**. **Students' dormitory** là sở hữu cách số nhiều, khác với noun modifier **student dormitory**.
 
 ---
 
@@ -322,7 +323,7 @@ all / most / some / many / a number / the majority + of + [determiner] + noun
 - ✅ "a **student** dormitory"
 
 - ❌ "the **countries** economy"
-- ✅ "the **country's** economy" *(sở hữu cách)* hoặc "the **country** economy" *(noun modifier)*
+- ✅ "the **country's** economy", "the **national** economy", hoặc "the **economy of the country**" là các mẫu tự nhiên trong ngữ cảnh chung này.
 
 ### Lỗi 4: Đặt tính từ sau danh từ (ảnh hưởng của tiếng Việt)
 
@@ -338,10 +339,10 @@ all / most / some / many / a number / the majority + of + [determiner] + noun
 - ✅ "**Technology** is changing **the** world."
 - ✅ "**The** technology **that we use today** is changing the world." *(khi có post-modifier cụ thể)*
 
-### Lỗi 6: Noun phrase quá ngắn trong IELTS Writing
+### Mở rộng noun phrase khi có thông tin hỗ trợ
 
-- ❌ "This affects **people**." *(quá chung)*
-- ✅ "This disproportionately affects **young people from low-income backgrounds**."
+- "This affects **people**." đúng ngữ pháp; có thể cần cụ thể hơn theo lập luận.
+- "This disproportionately affects **young people from low-income backgrounds**." chỉ phù hợp khi đã có căn cứ về nhóm người và tác động không cân xứng. Đây là bổ sung thông tin, không phải paraphrase giữ nguyên nghĩa.
 
 ---
 
@@ -349,14 +350,14 @@ all / most / some / many / a number / the majority + of + [determiner] + noun
 
 ### Writing Task 2 — Xây dựng noun phrase học thuật:
 
-Dùng noun phrase phong phú để tăng **Lexical Resource** và **Grammatical Range**:
+Dùng noun phrase để diễn đạt chi tiết có căn cứ. Những phần in đậm dưới đây **thêm thông tin**, không phải phép thay giữ nguyên nghĩa; cụm dài hơn không tự xác định band IELTS:
 
 | Đơn giản | Học thuật hơn |
 |---------|--------------|
 | young people | young people **from disadvantaged backgrounds** |
 | problems | **the persistent socioeconomic problems facing** developing nations |
 | a change | **a significant structural change in** the job market |
-| the government | **the national government's policy on** environmental protection |
+| the government | **the national government responsible for** environmental protection |
 
 > **Kỹ thuật nominalization:** Biến động từ/tính từ thành danh từ để tăng tính học thuật:
 > - "people are poor" → "**poverty**" hoặc "**the prevalence of poverty**"
@@ -380,7 +381,7 @@ Dùng noun phrase dài để mở rộng câu trả lời:
 2. [Vietnamese / young / talented / a / woman]
 3. [serious / the / environmental / most / problems]
 4. [urban / large / a / developing / area]
-5. [wooden / beautiful / an / old / table]
+5. [wooden / beautiful / a / old / table]
 
 ### Thêm post-modifier phù hợp
 
@@ -388,10 +389,10 @@ Dùng noun phrase dài để mở rộng câu trả lời:
 7. "The students ___" *(gợi ý: đang học chương trình này)*
 8. "A solution ___" *(gợi ý: để giải quyết vấn đề này)*
 
-### Viết lại noun phrase học thuật hơn
+### Mở rộng noun phrase với giả định được nêu
 
-9. "young people" → ___
-10. "lots of problems" → ___
+9. "young people" → ___ (Giả sử ngữ cảnh xác nhận họ có thu nhập thấp; giữ trung tâm people.)
+10. "lots of problems" → ___ (Giữ nghĩa nhiều vấn đề, không thêm ý đa dạng.)
 
 ### Đáp án
 
@@ -403,8 +404,8 @@ Dùng noun phrase dài để mở rộng câu trả lời:
 6. The policy **that was introduced last year / introduced last year**
 7. The students **studying in this programme / who are enrolled in this programme**
 8. A solution **to this problem / to address this issue**
-9. young people **from low-income backgrounds** / **young graduates entering the job market**
-10. **numerous** / **a significant number of** problems / **a range of** challenges
+9. young people **from low-income backgrounds**. Young graduates sẽ thu hẹp sang người đã tốt nghiệp, không tương đương với young people nói chung.
+10. **numerous problems** / **a large number of problems**. A range of challenges thêm ý đa dạng và đổi sắc thái, nên không dùng cho yêu cầu giữ nghĩa này.
 
 ---
 
@@ -428,7 +429,9 @@ POST-MODIFIERS (sau danh từ):
 
 NOUN MODIFIER (danh từ bổ nghĩa danh từ):
   car factory, education system, health care reform
-  → KHÔNG thêm -s: "a book store" KHÔNG PHẢI "a books store"
+  → Thường dùng số ít: a book store.
+  → Tổ hợp cố định có số nhiều: sports facilities, sales figures.
+  → Sở hữu cách: students' dormitory.
 
 QUANTIFIER + OF:
   most of the / many of these / a number of / the majority of

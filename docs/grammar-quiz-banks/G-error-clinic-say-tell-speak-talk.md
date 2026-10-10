@@ -209,11 +209,11 @@ input: "text"
 headword: "stst-speak"
 skill: "production"
 subtype: "intermediate"
-prompt: "Can I ____ Dr. Johnson, please?"
-accept: ["speak to"]
+prompt: "Use speak to, speak with, talk to or talk with: 'Can I ____ Dr. Johnson, please?'"
+accept: ["speak to", "speak with", "talk to", "talk with"]
 case_sensitive: false
 grammar_article_slug: "say-tell-speak-talk"
-explain: "'speak' luôn cần giới từ 'to' (hoặc 'with') khi đi kèm người nghe: speak to/with someone. Thiếu giới từ là lỗi collocation rất phổ biến trong tiếng Anh giao tiếp."
+explain: "Cả speak to/with và talk to/with đều có thể dùng để xin nói chuyện với Dr. Johnson trong khung câu này. Speak thường trang trọng hơn; talk không sai chỉ vì ví dụ mẫu chọn speak."
 ---
 
 ---

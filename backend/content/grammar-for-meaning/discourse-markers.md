@@ -89,7 +89,7 @@ anchors:
 >
 > Cho discourse markers tự nhiên trong NÓI thường ngày (well, you know, I mean, kind of, anyway), xem bài [Discourse Markers in Speech](/grammar/discourse-markers-spoken).
 >
-> **Đừng nhầm:** Dùng "Furthermore" hay "Moreover" trong IELTS Speaking nghe rất sách vở và HẠ điểm Fluency. Dùng "well", "and what's more", "in fact" tự nhiên hơn nhiều.
+> Furthermore/moreover thường trang trọng; trong hội thoại có thể chọn and what’s more/well theo chức năng. IELTS đánh giá sự phù hợp, mạch lạc và độ trôi chảy trên toàn bài, không tự trừ Fluency chỉ vì một từ.
 
 
 Discourse markers là những từ, cụm từ dùng để:
@@ -97,9 +97,7 @@ Discourse markers là những từ, cụm từ dùng để:
 - **Tổ chức thông tin** theo trình tự, tương phản, nguyên nhân-kết quả...
 - **Báo hiệu** cho người đọc/nghe biết ý nào sắp được nói đến
 
-Chúng khác với liên từ (conjunctions) ở chỗ:
-- Conjunctions (and, but, because) **nằm bên trong câu**, nối hai mệnh đề
-- Discourse markers thường **đứng đầu câu** hoặc đoạn, nối các ý lớn hơn
+Discourse marker là nhóm theo chức năng liên kết diễn ngôn, có thể gồm liên từ. Về cú pháp: and/but là liên từ đẳng lập; because là phụ thuộc; however/therefore là trạng ngữ liên kết. Dùng “A, but B”, “Because A, B”, “A; however, B” theo từng cấu trúc.
 
 ## Tại sao quan trọng
 
@@ -123,7 +121,7 @@ Thêm thông tin, lý do, ví dụ bổ sung:
 
 > **Thang bậc nhấn mạnh:** also < furthermore < moreover < what is more
 > 
-> Tránh lạm dụng "also" — thay bằng "furthermore" hoặc "moreover" trong IELTS Writing.
+> Also là lựa chọn hợp lệ trong Writing. Nếu lặp gây đơn điệu, thay hoặc lược bỏ theo quan hệ ý và văn phong; không thay mọi also máy móc.
 
 <!-- anchor: discourse-markers.contrast -->
 ## Nhóm 2: Tương phản (Contrast)
@@ -305,8 +303,8 @@ While [Side A is true/has advantages], [Side B ultimately outweighs it / is a mo
 
 ### Lỗi 4: Contrast quá nhẹ, không thực sự đối lập
 
-- ❌ "Cats are cute, but dogs are also cute."
-- ✅ "Cats are generally more independent, **whereas** dogs require more attention and regular exercise."
+- ✅ "Cats are cute, but dogs are also cute." *(phù hợp nếu trước đó người nghe chỉ đề cao mèo; tương phản phụ thuộc kỳ vọng)*
+- Ví dụ giả định có nội dung khác: “Cats are generally more independent, whereas dogs require more attention”. Cần kiểm chứng nếu dùng như nhận định thực tế.
 
 ---
 
@@ -566,7 +564,7 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 3. "She missed the last train, **so** she had to take a taxi."
 4. "The company expanded into new markets. **As a result**, revenue increased by 40%." / "The company's expansion into new markets **resulted in** a 40% increase in revenue."
 5. "...so..."
-6. "**As a result** / **This means that**..."
+6. “**As a result**...” (giữ dấu phẩy). Nếu dùng this means that: “This means that people can now stay in touch...” (không có dấu phẩy sau that).
 
 ---
 
@@ -627,7 +625,7 @@ IELTS WRITING TIP:
 | **For instance** | Technology has transformed education. **For instance**, students can now access lectures from universities worldwide. |
 | **Such as** | Renewable energy sources, **such as** solar and wind power, are becoming more affordable. |
 | **In particular / Particularly** | Young people, **in particular**, are affected by social media pressure. |
-| **To illustrate** | **To illustrate**, a study found that reading for 20 minutes a day can add years to your life. |
+| **To illustrate** | **To illustrate**, in this hypothetical dataset, regular readers reported greater life satisfaction. *(dữ liệu giả định để luyện từ nối, không phải kết quả nghiên cứu)* |
 | **Specifically** | The problem affects developing countries **specifically**. |
 
 ## Nhóm 6: Tổng kết và Kết luận (Summary/Conclusion)
@@ -741,7 +739,9 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 5. In conclusion / Overall / To sum up
 
 **Đoạn văn mẫu:**
-*People are spending more time on social media. **As a result**, they have less time for face-to-face interactions. **Consequently**, loneliness and depression rates have increased. **Indeed**, social connection is fundamental to mental health. **Therefore**, apps and platforms should design features that encourage real-world meetings.*
+*In this hypothetical dataset, people reported spending more time on social media and less time meeting face to face. Loneliness also increased. These observations alone do not establish causation. Features encouraging real-world meetings could be explored.*
+
+Từ nối không chứng minh quan hệ nhân quả; cần thêm bằng chứng trước khi viết as a result/consequently.
 
 ## Tóm tắt nhanh — Tổng hợp
 
@@ -772,9 +772,9 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 
 ✅ "I went to the market. **First**, I bought food. **After that**, I came home **to** cook dinner **for** my family. **Once we'd eaten**, we watched TV..."
 
-**Quy tắc:** Trước khi nói "and", "but", "so" — pause 0.5 giây và thử thay bằng:
+**Bài luyện tùy chọn:** Khi rà lại bản ghi âm, chọn một chỗ lặp không cần thiết để thay hoặc lược bỏ theo chức năng. Không buộc ngừng 0.5 giây trước mỗi từ nối:
 - and → also / what's more / in addition / next / after that
 - but → however / on the other hand / although / yet
 - so → therefore / as a result / which is why / consequently (formal); that's why / so that's how (informal)
 
-Mục tiêu Band 7+: Không quá 1 "and/but/so" liên tiếp.
+Số lượng từ nối không tự xác định band. Đánh giá cách nối ý trong đoạn nói và ảnh hưởng của sự lặp đến người nghe.

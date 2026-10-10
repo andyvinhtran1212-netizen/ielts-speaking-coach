@@ -138,12 +138,12 @@ input: "text"
 headword: "such-noun-phrase"
 skill: "production"
 subtype: "intermediate"
-prompt: "That was ____ moment!"
-hint: "gõ 'such' + mạo từ + tính từ (3 từ)"
-accept: ["such a good", "such an amazing"]
+prompt: "Use such + a/an + one adjective (good, amazing or memorable): 'That was ____ moment!'"
+hint: "gõ 3 từ: such + a/an + tính từ được cho"
+accept: ["such a good", "such an amazing", "such a memorable"]
 case_sensitive: false
 grammar_article_slug: "so-vs-such"
-explain: "Danh từ số ít đếm được ('moment') sau 'such' cần mạo từ 'a/an': such a good moment. Quên 'a/an' là lỗi rất phổ biến."
+explain: "Moment là danh từ số ít đếm được nên các cụm phù hợp gồm such a good, such an amazing và such a memorable. Chọn a/an theo âm đầu của tính từ; memorable không bị loại chỉ vì ví dụ mẫu dùng good."
 ---
 
 ---
@@ -266,12 +266,12 @@ input: "text"
 headword: "so-such-common-errors"
 skill: "production"
 subtype: "intermediate"
-prompt: "There was ____ (such / much noise) that we couldn't hear each other."
-hint: "cụm lượng từ 2 từ đúng (KHÔNG phải 'such much')"
+prompt: "There was ____ noise that we couldn't hear each other."
+hint: "gõ 2 từ so + lượng từ; noise đã có trong câu"
 accept: ["so much"]
 case_sensitive: false
 grammar_article_slug: "so-vs-such"
-explain: "'much' luôn đi với 'so', không bao giờ với 'such': so much noise, không phải 'such much noise'."
+explain: "Trong so + much + danh từ không đếm được, viết so much noise. Noise đã được in sẵn ngoài ngoặc; chỉ điền so much. Không dùng such much noise trong cấu trúc mức độ này."
 ---
 
 ---

@@ -90,7 +90,7 @@ Negative adverbial + Auxiliary + Subject + Main verb
 | **No sooner...than** | Vừa...thì | No sooner had she arrived than problems started. |
 | **At no time** | Không bao giờ | At no time was the public informed. |
 | **In no way** | Không theo cách nào | In no way is this acceptable. |
-| **Under no circumstances** | Trong bất kỳ hoàn cảnh nào | Under no circumstances should you sign. |
+| **Under no circumstances** | Không được trong bất kỳ hoàn cảnh nào | Under no circumstances should you sign. |
 | **Not until** | Mãi đến khi | Not until 2010 did the situation improve. |
 | **Only then** | Chỉ lúc đó | Only then did we understand the truth. |
 | **Only when** | Chỉ khi | Only when we act will change occur. |
@@ -172,6 +172,8 @@ Not only + aux + S + V..., but S + also + V
 - **Not only have** emissions increased, **but** the rate of increase **has also** accelerated.
 - **Not only** is inequality unjust, **but** it **is also** economically counterproductive.
 
+Đảo khi not only đưa trạng ngữ lên đầu. Nếu nó phối hợp **chủ ngữ**, không đảo: **Not only the teacher but also the students were surprised**.
+
 ### Only + adverbial
 
 ```
@@ -181,6 +183,8 @@ Only when/if/then/by + [adverbial] + aux + S + V
 - **Only when** governments take decisive action **will** meaningful progress be achieved.
 - **Only by** addressing the root causes **can** we hope to resolve this crisis.
 - **Only then did** researchers begin to understand the complexity of the problem.
+
+Với **only when/if**, đảo trong **mệnh đề chính**, không đảo bên trong mệnh đề phụ: Only when she arrived **did we start**.
 
 ## 3. Auxiliary "do/does/did" nhấn mạnh
 
@@ -281,7 +285,7 @@ Nếu mọi câu đều có inversion hay cleft, văn bản trông giả tạo. 
 
 ### Lỗi 5: Nhầm "by no means" với vị trí trong câu
 
-- ❌ This is a by no means simple problem.
+- **This is a by no means simple problem** hợp cấu trúc: by no means bổ nghĩa simple trong cụm tính từ trước danh từ. Có thể đổi vị trí để câu nhẹ hơn:
 - ✅ This is **by no means** a simple problem.
 - ✅ **By no means** is this a simple problem. (đảo ngữ)
 
@@ -343,7 +347,7 @@ Nếu mọi câu đều có inversion hay cleft, văn bản trông giả tạo. 
 
 **Quy tắc vàng:**
 - Emphasis là gia vị — dùng ít mà đúng chỗ, không phải mọi câu
-- Sau Not only → **đảo ngữ** (trợ động từ lên trước S)
+- Not only làm trạng ngữ đầu câu → đảo; not only phối hợp chủ ngữ → không đảo
 - "do/does/did" nhấn mạnh → bare infinitive (không thêm -s/-ed)
 - "Far from" = hoàn toàn không phải (khác "far away from" = địa lý)
 
@@ -370,11 +374,13 @@ Bỏ "if" và đảo trợ động từ lên trước chủ ngữ — phổ bi�
 ## Loại 3: Đảo ngữ "So...that" và "Such...that"
 
 ```
-So + adj/adv + auxiliary + subject + that...
+So + adjective + be + subject + that...
+So + adverb + do/does/did + subject + main verb + that...
 ```
 
 - **So severe was** the drought that crops failed across the region.
 - **So significant are** the benefits that many countries have adopted this approach.
+- **So quickly did she finish** that we were surprised. (Sau did phải có động từ chính finish.)
 - **Such was** the scale of the problem that international aid was required.
 
 ## Không nhầm: Câu hỏi vs Inversion
@@ -481,7 +487,7 @@ Inversion là cấu trúc nhấn mạnh — dùng sparingly. Không bắt đầu
 1. **Never have I** encountered such resistance.
 2. **Hardly had** she **arrived** when the ceremony began.
 3. Not only **is** she intelligent, but she also works hard.
-4. Should any problem arise, **our team** will contact you.
+4. Should any problem arise, **contact our team**. (Nếu ý đích là yêu cầu người đọc liên hệ đội ngũ; our team will contact you đổi người liên hệ và thêm cam kết, không phải sửa tối thiểu.)
 5. No sooner had he started **than** problems began.
 
 ## Tóm tắt nhanh

@@ -1,4 +1,4 @@
-"""One-time exact-twelve Grammar cutover using the existing configured SQL engine.
+"""Bounded reviewed Grammar cutover using the existing configured SQL engine.
 
 No pool, startup enrollment, learner-purpose backfill or history rewrite. Every
 cohort read is bounded and stays inside the transaction/consistent snapshot.
@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Literal
@@ -23,11 +23,11 @@ from models.grammar_quiz_revisions import (
     GrammarRevisionFootprint, GrammarRevisionPreview, GrammarRevisionPreviewRequest,
     GrammarRevisionRead, Sha256,
 )
-from services.grammar_quiz_revision_classifier import CLASSIFY_OWNERS_SQL
+from services.grammar_quiz_revision_classifier import CLASSIFY_OWNERS_SQL, FOLLOWUP_OWNERS_SQL
 from services.grammar_quiz_policy import POLICY_KEY, GrammarQuizPolicyInvalid, validate_text_match_policy
 from services.grammar_quiz_revision_source import (
     GrammarSource, GrammarSourceInvalid, REVIEWED_SOURCES, compare_reviewed_questions,
-    parse_reviewed_source,
+    parse_reviewed_source, reviewed_binding, FOLLOWUP_CODE, REVIEWED_BINDINGS,
 )
 
 ACTION = 'grammar_quiz_revision_cutover'
@@ -125,7 +125,7 @@ class _OwnerProof(_ProofModel):
     eligible: StrictBool
     classification: Literal['provably_unfinished_in_progress', 'provably_unfinished_paused',
         'provably_unfinished_completed_with_carryover', 'provably_unfinished_terminal_carryover',
-        'genuinely_mastered', 'never_started']
+        'genuinely_mastered', 'never_started', 'readonly_or_reset']
     predecessor_session_id: UUID
     session_ids: list[UUID] = Field(max_length=2048)
     stat_ids: list[UUID] = Field(max_length=8192)
@@ -168,6 +168,10 @@ class _Scope:
     original_revision: str
     questions_hash: str
     metadata_hash: str
+    root: dict | None = None
+    banks: list[dict] = field(default_factory=list)
+    question_sets: dict[str, list[dict]] = field(default_factory=dict)
+    publication_available: bool = False
 
 
 @dataclass
@@ -191,7 +195,8 @@ async def _fence(c: AsyncConnection):
     # owner must not trust that stale schema merely because its triggers exist.
     validator = (await c.execute(text("""SELECT p.prosecdef FROM pg_proc p
       WHERE p.oid=to_regprocedure('public.grammar_quiz_validate_receipt_envelope(jsonb,uuid,uuid)')"""))).scalar_one_or_none()
-    if validator is not True:
+    binding = (await c.execute(text("SELECT to_regprocedure('public.grammar_quiz_audit_binding(text,text)') IS NOT NULL"))).scalar_one()
+    if validator is not True or not binding:
         raise _unavailable('grammar_storage_guard_unavailable')
     fk = (await c.execute(text("""SELECT count(*) FROM pg_constraint
       WHERE conrelid='public.quiz_questions'::regclass AND confrelid='public.quiz_banks'::regclass
@@ -234,25 +239,42 @@ async def _scope(c: AsyncConnection, code: str, *, locking=False) -> _Scope:
     await _fence(c)
     banks = await _rows(c, """SELECT to_jsonb(b)::text FROM public.quiz_banks b
       WHERE skill_area='grammar' AND (code=:code OR grammar_canonical_code=:code)
-      ORDER BY id LIMIT 3""", {'code': code})
+      ORDER BY id LIMIT 4""", {'code': code})
     original = [bank for bank in banks if bank['code'] == code and bank['grammar_predecessor_bank_id'] is None]
-    if not original:
-        raise GrammarRevisionError(404, 'grammar_revision_scope_not_found', 'Không tìm thấy nguồn Grammar gốc.')
-    if len(original) != 1 or len(banks) > 2:
+    if len(original) != 1 or len(banks) > (3 if code == FOLLOWUP_CODE else 2):
         raise _unavailable('grammar_mapping_ambiguous')
-    old = original[0]
-    managed = old['grammar_canonical_code'] is not None
+    root = original[0]
+    managed = root['grammar_canonical_code'] is not None
     active = [bank for bank in banks if bank['grammar_is_current']]
+    chain = [root]
     if managed:
-        if old['grammar_canonical_code'] != code or old['grammar_is_current'] or len(active) != 1:
+        if root['grammar_canonical_code'] != code or root['grammar_is_current'] or len(active) != 1:
             raise _unavailable('grammar_mapping_ambiguous')
-        current = active[0]
-        if current['grammar_predecessor_bank_id'] != old['id'] or current['topic_id'] != old['topic_id']:
+        for _ in range(len(banks)-1):
+            children = [b for b in banks if b['grammar_predecessor_bank_id'] == chain[-1]['id']]
+            if len(children) != 1:
+                raise _unavailable('grammar_mapping_ambiguous')
+            child = children[0]
+            valid_codes = {code+'~'+raw[:16] for raw in REVIEWED_BINDINGS[code]['bindings']}
+            if (child['code'] not in valid_codes or child['topic_id'] != root['topic_id']
+                    or child['grammar_canonical_code'] != code or child['version'] != chain[-1]['version']+1):
+                raise _unavailable('grammar_mapping_ambiguous')
+            chain.append(child)
+        current = chain[-1]
+        if current['id'] != active[0]['id'] or current['grammar_retired_at'] is not None or any(
+                b['grammar_is_current'] or b['grammar_retired_at'] is None for b in chain[:-1]):
             raise _unavailable('grammar_mapping_ambiguous')
+        if len(chain) == 3 and (chain[1]['code'] == code+'~'+REVIEWED_SOURCES[code][0][:16]
+                or current['code'] != code+'~'+REVIEWED_SOURCES[code][0][:16]):
+            raise _unavailable('grammar_mapping_ambiguous')
+        followup = code == FOLLOWUP_CODE and len(chain) == 2 and current['code'] != code+'~'+REVIEWED_SOURCES[code][0][:16]
+        old = current if followup else chain[-2]
+        publication_available = followup
     else:
         if len(banks) != 1 or active:
             raise _unavailable('grammar_mapping_ambiguous')
-        current = old
+        old = current = root
+        publication_available = True
     if not old['is_published'] or not current['is_published'] or old['course_id'] is not None or old['lesson_no'] is not None:
         raise _unavailable('grammar_mapping_unavailable')
     topics = await _rows(c, 'SELECT to_jsonb(t)::text FROM public.content_topics t WHERE id=CAST(:id AS uuid)', {'id': old['topic_id']})
@@ -268,19 +290,35 @@ async def _scope(c: AsyncConnection, code: str, *, locking=False) -> _Scope:
         if not result or len(result)>200 or any(not q['qid'].strip() or not q['item_key'].strip() for q in result):
             raise _unavailable('grammar_question_set_unavailable')
         return result
-    original_questions = await questions(old)
-    current_questions = original_questions if current['id'] == old['id'] else await questions(current)
-    if (not isinstance(old['meta'],dict) or old['meta'].get('correct_to_master')!=2
-        or old['meta'].get('require_distinct_skill') is not True
-        or old['meta'].get('require_production_to_master') is not True
-        or not any(q['input'] in ('choice','text','boolean','syllable') for q in original_questions)):
+    question_sets = {bank['id']: await questions(bank) for bank in chain}
+    original_questions = question_sets[old['id']]
+    current_questions = question_sets[current['id']]
+    if (not isinstance(root['meta'],dict) or root['meta'].get('correct_to_master')!=2
+        or root['meta'].get('require_distinct_skill') is not True
+        or root['meta'].get('require_production_to_master') is not True):
         raise _unavailable('grammar_mastery_state_unavailable')
-    original_hash = _hash({'bank': {key:value for key,value in old.items() if not key.startswith('grammar_') and key!='updated_at'}, 'questions': original_questions})
-    if managed and old['grammar_revision'] != original_hash:
+    root_hash = _hash({'bank': {key:value for key,value in root.items() if not key.startswith('grammar_') and key!='updated_at'}, 'questions': question_sets[root['id']]})
+    if managed and root['grammar_revision'] != root_hash:
         raise _unavailable('grammar_original_evidence_mismatch')
+    original_hash = old['grammar_revision'] if old['grammar_predecessor_bank_id'] else root_hash
     revision = _hash({'original': old, 'current': current, 'questions': original_questions, 'current_questions': current_questions})
     return _Scope(code, old, current, original_questions, current_questions, topics[0], revision,
-        original_hash, _hash(original_questions), _hash(old['meta']))
+        original_hash, _hash(original_questions), _hash(old['meta']), root, chain, question_sets, publication_available)
+
+
+def _edge_scope(scope: _Scope, original_id: str) -> _Scope:
+    banks = scope.banks or [scope.original, scope.current]
+    originals = [b for b in banks if b['id'] == original_id]
+    children = [b for b in banks if b['grammar_predecessor_bank_id'] == original_id]
+    if len(originals) != 1 or len(children) != 1:
+        raise _unavailable('grammar_receipt_unavailable')
+    old, current = originals[0], children[0]
+    questions = scope.question_sets.get(old['id'], scope.questions)
+    current_questions = scope.question_sets.get(current['id'], scope.current_questions)
+    revision = _hash({'original': old, 'current': current, 'questions': questions, 'current_questions': current_questions})
+    return _Scope(scope.code, old, current, questions, current_questions, scope.topic, revision,
+        old['grammar_revision'], _hash(questions), _hash(old['meta']), scope.root, banks, scope.question_sets, False)
+
 
 
 async def _history(c: AsyncConnection, scope: _Scope) -> _History:
@@ -298,7 +336,7 @@ async def _history(c: AsyncConnection, scope: _Scope) -> _History:
     if len(owners)>128:
         raise _unavailable('grammar_footprint_limit_exceeded')
     now = (await c.execute(text('SELECT clock_timestamp()'))).scalar_one()
-    classifications = (await c.execute(text(CLASSIFY_OWNERS_SQL), {'bank_id':scope.original['id'], 'cutover_at':now})).mappings().all()
+    classifications = (await c.execute(text(FOLLOWUP_OWNERS_SQL if scope.original['grammar_predecessor_bank_id'] else CLASSIFY_OWNERS_SQL), {'bank_id':scope.original['id'], 'cutover_at':now})).mappings().all()
     if {str(row['user_id']) for row in classifications} != set(owners):
         raise _unavailable('grammar_footprint_unavailable')
     reasons = {str(row['user_id']): row['classification'] for row in classifications}
@@ -308,7 +346,8 @@ async def _history(c: AsyncConnection, scope: _Scope) -> _History:
             owned = [row for row in sessions if row['user_id']==owner]
             if not owned:
                 raise _unavailable('grammar_footprint_unavailable')
-            latest = max(owned, key=lambda row:(row['started_at'],row['id']))
+            candidates = [row for row in owned if row['grammar_admission_kind'] in ('run','continuation') and row['grammar_reset_at'] is None] if scope.original['grammar_predecessor_bank_id'] and reasons[owner] in ELIGIBLE else owned
+            latest = max(candidates, key=lambda row:(row['started_at'],row['id']))
             cohort.append(_OwnerProof(user_id=owner,eligible=reasons[owner] in ELIGIBLE,
                 classification=reasons[owner],predecessor_session_id=latest['id'],
                 session_ids=[row['id'] for row in owned],stat_ids=[row['id'] for row in stats if row['user_id']==owner],
@@ -323,6 +362,8 @@ async def _history(c: AsyncConnection, scope: _Scope) -> _History:
 
 def _read(scope: _Scope, history: _History) -> GrammarRevisionRead:
     return GrammarRevisionRead(canonical_code=scope.code,original_bank_id=scope.original['id'],
+        canonical_root_bank_id=(scope.root or scope.original)['id'], publication_available=scope.publication_available,
+        bank_ids=[bank['id'] for bank in scope.banks] or [scope.original['id']],
         current_bank_id=scope.current['id'],topic_id=scope.original['topic_id'],revision=scope.revision,
         current_bank_revision=scope.current['grammar_revision'] or scope.original_revision,
         original_questions_sha256=scope.questions_hash,original_metadata_sha256=scope.metadata_hash,
@@ -344,7 +385,7 @@ def _preview(scope: _Scope, history: _History, source: GrammarSource,
     if request.expected_revision != scope.revision:
         raise GrammarRevisionError(409,'grammar_revision_conflict','Nội dung Grammar đã thay đổi. Hãy tải lại trước khi sửa.',scope.revision)
     try:
-        changes = compare_reviewed_questions(source, scope.questions)
+        changes = compare_reviewed_questions(source, scope.questions, followup=scope.original['grammar_predecessor_bank_id'] is not None)
     except GrammarSourceInvalid:
         raise GrammarRevisionError(409,'grammar_canonical_source_conflict','Câu hỏi gốc không khớp phạm vi sửa đã duyệt.',scope.revision) from None
     # Every authored metadata identity stays bound; unrelated canonical extras
@@ -352,9 +393,18 @@ def _preview(scope: _Scope, history: _History, source: GrammarSource,
     # The real parser's meta_info is a bank payload with nested runtime/meta;
     # never compare/store that wrapper as quiz_banks.meta.
     runtime_metadata = source.metadata['meta']
+    binding = reviewed_binding(scope.code, source.raw_sha256)
+    exceptions = binding.get('metadata_changes', {})
+    def metadata_matches(key):
+        expected = source.metadata.get(key)
+        actual = scope.original.get(key)
+        if key == 'code' and scope.original['grammar_predecessor_bank_id']:
+            return actual == scope.code+'~'+next(raw[:16] for raw in REVIEWED_BINDINGS[scope.code]['bindings'] if actual == scope.code+'~'+raw[:16])
+        if key == 'version' and scope.original['grammar_predecessor_bank_id']:
+            return actual == 2 and expected == 1
+        return actual == expected or key in exceptions and actual == exceptions[key]['before'] and expected == exceptions[key]['after']
     if (any(scope.original['meta'].get(key) != value for key,value in runtime_metadata.items() if key != POLICY_KEY)
-        or any(scope.original.get(key) != source.metadata.get(key) for key in (
-            'code','title','skill_area','source','words_count','course_id','lesson_no','version'))):
+        or not all(metadata_matches(key) for key in ('code','title','skill_area','source','words_count','course_id','lesson_no','version'))):
         raise GrammarRevisionError(409,'grammar_metadata_conflict','Metadata gốc không khớp nguồn đã duyệt.',scope.revision)
     _corrected_metadata(scope, source)
     changed = {row['qid']: set(row['fields']) for row in changes}
@@ -383,7 +433,7 @@ def _corrected_metadata(scope: _Scope, source: GrammarSource) -> dict:
             code=scope.code, skill_area='grammar')
     except GrammarQuizPolicyInvalid:
         raise _unavailable('grammar_policy_unavailable') from None
-    if old_policy:
+    if old_policy and (scope.original['grammar_predecessor_bank_id'] is None or old_policy != new_policy):
         # This owner creates one revision from an original absent/empty bank,
         # never a second opt-in or a malformed unmanaged publication.
         raise _unavailable('grammar_policy_unavailable')
@@ -412,6 +462,7 @@ async def _receipt(c: AsyncConnection, scope: _Scope, *, actor=None, operation=N
         if type(data.get('schema_version')) is not int:
             raise ValueError('invalid receipt version type')
         receipt = _Receipt.model_validate(data)
+        scope = _edge_scope(scope, str(receipt.original_bank_id))
         _utc_timestamp(receipt.created_at)
         checksum = (await c.execute(text("SELECT encode(sha256(convert_to((CAST(:data AS jsonb)-'integrity_sha256')::text,'UTF8')),'hex')"),{'data':_json(data)})).scalar_one()
         if receipt.integrity_sha256!=checksum or str(receipt.actor_id)!=str(rows[0]['admin_id']) or rows[0]['target_instructor'] is not None:
@@ -422,7 +473,7 @@ async def _receipt(c: AsyncConnection, scope: _Scope, *, actor=None, operation=N
             raise ValueError('original evidence mismatch')
         if str(receipt.corrected_bank_id)!=scope.current['id'] or receipt.corrected_revision!=scope.current['grammar_revision']:
             raise ValueError('corrected mapping mismatch')
-        if (receipt.source_sha256!=REVIEWED_SOURCES[scope.code][0]
+        if (reviewed_binding(scope.code, receipt.source_sha256) is None
             or receipt.corrected_revision!=_hash({'manifest_sha256':receipt.manifest_sha256,'original_revision':receipt.original_revision})
             or receipt.payload_sha256!=_payload_hash(scope.code,receipt.source_sha256,receipt.expected_revision,
                 receipt.preview_fingerprint,receipt.operation_id)):
@@ -453,8 +504,31 @@ async def _receipt(c: AsyncConnection, scope: _Scope, *, actor=None, operation=N
 
 
 async def _require_managed_proof(c: AsyncConnection,scope: _Scope):
-    if scope.original['grammar_canonical_code'] is not None and await _receipt(c,scope) is None:
-        raise _unavailable('grammar_receipt_unavailable')
+    if scope.original['grammar_canonical_code'] is not None:
+        for bank in scope.banks[:-1] or [scope.original]:
+            edge = _edge_scope(scope, bank['id'])
+            if await _receipt(c,edge) is None:
+                raise _unavailable('grammar_receipt_unavailable')
+
+
+async def _retained_history_hash(c: AsyncConnection, scope: _Scope) -> str:
+    """Protect every predecessor, not only the cohort of the latest edge."""
+    contents = {}
+    totals = {table: 0 for table in LIMITS}
+    owners = set()
+    for bank in scope.banks:
+        rows = {}
+        for table, cap in LIMITS.items():
+            values = await _rows(c, f'SELECT to_jsonb(r)::text FROM public.{table} r WHERE bank_id=CAST(:bank AS uuid) ORDER BY id LIMIT {cap+1}', {'bank': bank['id']})
+            totals[table] += len(values)
+            if totals[table] > cap:
+                raise _unavailable('grammar_footprint_limit_exceeded')
+            owners.update(row['user_id'] for row in values)
+            if len(owners)>128:
+                raise _unavailable('grammar_footprint_limit_exceeded')
+            rows[table] = values
+        contents[bank['id']] = rows
+    return _hash(contents)
 
 
 async def _transaction(engine, code, action, *, exclusive=False):
@@ -506,9 +580,13 @@ async def commit_revision(engine: AsyncEngine | None, canonical_code: str, actor
                 raise GrammarRevisionError(409,'grammar_operation_conflict','Mã thao tác đã được dùng với nội dung khác.',scope.revision)
             await _require_managed_proof(c,scope)
             return _result(stored,scope,await _history(c,scope),'already_applied')
-        if scope.original['grammar_canonical_code'] is not None:
+        if not scope.publication_available:
             await _require_managed_proof(c,scope)
             raise GrammarRevisionError(409,'grammar_already_revised','Bài này đã có bản sửa. Hãy tải lại trạng thái.',scope.revision)
+        await _require_managed_proof(c,scope)
+        if source.raw_sha256 != REVIEWED_SOURCES[canonical_code][0]:
+            raise GrammarRevisionError(409,'grammar_reviewed_source_conflict','Chỉ được xuất bản nguồn hiện hành đã duyệt.',scope.revision)
+        retained_hash = await _retained_history_hash(c,scope)
         history = await _history(c,scope)
         preview = _preview(scope,history,source,request)
         if preview.preview_fingerprint!=request.preview_fingerprint:
@@ -533,13 +611,13 @@ async def commit_revision(engine: AsyncEngine | None, canonical_code: str, actor
             'bank':new_id,'old_revision':scope.original_revision,'new_revision':preview.proposed_revision,'source_sha256':source.raw_sha256}
         await c.execute(text("SELECT set_config('aver.grammar_quiz_context',:context,true)"),{'context':_json(context)})
         await c.execute(text('''UPDATE public.quiz_banks SET grammar_canonical_code=:code,grammar_revision=:revision,
-          grammar_retired_at=CAST(:now AS timestamptz) WHERE id=CAST(:old AS uuid)'''),
+          grammar_is_current=FALSE,grammar_retired_at=CAST(:now AS timestamptz) WHERE id=CAST(:old AS uuid)'''),
             {'code':canonical_code,'revision':scope.original_revision,'now':now_at,'old':scope.original['id']})
         new_bank = {**scope.original,'id':str(new_id),'code':canonical_code+'~'+source.raw_sha256[:16],
             'version':scope.original['version']+1,'created_at':now,'updated_at':now,'grammar_canonical_code':canonical_code,
             'grammar_revision':preview.proposed_revision,'grammar_is_current':True,'grammar_predecessor_bank_id':scope.original['id'],
             'grammar_retired_at':None,'grammar_new_starts_enabled':True,
-            'meta':_corrected_metadata(scope,source)}
+            'meta':_corrected_metadata(scope,source), 'words_count':source.metadata['words_count']}
         # PostgreSQL canonicalizes typed timestamps (including fractional zero
         # digits). Encode the intended typed row BEFORE insert/triggers, then
         # compare full persisted rows; never waive fields to mask a lost map.
@@ -564,7 +642,8 @@ async def commit_revision(engine: AsyncEngine | None, canonical_code: str, actor
         if saved is None:
             raise _unavailable('grammar_receipt_unavailable')
         verified = await _history(c,updated)
-        if verified.hash!=history.hash or updated.questions_hash!=scope.questions_hash:
+        retained = _Scope(**{**updated.__dict__, 'banks':scope.banks})
+        if verified.hash!=history.hash or updated.questions_hash!=scope.questions_hash or await _retained_history_hash(c,retained)!=retained_hash:
             raise _unavailable('grammar_original_evidence_mismatch')
         return _result(saved,updated,verified,'applied')
     return await _transaction(engine,canonical_code,action,exclusive=True)

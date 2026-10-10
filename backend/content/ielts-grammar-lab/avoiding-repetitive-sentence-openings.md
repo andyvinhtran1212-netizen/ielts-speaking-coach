@@ -2,7 +2,7 @@
 title: Avoiding Repetitive Sentence Openings — Tránh mở câu lặp lại trong IELTS
 slug: avoiding-repetitive-sentence-openings
 category: ielts-grammar-lab
-summary: 'Bắt đầu mọi câu bằng "I think..." (Speaking) hay "The..." (Writing) khiến bài đơn điệu và kéo tụt điểm Coherence lẫn Grammatical Range. Bài này dạy sáu cách mở câu đa dạng — đổi chủ ngữ, đưa trạng ngữ lên đầu, mở bằng cụm phân từ, câu chẻ (cleft), trạng từ quan điểm, và liên từ — kèm ví dụ Speaking và Writing.
+summary: 'Lặp cách mở câu có thể gây máy móc khi không phục vụ ý nghĩa. Bài giới thiệu sáu cách luyện: đổi chủ ngữ, đưa trạng ngữ lên đầu, cụm phân từ, câu chẻ, trạng từ quan điểm và liên từ. Chọn theo nội dung; số kiểu mở câu không tự quyết định band IELTS.
 
   '
 level: intermediate
@@ -66,7 +66,7 @@ anchors:
 <!-- anchor: avoiding-repetitive-sentence-openings.tom-tat -->
 ## Tóm tắt
 
-Examiner nhận ra sự đơn điệu ngay lập tức: *"I think... I think... I think..."* (Speaking) hoặc *"The government... The government... The government..."* (Writing). Đa dạng cách mở câu là dấu hiệu của **Band 7+**. Sáu công cụ:
+Lặp *"I think..."* hoặc *"The government..."* có thể gây đơn điệu khi không có chức năng rõ. Đổi cách mở câu là một cách luyện diễn đạt, nhưng không tự chứng minh **Band 7+**; lặp có chủ ý vẫn có thể tạo liên kết hoặc nhấn mạnh. Sáu công cụ:
 
 | Cách mở câu | Ví dụ |
 |-------------|-------|
@@ -77,13 +77,13 @@ Examiner nhận ra sự đơn điệu ngay lập tức: *"I think... I think... 
 | **Trạng từ quan điểm** | **Honestly,** ... / **Interestingly,** ... |
 | **Liên từ / linker** | **While** ... / **Despite** ... |
 
-> Mục tiêu không phải né hẳn "I think" — mà là **không lặp** cùng một kiểu mở câu liên tục.
+> Giữ, lược bỏ hoặc đổi cách mở câu theo chức năng; không cần né mọi lần lặp "I think".
 
 ---
 
 ## Tại sao quan trọng
 
-Hai tiêu chí bị ảnh hưởng: **Coherence & Cohesion** (bài/câu trả lời nghe có nhịp, không máy móc) và **Grammatical Range** (mở câu đa dạng = nhiều cấu trúc). Trong Speaking, lặp "I think" còn làm **Fluency** nghe như học thuộc. Đây là một trong những "quick wins" rõ nhất để vượt trần Band 6.5.
+Writing xét **Coherence and Cohesion**; Speaking xét **Fluency and Coherence**. Cả hai xét **Grammatical Range and Accuracy**. Thay đổi phần mở câu có thể giúp tổ chức ý, nhưng riêng cách mở câu không chứng minh phạm vi hay độ chính xác ngữ pháp. Đánh giá sự phù hợp, mạch lạc và cấu trúc trên toàn bài, không suy trần band từ một kiểu mở câu.
 
 ---
 
@@ -179,7 +179,9 @@ Thay vì mở mọi câu Part 3 bằng "I think", luân phiên:
 *"The government should invest in education. The government also needs to fund healthcare. The government must reduce taxes."*
 
 **Sau (đa dạng):**
-*"**Investing in education** should be a government priority. **At the same time,** healthcare requires sustained funding. **Equally important,** however, is the need to keep taxation manageable."*
+*“**Investing in education** is something the government should do. **It also needs to** fund healthcare. **Reducing taxes** is something it must do.”*
+
+Giữ tác nhân, chính sách và mức should/needs to/must; phát triển thêm lập luận là bước khác.
 
 ---
 
@@ -189,12 +191,12 @@ Thay vì mở mọi câu Part 3 bằng "I think", luân phiên:
 ### Lỗi 1: Lặp y hệt một kiểu mở câu
 
 - ❌ "I think... I think... I think..." / "The X... The X... The X..."
-- ✅ Luân phiên ít nhất 3 kiểu mở câu khác nhau.
+- Khi lặp gây đơn điệu, thử giữ, gộp hoặc đổi một chỗ theo ý nghĩa; không có số kiểu mở câu tối thiểu bắt buộc.
 
-### Lỗi 2: Quên dấu phẩy sau trạng ngữ đầu câu
+### Lựa chọn dấu phẩy sau trạng ngữ đầu câu
 
-- ❌ In recent years online learning has grown.
-- ✅ In recent years**,** online learning has grown.
+- **In recent years online learning has grown** có thể không dùng dấu phẩy sau trạng ngữ ngắn khi câu vẫn rõ.
+- **In recent years, online learning has grown** cũng đúng. Dấu phẩy giúp thể hiện ranh giới; cân nhắc độ dài, độ rõ nghĩa và quy ước văn phong, không bắt buộc với mọi trạng ngữ.
 
 ### Lỗi 3: Ép đa dạng đến mức gượng
 
@@ -223,7 +225,7 @@ Thay vì mở mọi câu Part 3 bằng "I think", luân phiên:
 
 1. **For me,** reading is the perfect way to relax. / **What I find most relaxing is** reading.
 2. **In recent years,** the city has changed a great deal.
-3. **What matters most, in my view, is** motivation. / **It is** motivation **that** matters most.
+3. **What matters most, in my view, is** motivation. *(đúng yêu cầu mở bằng What; it-cleft là lựa chọn khác nếu nới yêu cầu)*
 
 ---
 

@@ -110,7 +110,7 @@ Trong IELTS Writing/Speaking:
 - ❌ Sai: *"She gave me an advice."* / *"I need some informations."*
 - ✅ Đúng: *"She gave me some advice."* / *"I need some information."*
 
-Lỗi này rất phổ biến và bị giám khảo chú ý ngay lập tức. Sửa được lỗi này = tăng điểm Grammatical Range & Accuracy ngay.
+Sửa lỗi đếm được/không đếm được giúp cải thiện độ chính xác trong tiêu chí Grammatical Range and Accuracy. Band phụ thuộc toàn bài và các tiêu chí khác; sửa một lỗi không bảo đảm tăng band ngay.
 
 ## Định nghĩa
 
@@ -122,9 +122,9 @@ Danh từ chỉ những thứ **có thể đếm thành từng đơn vị rời 
 - *an idea, several ideas* → Đếm được từng ý tưởng
 
 ### Uncountable Noun (Danh từ không đếm được)
-Danh từ chỉ những thứ **không thể tách thành đơn vị rời rạc** — thường là chất liệu, khái niệm trừu tượng, hoặc tập hợp.
+Trong một nghĩa cụ thể, tiếng Anh dùng danh từ không đếm được để xem sự vật như một khối, hoạt động hoặc tập hợp. Đây là phân loại ngôn ngữ, không khẳng định vật ngoài đời không thể chia hay đếm; cần kiểm tra nghĩa và nhãn từ điển.
 
-- *water, milk, rice* → Không thể đếm từng đơn vị
+- *water, milk, rice* → thường dùng như danh từ khối; có thể đếm servings, bottles hoặc grains khi cần đơn vị
 - *advice, information, knowledge* → Khái niệm trừu tượng, không đếm được
 - *furniture, luggage, equipment* → Tập hợp, dùng như một khối
 
@@ -160,7 +160,7 @@ Danh từ chỉ những thứ **không thể tách thành đơn vị rời rạc
 | **Thời tiết, thiên nhiên** | weather, sunshine, rain, thunder |
 | **Tin tức, dữ liệu** | news, data\*, evidence, feedback, progress |
 
-\**Data* đang dần được chấp nhận là countable trong văn phong thông thường, nhưng trong học thuật vẫn là uncountable.
+Data có cách dùng danh từ khối/số ít (*The data is...*) và số nhiều (*These data are...*), kể cả trong văn bản học thuật. Chọn theo nghĩa và hướng dẫn môn/ngành, rồi giữ hòa hợp phù hợp; không có một kiểu bắt buộc cho mọi bài học thuật.
 
 ## Cách dùng phổ biến
 
@@ -385,13 +385,13 @@ Sự thay đổi: *researches → research*, *many furnitures → much of the fu
 1. *advice* → **U** (không có *advices*)
 2. *problem* → **C** (*problems*)
 3. *furniture* → **U** (không có *furnitures*)
-4. *opportunity* → **C** (*opportunities*)
+4. *opportunity* → **C hoặc U tùy nghĩa**: several opportunities / little opportunity
 5. *information* → **U** (không có *informations*)
 6. *suggestion* → **C** (*suggestions*)
 7. *luggage* → **U** (không có *luggages*)
-8. *improvement* → **C** (*improvements*)
+8. *improvement* → **C hoặc U tùy nghĩa**: three improvements / room for improvement
 9. *knowledge* → **U** (không có *knowledges*)
-10. *achievement* → **C** (*achievements*)
+10. *achievement* → **C hoặc U tùy nghĩa**: a remarkable achievement / a sense of achievement
 
 **Chọn từ đúng:**
 1. *much* experience (uncountable)
@@ -415,7 +415,7 @@ Sự thay đổi: *researches → research*, *many furnitures → much of the fu
 
 Tiếng Việt dùng **loại từ (classifier)** để đếm danh từ — "con bò", "cái bàn", "quyển sách". Loại từ là từ chỉ loại danh từ thuộc loại nào, đặt giữa số đếm và danh từ. Danh từ tự thân không đổi hình.
 
-Tiếng Anh **không có classifier** mà inflect chính danh từ: "one cow", "two cows". Với uncountable, tiếng Anh dùng partitive ("a piece of", "a glass of") — tương đương loại từ tiếng Việt nhưng chỉ áp dụng cho uncountable.
+Tiếng Anh thường đánh dấu số trên danh từ: one cow, two cows. Cụm chỉ phần/nhóm/vật chứa dùng với cả danh từ khối (*a glass of water*) và danh từ đếm được số nhiều (*a group of students*, *a box of books*); không đồng nhất chúng với hệ thống loại từ tiếng Việt.
 
 **Hệ quả cho người Việt:** Khi gặp danh từ mới trong English, **đừng tự động cho rằng có thể đếm**. Có rất nhiều khái niệm tiếng Việt đếm được (thông tin, lời khuyên, đồ đạc) nhưng tiếng Anh không đếm được:
 
@@ -425,5 +425,5 @@ Tiếng Anh **không có classifier** mà inflect chính danh từ: "one cow", "
 | một lời khuyên | advice [U] | ❌ "an advice", "advices" |
 | một thiết bị | equipment [U] | ❌ "an equipment", "equipments" |
 | một món đồ nội thất | furniture [U] | ❌ "a furniture", "furnitures" |
-| một nghiên cứu | research [U] (verb), research [C] (cụ thể study) | ❌ "researches" trong nghĩa "studies" |
+| một nghiên cứu | research là danh từ thường [U]; a study / a research study dùng study [C]; to research là động từ | Dùng some research hoặc a study; researches có cách dùng chuyên biệt, không phải dạng mặc định |
 | một bài tập | homework [U] | ❌ "a homework", "homeworks" |

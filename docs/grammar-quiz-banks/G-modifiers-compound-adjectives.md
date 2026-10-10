@@ -150,11 +150,11 @@ input: "choice"
 headword: "mod-compound-adverb-participle"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "Choose the correct pair: 'She works for a ____ company, and everyone agrees the manager there is ____.'"
+prompt: "Following the convention that opens well + participle after be, choose the pair: 'She has a ____ job, and everyone agrees the manager there is ____.'"
 options: ["well-paid / well paid", "well-paid / well-paid", "well paid / well-paid", "well paid / well paid"]
 answer: 0
 grammar_article_slug: "compound-adjectives"
-explain: "'well-paid company' đứng TRƯỚC danh từ → có gạch nối. 'the manager... is well paid' đứng SAU động từ to-be (vị ngữ) → viết rời, không gạch nối."
+explain: "Theo quy ước được nêu trong đề: 'a well-paid job' có gạch nối trước danh từ; 'the manager is well paid' viết rời ở vị ngữ. Well-paid job nói công việc được trả lương tốt. Cách viết vị ngữ có thể khác giữa các từ điển/hướng dẫn văn phong."
 ---
 
 ---
@@ -164,15 +164,11 @@ input: "text"
 headword: "mod-compound-adverb-participle"
 skill: "production"
 subtype: "intermediate"
-prompt: "The article was written in a ____ (clear / structure) way that examiners tend to reward."
+prompt: "The article was written in a ____ (clear / structure; viết trạng từ + phân từ, 2 từ) way."
 accept: ["clearly structured"]
 case_sensitive: false
 grammar_article_slug: "compound-adjectives"
-explain: "Trạng từ đuôi -ly 'clearly' + phân từ 'structured' KHÔNG dùng gạch nối: 'a clearly structured way'. Quy tắc gạch nối chỉ áp dụng cho tính từ ghép như 'well-known', KHÔNG cho trạng từ -ly (vì không gây mơ hồ)."
-accept: ["clearly-structured"]
-case_sensitive: false
-grammar_article_slug: "compound-adjectives"
-explain: "Trạng từ 'clearly' + phân từ 'structured' ghép trước danh từ 'way' → clearly-structured (giữ gạch nối)."
+explain: "Viết 'clearly structured': clearly là trạng từ đuôi -ly nên không nối bằng gạch nối với structured. Đây là 2 từ. Cấu trúc này tự nó không bảo đảm điểm IELTS."
 ---
 
 ---
@@ -199,10 +195,7 @@ prompt: "Despite limited funding, the team produced a ____ documentary that won 
 options: ["highly-praised", "high-praised", "highly praised", "high praised"]
 answer: 2
 grammar_article_slug: "compound-adjectives"
-explain: "Trạng từ đuôi -ly 'highly' + phân từ 'praised' KHÔNG dùng gạch nối: 'a highly praised documentary'. Bẫy 'highly-praised' sai vì quy tắc gạch nối tính từ ghép không áp dụng cho trạng từ -ly; 'high praised'/'high-praised' sai vì cần dạng trạng từ 'highly'."
-answer: 0
-grammar_article_slug: "compound-adjectives"
-explain: "Trạng từ đuôi -ly 'highly' + phân từ 'praised' vẫn ghép gạch nối khi đứng trước danh từ 'documentary': highly-praised."
+explain: "Trạng từ đuôi -ly 'highly' bổ nghĩa cho phân từ 'praised'; theo quy ước văn phong thông dụng, viết 'highly praised' không có gạch nối, kể cả trước documentary."
 ---
 
 # ===== item_key 3 · Danh từ + phân từ (time-consuming, English-speaking) =====
@@ -356,9 +349,9 @@ headword: "mod-compound-hyphen-position"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'The government adopted a long-term strategy, and officials confirmed the plan is long-term.'"
-answer: false
+answer: true
 grammar_article_slug: "compound-adjectives"
-explain: "SAI phần sau — 'a long-term strategy' đứng trước danh từ nên đúng khi có gạch nối, nhưng 'the plan is long-term' đứng sau to-be nên phải viết rời: 'the plan is long term'."
+explain: "ĐÚNG — long-term là từ ghép cố định có cách dùng với gạch nối cả trước danh từ và ở vị ngữ. Một số hướng dẫn văn phong dùng long term ở vị ngữ; không thể kết luận mọi gạch nối sau be đều sai khi đề không quy định hướng dẫn cụ thể."
 ---
 
 ---

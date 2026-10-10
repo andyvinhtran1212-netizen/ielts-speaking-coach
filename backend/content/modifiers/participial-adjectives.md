@@ -2,7 +2,7 @@
 title: Participial Adjectives — interested vs interesting
 slug: participial-adjectives
 category: modifiers
-summary: 'Tính từ phân từ có hai dạng: -ed (cảm giác của người) và -ing (bản chất gây ra cảm giác). Nhầm bored/boring, interested/interesting là lỗi kinh điển ở THPT và TOEIC — bài này chỉ cách chọn đúng.
+summary: 'Với các cặp tính từ chỉ cảm xúc, -ed thường diễn tả trạng thái được trải nghiệm, -ing diễn tả nguồn gây cảm xúc. Tính từ phân từ còn có nhiều nghĩa khác như broken và polluted; không chia máy móc theo người và vật.
 
   '
 level: intermediate
@@ -43,7 +43,7 @@ anchors:
   location: '## Tóm tắt'
   type: overview
 - id: participial-adjectives.rule
-  location: '### Quy tắc: -ed cho người, -ing cho nguồn gây ra'
+  location: '### Các cặp chỉ cảm xúc: trạng thái và nguồn gây ra'
   type: structure
 - id: participial-adjectives.pitfall
   location: '## Lỗi thường gặp'
@@ -58,7 +58,7 @@ Nhiều tính từ có cặp **-ed / -ing** từ cùng một động từ:
 - I am **bored**. *(tôi cảm thấy chán)* — The lesson is **boring**. *(bài học gây chán)*
 
 <!-- anchor: participial-adjectives.rule -->
-### Quy tắc: -ed cho người, -ing cho nguồn gây ra
+### Các cặp chỉ cảm xúc: trạng thái và nguồn gây ra
 
 | Dạng | Chỉ | Ví dụ |
 |---|---|---|
@@ -66,6 +66,8 @@ Nhiều tính từ có cặp **-ed / -ing** từ cùng một động từ:
 | **-ing** | **bản chất** gây ra cảm giác | *interesting, tiring, surprising, worrying* |
 
 Mẹo: nếu chủ ngữ **cảm thấy** → -ed; nếu chủ ngữ **làm cho ai cảm thấy** → -ing.
+
+Mẹo này chỉ áp dụng cho các **cặp chỉ cảm xúc** đang học. Người có thể interesting/boring, còn vật có thể broken/polluted; -ed không dành riêng cho người và không luôn chỉ cảm xúc.
 
 - The news was **shocking**. → News làm ta sốc.
 - We were **shocked** by the news. → Ta cảm thấy sốc.
@@ -79,7 +81,7 @@ Các cặp hay gặp: excited/exciting, confused/confusing, amazed/amazing, frig
 - ❌ *I am boring in this class.* *(= tôi là người gây chán!)*
 - ✅ *I am **bored** in this class.*
 
-### Lỗi 2: Mô tả vật bằng -ed
+### Lỗi 2: Chọn sai nghĩa trong cặp bored/boring
 - ❌ *The movie was very bored.* → ✅ *The movie was very **boring**.*
 
 ### Lỗi 3: Nhầm với người gây cảm giác
@@ -91,6 +93,7 @@ Các cặp hay gặp: excited/exciting, confused/confusing, amazed/amazing, frig
 
 ## Tóm tắt nhanh
 
-- **-ed** = cảm giác (người); **-ing** = gây ra cảm giác (vật/việc)
+- Với cặp chỉ cảm xúc: **-ed** = trạng thái trải nghiệm; **-ing** = nguồn gây cảm xúc, có thể là người hoặc vật
+- Các tính từ phân từ khác có nghĩa riêng: a broken window, polluted water
 - *I am bored* (chán) ≠ *I am boring* (gây chán)
 - Cặp thường gặp: interested/interesting, excited/exciting, confused/confusing

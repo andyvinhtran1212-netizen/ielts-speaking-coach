@@ -254,11 +254,11 @@ input: "choice"
 headword: "pos-identify-in-context"
 skill: "contrast"
 subtype: "intermediate"
-prompt: "Choose the word that functions as a VERB in this sentence: 'I enjoy my work, but I also work hard every weekend.'"
-options: ["the first 'work' (my work)", "the second 'work' (I work hard)", "'enjoy'", "'hard'"]
+prompt: "Which occurrence of 'work' is a VERB in this sentence: 'I enjoy my work, but I also work hard every weekend.'"
+options: ["the first 'work' (my work)", "the second 'work' (I work hard)"]
 answer: 1
 grammar_article_slug: "parts-of-speech"
-explain: "Cùng từ 'work' có thể là danh từ ('my work' = công việc) hoặc động từ ('I work' = tôi làm việc) tùy vị trí trong câu."
+explain: "Câu hỏi chỉ xét hai lần xuất hiện của 'work': 'my work' là danh từ, 'I work hard' có động từ 'work'. 'Enjoy' cũng là động từ, nhưng không nằm trong phạm vi lựa chọn đã nêu."
 ---
 
 ---

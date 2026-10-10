@@ -71,7 +71,7 @@ anchors:
 <!-- anchor: adding-contrast-naturally.tom-tat -->
 ## Tóm tắt
 
-Tương phản là một trong những quan hệ ý nghĩa được examiner để ý nhất. Biết một từ ("but") thì đủ Band 5; biết chọn đúng connector theo ngữ cảnh và dùng đúng dấu câu mới lên Band 7. Phân nhóm theo **cấu trúc đi sau**:
+Tương phản là một trong những quan hệ ý nghĩa được examiner để ý nhất. Số connector không xác định band; chọn theo ngữ cảnh và dùng đúng dấu câu. Phân nhóm theo **cấu trúc đi sau**:
 
 | Nhóm | Patterns | Theo sau là | Dấu câu |
 |------|----------|-------------|---------|
@@ -81,7 +81,7 @@ Tương phản là một trong những quan hệ ý nghĩa được examiner đ�
 | **Trạng từ liên kết** | however, nevertheless, nonetheless | mệnh đề | chấm / chấm phẩy + phẩy sau |
 | **Cụm hai chiều** | on the one hand... on the other hand | mệnh đề | — |
 
-> Lỗi gốc của người Việt: trộn hai nhóm (vd "**Although** it was raining, **but** we went out"). Một câu tương phản chỉ cần **một** connector.
+> Lỗi gốc của người Việt: trộn hai nhóm (vd "**Although** it was raining, **but** we went out"). Không dùng although...but cho cùng một cặp mệnh đề. Câu dài vẫn có nhiều connector cho những quan hệ khác nhau.
 
 ---
 

@@ -2,9 +2,10 @@
 title: Double Subject Errors — Lỗi lặp chủ ngữ
 slug: double-subject-errors
 category: error-clinic
-summary: 'Lỗi lặp chủ ngữ xảy ra khi người học viết cả danh từ lẫn đại từ cho cùng
-  một chủ ngữ trong cùng một câu — chẳng hạn "My father he works hard." Đây là lỗi
-  ảnh hưởng trực tiếp từ cấu trúc tiếng Việt và cần được loại bỏ hoàn toàn.
+summary: 'Trong văn viết trung tính, tránh lặp danh từ và đại từ cho cùng chủ ngữ
+  của một mệnh đề, như "My father he works hard." Phân biệt lỗi này với header
+  giới thiệu chủ đề ngoài mệnh đề, như "My father, he works hard", có thể tự nhiên
+  trong hội thoại khi ngữ cảnh và ngắt giọng phù hợp.
 
   '
 level: beginner
@@ -68,7 +69,9 @@ anchors:
 <!-- anchor: double-subject-errors.tom-tat -->
 ## Tóm tắt
 
-| ❌ Sai — Lặp subject | ✅ Đúng — Chọn một |
+Các ví dụ cần sửa dưới đây là câu văn viết trung tính, không có chủ ý giới thiệu chủ đề bằng ngắt giọng.
+
+| ❌ Lặp subject trong văn viết trung tính | ✅ Câu viết gọn |
 |--------------------|-----------------|
 | "My father he works very hard." | "My father works very hard." / "He works very hard." |
 | "This problem it needs to be solved." | "This problem needs to be solved." / "It needs to be solved." |
@@ -85,15 +88,19 @@ Trong tiếng Việt, cách nói nhấn mạnh chủ đề thường dùng cấu
 > "Ba tôi, ông ấy làm việc rất chăm chỉ."
 > "Vấn đề này, nó cần phải được giải quyết."
 
-Người học dịch thẳng cấu trúc "danh từ + đại từ + động từ" sang tiếng Anh, tạo ra lỗi double subject:
+Khi dịch thẳng cấu trúc "danh từ + đại từ + động từ" vào một mệnh đề văn viết trung tính, người học có thể tạo ra lỗi double subject:
 
-> ❌ "My father, he works very hard." ← sai trong tiếng Anh chuẩn
+> ❌ "My father he works very hard." ← cần sửa trong câu viết trung tính
 
-Tiếng Anh chỉ dùng **một** trong hai: hoặc danh từ, hoặc đại từ — không bao giờ cả hai trong cùng một mệnh đề.
+Trong câu viết này, chọn **My father** hoặc **he** làm chủ ngữ. Trong hội thoại, **My father, he works very hard** có thể gồm header **My father** ở ngoài mệnh đề và chủ ngữ **he** ở trong mệnh đề. Dấu phẩy có thể ghi lại ngắt giọng; riêng dấu phẩy không đủ để xác định ý định của người nói.
+
+Nguồn: [Cambridge — Headers and tails](https://dictionary.cambridge.org/grammar/british-grammar/headers-and-tails). Cấu trúc này thường gặp trong nói và hiếm trong viết; không nên tự chấm sai mọi câu có danh từ rồi đại từ cùng chỉ một người/vật.
 
 ---
 
 ## CÁC TRƯỜNG HỢP PHỔ BIẾN
+
+Các bảng sau luyện cách biên tập **văn viết trung tính**. Khi nghe một phát ngôn, cần xét ngữ cảnh, ngắt giọng và cách tổ chức chủ đề trước khi kết luận có lỗi.
 
 ### Trường hợp 1: Danh từ + he/she/it/they
 
@@ -122,31 +129,31 @@ Tiếng Anh chỉ dùng **một** trong hai: hoặc danh từ, hoặc đại t�
 
 ---
 
-## KHI NÀO CÓ THỂ DÙNG DẤU PHẨY + ĐẠI TỪ (APPOSITIVE)?
+## Phân biệt appositive và header
 
-Tiếng Anh có cấu trúc **appositive** — thêm thông tin bổ sung — nhưng khác với double subject:
+**Appositive** là danh từ/cụm danh từ bổ sung thông tin cho một danh từ. **Header** giới thiệu chủ đề ngoài mệnh đề, rồi mệnh đề có thể dùng đại từ nhắc lại chủ đề ấy.
 
 **Appositive (đúng):**
 > "My father, **a retired engineer**, works very hard." ← danh từ bổ nghĩa, không phải đại từ
 
-**Double subject (sai):**
-> ❌ "My father, **he** works very hard."
+**Header trong hội thoại (có thể phù hợp):**
+> "My father, **he** works very hard." ← **My father** là chủ đề; **he** là chủ ngữ của mệnh đề theo sau
 
-**Cách phân biệt:** Appositive là noun/noun phrase. Double subject là đại từ (he/she/it/they/we).
+**Cách phân biệt:** Trong ví dụ appositive, **a retired engineer** giải thích **my father**. Trong ví dụ header, **he works very hard** là mệnh đề hoàn chỉnh. Không dùng quy tắc “có đại từ là sai”; với văn viết trung tính, mặc định chọn **My father works very hard**.
 
 ---
 
 ## Ảnh hưởng trong Speaking và Writing
 
 ### Speaking:
-Lỗi double subject nghe rất lạ với người bản ngữ và bị đánh giá thấp trong tiêu chí **Grammatical Range & Accuracy**.
+Cần phân biệt lỗi mất kiểm soát cấu trúc với header có chức năng giao tiếp. Header có thể tự nhiên trong hội thoại; không có quy tắc trừ band tự động chỉ vì một phát ngôn có danh từ và đại từ cùng chỉ chủ đề.
 
-- ❌ "My hometown, it is a small city near the coast."
+- “My hometown, it is a small city near the coast” có thể là header + mệnh đề trong hội thoại, với ngắt giọng; mặc định văn viết gọn dùng câu dưới.
 - ✅ "My hometown is a small city near the coast."
 - ✅ "It's a small city near the coast." *(nếu đã nhắc hometown trước đó)*
 
 ### Writing:
-Trong IELTS Writing, lỗi này thường xuất hiện khi người viết dùng cấu trúc câu phức tạp hơn và mất kiểm soát:
+Trong IELTS Writing với văn phong trung tính/học thuật, ưu tiên câu gọn. Ví dụ biên tập dưới đây tránh cách tổ chức chủ đề của hội thoại; nhãn cần sửa áp dụng cho mục tiêu văn viết này:
 
 - ❌ "The rapid increase in urbanisation, it has led to serious environmental problems."
 - ✅ "The rapid increase in urbanisation has led to serious environmental problems."
@@ -157,7 +164,7 @@ Trong IELTS Writing, lỗi này thường xuất hiện khi người viết dùn
 <!-- anchor: double-subject-errors.cach-sua-nhanh -->
 ## Cách sửa nhanh
 
-Khi gặp lỗi double subject, có **3 cách sửa**:
+Khi cần biên tập một câu lặp chủ ngữ trong văn viết trung tính, có **3 cách sửa**. Không bắt buộc áp dụng các cách này cho mọi header trong hội thoại.
 
 ### Cách 1: Giữ danh từ, bỏ đại từ
 > ❌ "My sister she studies medicine."
@@ -175,7 +182,7 @@ Khi gặp lỗi double subject, có **3 cách sửa**:
 <!-- anchor: double-subject-errors.loi-thuong-gap-khi-them-thong-tin -->
 ## Lỗi thường gặp khi thêm thông tin
 
-Lỗi double subject hay xảy ra nhất khi người học cố thêm thông tin bổ sung vào subject:
+Khi người học thêm thông tin, câu viết có thể vừa lặp chủ ngữ vừa nối các mệnh đề độc lập bằng dấu phẩy. Các bản biên tập dưới đây xử lý cả cấu trúc mệnh đề và liên kết ý:
 
 | ❌ Sai | ✅ Đúng |
 |--------|---------|
@@ -187,7 +194,9 @@ Lỗi double subject hay xảy ra nhất khi người học cố thêm thông ti
 
 ## Bài tập luyện
 
-### Phát hiện và sửa lỗi double subject:
+### Biên tập thành văn viết trung tính:
+
+Giữ thông tin chính, dùng một chủ ngữ trong mỗi mệnh đề và tránh nối hai mệnh đề độc lập chỉ bằng dấu phẩy. Đây là bài luyện văn viết; không kết luận mọi phát ngôn có header đều sai.
 
 1. "My brother he is studying at university in Ho Chi Minh City."
 2. "This issue it requires immediate attention from the government."
@@ -203,7 +212,7 @@ Lỗi double subject hay xảy ra nhất khi người học cố thêm thông ti
 3. "Young people today prefer using technology for communication." *(bỏ "they")*
 4. "My country has a rich cultural heritage." *(bỏ "it")*
 5. "The environment is one of the most important topics in the world right now." *(bỏ "it")*
-6. "The teacher, who explained the grammar rules very clearly, also gave us exercises." *(dùng relative clause)*
+6. "The teacher explained the grammar rules very clearly and also gave us exercises." *(giữ cả hai hành động, nối hai vị ngữ bằng and)*
 
 ---
 
@@ -211,7 +220,7 @@ Lỗi double subject hay xảy ra nhất khi người học cố thêm thông ti
 ## Tóm tắt nhanh
 
 ```
-DOUBLE SUBJECT = danh từ + đại từ cho cùng một chủ ngữ → SAI
+VĂN VIẾT TRUNG TÍNH: tránh danh từ + đại từ lặp cùng chủ ngữ trong mệnh đề.
 
 VÍ DỤ LỖI:
 ❌ "My father he works hard."
@@ -226,7 +235,7 @@ VÍ DỤ LỖI:
 3. Đổi cấu trúc:
    ✅ "My father, who works very hard, ..."
 
-NGUỒN GỐC: Ảnh hưởng từ tiếng Việt
-("Ba tôi, ông ấy làm việc chăm chỉ" → ❌ "My father he works hard")
-→ Luôn chỉ dùng MỘT trong hai: danh từ HOẶC đại từ
+HỘI THOẠI: "My father, he works hard" có thể là header + mệnh đề.
+Xét ngữ cảnh và ngắt giọng; không tự coi header là lỗi.
+Mặc định khi viết câu trung tính: "My father works hard."
 ```

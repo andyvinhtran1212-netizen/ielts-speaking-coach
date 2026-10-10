@@ -70,7 +70,7 @@ prompt: "My hometown is much ____ (quiet) than the capital city."
 accept: ["quieter"]
 case_sensitive: false
 grammar_article_slug: "comparison"
-explain: "'quiet' → 'quieter' là dạng so sánh chuẩn (nhân đôi phụ âm t trước -er)."
+explain: "Quiet → quieter bằng cách thêm -er; không nhân đôi t. Cụm much quieter nhấn mạnh mức độ chênh lệch so với thủ đô."
 ---
 
 ---
@@ -123,11 +123,11 @@ input: "text"
 headword: "comp-long-more"
 skill: "production"
 subtype: "intermediate"
-prompt: "Renewable energy is becoming ____ (competitive) with fossil fuels each year."
+prompt: "Chia competitive sang dạng so sánh hơn dùng more (2 từ): 'Renewable energy is becoming ____ with fossil fuels each year.'"
 accept: ["more competitive"]
 case_sensitive: false
 grammar_article_slug: "comparison"
-explain: "'competitive' là tính từ dài (4 âm tiết) → more + adjective: more competitive."
+explain: "Dạng so sánh hơn được yêu cầu là more competitive. Increasingly competitive cũng là cách diễn đạt tự nhiên về mức độ tăng, nhưng không thực hiện thao tác chia so sánh hơn dùng more đã nêu rõ trong đề."
 ---
 
 ---
@@ -140,7 +140,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'This solution is efficienter than the previous one.'"
 answer: false
 grammar_article_slug: "comparison"
-explain: "SAI — 'efficient' là tính từ dài (4 âm tiết), không thể thêm -er: 'This solution is more efficient than the previous one.'"
+explain: "SAI — efficient thường có 3 âm tiết /ɪˈfɪʃ.ənt/; dạng so sánh hơn thông dụng là more efficient, không phải efficienter. Không dùng số âm tiết sai làm lý do."
 ---
 
 ---

@@ -66,14 +66,14 @@ anchors:
 <!-- anchor: talking-about-future-plans.overview -->
 ## Tóm tắt
 
-Bốn cách nói về tương lai — khác nhau về mức độ chắc chắn và loại kế hoạch:
+Bốn cách nói về tương lai — khác nhau về ý định giao tiếp và loại kế hoạch:
 
-| Cấu trúc | Nghĩa | Mức chắc chắn | Ví dụ |
+| Cấu trúc | Nghĩa | Căn cứ/ngữ cảnh cần biết | Ví dụ |
 |---------|-------|--------------|-------|
-| **will + V** | Quyết định ngay lúc nói / Dự đoán | Trung bình–Cao | I'll probably move abroad. |
-| **be going to + V** | Kế hoạch đã có sẵn / Dự đoán có bằng chứng | Cao | I'm going to apply next year. |
-| **Present Continuous** | Sắp xếp cụ thể đã được định | Rất cao | I'm starting work on Monday. |
-| **hope/plan/intend to** | Ý định, mong muốn, dự định | Thấp–Trung bình | I hope to study abroad. |
+| **will + V** | Quyết định ngay lúc nói / Dự đoán | Ý định/thông báo/dự đoán trong ngữ cảnh | I'll probably move abroad. |
+| **be going to + V** | Kế hoạch đã có sẵn / Dự đoán có bằng chứng | Ý định có trước hoặc bằng chứng hiện tại | I'm going to apply next year. |
+| **Present Continuous** | Sắp xếp cụ thể đã được định | Đã sắp xếp; không bảo đảm việc sẽ xảy ra | I'm starting work on Monday. |
+| **hope/plan/intend to** | Ý định, mong muốn, dự định | Mong muốn/dự định; không phải thang xác suất | I hope to study abroad. |
 
 ---
 
@@ -239,26 +239,27 @@ That's a tough question — I suppose I'll...
 
 ### Lỗi 1: Dùng "will" cho kế hoạch đã có sẵn
 
-- ❌ "I **will apply** for university next year." (nghe như quyết định ngay lúc này)
+- ✅ “I **will apply** for university next year.” *(có thể là thông báo/cam kết; không tự chứng minh quyết định ngay lúc nói)*
 - ✅ "**I'm going to apply** for university next year." (kế hoạch đã có)
 
-### Lỗi 2: Dùng "going to" cho dự đoán về xã hội nói chung
+### Lựa chọn will và going to khi dự đoán
 
-- ❌ "Technology **is going to change** how we communicate." (không có bằng chứng cụ thể rõ ràng)
-- ✅ "Technology **will change** how we communicate." (dự đoán chung → will)
-- Cả hai đều đúng ngữ pháp nhưng "will" tự nhiên hơn cho dự đoán tổng quát.
+- "Technology **is going to change** how we communicate" có thể diễn đạt dự đoán, thường gắn với cơ sở hiện tại hoặc góc nhìn của người nói.
+- "Technology **will change** how we communicate" có thể nêu dự đoán/nhận định chung.
+- Cả hai đúng ngữ pháp; không tự kết luận going to sai chỉ vì câu không viết ra bằng chứng.
 
-### Lỗi 3: "Will" + "ing" (không tồn tại)
+### Lỗi 3: Thiếu be giữa will và V-ing
 
 - ❌ "I will going to study."
 - ✅ "I **am going to** study." / "I **will** study."
+- ✅ "I **will be studying** tomorrow evening." *(will + be + V-ing là Future Continuous hợp lệ)*
 
 ### Lỗi 4: Quên chia "be" trong "be going to"
 
 - ❌ "I going to travel next year."
 - ✅ "**I'm** going to travel next year."
 
-### Lỗi 5: "Hope" + will (redundant)
+### Lỗi 5: Thừa to sau will hoặc thiếu be trước V-ing
 
 - ❌ "I hope I will to pass." / "I hope I'll to pass."
 - ✅ "I hope **to** pass." / "I hope **I'll** pass."
@@ -272,7 +273,7 @@ That's a tough question — I suppose I'll...
 
 1. (Spontaneous decision) "This question is very interesting — ___ give you a personal example."
 2. (Prior plan, not yet confirmed) "After I graduate, ___ look for a job overseas."
-3. (Arranged, confirmed) "I can't meet tomorrow — ___ see my supervisor at 2pm."
+3. (Arranged, confirmed) “I can’t meet tomorrow — I ___ my supervisor at 2pm.” *(điền am seeing)*
 4. (Hope/wish, not certain) "I ___ travel the world someday."
 5. (Prediction, general) "I think AI ___ change most industries within the next decade."
 
@@ -280,8 +281,8 @@ That's a tough question — I suppose I'll...
 
 1. **I'll** give you a personal example.
 2. **I'm going to** look for a job overseas.
-3. **I'm seeing** my supervisor at 2pm.
-4. **I hope to** travel the world someday. / **I'd love to** travel...
+3. **am seeing** → “I can’t meet tomorrow — I’m seeing my supervisor at 2pm.”
+4. Điền **hope to** hoặc **would love to** → "I hope to travel the world someday" / "I would love to travel the world someday."
 5. AI **will** change most industries. / AI **is going to** change... (cả hai đều đúng)
 
 ---

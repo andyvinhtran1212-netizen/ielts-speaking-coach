@@ -304,7 +304,7 @@ headword: "conj-compound-sentence-errors"
 skill: "usage"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'The company invested in renewable energy, so that it managed to cut emissions by 30 percent.'"
-answer: false
+answer: true
 grammar_article_slug: "conjunctions"
-explain: "SAI — 'so that' diễn tả MỤC ĐÍCH (để), không phải KẾT QUẢ đã xảy ra. Vì câu này nói về kết quả thực tế đạt được, phải dùng 'so': 'The company invested in renewable energy, so it managed to cut emissions by 30 percent.'"
+explain: "ĐÚNG — so that có thể chỉ mục đích hoặc mang nghĩa 'with the result that'. Trong câu này, dấu phẩy và managed to hướng tới kết quả đạt được. So cũng là cách diễn đạt kết quả tự nhiên, nhưng không phải cách duy nhất đúng."
 ---

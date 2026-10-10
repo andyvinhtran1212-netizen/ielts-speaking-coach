@@ -207,7 +207,7 @@ Trong speaking, một số fragment là **bình thường và tự nhiên** khi 
 
 Tuy nhiên, khi phát triển ý dài hơn, cần câu hoàn chỉnh:
 
-- ❌ "Because it's interesting and I like it." *(trả lời Part 1 lơ lửng)*
+- ✅ “Because it’s interesting and I like it.” *(đáp đủ nghĩa cho “Why do you enjoy it?” trong hội thoại; nếu đứng riêng trong văn học thuật thì cần mệnh đề chính)*
 - ✅ "**I really enjoy it** because I find it both creative and relaxing."
 
 ---

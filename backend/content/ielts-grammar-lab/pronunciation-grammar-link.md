@@ -3,7 +3,7 @@ title: Pronunciation–Grammar Link — Liên hệ phát âm và ngữ pháp tro
 slug: pronunciation-grammar-link
 category: ielts-grammar-lab
 summary: |
-  IELTS Speaking chấm cả Pronunciation (25%) và Grammar (25%). Khi VN speakers drop -s/-ed cuối từ trong audio, examiner nghe là LỖI GRAMMAR chứ không chỉ pronunciation. Bài này tập trung 4 điểm grammar bị rớt audio nhiều nhất: (1) plural/3rd-person -s với 3 phát âm /s,z,ɪz/, (2) past -ed với 3 phát âm /t,d,ɪd/, (3) weak forms function words, (4) contractions. Có drill cụ thể và checklist.
+  IELTS Speaking chấm cả Pronunciation (25%) và Grammar (25%). Khi VN speakers drop -s/-ed cuối từ trong audio, có thể làm mờ thì/số lượng và ảnh hưởng mức dễ hiểu; không có phép trừ tự động cho từng âm. Bài này tập trung 4 điểm grammar bị rớt audio nhiều nhất: (1) plural/3rd-person -s với 3 phát âm /s,z,ɪz/, (2) past -ed với 3 phát âm /t,d,ɪd/, (3) weak forms function words, (4) contractions. Có drill cụ thể và checklist.
 
 level: advanced
 difficulty: advanced
@@ -87,11 +87,11 @@ anchors:
 <!-- anchor: pronunciation-grammar-link.overview -->
 ## Tóm tắt
 
-Trong IELTS Speaking, **Pronunciation và Grammar liên kết chặt chẽ**. Bạn có thể biết "she works", "two books", "I worked" về mặt grammar — nhưng nếu phát âm rớt -s hay -ed, examiner sẽ chấm là **lỗi grammar** chứ không chỉ lỗi pronunciation. Bài này tập trung vào 4 điểm grammar mà người Việt thường rớt audio: (1) plural / 3rd-person -s, (2) past tense -ed, (3) weak forms của function words, (4) contractions.
+Trong IELTS Speaking, **Pronunciation và Grammar liên kết chặt chẽ**. Bạn có thể biết "she works", "two books", "I worked" về mặt grammar — nhưng nếu phát âm rớt -s hay -ed, thì/số lượng có thể khó nhận ra; cần đánh giá bản ghi âm và mức dễ hiểu trên toàn bài. Bài này tập trung vào 4 điểm grammar mà người Việt thường rớt audio: (1) plural / 3rd-person -s, (2) past tense -ed, (3) weak forms của function words, (4) contractions.
 
 ## Tại sao quan trọng
 
-Tiếng Việt cấu trúc âm tiết: **C-V-(C)** — chỉ vài phụ âm cuối cho phép, không cluster. Tiếng Anh cho phép cluster phụ âm cuối phức tạp: */ksts/* trong *texts*, */kts/* trong *acts*, */mpts/* trong *attempts*. Khi VN speakers áp dụng âm vị học VN sang EN, họ tự động drop final consonants → biến **grammatical morphemes** (-s plural, -ed past) thành im lặng → grammar score sụp.
+Tiếng Việt cấu trúc âm tiết: **C-V-(C)** — chỉ vài phụ âm cuối cho phép, không cluster. Tiếng Anh cho phép cluster phụ âm cuối phức tạp: */ksts/* trong *texts*, */kts/* trong *acts*, */mpts/* trong *attempts*. Khi VN speakers áp dụng âm vị học VN sang EN, họ tự động drop final consonants → biến **grammatical morphemes** (-s plural, -ed past) thành im lặng → có thể làm mờ thông tin ngữ pháp.
 
 Ví dụ thực tế:
 
@@ -99,7 +99,7 @@ Ví dụ thực tế:
 - Candidate nói (ghi âm): "Yesterday I /wɜːk/ until 10pm and /ˈfɪnɪʃ/ the project."
 - Examiner nghe: ungrammatical past tense → flag as GRA error.
 
-Kết quả: cùng một câu mà bị tính lỗi 2 lần (trong Pronunciation criterion + trong GRA criterion).
+Ảnh hưởng được xét trong tiêu chí phù hợp trên toàn bài; không tự tính một lỗi hai lần hoặc suy mức band chỉ từ âm cuối.
 
 ## 4 điểm grammar bị rớt audio nhiều nhất
 
@@ -153,15 +153,15 @@ Trong English connected speech, function words (auxiliaries, prepositions, artic
 | Strong form | Weak form | Ví dụ |
 |---|---|---|
 | **a** /eɪ/ | /ə/ | a book /ə bʊk/ |
-| **the** /ðiː/ | /ðə/ | the book /ðə bʊk/ |
+| **the** /ðiː/ | thường /ðə/ trước phụ âm, /ði/ trước nguyên âm | the book /ðə bʊk/ |
 | **to** /tuː/ | /tə/ | I want to go /tə ɡəʊ/ |
 | **for** /fɔː/ | /fə/ | a gift for you /fə juː/ |
 | **and** /ænd/ | /ən/ | bread and butter /brɛd ən ˈbʌtə/ |
 | **of** /ɒv/ | /əv/ | a cup of tea /ə kʌp əv tiː/ |
-| **have** (auxiliary) /hæv/ | /əv/ | I have done /aɪ əv dʌn/ |
+| **have** (auxiliary) /hæv/ | /həv/ hoặc /əv/ tùy ngữ cảnh | I have done /aɪ əv dʌn/ |
 | **was** /wɒz/ | /wəz/ | He was happy /hi wəz ˈhæpiː/ |
 
-Người Việt thường nói full form mọi function word → speech sounds robotic, slow, unnatural → hạ Pronunciation score và sometimes Fluency.
+Trong mẫu trọng âm trung tính, function words thường yếu; chúng vẫn được nhấn khi đối lập: “I said TO the bank, not FROM it”. Chọn theo trọng tâm thông tin.
 
 **Cách fix:**
 1. Listen to native speakers slow → fast → notice weak forms.
@@ -190,7 +190,7 @@ English natural speech uses contractions extensively. Avoid full forms:
 Người Việt thường nói "I am going to..." full form → mất 0.3 second per word → không enough thời gian trả lời câu hỏi đầy đủ trong 2 phút Part 2.
 
 **Cách fix:**
-1. Force contractions trong practice. Khi recording, replay và đếm contractions used. Mục tiêu: > 80% có thể contract → contracted.
+1. Luyện contractions ở vị trí cấu trúc cho phép; giữ dạng đầy đủ khi nhấn mạnh hoặc cuối câu trả lời ngắn: “Yes, I am”. Không có chỉ tiêu 80%.
 2. Practice "gonna/wanna" trong informal Speaking (Part 1, Part 3) — chấp nhận trong IELTS Speaking, examiner không penalize.
 3. Lưu ý: "I'd" có 2 nghĩa (I would / I had) — context phân biệt. Đừng tránh "I'd" vì sợ nhầm.
 
@@ -214,7 +214,7 @@ VN phonotactics drop final consonant clusters:
 - "I have" thay vì "I've"
 - "I will" thay vì "I'll"
 
-**Cách fix:** Đặt rule: "Mọi 'I am' → 'I'm' trong Speaking."
+**Cách luyện:** So sánh “I’m ready” với “Yes, I am”; không rút gọn mọi I am. Gonna/wanna/hafta là cách nói thân mật, khác contractions chuẩn.
 
 <!-- anchor: pronunciation-grammar-link.common-mistake.ed-sai-loai -->
 ### Lỗi 3: -ed phát âm sai loại
@@ -228,7 +228,7 @@ VN phonotactics drop final consonant clusters:
 ### Lỗi 4: Stress sai trên content vs function words
 
 - "I WANT to GO to the BANK." (đúng — content stressed)
-- "I want TO go TO the bank." (sai — function stressed)
+- “I want TO go TO the bank.” *(có thể đúng khi đối lập hướng đến với từ nơi đó về; không tự sai)*
 
 **Cách fix:** Mark scripts. Practice với metronome (1 stress / beat).
 
@@ -246,14 +246,14 @@ Khi practice cho Speaking, **ghi âm** mọi practice và nghe lại với check
 - [ ] Function words weak?
 - [ ] Content words stressed?
 
-Nếu < 80% các điểm trên đạt → grammar score sẽ bị hạ ngay cả khi grammar đúng trên giấy.
+Checklist này dùng luyện tập, không phải phép tính band. Đánh giá sự rõ nghĩa, nhịp và độ chính xác trong audio thực tế.
 
 ### Bài tập specific
 
-1. **Cluster drill:** Mỗi sáng đọc list 30 từ ending in cluster: books, asks, stops, texts, walked, finished, started.
+1. **Cluster drill:** Mỗi sáng đọc list 30 từ ending in cluster: books, asks, stops, texts, walked, finished. Luyện đuôi tạo âm tiết riêng: wanted, needed, started.
 2. **3rd-person drill:** "She likes coffee. He watches movies. It runs fast." — 30 sentences mỗi sáng.
-3. **Past tense narrative:** Mỗi tối kể 1-phút "Today I..." dùng past simple. Force -ed trên mọi verb. Record + check.
-4. **Contraction force:** 1-tuần thử nói NO full forms trong English casual speech.
+3. **Past tense narrative:** Mỗi tối kể 1-phút "Today I..." dùng past simple. Dùng dạng quá khứ đúng cho từng sự kiện; kiểm -ed ở động từ có quy tắc và dạng bất quy tắc riêng. Wanted/needed cần /ɪd/, không tùy đổi thành /t/ hoặc /d/.
+4. **Contraction force:** Luyện dạng rút gọn ở những vị trí phù hợp, giữ full form cho nhấn mạnh/câu trả lời ngắn.
 
 ## Tóm tắt nhanh
 

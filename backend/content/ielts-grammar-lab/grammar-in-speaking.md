@@ -62,7 +62,7 @@ anchors:
     location: "### Speaking Part 3 — Thảo luận trừu tượng"
     type: section
   - id: grammar-in-speaking.gra.band-7-criteria
-    location: "## Band 6 → Band 7: Upgrade Drill"
+    location: "## Luyện phát triển câu trả lời"
     type: concept
   - id: grammar-in-speaking.gra.band-8-criteria
     location: "## Tóm tắt nhanh"
@@ -85,7 +85,7 @@ Bài viết này tập trung vào **GRA** — cách dùng ngữ pháp đúng và
 
 ## Tại sao quan trọng
 
-Band 6 GRA: "uses a mix of simple and complex structures, but with limited flexibility." Band 7 GRA: "uses a range of complex structures with some flexibility and accuracy." Sự khác biệt chính là **variety** (đa dạng) và **accuracy** (ít lỗi hệ thống). Bạn không cần nói hoàn hảo — thỉnh thoảng sửa lại tự nhiên là bình thường — nhưng cần tránh cùng một lỗi lặp đi lặp lại.
+Tóm lược tiêu chí GRA: đánh giá sự đa dạng cấu trúc, độ linh hoạt và độ chính xác trên toàn bài. Xem [IELTS Speaking band descriptors](https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf) (bản công khai, đối chiếu ngày 09/10/2026). Sự khác biệt chính là **variety** (đa dạng) và **accuracy** (ít lỗi hệ thống). Bạn không cần nói hoàn hảo — thỉnh thoảng sửa lại tự nhiên là bình thường — nhưng cần tránh cùng một lỗi lặp đi lặp lại.
 
 ---
 
@@ -113,7 +113,7 @@ Chú ý: câu trả lời tốt dùng: although (contrast), didn't use to (past 
 ### Speaking Part 2 — Long Turn (1-2 phút)
 
 Part 2 yêu cầu nói về một chủ đề trong 1-2 phút, dùng thẻ gợi ý. Cần:
-- **Mạch thời gian rõ ràng** — kết hợp Past Simple, Past Continuous, Past Perfect
+- **Mạch thời gian rõ ràng** — chọn thì theo đề. Kể chuyến đi đã qua có thể phối hợp các thì quá khứ; mô tả người hiện còn ngưỡng mộ dùng hiện tại cho phẩm chất và quá khứ cho sự kiện cụ thể.
 - **Discourse markers** để cấu trúc câu chuyện
 - **Relative clauses** để thêm chi tiết
 
@@ -121,7 +121,7 @@ Part 2 yêu cầu nói về một chủ đề trong 1-2 phút, dùng thẻ gợi
 
 *"I'd like to talk about a trip I took to Hội An about two years ago. **To begin with**, I **had never visited** Central Vietnam before, so I **was really looking forward to** it. When we **arrived**, the old town **was lit up** with lanterns, **which was absolutely breathtaking**. **What struck me most** was how well the historic architecture **had been preserved**. **By the time** we left, I **had completely fallen** in love with the place. **If I could**, I **would go back** there every year."*
 
-Cấu trúc được dùng: Past Perfect (had never visited), Past Continuous (was lit up), relative clause (which was), inversion cảm thán (what struck me most), conditional Type 2 (if I could, would go).
+Cấu trúc được dùng: Past Perfect (had never visited), Past Continuous (was really looking forward); was lit up là bị động/trạng thái kết quả, relative clause (which was), mệnh đề what làm chủ ngữ (What struck me most), conditional Type 2 (if I could, would go).
 
 <!-- anchor: grammar-in-speaking.part3.complex-structures-and-hedging -->
 ### Speaking Part 3 — Thảo luận trừu tượng
@@ -180,7 +180,7 @@ Conditionals rất tự nhiên trong thảo luận Part 3:
 - **If** I could change one thing about my city, I **would** definitely improve the roads.
 - **If** everyone worked from home, we **would** see a dramatic reduction in commuting.
 
-**Type 3 — Nhìn lại quá khứ:**
+**Điều kiện hỗn hợp — quá khứ → hiện tại:**
 - **If** we **had invested** in renewable energy earlier, we **wouldn't be facing** such a severe climate crisis now.
 
 ---
@@ -289,9 +289,9 @@ Nhiều thí sinh trả lời mọi câu hỏi bằng Present Simple dù tình h
 ---
 
 <!-- anchor: grammar-in-speaking.gra.band-7-criteria -->
-## Band 6 → Band 7: Upgrade Drill
+## Luyện phát triển câu trả lời
 
-Band 6 thường đúng grammar nhưng thiếu variety — câu ngắn, cùng một thì, ít cấu trúc phức. Bốn thao tác sau đủ để nâng một câu trả lời Band 6 lên Band 7:
+Câu trả lời có thể được phát triển bằng thông tin và cấu trúc phù hợp.  Các thao tác sau giúp phát triển câu khi phù hợp ý; không bảo đảm band từ một câu hay bốn đặc điểm:
 
 1. **Thêm relative clause** — bổ sung thông tin sau noun
 2. **Thêm modal hoặc hedging** — tránh tuyệt đối hóa
@@ -300,13 +300,13 @@ Band 6 thường đúng grammar nhưng thiếu variety — câu ngắn, cùng m�
 
 ### Ví dụ Upgrade:
 
-| Band 6 | Band 7 |
+| Câu ban đầu | Câu phát triển |
 |--------|--------|
 | "I think technology is very useful." | "I **would argue** that technology **has become** an indispensable part of modern life — particularly **when it comes to** communication and instant access to information." |
 | "The environment is a big problem." | "Environmental degradation **is undoubtedly** one of the most pressing challenges we face, **a problem that, if left unaddressed, could have** irreversible consequences for future generations." |
 | "Young people use social media a lot." | "Young people **tend to** spend considerable time on social media, **which** I think **reflects** a broader need for connection — **though** there **are** growing concerns about the impact on mental health." |
 
-### Bài tự luyện — Upgrade những câu Band 6 sau:
+### Bài tự luyện — Phát triển các câu sau:
 
 1. "People like to travel a lot these days."
 2. "Education is important for everyone."
@@ -320,7 +320,7 @@ Band 6 thường đúng grammar nhưng thiếu variety — câu ngắn, cùng m�
 
 ### Mở rộng câu trả lời
 
-Mở rộng câu trả lời ngắn sau bằng cách thêm: một relative clause, một modal verb, một discourse marker.
+Mở rộng câu trả lời bằng cấu trúc phù hợp mục đích (relative clause, modal hoặc discourse marker); không bắt buộc có đủ cả ba trong mỗi câu.
 
 1. "I enjoy reading." → (thêm: what kind of books, how long you've read, why)
 2. "My hometown is small." → (thêm: comparison, change over time, opinion)
@@ -351,4 +351,4 @@ Mở rộng câu trả lời ngắn sau bằng cách thêm: một relative claus
 - Dùng **ít nhất 1 conditional** trong Part 3
 - Thay "very" bằng adverbs mạnh hơn: **remarkably, incredibly, considerably**
 - Xen kẽ **active và passive** để tạo tông giọng đa dạng
-- Tự sửa lỗi tự nhiên — không phải điểm trừ, mà là dấu hiệu của accuracy awareness
+- Tự sửa ngắn khi cần làm rõ nghĩa rồi tiếp tục; sửa nhiều lần và bỏ dở có thể ảnh hưởng độ trôi chảy, không tự là điểm cộng

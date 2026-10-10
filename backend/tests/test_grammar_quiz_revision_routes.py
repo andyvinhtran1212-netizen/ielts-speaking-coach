@@ -35,7 +35,7 @@ def wire(monkeypatch):
 
 
 def canonical():
-    return {'canonical_code':CODE,'original_bank_id':OLD,'current_bank_id':OLD,'topic_id':TOPIC,
+    return {'canonical_code':CODE,'original_bank_id':OLD,'canonical_root_bank_id':OLD,'publication_available':True,'bank_ids':[OLD],'current_bank_id':OLD,'topic_id':TOPIC,
         'revision':'a'*64,'current_bank_revision':'b'*64,'original_questions_sha256':'c'*64,
         'original_metadata_sha256':'d'*64,'is_managed':False,'new_starts_enabled':True,
         'footprint':{'actors':0,'sessions':0,'stats':0,'attempts':0,'assignments':0,'open_sessions':0,

@@ -130,7 +130,7 @@ much + uncountable noun
 - **How much** money was spent?
 
 > **Lưu ý:** "Much" thường dùng trong câu phủ định và câu hỏi. Trong câu khẳng định, ưu tiên "a lot of" hoặc "a great deal of":
-> - ❌ Much research supports this view. (nghe cứng trong văn thông thường)
+> - ✅ Much research supports this view. (tự nhiên trong văn học thuật; câu đúng)
 > - ✅ **A great deal of** research supports this view. (học thuật hơn)
 > - ✅ **Much** of the research supports this view. (chấp nhận được trong academic writing)
 
@@ -140,7 +140,7 @@ much + uncountable noun
 ### Few — countable, mang nghĩa âm tính
 
 ```
-few + countable plural noun = "không đủ / quá ít"
+few + countable plural noun = "ít", thường nhấn ít hơn mong đợi
 ```
 
 - **Few** governments have successfully implemented this policy. (Rất ít — ngụ ý đáng tiếc)
@@ -150,7 +150,7 @@ few + countable plural noun = "không đủ / quá ít"
 ### Little — uncountable, mang nghĩa âm tính
 
 ```
-little + uncountable noun = "không đủ / quá ít"
+little + uncountable noun = "ít", thường nhấn ít hơn mong đợi
 ```
 
 - There is **little** evidence to support this claim. (Gần như không có bằng chứng)
@@ -163,7 +163,7 @@ little + uncountable noun = "không đủ / quá ít"
 ### A few — countable, dương tính
 
 ```
-a few + countable plural noun = "có một chút — đủ dùng"
+a few + countable plural noun = "có một vài; chưa biết có đủ hay không"
 ```
 
 - I have **a few** suggestions for improving this. (có vài gợi ý)
@@ -220,8 +220,8 @@ a little + uncountable noun = "có một ít — đủ dùng"
 | a lot of people | a large number of people |
 | a lot of research | a great deal of research |
 | lots of evidence | a significant amount of evidence |
-| many countries | the majority of countries |
-| most | the vast majority of |
+| many countries | a large number of countries (không tự đổi thành majority >50%) |
+| most | the majority of (vast chỉ khi có căn cứ cho tỷ lệ áp đảo) |
 | some | a proportion of / a number of |
 
 **Ví dụ viết lại:**
@@ -286,10 +286,10 @@ Dùng với countable plural, động từ số nhiều:
 
 ### Lỗi 3: Nhầm "few" và "a few"
 
-- ❌ The situation is positive — **few** solutions exist. (ngụ ý không đủ)
+- The situation is positive — **few** solutions exist. (Có ít giải pháp; câu vẫn có thể hợp lý nếu những giải pháp ấy đáp ứng nhu cầu. Muốn nhấn còn có một số giải pháp, dùng a few.)
 - ✅ The situation is positive — **a few** solutions exist.
-- ❌ The outlook is bleak but **a few** alternatives remain. (cần nhấn mạnh tính âm tính)
-- ✅ The outlook is bleak but **few** alternatives remain.
+- ✅ The outlook is bleak but **a few** alternatives remain. (nhượng bộ: vẫn còn một vài lựa chọn)
+- ✅ The outlook is bleak and **few** alternatives remain. (nhấn mạnh số ít)
 
 ### Lỗi 4: "A number of" + singular verb
 
@@ -331,7 +331,7 @@ Dùng với countable plural, động từ số nhiều:
 ### Chọn quantifier đúng
 
 1. There is (much/many) ___ pollution in the city.
-2. (Few/A few) ___ countries have succeeded in reducing poverty significantly.
+2. (Few/A few) ___ countries have succeeded in reducing poverty significantly, so this limited success is encouraging.
 3. She only had (little/a little) ___ time to prepare.
 4. (Many/Much) ___ research has been done on this topic.
 5. There are (several/much) ___ solutions to consider.
@@ -361,7 +361,8 @@ Dùng với countable plural, động từ số nhiều:
 | | Countable plural | Uncountable |
 |--|-----------------|-------------|
 | **Nhiều** | many / a large number of | much / a great deal of / a large amount of |
-| **Đủ nhiều** | plenty of / several | plenty of |
+| **Đủ nhiều** | plenty of | plenty of |
+| **Vài** | several (không tự có nghĩa đủ) | — |
 | **Ít (âm tính)** | **few** | **little** |
 | **Có một ít (dương tính)** | **a few** | **a little** |
 | **Một số** | some / a number of | some / a proportion of |
@@ -370,6 +371,5 @@ Dùng với countable plural, động từ số nhiều:
 **Quy tắc vàng:**
 - **many / few / a few / several** → chỉ dùng với countable plural
 - **much / little / a little** → chỉ dùng với uncountable
-- **few** (âm tính: không đủ) ≠ **a few** (dương tính: có một số)
-- **little** (âm tính) ≠ **a little** (dương tính)
+- **few/little** nhấn lượng ít; **a few/a little** nhấn có một lượng nhỏ. “Âm tính” ở đây là cách định hướng lượng, không tự là cảm xúc tiêu cực hay không đủ dùng.
 - Trong IELTS Writing: thay "a lot of" bằng "a large number of" (countable) hoặc "a great deal of" (uncountable)

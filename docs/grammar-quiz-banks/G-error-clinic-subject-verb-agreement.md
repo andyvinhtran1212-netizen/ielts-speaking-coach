@@ -117,16 +117,16 @@ explain: "ĐÚNG — 'a range of' + danh từ số nhiều thường đi với �
 
 ---
 id: "sva_coll_b1"
-type: "mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "sva-collective-nouns"
 skill: "form"
 subtype: "basic"
-prompt: "The government ____ considering new policies on housing."
-options: ["is", "are", "have", "were"]
-answer: 0
+prompt: "Điền be ở hiện tại: 'The government ____ considering new policies on housing.' (Không giới hạn Anh–Anh/Anh–Mỹ.)"
 grammar_article_slug: "subject-verb-agreement"
-explain: "'Government' là danh từ tập hợp nhưng khi nói về nó như MỘT thực thể ra quyết định, thường dùng số ít: is considering."
+explain: "Is nhìn government như một đơn vị; are có thể nhìn các thành viên trong Anh–Anh. Cả hai đúng trong phạm vi đề không giới hạn góc nhìn; have không hoàn thành cấu trúc be + considering."
+accept: ["is", "are"]
+case_sensitive: false
 ---
 
 ---
@@ -179,10 +179,10 @@ headword: "sva-collective-nouns"
 skill: "production"
 subtype: "intermediate"
 prompt: "The jury ____ (still / consider) the evidence before reaching a verdict."
-accept: ["is still considering"]
+accept: ["is still considering", "are still considering"]
 case_sensitive: false
 grammar_article_slug: "subject-verb-agreement"
-explain: "'Jury' đóng vai trò một tổ chức duy nhất đang thực hiện hành động → số ít: is still considering."
+explain: "Is still considering nhìn jury như một đơn vị. Are still considering có thể dùng khi nhìn các thành viên, đặc biệt trong Anh–Anh. Đề không giới hạn góc nhìn hay biến thể tiếng Anh nên chấp nhận cả hai."
 ---
 
 ---
@@ -192,10 +192,10 @@ input: "boolean"
 headword: "sva-collective-nouns"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: Trong một bài IELTS Writing, viết 'The staff is friendly' ở đoạn 1 và 'The staff are always willing to help' ở đoạn 3 vẫn được chấp nhận vì cả hai cách đều đúng ngữ pháp."
-answer: false
+prompt: "Đúng hay Sai: Cùng danh từ tập hợp có thể dùng hòa hợp số ít khi xét một đơn vị và số nhiều khi xét các thành viên, nếu ngữ cảnh và cách dùng tiếng Anh hỗ trợ sự thay đổi góc nhìn."
+answer: true
 grammar_article_slug: "subject-verb-agreement"
-explain: "SAI — cả số ít và số nhiều với danh từ tập hợp đều được chấp nhận trong IELTS, nhưng phải NHẤT QUÁN xuyên suốt bài; đổi qua lại giữa 'is' và 'are' cho cùng một danh từ trong cùng một bài bị coi là thiếu nhất quán."
+explain: "ĐÚNG — nhất quán nghĩa và tham chiếu quan trọng hơn việc buộc một danh từ luôn dùng cùng số ở mọi đoạn. Không có toàn bộ ngữ cảnh thì không thể kết luận hai câu với staff is/staff are luôn sai hoặc luôn phù hợp chỉ bằng hình thức hòa hợp."
 ---
 
 ---
