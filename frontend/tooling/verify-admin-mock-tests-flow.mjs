@@ -55,6 +55,8 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/cohorts') return json({ cohorts: [] });
   if (parsed.pathname === '/admin/exam-content/page') return json({ items: [], total: 0, total_complete: true, levels: [], levels_complete: true, failed_level_kinds: [], failed_kinds: [] });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-mock-tests@local', role: 'admin' });
+  if (parsed.pathname === '/admin/writing/essay-queue') return json({ items: [{ id: 'writing-1', student_id: 'writing-student', student_full_name: 'Học viên Writing có tên dài để kiểm tra màn hình hẹp', student_code: 'MOCK-WRITING', task_type: 'task2', status: 'graded', analysis_level: 3, word_count: 280, created_at: '2026-10-11T00:00:00Z', sitting_id: 'writing-sitting', band: 6.5 }], total: 1, total_complete: true, limit: 25, offset: 0 });
+  if (parsed.pathname === '/admin/writing/essays/writing-1') return json({ id: 'writing-1', status: 'graded', task_type: 'task2', prompt_text: 'Discuss a public policy question.', essay_text: 'A paragraph for checking that embedded Writing remains readable after scrolling.\n\n'.repeat(24), created_at: '2026-10-11T00:00:00Z', grading_tier: 'standard', analysis_level: 3, student: { student_code: 'MOCK-WRITING', full_name: 'Học viên Writing có tên dài để kiểm tra màn hình hẹp' }, feedback: { overall_band_score: 6.5, feedback_json: { overallBandScoreSummary: 'Fixture summary.' } } });
   if (parsed.pathname === '/admin/mock-exams') return json({ exams: exams.map((exam) => exam.id === 'live-1' ? { ...exam, is_open: liveOpen } : exam) });
   if (parsed.pathname === '/admin/mock-exams/live-1/live') return json({
     exam: { id: 'live-1', code: 'MOCK-LIVE', title: 'Đề đang thi', exam_mode: 'sequential', status: 'published', is_open: true, active_section: 'reading', collected_section: null, section_started_at: null, section_duration_seconds: 3600, section_time_left_seconds: 1200, configured_sections: ['listening', 'reading', 'writing'], cohort_id: null },
@@ -111,10 +113,31 @@ check('đổi Live sang Review loại phòng đang mở khỏi selection', new U
 await page.getByRole('tab', { name: 'Chấm Writing' }).click();
 check('Writing dùng native queue và bỏ rail đề không liên quan', (await page.locator('iframe').getAttribute('src')) === '/admin/writing/queue?embed=1&mocklane=1' && await page.locator('.mts-rail').count() === 0);
 await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/writing/queue');
-check('fixture đã đi sâu khỏi Writing queue', await page.locator('iframe').evaluate((node) => {
-  node.contentWindow.history.pushState({}, '', '/admin/writing/grade?essay_id=fixture-child');
-  return node.contentWindow.location.pathname === '/admin/writing/grade';
-}));
+const writingFrame = page.frameLocator('iframe.mts-frame');
+await writingFrame.getByRole('button', { name: 'Mở bài', exact: true }).click();
+await writingFrame.locator('#state-ready').waitFor();
+check('Writing Queue → Mở bài giữ embed, không lồng trang quản trị', await page.locator('iframe').count() === 1 && await writingFrame.locator('iframe, .mts-shell, aver-admin-chrome:not([embed])').count() === 0);
+for (const width of [1440, 1024, 390]) {
+  await page.setViewportSize({ width, height: 900 });
+  await writingFrame.locator('#section-essay h2').evaluate((node) => node.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  const layout = await writingFrame.locator('#section-essay h2').evaluate((node) => {
+    const document = node.ownerDocument;
+    const heading = node.getBoundingClientRect();
+    return { overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth, headingTop: heading.top, headingBottom: heading.bottom, viewport: document.documentElement.clientHeight, headerBottom: document.querySelector('.grade-header').getBoundingClientRect().bottom, tabsBottom: document.querySelector('.grade-tabs').getBoundingClientRect().bottom };
+  });
+  check(`Writing ${width}px cuộn đọc bài không bị toolbar/tab che, không tràn ngang`, !layout.overflow && layout.headingTop >= -1 && layout.headingBottom <= layout.viewport && layout.headerBottom <= layout.headingTop && layout.tabsBottom <= layout.headingTop, JSON.stringify(layout));
+}
+await page.setViewportSize({ width: 1440, height: 900 });
+await writingFrame.getByRole('link', { name: '← Quay lại queue', exact: true }).click();
+await writingFrame.getByRole('button', { name: 'Mở bài', exact: true }).waitFor();
+check('Quay lại Writing Queue giữ chế độ nhúng và lane Mock', await page.locator('iframe').evaluate((node) => node.contentWindow.location.search.includes('embed=1') && node.contentWindow.location.search.includes('mocklane=1')) && await writingFrame.locator('aver-admin-chrome:not([embed])').count() === 0);
+await writingFrame.getByRole('button', { name: 'Mở bài', exact: true }).click();
+await writingFrame.locator('#state-ready').waitFor();
+await Promise.all([page.waitForURL(`${BASE}/admin/writing`), writingFrame.getByRole('link', { name: '← Writing Coach', exact: true }).click()]);
+check('Writing Coach từ bài nhúng điều hướng trang ngoài, không lồng admin', await page.locator('iframe').count() === 0);
+await page.goto(`${BASE}/admin/mock-tests?tab=writing`, { waitUntil: 'domcontentloaded' });
+await writingFrame.getByRole('button', { name: 'Mở bài', exact: true }).click();
+await writingFrame.locator('#state-ready').waitFor();
 await page.getByRole('tab', { name: 'Chấm Writing' }).click();
 await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/writing/queue');
 check('bấm lại tab hiện tại trả iframe về workspace gốc', await page.locator('iframe').evaluate((node) => node.contentWindow.location.pathname === '/admin/writing/queue'));
