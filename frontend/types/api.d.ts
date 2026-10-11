@@ -18045,6 +18045,10 @@ export interface components {
             vocabulary_groups?: components["schemas"]["SourceVocabularyGroup"][];
             /** Source Only Positions */
             source_only_positions?: components["schemas"]["SourcePosition"][];
+            /** Supplemental Questions */
+            supplemental_questions?: components["schemas"]["SourceSupplementalQuestion"][];
+            /** Response Field Count */
+            response_field_count?: number | null;
             /**
              * Partial Data
              * @default false
@@ -19824,6 +19828,8 @@ export interface components {
             day: number;
             /** Variants */
             variants: components["schemas"]["SourceAudioVariant"][];
+            /** Question Clips */
+            question_clips?: components["schemas"]["SourceQuestionClip"][];
         };
         /** SourceAudioVariant */
         SourceAudioVariant: {
@@ -20237,6 +20243,30 @@ export interface components {
             /** Source Lines */
             source_lines?: components["schemas"]["SourceKeyCitation"][];
         };
+        /** SourceQuestionClip */
+        SourceQuestionClip: {
+            /** Item Id */
+            item_id: string;
+            /** Part Id */
+            part_id: string;
+            /**
+             * Variant Id
+             * @default original
+             * @constant
+             */
+            variant_id: "original";
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Url */
+            url: string | null;
+            /**
+             * Context Kind
+             * @enum {string}
+             */
+            context_kind: "question" | "shared_context";
+            /** Note Vi */
+            note_vi: string;
+        };
         /** SourceRegion */
         SourceRegion: {
             /** X */
@@ -20313,6 +20343,34 @@ export interface components {
             /** Answer Provenance */
             answer_provenance: string;
             explanation: components["schemas"]["SourceExplanation"];
+        };
+        /** SourceSupplementalQuestion */
+        SourceSupplementalQuestion: {
+            /** Item Id */
+            item_id: string;
+            /** Source Display Number */
+            source_display_number: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options?: components["schemas"]["SourceOption"][];
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
+            /** Part Id */
+            part_id: string;
+            /** Block Id */
+            block_id: string;
+            /**
+             * Response Type
+             * @enum {string}
+             */
+            response_type: "single_choice" | "multiple_choice" | "map_label" | "short_answer" | "written" | "open_rubric" | "multi_gap_completion";
+            /** Selection Count */
+            selection_count?: number | null;
+            /** Word Limit */
+            word_limit?: number | null;
+            /** Reason Vi */
+            reason_vi: string;
         };
         /** SourceVocabularyGroup */
         SourceVocabularyGroup: {

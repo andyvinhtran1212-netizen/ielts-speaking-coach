@@ -43,6 +43,28 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+it('merges source supplements in order while keeping canonical writes and pre-answer clips separate', async () => {
+  source = true;
+  const get = window.api.getWith;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => {
+    const value = await get(url, ...args);
+    if (url.endsWith('/audio')) return { ...value, question_clips: [{ item_id: 'source-OLD', part_id: 'p1', variant_id: 'original', duration_seconds: 8, url: '/original-question.mp3', context_kind: 'question', note_vi: 'Đoạn gốc của câu này.' }] };
+    return value;
+  });
+  const question = { item_id: 'extra-OLD', source_display_number: '0', part_id: 'p1', block_id: 'b1', prompt: 'SUPPLEMENT_PROMPT', options: [{ id: 'A', label: 'EXTRA_OPTION' }], response_type: 'single_choice' as const, reason_vi: 'Chưa có đáp án tin cậy.' };
+  const blocks = [{ block_id: 'b1', part_id: 'p1', kind: 'question', instruction: {}, item_ids: ['extra-OLD', 'source-OLD'] }];
+  render(<ProgrammeFormRunner testId="OLD" supplements={[question]} sourceBlocks={blocks} manifest="m1" />); await ready();
+  expect([...document.querySelectorAll('.programme-question')].map(node => node.textContent)).toEqual([expect.stringContaining('SUPPLEMENT_PROMPT'), expect.stringContaining('OLD_PROMPT')]);
+  expect(document.querySelector('audio')?.getAttribute('src')).toBe('/OLD.mp3');
+  const clipAudio = screen.getByLabelText('Nghe đoạn gốc của câu này') as HTMLAudioElement;
+  expect(clipAudio.src).toContain('/original-question.mp3');
+  fireEvent.click(screen.getByRole('button', { name: 'Lặp đoạn liên tục' })); expect(clipAudio.loop).toBe(true);
+  fireEvent.click(screen.getByRole('radio', { name: 'A EXTRA_OPTION' })); await settle(); expect(window.api.patchWith).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('radio', { name: /OLD_OPTION_A/ })); await waitFor(() => expect(window.api.patchWith).toHaveBeenCalled());
+  expect(vi.mocked(window.api.patchWith).mock.calls.every(call => JSON.stringify(call[1]).includes('"q_num":1'))).toBe(true);
+  fireEvent.change(screen.getByLabelText('Phiên bản audio'), { target: { value: 'kokoro-v1' } }); expect(clipAudio.getAttribute('src')).toBeNull(); expect(clipAudio.loop).toBe(false);
+});
+
 it.each(['source', 'generic'].flatMap(kind => ['account', 'test', 'status'].map(boundary => [kind, boundary])))('hides %s old form and releases media in the first layout commit on %s replacement', async (kind, boundary) => {
   source = kind === 'source'; revealed = true;
   const view = render(<CommitProbe><ProgrammeFormRunner testId="OLD" /></CommitProbe>); await ready();
@@ -140,7 +162,7 @@ it.each(['source', 'generic', 'once'] as const)('releases %s media in hidden Act
   if (kind === 'generic') expect(remove).toHaveBeenCalledWith('timeupdate', expect.any(Function));
   fireEvent.error(audio); fireEvent.ended(audio);
   view.rerender(<Activity mode="visible"><ProgrammeFormRunner testId="OLD" /></Activity>); await ready();
-  await waitFor(() => expect(document.querySelector('audio')?.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3'));
+  await waitFor(() => expect(document.querySelector('audio')?.getAttribute('src')).toBe('/OLD.mp3'));
   expect(screen.getByText('OLD_PRIVATE_WHY')).toBeTruthy(); expect(screen.queryByRole('alert')).toBeNull();
   if (once) expect(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ }).hasAttribute('disabled')).toBe(false);
   expect(window.api.patchWith).not.toHaveBeenCalled(); expect(vi.mocked(window.api.postWith).mock.calls.every(call => String(call[0]) === '/api/listening/tests/OLD/attempts?standalone=true')).toBe(true);
@@ -153,7 +175,7 @@ it.each(['source', 'once'] as const)('StrictMode exercises cleanup and restores 
     expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts).toContain(audio);
     expect(vi.mocked(HTMLMediaElement.prototype.load).mock.contexts).toContain(audio);
   });
-  expect(audio.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3');
+  expect(audio.getAttribute('src')).toBe('/OLD.mp3');
   if (once) { fireEvent.click(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ })); await screen.findByRole('button', { name: 'Tạm dừng' }); expect(vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'))).toHaveLength(1); fireEvent.ended(audio); const ended = await screen.findByRole('button', { name: 'Đã sử dụng lượt nghe' }); expect(ended.hasAttribute('disabled')).toBe(true); }
   view.unmount(); expect(audio.getAttribute('src')).toBeNull();
 });
@@ -177,7 +199,7 @@ it.each(['accept', 'deny', 'reject'] as const)('a late once acknowledgement %s c
   view.rerender(<Activity mode="hidden"><ProgrammeFormRunner testId="OLD" /></Activity>);
   expect(audio.isConnected).toBe(true); expect(audio.getAttribute('src')).toBeNull();
   view.rerender(<Activity mode="visible"><ProgrammeFormRunner testId="OLD" /></Activity>); await ready();
-  expect(document.querySelector('audio')).toBe(audio); expect(audio.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3');
+  expect(document.querySelector('audio')).toBe(audio); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
   fireEvent.click(screen.getByRole('button', { name: /Bắt đầu lượt nghe duy nhất/ })); await screen.findByRole('button', { name: 'Tạm dừng' });
   const calls = vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'));
   expect(calls).toHaveLength(2); expect(calls[0][1]).not.toEqual(calls[1][1]);
@@ -185,7 +207,7 @@ it.each(['accept', 'deny', 'reject'] as const)('a late once acknowledgement %s c
   await act(async () => { if (outcome === 'reject') oldAck.reject(new Error('old acknowledgement unavailable')); else oldAck.resolve({ accepted: outcome === 'accept' }); }); await settle();
   expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses);
   expect(screen.getByRole('button', { name: 'Tạm dừng' })).toBeTruthy(); expect(screen.queryByRole('alert')).toBeNull();
-  expect(screen.queryByText(/cửa sổ hoặc thiết bị khác|chưa xác nhận được/)).toBeNull(); expect(audio.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3');
+  expect(screen.queryByText(/cửa sổ hoặc thiết bị khác|chưa xác nhận được/)).toBeNull(); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
   expect(vi.mocked(window.api.postWith).mock.calls.filter(call => String(call[0]).endsWith('/playback-started'))).toHaveLength(2);
 });
 
@@ -214,7 +236,7 @@ it.each(['Activity return', 'direct replacement'] as const)('late generic Form c
   fireEvent.click(screen.getAllByRole('button', { name: /Nghe lại đoạn này/ })[boundary === 'direct replacement' ? 1 : 0]); await settle(); expect(audio.currentTime).toBe(6);
   const pauses = vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio).length;
   await act(async () => { oldPlay.reject(new Error('old clip unavailable')); }); await settle();
-  expect(screen.queryByRole('alert')).toBeNull(); expect(screen.queryByText(/Không phát được đoạn nghe/)).toBeNull(); expect(audio.getAttribute('src')).toBe(source ? '/NEW.mp3' : '/OLD.mp3');
+  expect(screen.queryByRole('alert')).toBeNull(); expect(screen.queryByText(/Không phát được đoạn nghe/)).toBeNull(); expect(audio.getAttribute('src')).toBe('/OLD.mp3');
   audio.currentTime = 4; fireEvent(audio, new Event('timeupdate'));
   expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts.filter(node => node === audio)).toHaveLength(pauses);
   audio.currentTime = 9; fireEvent(audio, new Event('timeupdate'));

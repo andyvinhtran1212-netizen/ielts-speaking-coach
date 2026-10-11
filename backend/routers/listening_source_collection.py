@@ -73,4 +73,14 @@ async def get_source_audio(day_number: int = Path(ge=1, le=80), authorization: s
     from services.listening_source_audio import audio_response
     await get_supabase_user(authorization)
     package, lessons = _context(day_number)
-    return audio_response(package, lessons[0], _sign)
+    paths = []
+    audio_response(package, lessons[0], lambda path: paths.append(path))
+    unique = list(dict.fromkeys(paths))
+    try:
+        rows = supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).create_signed_urls(unique, 7200)
+        allowed = set(unique)
+        signed = {row["path"]: row.get("signedURL") or row.get("signedUrl") for row in rows
+                  if row.get("path") in allowed and not row.get("error")}
+    except Exception:
+        signed = {}
+    return audio_response(package, lessons[0], lambda path: signed.get(path))
