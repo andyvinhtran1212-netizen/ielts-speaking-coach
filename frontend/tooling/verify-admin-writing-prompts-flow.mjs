@@ -1,5 +1,7 @@
 // Fixture-backed browser contract for native Admin Writing Prompts.
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
@@ -144,7 +146,7 @@ await page.reload();
 await page.getByRole('heading', { name: 'Climate policy' }).waitFor();
 maxActiveReads = activeReads; // A full navigation can overlap aborted reads from the old document.
 check('tải lại giữ khóa trong URL và phân bổ từ máy chủ', await climateCard.getByText('Course 2', { exact: true }).count() === 1 && await climateCard.getByText('Course 5', { exact: true }).count() === 1 && await page.getByRole('article').count() === 1);
-await page.screenshot({ path: '/private/tmp/writing-course-allocation-desktop.png', fullPage: true });
+await page.screenshot({ path: join(tmpdir(), 'writing-course-allocation-desktop.png'), fullPage: true });
 await page.getByRole('group', { name: 'Lọc theo khóa học' }).getByRole('button', { name: /^Tất cả/ }).click();
 await page.waitForURL('**/admin/writing/prompts');
 
@@ -209,7 +211,7 @@ check('không có browser-native confirm/alert', await page.evaluate(() => docum
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
 
 await page.setViewportSize({ width: 390, height: 844 });
-await page.screenshot({ path: '/private/tmp/writing-course-allocation-mobile.png', fullPage: true });
+await page.screenshot({ path: join(tmpdir(), 'writing-course-allocation-mobile.png'), fullPage: true });
 await page.getByRole('group', { name: 'Lọc theo khóa học' }).getByRole('button', { name: /Course 2/ }).click();
 await page.waitForURL('**/admin/writing/prompts?course=2');
 await page.getByRole('heading', { name: '1 đề phù hợp' }).waitFor();
