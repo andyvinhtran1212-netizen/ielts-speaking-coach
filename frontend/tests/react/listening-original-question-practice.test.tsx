@@ -32,6 +32,15 @@ it('keeps supplementary drafts local, persists on reload and separates owners an
  expect(screen.queryByRole('button',{name:/Đối chiếu/})).toBeNull();
  expect(screen.getByText(/không gửi chấm hoặc tính điểm/)).toBeTruthy();
 });
+it('renders all four shared Q9 choices and restores the selected local draft after reload',()=>{
+ const q9={...question,options:['Fragile','Surprise','Fast','Lightful'].map(word=>({id:word,label:word}))};
+ const view=render(<ListeningSourceSupplement question={q9} manifest="m1" active />);
+ expect(screen.getAllByRole('radio')).toHaveLength(4);
+ fireEvent.click(screen.getByRole('radio',{name:'Fast'}));
+ view.unmount();render(<ListeningSourceSupplement question={q9} manifest="m1" active />);
+ expect((screen.getByRole('radio',{name:'Fast'}) as HTMLInputElement).checked).toBe(true);
+ expect(screen.queryByRole('button',{name:/Đối chiếu/})).toBeNull();
+});
 it('reports a missing clip and exposes retry after a playback failure',()=>{
  const retry=vi.fn();const view=render(<ListeningQuestionAudio clip={clip} reload={retry} />);
  fireEvent.error(view.container.querySelector('audio')!);expect(screen.getByRole('alert')).toBeTruthy();

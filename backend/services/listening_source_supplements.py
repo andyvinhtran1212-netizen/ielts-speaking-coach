@@ -24,10 +24,16 @@ def supplemental_questions(manifest: str, day: int, blocks: list[dict], position
     if {row['item_id'] for row in rows} != set(limitations):
         raise HTTPException(503, 'Danh sách câu bổ sung chưa khớp phiên bản bài học.')
     native = {block['block_id']: {question['item_id']: question for question in (block.get('native') or {}).get('questions', [])} for block in blocks}
+    word_banks = {block['block_id']: (block.get('native') or {}).get('word_bank', []) for block in blocks}
     result=[]
     for row in rows:
         question = native.get(row['block_id'], {}).get(row['item_id'])
         if not question or any(row[key] != limitations[row['item_id']][key] for key in ('part_id','block_id')):
             raise HTTPException(503, 'Chưa có nội dung chữ và hình cho câu bổ sung.')
+        if row['response_type'] in {'single_choice', 'multiple_choice', 'map_label'} and not question.get('options'):
+            choices = word_banks.get(row['block_id'], [])
+            if not choices:
+                raise HTTPException(503, 'Chưa có lựa chọn cho câu bổ sung.')
+            question = {**question, 'options': [{'id': word, 'label': word} for word in choices]}
         result.append(SourceSupplementalQuestion.model_validate({**question, **row, 'reason_vi': limitations[row['item_id']]['reason_vi']}).model_dump())
     return result, content['days'][day-1]['response_field_count']

@@ -25,10 +25,20 @@ def test_all_80_day_counts_and_104_previously_excluded_questions_have_native_con
         questions, count = supplemental_questions(data['source_manifest_sha256'], day, blocks, positions)
         assert count == data['days'][day-1]['response_field_count']
         assert all(question['prompt'] for question in questions)
+        assert all(question['options'] for question in questions if question['response_type'] in {'single_choice', 'multiple_choice', 'map_label'})
         wire = json.dumps(questions)
         assert all(secret not in wire for secret in ['PROTECTED','SECRET','"explanation"','"answer"','"q_num"'])
         total += len(questions)
     assert total == 104
+
+
+def test_day_one_q9_uses_bound_shared_choices_without_mutating_native_content():
+    blocks, positions = display_fixture(1)
+    before = deepcopy(blocks)
+    questions, _ = supplemental_questions(catalog()['source_manifest_sha256'], 1, blocks, positions)
+    assert questions[0]['item_id'] == '80-days:day-01:main:q-09'
+    assert questions[0]['options'] == [{'id': word, 'label': word} for word in ['Fragile', 'Surprise', 'Fast', 'Lightful']]
+    assert blocks == before
 
 
 def test_missing_or_changed_native_or_position_binding_fails_closed():
