@@ -125,7 +125,8 @@ for (const width of [1440, 1024, 390]) {
     const heading = node.getBoundingClientRect();
     return { overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth, headingTop: heading.top, headingBottom: heading.bottom, viewport: document.documentElement.clientHeight, headerBottom: document.querySelector('.grade-header').getBoundingClientRect().bottom, tabsBottom: document.querySelector('.grade-tabs').getBoundingClientRect().bottom };
   });
-  check(`Writing ${width}px cuộn đọc bài không bị toolbar/tab che, không tràn ngang`, !layout.overflow && layout.headingTop >= -1 && layout.headingBottom <= layout.viewport && layout.headerBottom <= layout.headingTop && layout.tabsBottom <= layout.headingTop, JSON.stringify(layout));
+  // Browser scrolling rounds subpixel positions; allow two CSS pixels at the viewport edge.
+  check(`Writing ${width}px cuộn đọc bài không bị toolbar/tab che, không tràn ngang`, !layout.overflow && layout.headingTop >= -2 && layout.headingBottom <= layout.viewport && layout.headerBottom <= layout.headingTop && layout.tabsBottom <= layout.headingTop, JSON.stringify(layout));
 }
 await page.setViewportSize({ width: 1440, height: 900 });
 await writingFrame.getByRole('link', { name: '← Quay lại queue', exact: true }).click();
