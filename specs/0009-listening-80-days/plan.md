@@ -55,3 +55,14 @@ dry-run purity, idempotency, protected-data stripping, grading exclusions,
 reveal authorization, local/source numbering, reload and archive behavior.
 Run relevant complete backend/frontend suites and build before one consolidated
 push, followed by exact-SHA staging and production journey checks.
+
+## Original-audio practice extension — 2026-10-11
+
+Use an isolated Listening checkout. Reconcile all80 converted days against the
+existing release and deployed counts. Add only source-backed public question
+supplements and a digest-bound private clip catalog to the existing collection/
+audio APIs; retain canonical persisted forms and immutable history. Reuse the
+existing backend Storage import/signing path, source assets, reviewed figures
+and player lifecycle. Cut original bytes using checked intervals, preserving
+shared context when individual evidence cannot be isolated. Validate coverage/
+source digests and exercise loop/switch/error behavior before staging release.
