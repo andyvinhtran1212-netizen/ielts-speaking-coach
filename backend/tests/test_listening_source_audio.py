@@ -65,6 +65,35 @@ def test_unavailable_storage_is_not_reported_playable():
     assert all(row["url"] is None for row in result["variants"])
 
 
+def test_original_playback_uses_edited_audio_without_rebinding_question_source():
+    from services.listening_source_question_audio import clip_catalog
+    for row in audio.audio_catalog()["days"]:
+        if not (original := row["original"]):
+            continue
+        playback = original["practice"]
+        paths = []
+        result = audio.audio_response(package(), lesson(row["day"]), lambda path: paths.append(path))
+        assert paths[0] == playback["storage_path"]
+        assert result["variants"][0]["duration_seconds"] == playback["duration_seconds"]
+        assert playback["duration_seconds"] < original["duration_seconds"]
+        assert all(clip["source_sha256"] == original["sha256"] for clip in clip_catalog()["clips"] if clip["day"] == row["day"])
+
+
+@pytest.mark.parametrize("field,value", [("storage_path", "unbound.mp3"), ("kept_intervals", [[0, 999999]]), ("duration_seconds", 1)])
+def test_invalid_edited_original_binding_is_rejected(tmp_path, monkeypatch, field, value):
+    catalog = deepcopy(audio.audio_catalog())
+    catalog["days"][0]["original"]["practice"][field] = value
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(catalog))
+    monkeypatch.setattr(audio, "CATALOG_PATH", path)
+    audio.audio_catalog.cache_clear()
+    try:
+        with pytest.raises(ValueError, match="practice audio binding"):
+            audio.audio_catalog()
+    finally:
+        audio.audio_catalog.cache_clear()
+
+
 def test_audio_route_authenticates_before_reading_package(monkeypatch):
     from routers import listening_source_collection as router
     async def deny(_):

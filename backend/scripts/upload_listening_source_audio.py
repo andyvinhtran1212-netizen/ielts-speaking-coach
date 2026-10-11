@@ -33,6 +33,26 @@ def validated_assets(audio_root: Path) -> list[dict]:
     return assets
 
 
+def validated_original_practice_assets(audio_root: Path) -> list[dict]:
+    root = audio_root.resolve(strict=True)
+    assets = []
+    for row in audio_catalog()["days"]:
+        if not row["original"]:
+            continue
+        asset = row["original"]["practice"]
+        path = root / f"day-{row['day']:02d}.mp3"
+        if path.is_symlink() or not path.is_file():
+            raise PackageValidationError("Missing edited original audio")
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != asset["sha256"] or len(data) != asset["size_bytes"]:
+            raise PackageValidationError("Edited original audio hash/size mismatch")
+        duration = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(path)]))
+        if abs(duration - asset["duration_seconds"]) > .05:
+            raise PackageValidationError("Edited original audio duration mismatch")
+        assets.append({"path": path, **asset})
+    return assets
+
+
 def validated_original_clips(clip_root: Path) -> list[dict]:
     from services.listening_source_question_audio import clip_catalog
     from services.listening_source_native import revision
@@ -60,7 +80,11 @@ def validated_original_clips(clip_root: Path) -> list[dict]:
             raise PackageValidationError("Original clip hash/size mismatch")
         if expected not in assets:
             duration = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(path)]))
-            if abs(duration-row["duration_seconds"]) > .05 or abs(duration-(row["end"]-row["start"])) > .15:
+            intervals = row.get("kept_intervals", [[row["start"], row["end"]]])
+            if (not intervals or any(not row["start"] <= start < end <= row["end"] for start, end in intervals)
+                    or any(left[1] > right[0] for left, right in zip(intervals, intervals[1:]))):
+                raise PackageValidationError("Invalid original clip edit intervals")
+            if abs(duration-row["duration_seconds"]) > .05 or abs(duration-sum(end-start for start, end in intervals)) > .15:
                 raise PackageValidationError("Original clip duration mismatch")
             assets[expected] = {"path": path, **row}
     return list(assets.values())
@@ -71,9 +95,15 @@ def main() -> int:
     roots = parser.add_mutually_exclusive_group(required=True)
     roots.add_argument("--audio-root")
     roots.add_argument("--original-clips-root")
+    roots.add_argument("--original-practice-root")
     parser.add_argument("--commit", action="store_true")
     args = parser.parse_args()
-    assets = validated_original_clips(Path(args.original_clips_root)) if args.original_clips_root else validated_assets(Path(args.audio_root))
+    if args.original_clips_root:
+        assets = validated_original_clips(Path(args.original_clips_root))
+    elif args.original_practice_root:
+        assets = validated_original_practice_assets(Path(args.original_practice_root))
+    else:
+        assets = validated_assets(Path(args.audio_root))
     if not args.commit:
         print(json.dumps({"verified_mp3s": len(assets), "writes": 0}))
         return 0
