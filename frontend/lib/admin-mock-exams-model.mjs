@@ -116,13 +116,14 @@ export function buildExamCreatePayload(form) {
       writing_minutes: positiveInteger(form?.writingMinutes, 60),
       listening_test_id: TEXT(form?.listeningTestId) || null,
       reading_test_id: TEXT(form?.readingTestId) || null,
-      listening_is_public: form?.listeningTestId ? form?.listeningIsPublic === true : null,
-      reading_is_public: form?.readingTestId ? form?.readingIsPublic === true : null,
+      private_content_copy: true,
+      listening_is_public: form?.listeningTestId ? false : null,
+      reading_is_public: form?.readingTestId ? false : null,
       writing_task1_prompt_id: TEXT(form?.writingTask1PromptId) || null,
       writing_task2_prompt_id: TEXT(form?.writingTask2PromptId) || null,
       cohort_id: cohortId || null,
       web_explanation_mode: ['disabled', 'with_result', 'admin_release'].includes(TEXT(form?.webExplanationMode))
-        ? TEXT(form.webExplanationMode) : 'with_result',
+        ? TEXT(form.webExplanationMode) : 'disabled',
       post_test_capture_required: form?.postTestCaptureRequired !== false,
     },
   };

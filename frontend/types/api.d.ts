@@ -15877,6 +15877,12 @@ export interface components {
             /** Title */
             title: string;
             /**
+             * Private Content Copy
+             * @default true
+             * @constant
+             */
+            private_content_copy: true;
+            /**
              * Exam Mode
              * @default sequential
              */
@@ -15913,7 +15919,7 @@ export interface components {
             review_sla_days?: number | null;
             /**
              * Web Explanation Mode
-             * @default with_result
+             * @default disabled
              */
             web_explanation_mode: string;
             /** Web Explanation Content Version */
