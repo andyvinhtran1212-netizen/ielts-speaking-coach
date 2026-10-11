@@ -81,25 +81,6 @@ type Attempt = {
   mock_sitting_id?: string | null;
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  matching_headings: 'Matching Headings',
-  true_false_not_given: 'True / False / Not Given',
-  yes_no_not_given: 'Yes / No / Not Given',
-  mcq_single: 'Multiple Choice',
-  mcq_multi: 'Multiple Choice — choose more than one',
-  sentence_completion: 'Sentence Completion',
-  summary_completion: 'Summary Completion',
-  notes_completion: 'Notes Completion',
-  table_completion: 'Table Completion',
-  form_completion: 'Form Completion',
-  short_answer: 'Short Answer',
-  matching_information: 'Matching Information',
-  matching_features: 'Matching Features',
-  matching_sentence_endings: 'Matching Sentence Endings',
-  flow_chart_completion: 'Flow-chart Completion',
-  diagram_label_completion: 'Diagram Labelling',
-};
-
 function formatTime(seconds: number) {
   const mins = Math.floor(seconds / 60);
   return `${String(mins).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -317,7 +298,6 @@ function QuestionCard({ question, answer, saveState, flagged, flagReady, current
     >
       <span className="exam-q__num">{question.q_num}</span>
       <div className="exam-q__body">
-        <p className="exam-q__type">{TYPE_LABELS[question.question_type || ''] || 'Question'}</p>
         {question.payload?.image_url ? <img className="exam-diagram-image" src={question.payload.image_url} alt={`Question ${question.q_num} diagram`} /> : null}
         {!hasInlinePrompt ? <p className="exam-q__prompt">{question.prompt || ''}</p> : null}
         <QuestionControl question={question} value={answer} onChange={onAnswer} />

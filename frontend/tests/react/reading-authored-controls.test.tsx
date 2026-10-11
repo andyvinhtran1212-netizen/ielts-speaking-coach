@@ -36,6 +36,51 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('source-authored Reading controls in the native player', () => {
+  it.each([
+    {
+      q_num: 10, question_type: 'true_false_not_given',
+      prompt: "Hugh Blaker opposed the Davies sisters' decision to buy art by French Impressionists.",
+      payload: {}, label: 'True / False / Not Given',
+    },
+    {
+      q_num: 16, question_type: 'matching_information',
+      prompt: 'a description of physiological changes in our bodies when we hear sudden noises',
+      payload: {
+        instruction: 'Reading Passage 2 has 7 sections, A-G. Which section contains the following information? Write the correct letter, A-G.',
+        template: { paragraph_labels: letters('G') },
+      }, label: 'Matching Information',
+    },
+  ])('renders C21 T1 Q$q_num without a per-question type label, preserving its prompt and controls', async ({ label, ...question }) => {
+    const fixture = { ...paper({}), total_questions: 1, questions: [{ ...question, passage_order: 2 }] };
+    const original = JSON.stringify(fixture);
+    get.mockResolvedValue(fixture);
+    const view = render(<ReadingExamSession />);
+    expect(await screen.findByText(question.prompt, { exact: true })).toBeTruthy();
+    expect(screen.queryByText(label, { exact: true })).toBeNull();
+    const card = view.container.querySelector(`#q-${question.q_num}`)!;
+    expect(card.querySelector('.exam-q__body')?.firstElementChild?.textContent).toBe(question.prompt);
+    expect(card.querySelector('.exam-q__num')?.textContent).toBe(String(question.q_num));
+    expect(card.querySelector('.exam-q__type')).toBeNull();
+    const instruction = view.container.querySelector('.exam-questions__instructions--type');
+    if (question.question_type === 'true_false_not_given') {
+      expect(instruction?.textContent).toContain('Do the following statements agree with the information');
+      expect(within(card as HTMLElement).getAllByRole('radio').map(el => el.getAttribute('value'))).toEqual(['TRUE', 'FALSE', 'NOT GIVEN']);
+      const answer = within(card as HTMLElement).getByRole('radio', { name: 'FALSE', exact: true });
+      fireEvent.click(answer);
+      expect((answer as HTMLInputElement).checked).toBe(true);
+    } else {
+      expect(instruction?.textContent).toContain(question.payload.instruction);
+      const answer = screen.getByRole('combobox', { name: 'Answer 16' });
+      expect(within(answer).getAllByRole('option').map(el => el.getAttribute('value'))).toEqual(['', ...letters('G')]);
+      fireEvent.change(answer, { target: { value: 'A' } });
+      expect((answer as HTMLSelectElement).value).toBe('A');
+    }
+    fireEvent.click(screen.getByRole('button', { name: `Mark question ${question.q_num} for review` }));
+    expect(screen.getByRole('button', { name: `Mark question ${question.q_num} for review` }).getAttribute('aria-pressed')).toBe('true');
+    expect(JSON.stringify(fixture)).toBe(original);
+    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
+  });
+
   it('shows the C21 T1 authored People bank and singular-person rubric while allowing letter reuse', async () => {
     const fixture = { ...paper({}), questions: c21People.questions };
     const original = JSON.stringify(fixture);
