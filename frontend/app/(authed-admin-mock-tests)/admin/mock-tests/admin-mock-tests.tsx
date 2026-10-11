@@ -130,7 +130,10 @@ export function AdminMockTests() {
   }, [profile.id]);
 
   useEffect(() => {
-    if (requestedExam && exams.some((exam) => exam.id === requestedExam)) setSelectedId(requestedExam);
+    // Interactive navigation updates native history. Next's params can still
+    // describe the entry URL when polling replaces the exam list.
+    const currentRequestedExam = new URL(window.location.href).searchParams.get('exam_id')?.trim() || '';
+    if (currentRequestedExam && exams.some((exam) => exam.id === currentRequestedExam)) setSelectedId(currentRequestedExam);
   }, [exams, requestedExam]);
 
   const shown = useMemo(() => {
