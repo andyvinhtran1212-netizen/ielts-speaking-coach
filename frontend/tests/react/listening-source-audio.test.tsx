@@ -17,14 +17,14 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-it('defaults to the new recording, switches to the original without creating attempts and clears old media', async () => {
+it('defaults to the original recording, switches to the study recording without creating attempts and clears old media', async () => {
   const view = render(<ListeningSourceAudio day={1} />);
   const select = await screen.findByRole('combobox', { name: 'Phiên bản audio' });
   const old = view.container.querySelector('audio')!;
-  expect(old.getAttribute('src')).toContain('1-kokoro-v1');
+  expect(old.getAttribute('src')).toContain('1-original');
   expect(screen.queryByText(/Kokoro/)).toBeNull();
-  fireEvent.change(select, { target: { value: 'original' } });
-  expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('1-original');
+  fireEvent.change(select, { target: { value: 'kokoro-v1' } });
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('1-kokoro-v1');
   expect(old.getAttribute('src')).toBeNull();
   expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
   expect(window.api.postWith).not.toHaveBeenCalled();
@@ -41,6 +41,21 @@ it('shows truthful unavailable audio and allows retry', async () => {
   await waitFor(() => expect(window.api.getWith).toHaveBeenCalledTimes(2));
 });
 
+it('uses the available study recording for a part absent from an otherwise available original day recording', async () => {
+  window.api.getWith = vi.fn(async () => payload(76));
+  const view = render(<ListeningSourceAudio day={76} originalAvailable={false} />);
+  const select = await screen.findByRole('combobox', { name: 'Phiên bản audio' });
+  expect((select as HTMLSelectElement).value).toBe('kokoro-v1');
+  expect(screen.queryByRole('option', { name: 'Bản ghi gốc' })).toBeNull();
+  expect(screen.getByText(/Phần này không có bản ghi gốc/)).toBeTruthy();
+  const old = view.container.querySelector('audio')!;
+  expect(old.getAttribute('src')).toContain('76-kokoro-v1');
+  view.rerender(<ListeningSourceAudio day={76} originalAvailable />);
+  expect(old.getAttribute('src')).toBeNull();
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('76-original');
+  expect(window.api.postWith).not.toHaveBeenCalled();
+});
+
 it.each(['day', 'account', 'status'] as const)('removes signed media immediately on %s scope change and ignores late old responses', async (boundary) => {
   const view = render(<ListeningSourceAudio day={1} />);
   await screen.findByRole('combobox');
@@ -55,7 +70,7 @@ it.each(['day', 'account', 'status'] as const)('removes signed media immediately
   if (boundary !== 'status') {
     await waitFor(() => expect(window.api.getWith).toHaveBeenCalledTimes(1));
     await act(async () => resolve(payload(2)));
-    expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('2-kokoro-v1');
+    expect(view.container.querySelector('audio')?.getAttribute('src')).toContain('2-original');
   }
 });
 

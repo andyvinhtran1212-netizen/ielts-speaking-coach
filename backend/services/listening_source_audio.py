@@ -39,4 +39,6 @@ def audio_response(package: dict, lesson: dict, signer: Callable[[str], str | No
             else "Bạn có thể nghe lại audio toàn buổi.")
     variants.append({"variant_id": "kokoro-v1", "label_vi": "Bản luyện nghe", "synthetic": True,
         "duration_seconds": new["duration_seconds"], "url": signer(new["storage_path"]), "note_vi": note})
-    return SourceAudioResponse(day=day, variants=variants).model_dump()
+    from services.listening_source_question_audio import question_clips
+    clips = question_clips(package, day, row["original"], signer)
+    return SourceAudioResponse(day=day, variants=variants, question_clips=clips).model_dump()

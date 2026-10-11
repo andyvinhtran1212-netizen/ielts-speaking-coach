@@ -181,7 +181,7 @@ it('keeps unsupported days as audio-only without exposing source documents or st
 });
 
 function practiceDay(day = 1) {
-  return { ...studyDay(day), practice_item_count: 3, parts: [1, 2, 3].map((n) => ({ part_id: `p${n}`, source_label: `Part ${n}`, item_count: 1, form: { id: `form${n}`, status: 'new' } })) };
+  return { ...studyDay(day), practice_item_count: 3, parts: [1, 2, 3].map((n) => ({ part_id: `p${n}`, source_label: `Part ${n}`, item_count: 1, source_position_count: 1, form: { id: `form${n}`, status: 'new' } })) };
 }
 function installPracticeApi() {
   window.api.getWith = vi.fn(async (url: string) => {
@@ -200,7 +200,7 @@ it('opens the first actual part immediately, retains drafts and pauses hidden me
   await screen.findByText('Question form1');
   expect(window.api.postWith).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('link', { name: /Bắt đầu luyện/ })).toBeNull();
-  expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/new.mp3');
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/original.mp3');
   const first = view.container.querySelector('audio')!;
   const input = screen.getByRole('textbox');
   fireEvent.change(input, { target: { value: 'unsent draft' } });
@@ -214,6 +214,27 @@ it('opens the first actual part immediately, retains drafts and pauses hidden me
   expect(document.activeElement).toBe(screen.getByRole('tab', { name: /Part 1/ }));
   expect(window.api.postWith).toHaveBeenCalledTimes(2);
   expect(screen.queryByText(/Kokoro|Đề và tài liệu nguồn|Tài liệu tự học/)).toBeNull();
+});
+
+it('uses study audio in a missing-original section of a mixed day without starting another attempt', async () => {
+  installPracticeApi();
+  const get = window.api.getWith;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => {
+    if (url.endsWith('/days/76')) return { ...practiceDay(76), parts: [
+      { ...practiceDay(76).parts[0], audio_status: 'available' },
+      { part_id: 'p3', source_label: 'Section 3', item_count: 0, source_position_count: 11, audio_status: 'missing', form: null },
+    ] };
+    return get(url, ...args);
+  });
+  const view = render(<ListeningSourceDay day={76} />);
+  await screen.findByText('Question form1');
+  fireEvent.click(screen.getByRole('tab', { name: /Section 3/ }));
+  const select = await screen.findByRole('combobox', { name: 'Phiên bản audio' });
+  expect((select as HTMLSelectElement).value).toBe('kokoro-v1');
+  expect(screen.queryByRole('option', { name: 'Bản ghi gốc' })).toBeNull();
+  expect(screen.getByText(/Phần này không có bản ghi gốc/)).toBeTruthy();
+  expect(view.container.querySelector('section[role="tabpanel"]:not([hidden]) audio')?.getAttribute('src')).toBe('/new.mp3');
+  expect(window.api.postWith).toHaveBeenCalledTimes(1);
 });
 
 it('keeps the active part radio selected when a hidden part finishes saving the same local question number', async () => {
@@ -275,28 +296,26 @@ it('shows safe authored limitations alongside eligible practice without source p
   window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => url.endsWith('/days/29') ? { ...practiceDay(29), source_only_positions: [{ item_id: 'q13', part_id: 'p2', source_display_number: '13', reason_vi: 'Audio không nêu giờ khởi hành được hỏi ở câu này; chưa đủ dữ kiện để mở luyện.' }] } : get(url, ...args));
   render(<ListeningSourceDay day={29} />);
   await screen.findByText('Question form1');
-  fireEvent.click(screen.getByText('1 câu chưa mở luyện — xem lý do'));
-  expect(screen.getByText('Part 2 · Câu 13:')).toBeTruthy();
-  expect(screen.getByText(/Audio không nêu giờ khởi hành/)).toBeTruthy();
+  expect(screen.getByText(/câu tự luyện có ghi chú giới hạn/)).toBeTruthy();
   expect(screen.queryByText('Đề và tài liệu nguồn')).toBeNull();
 });
 
-it('allows an explicit original fallback after variants fail and retry restores the new default without a new attempt', async () => {
+it('allows an explicit original fallback after variants fail and retry restores the original default without a new attempt', async () => {
   installPracticeApi();
   const get = window.api.getWith;
   let unavailable = true;
   window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => { if (url.endsWith('/audio') && unavailable) throw new Error('temporary outage'); return get(url, ...args); });
   const view = render(<ListeningSourceDay day={1} />);
   await screen.findByText('Question form1');
-  expect(view.container.querySelector('audio')?.getAttribute('src')).toBeNull();
+  expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/original.mp3');
   expect(screen.getByText(/Bạn có thể chọn Bản ghi gốc hoặc tải lại/)).toBeTruthy();
   fireEvent.change(screen.getByRole('combobox', { name: 'Phiên bản audio' }), { target: { value: 'original' } });
   expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/original.mp3');
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'retained during retry' } });
   unavailable = false;
   fireEvent.click(screen.getByRole('button', { name: 'Tải lại audio' }));
-  await waitFor(() => expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/new.mp3'));
-  expect((screen.getByRole('combobox', { name: 'Phiên bản audio' }) as HTMLSelectElement).value).toBe('kokoro-v1');
+  await waitFor(() => expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/original.mp3'));
+  expect((screen.getByRole('combobox', { name: 'Phiên bản audio' }) as HTMLSelectElement).value).toBe('original');
   expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('retained during retry');
   expect(window.api.postWith).toHaveBeenCalledTimes(1);
 });
@@ -342,6 +361,7 @@ it('replays the new recording from zero and retains original timing only after e
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
   const view = render(<ListeningSourceDay day={1} />);
   await screen.findByText('AUDIO_TIMING_REFERENCE');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Phiên bản audio' }), { target: { value: 'kokoro-v1' } });
   const audio = view.container.querySelector('audio')!;
   audio.currentTime = 5;
   fireEvent.click(screen.getByRole('button', { name: /Nghe toàn ngày/ }));

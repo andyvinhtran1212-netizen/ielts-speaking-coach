@@ -24,6 +24,9 @@
 | FR-017 | `frontend/tests/react/listening-source-collection.test.tsx`: immediate first-part admission, retained draft/flush, hidden media cleanup, keyboard tabs and stale day/account responses. Local PASS; staging/production journey pending. | PENDING |
 | FR-018 | 31 GPT figures visually compared and hash-bound in `backend/content/listening/80-days-generated-figures-v1.json`; `backend/tests/test_listening_source_figures.py`; `frontend/tests/react/listening-source-native-display.test.tsx`. Private staging upload/readback: 31 created, hash verified. Live release acceptance pending. | PENDING |
 
+| FR-019 | All80 source/runtime inventory reconciliation, supplemental source-question secrecy/order and reload/owner tests; hosted missing-item journeys | PENDING |
+| FR-020 | Original digest/interval/clip coverage validation, private signing tests and pre-answer loop/switch/failure browser behavior | PENDING |
+
 ## Initial evidence
 
 Worktree: `/Volumes/Kingston SSD/Code/ielts-listening-80-days`.
@@ -508,3 +511,34 @@ clarification adds requirement traceability without changing runtime behavior.
 - Production package import, private variant upload/publication and affected
   live production journeys remain pending production access. Staging evidence
   does not certify production content availability.
+
+## FR-016/019/020 — original audio and complete practice, 2026-10-11
+
+Spec approval #1631 supersedes the generated-audio default. The isolated
+implementation preserves the published package and canonical attempts. Direct
+read-only reconciliation of both staging and production confirms all 80 days:
+1,676 source positions, 1,572 canonical questions and 104 previously excluded
+positions. The native supplemental projection restores those 104 as local
+unscored drafts in source order; 1,689 response fields distinguish multi-gap
+questions from additional questions. Days 61–70 remain vocabulary lessons.
+
+Original recordings remain unchanged. The clip catalogue covers the 1,615
+positions with an original recording; Day76 Section3–4 and all Day77 account
+for the 61 positions without one. Private cuts are anchored to numbered source
+contexts or cited transcript lines aligned to original word timestamps. Shared
+dialogue context is explicitly labelled. Alignment and playback checks do not
+constitute human listening acceptance or certify the source answer key.
+
+Question clips are available before answering/revealing, with unlimited native
+looping and cleanup across media, Part, day, variant and owner changes.
+Supplement drafts never enter canonical answer/reveal/submit requests. The
+backend batch signer authenticates before planning private paths and retains
+per-asset retry state; the upload CLI verifies full coverage, immutable original
+bindings, physical clip hashes/lengths and private Storage readback.
+
+Tests: source supplements/native projection; complete original clip inventory,
+wrong original binding and incomplete upload refusal; authenticated batch signing;
+React supplement order, canonical writes, pre-answer looping, scope cleanup and
+retry. Full frontend contracts, React, both typechecks and production build pass.
+Backend final catalogue verification, exact-head CI, deployed staging acceptance
+and production promotion are release evidence to record after execution.

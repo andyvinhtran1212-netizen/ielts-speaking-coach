@@ -1,3 +1,5 @@
+import { matchesPromptCourse, promptCourseFilter } from './writing-prompt-courses.mjs';
+
 const TASK_TYPES = new Set(['task1_academic', 'task1_general', 'task2']);
 const DIFFICULTIES = new Set(['beginner', 'intermediate', 'advanced']);
 const ANALYSIS_STATUSES = new Set(['pending', 'ready', 'failed']);
@@ -151,6 +153,8 @@ export function promptsPageHref(filters) {
   if (difficulty) params.set('difficulty', difficulty);
   if (lifecycle !== 'active') params.set('status', lifecycle);
   if (visibility !== 'all') params.set('visibility', visibility);
+  const course = promptCourseFilter(filters?.course);
+  if (course) params.set('course', course);
   if (q) params.set('q', q);
   const query = params.toString();
   return `/admin/writing/prompts${query ? `?${query}` : ''}`;
@@ -158,6 +162,7 @@ export function promptsPageHref(filters) {
 
 export function promptMatches(row, filters) {
   if (!row) return false;
+  if (!matchesPromptCourse(row.tags, filters?.course)) return false;
   if (filters?.visibility === 'student' && row.examOnly) return false;
   if (filters?.visibility === 'exam' && !row.examOnly) return false;
   const q = stringOf(filters?.q).trim().toLocaleLowerCase('vi');

@@ -23,6 +23,39 @@ SQL = (
 DB = os.environ.get("TEST_PG_URL", "")
 
 
+def test_mock_copy_rejects_real_imported_package_before_immutable_insert(programme_probe):
+    s = programme_probe["schema"]
+    migrations = Path(__file__).resolve().parents[1] / "migrations"
+    policy = (migrations / "306_mock_paper_policy_and_admission.sql").read_text()
+    lock = policy.split("CREATE OR REPLACE FUNCTION public.fn_lock_mock_paper(", 1)[1].split(
+        "CREATE OR REPLACE FUNCTION public.fn_guard_mock_paper_reference(", 1)[0]
+    lock = "CREATE OR REPLACE FUNCTION public.fn_lock_mock_paper(" + lock
+    original = (migrations / "315_mock_exam_private_draft_copies.sql").read_text()
+    copy = original.split("CREATE OR REPLACE FUNCTION public.fn_copy_mock_draft_paper(", 1)[1].split(
+        "CREATE OR REPLACE FUNCTION public.fn_create_mock_exam_with_paper_policy(", 1)[0]
+    copy = "CREATE OR REPLACE FUNCTION public.fn_copy_mock_draft_paper(" + copy
+    scoped = lambda sql: sql.replace("public.", s + ".").replace("search_path=public,", "search_path=" + s + ",")
+    psql(scoped(lock + copy))
+    source = psql(f"SELECT id FROM {s}.listening_tests WHERE test_id='pkg-fixture-form-1'")
+    package = psql(f"SELECT content_package_id FROM {s}.listening_tests WHERE id='{source}'")
+    baseline = psql(f"SELECT md5(to_jsonb(t)::text) FROM {s}.listening_tests t WHERE id='{source}'")
+    # Full migration 295 and its real imported child/unique identities are live.
+    # A transaction changes only its permitted visibility/status for this probe;
+    # both failures roll back that temporary setup along with any attempted copy.
+    probe = f"""BEGIN;
+        SELECT set_config('app.listening_package_status_transition','{package}',true);
+        UPDATE {s}.listening_tests SET status='published',is_public=false WHERE id='{source}';
+        SELECT {s}.fn_copy_mock_draft_paper('listening','{source}',gen_random_uuid(),NULL);
+        COMMIT;"""
+    with pytest.raises(RuntimeError, match="listening_package_child_immutable"):
+        psql(probe)
+    psql(scoped((migrations / "316_mock_draft_shared_resume_and_package_guard.sql").read_text()))
+    with pytest.raises(RuntimeError, match="mock_copy_source_package_unsupported:listening"):
+        psql(probe)
+    assert psql(f"SELECT count(*) FROM {s}.listening_tests WHERE content_package_id='{package}'") == "1"
+    assert psql(f"SELECT md5(to_jsonb(t)::text) FROM {s}.listening_tests t WHERE id='{source}'") == baseline
+
+
 def _literal(value: object) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 

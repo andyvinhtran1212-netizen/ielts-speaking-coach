@@ -279,9 +279,9 @@ export function AdminMockExams() {
                 {active === 'done' && !exam.isOpen && <span className="mex-ended">Kỳ thi đã kết thúc</span>}
                 {canAdvance && <button className="adm-btn-primary" type="button" onClick={() => void advance(exam, active, snapshot)} disabled={busy}>{busyKey === `${exam.id}:advance` ? 'Đang chuyển…' : `Mở ${SECTION_LABEL[next || '']}`}</button>}
                 {!isRetake && active !== 'not_started' && active !== 'done' && <span className="mex-ended">Thu bài và chuyển phần tại Phòng thi trực tiếp</span>}
-                {exam.status === 'published' && <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=live&exam_id=${encodeURIComponent(exam.id)}`}>Phòng thi trực tiếp</a>}
+                {exam.status === 'published' && <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=live&exam_id=${encodeURIComponent(exam.id)}`} target={embedded ? '_top' : undefined}>Phòng thi trực tiếp</a>}
               </>}
-              <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(exam.id)}`}>Duyệt bài</a>
+              <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(exam.id)}`} target={embedded ? '_top' : undefined}>Duyệt bài</a>
               {exam.webExplanationMode === 'admin_release' && !exam.webExplanationsReleasedAt ? <button className="adm-btn-secondary" type="button" onClick={() => void releaseWebExplanations(exam)} disabled={busy}>Duyệt web explanation</button> : null}
             </div>
           </article>;

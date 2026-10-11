@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-10 the highest is `314`, so the next
-new migration is `315`.
+sequence is dense. As of 2026-10-11 the highest is `316`, so the next
+new migration is `317`.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
@@ -51,6 +51,20 @@ Migration `314` extends the guarded Grammar publication owner to the exact
 reviewed audit sources. It retains historical receipts and learner rows, and
 allows only the named long-sentence follow-up revision. It changes functions,
 not bank content; content publication remains a separate guarded operation.
+
+Migration `315` creates private Reading/Listening copies atomically with a mock
+draft and hides selected public sources without revoking existing resume rights.
+Exam explanation copies retain independent bindings across Cambridge imports.
+Deploy it before the create API/UI; existing drafts and legacy RPC calls retain
+their admission guards.
+
+Migration `316` follows the already applied `315` without replaying it. Owned,
+unexpired standalone attempts retain their frozen resume entitlement when a
+shared source is hidden, while unrelated exam references still block new starts.
+Immutable Listening programme forms are excluded from the mock picker and
+rejected before source hiding or copying; their package identities stay intact.
+Apply `316` on staging, verify the corrected journeys, then apply it to production
+before promoting the matching picker/API code.
 
 ## Conventions
 
