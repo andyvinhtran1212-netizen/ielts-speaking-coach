@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 import asyncpg
 import pytest
 
-from test_mock_paper_policy_postgres import DB, _policy_probe, access, paper, query
+from test_mock_paper_policy_postgres import DB, _policy_probe, access, paper, query, room
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 
@@ -37,6 +37,10 @@ def private_probe():
         migration = migration.replace("public.", schema + ".").replace("search_path=public,", "search_path=" + schema + ",")
         query(migration)
         query(migration)  # safe forward re-application
+        followup = (MIGRATIONS / "316_mock_draft_shared_resume_and_package_guard.sql").read_text()
+        followup = followup.replace("public.", schema + ".").replace("search_path=public,", "search_path=" + schema + ",")
+        query(followup)
+        query(followup)
         yield schema
 
 
@@ -161,6 +165,49 @@ def test_explanation_copy_keeps_source_approval_and_survives_global_import(priva
     query(f"INSERT INTO {s}.web_explanation_objects SELECT r.* FROM {s}.web_explanation_objects o CROSS JOIN LATERAL jsonb_populate_record(NULL::{s}.web_explanation_objects,to_jsonb(o)||jsonb_build_object('id',gen_random_uuid(),'content_version','version-2','is_current',false)) r WHERE o.reading_test_id=$1", source)
     query(f"SELECT {s}.fn_activate_web_explanation_version('version-2',40)")
     assert query(f"SELECT * FROM {s}.web_explanation_objects WHERE reading_test_id=$1 ORDER BY question_number", UUID(result["reading_test_id"])) == copies
+
+
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+def test_hidden_shared_source_retains_only_existing_owner_resume(private_probe, skill):
+    s = private_probe
+    source = source_bundle(s, skill, public=False)
+    room(s, source, skill)  # an independently protected mock already uses this source
+    owner, actor = uuid4(), uuid4()
+    info = json.loads(query(f"SELECT {s}.fn_inspect_mock_paper_policy($1,$2) receipt", skill, source)[0]["receipt"])
+    overlap = {"reason": "Approved source practice overlap", "paper_revision": info["paper_revision"],
+               "references": info["protected_references"]}
+    query(f"SELECT {s}.fn_mutate_mock_paper_policy($1,$2,'{{\"is_public\":true}}',$3,0,$4,NULL)",
+          skill, source, actor, json.dumps(overlap))
+    attempt = query(f"INSERT INTO {s}.{skill}_test_attempts(test_id,user_id,attempt_purpose,answers) "
+                    "VALUES($1,$2,'practice','[{\"q_num\":1,\"user_answer\":\"saved\"}]') RETURNING id", source, owner)[0]["id"]
+    before = query(f"SELECT * FROM {s}.{skill}_test_attempts WHERE id=$1", attempt)
+    snapshot = query(f"SELECT * FROM {s}.mock_paper_attempt_snapshots WHERE skill=$1 AND attempt_id=$2", skill, attempt)
+    draft = create(s, **{skill + "_test_id": str(source)})
+    assert draft[skill + "_test_id"] != str(source)
+    assert query(f"SELECT is_public FROM {s}.{skill}_tests WHERE id=$1", source)[0]["is_public"] is False
+    assert access(s, skill, source, owner, "delivery")["allowed"] is True
+    assert access(s, skill, source, uuid4(), "delivery")["allowed"] is False
+    assert access(s, skill, source, None, "delivery")["allowed"] is False
+    assert access(s, skill, source, owner, "delivery", admit=True)["allowed"] is False
+    assert access(s, skill, source, owner, "practice", admit=True)["allowed"] is False
+    assert query(f"SELECT * FROM {s}.{skill}_test_attempts WHERE id=$1", attempt) == before
+    assert query(f"SELECT * FROM {s}.mock_paper_attempt_snapshots WHERE skill=$1 AND attempt_id=$2", skill, attempt) == snapshot
+
+
+def test_package_rejection_rolls_back_draft_and_other_selected_copy(private_probe):
+    s = private_probe
+    reading = source_bundle(s, "reading", public=True)
+    listening = source_bundle(s, "listening", public=True)
+    query(f"ALTER TABLE {s}.listening_tests ADD COLUMN content_package_id uuid")
+    # Preserve normal immutability guards: the fixture adds a package marker
+    # before admission, then the real helper rejects it before any policy write.
+    query(f"UPDATE {s}.listening_tests SET content_package_id=$1 WHERE id=$2", uuid4(), listening)
+    tables = ("mock_exams", "reading_tests", "listening_tests", "reading_passages", "reading_questions",
+              "listening_content", "listening_exercises", "mock_correction_release_events")
+    before = {table: query(f"SELECT * FROM {s}.{table} ORDER BY id") for table in tables}
+    with pytest.raises(asyncpg.PostgresError, match="mock_copy_source_package_unsupported:listening"):
+        create(s, reading_test_id=str(reading), listening_test_id=str(listening))
+    assert {table: query(f"SELECT * FROM {s}.{table} ORDER BY id") for table in tables} == before
 
 
 @pytest.mark.parametrize("role", ["anon", "authenticated"])
