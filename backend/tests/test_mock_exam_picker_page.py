@@ -18,6 +18,7 @@ def test_picker_search_and_page_are_database_scoped(kind, table, field, value):
     query = MagicMock()
     query.select.return_value = query
     query.eq.return_value = query
+    query.is_.return_value = query
     query.in_.return_value = query
     query.or_.return_value = query
     query.order.return_value = query
@@ -40,6 +41,10 @@ def test_picker_search_and_page_are_database_scoped(kind, table, field, value):
     elif kind == "writing-task1":
         query.in_.assert_called_once_with("task_type", ["task1_academic", "task1_general"])
     query.range.assert_called_once_with(100, 124)
+    if kind == "listening":
+        query.is_.assert_called_once_with("content_package_id", "null")
+    else:
+        query.is_.assert_not_called()
     assert page == {"items": [{"id": "row-101", "title": "Target"}], "total": 101, "limit": 25, "offset": 100}
     assert '"%target,\\\\%\\\\_%"' in query.or_.call_args.args[0]
 

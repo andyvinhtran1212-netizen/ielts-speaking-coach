@@ -2270,6 +2270,8 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
             raise DuplicateExamCodeError("Mã đề đã tồn tại.") from exc
         if "mock_copy_source_not_published:" in str(exc):
             raise ValueError("Đề nguồn không còn được publish. Hãy tải lại kho đề và chọn lại.") from exc
+        if "mock_copy_source_package_unsupported:" in str(exc):
+            raise ValueError("Bài Listening thuộc chương trình học không dùng làm đề Mock Test. Hãy chọn đề Listening độc lập trong kho.") from exc
         if "web_explanation_paper_requires_q01_q40" in str(exc):
             raise ValueError("Chỉ bật web explanation khi từng đề có đủ đúng 40 objects từ Q1 đến Q40.") from exc
         if "web_explanation_content_version_unavailable" in str(exc):
@@ -4607,7 +4609,7 @@ def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> d
     if kind == "reading":
         query = query.eq("status", "published").eq("test_type", "full")
     elif kind == "listening":
-        query = query.eq("status", "published").eq("test_type", "full")
+        query = query.eq("status", "published").eq("test_type", "full").is_("content_package_id", "null")
     else:
         query = query.eq("is_active", True)
         if kind == "writing-task1":
