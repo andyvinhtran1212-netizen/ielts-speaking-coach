@@ -64,7 +64,9 @@ describe('Admin Mock Exams native model', () => {
     assert.equal(retake.value.cohort_id, null);
     assert.equal(retake.value.total_minutes, 150);
     const visible = buildExamCreatePayload({ code: 'R2', title: 'Visible', examMode: 'retake', readingTestId: 'r1', readingIsPublic: true });
-    assert.equal(visible.value.reading_is_public, true);
+    assert.equal(visible.value.private_content_copy, true);
+    assert.equal(visible.value.reading_is_public, false);
+    assert.equal(visible.value.web_explanation_mode, 'disabled');
     assert.equal(visible.value.listening_is_public, null);
   });
 

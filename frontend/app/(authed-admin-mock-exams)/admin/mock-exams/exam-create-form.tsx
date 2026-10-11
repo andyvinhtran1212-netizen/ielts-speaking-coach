@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { buildExamCreatePayload } from '@/lib/admin-mock-exams-model.mjs';
 
@@ -15,19 +15,17 @@ type Props = {
 
 const INITIAL = {
   code: '', title: '', examMode: 'sequential', cohortId: '', listeningTestId: '', readingTestId: '',
-  listeningIsPublic: false, readingIsPublic: false,
   writingTask1PromptId: '', writingTask2PromptId: '', readingMinutes: '60', writingMinutes: '60', totalMinutes: '150',
-  webExplanationMode: 'with_result', postTestCaptureRequired: true,
+  webExplanationMode: 'disabled', postTestCaptureRequired: true,
 };
 
-function SearchablePicker({ label, kind, value, onChange, onStatus, optionLabel, children }: {
+function SearchablePicker({ label, kind, value, onChange, onStatus, optionLabel }: {
   label: string;
   kind: PickerKind;
   value: string;
   onChange: (value: string, selected?: Picker) => void;
   onStatus: (kind: PickerKind, ready: boolean) => void;
   optionLabel: (row: Picker) => string;
-  children?: ReactNode;
 }) {
   const [query, setQuery] = useState('');
   const [offset, setOffset] = useState(0);
@@ -70,7 +68,7 @@ function SearchablePicker({ label, kind, value, onChange, onStatus, optionLabel,
     <label><span>{label} · tìm toàn bộ kho</span><input type="search" maxLength={100} value={query} onChange={(event) => { setQuery(event.target.value); setOffset(0); }} placeholder={`Tìm ${label.toLocaleLowerCase('vi')}…`} /></label>
     <label><span>{label}</span><select value={value} onChange={(event) => { const row = options.find((item) => item.id === event.target.value); setSelected(row || null); onChange(event.target.value, row); }}><option value="">Không dùng</option>{options.map((row) => <option key={row.id} value={row.id}>{optionLabel(row)}</option>)}</select></label>
     {loading ? <small role="status">Đang tìm trong kho đề…</small> : error ? <small className="mex-blocked-copy" role="alert">{error}</small> : <div className="mex-picker-pages"><small>{total ? `${offset + 1}–${Math.min(offset + rows.length, total)} / ${total}` : 'Không có nội dung phù hợp.'}</small><button type="button" className="adm-btn-secondary" onClick={() => setOffset(Math.max(0, offset - 25))} disabled={offset === 0}>Trước</button><button type="button" className="adm-btn-secondary" onClick={() => setOffset(offset + 25)} disabled={offset + rows.length >= total}>Tiếp</button></div>}
-    {children}
+    {value && selected?.is_public && (kind === 'reading' || kind === 'listening') && <small>Đề nguồn đang công khai; học viên có thể đã xem đề trước khi ẩn.</small>}
   </div>;
 }
 
@@ -90,13 +88,6 @@ export function ExamCreateForm({ cohorts, disabled, onCreate, onError }: Props) 
   };
 
   const option = (row: Picker) => row.title || row.name || row.test_id || row.id;
-  const selectPaper = (skill: 'listening' | 'reading', id: string, selected?: Picker) => {
-    setForm((current) => ({
-      ...current,
-      [`${skill}TestId`]: id,
-      [`${skill}IsPublic`]: selected?.is_public === true,
-    }));
-  };
   return (
     <form className="mex-card mex-create" onSubmit={submit}>
       <div className="mex-section-head">
@@ -111,9 +102,9 @@ export function ExamCreateForm({ cohorts, disabled, onCreate, onError }: Props) 
             <label><span>Hình thức giao</span><select value={form.examMode} onChange={(event) => set('examMode', event.target.value)}><option value="sequential">Cả lớp · theo thứ tự phần thi</option><option value="retake">Test lại · theo từng học viên</option></select></label>
             <label><span>Lớp {form.examMode === 'sequential' ? '*' : ''}</span><select value={form.cohortId} onChange={(event) => set('cohortId', event.target.value)} disabled={form.examMode === 'retake'}><option value="">{form.examMode === 'retake' ? 'Gán theo học viên sau khi publish' : 'Chọn lớp tham gia'}</option>{cohorts.map((row) => <option key={row.id} value={row.id}>{option(row)}</option>)}</select></label>
           </div></fieldset>
-          <fieldset className="mex-form-step"><legend><b>2</b><span><strong>Chọn nội dung thi</strong><small>Chỉ hiển thị nội dung đã publish</small></span></legend><div className="mex-form-grid is-two">
-            <SearchablePicker label="Listening" kind="listening" value={form.listeningTestId} onChange={(value, row) => selectPaper('listening', value, row)} onStatus={onPickerStatus} optionLabel={option}>{form.listeningTestId && <label className="mex-picker-check"><input type="checkbox" checked={form.listeningIsPublic} onChange={(event) => set('listeningIsPublic', event.target.checked)} /> <span>Hiện đề Listening công khai</span></label>}</SearchablePicker>
-            <SearchablePicker label="Reading" kind="reading" value={form.readingTestId} onChange={(value, row) => selectPaper('reading', value, row)} onStatus={onPickerStatus} optionLabel={(row) => `${option(row)}${row.test_id ? ` · ${row.test_id}` : ''}`}>{form.readingTestId && <label className="mex-picker-check"><input type="checkbox" checked={form.readingIsPublic} onChange={(event) => set('readingIsPublic', event.target.checked)} /> <span>Hiện đề Reading công khai</span></label>}</SearchablePicker>
+          <fieldset className="mex-form-step"><legend><b>2</b><span><strong>Chọn nội dung thi</strong><small>Listening/Reading được lưu thành bản riêng cho kỳ thi và ẩn đề nguồn khỏi kho công khai. Bài luyện tập đang làm vẫn tiếp tục được.</small></span></legend><div className="mex-form-grid is-two">
+            <SearchablePicker label="Listening" kind="listening" value={form.listeningTestId} onChange={(value) => set('listeningTestId', value)} onStatus={onPickerStatus} optionLabel={option} />
+            <SearchablePicker label="Reading" kind="reading" value={form.readingTestId} onChange={(value) => set('readingTestId', value)} onStatus={onPickerStatus} optionLabel={(row) => `${option(row)}${row.test_id ? ` · ${row.test_id}` : ''}`} />
             <SearchablePicker label="Writing Task 1" kind="writing-task1" value={form.writingTask1PromptId} onChange={(value) => set('writingTask1PromptId', value)} onStatus={onPickerStatus} optionLabel={(row) => `${option(row)}${row.task_type ? ` · ${row.task_type}` : ''}`} />
             <SearchablePicker label="Writing Task 2" kind="writing-task2" value={form.writingTask2PromptId} onChange={(value) => set('writingTask2PromptId', value)} onStatus={onPickerStatus} optionLabel={(row) => `${option(row)}${row.task_type ? ` · ${row.task_type}` : ''}`} />
           </div></fieldset>

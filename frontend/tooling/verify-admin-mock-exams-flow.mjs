@@ -25,8 +25,8 @@ let exams = [
   { id: 'retake-1', code: 'RETAKE-1', title: 'Đề test lại', status: 'published', exam_mode: 'retake', is_open: false, active_section: 'not_started', cohort_id: null, listening_test_id: null, reading_test_id: 'read-1' },
 ];
 const pickerRows = {
-  reading: [{ id: 'read-1', title: 'Reading paper', test_id: 'READ-PAPER', is_public: false }],
-  listening: [{ id: 'lis-1', title: 'Listening paper', test_id: 'LISTEN-PAPER', is_public: false }],
+  reading: [{ id: 'read-1', title: 'Reading paper', test_id: 'READ-PAPER', is_public: true }],
+  listening: [{ id: 'lis-1', title: 'Listening paper', test_id: 'LISTEN-PAPER', is_public: true }],
   'writing-task1': [{ id: 'w1', title: 'Chart', task_type: 'task1_academic' }],
   'writing-task2': [{ id: 'w2', title: 'Essay', task_type: 'task2' }],
 };
@@ -75,6 +75,9 @@ await page.route('**/*', async (route) => {
   if (path === '/admin/mock-exams' && method === 'GET') return json({ exams });
   if (path === '/admin/mock-exams' && method === 'POST') {
     const created = { id: body.code === 'AMBIG-1' ? 'ambiguous-1' : 'created-1', ...body, status: 'draft', is_open: false, active_section: 'not_started' };
+    for (const skill of ['reading', 'listening']) {
+      if (body.private_content_copy && body[`${skill}_test_id`]) created[`${skill}_test_id`] = `copy-${skill}-${created.id}`;
+    }
     exams = [created, ...exams];
     if (body.code === 'AMBIG-1') return json({ detail: 'fixture response interrupted after write' }, 503);
     return json(created);
@@ -183,11 +186,20 @@ await page.getByRole('button', { name: 'Lưu đề nháp' }).waitFor();
 await page.getByLabel('Mã đề *').fill('NEW-1');
 await page.getByLabel('Tiêu đề *').fill('Đề mới');
 await page.getByLabel('Hình thức giao').selectOption('retake');
+await readingPicker.locator('select').selectOption('read-1');
+await listeningPicker.getByLabel('Listening · tìm toàn bộ kho').fill('');
+await listeningPicker.getByText('1–25 / 231').waitFor();
+await listeningPicker.locator('select').selectOption('lis-1');
 await page.getByRole('button', { name: 'Lưu đề nháp' }).click();
 await page.getByText('Đã tạo đề nháp từ dữ liệu backend.').waitFor();
 await page.getByRole('button', { name: 'Tạo đề mới' }).click();
 const createRequest = requests.find((item) => item.method === 'POST' && item.path === '/admin/mock-exams');
 check('create retake gửi cohort null và reconcile bằng GET', createRequest?.body?.exam_mode === 'retake' && createRequest?.body?.cohort_id === null && requests.filter((item) => item.method === 'GET' && item.path === '/admin/mock-exams').length >= 2);
+check('đề nguồn công khai tạo bản riêng, lời giải mặc định tắt và nhận đúng ID mới',
+  createRequest?.body?.private_content_copy === true && createRequest.body.reading_is_public === false &&
+  createRequest.body.listening_is_public === false && createRequest.body.web_explanation_mode === 'disabled' &&
+  exams.find((row) => row.code === 'NEW-1')?.reading_test_id === 'copy-reading-created-1' &&
+  exams.find((row) => row.code === 'NEW-1')?.listening_test_id === 'copy-listening-created-1');
 
 await page.getByLabel('Mã đề *').fill('AMBIG-1');
 await page.getByLabel('Tiêu đề *').fill('Đề phản hồi gián đoạn');

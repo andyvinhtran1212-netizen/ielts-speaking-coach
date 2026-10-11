@@ -81,6 +81,7 @@ class AdminExamPickerPage(BaseModel):
 class ExamCreate(BaseModel):
     code: str
     title: str
+    private_content_copy: Literal[True] = True
     exam_mode: str = Field(default="sequential", pattern=r"^(sequential|retake)$")
     listening_test_id: str | None = None
     reading_test_id: str | None = None
@@ -97,7 +98,7 @@ class ExamCreate(BaseModel):
     cohort_id: str | None = None
     review_sla_days: int | None = None
     web_explanation_mode: str = Field(
-        default="with_result", pattern=r"^(disabled|with_result|admin_release)$"
+        default="disabled", pattern=r"^(disabled|with_result|admin_release)$"
     )
     web_explanation_content_version: str | None = None
     post_test_capture_required: bool = True
