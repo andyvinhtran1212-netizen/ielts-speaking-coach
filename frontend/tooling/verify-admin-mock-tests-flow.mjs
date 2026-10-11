@@ -141,6 +141,15 @@ await page.waitForURL('**/admin/mock-tests?tab=review&exam_id=draft-1');
 await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/mock-reviews');
 check('Manage → Review đổi trang ngoài và giữ đề được chọn', await page.frameLocator('iframe.mts-frame').locator('.mts-shell, iframe, aver-admin-chrome:not([embed])').count() === 0);
 
+// Native history changes can leave Next's search params behind the address
+// bar. The next list refresh must preserve the destination task's exam.
+const nextListRefresh = page.waitForResponse((response) => new URL(response.url()).pathname === '/admin/mock-exams' && response.request().frame() === page.mainFrame(), { timeout: 20_000 });
+await page.getByRole('tab', { name: /Phòng thi live/ }).click();
+await page.frameLocator('iframe.mts-frame').getByText('Học viên 18', { exact: true }).waitFor();
+await nextListRefresh;
+await page.waitForTimeout(250); // Let the list response and React effects commit.
+check('Review deep link → Live giữ đề đang thi sau tự làm mới danh sách', await page.locator('.mts-context strong').textContent() === 'MOCK-LIVE' && await page.locator('iframe.mts-frame').count() === 1 && (await page.locator('iframe.mts-frame').getAttribute('src')).includes('exam_id=live-1'));
+
 const openRetake = { id: 'retake-open', code: 'RETAKE-OPEN', title: 'Bài thi lại chờ duyệt', status: 'published', is_open: true, active_section: 'not_started', exam_mode: 'retake', review_eligible: true };
 exams.unshift(openRetake);
 await page.goto(`${BASE}/admin/mock-tests?tab=review`, { waitUntil: 'domcontentloaded' });
