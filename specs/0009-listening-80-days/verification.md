@@ -24,6 +24,9 @@
 | FR-017 | `frontend/tests/react/listening-source-collection.test.tsx`: immediate first-part admission, retained draft/flush, hidden media cleanup, keyboard tabs and stale day/account responses. Local PASS; staging/production journey pending. | PENDING |
 | FR-018 | 31 GPT figures visually compared and hash-bound in `backend/content/listening/80-days-generated-figures-v1.json`; `backend/tests/test_listening_source_figures.py`; `frontend/tests/react/listening-source-native-display.test.tsx`. Private staging upload/readback: 31 created, hash verified. Live release acceptance pending. | PENDING |
 
+| FR-019 | All80 source/runtime inventory reconciliation, supplemental source-question secrecy/order and reload/owner tests; hosted missing-item journeys | PENDING |
+| FR-020 | Original digest/interval/clip coverage validation, private signing tests and pre-answer loop/switch/failure browser behavior | PENDING |
+
 ## Initial evidence
 
 Worktree: `/Volumes/Kingston SSD/Code/ielts-listening-80-days`.
