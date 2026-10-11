@@ -12,12 +12,12 @@
         "duration_seconds": 228.3,
         "partial": false,
         "practice": {
-          "sha256": "56e05158b335f7efad23a078c9ba32104234460eb6a27b5a11c0ceabc5aeec65",
-          "size_bytes": 3127968,
-          "duration_seconds": 184.48,
+          "sha256": "2d3f970e7637f6db1b4763c73dea426f29c3954f2d04a95b6f8a3faf0592af4a",
+          "size_bytes": 3103560,
+          "duration_seconds": 183.13,
           "kept_intervals": [
             [
-              17.9,
+              19.25,
               57.82
             ],
             [
@@ -30,7 +30,7 @@
             ]
           ],
           "local_file": "day-01.mp3",
-          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/original-practice-v1/56e05158b335f7efad23a078c9ba32104234460eb6a27b5a11c0ceabc5aeec65.mp3"
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/original-practice-v1/2d3f970e7637f6db1b4763c73dea426f29c3954f2d04a95b6f8a3faf0592af4a.mp3"
         }
       },
       "kokoro": {
@@ -51,13 +51,13 @@
         "duration_seconds": 216.0,
         "partial": false,
         "practice": {
-          "sha256": "e4af07342b602ba58ba4e95beed669f686c9fe1288e492e4b63d456b4c99b3ac",
-          "size_bytes": 3287736,
-          "duration_seconds": 196.02,
+          "sha256": "52ab85cfb0a767d45221c12e5950f2244a292604410ecc48fe5b46ccebacd858",
+          "size_bytes": 3366216,
+          "duration_seconds": 195.64,
           "kept_intervals": [
             [
-              4.88,
-              58.18
+              6.83,
+              59.75
             ],
             [
               64.82,
@@ -69,7 +69,7 @@
             ]
           ],
           "local_file": "day-02.mp3",
-          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/original-practice-v1/e4af07342b602ba58ba4e95beed669f686c9fe1288e492e4b63d456b4c99b3ac.mp3"
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/original-practice-v1/52ab85cfb0a767d45221c12e5950f2244a292604410ecc48fe5b46ccebacd858.mp3"
         }
       },
       "kokoro": {
@@ -90,12 +90,12 @@
         "duration_seconds": 245.4,
         "partial": false,
         "practice": {
-          "sha256": "e76135e99a8793d86f21c7afc080ecaccaf8bcefe1c2c4df247feed364aa9cdc",
-          "size_bytes": 3684456,
-          "duration_seconds": 210.62,
+          "sha256": "493e350451dffa03acb9e3b356dbb3840006af76e99fb3f90d54bf0e68225935",
+          "size_bytes": 3650616,
+          "duration_seconds": 208.36,
           "kept_intervals": [
             [
-              15.26,
+              17.52,
               75.58
             ],
             [
@@ -108,7 +108,7 @@
             ]
           ],
           "local_file": "day-03.mp3",
-          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/original-practice-v1/e76135e99a8793d86f21c7afc080ecaccaf8bcefe1c2c4df247feed364aa9cdc.mp3"
+          "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/variants/original-practice-v1/493e350451dffa03acb9e3b356dbb3840006af76e99fb3f90d54bf0e68225935.mp3"
         }
       },
       "kokoro": {

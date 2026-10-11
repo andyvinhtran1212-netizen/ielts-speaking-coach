@@ -8,20 +8,20 @@
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "1",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 17.9,
-      "end": 21.27,
-      "sha256": "a9727df7bda1afe470b1ef17012cac72955eeaa0b5e3823fb13b40f4be48bada",
-      "size_bytes": 56520,
-      "duration_seconds": 3.37,
-      "local_file": "day-01-17900-21270.mp3",
+      "start": 10.27,
+      "end": 22.86,
+      "sha256": "962720d332bd0670729f92283e52328294ffb7d7a8af9919869db77e935bac57",
+      "size_bytes": 60048,
+      "duration_seconds": 3.61,
+      "local_file": "day-01-10270-22860.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/a9727df7bda1afe470b1ef17012cac72955eeaa0b5e3823fb13b40f4be48bada.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/962720d332bd0670729f92283e52328294ffb7d7a8af9919869db77e935bac57.mp3",
       "kept_intervals": [
         [
-          17.9,
-          21.27
+          19.25,
+          22.86
         ]
       ]
     },
@@ -30,196 +30,152 @@
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "2",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 20.82,
-      "end": 25.21,
-      "sha256": "9e9f4625b09aa03e515abee50934d5f21aa4eb419285fee610875be368ab4d56",
-      "size_bytes": 74232,
-      "duration_seconds": 4.39,
-      "local_file": "day-01-20820-25210.mp3",
+      "start": 22.51,
+      "end": 26.4,
+      "sha256": "ea52c2b90d501cc379838718a2df7046348c45dea509a92a771469dc4e4ec0a5",
+      "size_bytes": 64512,
+      "duration_seconds": 3.89,
+      "local_file": "day-01-22510-26400.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/9e9f4625b09aa03e515abee50934d5f21aa4eb419285fee610875be368ab4d56.mp3",
-      "kept_intervals": [
-        [
-          20.82,
-          25.21
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/ea52c2b90d501cc379838718a2df7046348c45dea509a92a771469dc4e4ec0a5.mp3"
     },
     {
       "item_id": "80-days:day-01:main:q-03",
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "3",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 24.76,
+      "start": 26.05,
       "end": 29.57,
-      "sha256": "7308b321d1c11b6f737a3ddf859c943dabcfbc82a99933c33640df392ded8ec0",
-      "size_bytes": 78840,
-      "duration_seconds": 4.81,
-      "local_file": "day-01-24760-29570.mp3",
+      "sha256": "aaaafa34b10d0b3362ade18e47e67fb8d3099d4eabf2940eee575f665a7127a3",
+      "size_bytes": 55872,
+      "duration_seconds": 3.52,
+      "local_file": "day-01-26050-29570.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/7308b321d1c11b6f737a3ddf859c943dabcfbc82a99933c33640df392ded8ec0.mp3",
-      "kept_intervals": [
-        [
-          24.76,
-          29.57
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/aaaafa34b10d0b3362ade18e47e67fb8d3099d4eabf2940eee575f665a7127a3.mp3"
     },
     {
       "item_id": "80-days:day-01:main:q-04",
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "4",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 29.12,
-      "end": 34.27,
-      "sha256": "0d64dcb40ddc39b9718ecb3b37aade20d43ed42fd156974fed177b6fdb9136d3",
-      "size_bytes": 88056,
-      "duration_seconds": 5.15,
-      "local_file": "day-01-29120-34270.mp3",
+      "start": 28.77,
+      "end": 36.42,
+      "sha256": "d4d7dfea653814f1b91787884c08bdcadd6487003d54db7000525f7659f33c49",
+      "size_bytes": 126144,
+      "duration_seconds": 7.65,
+      "local_file": "day-01-28770-36420.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0d64dcb40ddc39b9718ecb3b37aade20d43ed42fd156974fed177b6fdb9136d3.mp3",
-      "kept_intervals": [
-        [
-          29.12,
-          34.27
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/d4d7dfea653814f1b91787884c08bdcadd6487003d54db7000525f7659f33c49.mp3"
     },
     {
       "item_id": "80-days:day-01:main:q-05",
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "5",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 33.82,
-      "end": 38.59,
-      "sha256": "ff45b960bc2bd03e24eb7c859942a57c321269fb30e2b6771bd71e0e792595f6",
-      "size_bytes": 77688,
-      "duration_seconds": 4.77,
-      "local_file": "day-01-33820-38590.mp3",
+      "start": 36.07,
+      "end": 39.78,
+      "sha256": "939ed6d2e2b44e362ec0a73b97fb3867f323a0d8f8d968af16d87a3f80778fd9",
+      "size_bytes": 61704,
+      "duration_seconds": 3.71,
+      "local_file": "day-01-36070-39780.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/ff45b960bc2bd03e24eb7c859942a57c321269fb30e2b6771bd71e0e792595f6.mp3",
-      "kept_intervals": [
-        [
-          33.82,
-          38.59
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/939ed6d2e2b44e362ec0a73b97fb3867f323a0d8f8d968af16d87a3f80778fd9.mp3"
     },
     {
       "item_id": "80-days:day-01:main:q-06",
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "6",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 38.14,
-      "end": 42.63,
-      "sha256": "a56d86284c16e5bbfe4c25612fd45ad4fa04a398d5dbbac34716a1234c4b7ff8",
-      "size_bytes": 75168,
-      "duration_seconds": 4.49,
-      "local_file": "day-01-38140-42630.mp3",
+      "start": 39.43,
+      "end": 43.38,
+      "sha256": "893820617d8a0f590aedaa42b1c155bdcf56bd978c3b753e482fd4dca204b080",
+      "size_bytes": 65304,
+      "duration_seconds": 3.95,
+      "local_file": "day-01-39430-43380.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/a56d86284c16e5bbfe4c25612fd45ad4fa04a398d5dbbac34716a1234c4b7ff8.mp3",
-      "kept_intervals": [
-        [
-          38.14,
-          42.63
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/893820617d8a0f590aedaa42b1c155bdcf56bd978c3b753e482fd4dca204b080.mp3"
     },
     {
       "item_id": "80-days:day-01:main:q-07",
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "7",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 42.18,
-      "end": 45.75,
-      "sha256": "32ca53380bc458028cc30777a7763abac13ade6456d203d251a6137034e57941",
-      "size_bytes": 58608,
-      "duration_seconds": 3.57,
-      "local_file": "day-01-42180-45750.mp3",
+      "start": 43.03,
+      "end": 46.88,
+      "sha256": "a4aa9358b7a3dcb54166e60e9a5b73f31e9046fd0cdfc5adc04697f0d4010c5b",
+      "size_bytes": 61272,
+      "duration_seconds": 3.85,
+      "local_file": "day-01-43030-46880.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/32ca53380bc458028cc30777a7763abac13ade6456d203d251a6137034e57941.mp3",
-      "kept_intervals": [
-        [
-          42.18,
-          45.75
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/a4aa9358b7a3dcb54166e60e9a5b73f31e9046fd0cdfc5adc04697f0d4010c5b.mp3"
     },
     {
       "item_id": "80-days:day-01:main:q-08",
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "8",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 45.3,
-      "end": 49.73,
-      "sha256": "3f7c5027e599574d2febcbdbf3dc5b82298a5d8af614f4b0d35805f6ffb7d17e",
-      "size_bytes": 70416,
-      "duration_seconds": 4.43,
-      "local_file": "day-01-45300-49730.mp3",
+      "start": 46.53,
+      "end": 51.24,
+      "sha256": "58854996f5a510a0127dbe536df68c6aeab1a5dc5860645828b2898b560a5c32",
+      "size_bytes": 70344,
+      "duration_seconds": 4.71,
+      "local_file": "day-01-46530-51240.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/3f7c5027e599574d2febcbdbf3dc5b82298a5d8af614f4b0d35805f6ffb7d17e.mp3",
-      "kept_intervals": [
-        [
-          45.3,
-          49.73
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/58854996f5a510a0127dbe536df68c6aeab1a5dc5860645828b2898b560a5c32.mp3"
     },
     {
       "item_id": "80-days:day-01:main:q-09",
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "9",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 49.28,
-      "end": 53.29,
-      "sha256": "e54da4deffc4107e0f2f105e5fb782e945d254a0b10460937b4063c005af241a",
-      "size_bytes": 65016,
-      "duration_seconds": 4.01,
-      "local_file": "day-01-49280-53290.mp3",
+      "start": 50.89,
+      "end": 54.46,
+      "sha256": "6da84ca1ee73e89fa357d0091c806ddcea58ac24f891c992768552e583235993",
+      "size_bytes": 58752,
+      "duration_seconds": 3.57,
+      "local_file": "day-01-50890-54460.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/e54da4deffc4107e0f2f105e5fb782e945d254a0b10460937b4063c005af241a.mp3",
-      "kept_intervals": [
-        [
-          49.28,
-          53.29
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/6da84ca1ee73e89fa357d0091c806ddcea58ac24f891c992768552e583235993.mp3"
     },
     {
       "item_id": "80-days:day-01:main:q-10",
       "part_id": "80-days:day-01:part-1",
       "source_display_number": "10",
       "source_sha256": "c412a92993490ff083074d1b35376ff8690d66f4939770c114001eb8887603f5",
-      "start": 52.84,
-      "end": 57.43,
-      "sha256": "cc2de8181eeca18e8636d34916a165da0e389698a6d2be89d87d29a157cb8346",
-      "size_bytes": 76284,
-      "duration_seconds": 4.59,
-      "local_file": "day-01-52840-57430.mp3",
+      "start": 54.11,
+      "end": 65.22,
+      "sha256": "1676bf61df66fb5cdbeba59852eec7dec9b26388289b77ce63687c27c4893ea7",
+      "size_bytes": 64944,
+      "duration_seconds": 3.79,
+      "local_file": "day-01-54110-65220.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 1,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/cc2de8181eeca18e8636d34916a165da0e389698a6d2be89d87d29a157cb8346.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/1676bf61df66fb5cdbeba59852eec7dec9b26388289b77ce63687c27c4893ea7.mp3",
       "kept_intervals": [
         [
-          52.84,
-          57.43
+          54.11,
+          57.82
+        ],
+        [
+          65.14,
+          65.22
         ]
       ]
     },
@@ -520,20 +476,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "1",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 4.88,
-      "end": 9.47,
-      "sha256": "81df1346d207fc6033a0d4587a2b65bcfb41e071e3b9043b8444fb2aa0571c66",
-      "size_bytes": 77760,
-      "duration_seconds": 4.59,
-      "local_file": "day-02-4880-9470.mp3",
+      "start": 6.83,
+      "end": 9.988,
+      "sha256": "6d545ebf76f40d3b2c268b445d1e72768442388faa0f14e381f9c192311af51d",
+      "size_bytes": 55008,
+      "duration_seconds": 3.158,
+      "local_file": "day-02-6830-9988.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/81df1346d207fc6033a0d4587a2b65bcfb41e071e3b9043b8444fb2aa0571c66.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/6d545ebf76f40d3b2c268b445d1e72768442388faa0f14e381f9c192311af51d.mp3",
       "kept_intervals": [
         [
-          4.88,
-          9.47
+          6.83,
+          9.988
         ]
       ]
     },
@@ -542,20 +498,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "2",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 9.02,
-      "end": 14.73,
-      "sha256": "d0d25c58965e65e339da818c881d29a8efe1b47de92505fa58cf5b83b9d58e78",
-      "size_bytes": 97056,
-      "duration_seconds": 5.71,
-      "local_file": "day-02-9020-14730.mp3",
+      "start": 12.718,
+      "end": 15.044,
+      "sha256": "080c0424d2bceecaa048a3a7d5cdeafe5c32215db8106d96d0737bbdc0bebed3",
+      "size_bytes": 44208,
+      "duration_seconds": 2.326,
+      "local_file": "day-02-12718-15044.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/d0d25c58965e65e339da818c881d29a8efe1b47de92505fa58cf5b83b9d58e78.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/080c0424d2bceecaa048a3a7d5cdeafe5c32215db8106d96d0737bbdc0bebed3.mp3",
       "kept_intervals": [
         [
-          9.02,
-          14.73
+          12.718,
+          15.044
         ]
       ]
     },
@@ -564,20 +520,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "3",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 14.28,
-      "end": 19.41,
-      "sha256": "94f7259e3f84f9290bd6785b2b6fb3dd23adec9fb58af124e2b81ed1b51f6888",
-      "size_bytes": 88704,
-      "duration_seconds": 5.13,
-      "local_file": "day-02-14280-19410.mp3",
+      "start": 16.366,
+      "end": 20.228,
+      "sha256": "c4c965ff0e1c5bf7c28d8456dc689497af94495a25170ac3177e41e8e510e4e9",
+      "size_bytes": 68256,
+      "duration_seconds": 3.862,
+      "local_file": "day-02-16366-20228.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/94f7259e3f84f9290bd6785b2b6fb3dd23adec9fb58af124e2b81ed1b51f6888.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/c4c965ff0e1c5bf7c28d8456dc689497af94495a25170ac3177e41e8e510e4e9.mp3",
       "kept_intervals": [
         [
-          14.28,
-          19.41
+          16.366,
+          20.228
         ]
       ]
     },
@@ -586,20 +542,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "4",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 20.62,
-      "end": 24.51,
-      "sha256": "7c22b15d9b21cc90f0ae380dc2a5f216d1fc81559cd114074dfb25e9c5629821",
-      "size_bytes": 68328,
-      "duration_seconds": 3.89,
-      "local_file": "day-02-20620-24510.mp3",
+      "start": 21.71,
+      "end": 25.092,
+      "sha256": "db4c4f952d3a5f4885df4269062066b53ae2e095676005e5fe288e049aa5f8de",
+      "size_bytes": 59616,
+      "duration_seconds": 3.382,
+      "local_file": "day-02-21710-25092.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/7c22b15d9b21cc90f0ae380dc2a5f216d1fc81559cd114074dfb25e9c5629821.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/db4c4f952d3a5f4885df4269062066b53ae2e095676005e5fe288e049aa5f8de.mp3",
       "kept_intervals": [
         [
-          20.62,
-          24.51
+          21.71,
+          25.092
         ]
       ]
     },
@@ -608,20 +564,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "5",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 24.06,
-      "end": 29.45,
-      "sha256": "0529baea4a31320f4f746904c0d07ceceb4ead4f1fd2035ce27e123d7aefdab1",
-      "size_bytes": 93456,
-      "duration_seconds": 5.39,
-      "local_file": "day-02-24060-29450.mp3",
+      "start": 26.67,
+      "end": 29.892,
+      "sha256": "20ae7affadcf2df3ca4236ca7e63a30a730787081ce787bcbc4839aec2ec4117",
+      "size_bytes": 56808,
+      "duration_seconds": 3.222,
+      "local_file": "day-02-26670-29892.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0529baea4a31320f4f746904c0d07ceceb4ead4f1fd2035ce27e123d7aefdab1.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/20ae7affadcf2df3ca4236ca7e63a30a730787081ce787bcbc4839aec2ec4117.mp3",
       "kept_intervals": [
         [
-          24.06,
-          29.45
+          26.67,
+          29.892
         ]
       ]
     },
@@ -630,24 +586,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "6",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 37.58,
-      "end": 65.14,
-      "sha256": "001d222ad98978b28fc0699963814c47be8267c34fced422619000049a747420",
-      "size_bytes": 357624,
-      "duration_seconds": 20.92,
-      "local_file": "day-02-37580-65140.mp3",
+      "start": 31.406,
+      "end": 35.396,
+      "sha256": "6b2032e65d99857aec8db9bd26b5dd66f14c9a1c586ad387f27fc3c12b4e35f5",
+      "size_bytes": 75600,
+      "duration_seconds": 3.99,
+      "local_file": "day-02-31406-35396.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/001d222ad98978b28fc0699963814c47be8267c34fced422619000049a747420.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/6b2032e65d99857aec8db9bd26b5dd66f14c9a1c586ad387f27fc3c12b4e35f5.mp3",
       "kept_intervals": [
         [
-          37.58,
-          58.18
-        ],
-        [
-          64.82,
-          65.14
+          31.406,
+          35.396
         ]
       ]
     },
@@ -656,24 +608,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "7",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 37.58,
-      "end": 65.14,
-      "sha256": "001d222ad98978b28fc0699963814c47be8267c34fced422619000049a747420",
-      "size_bytes": 357624,
-      "duration_seconds": 20.92,
-      "local_file": "day-02-37580-65140.mp3",
+      "start": 36.782,
+      "end": 41.572,
+      "sha256": "f57ab3814c358fc4a7a8bad48fc3b178a8d196eed691fdf699578058308e8834",
+      "size_bytes": 85248,
+      "duration_seconds": 4.79,
+      "local_file": "day-02-36782-41572.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/001d222ad98978b28fc0699963814c47be8267c34fced422619000049a747420.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/f57ab3814c358fc4a7a8bad48fc3b178a8d196eed691fdf699578058308e8834.mp3",
       "kept_intervals": [
         [
-          37.58,
-          58.18
-        ],
-        [
-          64.82,
-          65.14
+          36.782,
+          41.572
         ]
       ]
     },
@@ -682,24 +630,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "8",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 37.58,
-      "end": 65.14,
-      "sha256": "001d222ad98978b28fc0699963814c47be8267c34fced422619000049a747420",
-      "size_bytes": 357624,
-      "duration_seconds": 20.92,
-      "local_file": "day-02-37580-65140.mp3",
+      "start": 43.022,
+      "end": 47.588,
+      "sha256": "c561b796f2bee18f8aa123b2b66dd2b3a084937f1d669f269ec8cc5117d51603",
+      "size_bytes": 80064,
+      "duration_seconds": 4.566,
+      "local_file": "day-02-43022-47588.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/001d222ad98978b28fc0699963814c47be8267c34fced422619000049a747420.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/c561b796f2bee18f8aa123b2b66dd2b3a084937f1d669f269ec8cc5117d51603.mp3",
       "kept_intervals": [
         [
-          37.58,
-          58.18
-        ],
-        [
-          64.82,
-          65.14
+          43.022,
+          47.588
         ]
       ]
     },
@@ -708,24 +652,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "9",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 37.58,
-      "end": 65.14,
-      "sha256": "001d222ad98978b28fc0699963814c47be8267c34fced422619000049a747420",
-      "size_bytes": 357624,
-      "duration_seconds": 20.92,
-      "local_file": "day-02-37580-65140.mp3",
+      "start": 49.07,
+      "end": 53.156,
+      "sha256": "29867f8360efba165336ff771b17256bef9e6ed601ddcac37e85873e405b48e7",
+      "size_bytes": 71496,
+      "duration_seconds": 4.086,
+      "local_file": "day-02-49070-53156.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/001d222ad98978b28fc0699963814c47be8267c34fced422619000049a747420.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/29867f8360efba165336ff771b17256bef9e6ed601ddcac37e85873e405b48e7.mp3",
       "kept_intervals": [
         [
-          37.58,
-          58.18
-        ],
-        [
-          64.82,
-          65.14
+          49.07,
+          53.156
         ]
       ]
     },
@@ -734,20 +674,20 @@
       "part_id": "80-days:day-02:part-1",
       "source_display_number": "10",
       "source_sha256": "887272c057d7e14b70ae0deea9273ebc1dabf013c9981caf5f238d6ed3739ff0",
-      "start": 53.96,
-      "end": 59.67,
-      "sha256": "5cca71520147b11dd0cbf0328537f62ea4a167f6b45c665ead917dd14f89ca9c",
-      "size_bytes": 76032,
-      "duration_seconds": 4.22,
-      "local_file": "day-02-53960-59670.mp3",
+      "start": 54.606,
+      "end": 59.108,
+      "sha256": "ba8cf359c14825cc22a71c23426f801aafdba639f504ee819873da55addbd2ac",
+      "size_bytes": 78408,
+      "duration_seconds": 4.502,
+      "local_file": "day-02-54606-59108.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 2,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/5cca71520147b11dd0cbf0328537f62ea4a167f6b45c665ead917dd14f89ca9c.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/ba8cf359c14825cc22a71c23426f801aafdba639f504ee819873da55addbd2ac.mp3",
       "kept_intervals": [
         [
-          53.96,
-          58.18
+          54.606,
+          59.108
         ]
       ]
     },
@@ -1024,20 +964,20 @@
       "part_id": "80-days:day-03:part-1",
       "source_display_number": "1",
       "source_sha256": "f683b4877c1415455bd42ee0ca80b9f1ded1cc87df06221dfa93e6de0650b985",
-      "start": 16.44,
-      "end": 21.17,
-      "sha256": "74de164d879058bd78612515766028826c98ac237771e1f0054a519e939b22b2",
-      "size_bytes": 85824,
-      "duration_seconds": 4.73,
-      "local_file": "day-03-16440-21170.mp3",
+      "start": 7.51,
+      "end": 21.65,
+      "sha256": "4f9819ab42474be00927e7aefe28acb710648d5e3f1ef01ab608f229b7c72f73",
+      "size_bytes": 76104,
+      "duration_seconds": 4.13,
+      "local_file": "day-03-7510-21650.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 3,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/74de164d879058bd78612515766028826c98ac237771e1f0054a519e939b22b2.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/4f9819ab42474be00927e7aefe28acb710648d5e3f1ef01ab608f229b7c72f73.mp3",
       "kept_intervals": [
         [
-          16.44,
-          21.17
+          17.52,
+          21.65
         ]
       ]
     },
@@ -1046,110 +986,80 @@
       "part_id": "80-days:day-03:part-1",
       "source_display_number": "2",
       "source_sha256": "f683b4877c1415455bd42ee0ca80b9f1ded1cc87df06221dfa93e6de0650b985",
-      "start": 22.44,
-      "end": 27.11,
-      "sha256": "fa5bed386857bcf2cd03cc235525fb1f3994f171e3171d410f0e1458d976d582",
-      "size_bytes": 82080,
-      "duration_seconds": 4.67,
-      "local_file": "day-03-22440-27110.mp3",
+      "start": 20.85,
+      "end": 27.51,
+      "sha256": "dd9f3f73275f088ba83871701cedfa15502aba6140b48db753131ed5bc53ae1a",
+      "size_bytes": 114048,
+      "duration_seconds": 6.66,
+      "local_file": "day-03-20850-27510.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 3,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/fa5bed386857bcf2cd03cc235525fb1f3994f171e3171d410f0e1458d976d582.mp3",
-      "kept_intervals": [
-        [
-          22.44,
-          27.11
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/dd9f3f73275f088ba83871701cedfa15502aba6140b48db753131ed5bc53ae1a.mp3"
     },
     {
       "item_id": "80-days:day-03:main:q-03",
       "part_id": "80-days:day-03:part-1",
       "source_display_number": "3",
       "source_sha256": "f683b4877c1415455bd42ee0ca80b9f1ded1cc87df06221dfa93e6de0650b985",
-      "start": 28.06,
-      "end": 33.35,
-      "sha256": "b097369b876325235397a485b982fa2e834cdf479794eecb32b37bb91498fa79",
-      "size_bytes": 92880,
-      "duration_seconds": 5.29,
-      "local_file": "day-03-28060-33350.mp3",
+      "start": 26.71,
+      "end": 33.77,
+      "sha256": "5a2550c31826520d21630d36220c2c88baef99bac14621ccd8113a638506cfac",
+      "size_bytes": 122616,
+      "duration_seconds": 7.06,
+      "local_file": "day-03-26710-33770.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 3,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b097369b876325235397a485b982fa2e834cdf479794eecb32b37bb91498fa79.mp3",
-      "kept_intervals": [
-        [
-          28.06,
-          33.35
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/5a2550c31826520d21630d36220c2c88baef99bac14621ccd8113a638506cfac.mp3"
     },
     {
       "item_id": "80-days:day-03:main:q-04",
       "part_id": "80-days:day-03:part-1",
       "source_display_number": "4",
       "source_sha256": "f683b4877c1415455bd42ee0ca80b9f1ded1cc87df06221dfa93e6de0650b985",
-      "start": 34.5,
-      "end": 39.77,
-      "sha256": "51c4095477a146981bb4441ac6012e4af4ec7a269a687b545f43f4ba797524fc",
-      "size_bytes": 92052,
-      "duration_seconds": 5.27,
-      "local_file": "day-03-34500-39770.mp3",
+      "start": 32.97,
+      "end": 39.79,
+      "sha256": "7414b6b4c6ae9a263d8f3467d3c61ea38ed16b668121b5bd12e3d84913c48c20",
+      "size_bytes": 117432,
+      "duration_seconds": 6.82,
+      "local_file": "day-03-32970-39790.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 3,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/51c4095477a146981bb4441ac6012e4af4ec7a269a687b545f43f4ba797524fc.mp3",
-      "kept_intervals": [
-        [
-          34.5,
-          39.77
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/7414b6b4c6ae9a263d8f3467d3c61ea38ed16b668121b5bd12e3d84913c48c20.mp3"
     },
     {
       "item_id": "80-days:day-03:main:q-05",
       "part_id": "80-days:day-03:part-1",
       "source_display_number": "5",
       "source_sha256": "f683b4877c1415455bd42ee0ca80b9f1ded1cc87df06221dfa93e6de0650b985",
-      "start": 39.32,
-      "end": 45.21,
-      "sha256": "886bbb5e24dbd325290b902cde7a49650d77b2a6ed318597c693a10e2bf53d1a",
-      "size_bytes": 102600,
-      "duration_seconds": 5.89,
-      "local_file": "day-03-39320-45210.mp3",
+      "start": 38.99,
+      "end": 45.59,
+      "sha256": "e965df8c75eebe6b840d991272bc72a7a0d3fbe144201f935eed6b383b9529ea",
+      "size_bytes": 113724,
+      "duration_seconds": 6.6,
+      "local_file": "day-03-38990-45590.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 3,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/886bbb5e24dbd325290b902cde7a49650d77b2a6ed318597c693a10e2bf53d1a.mp3",
-      "kept_intervals": [
-        [
-          39.32,
-          45.21
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/e965df8c75eebe6b840d991272bc72a7a0d3fbe144201f935eed6b383b9529ea.mp3"
     },
     {
       "item_id": "80-days:day-03:main:q-06",
       "part_id": "80-days:day-03:part-1",
       "source_display_number": "6",
       "source_sha256": "f683b4877c1415455bd42ee0ca80b9f1ded1cc87df06221dfa93e6de0650b985",
-      "start": 46.18,
-      "end": 51.01,
-      "sha256": "4e0b9b36467d7148590c2b987cf1a379c97d134691fce0a9b741ad2792b6df90",
-      "size_bytes": 87120,
-      "duration_seconds": 4.83,
-      "local_file": "day-03-46180-51010.mp3",
+      "start": 44.79,
+      "end": 51.43,
+      "sha256": "b297bec756c010185b1a7ef131268243f9544847b1e11ceb9c2c394e779a7e16",
+      "size_bytes": 116208,
+      "duration_seconds": 6.64,
+      "local_file": "day-03-44790-51430.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 3,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/4e0b9b36467d7148590c2b987cf1a379c97d134691fce0a9b741ad2792b6df90.mp3",
-      "kept_intervals": [
-        [
-          46.18,
-          51.01
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b297bec756c010185b1a7ef131268243f9544847b1e11ceb9c2c394e779a7e16.mp3"
     },
     {
       "item_id": "80-days:day-03:main:q-07",
@@ -1498,22 +1408,16 @@
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "1",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 10.66,
-      "end": 14.63,
-      "sha256": "789d957093b5224f9957661979079a5a94d0ce7480574d70dc292ec6b51cda58",
-      "size_bytes": 69408,
-      "duration_seconds": 3.77,
-      "local_file": "day-04-10660-14630.mp3",
+      "start": 12.07,
+      "end": 17.86,
+      "sha256": "3d3f3cfb195e74f405b560a8b927978e8ff1fc48f5f570bfd225c13d71d69963",
+      "size_bytes": 99576,
+      "duration_seconds": 5.79,
+      "local_file": "day-04-12070-17860.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/789d957093b5224f9957661979079a5a94d0ce7480574d70dc292ec6b51cda58.mp3",
-      "kept_intervals": [
-        [
-          10.86,
-          14.63
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/3d3f3cfb195e74f405b560a8b927978e8ff1fc48f5f570bfd225c13d71d69963.mp3"
     },
     {
       "item_id": "80-days:day-04:main:q-02",
@@ -1536,174 +1440,136 @@
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "3",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 22.32,
-      "end": 27.19,
-      "sha256": "183c20b33422cdf1c719c9d2b5fa712d218f9efd463ac17db6f271cd734c5ab3",
-      "size_bytes": 79344,
-      "duration_seconds": 4.87,
-      "local_file": "day-04-22320-27190.mp3",
+      "start": 23.25,
+      "end": 30.54,
+      "sha256": "30ad7627985db787f8bfcf4a06281665244727548386bf1bc60f806369269116",
+      "size_bytes": 122760,
+      "duration_seconds": 7.29,
+      "local_file": "day-04-23250-30540.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/183c20b33422cdf1c719c9d2b5fa712d218f9efd463ac17db6f271cd734c5ab3.mp3",
-      "kept_intervals": [
-        [
-          22.32,
-          27.19
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/30ad7627985db787f8bfcf4a06281665244727548386bf1bc60f806369269116.mp3"
     },
     {
       "item_id": "80-days:day-04:main:q-04",
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "4",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 28.54,
-      "end": 33.37,
-      "sha256": "1f5f32cf3191822673c4a16c25f70ef345aec8706a28b786d1846da4a3a56234",
-      "size_bytes": 84456,
-      "duration_seconds": 4.83,
-      "local_file": "day-04-28540-33370.mp3",
+      "start": 30.19,
+      "end": 37.18,
+      "sha256": "9265355ba311fea83569d4e51c9d1f9ba5a5bde456bee5f198c51a4e72a81466",
+      "size_bytes": 126072,
+      "duration_seconds": 6.99,
+      "local_file": "day-04-30190-37180.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/1f5f32cf3191822673c4a16c25f70ef345aec8706a28b786d1846da4a3a56234.mp3",
-      "kept_intervals": [
-        [
-          28.54,
-          33.37
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/9265355ba311fea83569d4e51c9d1f9ba5a5bde456bee5f198c51a4e72a81466.mp3"
     },
     {
       "item_id": "80-days:day-04:main:q-05",
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "5",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 35.0,
-      "end": 40.03,
-      "sha256": "5c70f57961c6e806d5d160b9216d677c86e0616e4ad3389f33caac0728891a45",
-      "size_bytes": 97272,
-      "duration_seconds": 5.03,
-      "local_file": "day-04-35000-40030.mp3",
+      "start": 36.83,
+      "end": 43.16,
+      "sha256": "91e5c9ae637181da18fb97e727948e0668f908c439a95ea01814018bcc07f869",
+      "size_bytes": 114336,
+      "duration_seconds": 6.33,
+      "local_file": "day-04-36830-43160.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/5c70f57961c6e806d5d160b9216d677c86e0616e4ad3389f33caac0728891a45.mp3",
-      "kept_intervals": [
-        [
-          35.0,
-          40.03
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/91e5c9ae637181da18fb97e727948e0668f908c439a95ea01814018bcc07f869.mp3"
     },
     {
       "item_id": "80-days:day-04:main:q-06",
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "6",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 41.44,
-      "end": 46.13,
-      "sha256": "96fb2329408c85825a2423357610985e03ab3a9238b2135088cf82aa6c972e49",
-      "size_bytes": 86112,
-      "duration_seconds": 4.69,
-      "local_file": "day-04-41440-46130.mp3",
+      "start": 42.81,
+      "end": 49.3,
+      "sha256": "d053d436cd0c090d2f998f89fc695faef5b6652bc816478e08eed580aad50e77",
+      "size_bytes": 111888,
+      "duration_seconds": 6.49,
+      "local_file": "day-04-42810-49300.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/96fb2329408c85825a2423357610985e03ab3a9238b2135088cf82aa6c972e49.mp3",
-      "kept_intervals": [
-        [
-          41.44,
-          46.13
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/d053d436cd0c090d2f998f89fc695faef5b6652bc816478e08eed580aad50e77.mp3"
     },
     {
       "item_id": "80-days:day-04:main:q-07",
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "7",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 47.58,
-      "end": 52.75,
-      "sha256": "fca6a78772334458042d01037f9d5f6207cd2be2ebacc4226caf8a8af12e3629",
-      "size_bytes": 90648,
-      "duration_seconds": 5.17,
-      "local_file": "day-04-47580-52750.mp3",
+      "start": 48.95,
+      "end": 55.86,
+      "sha256": "c8e07d67b9702f62b76ded9cf79f6d42144473834fe9476b9a3203b800b83177",
+      "size_bytes": 118656,
+      "duration_seconds": 6.91,
+      "local_file": "day-04-48950-55860.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/fca6a78772334458042d01037f9d5f6207cd2be2ebacc4226caf8a8af12e3629.mp3",
-      "kept_intervals": [
-        [
-          47.58,
-          52.75
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/c8e07d67b9702f62b76ded9cf79f6d42144473834fe9476b9a3203b800b83177.mp3"
     },
     {
       "item_id": "80-days:day-04:main:q-08",
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "8",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 53.8,
-      "end": 57.53,
-      "sha256": "fa15c964fa3e4087696927aedfc8488ef627bf12bb3db78a83ab214737ba094d",
-      "size_bytes": 69120,
-      "duration_seconds": 3.73,
-      "local_file": "day-04-53800-57530.mp3",
+      "start": 55.51,
+      "end": 61.38,
+      "sha256": "ad24daa756554093d5d7bdc1125b48326bf21f6aa09d7b879d3fb758ed58aedb",
+      "size_bytes": 101664,
+      "duration_seconds": 5.87,
+      "local_file": "day-04-55510-61380.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/fa15c964fa3e4087696927aedfc8488ef627bf12bb3db78a83ab214737ba094d.mp3",
-      "kept_intervals": [
-        [
-          53.8,
-          57.53
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/ad24daa756554093d5d7bdc1125b48326bf21f6aa09d7b879d3fb758ed58aedb.mp3"
     },
     {
       "item_id": "80-days:day-04:main:q-09",
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "9",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 59.06,
-      "end": 63.99,
-      "sha256": "fec77868d0865ca3fc9b6f24a6c2e672a4223bcdd44d75f00cbbbd9cc06715a8",
-      "size_bytes": 89424,
-      "duration_seconds": 4.93,
-      "local_file": "day-04-59060-63990.mp3",
+      "start": 61.03,
+      "end": 67.0,
+      "sha256": "3abaabaf63313d708ab199ef9e7d6ccbfef683989ca75dbc311bdd4866b93367",
+      "size_bytes": 108648,
+      "duration_seconds": 5.97,
+      "local_file": "day-04-61030-67000.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/fec77868d0865ca3fc9b6f24a6c2e672a4223bcdd44d75f00cbbbd9cc06715a8.mp3",
-      "kept_intervals": [
-        [
-          59.06,
-          63.99
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/3abaabaf63313d708ab199ef9e7d6ccbfef683989ca75dbc311bdd4866b93367.mp3"
     },
     {
       "item_id": "80-days:day-04:main:q-10",
       "part_id": "80-days:day-04:part-1",
       "source_display_number": "10",
       "source_sha256": "b6745fd0138ccbc32ab29ccef562d260d3e4003019e86902ce9380b900490949",
-      "start": 65.7,
-      "end": 68.83,
-      "sha256": "7b43005cc9cc520ad54bce03cd99ec5e623aaa78328bfb74f3a5be99808851ca",
-      "size_bytes": 54144,
-      "duration_seconds": 3.13,
-      "local_file": "day-04-65700-68830.mp3",
+      "start": 66.65,
+      "end": 76.68,
+      "sha256": "383d3c0ab8647332556fb688237a404c9f77e4dd7e813d6da434db65631ff814",
+      "size_bytes": 67032,
+      "duration_seconds": 3.65,
+      "local_file": "day-04-66650-76680.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 4,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/7b43005cc9cc520ad54bce03cd99ec5e623aaa78328bfb74f3a5be99808851ca.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/383d3c0ab8647332556fb688237a404c9f77e4dd7e813d6da434db65631ff814.mp3",
       "kept_intervals": [
         [
-          65.7,
-          68.83
+          66.65,
+          69.08
+        ],
+        [
+          75.46,
+          76.68
         ]
       ]
     },
@@ -2006,44 +1872,32 @@
       "part_id": "80-days:day-05:part-1",
       "source_display_number": "1",
       "source_sha256": "2dd224f22be6c9e034cc12b830aabcdfeea781ae4adeb774b32304baeda7cb56",
-      "start": 9.9,
-      "end": 14.07,
-      "sha256": "b9824c26ef3a2561df1f0a6dd12d01eecdbae77863879cb5db140208b5578cba",
-      "size_bytes": 50328,
-      "duration_seconds": 2.91,
-      "local_file": "day-05-9900-14070.mp3",
+      "start": 12.13,
+      "end": 17.08,
+      "sha256": "33c7e78e832c0b2736b6f3012238d7151c122d98e9c3ecf1e204a20967864d19",
+      "size_bytes": 82440,
+      "duration_seconds": 4.95,
+      "local_file": "day-05-12130-17080.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 5,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b9824c26ef3a2561df1f0a6dd12d01eecdbae77863879cb5db140208b5578cba.mp3",
-      "kept_intervals": [
-        [
-          11.16,
-          14.07
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/33c7e78e832c0b2736b6f3012238d7151c122d98e9c3ecf1e204a20967864d19.mp3"
     },
     {
       "item_id": "80-days:day-05:main:q-02",
       "part_id": "80-days:day-05:part-1",
       "source_display_number": "2",
       "source_sha256": "2dd224f22be6c9e034cc12b830aabcdfeea781ae4adeb774b32304baeda7cb56",
-      "start": 15.16,
-      "end": 18.49,
-      "sha256": "8b3599da9cffcc6d85fc9b256e6f9e49f6efad996e7e2907c83ce32b0f8e2444",
-      "size_bytes": 58752,
-      "duration_seconds": 3.33,
-      "local_file": "day-05-15160-18490.mp3",
+      "start": 16.73,
+      "end": 21.72,
+      "sha256": "0f8d16fe67e3639a8b81d5d263b95471d7c71b7e572670a4c5378084bce1bb9c",
+      "size_bytes": 85392,
+      "duration_seconds": 4.99,
+      "local_file": "day-05-16730-21720.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 5,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/8b3599da9cffcc6d85fc9b256e6f9e49f6efad996e7e2907c83ce32b0f8e2444.mp3",
-      "kept_intervals": [
-        [
-          15.16,
-          18.49
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0f8d16fe67e3639a8b81d5d263b95471d7c71b7e572670a4c5378084bce1bb9c.mp3"
     },
     {
       "item_id": "80-days:day-05:main:q-03",
@@ -2082,22 +1936,16 @@
       "part_id": "80-days:day-05:part-1",
       "source_display_number": "5",
       "source_sha256": "2dd224f22be6c9e034cc12b830aabcdfeea781ae4adeb774b32304baeda7cb56",
-      "start": 28.42,
-      "end": 31.69,
-      "sha256": "0dc6b4c83a8175d41590661e4d7aad3b119763765c5a2a07fa0315b5cb4271ab",
-      "size_bytes": 60624,
-      "duration_seconds": 3.27,
-      "local_file": "day-05-28420-31690.mp3",
+      "start": 29.81,
+      "end": 34.98,
+      "sha256": "e88f564f2dcddb0f5c5a7d51710e344a81b4cec9cd7a37db38f8b14aafcedee3",
+      "size_bytes": 88560,
+      "duration_seconds": 5.17,
+      "local_file": "day-05-29810-34980.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 5,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0dc6b4c83a8175d41590661e4d7aad3b119763765c5a2a07fa0315b5cb4271ab.mp3",
-      "kept_intervals": [
-        [
-          28.42,
-          31.69
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/e88f564f2dcddb0f5c5a7d51710e344a81b4cec9cd7a37db38f8b14aafcedee3.mp3"
     },
     {
       "item_id": "80-days:day-05:main:q-06",
@@ -2120,66 +1968,48 @@
       "part_id": "80-days:day-05:part-1",
       "source_display_number": "7",
       "source_sha256": "2dd224f22be6c9e034cc12b830aabcdfeea781ae4adeb774b32304baeda7cb56",
-      "start": 37.48,
-      "end": 40.69,
-      "sha256": "89bb0ffefce852e68ac9277183f7e87335c59584fa6ecafce81f00f4a2150e32",
-      "size_bytes": 56808,
-      "duration_seconds": 3.21,
-      "local_file": "day-05-37480-40690.mp3",
+      "start": 38.93,
+      "end": 44.02,
+      "sha256": "dfd197449c991fbbc9611e8b36c798068fe77168ce842c1e632ab44cbe0db945",
+      "size_bytes": 86580,
+      "duration_seconds": 5.09,
+      "local_file": "day-05-38930-44020.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 5,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/89bb0ffefce852e68ac9277183f7e87335c59584fa6ecafce81f00f4a2150e32.mp3",
-      "kept_intervals": [
-        [
-          37.48,
-          40.69
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/dfd197449c991fbbc9611e8b36c798068fe77168ce842c1e632ab44cbe0db945.mp3"
     },
     {
       "item_id": "80-days:day-05:main:q-08",
       "part_id": "80-days:day-05:part-1",
       "source_display_number": "8",
       "source_sha256": "2dd224f22be6c9e034cc12b830aabcdfeea781ae4adeb774b32304baeda7cb56",
-      "start": 42.06,
-      "end": 45.11,
-      "sha256": "e2248d40e329650a8e3443d0e2328a08faed58c4c8dd351f41bef22556be0edc",
-      "size_bytes": 52200,
-      "duration_seconds": 3.05,
-      "local_file": "day-05-42060-45110.mp3",
+      "start": 43.67,
+      "end": 48.18,
+      "sha256": "924b4e8025e767f3ccad7f00fb56b06e352526121e0efa5908248a1dbed85fb0",
+      "size_bytes": 73008,
+      "duration_seconds": 4.51,
+      "local_file": "day-05-43670-48180.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 5,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/e2248d40e329650a8e3443d0e2328a08faed58c4c8dd351f41bef22556be0edc.mp3",
-      "kept_intervals": [
-        [
-          42.06,
-          45.11
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/924b4e8025e767f3ccad7f00fb56b06e352526121e0efa5908248a1dbed85fb0.mp3"
     },
     {
       "item_id": "80-days:day-05:main:q-09",
       "part_id": "80-days:day-05:part-1",
       "source_display_number": "9",
       "source_sha256": "2dd224f22be6c9e034cc12b830aabcdfeea781ae4adeb774b32304baeda7cb56",
-      "start": 46.34,
-      "end": 49.41,
-      "sha256": "49fbf14ad3c03caf3b004709096801581fdb10d30da53166dc5a0429c4a1fd96",
-      "size_bytes": 54288,
-      "duration_seconds": 3.07,
-      "local_file": "day-05-46340-49410.mp3",
+      "start": 47.83,
+      "end": 52.68,
+      "sha256": "5c7b893993fbc338db1991004f22f272703652cf782227db76ee1f579d52942a",
+      "size_bytes": 85464,
+      "duration_seconds": 4.85,
+      "local_file": "day-05-47830-52680.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 5,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/49fbf14ad3c03caf3b004709096801581fdb10d30da53166dc5a0429c4a1fd96.mp3",
-      "kept_intervals": [
-        [
-          46.34,
-          49.41
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/5c7b893993fbc338db1991004f22f272703652cf782227db76ee1f579d52942a.mp3"
     },
     {
       "item_id": "80-days:day-05:main:q-10",
@@ -2394,218 +2224,164 @@
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "1",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 8.54,
-      "end": 11.75,
-      "sha256": "fc182623d2299c81330b23b7e5d70668af99f0bb2d2672757533c320a1c05bae",
-      "size_bytes": 53424,
-      "duration_seconds": 3.14,
-      "local_file": "day-06-8540-11750.mp3",
+      "start": 9.14,
+      "end": 12.74,
+      "sha256": "004b06da207f3f1f60b6be5af9e4faa55bd9cd327d32e4f88d30987962ca651e",
+      "size_bytes": 61200,
+      "duration_seconds": 3.6,
+      "local_file": "day-06-9140-12740.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/fc182623d2299c81330b23b7e5d70668af99f0bb2d2672757533c320a1c05bae.mp3",
-      "kept_intervals": [
-        [
-          8.61,
-          11.75
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/004b06da207f3f1f60b6be5af9e4faa55bd9cd327d32e4f88d30987962ca651e.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-02",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "2",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 12.84,
-      "end": 15.77,
-      "sha256": "14e929756548138278215b79cb86be0246f4cb47f617b22bd10e9c8b563d4688",
-      "size_bytes": 54540,
-      "duration_seconds": 2.93,
-      "local_file": "day-06-12840-15770.mp3",
+      "start": 13.36,
+      "end": 16.42,
+      "sha256": "7c7b8d9154a9ef3ad18aa57deb47f3b0a5562d40df177aa7d3a2370c568aef1e",
+      "size_bytes": 55440,
+      "duration_seconds": 3.06,
+      "local_file": "day-06-13360-16420.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/14e929756548138278215b79cb86be0246f4cb47f617b22bd10e9c8b563d4688.mp3",
-      "kept_intervals": [
-        [
-          12.84,
-          15.77
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/7c7b8d9154a9ef3ad18aa57deb47f3b0a5562d40df177aa7d3a2370c568aef1e.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-03",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "3",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 16.9,
-      "end": 20.53,
-      "sha256": "091d3f4544c719ee8a47a92a97a8b0629e0ab3b93f4748437af2bce18a7c67f8",
-      "size_bytes": 64152,
-      "duration_seconds": 3.63,
-      "local_file": "day-06-16900-20530.mp3",
+      "start": 17.6,
+      "end": 21.26,
+      "sha256": "ca0dc3da7e5501f0fd1fa998f63324ceaa8626e906b3f902962002c8189efaea",
+      "size_bytes": 63576,
+      "duration_seconds": 3.66,
+      "local_file": "day-06-17600-21260.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/091d3f4544c719ee8a47a92a97a8b0629e0ab3b93f4748437af2bce18a7c67f8.mp3",
-      "kept_intervals": [
-        [
-          16.9,
-          20.53
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/ca0dc3da7e5501f0fd1fa998f63324ceaa8626e906b3f902962002c8189efaea.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-04",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "4",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 21.66,
-      "end": 25.39,
-      "sha256": "366aa893505b42638df4293f7ba9cb4373e6e836599dc0c91c25839bf524cff7",
-      "size_bytes": 67392,
-      "duration_seconds": 3.73,
-      "local_file": "day-06-21660-25390.mp3",
+      "start": 22.22,
+      "end": 26.62,
+      "sha256": "50cf1202efcbd4c18d3617ece30c5a50cba8193f2601835de900f954e7b650a5",
+      "size_bytes": 80352,
+      "duration_seconds": 4.4,
+      "local_file": "day-06-22220-26620.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/366aa893505b42638df4293f7ba9cb4373e6e836599dc0c91c25839bf524cff7.mp3",
-      "kept_intervals": [
-        [
-          21.66,
-          25.39
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/50cf1202efcbd4c18d3617ece30c5a50cba8193f2601835de900f954e7b650a5.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-05",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "5",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 26.74,
-      "end": 30.15,
-      "sha256": "10bba724888c3cbc09260fd2019fe7503d500db7743f6edbd06f62817d71ed8d",
-      "size_bytes": 63720,
-      "duration_seconds": 3.41,
-      "local_file": "day-06-26740-30150.mp3",
+      "start": 27.2,
+      "end": 31.02,
+      "sha256": "b8b5d992f3cc76fff4bf7817abd701e97dd30a55086cf29c90ad51225fa49712",
+      "size_bytes": 70416,
+      "duration_seconds": 3.82,
+      "local_file": "day-06-27200-31020.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/10bba724888c3cbc09260fd2019fe7503d500db7743f6edbd06f62817d71ed8d.mp3",
-      "kept_intervals": [
-        [
-          26.74,
-          30.15
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b8b5d992f3cc76fff4bf7817abd701e97dd30a55086cf29c90ad51225fa49712.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-06",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "6",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 31.54,
-      "end": 35.61,
-      "sha256": "1efdf2127b3fbea5eb8239abc1bdcf5392e808c59f1c191bdfad5caad1159415",
-      "size_bytes": 74736,
-      "duration_seconds": 4.07,
-      "local_file": "day-06-31540-35610.mp3",
+      "start": 31.98,
+      "end": 35.9,
+      "sha256": "6f0a895068989869d37665f0ad24dddbbb147aa42aa77cd2508a5a1621634dcf",
+      "size_bytes": 73656,
+      "duration_seconds": 3.92,
+      "local_file": "day-06-31980-35900.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/1efdf2127b3fbea5eb8239abc1bdcf5392e808c59f1c191bdfad5caad1159415.mp3",
-      "kept_intervals": [
-        [
-          31.54,
-          35.61
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/6f0a895068989869d37665f0ad24dddbbb147aa42aa77cd2508a5a1621634dcf.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-07",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "7",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 36.98,
-      "end": 41.23,
-      "sha256": "224b17cf44e9f07b7410a1dfe8e2e2d9541623ac9a2a6e621707aecddf0396f5",
-      "size_bytes": 76680,
-      "duration_seconds": 4.25,
-      "local_file": "day-06-36980-41230.mp3",
+      "start": 37.4,
+      "end": 42.44,
+      "sha256": "2b4261ff239ebc8cd1c6a1a9352a15ea730f3350c49e468b7fca86bc1dfd4b02",
+      "size_bytes": 89208,
+      "duration_seconds": 5.04,
+      "local_file": "day-06-37400-42440.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/224b17cf44e9f07b7410a1dfe8e2e2d9541623ac9a2a6e621707aecddf0396f5.mp3",
-      "kept_intervals": [
-        [
-          36.98,
-          41.23
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/2b4261ff239ebc8cd1c6a1a9352a15ea730f3350c49e468b7fca86bc1dfd4b02.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-08",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "8",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 42.54,
-      "end": 46.05,
-      "sha256": "e68fbf7ae25c898225a9a7545b90c7ba6e051974a47495f17e0d3dcd49c4fb28",
-      "size_bytes": 64944,
-      "duration_seconds": 3.51,
-      "local_file": "day-06-42540-46050.mp3",
+      "start": 42.9,
+      "end": 46.66,
+      "sha256": "97c3d665700d4ad986cc480ebc329a5baf0b28a62cdd81cee02d9cff8c74a780",
+      "size_bytes": 68256,
+      "duration_seconds": 3.76,
+      "local_file": "day-06-42900-46660.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/e68fbf7ae25c898225a9a7545b90c7ba6e051974a47495f17e0d3dcd49c4fb28.mp3",
-      "kept_intervals": [
-        [
-          42.54,
-          46.05
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/97c3d665700d4ad986cc480ebc329a5baf0b28a62cdd81cee02d9cff8c74a780.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-09",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "9",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 47.34,
-      "end": 51.43,
-      "sha256": "a639e5cff0f8ec2589366744b0c41c052660928b8bdadf405ea932ee01a6343a",
-      "size_bytes": 68328,
-      "duration_seconds": 4.09,
-      "local_file": "day-06-47340-51430.mp3",
+      "start": 47.78,
+      "end": 52.84,
+      "sha256": "eb62d536c152135cb3c23b41df2d820e4bedb1d57973048831cec7ddc6cc79d7",
+      "size_bytes": 92376,
+      "duration_seconds": 5.06,
+      "local_file": "day-06-47780-52840.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/a639e5cff0f8ec2589366744b0c41c052660928b8bdadf405ea932ee01a6343a.mp3",
-      "kept_intervals": [
-        [
-          47.34,
-          51.43
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/eb62d536c152135cb3c23b41df2d820e4bedb1d57973048831cec7ddc6cc79d7.mp3"
     },
     {
       "item_id": "80-days:day-06:main:q-10",
       "part_id": "80-days:day-06:part-1",
       "source_display_number": "10",
       "source_sha256": "8199a5dec34d32677083cc712cd98a7722bc9b0efd0bec4c0886913a40ffb063",
-      "start": 52.7,
-      "end": 55.93,
-      "sha256": "737667b1d286aacb8a728d71145fb0e1cc1872391bc63b77dafe0507dfdf1976",
-      "size_bytes": 57744,
-      "duration_seconds": 3.23,
-      "local_file": "day-06-52700-55930.mp3",
+      "start": 53.1,
+      "end": 57.3,
+      "sha256": "a4e8e95376c55150ea4afadaea530eaf84ec682d27f430e59c3976ec9ff36e11",
+      "size_bytes": 52560,
+      "duration_seconds": 3.2,
+      "local_file": "day-06-53100-57300.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 6,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/737667b1d286aacb8a728d71145fb0e1cc1872391bc63b77dafe0507dfdf1976.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/a4e8e95376c55150ea4afadaea530eaf84ec682d27f430e59c3976ec9ff36e11.mp3",
       "kept_intervals": [
         [
-          52.7,
-          55.93
+          53.1,
+          56.3
         ]
       ]
     },
@@ -2884,217 +2660,163 @@
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "1",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 9.54,
-      "end": 12.89,
-      "sha256": "490d9ed33dbfb6267363bfaa005cb0400cd08715bf18b4dfc12953980f491bcd",
-      "size_bytes": 52128,
-      "duration_seconds": 2.91,
-      "local_file": "day-07-9540-12890.mp3",
+      "start": 11.38,
+      "end": 13.52,
+      "sha256": "b1d3880f91f424771ac5bea62706283120399d06ad09469ca3842d62ce362328",
+      "size_bytes": 37368,
+      "duration_seconds": 2.14,
+      "local_file": "day-07-11380-13520.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/490d9ed33dbfb6267363bfaa005cb0400cd08715bf18b4dfc12953980f491bcd.mp3",
-      "kept_intervals": [
-        [
-          9.98,
-          12.89
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b1d3880f91f424771ac5bea62706283120399d06ad09469ca3842d62ce362328.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-02",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "2",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 13.94,
-      "end": 16.95,
-      "sha256": "e4a395812aafa1c85c0a44d45d72cb40e71c2ffb85058499c6cb7233aa63c139",
-      "size_bytes": 52560,
-      "duration_seconds": 3.01,
-      "local_file": "day-07-13940-16950.mp3",
+      "start": 15.4,
+      "end": 17.52,
+      "sha256": "c7743834038f1091b0969e3a8b7f48bd79bf17bef52fe7f5f5fd2ca635de7f0e",
+      "size_bytes": 36504,
+      "duration_seconds": 2.12,
+      "local_file": "day-07-15400-17520.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/e4a395812aafa1c85c0a44d45d72cb40e71c2ffb85058499c6cb7233aa63c139.mp3",
-      "kept_intervals": [
-        [
-          13.94,
-          16.95
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/c7743834038f1091b0969e3a8b7f48bd79bf17bef52fe7f5f5fd2ca635de7f0e.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-03",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "3",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 17.98,
-      "end": 20.85,
-      "sha256": "77969538dc873fe8b0238d9e7622db2e8b7b9ae0cf10d2274180900ba1f111ea",
-      "size_bytes": 47952,
-      "duration_seconds": 2.87,
-      "local_file": "day-07-17980-20850.mp3",
+      "start": 19.4,
+      "end": 21.48,
+      "sha256": "50291794bce627bb4e58bb36a71801866707ca8e6acde9040e8eb8f6608c4bb4",
+      "size_bytes": 35928,
+      "duration_seconds": 2.08,
+      "local_file": "day-07-19400-21480.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/77969538dc873fe8b0238d9e7622db2e8b7b9ae0cf10d2274180900ba1f111ea.mp3",
-      "kept_intervals": [
-        [
-          17.98,
-          20.85
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/50291794bce627bb4e58bb36a71801866707ca8e6acde9040e8eb8f6608c4bb4.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-04",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "4",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 22.2,
-      "end": 25.37,
-      "sha256": "f4bec54f40420ab004bcb9fb20937e49676c066ce56414e573a5c99a9cbd864c",
-      "size_bytes": 54576,
-      "duration_seconds": 3.17,
-      "local_file": "day-07-22200-25370.mp3",
+      "start": 23.62,
+      "end": 25.94,
+      "sha256": "8b71f8672ab075a1a4671ada01dc40854663927569a5b851b8d2dfe5287c939d",
+      "size_bytes": 39348,
+      "duration_seconds": 2.32,
+      "local_file": "day-07-23620-25940.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/f4bec54f40420ab004bcb9fb20937e49676c066ce56414e573a5c99a9cbd864c.mp3",
-      "kept_intervals": [
-        [
-          22.2,
-          25.37
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/8b71f8672ab075a1a4671ada01dc40854663927569a5b851b8d2dfe5287c939d.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-05",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "5",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 26.48,
-      "end": 29.79,
-      "sha256": "9e8c8a30f3bb49d18d2bd5f66130e05ed7ac08832f3e3942ac4e2d0ef64d1dc7",
-      "size_bytes": 57024,
-      "duration_seconds": 3.31,
-      "local_file": "day-07-26480-29790.mp3",
+      "start": 27.84,
+      "end": 30.4,
+      "sha256": "46987df4256c629dd89656609fc5cf93c847467f8551997a06abfb5021956ae0",
+      "size_bytes": 44496,
+      "duration_seconds": 2.56,
+      "local_file": "day-07-27840-30400.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/9e8c8a30f3bb49d18d2bd5f66130e05ed7ac08832f3e3942ac4e2d0ef64d1dc7.mp3",
-      "kept_intervals": [
-        [
-          26.48,
-          29.79
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/46987df4256c629dd89656609fc5cf93c847467f8551997a06abfb5021956ae0.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-06",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "6",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 31.28,
-      "end": 35.11,
-      "sha256": "b0605c7a76c0345fec1471872c611b7d3f56b1ad75240780031385ba57fdd741",
-      "size_bytes": 69984,
-      "duration_seconds": 3.83,
-      "local_file": "day-07-31280-35110.mp3",
+      "start": 32.4,
+      "end": 35.72,
+      "sha256": "1f789e00a19255988978024e08cfb1cc63d819c13206a66bba931a9b02be4412",
+      "size_bytes": 59400,
+      "duration_seconds": 3.32,
+      "local_file": "day-07-32400-35720.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b0605c7a76c0345fec1471872c611b7d3f56b1ad75240780031385ba57fdd741.mp3",
-      "kept_intervals": [
-        [
-          31.28,
-          35.11
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/1f789e00a19255988978024e08cfb1cc63d819c13206a66bba931a9b02be4412.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-07",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "7",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 36.48,
-      "end": 39.75,
-      "sha256": "b26885d62254e741c18230b11af7d8067581670e0a4762e79970b92fc07ffc61",
-      "size_bytes": 57096,
-      "duration_seconds": 3.27,
-      "local_file": "day-07-36480-39750.mp3",
+      "start": 37.56,
+      "end": 40.46,
+      "sha256": "308fbb34e06e0fc708f1b6147e3996bbede72e3da272d6892d83339618a0af6c",
+      "size_bytes": 51552,
+      "duration_seconds": 2.9,
+      "local_file": "day-07-37560-40460.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b26885d62254e741c18230b11af7d8067581670e0a4762e79970b92fc07ffc61.mp3",
-      "kept_intervals": [
-        [
-          36.48,
-          39.75
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/308fbb34e06e0fc708f1b6147e3996bbede72e3da272d6892d83339618a0af6c.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-08",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "8",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 40.98,
-      "end": 43.73,
-      "sha256": "9be49a53954b2b17147f5fece98ff864d6858c632376b5bd3b3d8f0fd508f5b4",
-      "size_bytes": 49176,
-      "duration_seconds": 2.75,
-      "local_file": "day-07-40980-43730.mp3",
+      "start": 42.22,
+      "end": 44.4,
+      "sha256": "ff3544b0fb85001dc32fb237b74fb70c34ef3ce33e3ba2bd711f4b9ff8881353",
+      "size_bytes": 39240,
+      "duration_seconds": 2.18,
+      "local_file": "day-07-42220-44400.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/9be49a53954b2b17147f5fece98ff864d6858c632376b5bd3b3d8f0fd508f5b4.mp3",
-      "kept_intervals": [
-        [
-          40.98,
-          43.73
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/ff3544b0fb85001dc32fb237b74fb70c34ef3ce33e3ba2bd711f4b9ff8881353.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-09",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "9",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 44.98,
-      "end": 48.95,
-      "sha256": "cffaccdbcb7fc13cf56a3c899e4a071a2ceeb63ad74632ff6cea00b7cf00ddd5",
-      "size_bytes": 69192,
-      "duration_seconds": 3.97,
-      "local_file": "day-07-44980-48950.mp3",
+      "start": 46.4,
+      "end": 49.58,
+      "sha256": "043a0d860f7b40e26631089be4a285be082fc273081dc389d9fa86dda1074aeb",
+      "size_bytes": 56016,
+      "duration_seconds": 3.18,
+      "local_file": "day-07-46400-49580.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/cffaccdbcb7fc13cf56a3c899e4a071a2ceeb63ad74632ff6cea00b7cf00ddd5.mp3",
-      "kept_intervals": [
-        [
-          44.98,
-          48.95
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/043a0d860f7b40e26631089be4a285be082fc273081dc389d9fa86dda1074aeb.mp3"
     },
     {
       "item_id": "80-days:day-07:main:q-10",
       "part_id": "80-days:day-07:part-1",
       "source_display_number": "10",
       "source_sha256": "a60280cfd9a7457d5362272ed27529fa4ec4a045c2fa090df7cff9f5f1a8340e",
-      "start": 50.22,
-      "end": 53.89,
-      "sha256": "0be5fb5e2b3bd47faa5eb5f02d68c4b964fe836370d7027f2c4f5e5dcb2bd354",
-      "size_bytes": 62280,
-      "duration_seconds": 3.66,
-      "local_file": "day-07-50220-53890.mp3",
+      "start": 51.42,
+      "end": 54.56,
+      "sha256": "44f6ed3eb71deaaa01692489566a9e1020096b6fb35d5b06a3705c4684fbb827",
+      "size_bytes": 45648,
+      "duration_seconds": 2.46,
+      "local_file": "day-07-51420-54560.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 7,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0be5fb5e2b3bd47faa5eb5f02d68c4b964fe836370d7027f2c4f5e5dcb2bd354.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/44f6ed3eb71deaaa01692489566a9e1020096b6fb35d5b06a3705c4684fbb827.mp3",
       "kept_intervals": [
         [
-          50.22,
+          51.42,
           53.88
         ]
       ]
@@ -3426,129 +3148,99 @@
       "part_id": "80-days:day-08:part-1",
       "source_display_number": "5",
       "source_sha256": "30c5a172c38bc95bbdcae2fd56578ed52ad25d706058f8545c73ab514466daa7",
-      "start": 28.9,
-      "end": 32.31,
-      "sha256": "baa22c6d2f5b88c7dfbde8fef066b088206ad2c4c6c3574a6f74ebc8e6cd0417",
-      "size_bytes": 61056,
-      "duration_seconds": 3.41,
-      "local_file": "day-08-28900-32310.mp3",
+      "start": 28.54,
+      "end": 32.92,
+      "sha256": "48f83f45dacce514abd32018f7b2d42ed865bc06631e86540536552e1597b659",
+      "size_bytes": 75888,
+      "duration_seconds": 4.38,
+      "local_file": "day-08-28540-32920.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 8,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/baa22c6d2f5b88c7dfbde8fef066b088206ad2c4c6c3574a6f74ebc8e6cd0417.mp3",
-      "kept_intervals": [
-        [
-          28.9,
-          32.31
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/48f83f45dacce514abd32018f7b2d42ed865bc06631e86540536552e1597b659.mp3"
     },
     {
       "item_id": "80-days:day-08:main:q-06",
       "part_id": "80-days:day-08:part-1",
       "source_display_number": "6",
       "source_sha256": "30c5a172c38bc95bbdcae2fd56578ed52ad25d706058f8545c73ab514466daa7",
-      "start": 33.72,
-      "end": 36.91,
-      "sha256": "d681d5ba81b0b15baa3e27efae1f1fe74ee0c3e95fc61f7e731137caa6977e26",
-      "size_bytes": 59688,
-      "duration_seconds": 3.19,
-      "local_file": "day-08-33720-36910.mp3",
+      "start": 33.7,
+      "end": 37.5,
+      "sha256": "20e5b6604cf97166f2bf1a6d8ef59fac1141a01bd4d58a62f702b9b0979bc7f8",
+      "size_bytes": 71136,
+      "duration_seconds": 3.8,
+      "local_file": "day-08-33700-37500.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 8,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/d681d5ba81b0b15baa3e27efae1f1fe74ee0c3e95fc61f7e731137caa6977e26.mp3",
-      "kept_intervals": [
-        [
-          33.72,
-          36.91
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/20e5b6604cf97166f2bf1a6d8ef59fac1141a01bd4d58a62f702b9b0979bc7f8.mp3"
     },
     {
       "item_id": "80-days:day-08:main:q-07",
       "part_id": "80-days:day-08:part-1",
       "source_display_number": "7",
       "source_sha256": "30c5a172c38bc95bbdcae2fd56578ed52ad25d706058f8545c73ab514466daa7",
-      "start": 38.44,
-      "end": 41.87,
-      "sha256": "6931dd168c520753639f911f6d0def09a6626e2224dda212f86c1ab7e89d6c86",
-      "size_bytes": 61560,
-      "duration_seconds": 3.43,
-      "local_file": "day-08-38440-41870.mp3",
+      "start": 38.12,
+      "end": 42.48,
+      "sha256": "7568b122afb225a338a7b609e4bc0f8c2548a0ca33c4cce9a2a7068f3c684ba0",
+      "size_bytes": 74448,
+      "duration_seconds": 4.36,
+      "local_file": "day-08-38120-42480.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 8,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/6931dd168c520753639f911f6d0def09a6626e2224dda212f86c1ab7e89d6c86.mp3",
-      "kept_intervals": [
-        [
-          38.44,
-          41.87
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/7568b122afb225a338a7b609e4bc0f8c2548a0ca33c4cce9a2a7068f3c684ba0.mp3"
     },
     {
       "item_id": "80-days:day-08:main:q-08",
       "part_id": "80-days:day-08:part-1",
       "source_display_number": "8",
       "source_sha256": "30c5a172c38bc95bbdcae2fd56578ed52ad25d706058f8545c73ab514466daa7",
-      "start": 43.34,
-      "end": 46.17,
-      "sha256": "745e484419e3225ae73618eee0f8a23fa1f68ed7bf599f90442ca89e4bc25316",
-      "size_bytes": 48528,
-      "duration_seconds": 2.83,
-      "local_file": "day-08-43340-46170.mp3",
+      "start": 42.96,
+      "end": 46.94,
+      "sha256": "ca26312635a8e9322394a4e7db7bece469e5d6c1cebebd5619f70fafef15c788",
+      "size_bytes": 67536,
+      "duration_seconds": 3.98,
+      "local_file": "day-08-42960-46940.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 8,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/745e484419e3225ae73618eee0f8a23fa1f68ed7bf599f90442ca89e4bc25316.mp3",
-      "kept_intervals": [
-        [
-          43.34,
-          46.17
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/ca26312635a8e9322394a4e7db7bece469e5d6c1cebebd5619f70fafef15c788.mp3"
     },
     {
       "item_id": "80-days:day-08:main:q-09",
       "part_id": "80-days:day-08:part-1",
       "source_display_number": "9",
       "source_sha256": "30c5a172c38bc95bbdcae2fd56578ed52ad25d706058f8545c73ab514466daa7",
-      "start": 47.44,
-      "end": 50.91,
-      "sha256": "85057c1b510bc881c6c959b1568e00aa8b0b984b8e06fa8c885dfa42dc80dfee",
-      "size_bytes": 61920,
-      "duration_seconds": 3.47,
-      "local_file": "day-08-47440-50910.mp3",
+      "start": 47.18,
+      "end": 51.84,
+      "sha256": "86ab12344c6e0c7b1858c41cf685006ac7a7b5fd8c5917ebb379cca6a844292f",
+      "size_bytes": 78912,
+      "duration_seconds": 4.66,
+      "local_file": "day-08-47180-51840.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 8,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/85057c1b510bc881c6c959b1568e00aa8b0b984b8e06fa8c885dfa42dc80dfee.mp3",
-      "kept_intervals": [
-        [
-          47.44,
-          50.91
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/86ab12344c6e0c7b1858c41cf685006ac7a7b5fd8c5917ebb379cca6a844292f.mp3"
     },
     {
       "item_id": "80-days:day-08:main:q-10",
       "part_id": "80-days:day-08:part-1",
       "source_display_number": "10",
       "source_sha256": "30c5a172c38bc95bbdcae2fd56578ed52ad25d706058f8545c73ab514466daa7",
-      "start": 52.28,
-      "end": 55.59,
-      "sha256": "591819d8e5e8295b9e7d9d20db5b135d37671aeeff48a85a532b21ca3399a3f1",
-      "size_bytes": 56232,
-      "duration_seconds": 3.16,
-      "local_file": "day-08-52280-55590.mp3",
+      "start": 51.92,
+      "end": 56.16,
+      "sha256": "40c4825a87d165876efaf5408277129e3f7f4ffddb1a62c531d0a902b2f2771b",
+      "size_bytes": 61848,
+      "duration_seconds": 3.52,
+      "local_file": "day-08-51920-56160.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 8,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/591819d8e5e8295b9e7d9d20db5b135d37671aeeff48a85a532b21ca3399a3f1.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/40c4825a87d165876efaf5408277129e3f7f4ffddb1a62c531d0a902b2f2771b.mp3",
       "kept_intervals": [
         [
-          52.28,
+          51.92,
           55.44
         ]
       ]
@@ -4596,20 +4288,20 @@
       "part_id": "80-days:day-11:part-1",
       "source_display_number": "1",
       "source_sha256": "f4f4a04eaff22e4e46b119b7559db79b79672d1f804c44164924b84a4bd47734",
-      "start": 8.48,
-      "end": 11.83,
-      "sha256": "8cb981ce12f3da0e75b3e4e20a25469761a2a166d55c791fcc658e942fcdf5ed",
-      "size_bytes": 61704,
-      "duration_seconds": 3.35,
-      "local_file": "day-11-8480-11830.mp3",
+      "start": 7.15,
+      "end": 13.84,
+      "sha256": "652dde33b4d70082b0e74e66b76dfc83e9c58e6c6893ca80835771457f691bcd",
+      "size_bytes": 94104,
+      "duration_seconds": 5.36,
+      "local_file": "day-11-7150-13840.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 11,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/8cb981ce12f3da0e75b3e4e20a25469761a2a166d55c791fcc658e942fcdf5ed.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/652dde33b4d70082b0e74e66b76dfc83e9c58e6c6893ca80835771457f691bcd.mp3",
       "kept_intervals": [
         [
           8.48,
-          11.83
+          13.84
         ]
       ]
     },
@@ -4618,88 +4310,64 @@
       "part_id": "80-days:day-11:part-1",
       "source_display_number": "2",
       "source_sha256": "f4f4a04eaff22e4e46b119b7559db79b79672d1f804c44164924b84a4bd47734",
-      "start": 12.84,
-      "end": 17.43,
-      "sha256": "dadd5477858fc2aacd5226c9cdcb2b55a12db46a5010f02719c93b24551b3993",
-      "size_bytes": 88632,
-      "duration_seconds": 4.59,
-      "local_file": "day-11-12840-17430.mp3",
+      "start": 13.49,
+      "end": 19.16,
+      "sha256": "229768fdb383454c3997916dbc71fb515f1d5d533122b5eabd0aa680c4e649d6",
+      "size_bytes": 108576,
+      "duration_seconds": 5.67,
+      "local_file": "day-11-13490-19160.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 11,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/dadd5477858fc2aacd5226c9cdcb2b55a12db46a5010f02719c93b24551b3993.mp3",
-      "kept_intervals": [
-        [
-          12.84,
-          17.43
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/229768fdb383454c3997916dbc71fb515f1d5d533122b5eabd0aa680c4e649d6.mp3"
     },
     {
       "item_id": "80-days:day-11:main:q-03",
       "part_id": "80-days:day-11:part-1",
       "source_display_number": "3",
       "source_sha256": "f4f4a04eaff22e4e46b119b7559db79b79672d1f804c44164924b84a4bd47734",
-      "start": 18.62,
-      "end": 25.61,
-      "sha256": "003e7dcf383fa3e8a5a7615f30373a4c1bde5539033c81d3c0b3b2bb8c8ebc55",
-      "size_bytes": 124416,
-      "duration_seconds": 6.99,
-      "local_file": "day-11-18620-25610.mp3",
+      "start": 18.81,
+      "end": 27.22,
+      "sha256": "6eb8c03d793315096f473eaee58b0cdb03314bc5563d639741643ba05f50c472",
+      "size_bytes": 137160,
+      "duration_seconds": 8.41,
+      "local_file": "day-11-18810-27220.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 11,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/003e7dcf383fa3e8a5a7615f30373a4c1bde5539033c81d3c0b3b2bb8c8ebc55.mp3",
-      "kept_intervals": [
-        [
-          18.62,
-          25.61
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/6eb8c03d793315096f473eaee58b0cdb03314bc5563d639741643ba05f50c472.mp3"
     },
     {
       "item_id": "80-days:day-11:main:q-04",
       "part_id": "80-days:day-11:part-1",
       "source_display_number": "4",
       "source_sha256": "f4f4a04eaff22e4e46b119b7559db79b79672d1f804c44164924b84a4bd47734",
-      "start": 27.6,
-      "end": 32.13,
-      "sha256": "81f53c5e2a2c964026e90ad933e0af4ce1e182ef05fd0a8a0890054660d9bf1b",
-      "size_bytes": 88704,
-      "duration_seconds": 4.53,
-      "local_file": "day-11-27600-32130.mp3",
+      "start": 26.87,
+      "end": 33.86,
+      "sha256": "36d9de862c11fb282dbd1dd42fa7e20ffdb64c97418166135db9044666412473",
+      "size_bytes": 126576,
+      "duration_seconds": 6.99,
+      "local_file": "day-11-26870-33860.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 11,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/81f53c5e2a2c964026e90ad933e0af4ce1e182ef05fd0a8a0890054660d9bf1b.mp3",
-      "kept_intervals": [
-        [
-          27.6,
-          32.13
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/36d9de862c11fb282dbd1dd42fa7e20ffdb64c97418166135db9044666412473.mp3"
     },
     {
       "item_id": "80-days:day-11:main:q-05",
       "part_id": "80-days:day-11:part-1",
       "source_display_number": "5",
       "source_sha256": "f4f4a04eaff22e4e46b119b7559db79b79672d1f804c44164924b84a4bd47734",
-      "start": 33.68,
-      "end": 36.85,
-      "sha256": "e455c7612401dc103344f3c64e9e1c42d4137e4df6aad96239d92e9039c660a9",
-      "size_bytes": 60048,
-      "duration_seconds": 3.17,
-      "local_file": "day-11-33680-36850.mp3",
+      "start": 33.51,
+      "end": 43.92,
+      "sha256": "0858303b29f202053bc14d3200c3549b59969938b337284f3078395bbb2633ea",
+      "size_bytes": 180144,
+      "duration_seconds": 10.41,
+      "local_file": "day-11-33510-43920.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 11,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/e455c7612401dc103344f3c64e9e1c42d4137e4df6aad96239d92e9039c660a9.mp3",
-      "kept_intervals": [
-        [
-          33.68,
-          36.85
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0858303b29f202053bc14d3200c3549b59969938b337284f3078395bbb2633ea.mp3"
     },
     {
       "item_id": "80-days:day-11:main:q-06",
@@ -5694,44 +5362,32 @@
       "part_id": "80-days:day-14:part-1",
       "source_display_number": "2",
       "source_sha256": "5c074a5e452d4b92f26aaa3b14ae941333bb5a89705e8c99a0378a6264c9f013",
-      "start": 21.74,
-      "end": 33.83,
-      "sha256": "1769042c28c26498505e61b59960e02a588f71f0bfec0882fc1eacfc805fd96b",
-      "size_bytes": 281132,
-      "duration_seconds": 12.09,
-      "local_file": "day-14-21740-33830.mp3",
+      "start": 19.85,
+      "end": 35.18,
+      "sha256": "2f94680635afad00e98897b9b82845734ba4d472c038adfc57c5ee4b5013a1fc",
+      "size_bytes": 333548,
+      "duration_seconds": 15.33,
+      "local_file": "day-14-19850-35180.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 14,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/1769042c28c26498505e61b59960e02a588f71f0bfec0882fc1eacfc805fd96b.mp3",
-      "kept_intervals": [
-        [
-          21.74,
-          33.83
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/2f94680635afad00e98897b9b82845734ba4d472c038adfc57c5ee4b5013a1fc.mp3"
     },
     {
       "item_id": "80-days:day-14:main:q-03",
       "part_id": "80-days:day-14:part-1",
       "source_display_number": "3",
       "source_sha256": "5c074a5e452d4b92f26aaa3b14ae941333bb5a89705e8c99a0378a6264c9f013",
-      "start": 35.0,
-      "end": 39.83,
-      "sha256": "3ab4a665a24d29f96e2d38c5be80233bdc0f5b6efd0838ffe1e00deb0c175a52",
-      "size_bytes": 101420,
-      "duration_seconds": 4.83,
-      "local_file": "day-14-35000-39830.mp3",
+      "start": 34.83,
+      "end": 44.4,
+      "sha256": "5046fdc521fec20698478c5666d65bc4113c93e8a939f8e52b9ec56818b256d4",
+      "size_bytes": 179252,
+      "duration_seconds": 9.57,
+      "local_file": "day-14-34830-44400.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 14,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/3ab4a665a24d29f96e2d38c5be80233bdc0f5b6efd0838ffe1e00deb0c175a52.mp3",
-      "kept_intervals": [
-        [
-          35.0,
-          39.83
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/5046fdc521fec20698478c5666d65bc4113c93e8a939f8e52b9ec56818b256d4.mp3"
     },
     {
       "item_id": "80-days:day-14:main:q-04",
@@ -8094,132 +7750,96 @@
       "part_id": "80-days:day-20:part-1",
       "source_display_number": "1",
       "source_sha256": "86156134697ce316923c009734e2b6297ba24ca29b5251887ea1b11c09fd695a",
-      "start": 7.1,
-      "end": 12.01,
-      "sha256": "5f8129441ff155367231c6ab8bedc3c92b5baa1df4325daf4cbf696575258fbf",
-      "size_bytes": 92708,
-      "duration_seconds": 4.6,
-      "local_file": "day-20-7100-12010.mp3",
+      "start": 9.48,
+      "end": 12.4,
+      "sha256": "3eead58b3cd66d86f010f39e8632c49216956163fb481f9719225bfc493d0db4",
+      "size_bytes": 64268,
+      "duration_seconds": 2.92,
+      "local_file": "day-20-9480-12400.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 20,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/5f8129441ff155367231c6ab8bedc3c92b5baa1df4325daf4cbf696575258fbf.mp3",
-      "kept_intervals": [
-        [
-          7.41,
-          12.01
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/3eead58b3cd66d86f010f39e8632c49216956163fb481f9719225bfc493d0db4.mp3"
     },
     {
       "item_id": "80-days:day-20:main:q-02",
       "part_id": "80-days:day-20:part-1",
       "source_display_number": "2",
       "source_sha256": "86156134697ce316923c009734e2b6297ba24ca29b5251887ea1b11c09fd695a",
-      "start": 37.84,
-      "end": 38.97,
-      "sha256": "ac50a0bc1003abaab452d3916eabbd85575b9581bba1ba62cb00613d9c7073da",
-      "size_bytes": 21824,
-      "duration_seconds": 1.13,
-      "local_file": "day-20-37840-38970.mp3",
+      "start": 14.22,
+      "end": 19.24,
+      "sha256": "4e4e19e4846c772efd68146c7402d4313578d825b9e418563ea3a0051dd7e2a7",
+      "size_bytes": 102932,
+      "duration_seconds": 5.02,
+      "local_file": "day-20-14220-19240.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 20,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/ac50a0bc1003abaab452d3916eabbd85575b9581bba1ba62cb00613d9c7073da.mp3",
-      "kept_intervals": [
-        [
-          37.84,
-          38.97
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/4e4e19e4846c772efd68146c7402d4313578d825b9e418563ea3a0051dd7e2a7.mp3"
     },
     {
       "item_id": "80-days:day-20:main:q-03",
       "part_id": "80-days:day-20:part-1",
       "source_display_number": "3",
       "source_sha256": "86156134697ce316923c009734e2b6297ba24ca29b5251887ea1b11c09fd695a",
-      "start": 19.96,
-      "end": 23.29,
-      "sha256": "5eaa96176fd9508006fdf03521b975df3236acc58a35a6c0f263bbfbb5a8ffef",
-      "size_bytes": 70748,
-      "duration_seconds": 3.33,
-      "local_file": "day-20-19960-23290.mp3",
+      "start": 20.8,
+      "end": 23.98,
+      "sha256": "9cd785b686d6a7d1bdce317c5805e636fe14f68f95b947ec6d33ee5f15922b26",
+      "size_bytes": 67004,
+      "duration_seconds": 3.18,
+      "local_file": "day-20-20800-23980.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 20,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/5eaa96176fd9508006fdf03521b975df3236acc58a35a6c0f263bbfbb5a8ffef.mp3",
-      "kept_intervals": [
-        [
-          19.96,
-          23.29
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/9cd785b686d6a7d1bdce317c5805e636fe14f68f95b947ec6d33ee5f15922b26.mp3"
     },
     {
       "item_id": "80-days:day-20:main:q-04",
       "part_id": "80-days:day-20:part-1",
       "source_display_number": "4",
       "source_sha256": "86156134697ce316923c009734e2b6297ba24ca29b5251887ea1b11c09fd695a",
-      "start": 24.56,
-      "end": 28.05,
-      "sha256": "437bd58a654a54d7d2a289fe71715c55d33047b5c6a534bd8fb6a0971a7d4ec7",
-      "size_bytes": 74492,
-      "duration_seconds": 3.49,
-      "local_file": "day-20-24560-28050.mp3",
+      "start": 25.54,
+      "end": 28.66,
+      "sha256": "eae3cb3b6a9e1c37947ace344a2f5d9b0ca026557be161bc2a6a903193edb312",
+      "size_bytes": 68876,
+      "duration_seconds": 3.12,
+      "local_file": "day-20-25540-28660.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 20,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/437bd58a654a54d7d2a289fe71715c55d33047b5c6a534bd8fb6a0971a7d4ec7.mp3",
-      "kept_intervals": [
-        [
-          24.56,
-          28.05
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/eae3cb3b6a9e1c37947ace344a2f5d9b0ca026557be161bc2a6a903193edb312.mp3"
     },
     {
       "item_id": "80-days:day-20:main:q-05",
       "part_id": "80-days:day-20:part-1",
       "source_display_number": "5",
       "source_sha256": "86156134697ce316923c009734e2b6297ba24ca29b5251887ea1b11c09fd695a",
-      "start": 30.38,
-      "end": 36.39,
-      "sha256": "3e0fba7797d1d5f81903b598104291558efd1726a520515cb84fbda9c61066f9",
-      "size_bytes": 135908,
-      "duration_seconds": 6.01,
-      "local_file": "day-20-30380-36390.mp3",
+      "start": 30.96,
+      "end": 36.92,
+      "sha256": "0ec081508a18c491a4d183a3c32fcd61627b32087d7abdb6c09d44b3b028eccb",
+      "size_bytes": 119204,
+      "duration_seconds": 5.96,
+      "local_file": "day-20-30960-36920.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 20,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/3e0fba7797d1d5f81903b598104291558efd1726a520515cb84fbda9c61066f9.mp3",
-      "kept_intervals": [
-        [
-          30.38,
-          36.39
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0ec081508a18c491a4d183a3c32fcd61627b32087d7abdb6c09d44b3b028eccb.mp3"
     },
     {
       "item_id": "80-days:day-20:main:q-06",
       "part_id": "80-days:day-20:part-1",
       "source_display_number": "6",
       "source_sha256": "86156134697ce316923c009734e2b6297ba24ca29b5251887ea1b11c09fd695a",
-      "start": 39.12,
-      "end": 40.07,
-      "sha256": "4a448f58871a833d2599ded4135179191ed83a35126e82b2e81a240fc9d79aec",
-      "size_bytes": 19628,
-      "duration_seconds": 0.95,
-      "local_file": "day-20-39120-40070.mp3",
+      "start": 39.7,
+      "end": 42.98,
+      "sha256": "b16d76e3d21c1ec993fba2a6ba2c34919e4ef747670efa31685338c1f272169a",
+      "size_bytes": 65348,
+      "duration_seconds": 3.28,
+      "local_file": "day-20-39700-42980.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 20,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/4a448f58871a833d2599ded4135179191ed83a35126e82b2e81a240fc9d79aec.mp3",
-      "kept_intervals": [
-        [
-          39.12,
-          40.07
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b16d76e3d21c1ec993fba2a6ba2c34919e4ef747670efa31685338c1f272169a.mp3"
     },
     {
       "item_id": "80-days:day-20:main:q-07",
@@ -13610,20 +13230,20 @@
       "part_id": "80-days:day-33:part-1",
       "source_display_number": "1",
       "source_sha256": "f64931aef95f282003757592eb082251f536e6fc94d445bdbd5adf7217a6d980",
-      "start": 33.14,
-      "end": 39.57,
-      "sha256": "852316acbbc31aff1eb5370152fb94e4515e5eacda1816044ba58e6c99e68742",
-      "size_bytes": 116468,
-      "duration_seconds": 6.43,
-      "local_file": "day-33-33140-39570.mp3",
+      "start": 32.66,
+      "end": 43.16,
+      "sha256": "f81bcfa5db0b5f0c736af58ac0051fe13dfe510d1d4f5dc7ba7c7a32358a924a",
+      "size_bytes": 179612,
+      "duration_seconds": 10.08,
+      "local_file": "day-33-32660-43160.mp3",
       "context_kind": "question",
       "note_vi": "Đoạn gốc của câu này; nghe lại bao nhiêu lần cũng được.",
       "day": 33,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/852316acbbc31aff1eb5370152fb94e4515e5eacda1816044ba58e6c99e68742.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/f81bcfa5db0b5f0c736af58ac0051fe13dfe510d1d4f5dc7ba7c7a32358a924a.mp3",
       "kept_intervals": [
         [
-          33.14,
-          39.57
+          33.08,
+          43.16
         ]
       ]
     },
@@ -17112,22 +16732,16 @@
       "part_id": "80-days:day-41:part-1",
       "source_display_number": "2",
       "source_sha256": "187e2779f9cc69a6ef92c8000bbd31957dd42bab4b14f370044ca5527708f3eb",
-      "start": 32.08,
-      "end": 33.09,
-      "sha256": "0118c906b7c53f15ee0daa78b765f60b66c4cc40fb0cd31aa9f97b8ab6da1b76",
-      "size_bytes": 19988,
-      "duration_seconds": 1.01,
-      "local_file": "day-41-32080-33090.mp3",
+      "start": 31.68,
+      "end": 41.9,
+      "sha256": "b800355d1742d4319257419163b61e8e12629243b01fb2d816f5e00468a9a841",
+      "size_bytes": 213668,
+      "duration_seconds": 10.22,
+      "local_file": "day-41-31680-41900.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 41,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0118c906b7c53f15ee0daa78b765f60b66c4cc40fb0cd31aa9f97b8ab6da1b76.mp3",
-      "kept_intervals": [
-        [
-          32.08,
-          33.09
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/b800355d1742d4319257419163b61e8e12629243b01fb2d816f5e00468a9a841.mp3"
     },
     {
       "item_id": "80-days:day-41:main:q-03",
@@ -19578,20 +19192,20 @@
       "part_id": "80-days:day-47:part-1",
       "source_display_number": "1",
       "source_sha256": "d75c8f89668fb2dd43dad0003d6274de6452c96433782a3177f9bd458a986bc8",
-      "start": 13.9,
-      "end": 22.65,
-      "sha256": "4c8108b8364352850437df8fbc369631b7e5b83db1a82518a599459cb0a772a0",
-      "size_bytes": 202004,
-      "duration_seconds": 8.73,
-      "local_file": "day-47-13900-22650.mp3",
+      "start": 13.5,
+      "end": 29.58,
+      "sha256": "0cb6964b6c364d217362cc8d8a58dbe49bf02443b60651316cfea17570fe2ccc",
+      "size_bytes": 354212,
+      "duration_seconds": 15.66,
+      "local_file": "day-47-13500-29580.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 47,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/4c8108b8364352850437df8fbc369631b7e5b83db1a82518a599459cb0a772a0.mp3",
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/0cb6964b6c364d217362cc8d8a58dbe49bf02443b60651316cfea17570fe2ccc.mp3",
       "kept_intervals": [
         [
           13.92,
-          22.65
+          29.58
         ]
       ]
     },
@@ -19600,22 +19214,16 @@
       "part_id": "80-days:day-47:part-1",
       "source_display_number": "2",
       "source_sha256": "d75c8f89668fb2dd43dad0003d6274de6452c96433782a3177f9bd458a986bc8",
-      "start": 30.96,
-      "end": 35.65,
-      "sha256": "5ce9700c7167ef4ea9c4538c105ac79a35e9a899cd3e3d8aa73254a89fcf8b55",
-      "size_bytes": 106136,
-      "duration_seconds": 4.69,
-      "local_file": "day-47-30960-35650.mp3",
+      "start": 30.54,
+      "end": 43.18,
+      "sha256": "2a973a3c86c90a10f57380e7ab016499dd9158403bc8180609b9bd05f404d636",
+      "size_bytes": 298628,
+      "duration_seconds": 12.64,
+      "local_file": "day-47-30540-43180.mp3",
       "context_kind": "shared_context",
       "note_vi": "Đoạn hội thoại/bài nói liên quan; có thể dùng chung với câu khác.",
       "day": 47,
-      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/5ce9700c7167ef4ea9c4538c105ac79a35e9a899cd3e3d8aa73254a89fcf8b55.mp3",
-      "kept_intervals": [
-        [
-          30.96,
-          35.65
-        ]
-      ]
+      "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/clips/original-v1/2a973a3c86c90a10f57380e7ab016499dd9158403bc8180609b9bd05f404d636.mp3"
     },
     {
       "item_id": "80-days:day-47:main:q-03",

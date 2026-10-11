@@ -94,6 +94,22 @@ def test_invalid_edited_original_binding_is_rejected(tmp_path, monkeypatch, fiel
         audio.audio_catalog.cache_clear()
 
 
+def test_editing_announcements_preserves_complete_numbered_sentences():
+    from services.listening_source_question_audio import clip_catalog
+    clips = {row["item_id"]: row for row in clip_catalog()["clips"]}
+    # The false trailing '2.' in Day 20 ASR must not replace the actual Q2.
+    q2 = clips["80-days:day-20:main:q-02"]
+    q3 = clips["80-days:day-20:main:q-03"]
+    assert q2["start"] == 14.22 and q2["end"] == 19.24
+    assert q2["end"] < q3["start"] and q2["duration_seconds"] > 4.5
+    # Day 33 Q1 continues after the first ASR segment, through 'review the
+    # previous lesson'; cutting at the first segment would omit that sentence.
+    assert clips["80-days:day-33:main:q-01"]["end"] >= 42.26
+    # Day 2's previously omitted first five numbers must precede Q6.
+    first = [clips[f"80-days:day-02:main:q-{number:02d}"] for number in range(1, 7)]
+    assert all(left["start"] < right["start"] for left, right in zip(first, first[1:]))
+
+
 def test_audio_route_authenticates_before_reading_package(monkeypatch):
     from routers import listening_source_collection as router
     async def deny(_):
