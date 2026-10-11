@@ -1,3 +1,5 @@
+import { promptCourses } from './writing-prompt-courses.mjs';
+
 const STATUSES = new Set(['pending', 'in_progress', 'submitted', 'graded', 'delivered']);
 const TASK_TYPES = new Set(['task1_academic', 'task1_general', 'task2']);
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
@@ -61,7 +63,7 @@ export function normalizePromptOptions(raw) {
   if (!payload || !Array.isArray(payload.prompts)) return null;
   const rows = payload.prompts.map((item) => {
     const row = objectOf(item); const id = textOf(row?.id); const title = textOf(row?.title); const taskType = textOf(row?.task_type);
-    return id && title && TASK_TYPES.has(taskType) ? { id, title, taskType, difficulty: optionalText(row?.difficulty) } : null;
+    return id && title && TASK_TYPES.has(taskType) ? { id, title, taskType, difficulty: optionalText(row?.difficulty), courses: promptCourses(row?.tags) } : null;
   }).filter(Boolean);
   return { rows, malformedCount: payload.prompts.length - rows.length, capped: payload.prompts.length >= 500 };
 }

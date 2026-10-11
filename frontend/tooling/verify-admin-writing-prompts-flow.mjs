@@ -1,5 +1,7 @@
 // Fixture-backed browser contract for native Admin Writing Prompts.
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
@@ -131,6 +133,23 @@ await page.getByRole('button', { name: 'Chuyển sang đề thi' }).click();
 await page.getByText(/Đã áp dụng thay đổi/).waitFor();
 check('student → exam mutation được đọc lại canonical', active.find((row) => row.id === 'p2')?.exam_only === true && await climateCard.getByText('Chỉ kỳ thi', { exact: true }).count() === 1);
 
+await climateCard.getByRole('button', { name: 'Phân bổ khóa học' }).click();
+await page.getByRole('checkbox', { name: 'Course 2', exact: true }).check();
+await page.getByRole('checkbox', { name: 'Course 5', exact: true }).check();
+await page.getByRole('button', { name: 'Lưu đề', exact: true }).click();
+await page.getByText(/Đã cập nhật prompt/).waitFor();
+check('một đề phân bổ nhiều khóa và giữ thẻ nội dung, phạm vi thi', ['climate', 'course:2', 'course:5'].every((tag) => active.find((row) => row.id === 'p2')?.tags.includes(tag)) && active.find((row) => row.id === 'p2')?.exam_only === true);
+await page.getByRole('group', { name: 'Lọc theo khóa học' }).getByRole('button', { name: /Course 2/ }).click();
+await page.waitForURL('**/admin/writing/prompts?course=2');
+check('lọc khóa giữ đúng một prompt gốc', await page.getByRole('article').count() === 1 && await climateCard.count() === 1);
+await page.reload();
+await page.getByRole('heading', { name: 'Climate policy' }).waitFor();
+maxActiveReads = activeReads; // A full navigation can overlap aborted reads from the old document.
+check('tải lại giữ khóa trong URL và phân bổ từ máy chủ', await climateCard.getByText('Course 2', { exact: true }).count() === 1 && await climateCard.getByText('Course 5', { exact: true }).count() === 1 && await page.getByRole('article').count() === 1);
+await page.screenshot({ path: join(tmpdir(), 'writing-course-allocation-desktop.png'), fullPage: true });
+await page.getByRole('group', { name: 'Lọc theo khóa học' }).getByRole('button', { name: /^Tất cả/ }).click();
+await page.waitForURL('**/admin/writing/prompts');
+
 await page.getByRole('button', { name: 'Tạo đề' }).click();
 const dialogLayout = await page.getByRole('dialog').evaluate((element) => {
   const panel = element.getBoundingClientRect();
@@ -190,6 +209,23 @@ const mobile = await page.evaluate(() => ({ overflow: document.documentElement.s
 check('mobile một cột và không tràn viewport', !mobile.overflow && mobile.cardDisplay === 'block' && mobile.overview === 1, JSON.stringify(mobile));
 check('không có browser-native confirm/alert', await page.evaluate(() => document.querySelectorAll('[role="dialog"]').length === 0));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
+
+await page.setViewportSize({ width: 390, height: 844 });
+await page.screenshot({ path: join(tmpdir(), 'writing-course-allocation-mobile.png'), fullPage: true });
+await page.getByRole('group', { name: 'Lọc theo khóa học' }).getByRole('button', { name: /Course 2/ }).click();
+await page.waitForURL('**/admin/writing/prompts?course=2');
+await page.getByRole('heading', { name: '1 đề phù hợp' }).waitFor();
+await climateCard.getByRole('button', { name: 'Phân bổ khóa học' }).click();
+check('mở lại editor khôi phục cả hai khóa đã lưu', await page.getByRole('checkbox', { name: 'Course 2', exact: true }).isChecked() && await page.getByRole('checkbox', { name: 'Course 5', exact: true }).isChecked());
+await page.getByRole('checkbox', { name: 'Course 2', exact: true }).uncheck();
+await page.getByRole('checkbox', { name: 'Course 5', exact: true }).uncheck();
+await page.getByRole('button', { name: 'Lưu đề', exact: true }).click();
+await page.getByText(/Đã cập nhật prompt/).waitFor();
+await page.getByRole('heading', { name: 'Không có đề phù hợp' }).waitFor();
+check('gỡ phân bổ không xóa đề, nội dung hay phạm vi thi', active.some((row) => row.id === 'p2' && row.tags.join(',') === 'climate' && row.exam_only) && await page.getByRole('article').count() === 0);
+await page.getByRole('group', { name: 'Lọc theo khóa học' }).getByRole('button', { name: /Chưa phân bổ/ }).click();
+await page.getByRole('heading', { name: 'Climate policy' }).waitFor();
+check('đề đã gỡ phân bổ hiện lại trong kho Chưa phân bổ', await climateCard.getByText('Chưa phân bổ', { exact: true }).count() === 1);
 
 await browser.close();
 const failed = results.filter((item) => !item.ok);
