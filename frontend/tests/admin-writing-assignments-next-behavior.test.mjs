@@ -54,7 +54,7 @@ describe('Admin Writing Assignments native model', () => {
 
   test('normalizes exact detail fallbacks for entities outside capped picker snapshots', () => {
     assert.deepEqual(normalizeStudentDetail({ id: 's-old', full_name: 'Lan cũ', student_code: 'S-OLD' }, 's-old'), { id: 's-old', name: 'Lan cũ', code: 'S-OLD', cohortId: null });
-    assert.deepEqual(normalizePromptDetail({ id: 'p-old', title: 'Legacy prompt', task_type: 'task2', difficulty: null }, 'p-old'), { id: 'p-old', title: 'Legacy prompt', taskType: 'task2', difficulty: null });
+    assert.deepEqual(normalizePromptDetail({ id: 'p-old', title: 'Legacy prompt', task_type: 'task2', difficulty: null }, 'p-old'), { id: 'p-old', title: 'Legacy prompt', taskType: 'task2', difficulty: null, courses: [] });
     assert.deepEqual(normalizeCohortDetail({ cohort: { id: 'c-old', name: 'Archived class', student_count: 4 } }, 'c-old'), { id: 'c-old', name: 'Archived class', studentCount: 4 });
     assert.equal(normalizeStudentDetail({ id: 'other' }, 's-old'), null);
     assert.equal(normalizePromptDetail({ id: 'p-old', task_type: 'bad' }, 'p-old'), null);
