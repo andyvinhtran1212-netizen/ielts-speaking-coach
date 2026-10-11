@@ -18,8 +18,8 @@ GROUP_TITLES = {
     "mock": "Đề mô phỏng từ sách · Day 71–80",
 }
 
-SOURCE_ONLY_UNRESOLVED = "Chưa đủ dữ kiện đáng tin cậy để mở câu này thành bài luyện."
-SOURCE_ONLY_MISSING_AUDIO = "Câu này chưa có bản ghi gốc phù hợp để xác minh và mở luyện."
+SOURCE_ONLY_UNRESOLVED = "Câu tự luyện chưa có đáp án đủ tin cậy; không chấm đúng/sai."
+SOURCE_ONLY_MISSING_AUDIO = "Thiếu bản ghi gốc cho câu này; bạn có thể ghi chú câu trả lời, chưa thể nghe đoạn gốc hoặc chấm đúng/sai."
 SOURCE_ONLY_STUDY = "Câu này chưa đủ điều kiện làm bài luyện độc lập."
 UNOPENED_STUDY_DESCRIPTION = "Tài liệu tự học từ nguồn. Mở để xem nội dung đối chiếu."
 UNOPENED_STUDY_INSTRUCTION = "Đây là tài liệu tự học; mở nội dung sẽ chuyển sang chế độ có hỗ trợ."
@@ -83,12 +83,19 @@ def safe_source_block_metadata(block: dict, *, study_opened: bool = False) -> di
 
 def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study_opened: bool = False,
                       presentation_source: dict | None = None, manifest_sha256: str | None = None,
-                      runtime_questions: list[dict] | None = None) -> dict:
+                      runtime_questions: list[dict] | None = None, supplemental_practice: bool = False) -> dict:
     """Build a new block from safe fields; never echo raw nested authoring JSON."""
     try:
         from services.listening_source_native import native_presentation, native_instruction_vi
         source_block = presentation_source if presentation_source is not None else block
-        native = native_presentation(source_block, study_opened=study_opened, manifest_sha256=manifest_sha256,
+        if supplemental_practice:
+            from services.listening_source_supplements import catalog
+            content = catalog()
+            approved = {row["item_id"] for row in content["questions"] if row["block_id"] == block["block_id"]}
+            if (manifest_sha256 != content["source_manifest_sha256"] or not approved
+                    or approved != set(block.get("item_ids") or [])):
+                raise ValueError("Unapproved supplemental practice block")
+        native = native_presentation(source_block, study_opened=study_opened or supplemental_practice, manifest_sha256=manifest_sha256,
                                      runtime_questions=runtime_questions)
         instruction_vi = native_instruction_vi(source_block, manifest_sha256=manifest_sha256) if native is not None else None
         images = []
@@ -96,7 +103,13 @@ def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study
             from services.listening_source_figures import signed_figures
             images = signed_figures(native, manifest_sha256, signer)
             native = {**native, "figures": []}
+        raw_instruction = source_block.get("instruction") or {}
         block = safe_source_block_metadata(block, study_opened=study_opened)
+        if supplemental_practice:
+            from models.listening_source_collection import SourceInstruction
+            if native is None or {question["item_id"] for question in native["questions"]} != approved:
+                raise ValueError("Missing native supplemental questions")
+            block.update(display_kind="practice", description="", instruction=SourceInstruction.model_validate(raw_instruction).model_dump())
         if instruction_vi is not None:
             block["instruction"]["student_vi"] = instruction_vi
     except (ValidationError, ValueError, KeyError, TypeError) as exc:
@@ -117,7 +130,7 @@ def day_card(lesson: dict, forms: list[dict], states: dict) -> dict:
     own = [form for form in forms if str(form.get("listening_lesson_id")) == str(lesson["id"])]
     return {
         "day": lesson["sequence_num"], "lesson_id": str(lesson["id"]),
-        "title": "Mock 7 · Nghe audio buổi học" if lesson["sequence_num"] == 77 else lesson["title"],
+        "title": "Mock 7 · Tự luyện theo câu hỏi" if lesson["sequence_num"] == 77 else lesson["title"],
         "group": meta["group"], "availability": meta["availability"],
         "source_position_count": meta["source_position_count"],
         "practice_item_count": sum(int(form.get("source_item_count") or 0) for form in own),
@@ -141,7 +154,7 @@ def public_source_position(position: dict, parts: list[dict], manifest_sha256: s
         if (manifest_sha256 == "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841"
                 and safe["item_id"] == "80-days:day-29:main:q-13"
                 and safe["review_status"] == "UNRESOLVED"):
-            safe["reason_vi"] = "Audio không nêu giờ khởi hành được hỏi ở câu này; chưa đủ dữ kiện để mở luyện."
+            safe["reason_vi"] = "Audio không nêu giờ khởi hành được hỏi; câu này chỉ để tự luyện, không chấm đúng/sai."
         return safe
     except (ValidationError, KeyError, TypeError, StopIteration) as exc:
         raise HTTPException(503, "Thông tin vị trí nguồn chưa hợp lệ.") from exc
@@ -170,14 +183,20 @@ def day_response(package: dict, lesson: dict, forms: list[dict], states: dict,
         parts.append({key: part[key] for key in ("part_id", "source_label", "item_count",
             "source_position_count", "audio_status", "timing_granularity")} | {"form": public_form})
     card = day_card(lesson, forms, states)
+    from services.listening_source_supplements import catalog as supplement_catalog
+    approved = supplement_catalog()
+    supplemental_blocks = {row["block_id"] for row in approved["questions"] if row["day"] == lesson["sequence_num"]} if package["manifest_sha256"] == approved["source_manifest_sha256"] else set()
+    blocks = [sign_source_block(block, signer, manifest_sha256=package.get("manifest_sha256"),
+                supplemental_practice=block.get("display_kind") == "source_study" and block["block_id"] in supplemental_blocks) for block in meta["blocks"]]
+    positions = [public_source_position(position, parts, package.get("manifest_sha256")) for position in meta.get("source_only_positions") or []]
+    from services.listening_source_supplements import supplemental_questions
+    supplements, field_count = supplemental_questions(package["manifest_sha256"], lesson["sequence_num"], blocks, positions)
     return {"collection_id": SOURCE_COLLECTION, "package_id": package["package_id"],
         "manifest_sha256": package["manifest_sha256"], **{key: card[key] for key in (
             "day", "lesson_id", "title", "group", "availability", "source_position_count", "practice_item_count", "source_only_count")},
-        "parts": parts, "blocks": [sign_source_block(block, signer, manifest_sha256=package.get("manifest_sha256"))
-                                    for block in meta["blocks"]],
+        "parts": parts, "blocks": blocks, "supplemental_questions": supplements, "response_field_count": field_count,
         "vocabulary_groups": meta.get("vocabulary_groups") or [],
-        "source_only_positions": [public_source_position(position, parts, package.get("manifest_sha256"))
-                                  for position in meta.get("source_only_positions") or []], "partial_data": partial}
+        "source_only_positions": positions, "partial_data": partial}
 
 
 def study_response(lesson: dict, block_ids: list[str], signer: Callable[[str], str | None], *,

@@ -31,7 +31,9 @@ def test_all_days_have_new_audio_and_original_gaps_remain_truthful():
         assert result["variants"][-1]["synthetic"] is True
         assert result["variants"][-1]["variant_id"] == "kokoro-v1"
         originals += len(result["variants"]) == 2
-        assert len(paths) == len(result["variants"])
+        from services.listening_source_question_audio import clip_catalog
+        clip_paths = {row['storage_path'] for row in clip_catalog()['clips'] if row['day'] == day}
+        assert len(paths) == len(result["variants"]) + len(clip_paths)
         assert all(path.startswith(f"source-collections/{package()['package_id']}/{package()['manifest_sha256']}/") for path in paths)
         text = json.dumps(result)
         assert all(f'"{secret}"' not in text for secret in ("storage_path", "source_sha256", "role_map", "transcript", "answer"))
@@ -72,6 +74,27 @@ def test_audio_route_authenticates_before_reading_package(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         asyncio.run(router.get_source_audio(1, None))
     assert exc.value.status_code == 401
+
+
+def test_audio_route_batch_signs_only_bound_paths_and_preserves_partial_failure(monkeypatch):
+    from types import SimpleNamespace
+    from routers import listening_source_collection as router
+    calls = []
+    async def allow(_): return {'id': 'learner'}
+    def sign(paths, expiry):
+        calls.append((paths, expiry))
+        assert len(paths) == len(set(paths))
+        return [{'path': path, 'signedURL': 'https://private.example/' + str(i)}
+                if i else {'path': path, 'error': 'unavailable'} for i, path in enumerate(paths)] + [
+                    {'path': 'unrequested.mp3', 'signedURL': 'https://unbound.example'}]
+    monkeypatch.setattr(router, 'get_supabase_user', allow)
+    monkeypatch.setattr(router, '_context', lambda _: (package(), [lesson(1)]))
+    monkeypatch.setattr(router, 'supabase_admin', SimpleNamespace(storage=SimpleNamespace(from_=lambda _: SimpleNamespace(create_signed_urls=sign))))
+    result = asyncio.run(router.get_source_audio(1, 'Bearer learner'))
+    assert len(calls) == 1 and calls[0][1] == 7200
+    assert result['variants'][0]['url'] is None
+    assert result['question_clips'] and all(row['url'] for row in result['question_clips'])
+    assert 'unbound.example' not in json.dumps(result)
 
 
 def test_upload_preflight_rejects_tampering_before_upload(tmp_path, monkeypatch):
