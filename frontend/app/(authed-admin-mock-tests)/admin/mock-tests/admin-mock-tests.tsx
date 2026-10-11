@@ -178,7 +178,7 @@ export function AdminMockTests() {
       node?.removeEventListener('load', syncFrameTheme);
       window.removeEventListener('storage', adoptStoredTheme);
     };
-  }, [frame]);
+  }, [frame, frameEpoch]);
 
   useEffect(() => {
     if (tab !== 'review') return;
