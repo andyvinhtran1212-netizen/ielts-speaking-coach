@@ -8,14 +8,14 @@ import type { ApiGetJson } from '@/lib/openapi-contract';
 
 type AudioResponse = ApiGetJson<'/api/listening/source-collections/80-days/days/{day_number}/audio'>;
 
-export function ListeningSourceAudio({ day, active = true }: { day: number; active?: boolean }) {
+export function ListeningSourceAudio({ day, active = true, originalAvailable = true }: { day: number; active?: boolean; originalAvailable?: boolean }) {
   const { state, retry } = useListeningSource<AudioResponse>(`/api/listening/source-collections/80-days/days/${day}/audio`);
   const { status, user } = useAuth();
-  const scope = `${day}:${status}:${user?.id || ''}`;
+  const scope = `${day}:${status}:${user?.id || ''}:${originalAvailable}`;
   const [choice, setChoice] = useState<{ scope: string; id: string } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
-  const variants = state.status === 'ready' ? state.data.variants || [] : [];
+  const variants = state.status === 'ready' ? (state.data.variants || []).filter((variant) => originalAvailable || variant.variant_id !== 'original') : [];
   const selected = variants.find((variant) => variant.variant_id === (choice?.scope === scope ? choice.id : 'original')) || variants[0];
   const mediaKey = `${scope}:${active}:${selected?.variant_id}:${selected?.url}`;
   useEffect(() => {
@@ -26,7 +26,7 @@ export function ListeningSourceAudio({ day, active = true }: { day: number; acti
   function reloadAudio() { setFailed(null); retry(); }
   return <section className="source-study" aria-label="Nghe audio theo phiên bản">
     <h2>Audio buổi học</h2>
-    <p>Nghe toàn buổi hoặc lặp lại đoạn của từng câu bên dưới, bao nhiêu lần cũng được.</p>{state.status === 'ready' && !variants.some((variant) => variant.variant_id === 'original') ? <p role="status">Buổi này không có bản ghi gốc. Audio hiện có chỉ hỗ trợ luyện nghe/phát âm.</p> : null}
+    <p>Nghe toàn buổi hoặc lặp lại đoạn của từng câu bên dưới, bao nhiêu lần cũng được.</p>{state.status === 'ready' && !variants.some((variant) => variant.variant_id === 'original') ? <p role="status">{originalAvailable ? 'Buổi này' : 'Phần này'} không có bản ghi gốc. Audio hiện có chỉ hỗ trợ luyện nghe/phát âm.</p> : null}
     {state.status === 'loading' ? <p role="status">Đang tải audio…</p> : state.status === 'error' ? <><p role="alert">Chưa tải được các phiên bản audio.</p><button type="button" onClick={reloadAudio}>Thử lại audio</button></> : <>
       <label>Phiên bản audio <select className="source-audio-select" value={selected?.variant_id || ''} onChange={(event) => { audio.current?.pause(); setChoice({ scope, id: event.target.value }); }}>
         {variants.map((variant) => <option key={variant.variant_id} value={variant.variant_id}>{variant.label_vi}</option>)}

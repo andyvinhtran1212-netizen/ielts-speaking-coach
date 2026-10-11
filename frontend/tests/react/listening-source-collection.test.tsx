@@ -216,6 +216,27 @@ it('opens the first actual part immediately, retains drafts and pauses hidden me
   expect(screen.queryByText(/Kokoro|Đề và tài liệu nguồn|Tài liệu tự học/)).toBeNull();
 });
 
+it('uses study audio in a missing-original section of a mixed day without starting another attempt', async () => {
+  installPracticeApi();
+  const get = window.api.getWith;
+  window.api.getWith = vi.fn(async (url: string, ...args: unknown[]) => {
+    if (url.endsWith('/days/76')) return { ...practiceDay(76), parts: [
+      { ...practiceDay(76).parts[0], audio_status: 'available' },
+      { part_id: 'p3', source_label: 'Section 3', item_count: 0, source_position_count: 11, audio_status: 'missing', form: null },
+    ] };
+    return get(url, ...args);
+  });
+  const view = render(<ListeningSourceDay day={76} />);
+  await screen.findByText('Question form1');
+  fireEvent.click(screen.getByRole('tab', { name: /Section 3/ }));
+  const select = await screen.findByRole('combobox', { name: 'Phiên bản audio' });
+  expect((select as HTMLSelectElement).value).toBe('kokoro-v1');
+  expect(screen.queryByRole('option', { name: 'Bản ghi gốc' })).toBeNull();
+  expect(screen.getByText(/Phần này không có bản ghi gốc/)).toBeTruthy();
+  expect(view.container.querySelector('section[role="tabpanel"]:not([hidden]) audio')?.getAttribute('src')).toBe('/new.mp3');
+  expect(window.api.postWith).toHaveBeenCalledTimes(1);
+});
+
 it('keeps the active part radio selected when a hidden part finishes saving the same local question number', async () => {
   installPracticeApi();
   const get = window.api.getWith;
