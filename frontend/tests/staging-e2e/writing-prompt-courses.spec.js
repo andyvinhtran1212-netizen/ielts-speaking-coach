@@ -61,6 +61,9 @@ test('Writing course allocation persists and is reused by the assignment picker'
   }, [storageKey, JSON.stringify(session)]);
   const page = await context.newPage();
   await page.goto(`/admin/writing/prompts?q=${encodeURIComponent(marker)}`);
+  // Live list reads may take longer than the default five-second assertion
+  // window. Wait for the library's completed load, then assert its content.
+  await expect(page.getByRole('button', { name: 'Làm mới', exact: true })).toBeEnabled({ timeout: 30_000 });
   const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: marker, exact: true }) });
   await expect(card.getByText('Chưa phân bổ', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Phân bổ khóa học', exact: true }).click();
@@ -71,6 +74,7 @@ test('Writing course allocation persists and is reused by the assignment picker'
   expect(saved.status()).toBe(200);
   expect((await saved.json()).tags).toEqual(['e2e-writing-courses', 'course:2', 'course:5']);
   await page.reload();
+  await expect(page.getByRole('button', { name: 'Làm mới', exact: true })).toBeEnabled({ timeout: 30_000 });
   await expect(card.getByText('Course 2', { exact: true })).toBeVisible();
   await expect(card.getByText('Course 5', { exact: true })).toBeVisible();
   await page.getByRole('group', { name: 'Lọc theo khóa học' }).getByRole('button', { name: /Course 2/ }).click();
@@ -85,11 +89,13 @@ test('Writing course allocation persists and is reused by the assignment picker'
   await dialog.getByRole('combobox', { name: 'Khóa học của đề', exact: true }).selectOption('5');
   await expect(option.getByRole('checkbox')).toBeChecked();
   await page.goto(`/admin/writing/prompts?q=${encodeURIComponent(marker)}`);
+  await expect(page.getByRole('button', { name: 'Làm mới', exact: true })).toBeEnabled({ timeout: 30_000 });
   await card.getByRole('button', { name: 'Phân bổ khóa học', exact: true }).click();
   for (const course of [2, 5]) await page.getByRole('checkbox', { name: `Course ${course}`, exact: true }).uncheck();
   await page.getByRole('button', { name: 'Lưu đề', exact: true }).click();
   await expect(page.getByText('Đã cập nhật prompt và đối chiếu lại từ máy chủ.', { exact: true })).toBeVisible();
   await page.reload();
+  await expect(page.getByRole('button', { name: 'Làm mới', exact: true })).toBeEnabled({ timeout: 30_000 });
   await expect(card.getByText('Chưa phân bổ', { exact: true })).toBeVisible();
   expect((await (await detail()).json()).tags).toEqual(['e2e-writing-courses']);
 });
