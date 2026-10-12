@@ -169,7 +169,11 @@ class Settings(BaseSettings):
 
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False
-    VOCAB_ANALYSIS_MODEL: str = "claude-haiku-4-5-20251001"
+    # Short structured tasks: Haiku 5.5, with independent rollback controls.
+    # Speaking scoring/judge fallbacks deliberately retain their calibrated models.
+    VOCAB_ANALYSIS_MODEL: str = "claude-haiku-5-5"
+    D1_QUESTION_MODEL: str = "claude-haiku-5-5"
+    LISTENING_GIST_MODEL: str = "claude-haiku-5-5"
     VOCAB_MIN_TRANSCRIPT_WORDS: int = 30
     VOCAB_MAX_PER_CATEGORY: int = 3
     VOCAB_BANK_FEATURE_FLAG_ENABLED: bool = False

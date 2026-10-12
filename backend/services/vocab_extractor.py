@@ -15,10 +15,11 @@ import anthropic
 from pydantic import BaseModel, ConfigDict
 
 from config import settings
+from services.claude_compat import json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "claude-haiku-5-5"
 
 _SYSTEM_PROMPT = """You are an IELTS Speaking vocabulary analyst. Your job is to identify vocabulary items from a learner's spoken transcript that are worth saving for study.
 
@@ -107,8 +108,7 @@ async def extract_vocab(
         )
 
         msg = client.messages.create(
-            model=model,
-            max_tokens=1024,
+            **json_request_kwargs(model, max_tokens=1024),
             system=[
                 {
                     "type": "text",
@@ -119,7 +119,7 @@ async def extract_vocab(
             messages=[{"role": "user", "content": user_message}],
         )
 
-        raw = msg.content[0].text.strip()
+        raw = response_text(msg)
 
         # Strip markdown fences if present
         if raw.startswith("```"):

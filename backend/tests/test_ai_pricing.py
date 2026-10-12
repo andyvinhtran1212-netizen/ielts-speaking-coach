@@ -3,6 +3,31 @@ from datetime import date
 from services.ai_pricing import effective_logged_cost, estimate_token_cost, estimate_unit_cost
 
 
+def test_haiku55_release_and_short_context_cache_rates():
+    assert estimate_token_cost("anthropic", "claude-haiku-5-5", input_tokens=10,
+                               at=date(2026, 10, 6)) == (None, None)
+    cost, version = estimate_token_cost(
+        "anthropic", "claude-haiku-5-5", input_tokens=1000, output_tokens=1000,
+        cache_read_tokens=1000, cache_write_tokens=1000, at=date(2026, 10, 7),
+    )
+    assert cost == 0.000735
+    assert ":2026-10-07:" in version
+
+
+def test_haiku55_long_context_includes_cached_prompt_tokens_and_all_output():
+    cost, _ = estimate_token_cost(
+        "anthropic", "claude-haiku-5-5", input_tokens=1,
+        cache_read_tokens=99000, cache_write_tokens=1000, output_tokens=1000,
+        at=date(2026, 10, 12),
+    )
+    assert cost == round((0.1 + 99000 * 0.01 + 1000 * 0.125 + 1000 * 0.5) * 5 / 1_000_000, 8)
+    boundary, _ = estimate_token_cost(
+        "anthropic", "claude-haiku-5-5", input_tokens=100000, output_tokens=1000,
+        at=date(2026, 10, 12),
+    )
+    assert boundary == 0.0105
+
+
 def test_gemini_38_promo_and_2027_rates_are_effective_dated():
     promo, promo_version = estimate_token_cost(
         "google", "gemini-3.8-flash",
@@ -86,6 +111,14 @@ def test_elevenlabs_public_api_character_rates_are_catalogued():
     )
     assert multilingual == 0.10
     assert flash == 0.05
+
+
+def test_elevenlabs_october_rates_do_not_reprice_earlier_usage():
+    for model, old, new in (("eleven_multilingual_v2", 0.10, 0.08), ("eleven_flash_v2_5", 0.05, 0.04)):
+        before, _ = estimate_unit_cost("elevenlabs", model, "text_character", 1000, at=date(2026, 10, 11))
+        after, _ = estimate_unit_cost("elevenlabs", model, "text_character", 1000, at=date(2026, 10, 12))
+        assert before == old
+        assert after == new
 
 
 def test_legacy_log_is_repriced_but_versioned_row_is_not_rewritten():
