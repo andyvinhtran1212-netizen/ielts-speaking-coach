@@ -73,29 +73,39 @@ async def test_vocab_selects_text_block_and_preserves_rollback(monkeypatch, mode
         await coro
     assert result is not None and result.needs_review == []
     assert calls[0]["model"] == logged[0]["model"] == model
+    assert logged[0]["status"] == "success"
+    assert logged[0]["error_code"] is None
     assert ("extra_body" in calls[0]) == (model == "claude-haiku-5-5")
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("stop_reason,raw", [
-    ("refusal", '{"used_well":[]}'),
-    ("max_tokens", '{"used_well":[]}'),
-    ("end_turn", '{"used_well":'),
+@pytest.mark.parametrize("stop_reason,raw,error_code", [
+    ("refusal", '{"used_well":[]}', "claude_refusal"),
+    ("max_tokens", '{"used_well":[]}', "claude_max_tokens"),
+    ("end_turn", '{"used_well":', "JSONDecodeError"),
+    ("end_turn", '{"used_well":[{}]}', "ValidationError"),
 ])
-async def test_vocab_rejected_output_still_logs_the_billable_response(monkeypatch, stop_reason, raw):
-    response = SimpleNamespace(stop_reason=stop_reason, content=[SimpleNamespace(type="text", text=raw)])
+async def test_vocab_rejected_output_still_logs_the_billable_response(monkeypatch, stop_reason, raw, error_code):
+    response = SimpleNamespace(
+        stop_reason=stop_reason, content=[SimpleNamespace(type="text", text=raw)],
+        usage=SimpleNamespace(input_tokens=20, output_tokens=5),
+    )
     pending, logged = [], []
-    async def log(msg, **kwargs):
-        logged.append((msg, kwargs))
+    async def insert(row):
+        logged.append(row)
     monkeypatch.setattr(vocab.anthropic, "Anthropic", lambda **kw: SimpleNamespace(messages=SimpleNamespace(create=lambda **kw: response)))
     monkeypatch.setattr(vocab.settings, "VOCAB_ANALYSIS_MODEL", "claude-haiku-5-5")
-    monkeypatch.setattr(ai_usage_logger, "log_claude_response_async", log)
+    monkeypatch.setattr(ai_usage_logger, "_insert_async", insert)
     monkeypatch.setattr(ai_usage_logger, "schedule_usage_log", pending.append)
     result = await vocab.extract_vocab("I enjoy learning new words. " * 8, "response", "user", "session")
     for coro in pending:
         await coro
     assert result is None
     assert len(logged) == 1
-    assert logged[0][0] is response
-    assert logged[0][1]["model"] == "claude-haiku-5-5"
-    assert logged[0][1]["resource_id"] == "response"
+    assert logged[0]["model"] == "claude-haiku-5-5"
+    assert logged[0]["resource_id"] == "response"
+    assert logged[0]["status"] == "error"
+    assert logged[0]["error_code"] == error_code
+    assert logged[0]["input_tokens"] == 20
+    assert logged[0]["output_tokens"] == 5
+    assert logged[0]["cost_usd_est"] > 0

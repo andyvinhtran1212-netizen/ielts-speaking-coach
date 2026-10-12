@@ -37,3 +37,31 @@ def test_noncompletion_never_enters_json_parser(reason):
 def test_empty_or_nontext_content_has_no_answer():
     assert response_text(SimpleNamespace(content=[])) == ""
     assert response_text(SimpleNamespace(content=[SimpleNamespace(type="thinking", thinking="")])) == ""
+
+
+@pytest.mark.parametrize("reason", ["refusal", "model_context_window_exceeded"])
+def test_pinned_sdk_deserializes_new_stop_reasons_before_guard(reason):
+    import anthropic
+    import httpx
+
+    response = {
+        "id": "msg_test", "type": "message", "role": "assistant",
+        "model": "claude-haiku-5-5",
+        "content": [{"type": "text", "text": "Cannot complete."}],
+        "stop_reason": reason, "stop_sequence": None,
+        "usage": {"input_tokens": 20, "output_tokens": 5},
+    }
+    # Exercise the real HTTP deserializer with the same default client options
+    # as the application, rather than constructing a permissive test namespace.
+    with anthropic.Anthropic(api_key="test", http_client=httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=response)),
+    )) as client:
+        msg = client.messages.create(
+            model="claude-haiku-5-5", max_tokens=20,
+            messages=[{"role": "user", "content": "test"}],
+        )
+    assert msg.stop_reason == reason
+    assert msg.usage.input_tokens == 20
+    assert msg.usage.output_tokens == 5
+    with pytest.raises(ValueError):
+        response_text(msg)
