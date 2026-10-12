@@ -82,3 +82,11 @@ def test_part_number_is_not_used_as_a_question_number(item_id, announcement_end)
     # spoken Part header must remain outside the question's playback window.
     row = next(row for row in clips.clip_catalog()["clips"] if row["item_id"] == item_id)
     assert row["kept_intervals"][0][0] >= announcement_end
+
+
+def test_whole_original_retains_every_question_playback_interval():
+    audio = audio_catalog()
+    for row in clips.clip_catalog()['clips']:
+        practice = audio['days'][row['day']-1]['original']['practice']['kept_intervals']
+        for start, end in row.get('kept_intervals', [[row['start'], row['end']]]):
+            assert any(whole_start <= start < end <= whole_end for whole_start, whole_end in practice), row['item_id']
