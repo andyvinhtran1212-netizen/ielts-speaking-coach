@@ -7,8 +7,8 @@ import { createReadingSaveCoordinator } from '../lib/reading-exam-controller.mjs
 const turn = () => new Promise((resolve) => setImmediate(resolve));
 test('Reading question cards and inline hints both distinguish pending from failed', () => {
   const source = readFileSync(new URL('../app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx', import.meta.url), 'utf8');
-  assert.match(source, /saveState === 'pending' \? 'Đang lưu…'/);
-  assert.match(source, /state === 'pending' \? 'Đang lưu…'/);
+  assert.match(source, /saveState === 'pending' \? 'Saving…'/);
+  assert.match(source, /state === 'pending' \? 'Saving…'/);
 });
 for (const [name, create] of [['Listening', createListeningSaveCoordinator], ['Reading', createReadingSaveCoordinator]]) {
   test(`${name}: replacing a scheduled retry releases the older flush wait`, async () => {

@@ -19,6 +19,8 @@ for (const fixture of matching.cases) {
       // A local `next dev` cache toast can cover the palette; it is absent in
       // the production build used by this suite's committed config.
       await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' });
+      const targetQuestion = fixture.bundle.questions.find(q => q.q_num === fixture.target);
+      await page.getByRole('navigation', { name: 'Question palette' }).getByRole('button', { name: new RegExp(`^Part ${targetQuestion.passage_order}\\b`) }).click();
       await page.locator(`.exam-palette button[data-q="${fixture.target}"]`).click();
       await expect.poll(() => page.evaluate(q => {
         const row = document.getElementById(`q-${q}`).getBoundingClientRect();
@@ -26,11 +28,10 @@ for (const fixture of matching.cases) {
         return row.bottom > pane.top && row.top < pane.bottom;
       }, fixture.target)).toBe(true);
       const row = page.locator(`#q-${fixture.target}`);
-      const targetQuestion = fixture.bundle.questions.find(q => q.q_num === fixture.target);
       const statement = row.getByRole('rowheader');
       await expect(statement).toContainText(targetQuestion.prompt);
       const bank = page.getByRole('complementary', { name: 'List of Features' });
-      const region = page.getByRole('region', { name: /Lựa chọn câu/ });
+      const region = page.getByRole('region', { name: /Answer choices for questions/ });
       const geometry = await page.evaluate(({ q }) => {
         const bank = document.querySelector('.exam-features-box').getBoundingClientRect();
         const row = document.getElementById(`q-${q}`).getBoundingClientRect();

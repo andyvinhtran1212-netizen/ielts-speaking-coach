@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createAttemptFlagCoordinator } from './attempt-review-flags.mjs';
+import { AttemptReviewFlagError, createAttemptFlagCoordinator } from './attempt-review-flags.mjs';
 import type { components } from '@/types/api';
 import { registerNavigationGuard } from './navigation-guard';
 
@@ -13,6 +13,8 @@ type FlagView = {
   error: string;
 };
 const empty = (scope: string): FlagView => ({ scope, ready: false, flagged: new Set(), states: new Map(), error: '' });
+const loadErrorMessage = (error: unknown) => error instanceof AttemptReviewFlagError
+  ? error.message : 'Unable to load review marks. Check your connection and retry.';
 
 export function useAttemptReviewFlags({
   attemptId, domain, ownerScope, enabled, headers,
@@ -53,12 +55,12 @@ export function useAttemptReviewFlags({
         if (snapshot.pending.length) sessionStorage.setItem(storageKey, JSON.stringify(snapshot.pending));
         else sessionStorage.removeItem(storageKey);
       } catch {
-        if (snapshot.pending.length) error = 'Cờ Review chưa lưu xong. Giữ tab này mở để thử lại.';
+        if (snapshot.pending.length) error = 'Review marks are not saved yet. Keep this tab open to retry.';
       }
       setView({ scope, ready: snapshot.ready, flagged: snapshot.flagged, states: snapshot.states, error });
     });
-    const load = () => coordinator.load().catch((error: Error) => {
-      if (!disposed) setView((previous) => ({ ...previous, error: error.message || 'Không tải được cờ Review.' }));
+    const load = () => coordinator.load().catch((error: unknown) => {
+      if (!disposed) setView((previous) => ({ ...previous, error: loadErrorMessage(error) }));
     });
     void load();
     const flushPage = () => { void coordinator.flush({ keepalive: true }); };
@@ -95,8 +97,8 @@ export function useAttemptReviewFlags({
     const bound = active.current;
     if (!enabled || bound?.scope !== scope) return;
     if (!bound.coordinator.snapshot().ready) {
-      void bound.coordinator.load().catch((error: Error) => {
-        if (active.current === bound) setView((previous) => ({ ...previous, error: error.message }));
+      void bound.coordinator.load().catch((error: unknown) => {
+        if (active.current === bound) setView((previous) => ({ ...previous, error: loadErrorMessage(error) }));
       });
     } else bound.coordinator.retryFailed();
   }, [enabled, scope]);

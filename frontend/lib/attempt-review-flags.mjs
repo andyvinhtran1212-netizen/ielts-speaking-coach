@@ -2,7 +2,8 @@ import { createListeningSaveCoordinator } from './listening-test-controller.mjs'
 import { secureRandomUuid } from './secure-uuid.mjs';
 
 const PROTOCOL = 'question-cas-v1';
-const fail = (message, status) => Object.assign(new Error(message), { status });
+export class AttemptReviewFlagError extends Error {}
+const fail = (message, status) => Object.assign(new AttemptReviewFlagError(message), { status });
 
 /** Reuse the existing serial save queue; flags have separate per-question CAS. */
 export function createAttemptFlagCoordinator({
@@ -20,21 +21,21 @@ export function createAttemptFlagCoordinator({
   let readGeneration = 0;
   const assertScope = (reply) => {
     if (reply?.attempt_id !== attemptId || reply?.protocol !== PROTOCOL) {
-      throw fail('Không xác nhận được cờ Review của lượt làm này.', 409);
+      throw fail('Unable to confirm review marks for this attempt.', 409);
     }
   };
   const assertRow = (row) => {
     if (!Number.isInteger(row?.q_num) || row.q_num < 1 || row.q_num > 40
         || typeof row.flagged !== 'boolean' || !Number.isSafeInteger(row.revision)
         || row.revision < 0 || typeof row.question_id !== 'string' || !row.question_id) {
-      throw fail('Dữ liệu cờ Review không hợp lệ.', 503);
+      throw fail('Invalid review mark data.', 503);
     }
   };
   const mergeRow = (row) => {
     assertRow(row);
     const previous = canonical.get(row.q_num);
     if (previous && previous.question_id !== row.question_id) {
-      throw fail('Câu hỏi của lượt làm đã thay đổi. Tải lại bài để kiểm tra.', 409);
+      throw fail('The questions in this attempt have changed. Reload the test to check.', 409);
     }
     if (!previous || row.revision >= previous.revision) canonical.set(row.q_num, row);
   };
@@ -71,15 +72,15 @@ export function createAttemptFlagCoordinator({
       assertRow(reply);
       if (reply.q_num !== qNum || typeof reply.accepted !== 'boolean'
           || (reply.accepted && reply.operation_id !== request.operation_id)) {
-        throw fail('Máy chủ chưa xác nhận đúng thay đổi cờ Review.', 409);
+        throw fail('The server has not confirmed your review mark changes.', 409);
       }
       if (!reply.accepted) {
         mergeRow(reply);
         if (operations.get(qNum) === request) operations.delete(qNum);
-        throw fail('Cờ Review đã thay đổi ở nơi khác. Kiểm tra và thử lại thay đổi của bạn.', 409);
+        throw fail('Review marks changed in another tab. Check them and retry your changes.', 409);
       }
       if (reply.revision <= request.expected_revision) {
-        throw fail('Phiên bản cờ Review chưa được xác nhận.', 409);
+        throw fail('The review mark version has not been confirmed.', 409);
       }
       mergeRow(reply);
       if (operations.get(qNum) === request) operations.delete(qNum);
@@ -93,13 +94,15 @@ export function createAttemptFlagCoordinator({
     const reply = await read();
     if (disposed || generation !== readGeneration) return false;
     assertScope(reply);
-    if (!Array.isArray(reply.review_flags)) throw fail('Không tải được cờ Review.', 503);
+    if (!Array.isArray(reply.review_flags)) throw fail('Unable to load review marks.', 503);
     // Validate the whole response before changing any displayed state.
     reply.review_flags.forEach(assertRow);
-    if (new Set(reply.review_flags.map((row) => row.q_num)).size !== reply.review_flags.length
-        || reply.review_flags.some((row) => canonical.has(row.q_num)
-          && canonical.get(row.q_num).question_id !== row.question_id)) {
-      throw fail('Không xác nhận được danh sách cờ Review.', 409);
+    if (new Set(reply.review_flags.map((row) => row.q_num)).size !== reply.review_flags.length) {
+      throw fail('Unable to confirm the review marks.', 409);
+    }
+    if (reply.review_flags.some((row) => canonical.has(row.q_num)
+        && canonical.get(row.q_num).question_id !== row.question_id)) {
+      throw fail('The questions in this attempt have changed. Reload the test to check.', 409);
     }
     for (const row of reply.review_flags) {
       mergeRow(row);
@@ -125,7 +128,7 @@ export function createAttemptFlagCoordinator({
     return true;
   }
   function update(qNum, flagged) {
-    if (disposed || !ready) throw fail('Chờ tải cờ Review trước khi thay đổi.', 409);
+    if (disposed || !ready) throw fail('Wait for review marks to load before changing them.', 409);
     if (!Number.isInteger(qNum) || qNum < 1 || qNum > 40 || typeof flagged !== 'boolean') {
       throw new TypeError('Invalid review flag');
     }

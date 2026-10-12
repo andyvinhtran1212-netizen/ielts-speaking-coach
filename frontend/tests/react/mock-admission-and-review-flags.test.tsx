@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ReadingExamSession } from '@/app/(authed-reading-player)/reading/exam/session/reading-exam-session';
 import { ListeningTestSession } from '@/app/(authed-listening-player)/listening/test/session/listening-test-session';
+import { useAttemptReviewFlags } from '@/lib/use-attempt-review-flags';
+import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status';
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'learner-a', email: 'learner@example.test' } }) }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
 const scope = { attempt_id: 'attempt-a', protocol: 'question-cas-v1' };
@@ -44,10 +46,35 @@ beforeEach(() => {
   Object.defineProperty(window, 'renderMarkdown', { configurable: true, value: (source: string) => source });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
+function ReviewStatus() {
+  const flags = useAttemptReviewFlags({ attemptId: 'attempt-a', domain: 'reading', ownerScope: 'learner-a', enabled: true });
+  return <><span>{flags.ready ? 'Flags ready' : 'Flags loading'}</span><AttemptReviewFlagStatus {...flags} onRetry={flags.retry} /></>;
+}
+it('Review identity conflicts retain reload guidance without changing saved marks', async () => {
+  render(<ReviewStatus />);
+  await screen.findByText('Flags ready');
+  savedFlag = { ...savedFlag, question_id: 'question-changed' };
+  fireEvent(document, new Event('visibilitychange'));
+  expect(await screen.findByText(/The questions in this attempt have changed\. Reload the test/)).toBeTruthy();
+  expect(screen.queryByText(/Check your connection/)).toBeNull();
+  expect(api.patchWith).not.toHaveBeenCalled();
+});
+it('Review network errors use English fallback while retry preserves validated errors', async () => {
+  api.getWith.mockRejectedValueOnce(new Error('Khong the ket noi'));
+  render(<ReviewStatus />);
+  expect(await screen.findByText(/Unable to load review marks\. Check your connection and retry/)).toBeTruthy();
+  expect(screen.queryByText('Khong the ket noi')).toBeNull();
+  api.getWith.mockResolvedValueOnce({ ...scope, attempt_id: 'another-attempt', review_flags: [savedFlag] });
+  fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
+  expect(await screen.findByText('Unable to confirm review marks for this attempt.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
+  await screen.findByText('Flags ready');
+  expect(screen.queryByRole('button', { name: 'Retry review marks' })).toBeNull();
+});
 it('Reading waits for Start, admits the exact sitting, then loads bound context and saved Review flags', async () => {
   window.history.replaceState(null, '', '/reading/exam/session?test_id=paper-a&sitting_id=sitting-a');
   render(<ReadingExamSession />);
-  const start = await screen.findByRole('button', { name: 'Bắt đầu bài thi', exact: true });
+  const start = await screen.findByRole('button', { name: 'Start test', exact: true });
   expect(api.postWith).not.toHaveBeenCalled(); expect(screen.queryByText('FROZEN_PASSAGE_CONTEXT')).toBeNull();
   fireEvent.click(start); await screen.findByText('FROZEN_PASSAGE_CONTEXT');
   await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Review', exact: true }) as HTMLInputElement).checked).toBe(true));
@@ -58,7 +85,7 @@ it('Reading waits for Start, admits the exact sitting, then loads bound context 
 it('Listening admission exposes frozen context, restores flags and preserves saved answers', async () => {
   window.history.replaceState(null, '', '/listening/test/session?id=paper-a&sitting_id=sitting-a');
   render(<ListeningTestSession />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Bắt đầu bài thi', exact: true }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Start test', exact: true }));
   const input = await screen.findByRole('textbox', { name: 'Answer 1', exact: true });
   expect((input as HTMLInputElement).value).toBe('saved answer');
   await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Review', exact: true }) as HTMLInputElement).checked).toBe(true));
@@ -69,17 +96,17 @@ it('Listening admission exposes frozen context, restores flags and preserves sav
 it('failed Review save stays visible, explicit retry saves it, and reload does not create another attempt', async () => {
   bound = true; window.history.replaceState(null, '', '/listening/test/session?id=paper-a&sitting_id=sitting-a');
   const first = render(<ListeningTestSession />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Tiếp tục bài đang làm' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Resume test' }));
   const review = await screen.findByRole('checkbox', { name: 'Review', exact: true });
   await waitFor(() => expect((review as HTMLInputElement).checked).toBe(true));
   failFlag = true; fireEvent.click(review); expect((review as HTMLInputElement).checked).toBe(false);
-  expect(await screen.findByText(/cờ Review chưa lưu được/)).toBeTruthy();
+  expect(await screen.findByText(/review marks could not be saved/)).toBeTruthy();
   expect((screen.getByRole('textbox', { name: 'Answer 1', exact: true }) as HTMLInputElement).value).toBe('saved answer');
-  failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Thử lại cờ Review' }));
+  failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
   await waitFor(() => expect(savedFlag.flagged).toBe(false));
   expect(api.patchWith.mock.calls.every(([path]) => path.endsWith('/review-flags'))).toBe(true);
   first.unmount(); render(<ListeningTestSession />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Tiếp tục bài đang làm' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Resume test' }));
   await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Review', exact: true }) as HTMLInputElement).checked).toBe(false));
   expect(api.postWith).not.toHaveBeenCalled();
 });

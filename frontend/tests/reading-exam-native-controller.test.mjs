@@ -336,7 +336,7 @@ describe('native Reading exam route contract', () => {
   test('admin preview reuses the player without creating an attempt', () => {
     assert.match(page, /\/admin\/reading\/content\/tests\/\$\{encodeURIComponent\(params\.testId!\)\}/);
     assert.match(page, /normalizeReadingBoot\(\{ test: adminTest, in_progress: null \}/);
-    assert.match(page, /Bản duyệt admin/);
+    assert.match(page, /Admin preview/);
   });
 
   test('legacy and Next players claim before entering and redirect on mismatch', () => {
@@ -402,7 +402,7 @@ describe('native Reading exam route contract', () => {
     assert.match(layout, /exam-result-next\.css/);
     assert.match(page, /READING · FULL TEST COMPLETE/);
     assert.match(page, /exam-result-question-map/);
-    assert.match(page, /Kết quả chi tiết chỉ hiển thị trong không gian chữa bài/);
+    assert.match(page, /Compare the passage, answers and explanations/);
     assert.match(page, /readingReviewHref\(attemptId, \{ anonId, from, sittingId \}\)/);
     assert.doesNotMatch(page, /<td>\{row\.expected/);
   });

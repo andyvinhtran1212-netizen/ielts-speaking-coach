@@ -10,31 +10,31 @@ export type CaptureEnvelope = {
 };
 
 const ATTRIBUTIONS = [
-  ['SA_GUESSED', 'Đã đoán'],
-  ['SA_DID_NOT_KNOW_WORD', 'Không biết từ'],
-  ['SA_COULD_NOT_LOCATE', 'Không tìm được vị trí thông tin'],
-  ['SA_DID_NOT_PARSE_SENTENCE', 'Không phân tích được câu'],
-  ['SA_MISSED_PARAPHRASE', 'Bỏ lỡ paraphrase'],
-  ['SA_CHOSE_MENTIONED_DISTRACTOR', 'Chọn thông tin nhiễu được nhắc tới'],
-  ['SA_LOST_AUDIO_POSITION', 'Mất vị trí trong audio'],
-  ['SA_COULD_NOT_HEAR_CHUNK', 'Không nghe rõ cụm từ'],
-  ['SA_FORGOT_BEFORE_ANSWERING', 'Nghe được nhưng quên trước khi trả lời'],
-  ['SA_ANSWER_FORM_OR_SPELLING', 'Sai dạng từ / chính tả'],
-  ['SA_RAN_OUT_OF_TIME', 'Hết thời gian'],
-  ['SA_CHANGED_FROM_RIGHT_TO_WRONG', 'Đổi từ đáp án đúng sang sai'],
-  ['SA_TECHNICAL_PROBLEM', 'Có sự cố kỹ thuật'],
-  ['SA_OTHER', 'Chưa biết vì sao'],
+  ['SA_GUESSED', 'Guessed'],
+  ['SA_DID_NOT_KNOW_WORD', 'Did not know the word'],
+  ['SA_COULD_NOT_LOCATE', 'Could not locate the information'],
+  ['SA_DID_NOT_PARSE_SENTENCE', 'Could not understand the sentence'],
+  ['SA_MISSED_PARAPHRASE', 'Missed the paraphrase'],
+  ['SA_CHOSE_MENTIONED_DISTRACTOR', 'Chose a mentioned distractor'],
+  ['SA_LOST_AUDIO_POSITION', 'Lost my place in the recording'],
+  ['SA_COULD_NOT_HEAR_CHUNK', 'Could not hear the phrase'],
+  ['SA_FORGOT_BEFORE_ANSWERING', 'Forgot before answering'],
+  ['SA_ANSWER_FORM_OR_SPELLING', 'Wrong word form or spelling'],
+  ['SA_RAN_OUT_OF_TIME', 'Ran out of time'],
+  ['SA_CHANGED_FROM_RIGHT_TO_WRONG', 'Changed a correct answer to an incorrect one'],
+  ['SA_TECHNICAL_PROBLEM', 'Technical problem'],
+  ['SA_OTHER', 'Not sure why'],
 ] as const;
 
 const CONFIDENCE = [
-  [1, 'Đoán'], [2, 'Rất không chắc'], [3, 'Phân vân'], [4, 'Khá chắc'], [5, 'Có bằng chứng'],
+  [1, 'Guessed'], [2, 'Very unsure'], [3, 'Unsure'], [4, 'Fairly sure'], [5, 'Supported by evidence'],
 ] as const;
 
 export function MockPostTestCapture({
   skill,
   envelope,
   onComplete,
-  completionLabel = 'Lưu và xem kết quả',
+  completionLabel = 'Save and view results',
   context = 'practice',
 }: {
   skill: 'reading' | 'listening';
@@ -79,20 +79,20 @@ export function MockPostTestCapture({
       );
       onComplete(payload);
     } catch (caught: any) {
-      setError(caught?.message || 'Không lưu được phần tự đánh giá. Hãy thử lại.');
+      setError('Unable to save your confidence ratings. Please try again.');
     } finally { setBusy(false); }
   };
 
   return <main className="exam-result-shell post-capture-shell">
     <section className="exam-result-card post-capture-card">
-      <p className="exam-result-eyebrow">{context === 'mock' ? 'TRƯỚC KHI NỘP PHẦN THI' : 'TRƯỚC KHI XEM KẾT QUẢ'}</p>
-      <h1>Tự đánh giá mức chắc chắn</h1>
-      <p>Chạm một mức cho từng câu. Dữ liệu này không ảnh hưởng điểm; nó giúp phát hiện câu đoán đúng và lỗi hiểu sai nhưng rất chắc chắn.</p>
-      <div className="post-capture-legend" aria-label="Ý nghĩa mức chắc chắn"><span><b>1</b> Đoán</span><span><b>3</b> Phân vân</span><span><b>5</b> Chắc chắn và có bằng chứng</span></div>
+      <p className="exam-result-eyebrow">{context === 'mock' ? 'BEFORE SUBMITTING THIS SECTION' : 'BEFORE VIEWING RESULTS'}</p>
+      <h1>Rate your confidence</h1>
+      <p>Choose a confidence level for each answer. These ratings do not affect your score.</p>
+      <div className="post-capture-legend" aria-label="Confidence levels"><span><b>1</b> Guessed</span><span><b>3</b> Unsure</span><span><b>5</b> Confident with evidence</span></div>
       <div className="post-capture-grid">
         {questions.map((q) => <fieldset key={q.question_number} className="post-capture-item">
-          <legend><strong>Câu {q.question_number}</strong>{q.blank ? ' · bỏ trống' : ''}</legend>
-          <div className="post-capture-scale" role="group" aria-label={`Mức chắc chắn câu ${q.question_number}`}>{CONFIDENCE.map(([value, label]) => <button
+          <legend><strong>Question {q.question_number}</strong>{q.blank ? ' · unanswered' : ''}</legend>
+          <div className="post-capture-scale" role="group" aria-label={`Confidence for question ${q.question_number}`}>{CONFIDENCE.map(([value, label]) => <button
             type="button"
             className={confidence[q.question_number] === value ? 'is-selected' : ''}
             aria-pressed={confidence[q.question_number] === value}
@@ -102,14 +102,14 @@ export function MockPostTestCapture({
             key={value}
           >{value}</button>)}</div>
           {(q.blank || (confidence[q.question_number] && confidence[q.question_number] <= 2)) ? <details>
-            <summary>Vì sao bạn chưa chắc? <small>không bắt buộc · tối đa 2</small></summary>
+            <summary>Why are you unsure? <small>optional · choose up to 2</small></summary>
             <div className="post-capture-reasons">{ATTRIBUTIONS.map(([code, label]) => <label key={code}><input type="checkbox" checked={(attribution[q.question_number] || []).includes(code)} onChange={() => toggleAttribution(q.question_number, code)} /> <span>{label}</span></label>)}</div>
           </details> : null}
         </fieldset>)}
       </div>
       {error ? <p className="post-capture-error" role="alert">{error}</p> : null}
       <button className="exam-btn exam-btn--primary" type="button" disabled={Boolean(missing) || busy} onClick={() => void submit()}>
-        {busy ? 'Đang lưu…' : missing ? `Còn ${missing} câu chưa chọn` : completionLabel}
+        {busy ? 'Saving…' : missing ? `${missing} questions still need a rating` : completionLabel}
       </button>
     </section>
   </main>;

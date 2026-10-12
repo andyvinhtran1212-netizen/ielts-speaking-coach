@@ -292,7 +292,7 @@ await signedOut.close();
 const waiting = await fixturePage(browser, mockState(), { createLostAck: true });
 await waiting.page.goto(`${BASE}/mock-exam?code=${CODE}`, { waitUntil: 'domcontentloaded' });
 try {
-  await waiting.page.getByRole('heading', { name: /Thi thử: Mock <script>alert\(1\)<\/script>/ }).waitFor();
+  await waiting.page.getByRole('heading', { name: /Mock test: Mock <script>alert\(1\)<\/script>/ }).waitFor();
 } catch (error) {
   const state = await waiting.page.evaluate(() => ({
     url: location.href,
@@ -302,8 +302,8 @@ try {
 }
 check('lost create ACK retries the idempotent open-sitting endpoint', waiting.state.creates === 2 && waiting.state.stateGets >= 1);
 check('sequential sitting stays in the invigilator-controlled waiting room',
-  await waiting.page.getByText(/Đang chờ giám thị bắt đầu/).isVisible()
-    && await waiting.page.getByRole('button', { name: /Bắt đầu/ }).count() === 0);
+  await waiting.page.getByText(/Waiting for the invigilator to start/).isVisible()
+    && await waiting.page.getByRole('button', { name: /Start/ }).count() === 0);
 check('authored mock title renders as text', await waiting.page.locator('main script').count() === 0);
 await waiting.context.close();
 
@@ -312,18 +312,18 @@ const retakeState = mockState({
 });
 const retake = await fixturePage(browser, retakeState);
 await retake.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await retake.page.getByRole('button', { name: /Bắt đầu.*Writing/ }).click();
-await retake.page.getByLabel('Bài viết Task 1').waitFor();
+await retake.page.getByRole('button', { name: /Start.*Writing/ }).click();
+await retake.page.getByLabel('Answer for Task 1').waitFor();
 check('retake starts only an explicitly assigned section',
   retake.calls.join(',') === 'start-writing'
     && await retake.page.getByRole('button', { name: /Listening|Reading/ }).count() === 0);
 check('Writing renders task-specific time, word minimum and honest progress cues',
-  await retake.page.getByText('Ít nhất 150 từ').isVisible()
-    && await retake.page.getByText('Gợi ý 20 phút').isVisible()
+  await retake.page.getByText('At least 150 words').isVisible()
+    && await retake.page.getByText('Suggested time: 20 minutes').isVisible()
     && await retake.page.getByText('Academic', { exact: true }).isVisible()
-    && await retake.page.getByText(/Tóm tắt và so sánh các đặc điểm chính/).isVisible()
-    && await retake.page.getByText(/Chưa bắt đầu/).isVisible()
-    && await retake.page.getByRole('progressbar', { name: /Tiến độ số từ Task 1/ }).isVisible());
+    && await retake.page.getByText(/Summarise and compare the main features/).isVisible()
+    && await retake.page.getByText(/Not started/).isVisible()
+    && await retake.page.getByRole('progressbar', { name: /Word count progress for Task 1/ }).isVisible());
 check('Writing desktop workspace stays within the viewport', await retake.page.evaluate(() => (
   document.documentElement.scrollWidth <= document.documentElement.clientWidth
 )));
@@ -338,12 +338,12 @@ const narrowWriting = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 540, section_duration_seconds: 3600,
 }), { viewport: { width: 390, height: 844 }, fakeClock: true });
 await narrowWriting.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await narrowWriting.page.getByLabel('Bài viết Task 1').waitFor();
+await narrowWriting.page.getByLabel('Answer for Task 1').waitFor();
 check('Writing narrow fallback keeps both tasks, deadline guidance and editor visible',
   await narrowWriting.page.getByRole('tab', { name: /Task 1/ }).isVisible()
     && await narrowWriting.page.getByRole('tab', { name: /Task 2/ }).isVisible()
-    && await narrowWriting.page.getByText(/Còn 09:00/).isVisible()
-    && await narrowWriting.page.getByLabel('Bài viết Task 1').isVisible());
+    && await narrowWriting.page.getByText(/09:00 remaining/).isVisible()
+    && await narrowWriting.page.getByLabel('Answer for Task 1').isVisible());
 check('Writing narrow workspace has no page-level horizontal overflow', await narrowWriting.page.evaluate(() => (
   document.documentElement.scrollWidth <= document.documentElement.clientWidth
 )));
@@ -354,11 +354,11 @@ const darkWriting = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 540, section_duration_seconds: 3600,
 }), { theme: 'dark', fakeClock: true });
 await darkWriting.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await darkWriting.page.getByLabel('Bài viết Task 1').waitFor();
+await darkWriting.page.getByLabel('Answer for Task 1').waitFor();
 check('Writing dark theme keeps the exam hierarchy and readable editor surface',
   await darkWriting.page.locator('html').getAttribute('data-theme') === 'dark'
     && await darkWriting.page.getByText('WRITING TASK 1').isVisible()
-    && await darkWriting.page.getByLabel('Bài viết Task 1').isVisible()
+    && await darkWriting.page.getByLabel('Answer for Task 1').isVisible()
     && await darkWriting.page.locator('.mw-time-guidance').isVisible()
     && await darkWriting.page.locator('.mw-time-guidance').evaluate((element) => {
       const background = getComputedStyle(element).backgroundColor;
@@ -372,17 +372,17 @@ const staleReadState = mockState({
 });
 const staleRead = await fixturePage(browser, staleReadState, { deferStateGet: 2, fakeClock: true });
 await staleRead.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await staleRead.page.getByRole('button', { name: /Bắt đầu.*Writing/ }).waitFor();
+await staleRead.page.getByRole('button', { name: /Start.*Writing/ }).waitFor();
 await staleRead.page.clock.runFor(8_001);
 await staleRead.state.deferredReady;
-await staleRead.page.getByRole('button', { name: /Bắt đầu.*Writing/ }).click();
-await staleRead.page.getByLabel('Bài viết Task 1').waitFor();
+await staleRead.page.getByRole('button', { name: /Start.*Writing/ }).click();
+await staleRead.page.getByLabel('Answer for Task 1').waitFor();
 staleRead.state.releaseDeferredState();
 await staleRead.state.deferredDelivered;
 await new Promise((resolve) => setTimeout(resolve, 50));
 check('a stale poll response cannot overwrite newer post-action sitting state',
-  await staleRead.page.getByLabel('Bài viết Task 1').isVisible()
-    && await staleRead.page.getByRole('button', { name: /Bắt đầu.*Writing/ }).count() === 0);
+  await staleRead.page.getByLabel('Answer for Task 1').isVisible()
+    && await staleRead.page.getByRole('button', { name: /Start.*Writing/ }).count() === 0);
 await staleRead.context.close();
 
 const listeningState = mockState({
@@ -394,7 +394,7 @@ await listening.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil
 const frame = listening.page.locator('iframe');
 await frame.waitFor();
 const listeningFrameSrc = await frame.getAttribute('src');
-await listening.page.getByText(/Đã nộp phần trước/).waitFor({ timeout: 8_000 });
+await listening.page.getByText(/Section submitted/).waitFor({ timeout: 8_000 });
 check('embedded Listening uses stable core admission and flushes before finalization',
   listeningFrameSrc?.startsWith('/core-player/launch?')
     && listening.calls.join(',') === 'domain-listening,stamp-listening', listening.calls.join(','));
@@ -416,14 +416,14 @@ await collectedListening.page.evaluate(() => window.dispatchEvent(new Event('onl
 await collectedListening.state.embedSaveReady;
 check('collection keeps the embedded paper mounted while its final answer PATCH is pending',
   await collectedFrame.count() === 1
-    && await collectedListening.page.getByText(/Đang lưu câu trả lời cuối cùng/).isVisible());
+    && await collectedListening.page.getByText(/Saving your final answers/).isVisible());
 collectedListening.state.releaseEmbedSave();
 await collectedListening.state.embedSavePersisted;
 await collectedListening.state.flushAckReady;
 check('collection freezes the embedded paper before its server ACK returns',
   await collectedFrame.evaluate((element) => element.inert === true));
 collectedListening.state.releaseFlushAck();
-await collectedListening.page.getByText(/Đã nộp phần trước/).waitFor();
+await collectedListening.page.getByText(/Section submitted/).waitFor();
 check('collection unmounts the paper only after the flush ACK persisted the latest answer',
   collectedListening.state.embedAnswerBodies.join(',') === 'latest-answer'
     && collectedListening.state.flushAcks.join(',') === 'listening'
@@ -448,14 +448,14 @@ await collectedReading.state.embedSaveFailed;
 check('Reading flush thiếu unsaved sau PATCH lỗi không thể phát canonical ACK',
   collectedReading.state.flushAcks.length === 0
     && await collectedReadingFrame.count() === 1
-    && await collectedReading.page.getByText(/Đang lưu câu trả lời cuối cùng/).isVisible());
+    && await collectedReading.page.getByText(/Saving your final answers/).isVisible());
 await collectedReading.state.embedSavePersisted;
 await collectedReading.state.flushAckReady;
 check('Reading chỉ ACK sau retry PATCH thành công và explicit unsaved:0',
   collectedReading.state.embedAnswerBodies.join(',') === 'latest-reading-answer,latest-reading-answer'
     && collectedReading.state.collectionOrder.join(',') === 'embed-save-failed,embed-save,flush-ack:reading');
 collectedReading.state.releaseFlushAck();
-await collectedReading.page.getByText(/Đã nộp phần trước/).waitFor();
+await collectedReading.page.getByText(/Section submitted/).waitFor();
 check('Reading unmount sau canonical flush ACK', await collectedReadingFrame.count() === 0);
 await collectedReading.context.close();
 
@@ -464,14 +464,14 @@ const collectedWritingState = mockState({
 });
 const collectedWriting = await fixturePage(browser, collectedWritingState, { deferFlushAck: true });
 await collectedWriting.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await collectedWriting.page.getByLabel('Bài viết Task 1').fill('Latest Writing text before collection.');
+await collectedWriting.page.getByLabel('Answer for Task 1').fill('Latest Writing text before collection.');
 collectedWriting.state.current.collected_section = 'writing';
 await collectedWriting.page.evaluate(() => window.dispatchEvent(new Event('online')));
 await collectedWriting.state.flushAckReady;
 check('Writing becomes read-only before its server ACK returns',
-  !(await collectedWriting.page.getByLabel('Bài viết Task 1').isEditable()));
+  !(await collectedWriting.page.getByLabel('Answer for Task 1').isEditable()));
 collectedWriting.state.releaseFlushAck();
-await collectedWriting.page.getByText(/Đã nộp phần trước/).waitFor();
+await collectedWriting.page.getByText(/Section submitted/).waitFor();
 check('Writing collection persists the latest draft before its server ACK',
   collectedWriting.state.writingDrafts.at(-1)?.task1_text === 'Latest Writing text before collection.'
     && collectedWriting.state.flushAcks.join(',') === 'writing'
@@ -482,19 +482,19 @@ const noLocalBackup = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
 }), { localDraftWritesFail: true });
 await noLocalBackup.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await noLocalBackup.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
+await noLocalBackup.page.getByLabel('Answer for Task 1').fill('X'.repeat(500));
 check('Writing warns truthfully when browser storage cannot hold a local backup',
-  await noLocalBackup.page.getByText(/Trình duyệt không tạo được bản dự phòng/).isVisible());
-await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).waitFor();
+  await noLocalBackup.page.getByText(/A local backup could not be created/).isVisible());
+await noLocalBackup.page.getByText(/Saved to the server at .* but a local backup could not be created/).waitFor();
 check('successful server autosave does not hide a persistent local-backup failure',
   noLocalBackup.state.writingDrafts.length >= 1
-    && await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).isVisible());
-await noLocalBackup.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+    && await noLocalBackup.page.getByText(/Saved to the server at .* but a local backup could not be created/).isVisible());
+await noLocalBackup.page.getByLabel('Answer for Task 1').fill(`${'X'.repeat(500)}Y`);
 check('a new unsaved edit immediately clears the stale server-saved reassurance',
-  await noLocalBackup.page.getByText(/Trình duyệt không tạo được bản dự phòng trên thiết bị — giữ nguyên tab/).isVisible()
-    && !await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc/).isVisible());
+  await noLocalBackup.page.getByText(/A local backup could not be created. Keep this tab open/).isVisible()
+    && !await noLocalBackup.page.getByText(/Saved to the server at/).isVisible());
 await noLocalBackup.page.evaluate(() => window.dispatchEvent(new Event('online')));
-await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).waitFor();
+await noLocalBackup.page.getByText(/Saved to the server at .* but a local backup could not be created/).waitFor();
 check('the server-saved cue returns only after the newer draft is acknowledged',
   noLocalBackup.state.writingDrafts.length >= 2);
 await noLocalBackup.context.close();
@@ -503,24 +503,24 @@ const serverOnlyFailure = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
 }), { writingDraftAlwaysFails: true });
 await serverOnlyFailure.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await serverOnlyFailure.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
-await serverOnlyFailure.page.getByText(/Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn/).waitFor();
-await serverOnlyFailure.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+await serverOnlyFailure.page.getByLabel('Answer for Task 1').fill('X'.repeat(500));
+await serverOnlyFailure.page.getByText(/Not saved to the server. Your local backup is available/).waitFor();
+await serverOnlyFailure.page.getByLabel('Answer for Task 1').fill(`${'X'.repeat(500)}Y`);
 check('a later edit preserves the server-failure cue when device backup still works',
-  await serverOnlyFailure.page.getByText(/Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn/).isVisible());
+  await serverOnlyFailure.page.getByText(/Not saved to the server. Your local backup is available/).isVisible());
 await serverOnlyFailure.context.close();
 
 const noBackupOrServer = await fixturePage(browser, mockState({
   active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
 }), { localDraftWritesFail: true, writingDraftAlwaysFails: true });
 await noBackupOrServer.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await noBackupOrServer.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
-await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).waitFor();
+await noBackupOrServer.page.getByLabel('Answer for Task 1').fill('X'.repeat(500));
+await noBackupOrServer.page.getByText(/Server save and local backup failed/).waitFor();
 check('Writing reports simultaneous server and local-backup failure without false reassurance',
-  await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).isVisible());
-await noBackupOrServer.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+  await noBackupOrServer.page.getByText(/Server save and local backup failed/).isVisible());
+await noBackupOrServer.page.getByLabel('Answer for Task 1').fill(`${'X'.repeat(500)}Y`);
 check('a later edit preserves the combined server-and-device failure cue',
-  await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).isVisible());
+  await noBackupOrServer.page.getByText(/Server save and local backup failed/).isVisible());
 await noBackupOrServer.context.close();
 
 const writingState = mockState({
@@ -536,7 +536,7 @@ const writing = await fixturePage(browser, writingState, {
   },
 });
 await writing.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await writing.page.getByRole('heading', { name: 'Đã thu bài' }).waitFor({ timeout: 10_000 });
+await writing.page.getByRole('heading', { name: 'Test collected' }).waitFor({ timeout: 10_000 });
 const localDrafts = await writing.page.evaluate((id) => [
   localStorage.getItem(`mock-writing:${id}:task1`),
   localStorage.getItem(`mock-writing:${id}:task2`),
@@ -561,13 +561,13 @@ const forceCollected = await fixturePage(browser, forceCollectedState, {
   },
 });
 await forceCollected.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
-await forceCollected.page.getByLabel('Bài viết Task 1').waitFor();
+await forceCollected.page.getByLabel('Answer for Task 1').waitFor();
 forceCollected.state.current.sitting.writing_submitted_at = '2026-08-17T02:00:00Z';
 forceCollected.state.current.sitting.status = 'lrw_submitted';
 forceCollected.state.current.active_section = 'done';
 forceCollected.state.current.section_time_left_seconds = 0;
 await forceCollected.page.clock.runFor(8_001);
-await forceCollected.page.getByRole('heading', { name: 'Đã thu bài' }).waitFor();
+await forceCollected.page.getByRole('heading', { name: 'Test collected' }).waitFor();
 await forceCollected.page.goto(`${BASE}/next-probe`, { waitUntil: 'domcontentloaded' });
 const forceCollectedLocal = await forceCollected.page.evaluate((id) => (
   localStorage.getItem(`mock-writing:${id}:task1`)
@@ -595,9 +595,9 @@ while (pausedRetry.state.writingFinals.length < 1 && Date.now() < pausedRetryDea
   await new Promise((resolve) => setTimeout(resolve, 20));
 }
 await pausedRetry.page.evaluate(() => window.dispatchEvent(new Event('online')));
-await pausedRetry.page.getByText(/Đã nộp phần trước/).waitFor();
+await pausedRetry.page.getByText(/Section submitted/).waitFor();
 await pausedRetry.page.clock.runFor(2_001);
-await pausedRetry.page.getByRole('heading', { name: 'Đã thu bài' }).waitFor();
+await pausedRetry.page.getByRole('heading', { name: 'Test collected' }).waitFor();
 check('Writing retry retains the immutable final payload after collect closes the workspace',
   pausedRetry.state.writingFinals.length === 2
     && JSON.stringify(pausedRetry.state.writingFinals[0]) === JSON.stringify(pausedRetry.state.writingFinals[1])
@@ -635,7 +635,7 @@ const exhaustWritingRetries = async (run) => {
     await run.page.clock.runFor(delay + 1);
     await waitForWritingAttempts(run, index + 2);
   }
-  await run.page.getByText(/Chưa nộp được lên máy chủ/).waitFor();
+  await run.page.getByText(/Answers have not been submitted/).waitFor();
   // The first canonical poll (8 s) is held in flight. It cannot recover the
   // exhausted submit during the countdown-only or explicit-online checks.
   await run.state.deferredReady;
