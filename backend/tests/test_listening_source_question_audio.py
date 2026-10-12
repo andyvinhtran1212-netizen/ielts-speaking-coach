@@ -43,3 +43,42 @@ def test_upload_preflight_rejects_incomplete_inventory_before_files_or_writes(tm
     monkeypatch.setattr(clips, 'clip_catalog', lambda: content)
     with pytest.raises(PackageValidationError, match='Incomplete original question clip coverage'):
         uploader.validated_original_clips(tmp_path)
+
+
+@pytest.mark.parametrize("item_id,first_word_start,last_word_end", [
+    ("80-days:day-03:main:q-19", 143.4, 186.4),
+    ("80-days:day-03:main:q-20", 155.1, 190.8),
+    ("80-days:day-18:main:q-18", 130.0, 137.14),
+    ("80-days:day-78:main:q-21", 572.4, 580.02),
+])
+def test_shared_context_retains_complete_spoken_turns(item_id, first_word_start, last_word_end):
+    # These original-source landmarks were corroborated by independent raw-track
+    # and actual-clip decoding; the previous crop lost a turn or ended mid-sentence.
+    row = next(row for row in clips.clip_catalog()["clips"] if row["item_id"] == item_id)
+    intervals = row.get("kept_intervals", [[row["start"], row["end"]]])
+    assert intervals[0][0] <= first_word_start
+    assert intervals[-1][1] >= last_word_end
+
+
+def test_numbered_clip_excludes_next_question_after_removed_part_announcement():
+    row = next(row for row in clips.clip_catalog()["clips"] if row["item_id"] == "80-days:day-01:main:q-15")
+    assert len(row["kept_intervals"]) == 1
+    assert row["end"] >= 90.94  # The final word 'shine' remains complete.
+    assert row["end"] < 98.0  # Q16 belongs to the next source context.
+
+
+def test_intrinsic_original_short_phrase_has_truthful_non_answer_note():
+    row = next(row for row in clips.clip_catalog()["clips"] if row["item_id"] == "80-days:day-01:main:q-11")
+    assert "chưa có trọn câu" in row["note_vi"]
+    assert "English" not in row["note_vi"] and "Kokoro" not in row["note_vi"]
+
+
+@pytest.mark.parametrize("item_id,announcement_end", [
+    ("80-days:day-11:main:q-01", 8.6),
+    ("80-days:day-15:main:q-01", 9.2),
+])
+def test_part_number_is_not_used_as_a_question_number(item_id, announcement_end):
+    # Independent clip decoding found 'Part 1' where Q1 should start; the
+    # spoken Part header must remain outside the question's playback window.
+    row = next(row for row in clips.clip_catalog()["clips"] if row["item_id"] == item_id)
+    assert row["kept_intervals"][0][0] >= announcement_end
