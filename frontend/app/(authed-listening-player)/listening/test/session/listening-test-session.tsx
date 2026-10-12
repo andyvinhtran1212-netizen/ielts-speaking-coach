@@ -232,7 +232,7 @@ function SelectTemplate({ payload, questions, answers, onAnswer, plan }: {
   const last = Number(questions.at(-1)?.q_num || first);
   const imageAlt = authoredHeading || `Map or plan for questions ${first}${first === last ? '' : ` to ${last}`}`;
   return <div className={plan ? 'ielts-plan-container' : 'ielts-matching'}>
-    {plan ? <div className="ielts-plan-image">{image ? <img className="ielts-map-rendered" src={image} alt={imageAlt} /> : <p className="ielts-notice">Hình map chưa được tạo cho exercise này.</p>}</div> : null}
+    {plan ? <div className="ielts-plan-image">{image ? <img className="ielts-map-rendered" src={image} alt={imageAlt} /> : <p className="ielts-notice">The map for this exercise is unavailable.</p>}</div> : null}
     {!plan && bank.length ? <div className="ielts-match-bank"><ul className="ielts-match-bank__list">{bank.map((item: any) => <li key={optionValue(item)}><strong>{optionValue(item)}</strong> <InlineText text={optionText(item)} /></li>)}</ul></div> : null}
     <div className={plan ? 'ielts-plan-labels' : 'ielts-match-rows'}>{questions.map((question) => {
       const qNum = Number(question.q_num);
@@ -351,7 +351,7 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
     {instructionParts.length ? <div className="ielts-instruction">{instructionParts.map((part: any, index: number) => <p className={part.role ? `is-${part.role}` : undefined} key={index}><InlineText text={part.text} /></p>)}</div> : null}
     {supportingVisual ? <figure className="listening-next-supporting-visual"><img className="ielts-map-rendered" src={supportingVisual} alt={supportingVisualAlt} /></figure> : null}
     {content}
-    {affected.length ? <small className="listening-next-exercise-save" role="status">Câu {affected.join(', ')} chưa lưu xong.</small> : null}
+    {affected.length ? <small className="listening-next-exercise-save" role="status">Questions {affected.join(', ')} have not finished saving.</small> : null}
   </section>;
 }
 
@@ -367,31 +367,31 @@ function ResultView({ result, attempt, test, from, sittingId }: {
   const sections = Object.entries(result?.section_breakdown || {});
   return <main className="exam-result-shell listening-next-result">
     <section className="exam-result-page" aria-labelledby="listening-result-title">
-      <header className="exam-result-heading"><div><p className="exam-result-eyebrow">LISTENING · FULL TEST COMPLETE</p><h1 id="listening-result-title">Kết quả bài thi</h1><p>{test.title}</p></div><span className="exam-result-status">Đã nộp bài</span></header>
+      <header className="exam-result-heading"><div><p className="exam-result-eyebrow">LISTENING · FULL TEST COMPLETE</p><h1 id="listening-result-title">Test results</h1><p>{test.title}</p></div><span className="exam-result-status">Submitted</span></header>
 
-      <section className="exam-result-hero" aria-label="Tổng quan kết quả">
-        <div className="exam-result-band"><span>Estimated band</span><strong>{result?.band_estimate == null ? '<4.0' : Number(result.band_estimate).toFixed(1)}</strong><small>Kết quả luyện tập</small></div>
+      <section className="exam-result-hero" aria-label="Results overview">
+        <div className="exam-result-band"><span>Estimated band</span><strong>{result?.band_estimate == null ? '<4.0' : Number(result.band_estimate).toFixed(1)}</strong><small>Practice result</small></div>
         <div className="exam-result-metrics">
-          <div><span>Đúng</span><strong>{score}<small>/{maxScore}</small></strong></div>
-          <div><span>Tỉ lệ chính xác</span><strong>{accuracy}<small>%</small></strong></div>
-          <div><span>Đã trả lời</span><strong>{answered}<small>/{maxScore}</small></strong></div>
-          <div><span>Cần nghe lại</span><strong>{needsReview}</strong></div>
+          <div><span>Correct</span><strong>{score}<small>/{maxScore}</small></strong></div>
+          <div><span>Accuracy</span><strong>{accuracy}<small>%</small></strong></div>
+          <div><span>Answered</span><strong>{answered}<small>/{maxScore}</small></strong></div>
+          <div><span>Review needed</span><strong>{needsReview}</strong></div>
         </div>
       </section>
 
-      {sections.length ? <section className="exam-result-parts" aria-labelledby="listening-result-parts"><div className="exam-result-section-heading"><div><p>SECTION BREAKDOWN</p><h2 id="listening-result-parts">Kết quả theo từng phần</h2></div></div><div className="exam-result-part-grid">{sections.map(([key, value]: [string, any], index) => {
+      {sections.length ? <section className="exam-result-parts" aria-labelledby="listening-result-parts"><div className="exam-result-section-heading"><div><p>SECTION BREAKDOWN</p><h2 id="listening-result-parts">Results by part</h2></div></div><div className="exam-result-part-grid">{sections.map(([key, value]: [string, any], index) => {
         const total = Number(value?.total || 0);
         const correct = Number(value?.correct || 0);
         const sectionNumber = Number(String(key).match(/\d+/)?.[0]) || index + 1;
-        return <div className="exam-result-part" key={key}><div><span>Part {sectionNumber}</span><strong>{correct}/{total}</strong></div><div className="exam-result-progress" aria-label={`Part ${sectionNumber}: đúng ${correct} trên ${total}`}><span style={{ width: `${total ? Math.round((correct / total) * 100) : 0}%` }} /></div></div>;
+        return <div className="exam-result-part" key={key}><div><span>Part {sectionNumber}</span><strong>{correct}/{total}</strong></div><div className="exam-result-progress" aria-label={`Part ${sectionNumber}: ${correct} correct out of ${total}`}><span style={{ width: `${total ? Math.round((correct / total) * 100) : 0}%` }} /></div></div>;
       })}</div></section> : null}
 
-      <section className="exam-result-review-card" aria-labelledby="listening-result-review-title"><div className="exam-result-section-heading"><div><p>QUESTION MAP</p><h2 id="listening-result-review-title">Tổng quan {maxScore} câu</h2></div><div className="exam-result-legend" aria-label="Chú thích"><span className="is-correct" />Đúng <span className="is-wrong" />Cần nghe lại <span className="is-empty" />Bỏ trống</div></div><div className="exam-result-question-map">{rows.map((row: any) => {
+      <section className="exam-result-review-card" aria-labelledby="listening-result-review-title"><div className="exam-result-section-heading"><div><p>QUESTION MAP</p><h2 id="listening-result-review-title">Overview of {maxScore} questions</h2></div><div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Review needed <span className="is-empty" />Unanswered</div></div><div className="exam-result-question-map">{rows.map((row: any) => {
         const empty = !String(row.user_answer ?? '').trim();
-        return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Câu ${row.q_num}: ${empty ? 'bỏ trống' : row.correct ? 'đúng' : 'cần nghe lại'}`} key={row.q_num}>{row.q_num}</span>;
+        return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'review needed'}`} key={row.q_num}>{row.q_num}</span>;
       })}</div></section>
 
-      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">BƯỚC TIẾP THEO</p><h2>{needsReview ? `Nghe lại ${needsReview} câu chưa đúng` : 'Xem lại transcript và bẫy nghe'}</h2><p>Mở đúng đoạn audio, đối chiếu transcript và phân tích paraphrase theo từng câu.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Vào chữa bài <span aria-hidden="true">→</span></a> : null}<a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Luyện chép chính tả</a><a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Về kho đề</a></div></section>
+      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{needsReview ? `Review ${needsReview} incorrect answers` : 'Review the transcript and explanations'}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Review answers <span aria-hidden="true">→</span></a> : null}<a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a><a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
     </section>
   </main>;
 }
@@ -440,7 +440,7 @@ export function ListeningTestSession() {
   useEffect(() => { answersRef.current = answers; }, [answers]);
   useEffect(() => {
     try { setParams(listeningTestParams(window.location.search)); }
-    catch { setError('Không có mã bài Listening hợp lệ.'); setPhase('error'); }
+    catch { setError('No valid Listening test ID was provided.'); setPhase('error'); }
   }, []);
 
   const flagApi = useAttemptReviewFlags({
@@ -471,7 +471,7 @@ export function ListeningTestSession() {
       { renderer_affinity: 'next' },
     );
     const canonical = String(claimed?.renderer_affinity || '');
-    if (!['legacy', 'next'].includes(canonical)) throw new Error('Renderer của attempt không hợp lệ.');
+    if (!['legacy', 'next'].includes(canonical)) throw new Error('This attempt cannot be displayed.');
     if (canonical !== 'next') {
       window.location.replace(listeningRendererHref(canonical, window.location.search));
       return null;
@@ -482,7 +482,7 @@ export function ListeningTestSession() {
   const boot = useCallback(async () => {
     if (!params) return;
     const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Listening test)');
-    if (!ready) throw new Error('Không thể kết nối lớp dữ liệu.');
+    if (!ready) throw new Error('Unable to connect. Please try again.');
     const [testPayload, resumePayload] = params.adminPreview
       ? [await window.api.get(`/admin/listening/tests/${encodeURIComponent(params.testId)}/player-preview`), null]
       : await Promise.all([
@@ -527,7 +527,7 @@ export function ListeningTestSession() {
       if (caught?.status === 409 && caught?.detail?.reason === 'admission_required') {
         setTestData(null); setAttempt(null); setResumeAvailable(false); setAdmissionRequired(true); setPhase('prestart'); return;
       }
-      setError(`Không tải được bài Listening. ${caught?.message || ''}`); setPhase('error');
+      setError("Unable to load the Listening test. Check your connection and try again."); setPhase('error');
     }
   }, [boot]);
 
@@ -596,13 +596,13 @@ export function ListeningTestSession() {
       () => typeof (window as any).MockHook?.attach === 'function',
       'window.MockHook.attach (Listening mock)',
     );
-    if (!hookReady) throw new Error('Không thể liên kết bài Listening với kỳ thi.');
+    if (!hookReady) throw new Error('Unable to connect Listening to your test session.');
     await (window as any).MockHook.attach('listening', attemptId);
   }, [params?.sittingId]);
 
   const enterAttempt = useCallback(async (nextAttempt: Attempt, restored: AnswerMap, attach = true, nextTest = testData) => {
     if (nextAttempt.attempt_purpose === 'mock_delivery') {
-      if (!nextAttempt.mock_sitting_id || (params?.sittingId && nextAttempt.mock_sitting_id !== params.sittingId)) throw new Error('Không xác nhận được kỳ thi của bài Listening.');
+      if (!nextAttempt.mock_sitting_id || (params?.sittingId && nextAttempt.mock_sitting_id !== params.sittingId)) throw new Error('Unable to confirm your Listening test session.');
     } else if (attach) await attachMockAttempt(nextAttempt.attempt_id);
     const offset = await resolveAudioOffset(nextAttempt, nextTest);
     answersRef.current = restored;
@@ -621,7 +621,7 @@ export function ListeningTestSession() {
   const resume = useCallback(() => {
     if (!attempt) return;
     void enterAttempt(attempt, answersRef.current).catch((caught: any) => {
-      setError(`Không tiếp tục được bài Listening. ${caught?.message || ''}`); setPhase('error');
+      setError("Unable to resume the Listening test. Check your connection and try again."); setPhase('error');
     });
   }, [attempt, enterAttempt]);
 
@@ -642,12 +642,12 @@ export function ListeningTestSession() {
         window.api.get(withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [['class_item', params.classItem], ['sitting_id', params.sittingId]])),
       ]);
       const canonical = normalizeListeningResume(resumePayload);
-      if (!canonical || canonical.attempt_id !== String(started.attempt_id)) throw new Error('Không xác nhận được attempt vừa tạo.');
+      if (!canonical || canonical.attempt_id !== String(started.attempt_id)) throw new Error('Unable to confirm the new attempt.');
       const confirmedTest = normalizeListeningTest(testPayload);
       setTestData(confirmedTest); setAdmissionRequired(false);
       const ownedAttempt = { ...canonical, renderer_affinity: affinity };
       await enterAttempt(ownedAttempt, listeningAnswersFromRows(canonical.answers), true, confirmedTest);
-    } catch (caught: any) { setError(`Không bắt đầu được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
+    } catch (caught: any) { setError("Unable to start the Listening test. Check your connection and try again."); setPhase('error'); }
   }, [admissionRequired, claimNextRenderer, enterAttempt, params, resumePath, resumeAvailable, user?.id]);
 
   useEffect(() => {
@@ -670,7 +670,7 @@ export function ListeningTestSession() {
     const [clean] = await Promise.all([coordinatorRef.current?.flush?.(), flagApi.flush()]);
     if (!clean) {
       setPhase('inprogress');
-      setSubmitBlocked('Vẫn còn câu chưa lưu được lên máy chủ. Hãy kiểm tra kết nối, bấm “Thử lại”, rồi nộp bài lại để tránh mất đáp án.');
+      setSubmitBlocked('Some answers have not been saved. Check your connection, select “Retry”, then submit again to avoid losing answers.');
       return;
     }
     try {
@@ -694,7 +694,7 @@ export function ListeningTestSession() {
         setResult(response); setPhase('capture'); return;
       }
       setResult(response); setPhase('results');
-    } catch (caught: any) { setError(`Không nộp được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
+    } catch (caught: any) { setError("Unable to submit Listening answers. Check your connection and try again."); setPhase('error'); }
   }, [attempt, flagApi.flush, params?.mockEmbed, phase, user?.id]);
 
   useEffect(() => {
@@ -736,8 +736,8 @@ export function ListeningTestSession() {
       setPlaying(false);
       setAudioPromptOpen(false);
       setAudioError(navigator.onLine
-        ? 'Audio chưa phát được. Hãy tải lại đường dẫn audio rồi bấm Play; thời gian thi vẫn tiếp tục chạy.'
-        : 'Đang mất mạng nên audio chưa phát được. Giữ nguyên tab; hệ thống sẽ tải lại khi có kết nối.');
+        ? 'Audio could not start. Reload the audio and select Play. The test timer continues.'
+        : 'You are offline and audio could not start. Keep this tab open; audio will reload when the connection returns.');
       // A rejected first play may be retried. A rejected RESUME must retain the
       // single-shot latch so it can never become a restart-from-zero affordance.
       if (!practice && !alreadyStarted) setPlaybackStarted(false);
@@ -772,7 +772,7 @@ export function ListeningTestSession() {
       setAudioError('');
       setAudioPromptOpen(!isPracticeListeningTest(refreshed));
     } catch (caught: any) {
-      setAudioError(`Chưa tải lại được audio. ${caught?.message || 'Kiểm tra kết nối rồi thử lại.'}`);
+      setAudioError('Unable to reload audio. Check your connection and try again.');
     } finally {
       setAudioRetrying(false);
     }
@@ -810,6 +810,16 @@ export function ListeningTestSession() {
     const target = allQuestions[Math.min(allQuestions.length - 1, Math.max(0, index + direction))];
     if (target) jumpToQuestion(Number(target.question.q_num));
   }, [allQuestions, currentQuestion, jumpToQuestion]);
+
+  useEffect(() => {
+    const active = document.querySelector<HTMLElement>('.listening-next-palette [aria-current="step"]');
+    const strip = active?.parentElement;
+    if (!active || !strip) return;
+    const button = active.getBoundingClientRect();
+    const viewport = strip.getBoundingClientRect();
+    if (button.left < viewport.left + 4) strip.scrollLeft -= viewport.left + 4 - button.left;
+    else if (button.right > viewport.right - 4) strip.scrollLeft += button.right - viewport.right + 4;
+  }, [currentQuestion, activeSection, phase]);
 
   useEffect(() => {
     if (saveStates.size === 0) setSubmitBlocked('');
@@ -853,7 +863,7 @@ export function ListeningTestSession() {
     <header className="exam-topbar listening-next-topbar" role="banner">
       <div className="exam-topbar__left">
         <div className="exam-topbar__candidate">Aver Learning <b>{params?.adminPreview ? 'Admin preview' : user?.email || 'Candidate'}</b></div>
-        <div className="exam-topbar__section">IELTS Listening Practice · {testData?.title || 'Listening Test'}</div>
+        <div className="exam-topbar__section">{practice ? 'IELTS Listening Practice' : 'IELTS Listening'} · {testData?.title || 'Listening Test'}</div>
       </div>
       <div className="listening-next-audio-state" aria-live="polite" hidden={!['inprogress', 'submitting'].includes(phase)}>
         <strong>{practice ? (playing ? 'Practice audio playing' : 'Practice audio ready') : audioEnded ? 'Audio has ended' : playing ? 'Audio is Playing' : playbackStarted ? 'Audio paused' : 'Audio ready'}</strong>
@@ -861,25 +871,25 @@ export function ListeningTestSession() {
       </div>
       <div className="exam-topbar__right"><span className="listening-next-topbar-progress">{answers.size}/{total || '—'} answered</span></div>
     </header>
-    <main className={`listening-next-shell${['inprogress', 'submitting'].includes(phase) ? ' is-testing' : ''}`}>
-      {phase === 'loading' ? <div className="empty-state">Đang tải bài Listening…</div> : null}
-      {phase === 'error' ? <section className="error-banner" role="alert"><p>{error}</p><div className="listening-next-actions"><button className="ft-control-btn" type="button" onClick={() => void bootWithRecovery()}>Thử lại</button><a className="ft-control-btn ghost" href={backHref}>← Quay lại</a></div></section> : null}
-      {phase === 'prestart' && admissionRequired ? <section className="ft-prestart"><h1>Bài Listening trong kỳ thi</h1><p>Bắt đầu bài thi để tiếp tục vào phần Listening.</p><div className="listening-next-actions"><button className="ft-control-btn" type="button" onClick={() => void startFresh()}>Bắt đầu bài thi</button><a className="ft-control-btn ghost" href={backHref}>← Quay lại</a></div></section> : null}
+    <main className={`listening-next-shell${['inprogress', 'submitting'].includes(phase) ? ' is-testing' : ''}${params?.adminPreview ? ' is-preview' : ''}`}>
+      {phase === 'loading' ? <div className="empty-state">Loading Listening test…</div> : null}
+      {phase === 'error' ? <section className="error-banner" role="alert"><p>{error}</p><div className="listening-next-actions"><button className="ft-control-btn" type="button" onClick={() => void bootWithRecovery()}>Retry</button><a className="ft-control-btn ghost" href={backHref}>← Back</a></div></section> : null}
+      {phase === 'prestart' && admissionRequired ? <section className="ft-prestart"><h1>Listening test</h1><p>Start the test to continue to Listening.</p><div className="listening-next-actions"><button className="ft-control-btn" type="button" onClick={() => void startFresh()}>Start test</button><a className="ft-control-btn ghost" href={backHref}>← Back</a></div></section> : null}
       {phase === 'prestart' && testData ? <section className="ft-prestart">
         <p className="eyebrow">{practice ? 'LISTENING PRACTICE' : 'FULL LISTENING TEST'}</p>
-        <h1>{testData.title}</h1><p>{sections.length} phần · {total} câu</p>
-        <div className="ft-rules"><ul><li>Mỗi câu trả lời được lưu vào máy chủ.</li><li>Refresh trang có thể tiếp tục đúng attempt đang mở.</li><li>{practice ? 'Bạn có thể tạm dừng, tua và nghe lại audio.' : 'Audio chỉ phát một lượt; không tua hoặc quay lại từ đầu.'}</li></ul></div>
-        {resumeAvailable ? <p className="ft-resume-note">Bạn có bài đang làm dở với {answers.size} câu đã lưu. Tiếp tục để giữ attempt và mốc audio hiện tại.</p> : null}
-        <div className="listening-next-actions"><a className="ft-control-btn ghost" href={backHref}>← Quay lại</a>
-          {resumeAvailable ? <button className="ft-control-btn" id="ft-resume-btn" type="button" onClick={resume}>Tiếp tục bài đang làm</button> : null}
+        <h1>{testData.title}</h1><p>{sections.length} parts · {total} questions</p>
+        <div className="ft-rules"><ul><li>Your answers are saved automatically.</li><li>Reloading the page resumes your current attempt.</li><li>{practice ? 'You can pause, seek and replay the practice audio.' : 'The recording plays once. You cannot rewind or restart it.'}</li></ul></div>
+        {resumeAvailable ? <p className="ft-resume-note">You have an unfinished attempt with {answers.size} saved answers. Resume to keep your answers and audio position.</p> : null}
+        <div className="listening-next-actions"><a className="ft-control-btn ghost" href={backHref}>← Back</a>
+          {resumeAvailable ? <button className="ft-control-btn" id="ft-resume-btn" type="button" onClick={resume}>Resume test</button> : null}
           <button className="ft-control-btn ghost" id="btn-start" type="button" onClick={() => {
             if (!resumeAvailable) { void startFresh(); return; }
-            if (window.confirm('Bài đang làm sẽ bị bỏ và thay bằng attempt mới. Tiếp tục?')) void startFresh();
-          }}>{resumeAvailable ? 'Bắt đầu lại từ đầu' : 'Bắt đầu test'}</button>
+            if (window.confirm('Your current attempt will be discarded and replaced. Start a new attempt?')) void startFresh();
+          }}>{resumeAvailable ? 'Start a new attempt' : 'Start test'}</button>
         </div>
       </section> : null}
       {['inprogress', 'submitting'].includes(phase) && testData ? <>
-        {params?.adminPreview ? <aside className="listening-admin-preview" role="status"><strong>Bản duyệt admin</strong><span>Đây là đúng giao diện thi của học viên. Câu trả lời chỉ nằm trong tab này; hệ thống không tạo attempt và không lưu kết quả.</span><span className="listening-admin-preview__actions"><a className="ft-control-btn ghost" href={`/listening/review?admin_test_id=${encodeURIComponent(testData.id)}`}>Xem chữa bài</a><a className="ft-control-btn ghost" href={backHref}>Về kho đề</a></span></aside> : null}
+        {params?.adminPreview ? <aside className="listening-admin-preview" role="status"><strong>Admin preview</strong><span>Preview only. Answers stay in this tab and no test attempt or result is saved.</span><span className="listening-admin-preview__actions"><a className="ft-control-btn ghost" href={`/listening/review?admin_test_id=${encodeURIComponent(testData.id)}`}>Review answers</a><a className="ft-control-btn ghost" href={backHref}>Back to tests</a></span></aside> : null}
         <section className="listening-next-part-strip" aria-label={`Part ${activeSection}`}>
           <strong>Part {activeSection}</strong><span>{activeSectionQuestions.length ? `Listen and answer questions ${activeSectionQuestions[0]?.q_num}–${activeSectionQuestions.at(-1)?.q_num}.` : 'Listen and answer the questions.'}</span>
         </section>
@@ -888,11 +898,11 @@ export function ListeningTestSession() {
             <div className="ft-sticky-row"><span className="ft-progress-text">Practice audio</span><span className="ft-time">{formatTime(currentTime)} / {formatTime(duration)}</span></div>
             <div className="ft-audio-bar ft-audio-bar--seekable"><div className="ft-audio-fill" style={{ width: `${duration ? currentTime / duration * 100 : 0}%` }} /></div>
           </> : <div className="listening-next-full-audio-copy"><span className="listening-next-headphones" aria-hidden="true">◉</span><span><strong>{audioEnded ? 'Audio has ended' : playing ? 'Audio is Playing' : playbackStarted ? 'Audio paused by the browser' : 'Audio ready'}</strong><small>{audioEnded ? 'Continue answering before you submit.' : 'The recording cannot be rewound or restarted.'}</small></span></div>}
-          {audioError ? <div className="ft-audio-error" role="alert"><span>{audioError}</span><button className="ft-control-btn ghost" type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Đang tải lại…' : 'Tải lại audio'}</button></div> : null}
+          {audioError ? <div className="ft-audio-error" role="alert"><span>{audioError}</span><button className="ft-control-btn ghost" type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Reloading…' : 'Reload audio'}</button></div> : null}
           <div className="ft-audio-controls">
-            {practice ? <><button className="ft-control-btn" type="button" onClick={toggleAudio}>{playing ? '⏸ Tạm dừng' : '▶ Play'}</button><input aria-label="Audio progress (kéo để tua)" type="range" min="0" max={Math.max(1, duration)} value={currentTime} onChange={(event) => { const next = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = next; setCurrentTime(next); }} /></>
-              : !audioPromptOpen && !playing && !audioEnded ? <button className="ft-control-btn" type="button" onClick={startAudio}>{playbackStarted ? '▶ Tiếp tục' : '▶ Play'}</button> : null}
-            <label>Volume <input aria-label="Âm lượng" type="range" min="0" max="100" defaultValue="100" onChange={(event) => { if (audioRef.current) audioRef.current.volume = Number(event.target.value) / 100; }} /></label>
+            {practice ? <><button className="ft-control-btn" type="button" onClick={toggleAudio}>{playing ? 'Pause' : '▶ Play'}</button><input aria-label="Audio progress" type="range" min="0" max={Math.max(1, duration)} value={currentTime} onChange={(event) => { const next = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = next; setCurrentTime(next); }} /></>
+              : !audioPromptOpen && !playing && !audioEnded ? <button className="ft-control-btn" type="button" onClick={startAudio}>{playbackStarted ? 'Resume' : '▶ Play'}</button> : null}
+            <label>Volume <input aria-label="Volume" type="range" min="0" max="100" defaultValue="100" onChange={(event) => { if (audioRef.current) audioRef.current.volume = Number(event.target.value) / 100; }} /></label>
           </div>
           <audio
             key={`${testData.audio_url}:${audioReloadKey}`}
@@ -908,8 +918,8 @@ export function ListeningTestSession() {
             onPlay={() => { setPlaying(true); setAudioEnded(false); }} onPause={() => setPlaying(false)}
             onEnded={() => { setPlaying(false); setAudioEnded(!practice); if (practice) setPlaybackStarted(false); }}
             onError={() => setAudioError(navigator.onLine
-              ? 'Không tải được dữ liệu audio. Hãy tải lại đường dẫn audio; thời gian thi vẫn tiếp tục chạy.'
-              : 'Đang mất mạng nên audio bị gián đoạn. Giữ nguyên tab; hệ thống sẽ tải lại khi có kết nối.')}
+              ? 'Unable to load audio. Reload the audio; the test timer continues.'
+              : 'You are offline and audio was interrupted. Keep this tab open; audio will reload when the connection returns.')}
           />
         </section>
         <div className="ielts-test-paper" id="listening-paper" onFocusCapture={(event) => {
@@ -925,22 +935,22 @@ export function ListeningTestSession() {
             const sectionNum = Number(section.section_num);
             const sectionQuestions = questionsForSection(section);
             return <div className={`listening-next-palette-group${sectionNum === activeSection ? ' is-active' : ''}`} key={sectionNum}>
-              <button className="listening-next-palette-label" type="button" onClick={() => { setActiveSection(sectionNum); const first = Number(sectionQuestions[0]?.q_num || 0); if (first) setCurrentQuestion(first); }}>Part {sectionNum}</button>
-              <div>{sectionQuestions.map((question: any) => {
+              <button className="listening-next-palette-label" type="button" aria-expanded={sectionNum === activeSection} aria-controls={`listening-part-${sectionNum}-numbers`} onClick={() => { const first = Number(sectionQuestions[0]?.q_num || 0); if (first) jumpToQuestion(first); }}><strong>Part {sectionNum}</strong><span>{sectionQuestions.filter((question: any) => answers.has(Number(question.q_num))).length} / {sectionQuestions.length}</span></button>
+              <div id={`listening-part-${sectionNum}-numbers`} hidden={sectionNum !== activeSection}>{sectionQuestions.map((question: any) => {
                 const qNum = Number(question.q_num);
-                return <button className={`progress-square${answers.has(qNum) ? ' answered' : ''}${qNum === currentQuestion ? ' current' : ''}${reviewQuestions.has(qNum) ? ' is-review' : ''}${saveStates.has(qNum) ? ' is-unsaved' : ''}${saveStates.get(qNum) === 'failed' ? ' is-save-failed' : ''}`} type="button" key={qNum} aria-label={`Question ${qNum}${answers.has(qNum) ? ', answered' : ', unanswered'}${reviewQuestions.has(qNum) ? ', marked for review' : ''}`} onClick={() => jumpToQuestion(qNum)}>{qNum}</button>;
+                return <button className={`progress-square${answers.has(qNum) ? ' answered' : ''}${qNum === currentQuestion ? ' current' : ''}${reviewQuestions.has(qNum) ? ' is-review' : ''}${saveStates.has(qNum) ? ' is-unsaved' : ''}${saveStates.get(qNum) === 'failed' ? ' is-save-failed' : ''}`} type="button" key={qNum} aria-current={qNum === currentQuestion ? 'step' : undefined} aria-label={`Question ${qNum}${answers.has(qNum) ? ', answered' : ', unanswered'}${reviewQuestions.has(qNum) ? ', marked for review' : ''}`} onClick={() => jumpToQuestion(qNum)}>{qNum}</button>;
               })}</div>
             </div>;
           })}</div>
-          {saveStates.size ? <p className="ft-unsaved-note" role="status">{unsavedPending ? `Đang lưu ${unsavedPending} câu. ` : ''}{unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}{unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi lưu xong.'}{unsavedFailed ? <button className="ft-unsaved-retry" type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}</p> : null}
+          {saveStates.size ? <p className="ft-unsaved-note" role="status">{unsavedPending ? `Saving ${unsavedPending} answers. ` : ''}{unsavedRetrying ? `Retrying ${unsavedRetrying} answers. ` : ''}{unsavedFailed ? `${unsavedFailed} answers have not been saved to the server.` : 'Keep this tab open until saving finishes.'}{unsavedFailed ? <button className="ft-unsaved-retry" type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Retry</button> : null}</p> : null}
           {submitBlocked ? <p className="ft-nothing-saved" role="alert">{submitBlocked}</p> : null}
           {!params?.adminPreview ? <AttemptReviewFlagStatus ready={flagApi.ready} states={flagApi.states} error={flagApi.error} onRetry={flagApi.retry} /> : null}
-          <div className="listening-next-submit-row"><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions[0]?.question?.q_num)} onClick={() => moveQuestion(-1)}>‹ Previous</button><label className="listening-next-review"><input type="checkbox" checked={currentQuestion != null && reviewQuestions.has(currentQuestion)} disabled={currentQuestion == null || phase !== 'inprogress' || (!params?.adminPreview && !flagApi.ready)} onChange={() => { if (currentQuestion != null) toggleFlag(currentQuestion); }} /> Review</label><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions.at(-1)?.question?.q_num)} onClick={() => moveQuestion(1)}>Next ›</button>{params?.adminPreview ? <a className="btn-submit-final" href={`/listening/review?admin_test_id=${encodeURIComponent(testData.id)}`}>Xem chữa bài</a> : !params?.mockEmbed ? <button className="btn-submit-final" id="btn-submit" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang chấm…' : 'Submit answers'}</button> : null}</div>
+          <div className="listening-next-submit-row"><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions[0]?.question?.q_num)} onClick={() => moveQuestion(-1)}>‹ Previous</button><label className="listening-next-review"><input type="checkbox" checked={currentQuestion != null && reviewQuestions.has(currentQuestion)} disabled={currentQuestion == null || phase !== 'inprogress' || (!params?.adminPreview && !flagApi.ready)} onChange={() => { if (currentQuestion != null) toggleFlag(currentQuestion); }} /> Review</label><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions.at(-1)?.question?.q_num)} onClick={() => moveQuestion(1)}>Next ›</button>{params?.adminPreview ? <a className="btn-submit-final" href={`/listening/review?admin_test_id=${encodeURIComponent(testData.id)}`}>Review answers</a> : !params?.mockEmbed ? <button className="btn-submit-final" id="btn-submit" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Submitting…' : 'Submit answers'}</button> : null}</div>
         </footer>
       </> : null}
-      {phase === 'sealed' ? <section className="ft-prestart"><p>Đã thu bài Listening. Đang chờ kỳ thi chuyển bước tiếp theo…</p></section> : null}
+      {phase === 'sealed' ? <section className="ft-prestart"><p>Listening answers collected. Waiting for the next section…</p></section> : null}
     </main>
     {audioPromptOpen ? <div className="listening-next-modal listening-next-audio-prompt" role="dialog" aria-modal="true" aria-labelledby="listening-audio-title"><div className="listening-next-modal-backdrop" /><section ref={audioDialogRef} className="listening-next-modal-panel" tabIndex={-1}><div className="listening-next-audio-icon" aria-hidden="true">◉</div><h2 id="listening-audio-title">Check your headphones</h2><p>When you press Play, the recording starts immediately. You cannot pause, rewind or play it again.</p><button ref={audioPlayRef} className="ft-control-btn" type="button" onClick={() => void startAudio()}>▶ Play</button></section></div> : null}
-    {submitOpen && !params?.adminPreview ? <div className="listening-next-modal" role="dialog" aria-modal="true" aria-labelledby="listening-submit-title"><button className="listening-next-modal-backdrop" aria-label="Đóng" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)} /><section ref={submitDialogRef} className="listening-next-modal-panel" tabIndex={-1}><h2 id="listening-submit-title">Nộp bài?</h2><p>{answers.size < total ? `Bạn còn ${total - answers.size}/${total} câu chưa trả lời.` : `Bạn đã trả lời tất cả ${total} câu.`}</p><div className="listening-next-actions"><button ref={submitCancelRef} className="ft-control-btn ghost" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="ft-control-btn" type="button" disabled={phase === 'submitting'} onClick={() => void submit()}>Nộp bài</button></div></section></div> : null}
+    {submitOpen && !params?.adminPreview ? <div className="listening-next-modal" role="dialog" aria-modal="true" aria-labelledby="listening-submit-title"><button className="listening-next-modal-backdrop" aria-label="Close" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)} /><section ref={submitDialogRef} className="listening-next-modal-panel" tabIndex={-1}><h2 id="listening-submit-title">Submit answers?</h2><p>{answers.size < total ? `You have ${total - answers.size} unanswered questions out of ${total}.` : `You have answered all ${total} questions.`}</p><div className="listening-next-actions"><button ref={submitCancelRef} className="ft-control-btn ghost" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)}>Return to test</button><button className="ft-control-btn" type="button" disabled={phase === 'submitting'} onClick={() => void submit()}>Submit answers</button></div></section></div> : null}
   </>;
 }

@@ -28,32 +28,35 @@ function stylesAtWidth(width) {
   return selected;
 }
 
-describe('native Reading palette keeps part groups separate inside its scrollport', () => {
+describe('native Reading palette expands the active part with stable question targets', () => {
   for (const width of [1180, 1280, 390, 375]) {
     test(`effective cascade at ${width}px preserves nonshrinking groups and button targets`, () => {
       let qNum = 0;
-      const groups = [13, 13, 14].map(count => `<div class="exam-palette__group"><span class="exam-palette__group-label">Part</span><div class="exam-palette__group-btns">${Array.from({ length: count }, () => `<button class="exam-palette__q" data-q="${++qNum}">${qNum}</button>`).join('')}</div></div>`).join('');
+      const groups = [13, 13, 14].map((count, index) => `<div class="exam-palette__group${index === 0 ? ' is-active' : ''}"><button class="exam-palette__group-label">Part ${index + 1}</button><div class="exam-palette__group-btns" ${index ? 'hidden' : ''}>${Array.from({ length: count }, () => `<button class="exam-palette__q" data-q="${++qNum}">${qNum}</button>`).join('')}</div></div>`).join('');
       const dom = new JSDOM(`<style>${stylesAtWidth(width)}</style><div class="exam-chrome reading-next-player-page"><footer class="exam-palette"><div class="exam-palette__grid">${groups}</div><div class="exam-palette__actions"></div></footer></div>`);
       try {
         const { document, getComputedStyle } = dom.window;
         const grid = getComputedStyle(document.querySelector('.exam-palette__grid'));
         assert.equal(grid.display, 'flex');
-        assert.equal(grid.flexWrap, 'nowrap');
-        assert.equal(grid.overflowX, 'auto');
+        assert.equal(grid.flexWrap, width <= 760 ? 'wrap' : 'nowrap');
+        assert.equal(grid.overflow, 'visible');
         assert.equal(grid.minWidth, '0');
         for (const group of document.querySelectorAll('.exam-palette__group')) {
           const style = getComputedStyle(group);
-          assert.equal(style.flexShrink, '0', 'fixed button tracks must not overflow a shrunken part group');
-          assert.equal(style.flexGrow, '0');
+          assert.equal(style.display, width <= 760 ? 'contents' : 'flex');
+          assert.equal(style.flexShrink, group.classList.contains('is-active') ? '1' : '0');
+          assert.equal(style.flexGrow, group.classList.contains('is-active') ? '1' : '0');
           assert.equal(style.flexBasis, 'auto');
-          assert.equal(style.flexDirection, 'column');
+          assert.equal(style.flexDirection, 'row');
           const buttons = getComputedStyle(group.querySelector('.exam-palette__group-btns'));
-          assert.equal(buttons.gridAutoColumns, width <= 760 ? '44px' : '30px');
+          assert.equal(buttons.display, group.classList.contains('is-active') ? 'flex' : 'none');
+          assert.equal(buttons.overflowX, 'auto');
         }
         for (const button of document.querySelectorAll('.exam-palette__q')) {
           const style = getComputedStyle(button);
-          assert.equal(style.width, width <= 760 ? '44px' : '30px');
-          assert.equal(style.height, width <= 760 ? '44px' : '30px');
+          assert.equal(style.width, width <= 760 ? '44px' : '32px');
+          assert.equal(style.height, width <= 760 ? '44px' : '34px');
+          assert.equal(style.flexShrink, '0');
         }
         assert.deepEqual([...document.querySelectorAll('.exam-palette__q')].map(button => Number(button.dataset.q)), Array.from({ length: 40 }, (_, i) => i + 1));
       } finally { dom.window.close(); }

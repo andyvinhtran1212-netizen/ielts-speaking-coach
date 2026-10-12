@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function ReadingExamSessionPage() {
-  return <ReadingExamSession />;
+  return <div lang="en" style={{ display: 'contents' }}><ReadingExamSession /></div>;
 }

@@ -3,9 +3,10 @@
 // providers until the first real migrated route needs them.
 import type { Metadata } from 'next';
 import { JetBrains_Mono, Lora, Plus_Jakarta_Sans } from 'next/font/google';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 
 import { ChromeNavigationBridge } from '@/components/chrome-navigation-bridge';
+import { ExamLanguageBridge } from '@/components/exam-language-bridge';
 import { NextWebVitals } from '@/components/next-web-vitals';
 import { API_BASE } from '@/lib/backend';
 
@@ -99,6 +100,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body suppressHydrationWarning>
         <NextWebVitals apiBase={API_BASE} release={DOC_RELEASE} />
         <ChromeNavigationBridge />
+        <Suspense fallback={null}><ExamLanguageBridge /></Suspense>
         {children}
       </body>
     </html>
