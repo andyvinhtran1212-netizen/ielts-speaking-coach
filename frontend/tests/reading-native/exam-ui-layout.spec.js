@@ -61,6 +61,7 @@ for (const skill of ['reading', 'listening']) {
       if (skill === 'listening') await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play/ }).click();
       const palette = page.getByRole('navigation', { name: 'Question palette' });
       await expect(palette).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('lang', 'en');
       await expect(page.getByRole('region', { name: 'Part 1', exact: true })).toBeVisible();
       const partButtons = palette.getByRole('button', { name: /^Part \d/ });
       await expect(partButtons).toHaveCount(skill === 'reading' ? 3 : 4);
