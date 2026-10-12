@@ -47,7 +47,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(n
 it('Reading waits for Start, admits the exact sitting, then loads bound context and saved Review flags', async () => {
   window.history.replaceState(null, '', '/reading/exam/session?test_id=paper-a&sitting_id=sitting-a');
   render(<ReadingExamSession />);
-  const start = await screen.findByRole('button', { name: 'Bắt đầu bài thi', exact: true });
+  const start = await screen.findByRole('button', { name: 'Start test', exact: true });
   expect(api.postWith).not.toHaveBeenCalled(); expect(screen.queryByText('FROZEN_PASSAGE_CONTEXT')).toBeNull();
   fireEvent.click(start); await screen.findByText('FROZEN_PASSAGE_CONTEXT');
   await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Review', exact: true }) as HTMLInputElement).checked).toBe(true));
@@ -58,7 +58,7 @@ it('Reading waits for Start, admits the exact sitting, then loads bound context 
 it('Listening admission exposes frozen context, restores flags and preserves saved answers', async () => {
   window.history.replaceState(null, '', '/listening/test/session?id=paper-a&sitting_id=sitting-a');
   render(<ListeningTestSession />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Bắt đầu bài thi', exact: true }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Start test', exact: true }));
   const input = await screen.findByRole('textbox', { name: 'Answer 1', exact: true });
   expect((input as HTMLInputElement).value).toBe('saved answer');
   await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Review', exact: true }) as HTMLInputElement).checked).toBe(true));
@@ -69,17 +69,17 @@ it('Listening admission exposes frozen context, restores flags and preserves sav
 it('failed Review save stays visible, explicit retry saves it, and reload does not create another attempt', async () => {
   bound = true; window.history.replaceState(null, '', '/listening/test/session?id=paper-a&sitting_id=sitting-a');
   const first = render(<ListeningTestSession />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Tiếp tục bài đang làm' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Resume test' }));
   const review = await screen.findByRole('checkbox', { name: 'Review', exact: true });
   await waitFor(() => expect((review as HTMLInputElement).checked).toBe(true));
   failFlag = true; fireEvent.click(review); expect((review as HTMLInputElement).checked).toBe(false);
-  expect(await screen.findByText(/cờ Review chưa lưu được/)).toBeTruthy();
+  expect(await screen.findByText(/review marks could not be saved/)).toBeTruthy();
   expect((screen.getByRole('textbox', { name: 'Answer 1', exact: true }) as HTMLInputElement).value).toBe('saved answer');
-  failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Thử lại cờ Review' }));
+  failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
   await waitFor(() => expect(savedFlag.flagged).toBe(false));
   expect(api.patchWith.mock.calls.every(([path]) => path.endsWith('/review-flags'))).toBe(true);
   first.unmount(); render(<ListeningTestSession />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Tiếp tục bài đang làm' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Resume test' }));
   await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Review', exact: true }) as HTMLInputElement).checked).toBe(false));
   expect(api.postWith).not.toHaveBeenCalled();
 });

@@ -207,14 +207,14 @@ await page.route('**/*', async (route) => {
 
 await page.goto(`${BASE}/listening/test/session?id=${TEST_ID}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Native Listening fixture' }).waitFor();
-check('dark route boots canonical test and prestart', await page.getByRole('button', { name: 'Bắt đầu test' }).isVisible());
+check('dark route boots canonical test and prestart', await page.getByRole('button', { name: 'Start test' }).isVisible());
 
-await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+await page.getByRole('button', { name: 'Start test' }).click();
 await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click();
-await page.getByText(/Không tải được dữ liệu audio|Audio chưa phát được/).waitFor();
+await page.getByText(/Unable to load audio|Audio could not start/).waitFor();
 audioReady = true;
 await page.evaluate(() => { window.__AVER_AUDIO_READY__ = true; });
-await page.getByRole('button', { name: 'Tải lại audio' }).click();
+await page.getByRole('button', { name: 'Reload audio' }).click();
 await page.waitForFunction(() => document.querySelectorAll('.ft-audio-error').length === 0);
 check('audio failure is visible and a refreshed signed URL recovers in-place',
   await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).isVisible()
@@ -229,26 +229,26 @@ check(
 );
 
 await page.reload({ waitUntil: 'domcontentloaded' });
-await page.getByRole('button', { name: 'Tiếp tục bài đang làm' }).click();
+await page.getByRole('button', { name: 'Resume test' }).click();
 await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click();
 check('reload resumes the same answer', await page.getByLabel('Answer 1').inputValue() === 'library');
 
 await page.getByLabel('Answer 2').fill('blue');
 await page.waitForTimeout(700);
-await page.getByText('1 câu chưa lưu được lên máy chủ.').waitFor();
+await page.getByText('1 answers have not been saved to the server.').waitFor();
 await page.getByRole('button', { name: 'Submit answers' }).click();
-await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
+await page.getByRole('dialog').getByRole('button', { name: 'Submit answers' }).click();
 await page.waitForTimeout(100);
-check('terminal partial save blocks finalization', state.submits === 0 && await page.getByText('1 câu chưa lưu được lên máy chủ.').isVisible());
+check('terminal partial save blocks finalization', state.submits === 0 && await page.getByText('1 answers have not been saved to the server.').isVisible());
 
 state.rejectQ2 = false;
-await page.locator('.ft-unsaved-note').getByRole('button', { name: 'Thử lại', exact: true }).click();
+await page.locator('.ft-unsaved-note').getByRole('button', { name: 'Retry', exact: true }).click();
 await page.waitForFunction(() => document.querySelectorAll('.ft-unsaved-note').length === 0);
 check('manual retry reconciles the missing answer', state.answers.get(2) === 'blue');
 await page.getByRole('button', { name: 'Submit answers' }).click();
-await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
-await page.getByRole('heading', { name: 'Kết quả bài thi' }).waitFor();
-const scoreText = await page.getByLabel('Tổng quan kết quả').locator('.exam-result-metrics strong').first().textContent();
+await page.getByRole('dialog').getByRole('button', { name: 'Submit answers' }).click();
+await page.getByRole('heading', { name: 'Test results' }).waitFor();
+const scoreText = await page.getByLabel('Results overview').locator('.exam-result-metrics strong').first().textContent();
 check('clean submit renders canonical result once', state.submits === 1 && scoreText?.replace(/\s/g, '') === '2/2');
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
 check(

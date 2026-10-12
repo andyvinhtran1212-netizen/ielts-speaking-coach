@@ -4,7 +4,7 @@ const { ATTEMPT, completionBundle, cors, installReadingHarness, testBundle } = r
 test('boots the native dark route without starting an attempt', async ({ page }) => {
   const { calls } = await installReadingHarness(page);
   await expect(page.getByRole('heading', { name: 'Native Reading fixture' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Bắt đầu bài thi' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start test' })).toBeVisible();
   expect(calls.filter((call) => call.path.endsWith('/boot'))).toHaveLength(1);
   expect(calls.some((call) => call.path.endsWith('/attempts'))).toBe(false);
 });
@@ -26,7 +26,7 @@ test('rehydrates the canonical server attempt and continues its timer', async ({
       return false;
     },
   });
-  await page.getByRole('button', { name: 'Tiếp tục bài đang làm' }).click();
+  await page.getByRole('button', { name: 'Resume test' }).click();
   await expect(page.getByLabel('Answer 1')).toHaveValue('restored answer');
   await expect(page.getByRole('timer')).toContainText('59:');
 });
@@ -62,14 +62,14 @@ test('starts, autosaves and submits the complete in-memory answer set', async ({
     },
   });
 
-  await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
+  await page.getByRole('button', { name: 'Start test' }).click();
   await page.getByLabel('Answer 1').fill('first idea');
-  await page.getByLabel('Answer 2').selectOption('TRUE');
+  await page.getByRole('radiogroup', { name: 'Answer 2', exact: true }).getByRole('radio', { name: 'TRUE', exact: true }).check();
   await page.getByRole('radio', { name: /First/ }).check();
   await expect.poll(() => calls.filter((call) => call.method === 'PATCH').length).toBeGreaterThanOrEqual(3);
   await page.getByRole('button', { name: 'Submit' }).click();
-  await page.getByRole('button', { name: 'Nộp bài', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Kết quả' })).toBeVisible();
+  await page.getByRole('button', { name: 'Submit answers', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Test results' })).toBeVisible();
   expect(submittedBody.answers).toEqual([
     { q_num: 1, user_answer: 'first idea' },
     { q_num: 2, user_answer: 'TRUE' },
@@ -82,9 +82,10 @@ test('anonymous share boot and save carry the minted capability token', async ({
   await installReadingHarness(page, {
     signedIn: false,
     route: '/reading/exam/session?share=share-token&from=mini',
-    handleApi: async ({ route, request, url }) => {
+    handleApi: async ({ route, request, url, calls }) => {
       if (request.method() === 'GET' && url.pathname === '/api/reading/test/share/share-token/boot') {
-        await route.fulfill({ json: { test: testBundle(), in_progress: null }, headers: cors });
+        const started = calls.some(call => call.method === 'POST' && call.path.endsWith('/attempts'));
+        await route.fulfill({ json: { test: testBundle(), in_progress: started ? { attempt_id: ATTEMPT, anon_id: 'anon-capability', started_at: new Date().toISOString(), time_limit_minutes: 60, renderer_affinity: 'next', answers: [] } : null }, headers: cors });
         return true;
       }
       if (request.method() === 'POST' && url.pathname === '/api/reading/test/share/share-token/attempts') {
@@ -106,12 +107,12 @@ test('anonymous share boot and save carry the minted capability token', async ({
       return false;
     },
   });
-  await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
+  await page.getByRole('button', { name: 'Start test' }).click();
   await page.getByLabel('Answer 1').fill('guest answer');
   await expect.poll(() => saveHeader).toBe('anon-capability');
   await page.getByRole('button', { name: 'Submit' }).click();
-  await page.getByRole('button', { name: 'Nộp bài', exact: true }).click();
-  await expect(page.getByRole('link', { name: /Xem chữa bài chi tiết/ })).toHaveAttribute(
+  await page.getByRole('button', { name: 'Submit answers', exact: true }).click();
+  await expect(page.getByRole('link', { name: /Review answers/ })).toHaveAttribute(
     'href',
     `/reading/review?attempt_id=${ATTEMPT}&anon=anon-capability&from=mini`,
   );
@@ -140,7 +141,7 @@ test('shared attempt survives cross-tab sign-in and sign-out without rebooting',
       return false;
     },
   });
-  await page.getByRole('button', { name: 'Tiếp tục bài đang làm' }).click();
+  await page.getByRole('button', { name: 'Resume test' }).click();
   await page.getByLabel('Answer 1').fill('pending guest answer');
 
   await page.evaluate(() => window.__emitReadingNativeAuth({
@@ -168,11 +169,11 @@ test('renders and restores every shared completion format as one consecutive run
       answers: restored,
     },
   });
-  await page.getByRole('button', { name: 'Tiếp tục bài đang làm' }).click();
+  await page.getByRole('button', { name: 'Resume test' }).click();
   await expect(page.locator('.exam-questions__group')).toHaveCount(7);
   await expect(page.locator('.exam-questions__instructions').first()).toContainText('ONE WORD ONLY');
   await expect(page.getByText('(see summary above)')).toHaveCount(0);
-  await expect(page.locator('.reading-next-question-bank')).toHaveCount(1);
+  await expect(page.getByRole('complementary', { name: 'Word Bank', exact: true })).toHaveCount(1);
   await expect(page.locator('.exam-diagram-image')).toHaveCount(1);
   for (const question of bundle.questions) {
     await expect(page.getByLabel(`Answer ${question.q_num}`, { exact: true })).toHaveValue(
@@ -195,8 +196,8 @@ test('wrong password retry returns to a recoverable error instead of hanging', a
       return true;
     },
   });
-  await expect(page.locator('p[role="alert"]')).toContainText('Không tải được bài thi');
-  await page.getByRole('button', { name: 'Thử lại' }).click();
+  await expect(page.locator('p[role="alert"]')).toContainText('Unable to load the test');
+  await page.getByRole('button', { name: 'Retry' }).click();
   await expect(page.getByRole('heading', { name: 'Native Reading fixture' })).toBeVisible();
 });
 
@@ -216,7 +217,7 @@ test('pagehide flushes an answer that is still inside the debounce window', asyn
       return false;
     },
   });
-  await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
+  await page.getByRole('button', { name: 'Start test' }).click();
   await page.getByLabel('Answer 1').fill('leave safely');
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   await expect.poll(() => saved).toEqual({ q_num: 1, user_answer: 'leave safely' });
@@ -241,7 +242,7 @@ test('pagehide re-sends the latest answer while a normal save is still in flight
       return false;
     },
   });
-  await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
+  await page.getByRole('button', { name: 'Start test' }).click();
   await page.getByLabel('Answer 1').fill('keepalive replacement');
   await expect.poll(() => patchCalls).toBe(1);
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));

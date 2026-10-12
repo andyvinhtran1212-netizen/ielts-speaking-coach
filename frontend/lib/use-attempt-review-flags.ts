@@ -53,12 +53,12 @@ export function useAttemptReviewFlags({
         if (snapshot.pending.length) sessionStorage.setItem(storageKey, JSON.stringify(snapshot.pending));
         else sessionStorage.removeItem(storageKey);
       } catch {
-        if (snapshot.pending.length) error = 'Cờ Review chưa lưu xong. Giữ tab này mở để thử lại.';
+        if (snapshot.pending.length) error = 'Review marks are not saved yet. Keep this tab open to retry.';
       }
       setView({ scope, ready: snapshot.ready, flagged: snapshot.flagged, states: snapshot.states, error });
     });
-    const load = () => coordinator.load().catch((error: Error) => {
-      if (!disposed) setView((previous) => ({ ...previous, error: error.message || 'Không tải được cờ Review.' }));
+    const load = () => coordinator.load().catch(() => {
+      if (!disposed) setView((previous) => ({ ...previous, error: 'Unable to load review marks. Check your connection and retry.' }));
     });
     void load();
     const flushPage = () => { void coordinator.flush({ keepalive: true }); };
@@ -95,8 +95,8 @@ export function useAttemptReviewFlags({
     const bound = active.current;
     if (!enabled || bound?.scope !== scope) return;
     if (!bound.coordinator.snapshot().ready) {
-      void bound.coordinator.load().catch((error: Error) => {
-        if (active.current === bound) setView((previous) => ({ ...previous, error: error.message }));
+      void bound.coordinator.load().catch(() => {
+        if (active.current === bound) setView((previous) => ({ ...previous, error: 'Unable to load review marks. Check your connection and retry.' }));
       });
     } else bound.coordinator.retryFailed();
   }, [enabled, scope]);

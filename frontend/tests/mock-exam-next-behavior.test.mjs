@@ -47,7 +47,7 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /timerAnchorRef/);
     assert.match(RUNNER, /next === 0[\s\S]*timerSubmitTriggeredRef\.current = activeSection[\s\S]*!alreadyTriggered[\s\S]*submitRef\.current\(activeSection\)/);
     assert.match(RUNNER, /sectionTimeLeftSeconds > 0[\s\S]*timerSubmitTriggeredRef\.current = null/);
-    assert.doesNotMatch(RUNNER, />\s*Nộp bài\s*</);
+    assert.doesNotMatch(RUNNER, />\s*Submit answers\s*</);
   });
 
   test('flushes same-origin child players before domain and sitting finalization', () => {
@@ -65,7 +65,7 @@ describe('/mock-exam native runner ownership', () => {
     assert.ok(submit.indexOf('const domainPath') < submit.indexOf('/sections/${section}/submit'));
     assert.match(submit, /await requestPostTestCapture\(section, domainResponse as CaptureEnvelope\)/);
     assert.match(RUNNER, /MockPostTestCapture/);
-    assert.match(RUNNER, /Lưu tự đánh giá và nộp phần thi/);
+    assert.match(RUNNER, /Save confidence ratings and submit section/);
     assert.match(LISTENING_PLAYER, /event\.source !== window\.parent/);
     assert.match(READING_PLAYER, /event\.source !== window\.parent/);
     assert.match(RUNNER, /awaitingCollectionFlush[\s\S]*renderedSection/);
@@ -123,24 +123,24 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(RUNNER, /const task1BackedUp = writeLocalDraft[\s\S]*const task2BackedUp = writeLocalDraft[\s\S]*setLocalBackupFailed\(!task1BackedUp \|\| !task2BackedUp\)/);
     assert.match(RUNNER, /const edit = useCallback[\s\S]*setSaveCue\(\(current\) => current === 'failed' \? current : 'idle'\);[\s\S]*setLocalBackupFailed\(!writeLocalDraft/);
     assert.match(RUNNER, /const retryPending = retryRef\.current > 0;[\s\S]*delta >= 400[\s\S]*!retryPending/);
-    assert.match(RUNNER, /Trình duyệt không tạo được bản dự phòng trên thiết bị/);
-    assert.match(RUNNER, /Đã lưu lên máy chủ lúc/);
-    assert.match(RUNNER, /Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/);
+    assert.match(RUNNER, /A local backup could not be created/);
+    assert.match(RUNNER, /Saved to the server at/);
+    assert.match(RUNNER, /Server save and local backup failed/);
     assert.doesNotMatch(RUNNER, /bài vẫn giữ trên máy này/);
   });
 
   test('Writing exposes exam guidance without claiming word count means completion', () => {
     assert.match(RUNNER, /MOCK_WRITING_GUIDANCE/);
-    assert.match(RUNNER, /Ít nhất \{guidance\.minWords\} từ/);
+    assert.match(RUNNER, /At least \{guidance\.minWords\} words/);
     assert.match(RUNNER, /mockWritingTimeAllocation/);
-    assert.match(RUNNER, /Gợi ý \$\{recommendedMinutes\} phút/);
-    assert.match(RUNNER, /guidance\.timeShare\}\/\$\{MOCK_WRITING_TIME_SHARE_TOTAL\} thời gian/);
-    assert.match(RUNNER, /Trọng số gấp 2 Task 1/);
+    assert.match(RUNNER, /Suggested time: \$\{recommendedMinutes\} minutes/);
+    assert.match(RUNNER, /guidance\.timeShare\}\/\$\{MOCK_WRITING_TIME_SHARE_TOTAL\} of the section/);
+    assert.match(RUNNER, /Worth twice as much as Task 1/);
     assert.match(RUNNER, /prompt\?\.taskType === 'task1_academic'/);
     assert.match(RUNNER, /prompt\?\.taskType === 'task1_general'/);
-    assert.match(RUNNER, /Tóm tắt và so sánh các đặc điểm chính/);
-    assert.match(RUNNER, /Viết một lá thư đúng vai trò/);
-    assert.match(RUNNER, /không phải đánh giá chất lượng bài viết/);
+    assert.match(RUNNER, /Summarise and compare the main features/);
+    assert.match(RUNNER, /Write a letter using the appropriate role/);
+    assert.match(RUNNER, /not an assessment of writing quality/);
     assert.match(RUNNER, /role="progressbar"/);
     assert.doesNotMatch(RUNNER, /className="mw-time-guidance" role="status"/);
     assert.match(RUNNER, /spellCheck=\{false\}/);
@@ -161,9 +161,9 @@ describe('/mock-exam native runner ownership', () => {
 
   test('collects confidence quickly without affecting the score', () => {
     assert.match(POST_CAPTURE, /CONFIDENCE\.map[\s\S]*<button/);
-    assert.match(POST_CAPTURE, /Dữ liệu này không ảnh hưởng điểm/);
-    assert.match(POST_CAPTURE, /Chưa biết vì sao/);
-    assert.match(POST_CAPTURE, /không bắt buộc · tối đa 2/);
+    assert.match(POST_CAPTURE, /These ratings do not affect your score/);
+    assert.match(POST_CAPTURE, /Not sure why/);
+    assert.match(POST_CAPTURE, /optional · choose up to 2/);
     assert.doesNotMatch(POST_CAPTURE, /<select/);
     assert.match(POST_CAPTURE_CSS, /grid-template-columns: repeat\(5/);
     assert.match(LAYOUT, /mock-post-test-capture\.css/);
