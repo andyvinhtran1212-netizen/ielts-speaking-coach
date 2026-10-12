@@ -290,6 +290,34 @@ await adminPage.waitForURL(`${BASE}/admin/users`);
 check('admin chrome dùng App Router qua Shadow DOM',
   await adminPage.evaluate(() => window.__adminNavigationSentinel) === 'survived');
 check('soft navigation admin không phát sinh lỗi JavaScript', adminErrors.length === 0, adminErrors[0] || '');
+for (const examPath of ['/reading/exam/session', '/listening/test/session', '/mock-exam']) {
+  const link = adminPage.locator('aver-admin-chrome a[href="/admin/users"]:visible').first();
+  await link.evaluate((anchor, href) => { anchor.href = href; }, examPath);
+  await adminPage.locator(`aver-admin-chrome a[href="${examPath}"]:visible`).first().click();
+  await adminPage.waitForURL(`${BASE}${examPath}`);
+  await adminPage.waitForFunction(() => document.documentElement.lang === 'en');
+  check(`English document language on ${examPath}`, await adminPage.evaluate(() => window.__adminNavigationSentinel) === 'survived');
+  await adminPage.goBack();
+  await adminPage.waitForURL(`${BASE}/admin/users`);
+  await adminPage.waitForFunction(() => document.documentElement.lang === 'vi');
+  check(`Vietnamese restored after leaving ${examPath}`, await adminPage.evaluate(() => window.__adminNavigationSentinel) === 'survived');
+  // App Router can retain the mutated chrome or remount its canonical links.
+  const retainedLink = adminPage.locator(`aver-admin-chrome a[href="${examPath}"]:visible`).first();
+  if (await retainedLink.count()) await retainedLink.evaluate((anchor) => { anchor.href = '/admin/users'; });
+}
+check('exam language navigation has no JavaScript errors', adminErrors.length === 0, adminErrors[0] || '');
+const noScriptContext = await browser.newContext({ javaScriptEnabled: false });
+try {
+  const noScriptPage = await noScriptContext.newPage();
+  for (const examPath of ['/reading/exam/session', '/listening/test/session', '/mock-exam']) {
+    await noScriptPage.goto(`${BASE}${examPath}`, { waitUntil: 'domcontentloaded' });
+    const englishContent = noScriptPage.locator('div[lang="en"]');
+    check(`English exam content before hydration on ${examPath}`,
+      await englishContent.count() === 1 && (await englishContent.innerText()).trim().length > 0);
+  }
+} finally {
+  await noScriptContext.close();
+}
 await adminPage.close();
 await page.close();
 await waitFor(() => vitals.some((metric) => metric.metric_name === 'LCP'));

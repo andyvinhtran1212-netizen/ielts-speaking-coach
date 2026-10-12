@@ -10,8 +10,10 @@ export const metadata: Metadata = {
 
 export default function MockExamPage() {
   return (
-    <Suspense fallback={<MockExamRunnerLoading />}>
-      <MockExamRunner />
-    </Suspense>
+    <div lang="en" style={{ display: 'contents' }}>
+      <Suspense fallback={<MockExamRunnerLoading />}>
+        <MockExamRunner />
+      </Suspense>
+    </div>
   );
 }

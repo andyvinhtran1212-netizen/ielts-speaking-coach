@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function ListeningTestSessionPage() {
-  return <ListeningTestSession />;
+  return <div lang="en" style={{ display: 'contents' }}><ListeningTestSession /></div>;
 }
