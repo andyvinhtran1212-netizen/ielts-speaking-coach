@@ -96,13 +96,13 @@ def estimate_eta_seconds(
 def default_grading_model(level: int) -> str:
     """Multi-model P1-A — the default grading model for a student-submitted
     essay at `level`. With WRITING_LEVEL_AWARE_MODEL on, L1..WRITING_FLASH_MAX_LEVEL
-    grade with the cheaper/faster gemini-3.5-flash (harness-proven equivalent to
-    Pro at ≤L3); deeper levels keep gemini-2.5-pro. Flag off ⇒ always Pro.
+    use WRITING_FLASH_MODEL (3.8 by default, 3.5 for rollback); deeper levels
+    keep gemini-2.5-pro. Flag off ⇒ always Pro.
     Kill-switch via env WRITING_LEVEL_AWARE_MODEL=false (settings load at
     process start, so the Railway var change restarts the service to apply it).
     Admin-picked models bypass this (admins pass selected_model explicitly)."""
     if settings.WRITING_LEVEL_AWARE_MODEL and level <= settings.WRITING_FLASH_MAX_LEVEL:
-        return "gemini-3.5-flash"
+        return settings.WRITING_FLASH_MODEL or "gemini-3.8-flash"
     return "gemini-2.5-pro"
 
 

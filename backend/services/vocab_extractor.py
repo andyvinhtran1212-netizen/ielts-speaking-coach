@@ -15,10 +15,11 @@ import anthropic
 from pydantic import BaseModel, ConfigDict
 
 from config import settings
+from services.claude_compat import json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "claude-haiku-5-5"
 
 _SYSTEM_PROMPT = """You are an IELTS Speaking vocabulary analyst. Your job is to identify vocabulary items from a learner's spoken transcript that are worth saving for study.
 
@@ -95,6 +96,9 @@ async def extract_vocab(
 
     model = settings.VOCAB_ANALYSIS_MODEL or _DEFAULT_MODEL
 
+    msg = None
+    status = "error"
+    error_code = None
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
@@ -107,8 +111,7 @@ async def extract_vocab(
         )
 
         msg = client.messages.create(
-            model=model,
-            max_tokens=1024,
+            **json_request_kwargs(model, max_tokens=1024),
             system=[
                 {
                     "type": "text",
@@ -119,7 +122,7 @@ async def extract_vocab(
             messages=[{"role": "user", "content": user_message}],
         )
 
-        raw = msg.content[0].text.strip()
+        raw = response_text(msg)
 
         # Strip markdown fences if present
         if raw.startswith("```"):
@@ -136,25 +139,36 @@ async def extract_vocab(
             upgrade_suggested=[VocabItem(**i) for i in (data.get("upgrade_suggested") or [])[:3]],
         )
 
-        # Log usage (best-effort; the ledger helper owns failure isolation).
-        from services import ai_usage_logger
-        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_response_async(
-            msg,
-            user_id=user_id,
-            session_id=session_id,
-            model=model,
-            feature="vocabulary_feedback",
-            operation="extract_response_vocab",
-            resource_type="response",
-            resource_id=response_id,
-        ))
-
         total = len(result.used_well) + len(result.needs_review) + len(result.upgrade_suggested)
         logger.info(
             "[vocab_extractor] extracted %d items for response=%s", total, response_id
         )
+        status = "success"
         return result
 
     except Exception as e:
+        error_code = (
+            f"claude_{msg.stop_reason}"
+            if msg is not None and getattr(msg, "stop_reason", None) in
+            ("refusal", "max_tokens", "model_context_window_exceeded")
+            else type(e).__name__
+        )
         logger.error("[vocab_extractor] extraction failed (non-fatal): %s", e)
         return None
+    finally:
+        # One billable response produces one ledger row, even if parsing fails.
+        # Record the final outcome so rejected output is not reported as success.
+        if msg is not None:
+            from services import ai_usage_logger
+            ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_response_async(
+                msg,
+                user_id=user_id,
+                session_id=session_id,
+                model=model,
+                feature="vocabulary_feedback",
+                operation="extract_response_vocab",
+                resource_type="response",
+                resource_id=response_id,
+                status=status,
+                error_code=error_code,
+            ))

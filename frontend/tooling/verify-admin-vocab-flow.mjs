@@ -3,6 +3,7 @@
 // method, path, body, lock and canonical readback where the backend supports it.
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { expect } from '@playwright/test';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
@@ -618,7 +619,7 @@ check('Analytics escape dữ liệu item độc hại', await page.getByText('mi
 await page.getByLabel('Chọn bộ').selectOption('');
 holdNextQuizBankAnalytics = true;
 await page.getByLabel('Chọn bộ').selectOption(quizBankId);
-await page.waitForTimeout(40);
+await expect.poll(() => heldQuizBankAnalyticsStarted).toBe(true);
 check('Analytics bank A được giữ để kiểm freshness', heldQuizBankAnalyticsStarted);
 await page.getByLabel('Chọn bộ').selectOption(quizBankIdB);
 await page.getByText('resilient', { exact: true }).waitFor();
@@ -630,7 +631,7 @@ await page.getByText('Lan <img onerror=alert(1)>', { exact: true }).waitFor();
 check('Analytics đọc rollup canonical và escape identity', requests.some((item) => item.path === '/admin/quiz/students' && item.search === '?skill_area=vocab') && await page.locator('.avv-quiz-analytics img').count() === 0);
 holdNextQuizDetail = true;
 await page.getByRole('button', { name: 'Xem chi tiết' }).click();
-await page.waitForTimeout(40);
+await expect.poll(() => heldQuizDetailStarted).toBe(true);
 check('Analytics detail được giữ để kiểm close freshness', heldQuizDetailStarted);
 await page.keyboard.press('Escape');
 releaseHeldQuizDetail?.();
