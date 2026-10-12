@@ -100,7 +100,7 @@ def test_editing_announcements_preserves_complete_numbered_sentences():
     # The false trailing '2.' in Day 20 ASR must not replace the actual Q2.
     q2 = clips["80-days:day-20:main:q-02"]
     q3 = clips["80-days:day-20:main:q-03"]
-    assert q2["start"] == 14.22 and q2["end"] == 19.24
+    assert q2["start"] <= 14.04 and q2["end"] >= 18.3
     assert q2["end"] < q3["start"] and q2["duration_seconds"] > 4.5
     # Day 33 Q1 continues after the first ASR segment, through 'review the
     # previous lesson'; cutting at the first segment would omit that sentence.
