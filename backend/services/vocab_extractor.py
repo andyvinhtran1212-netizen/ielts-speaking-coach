@@ -119,6 +119,20 @@ async def extract_vocab(
             messages=[{"role": "user", "content": user_message}],
         )
 
+        # Record the billable response before parsing: refusal/truncation still costs tokens.
+        # The ledger helper owns failure isolation.
+        from services import ai_usage_logger
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_response_async(
+            msg,
+            user_id=user_id,
+            session_id=session_id,
+            model=model,
+            feature="vocabulary_feedback",
+            operation="extract_response_vocab",
+            resource_type="response",
+            resource_id=response_id,
+        ))
+
         raw = response_text(msg)
 
         # Strip markdown fences if present
@@ -135,19 +149,6 @@ async def extract_vocab(
             needs_review=[VocabItem(**i) for i in (data.get("needs_review") or [])[:3]],
             upgrade_suggested=[VocabItem(**i) for i in (data.get("upgrade_suggested") or [])[:3]],
         )
-
-        # Log usage (best-effort; the ledger helper owns failure isolation).
-        from services import ai_usage_logger
-        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_response_async(
-            msg,
-            user_id=user_id,
-            session_id=session_id,
-            model=model,
-            feature="vocabulary_feedback",
-            operation="extract_response_vocab",
-            resource_type="response",
-            resource_id=response_id,
-        ))
 
         total = len(result.used_well) + len(result.needs_review) + len(result.upgrade_suggested)
         logger.info(

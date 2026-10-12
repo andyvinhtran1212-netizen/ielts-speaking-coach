@@ -29,7 +29,7 @@ có thể ghi đè mặc định; feature flag và cache có thể khiến một
 | Writing retry cuối | Gemini 2.5 Flash | Giữ fallback khác model chính |
 | Listening audit nội dung | Gemini 3.8 Flash | Giữ |
 | Course short writing và Advanced Vocab rewrite | Gemini 3.5 Flash-Lite | Giữ; model rẻ cho sửa lỗi có phạm vi hẹp |
-| Phân tích từ vựng Speaking | Haiku 4.5 | **Nâng Haiku 5.5**, biến `VOCAB_ANALYSIS_MODEL` |
+| Hàm phân tích từ vựng (migrate/backfill) | Haiku 4.5 | **Nâng Haiku 5.5**, biến `VOCAB_ANALYSIS_MODEL`; auto-extraction sau Speaking đã ngừng, không tính là traffic đang hoạt động |
 | Tạo câu hỏi D1 cá nhân | Haiku 4.5 | **Nâng Haiku 5.5**, biến `D1_QUESTION_MODEL`; giữ Gemini/evidence fallback |
 | Listening gist | Haiku 4.5 | **Nâng Haiku 5.5**, biến `LISTENING_GIST_MODEL`; giữ keyword fallback |
 | Sinh câu hỏi Speaking Part 1–3 | Gemini 2.5 Flash | Giữ; thử 3.5 Flash-Lite nhanh hơn nhưng câu Part 1 còn có xu hướng hỏi giải pháp chung |
@@ -44,6 +44,11 @@ Nguồn mã: `backend/config.py`, `services/grading_orchestrator.py`,
 `services/gemini.py`, `services/d1_content_gen.py`, `services/vocab_enrichment.py`,
 `services/whisper.py`, `services/tts_audio.py`, `services/listening_renderer.py`.
 Các đường `services/` trong bảng nằm dưới `backend/`.
+
+Review đường gọi ngày 12/10 xác nhận `routers/grading.py` STEP 8c không còn
+schedule `_run_vocab_extraction`; hàm chỉ được giữ cho migrate/backfill. D1 cá
+nhân còn chịu cả cờ global `VOCAB_BANK_FEATURE_FLAG_ENABLED` và cờ theo user.
+Không suy từ model default rằng hai luồng này đang tạo chi phí trên deployment.
 
 ## Chênh lệch chất lượng và chi phí
 
@@ -134,6 +139,11 @@ staging và phần lớn là fixture; đã loại khỏi nhận định về pro
    hành, không chứng minh model bị tính phí sai hay tổng tháng chỉ là $7,8265.
 
 ## Kiểm chứng và triển khai
+
+Review bổ sung đã chuyển ghi usage từ vựng lên trước parser để response bị
+refusal, cắt hoặc JSON lỗi vẫn được tính chi phí. Lỗi CI ở Admin Vocabulary là
+đợi cố định 40 ms trước khi request được chặn; kiểm thử nay đợi điều kiện request
+đã bắt đầu, giữ nguyên assertion chống response cũ mở lại dialog.
 
 Các test mới phủ request mới/rollback cũ, chọn text sau thinking, refusal và
 truncation, logging đúng model, keyword fallback, ngưỡng giá cache 100k và lịch

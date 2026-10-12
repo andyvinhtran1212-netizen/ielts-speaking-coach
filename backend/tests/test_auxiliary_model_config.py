@@ -74,3 +74,28 @@ async def test_vocab_selects_text_block_and_preserves_rollback(monkeypatch, mode
     assert result is not None and result.needs_review == []
     assert calls[0]["model"] == logged[0]["model"] == model
     assert ("extra_body" in calls[0]) == (model == "claude-haiku-5-5")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stop_reason,raw", [
+    ("refusal", '{"used_well":[]}'),
+    ("max_tokens", '{"used_well":[]}'),
+    ("end_turn", '{"used_well":'),
+])
+async def test_vocab_rejected_output_still_logs_the_billable_response(monkeypatch, stop_reason, raw):
+    response = SimpleNamespace(stop_reason=stop_reason, content=[SimpleNamespace(type="text", text=raw)])
+    pending, logged = [], []
+    async def log(msg, **kwargs):
+        logged.append((msg, kwargs))
+    monkeypatch.setattr(vocab.anthropic, "Anthropic", lambda **kw: SimpleNamespace(messages=SimpleNamespace(create=lambda **kw: response)))
+    monkeypatch.setattr(vocab.settings, "VOCAB_ANALYSIS_MODEL", "claude-haiku-5-5")
+    monkeypatch.setattr(ai_usage_logger, "log_claude_response_async", log)
+    monkeypatch.setattr(ai_usage_logger, "schedule_usage_log", pending.append)
+    result = await vocab.extract_vocab("I enjoy learning new words. " * 8, "response", "user", "session")
+    for coro in pending:
+        await coro
+    assert result is None
+    assert len(logged) == 1
+    assert logged[0][0] is response
+    assert logged[0][1]["model"] == "claude-haiku-5-5"
+    assert logged[0][1]["resource_id"] == "response"
