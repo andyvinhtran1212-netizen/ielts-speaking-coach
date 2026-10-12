@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ReadingExamSession } from '@/app/(authed-reading-player)/reading/exam/session/reading-exam-session';
 import { ListeningTestSession } from '@/app/(authed-listening-player)/listening/test/session/listening-test-session';
+import { useAttemptReviewFlags } from '@/lib/use-attempt-review-flags';
+import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status';
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'learner-a', email: 'learner@example.test' } }) }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
 const scope = { attempt_id: 'attempt-a', protocol: 'question-cas-v1' };
@@ -44,6 +46,31 @@ beforeEach(() => {
   Object.defineProperty(window, 'renderMarkdown', { configurable: true, value: (source: string) => source });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
+function ReviewStatus() {
+  const flags = useAttemptReviewFlags({ attemptId: 'attempt-a', domain: 'reading', ownerScope: 'learner-a', enabled: true });
+  return <><span>{flags.ready ? 'Flags ready' : 'Flags loading'}</span><AttemptReviewFlagStatus {...flags} onRetry={flags.retry} /></>;
+}
+it('Review identity conflicts retain reload guidance without changing saved marks', async () => {
+  render(<ReviewStatus />);
+  await screen.findByText('Flags ready');
+  savedFlag = { ...savedFlag, question_id: 'question-changed' };
+  fireEvent(document, new Event('visibilitychange'));
+  expect(await screen.findByText(/The questions in this attempt have changed\. Reload the test/)).toBeTruthy();
+  expect(screen.queryByText(/Check your connection/)).toBeNull();
+  expect(api.patchWith).not.toHaveBeenCalled();
+});
+it('Review network errors use English fallback while retry preserves validated errors', async () => {
+  api.getWith.mockRejectedValueOnce(new Error('Khong the ket noi'));
+  render(<ReviewStatus />);
+  expect(await screen.findByText(/Unable to load review marks\. Check your connection and retry/)).toBeTruthy();
+  expect(screen.queryByText('Khong the ket noi')).toBeNull();
+  api.getWith.mockResolvedValueOnce({ ...scope, attempt_id: 'another-attempt', review_flags: [savedFlag] });
+  fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
+  expect(await screen.findByText('Unable to confirm review marks for this attempt.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
+  await screen.findByText('Flags ready');
+  expect(screen.queryByRole('button', { name: 'Retry review marks' })).toBeNull();
+});
 it('Reading waits for Start, admits the exact sitting, then loads bound context and saved Review flags', async () => {
   window.history.replaceState(null, '', '/reading/exam/session?test_id=paper-a&sitting_id=sitting-a');
   render(<ReadingExamSession />);

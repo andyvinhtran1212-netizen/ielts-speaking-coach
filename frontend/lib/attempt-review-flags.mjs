@@ -2,7 +2,8 @@ import { createListeningSaveCoordinator } from './listening-test-controller.mjs'
 import { secureRandomUuid } from './secure-uuid.mjs';
 
 const PROTOCOL = 'question-cas-v1';
-const fail = (message, status) => Object.assign(new Error(message), { status });
+export class AttemptReviewFlagError extends Error {}
+const fail = (message, status) => Object.assign(new AttemptReviewFlagError(message), { status });
 
 /** Reuse the existing serial save queue; flags have separate per-question CAS. */
 export function createAttemptFlagCoordinator({
@@ -96,10 +97,12 @@ export function createAttemptFlagCoordinator({
     if (!Array.isArray(reply.review_flags)) throw fail('Unable to load review marks.', 503);
     // Validate the whole response before changing any displayed state.
     reply.review_flags.forEach(assertRow);
-    if (new Set(reply.review_flags.map((row) => row.q_num)).size !== reply.review_flags.length
-        || reply.review_flags.some((row) => canonical.has(row.q_num)
-          && canonical.get(row.q_num).question_id !== row.question_id)) {
+    if (new Set(reply.review_flags.map((row) => row.q_num)).size !== reply.review_flags.length) {
       throw fail('Unable to confirm the review marks.', 409);
+    }
+    if (reply.review_flags.some((row) => canonical.has(row.q_num)
+        && canonical.get(row.q_num).question_id !== row.question_id)) {
+      throw fail('The questions in this attempt have changed. Reload the test to check.', 409);
     }
     for (const row of reply.review_flags) {
       mergeRow(row);
