@@ -6,6 +6,11 @@ dụng trên cùng 12 ca tổng hợp cho mỗi model đạt 12/12 ở cả hai 
 ước tính từ token trả về giảm **85,95%**. Đây là kết quả trên mẫu nhỏ, không phải
 cam kết chất lượng trên mọi bài học viên hoặc mức giảm tổng hóa đơn.
 
+Người dùng đã duyệt bổ sung Writing standard L1–L3 từ Gemini 3.5 Flash lên
+3.8 Flash để triển khai **staging** và sẽ trực tiếp theo dõi, duyệt chất lượng.
+Không có quyền promote production. Có thể chuyển lại bằng
+`WRITING_FLASH_MODEL=gemini-3.5-flash` và restart backend.
+
 Phạm vi là bản sửa trên nhánh `codex/ai-model-balance-20261012`, từ staging
 `8f8f5d02d38b0d6fc836e4a7a8cd962b39beff30`. Chưa merge hoặc deploy. Worktree
 riêng không sửa checkout, nội dung Listening, nhánh hay cấu hình dùng chung
@@ -24,7 +29,7 @@ có thể ghi đè mặc định; feature flag và cache có thể khiến một
 | Speaking chấm chính | Gemini 3.8 Flash | Giữ; đã là Flash GA hiện hành, có rollback về 3.5 |
 | Speaking fallback, off-topic judge | Haiku 4.5 → Sonnet 5 | Giữ chuỗi đã quy định ở FR-005; không thay band scoring theo mẫu tổng hợp ngắn |
 | Speaking sửa câu trả lời mẫu | Haiku 4.5 | Giữ vì thuộc pipeline feedback chính |
-| Writing standard mức 1–3 | Gemini 3.5 Flash | Giữ baseline; 3.8 có lợi về giá nhưng cần A/B với bài giáo viên chấm trước khi chuyển mặc định |
+| Writing standard mức 1–3 | Gemini 3.5 Flash | **Nâng Gemini 3.8 Flash** trên staging theo quyết định người dùng; rollback qua `WRITING_FLASH_MODEL`, người dùng trực tiếp duyệt chất lượng |
 | Writing mức 4–5, deep và phân tích ảnh Task 1 | Gemini 2.5 Pro | Giữ baseline chất lượng; không thay vì model mới hơn |
 | Writing retry cuối | Gemini 2.5 Flash | Giữ fallback khác model chính |
 | Listening audit nội dung | Gemini 3.8 Flash | Giữ |
@@ -58,8 +63,8 @@ thuế, giá hợp đồng riêng hoặc công cụ phụ. Thinking có thể t�
 | So sánh | Giá cũ input / output | Giá mới input / output | Tác động |
 | --- | ---: | ---: | --- |
 | Haiku 4.5 → 5.5, prompt ≤100k | $1 / $5 | $0,10 / $0,50 | Giảm 90% cùng số token; tokenizer mới thường đếm nhiều hơn khoảng 30% |
-| Writing 3.5 Flash → 3.8 Flash, ứng viên | $1,50 / $9 | $0,75 / $3,75 đến 31/12/2026 | Giảm 56,25% với giả định 2k input + 1k output mỗi lần |
-| Cùng ứng viên từ 01/01/2027 | $1,50 / $9 | $1,50 / $7,50 | Giảm 12,5% trên cùng giả định; không coi giá khuyến mại là vĩnh viễn |
+| Writing 3.5 Flash → 3.8 Flash, đã duyệt staging | $1,50 / $9 | $0,75 / $3,75 đến 31/12/2026 | Giảm 56,25% với giả định 2k input + 1k output mỗi lần |
+| Cùng thay đổi từ 01/01/2027 | $1,50 / $9 | $1,50 / $7,50 | Giảm 12,5% trên cùng giả định; không coi giá khuyến mại là vĩnh viễn |
 | Sonnet 5 → 5.5, chưa chuyển | $2 / $10 | $2 / $10 | Không tiết kiệm đơn giá; request hiện tại cần điều chỉnh riêng |
 | Eleven multilingual v2 | $0,10 / 1k ký tự trong catalog cũ | $0,08 / 1k ký tự hiện công bố | Sửa ước tính giảm 20%, không phải tiết kiệm do đổi model |
 | Eleven Flash v2.5 | $0,05 / 1k ký tự trong catalog cũ | $0,04 / 1k ký tự hiện công bố | Sửa ước tính giảm 20% |
@@ -95,7 +100,9 @@ Ngưỡng: câu D1 qua validator và còn nguyên distractor/blank; headword, ev
 và context phải nằm trong transcript; không gắn lỗi cho hai transcript đúng,
 có nhận ra lỗi ở transcript sai; gist đúng ≥70, gist sai <30 và phải có AI result.
 Hai model đều đạt. Chưa phải gold set đa band do giáo viên chấm, nên kết quả này
-không dùng để thay grader Speaking/Writing chính. Mẫu nhỏ cũng chưa xác lập p95.
+không dùng để kết luận chất lượng grader Speaking/Writing chính. Quyết định
+Writing 3.8 staging là phê duyệt riêng của người dùng, không dựa trên 12 ca
+Haiku này. Mẫu nhỏ cũng chưa xác lập p95.
 
 Thử phụ sáu call sinh câu hỏi Speaking (Part 1–3, hai model) đều qua kiểm tra
 cấu trúc. 3.5 Flash-Lite nhanh hơn trong mẫu nhưng có câu hỏi Part 1 về giải pháp
@@ -124,7 +131,8 @@ staging và phần lớn là fixture; đã loại khỏi nhận định về pro
    `config.py`, `d1_question_generator.py::_try_haiku`,
    `listening_gist_grader.py::grade_gist_response`,
    `vocab_extractor.py::extract_vocab`. Nâng ba đường đã A/B và thêm rollback
-   độc lập; các default scoring chính và feature flags giữ nguyên.
+   độc lập; Speaking và feature flags giữ nguyên. Writing L1–L3 chuyển theo phê duyệt
+   riêng của người dùng, có cấu hình rollback độc lập; không chấm lại bài cũ.
 2. **Medium — thay tên Haiku đơn thuần có thể gây lỗi API hoặc đọc thinking
    thành JSON.** `services/claude_compat.py` bỏ temperature trên Haiku 5.5,
    tắt thinking cho tác vụ ngắn, tăng output budget 30%, đọc block kiểu text
@@ -155,6 +163,8 @@ theo staging-first, smoke luồng có bật feature với ledger thật, đối 
 attempt với model/cost thực và duyệt feedback. Chỉ promote production sau
 nghiệm thu staging; chưa có thao tác phát hành trong đợt audit này.
 
-Rollback từng luồng bằng cách đặt biến tương ứng về
+Rollback Writing L1–L3 bằng `WRITING_FLASH_MODEL=gemini-3.5-flash` và restart
+backend; bài đã chấm và các job đã lưu model vẫn giữ lịch sử của chúng.
+Rollback từng luồng Haiku bằng cách đặt biến tương ứng về
 `claude-haiku-4-5-20251001` rồi restart backend. Không xóa ledger, không sửa bài
 cũ. Không đổi feature flags để ép phát sinh traffic thử nghiệm.

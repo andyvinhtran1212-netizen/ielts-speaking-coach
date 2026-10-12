@@ -47,15 +47,22 @@ def test_estimate_eta_seconds(level, model, expected):
 
 # ── Level-aware default model (P1-A) ─────────────────────────────────
 
-def test_default_grading_model_level_aware(monkeypatch):
-    """L1–L3 → 3.5 Flash, L4–L5 → Pro when the flag is on."""
+@pytest.mark.parametrize("model", ["gemini-3.8-flash", "gemini-3.5-flash"])
+def test_default_grading_model_level_aware(monkeypatch, model):
+    """L1–L3 follow the configured Flash model, including rollback; L4–L5 stay Pro."""
     from config import settings
     monkeypatch.setattr(settings, "WRITING_LEVEL_AWARE_MODEL", True)
     monkeypatch.setattr(settings, "WRITING_FLASH_MAX_LEVEL", 3)
-    assert essay_service.default_grading_model(1) == "gemini-3.5-flash"
-    assert essay_service.default_grading_model(3) == "gemini-3.5-flash"
+    monkeypatch.setattr(settings, "WRITING_FLASH_MODEL", model)
+    for level in (1, 2, 3):
+        assert essay_service.default_grading_model(level) == model
     assert essay_service.default_grading_model(4) == "gemini-2.5-pro"
     assert essay_service.default_grading_model(5) == "gemini-2.5-pro"
+
+
+def test_writing_flash_default_is_owner_approved_38():
+    from config import Settings
+    assert Settings.model_fields["WRITING_FLASH_MODEL"].default == "gemini-3.8-flash"
 
 
 def test_default_grading_model_flag_off_always_pro(monkeypatch):

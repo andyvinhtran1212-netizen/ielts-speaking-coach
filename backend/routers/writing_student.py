@@ -1610,7 +1610,7 @@ async def submit_my_assignment(
                 "grading_tier":     grading_tier,
                 "instructor_ai_tier": instructor_ai_tier,
                 "form_of_address":  "em",
-                # P1-A level-aware default: L1–L3 → 3.5 Flash, L4–L5 → Pro.
+                # Level-aware default: L1–L3 → configured Flash, L4–L5 → Pro.
                 "selected_model":   essay_service.default_grading_model(level),
                 "status":           "pending",
                 "paste_events":     paste_events,
