@@ -41,12 +41,10 @@ def test_v1_loader_still_works():
     assert "Chain-of-Thought" not in prompt
 
 
-def test_v1_prompt_version_stamp_unchanged():
-    """v1 still stamps 'v1.0' onto writing_feedback.prompt_version. Existing
-    dashboards, the 47 tests pinning 'v1.0' in test_essay_service /
-    test_gemini_writing_grader, and the prompt_version column rely on this."""
+def test_v1_prompt_version_identifies_source_grounding():
+    """New v1 grades identify the grounding guard; historical v1.0 stays intact."""
     loader = WritingPromptLoader(version="v1")
-    assert loader.PROMPT_VERSION == "v1.0"
+    assert loader.PROMPT_VERSION == "v1.1"
 
 
 # ── v2 — feature pins ────────────────────────────────────────────────
@@ -146,14 +144,10 @@ def test_v2_form_of_address_substitution():
         )
 
 
-def test_v2_prompt_version_stamp_is_v2_dot_1():
-    """Sprint 2.6.2 bumped the v2 stamp 'v2.0' → 'v2.1' to mark the
-    anti-fabrication tuning of Rule 1 + Rule 4 + CoT Step 6. Andy's
-    A/B SQL filters by this exact string — pin it so a future
-    directory-name change or accidental revert doesn't drift the
-    persisted stamp. Pre-tuning canary rows remain stamped 'v2.0'."""
+def test_v2_prompt_version_identifies_source_grounding():
+    """Distinguish grounded grades from historical v2.1 feedback."""
     loader = WritingPromptLoader(version="v2")
-    assert loader.PROMPT_VERSION == "v2.1"
+    assert loader.PROMPT_VERSION == "v2.2"
 
 
 def test_v2_l1_calibration_pins_mistake_floor():
