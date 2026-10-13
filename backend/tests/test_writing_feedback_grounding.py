@@ -29,6 +29,13 @@ def feedback(claim="Em dùng 'dedicated bus lanes' phù hợp."):
 
 @pytest.mark.parametrize("claim", [
     BAD_CLAIM,
+    "Em nên tiếp tục sử dụng 'subsidies'.",
+    "Em có thể duy trì cách dùng 'subsidies'.",
+    "Em nên phát huy vốn từ như 'subsidies'.",
+    "You should continue using 'subsidies'.",
+    "You could keep using 'subsidies'.",
+    "Em nên trả lời 'như thế nào', nhưng em đã dùng 'subsidies' rất tốt.",
+    "Em sử dụng 'NHƯ THẾ NÀO' chính xác.",
     "Em dùng 'subsidies\nsupport' phù hợp.",
     "Em dùng 'Governments ... subsidies' phù hợp.",
     "Em dùng 'employment centres ... dedicated bus lanes' phù hợp.",
@@ -47,6 +54,11 @@ def test_rejects_rewrite_language_attributed_to_original(claim):
 
 @pytest.mark.parametrize("claim,essay", [
     ("Em dùng 'dedicated bus lanes' phù hợp.", ESSAY),
+    ("Em nên tiếp tục sử dụng 'dedicated bus lanes'.", ESSAY),
+    ("Cần dùng 'however' để nối hai ý.", ESSAY),
+    ("You need to use 'however' to link the ideas.", ESSAY),
+    ("Em chưa trả lời câu hỏi 'NHƯ THẾ NÀO'.", ESSAY),
+    ("The argument does not answer 'WHY'.", ESSAY),
     ("Em dùng 'Governments should… employment centres.' phù hợp.", ESSAY),
     ("Em dùng 'Discounted tickets...' phù hợp.", ESSAY),
     ("Em dùng 'EMPLOYMENT  CENTRES' phù hợp.", ESSAY),
@@ -66,6 +78,18 @@ def test_preserves_real_quotes_and_explicit_proposals(claim, essay):
     before = result.model_dump()
     validate_writing_grounding(result, essay)
     assert result.model_dump() == before  # no text edits or score manipulation
+
+
+def test_shipped_l3_calibration_question_is_not_learner_vocabulary():
+    from pathlib import Path
+    import re
+    calibration = (Path(__file__).parents[1] / "prompts/writing/v2/calibration/l3_examples.md").read_text()
+    items = json.loads(re.search(r"```json\n(.*?)\n```", calibration, re.S).group(1))
+    data = feedback().model_dump()
+    data["ideaDevelopmentAnalysis"] = items
+    # Original ideas and 'studies show' occur here; the teaching question does not.
+    essay = ESSAY + " Technology helps students learn faster. Studies show online learning is effective."
+    validate_writing_grounding(WritingFeedback(**data), essay)
 
 
 def test_word_boundaries_prevent_substring_evidence():

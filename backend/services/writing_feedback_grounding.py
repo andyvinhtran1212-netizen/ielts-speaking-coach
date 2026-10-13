@@ -38,8 +38,9 @@ _QUOTES = re.compile(
 )
 _PROPOSAL = re.compile(
     r"\b(?:có thể|nên|hãy|gợi ý|đề xuất|thử dùng|thay(?: thế)?\b[^.!?;]*?\bbằng|"
+    r"cần\s+(?:dùng|sử dụng|thêm|bổ sung|viết|giải thích|nêu)|"
     r"chưa dùng|chưa sử dụng|không dùng|không sử dụng|thiếu|"
-    r"could|should|consider|suggest|replace\b[^.!?;]*?\bwith|instead use|"
+    r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest|replace\b[^.!?;]*?\bwith|instead use|"
     r"does not use|did not use|doesn't use|missing)\b", re.I
 )
 _ATTRIBUTION = re.compile(
@@ -47,6 +48,17 @@ _ATTRIBUTION = re.compile(
     r"(?:you|the student|the learner)\s+(?:have\s+|has\s+)?(?:used|use|wrote|write))\b",
     re.I,
 )
+# Advice to KEEP a usage presupposes that the learner already used it.
+_CONTINUATION = re.compile(
+    r"\b(?:tiếp tục|duy trì|phát huy|giữ lại|continue(?: to)? (?:use|using)|"
+    r"keep using|retain|maintain)\b", re.I,
+)
+_PEDAGOGICAL_QUESTION = re.compile(
+    r"(?:trả lời|giải thích|làm rõ|answer|explain)\s*(?:được\s*)?"
+    r"(?:(?:câu hỏi|the question)\s*)?[:：]?\s*$|"
+    r"(?:câu hỏi|the question)\s*[:：]?\s*$", re.I,
+)
+_QUESTION_LABELS = {"như thế nào", "tại sao", "vì sao", "cụ thể", "how", "why", "so what"}
 
 
 def _normalize(text: str) -> str:
@@ -106,8 +118,15 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
             # mixed "could use X, but you used Y" sentences.
             prefix = re.split(r"[.!?;\n]", _QUOTES.sub("", text[:match.start()]))[-1]
             proposals = list(_PROPOSAL.finditer(prefix))
-            attributions = list(_ATTRIBUTION.finditer(prefix))
-            if proposals and (not attributions or proposals[-1].start() > attributions[-1].start()):
+            attributions = list(_ATTRIBUTION.finditer(prefix)) + list(_CONTINUATION.finditer(prefix))
+            last_attribution = max((m.start() for m in attributions), default=-1)
+            # The shipped L3 calibration asks the learner to answer "NHƯ THẾ
+            # NÀO". That is a teaching question, not quoted learner vocabulary.
+            question = _PEDAGOGICAL_QUESTION.search(prefix)
+            if (question and question.start() > last_attribution
+                    and _normalize(excerpt).rstrip(" ?!:") in _QUESTION_LABELS):
+                continue
+            if proposals and proposals[-1].start() > last_attribution:
                 continue
             issues.append((path, excerpt[:240]))
 

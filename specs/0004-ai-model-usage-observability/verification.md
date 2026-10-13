@@ -10,7 +10,7 @@ claim before persistence and requests a complete corrected response within the
 existing retry budget; FR-001 ledger rows price rejected attempts explicitly.
 Writing remains Gemini 3.8 Flash, with the existing 3.5 rollback configuration.
 
-193 focused tests pass, covering real excerpts, shortened citations, explicit
+206 focused tests pass, covering real excerpts, shortened citations, explicit
 new-language proposals, deep-pass source fields, retry exhaustion, job failure
 classification and paid-attempt accounting. Replaying the original result
 rejects exactly the false “subsidies” attribution. A real Gemini 3.8 call with
@@ -18,6 +18,10 @@ the same synthetic essay produced accepted prompt v2.2 feedback after two
 attempts (estimated total $0.06372375, band 8); this is one sample, not a quality
 or average-cost claim. Historical feedback is untouched. Unquoted semantic
 claims and IELTS calibration still require human review.
+
+PR review additionally pins continuation advice ("keep using" / "tiếp tục")
+as claimed existing usage. Genuine "Cần dùng" proposals and the shipped L3
+calibration's quoted "NHƯ THẾ NÀO" teaching question remain valid.
 
 Release evidence belongs to the associated PR: full backend/CI, exact staging
 frontend/backend SHA, a fresh student submission, persisted feedback, ledger
