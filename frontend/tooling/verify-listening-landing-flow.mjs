@@ -106,13 +106,15 @@ check('analytics luôn còn lối vào', await page.locator('[data-mode="analyti
 
 scenario = 'no-programmes';
 await page.reload({ waitUntil: 'domcontentloaded' });
-await page.locator('.listening-programme-card').waitFor({ state: 'visible' });
+await page.locator('#landing-loading').waitFor({ state: 'hidden' });
+await page.locator('.listening-programme-card').first().waitFor({ state: 'visible' });
 check('IELTS hub vẫn hiện khi chưa package nào được publish',
   await page.locator('.listening-programme-card').count() === 1
     && (await page.locator('.listening-programme-card').getAttribute('href')) === '/listening/ielts');
 
 scenario = 'general-only';
 await page.reload({ waitUntil: 'domcontentloaded' });
+await page.locator('#landing-loading').waitFor({ state: 'hidden' });
 await page.locator('.listening-programme-card').nth(1).waitFor({ state: 'visible' });
 check('IELTS hub vẫn hiện khi chỉ General được publish',
   await page.locator('.listening-programme-card').count() === 2

@@ -102,7 +102,7 @@ def test_authenticated_day_and_explicit_study_serialization(monkeypatch, manifes
         calls.append('auth'); return {'id': 'learner'}
     monkeypatch.setattr(router, 'get_supabase_user', auth)
     monkeypatch.setattr(router, '_context', lambda day: (calls.append('content') or package, [lesson]))
-    monkeypatch.setattr(collection, 'source_forms', lambda *_: [])
+    monkeypatch.setattr(collection, 'source_forms', lambda *_, **kwargs: [])
     from routers import listening
     monkeypatch.setattr(listening, '_programme_attempt_state', lambda *_: ({}, False))
     def generated_only(path):

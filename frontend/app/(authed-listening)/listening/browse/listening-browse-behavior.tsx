@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
+import type { ListeningContentListWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 const PAGE_LIMIT = 24;
@@ -29,6 +31,8 @@ interface RawContent {
   ielts_section?: unknown;
   audio_duration_seconds?: unknown;
   available_modes?: unknown;
+  practice_test_id?: unknown;
+  practice_test_type?: unknown;
 }
 
 interface ListeningContent {
@@ -41,6 +45,8 @@ interface ListeningContent {
   section: string | null;
   minutes: number;
   availableModes: string[] | null;
+  practiceTestId: string;
+  practiceTestType: string;
 }
 
 type LoadState =
@@ -79,6 +85,8 @@ function normalizeItems(items: unknown[]): ListeningContent[] {
       section: displayValue(raw.ielts_section),
       minutes: Number.isFinite(duration) ? Math.round(duration / 60) : 0,
       availableModes: modes,
+      practiceTestId: textValue(raw.practice_test_id),
+      practiceTestType: textValue(raw.practice_test_type),
     }];
   });
 }
@@ -94,7 +102,7 @@ function buildPath(filters: Filters, offset: number): string {
 }
 
 async function fetchContentPage(filters: Filters, offset: number, signal: AbortSignal) {
-  const payload = await window.api.getWith<unknown>(
+  const payload = await window.api.getWith<ListeningContentListWire>(
     buildPath(filters, offset), undefined, { signal },
   );
   const record = payload && typeof payload === 'object'
@@ -163,6 +171,12 @@ function FiltersBar({ filters, onChange }: {
 }
 
 function ModeLinks({ item }: { item: ListeningContent }) {
+  if (item.practiceTestId && ['drill', 'mini', 'full', 'practice'].includes(item.practiceTestType)
+      && !MODE_LINKS.some(([mode]) => item.availableModes?.includes(mode))) {
+    const from = item.practiceTestType === 'drill' ? 'skills' : item.practiceTestType;
+    const label = item.practiceTestType === 'drill' ? 'Mở bài luyện kỹ năng' : item.practiceTestType === 'mini' ? 'Mở Mini Test' : item.practiceTestType === 'full' ? 'Mở Full Test' : 'Mở bài luyện nhanh';
+    return <a className="mode-link" href={admitCorePlayer('listening_test', { id: item.practiceTestId, from })}>{label}</a>;
+  }
   if (item.availableModes === null) {
     return <span className="mode-empty is-warning">Chưa đồng bộ được dạng luyện</span>;
   }

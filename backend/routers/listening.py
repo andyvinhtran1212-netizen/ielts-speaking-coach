@@ -20,6 +20,7 @@ Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -33,6 +34,7 @@ from fastapi import (
     UploadFile,
 )
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.concurrency import run_in_threadpool
 
 from config import settings
 from models.dictation_grading import (
@@ -89,6 +91,7 @@ from services.active_player_lifecycle import (
 from models.listening_source_collection import SOURCE_PROGRAMME, SOURCE_CONTRACT
 from models.listening_programmes import (
     ListeningAttemptReviewResponse,
+    ListeningContentListResponse,
     ListeningGuidedStateResponse,
     ListeningLessonDetailResponse,
     ListeningLessonListResponse,
@@ -1939,7 +1942,7 @@ async def admin_delete_listening_exercise(
 # ── User route — content browse (Sprint 11.5) ─────────────────────────────────
 
 
-@user_router.get("/content")
+@user_router.get("/content", response_model=ListeningContentListResponse)
 async def list_listening_content(
     accent_tag: str | None = Query(default=None),
     cefr_level: str | None = Query(default=None),
@@ -1969,7 +1972,7 @@ async def list_listening_content(
         supabase_admin.table("listening_content")
         .select(
             "id,title,description,accent_tag,cefr_level,ielts_section,"
-            "topic_tags,audio_duration_seconds,is_premium,created_at",
+            "topic_tags,audio_duration_seconds,is_premium,created_at,test_id",
             count="exact",
         )
         .eq("status", "published")
@@ -2017,9 +2020,37 @@ async def list_listening_content(
             # `association_lookup_failed`: say the lookup failed, never invent
             # an answer.
             modes_lookup_failed = True
+    # Imported test sections are playable through their canonical parent, not
+    # through the four standalone exercise pages. Never link a reserved,
+    # unpublished or audio-unready parent from the public browse surface.
+    parents: dict[str, dict] = {}
+    practice_lookup_failed = False
+    parent_ids = list({str(c["test_id"]) for c in items if c.get("test_id")})
+    if parent_ids:
+        try:
+            parent_rows = (
+                supabase_admin.table("listening_public_practice_catalog")
+                .select("id,test_type")
+                .in_("id", parent_ids)
+                .eq("status", "published")
+                .eq("is_public", True)
+                .eq("scoring_policy", "diagnostic")
+                .or_(_AUDIO_READY_OR)
+                .execute().data or []
+            )
+            parents = {str(row["id"]): row for row in parent_rows
+                       if row.get("test_type") in {"full", "mini", "drill", "practice"}}
+        except Exception as exc:
+            logger.warning("[listening] parent practice lookup failed: %s", exc)
+            practice_lookup_failed = True
     for c in items:
+        parent_id = str(c.pop("test_id", "") or "")
+        parent = parents.get(parent_id)
+        c["practice_test_id"] = str(parent["id"]) if parent else None
+        c["practice_test_type"] = parent["test_type"] if parent else None
         c["available_modes"] = (
-            None if modes_lookup_failed else sorted(modes_by_content.get(c.get("id"), []))
+            None if modes_lookup_failed or (practice_lookup_failed and parent_id and not modes_by_content.get(c.get("id")))
+            else sorted(modes_by_content.get(c.get("id"), []))
         )
 
     return {
@@ -2028,6 +2059,7 @@ async def list_listening_content(
         "limit":  limit,
         "offset": offset,
         "modes_lookup_failed": modes_lookup_failed,
+        "practice_lookup_failed": practice_lookup_failed,
     }
 
 
@@ -4942,18 +4974,18 @@ def _exercise_is_ready(row: dict) -> bool:
     return False
 
 
-def _published_content_ids() -> list[str]:
+def _published_content_rows() -> list[dict]:
     """Every published listening_content id, paged past the PostgREST cap.
 
     A bare `.select()` silently stops at 1000 rows, which would under-count
     the exercise-mode tiles the moment the library grows. Page explicitly.
     """
-    out: list[str] = []
+    out: list[dict] = []
     start, step = 0, 1000
     while True:
         res = (
             supabase_admin.table("listening_content")
-            .select("id")
+            .select("id,test_id")
             .eq("status", "published")
             .neq("source_type", "programme_form")
             # LIMIT/OFFSET without ORDER BY has no defined row order in
@@ -4964,10 +4996,14 @@ def _published_content_ids() -> list[str]:
             .execute()
         )
         rows = res.data or []
-        out.extend(r["id"] for r in rows if r.get("id"))
+        out.extend(r for r in rows if r.get("id"))
         if len(rows) < step:
             return out
         start += step
+
+
+def _published_content_ids() -> list[str]:
+    return [row["id"] for row in _published_content_rows()]
 
 
 _PROGRAMME_COPY = {
@@ -5212,97 +5248,99 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
     return cards, resume, recent, partial
 
 
-@user_router.get("/overview", response_model=ListeningOverviewResponse)
-async def listening_overview(authorization: str | None = Header(default=None)):
-    """How much practice material each Listening surface actually holds.
-
-    The landing page renders one tile per surface. Before this endpoint the
-    tiles were hard-coded, so four of them pointed at surfaces with zero
-    published rows — a learner clicked "Nghe ý chính" and landed on an empty
-    page. The landing page now hides a tile whose count is 0, which means the
-    count MUST match what the corresponding list endpoint would return, or a
-    tile promises content its own page cannot show.
-
-    So every filter here mirrors ``list_published_listening_tests`` /
-    ``list_listening_content`` / ``get_listening_exercises`` exactly:
-    published only, audio-ready only, exam-reserved papers excluded, and an
-    exercise counts only when BOTH it and its content row are published.
-    ``test_counts_consistent_with_list`` in the test suite pins that.
-    """
-    user = await _require_auth(authorization)
-
-    tests: dict[str, int] = {}
-    for kind in ("full", "mini", "drill", "practice"):
-        q = (
+def _published_test_counts() -> tuple[dict[str, int], dict[str, int], set[str]]:
+    """Count all diagnostic shelves in one paged metadata read, without keys."""
+    tests = {kind: 0 for kind in ("full", "mini", "drill", "practice")}
+    groups: dict[str, int] = {}
+    public_test_ids: set[str] = set()
+    offset = 0
+    while True:
+        rows = (
             supabase_admin.table("listening_public_practice_catalog")
-            .select("id", count="exact")
+            .select("id,test_type,practice_group:metadata->>practice_group")
             .eq("status", "published")
-            .eq("test_type", kind)
-            .eq("scoring_policy", "diagnostic")
-            .eq("is_public", True)
-            .or_(_AUDIO_READY_OR)
-            .limit(1)
-        )
-        tests[kind] = getattr(q.execute(), "count", None) or 0
-
-    content_ids = set(_published_content_ids())
-    modes: dict[str, int] = {t: 0 for t in sorted(_EXERCISE_TYPES)}
-    if content_ids:
-        # Intersect in Python rather than `.in_(content_ids)`: the id list is
-        # unbounded and a few thousand UUIDs in a query string exceeds the URL
-        # limit, which would fail as a 4xx rather than a wrong count.
-        start, step = 0, 1000
-        while True:
-            res = (
-                supabase_admin.table("listening_exercises")
-                .select(_EXERCISE_READY_COLS)
-                .eq("status", "published")
-                .order("id")                       # stable paging — see above
-                .range(start, start + step - 1)
-                .execute()
-            )
-            rows = res.data or []
-            for r in rows:
-                if (r.get("content_id") in content_ids
-                        and r.get("exercise_type") in modes
-                        and _exercise_is_ready(r)):
-                    modes[r["exercise_type"]] += 1
-            if len(rows) < step:
-                break
-            start += step
-
-    # The Luyện nhanh page is one library with three tabs, so the landing needs
-    # the per-tab counts too — a tab with nothing behind it should not render,
-    # for the same reason a zero-count tile does not.
-    practice_groups: dict[str, int] = {}
-    if tests.get("practice"):
-        pgq = (
-            supabase_admin.table("listening_public_practice_catalog")
-            .select("metadata")
-            .eq("status", "published")
-            .eq("test_type", "practice")
             .eq("scoring_policy", "diagnostic")
             .eq("is_public", True)
             .or_(_AUDIO_READY_OR)
             .order("id")
-            .limit(2000)
+            .range(offset, offset + 999)
+            .execute().data or []
         )
-        pg = pgq.execute()
-        for row in pg.data or []:
-            g = ((row.get("metadata") or {}).get("practice_group") or "").strip()
-            if g:
-                practice_groups[g] = practice_groups.get(g, 0) + 1
+        for row in rows:
+            kind = row.get("test_type")
+            if kind not in tests:
+                continue
+            tests[kind] += 1
+            public_test_ids.add(str(row["id"]))
+            if kind == "practice":
+                group = (row.get("practice_group") or "").strip()
+                if group:
+                    groups[group] = groups.get(group, 0) + 1
+        if len(rows) < 1000:
+            return tests, groups, public_test_ids
+        offset += 1000
 
-    programmes, resume, recent, partial_data = _load_programme_overview(user["id"])
+
+def _published_library_counts() -> tuple[list[dict], dict[str, int], set[str]]:
+    content_rows = _published_content_rows()
+    content_ids = [row["id"] for row in content_rows]
+    modes = {kind: 0 for kind in sorted(_EXERCISE_TYPES)}
+    runnable_ids: set[str] = set()
+    # Restrict before reading JSON: programme/source form payloads are large
+    # and do not belong to this standalone library. UUID batches bound URL size.
+    for batch_start in range(0, len(content_ids), 100):
+        batch = content_ids[batch_start:batch_start + 100]
+        offset = 0
+        while True:
+            rows = (
+                supabase_admin.table("listening_exercises")
+                .select(_EXERCISE_READY_COLS)
+                .eq("status", "published")
+                .in_("content_id", batch)
+                .in_("exercise_type", sorted(_EXERCISE_TYPES - {"mini_test"}))
+                .order("id")
+                .range(offset, offset + 999)
+                .execute().data or []
+            )
+            for row in rows:
+                kind = row.get("exercise_type")
+                if kind in modes and _exercise_is_ready(row):
+                    modes[kind] += 1
+                    if kind in {"dictation", "gist", "true_false", "mcq"}:
+                        runnable_ids.add(str(row["content_id"]))
+            if len(rows) < 1000:
+                break
+            offset += 1000
+    return content_rows, modes, runnable_ids
+
+
+@user_router.get("/overview", response_model=ListeningOverviewResponse)
+async def listening_overview(authorization: str | None = Header(default=None)):
+    """Canonical counts and account-owned activity, without serial I/O stalls.
+
+    The existing wire shape and published/audio/public-policy predicates remain
+    unchanged. Independent reads run in worker threads: synchronous PostgREST
+    must not block the application event loop or unrelated learner pages.
+    """
+    user = await _require_auth(authorization)
+    (tests, practice_groups, public_test_ids), (content_rows, modes, runnable_ids), programme_data = await asyncio.gather(
+        run_in_threadpool(_published_test_counts),
+        run_in_threadpool(_published_library_counts),
+        run_in_threadpool(_load_programme_overview, user["id"]),
+    )
+    programmes, resume, recent, partial_data = programme_data
+    runnable_ids.update(str(row["id"]) for row in content_rows
+                        if str(row.get("test_id") or "") in public_test_ids)
     return {
-        "tests":           tests,
+        "tests": tests,
         "practice_groups": practice_groups,
-        "content":         len(content_ids),
-        "exercise_modes":  modes,
-        "programmes":      programmes,
-        "resume":          resume,
-        "recent":          recent,
-        "partial_data":    partial_data,
+        "content": len(content_rows),
+        "playable_content": len(runnable_ids),
+        "exercise_modes": modes,
+        "programmes": programmes,
+        "resume": resume,
+        "recent": recent,
+        "partial_data": partial_data,
     }
 
 

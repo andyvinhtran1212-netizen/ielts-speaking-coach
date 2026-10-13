@@ -9,11 +9,10 @@ export function SourceLoadError({ code, retry }: { code: number; retry: () => vo
   return <section className="source-notice is-error" role="alert"><p>{code === 403 ? 'Bạn chưa có quyền mở nội dung này.' : code === 404 ? 'Bộ nội dung chưa được xuất bản hoặc hiện không còn khả dụng.' : 'Chưa tải được nội dung. Hãy thử lại.'}</p><button type="button" onClick={retry}>Thử lại</button><a href="/listening/ielts">Về IELTS Listening</a></section>;
 }
 
-export function ListeningSourceEntry() {
-  const { state, retry } = useListeningSource<ListeningSourceCollectionWire>('/api/listening/source-collections/80-days');
-  if (state.status === 'error' && state.code === 404) return null;
+export function ListeningSourceEntry({ availability, retry }: { availability: 'loading' | 'available' | 'unavailable' | 'error'; retry: () => void }) {
+  if (availability === 'unavailable') return null;
   return <section className="source-entry" aria-label="Bộ luyện 80 ngày"><link rel="stylesheet" href="/css/listening-source-collection.css" />
-    {state.status === 'loading' ? <p role="status">Đang kiểm tra bộ luyện 80 ngày…</p> : state.status === 'error' ? <><p role="status">Chưa tải được bộ luyện 80 ngày.</p><button type="button" onClick={retry}>Thử lại</button></> : <a href={SOURCE_COLLECTION_PATH}><div><p className="source-kicker">Bộ luyện theo sách</p><h2>80 ngày Listening</h2><p>Luyện ngắn · Kỹ năng · Từ vựng · Đề mô phỏng. Mỗi ngày hiển thị rõ phần nội dung có sẵn.</p></div><span aria-hidden="true">Mở bộ luyện →</span></a>}
+    {availability === 'loading' ? <p role="status">Đang kiểm tra bộ luyện 80 ngày…</p> : availability === 'error' ? <><p role="status">Chưa tải được bộ luyện 80 ngày.</p><button type="button" onClick={retry}>Thử lại</button></> : <a href={SOURCE_COLLECTION_PATH}><div><p className="source-kicker">Bộ luyện theo sách</p><h2>80 ngày Listening</h2><p>Luyện ngắn · Kỹ năng · Từ vựng · Đề mô phỏng. Mỗi ngày hiển thị rõ phần nội dung có sẵn.</p></div><span aria-hidden="true">Mở bộ luyện →</span></a>}
   </section>;
 }
 
