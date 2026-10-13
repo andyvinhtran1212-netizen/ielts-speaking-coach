@@ -1974,9 +1974,13 @@ async def list_listening_content(
         _published_content_rows, accent_tag=accent_tag, cefr_level=cefr_level,
         ielts_section=ielts_section, newest_first=True,
     )
+    # Standalone modes sign the section's own audio. A public parent can use
+    # assembled audio even when the section is only a render placeholder.
+    audio_content_ids = [row["id"] for row in content_rows
+                         if str(row.get("audio_storage_path") or "").strip()]
     parent_result, modes_result = await asyncio.gather(
         run_in_threadpool(_browse_public_parents, content_rows),
-        run_in_threadpool(_published_content_modes, [row["id"] for row in content_rows]),
+        run_in_threadpool(_published_content_modes, audio_content_ids),
         return_exceptions=True,
     )
     if isinstance(parent_result, BaseException):
@@ -1988,7 +1992,8 @@ async def list_listening_content(
         logger.warning("[listening] available_modes lookup failed: %s", modes_result)
         # Readiness determines membership/total for standalone content. A
         # failure cannot truthfully be reported as zero eligible exercises.
-        if any(str(row.get("test_id") or "") not in parents for row in content_rows):
+        if any(str(row.get("audio_storage_path") or "").strip()
+               and str(row.get("test_id") or "") not in parents for row in content_rows):
             raise HTTPException(503, "Listening catalogue temporarily unavailable")
         modes_by_content = {}
     else:
@@ -4966,7 +4971,7 @@ def _published_content_rows(*, accent_tag: str | None = None, cefr_level: str | 
     while True:
         query = (
             supabase_admin.table("listening_content")
-            .select("id,test_id")
+            .select("id,test_id,audio_storage_path")
             .eq("status", "published")
             .neq("source_type", "programme_form")
         )
@@ -5319,7 +5324,9 @@ def _published_content_modes(content_ids: list[str]) -> tuple[dict[str, list[str
 
 def _published_library_counts() -> tuple[list[dict], dict[str, int], set[str]]:
     content_rows = _published_content_rows()
-    by_content, modes = _published_content_modes([row["id"] for row in content_rows])
+    audio_content_ids = [row["id"] for row in content_rows
+                         if str(row.get("audio_storage_path") or "").strip()]
+    by_content, modes = _published_content_modes(audio_content_ids)
     standalone_modes = {"dictation", "gist", "true_false", "mcq"}
     runnable_ids = {content_id for content_id, kinds in by_content.items()
                     if standalone_modes.intersection(kinds)}

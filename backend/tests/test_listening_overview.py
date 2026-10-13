@@ -187,10 +187,10 @@ def _dataset():
                      assembled_audio_storage_path="b/24.mp3")]
     )
     content = [
-        {"id": "c1", "status": "published"},
-        {"id": "c2", "status": "published"},
-        {"id": "c3", "status": "draft"},
-        {"id": "c4", "status": "published", "source_type": "programme_form"},
+        {"id": "c1", "status": "published", "audio_storage_path": "c1.mp3"},
+        {"id": "c2", "status": "published", "audio_storage_path": "c2.mp3"},
+        {"id": "c3", "status": "draft", "audio_storage_path": "c3.mp3"},
+        {"id": "c4", "status": "published", "audio_storage_path": "c4.mp3", "source_type": "programme_form"},
     ]
     seg = [{"idx": 0, "start_sec": 0, "end_sec": 3, "transcript": "hi"}]
     exercises = [
@@ -807,7 +807,7 @@ def test_browse_links_only_audio_ready_public_parent_tests():
         {'id': 'drill-section', 'status': 'published', 'test_id': 't9'},
         {'id': 'protected-section', 'status': 'published', 'test_id': 't23'},
         {'id': 'no-audio-section', 'status': 'published', 'test_id': 't22'},
-        {'id': 'standalone', 'status': 'published'},
+        {'id': 'standalone', 'status': 'published', 'audio_storage_path': 'standalone.mp3'},
     ]
     with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
         result = _browse(mod)
@@ -842,7 +842,7 @@ def test_browse_excludes_unlaunchable_sections_before_count_and_pagination():
         {'id': 'protected-newest', 'status': 'published', 'test_id': 't23'},
         {'id': 'missing-audio-newest', 'status': 'published', 'test_id': 't22'},
         {'id': 'public', 'status': 'published', 'test_id': 't9'},
-        {'id': 'standalone', 'status': 'published'},
+        {'id': 'standalone', 'status': 'published', 'audio_storage_path': 'standalone.mp3'},
     ]
     tables['listening_exercises'] = [{'id': 'gist', 'content_id': 'standalone', 'status': 'published', 'exercise_type': 'gist', 'payload': {'model_answer': 'Ready standalone'}}]
     with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
@@ -854,7 +854,7 @@ def test_browse_excludes_unlaunchable_sections_before_count_and_pagination():
 def test_browse_preserves_published_standalone_modes_without_exposing_reserved_parent():
     from routers import listening as mod
     tables = _dataset()
-    tables['listening_content'] = [{'id': 'authored', 'status': 'published', 'test_id': 't23'}]
+    tables['listening_content'] = [{'id': 'authored', 'status': 'published', 'audio_storage_path': 'authored.mp3', 'test_id': 't23'}]
     tables['listening_exercises'] = [{'id': 'gist', 'content_id': 'authored', 'status': 'published', 'exercise_type': 'gist', 'payload': {'model_answer': 'Published standalone summary'}}]
     with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
         result = _browse(mod)
@@ -868,7 +868,7 @@ def test_browse_metadata_paging_does_not_fill_page_with_reserved_sections():
     tables = _dataset()
     tables['listening_content'] = [{'id': f'reserved-{n}', 'status': 'published', 'test_id': 't23'} for n in range(2101)] + [
         {'id': 'public', 'status': 'published', 'test_id': 't9'},
-        {'id': 'standalone', 'status': 'published', 'ielts_section': 4},
+        {'id': 'standalone', 'status': 'published', 'audio_storage_path': 'standalone.mp3', 'ielts_section': 4},
     ]
     tables['listening_exercises'] = [{'id': 'gist', 'content_id': 'standalone', 'status': 'published', 'exercise_type': 'gist', 'payload': {'model_answer': 'Ready standalone'}}]
     class BoundedSB(_FakeSB):
@@ -891,7 +891,7 @@ def test_browse_metadata_paging_does_not_fill_page_with_reserved_sections():
 
 def test_browse_standalone_mode_lookup_failure_remains_unknown():
     from routers import listening as mod
-    tables = {'listening_content': [{'id': 'standalone', 'status': 'published'}]}
+    tables = {'listening_content': [{'id': 'standalone', 'status': 'published', 'audio_storage_path': 'standalone.mp3'}]}
     with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})), patch.object(mod, '_published_content_modes', side_effect=RuntimeError('unavailable')):
         with pytest.raises(HTTPException) as error:
             _browse(mod)
@@ -900,7 +900,7 @@ def test_browse_standalone_mode_lookup_failure_remains_unknown():
 
 def test_browse_excludes_published_standalone_without_a_ready_exercise():
     from routers import listening as mod
-    tables = {'listening_content': [{'id': 'unfinished', 'status': 'published'}], 'listening_exercises': [{'id': 'empty-mcq', 'content_id': 'unfinished', 'status': 'published', 'exercise_type': 'mcq', 'payload': {'questions': []}}]}
+    tables = {'listening_content': [{'id': 'unfinished', 'status': 'published', 'audio_storage_path': 'unfinished.mp3'}], 'listening_exercises': [{'id': 'empty-mcq', 'content_id': 'unfinished', 'status': 'published', 'exercise_type': 'mcq', 'payload': {'questions': []}}]}
     with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
         result = _browse(mod)
     assert result['total'] == 0
@@ -917,3 +917,41 @@ def test_browse_known_public_parent_remains_launchable_when_modes_lookup_fails()
     assert result['modes_lookup_failed'] is True
     assert result['items'][0]['available_modes'] is None
     assert result['items'][0]['practice_test_id'] == 't9'
+
+
+@pytest.mark.parametrize("audio_path", [None, "", "   "])
+def test_browse_and_overview_exclude_ready_standalone_without_audio(audio_path):
+    from routers import listening as mod
+    tables = _dataset()
+    tables['listening_content'] = [
+        {'id': 'missing-audio', 'status': 'published', 'audio_storage_path': audio_path},
+        {'id': 'ready', 'status': 'published', 'audio_storage_path': 'ready.mp3'},
+    ]
+    tables['listening_exercises'] = [
+        {'id': content_id, 'content_id': content_id, 'status': 'published',
+         'exercise_type': 'gist', 'payload': {'model_answer': 'Ready summary'}}
+        for content_id in ('missing-audio', 'ready')
+    ]
+    with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
+        result = _run(mod.list_listening_content(accent_tag=None, cefr_level=None, ielts_section=None, limit=1, offset=0, authorization='Bearer x'))
+        overview = _run(mod.listening_overview(authorization='Bearer x'))
+    assert result['total'] == 1
+    assert [row['id'] for row in result['items']] == ['ready']
+    assert result['items'][0]['available_modes'] == ['gist']
+    assert overview['playable_content'] == 1
+    assert overview['exercise_modes']['gist'] == 1
+
+
+def test_browse_keeps_public_parent_but_hides_audio_missing_standalone_modes():
+    from routers import listening as mod
+    tables = _dataset()
+    tables['listening_content'] = [{'id': 'section', 'test_id': 't9', 'status': 'published', 'audio_storage_path': None}]
+    tables['listening_exercises'] = [{'id': 'gist', 'content_id': 'section', 'status': 'published', 'exercise_type': 'gist', 'payload': {'model_answer': 'Ready summary'}}]
+    with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
+        result = _browse(mod)
+        overview = _run(mod.listening_overview(authorization='Bearer x'))
+    assert result['total'] == 1
+    assert result['items'][0]['practice_test_id'] == 't9'
+    assert result['items'][0]['available_modes'] == []
+    assert overview['playable_content'] == 1
+    assert overview['exercise_modes']['gist'] == 0

@@ -115,3 +115,13 @@ it('uses natural lesson order and distinct Mini Test names while preserving auth
   expect(screen.getByText('Mini test · Bài 1')).toBeTruthy();
   expect(screen.getByText('Mini test · Bài 2')).toBeTruthy();
 });
+
+it.each([0, 1])('uses playable content (%s) for the landing CTA and library card', async (count) => {
+  window.api.getWith = vi.fn(async () => ({ content: 7, playable_content: count, exercise_modes: { gist: 1 }, tests: {}, programmes: [] }));
+  render(<ListeningLandingBehavior />);
+  const action = await screen.findByRole('link', { name: /Bắt đầu luyện/ });
+  expect(action.getAttribute('href')).toBe(count ? '/listening/browse' : '/listening/analytics');
+  const library = screen.queryByRole('link', { name: /Kho bài nghe/ });
+  if (count) expect(library?.textContent).toContain('1 bài');
+  else expect(library).toBeNull();
+});

@@ -253,7 +253,7 @@ function NextActionPanel({ overview }: { overview: Overview }) {
     : overview.tests.practice ? '/listening/practice'
     : overview.tests.mini ? '/listening/mini-test'
     : overview.tests.full ? '/listening/tests'
-    : overview.content ? '/listening/browse'
+    : overview.playableContent ? '/listening/browse'
     : '/listening/analytics';
   const title = firstProgramme ? `Bắt đầu với ${firstProgramme.title}` : 'Chọn một bài nghe để bắt đầu';
   return (
@@ -292,7 +292,7 @@ function RecentList({ items }: { items: RecentActivity[] }) {
 
 function ListeningLandingSurface({ state }: { state: LoadState }) {
   const ready = state.status === 'ready' ? state.overview : undefined;
-  const showLibrary = !!ready && ready.content > 0 && (ready.modeLabels.length > 0 || ready.playableContent > 0);
+  const showLibrary = !!ready && ready.playableContent > 0;
 
   return (
     <>
@@ -324,7 +324,7 @@ function ListeningLandingSurface({ state }: { state: LoadState }) {
         <section className="listening-modes" id="section-library" aria-labelledby="library-heading">
           <h2 id="library-heading">Luyện tự do theo bài nghe</h2>
           <div className="modes-grid">
-            <ModeCard href="/listening/browse" mode="browse" label="Kho bài nghe" icon={<HeadphonesIcon />} count={ready.playableContent || ready.content}>
+            <ModeCard href="/listening/browse" mode="browse" label="Kho bài nghe" icon={<HeadphonesIcon />} count={ready.playableContent}>
               Nghe theo chủ đề, giọng và trình độ. {ready.modeLabels.length ? `Dạng luyện đang có: ${ready.modeLabels.join(' · ')}.` : 'Mở bài luyện gốc từ kho bài nghe.'}
             </ModeCard>
           </div>

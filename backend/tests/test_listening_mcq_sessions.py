@@ -361,11 +361,11 @@ def test_attempt_mcq_requires_answers(monkeypatch):
 def test_browse_filters_by_section(monkeypatch):
     canned = {
         "listening_content": [
-            {"id": "c1", "status": "published", "title": "T1",
+            {"id": "c1", "status": "published", "title": "T1", "audio_storage_path": "c1.mp3",
              "accent_tag": "us_general", "cefr_level": "B2", "ielts_section": 1,
              "topic_tags": [], "audio_duration_seconds": 180,
              "is_premium": False, "created_at": "2026-05-10T00:00:00Z"},
-            {"id": "c2", "status": "published", "title": "T2",
+            {"id": "c2", "status": "published", "title": "T2", "audio_storage_path": "c2.mp3",
              "accent_tag": "uk_rp", "cefr_level": "C1", "ielts_section": 4,
              "topic_tags": [], "audio_duration_seconds": 220,
              "is_premium": False, "created_at": "2026-05-12T00:00:00Z"},
@@ -389,7 +389,7 @@ def test_browse_filters_by_section(monkeypatch):
 def test_browse_excludes_drafts(monkeypatch):
     canned = {
         "listening_content": [
-            {"id": "c1", "status": "draft", "title": "T1",
+            {"id": "c1", "status": "draft", "title": "T1", "audio_storage_path": "c1.mp3",
              "accent_tag": "us_general", "cefr_level": "B2",
              "ielts_section": 1, "topic_tags": [],
              "audio_duration_seconds": 100, "is_premium": False,
@@ -415,7 +415,7 @@ def test_browse_excludes_published_programme_forms_before_pagination(monkeypatch
                 "created_at": "2026-09-21T00:00:00Z",
             },
             {
-                "id": "standalone", "status": "published",
+                "id": "standalone", "status": "published", "audio_storage_path": "standalone.mp3",
                 "source_type": "curated_external", "title": "Standalone",
                 "created_at": "2026-09-20T00:00:00Z",
             },
