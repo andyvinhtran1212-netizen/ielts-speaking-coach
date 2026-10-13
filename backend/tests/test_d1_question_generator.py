@@ -146,6 +146,24 @@ def test_missing_vocab_id_does_not_log_empty_resource_id(monkeypatch):
     assert logged["resource_id"] is None
 
 
+@pytest.mark.parametrize("model", ["claude-haiku-5-5", "claude-haiku-4-5-20251001"])
+def test_configured_model_is_called_and_logged_without_losing_fallback(monkeypatch, model):
+    fake = _patch_anthropic(monkeypatch, texts=[json.dumps({
+        "context_sentence": "I love the serendipity of meeting old friends in unexpected places.",
+        "target_answer": "serendipity", "distractors": ["misfortune", "obligation", "routine"],
+        "acceptable_variants": [], "hint": "happy coincidence",
+    })])
+    monkeypatch.setattr(dqg.settings, "D1_QUESTION_MODEL", model)
+    logged = {}
+    monkeypatch.setattr(dqg.ai_usage_logger, "log_claude_response", lambda _response, **kw: logged.update(kw))
+    assert dqg._try_haiku({"headword": "serendipity"}) is not None
+    assert fake.calls[0]["model"] == logged["model"] == model
+    if model == "claude-haiku-5-5":
+        assert fake.calls[0]["extra_body"]["thinking"]["type"] == "disabled"
+    else:
+        assert "extra_body" not in fake.calls[0]
+
+
 def test_validation_rejects_target_missing_from_sentence(monkeypatch):
     """If the AI returns a sentence that doesn't contain the target
     word at all, _validate_ai_payload returns None → fall through to

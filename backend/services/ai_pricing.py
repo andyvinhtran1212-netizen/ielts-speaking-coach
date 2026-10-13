@@ -43,11 +43,16 @@ class UnitRate:
         return f"{self.provider}:{self.model}:{self.effective_from.isoformat()}:{end}"
 
 
-# Public list prices verified 2026-09-18.  A new price period is a new row;
+# Catalog baseline verified 2026-09-18; Haiku 5.5 and ElevenLabs rechecked
+# 2026-10-12. A new price period is a new row;
 # never rewrite an old period because historical costs must remain reproducible.
 TOKEN_RATES: tuple[TokenRate, ...] = (
     TokenRate("anthropic", "claude-haiku-4-5-20251001", date(2025, 10, 15), None,
               1.00, 5.00, cache_read_per_million=0.10, cache_write_per_million=1.25),
+    # https://platform.claude.com/docs/en/models/haiku-5-5/overview
+    # Base rates apply through 100k prompt tokens; see the multiplier below.
+    TokenRate("anthropic", "claude-haiku-5-5", date(2026, 10, 7), None,
+              0.10, 0.50, cache_read_per_million=0.01, cache_write_per_million=0.125),
     TokenRate("anthropic", "claude-sonnet-4-6", date(2026, 2, 17), None,
               3.00, 15.00, cache_read_per_million=0.30, cache_write_per_million=3.75),
     TokenRate("anthropic", "claude-sonnet-5", date(2026, 6, 30), None,
@@ -70,10 +75,17 @@ UNIT_RATES: tuple[UnitRate, ...] = (
              "audio_second", 0.0045 / 60.0),
     UnitRate("openai", "tts-1", date(2023, 11, 6), None,
              "text_character", 15.00 / 1_000_000.0),
-    UnitRate("elevenlabs", "eleven_multilingual_v2", date(2026, 9, 18), None,
+    UnitRate("elevenlabs", "eleven_multilingual_v2", date(2026, 9, 18), date(2026, 10, 11),
              "text_character", 0.10 / 1_000.0),
-    UnitRate("elevenlabs", "eleven_flash_v2_5", date(2026, 9, 18), None,
+    UnitRate("elevenlabs", "eleven_flash_v2_5", date(2026, 9, 18), date(2026, 10, 11),
              "text_character", 0.05 / 1_000.0),
+    # https://elevenlabs.io/pricing/api — observed on 2026-10-12. Apply
+    # prospectively; the page does not establish an earlier effective date.
+    # These are API list-price estimates, not subscription/credit invoices.
+    UnitRate("elevenlabs", "eleven_multilingual_v2", date(2026, 10, 12), None,
+             "text_character", 0.08 / 1_000.0),
+    UnitRate("elevenlabs", "eleven_flash_v2_5", date(2026, 10, 12), None,
+             "text_character", 0.04 / 1_000.0),
 )
 
 
@@ -135,6 +147,12 @@ def estimate_token_cost(
         if rate.cache_write_per_million is None:
             return None, rate.version
         cost += max(0, cache_write_tokens) * rate.cache_write_per_million / 1_000_000
+    # Anthropic's prompt length includes cache reads and writes. Haiku 5.5
+    # charges 5x on the entire request above 100k, not just the excess tokens.
+    if provider == "anthropic" and model == "claude-haiku-5-5":
+        prompt_tokens = sum(max(0, n) for n in (input_tokens, cache_read_tokens, cache_write_tokens))
+        if prompt_tokens > 100_000:
+            cost *= 5
     return round(cost, 8), rate.version
 
 

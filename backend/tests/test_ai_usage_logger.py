@@ -129,7 +129,7 @@ def test_elevenlabs_tts_uses_its_character_price(monkeypatch):
     )
     row = table.insert.call_args.args[0]
     assert row["service"] == "elevenlabs"
-    assert row["cost_usd_est"] == 0.10
+    assert row["cost_usd_est"] == 0.08
     assert row["cost_source"] == "catalog_estimate"
 
 

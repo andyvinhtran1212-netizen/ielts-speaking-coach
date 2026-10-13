@@ -169,7 +169,11 @@ class Settings(BaseSettings):
 
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False
-    VOCAB_ANALYSIS_MODEL: str = "claude-haiku-4-5-20251001"
+    # Short structured tasks: Haiku 5.5, with independent rollback controls.
+    # Speaking scoring/judge fallbacks deliberately retain their calibrated models.
+    VOCAB_ANALYSIS_MODEL: str = "claude-haiku-5-5"
+    D1_QUESTION_MODEL: str = "claude-haiku-5-5"
+    LISTENING_GIST_MODEL: str = "claude-haiku-5-5"
     VOCAB_MIN_TRANSCRIPT_WORDS: int = 30
     VOCAB_MAX_PER_CATEGORY: int = 3
     VOCAB_BANK_FEATURE_FLAG_ENABLED: bool = False
@@ -209,17 +213,18 @@ class Settings(BaseSettings):
     GEMINI_FLASH_MODEL: str = "gemini-2.5-flash"
 
     # Multi-model plan P1-A — level-aware default grading model. When ON,
-    # student-submitted essays at L1–L3 grade with the cheaper/faster
-    # gemini-3.5-flash and L4–L5 stay on gemini-2.5-pro. Backed by the
-    # calibration harness: 3.5 Flash hit 100% band agreement (±0.5) vs Pro at
-    # ≤L3 but only ~90% at L4. KILL-SWITCH: set env WRITING_LEVEL_AWARE_MODEL=false
+    # student-submitted essays at L1–L3 use WRITING_FLASH_MODEL; L4–L5 stay
+    # on gemini-2.5-pro. The owner approved 3.8 on staging on 2026-10-12
+    # and will review grading quality. Roll back to 3.5 via WRITING_FLASH_MODEL.
+    # KILL-SWITCH: set env WRITING_LEVEL_AWARE_MODEL=false
     # to revert all levels to Pro — no code change; settings load at process
     # start, so the Railway variable change restarts the service to pick it up.
     # Admin-picked models are NOT overridden — student-path default only.
     # NOTE: default True ⇒ ON the moment this deploys; set the env var false
     # at/before deploy if you want to roll out dark first.
     WRITING_LEVEL_AWARE_MODEL: bool = True
-    WRITING_FLASH_MAX_LEVEL: int = 3   # highest level that uses 3.5 Flash
+    WRITING_FLASH_MODEL: str = "gemini-3.8-flash"
+    WRITING_FLASH_MAX_LEVEL: int = 3   # highest level that uses the Flash default
 
     # Sprint W-MM reaper — grading reliability (stuck-job recovery + model
     # fallback). A grading BG task runs IN-PROCESS (FastAPI BackgroundTask); a
