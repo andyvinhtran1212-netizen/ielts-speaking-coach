@@ -16,6 +16,7 @@ const fakeSession = JSON.stringify({
 const validOverview = {
   tests: { full: 2, mini: 0, drill: 4, practice: 3 },
   content: 5,
+  playable_content: 5,
   exercise_modes: { dictation: 1, gist: 0, true_false: 0, mcq: '2', mini_test: 99, unknown: 7 },
   programmes: [
     {
@@ -85,7 +86,7 @@ await page.route('**/*', async (route) => {
         : scenario === 'general-only'
           ? { ...validOverview, programmes: [validOverview.programmes[0]], resume: null, recent: [], partial_data: false }
       : scenario === 'no-modes'
-        ? { ...validOverview, content: 5, exercise_modes: {}, resume: null, recent: [], partial_data: false }
+        ? { ...validOverview, content: 5, playable_content: 0, exercise_modes: {}, resume: null, recent: [], partial_data: false }
         : validOverview;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   }
@@ -137,7 +138,7 @@ check('hoạt động gần đây trỏ tới kết quả report-only',
   (await page.locator('.listening-recent__list a').getAttribute('href')) === '/listening/programmes/result/attempt-recent'
     && (await page.locator('.listening-recent__result').innerText()).includes('3/4 câu tự động kiểm tra')
     && (await page.locator('.listening-recent__list small').innerText()).includes('có hỗ trợ'));
-check('library chỉ mở khi có content và runnable mode',
+check('library chỉ mở khi có nội dung playable',
   await page.locator('#section-library').isVisible()
     && (await page.locator('[data-mode="browse"] .mode-card__badge').textContent())?.trim() === '5 bài');
 const browseLede = await page.locator('[data-mode="browse"] .lede').innerText();
