@@ -40,7 +40,8 @@ _PROPOSAL = re.compile(
     r"\b(?:có thể|nên|hãy|gợi ý|đề xuất|thử dùng|thay(?: thế)?\b[^.!?;]*?\bbằng|"
     r"cần\s+(?:dùng|sử dụng|thêm|bổ sung|viết|giải thích|nêu)|"
     r"chưa dùng|chưa sử dụng|không dùng|không sử dụng|thiếu|"
-    r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest|replace\b[^.!?;]*?\bwith|instead use|"
+    r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest(?:ion|ed)?|"
+    r"proposed (?:example|wording|revision)|replace\b[^.!?;]*?\bwith|instead use|"
     r"does not use|did not use|doesn't use|missing)\b", re.I
 )
 _ATTRIBUTION = re.compile(
@@ -59,6 +60,10 @@ _PEDAGOGICAL_QUESTION = re.compile(
     r"(?:câu hỏi|the question)\s*[:：]?\s*$", re.I,
 )
 _QUESTION_LABELS = {"như thế nào", "tại sao", "vì sao", "cụ thể", "how", "why", "so what"}
+_EXAMPLE_LABEL = re.compile(
+    r"\s*(?:ví dụ(?: minh họa)?|example(?: wording)?|for example|for instance)"
+    r"\s*[:：,]?\s*(?:(?:,|/|or\b|and\b|hoặc\b|hay\b|và\b)\s*)*", re.I,
+)
 
 
 def _normalize(text: str) -> str:
@@ -116,7 +121,8 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
             # A clearly proposed/absent expression is not a claim of usage.
             # A later explicit attribution resets that distinction, including
             # mixed "could use X, but you used Y" sentences.
-            prefix = re.split(r"[.!?;\n]", _QUOTES.sub("", text[:match.start()]))[-1]
+            masked_prefix = _QUOTES.sub("", text[:match.start()])
+            prefix = re.split(r"[.!?;\n]", masked_prefix)[-1]
             proposals = list(_PROPOSAL.finditer(prefix))
             attributions = list(_ATTRIBUTION.finditer(prefix)) + list(_CONTINUATION.finditer(prefix))
             last_attribution = max((m.start() for m in attributions), default=-1)
@@ -127,6 +133,12 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
                     and _normalize(excerpt).rstrip(" ?!:") in _QUESTION_LABELS):
                 continue
             if proposals and proposals[-1].start() > last_attribution:
+                continue
+            # A standalone example label introduces new language. Match the
+            # whole prefix so "You used ... For example ..." cannot disguise
+            # existing-usage praise as a proposal. Strengths are existing work.
+            if (_EXAMPLE_LABEL.fullmatch(masked_prefix)
+                    and not path.startswith("keyTakeaways.strengths")):
                 continue
             issues.append((path, excerpt[:240]))
 

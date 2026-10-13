@@ -2,6 +2,14 @@
 
 ## Writing source-evidence regression — 2026-10-13
 
+Promotion review follow-up on `codex/writing-example-labels-20261013`, based on
+staging `d5520689`: standalone “Ví dụ” / “Example” labels and explicit
+“Suggestion” / “Proposed revision” labels accept proposed new language without
+an extra paid call. Examples attributed to the learner, mixed attribution, and
+bare examples in strengths still reject absent evidence. The actual retry and
+usage-ledger boundary is exercised. Focused suite: 218 passed; full backend:
+10,124 passed, 800 skipped, 14 warnings. Writing 3.8 and rollback 3.5 unchanged.
+
 Bounded FR-006 grading-regression repair on
 `codex/writing-grounded-feedback-20261013`, based on staging `81ebe4a0`.
 The transport canary incorrectly credited “subsidies”, which occurred only in
