@@ -1,6 +1,7 @@
 import type { ApiGetJson } from '@/lib/openapi-contract';
 
 export type ListeningOverviewWire = ApiGetJson<'/api/listening/overview'>;
+export type ListeningContentListWire = ApiGetJson<'/api/listening/content'>;
 export type ListeningProgrammeLessonsWire =
   ApiGetJson<'/api/listening/programmes/{programme_id}/lessons'>;
 export type ListeningLessonDetailWire =

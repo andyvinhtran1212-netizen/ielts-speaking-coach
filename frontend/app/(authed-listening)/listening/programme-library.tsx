@@ -23,7 +23,9 @@ interface Lesson {
   inProgress: number;
 }
 interface IeltsModeCounts { practice: number; drill: number; mini: number; full: number }
-type State = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; lessons: Lesson[]; partial: boolean; lessonError: boolean; ieltsModeCounts: IeltsModeCounts | null };
+type State = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; lessons: Lesson[]; partial: boolean };
+type OverviewState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; counts: IeltsModeCounts; sourceAvailable: boolean | null };
+type LibraryProps = { programmeId: string; title: string; description: string; showIeltsModes?: boolean };
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -46,14 +48,24 @@ const IELTS_MODES = [
   { key: 'full', href: '/listening/tests', title: 'Full Test', contract: 'Bốn section · có điểm và band ước tính' },
 ] as const;
 
-export function ListeningProgrammeLibrary({ programmeId, title, description, showIeltsModes = false }: { programmeId: string; title: string; description: string; showIeltsModes?: boolean }) {
+export function ListeningProgrammeLibrary(props: LibraryProps) {
   const { status, user } = useAuth();
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
+  const accountKey = status === 'signed-in' && user?.id ? user.id : null;
+  return <ProgrammeLibraryData {...props} accountKey={accountKey} key={accountKey || status} />;
+}
+
+function ProgrammeLibraryData({ programmeId, title, description, showIeltsModes = false, accountKey }: LibraryProps & { accountKey: string | null }) {
   const [state, setState] = useState<State>({ status: 'loading' });
+  const [overview, setOverview] = useState<OverviewState>({ status: 'loading' });
+  const [revision, setRevision] = useState(0);
   const params = useSearchParams();
   const filter = listeningLibraryFilter(params || undefined) as Filter;
   const programmePath = programmeId === 'general-listening-practice' ? 'general' : 'ielts';
-  const scrollKey = status === 'signed-in' && user?.id
-    ? `aver:listening-library-scroll:v1:${user.id}:${listeningLibraryHref(programmePath, { filter })}` : null;
+  const scrollKey = accountKey
+    ? `aver:listening-library-scroll:v1:${accountKey}:${listeningLibraryHref(programmePath, { filter })}` : null;
   const rememberScroll = () => {
     if (!scrollKey) return;
     try { window.sessionStorage.setItem(scrollKey, String(window.scrollY)); } catch { /* navigation remains usable */ }
@@ -61,57 +73,60 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
   const setFilter = (next: Filter) => window.history.replaceState(null, '', listeningLibraryHref(programmePath, { filter: next }));
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login');
-    if (status !== 'signed-in' || !user?.id) return;
+    if (!accountKey) return;
     const controller = new AbortController();
     let active = true;
     setState({ status: 'loading' });
+    setOverview({ status: 'loading' });
+    const failed = (error: unknown) => !active || (error instanceof DOMException && error.name === 'AbortError');
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (listening programme)');
-      if (!ready || !active) throw new Error('API chưa sẵn sàng');
-      const [lessonResult, overviewResult] = await Promise.allSettled([
-        window.api.getWith<ListeningProgrammeLessonsWire>(
-          `/api/listening/programmes/${encodeURIComponent(programmeId)}/lessons?limit=100`,
-          undefined,
-          { signal: controller.signal },
-        ),
-        showIeltsModes
-          ? window.api.getWith<ListeningOverviewWire>('/api/listening/overview', undefined, { signal: controller.signal })
-          : Promise.resolve(null),
-      ]);
-      if (lessonResult.status === 'rejected' && !showIeltsModes) throw lessonResult.reason;
-      const lessonPayload = lessonResult.status === 'fulfilled' ? lessonResult.value : {};
-      const overviewPayload = overviewResult.status === 'fulfilled' ? overviewResult.value : null;
-      const payload = record(lessonPayload);
-      const items = Array.isArray(payload.items) ? payload.items : [];
-      const lessons = items.map((value) => {
-        const row = record(value);
-        return {
-          id: String(row.id || ''),
-          title: String(row.title || 'Bài nghe'),
-          instructions: String(row.instructions || ''),
-          outcomes: Array.isArray(row.outcomes) ? row.outcomes.map(String) : [],
-          sequence: Number(row.sequence_num || 0),
-          formCount: Number(row.form_count || 0),
-          completed: Number(row.completed_form_count || 0),
-          independentCompleted: Number(row.independent_completed_form_count || 0),
-          inProgress: Number(row.in_progress_form_count || 0),
-        };
-      }).filter((lesson) => lesson.id && lesson.formCount > 0);
-      const tests = record(record(overviewPayload).tests);
-      const ieltsModeCounts = overviewPayload ? {
-        practice: Number(tests.practice || 0),
-        drill: Number(tests.drill || 0),
-        mini: Number(tests.mini || 0),
-        full: Number(tests.full || 0),
-      } : null;
-      if (active) setState({ status: 'ready', lessons, partial: payload.partial_data === true, lessonError: lessonResult.status === 'rejected', ieltsModeCounts });
-    })().catch((error: unknown) => {
-      if (!active || (error instanceof DOMException && error.name === 'AbortError')) return;
-      setState({ status: 'error', message: 'Không tải được thư viện. Hãy thử lại.' });
-    });
+      if (!active) return;
+      if (!ready) {
+        setState({ status: 'error', message: 'Không tải được thư viện. Hãy thử lại.' });
+        setOverview({ status: 'error' });
+        return;
+      }
+      // Each surface settles independently. Progress/counts must not hold the
+      // lesson list or the permanent IELTS navigation behind a slow request.
+      void window.api.getWith<ListeningProgrammeLessonsWire>(
+        `/api/listening/programmes/${encodeURIComponent(programmeId)}/lessons?limit=100`,
+        undefined, { signal: controller.signal },
+      ).then((lessonPayload) => {
+        if (!active) return;
+        const payload = record(lessonPayload);
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        const lessons = items.map((value) => {
+          const row = record(value);
+          return {
+            id: String(row.id || ''), title: String(row.title || 'Bài nghe'),
+            instructions: String(row.instructions || ''),
+            outcomes: Array.isArray(row.outcomes) ? row.outcomes.map(String) : [],
+            sequence: Number(row.sequence_num || 0), formCount: Number(row.form_count || 0),
+            completed: Number(row.completed_form_count || 0),
+            independentCompleted: Number(row.independent_completed_form_count || 0),
+            inProgress: Number(row.in_progress_form_count || 0),
+          };
+        }).filter((lesson) => lesson.id && lesson.formCount > 0);
+        setState({ status: 'ready', lessons, partial: payload.partial_data === true });
+      }).catch((error: unknown) => {
+        if (!failed(error)) setState({ status: 'error', message: 'Không tải được thư viện. Hãy thử lại.' });
+      });
+      if (showIeltsModes) {
+        void window.api.getWith<ListeningOverviewWire>('/api/listening/overview', undefined, { signal: controller.signal }).then((overviewPayload) => {
+          if (!active) return;
+          const payload = record(overviewPayload);
+          const tests = record(payload.tests);
+          const count = (value: unknown) => { const number = Number(value); return Number.isFinite(number) && number > 0 ? number : 0; };
+          setOverview({ status: 'ready', counts: { practice: count(tests.practice), drill: count(tests.drill), mini: count(tests.mini), full: count(tests.full) },
+            sourceAvailable: Array.isArray(payload.programmes) && payload.programmes.some((value) => record(value).id === 'ielts-80-days-listening')
+              ? true : payload.partial_data === true ? null : false,
+          });
+        }).catch((error: unknown) => { if (!failed(error)) setOverview({ status: 'error' }); });
+      }
+    })();
     return () => { active = false; controller.abort(); };
-  }, [programmeId, showIeltsModes, status, user?.id]);
+  }, [programmeId, showIeltsModes, accountKey, revision]);
 
   const visible = useMemo(() => state.status === 'ready'
     ? state.lessons.filter((lesson) => filter === 'all' || lessonState(lesson) === filter)
@@ -140,7 +155,14 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
         <h1>{title}</h1>
         <p>{description}</p>
       </header>
-      {showIeltsModes ? <ListeningSourceEntry /> : null}
+      {showIeltsModes ? <section className="listening-ielts-modes" aria-labelledby="ielts-modes-heading">
+        <div className="listening-section-heading"><div><p className="listening-kicker">Luyện thi IELTS</p><h2 id="ielts-modes-heading">Chọn mức độ mô phỏng đề thi</h2></div><span>Điểm và band chỉ xuất hiện ở chế độ đủ điều kiện</span></div>
+        {overview.status !== 'ready' ? <p className="listening-mode-note" role="status">{overview.status === 'loading' ? 'Đang tải số bài; bạn có thể mở thư viện ngay.' : 'Số lượng bài tạm thời chưa tải được; các thư viện vẫn có thể mở.'}</p> : null}
+        <div className="listening-ielts-modes__grid">
+          {IELTS_MODES.filter((mode) => overview.status === 'ready' ? overview.counts[mode.key] > 0 : mode.key !== 'practice').map((mode, index) => <a href={mode.href} className="listening-ielts-mode-card" key={mode.key}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{mode.title}{overview.status === 'ready' ? <em>{overview.counts[mode.key]} bài</em> : null}</h3><p>{mode.contract}</p></div><strong aria-hidden="true">→</strong></a>)}
+        </div>
+      </section> : null}
+      {showIeltsModes ? <ListeningSourceEntry availability={overview.status === 'ready' ? overview.sourceAvailable === null ? 'error' : overview.sourceAvailable ? 'available' : 'unavailable' : overview.status} retry={() => setRevision((value) => value + 1)} /> : null}
       <nav className="listening-filter" aria-label="Lọc bài học">
         {FILTERS.map(([value, label]) => (
           <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>
@@ -149,8 +171,7 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
       {state.status === 'loading' ? <div className="listening-state" role="status">Đang tải bài học…</div> : null}
       {state.status === 'error' ? <div className="listening-state is-error" role="alert"><p>{state.message}</p><button type="button" onClick={() => window.location.reload()}>Thử lại</button></div> : null}
       {state.status === 'ready' && state.partial ? <div className="error-banner" role="status">Tiến độ có thể chưa đầy đủ; nội dung bài học vẫn dùng dữ liệu đã xuất bản.</div> : null}
-      {state.status === 'ready' && state.lessonError ? <div className="error-banner" role="alert">Chưa tải được IELTS Practice; các chế độ IELTS khác bên dưới vẫn mở được.</div> : null}
-      {state.status === 'ready' && !state.lessonError && visible.length === 0 ? <div className="listening-state"><p>Chưa có bài học ở trạng thái này.</p></div> : null}
+      {state.status === 'ready' && visible.length === 0 ? <div className="listening-state"><p>Chưa có bài học ở trạng thái này.</p></div> : null}
       {visible.length ? <div className="listening-lessons-grid">
         {visible.map((lesson) => {
           const statusValue = lessonState(lesson);
@@ -164,13 +185,7 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
           </a>;
         })}
       </div> : null}
-      {showIeltsModes && state.status === 'ready' ? <section className="listening-ielts-modes" aria-labelledby="ielts-modes-heading">
-        <div className="listening-section-heading"><div><p className="listening-kicker">Luyện thi IELTS</p><h2 id="ielts-modes-heading">Chọn mức độ mô phỏng đề thi</h2></div><span>Điểm và band chỉ xuất hiện ở chế độ đủ điều kiện</span></div>
-        {state.ieltsModeCounts === null ? <p className="listening-mode-note" role="status">Số lượng bài tạm thời chưa tải được; các thư viện vẫn có thể mở.</p> : null}
-        <div className="listening-ielts-modes__grid">
-          {IELTS_MODES.filter((mode) => state.ieltsModeCounts === null || state.ieltsModeCounts[mode.key] > 0).map((mode, index) => <a href={mode.href} className="listening-ielts-mode-card" key={mode.key}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{mode.title}{state.ieltsModeCounts !== null ? <em>{state.ieltsModeCounts[mode.key]} bài</em> : null}</h3><p>{mode.contract}</p></div><strong aria-hidden="true">→</strong></a>)}
-        </div>
-      </section> : null}
+
     </main>
   );
 }

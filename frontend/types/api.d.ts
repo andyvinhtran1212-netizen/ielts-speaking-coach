@@ -7316,20 +7316,11 @@ export interface paths {
         };
         /**
          * Listening Overview
-         * @description How much practice material each Listening surface actually holds.
+         * @description Canonical counts and account-owned activity, without serial I/O stalls.
          *
-         *     The landing page renders one tile per surface. Before this endpoint the
-         *     tiles were hard-coded, so four of them pointed at surfaces with zero
-         *     published rows — a learner clicked "Nghe ý chính" and landed on an empty
-         *     page. The landing page now hides a tile whose count is 0, which means the
-         *     count MUST match what the corresponding list endpoint would return, or a
-         *     tile promises content its own page cannot show.
-         *
-         *     So every filter here mirrors ``list_published_listening_tests`` /
-         *     ``list_listening_content`` / ``get_listening_exercises`` exactly:
-         *     published only, audio-ready only, exam-reserved papers excluded, and an
-         *     exercise counts only when BOTH it and its content row are published.
-         *     ``test_counts_consistent_with_list`` in the test suite pins that.
+         *     The existing wire shape and published/audio/public-policy predicates remain
+         *     unchanged. Independent reads run in worker threads: synchronous PostgREST
+         *     must not block the application event loop or unrelated learner pages.
          */
         get: operations["listening_overview_api_listening_overview_get"];
         put?: never;
@@ -17411,6 +17402,56 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ListeningContentListItem */
+        ListeningContentListItem: {
+            /** Id */
+            id: string;
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Accent Tag */
+            accent_tag?: string | null;
+            /** Cefr Level */
+            cefr_level?: string | null;
+            /** Ielts Section */
+            ielts_section?: number | null;
+            /** Topic Tags */
+            topic_tags?: string[] | null;
+            /** Audio Duration Seconds */
+            audio_duration_seconds?: number | null;
+            /** Is Premium */
+            is_premium?: boolean | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Available Modes */
+            available_modes?: string[] | null;
+            /** Practice Test Id */
+            practice_test_id?: string | null;
+            /** Practice Test Type */
+            practice_test_type?: ("full" | "mini" | "drill" | "practice") | null;
+        };
+        /** ListeningContentListResponse */
+        ListeningContentListResponse: {
+            /** Items */
+            items: components["schemas"]["ListeningContentListItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /**
+             * Modes Lookup Failed
+             * @default false
+             */
+            modes_lookup_failed: boolean;
+            /**
+             * Practice Lookup Failed
+             * @default false
+             */
+            practice_lookup_failed: boolean;
+        };
         /**
          * ListeningContentMetadataPatchRequest
          * @description Admin PATCH /admin/listening/content/{id} body — Sprint 13.1.
@@ -17728,6 +17769,11 @@ export interface components {
              * @default 0
              */
             content: number;
+            /**
+             * Playable Content
+             * @default 0
+             */
+            playable_content: number;
             /** Exercise Modes */
             exercise_modes?: {
                 [key: string]: number;
@@ -34073,7 +34119,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ListeningContentListResponse"];
                 };
             };
             /** @description Validation Error */

@@ -74,7 +74,8 @@ describe('/listening — native React behavior', () => {
     }
     assert.match(BEHAVIOR, /typeof count === 'number'/);
     assert.match(BEHAVIOR, /\{count\} bài/);
-    assert.match(BEHAVIOR, /ready\.content > 0 && ready\.modeLabels\.length > 0/);
+    assert.match(BEHAVIOR, /const showLibrary = !!ready && ready\.playableContent > 0/);
+    assert.doesNotMatch(BEHAVIOR, /overview\.content \? '\/listening\/browse'|ready\.playableContent \|\| ready\.content/);
     assert.match(BEHAVIOR, /ready\.modeLabels\.join\(' · '\)/);
     assert.match(PROGRAMME_LIBRARY, /Điểm và band chỉ xuất hiện ở chế độ đủ điều kiện/);
     assert.match(BEHAVIOR, /needsPermanentIeltsNavigation\(ready\.programmes\)/);

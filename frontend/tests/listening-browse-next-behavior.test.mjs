@@ -49,7 +49,7 @@ describe('/listening/browse — native React behavior', () => {
     assert.match(BEHAVIOR, /`\/api\/listening\/content\?\$\{query\.toString\(\)\}`/);
     assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_LIMIT\)\)/);
     assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
-    assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
+    assert.match(BEHAVIOR, /window\.api\.getWith<ListeningContentListWire>/);
     assert.match(BEHAVIOR, /fetchContentPage\(filters, offset, controller\.signal\)/);
     assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_LIMIT\)/);
     assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{state\.total\}\)/);
