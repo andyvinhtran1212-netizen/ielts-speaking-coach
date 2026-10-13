@@ -1986,12 +1986,16 @@ async def list_listening_content(
     modes_lookup_failed = isinstance(modes_result, BaseException)
     if modes_lookup_failed:
         logger.warning("[listening] available_modes lookup failed: %s", modes_result)
+        # Readiness determines membership/total for standalone content. A
+        # failure cannot truthfully be reported as zero eligible exercises.
+        if any(str(row.get("test_id") or "") not in parents for row in content_rows):
+            raise HTTPException(503, "Listening catalogue temporarily unavailable")
         modes_by_content = {}
     else:
         modes_by_content, _ = modes_result
     standalone_modes = {"dictation", "gist", "true_false", "mcq"}
     eligible_rows = [row for row in content_rows
-                     if not row.get("test_id") or str(row["test_id"]) in parents
+                     if str(row.get("test_id") or "") in parents
                      or standalone_modes.intersection(modes_by_content.get(str(row["id"]), []))]
     total = len(eligible_rows)
     page_ids = [row["id"] for row in eligible_rows[offset:offset + limit]]

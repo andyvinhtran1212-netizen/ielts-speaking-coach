@@ -815,9 +815,8 @@ def test_browse_links_only_audio_ready_public_parent_tests():
     rows = {row['id']: row for row in result['items']}
     assert rows['drill-section']['practice_test_id'] == 't9'
     assert rows['drill-section']['practice_test_type'] == 'drill'
-    assert set(rows) == {'drill-section', 'standalone'}
-    assert result['total'] == 2
-    assert rows['standalone']['practice_test_id'] is None
+    assert set(rows) == {'drill-section'}
+    assert result['total'] == 1
     assert all('test_id' not in row for row in rows.values())
     assert overview['playable_content'] == 1
 
@@ -845,6 +844,7 @@ def test_browse_excludes_unlaunchable_sections_before_count_and_pagination():
         {'id': 'public', 'status': 'published', 'test_id': 't9'},
         {'id': 'standalone', 'status': 'published'},
     ]
+    tables['listening_exercises'] = [{'id': 'gist', 'content_id': 'standalone', 'status': 'published', 'exercise_type': 'gist', 'payload': {'model_answer': 'Ready standalone'}}]
     with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
         pages = [_run(mod.list_listening_content(accent_tag=None, cefr_level=None, ielts_section=None, limit=1, offset=offset, authorization='Bearer x')) for offset in (0, 1)]
     assert [page['items'][0]['id'] for page in pages] == ['public', 'standalone']
@@ -870,6 +870,7 @@ def test_browse_metadata_paging_does_not_fill_page_with_reserved_sections():
         {'id': 'public', 'status': 'published', 'test_id': 't9'},
         {'id': 'standalone', 'status': 'published', 'ielts_section': 4},
     ]
+    tables['listening_exercises'] = [{'id': 'gist', 'content_id': 'standalone', 'status': 'published', 'exercise_type': 'gist', 'payload': {'model_answer': 'Ready standalone'}}]
     class BoundedSB(_FakeSB):
         def table(self, name):
             query = super().table(name)
@@ -892,7 +893,27 @@ def test_browse_standalone_mode_lookup_failure_remains_unknown():
     from routers import listening as mod
     tables = {'listening_content': [{'id': 'standalone', 'status': 'published'}]}
     with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})), patch.object(mod, '_published_content_modes', side_effect=RuntimeError('unavailable')):
+        with pytest.raises(HTTPException) as error:
+            _browse(mod)
+    assert error.value.status_code == 503
+
+
+def test_browse_excludes_published_standalone_without_a_ready_exercise():
+    from routers import listening as mod
+    tables = {'listening_content': [{'id': 'unfinished', 'status': 'published'}], 'listening_exercises': [{'id': 'empty-mcq', 'content_id': 'unfinished', 'status': 'published', 'exercise_type': 'mcq', 'payload': {'questions': []}}]}
+    with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
+        result = _browse(mod)
+    assert result['total'] == 0
+    assert result['items'] == []
+
+
+def test_browse_known_public_parent_remains_launchable_when_modes_lookup_fails():
+    from routers import listening as mod
+    tables = _dataset()
+    tables['listening_content'] = [{'id': 'public', 'status': 'published', 'test_id': 't9'}]
+    with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})), patch.object(mod, '_published_content_modes', side_effect=RuntimeError('unavailable')):
         result = _browse(mod)
     assert result['total'] == 1
     assert result['modes_lookup_failed'] is True
     assert result['items'][0]['available_modes'] is None
+    assert result['items'][0]['practice_test_id'] == 't9'
