@@ -71,7 +71,7 @@ function normalizeTests(items: unknown[]): ListeningMiniTest[] {
     const sourceTitle = textValue(raw.title);
     const title = sourceTitle && sourceTitle.toLowerCase() !== catalogId.toLowerCase()
       ? sourceTitle
-      : 'Mini Listening Test';
+      : miniLessonTitle(catalogId);
     const band = displayValue(raw.band_target);
     const themes = themeSummary(raw.themes);
     return [{
@@ -84,7 +84,13 @@ function normalizeTests(items: unknown[]): ListeningMiniTest[] {
       attemptCount: nonNegativeInteger(raw.user_attempt_count),
       submittedAttemptCount: nonNegativeInteger(raw.user_submitted_attempt_count),
     }];
-  });
+  }).sort((a, b) => a.catalogId.localeCompare(b.catalogId, 'en', { numeric: true, sensitivity: 'base' }) || a.id.localeCompare(b.id));
+}
+
+function miniLessonTitle(catalogId: string): string {
+  const lesson = /(?:LESSON-|LSN-)L0*(\d+)$/i.exec(catalogId);
+  if (!lesson) return catalogId ? `Mini test · ${catalogId}` : 'Mini Listening Test';
+  return `${catalogId.includes('-FND-') ? 'Nền tảng · ' : ''}Mini test · Bài ${Number(lesson[1])}`;
 }
 
 async function fetchAllMiniTests(signal: AbortSignal): Promise<unknown[]> {

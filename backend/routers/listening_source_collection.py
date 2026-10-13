@@ -1,5 +1,6 @@
 """Collection resources use the same signed-in Listening boundary as practice."""
 from fastapi import APIRouter, Header, HTTPException, Path
+from starlette.concurrency import run_in_threadpool
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
@@ -21,10 +22,10 @@ def _sign(path: str) -> str | None:
         return None
 
 
-def _context(day: int | None = None):
+def _context(day: int | None = None, *, summary: bool = False):
     try:
         package = service.published_package(supabase_admin)
-        lessons = service.source_lessons(supabase_admin, package, day)
+        lessons = service.source_lessons(supabase_admin, package, day, summary=summary)
     except HTTPException:
         raise
     except Exception as exc:
@@ -38,11 +39,15 @@ def _context(day: int | None = None):
 
 @router.get("/80-days", response_model=ListeningSourceCollectionResponse)
 async def get_source_collection(authorization: str | None = Header(default=None)):
-    from routers.listening import _programme_attempt_state
     user = await get_supabase_user(authorization)
-    package, lessons = _context()
-    forms = service.source_forms(supabase_admin, package)
-    states, partial = _programme_attempt_state(user["id"], forms)
+    return await run_in_threadpool(_collection_response, user["id"])
+
+
+def _collection_response(user_id: str):
+    from routers.listening import _programme_attempt_state
+    package, lessons = _context(summary=True)
+    forms = service.source_forms(supabase_admin, package, summary=True)
+    states, partial = _programme_attempt_state(user_id, forms)
     cards = [service.day_card(lesson, forms, states) for lesson in lessons]
     return {"collection_id": "80-days", "package_id": package["package_id"],
         "manifest_sha256": package["manifest_sha256"], "title": package["title"],
@@ -52,11 +57,15 @@ async def get_source_collection(authorization: str | None = Header(default=None)
 
 @router.get("/80-days/days/{day_number}", response_model=ListeningSourceDayResponse)
 async def get_source_day(day_number: int = Path(ge=1, le=80), authorization: str | None = Header(default=None)):
-    from routers.listening import _programme_attempt_state
     user = await get_supabase_user(authorization)
+    return await run_in_threadpool(_day_response, day_number, user["id"])
+
+
+def _day_response(day_number: int, user_id: str):
+    from routers.listening import _programme_attempt_state
     package, lessons = _context(day_number)
-    forms = service.source_forms(supabase_admin, package)
-    states, partial = _programme_attempt_state(user["id"], forms)
+    forms = service.source_forms(supabase_admin, package, lesson_id=str(lessons[0]["id"]))
+    states, partial = _programme_attempt_state(user_id, forms)
     return service.day_response(package, lessons[0], forms, states, _sign, partial)
 
 

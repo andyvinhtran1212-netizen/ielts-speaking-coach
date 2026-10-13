@@ -611,3 +611,48 @@ def test_zero_item_study_cannot_be_forged_for_practice_block(release):
     lesson['metadata']['source_study'][block['block_id']]={'resource_only':True,'items':[],'description':'SECRET'}
     with pytest.raises(HTTPException) as error:service.study_response(lesson,[block['block_id']],lambda _:pytest.fail('must reject before signing'))
     assert error.value.status_code==503
+
+
+def test_collection_summary_reads_only_card_fields_and_keeps_the_same_day_card():
+    from types import SimpleNamespace
+    book = {'source_contract': SOURCE_CONTRACT, 'group': 'short_practice',
+            'availability': {'questions': 'available', 'audio': 'available', 'transcript': 'available', 'printed_key': 'missing', 'explanations': 'reviewed'},
+            'source_position_count': 25, 'source_only_count': 1,
+            'blocks': [{'large': 'source question data not needed for listing'}]}
+    lesson = {'id': 'day1', 'source_lesson_id': 'day1', 'title': 'Ngày 1', 'sequence_num': 1, 'metadata': {'source_book': book}}
+    selected = []
+    class Query:
+        def select(self, fields): selected.append(fields); return self
+        def eq(self, *args): return self
+        def order(self, *args): return self
+        def execute(self):
+            row = {key: lesson[key] for key in ('id', 'source_lesson_id', 'title', 'sequence_num')}
+            row.update({key: book[key] for key in ('source_contract', 'group', 'availability', 'source_position_count', 'source_only_count')})
+            return SimpleNamespace(data=[row])
+    class DB:
+        def table(self, name): assert name == 'listening_lessons'; return Query()
+    summary = service.source_lessons(DB(), {'id': 'package'}, summary=True)[0]
+    assert 'metadata->source_book->source_position_count' in selected[0]
+    assert selected[0].split(',').count('metadata') == 0
+    assert 'blocks' not in service.source_metadata(summary)
+    forms = [{'id': 'form', 'listening_lesson_id': 'day1', 'source_item_count': 24}]
+    assert service.day_card(summary, forms, {}) == service.day_card(lesson, forms, {})
+
+
+def test_source_day_reads_only_its_own_forms_and_summary_omits_form_metadata():
+    from types import SimpleNamespace
+    rows = [{'id': 'one', 'listening_lesson_id': 'day1'}, {'id': 'two', 'listening_lesson_id': 'day2'}]
+    selected = []
+    class Query:
+        def __init__(self): self.lesson = None
+        def select(self, fields): selected.append(fields); return self
+        def eq(self, field, value):
+            if field == 'listening_lesson_id': self.lesson = value
+            return self
+        def execute(self): return SimpleNamespace(data=[row for row in rows if self.lesson is None or row['listening_lesson_id'] == self.lesson])
+    class DB:
+        def table(self, name): assert name == 'listening_tests'; return Query()
+    assert [row['id'] for row in service.source_forms(DB(), {'id': 'package'}, lesson_id='day1')] == ['one']
+    service.source_forms(DB(), {'id': 'package'}, summary=True)
+    assert 'metadata' not in selected[-1]
+    assert 'source_item_count' in selected[-1]

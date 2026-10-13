@@ -56,6 +56,7 @@ class _Query:
 
     def select(self, *_a, **kw):
         self._exact = kw.get("count") == "exact"
+        self._practice_group_alias = bool(_a and "practice_group:metadata->>practice_group" in _a[0])
         return self
 
     def eq(self, col, val):
@@ -116,7 +117,11 @@ class _Query:
             page = matched[lo:hi + 1]
         elif self._limit is not None:
             page = matched[:self._limit]
-        return _Res([dict(r) for r in page], total if self._exact else None)
+        output = [dict(r) for r in page]
+        if getattr(self, "_practice_group_alias", False):
+            for row in output:
+                row["practice_group"] = (row.get("metadata") or {}).get("practice_group")
+        return _Res(output, total if self._exact else None)
 
 
 class _FakeSB:
@@ -743,3 +748,88 @@ def test_admin_list_hides_the_practice_bank_by_default():
     assert kinds <= {"full", "mini", "drill"}
     assert all(t["test_type"] == "practice" for t in bank["items"])
     assert len(every["items"]) == len(default["items"]) + len(bank["items"])
+
+
+def test_overview_counts_all_pages_and_restricts_exercise_payload_reads():
+    from routers import listening as mod
+    tables = _dataset()
+    tables['listening_tests'] = [_test_row(i, 'practice', metadata={'practice_group': 'trap'}) for i in range(1, 2102)]
+    tables['mock_exams'] = []
+    reads = []
+
+    class TrackedSB(_FakeSB):
+        def table(self, name):
+            query = super().table(name)
+            execute = query.execute
+            def tracked_execute():
+                result = execute()
+                reads.append((name, result.data))
+                return result
+            query.execute = tracked_execute
+            return query
+
+    tables['listening_exercises'].append({'id': 'large-source', 'content_id': 'c4', 'exercise_type': 'programme_form', 'status': 'published', 'payload': {'variant': 'programme_form_v1', 'questions': [{'q_num': 1}]}})
+    with patch.object(mod, 'supabase_admin', TrackedSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
+        result = _run(mod.listening_overview(authorization='Bearer x'))
+    assert result['tests']['practice'] == 2101
+    assert result['practice_groups'] == {'trap': 2101}
+    assert result['playable_content'] == 2
+    assert all(row['content_id'] != 'c4' for name, rows in reads if name == 'listening_exercises' for row in rows)
+
+
+def test_overview_reads_in_parallel_without_blocking_event_loop():
+    import threading
+    from routers import listening as mod
+    barrier = threading.Barrier(3, timeout=2)
+    main_thread = threading.get_ident()
+    def read(result):
+        assert threading.get_ident() != main_thread
+        barrier.wait()
+        return result
+    with patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})), \
+         patch.object(mod, '_published_test_counts', lambda: read(({'full': 1}, {}, {'public-test'}))), \
+         patch.object(mod, '_published_library_counts', lambda: read(([{'id': 'section', 'test_id': 'public-test'}], {}, set()))), \
+         patch.object(mod, '_load_programme_overview', lambda uid: read(([], None, [], False))):
+        result = _run(mod.listening_overview(authorization='Bearer x'))
+    assert result['playable_content'] == 1
+    assert result['tests'] == {'full': 1}
+
+
+def _browse(mod):
+    return _run(mod.list_listening_content(accent_tag=None, cefr_level=None, ielts_section=None, limit=24, offset=0, authorization='Bearer x'))
+
+
+def test_browse_links_only_audio_ready_public_parent_tests():
+    from routers import listening as mod
+    tables = _dataset()
+    tables['listening_content'] = [
+        {'id': 'drill-section', 'status': 'published', 'test_id': 't9'},
+        {'id': 'protected-section', 'status': 'published', 'test_id': 't23'},
+        {'id': 'no-audio-section', 'status': 'published', 'test_id': 't22'},
+        {'id': 'standalone', 'status': 'published'},
+    ]
+    with patch.object(mod, 'supabase_admin', _FakeSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
+        result = _browse(mod)
+        overview = _run(mod.listening_overview(authorization='Bearer x'))
+    rows = {row['id']: row for row in result['items']}
+    assert rows['drill-section']['practice_test_id'] == 't9'
+    assert rows['drill-section']['practice_test_type'] == 'drill'
+    for content_id in ['protected-section', 'no-audio-section', 'standalone']:
+        assert rows[content_id]['practice_test_id'] is None
+        assert 'test_id' not in rows[content_id]
+    assert overview['playable_content'] == 1
+
+
+def test_browse_parent_lookup_error_is_not_claimed_as_no_exercises():
+    from routers import listening as mod
+    class FailedParentSB(_FakeSB):
+        def table(self, name):
+            if name == 'listening_public_practice_catalog':
+                raise RuntimeError('unavailable')
+            return super().table(name)
+    tables = {'listening_content': [{'id': 'section', 'status': 'published', 'test_id': 'parent'}], 'listening_exercises': []}
+    with patch.object(mod, 'supabase_admin', FailedParentSB(tables)), patch.object(mod, '_require_auth', AsyncMock(return_value={'id': 'u'})):
+        result = _browse(mod)
+    assert result['practice_lookup_failed'] is True
+    assert result['items'][0]['available_modes'] is None
+    assert result['items'][0]['practice_test_id'] is None

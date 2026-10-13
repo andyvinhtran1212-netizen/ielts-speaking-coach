@@ -36,22 +36,37 @@ def published_package(db: Any) -> dict:
     return rows[0]
 
 
-def source_lessons(db: Any, package: dict, day: int | None = None) -> list[dict]:
+def source_lessons(db: Any, package: dict, day: int | None = None, *, summary: bool = False) -> list[dict]:
+    fields = "id,source_lesson_id,title,sequence_num,metadata"
+    if summary:
+        fields = "id,source_lesson_id,title,sequence_num," + ",".join(
+            f"{key}:metadata->source_book->{key}" for key in
+            ("source_contract", "group", "availability", "source_position_count", "source_only_count")
+        )
     query = (db.table("listening_lessons")
-             .select("id,source_lesson_id,title,sequence_num,metadata")
+             .select(fields)
              .eq("package_id", package["id"]).eq("programme_id", SOURCE_PROGRAMME)
              .eq("status", "published"))
     if day is not None:
         query = query.eq("sequence_num", day)
-    return query.order("sequence_num").execute().data or []
+    rows = query.order("sequence_num").execute().data or []
+    if summary:
+        rows = [{**row, "metadata": {"source_book": {
+            key: row.get(key) for key in
+            ("source_contract", "group", "availability", "source_position_count", "source_only_count")
+        }}} for row in rows]
+    return rows
 
 
-def source_forms(db: Any, package: dict) -> list[dict]:
-    return (db.table("listening_tests")
-            .select("id,source_form_id,title,listening_lesson_id,source_item_count,full_audio_duration_seconds,metadata")
+def source_forms(db: Any, package: dict, *, summary: bool = False, lesson_id: str | None = None) -> list[dict]:
+    fields = "id,listening_lesson_id,source_item_count" if summary else "id,source_form_id,title,listening_lesson_id,source_item_count,full_audio_duration_seconds,metadata"
+    query = (db.table("listening_tests")
+            .select(fields)
             .eq("content_package_id", package["id"]).eq("programme_id", SOURCE_PROGRAMME)
-            .eq("status", "published").eq("is_public", True).eq("scoring_policy", "report_only")
-            .execute().data or [])
+            .eq("status", "published").eq("is_public", True).eq("scoring_policy", "report_only"))
+    if lesson_id is not None:
+        query = query.eq("listening_lesson_id", lesson_id)
+    return query.execute().data or []
 
 
 def source_metadata(lesson: dict) -> dict:

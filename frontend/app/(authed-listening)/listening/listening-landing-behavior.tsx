@@ -22,6 +22,7 @@ interface Overview {
     practice: number;
   };
   content: number;
+  playableContent: number;
   modeLabels: string[];
   programmes: Programme[];
   resume: ResumeCard | null;
@@ -101,6 +102,7 @@ function normalizeOverview(payload: unknown): Overview {
       practice: strictPositiveCount(tests.practice),
     },
     content: strictPositiveCount(root.content),
+    playableContent: strictPositiveCount(root.playable_content),
     modeLabels: MODE_LABELS
       .filter(([key]) => coerciblePositiveCount(modes[key]) > 0)
       .map(([, label]) => label),
@@ -215,13 +217,14 @@ function IeltsNavigationCard() {
   );
 }
 
-function ProgrammeFallbackLinks() {
+function ProgrammeFallbackLinks({ loading = false }: { loading?: boolean }) {
+  const countLabel = loading ? 'Đang tải số bài…' : 'Số bài tạm thời chưa tải được';
   return (
     <section className="listening-programmes" aria-labelledby="programme-fallback-heading">
       <div className="listening-section-heading"><div><p className="listening-kicker">Thư viện</p><h2 id="programme-fallback-heading">Chọn chương trình luyện tập</h2></div></div>
       <div className="listening-programmes__grid">
-        <a className="listening-programme-card" href="/listening/general"><span className="listening-programme-card__eyebrow">General Listening</span><h3>Luyện nghe theo bài học</h3><p>Tình huống và mục tiêu nghe cụ thể; đối chiếu ngay từng câu.</p><div className="listening-programme-card__foot"><span>Số bài tạm thời chưa tải được</span><strong>Mở thư viện →</strong></div></a>
-        <a className="listening-programme-card" href="/listening/ielts"><span className="listening-programme-card__eyebrow">IELTS Listening</span><h3>Luyện tập và mô phỏng đề</h3><p>Bài luyện IELTS đối chiếu từng câu, bên cạnh Quick, Skills, Mini và Full Test.</p><div className="listening-programme-card__foot"><span>Số bài tạm thời chưa tải được</span><strong>Mở thư viện →</strong></div></a>
+        <a className="listening-programme-card" href="/listening/general"><span className="listening-programme-card__eyebrow">General Listening</span><h3>Luyện nghe theo bài học</h3><p>Tình huống và mục tiêu nghe cụ thể; đối chiếu ngay từng câu.</p><div className="listening-programme-card__foot"><span>{countLabel}</span><strong>Mở thư viện →</strong></div></a>
+        <a className="listening-programme-card" href="/listening/ielts"><span className="listening-programme-card__eyebrow">IELTS Listening</span><h3>Luyện tập và mô phỏng đề</h3><p>Bài luyện IELTS đối chiếu từng câu, bên cạnh Quick, Skills, Mini và Full Test.</p><div className="listening-programme-card__foot"><span>{countLabel}</span><strong>Mở thư viện →</strong></div></a>
       </div>
     </section>
   );
@@ -289,7 +292,7 @@ function RecentList({ items }: { items: RecentActivity[] }) {
 
 function ListeningLandingSurface({ state }: { state: LoadState }) {
   const ready = state.status === 'ready' ? state.overview : undefined;
-  const showLibrary = !!ready && ready.content > 0 && ready.modeLabels.length > 0;
+  const showLibrary = !!ready && ready.content > 0 && (ready.modeLabels.length > 0 || ready.playableContent > 0);
 
   return (
     <>
@@ -313,7 +316,7 @@ function ListeningLandingSurface({ state }: { state: LoadState }) {
           </div>
         </section>
       ) : null}
-      {state.status === 'error' ? <ProgrammeFallbackLinks /> : null}
+      {state.status !== 'ready' ? <ProgrammeFallbackLinks loading={state.status === 'loading'} /> : null}
 
       {ready ? <RecentList items={ready.recent} /> : null}
 
@@ -321,8 +324,8 @@ function ListeningLandingSurface({ state }: { state: LoadState }) {
         <section className="listening-modes" id="section-library" aria-labelledby="library-heading">
           <h2 id="library-heading">Luyện tự do theo bài nghe</h2>
           <div className="modes-grid">
-            <ModeCard href="/listening/browse" mode="browse" label="Kho bài nghe" icon={<HeadphonesIcon />} count={ready.content}>
-              Nghe tự do theo chủ đề, giọng và trình độ. Dạng luyện đang có: {ready.modeLabels.join(' · ')}.
+            <ModeCard href="/listening/browse" mode="browse" label="Kho bài nghe" icon={<HeadphonesIcon />} count={ready.playableContent || ready.content}>
+              Nghe theo chủ đề, giọng và trình độ. {ready.modeLabels.length ? `Dạng luyện đang có: ${ready.modeLabels.join(' · ')}.` : 'Mở bài luyện gốc từ kho bài nghe.'}
             </ModeCard>
           </div>
         </section>

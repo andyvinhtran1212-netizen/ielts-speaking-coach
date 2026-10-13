@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from models.listening_source_collection import SourceBlock, SourceExplanation, SourceResponseField, ReviewVerdict
@@ -51,11 +51,37 @@ class ListeningOverviewResponse(BaseModel):
     tests: dict[str, int] = Field(default_factory=dict)
     practice_groups: dict[str, int] = Field(default_factory=dict)
     content: int = 0
+    playable_content: int = 0
     exercise_modes: dict[str, int] = Field(default_factory=dict)
     programmes: list[ListeningProgrammeCard] = Field(default_factory=list)
     resume: ListeningResumeCard | None = None
     recent: list[ListeningRecentActivity] = Field(default_factory=list)
     partial_data: bool = False
+
+
+class ListeningContentListItem(BaseModel):
+    id: str
+    title: str | None = None
+    description: str | None = None
+    accent_tag: str | None = None
+    cefr_level: str | None = None
+    ielts_section: int | None = None
+    topic_tags: list[str] | None = None
+    audio_duration_seconds: int | float | None = None
+    is_premium: bool | None = None
+    created_at: str | None = None
+    available_modes: list[str] | None = None
+    practice_test_id: str | None = None
+    practice_test_type: Literal["full", "mini", "drill", "practice"] | None = None
+
+
+class ListeningContentListResponse(BaseModel):
+    items: list[ListeningContentListItem]
+    total: int
+    limit: int
+    offset: int
+    modes_lookup_failed: bool = False
+    practice_lookup_failed: bool = False
 
 
 class ListeningLessonCard(BaseModel):
