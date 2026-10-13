@@ -1968,17 +1968,47 @@ async def list_listening_content(
             422, f"cefr_level must be one of {sorted(_CEFR_VALUES)}",
         )
 
+    # Resolve eligibility before pagination. Reserved/unfinished test sections
+    # otherwise occupy the first page while the launchable content is buried.
+    content_rows = await run_in_threadpool(
+        _published_content_rows, accent_tag=accent_tag, cefr_level=cefr_level,
+        ielts_section=ielts_section, newest_first=True,
+    )
+    parent_result, modes_result = await asyncio.gather(
+        run_in_threadpool(_browse_public_parents, content_rows),
+        run_in_threadpool(_published_content_modes, [row["id"] for row in content_rows]),
+        return_exceptions=True,
+    )
+    if isinstance(parent_result, BaseException):
+        logger.warning("[listening] parent practice lookup failed: %s", parent_result)
+        raise HTTPException(503, "Listening catalogue temporarily unavailable")
+    parents = parent_result
+    modes_lookup_failed = isinstance(modes_result, BaseException)
+    if modes_lookup_failed:
+        logger.warning("[listening] available_modes lookup failed: %s", modes_result)
+        modes_by_content = {}
+    else:
+        modes_by_content, _ = modes_result
+    standalone_modes = {"dictation", "gist", "true_false", "mcq"}
+    eligible_rows = [row for row in content_rows
+                     if not row.get("test_id") or str(row["test_id"]) in parents
+                     or standalone_modes.intersection(modes_by_content.get(str(row["id"]), []))]
+    total = len(eligible_rows)
+    page_ids = [row["id"] for row in eligible_rows[offset:offset + limit]]
+    if not page_ids:
+        return {"items": [], "total": total, "limit": limit, "offset": offset,
+                "modes_lookup_failed": modes_lookup_failed, "practice_lookup_failed": False}
     q = (
         supabase_admin.table("listening_content")
         .select(
             "id,title,description,accent_tag,cefr_level,ielts_section,"
             "topic_tags,audio_duration_seconds,is_premium,created_at,test_id",
-            count="exact",
         )
         .eq("status", "published")
         .neq("source_type", "programme_form")
         .order("created_at", desc=True)
-        .range(offset, offset + limit - 1)
+        .in_("id", page_ids)
+        .order("id")
     )
     if accent_tag:
         q = q.eq("accent_tag", accent_tag)
@@ -1987,79 +2017,25 @@ async def list_listening_content(
     if ielts_section is not None:
         q = q.eq("ielts_section", ielts_section)
 
-    res = q.execute()
+    res = await run_in_threadpool(q.execute)
     items = res.data or []
-
-    # Which exercise modes each row can actually serve. Without this the
-    # browse card offered all four mode links unconditionally, and three of
-    # them dead-ended on "Bài này chưa có dạng ..." because no exercise had
-    # ever been authored. One extra round trip for the whole page, not N+1.
-    modes_by_content: dict[str, list[str]] = {c["id"]: [] for c in items if c.get("id")}
-    modes_lookup_failed = False
-    if modes_by_content:
-        try:
-            ex = (
-                supabase_admin.table("listening_exercises")
-                .select(_EXERCISE_READY_COLS)
-                .eq("status", "published")
-                .in_("content_id", list(modes_by_content))
-                .execute()
-            )
-            for row in ex.data or []:
-                bucket = modes_by_content.get(row.get("content_id"))
-                etype = row.get("exercise_type")
-                if (bucket is not None and etype and etype not in bucket
-                        and _exercise_is_ready(row)):
-                    bucket.append(etype)
-        except Exception as exc:                                             # pragma: no cover
-            logger.warning("[listening] available_modes lookup failed: %s", exc)
-            # An empty list here would be indistinguishable from "this content
-            # genuinely has no exercises" — the browse card would print "chưa có
-            # dạng luyện nào" and a DB fault would read as canonical no-data.
-            # Same rule the access-code endpoints already follow with
-            # `association_lookup_failed`: say the lookup failed, never invent
-            # an answer.
-            modes_lookup_failed = True
-    # Imported test sections are playable through their canonical parent, not
-    # through the four standalone exercise pages. Never link a reserved,
-    # unpublished or audio-unready parent from the public browse surface.
-    parents: dict[str, dict] = {}
-    practice_lookup_failed = False
-    parent_ids = list({str(c["test_id"]) for c in items if c.get("test_id")})
-    if parent_ids:
-        try:
-            parent_rows = (
-                supabase_admin.table("listening_public_practice_catalog")
-                .select("id,test_type")
-                .in_("id", parent_ids)
-                .eq("status", "published")
-                .eq("is_public", True)
-                .eq("scoring_policy", "diagnostic")
-                .or_(_AUDIO_READY_OR)
-                .execute().data or []
-            )
-            parents = {str(row["id"]): row for row in parent_rows
-                       if row.get("test_type") in {"full", "mini", "drill", "practice"}}
-        except Exception as exc:
-            logger.warning("[listening] parent practice lookup failed: %s", exc)
-            practice_lookup_failed = True
     for c in items:
         parent_id = str(c.pop("test_id", "") or "")
         parent = parents.get(parent_id)
         c["practice_test_id"] = str(parent["id"]) if parent else None
         c["practice_test_type"] = parent["test_type"] if parent else None
         c["available_modes"] = (
-            None if modes_lookup_failed or (practice_lookup_failed and parent_id and not modes_by_content.get(c.get("id")))
-            else sorted(modes_by_content.get(c.get("id"), []))
+            None if modes_lookup_failed
+            else sorted(standalone_modes.intersection(modes_by_content.get(str(c.get("id")), [])))
         )
 
     return {
         "items":  items,
-        "total":  getattr(res, "count", None) or 0,
+        "total":  total,
         "limit":  limit,
         "offset": offset,
         "modes_lookup_failed": modes_lookup_failed,
-        "practice_lookup_failed": practice_lookup_failed,
+        "practice_lookup_failed": False,
     }
 
 
@@ -4974,7 +4950,8 @@ def _exercise_is_ready(row: dict) -> bool:
     return False
 
 
-def _published_content_rows() -> list[dict]:
+def _published_content_rows(*, accent_tag: str | None = None, cefr_level: str | None = None,
+                            ielts_section: int | None = None, newest_first: bool = False) -> list[dict]:
     """Every published listening_content id, paged past the PostgREST cap.
 
     A bare `.select()` silently stops at 1000 rows, which would under-count
@@ -4983,18 +4960,22 @@ def _published_content_rows() -> list[dict]:
     out: list[dict] = []
     start, step = 0, 1000
     while True:
-        res = (
+        query = (
             supabase_admin.table("listening_content")
             .select("id,test_id")
             .eq("status", "published")
             .neq("source_type", "programme_form")
-            # LIMIT/OFFSET without ORDER BY has no defined row order in
-            # Postgres, so successive pages could repeat or skip rows and the
-            # count would drift. `id` is unique, which makes the walk stable.
-            .order("id")
-            .range(start, start + step - 1)
-            .execute()
         )
+        if accent_tag:
+            query = query.eq("accent_tag", accent_tag)
+        if cefr_level:
+            query = query.eq("cefr_level", cefr_level)
+        if ielts_section is not None:
+            query = query.eq("ielts_section", ielts_section)
+        if newest_first:
+            query = query.order("created_at", desc=True)
+        # A unique tie-breaker keeps the metadata walk and card page aligned.
+        res = query.order("id").range(start, start + step - 1).execute()
         rows = res.data or []
         out.extend(r for r in rows if r.get("id"))
         if len(rows) < step:
@@ -5281,11 +5262,28 @@ def _published_test_counts() -> tuple[dict[str, int], dict[str, int], set[str]]:
         offset += 1000
 
 
-def _published_library_counts() -> tuple[list[dict], dict[str, int], set[str]]:
-    content_rows = _published_content_rows()
-    content_ids = [row["id"] for row in content_rows]
+def _browse_public_parents(content_rows: list[dict]) -> dict[str, dict]:
+    parents: dict[str, dict] = {}
+    parent_ids = sorted({str(row["test_id"]) for row in content_rows if row.get("test_id")})
+    for start in range(0, len(parent_ids), 100):
+        rows = (
+            supabase_admin.table("listening_public_practice_catalog")
+            .select("id,test_type")
+            .in_("id", parent_ids[start:start + 100])
+            .eq("status", "published")
+            .eq("is_public", True)
+            .eq("scoring_policy", "diagnostic")
+            .or_(_AUDIO_READY_OR)
+            .execute().data or []
+        )
+        parents.update({str(row["id"]): row for row in rows
+                        if row.get("test_type") in {"full", "mini", "drill", "practice"}})
+    return parents
+
+
+def _published_content_modes(content_ids: list[str]) -> tuple[dict[str, list[str]], dict[str, int]]:
     modes = {kind: 0 for kind in sorted(_EXERCISE_TYPES)}
-    runnable_ids: set[str] = set()
+    by_content: dict[str, list[str]] = {}
     # Restrict before reading JSON: programme/source form payloads are large
     # and do not belong to this standalone library. UUID batches bound URL size.
     for batch_start in range(0, len(content_ids), 100):
@@ -5306,11 +5304,21 @@ def _published_library_counts() -> tuple[list[dict], dict[str, int], set[str]]:
                 kind = row.get("exercise_type")
                 if kind in modes and _exercise_is_ready(row):
                     modes[kind] += 1
-                    if kind in {"dictation", "gist", "true_false", "mcq"}:
-                        runnable_ids.add(str(row["content_id"]))
+                    bucket = by_content.setdefault(str(row["content_id"]), [])
+                    if kind not in bucket:
+                        bucket.append(kind)
             if len(rows) < 1000:
                 break
             offset += 1000
+    return by_content, modes
+
+
+def _published_library_counts() -> tuple[list[dict], dict[str, int], set[str]]:
+    content_rows = _published_content_rows()
+    by_content, modes = _published_content_modes([row["id"] for row in content_rows])
+    standalone_modes = {"dictation", "gist", "true_false", "mcq"}
+    runnable_ids = {content_id for content_id, kinds in by_content.items()
+                    if standalone_modes.intersection(kinds)}
     return content_rows, modes, runnable_ids
 
 
