@@ -2,6 +2,19 @@
 
 ## Writing source-evidence regression — 2026-10-13
 
+Promotion review follow-up on `codex/writing-example-labels-20261013`, based on
+staging `d5520689`: standalone “Ví dụ” / “Example” labels and clause-leading
+“Suggestion:” / “Suggested wording:” / “Proposed revision:” labels accept new
+language in mixed feedback. Possessive and past-verb uses are not proposals.
+The third-round scope audit found one common cause: proposal exemptions were
+too broad for the meaning of the field. Source-only strengths, originalIdea,
+coherence location and current-essay observations now require source evidence
+regardless of proposal wording. Structured originals stay strict; dedicated
+suggestions/rewrites and historical examples remain untouched. The complete
+retry, ledger, persistence and renderer contract was rechecked with no further
+scope change. Focused suite: 235 passed; full backend: 10,147 passed, 800 skipped,
+14 warnings. Writing 3.8 and rollback 3.5 unchanged.
+
 Bounded FR-006 grading-regression repair on
 `codex/writing-grounded-feedback-20261013`, based on staging `81ebe4a0`.
 The transport canary incorrectly credited “subsidies”, which occurred only in
