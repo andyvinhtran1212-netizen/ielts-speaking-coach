@@ -173,7 +173,7 @@ function FiltersBar({ filters, onChange }: {
 function ModeLinks({ item }: { item: ListeningContent }) {
   if (item.practiceTestId && ['drill', 'mini', 'full', 'practice'].includes(item.practiceTestType)
       && !MODE_LINKS.some(([mode]) => item.availableModes?.includes(mode))) {
-    const from = item.practiceTestType === 'drill' ? 'skills' : item.practiceTestType;
+    const from = item.practiceTestType;
     const label = item.practiceTestType === 'drill' ? 'Mở bài luyện kỹ năng' : item.practiceTestType === 'mini' ? 'Mở Mini Test' : item.practiceTestType === 'full' ? 'Mở Full Test' : 'Mở bài luyện nhanh';
     return <a className="mode-link" href={admitCorePlayer('listening_test', { id: item.practiceTestId, from })}>{label}</a>;
   }

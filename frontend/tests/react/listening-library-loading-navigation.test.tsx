@@ -1,9 +1,11 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ListeningLandingBehavior } from '@/app/(authed-listening)/listening/listening-landing-behavior';
 import { ListeningProgrammeLibrary } from '@/app/(authed-listening)/listening/programme-library';
 import { ListeningBrowseBehavior } from '@/app/(authed-listening)/listening/browse/listening-browse-behavior';
 import { ListeningMiniTestBehavior } from '@/app/(authed-listening)/listening/mini-test/listening-mini-test-behavior';
+import { listeningReviewParams, listeningReviewBackTarget } from '@/lib/listening-review-model.mjs';
+import { listeningTestParams, listeningLibraryHref, listeningReviewHref } from '@/lib/listening-test-controller.mjs';
 
 const auth = vi.hoisted(() => ({ status: 'signed-in', user: { id: 'listening-learner' } }));
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => auth }));
@@ -73,8 +75,29 @@ it('opens a published parent drill when its section has no standalone mode', asy
   window.api.getWith = vi.fn(async () => ({ items: [{ id: 'section', title: 'Bài luyện có thể mở', available_modes: [], practice_test_id: parent, practice_test_type: 'drill' }], total: 1 }));
   render(<ListeningBrowseBehavior />);
   const link = await screen.findByRole('link', { name: 'Mở bài luyện kỹ năng' });
-  expect(new URL(link.getAttribute('href')!, 'https://example.test').searchParams.get('id')).toBe(parent);
+  const destination = new URL(link.getAttribute('href')!, 'https://example.test');
+  expect(destination.searchParams.get('id')).toBe(parent);
+  expect(destination.searchParams.get('from')).toBe('drill');
+  const player = listeningTestParams(destination.search);
+  expect(listeningLibraryHref(player.from)).toBe('/listening/skills');
+  const review = new URL(listeningReviewHref('completed', player.from), 'https://example.test');
+  expect(listeningReviewBackTarget(listeningReviewParams(review.search)).href).toBe('/listening/skills');
   expect(screen.queryByText('Chưa có dạng luyện nào cho bài này')).toBeNull();
+});
+
+it('keeps a partial overview source entry in a visible retry state until publication is known', async () => {
+  let recovered = false;
+  window.api.getWith = vi.fn(async (url: string) => url === '/api/listening/overview'
+    ? { tests: { full: 4 }, programmes: recovered ? [{ id: 'ielts-80-days-listening' }] : [], partial_data: !recovered }
+    : lessons);
+  render(<ListeningProgrammeLibrary {...props} />);
+  await screen.findByRole('heading', { name: 'Bài nghe đã tải' });
+  expect(await screen.findByText('Chưa tải được bộ luyện 80 ngày.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Thử lại' })).toBeTruthy();
+  recovered = true;
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByRole('link', { name: /80 ngày Listening/ })).toBeTruthy();
+  expect(vi.mocked(window.api.getWith).mock.calls.some(([url]) => String(url).includes('source-collections'))).toBe(false);
 });
 
 it('preserves authored standalone controls on a section that also has a parent test', async () => {

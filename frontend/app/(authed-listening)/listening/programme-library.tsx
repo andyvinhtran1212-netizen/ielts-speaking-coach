@@ -24,7 +24,7 @@ interface Lesson {
 }
 interface IeltsModeCounts { practice: number; drill: number; mini: number; full: number }
 type State = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; lessons: Lesson[]; partial: boolean };
-type OverviewState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; counts: IeltsModeCounts; sourceAvailable: boolean };
+type OverviewState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; counts: IeltsModeCounts; sourceAvailable: boolean | null };
 type LibraryProps = { programmeId: string; title: string; description: string; showIeltsModes?: boolean };
 
 function record(value: unknown): Record<string, unknown> {
@@ -119,7 +119,8 @@ function ProgrammeLibraryData({ programmeId, title, description, showIeltsModes 
           const tests = record(payload.tests);
           const count = (value: unknown) => { const number = Number(value); return Number.isFinite(number) && number > 0 ? number : 0; };
           setOverview({ status: 'ready', counts: { practice: count(tests.practice), drill: count(tests.drill), mini: count(tests.mini), full: count(tests.full) },
-            sourceAvailable: Array.isArray(payload.programmes) && payload.programmes.some((value) => record(value).id === 'ielts-80-days-listening'),
+            sourceAvailable: Array.isArray(payload.programmes) && payload.programmes.some((value) => record(value).id === 'ielts-80-days-listening')
+              ? true : payload.partial_data === true ? null : false,
           });
         }).catch((error: unknown) => { if (!failed(error)) setOverview({ status: 'error' }); });
       }
@@ -161,7 +162,7 @@ function ProgrammeLibraryData({ programmeId, title, description, showIeltsModes 
           {IELTS_MODES.filter((mode) => overview.status === 'ready' ? overview.counts[mode.key] > 0 : mode.key !== 'practice').map((mode, index) => <a href={mode.href} className="listening-ielts-mode-card" key={mode.key}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{mode.title}{overview.status === 'ready' ? <em>{overview.counts[mode.key]} bài</em> : null}</h3><p>{mode.contract}</p></div><strong aria-hidden="true">→</strong></a>)}
         </div>
       </section> : null}
-      {showIeltsModes ? <ListeningSourceEntry availability={overview.status === 'ready' ? overview.sourceAvailable ? 'available' : 'unavailable' : overview.status} retry={() => setRevision((value) => value + 1)} /> : null}
+      {showIeltsModes ? <ListeningSourceEntry availability={overview.status === 'ready' ? overview.sourceAvailable === null ? 'error' : overview.sourceAvailable ? 'available' : 'unavailable' : overview.status} retry={() => setRevision((value) => value + 1)} /> : null}
       <nav className="listening-filter" aria-label="Lọc bài học">
         {FILTERS.map(([value, label]) => (
           <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>
