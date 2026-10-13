@@ -209,6 +209,13 @@ async def test_valid_feedback_needs_no_extra_provider_call(monkeypatch):
     ("Suggestion: 'Targeted subsidies could support students.'", True),
     ("Suggested wording: 'Targeted subsidies could support students.'", True),
     ("Proposed revision: 'Targeted subsidies could support students.'", True),
+    ("The essay's suggestion, 'targeted subsidies', is effective.", False),
+    ("The essay suggested 'targeted subsidies' convincingly.", False),
+    ("You suggested 'targeted subsidies' effectively.", False),
+    ("Your suggested wording: 'targeted subsidies'.", False),
+    ("The proposed revision, 'targeted subsidies', is effective.", False),
+    ("Good organization. Suggested wording: 'targeted subsidies'.", True),
+    ("Suggestion: 'targeted subsidies' or 'financial support'.", True),
     ("You used 'Targeted subsidies could support students.'", False),
     ("Em dùng từ rất tốt, ví dụ: 'targeted subsidies'.", False),
     ("You used precise language. For example: 'targeted subsidies'.", False),
@@ -234,3 +241,32 @@ def test_bare_example_label_in_strengths_still_claims_learner_usage():
     result.keyTakeaways.strengths = ["Ví dụ: 'targeted subsidies'."]
     with pytest.raises(UngroundedWritingFeedbackError):
         validate_writing_grounding(result, ESSAY)
+
+
+@pytest.mark.parametrize("field", ["strengths", "originalIdea", "location", "current_essay_observation"])
+@pytest.mark.parametrize("claim,accepted", [
+    ("Example: 'targeted subsidies'", False),
+    ("Suggestion: 'targeted subsidies'", False),
+    ("You could use 'targeted subsidies'", False),
+    ("Example: 'dedicated bus lanes'", True),
+])
+def test_source_only_fields_never_use_proposal_exemptions(field, claim, accepted):
+    data = feedback().model_dump()
+    proposed = {"instruction": "Add detail", "example": "Targeted subsidies could help."}
+    if field == "strengths":
+        data["keyTakeaways"]["strengths"] = [claim]
+    elif field == "originalIdea":
+        data["ideaDevelopmentAnalysis"] = [{"paragraph": 2, "originalIdea": claim,
+            "issue": "Needs detail", "explanation": "Explain the mechanism", "suggestion": proposed}]
+    elif field == "location":
+        data["coherenceAnalysis"] = [{"location": claim, "issue": "Needs a transition",
+            "explanation": "Clarify the connection", "suggestion": proposed}]
+    else:
+        data["sentenceStructureAnalysis"] = {field: claim}
+    result = WritingFeedback(**data)
+    if accepted:
+        validate_writing_grounding(result, ESSAY)
+    else:
+        with pytest.raises(UngroundedWritingFeedbackError) as caught:
+            validate_writing_grounding(result, ESSAY)
+        assert len(caught.value.issues) == 1 and field in caught.value.issues[0][0]

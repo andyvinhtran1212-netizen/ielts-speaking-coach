@@ -40,8 +40,7 @@ _PROPOSAL = re.compile(
     r"\b(?:có thể|nên|hãy|gợi ý|đề xuất|thử dùng|thay(?: thế)?\b[^.!?;]*?\bbằng|"
     r"cần\s+(?:dùng|sử dụng|thêm|bổ sung|viết|giải thích|nêu)|"
     r"chưa dùng|chưa sử dụng|không dùng|không sử dụng|thiếu|"
-    r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest(?:ion|ed)?|"
-    r"proposed (?:example|wording|revision)|replace\b[^.!?;]*?\bwith|instead use|"
+    r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest|replace\b[^.!?;]*?\bwith|instead use|"
     r"does not use|did not use|doesn't use|missing)\b", re.I
 )
 _ATTRIBUTION = re.compile(
@@ -63,6 +62,11 @@ _QUESTION_LABELS = {"như thế nào", "tại sao", "vì sao", "cụ thể", "ho
 _EXAMPLE_LABEL = re.compile(
     r"\s*(?:ví dụ(?: minh họa)?|example(?: wording)?|for example|for instance)"
     r"\s*[:：,]?\s*(?:(?:,|/|or\b|and\b|hoặc\b|hay\b|và\b)\s*)*", re.I,
+)
+_SUGGESTION_LABEL = re.compile(
+    r"\s*(?:suggestion|suggested (?:example|wording|revision)|"
+    r"proposed (?:example|wording|revision))\s*[:：]\s*"
+    r"(?:(?:,|/|or\b|and\b)\s*)*", re.I,
 )
 
 
@@ -112,11 +116,15 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
         if not _in_essay(text, essay):
             issues.append((path, text[:240]))
 
-    def observations(path: str, text: str):
+    def observations(path: str, text: str, *, allow_proposals: bool = True):
         text = text.translate(_PUNCTUATION)
         for match in _QUOTES.finditer(text):
             excerpt = next(g for g in match.groups() if g is not None)
             if _in_essay(excerpt, essay, allow_ellipsis=True):
+                continue
+            # Source-only fields cannot turn invented evidence into a proposal.
+            if not allow_proposals:
+                issues.append((path, excerpt[:240]))
                 continue
             # A clearly proposed/absent expression is not a claim of usage.
             # A later explicit attribution resets that distinction, including
@@ -136,9 +144,10 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
                 continue
             # A standalone example label introduces new language. Match the
             # whole prefix so "You used ... For example ..." cannot disguise
-            # existing-usage praise as a proposal. Strengths are existing work.
+            # existing-usage praise as a proposal. Explicit suggestion labels
+            # must occupy the clause prefix, never a possessive or past verb.
             if (_EXAMPLE_LABEL.fullmatch(masked_prefix)
-                    and not path.startswith("keyTakeaways.strengths")):
+                    or _SUGGESTION_LABEL.fullmatch(prefix)):
                 continue
             issues.append((path, excerpt[:240]))
 
@@ -157,16 +166,18 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
         for name, item in feedback.criteriaFeedback:
             observations(f"criteriaFeedback.{name}.feedback", item.feedback)
         for i, text in enumerate(feedback.keyTakeaways.strengths):
-            observations(f"keyTakeaways.strengths[{i}]", text)
+            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False)
         for i, text in enumerate(feedback.keyTakeaways.areasForImprovement):
             observations(f"keyTakeaways.areasForImprovement[{i}]", text)
         mistakes(feedback.mistakeAnalysis, "mistakeAnalysis")
         for i, item in enumerate(feedback.ideaDevelopmentAnalysis or []):
             for field in ("originalIdea", "issue", "explanation"):
-                observations(f"ideaDevelopmentAnalysis[{i}].{field}", getattr(item, field))
+                observations(f"ideaDevelopmentAnalysis[{i}].{field}", getattr(item, field),
+                             allow_proposals=field != "originalIdea")
         for i, item in enumerate(feedback.coherenceAnalysis or []):
             for field in ("location", "issue", "explanation"):
-                observations(f"coherenceAnalysis[{i}].{field}", getattr(item, field))
+                observations(f"coherenceAnalysis[{i}].{field}", getattr(item, field),
+                             allow_proposals=field != "location")
         if feedback.counterargumentAnalysis:
             observations("counterargumentAnalysis.feedback", feedback.counterargumentAnalysis.feedback)
         if feedback.lexicalAnalysis:
@@ -179,7 +190,8 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
                 original(f"sentenceStructureAnalysis.sentenceUpgrades[{i}].original", item["original"])
         current = structure.get("current_essay_observation")
         if isinstance(current, str):
-            observations("sentenceStructureAnalysis.current_essay_observation", current)
+            observations("sentenceStructureAnalysis.current_essay_observation", current,
+                         allow_proposals=False)
         # Other structure/history fields can legitimately quote older essays.
         # Suggestions, improvedEssay and rewritten sentences may use new words.
     if issues:
