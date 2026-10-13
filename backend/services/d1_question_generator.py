@@ -44,7 +44,7 @@ import anthropic
 
 from config import settings
 from services import ai_usage_logger
-from services.claude_compat import json_request_kwargs, response_text
+from services.claude_compat import ClaudeTruncatedResponseError, json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +272,7 @@ def _is_retryable(exc: BaseException) -> bool:
             return True
         return False
     # JSON parse failures — a retry sometimes produces clean output.
-    if isinstance(exc, json.JSONDecodeError):
+    if isinstance(exc, (json.JSONDecodeError, ClaudeTruncatedResponseError)):
         return True
     # Generic timeouts (socket, asyncio).
     if isinstance(exc, TimeoutError):
@@ -481,23 +481,32 @@ def _try_haiku(vocab_row: dict) -> dict | None:
             system=[{"type": "text", "text": _SYSTEM_PROMPT}],
             messages=[{"role": "user", "content": _build_user_prompt(vocab_row)}],
         )
-        ai_usage_logger.log_claude_response(
-            msg,
-            model=model,
-            feature="d1_question_generation",
-            operation="generate_question",
-            resource_type="vocabulary",
-            resource_id=(str(vocab_row["id"]) if vocab_row.get("id") else None),
-        )
-        raw = response_text(msg)
-        # JSON parse runs inside the retry loop — malformed output is a
-        # retryable failure (the model sometimes truncates; a fresh
-        # attempt clears it).
-        payload = json.loads(_strip_json_fences(raw))
-        if not isinstance(payload, dict):
-            # Structural drift; not retryable.
-            return None
-        return _validate_ai_payload(payload, headword)
+        status, error_code = "error", "invalid_response"
+        try:
+            raw = response_text(msg)
+            # Malformed/truncated output retries within the existing budget.
+            payload = json.loads(_strip_json_fences(raw))
+            if not isinstance(payload, dict):
+                return None  # Structural drift is not retryable.
+            validated = _validate_ai_payload(payload, headword)
+            if validated is not None:
+                status, error_code = "success", None
+            return validated
+        except Exception as exc:
+            error_code = getattr(exc, "error_code", type(exc).__name__)
+            raise
+        finally:
+            # Preserve paid tokens exactly once, with the outcome of this attempt.
+            ai_usage_logger.log_claude_response(
+                msg,
+                model=model,
+                feature="d1_question_generation",
+                operation="generate_question",
+                resource_type="vocabulary",
+                resource_id=(str(vocab_row["id"]) if vocab_row.get("id") else None),
+                status=status,
+                error_code=error_code,
+            )
 
     try:
         validated = _call_with_retry(
