@@ -102,11 +102,11 @@ def _extract_json(text: str) -> dict:
     to the LAST '}', so two objects in the output merged into one invalid blob."""
     start = text.find("{")
     if start == -1:
-        raise ValueError("no JSON object found in model output")
+        raise json.JSONDecodeError("no JSON object found in model output", text, 0)
     try:
         obj, _ = json.JSONDecoder().raw_decode(text, start)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"no valid JSON object found: {exc}") from exc
+        raise json.JSONDecodeError("no valid JSON object found", text, exc.pos) from exc
     if not isinstance(obj, dict):
         raise ValueError("extracted JSON is not a JSON object")
     return obj
@@ -205,25 +205,33 @@ def grade_gist_response(
                 error_code=type(exc).__name__,
             )
             raise
-        ai_usage_logger.log_claude_response(
-            resp,
-            model=model,
-            user_id=usage_user_id,
-            feature="listening_gist",
-            operation="grade_gist",
-        )
-        text = response_text(resp)
-        parsed = _extract_json(text)
-        # Coerce types defensively.
-        score = int(parsed.get("score", 0))
-        score = max(0, min(100, score))
-        return {
-            "score":           score,
-            "feedback":        str(parsed.get("feedback") or "").strip()
-                               or "Đã chấm xong.",
-            "keyword_matches": list(parsed.get("keyword_matches") or []),
-            "ai_used":         True,
-        }
+        status, error_code = "error", "invalid_response"
+        try:
+            text = response_text(resp)
+            parsed = _extract_json(text)
+            # Coerce types defensively.
+            score = max(0, min(100, int(parsed.get("score", 0))))
+            result = {
+                "score": score,
+                "feedback": str(parsed.get("feedback") or "").strip() or "Đã chấm xong.",
+                "keyword_matches": list(parsed.get("keyword_matches") or []),
+                "ai_used": True,
+            }
+            status, error_code = "success", None
+            return result
+        except Exception as exc:
+            error_code = getattr(exc, "error_code", type(exc).__name__)
+            raise
+        finally:
+            ai_usage_logger.log_claude_response(
+                resp,
+                model=model,
+                user_id=usage_user_id,
+                feature="listening_gist",
+                operation="grade_gist",
+                status=status,
+                error_code=error_code,
+            )
 
     try:
         return _call_with_retry(_do_call, provider="anthropic", vocab_id="gist")
