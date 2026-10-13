@@ -375,6 +375,7 @@ def test_browse_filters_by_section(monkeypatch):
              "is_premium": False, "created_at": "2026-05-13T00:00:00Z"},
         ],
     }
+    canned["listening_exercises"] = [{"id": f"mcq-{row['id']}", "content_id": row["id"], "status": "published", "exercise_type": "mcq", "payload": {"questions": _qs()}} for row in canned["listening_content"]]
     _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.list_listening_content(
@@ -395,6 +396,7 @@ def test_browse_excludes_drafts(monkeypatch):
              "created_at": "2026-05-10T00:00:00Z"},
         ],
     }
+    canned["listening_exercises"] = [{"id": f"mcq-{row['id']}", "content_id": row["id"], "status": "published", "exercise_type": "mcq", "payload": {"questions": _qs()}} for row in canned["listening_content"]]
     _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.list_listening_content(
@@ -419,6 +421,7 @@ def test_browse_excludes_published_programme_forms_before_pagination(monkeypatch
             },
         ],
     }
+    canned["listening_exercises"] = [{"id": f"mcq-{row['id']}", "content_id": row["id"], "status": "published", "exercise_type": "mcq", "payload": {"questions": _qs()}} for row in canned["listening_content"]]
     _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.list_listening_content(
