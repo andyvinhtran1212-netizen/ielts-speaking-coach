@@ -44,6 +44,11 @@ from services.writing_prompt_loader import get_prompt_loader
 from services.ai_pricing import estimate_token_cost, token_rate
 from services import ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
+from services.writing_feedback_grounding import (
+    GROUNDING_INSTRUCTION,
+    UngroundedWritingFeedbackError,
+    validate_writing_grounding,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -328,6 +333,7 @@ class GeminiWritingGrader:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             parse_schema=WritingFeedback,   # retry on truncated/malformed body
+            source_essay=config.essay_text,
             usage_context=self._usage_context(config, "pass1"),
             **extra,
         )
@@ -550,6 +556,7 @@ class GeminiWritingGrader:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             parse_schema=Pass2Refinement,   # retry on truncated/malformed body
+            source_essay=config.essay_text,
             usage_context=self._usage_context(config, "pass2"),
         )
         return self._parse_response(response_text, schema=Pass2Refinement), usage
@@ -574,6 +581,7 @@ class GeminiWritingGrader:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             parse_schema=Pass3Rewrites,   # retry on truncated/malformed body
+            source_essay=config.essay_text,
             usage_context=self._usage_context(config, "pass3"),
         )
         return self._parse_response(response_text, schema=Pass3Rewrites), usage
@@ -814,6 +822,7 @@ class GeminiWritingGrader:
         *,
         parse_schema=None,
         usage_context: dict | None = None,
+        source_essay: str | None = None,
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
 
@@ -832,6 +841,8 @@ class GeminiWritingGrader:
         re-parse is cheap and guaranteed to succeed). AISafetyBlockError stays
         non-retryable."""
 
+        if source_essay is not None:
+            system_prompt += "\n\n" + GROUNDING_INSTRUCTION
         model = genai.GenerativeModel(
             model_name=model_name,
             system_instruction=system_prompt,
@@ -897,11 +908,16 @@ class GeminiWritingGrader:
                 # RETRYABLE failure (re-roll with backoff), not a hard fail.
                 if parse_schema is not None:
                     try:
-                        self._parse_response(response_text, schema=parse_schema)
-                    except Exception:
+                        parsed = self._parse_response(response_text, schema=parse_schema)
+                        if source_essay is not None:
+                            validate_writing_grounding(parsed, source_essay)
+                    except Exception as validation_error:
                         await self._log_writing_usage(
                             model_name, usage, usage_context, attempt,
                             attempt_started, status="invalid_response",
+                            error_code=("ungrounded_feedback" if isinstance(
+                                validation_error, UngroundedWritingFeedbackError
+                            ) else None),
                         )
                         attempt_logged = True
                         raise
@@ -926,6 +942,10 @@ class GeminiWritingGrader:
                 raise
             except Exception as e:
                 last_error = e
+                if isinstance(e, UngroundedWritingFeedbackError):
+                    repaired_prompt = user_prompt + e.repair_instruction()
+                    contents = ([repaired_prompt, {"mime_type": image[1], "data": image[0]}]
+                                if image is not None else repaired_prompt)
                 if not attempt_logged:
                     await self._log_writing_usage(
                         model_name, {}, usage_context, attempt,
@@ -943,7 +963,7 @@ class GeminiWritingGrader:
         # body, surface InvalidJSONError (vs APIRetryFailedError for API errors)
         # for accurate telemetry — both are handled by _bg_grade_essay's except
         # (→ PR-1 status-reset, so the essay isn't stranded).
-        if isinstance(last_error, InvalidJSONError):
+        if isinstance(last_error, (InvalidJSONError, UngroundedWritingFeedbackError)):
             raise last_error
         raise APIRetryFailedError(f"All {MAX_RETRIES} retries failed: {last_error}")
 
@@ -974,6 +994,7 @@ class GeminiWritingGrader:
         attempt_started: float,
         *,
         status: str,
+        error_code: str | None = None,
     ) -> None:
         context = dict(usage_context or {})
         event_prefix = context.pop("usage_event_prefix", None)
@@ -982,7 +1003,7 @@ class GeminiWritingGrader:
                 f"{event_prefix}:{context.get('operation', 'call')}:api:{attempt + 1}"
             )
         if not usage:
-            error_code = (
+            error_code = error_code or (
                 status if status in {"error", "cancelled"} else "missing_usage"
             )
             ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
@@ -1008,6 +1029,7 @@ class GeminiWritingGrader:
             ),
             thinking_tokens=usage.get("thinking_tokens") or 0,
             status=status,
+            error_code=error_code,
             latency_ms=int((time.monotonic() - attempt_started) * 1000),
             **context,
         ))

@@ -41,6 +41,7 @@ from services.gemini_writing_grader import (
     get_grader,
     summary_flags_missing_image,
 )
+from services.writing_feedback_grounding import UngroundedWritingFeedbackError
 from services.writing_history import (
     get_band_trajectory,
     get_recurring_patterns,
@@ -1141,8 +1142,8 @@ async def _bg_grade_essay(
                                     kind="AISafetyBlockError", exc=exc)
             _mark_failed(essay_id, job_id, exc, kind="AISafetyBlockError",
                          restore_status=restore_status)
-    except (APIRetryFailedError, InvalidJSONError) as exc:
-        # Transient/hard API failure — requeue if attempts remain (final attempt
+    except (APIRetryFailedError, InvalidJSONError, UngroundedWritingFeedbackError) as exc:
+        # API/response validation failure — requeue if attempts remain (final attempt
         # switches to the fallback model), else terminal.
         await _handle_grade_failure(
             essay_id, job_id, exc, kind=type(exc).__name__,

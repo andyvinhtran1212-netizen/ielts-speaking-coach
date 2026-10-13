@@ -15,6 +15,7 @@ import pytest
 from fastapi import HTTPException
 
 from models.writing_feedback import WritingFeedback
+from services.writing_feedback_grounding import UngroundedWritingFeedbackError
 from services import essay_service
 from services.gemini_writing_grader import (
     AISafetyBlockError,
@@ -411,7 +412,8 @@ async def test_bg_grade_essay_safety_block_marks_failed():
 
 
 @pytest.mark.asyncio
-async def test_bg_grade_essay_retry_failure_requeues_when_attempts_remain(monkeypatch):
+@pytest.mark.parametrize("failure", [APIRetryFailedError("3 retries failed"), UngroundedWritingFeedbackError([("criteriaFeedback.lexicalResource.feedback", "subsidies")])])
+async def test_bg_grade_essay_retry_failure_requeues_when_attempts_remain(monkeypatch, failure):
     """Sprint W-MM: a transient API failure on a non-final attempt REQUEUES
     (job→queued, schedule a re-run) instead of stranding the essay in 'failed'.
     The essay stays in-flight; no terminal failure is written."""
@@ -424,7 +426,7 @@ async def test_bg_grade_essay_retry_failure_requeues_when_attempts_remain(monkey
     fake_grader = MagicMock()
 
     async def fake_grade(_config):
-        raise APIRetryFailedError("3 retries failed")
+        raise failure
     fake_grader.grade_essay = fake_grade
 
     requeue = MagicMock()
@@ -448,9 +450,13 @@ async def test_bg_grade_essay_retry_failure_requeues_when_attempts_remain(monkey
                   and c["op"] == "update" and "error_log" in c["payload"]]
     assert log_writes, "the failed attempt must be appended to error_log"
 
+    assert not [c for c in fake.calls if c["table"] == "writing_feedback" and c["op"] in {"insert", "update"}]
+    assert log_writes[-1]["payload"]["error_log"][-1]["kind"] == type(failure).__name__
+
 
 @pytest.mark.asyncio
-async def test_bg_grade_essay_marks_failed_when_attempts_exhausted(monkeypatch):
+@pytest.mark.parametrize("failure", [APIRetryFailedError("3 retries failed"), UngroundedWritingFeedbackError([("criteriaFeedback.lexicalResource.feedback", "subsidies")])])
+async def test_bg_grade_essay_marks_failed_when_attempts_exhausted(monkeypatch, failure):
     """Sprint W-MM: on the FINAL attempt a hard failure is terminal — essay
     'failed' with an error_message so the admin UI stops showing 'đang chấm'."""
     from config import settings
@@ -461,7 +467,7 @@ async def test_bg_grade_essay_marks_failed_when_attempts_exhausted(monkeypatch):
     fake_grader = MagicMock()
 
     async def fake_grade(_config):
-        raise APIRetryFailedError("3 retries failed")
+        raise failure
     fake_grader.grade_essay = fake_grade
 
     requeue = MagicMock()
@@ -475,7 +481,9 @@ async def test_bg_grade_essay_marks_failed_when_attempts_exhausted(monkeypatch):
     requeue.assert_not_called()
     final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
     assert final_essay["payload"]["status"] == "failed"
-    assert "APIRetryFailedError" in final_essay["payload"]["error_message"]
+    assert type(failure).__name__ in final_essay["payload"]["error_message"]
+
+    assert not [c for c in fake.calls if c["table"] == "writing_feedback" and c["op"] in {"insert", "update"}]
 
 
 @pytest.mark.asyncio

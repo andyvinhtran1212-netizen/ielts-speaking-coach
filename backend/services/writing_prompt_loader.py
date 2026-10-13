@@ -103,20 +103,11 @@ class WritingPromptLoader:
             )
         self._cache: dict[str, str] = {}
 
-    # Stamped onto GradingResult.prompt_version + persisted to
-    # writing_feedback.prompt_version. Values per version:
-    #   v1 → "v1.0"  (legacy stamp, preserved for backwards-compat
-    #                 with tests / dashboards that pin "v1.0")
-    #   v2 → "v2.1"  (Sprint 2.6.2 — anti-fabrication tuning of Rule 1
-    #                 + Rule 4 + CoT Step 6 mistake authenticity gate.
-    #                 Bumped from "v2.0" so A/B SQL can distinguish
-    #                 pre-tuning canary rows from post-tuning rows;
-    #                 the v2 prompt directory layout is unchanged.)
-    # A/B query filters on this column. Bare-version directory layout
-    # ("v1"/"v2") is internal — external observers see the dotted stamp.
+    # Includes the runtime source-grounding instruction/guard used by the
+    # grader for every version and tier. Historical v1.0/v2.1 rows stay intact.
     _VERSION_STAMPS: dict[str, str] = {
-        "v1": "v1.0",
-        "v2": "v2.1",
+        "v1": "v1.1",
+        "v2": "v2.2",
     }
 
     @property
