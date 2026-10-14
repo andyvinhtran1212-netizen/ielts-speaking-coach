@@ -9,5 +9,5 @@ T002–T007 refer to prepared source/local results, not deployment. See verifica
 - [x] T005 Author reviewed translation units, phrase links, glossaries and useful visuals; validate revision binding. `depends: T001`
 - [x] T006 Implement inline translation, two-way highlights and after-check evidence navigation. `depends: T003, T005`
 - [x] T007 Verify every requirement and reconcile findings R01–R10; review the consolidated diff. `depends: T002, T004, T006`
-- [ ] T008 Obtain API write/release permissions for concrete code/data packages; stage and verify exact SHA. `depends: T007`
-- [ ] T009 Perform any separately approved production promotion and live acceptance. `depends: T008`
+- [x] T008 Obtain API write/release permissions for concrete code/data packages; stage and verify exact SHA. `depends: T007`
+- [ ] T009 Complete the approved production promotion/live acceptance and own synthetic QA cleanup. Production content transaction (23 articles/78 question changes) and full readback are complete; PR #1667 remains open. `depends: T008`
