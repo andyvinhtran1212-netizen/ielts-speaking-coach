@@ -9505,6 +9505,195 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vocabulary-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["catalog_api_vocabulary_sets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/{set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["detail_api_vocabulary_sets__set_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/{set_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_vocabulary_sets__set_id__sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Session Detail */
+        get: operations["session_detail_api_vocabulary_sets_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/sessions/{session_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer */
+        post: operations["answer_api_vocabulary_sets_sessions__session_id__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/sessions/{session_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit */
+        post: operations["submit_api_vocabulary_sets_sessions__session_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Catalog */
+        get: operations["admin_catalog_admin_vocabulary_sets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Cards */
+        get: operations["search_cards_admin_vocabulary_sets_cards_get"];
+        put?: never;
+        /** Create Card */
+        post: operations["create_card_admin_vocabulary_sets_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets/{set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Detail */
+        get: operations["admin_detail_admin_vocabulary_sets__set_id__get"];
+        put?: never;
+        /** Save Set */
+        post: operations["save_set_admin_vocabulary_sets__set_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets/{set_id}/publication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publication */
+        post: operations["publication_admin_vocabulary_sets__set_id__publication_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets/{set_id}/outcomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Outcomes */
+        get: operations["outcomes_admin_vocabulary_sets__set_id__outcomes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/content-topics": {
         parameters: {
             query?: never;
@@ -13549,6 +13738,25 @@ export interface components {
             /** Answer Text */
             answer_text?: string | null;
         };
+        /** AnswerOut */
+        AnswerOut: {
+            /** Index */
+            index: number;
+            /**
+             * Answer
+             * @default
+             */
+            answer: string;
+            /**
+             * Expected
+             * @default
+             */
+            expected: string;
+            /** Correct */
+            correct?: boolean | null;
+            /** Rating */
+            rating?: ("again" | "hard" | "good" | "easy") | null;
+        };
         /** AssignRow */
         AssignRow: {
             /** User Id */
@@ -13703,6 +13911,15 @@ export interface components {
             assisted_evidence_excluded: number;
             /** Item Ids */
             item_ids: string[];
+        };
+        /** AudienceOption */
+        AudienceOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Course Id */
+            course_id?: string | null;
         };
         /**
          * AuditRunRequest
@@ -14239,6 +14456,45 @@ export interface components {
             /** Self Attribution */
             self_attribution?: string[];
         };
+        /** CardCreate */
+        CardCreate: {
+            /** Headword */
+            headword: string;
+            /** Category */
+            category: string;
+            /** Gloss Vi */
+            gloss_vi: string;
+            /**
+             * Definition En
+             * @default
+             */
+            definition_en: string;
+            /**
+             * Pronunciation
+             * @default
+             */
+            pronunciation: string;
+            /**
+             * Part Of Speech
+             * @default
+             */
+            part_of_speech: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Example
+             * @default
+             */
+            example: string;
+        };
+        /** CardSearchOut */
+        CardSearchOut: {
+            /** Cards */
+            cards: components["schemas"]["SharedCard"][];
+        };
         /** CatalogEntry */
         CatalogEntry: {
             /** Id */
@@ -14283,6 +14539,17 @@ export interface components {
              * @default 0
              */
             supplementary_count: number;
+        };
+        /** CatalogOut */
+        CatalogOut: {
+            /** Sets */
+            sets: components["schemas"]["SetOut"][];
+            /** Courses */
+            courses: components["schemas"]["AudienceOption"][];
+            /** Cohorts */
+            cohorts: components["schemas"]["AudienceOption"][];
+            /** Sessions */
+            sessions?: components["schemas"]["SessionBrief"][];
         };
         /** ClaimRendererAffinityBody */
         ClaimRendererAffinityBody: {
@@ -17078,6 +17345,15 @@ export interface components {
             /** Answer */
             answer: string;
         };
+        /** LearnerOutcome */
+        LearnerOutcome: {
+            /** User Id */
+            user_id: string;
+            /** Name */
+            name: string;
+            /** Sessions */
+            sessions: components["schemas"]["SessionBrief"][];
+        };
         /** LearnerReportResponse */
         LearnerReportResponse: {
             /** Profile Kind */
@@ -18512,6 +18788,11 @@ export interface components {
             /** Client Ids With Multiple Fingerprints */
             client_ids_with_multiple_fingerprints: number;
         };
+        /** OutcomesOut */
+        OutcomesOut: {
+            /** Learners */
+            learners: components["schemas"]["LearnerOutcome"][];
+        };
         /** PaperPolicyDependency */
         PaperPolicyDependency: {
             /** Type */
@@ -18779,6 +19060,33 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** ProgressOut */
+        ProgressOut: {
+            /** Card Id */
+            card_id: string;
+            /**
+             * Familiar
+             * @default false
+             */
+            familiar: boolean;
+            /**
+             * Recall Attempts
+             * @default 0
+             */
+            recall_attempts: number;
+            /**
+             * Recall Correct
+             * @default 0
+             */
+            recall_correct: number;
+            /** Next Review At */
+            next_review_at?: string | null;
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
+        };
         /**
          * PromptAnalysisReview
          * @description Admin approval of a Task 1 answer key. `analysis` is the (possibly
@@ -18937,6 +19245,17 @@ export interface components {
              * @default false
              */
             release_now: boolean;
+        };
+        /** PublishedSetInfo */
+        PublishedSetInfo: {
+            /** Title */
+            title: string;
+            /** Library */
+            library: boolean;
+            /** Course Ids */
+            course_ids: string[];
+            /** Cohort Ids */
+            cohort_ids: string[];
         };
         /** Question */
         Question: {
@@ -19606,6 +19925,30 @@ export interface components {
             /** Expires In */
             expires_in: number;
         };
+        /** SessionBrief */
+        SessionBrief: {
+            /** Id */
+            id: string;
+            /** Set Id */
+            set_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "flashcards" | "learn" | "cloze" | "test";
+            /** Completed */
+            completed: boolean;
+            /** Answered */
+            answered: number;
+            /** Total */
+            total: number;
+            /** Correct */
+            correct?: number | null;
+            /** Created At */
+            created_at: string;
+        };
         /** SessionClassTask */
         SessionClassTask: {
             /** Item Id */
@@ -19710,6 +20053,30 @@ export interface components {
         SessionListResponse: {
             /** Sessions */
             sessions: components["schemas"]["routers__grammar_diagnostic__SessionResponse"][];
+        };
+        /** SessionOut */
+        SessionOut: {
+            /** Id */
+            id: string;
+            /** Set Id */
+            set_id: string;
+            /** Title */
+            title: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "flashcards" | "learn" | "cloze" | "test";
+            /** Items */
+            items: components["schemas"]["StudyItem"][];
+            /** Answers */
+            answers: components["schemas"]["AnswerOut"][];
+            /** Completed */
+            completed: boolean;
+            /** Correct */
+            correct?: number | null;
         };
         /** SessionPageResponse */
         SessionPageResponse: {
@@ -19824,6 +20191,24 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** SessionStart */
+        SessionStart: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "flashcards" | "learn" | "cloze" | "test";
+            /**
+             * Review Only
+             * @default false
+             */
+            review_only: boolean;
+        };
         /** SessionStatsResponse */
         SessionStatsResponse: {
             /** Sessions */
@@ -19873,6 +20258,137 @@ export interface components {
             last_mode: string | null;
             /** Last Session At */
             last_session_at: string | null;
+        };
+        /** SetAction */
+        SetAction: {
+            /** Expected Version */
+            expected_version: number;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "publish" | "archive";
+        };
+        /** SetOut */
+        SetOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+            /** Version */
+            version: number;
+            /**
+             * Published Revision
+             * @default 0
+             */
+            published_revision: number;
+            /** Library */
+            library: boolean;
+            /** Course Ids */
+            course_ids: string[];
+            /** Cohort Ids */
+            cohort_ids: string[];
+            /** Card Ids */
+            card_ids: string[];
+            /** Cards */
+            cards?: components["schemas"]["SharedCard"][];
+            /** Progress */
+            progress?: components["schemas"]["ProgressOut"][];
+            /** Mode Counts */
+            mode_counts?: {
+                [key: string]: number;
+            };
+            published?: components["schemas"]["PublishedSetInfo"] | null;
+        };
+        /** SetSave */
+        SetSave: {
+            /** Expected Version */
+            expected_version: number;
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Card Ids */
+            card_ids?: string[];
+            /**
+             * Library
+             * @default false
+             */
+            library: boolean;
+            /** Course Ids */
+            course_ids?: string[];
+            /** Cohort Ids */
+            cohort_ids?: string[];
+        };
+        /** SharedCard */
+        SharedCard: {
+            /** Id */
+            id: string;
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /** Headword */
+            headword: string;
+            /**
+             * Gloss Vi
+             * @default
+             */
+            gloss_vi: string;
+            /**
+             * Definition En
+             * @default
+             */
+            definition_en: string;
+            /**
+             * Pronunciation
+             * @default
+             */
+            pronunciation: string;
+            /**
+             * Part Of Speech
+             * @default
+             */
+            part_of_speech: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Example
+             * @default
+             */
+            example: string;
+            /**
+             * Audio Headword
+             * @default
+             */
+            audio_headword: string;
+            /**
+             * Audio Example
+             * @default
+             */
+            audio_example: string;
         };
         /** SourceAudioResponse */
         SourceAudioResponse: {
@@ -20587,6 +21103,31 @@ export interface components {
             /** Independent Items */
             independent_items: number;
         };
+        /** StudyAnswer */
+        StudyAnswer: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /** Index */
+            index: number;
+            /**
+             * Answer
+             * @default
+             */
+            answer: string;
+            /** Rating */
+            rating?: ("again" | "hard" | "good" | "easy") | null;
+        };
+        /** StudyItem */
+        StudyItem: {
+            /** Card Id */
+            card_id: string;
+            /** Prompt */
+            prompt: string;
+            card?: components["schemas"]["SharedCard"] | null;
+        };
         /** SubmitBody */
         SubmitBody: {
             /** Answers */
@@ -20679,6 +21220,16 @@ export interface components {
             } | null;
             /** Open Url */
             open_url?: string | null;
+        };
+        /** TestSubmit */
+        TestSubmit: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /** Answers */
+            answers: string[];
         };
         /** TipCreate */
         TipCreate: {
@@ -37661,6 +38212,453 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalog_api_vocabulary_sets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detail_api_vocabulary_sets__set_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_vocabulary_sets__set_id__sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    session_detail_api_vocabulary_sets_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_api_vocabulary_sets_sessions__session_id__answers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudyAnswer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_api_vocabulary_sets_sessions__session_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestSubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_catalog_admin_vocabulary_sets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_cards_admin_vocabulary_sets_cards_get: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_card_admin_vocabulary_sets_cards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_detail_admin_vocabulary_sets__set_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_set_admin_vocabulary_sets__set_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publication_admin_vocabulary_sets__set_id__publication_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    outcomes_admin_vocabulary_sets__set_id__outcomes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutcomesOut"];
                 };
             };
             /** @description Validation Error */

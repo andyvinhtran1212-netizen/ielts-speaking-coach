@@ -312,3 +312,9 @@
   border: 1px solid var(--av-error);
   color: var(--av-error);
 }
+
+.fc-stacks-title { font-size:var(--av-fs-lg); font-weight:var(--av-fw-semibold); color:var(--av-text-primary); }
+.mode-card:focus-within .delete-btn { opacity:1; }
+
+.fc-stack-link::after { content:""; position:absolute; inset:0; }
+.mode-card .delete-btn { z-index:2; }

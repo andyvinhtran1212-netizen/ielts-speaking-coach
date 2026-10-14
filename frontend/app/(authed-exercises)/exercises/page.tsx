@@ -1,21 +1,9 @@
-// Trang Exercises trên Next — `/exercises`.
-import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
-import { ExercisesBehavior } from './exercises-behavior';
+export const metadata = { title: 'Exercises — Aver Learning', robots: { index: false, follow: false } };
 
-export const metadata: Metadata = {
-  // Byte-faithful với <title> của bản legacy
-  title: 'Exercises — Aver Learning',
-  robots: { index: false, follow: false },
-};
-
+// Legacy entry remains valid; drills/history now live in the persistent Review
+// workspace. The D1 player and its existing evidence keep their own routes.
 export default function ExercisesPage() {
-  return (
-    <>
-      {/* Chrome chung. Layout chỉ NẠP script; phần tử phải do từng trang dựng. */}
-      {/* @ts-ignore */}
-      <aver-chrome active="vocabulary" />
-      <ExercisesBehavior />
-    </>
-  );
+  redirect('/vocabulary/hub?view=review');
 }

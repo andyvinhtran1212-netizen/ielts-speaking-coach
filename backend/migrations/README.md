@@ -20,8 +20,14 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-11 the highest is `316`, so the next
-new migration is `317`.
+sequence is dense. As of 2026-10-14 the highest is `317`, so the next
+new migration is `318`.
+
+Migration `317` adds admin-owned Vocabulary class sets, published snapshots,
+private study sessions, independent shared-card progress and atomic receipts.
+It leaves personal stacks, Quiz and D1 history intact. Enable only the
+`vocabulary_class_sets` forward-policy group on the authorized target before
+deploying its APIs; no content is seeded and no learner evidence is rewritten.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade

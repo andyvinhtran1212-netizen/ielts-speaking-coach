@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 const destinations = [
+  { eyebrow: 'Nội dung và phân phối', title: 'Bộ từ theo lớp', description: 'Chọn hoặc thêm từ, sắp xếp bộ thẻ, phân khóa/lớp và xem kết quả học.', detail: 'Soạn bộ · Xem trước · Xuất bản · Kết quả', href: '/admin/vocab/sets', status: 'LIVE', featured: true },
   { eyebrow: 'Curated learning units', title: 'Editorial & review inbox', description: 'Preview, so sánh immutable versions và điều phối ba cửa review trước khi publish.', detail: 'Diff · Review · Publish · Rollback', href: '/admin/vocab/curated', status: 'PILOT', featured: true },
   { eyebrow: 'Curated learning outcomes', title: 'Pilot measurement', description: 'Đo completion, delayed check ngày 7, retention ngày 28 và recommendation funnel từ dữ liệu canonical.', detail: 'Immediate · Day 7 · Day 28', href: '/admin/vocab/pilot-metrics', status: 'PILOT', featured: true },
   { eyebrow: 'Sức khoẻ hệ thống', title: 'Vocab + Flashcards Stats', description: 'Theo dõi quy mô ngân hàng, false-positive, feature flag và sức khoẻ SRS.', detail: 'Bank · SRS · Engagement', href: '/admin/vocab/stats', status: 'LIVE', featured: true },

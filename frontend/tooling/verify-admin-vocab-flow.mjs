@@ -443,7 +443,8 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/vocab`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Vocabulary workspace', exact: true }).waitFor();
 check('hub qua backend-owned admin gate', requests.some((item) => item.path === '/auth/me'));
-check('hub có đủ mười workspace và canonical links', await page.locator('a.avv-card').count() === 10
+check('hub ưu tiên bộ từ theo lớp và giữ đủ workspace hiện có', await page.locator('a.avv-card').count() === 11
+  && await page.locator('a.avv-card').first().getAttribute('href') === '/admin/vocab/sets'
   && await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/vocabulary/hub'
   && await page.locator('a.avv-card[href="/admin/vocab/curated"]').count() === 1
   && await page.locator('a.avv-card[href="/admin/vocab/pilot-metrics"]').count() === 1

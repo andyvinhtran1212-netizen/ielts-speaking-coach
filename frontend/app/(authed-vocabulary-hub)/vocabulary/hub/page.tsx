@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 
 import { VocabularyHubBehavior } from './vocabulary-hub-behavior';
 
@@ -12,7 +13,7 @@ export default function VocabularyHubPage() {
     <>
       {/* @ts-ignore — custom element do aver-chrome.js đăng ký. */}
       <aver-chrome active="vocabulary" />
-      <VocabularyHubBehavior />
+      <Suspense fallback={<p role="status">Đang tải từ vựng…</p>}><VocabularyHubBehavior /></Suspense>
     </>
   );
 }
