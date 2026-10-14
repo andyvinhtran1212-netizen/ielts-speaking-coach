@@ -37,5 +37,8 @@ Desktop and 400px rendered screens were visually inspected. The learning CTA pre
 - Approved spec-only PR: #1661, merged staging commit `b21c2201ca0aa6bad11e8cfd52d1622fe0081179`; PR checks passed.
 - Implementation checkout: `/Volumes/Kingston SSD/Code/aver-vocabulary-class-sets-20261014`.
 - Implementation branch: `codex/vocabulary-class-learning-20261014`.
-- Implementation PR and staging migration/deployment: pending separate authorization for the code and additive staging schema. Local fixtures are not live staging acceptance.
+- Implementation PR: #1662. The product owner explicitly authorized code push, PR merge and staging migration/acceptance on 2026-10-14.
+- Migration 317 is applied on Supabase staging: SHA256 `5b73bc3e3e703990aca10df74534175813edb4ecb179144fd04c86708331878e`; ledger verified, five tables have RLS and deny direct client reads, four routines deny authenticated execution and allow only service-role execution.
+- PR CI caught a macOS-specific screenshot directory in the browser verifier. Its portable `os.tmpdir()` repair is checked locally before the consolidated follow-up. Product behavior and schema are unchanged.
+- Staging code deployment and live feature acceptance are pending PR gate completion; local fixtures are not live staging acceptance.
 - Production: not changed. Production migrations and promotion require separate explicit authorization.

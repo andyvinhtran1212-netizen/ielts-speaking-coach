@@ -2,6 +2,8 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { storageKey } from './supabase-session.mjs';
 
 const base = process.argv[2] || 'http://127.0.0.1:3017';
@@ -118,9 +120,9 @@ try {
   }
   await page.goto(base+'/vocabulary/hub'); await page.getByRole('heading',{name:'Học từ vựng',exact:true}).waitFor();
   await page.setViewportSize({width:1280,height:900});
-  await page.screenshot({ path:'/private/tmp/vocabulary-class-sets-desktop.png',fullPage:true });
+  await page.screenshot({ path:join(tmpdir(),'vocabulary-class-sets-desktop.png'),fullPage:true });
   await page.setViewportSize({width:400,height:900});
-  await page.screenshot({ path:'/private/tmp/vocabulary-class-sets-mobile.png',fullPage:true });
+  await page.screenshot({ path:join(tmpdir(),'vocabulary-class-sets-mobile.png'),fullPage:true });
   assert.deepEqual(unhandled,[], 'unhandled fixture requests'); assert.deepEqual(errors,[], 'browser runtime errors');
   assert.equal(requests.filter(r=>r.method==='POST'&&r.p.endsWith('/publication')).length,1);
   console.log('PASS: hub → set → all four modes → resume/result reload; admin publication/reload; 320/400/1280px, light/dark; no overflow or runtime errors.');
