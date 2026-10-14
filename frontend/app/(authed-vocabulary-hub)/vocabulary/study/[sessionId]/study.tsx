@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { postBrowserJsonAt } from '@/lib/browser-api';
+import { getBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
 import { VocabularyAccount, VocabularyNav, useVocabularyResource, useAlive, VocabError, modeLabels, messageOf } from '@/components/vocabulary-workspace';
 import type { components } from '@/types/api';
 type AnswerRequest = components['schemas']['StudyAnswer'];
@@ -20,6 +20,7 @@ function Study({ sessionId, account }: { sessionId: string; account: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef<AnswerRequest | TestRequest | null>(null);
+  const refreshAfterConflict = useRef(false);
   const alive = useAlive();
   const key = `vocab-study:${account}:${sessionId}`;
   useEffect(() => {
@@ -54,6 +55,31 @@ function Study({ sessionId, account }: { sessionId: string; account: string }) {
       if (!alive.current) return;
       resource.setData(result); pending.current = null; remember(inputs, null); setFlipped(false);
       if (session.mode !== 'test' && session.mode !== 'flashcards' && 'index' in request) setFeedbackIndex(request.index);
+    } catch (e) {
+      if (alive.current) {
+        refreshAfterConflict.current = typeof e === 'object' && e !== null && 'status' in e && e.status === 409;
+        setError(messageOf(e));
+      }
+    }
+    finally { if (alive.current) setBusy(false); }
+  }
+  async function retry() {
+    if (busy) return;
+    if (!refreshAfterConflict.current) { void send(); return; }
+    setBusy(true);
+    try {
+      const canonical = await getBrowserJsonAt('/api/vocabulary-sets/sessions/{session_id}', `/api/vocabulary-sets/sessions/${encodeURIComponent(sessionId)}`);
+      if (!alive.current) return;
+      const request = pending.current;
+      const accepted = request && ('answers' in request ? canonical.completed : canonical.answers.some(a => a.index === request.index));
+      resource.setData(canonical);
+      refreshAfterConflict.current = false;
+      if (accepted) {
+        pending.current = null; remember(inputs, null); setFeedbackIndex(null); setFlipped(false); setError('');
+      } else {
+        // Preserve the original client ID when the server has not accepted it.
+        setError('Phiên chưa ghi yêu cầu này. Thử lại để lưu cùng yêu cầu.');
+      }
     } catch (e) { if (alive.current) setError(messageOf(e)); }
     finally { if (alive.current) setBusy(false); }
   }
@@ -64,7 +90,7 @@ function Study({ sessionId, account }: { sessionId: string; account: string }) {
   return <main className="vs-workspace"><VocabularyNav active="sets" /><div className="vs-player">
     {resource.error ? <VocabError message={resource.error} retry={resource.retry} /> : !session ? <p role="status">Đang tải phiên học…</p> : <>
       <Link href={`/vocabulary/sets/${session.set_id}`}>← Trở về bộ từ</Link><header className="vs-section"><p className="vs-eyebrow">{modeLabels[session.mode]} · bản {session.revision}</p><h1>{session.title}</h1><p className="vs-meta">Đã lưu {session.answers.length}/{session.items.length} {session.mode === 'flashcards' ? 'thẻ' : 'câu'}</p></header>
-      {error && <VocabError message={error} retry={() => void send()} />}
+      {error && <VocabError message={error} retry={() => void retry()} />}
       {session.completed && feedbackIndex === null ? <section className="vs-hero" role="status"><h2>Phiên học đã hoàn tất</h2><p>{session.mode === 'flashcards' ? `${session.items.length} thẻ đã tự đánh giá; mức độ nhớ tách riêng với kết quả trả lời.` : `${session.correct}/${session.items.length} câu đúng. Kết quả đã lưu vào tài khoản.`}</p><Link className="av-button av-button-primary" href={`/vocabulary/sets/${session.set_id}`}>Chọn cách học tiếp</Link></section> : session.mode === 'test' ? <form onSubmit={e => { e.preventDefault(); void send(); }} className="vs-panel"><h2>Trả lời các câu sau</h2><p className="vs-meta">Nhập từ tiếng Anh tương ứng. Nộp toàn bộ để nhận đáp án và kết quả.</p>{session.items.map((q, i) => <label key={q.card_id}>{i + 1}. {q.prompt}<input value={inputs[i] || ''} onChange={e => input(i, e.target.value)} maxLength={200} autoComplete="off" disabled={lock} /></label>)}<button type="submit" className="av-button-primary" disabled={lock}>{busy ? 'Đang lưu bài…' : 'Nộp bài kiểm tra'}</button></form> : item && <section aria-label={`Câu ${index + 1}`}>
         {session.mode === 'flashcards' ? <>
           <button type="button" className="vs-flip" aria-label={flipped ? 'Xem mặt từ' : 'Lật thẻ xem nghĩa'} onClick={() => setFlipped(v => !v)} disabled={lock}>

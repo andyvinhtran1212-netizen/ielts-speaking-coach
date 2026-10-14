@@ -108,6 +108,79 @@ it('keeps Test answers hidden until immutable submission and restores its input 
   expect(transport.post.mock.calls[0][0]).toMatch(/\/submit$/);
 });
 
+it.each(['learn', 'test'])('Retry reads canonical accepted work after a second tab wins: %s', async mode => {
+  let saved = session(mode);
+  let finishRead: ((value: unknown) => void) | null = null;
+  const conflict = Object.assign(new Error('Phiên đã được cập nhật ở tab khác.'), { status: 409 });
+  const transport = api(() => transport.getWith.mock.calls.length === 1 ? Promise.resolve(saved) : new Promise(resolve => { finishRead = resolve; }),
+    async () => { saved = { ...saved, completed: true, correct: 1, answers: [{ index: 0, answer: 'acquire', expected: 'acquire', correct: true, rating: null }] as any }; throw conflict; });
+  render(<VocabularyStudy sessionId="session-1" />);
+  fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'acquire' } });
+  fireEvent.click(screen.getByRole('button', { name: mode === 'test' ? 'Nộp bài kiểm tra' : 'Kiểm tra và lưu' }));
+  await screen.findByText(conflict.message);
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  await waitFor(() => expect(transport.getWith).toHaveBeenCalledTimes(2));
+  expect(transport.post).toHaveBeenCalledTimes(1);
+  expect((screen.getByRole('textbox') as HTMLInputElement).disabled).toBe(true);
+  await act(async () => { finishRead!(saved); });
+  await screen.findByRole('heading', { name: 'Phiên học đã hoàn tất' });
+  expect(transport.post).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(sessionStorage.getItem('vocab-study:learner-a:session-1')!).pending).toBeNull();
+});
+
+it('a failed conflict refetch remains retryable without replaying a stale answer', async () => {
+  const saved = { ...session(), completed: true, correct: 1, answers: [{ index: 0, answer: 'acquire', expected: 'acquire', correct: true, rating: null }] };
+  const transport = api(async () => { if (transport.getWith.mock.calls.length === 1) return session(); if (transport.getWith.mock.calls.length === 2) throw new Error('Không tải được trạng thái mới'); return saved; },
+    async () => { throw Object.assign(new Error('Câu đã lưu ở tab khác'), { status: 409 }); });
+  render(<VocabularyStudy sessionId="session-1" />);
+  fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'acquire' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra và lưu' }));
+  await screen.findByText('Câu đã lưu ở tab khác'); fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  await screen.findByText('Không tải được trạng thái mới');
+  expect(JSON.parse(sessionStorage.getItem('vocab-study:learner-a:session-1')!).pending).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' })); await screen.findByRole('heading', { name: 'Phiên học đã hoàn tất' });
+  expect(transport.post).toHaveBeenCalledTimes(1);
+});
+
+it('conflict reconciliation advances to the next canonical item with a fresh request', async () => {
+  let saved = { ...session(), items: [...session().items, { card_id: 'card-2', prompt: 'giữ lại', card: null }] };
+  const firstAnswer = { index: 0, answer: 'acquire', expected: 'acquire', correct: true, rating: null };
+  const transport = api(async () => saved, async (_, body) => {
+    if (transport.post.mock.calls.length === 1) {
+      saved = { ...saved, answers: [firstAnswer] as any };
+      throw Object.assign(new Error('Câu đã lưu ở tab khác'), { status: 409 });
+    }
+    saved = { ...saved, completed: true, correct: 2, answers: [firstAnswer, { index: 1, answer: body.answer, expected: 'retain', correct: true, rating: null }] as any };
+    return saved;
+  });
+  render(<VocabularyStudy sessionId="session-1" />);
+  fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'acquire' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra và lưu' }));
+  await screen.findByText('Câu đã lưu ở tab khác'); fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  const next = await screen.findByRole('textbox', { name: '2. giữ lại' });
+  expect((next as HTMLInputElement).disabled).toBe(false);
+  fireEvent.change(next, { target: { value: 'retain' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra và lưu' }));
+  await screen.findByText('Đáp án: retain');
+  expect(transport.post.mock.calls[1][1].index).toBe(1);
+  expect(transport.post.mock.calls[1][1].client_id).not.toBe(transport.post.mock.calls[0][1].client_id);
+});
+
+it('a progress conflict without an accepted answer retains the original request for retry', async () => {
+  const transport = api(async () => session(), async (_, body) => {
+    if (transport.post.mock.calls.length === 1) throw Object.assign(new Error('Tiến độ đang cập nhật'), { status: 409 });
+    return { ...session(), completed: true, correct: 1, answers: [{ index: 0, answer: body.answer, expected: 'acquire', correct: true, rating: null }] };
+  });
+  render(<VocabularyStudy sessionId="session-1" />);
+  fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'acquire' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra và lưu' }));
+  await screen.findByText('Tiến độ đang cập nhật'); fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  await screen.findByText('Phiên chưa ghi yêu cầu này. Thử lại để lưu cùng yêu cầu.');
+  expect(transport.post).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' })); await screen.findByText('Đáp án: acquire');
+  expect(transport.post.mock.calls[1][1]).toEqual(transport.post.mock.calls[0][1]);
+});
+
 it('saves draft order and audience before publishing and uses the acknowledged revision', async () => {
   const posts: any[] = [];
   api(async url => url.endsWith('/outcomes') ? { learners: [] } : url.includes('/cards') ? { cards: [card] } : url.endsWith('/set-1') ? { ...set, status: 'draft', version: 1 } : catalog,
