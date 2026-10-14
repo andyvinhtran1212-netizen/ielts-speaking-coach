@@ -1,7 +1,7 @@
 ---
 id: READINGPRACTICE-0021
 title: Repair Reading practice and support sentence translation in place
-status: approved
+status: implementing
 risk: high
 owner: product
 ---
