@@ -18930,6 +18930,37 @@ export interface components {
              */
             reveal: boolean;
         };
+        /** PracticeEvidence */
+        PracticeEvidence: {
+            /** Source */
+            source: string;
+            /**
+             * Precision
+             * @default quote
+             * @constant
+             */
+            precision: "quote";
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Illustrations */
+            illustrations?: components["schemas"]["PracticeIllustration"][];
+        };
+        /** PracticeIllustration */
+        PracticeIllustration: {
+            /** Src */
+            src: string;
+            /** Alt */
+            alt: string;
+            /** Caption */
+            caption: string;
+        };
+        /** PracticePhrase */
+        PracticePhrase: {
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+        };
         /** PracticePolicyPatch */
         PracticePolicyPatch: {
             /** Web Explanation Mode */
@@ -18988,6 +19019,39 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["PracticeQuestionResponse"][];
             progress: components["schemas"]["AdvancedVocabProgressResponse"];
+        };
+        /** PracticeSupport */
+        PracticeSupport: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Translation Sha256 */
+            translation_sha256: string;
+            /** Units */
+            units?: components["schemas"]["PracticeUnit"][];
+            /** Illustrations */
+            illustrations?: components["schemas"]["PracticeIllustration"][];
+        };
+        /** PracticeUnit */
+        PracticeUnit: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Translation Vi */
+            translation_vi: string;
+            /**
+             * Precision
+             * @default sentence
+             * @enum {string}
+             */
+            precision: "sentence" | "paragraph";
+            /** Phrases */
+            phrases?: components["schemas"]["PracticePhrase"][];
         };
         /** PreviewRequest */
         PreviewRequest: {
@@ -19640,6 +19704,65 @@ export interface components {
             anon: number;
             /** Avg Band */
             avg_band?: number | null;
+        };
+        /** ReadingPracticeCheck */
+        ReadingPracticeCheck: {
+            /** Results */
+            results: components["schemas"]["ReadingPracticeResult"][];
+        };
+        /** ReadingPracticeDetail */
+        ReadingPracticeDetail: {
+            /** Id */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Source Sha256 */
+            source_sha256?: string | null;
+            /** Difficulty Level */
+            difficulty_level?: string | null;
+            /** Topic Tags */
+            topic_tags?: string[];
+            /** Image Url */
+            image_url?: string | null;
+            /** Glossary */
+            glossary?: {
+                [key: string]: unknown;
+            }[];
+            /** Skill Focus */
+            skill_focus?: string | null;
+            /** Word Count */
+            word_count?: number | null;
+            /** Estimated Minutes */
+            estimated_minutes?: number | null;
+            /** Translation Vi */
+            translation_vi?: string | null;
+            /** Grammar Focus */
+            grammar_focus?: {
+                [key: string]: unknown;
+            }[];
+            practice_support?: components["schemas"]["PracticeSupport"] | null;
+            /** Questions */
+            questions?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** ReadingPracticeResult */
+        ReadingPracticeResult: {
+            /** Q Num */
+            q_num: number;
+            /** Correct */
+            correct: boolean;
+            /** Expected */
+            expected: string;
+            /** Explanation */
+            explanation?: string | null;
+            /** Skill Tag */
+            skill_tag?: string | null;
+            evidence?: components["schemas"]["PracticeEvidence"] | null;
         };
         /** ReadingRecentAttemptOut */
         ReadingRecentAttemptOut: {
@@ -21793,6 +21916,8 @@ export interface components {
         _CheckRequest: {
             /** Answers */
             answers?: components["schemas"]["_CheckItem"][];
+            /** Source Sha256 */
+            source_sha256?: string | null;
         };
         /** _CustomQBody */
         _CustomQBody: {
@@ -40179,6 +40304,7 @@ export interface operations {
             query?: {
                 difficulty?: string | null;
                 tag?: string | null;
+                q?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -40229,7 +40355,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingPracticeDetail"];
                 };
             };
             /** @description Validation Error */
@@ -40266,7 +40392,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingPracticeCheck"];
                 };
             };
             /** @description Validation Error */
@@ -40285,6 +40411,7 @@ export interface operations {
             query?: {
                 difficulty?: string | null;
                 skill?: string | null;
+                q?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -40335,7 +40462,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingPracticeDetail"];
                 };
             };
             /** @description Validation Error */
@@ -40372,7 +40499,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingPracticeCheck"];
                 };
             };
             /** @description Validation Error */

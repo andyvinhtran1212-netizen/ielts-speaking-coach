@@ -19,7 +19,7 @@ function positiveInteger(value) {
   return Number.isInteger(number) && number > 0 ? number : null;
 }
 
-function safeImageUrl(value) {
+export function safeImageUrl(value) {
   const text = textOf(value);
   if (!text) return null;
   try {
@@ -93,6 +93,7 @@ function normalizeGlossary(value) {
       pos: nullableText(item.pos),
       example: nullableText(item.example),
       synonyms,
+      aliases: Array.isArray(item.aliases) ? item.aliases.map(textOf).filter(Boolean).slice(0, 20) : [],
     }];
   });
 }
@@ -140,6 +141,7 @@ export function normalizeReadingDetail(payload, expectedSlug) {
     slug,
     title,
     bodyMarkdown,
+    sourceSha256: /^[a-f0-9]{64}$/.test(raw.source_sha256) ? raw.source_sha256 : null,
     difficulty: nullableText(raw.difficulty_level),
     topics: Array.isArray(raw.topic_tags)
       ? [...new Set(raw.topic_tags.map(textOf).filter(Boolean))].slice(0, 3)
@@ -149,8 +151,9 @@ export function normalizeReadingDetail(payload, expectedSlug) {
     skillFocus: nullableText(raw.skill_focus),
     wordCount: positiveInteger(raw.word_count),
     estimatedMinutes: positiveInteger(raw.estimated_minutes),
-    translationVi: nullableText(raw.translation_vi),
+    translationVi: typeof raw.translation_vi === 'string' && raw.translation_vi.trim() ? raw.translation_vi : null,
     grammarFocus: normalizeGrammarFocus(raw.grammar_focus),
+    practiceSupport: normalizePracticeSupport(raw.practice_support),
     questions,
   };
 }
@@ -169,7 +172,50 @@ export function normalizeReadingCheck(payload, expectedQNum) {
     expected: result.expected.trim(),
     explanation: nullableText(result.explanation),
     skillTag: nullableText(result.skill_tag),
+    evidence: normalizePracticeEvidence(result.evidence),
   };
+}
+
+function illustrationOf(raw) {
+  const item = objectOf(raw);
+  return item && /^\/reading-illustrations\/[a-z0-9-]+\.svg$/.test(item.src)
+    && textOf(item.alt) && textOf(item.caption)
+    ? { src: item.src, alt: item.alt, caption: item.caption } : null;
+}
+
+export function normalizePracticeSupport(value) {
+  const raw = objectOf(value);
+  if (!raw || raw.schema_version !== 1 || !/^[a-f0-9]{64}$/.test(raw.source_sha256)
+    || !/^[a-f0-9]{64}$/.test(raw.translation_sha256) || !Array.isArray(raw.units)
+    || raw.units.length > 160 || !Array.isArray(raw.illustrations) || raw.illustrations.length > 6) return null;
+  const units = raw.units.map((unit) => {
+    if (!objectOf(unit) || !/^[a-z0-9-]{1,40}$/.test(unit.id) || !textOf(unit.source)
+      || unit.source.length > 4000 || !textOf(unit.translation_vi) || unit.translation_vi.length > 6000
+      || !['sentence', 'paragraph'].includes(unit.precision) || !Array.isArray(unit.phrases) || unit.phrases.length > 24) return null;
+    const phrases = unit.phrases.map((phrase) => objectOf(phrase) && textOf(phrase.source) && textOf(phrase.target)
+      && phrase.source.length <= 300 && phrase.target.length <= 400
+      && unit.source.split(phrase.source).length === 2 && unit.translation_vi.split(phrase.target).length === 2
+      ? { source: phrase.source, target: phrase.target } : null);
+    if (phrases.some((phrase) => !phrase)) return null;
+    for (const side of ['source', 'target']) {
+      const text = side === 'source' ? unit.source : unit.translation_vi;
+      const spans = phrases.map((phrase) => ({ start: text.indexOf(phrase[side]), end: text.indexOf(phrase[side]) + phrase[side].length })).sort((a, b) => a.start - b.start);
+      if (spans.some((span, index) => index > 0 && span.start < spans[index - 1].end)) return null;
+    }
+    return { id: unit.id, source: unit.source, translation_vi: unit.translation_vi, precision: unit.precision, phrases };
+  });
+  const illustrations = raw.illustrations.map(illustrationOf);
+  return units.some((unit) => !unit) || illustrations.some((item) => !item)
+    || new Set(units.map((unit) => unit.id)).size !== units.length ? null
+    : { schema_version: 1, source_sha256: raw.source_sha256, translation_sha256: raw.translation_sha256, units, illustrations };
+}
+
+export function normalizePracticeEvidence(value) {
+  const raw = objectOf(value);
+  if (!raw || raw.precision !== 'quote' || !textOf(raw.source) || raw.source.length > 4000
+    || !/^[a-f0-9]{64}$/.test(raw.source_sha256) || !Array.isArray(raw.illustrations) || raw.illustrations.length > 6) return null;
+  const illustrations = raw.illustrations.map(illustrationOf);
+  return illustrations.some((item) => !item) ? null : { source: raw.source, precision: 'quote', source_sha256: raw.source_sha256, illustrations };
 }
 
 export function answerForQuestion(question, answers) {

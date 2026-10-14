@@ -3,6 +3,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { PracticeReadingText, type PracticeSupport, type PracticeEvidence, type EvidenceSelection } from './practice-reading-text';
+import { readingSkillReturnHref } from '@/lib/reading-skill-context.mjs';
+
 import { readingVocabReturnHref } from '@/lib/reading-vocab-context.mjs';
 
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -20,13 +23,14 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 type Library = 'vocab' | 'skill';
 type Option = { label: string; text: string };
 type Question = { qNum: number; type: string; prompt: string; options: Option[]; skillTag: string | null; subSkill: string | null };
-type GlossaryEntry = { term: string; definition: string; ipa: string | null; pos: string | null; example: string | null; synonyms: string | string[] };
+type GlossaryEntry = { term: string; definition: string; ipa: string | null; pos: string | null; example: string | null; synonyms: string | string[]; aliases: string[] };
 type GrammarPoint = { point: string; example: string | null; analysis: string | null; review: string | null; tip: string | null };
 type Detail = {
   id: string | null;
   slug: string;
   title: string;
   bodyMarkdown: string;
+  sourceSha256: string | null;
   difficulty: string | null;
   topics: string[];
   imageUrl: string | null;
@@ -37,8 +41,9 @@ type Detail = {
   translationVi: string | null;
   grammarFocus: GrammarPoint[];
   questions: Question[];
+  practiceSupport: PracticeSupport | null;
 };
-type CheckResult = { qNum: number; correct: boolean; expected: string; explanation: string | null; skillTag: string | null };
+type CheckResult = { qNum: number; correct: boolean; expected: string; explanation: string | null; skillTag: string | null; evidence: PracticeEvidence | null };
 type ReadingDraft = { answers: Record<string, string> };
 type ContextLink = { requestTerm: string; unitSlug: string; title: string; rationale: string; level: string };
 type DialogState =
@@ -49,7 +54,7 @@ type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; detail: NonNullable<Detail> }
   | { status: 'empty' }
-  | { status: 'error' };
+  | { status: 'error'; denied?: boolean };
 
 const DIFFICULTY_LABEL: Record<string, string> = {
   foundation: 'Foundation', intermediate: 'Intermediate', advanced: 'Advanced',
@@ -73,61 +78,6 @@ function statusOf(caught: unknown) {
   return caught && typeof caught === 'object' && 'status' in caught
     ? Number((caught as { status?: unknown }).status)
     : 0;
-}
-
-function glossaryHtml(html: string, glossary: GlossaryEntry[]) {
-  const documentCopy = new DOMParser().parseFromString(`<div id="reading-root">${html}</div>`, 'text/html');
-  const root = documentCopy.getElementById('reading-root');
-  if (!root) return html;
-  root.querySelectorAll('img').forEach((image) => {
-    image.classList.add('prompt-chart-img');
-    image.setAttribute('role', 'button');
-    image.setAttribute('tabindex', '0');
-  });
-  const remaining = new Map(glossary.map((entry, index) => [entry.term.toLocaleLowerCase(), index]));
-  if (!remaining.size) return root.innerHTML;
-  const skip = new Set(['A', 'BUTTON', 'CODE', 'PRE', 'SCRIPT', 'STYLE']);
-  const walker = documentCopy.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (!node.nodeValue?.trim()) return NodeFilter.FILTER_REJECT;
-      let parent = node.parentElement;
-      while (parent && parent !== root) {
-        if (skip.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
-        parent = parent.parentElement;
-      }
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-  const nodes: Text[] = [];
-  while (walker.nextNode()) nodes.push(walker.currentNode as Text);
-  for (const node of nodes) {
-    if (!remaining.size || !node.parentNode) break;
-    const source = node.nodeValue || '';
-    const lower = source.toLocaleLowerCase();
-    let match: { at: number; length: number; index: number; term: string } | null = null;
-    for (const [term, index] of remaining) {
-      let at = lower.indexOf(term);
-      while (at >= 0) {
-        const before = lower[at - 1]; const after = lower[at + term.length];
-        const bounded = (!before || !/[\p{L}\p{N}]/u.test(before)) && (!after || !/[\p{L}\p{N}]/u.test(after));
-        if (bounded) break;
-        at = lower.indexOf(term, at + term.length);
-      }
-      if (at >= 0 && (!match || at < match.at)) match = { at, length: term.length, index, term };
-    }
-    if (!match) continue;
-    const fragment = documentCopy.createDocumentFragment();
-    fragment.append(source.slice(0, match.at));
-    const button = documentCopy.createElement('button');
-    button.type = 'button'; button.className = 'glossary-term';
-    button.dataset.glossaryIndex = String(match.index);
-    button.setAttribute('aria-label', `Định nghĩa: ${glossary[match.index].term}`);
-    button.textContent = source.slice(match.at, match.at + match.length);
-    fragment.append(button, source.slice(match.at + match.length));
-    node.parentNode.replaceChild(fragment, node);
-    remaining.delete(match.term);
-  }
-  return root.innerHTML;
 }
 
 export function ReadingDetail({ library, slug }: { library: Library; slug: string }) {
@@ -252,7 +202,7 @@ function ReadingDetailWorkspace({ accountKey, getAccountId, library, slug }: {
         setState(detail ? { status: 'ready', detail } : { status: 'error' });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState(statusOf(caught) === 404 ? { status: 'empty' } : { status: 'error' });
+        setState(statusOf(caught) === 404 ? { status: 'empty' } : { status: 'error', denied: statusOf(caught) === 403 });
       }
     })();
     return () => {
@@ -268,9 +218,9 @@ function ReadingDetailWorkspace({ accountKey, getAccountId, library, slug }: {
     return <ReadingDetailState kind="empty" message={messageFor(library, 'empty')} />;
   }
   if (state.status === 'error') {
-    return <ReadingDetailState kind="error" message={messageFor(library, 'error')} />;
+    return <ReadingDetailState kind="error" message={state.denied ? 'Bạn không có quyền mở bài đọc này.' : messageFor(library, 'error')} />;
   }
-  const version = JSON.stringify([state.detail.id, state.detail.slug, state.detail.questions.map(({ qNum, type, prompt, options }) => ({ qNum, type, prompt, options }))]);
+  const version = JSON.stringify([state.detail.id, state.detail.slug, state.detail.bodyMarkdown, state.detail.translationVi, state.detail.questions.map(({ qNum, type, prompt, options }) => ({ qNum, type, prompt, options }))]);
   return <ReadingWorkspace accountKey={accountKey} getAccountId={getAccountId} detail={state.detail} key={version} library={library} version={version} />;
 }
 
@@ -280,6 +230,8 @@ function ReadingDetailState({ kind, message }: { kind: 'loading' | 'empty' | 'er
       <main className="rv-shell rv-detail-shell">
         <div className={kind === 'error' ? 'rv-error' : 'rv-empty'} role={kind === 'error' ? 'alert' : 'status'}>
           {message}
+          {kind === 'error' && <p><button className="rq-check" onClick={() => window.location.reload()} type="button">Thử lại</button></p>}
+          {kind !== 'loading' && <p><a href="/reading">Trở về thư viện Reading</a></p>}
         </div>
       </main>
     </div>
@@ -298,6 +250,7 @@ function ReadingWorkspace({ accountKey, getAccountId, detail, library, version }
   const [progress, setProgress] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [results, setResults] = useState<Record<number, CheckResult>>({});
+  const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelection>(null);
   const [contextLinks, setContextLinks] = useState<ContextLink[]>([]);
   const [draftReady, setDraftReady] = useState(library !== 'vocab');
   const [draftNotice, setDraftNotice] = useState<'restored' | 'unsaved' | 'discarded' | null>(null);
@@ -352,7 +305,7 @@ function ReadingWorkspace({ accountKey, getAccountId, detail, library, version }
     if (library === 'vocab') persist(); // The latest raw edit, including empty, is stored before navigation.
   };
   const acceptResult = (result: CheckResult, submittedAnswer: string) => {
-    if (!isCurrent() || (library === 'vocab' && currentAnswers.current[result.qNum] !== submittedAnswer) || currentResults.current[result.qNum]) return;
+    if (!isCurrent() || currentAnswers.current[result.qNum] !== submittedAnswer || currentResults.current[result.qNum]) return;
     currentResults.current = { ...currentResults.current, [result.qNum]: result };
     setResults(currentResults.current);
     if (library === 'vocab') {
@@ -426,7 +379,7 @@ function ReadingWorkspace({ accountKey, getAccountId, detail, library, version }
     };
   }, [accountKey, detail.glossary]);
 
-  const backHref = library === 'vocab' ? readingVocabReturnHref(params || undefined) : '/reading/skill';
+  const backHref = library === 'vocab' ? readingVocabReturnHref(params || undefined) : readingSkillReturnHref(params || undefined);
   const kicker = library === 'vocab' ? 'READING LAB · VOCAB' : 'READING LAB · SKILL PRACTICE';
   const heading = library === 'vocab' ? 'Kiểm tra mức độ hiểu' : 'Luyện đúng kỹ năng';
   const description = library === 'vocab'
@@ -458,7 +411,7 @@ function ReadingWorkspace({ accountKey, getAccountId, detail, library, version }
             <div className={`rv-passage-layout${detail.questions.length ? '' : ' rv-passage-layout--reading-only'}`}>
               <article className="rv-reader" aria-label={library === 'vocab' ? 'Nội dung bài đọc' : 'Nội dung bài luyện'} ref={articleRef}>
                 <header className="rv-reader__head"><p>Bài đọc</p><span>{library === 'vocab' ? 'Chạm vào từ gạch chân để xem nghĩa trong ngữ cảnh.' : 'Đọc theo mục tiêu kỹ năng, sau đó kiểm tra từng câu.'}</span></header>
-                <ReadingPanes contextLinks={contextLinks} detail={detail} />
+                <ReadingPanes contextLinks={contextLinks} detail={detail} evidenceSelection={evidenceSelection} onReturn={(qNum) => { const card = document.getElementById(`rq-card-${qNum}`); card?.scrollIntoView({ block: 'center', behavior: 'instant' }); card?.focus(); }} />
               </article>
               {detail.questions.length > 0 && (
                 <aside className="rv-questions" aria-label={heading}>
@@ -473,18 +426,20 @@ function ReadingWorkspace({ accountKey, getAccountId, detail, library, version }
                         : draftNotice === 'discarded' ? 'Đã bỏ nháp của bài đọc này.' : 'Câu trả lời chưa kiểm tra được giữ trong tab này.'}</p>
                     <button className="rq-check rq-draft__discard" onClick={discardDraft} type="button">Bỏ nháp bài này</button>
                   </div>}
-                  {draftReady && detail.questions.map((question, index) => (
+                  {draftReady && detail.questions.map((question) => (
                     <QuestionCard
                       answer={answers[question.qNum] || ''}
                       key={question.qNum}
                       library={library}
                       lockedResult={results[question.qNum] || null}
-                      number={index + 1}
+                      number={question.qNum}
                       isCurrent={isCurrent}
                       onAnswer={(value) => changeAnswer(question.qNum, value)}
                       onResult={acceptResult}
+                      onLocate={(qNum, evidence) => setEvidenceSelection({ qNum, evidence, generation: (evidenceSelection?.generation || 0) + 1 })}
                       question={question}
                       slug={detail.slug}
+                      sourceSha256={detail.sourceSha256}
                     />
                   ))}
                 </aside>
@@ -504,13 +459,14 @@ function InlineStrong({ value }: { value: string }) {
   })}</>;
 }
 
-function ReadingPanes({ contextLinks, detail }: { contextLinks: ContextLink[]; detail: NonNullable<Detail> }) {
+function ReadingPanes({ contextLinks, detail, evidenceSelection, onReturn }: { contextLinks: ContextLink[]; detail: NonNullable<Detail>; evidenceSelection: EvidenceSelection; onReturn(qNum: number): void }) {
   const tabs = useMemo(() => [
     { id: 'original', label: 'Văn bản gốc' },
     ...(detail.translationVi ? [{ id: 'translation', label: 'Bài dịch' }] : []),
     ...(detail.grammarFocus.length ? [{ id: 'grammar', label: 'Phân tích grammar' }] : []),
   ], [detail.grammarFocus.length, detail.translationVi]);
   const [active, setActive] = useState('original');
+  useEffect(() => { if (evidenceSelection) setActive('original'); }, [evidenceSelection]);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const move = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
     let next = index;
@@ -540,11 +496,11 @@ function ReadingPanes({ contextLinks, detail }: { contextLinks: ContextLink[]; d
           type="button"
         >{tab.label}</button>)}
       </div>}
-      <div aria-labelledby="rv-tab-original" hidden={active !== 'original'} id="rv-panel-original" role={tabs.length > 1 ? 'tabpanel' : undefined}>
-        <ReadingBody contextLinks={contextLinks} detail={detail} />
+      <div aria-labelledby="rv-tab-original" hidden={active === 'grammar'} id="rv-panel-original" role={tabs.length > 1 ? 'tabpanel' : undefined}>
+        <ReadingBody contextLinks={contextLinks} detail={detail} evidenceSelection={evidenceSelection} onReturn={onReturn} />
       </div>
       {detail.translationVi && <div aria-labelledby="rv-tab-translation" className="rv-pane rv-pane--vi md-body" hidden={active !== 'translation'} id="rv-panel-translation" role="tabpanel">
-        {detail.translationVi.split(/\n\s*\n/).map((paragraph, index) => paragraph.trim() ? <p key={index}>{paragraph.trim()}</p> : null)}
+        {detail.translationVi.split(/\n\s*\n/).map((paragraph, index) => paragraph.trim() ? <p key={index}><InlineStrong value={paragraph.trim()} /></p> : null)}
       </div>}
       {detail.grammarFocus.length > 0 && <div aria-labelledby="rv-tab-grammar" className="rv-pane rv-pane--grammar" hidden={active !== 'grammar'} id="rv-panel-grammar" role="tabpanel">
         {detail.grammarFocus.map((point, index) => <article className="rv-gpoint" key={`${point.point}-${index}`}>
@@ -557,50 +513,17 @@ function ReadingPanes({ contextLinks, detail }: { contextLinks: ContextLink[]; d
   );
 }
 
-function ReadingBody({ contextLinks, detail }: { contextLinks: ContextLink[]; detail: NonNullable<Detail> }) {
-  const [html, setHtml] = useState('');
+function ReadingBody({ contextLinks, detail, evidenceSelection, onReturn }: { contextLinks: ContextLink[]; detail: NonNullable<Detail>; evidenceSelection: EvidenceSelection; onReturn(qNum: number): void }) {
   const [dialog, setDialog] = useState<DialogState>(null);
-  useEffect(() => {
-    let disposed = false;
-    void whenGlobalReady(() => typeof window.renderMarkdown === 'function', 'window.renderMarkdown (Reading detail)').then((ready) => {
-      if (!disposed && ready) setHtml(glossaryHtml(window.renderMarkdown!(detail.bodyMarkdown, { breaks: false }), detail.glossary));
-    });
-    return () => { disposed = true; };
-  }, [detail.bodyMarkdown, detail.glossary]);
-
-  const activate = (target: Element | null) => {
-    const glossary = target?.closest<HTMLElement>('.glossary-term');
-    const glossaryIndex = glossary ? Number(glossary.dataset.glossaryIndex) : -1;
-    if (Number.isInteger(glossaryIndex) && detail.glossary[glossaryIndex]) {
-      setDialog({ kind: 'glossary', entry: detail.glossary[glossaryIndex] });
-      return true;
-    }
-    const image = target?.closest('img') as HTMLImageElement | null;
-    if (image?.src) {
-      setDialog({ kind: 'image', src: image.src, alt: image.alt || detail.title });
-      return true;
-    }
-    return false;
-  };
-  return (
-    <>
-      <div
-        className="rv-passage__body md-body"
-        onClick={(event) => { activate(event.target as Element); }}
-        onKeyDown={(event) => {
-          if ((event.key === 'Enter' || event.key === ' ') && activate(event.target as Element)) event.preventDefault();
-        }}
-      >
-        {detail.imageUrl && <img alt={detail.title} className="prompt-chart-img" onClick={() => setDialog({ kind: 'image', src: detail.imageUrl!, alt: detail.title })} role="button" src={detail.imageUrl} tabIndex={0} />}
-        {html ? <div dangerouslySetInnerHTML={{ __html: html }} /> : <p>{detail.bodyMarkdown}</p>}
-      </div>
-      <ReadingDialog
-        contextLink={dialog?.kind === 'glossary' ? contextLinks.find((link) => link.requestTerm === dialog.entry.term) || null : null}
-        dialog={dialog}
-        onClose={() => setDialog(null)}
-      />
-    </>
-  );
+  return <>
+    {detail.imageUrl && <div className="rv-passage__body"><img alt={detail.title} className="prompt-chart-img" onClick={() => setDialog({ kind: 'image', src: detail.imageUrl!, alt: detail.title })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setDialog({ kind: 'image', src: detail.imageUrl!, alt: detail.title }); } }} role="button" src={detail.imageUrl} tabIndex={0} /></div>}
+    <PracticeReadingText body={detail.bodyMarkdown} glossary={detail.glossary} support={detail.practiceSupport} translation={detail.translationVi}
+      evidenceSelection={evidenceSelection} onReturn={onReturn}
+      onGlossary={(index) => { if (detail.glossary[index]) setDialog({ kind: 'glossary', entry: detail.glossary[index] }); }}
+      onZoom={(src, alt) => setDialog({ kind: 'image', src, alt })} />
+    <ReadingDialog contextLink={dialog?.kind === 'glossary' ? contextLinks.find((link) => link.requestTerm === dialog.entry.term) || null : null}
+      dialog={dialog} onClose={() => setDialog(null)} />
+  </>;
 }
 
 function ReadingDialog({ contextLink, dialog, onClose }: { contextLink: ContextLink | null; dialog: DialogState; onClose(): void }) {
@@ -637,7 +560,7 @@ function ReadingDialog({ contextLink, dialog, onClose }: { contextLink: ContextL
   </div>;
 }
 
-function QuestionCard({ answer, isCurrent, library, lockedResult, number, onAnswer, onResult, question, slug }: {
+function QuestionCard({ answer, isCurrent, library, lockedResult, number, onAnswer, onResult, onLocate, question, slug, sourceSha256 }: {
   answer: string;
   isCurrent(): boolean;
   library: Library;
@@ -645,11 +568,13 @@ function QuestionCard({ answer, isCurrent, library, lockedResult, number, onAnsw
   number: number;
   onAnswer(value: string): void;
   onResult(result: CheckResult, submittedAnswer: string): void;
+  onLocate(qNum: number, evidence: PracticeEvidence): void;
   question: Question;
   slug: string;
+  sourceSha256: string | null;
 }) {
   const [checking, setChecking] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<'failed' | 'stale' | null>(null);
   const lock = useRef(false);
   const mounted = useRef(true);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -674,33 +599,57 @@ function QuestionCard({ answer, isCurrent, library, lockedResult, number, onAnsw
   const submit = async () => {
     const value = answerForQuestion(question, { [question.qNum]: answer });
     if (!value || lock.current || lockedResult || !isCurrent()) return;
-    lock.current = true; setChecking(true); setError(false);
+    lock.current = true; setChecking(true); setError(null);
     try {
       const ready = await whenGlobalReady(() => Boolean(window.api?.post), 'window.api POST (Reading detail)');
       if (!mounted.current || !isCurrent()) return;
       if (!ready) throw new Error('api-unavailable');
       const raw = await window.api.post<unknown>(`/api/reading/${library}/${encodeURIComponent(slug)}/check`, {
         answers: [{ q_num: question.qNum, user_answer: value }],
+        ...(sourceSha256 ? { source_sha256: sourceSha256 } : {}),
       });
       const result = normalizeReadingCheck(raw, question.qNum) as CheckResult | null;
       if (!result) throw new Error('invalid-check-contract');
       if (mounted.current && isCurrent()) onResult(result, answer);
-    } catch {
-      if (mounted.current) setError(true);
+    } catch (caught) {
+      if (mounted.current) setError(statusOf(caught) === 409 ? 'stale' : 'failed');
     } finally {
       lock.current = false;
       if (mounted.current) setChecking(false);
     }
   };
   const disabled = Boolean(lockedResult);
-  return <div className="rq-card" ref={cardRef}>
-    <div className="rq-prompt">{number}. {question.prompt}</div>
+  return <div className="rq-card" id={`rq-card-${question.qNum}`} tabIndex={-1} ref={cardRef}>
+    <QuestionPrompt number={number} prompt={question.prompt} />
     <QuestionInput answer={answer} disabled={disabled} onAnswer={onAnswer} question={question} />
     <button className="rq-check" disabled={disabled || checking || !answer.trim()} onClick={() => void submit()} type="button">{checking ? 'Đang kiểm tra…' : lockedResult ? 'Đã kiểm tra' : 'Kiểm tra'}</button>
     {lockedResult && <div className={`rq-feedback ${lockedResult.correct ? 'is-correct' : 'is-incorrect'}`} role="status">
       {lockedResult.correct ? '✓ Đúng rồi!' : `✗ Chưa đúng${lockedResult.skillTag ? ` — gợi ý kỹ năng: ${lockedResult.skillTag}` : ''}${lockedResult.expected ? `. Đáp án: ${lockedResult.expected}` : ''}`}{lockedResult.explanation ? ` — ${lockedResult.explanation}` : ''}
+      {lockedResult.evidence && <button className="rq-evidence" type="button" onClick={() => onLocate(question.qNum, lockedResult.evidence!)}>Xem căn cứ trong bài</button>}
     </div>}
-    {error && <div className="rq-feedback is-incorrect" role="alert">Không kiểm tra được hoặc phản hồi không đúng contract. Bạn có thể thử lại.</div>}
+    {error && <div className="rq-feedback is-incorrect" role="alert">{error === 'stale'
+      ? <>Bài đọc đã thay đổi. <button className="rq-check" type="button" onClick={() => window.location.reload()}>Tải lại bài</button></>
+      : 'Không kiểm tra được hoặc phản hồi không đúng contract. Bạn có thể thử lại.'}</div>}
+  </div>;
+}
+
+function QuestionPrompt({ number, prompt }: { number: number; prompt: string }) {
+  const [html, setHtml] = useState('');
+  const structured = /\n|\*\*|^\s*\|/m.test(prompt);
+  useEffect(() => {
+    let disposed = false;
+    setHtml('');
+    if (!structured) return undefined;
+    void whenGlobalReady(() => typeof window.renderMarkdown === 'function', 'window.renderMarkdown (Reading question)').then((ready) => {
+      if (!disposed && ready) setHtml(window.renderMarkdown!(prompt, { breaks: true }));
+    });
+    return () => { disposed = true; };
+  }, [prompt, structured]);
+  return <div className={`rq-prompt${structured ? ' rq-prompt--structured' : ''}`}>
+    {structured ? <><span className="rq-prompt__number">Câu {number}</span>{html
+      ? <div className="md-body" dangerouslySetInnerHTML={{ __html: html }} />
+      : <div className="rq-prompt__plain">{prompt}</div>}</>
+      : <>{number}. {prompt}</>}
   </div>;
 }
 
@@ -720,8 +669,17 @@ function QuestionInput({ answer, disabled, onAnswer, question }: {
     const options = fixed?.map((value) => ({ label: value, text: value })) || question.options;
     return <div className="rq-options">{options.map((option) => <label className="rq-option" key={`${option.label}-${option.text}`}><input checked={answer === option.label} disabled={disabled} name={name} onChange={() => onAnswer(option.label)} type="radio" value={option.label} /><span>{option.label === option.text ? option.text : `${option.label}. ${option.text}`}</span></label>)}</div>;
   }
-  if (question.type === 'matching_headings') {
-    return <select aria-label={`Câu ${question.qNum}`} className="rq-input" disabled={disabled} onChange={(event) => onAnswer(event.target.value)} value={answer}><option value="">— Chọn tiêu đề —</option>{question.options.map((option) => <option key={`${option.label}-${option.text}`} value={option.label}>{option.label === option.text ? option.text : `${option.label}. ${option.text}`}</option>)}</select>;
+  if (question.type === 'mcq_multi') {
+    const selected = new Set(answer.split(',').map((value) => value.trim()).filter(Boolean));
+    return <fieldset className="rq-options"><legend>Chọn các đáp án theo yêu cầu đề bài</legend>{question.options.map((option) => <label className="rq-option" key={option.label}>
+      <input type="checkbox" checked={selected.has(option.label)} disabled={disabled} onChange={(event) => {
+        const next = new Set(selected); if (event.target.checked) next.add(option.label); else next.delete(option.label);
+        onAnswer(question.options.filter((item) => next.has(item.label)).map((item) => item.label).join(', '));
+      }} value={option.label} /><span>{option.label}. {option.text}</span>
+    </label>)}</fieldset>;
+  }
+  if (['matching_headings', 'matching_features', 'matching_sentence_endings', 'matching_information'].includes(question.type) && question.options.length) {
+    return <select aria-label={`Câu ${question.qNum}`} className="rq-input" disabled={disabled} onChange={(event) => onAnswer(event.target.value)} value={answer}><option value="">— Chọn đáp án —</option>{question.options.map((option) => <option key={`${option.label}-${option.text}`} value={option.label}>{option.label === option.text ? option.text : `${option.label}. ${option.text}`}</option>)}</select>;
   }
   return <input aria-label={`Câu ${question.qNum}`} autoComplete="off" className="rq-input" disabled={disabled} onChange={(event) => onAnswer(event.target.value)} placeholder="Nhập câu trả lời…" type="text" value={answer} />;
 }

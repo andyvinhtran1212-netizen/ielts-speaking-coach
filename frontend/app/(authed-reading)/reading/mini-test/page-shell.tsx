@@ -25,7 +25,7 @@ export function ReadingMiniTestShell({
           <dl className="rv-header__stats" aria-label="Cấu trúc Mini Test">
             <div><dt id="rv-total-count">{totalCount}</dt><dd>mini test</dd></div>
             <div><dt>1 đoạn</dt><dd>Mỗi đề</dd></div>
-            <div><dt id="rv-duration-count">{durationCount}</dt><dd>thời lượng phổ biến</dd></div>
+            <div><dt id="rv-duration-count">{durationCount}</dt><dd>thời lượng theo đề</dd></div>
           </dl>
         </header>
 

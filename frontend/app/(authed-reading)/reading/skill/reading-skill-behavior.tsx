@@ -1,6 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+import { useSearchParams } from 'next/navigation';
+import { readingSkillContext, readingSkillHref, readingSkillArticleHref } from '@/lib/reading-skill-context.mjs';
+import { safeImageUrl } from '@/lib/reading-detail-model.mjs';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -27,6 +31,8 @@ interface RawExercise {
   topic_tags?: unknown;
   skill_focus?: unknown;
   estimated_minutes?: unknown;
+  image_url?: unknown;
+  word_count?: unknown;
 }
 
 interface Exercise {
@@ -40,6 +46,8 @@ interface Exercise {
   topic: string | null;
   skillLabel: string | null;
   estimatedMinutes: number | null;
+  imageUrl: string | null;
+  wordCount: number | null;
 }
 
 type LoadState =
@@ -95,6 +103,8 @@ function normalizeExercises(payload: unknown): Exercise[] {
       topic: tags[0] || null,
       skillLabel: skill ? (SKILL_LABEL[skill] || skill) : null,
       estimatedMinutes: positiveInteger(raw?.estimated_minutes),
+      imageUrl: safeImageUrl(raw?.image_url),
+      wordCount: positiveInteger(raw?.word_count),
     }];
   });
 }
@@ -119,10 +129,22 @@ export function ReadingSkillBehavior() {
 }
 
 function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
-  const [difficulty, setDifficulty] = useState('');
-  const [skill, setSkill] = useState('');
+  const params = useSearchParams();
+  const context = readingSkillContext(params || undefined);
+  const { difficulty, skill, q, batches } = context;
+  const contextHref = readingSkillHref(context);
+  const scrollKey = accountKey ? `aver:reading-skill-scroll:v1:${accountKey}:${contextHref}` : null;
+  const rememberScroll = () => {
+    if (!scrollKey) return;
+    try { window.sessionStorage.setItem(scrollKey, String(window.scrollY)); } catch { /* optional */ }
+  };
+  const cached = useRef<{ key: string; batches: number; exercises: Exercise[]; total: number } | null>(null);
+  const changeFilters = (update: { difficulty?: string; skill?: string; q?: string }) => {
+    const latest = readingSkillContext(new URLSearchParams(window.location.search));
+    window.history.replaceState(null, '', readingSkillHref({ ...latest, ...update, batches: 1 }));
+  };
+  const loadMore = () => window.history.replaceState(null, '', readingSkillHref({ ...readingSkillContext(new URLSearchParams(window.location.search)), batches: batches + 1 }));
   const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
@@ -135,8 +157,9 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
 
     const controller = new AbortController();
     let disposed = false;
-    if (offset === 0) setState({ status: 'loading' });
-    else setLoadingMore(true);
+    const filterKey = JSON.stringify([accountKey, difficulty, skill, q]);
+    const prior = cached.current?.key === filterKey && cached.current.batches < batches ? cached.current : null;
+    if (!prior) setState({ status: 'loading' }); else setLoadingMore(true);
     setLoadMoreError(false);
 
     (async () => {
@@ -146,36 +169,34 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
       );
       if (!ready || disposed) {
         if (!disposed) {
-          if (offset > 0) setLoadMoreError(true);
+          if (prior) setLoadMoreError(true);
           else setState({ status: 'error' });
           setLoadingMore(false);
         }
         return;
       }
 
-      const query = new URLSearchParams();
-      if (difficulty) query.set('difficulty', difficulty);
-      if (skill) query.set('skill', skill);
-      query.set('limit', String(PAGE_SIZE));
-      query.set('offset', String(offset));
-
       try {
-        const payload = await window.api.getWith<unknown>(
-          `/api/reading/skill?${query.toString()}`,
-          undefined,
-          { signal: controller.signal },
-        );
-        if (disposed) return;
-        const exercises = normalizeExercises(payload);
-        setState((current) => {
-          const prior = offset > 0 && current.status === 'ready' ? current.exercises : [];
-          const merged = [...prior, ...exercises].filter((exercise, index, all) =>
-            all.findIndex((candidate) => candidate.slug === exercise.slug) === index);
-          return { status: 'ready', exercises: merged, total: normalizeTotal(payload, offset + exercises.length) };
-        });
+        let exercises = prior?.exercises || []; let total = prior?.total || 0; let loaded = prior?.batches || 0;
+        for (let batch = loaded; batch < batches; batch += 1) {
+          const offset = batch * PAGE_SIZE;
+          const query = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+          if (difficulty) query.set('difficulty', difficulty);
+          if (skill) query.set('skill', skill);
+          if (q) query.set('q', q);
+          const payload = await window.api.getWith<unknown>(`/api/reading/skill?${query.toString()}`, undefined, { signal: controller.signal });
+          if (disposed) return;
+          const next = normalizeExercises(payload);
+          total = normalizeTotal(payload, offset + next.length);
+          exercises = [...exercises, ...next].filter((exercise, index, all) => all.findIndex((candidate) => candidate.slug === exercise.slug) === index);
+          loaded = batch + 1;
+          if (!next.length || offset + next.length >= total) break;
+        }
+        cached.current = { key: filterKey, batches: loaded, exercises, total };
+        setState({ status: 'ready', exercises, total });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        if (offset > 0) setLoadMoreError(true);
+        if (prior) setLoadMoreError(true);
         else setState({ status: 'error' });
       } finally {
         if (!disposed) setLoadingMore(false);
@@ -186,7 +207,17 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
       disposed = true;
       controller.abort();
     };
-  }, [accountKey, difficulty, skill, offset, retryToken]);
+  }, [accountKey, difficulty, skill, q, batches, retryToken]);
+
+  useEffect(() => {
+    if (state.status !== 'ready' || loadingMore || !scrollKey) return;
+    let saved: number | null = null;
+    try { const raw = window.sessionStorage.getItem(scrollKey); if (raw !== null && Number.isFinite(Number(raw)) && Number(raw) >= 0) saved = Number(raw); } catch { /* optional */ }
+    const frame = requestAnimationFrame(() => { if (saved !== null) window.scrollTo({ top: saved, behavior: 'instant' }); });
+    window.addEventListener('scroll', rememberScroll, { passive: true });
+    window.addEventListener('pagehide', rememberScroll);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', rememberScroll); window.removeEventListener('pagehide', rememberScroll); };
+  }, [state, contextHref, loadingMore, scrollKey]);
 
   const shown = state.status === 'ready' ? state.exercises.length : 0;
   const total = state.status === 'ready' ? state.total : null;
@@ -199,8 +230,8 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
       ? 'Không thể tải danh sách'
       : total !== null && total > shown
         ? `${total} bài luyện · đang hiển thị ${shown} bài thuộc ${focusCount} nhóm kỹ năng`
-        : `${total} bài luyện · ${focusCount} nhóm kỹ năng`;
-  const hasFilters = Boolean(difficulty || skill);
+        : `${total} bài luyện · ${focusCount} nhóm kỹ năng đang hiển thị`;
+  const hasFilters = Boolean(difficulty || skill || q);
 
   return (
     <ReadingSkillShell focusCount={focusCount ?? '—'} totalCount={total ?? '—'}>
@@ -214,12 +245,13 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
             </p>
           </div>
           <div className="rv-filters">
+            <label>Tìm theo tiêu đề<input type="search" aria-label="Tìm bài luyện" maxLength={100} defaultValue={q} key={q} onKeyDown={(event) => { if (event.key === 'Enter') changeFilters({ q: event.currentTarget.value }); }} onBlur={(event) => { if (event.currentTarget.value.trim() !== q) changeFilters({ q: event.currentTarget.value }); }} /></label>
             <label>
               Trình độ
               <select
                 id="filter-difficulty"
                 value={difficulty}
-                onChange={(event) => { setDifficulty(event.target.value); setOffset(0); }}
+                onChange={(event) => changeFilters({ difficulty: event.target.value })}
               >
                 <option value="">Tất cả</option>
                 <option value="foundation">Foundation</option>
@@ -229,7 +261,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
             </label>
             <label>
               Kỹ năng
-              <select id="filter-skill" value={skill} onChange={(event) => { setSkill(event.target.value); setOffset(0); }}>
+              <select id="filter-skill" value={skill} onChange={(event) => changeFilters({ skill: event.target.value })}>
                 <option value="">Tất cả</option>
                 <option value="skimming">Skimming</option>
                 <option value="scanning">Scanning</option>
@@ -247,9 +279,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
               type="button"
               hidden={!hasFilters}
               onClick={() => {
-                setDifficulty('');
-                setSkill('');
-                setOffset(0);
+                changeFilters({ difficulty: '', skill: '', q: '' });
               }}
             >
               Xóa lọc
@@ -264,7 +294,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
           <div className="rv-empty" id="state-empty">Chưa có bài luyện kỹ năng nào khớp bộ lọc.</div>
         ) : null}
         {state.status === 'error' ? (
-          <div className="rv-error" id="state-error">Không tải được thư viện. Vui lòng thử lại.</div>
+          <div className="rv-error" id="state-error">Không tải được thư viện. Vui lòng thử lại. <button type="button" onClick={() => setRetryToken((value) => value + 1)}>Thử lại</button></div>
         ) : null}
         {state.status === 'ready' && state.exercises.length ? (
           <><div className="rv-grid rv-grid--articles" id="rv-grid">
@@ -276,7 +306,8 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
                 <a
                   aria-label={`Luyện bài ${exercise.title}`}
                   className="rv-card"
-                  href={`/reading/skill/${encodeURIComponent(exercise.slug)}`}
+                  href={readingSkillArticleHref(exercise.slug, context)}
+                  onClick={rememberScroll}
                   key={exercise.key}
                 >
                   <div className="rv-card__top">
@@ -285,11 +316,13 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
                       <span className="rv-card__time">{exercise.estimatedMinutes} PHÚT</span>
                     ) : null}
                   </div>
+                  {exercise.imageUrl && <img className="rv-card__image" src={exercise.imageUrl} alt="" loading="lazy" onError={(event) => { event.currentTarget.hidden = true; }} />}
                   <h3 title={exercise.fullTitle}>{exercise.title}</h3>
                   <p className="rv-card__excerpt">{exercise.excerpt}</p>
                   <div className="rv-meta">
                     {exercise.skillLabel ? <span className="rv-pill is-brand">{exercise.skillLabel}</span> : null}
                     {difficulty ? <span className="rv-pill">{difficulty}</span> : null}
+                    {exercise.wordCount ? <span className="rv-pill">{exercise.wordCount} từ</span> : null}
                     {exercise.topic ? <span className="rv-pill">{exercise.topic}</span> : null}
                   </div>
                   <div className="rv-card__footer">
@@ -308,7 +341,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
                 disabled={loadingMore}
                 onClick={() => loadMoreError
                   ? setRetryToken((value) => value + 1)
-                  : setOffset((current) => current + PAGE_SIZE)}
+                  : loadMore()}
               >
                 {loadingMore ? 'Đang tải…' : loadMoreError ? 'Thử lại' : `Xem thêm (${shown}/${total})`}
               </button>
