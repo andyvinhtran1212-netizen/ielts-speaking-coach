@@ -25,7 +25,8 @@ verification. Report deployed and live acceptance separately from local work.
 
 Revert only this feature's code or restore only its content fields under fresh
 revision checks. Never clear learner history or overwrite another editor's later
-work. Existing fields/clients remain compatible; stale support fails to fallback.
+work. Existing fields/clients remain compatible; stale support fails closed and
+falls back to the current paragraph or full translation, without attaching old text.
 
 ## Observability
 

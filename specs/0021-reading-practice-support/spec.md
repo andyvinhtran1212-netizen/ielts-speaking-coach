@@ -19,7 +19,7 @@ illustrations. Mini Tests share the timed test player with Full Tests.
 
 ## Scope
 
-- Close findings R01–R10 in `reading-audit-20261014/audit.md`, keeping each finding's
+- Close findings R01–R10 defined below, keeping each finding's
   actual content/UI boundary and verification scope explicit.
 - L1 Vocab Reading and L2 Skill Practice: original text remains visible while a
   selected sentence reveals its Vietnamese translation in place.
@@ -49,6 +49,24 @@ illustrations. Mini Tests share the timed test player with Full Tests.
   sees the relevant translation, then returns to that question.
 - A learner filters or searches a library, loads more, opens a passage and returns
   to the same results. Mini lessons follow their canonical lesson sequence.
+
+## Original audit findings
+
+The following list is the repository-owned acceptance scope. The external workspace
+audit supplies discovery evidence; a clean checkout does not depend on that file.
+
+| Finding | Observable defect and minimal repair boundary | Requirements |
+| --- | --- | --- |
+| R01 | Matching prompts lack item-specific descriptions/stems. Repair source-supported statements without deleting identities or inferring facts from keys. | FR-001 |
+| R02 | L1/L2 falls back to a textbox for multi-choice and feature/ending matching, hiding actual options. Render the real choices and grade the complete authored selection. | FR-002 |
+| R03 | Table Markdown delimiters and flow-chart line breaks render as plain prompt text. Use the existing sanitised renderer and keep instructions/gap numbers. | FR-002 |
+| R04 | Exact glossary matching misses inflections; published L2 has no glossary. Author real forms/definitions and avoid substring or overlap errors. | FR-006 |
+| R05 | Switching the translation tab hides the original and supplies no source-to-translation mapping. Keep source visible, reveal the selected reviewed unit inline and report fallback precision honestly. | FR-003, FR-004, FR-005 |
+| R06 | L1/L2 explanations do not locate evidence; Mini review highlights a whole block. Add reviewed source locators after the proper reveal boundary and a return-to-question action. | FR-007, FR-010 |
+| R07 | Skill loses filters/batches on return; title search is absent and skill-group totals describe only loaded cards without a clear scope. Preserve bounded URL context and label statistics accurately. | FR-009 |
+| R08 | Mini lessons have mixed/reverse sequencing and long technical titles; 30 of 40 published tests are configured for 60 minutes. Group canonical lesson identities, show actual timing and review duration per test rather than silently rewriting all timers. | FR-010 |
+| R09 | Existing detail supports images, but all 200 L1/L2 passages lack them and card normalisers drop image metadata. Add useful authored visuals, accurate alternatives and failure/reveal behaviour. | FR-008 |
+| R10 | `/reading` returns 404; L2 word-count metadata is missing and practice entry labels are unclear. Resolve the entry and show truthful readable metadata. | FR-009 |
 
 ## Requirements
 
