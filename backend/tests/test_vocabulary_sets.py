@@ -174,3 +174,51 @@ def test_catalog_reads_current_revisions_in_batches_and_progress_without_an_id_c
         def order(self, key): assert key == "card_id"; return self
         def range(self, *_): return self
     assert svc.paged(SimpleNamespace(table=lambda _: Progress()), "vocabulary_shared_progress", order_by="card_id", user_id="owner") == []
+
+
+def test_http_lost_ack_reconciles_owned_receipt_after_scope_revocation_without_new_writes(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    row = session("learn")
+    client_id = str(uuid4())
+    payload = {"client_id": client_id, "index": 0, "answer": "acquire", "rating": None}
+    saved = {**row, "answers": [{"index": 0, "answer": "acquire", "expected": "acquire", "correct": True, "rating": None}], "completed": True}
+    receipt = {"session_id": row["id"], "payload": payload, "response": saved}
+    receipt_reads = []
+    fail_receipt_reads = False
+    class Table:
+        def __init__(self, table): self.table = table; self.filters = {}
+        def select(self, *_): return self
+        def eq(self, key, value): self.filters[key] = value; return self
+        def in_(self, *_): return self
+        def limit(self, *_): return self
+        def execute(self):
+            if self.table == "vocabulary_set_sessions":
+                rows = [row] if self.filters == {"id": row["id"], "user_id": "owner"} else []
+            elif self.table == "vocabulary_set_receipts":
+                if fail_receipt_reads: raise RuntimeError("receipt read unavailable")
+                receipt_reads.append(self.filters)
+                rows = [receipt] if self.filters == {"user_id": "owner", "client_id": client_id} else []
+            else:
+                assert self.table == "vocabulary_shared_progress"
+                rows = []
+            return SimpleNamespace(data=rows)
+    async def auth(header): return {"id": header.removeprefix("Bearer ")}
+    def denied(*_): raise HTTPException(403, "Bộ từ không còn được phân.")
+    monkeypatch.setattr(routes, "db", SimpleNamespace(table=Table))
+    monkeypatch.setattr(routes, "get_supabase_user", auth)
+    monkeypatch.setattr(svc, "rpc", denied)
+    app = FastAPI(); app.include_router(routes.router)
+    client = TestClient(app)
+    url = f"/api/vocabulary-sets/sessions/{row['id']}/answers"
+    replay = client.post(url, headers={"Authorization": "Bearer owner"}, json=payload)
+    assert replay.status_code == 200
+    assert replay.json() == svc.session_out(saved).model_dump(mode="json")
+    assert replay.headers["cache-control"] == "private, no-store"
+    assert client.post(url, headers={"Authorization": "Bearer owner"}, json={**payload, "answer": "changed"}).status_code == 409
+    assert client.post(url, headers={"Authorization": "Bearer owner"}, json={**payload, "client_id": str(uuid4())}).status_code == 403
+    reads_before_foreign = len(receipt_reads)
+    assert client.post(url, headers={"Authorization": "Bearer other"}, json=payload).status_code == 404
+    assert len(receipt_reads) == reads_before_foreign
+    fail_receipt_reads = True
+    assert client.post(url, headers={"Authorization": "Bearer owner"}, json=payload).status_code == 503

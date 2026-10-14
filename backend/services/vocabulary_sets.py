@@ -197,6 +197,20 @@ def answer_session(db, row, user_id, client_id, payload, raw_answers):
             return session_out(rpc(db, "fn_answer_vocabulary_session", {"p_user": user_id, "p_session": row["id"],
                               "p_client": str(client_id), "p_payload": payload, "p_answers": answers, "p_progress": changes}))
         except HTTPException as exc:
+            if exc.status_code == 403:
+                # An accepted receipt is immutable, private history, not a new
+                # write. Reconcile a lost ACK even after membership/archive
+                # changes, while the RPC still denies every unaccepted write.
+                try:
+                    receipts = (db.table("vocabulary_set_receipts").select("session_id,payload,response")
+                                .eq("user_id", user_id).eq("client_id", str(client_id)).limit(1).execute().data or [])
+                except Exception as read_error:
+                    raise HTTPException(503, "Chưa đối chiếu được biên nhận đã lưu. Vui lòng thử lại.") from read_error
+                if receipts:
+                    receipt = receipts[0]
+                    if receipt["session_id"] != row["id"] or receipt["payload"] != payload:
+                        raise HTTPException(409, "Mã yêu cầu đã được dùng với nội dung khác.") from exc
+                    return session_out(receipt["response"])
             if exc.detail != "progress_conflict":
                 raise
     raise HTTPException(409, "Tiến độ đang được cập nhật ở phiên khác. Thử lại cùng yêu cầu.")
