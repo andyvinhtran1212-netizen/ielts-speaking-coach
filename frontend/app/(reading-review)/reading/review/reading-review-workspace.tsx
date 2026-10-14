@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -9,6 +10,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+
+import { markQuote } from '@/lib/reading-practice-dom.mjs';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { READING_QUESTION_LABELS } from '@/lib/admin-reading-preview-model.mjs';
@@ -371,8 +374,14 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
   </article>;
 }
 
-function PassagePane({ passage, mode, highlight, evidenceQuestion, onMode, onEvidenceSelection }: {
+const MiniReviewSource = memo(function MiniReviewSource({ html }: { html: string }) {
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+});
+
+function PassagePane({ passage, mode, highlight, evidenceQuestion, onMode, onEvidenceSelection, practiceReview, onReturn }: {
   passage: any;
+  practiceReview: boolean;
+  onReturn(): void;
   mode: PassageMode;
   highlight: string | null;
   evidenceQuestion: number | null;
@@ -380,13 +389,23 @@ function PassagePane({ passage, mode, highlight, evidenceQuestion, onMode, onEvi
   onEvidenceSelection(selection: EvidenceSelection): void;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [exactLocated, setExactLocated] = useState(false);
   const html = useMarkdown(passage?.body_markdown || '');
 
   useEffect(() => {
     const body = bodyRef.current;
     if (!body) return;
+    body.querySelectorAll('mark.rr-practice-quote').forEach((node) => node.replaceWith(...node.childNodes));
+    setExactLocated(false);
     body.querySelectorAll('.rr-src-hl').forEach((element) => element.classList.remove('rr-src-hl'));
     if (!highlight || mode !== 'original' || !html) return;
+    if (practiceReview) {
+      const quote = String(highlight).replace(/^["'“”\s]+|["'“”\s]+$/g, '').replace(/\s+/g, ' ');
+      const matched = markQuote(body, quote, { class: 'rr-practice-quote' });
+      setExactLocated(matched);
+      body.querySelector('.rr-practice-quote')?.scrollIntoView({ behavior: 'instant', block: 'center' });
+      return;
+    }
     const normalized = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
     const segments = String(highlight).replace(/^["'“”\s]+|["'“”\s]+$/g, '')
       .split(/\s*(?:…|\.\.\.)\s*/).map(normalized).filter((part) => part.length >= 8);
@@ -399,7 +418,7 @@ function PassagePane({ passage, mode, highlight, evidenceQuestion, onMode, onEvi
       }
     }
     first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [highlight, html, mode, passage?.passage_order]);
+  }, [highlight, html, mode, passage?.passage_order, practiceReview]);
 
   const captureSelection = () => {
     if (evidenceQuestion === null || mode !== 'original' || !bodyRef.current) return;
@@ -430,6 +449,7 @@ function PassagePane({ passage, mode, highlight, evidenceQuestion, onMode, onEvi
       <button type="button" className={`rr-passage-toggle__btn${mode === 'original' ? ' is-active' : ''}`} aria-pressed={mode === 'original'} onClick={() => onMode('original')}>Văn bản gốc</button>
       <button type="button" className={`rr-passage-toggle__btn${mode === 'translation' ? ' is-active' : ''}`} aria-pressed={mode === 'translation'} onClick={() => onMode('translation')}>Bài dịch</button>
     </div>
+    {practiceReview && highlight && <div className="rr-evidence-instruction" role="status"><p>{exactLocated ? 'Đã làm sáng đúng phần trích dẫn.' : 'Trích dẫn chưa khớp chính xác với bài gốc; xem lại trích đoạn trong lời giải.'}</p><button type="button" className="rr-locate-btn" onClick={onReturn}>Trở lại câu hỏi</button></div>}
     <h2 className="rr-passage__title">{passage?.title || `Phần ${passage?.passage_order || 1}`}</h2>
     {evidenceQuestion !== null ? <div className="rr-evidence-instruction" role="status">Câu {evidenceQuestion}: bôi chọn 1–3 câu làm bằng chứng. Thả chuột để lưu lựa chọn.</div> : null}
     {mode === 'translation' ? <div ref={bodyRef} className="rr-passage__body md-body">
@@ -437,7 +457,9 @@ function PassagePane({ passage, mode, highlight, evidenceQuestion, onMode, onEvi
         ? String(passage.translation_vi).split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph}`}>{paragraph.trim()}</p>)
         : <p className="rr-passage__notrans">Chưa có bản dịch cho phần này.</p>}
     </div> : html
-      ? <div ref={bodyRef} className="rr-passage__body md-body" onMouseUp={captureSelection} dangerouslySetInnerHTML={{ __html: html }} />
+      ? practiceReview
+        ? <div ref={bodyRef} className="rr-passage__body md-body" onMouseUp={captureSelection}><MiniReviewSource html={html} /></div>
+        : <div ref={bodyRef} className="rr-passage__body md-body" onMouseUp={captureSelection} dangerouslySetInnerHTML={{ __html: html }} />
       : <div ref={bodyRef} className="rr-passage__body md-body" onMouseUp={captureSelection}>{passage?.body_markdown || ''}</div>}
   </section>;
 }
@@ -631,6 +653,8 @@ export function ReadingReviewWorkspace() {
       <main className="exam-split">
         <PassagePane
           passage={passage}
+          practiceReview={data.practiceReview}
+          onReturn={() => { const card = document.getElementById(`reading-review-q-${currentQuestion}`); card?.scrollIntoView({ behavior: 'instant', block: 'center' }); card?.querySelector<HTMLElement>('button')?.focus(); }}
           mode={mode}
           highlight={highlight}
           evidenceQuestion={evidenceTarget?.passageOrder === currentPart
@@ -687,7 +711,7 @@ export function ReadingReviewWorkspace() {
                 return next;
               });
             }}
-            onLocate={locate}
+            onLocate={(excerpt) => { if (data.practiceReview) setCurrentQuestion(item.q_num); locate(excerpt); }}
             onStartEvidenceSelection={() => {
               setCurrentQuestion(item.q_num);
               setCurrentPart(item.passage_order);

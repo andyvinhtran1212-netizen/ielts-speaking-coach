@@ -32,14 +32,14 @@ describe('/reading/skill — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, difficulty, skill, offset, retryToken\]/);
+    assert.match(BEHAVIOR, /\[accountKey, difficulty, skill, q, batches, retryToken\]/);
   });
 
   test('preserves the canonical filtered read with abort cleanup', () => {
     assert.match(BEHAVIOR, /query\.set\('difficulty', difficulty\)/);
     assert.match(BEHAVIOR, /query\.set\('skill', skill\)/);
-    assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_SIZE\)\)/);
-    assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
+    assert.match(BEHAVIOR, /limit: String\(PAGE_SIZE\)/);
+    assert.match(BEHAVIOR, /offset: String\(offset\)/);
     assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
     assert.match(BEHAVIOR, /`\/api\/reading\/skill\?\$\{query\.toString\(\)\}`/);
     assert.match(BEHAVIOR, /new AbortController\(\)/);
@@ -54,10 +54,10 @@ describe('/reading/skill — native React behavior', () => {
     assert.match(BEHAVIOR, /if \(!Array\.isArray\(items\)\) return \[\]/);
     assert.match(BEHAVIOR, /if \(!slug\) return \[\]/);
     assert.match(BEHAVIOR, /SKILL_LABEL\[skill\] \|\| skill/);
-    assert.match(BEHAVIOR, /normalizeTotal\(payload, offset \+ exercises\.length\)/);
+    assert.match(BEHAVIOR, /normalizeTotal\(payload, offset \+ next\.length\)/);
     assert.match(BEHAVIOR, /new Set\(state\.exercises\.map/);
     assert.match(BEHAVIOR, /displaySkillTitle\(fullTitle\)/);
-    assert.match(BEHAVIOR, /encodeURIComponent\(exercise\.slug\)/);
+    assert.match(BEHAVIOR, /readingSkillArticleHref\(exercise\.slug, context\)/);
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
 
@@ -75,7 +75,7 @@ describe('/reading/skill — native React behavior', () => {
   test('preserves pill order and the skill exercise destination', () => {
     assert.match(BEHAVIOR, /exercise\.skillLabel[\s\S]*\{difficulty \?[\s\S]*exercise\.topic/);
     assert.match(BEHAVIOR, /exercise\.estimatedMinutes[\s\S]*PHÚT/);
-    assert.match(BEHAVIOR, /\/reading\/skill\/\$\{encodeURIComponent\(exercise\.slug\)\}/);
+    assert.match(BEHAVIOR, /readingSkillArticleHref\(exercise\.slug, context\)/);
     assert.doesNotMatch(BEHAVIOR, /\/pages\/reading-skill-exercise\.html\?slug=/);
     assert.match(BEHAVIOR, /className="rv-card__top"/);
     assert.match(BEHAVIOR, /className="rv-card__footer"/);
@@ -88,9 +88,9 @@ describe('/reading/skill — native React behavior', () => {
     assert.match(SHELL, /totalCount = '—'/);
     assert.match(BEHAVIOR, /total > shown[\s\S]*đang hiển thị/);
     assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{total\}\)/);
-    assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_SIZE\)/);
+    assert.match(BEHAVIOR, /batches: batches \+ 1/);
     assert.match(BEHAVIOR, /Chưa tải được trang tiếp theo/);
-    assert.match(BEHAVIOR, /setDifficulty\(''\)[\s\S]*setSkill\(''\)/);
+    assert.match(BEHAVIOR, /changeFilters\(\{ difficulty: '', skill: '', q: '' \}\)/);
     assert.match(BEHAVIOR, /hidden=\{!hasFilters\}/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error \? caught\.message/);
   });
