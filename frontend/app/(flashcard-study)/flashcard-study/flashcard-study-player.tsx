@@ -211,7 +211,7 @@ export function FlashcardStudyPlayer() {
 
   useEffect(() => {
     if (!stack) return;
-    if (stack.mode === 'personal' && status === 'initial-loading') return;
+    if (status === 'initial-loading') return;
     if (stack.mode === 'personal' && !accountKey) {
       const next = `${window.location.pathname}${window.location.search}`;
       window.location.replace(`/login?next=${encodeURIComponent(next)}`);
@@ -431,7 +431,7 @@ export function FlashcardStudyPlayer() {
     setPhase(cards.length ? 'active' : 'empty');
   };
 
-  if (phase === 'loading' || renderOwner !== accountKey) {
+  if (phase === 'loading' || (stack && renderOwner !== accountKey)) {
     return <main className="fcs-width fcs-main"><StateCard role="status"><span className="fcs-spinner" /><p>Đang chuẩn bị bộ thẻ…</p></StateCard></main>;
   }
   if (phase === 'error' || phase === 'disabled') {

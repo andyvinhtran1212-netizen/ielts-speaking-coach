@@ -25,7 +25,11 @@ function Detail({ setId, account }: { setId: string; account: string }) {
       if (!pending.current) {
         try { const raw = sessionStorage.getItem(key); if (raw) pending.current = JSON.parse(raw); } catch { /* backend still owns sessions */ }
       }
-      pending.current ||= { client_id: crypto.randomUUID(), mode, review_only: review };
+      if (!pending.current || pending.current.mode !== mode || pending.current.review_only !== review
+        || typeof pending.current.client_id !== 'string'
+        || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pending.current.client_id)) {
+        pending.current = { client_id: crypto.randomUUID(), mode, review_only: review };
+      }
       try { sessionStorage.setItem(key, JSON.stringify(pending.current)); } catch { /* same-turn retries retain ref */ }
       const result = await postBrowserJsonAt('/api/vocabulary-sets/{set_id}/sessions', `/api/vocabulary-sets/${setId}/sessions`, pending.current);
       if (alive.current) { try { sessionStorage.removeItem(key); } catch {} pending.current = null; router.push(`/vocabulary/study/${result.id}`); }
