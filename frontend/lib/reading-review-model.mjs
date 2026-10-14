@@ -139,6 +139,7 @@ export function normalizeReadingReview(payload) {
   return Object.freeze({
     attemptId: payload.attempt_id == null ? null : text(payload.attempt_id),
     status: 'submitted',
+    practiceReview: payload.test_type === 'mini',
     testId: text(payload.test_id),
     title: text(payload.title) || text(payload.test_id) || 'Chữa bài Reading',
     preview,

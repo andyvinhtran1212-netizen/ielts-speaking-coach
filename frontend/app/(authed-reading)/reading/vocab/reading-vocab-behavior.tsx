@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 
 import { readingVocabArticleHref, readingVocabContext, readingVocabHref } from '@/lib/reading-vocab-context.mjs';
 
+import { safeImageUrl } from '@/lib/reading-detail-model.mjs';
+
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -19,6 +21,7 @@ interface RawPassage {
   topic_tags?: unknown;
   word_count?: unknown;
   estimated_minutes?: unknown;
+  image_url?: unknown;
 }
 
 interface Passage {
@@ -30,6 +33,7 @@ interface Passage {
   tags: string[];
   wordCount: number | null;
   estimatedMinutes: number | null;
+  imageUrl: string | null;
 }
 
 type LoadState =
@@ -75,6 +79,7 @@ function normalizePassages(payload: unknown): Passage[] {
       tags,
       wordCount: positiveInteger(raw?.word_count),
       estimatedMinutes: positiveInteger(raw?.estimated_minutes),
+      imageUrl: safeImageUrl(raw?.image_url),
     }];
   });
 }
@@ -101,11 +106,11 @@ export function ReadingVocabBehavior() {
 function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
   const params = useSearchParams();
   const context = readingVocabContext(params || undefined);
-  const { difficulty, tag, batches } = context;
+  const { difficulty, tag, q, batches } = context;
   const contextHref = readingVocabHref(context);
   const cached = useRef<{ key: string; batches: number; passages: Passage[]; total: number } | null>(null);
   const scrollKey = accountKey ? `aver:reading-vocab-scroll:v1:${accountKey}:${contextHref}` : null;
-  const changeFilters = (update: { difficulty?: string; tag?: string }) => {
+  const changeFilters = (update: { difficulty?: string; tag?: string; q?: string }) => {
     const latest = readingVocabContext(new URLSearchParams(window.location.search));
     window.history.replaceState(null, '', readingVocabHref({ ...latest, ...update, batches: 1 }));
   };
@@ -131,7 +136,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
 
     const controller = new AbortController();
     let disposed = false;
-    const filterKey = `${accountKey}:${difficulty}:${tag}`;
+    const filterKey = `${accountKey}:${difficulty}:${tag}:${q}`;
     const prior = cached.current?.key === filterKey && cached.current.batches < batches ? cached.current : null;
     if (!prior) setState({ status: 'loading' });
     else setLoadingMore(true);
@@ -152,6 +157,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
         const query = new URLSearchParams();
         if (difficulty) query.set('difficulty', difficulty);
         if (tag) query.set('tag', tag);
+        if (q) query.set('q', q);
         query.set('limit', String(PAGE_SIZE));
         query.set('offset', String(offset));
         const payload = await window.api!.getWith<unknown>(
@@ -178,7 +184,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
     }).finally(() => { if (!disposed) setLoadingMore(false); });
 
     return () => { disposed = true; controller.abort(); };
-  }, [accountKey, difficulty, tag, batches, retryToken]);
+  }, [accountKey, difficulty, tag, q, batches, retryToken]);
 
   useEffect(() => {
     if (state.status !== 'ready' || state.view !== contextHref || !scrollKey || loadingMore) return;
@@ -209,7 +215,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
       : total !== null && total > shown
         ? `${total} bài đọc phù hợp · đang hiển thị ${shown}`
         : `${total} bài đọc phù hợp`;
-  const hasFilters = Boolean(difficulty || tag);
+  const hasFilters = Boolean(difficulty || tag || q);
 
   return (
     <ReadingVocabShell totalCount={total ?? '—'}>
@@ -223,6 +229,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
             </p>
           </div>
           <div className="rv-filters">
+            <label>Tìm theo tiêu đề<input type="search" aria-label="Tìm bài đọc" maxLength={100} defaultValue={q} key={q} onKeyDown={(event) => { if (event.key === 'Enter') changeFilters({ q: event.currentTarget.value }); }} onBlur={(event) => { if (event.currentTarget.value.trim() !== q) changeFilters({ q: event.currentTarget.value }); }} /></label>
             <label>
               Trình độ
               <select
@@ -249,7 +256,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
               type="button"
               hidden={!hasFilters}
               onClick={() => {
-                changeFilters({ difficulty: '', tag: '' });
+                changeFilters({ difficulty: '', tag: '', q: '' });
               }}
             >
               Xóa lọc
@@ -264,7 +271,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
           <div className="rv-empty" id="state-empty">Chưa có bài đọc nào khớp bộ lọc.</div>
         ) : null}
         {state.status === 'error' ? (
-          <div className="rv-error" id="state-error">Không tải được thư viện. Vui lòng thử lại.</div>
+          <div className="rv-error" id="state-error">Không tải được thư viện. Vui lòng thử lại. <button type="button" onClick={() => setRetryToken((value) => value + 1)}>Thử lại</button></div>
         ) : null}
         {state.status === 'ready' && state.passages.length ? (
           <><div className="rv-grid rv-grid--articles" id="rv-grid">
@@ -286,6 +293,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
                       <span className="rv-card__time">{passage.estimatedMinutes} PHÚT</span>
                     ) : null}
                   </div>
+                  {passage.imageUrl && <img className="rv-card__image" src={passage.imageUrl} alt="" loading="lazy" onError={(event) => { event.currentTarget.hidden = true; }} />}
                   <h3>{passage.title}</h3>
                   <p className="rv-card__excerpt">{passage.excerpt}</p>
                   <div className="rv-meta">

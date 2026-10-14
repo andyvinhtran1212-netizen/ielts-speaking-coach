@@ -34,7 +34,7 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, difficulty, tag, batches, retryToken\]/);
+    assert.match(BEHAVIOR, /\[accountKey, difficulty, tag, q, batches, retryToken\]/);
   });
 
   test('preserves the canonical filtered read with abort cleanup', () => {
@@ -82,7 +82,7 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /id="rv-result-count"[^>]*aria-live="polite"/);
     assert.match(BEHAVIOR, /id="clear-filters"/);
     assert.match(BEHAVIOR, /hidden=\{!hasFilters\}/);
-    assert.match(BEHAVIOR, /changeFilters\(\{ difficulty: '', tag: '' \}\)/);
+    assert.match(BEHAVIOR, /changeFilters\(\{ difficulty: '', tag: '', q: '' \}\)/);
     assert.match(BEHAVIOR, /readingVocabArticleHref\(passage\.slug, context\)/);
     assert.doesNotMatch(BEHAVIOR, /\/pages\/reading-vocab-passage\.html\?slug=/);
   });

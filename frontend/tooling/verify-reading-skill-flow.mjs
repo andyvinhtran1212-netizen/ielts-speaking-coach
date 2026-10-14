@@ -89,7 +89,14 @@ await page.route('**/*', async (route) => {
     const parsed = new URL(url);
     const difficulty = parsed.searchParams.get('difficulty') || '';
     const skill = parsed.searchParams.get('skill') || '';
-    observedQueries.push({ difficulty, skill, limit: parsed.searchParams.get('limit') });
+    observedQueries.push({ difficulty, skill, limit: parsed.searchParams.get('limit'), offset: parsed.searchParams.get('offset'), q: parsed.searchParams.get('q') });
+
+    if (scenario === 'batches') {
+      const offset = Number(parsed.searchParams.get('offset') || 0);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ total: 50,
+        items: Array.from({ length: 24 }, (_, index) => ({ slug: `battery-${offset + index}`, title: `Battery ${offset + index}`, difficulty_level: 'foundation', skill_focus: 'detail' })),
+      }) });
+    }
 
     if (scenario === 'malformed') {
       return route.fulfill({
@@ -152,7 +159,7 @@ check('canonical total lỗi hình dạng rơi về số card hợp lệ',
 check('focus count malformed vẫn đúng 0 nhóm',
   (await page.locator('#rv-focus-count').innerText()).trim() === '0');
 check('summary malformed vẫn nói đúng 0 bài và 0 nhóm',
-  (await page.locator('#rv-result-count').innerText()).trim() === '0 bài luyện · 0 nhóm kỹ năng');
+  (await page.locator('#rv-result-count').innerText()).trim() === '0 bài luyện · 0 nhóm kỹ năng đang hiển thị');
 
 // 2. Valid data preserves canonical totals, authored content and rich cards.
 scenario = 'valid';
@@ -202,6 +209,13 @@ check('Xóa lọc reset cả hai select',
   await page.locator('#filter-difficulty').inputValue() === ''
     && await page.locator('#filter-skill').inputValue() === '');
 check('nút Xóa lọc ẩn lại sau reset', !(await page.locator('#clear-filters').isVisible()));
+scenario = 'batches';
+await page.goto(`${BASE}/reading/skill?difficulty=foundation&skill=detail&q=Battery&batches=2`, { waitUntil: 'domcontentloaded' });
+await page.locator('.rv-card').nth(47).waitFor({ state: 'visible' });
+check('URL khôi phục mọi batch và tiêu đề tìm kiếm', await page.locator('.rv-card').count() === 48
+  && observedQueries.some((query) => query.q === 'Battery' && query.offset === '24'));
+const destination = await page.locator('.rv-card').first().getAttribute('href');
+check('article giữ bộ lọc, tìm kiếm và batch khi trở lại', destination.includes('difficulty=foundation') && destination.includes('skill=detail') && destination.includes('q=Battery') && destination.includes('batches=2') && destination.includes('from=skill'));
 check('không có lỗi JS chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
 
 await browser.close();

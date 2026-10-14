@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import secrets
 from datetime import datetime, timezone
 from typing import Literal, Optional
@@ -57,6 +58,10 @@ from services.listening_test_grader import answer_matches
 from services.reading_diagnostic_engine import build_reading_diagnostic
 from services import reading_solution
 from services import kp_registry
+from services.reading_practice_support import (
+    ReadingPracticeCheck, ReadingPracticeDetail, checked_evidence,
+    validated_support, word_count, digest,
+)
 from services.active_player_lifecycle import (
     is_active_player_expired_error,
     is_resume_active,
@@ -232,6 +237,7 @@ def _excerpt(body_markdown: str | None) -> str:
 async def list_vocab_passages(
     difficulty: str | None = Query(default=None),
     tag: str | None = Query(default=None),
+    search: str | None = Query(default=None, alias="q", max_length=100),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -260,6 +266,8 @@ async def list_vocab_passages(
         q = q.eq("difficulty_level", difficulty)
     if tag:
         q = q.contains("topic_tags", [tag])
+    if search and search.strip():
+        q = q.ilike("title", f"%{search.strip().replace('%', '').replace('_', '')}%")
 
     res = q.execute()
     items = []
@@ -272,7 +280,7 @@ async def list_vocab_passages(
             "difficulty_level":  row.get("difficulty_level"),
             "topic_tags":        row.get("topic_tags") or [],
             "image_url":         row.get("image_url"),
-            "word_count":        row.get("word_count"),
+            "word_count":        word_count(row.get("body_markdown") or "") or None,
             "estimated_minutes": row.get("estimated_minutes"),
         })
     return {
@@ -286,7 +294,7 @@ async def list_vocab_passages(
 # ── Detail ────────────────────────────────────────────────────────────
 
 
-def _fetch_published_passage(slug: str, library: str) -> dict:
+def _fetch_published_passage(slug: str, library: str, *, include_support_metadata: bool = False) -> dict:
     """Fetch one published passage by slug for the given library. The column
     list deliberately excludes the answer key and explanation — student fetches
     never carry those (strip-keys watch-item)."""
@@ -310,10 +318,18 @@ def _fetch_published_passage(slug: str, library: str) -> dict:
     meta = row.pop("metadata", None) or {}
     row["translation_vi"] = meta.get("translation_vi")
     row["grammar_focus"] = meta.get("grammar_focus") or []
+    row["glossary"] = row.get("glossary") or []
+    row["topic_tags"] = row.get("topic_tags") or []
+    support = validated_support(meta, row.get("body_markdown") or "")
+    row["practice_support"] = support.model_dump() if support else None
+    row["word_count"] = word_count(row.get("body_markdown") or "") or None
+    row["source_sha256"] = digest(row.get("body_markdown") or "")
+    if include_support_metadata:
+        row["_support_metadata"] = meta
     return row
 
 
-@router.get("/vocab/{slug}")
+@router.get("/vocab/{slug}", response_model=ReadingPracticeDetail)
 async def get_vocab_passage(
     slug: str,
     authorization: str | None = Header(default=None),
@@ -347,6 +363,7 @@ class _CheckItem(BaseModel):
 
 class _CheckRequest(BaseModel):
     answers: list[_CheckItem] = Field(default_factory=list)
+    source_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 def _grade_one(question_row: dict, user_answer: str | None) -> dict:
@@ -357,7 +374,19 @@ def _grade_one(question_row: dict, user_answer: str | None) -> dict:
     candidates = primary if isinstance(primary, list) else [primary]
     candidates = [c for c in candidates if c is not None]
 
-    correct = any(answer_matches(user_answer, str(c), alternatives) for c in candidates)
+    if question_row.get("question_type") == "mcq_multi":
+        def selection(value):
+            values = value if isinstance(value, list) else re.split(r"\s*[,;/]\s*", str(value or ""))
+            labels = [str(item).strip().upper() for item in values]
+            if not labels or any(not re.fullmatch(r"[A-Z]", label) for label in labels) \
+                    or len(labels) != len(set(labels)):
+                return None
+            return frozenset(labels)
+        submitted = selection(user_answer)
+        expected_sets = [selection(primary), *(selection(item) for item in alternatives)]
+        correct = submitted is not None and any(submitted == expected for expected in expected_sets if expected)
+    else:
+        correct = any(answer_matches(user_answer, str(c), alternatives) for c in candidates)
     expected_display = ", ".join(str(c) for c in candidates) if candidates else ""
     return {
         "q_num":       question_row["q_num"],
@@ -368,7 +397,7 @@ def _grade_one(question_row: dict, user_answer: str | None) -> dict:
     }
 
 
-@router.post("/vocab/{slug}/check")
+@router.post("/vocab/{slug}/check", response_model=ReadingPracticeCheck)
 async def check_vocab_answers(
     slug: str,
     body: _CheckRequest,
@@ -388,6 +417,7 @@ async def check_vocab_answers(
 async def list_skill_exercises(
     difficulty: str | None = Query(default=None),
     skill: str | None = Query(default=None),
+    search: str | None = Query(default=None, alias="q", max_length=100),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -421,6 +451,8 @@ async def list_skill_exercises(
         q = q.eq("difficulty_level", difficulty)
     if skill:
         q = q.eq("skill_focus", skill)
+    if search and search.strip():
+        q = q.ilike("title", f"%{search.strip().replace('%', '').replace('_', '')}%")
 
     res = q.execute()
     items = []
@@ -434,7 +466,7 @@ async def list_skill_exercises(
             "topic_tags":        row.get("topic_tags") or [],
             "image_url":         row.get("image_url"),
             "skill_focus":       row.get("skill_focus"),
-            "word_count":        row.get("word_count"),
+            "word_count":        word_count(row.get("body_markdown") or "") or None,
             "estimated_minutes": row.get("estimated_minutes"),
         })
     return {
@@ -445,7 +477,7 @@ async def list_skill_exercises(
     }
 
 
-@router.get("/skill/{slug}")
+@router.get("/skill/{slug}", response_model=ReadingPracticeDetail)
 async def get_skill_exercise(
     slug: str,
     authorization: str | None = Header(default=None),
@@ -468,7 +500,7 @@ async def get_skill_exercise(
     return passage
 
 
-@router.post("/skill/{slug}/check")
+@router.post("/skill/{slug}/check", response_model=ReadingPracticeCheck)
 async def check_skill_answers(
     slug: str,
     body: _CheckRequest,
@@ -489,10 +521,12 @@ def _check_for(slug: str, library: str, body: "_CheckRequest") -> dict:
     answer via _grade_one. The fetch column list intentionally INCLUDES
     `answer`/`explanation` here — those never leave the server (they're used
     to grade + the grading response includes only the public-safe fields)."""
-    passage = _fetch_published_passage(slug, library)
+    passage = _fetch_published_passage(slug, library, include_support_metadata=True)
+    if body.source_sha256 and body.source_sha256 != passage["source_sha256"]:
+        raise HTTPException(409, "Reading passage changed; reload before checking")
     rows = (
         supabase_admin.table("reading_questions")
-        .select("q_num,answer,explanation,skill_tag")
+        .select("q_num,question_type,prompt,payload,answer,explanation,skill_tag")
         .eq("passage_id", passage["id"])
         .execute()
     )
@@ -503,7 +537,10 @@ def _check_for(slug: str, library: str, body: "_CheckRequest") -> dict:
         qrow = by_qnum.get(item.q_num)
         if qrow is None:
             continue  # ignore answers to unknown q_nums
-        results.append(_grade_one(qrow, item.user_answer))
+        result = _grade_one(qrow, item.user_answer)
+        evidence = checked_evidence(passage.get("_support_metadata") or {}, passage.get("body_markdown") or "", qrow)
+        result["evidence"] = evidence.model_dump() if evidence else None
+        results.append(result)
     return {"results": results}
 
 
@@ -1561,7 +1598,7 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
     else:
         test_res = (
             supabase_admin.table("reading_tests")
-            .select("test_id,title,module")
+            .select("test_id,title,module,test_type")
             .eq("id", test_uuid).limit(1).execute()
         )
         test_row = (test_res.data or [{}])[0]
@@ -1657,6 +1694,7 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
     web_access = attach_review_web_explanations("reading", attempt, review, snapshot)
 
     return {
+        **({"test_type": "mini"} if test_row.get("test_type") == "mini" else {}),
         "attempt_id":       attempt_id,
         "status":           attempt.get("status"),
         "test_id":          test_row.get("test_id"),

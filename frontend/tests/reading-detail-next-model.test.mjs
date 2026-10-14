@@ -55,7 +55,7 @@ describe('reading detail model', () => {
 
   test('accepts exactly one matching canonical check result', () => {
     const value = normalizeReadingCheck({ results: [{ q_num: 1, correct: false, expected: 'A', explanation: 'Why', skill_tag: 'detail' }] }, 1);
-    assert.deepEqual(value, { qNum: 1, correct: false, expected: 'A', explanation: 'Why', skillTag: 'detail' });
+    assert.deepEqual(value, { qNum: 1, correct: false, expected: 'A', explanation: 'Why', skillTag: 'detail', evidence: null });
     assert.equal(normalizeReadingCheck({ results: [] }, 1), null);
     assert.equal(normalizeReadingCheck({ results: [{ q_num: 2, correct: true, expected: 'A' }] }, 1), null);
   });

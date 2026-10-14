@@ -7,9 +7,11 @@ export function readingVocabContext(raw = {}) {
   const tag = typeof requestedTag === 'string' && requestedTag.length <= 80 && !/[\u0000-\u001f\u007f]/.test(requestedTag)
     ? requestedTag.trim() : '';
   const requestedBatches = String(field(raw, 'batches') ?? '1');
+  const requestedSearch = field(raw, 'q');
   return {
     difficulty: ['foundation', 'intermediate', 'advanced'].includes(difficulty) ? difficulty : '',
     tag,
+    q: typeof requestedSearch === 'string' && requestedSearch.length <= 100 && !/[\u0000-\u001f\u007f]/.test(requestedSearch) ? requestedSearch.trim() : '',
     batches: /^[1-9]\d{0,2}$/.test(requestedBatches) ? Number(requestedBatches) : 1,
   };
 }
@@ -19,6 +21,7 @@ export function readingVocabSearch(raw = {}) {
   const query = new URLSearchParams();
   if (context.difficulty) query.set('difficulty', context.difficulty);
   if (context.tag) query.set('tag', context.tag);
+  if (context.q) query.set('q', context.q);
   if (context.batches > 1) query.set('batches', String(context.batches));
   return query.toString();
 }

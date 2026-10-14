@@ -1,4 +1,5 @@
 // Trang Skill Practice trên Next — `/reading/skill`.
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 
 import { ReadingSkillBehavior } from './reading-skill-behavior';
@@ -15,7 +16,7 @@ export default function ReadingSkillPage() {
       {/* Chrome chung. Layout chỉ NẠP script; phần tử phải do từng trang dựng. */}
       {/* @ts-ignore */}
       <aver-chrome active="reading" />
-      <ReadingSkillBehavior />
+      <Suspense fallback={<p role="status">Đang tải thư viện…</p>}><ReadingSkillBehavior /></Suspense>
     </>
   );
 }

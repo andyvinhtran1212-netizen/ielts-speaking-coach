@@ -26,7 +26,7 @@ export function ReadingSkillShell({
           </div>
           <dl className="rv-header__stats" aria-label="Tổng quan thư viện kỹ năng">
             <div><dt id="rv-total-count">{totalCount}</dt><dd>bài luyện</dd></div>
-            <div><dt id="rv-focus-count">{focusCount}</dt><dd>nhóm kỹ năng</dd></div>
+            <div><dt id="rv-focus-count">{focusCount}</dt><dd>nhóm đang hiển thị</dd></div>
             <div><dt>1 mục tiêu</dt><dd>Mỗi bài luyện</dd></div>
           </dl>
         </header>

@@ -55,3 +55,24 @@ it.each([true, false].flatMap(preview => [
   expect(JSON.stringify(fixture)).toBe(original);
   expect(post).not.toHaveBeenCalled();
 });
+
+it.each(['mini', 'full', undefined])('locates an exact quote only for canonical Mini review (type=%s)', async (testType) => {
+  window.history.replaceState(null, '', '/reading/review?attempt_id=mini-locate&from=mini');
+  getWith.mockResolvedValue({ status: 'submitted', test_type: testType, attempt_id: 'mini-locate', title: 'Mini locator', score: 0, max_score: 1,
+    passages: [{ passage_order: 1, title: 'Source', body_markdown: '<p>Before. <strong>A shared pasture is depleted.</strong> After.</p>' }],
+    review: [{ q_num: 1, passage_order: 1, correct: false, question_type: 'short_answer', prompt: 'What is depleted?', user_answer: '', expected: 'pasture', solution: { source_excerpt: 'A shared pasture is depleted.' } }],
+  });
+  const view = render(<ReadingReviewWorkspace />);
+  await screen.findByText('Mini locator');
+  fireEvent.click(screen.getByRole('button', { name: 'Câu 1 — bỏ trống', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Đến đoạn này trong bài đọc' }));
+  if (testType === 'mini') {
+    await screen.findByText('Đã làm sáng đúng phần trích dẫn.');
+    expect(view.container.querySelector('mark.rr-practice-quote')?.textContent).toBe('A shared pasture is depleted.');
+    expect(view.container.querySelector('.rr-src-hl')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Trở lại câu hỏi' }));
+  } else {
+    expect(view.container.querySelector('mark.rr-practice-quote')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Trở lại câu hỏi' })).toBeNull();
+  }
+});
