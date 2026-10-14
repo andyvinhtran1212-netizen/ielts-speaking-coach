@@ -95,3 +95,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | approved | high | [spec](0019-grammar-audit-remediation/spec.md) |
 
 | VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | approved | high | [spec](0020-vocabulary-class-sets/spec.md) |
+
+| READINGPRACTICE-0021 | Repair Reading practice and support sentence translation in place | approved | high | [spec](0021-reading-practice-support/spec.md) |
