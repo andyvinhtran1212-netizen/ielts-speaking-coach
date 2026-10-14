@@ -92,6 +92,7 @@ from routers.student_home import router as student_home_router
 from routers.admin_reading import router as admin_reading_content_router
 from routers.admin_reading import questions_router as admin_reading_questions_router
 from routers.admin_vocab import router as admin_vocab_content_router
+from routers.vocabulary_sets import router as vocabulary_sets_router, admin_router as admin_vocabulary_sets_router
 from routers.admin_topics import router as admin_topics_router
 from routers.admin_quiz import router as admin_quiz_router
 from routers.quiz import router as quiz_player_router
@@ -296,6 +297,8 @@ app.include_router(listening_admin_router)
 app.include_router(admin_reading_content_router)
 app.include_router(admin_reading_questions_router)
 app.include_router(admin_vocab_content_router)
+app.include_router(vocabulary_sets_router)
+app.include_router(admin_vocabulary_sets_router)
 app.include_router(admin_topics_router)
 app.include_router(admin_quiz_router)
 app.include_router(quiz_player_router)

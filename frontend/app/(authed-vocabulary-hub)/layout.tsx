@@ -10,7 +10,7 @@ import { AuthedShell } from '@/components/authed-shell';
 export default function VocabularyHubLayout({ children }: { children: ReactNode }) {
   return (
     <AuthedShell
-      pageStylesheets={['/css/vocabulary.css', '/css/flashcards.css', '/css/exercises.css']}
+      pageStylesheets={['/css/vocabulary.css', '/css/flashcards.css', '/css/exercises.css', '/css/vocabulary-workspace.css']}
       lucideRuntime
     >
       {children}

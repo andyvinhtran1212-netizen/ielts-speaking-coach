@@ -1,27 +1,28 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 
 import { FlashcardStudyPlayer } from './flashcard-study-player';
+import { flashcardReturnHref } from '@/lib/flashcard-study-model.mjs';
 
 export const metadata: Metadata = {
   title: 'Học flashcard — Aver Learning',
   robots: { index: false, follow: false },
 };
 
-export default function FlashcardStudyPage() {
-  return (
-    <>
-      {/* @ts-ignore — custom element supplied by the shared student chrome. */}
-      <aver-chrome active="vocabulary" />
-      <header className="fcs-header">
+async function StudyHeader({ searchParams }: { searchParams: Promise<{ stack?: string | string[] }> }) {
+  const query = await searchParams;
+  const returnHref = flashcardReturnHref(typeof query.stack === 'string' ? query.stack : '');
+  return <header className="fcs-header">
         <div className="fcs-width fcs-header__inner">
-          <a href="/flashcards" className="fcs-back" aria-label="Quay lại Flashcards">←</a>
+          <a href={returnHref} className="fcs-back" aria-label="Quay lại bộ sưu tập">←</a>
           <div>
             <p className="fcs-eyebrow">Vocabulary studio</p>
             <h1>Học flashcard</h1>
           </div>
         </div>
-      </header>
-      <FlashcardStudyPlayer />
-    </>
-  );
+      </header>;
+}
+
+export default function FlashcardStudyPage({ searchParams }: { searchParams: Promise<{ stack?: string | string[] }> }) {
+  return <><aver-chrome active="vocabulary" /><Suspense fallback={<p role="status">Đang tải bộ sưu tập…</p>}><StudyHeader searchParams={searchParams} /></Suspense><FlashcardStudyPlayer /></>;
 }
