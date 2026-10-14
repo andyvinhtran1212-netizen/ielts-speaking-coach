@@ -26,77 +26,50 @@ describe('/vocabulary/hub — native React ownership', () => {
     assert.doesNotMatch(list, /['"]\/vocabulary\/hub['"]/);
   });
 
-  test('uses shared auth, keyed private state and aborts account-scoped reads', () => {
-    assert.match(BEHAVIOR, /useAuth\(\)/);
-    assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id/);
-    assert.match(BEHAVIOR, /statsState\?\.key === requestKey/);
-    assert.match(BEHAVIOR, /flagsState\?\.key === requestKey/);
-    assert.match(BEHAVIOR, /new AbortController\(\)/);
-    assert.match(BEHAVIOR, /controller\.abort\(\)/);
+  test('keys all private hub state by the current account and aborts reads', () => {
+    const workspace = read('components', 'vocabulary-workspace.tsx');
+    assert.match(BEHAVIOR, /<VocabularyAccount/);
+    assert.match(workspace, /key=\{user.id\}/);
+    assert.match(workspace, /controller.abort\(\)/);
+    assert.match(BEHAVIOR, /controller.abort\(\)/);
   });
 
-  test('loads canonical stats and feature flags in parallel with honest states', () => {
-    assert.match(BEHAVIOR, /Promise\.allSettled\(\[/);
-    assert.match(BEHAVIOR, /'\/api\/student\/home-summary'/);
-    assert.match(BEHAVIOR, /getCurrentUser\(controller\.signal\)/);
-    assert.match(BEHAVIOR, /words_learned/);
-    assert.match(BEHAVIOR, /quiz_words_missed/);
+  test('keeps four real local navigation links present while users change views', () => {
+    const workspace = read('components', 'vocabulary-workspace.tsx');
+    for (const title of ['Học hôm nay', 'Bộ từ', 'Ôn tập', 'Tra cứu']) assert.ok(workspace.includes(title));
+    assert.match(workspace, /aria-current/);
+    assert.match(workspace, /vocabulary\/hub\?view=/);
+    assert.doesNotMatch(BEHAVIOR, /href="#"|hidden=\{activeMode/);
+    assert.match(BEHAVIOR, /useSearchParams\(\)/);
+  });
+
+  test('preserves legacy hash intent through the canonical URL view', () => {
+    for (const mode of ['vocab-topics', 'flashcards', 'exercises']) assert.ok(BEHAVIOR.includes('#' + mode));
+    assert.match(BEHAVIOR, /router.replace/);
+  });
+
+  test('shows saved vocabulary separately from demonstrated quiz outcomes', () => {
+    assert.match(BEHAVIOR, /wallet_words/);
+    assert.match(BEHAVIOR, /quiz_words_mastered/);
     assert.match(BEHAVIOR, /quiz_sessions/);
-    assert.match(BEHAVIOR, /Không tải được thống kê từ vựng/);
-    assert.match(BEHAVIOR, /const statsLoading = !stats && !statsFailed/);
+    assert.match(BEHAVIOR, /Từ đã lưu/);
+    assert.doesNotMatch(BEHAVIOR, /Từ đã thuộc|words_learned/);
+    assert.match(BEHAVIOR, /Promise.allSettled/);
+    assert.match(BEHAVIOR, /statsError/);
   });
 
-  test('keeps gated cards default-deny', () => {
+  test('retains owning legacy study flows with default-deny flags', () => {
     assert.match(BEHAVIOR, /flashcard_enabled === true/);
     assert.match(BEHAVIOR, /d1_enabled === true/);
     assert.match(BEHAVIOR, /vocab_curated_enabled === true/);
-    assert.match(BEHAVIOR, /flags\?\.flashcardEnabled/);
-    assert.match(BEHAVIOR, /flags\?\.vocabCuratedEnabled/);
     assert.match(BEHAVIOR, /href="\/vocabulary\/learn"/);
-    assert.match(BEHAVIOR, /flags && \(flags\.d1Enabled \|\| flags\.flashcardEnabled\)/);
-    assert.doesNotMatch(BEHAVIOR, /localStorage[^\n]*(?:flag|permission)|sessionStorage[^\n]*(?:flag|permission)/i);
-  });
-
-  test('preserves hash deep links, history entries and browser back/forward', () => {
-    for (const mode of ['vocab-topics', 'flashcards', 'exercises']) {
-      assert.match(BEHAVIOR, new RegExp(`['"]${mode}['"]`));
-    }
-    assert.match(BEHAVIOR, /history\.pushState\(null, '', `#\$\{mode\}`\)/);
-    assert.match(BEHAVIOR, /addEventListener\('hashchange', syncMode\)/);
-    assert.match(BEHAVIOR, /addEventListener\('popstate', syncMode\)/);
-    assert.match(BEHAVIOR, /hidden=\{activeMode !== null\}/);
-    assert.equal(
-      (BEHAVIOR.match(/mode="(?:vocab-topics|flashcards|exercises)" href="#"/g) || []).length,
-      3,
-      'mode-card anchors must preserve the legacy # link fact; openMode writes the canonical hash',
-    );
-  });
-
-  test('preserves visible whitespace between each stat value and unit', () => {
-    assert.match(BEHAVIOR, /\{' '\}\s*<span className="unit">\{unit\}<\/span>/);
-  });
-
-  test('renders topic metadata declaratively and encodes every query value', () => {
-    assert.match(BEHAVIOR, /'\/api\/vocabulary\/categories'/);
-    assert.match(BEHAVIOR, /count > 0 && !!slug/);
-    assert.match(BEHAVIOR, /encodeURIComponent\(slug\)/);
-    assert.match(BEHAVIOR, /encodeURIComponent\(linkedTopicId\)/);
-    assert.match(BEHAVIOR, /\/vocabulary\?cat=/);
-    assert.match(BEHAVIOR, /\/flashcard-study\?stack=wiki:/);
-    assert.match(BEHAVIOR, /\/quiz\/progress\?skill_area=vocab/);
-    assert.doesNotMatch(BEHAVIOR, /\.innerHTML\s*=|__html/);
-  });
-
-  test('mounts retained domain modules through a lifecycle-safe adapter', () => {
-    assert.match(BEHAVIOR, /<VocabModuleMount/);
-    assert.match(MOUNT_ADAPTER, /`\/js\/vocab-modules\/\$\{moduleName\}\.js`/);
-    assert.match(MOUNT_ADAPTER, /mount\(container, \{ embedded \}\)/);
+    assert.match(BEHAVIOR, /href="\/flashcards"/);
+    assert.match(BEHAVIOR, /href="\/d1-exercise"/);
+    assert.match(BEHAVIOR, /quiz\/progress\?skill_area=vocab/);
+    assert.doesNotMatch(BEHAVIOR, /dangerouslySetInnerHTML|\.innerHTML\s*=/);
     assert.match(MOUNT_ADAPTER, /handle\?\.unmount\?\.\(\)/);
-    assert.match(BEHAVIOR, /key=\{`\$\{requestKey\}:flashcards`\}/);
-    assert.match(BEHAVIOR, /key=\{`\$\{requestKey\}:exercises`\}/);
-    assert.match(BEHAVIOR, /visited\.has\('flashcards'\)/);
-    assert.match(BEHAVIOR, /visited\.has\('exercises'\)/);
   });
+
 });
 
 describe('/vocabulary/hub — canonical navigation', () => {

@@ -16,9 +16,9 @@ const MODULE = read('public', 'js', 'vocab-modules', 'exercises.js');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 
 describe('/exercises — lifecycle-safe Next orchestration', () => {
-  test('removes inline module injection, hydration sentinel and watchdog', () => {
+  test('consolidates the legacy Exercises entry into the persistent Review workspace', () => {
     assert.doesNotMatch(PAGE, /const MOUNT|dangerouslySetInnerHTML|watchdogScript|HydratedSignal/);
-    assert.match(PAGE, /<ExercisesBehavior\s*\/>/);
+    assert.match(PAGE, /redirect\('\/vocabulary\/hub\?view=review'\)/);
   });
 
   test('uses shared auth, fails closed and keys the mount by account', () => {
