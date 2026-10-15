@@ -106,11 +106,23 @@ def public_url(path: str) -> str:
 
 
 def upload_mp3(path: str, data: bytes) -> None:
+    validate_vocab_audio(data)
     supabase_admin.storage.from_(VOCAB_AUDIO_BUCKET).upload(
         path=path,
         file=data,
         file_options={"content-type": "audio/mpeg", "upsert": "true"},
     )
+
+
+def validate_vocab_audio(data: bytes) -> None:
+    """Reject valid MP3 containers whose pronunciation is effectively inaudible."""
+    from pydub import AudioSegment
+    try:
+        clip = AudioSegment.from_file(io.BytesIO(data), format="mp3")
+    except Exception as exc:
+        raise ValueError("Audio từ vựng không giải mã được.") from exc
+    if len(clip) < 80 or clip.rms == 0 or clip.dBFS < -45:
+        raise ValueError("Audio từ vựng im lặng hoặc quá nhỏ; cần render lại.")
 
 
 def pad_silence_mp3(data: bytes, lead_ms: int = _PAD_LEAD_MS, trail_ms: int = _PAD_TRAIL_MS) -> bytes:

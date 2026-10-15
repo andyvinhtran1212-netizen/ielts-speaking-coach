@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { getBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
+import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
 import { VocabularyAccount, VocabularyNav, useVocabularyResource, useAlive, VocabError, modeLabels, messageOf } from '@/components/vocabulary-workspace';
 import type { components } from '@/types/api';
 type AnswerRequest = components['schemas']['StudyAnswer'];
@@ -96,7 +97,10 @@ function Study({ sessionId, account }: { sessionId: string; account: string }) {
           <button type="button" className="vs-flip" aria-label={flipped ? 'Xem mặt từ' : 'Lật thẻ xem nghĩa'} onClick={() => setFlipped(v => !v)} disabled={lock}>
             {flipped ? <><strong>{item.card?.gloss_vi || item.card?.definition_en || 'Chưa có nghĩa'}</strong>{item.card?.example && <span>{item.card.example}</span>}</> : <><strong>{item.card?.headword}</strong><span>{item.card?.pronunciation}</span><span className="vs-meta">Nhấn để lật thẻ</span></>}
           </button>
-          {item.card?.audio_headword && /^https:\/\//.test(item.card.audio_headword) && <audio controls src={item.card.audio_headword} aria-label="Phát âm từ" />}
+          <div className="vs-actions">
+            <VocabularyAudioButton url={item.card?.audio_headword} say={item.card?.headword} label="Nghe phát âm từ" className="av-button">Nghe từ</VocabularyAudioButton>
+            {item.card?.example && <VocabularyAudioButton url={item.card.audio_example} say={item.card.example} label="Nghe câu ví dụ" className="av-button">Nghe câu ví dụ</VocabularyAudioButton>}
+          </div>
           <p className="vs-meta">Tự đánh giá để lưu lịch ôn. Đây không phải điểm kiểm tra.</p><div className="vs-actions">{([['again', 'Chưa nhớ'], ['hard', 'Khó nhớ'], ['good', 'Nhớ'], ['easy', 'Rất dễ']] as const).map(([rating, label]) => <button key={rating} disabled={lock || !flipped} onClick={() => void send(rating)}>{label}</button>)}</div>
         </> : <form className="vs-panel" onSubmit={e => { e.preventDefault(); void send(); }}><label>{index + 1}. {item.prompt}<input autoFocus value={inputs[index] || ''} onChange={e => input(index, e.target.value)} disabled={lock || !!feedback} maxLength={200} autoComplete="off" /></label>{!feedback && <button type="submit" className="av-button-primary" disabled={lock || !inputs[index]?.trim()}>{busy ? 'Đang lưu…' : 'Kiểm tra và lưu'}</button>}</form>}
         {feedback && <div className="vs-feedback" role="status"><strong>{feedback.correct ? 'Đúng' : 'Chưa đúng'}</strong><p>Đáp án: {feedback.expected}</p><button className="av-button-primary" onClick={() => { setFeedbackIndex(null); setFlipped(false); }}>{session.completed ? 'Xem kết quả' : 'Câu tiếp theo'}</button></div>}

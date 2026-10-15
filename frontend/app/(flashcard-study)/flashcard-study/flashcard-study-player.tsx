@@ -1,4 +1,5 @@
 'use client';
+import { VocabularyAudioButton as AudioButton } from '@/components/vocabulary-audio-button';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -114,35 +115,6 @@ function persistMark(key: string, slug: string, mark: PublicMark) {
     localStorage.setItem(key, JSON.stringify({ ...readMarks(key), [slug]: mark }));
     return true;
   } catch { return false; }
-}
-
-function playAudio(url: string, fallback: string) {
-  try { window.speechSynthesis?.cancel(); } catch { /* no-op */ }
-  const speak = () => {
-    if (!fallback || !window.speechSynthesis) return;
-    const utterance = new SpeechSynthesisUtterance(fallback);
-    utterance.lang = 'en-GB';
-    utterance.rate = 0.92;
-    window.speechSynthesis.speak(utterance);
-  };
-  if (!url) return speak();
-  try {
-    const audio = new Audio(url);
-    void audio.play().catch(speak);
-  } catch { speak(); }
-}
-
-function AudioButton({ url, say, label }: { url: string; say: string; label: string }) {
-  return (
-    <button
-      type="button"
-      className="fcs-audio"
-      aria-label={label}
-      onClick={(event) => { event.stopPropagation(); playAudio(url, say); }}
-    >
-      <span aria-hidden="true">▶</span>
-    </button>
-  );
 }
 
 function Relation({ label, items }: { label: string; items: string[] }) {

@@ -23,6 +23,14 @@ function api(get: (url: string) => unknown, post: (url: string, body: any) => un
   const transport = { getWith: vi.fn(get), post: vi.fn(post) };
   Object.defineProperty(window, 'api', { configurable: true, value: transport }); return transport;
 }
+
+it('offers word and example playback in a class flashcard without writing study progress', async () => {
+  const transport = api(async () => session('flashcards'));
+  render(<VocabularyStudy sessionId="session-1" />);
+  expect(await screen.findByRole('button', { name: 'Nghe phát âm từ' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Nghe câu ví dụ' })).toBeTruthy();
+  expect(transport.post).not.toHaveBeenCalled();
+});
 afterEach(() => { cleanup(); sessionStorage.clear(); localStorage.clear(); history.replaceState(null, '', '/'); mocks.auth.status = 'signed-in'; mocks.auth.user = { id: 'learner-a' }; mocks.view = 'today'; vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 it('keeps navigation and the learning action before truthful metrics', async () => {
