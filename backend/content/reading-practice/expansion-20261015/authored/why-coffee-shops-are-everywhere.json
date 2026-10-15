@@ -1,8 +1,60 @@
 {
   "slug": "why-coffee-shops-are-everywhere",
-  "review_notes": "Tự dịch theo ngữ cảnh: margin là biên lợi nhuận, healthy profit là lợi nhuận khá, hub là điểm kết nối, không dịch từng từ cơ học.",
+  "review_notes": "Tự dịch theo ngữ cảnh: margin là biên lợi nhuận, healthy profit là lợi nhuận khá, hub là điểm kết nối, không dịch từng từ cơ học. Bổ sung toàn bộ đoạn mở đầu nằm chung block với tiêu đề; tiêu đề không bị đưa vào câu dịch.",
   "illustration_brief": "Một tách cà phê trên bàn cạnh cửa sổ.",
   "sentences": [
+    [
+      "p1-s1",
+      "Đi dọc gần như bất kỳ phố thương mại chính nào trong một thành phố lớn, bạn sẽ đi qua vài quán cà phê, đôi khi là hai chi nhánh của cùng một chuỗi chỉ trong một dãy phố.",
+      [
+        "high street",
+        "phố thương mại chính"
+      ],
+      [
+        "two outlets of the same chain",
+        "hai chi nhánh của cùng một chuỗi"
+      ],
+      [
+        "within a single block",
+        "chỉ trong một dãy phố"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Ở nhiều thị trấn, quán cà phê nay còn nhiều hơn cả ngân hàng và hiệu sách.",
+      [
+        "outnumber",
+        "nhiều hơn"
+      ],
+      [
+        "banks and bookshops",
+        "ngân hàng và hiệu sách"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Văn hoá quán cà phê không hề mới: Café Central nổi tiếng ở Vienna đã phục vụ khách từ năm 1876, và vào thời cực thịnh trong thập niên 1910, thành phố có khoảng 600 quán cà phê.",
+      [
+        "Coffeehouse culture",
+        "Văn hoá quán cà phê"
+      ],
+      [
+        "at its peak",
+        "vào thời cực thịnh"
+      ],
+      [
+        "around 600 coffeehouses",
+        "khoảng 600 quán cà phê"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Vì sao chúng lan rộng nhanh đến vậy?",
+      [
+        "spread so quickly",
+        "lan rộng nhanh đến vậy"
+      ]
+    ],
     [
       "p2-s1",
       "Một lý do rất đơn giản: mọi người thích quán cà phê.",

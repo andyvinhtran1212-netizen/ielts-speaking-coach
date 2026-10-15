@@ -13,9 +13,9 @@ def source_sentences(body: str) -> dict[str, str]:
     result = {}
     for paragraph, block in enumerate(re.split(r"\n\s*\n", body.strip()), 1):
         block = re.sub(r"<!--[\s\S]*?-->", "", block).strip()
+        block = '\n'.join(line for line in block.splitlines()
+                          if not re.match(r'^\s*(?:#{1,6}\s|[-*_]{3,}\s*$)', line)).strip()
         if not block:
-            continue
-        if re.match(r'^\s*(?:#{1,6}\s|[-*_]{3,}\s*$)', block):
             continue
         # Do not split initials/abbreviations such as Dr. or U.S. into sentences.
         text = plain_source(block)

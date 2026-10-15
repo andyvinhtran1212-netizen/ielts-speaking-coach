@@ -12,8 +12,13 @@ Authoring happens in this independent local checkout on
 release on staging `f3a2b6e8`.
 The user's new read-only permission covers current chat/Git/release state and
 published practice content on staging/production, with no learner-history read.
-No new push, database write, paid translation/image call or publication is
-authorized yet. Obtain permission for the concrete completed release package.
+The user approved commit `9695c831` for PR/staging operations, and
+[PR #1671](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1671)
+was opened at that exact head. It has not been merged or imported. Review found
+six omitted opening sentences in two articles because a heading shared their
+Markdown block. The local revision retains that prose and adds four regression
+cases. Its new SHA and regenerated SQL require replacement-package approval;
+production and provider calls remain unapproved.
 
 The fresh bounded exports are outside Git at
 `/Volumes/Kingston SSD/Code/reading-practice-expansion-20261014/`:
@@ -21,7 +26,7 @@ production has 200 articles/1151 questions, four aligned; staging has 26 L1/L2
 articles/135 questions, four aligned. The Vocabulary chat is active in its own
 scope. No messages were sent to it and its files were not changed.
 
-Local content is complete: 196 articles, 3046 sentence translations, 6405 manually
+Local content is complete: 196 articles, 3052 sentence translations, 6418 manually
 chosen phrase pairs and 123 original SVG scenes. Related articles share a suitable
 context scene where useful. All 196 remain local, with no expansion deployed.
 The English source, existing questions/keys, glossary and unrelated metadata are
@@ -29,8 +34,8 @@ unchanged. No paid translation or image API was called.
 
 `compile_local.py` only assembles this finite batch and calls the existing
 practice-support validator. It makes no network requests. Author files pin the
-reviewed English and pre-existing translation hashes. All reading prose is
-covered; Markdown headings/separators are excluded, and practice tips are
+reviewed English and pre-existing translation hashes. An independent comparison with all rendered Markdown paragraph/list text confirms
+that all reading prose is covered; Markdown headings/separators are excluded, and practice tips are
 translated where present. Runtime support remains schema version 1.
 
 Compile from the repo root using the existing backend environment:
@@ -69,14 +74,16 @@ PostgreSQL 16 instance (Unix socket, no Supabase connection):
 - All 123 native SVG scenes were rendered locally and visually checked. No image
   contains an answer label or an external asset request. All 196 alignments pass
   the existing backend revision/span validator. Hidden HTML word-count comments
-  are excluded, and sentence boundaries handle quoted punctuation.
+  are excluded, sentence boundaries handle quoted punctuation, and headings are
+  removed line by line while preserving prose in the same block.
 
 The current frontend Markdown annotation code also resolves every one of the
-3046 sentence actions and 6405 source phrase spans across all 196 compiled
+3052 sentence actions and 6418 source phrase spans across all 196 compiled
 articles, with no nested buttons. Existing React interactions pass (50 files /
 577 tests), and the full frontend contract suite passes (12976 passes, three
-skips). The focused backend practice-support suite passes (16 tests). The full backend
-pre-push gate passes (10193 passes, 808 configured smoke/credential-dependent
+skips). The focused backend practice-support suite passes (16 tests); four authoring
+regression cases also pass. The full backend
+pre-push gate passes (10197 passes, 808 configured smoke/credential-dependent
 skips; no external provider calls enabled). Spec validation and diff hygiene
 also pass. These are
 local results; hosted expansion acceptance has not happened yet.

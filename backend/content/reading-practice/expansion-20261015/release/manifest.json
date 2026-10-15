@@ -1,7 +1,7 @@
 {
   "articles": 196,
-  "sentence_units": 3046,
-  "phrase_pairs": 6405,
+  "sentence_units": 3052,
+  "phrase_pairs": 6418,
   "illustrations": 123,
   "production": {
     "updates": 196,
@@ -19,7 +19,7 @@
     "the-tragedy-of-the-commons"
   ],
   "sql_sha256": {
-    "production-apply.sql": "03036108f945d8743ea687e4f9a83c00055e1bb0c2d49636d3303753580f3974",
-    "staging-apply.sql": "f6c917a715874cfcf10240604a85f60e8c45609c7b7361dcf3369f8757a8462d"
+    "production-apply.sql": "8dcb1235ad7e0ee24b9fc8d955d7f08487f2fce6750944c782a4d9b28134b3f4",
+    "staging-apply.sql": "8e13be620e196d3d3ee6b92587d7ef6277381f4d3124e61b3585677151fe6212"
   }
 }

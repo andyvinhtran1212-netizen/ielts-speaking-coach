@@ -47289,12 +47289,44 @@ DECLARE packet jsonb := $packet${
             "analysis": "'who studied bees…' bổ nghĩa cho 'Karl von Frisch' (người). 'who' làm chủ ngữ, theo sau là động từ quá khứ 'studied'. Cụm này thêm thông tin về nhân vật; ở đây có dấu phẩy vì là thông tin bổ sung (non-defining) về một người đã xác định rõ bằng tên riêng."
           }
         ],
-        "translation_vi": "Khi ong trinh sát tìm hoa nhiều mật, nó bay về và bắt đầu chuyển động trên vách tổ theo cách đặc biệt. Chuyển động ấy được gọi là điệu nhảy lắc bụng. Ong đi tới trong khi lắc cơ thể, rồi vòng về điểm đầu tạo hình số tám.\n\nĐiệu nhảy đầy ý nghĩa ẩn. Góc di chuyển của ong so với vị trí Mặt Trời cho biết hướng thức ăn. Thời lượng phần lắc cho những con khác biết gần đúng phải bay xa bao nhiêu. Ong quan sát chạm râu vào con đang nhảy và giải mã thông điệp. Chỉ dẫn chính xác đáng ngạc nhiên, thường dẫn ong tới điểm xa hàng trăm mét.\n\nHệ thống được nhà động vật học Áo Karl von Frisch giải thích đầu tiên; ông nghiên cứu ong nhiều thập kỷ đầu thế kỷ XX. Công trình kiên nhẫn về sau góp phần giúp ông cùng nhận giải Nobel.\n\nChính xác bộ não nhỏ của ong làm sao phát tín hiệu chính xác đến vậy là câu hỏi có thể không bao giờ được giải đáp trọn vẹn.",
+        "translation_vi": "Một con ong mật trở về tổ tối tăm, đông đúc đối mặt với một vấn đề lạ: làm sao báo cho hàng nghìn con khác chính xác nơi có thức ăn ở rất xa bên ngoài? Câu trả lời là một trong những tín hiệu đáng chú ý nhất trong tự nhiên.\n\nKhi ong trinh sát tìm hoa nhiều mật, nó bay về và bắt đầu chuyển động trên vách tổ theo cách đặc biệt. Chuyển động ấy được gọi là điệu nhảy lắc bụng. Ong đi tới trong khi lắc cơ thể, rồi vòng về điểm đầu tạo hình số tám.\n\nĐiệu nhảy đầy ý nghĩa ẩn. Góc di chuyển của ong so với vị trí Mặt Trời cho biết hướng thức ăn. Thời lượng phần lắc cho những con khác biết gần đúng phải bay xa bao nhiêu. Ong quan sát chạm râu vào con đang nhảy và giải mã thông điệp. Chỉ dẫn chính xác đáng ngạc nhiên, thường dẫn ong tới điểm xa hàng trăm mét.\n\nHệ thống được nhà động vật học Áo Karl von Frisch giải thích đầu tiên; ông nghiên cứu ong nhiều thập kỷ đầu thế kỷ XX. Công trình kiên nhẫn về sau góp phần giúp ông cùng nhận giải Nobel.\n\nChính xác bộ não nhỏ của ong làm sao phát tín hiệu chính xác đến vậy là câu hỏi có thể không bao giờ được giải đáp trọn vẹn.",
         "practice_support": {
           "schema_version": 1,
           "source_sha256": "63216af94ccca17d51c307b4eb60b7b3760a00e864269d436b1bf8ad830b5782",
-          "translation_sha256": "c22fcf44800a55b16b9f417b0878014ded87f9e5c71a46799d0263655404bea4",
+          "translation_sha256": "d6919263d08c3cd1bbb9794e64c4957a01c62343fa38b9b21ae811af3b2d0735",
           "units": [
+            {
+              "id": "p1-s1",
+              "source": "A honeybee returning to a dark, crowded hive faces a strange problem: how can it tell thousands of others exactly where a meal lies far outside?",
+              "translation_vi": "Một con ong mật trở về tổ tối tăm, đông đúc đối mặt với một vấn đề lạ: làm sao báo cho hàng nghìn con khác chính xác nơi có thức ăn ở rất xa bên ngoài?",
+              "precision": "sentence",
+              "phrases": [
+                {
+                  "source": "a dark, crowded hive",
+                  "target": "tổ tối tăm, đông đúc"
+                },
+                {
+                  "source": "thousands of others",
+                  "target": "hàng nghìn con khác"
+                },
+                {
+                  "source": "exactly where a meal lies",
+                  "target": "chính xác nơi có thức ăn"
+                }
+              ]
+            },
+            {
+              "id": "p1-s2",
+              "source": "The answer is one of the most remarkable signals in nature.",
+              "translation_vi": "Câu trả lời là một trong những tín hiệu đáng chú ý nhất trong tự nhiên.",
+              "precision": "sentence",
+              "phrases": [
+                {
+                  "source": "one of the most remarkable signals",
+                  "target": "một trong những tín hiệu đáng chú ý nhất"
+                }
+              ]
+            },
             {
               "id": "p2-s1",
               "source": "When a scout bee finds flowers rich in nectar, it flies home and begins to move across the wall of the hive in a special way.",
@@ -71450,12 +71482,80 @@ DECLARE packet jsonb := $packet${
             "analysis": "'As long as + S + V(hiện tại đơn)' nêu điều kiện cần duy trì; mệnh đề chính 'the spread shows…' cũng hiện tại đơn, diễn tả hệ quả còn đúng chừng nào điều kiện còn giữ. Mệnh đề phụ đứng trước nên có dấu phẩy."
           }
         ],
-        "translation_vi": "Một lý do rất đơn giản: mọi người thích quán cà phê. Quán cà phê là nơi thuận tiện để dừng nghỉ, dù trước giờ làm hay giữa những việc vặt phải đi ra ngoài. Nhiều khách đến không chỉ vì đồ uống mà còn để giao lưu với bạn bè hoặc tận hưởng bầu không khí ấm cúng. Những năm gần đây, người làm việc từ xa đã biến quán cà phê thành một dạng văn phòng chung, mua một cốc cà phê để đổi lấy bàn ngồi và internet miễn phí.\n\nKhía cạnh kinh doanh cũng quan trọng không kém. Cà phê có chi phí pha chế thấp nhưng có thể bán với giá gấp nhiều lần chi phí, đem lại lợi nhuận khá cho chủ quán. Đồ uống thường có biên lợi nhuận lớn hơn nhiều so với thức ăn, đó là một lý do thực đơn ra sức quảng bá latte và cappuccino.\n\nCác công ty cũng tìm cách khiến khách tiếp tục quay lại. Thẻ tích điểm hoặc ứng dụng điện thoại thưởng cho việc ghé quán thường xuyên và gây dựng lòng trung thành của khách hàng. Một thương hiệu mạnh khiến cửa hàng quen thuộc tạo cảm giác yên tâm giữa nơi xa lạ, nên người đi xa thường chọn một cái tên họ đã biết.\n\nKết hợp lại, những yếu tố này giải thích sự bùng nổ ấy. Quán cà phê vừa là nơi uống cà phê, vừa là điểm kết nối, vừa là cỗ máy sinh lời. Chừng nào mọi người còn muốn một chỗ ngồi thoải mái và một cốc đồ uống ấm, sự lan rộng của quán cà phê vẫn ít có dấu hiệu chậm lại.",
+        "translation_vi": "Đi dọc gần như bất kỳ phố thương mại chính nào trong một thành phố lớn, bạn sẽ đi qua vài quán cà phê, đôi khi là hai chi nhánh của cùng một chuỗi chỉ trong một dãy phố. Ở nhiều thị trấn, quán cà phê nay còn nhiều hơn cả ngân hàng và hiệu sách. Văn hoá quán cà phê không hề mới: Café Central nổi tiếng ở Vienna đã phục vụ khách từ năm 1876, và vào thời cực thịnh trong thập niên 1910, thành phố có khoảng 600 quán cà phê. Vì sao chúng lan rộng nhanh đến vậy?\n\nMột lý do rất đơn giản: mọi người thích quán cà phê. Quán cà phê là nơi thuận tiện để dừng nghỉ, dù trước giờ làm hay giữa những việc vặt phải đi ra ngoài. Nhiều khách đến không chỉ vì đồ uống mà còn để giao lưu với bạn bè hoặc tận hưởng bầu không khí ấm cúng. Những năm gần đây, người làm việc từ xa đã biến quán cà phê thành một dạng văn phòng chung, mua một cốc cà phê để đổi lấy bàn ngồi và internet miễn phí.\n\nKhía cạnh kinh doanh cũng quan trọng không kém. Cà phê có chi phí pha chế thấp nhưng có thể bán với giá gấp nhiều lần chi phí, đem lại lợi nhuận khá cho chủ quán. Đồ uống thường có biên lợi nhuận lớn hơn nhiều so với thức ăn, đó là một lý do thực đơn ra sức quảng bá latte và cappuccino.\n\nCác công ty cũng tìm cách khiến khách tiếp tục quay lại. Thẻ tích điểm hoặc ứng dụng điện thoại thưởng cho việc ghé quán thường xuyên và gây dựng lòng trung thành của khách hàng. Một thương hiệu mạnh khiến cửa hàng quen thuộc tạo cảm giác yên tâm giữa nơi xa lạ, nên người đi xa thường chọn một cái tên họ đã biết.\n\nKết hợp lại, những yếu tố này giải thích sự bùng nổ ấy. Quán cà phê vừa là nơi uống cà phê, vừa là điểm kết nối, vừa là cỗ máy sinh lời. Chừng nào mọi người còn muốn một chỗ ngồi thoải mái và một cốc đồ uống ấm, sự lan rộng của quán cà phê vẫn ít có dấu hiệu chậm lại.",
         "practice_support": {
           "schema_version": 1,
           "source_sha256": "fc5727bdd27e46cd9bf1f291ab29fc3a1706dcc5c793e829c4f1adb765f0de52",
-          "translation_sha256": "6e811811977243dbb3cab23e9d9c3c21edc288ed4d5f8e46033298b76590740a",
+          "translation_sha256": "90190bf2c9dcdb4dc6387ee2cac30b448f829df097e8689b578bf65550f8061d",
           "units": [
+            {
+              "id": "p1-s1",
+              "source": "Walk down almost any high street in a large city and you will pass several coffee shops, sometimes two outlets of the same chain within a single block.",
+              "translation_vi": "Đi dọc gần như bất kỳ phố thương mại chính nào trong một thành phố lớn, bạn sẽ đi qua vài quán cà phê, đôi khi là hai chi nhánh của cùng một chuỗi chỉ trong một dãy phố.",
+              "precision": "sentence",
+              "phrases": [
+                {
+                  "source": "high street",
+                  "target": "phố thương mại chính"
+                },
+                {
+                  "source": "two outlets of the same chain",
+                  "target": "hai chi nhánh của cùng một chuỗi"
+                },
+                {
+                  "source": "within a single block",
+                  "target": "chỉ trong một dãy phố"
+                }
+              ]
+            },
+            {
+              "id": "p1-s2",
+              "source": "In many towns, cafés now outnumber banks and bookshops.",
+              "translation_vi": "Ở nhiều thị trấn, quán cà phê nay còn nhiều hơn cả ngân hàng và hiệu sách.",
+              "precision": "sentence",
+              "phrases": [
+                {
+                  "source": "outnumber",
+                  "target": "nhiều hơn"
+                },
+                {
+                  "source": "banks and bookshops",
+                  "target": "ngân hàng và hiệu sách"
+                }
+              ]
+            },
+            {
+              "id": "p1-s3",
+              "source": "Coffeehouse culture is nothing new: Vienna's famous Café Central has served customers since 1876, and the city was home to around 600 coffeehouses at its peak in the 1910s.",
+              "translation_vi": "Văn hoá quán cà phê không hề mới: Café Central nổi tiếng ở Vienna đã phục vụ khách từ năm 1876, và vào thời cực thịnh trong thập niên 1910, thành phố có khoảng 600 quán cà phê.",
+              "precision": "sentence",
+              "phrases": [
+                {
+                  "source": "Coffeehouse culture",
+                  "target": "Văn hoá quán cà phê"
+                },
+                {
+                  "source": "at its peak",
+                  "target": "vào thời cực thịnh"
+                },
+                {
+                  "source": "around 600 coffeehouses",
+                  "target": "khoảng 600 quán cà phê"
+                }
+              ]
+            },
+            {
+              "id": "p1-s4",
+              "source": "Why have they spread so quickly?",
+              "translation_vi": "Vì sao chúng lan rộng nhanh đến vậy?",
+              "precision": "sentence",
+              "phrases": [
+                {
+                  "source": "spread so quickly",
+                  "target": "lan rộng nhanh đến vậy"
+                }
+              ]
+            },
             {
               "id": "p2-s1",
               "source": "One reason is simple: people enjoy them.",

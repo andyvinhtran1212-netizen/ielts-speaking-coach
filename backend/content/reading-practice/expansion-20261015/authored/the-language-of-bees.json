@@ -1,8 +1,32 @@
 {
   "slug": "the-language-of-bees",
-  "review_notes": "Antennae là râu ong, nectar là mật hoa; watching bees là các con ong quan sát, không phải nhà nghiên cứu. Giữ roughly và phần Nobel là cùng nhận, không biến thành giải riêng.",
+  "review_notes": "Antennae là râu ong, nectar là mật hoa; watching bees là các con ong quan sát, không phải nhà nghiên cứu. Giữ roughly và phần Nobel là cùng nhận, không biến thành giải riêng. Bổ sung toàn bộ đoạn mở đầu nằm chung block với tiêu đề; tiêu đề không bị đưa vào câu dịch.",
   "illustration_brief": "Ong bay giữa hoa trong vườn, không có đường nhảy hay ký hiệu chỉ hướng.",
   "sentences": [
+    [
+      "p1-s1",
+      "Một con ong mật trở về tổ tối tăm, đông đúc đối mặt với một vấn đề lạ: làm sao báo cho hàng nghìn con khác chính xác nơi có thức ăn ở rất xa bên ngoài?",
+      [
+        "a dark, crowded hive",
+        "tổ tối tăm, đông đúc"
+      ],
+      [
+        "thousands of others",
+        "hàng nghìn con khác"
+      ],
+      [
+        "exactly where a meal lies",
+        "chính xác nơi có thức ăn"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Câu trả lời là một trong những tín hiệu đáng chú ý nhất trong tự nhiên.",
+      [
+        "one of the most remarkable signals",
+        "một trong những tín hiệu đáng chú ý nhất"
+      ]
+    ],
     [
       "p2-s1",
       "Khi ong trinh sát tìm hoa nhiều mật, nó bay về và bắt đầu chuyển động trên vách tổ theo cách đặc biệt.",
