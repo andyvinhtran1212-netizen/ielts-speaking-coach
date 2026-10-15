@@ -24,6 +24,7 @@ from docx.oxml.text.paragraph import CT_P
 from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
+from services.vocab_speech_text import vocabulary_speech_text
 from services.advanced_vocab_package_validator import (
     FIRST_RELEASE_LOCKED_REVISIONS,
     LISTENING_LEARNER_BLOCK_FIELDS,
@@ -798,6 +799,9 @@ def load_vocab_audio_bundle(path: str | Path) -> tuple[Path, dict[str, Any]]:
     for clip_id, clip in clips.items():
         if not isinstance(clip, dict):
             raise ValueError(f"Invalid audio clip metadata: {clip_id}")
+        spoken = clip.get("text")
+        if isinstance(spoken, str) and vocabulary_speech_text(spoken) != spoken.strip():
+            raise ValueError(f"Audio contains display markup; regenerate vocabulary audio: {clip_id}")
         clip_path = (root / str(clip.get("path") or "")).resolve()
         try:
             clip_path.relative_to(root)
@@ -867,9 +871,9 @@ def _load_vocab(
                 clips = audio_manifest.get("clips") or {}
                 rendered_headword = clips.get(headword_audio.get("clip_id"), {})
                 rendered_example = clips.get(example_audio.get("clip_id"), {})
-                if rendered_headword.get("text") != headword:
+                if rendered_headword.get("text") != vocabulary_speech_text(headword):
                     raise ValueError(f"Stale headword audio for {lesson_lexeme_id}")
-                if rendered_example.get("text") != str(card.get("example") or "").strip():
+                if rendered_example.get("text") != vocabulary_speech_text(str(card.get("example") or "")):
                     raise ValueError(f"Stale example audio for {lesson_lexeme_id}")
                 card.update({
                     "audio_headword": f"assets/vocab-audio/{headword_audio['clip_id']}.mp3",

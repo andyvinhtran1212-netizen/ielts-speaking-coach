@@ -177,3 +177,8 @@ on rows already marked final. Re-running reuses matching objects; optional
 `--regen` rechecks every row. No other Vocabulary engine or voice is accepted.
 After a local batch, refresh the deployed vocabulary cache through its normal
 admin update/redeployment path and verify the public URLs before acceptance.
+
+Kokoro cache keys and synthesis use the spoken text with paired Markdown emphasis
+removed; stored examples keep their display formatting. Prepare and verify audio
+before publishing a set. Published sets retain snapshots, so publish a new
+revision when adding recordings to a previously published set.

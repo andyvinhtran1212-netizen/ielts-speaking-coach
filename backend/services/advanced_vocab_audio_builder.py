@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from services.advanced_vocab_package_builder import collect_core_vocabulary_cards
+from services.vocab_speech_text import vocabulary_speech_text
 
 
 AUDIO_BUNDLE_VERSION = "1.0.0"
@@ -42,7 +43,7 @@ def _write_json(path: Path, value: object) -> None:
 
 
 def _clip_id(text: str, voice: str) -> str:
-    key = f"{text}|{voice}|kokoro-{KOKORO_MODEL_TAG}-{KOKORO_POST_TAG}"
+    key = f"{vocabulary_speech_text(text)}|{voice}|kokoro-{KOKORO_MODEL_TAG}-{KOKORO_POST_TAG}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
@@ -66,7 +67,7 @@ def _default_renderer(text: str, voice: str) -> bytes:
             repo_id="hexgrad/Kokoro-82M",
         )
     pipeline = _PIPELINES[lang]
-    chunks = [audio for _gs, _ps, audio in pipeline(text, voice=voice)]
+    chunks = [audio for _gs, _ps, audio in pipeline(vocabulary_speech_text(text), voice=voice)]
     if not chunks:
         raise RuntimeError(f"Kokoro returned no audio for {text!r}")
 
@@ -129,7 +130,7 @@ def generate_vocab_audio_bundle(
         ordered_clips = sorted(unique_texts.items())
         total = len(ordered_clips)
         for number, (clip_id, text) in enumerate(ordered_clips, start=1):
-            data = render(text, voice)
+            data = render(vocabulary_speech_text(text), voice)
             if not data:
                 raise RuntimeError(f"Kokoro returned an empty clip for {text!r}")
             path = staging / "clips" / f"{clip_id}.mp3"
@@ -139,7 +140,7 @@ def generate_vocab_audio_bundle(
                 "path": f"clips/{clip_id}.mp3",
                 "checksum": _sha256_bytes(data),
                 "byte_size": len(data),
-                "text": text,
+                "text": vocabulary_speech_text(text),
             }
             if progress is not None:
                 progress(number, total, text)
