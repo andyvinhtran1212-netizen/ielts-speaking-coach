@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-14 the highest is `317`, so the next
-new migration is `318`.
+sequence is dense. As of 2026-10-14 the highest is `318`, so the next
+new migration is `319`.
 
 Migration `317` adds admin-owned Vocabulary class sets, published snapshots,
 private study sessions, independent shared-card progress and atomic receipts.

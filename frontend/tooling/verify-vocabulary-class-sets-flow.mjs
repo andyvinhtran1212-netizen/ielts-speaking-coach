@@ -26,7 +26,7 @@ try { browser = await chromium.launch(); } catch (e) {
   browser = await chromium.launch({ executablePath: chrome });
 }
 try {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', bypassCSP: true });
   await context.addInitScript(([key, session]) => {
     localStorage.setItem(key, JSON.stringify(session)); localStorage.setItem('av-theme', 'light');
   }, [storageKey(sb), { access_token: 'fixture-not-a-real-token', refresh_token: 'fixture', expires_at: Math.floor(Date.now()/1000)+3600,
@@ -96,6 +96,8 @@ try {
     const path = page.url(); await page.reload();
     await page.getByText('Đã lưu 0/1',{exact:false}).waitFor(); assert.equal(page.url(),path);
     if (mode==='flashcards') {
+      assert.equal(await page.getByRole('button',{name:'Nghe phát âm từ',exact:true}).count(),1);
+      assert.equal(await page.getByRole('button',{name:'Nghe câu ví dụ',exact:true}).count(),1);
       await page.getByRole('button',{name:'Lật thẻ xem nghĩa'}).focus(); await page.keyboard.press('Enter');
       await page.getByRole('button',{name:'Nhớ',exact:true}).focus(); await page.keyboard.press('Enter');
     }

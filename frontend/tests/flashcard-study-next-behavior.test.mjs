@@ -42,7 +42,8 @@ describe('/flashcard-study native ownership', () => {
 
   test('preserves public local marks, audio fallback, keyboard and rich content', () => {
     assert.match(player, /localStorage\.setItem/);
-    assert.match(player, /window\.speechSynthesis\.speak/);
+    assert.match(player, /VocabularyAudioButton as AudioButton/);
+    assert.match(readFileSync(new URL('../components/vocabulary-audio-button.tsx', import.meta.url), 'utf8'), /window\.speechSynthesis\.speak/);
     assert.match(player, /event\.key === ' '/);
     assert.match(player, /card\.collocations/);
     assert.match(player, /card\.memoryHook/);
