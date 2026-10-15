@@ -1,0 +1,198 @@
+{
+  "slug": "the-life-of-a-raindrop",
+  "review_notes": "Giữ may và almost; evaporation/bay hơi, condensation/ngưng tụ, precipitation/giáng thủy. Warm vapour không tự dịch thành mây vì mây ở bước sau là giọt nước.",
+  "illustration_brief": "Mây, mưa và mặt nước trong một cảnh thiên nhiên, không có nhãn các giai đoạn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Nước trong một giọt mưa có thể từng rơi lên khủng long hàng triệu năm trước.",
+      [
+        "a single raindrop",
+        "một giọt mưa"
+      ],
+      [
+        "may have fallen on dinosaurs",
+        "có thể từng rơi lên khủng long"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Trái Đất ngày nay có lượng nước gần như bằng khi đó.",
+      [
+        "has almost the same amount of water today as it had then",
+        "ngày nay có lượng nước gần như bằng khi đó"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Mỗi giọt chỉ đi vòng mãi trong hành trình không kết thúc gọi là vòng tuần hoàn nước.",
+      [
+        "a never-ending journey",
+        "hành trình không kết thúc"
+      ],
+      [
+        "the water cycle",
+        "vòng tuần hoàn nước"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Hành trình thường bắt đầu ở đại dương.",
+      [
+        "often begins in the ocean",
+        "thường bắt đầu ở đại dương"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Khi Mặt Trời làm nóng bề mặt, nước lỏng thành khí vô hình gọi là hơi nước.",
+      [
+        "liquid water",
+        "nước lỏng"
+      ],
+      [
+        "an invisible gas",
+        "khí vô hình"
+      ],
+      [
+        "water vapour",
+        "hơi nước"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Quá trình này là bay hơi.",
+      [
+        "evaporation",
+        "bay hơi"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Hơi nước ấm nhẹ nên bốc cao lên trời.",
+      [
+        "The warm vapour",
+        "Hơi nước ấm"
+      ],
+      [
+        "rises high into the sky",
+        "bốc cao lên trời"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Trên cao, không khí lạnh.",
+      [
+        "High up",
+        "Trên cao"
+      ],
+      [
+        "the air is cold",
+        "không khí lạnh"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Hơi nguội rồi trở lại thành giọt nhỏ, tạo mây ta thấy.",
+      [
+        "cools and changes back into tiny drops",
+        "nguội rồi trở lại thành giọt nhỏ"
+      ],
+      [
+        "forming the clouds we see",
+        "tạo mây ta thấy"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Bước này gọi là ngưng tụ.",
+      [
+        "condensation",
+        "ngưng tụ"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Không có mây ấy thì mưa không thể tới ruộng và rừng bên dưới.",
+      [
+        "Without these clouds",
+        "Không có mây ấy"
+      ],
+      [
+        "the fields and forests below",
+        "ruộng và rừng bên dưới"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Khi đủ nặng, giọt rơi thành mưa, tuyết hoặc mưa đá — giai đoạn khoa học gọi là giáng thủy.",
+      [
+        "heavy enough",
+        "đủ nặng"
+      ],
+      [
+        "rain, snow, or hail",
+        "mưa, tuyết hoặc mưa đá"
+      ],
+      [
+        "precipitation",
+        "giáng thủy"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Phần lớn mưa rơi xuống biển, nhưng một phần thấm đất hay chảy vào sông.",
+      [
+        "Most rain lands on the sea",
+        "Phần lớn mưa rơi xuống biển"
+      ],
+      [
+        "soaks into the ground",
+        "thấm đất"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Dọc đường, cây và động vật khát uống một chút rồi thải ra lại.",
+      [
+        "thirsty plants and animals",
+        "cây và động vật khát"
+      ],
+      [
+        "before releasing it once more",
+        "rồi thải ra lại"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Sông chậm mang nước về đại dương, nơi toàn chu trình bắt đầu lại.",
+      [
+        "back towards the ocean",
+        "về đại dương"
+      ],
+      [
+        "the whole cycle begins again",
+        "toàn chu trình bắt đầu lại"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Cùng giọt có thể lặp vòng này vô số lần, dù không ai nói chính xác tiếp theo sẽ đi đâu.",
+      [
+        "countless times",
+        "vô số lần"
+      ],
+      [
+        "no one can say exactly",
+        "không ai nói chính xác"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-rain-scene.svg",
+    "alt": "Mây, mưa và mặt nước trong một cảnh thiên nhiên, không có nhãn các giai đoạn.",
+    "caption": "Nước qua những hình dạng và nơi chốn khác nhau."
+  },
+  "source_sha256": "27565c659c58ad148c62d7945d1d2f021a9859f90e3ca61697f792191f0f28f3",
+  "expected_translation_sha256": "e80047fb66eb32acc359b7072bec40d4387f5d8fec2a6b9cca6f369b253416f6"
+}

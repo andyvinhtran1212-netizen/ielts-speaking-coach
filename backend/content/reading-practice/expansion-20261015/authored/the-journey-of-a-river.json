@@ -1,0 +1,202 @@
+{
+  "slug": "the-journey-of-a-river",
+  "review_notes": "Mouth là cửa sông, delta là đồng bằng châu thổ, deposits là lắng/để lại bùn. Giữ some rivers và probably, không gán mọi sông cùng một hình dạng cửa sông.",
+  "illustration_brief": "Một đoạn dòng sông uốn giữa cây rừng và các bờ xanh, không phải sơ đồ hành trình có nhãn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Mỗi dòng sông kể câu chuyện dài bắt đầu ở nguồn, thường cao trong núi.",
+      [
+        "at its source",
+        "ở nguồn"
+      ],
+      [
+        "often high in the mountains",
+        "thường cao trong núi"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Ở đó, mưa và tuyết tan tụ thành dòng suối nhỏ, lạnh.",
+      [
+        "rain and melting snow",
+        "mưa và tuyết tan"
+      ],
+      [
+        "small, cold streams",
+        "dòng suối nhỏ, lạnh"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Khi gặp nhau, các suối hợp thành một dòng chảy lớn hơn, từ từ chảy xuống dốc.",
+      [
+        "a single, larger flow",
+        "một dòng chảy lớn hơn"
+      ],
+      [
+        "moves downhill",
+        "chảy xuống dốc"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ở đầu hành trình, nước chảy nhanh và mạnh.",
+      [
+        "the first part of its journey",
+        "đầu hành trình"
+      ],
+      [
+        "fast and strong",
+        "nhanh và mạnh"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nước khoét thung lũng sâu qua mặt đất, thậm chí có thể xói mòn đá cứng.",
+      [
+        "a deep valley",
+        "thung lũng sâu"
+      ],
+      [
+        "erode even hard rock",
+        "thậm chí có thể xói mòn đá cứng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Vì vậy, nhiều sông núi hẹp nhưng dữ, ào qua đá và thác nhỏ.",
+      [
+        "narrow but wild",
+        "hẹp nhưng dữ"
+      ],
+      [
+        "stones and small waterfalls",
+        "đá và thác nhỏ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Khi đất phẳng hơn, sông chậm và rộng ra.",
+      [
+        "the land becomes flatter",
+        "đất phẳng hơn"
+      ],
+      [
+        "slows down and grows wider",
+        "chậm và rộng ra"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Giờ nó uốn những khúc rộng thay vì chạy thẳng.",
+      [
+        "broad bends",
+        "những khúc rộng"
+      ],
+      [
+        "rather than running straight",
+        "thay vì chạy thẳng"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Ở vùng bằng phẳng, sông lắng bùn mang theo, để lại đất màu mỡ hai bên.",
+      [
+        "deposits the mud it has carried",
+        "lắng bùn mang theo"
+      ],
+      [
+        "fertile land on either side",
+        "đất màu mỡ hai bên"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Vì vậy nhiều nông dân trồng trọt gần sông.",
+      [
+        "grow crops near a river",
+        "trồng trọt gần sông"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Nhưng sau mưa lớn, chính sông có thể làm ngập ruộng.",
+      [
+        "After heavy rain",
+        "sau mưa lớn"
+      ],
+      [
+        "flood the fields",
+        "làm ngập ruộng"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Cuối cùng, sông tới cửa sông, nơi nó đổ ra biển.",
+      [
+        "its mouth",
+        "cửa sông"
+      ],
+      [
+        "flows into the sea",
+        "đổ ra biển"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Một số sông tỏa thành nhiều nhánh nhỏ tạo đồng bằng châu thổ rộng.",
+      [
+        "many small channels",
+        "nhiều nhánh nhỏ"
+      ],
+      [
+        "a wide delta",
+        "đồng bằng châu thổ rộng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Nhưng chuyện chưa thực sự kết thúc ở đây.",
+      [
+        "does not really end here",
+        "chưa thực sự kết thúc ở đây"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Nước bốc lên không khí, thành mây rồi lại rơi xuống dạng mưa.",
+      [
+        "rises into the air",
+        "bốc lên không khí"
+      ],
+      [
+        "forms clouds",
+        "thành mây"
+      ],
+      [
+        "falls again as rain",
+        "lại rơi xuống dạng mưa"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Theo cách ấy, mỗi dòng sông có lẽ là phần của chu trình lớn hơn không ngừng.",
+      [
+        "probably part of a larger cycle",
+        "có lẽ là phần của chu trình lớn hơn"
+      ],
+      [
+        "never stops",
+        "không ngừng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-amazon-forest-scene.svg",
+    "alt": "Một đoạn dòng sông uốn giữa cây rừng và các bờ xanh, không phải sơ đồ hành trình có nhãn.",
+    "caption": "Dòng nước và cảnh quan trên đường đi."
+  },
+  "source_sha256": "ebdc49f711f23e1140b57382dff526d2008d801f939a9bf2054165b6aa07a870",
+  "expected_translation_sha256": "7b97ff37a161d38c20bb3c13425a4b73ddc10d14942b7599e570ed5a5229f26b"
+}

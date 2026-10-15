@@ -1,0 +1,150 @@
+{
+  "slug": "the-language-of-bees",
+  "review_notes": "Antennae là râu ong, nectar là mật hoa; watching bees là các con ong quan sát, không phải nhà nghiên cứu. Giữ roughly và phần Nobel là cùng nhận, không biến thành giải riêng.",
+  "illustration_brief": "Ong bay giữa hoa trong vườn, không có đường nhảy hay ký hiệu chỉ hướng.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Khi ong trinh sát tìm hoa nhiều mật, nó bay về và bắt đầu chuyển động trên vách tổ theo cách đặc biệt.",
+      [
+        "a scout bee",
+        "ong trinh sát"
+      ],
+      [
+        "flowers rich in nectar",
+        "hoa nhiều mật"
+      ],
+      [
+        "the wall of the hive",
+        "vách tổ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Chuyển động ấy được gọi là điệu nhảy lắc bụng.",
+      [
+        "the waggle dance",
+        "điệu nhảy lắc bụng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Ong đi tới trong khi lắc cơ thể, rồi vòng về điểm đầu tạo hình số tám.",
+      [
+        "while shaking its body",
+        "trong khi lắc cơ thể"
+      ],
+      [
+        "the shape of a figure-eight",
+        "hình số tám"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Điệu nhảy đầy ý nghĩa ẩn.",
+      [
+        "hidden meaning",
+        "ý nghĩa ẩn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Góc di chuyển của ong so với vị trí Mặt Trời cho biết hướng thức ăn.",
+      [
+        "compared with the position of the sun",
+        "so với vị trí Mặt Trời"
+      ],
+      [
+        "the direction of the food",
+        "hướng thức ăn"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Thời lượng phần lắc cho những con khác biết gần đúng phải bay xa bao nhiêu.",
+      [
+        "The duration of the shaking part",
+        "Thời lượng phần lắc"
+      ],
+      [
+        "roughly how far they must fly",
+        "gần đúng phải bay xa bao nhiêu"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Ong quan sát chạm râu vào con đang nhảy và giải mã thông điệp.",
+      [
+        "Watching bees",
+        "Ong quan sát"
+      ],
+      [
+        "their antennae",
+        "râu"
+      ],
+      [
+        "decode the message",
+        "giải mã thông điệp"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Chỉ dẫn chính xác đáng ngạc nhiên, thường dẫn ong tới điểm xa hàng trăm mét.",
+      [
+        "surprisingly precise",
+        "chính xác đáng ngạc nhiên"
+      ],
+      [
+        "hundreds of metres away",
+        "xa hàng trăm mét"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Hệ thống được nhà động vật học Áo Karl von Frisch giải thích đầu tiên; ông nghiên cứu ong nhiều thập kỷ đầu thế kỷ XX.",
+      [
+        "an Austrian zoologist",
+        "nhà động vật học Áo"
+      ],
+      [
+        "several decades",
+        "nhiều thập kỷ"
+      ],
+      [
+        "the early twentieth century",
+        "đầu thế kỷ XX"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Công trình kiên nhẫn về sau góp phần giúp ông cùng nhận giải Nobel.",
+      [
+        "His patient work",
+        "Công trình kiên nhẫn"
+      ],
+      [
+        "a share of a Nobel Prize",
+        "cùng nhận giải Nobel"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Chính xác bộ não nhỏ của ong làm sao phát tín hiệu chính xác đến vậy là câu hỏi có thể không bao giờ được giải đáp trọn vẹn.",
+      [
+        "such accurate signalling",
+        "phát tín hiệu chính xác đến vậy"
+      ],
+      [
+        "may never be fully answered",
+        "có thể không bao giờ được giải đáp trọn vẹn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-bees-garden-scene.svg",
+    "alt": "Ong bay giữa hoa trong vườn, không có đường nhảy hay ký hiệu chỉ hướng.",
+    "caption": "Tìm hiểu cách ong chia sẻ thông tin."
+  },
+  "source_sha256": "63216af94ccca17d51c307b4eb60b7b3760a00e864269d436b1bf8ad830b5782",
+  "expected_translation_sha256": "7840d6ed4f87bd88e5d5bf3bd121075b9da27a12de69c270ece0c9d17c8f5ead"
+}
