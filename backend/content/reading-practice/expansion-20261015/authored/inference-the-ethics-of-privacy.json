@@ -1,0 +1,218 @@
+{
+  "slug": "inference-the-ethics-of-privacy",
+  "review_notes": "Đây là bản dịch nội dung nguồn, không cập nhật hay diễn giải phạm vi pháp luật; giữ certain, in some accounts và xung đột giữa các giá trị.",
+  "illustration_brief": "Điện thoại và phong thư trên bàn, phía sau là cửa sổ có rèm kéo một phần.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Quyền riêng tư từng là chuyện tường và cửa — ai có thể nhìn vào phòng hay đọc một lá thư niêm phong.",
+      [
+        "Privacy",
+        "Quyền riêng tư"
+      ],
+      [
+        "a sealed letter",
+        "một lá thư niêm phong"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Thời đại số đã âm thầm xóa nhòa những ranh giới quen thuộc ấy, thay bằng một câu hỏi mà các thế hệ trước hiếm khi phải đối mặt: có thể ghi lại, lưu trữ và phân tích cuộc đời một người đến mức nào trước khi mất đi một điều cốt yếu làm nên con người?",
+      [
+        "dissolved those familiar boundaries",
+        "xóa nhòa những ranh giới quen thuộc ấy"
+      ],
+      [
+        "recorded, stored and analysed",
+        "ghi lại, lưu trữ và phân tích"
+      ],
+      [
+        "something essential to personhood",
+        "một điều cốt yếu làm nên con người"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Điểm mới của thời điểm hiện tại không nằm nhiều ở một công nghệ riêng lẻ nào mà ở việc giám sát đã trở nên hết sức bình thường.",
+      [
+        "any single technology",
+        "một công nghệ riêng lẻ nào"
+      ],
+      [
+        "the sheer ordinariness of surveillance",
+        "việc giám sát đã trở nên hết sức bình thường"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Một người không nhất thiết đã đồng ý bị quan sát theo bất kỳ nghĩa thực chất nào; chỉ cần mang điện thoại, tìm kiếm trên mạng hoặc thanh toán hàng tạp hóa, họ đã để lại một vệt dữ liệu mà người khác âm thầm thu thập.",
+      [
+        "consent",
+        "đồng ý"
+      ],
+      [
+        "a trail of data",
+        "một vệt dữ liệu"
+      ],
+      [
+        "quietly collect",
+        "âm thầm thu thập"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Điều đáng lo không chỉ là quy mô theo dõi mà còn là việc đổi mục đích sử dụng: thông tin được thu thập để cung cấp dịch vụ dễ dàng được chuyển sang những mục đích — quảng cáo, chấm điểm, dự đoán — mà người ấy chưa từng hình dung khi bắt đầu để lại dấu vết.",
+      [
+        "its repurposing",
+        "việc đổi mục đích sử dụng"
+      ],
+      [
+        "to deliver a service",
+        "để cung cấp dịch vụ"
+      ],
+      [
+        "advertising, scoring, prediction",
+        "quảng cáo, chấm điểm, dự đoán"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Những người bảo vệ hệ thống này cũng có lập luận của họ.",
+      [
+        "Defenders of the system",
+        "Những người bảo vệ hệ thống này"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Khả năng tích lũy và phân tích dữ liệu trên quy mô lớn đã cải thiện y học, tạo thuận lợi cho thương mại và, theo một số nhận định, làm các thành phố an toàn hơn.",
+      [
+        "amass and analyse data at scale",
+        "tích lũy và phân tích dữ liệu trên quy mô lớn"
+      ],
+      [
+        "in some accounts",
+        "theo một số nhận định"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khó khăn là các lợi ích này lan tỏa rộng đến các tổ chức và cộng đồng, trong khi cái giá phải trả — mất quyền kiểm soát, cảm giác bị phơi bày tăng dần — lại đổ lên những cá nhân hiếm khi có thể xác định chính xác thông tin của mình đang được dùng thế nào hoặc bởi ai.",
+      [
+        "a loss of control",
+        "mất quyền kiểm soát"
+      ],
+      [
+        "a creeping sense of exposure",
+        "cảm giác bị phơi bày tăng dần"
+      ],
+      [
+        "fall on individuals",
+        "đổ lên những cá nhân"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Sự đồng thuận, vốn là biện pháp bảo vệ truyền thống, trở nên rỗng nghĩa khi từ chối đồng nghĩa với việc hoàn toàn rút khỏi đời sống bình thường.",
+      [
+        "the traditional safeguard",
+        "vốn là biện pháp bảo vệ truyền thống"
+      ],
+      [
+        "becomes hollow",
+        "trở nên rỗng nghĩa"
+      ],
+      [
+        "withdrawing from ordinary life altogether",
+        "hoàn toàn rút khỏi đời sống bình thường"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Luật pháp gần đây đã cố gắng khôi phục phần nào quyền kiểm soát, rõ nhất là qua cái gọi là “quyền được lãng quên”, được xác lập bằng một phán quyết năm 2014 của Tòa án Công lý Liên minh châu Âu, cho phép một người yêu cầu xóa một số hồ sơ nhất định.",
+      [
+        "some measure of control",
+        "phần nào quyền kiểm soát"
+      ],
+      [
+        "right to be forgotten",
+        "quyền được lãng quên"
+      ],
+      [
+        "certain records be erased",
+        "xóa một số hồ sơ nhất định"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Tuy nhiên, ngay cả biện pháp khắc phục có vẻ khiêm tốn này cũng tỏ ra gai góc trong thực tế.",
+      [
+        "apparently modest remedy",
+        "biện pháp khắc phục có vẻ khiêm tốn này"
+      ],
+      [
+        "thorny in practice",
+        "gai góc trong thực tế"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Mong muốn xóa bỏ một quá khứ của một cá nhân đôi khi xung đột với lợi ích của công chúng trong việc có hồ sơ chính xác về những gì đã xảy ra, và quyết định yêu cầu của bên nào nên được ưu tiên hiếm khi chỉ dựa vào các quy tắc đơn giản.",
+      [
+        "an accurate record of what occurred",
+        "hồ sơ chính xác về những gì đã xảy ra"
+      ],
+      [
+        "whose claim should prevail",
+        "yêu cầu của bên nào nên được ưu tiên"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Sẽ thật an tâm nếu tin rằng có thể tìm được điểm cân bằng phù hợp rồi không cần nghĩ đến nữa, ghi cố định nó trong luật và để luật tự vận hành.",
+      [
+        "the right balance",
+        "điểm cân bằng phù hợp"
+      ],
+      [
+        "fixed in a statute",
+        "ghi cố định nó trong luật"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Sự thật khó chấp nhận hơn là quyền riêng tư không chỉ một giá trị duy nhất mà là sự thỏa hiệp luôn thay đổi giữa nhiều giá trị — quyền tự chủ, an ninh, tính minh bạch, ký ức — với tầm quan trọng tương đối thay đổi theo cả hoàn cảnh lẫn công nghệ.",
+      [
+        "a shifting compromise",
+        "sự thỏa hiệp luôn thay đổi"
+      ],
+      [
+        "autonomy, security, transparency, memory",
+        "quyền tự chủ, an ninh, tính minh bạch, ký ức"
+      ],
+      [
+        "whose weights change",
+        "với tầm quan trọng tương đối thay đổi"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Không đạo luật nào có thể giải quyết câu hỏi ấy một lần dứt điểm; nó chỉ có thể được đưa ra tranh luận công khai hết lần này đến lần khác khi các công cụ thử thách nó tiếp tục phát triển.",
+      [
+        "once and for all",
+        "một lần dứt điểm"
+      ],
+      [
+        "argued out, again and again, in public",
+        "đưa ra tranh luận công khai hết lần này đến lần khác"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-privacy-desk-scene.svg",
+    "alt": "Điện thoại và phong thư trên bàn, phía sau là cửa sổ có rèm kéo một phần.",
+    "caption": "Ranh giới riêng tư trong đời sống thường ngày."
+  },
+  "source_sha256": "213ef6504284390295d9dd33b4f174df35de053ed9dcd3fe3f365aab7b2ebe00",
+  "expected_translation_sha256": "d7d0945130adff343264ea5b45b8f181b8eb246377d34d871a12b9e6dc61098a"
+}

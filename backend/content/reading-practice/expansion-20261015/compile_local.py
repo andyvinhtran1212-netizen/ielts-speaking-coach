@@ -32,6 +32,7 @@ def compile_batch(snapshot: Path, destination: Path) -> list[dict]:
         passage = passages[authored['slug']]
         assert passage['library'] in ('l1_vocab', 'l2_skill')
         assert passage['status'] == 'published'
+        assert not (passage['metadata'].get('practice_support') or {}).get('units'), (path.name, 'Already aligned; excluded from this expansion')
         assert authored['source_sha256'] == digest(passage['body_markdown']), (path.name, 'Reviewed source changed')
         assert authored['expected_translation_sha256'] == digest(passage['metadata'].get('translation_vi') or ''), (path.name, 'Existing translation changed')
         source = source_sentences(passage['body_markdown'])

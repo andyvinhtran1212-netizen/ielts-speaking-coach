@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Những món ăn trên bàn</title><desc id="desc">Đĩa thực phẩm nhiều màu cạnh lát chanh, bánh mì và bát nóng có hơi bay lên, cùng bộ dao nĩa.</desc>
+  <rect width="800" height="400" rx="24" fill="#f2f0e6"/>
+  <path d="M0 84H800V400H0Z" fill="#d8c6ab"/>
+  <ellipse cx="382" cy="243" rx="171" ry="112" fill="#fafbf6" stroke="#a8b8ae" stroke-width="4"/>
+  <ellipse cx="382" cy="243" rx="137" ry="84" fill="#edf0e8" stroke="#d3ddd5" stroke-width="3"/>
+  <path d="M295 241Q271 210 306 193Q313 167 337 185Q364 179 364 208Q391 220 368 244Q336 265 295 241Z" fill="#79a17b"/>
+  <path d="M370 270L421 207Q449 216 451 239Z" fill="#d69b5e"/><path d="M421 209L431 191M432 213L451 200" stroke="#3d8275" stroke-width="5" stroke-linecap="round"/>
+  <g fill="#b66e62"><circle cx="309" cy="277" r="17"/><circle cx="343" cy="289" r="17"/><circle cx="370" cy="280" r="14"/></g>
+  <g fill="#b9914f"><ellipse cx="427" cy="271" rx="15" ry="10" transform="rotate(24 427 271)"/><ellipse cx="449" cy="255" rx="15" ry="10" transform="rotate(-20 449 255)"/></g>
+  <g stroke="#8b9b96" stroke-width="6" fill="none" stroke-linecap="round"><path d="M149 162V323M132 136V176Q150 194 168 176V136M150 136V175M603 196V323M604 194Q575 174 602 134V194"/></g>
+  <g transform="translate(587 83)"><ellipse rx="67" ry="20" fill="#fafbf6" stroke="#9baba6" stroke-width="3"/><path d="M-67 0Q-60 61 0 62Q61 61 67 0" fill="#80aaa0" stroke="#3d8275" stroke-width="4"/><path d="M-21 -28Q-38 -46 -20 -65M17 -28Q1 -47 20 -68" fill="none" stroke="#b2bfbd" stroke-width="5" stroke-linecap="round"/></g>
+  <path d="M77 106Q68 52 126 45Q173 53 161 107Z" fill="#e5c969" stroke="#b9914f" stroke-width="4"/><path d="M91 102L122 59L146 103M122 59L123 105" fill="none" stroke="#faf5df" stroke-width="4"/>
+  <path d="M615 346Q651 306 698 329L716 369H610Z" fill="#c99660" stroke="#93673f" stroke-width="4"/><path d="M646 340L639 355M672 338L666 355" stroke="#edc78a" stroke-width="7" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Tạo hình đồ gốm</title><desc id="desc">Hai bàn tay tạo hình bình đất trên bàn xoay, cạnh kệ trưng bát và bình gốm đã hoàn thành.</desc>
+  <rect width="800" height="400" rx="24" fill="#f2f0e6"/>
+  <path d="M0 323H800V400H0Z" fill="#d8c6ab"/>
+  <rect x="464" y="114" width="274" height="14" rx="5" fill="#aa825e"/><rect x="464" y="251" width="274" height="14" rx="5" fill="#aa825e"/>
+  <path d="M497 106Q475 69 509 57V42H538V57Q573 69 548 106Z" fill="#c99660" stroke="#93673f" stroke-width="3"/>
+  <path d="M591 78H665Q659 111 628 112Q596 110 591 78Z" fill="#80aaa0" stroke="#3d8275" stroke-width="3"/>
+  <path d="M509 243V197Q493 176 511 160H548Q568 176 551 197V243Z" fill="#d69b91" stroke="#a36f62" stroke-width="3"/>
+  <path d="M603 243Q588 207 617 190V172H648V190Q676 207 661 243Z" fill="#b9914f" stroke="#93673f" stroke-width="3"/>
+  <ellipse cx="251" cy="302" rx="125" ry="31" fill="#9baba6" stroke="#597d7c" stroke-width="5"/>
+  <path d="M239 329V380M264 329V380" stroke="#796249" stroke-width="14"/>
+  <path d="M199 289Q179 243 212 217L209 170H287L283 217Q319 245 300 289Q253 310 199 289Z" fill="#c99660" stroke="#93673f" stroke-width="4"/>
+  <ellipse cx="248" cy="171" rx="39" ry="11" fill="#93673f"/>
+  <path d="M213 225Q249 236 285 224M204 253Q251 269 298 252M199 278Q251 292 302 278" fill="none" stroke="#d9b784" stroke-width="4"/>
+  <path d="M60 154L154 193L200 233Q215 245 204 256Q192 266 182 254L138 220L48 193M390 160L337 190L298 224Q280 239 292 251Q303 263 317 250L357 221L411 198" fill="#e8bc94" stroke="#ba8d68" stroke-width="3" stroke-linejoin="round"/>
+</svg>

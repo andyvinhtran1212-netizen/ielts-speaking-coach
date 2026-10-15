@@ -1,0 +1,194 @@
+{
+  "slug": "how-rainbows-form",
+  "review_notes": "Dịch theo cấp độ cơ bản; giữ điều kiện vị trí người quan sát và mức có thể khi tạo cầu vồng bằng nước phun. Dùng chung cảnh cầu vồng phù hợp với bài L2 cùng chủ đề.",
+  "illustration_brief": "Dùng cảnh cầu vồng trên đồng cỏ đã tự vẽ, không bổ sung nhãn góc hay đáp án.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Bạn từng thấy bảy màu rực rỡ trên trời sau mưa chưa?",
+      [
+        "seven bright colours",
+        "bảy màu rực rỡ"
+      ],
+      [
+        "after the rain",
+        "sau mưa"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Đó là cầu vồng.",
+      [
+        "a rainbow",
+        "cầu vồng"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Để hình thành, cầu vồng cần hai thứ: mưa và nắng.",
+      [
+        "to form",
+        "Để hình thành"
+      ],
+      [
+        "rain and sun",
+        "mưa và nắng"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Vì vậy, bạn thường thấy cầu vồng khi Mặt Trời ló ra giữa cơn mưa nhẹ.",
+      [
+        "the sun comes out",
+        "Mặt Trời ló ra"
+      ],
+      [
+        "a light shower",
+        "cơn mưa nhẹ"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Cầu vồng được tạo nên từ ánh nắng.",
+      [
+        "made from sunlight",
+        "tạo nên từ ánh nắng"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Ánh nắng trông có màu trắng nhưng thực ra gồm nhiều màu.",
+      [
+        "looks white",
+        "trông có màu trắng"
+      ],
+      [
+        "made of many colours",
+        "gồm nhiều màu"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Khi đi vào một giọt nước li ti, ánh sáng bị bẻ cong.",
+      [
+        "a tiny water drop",
+        "một giọt nước li ti"
+      ],
+      [
+        "the light bends",
+        "ánh sáng bị bẻ cong"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Mỗi màu bị bẻ cong hơi khác nhau.",
+      [
+        "Each colour",
+        "Mỗi màu"
+      ],
+      [
+        "a little differently",
+        "hơi khác nhau"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Vì vậy, ánh sáng trắng tách thành bảy màu.",
+      [
+        "the white light",
+        "ánh sáng trắng"
+      ],
+      [
+        "splits into seven colours",
+        "tách thành bảy màu"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Các màu trải từ đỏ ở trên cùng tới tím ở dưới cùng.",
+      [
+        "red at the top",
+        "đỏ ở trên cùng"
+      ],
+      [
+        "violet at the bottom",
+        "tím ở dưới cùng"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Muốn thấy cầu vồng, bạn phải đứng đúng chỗ.",
+      [
+        "stand in the right place",
+        "đứng đúng chỗ"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Mặt Trời phải ở sau lưng và mưa ở phía trước bạn.",
+      [
+        "behind you",
+        "ở sau lưng"
+      ],
+      [
+        "in front of you",
+        "ở phía trước bạn"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khi đó, các màu tạo thành vòng cung lớn vắt ngang bầu trời.",
+      [
+        "a big arch",
+        "vòng cung lớn"
+      ],
+      [
+        "across the sky",
+        "vắt ngang bầu trời"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Bạn thậm chí có thể tự tạo cầu vồng ở nhà.",
+      [
+        "make your own rainbow",
+        "tự tạo cầu vồng"
+      ],
+      [
+        "at home",
+        "ở nhà"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Vào ngày nắng, hãy mở vòi tưới vườn để phun những hạt nước thật mịn.",
+      [
+        "a garden hose",
+        "vòi tưới vườn"
+      ],
+      [
+        "a fine spray",
+        "những hạt nước thật mịn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Khi Mặt Trời ở sau lưng, bạn có thể thấy các màu xuất hiện trong làn nước.",
+      [
+        "With the sun behind you",
+        "Khi Mặt Trời ở sau lưng"
+      ],
+      [
+        "the colours may appear",
+        "có thể thấy các màu xuất hiện"
+      ]
+    ]
+  ],
+  "source_sha256": "4a846e2901a42133c23c063ae8fc06f282c6594fb9b16275286a699600c250d6",
+  "expected_translation_sha256": "17cb937db77b621b83e7a3c22601c578f712fbccc679f80b01e6d4762fb79fcc",
+  "illustration": {
+    "src": "/reading-illustrations/exp-rainbow-scene.svg",
+    "alt": "Cầu vồng trên đồng cỏ sau mưa, có một người đứng quan sát.",
+    "caption": "Quan sát cầu vồng sau cơn mưa."
+  }
+}

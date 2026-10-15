@@ -1,0 +1,170 @@
+{
+  "slug": "inference-the-ethics-of-algorithms",
+  "review_notes": "Giữ phân biệt bias và discriminatory intention; accountability là trách nhiệm giải trình; câu giả định an tâm không biến thành lời hứa kỹ thuật.",
+  "illustration_brief": "Hai người xem các thẻ hồ sơ và một màn hình có các nút dữ liệu được nối với nhau.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Đã có thời, việc quyết định ai được vay tiền, ai được vào danh sách phỏng vấn hay ai lọt vào tầm chú ý của cảnh sát là công việc của những con người có thể bị chất vấn về phán đoán của mình.",
+      [
+        "shortlisted for an interview",
+        "được vào danh sách phỏng vấn"
+      ],
+      [
+        "could be questioned about their judgement",
+        "có thể bị chất vấn về phán đoán của mình"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Những lựa chọn như vậy ngày càng được giao cho thuật toán — các quy trình tính toán phân loại con người theo những khuôn mẫu rút ra từ dữ liệu — và sự chuyển giao ấy đặt ra một câu hỏi mà trước đây các tổ chức hiếm khi phải đối mặt: liệu một quy tắc được mã hóa trong phần mềm có công bằng hơn, hay chỉ khó chất vấn hơn, so với con người mà nó thay thế.",
+      [
+        "computational procedures",
+        "các quy trình tính toán"
+      ],
+      [
+        "patterns extracted from data",
+        "những khuôn mẫu rút ra từ dữ liệu"
+      ],
+      [
+        "harder to interrogate",
+        "khó chất vấn hơn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Mối lo đầu tiên liên quan đến sự thiên lệch.",
+      [
+        "bias",
+        "sự thiên lệch"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Mô hình học từ những hồ sơ về điều đã xảy ra trước đó chứ không phải từ các nguyên tắc trừu tượng, và nếu hồ sơ phản ánh sự bất bình đẳng trong quá khứ, hệ thống thường tiếp tục duy trì những khuôn mẫu ấy.",
+      [
+        "abstract principles",
+        "các nguyên tắc trừu tượng"
+      ],
+      [
+        "past inequality",
+        "sự bất bình đẳng trong quá khứ"
+      ],
+      [
+        "carry the same patterns forward",
+        "tiếp tục duy trì những khuôn mẫu ấy"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Điều khiến vấn đề đặc biệt khó nắm bắt là không cần có ý định phân biệt đối xử nào: một quy trình được thiết kế để dự đoán một cách trung lập vẫn có thể tái tạo những bất công trong lịch sử, đơn giản vì nó coi quá khứ là chỉ dẫn đáng tin cậy cho tương lai.",
+      [
+        "no discriminatory intention is required",
+        "không cần có ý định phân biệt đối xử nào"
+      ],
+      [
+        "reproduce historical injustices",
+        "tái tạo những bất công trong lịch sử"
+      ],
+      [
+        "a reliable guide to the future",
+        "chỉ dẫn đáng tin cậy cho tương lai"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Khó khăn thứ hai liên quan đến tính minh bạch.",
+      [
+        "transparency",
+        "tính minh bạch"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nhiều người lập luận một cách hợp lý rằng người chịu tác động của một quyết định tự động có quyền biết quyết định ấy được đưa ra như thế nào; tuy nhiên, ngay cả khi mã nguồn được công bố, những mô hình tinh vi nhất vẫn có thể khó hiểu đối với chính người tạo ra chúng, mờ đục theo những cách không dễ giải thích bằng lời đơn giản.",
+      [
+        "an automated decision",
+        "một quyết định tự động"
+      ],
+      [
+        "source code is disclosed",
+        "mã nguồn được công bố"
+      ],
+      [
+        "unreadable to their own creators",
+        "khó hiểu đối với chính người tạo ra chúng"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Mong muốn có một lời giải thích dễ hiểu cũng xung đột với mong muốn bảo vệ các hệ thống độc quyền có giá trị thương mại, và cân bằng hai điều ấy hiếm khi chỉ cần những quy tắc đơn giản.",
+      [
+        "an intelligible justification",
+        "một lời giải thích dễ hiểu"
+      ],
+      [
+        "commercially valuable proprietary systems",
+        "các hệ thống độc quyền có giá trị thương mại"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Sẽ thật an tâm nếu tin rằng có thể lập trình để loại bỏ những vấn đề này, rằng một mô hình đủ tiên tiến cuối cùng sẽ vượt qua các giới hạn của dữ liệu đầu vào.",
+      [
+        "these problems can be programmed away",
+        "có thể lập trình để loại bỏ những vấn đề này"
+      ],
+      [
+        "outgrow the limits of the data that feeds it",
+        "vượt qua các giới hạn của dữ liệu đầu vào"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Sự thật khó chấp nhận hơn là tốc độ và quy mô không giải quyết được những vấn đề về phán đoán; chúng chỉ khiến hậu quả của một phán đoán kém lan rộng nhanh hơn.",
+      [
+        "speed and scale",
+        "tốc độ và quy mô"
+      ],
+      [
+        "the consequences of a poor judgement",
+        "hậu quả của một phán đoán kém"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Không thể âm thầm chuyển trách nhiệm giải trình về kết quả cho phần mềm.",
+      [
+        "Accountability for an outcome",
+        "trách nhiệm giải trình về kết quả"
+      ],
+      [
+        "cannot be quietly transferred",
+        "Không thể âm thầm chuyển"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Trách nhiệm ấy vẫn thuộc về những người chọn triển khai công cụ, xác định công cụ tối ưu hóa điều gì và quyết định những sai sót nào có thể chấp nhận — những lựa chọn mà không máy móc nào có thể thay họ đưa ra.",
+      [
+        "defined what it optimises",
+        "xác định công cụ tối ưu hóa điều gì"
+      ],
+      [
+        "which errors were acceptable",
+        "những sai sót nào có thể chấp nhận"
+      ],
+      [
+        "on their behalf",
+        "thay họ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-algorithm-review-scene.svg",
+    "alt": "Hai người xem các thẻ hồ sơ và một màn hình có các nút dữ liệu được nối với nhau.",
+    "caption": "Con người xem xét quyết định dựa trên dữ liệu."
+  },
+  "source_sha256": "d9cfffd6a3752520b6a288cdb4a3be50de44beab4b128af93dac4ddd14257809",
+  "expected_translation_sha256": "c86048dc0d559f4976cc0a543f48e7604060b93139ca32ef0fd11bb9c440fc4f"
+}

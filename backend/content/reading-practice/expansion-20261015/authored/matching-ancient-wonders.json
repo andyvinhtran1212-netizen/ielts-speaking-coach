@@ -1,0 +1,158 @@
+{
+  "slug": "matching-ancient-wonders",
+  "review_notes": "Giữ nhãn đoạn A–D, nghi vấn về vườn treo và quy thuộc is thought. Không vẽ sơ đồ định danh các kỳ quan hay chỉ rõ đáp án matching.",
+  "illustration_brief": "Thuyền buồm nhỏ trước một bến cảng cổ với cột đá và các tòa nhà thấp.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Hơn hai nghìn năm trước, các tác giả Hy Lạp lập danh sách bảy công trình phi thường mà mọi lữ khách đều mong được thấy: Bảy kỳ quan thế giới cổ đại.",
+      [
+        "drew up a list",
+        "lập danh sách"
+      ],
+      [
+        "seven remarkable structures",
+        "bảy công trình phi thường"
+      ],
+      [
+        "the Seven Wonders of the Ancient World",
+        "Bảy kỳ quan thế giới cổ đại"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Trong bảy kỳ quan ấy, ngày nay chỉ còn một công trình đứng vững.",
+      [
+        "only one still stands today",
+        "ngày nay chỉ còn một công trình đứng vững"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Đại kim tự tháp Giza, được xây ở Ai Cập vào khoảng năm 2560 trước Công nguyên làm lăng mộ cho một vị vua, là kỳ quan lâu đời nhất và là kỳ quan duy nhất tồn tại đến thời hiện đại.",
+      [
+        "around 2560 BC",
+        "vào khoảng năm 2560 trước Công nguyên"
+      ],
+      [
+        "as a tomb for a king",
+        "làm lăng mộ cho một vị vua"
+      ],
+      [
+        "the only one that has survived into modern times",
+        "kỳ quan duy nhất tồn tại đến thời hiện đại"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Xa về phía đông từng có Vườn treo Babylon, được kể là vươn lên thành những tầng xanh trên thành phố sa mạc, với cây và hoa tràn qua các bức tường cao.",
+      [
+        "the Hanging Gardens of Babylon",
+        "Vườn treo Babylon"
+      ],
+      [
+        "said to rise in green terraces",
+        "được kể là vươn lên thành những tầng xanh"
+      ],
+      [
+        "spilling over high walls",
+        "tràn qua các bức tường cao"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Tuy vậy, chưa từng tìm được dấu tích chắc chắn nào của khu vườn, và một số sử gia nghi ngờ liệu chúng có từng tồn tại hay không.",
+      [
+        "no firm trace of the gardens has ever been found",
+        "chưa từng tìm được dấu tích chắc chắn nào của khu vườn"
+      ],
+      [
+        "some historians doubt",
+        "một số sử gia nghi ngờ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Trên bờ biển Ai Cập, Hải đăng Alexandria dẫn tàu thuyền an toàn vào cảng nhộn nhịp.",
+      [
+        "the Lighthouse of Alexandria",
+        "Hải đăng Alexandria"
+      ],
+      [
+        "guided ships safely",
+        "dẫn tàu thuyền an toàn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Một ngọn lửa lớn cháy trên đỉnh tháp, và người ta cho rằng một tấm gương được đánh bóng đã chiếu ánh sáng ra xa ngoài biển.",
+      [
+        "A great fire",
+        "Một ngọn lửa lớn"
+      ],
+      [
+        "a polished mirror",
+        "một tấm gương được đánh bóng"
+      ],
+      [
+        "is thought to",
+        "người ta cho rằng"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Đó là một trong những công trình cao nhất thế giới cổ đại.",
+      [
+        "one of the tallest structures",
+        "một trong những công trình cao nhất"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Canh giữ một cảng khác là Tượng thần Mặt Trời ở Rhodes, một bức tượng đồng khổng lồ của thần Mặt Trời Helios.",
+      [
+        "the Colossus of Rhodes",
+        "Tượng thần Mặt Trời ở Rhodes"
+      ],
+      [
+        "a giant bronze statue",
+        "một bức tượng đồng khổng lồ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Tượng được xây để kỷ niệm chiến thắng trước một đội quân xâm lược.",
+      [
+        "celebrate a victory",
+        "kỷ niệm chiến thắng"
+      ],
+      [
+        "an invading army",
+        "một đội quân xâm lược"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Tuy nhiên, tượng chỉ đứng vững vài thập kỷ trước khi một trận động đất làm gãy ngang đầu gối và khiến nó đổ sập.",
+      [
+        "stood for only a few decades",
+        "chỉ đứng vững vài thập kỷ"
+      ],
+      [
+        "an earthquake",
+        "một trận động đất"
+      ],
+      [
+        "brought it crashing down",
+        "khiến nó đổ sập"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-ancient-harbour-scene.svg",
+    "alt": "Thuyền buồm nhỏ trước một bến cảng cổ với cột đá và các tòa nhà thấp.",
+    "caption": "Một khung cảnh gợi thế giới cổ đại quanh Địa Trung Hải."
+  },
+  "source_sha256": "944ce3c055312afa0871ecedad48e7a79565ef996966d5febecc57d5dcb54993",
+  "expected_translation_sha256": "e8e6040c376ca0219301a57cd148fa11aafbcafd33e60ae2dad6ba80bca9cd74"
+}
