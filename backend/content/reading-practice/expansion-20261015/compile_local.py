@@ -12,11 +12,14 @@ from services.reading_practice_support import digest, plain_source, validated_su
 def source_sentences(body: str) -> dict[str, str]:
     result = {}
     for paragraph, block in enumerate(re.split(r"\n\s*\n", body.strip()), 1):
+        block = re.sub(r"<!--[\s\S]*?-->", "", block).strip()
+        if not block:
+            continue
         if re.match(r'^\s*(?:#{1,6}\s|[-*_]{3,}\s*$)', block):
             continue
         # Do not split initials/abbreviations such as Dr. or U.S. into sentences.
         text = plain_source(block)
-        cuts = [m.start() for m in re.finditer(r'(?<=[.!?])\s+(?=[A-Z“])', text)
+        cuts = [m.start() for m in re.finditer(r'(?:(?<=[.!?])|(?<=[.!?]["”’]))\s+(?=[A-Z“"‘])', text)
                 if not re.search(r'\b(?:Dr|Mr|Mrs|Ms|Prof|St|e\.g|i\.e|[A-Z])\.$', text[:m.start()])]
         bounds = [0, *[cut + 1 for cut in cuts], len(text) + 1]
         for sentence, (start, stop) in enumerate(zip(bounds, bounds[1:]), 1):

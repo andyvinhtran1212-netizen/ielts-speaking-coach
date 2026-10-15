@@ -1,0 +1,25 @@
+{
+  "articles": 196,
+  "sentence_units": 3046,
+  "phrase_pairs": 6405,
+  "illustrations": 123,
+  "production": {
+    "updates": 196,
+    "question_mutations": 0
+  },
+  "staging": {
+    "updates": 19,
+    "new_copies": 177,
+    "copied_questions": 1018
+  },
+  "excluded_already_aligned": [
+    "completion-how-a-battery-works",
+    "inference-psychology-of-colour",
+    "matching-movements-in-art",
+    "the-tragedy-of-the-commons"
+  ],
+  "sql_sha256": {
+    "production-apply.sql": "b411eaed1e89a3feff61978dcda9a937aee025e218e74348f127fff852862c71",
+    "staging-apply.sql": "1365566169d35bcc6a3e12d3f30ee6840df3e2c3234c324a40b8eb6795682afe"
+  }
+}

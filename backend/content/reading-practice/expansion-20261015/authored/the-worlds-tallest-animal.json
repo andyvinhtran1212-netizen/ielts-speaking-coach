@@ -1,0 +1,154 @@
+{
+  "slug": "the-worlds-tallest-animal",
+  "review_notes": "Tự dịch; giữ khoảng 5,5m, không sửa nguồn/đáp án. Minh hoạ toàn thân không chú giải chiều cao, tim, lưỡi hoặc tư thế uống nước.",
+  "illustration_brief": "Hươu cao cổ đứng trên đồng cỏ cạnh một cây tán rộng.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Hươu cao cổ là động vật trên cạn cao nhất thế giới.",
+      [
+        "The giraffe",
+        "Hươu cao cổ"
+      ],
+      [
+        "the tallest land animal",
+        "động vật trên cạn cao nhất"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Một con đực trưởng thành có thể cao khoảng 5,5 mét.",
+      [
+        "A grown male",
+        "Một con đực trưởng thành"
+      ],
+      [
+        "about 5.5 metres high",
+        "cao khoảng 5,5 mét"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Chiều cao ấy còn hơn ba người đàn ông trưởng thành đứng chồng lên nhau.",
+      [
+        "three adult men",
+        "ba người đàn ông trưởng thành"
+      ],
+      [
+        "standing on top of each other",
+        "đứng chồng lên nhau"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Phần lớn chiều cao ấy đến từ chiếc cổ dài của nó.",
+      [
+        "Most of this height",
+        "Phần lớn chiều cao ấy"
+      ],
+      [
+        "its long neck",
+        "chiếc cổ dài của nó"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Chiếc cổ giúp hươu cao cổ với tới lá trên ngọn những cây cao, nơi các động vật khác không thể kiếm ăn.",
+      [
+        "reach leaves",
+        "với tới lá"
+      ],
+      [
+        "at the top of tall trees",
+        "trên ngọn những cây cao"
+      ],
+      [
+        "other animals cannot feed",
+        "các động vật khác không thể kiếm ăn"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Hươu cao cổ còn có chiếc lưỡi dài, sẫm màu.",
+      [
+        "a long, dark tongue",
+        "chiếc lưỡi dài, sẫm màu"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Nó dùng lưỡi để kéo lá khỏi cành, ngay cả khi phải luồn qua gai nhọn.",
+      [
+        "pull leaves off the branches",
+        "kéo lá khỏi cành"
+      ],
+      [
+        "sharp thorns",
+        "gai nhọn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Một cơ thể cao cần có trái tim khoẻ.",
+      [
+        "a strong heart",
+        "trái tim khoẻ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Tim hươu cao cổ phải bơm máu dọc suốt chiếc cổ dài lên não.",
+      [
+        "pump blood",
+        "bơm máu"
+      ],
+      [
+        "to the brain",
+        "lên não"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Để uống nước dưới đất, hươu cao cổ phải choãi rộng hai chân trước và cúi đầu thật thấp.",
+      [
+        "spread its front legs wide",
+        "choãi rộng hai chân trước"
+      ],
+      [
+        "bend its head down low",
+        "cúi đầu thật thấp"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Hươu cao cổ có ít kẻ thù, nhưng sư tử có thể là một đối thủ thực sự.",
+      [
+        "few enemies",
+        "ít kẻ thù"
+      ],
+      [
+        "a real enemy",
+        "một đối thủ thực sự"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Khi gặp nguy hiểm, hươu cao cổ có thể đá rất mạnh để tự bảo vệ.",
+      [
+        "in danger",
+        "gặp nguy hiểm"
+      ],
+      [
+        "kick very hard",
+        "đá rất mạnh"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-giraffe-savanna-scene.svg",
+    "alt": "Hươu cao cổ đứng trên đồng cỏ cạnh một cây tán rộng.",
+    "caption": "Một cư dân cao lớn của đồng cỏ."
+  },
+  "source_sha256": "1657ba27acf5dd528033736663cce4ca7e9d67a90b3e9a6f6dd25d2338e64773",
+  "expected_translation_sha256": "688b1e7b9dae067cc58ca5fc69ea13b9369afb6aa922c6440c247327bc6b13ed"
+}
