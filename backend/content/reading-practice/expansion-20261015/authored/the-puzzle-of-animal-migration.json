@@ -5,14 +5,14 @@
   "sentences": [
     [
       "p1-s1",
-      "Mỗi mùa thu, hàng triệu bướm chúa rời đông Bắc Mỹ, bay hàng nghìn ki-lô-mét tới rừng ấm Mexico — nơi chưa con nào từng thấy.",
+      "Mỗi mùa thu, hàng triệu bướm chúa rời miền đông Bắc Mỹ, bay hàng nghìn ki-lô-mét tới rừng ấm Mexico — nơi chưa con nào từng thấy.",
       [
         "monarch butterflies",
         "bướm chúa"
       ],
       [
         "eastern North America",
-        "đông Bắc Mỹ"
+        "miền đông Bắc Mỹ"
       ],
       [
         "none of them has ever seen",
@@ -117,10 +117,10 @@
     ],
     [
       "p3-s4",
-      "Giác quan này được cho hoạt động qua protein đặc biệt cryptochrome trong mắt hoặc râu, được ánh sáng kích hoạt phản ứng nhạy từ tính.",
+      "Giác quan này được cho là hoạt động thông qua một protein đặc biệt gọi là cryptochrome trong mắt hoặc râu; ánh sáng kích hoạt protein này tham gia một phản ứng nhạy với từ tính.",
       [
         "is thought to work",
-        "được cho hoạt động"
+        "được cho là hoạt động"
       ],
       [
         "the eye or antennae",
@@ -128,19 +128,19 @@
       ],
       [
         "a reaction sensitive to magnetism",
-        "phản ứng nhạy từ tính"
+        "một phản ứng nhạy với từ tính"
       ]
     ],
     [
       "p3-s5",
-      "Vì phản ứng phụ thuộc ánh sáng, động vật chỉ đọc la bàn từ ban ngày, không trong tối hoàn toàn.",
+      "Vì phản ứng phụ thuộc ánh sáng, động vật chỉ đọc được la bàn từ của mình vào ban ngày, không phải trong bóng tối hoàn toàn.",
       [
         "depends on light",
         "phụ thuộc ánh sáng"
       ],
       [
         "during the day, not in total darkness",
-        "ban ngày, không trong tối hoàn toàn"
+        "vào ban ngày, không phải trong bóng tối hoàn toàn"
       ]
     ],
     [
@@ -181,18 +181,18 @@
     ],
     [
       "p4-s4",
-      "Cả hành trình còn ấn tượng hơn vì không một con bướm nào hoàn thành cả khứ hồi; đường trở lại bắc được chia qua vài thế hệ đời ngắn.",
+      "Cả hành trình còn ấn tượng hơn vì không một con bướm nào hoàn thành toàn bộ hành trình khứ hồi; hành trình trở về phương bắc được chia qua vài thế hệ có vòng đời ngắn.",
       [
         "no single butterfly completes the round trip",
-        "không một con bướm nào hoàn thành cả khứ hồi"
+        "không một con bướm nào hoàn thành toàn bộ hành trình khứ hồi"
       ],
       [
         "the return north",
-        "đường trở lại bắc"
+        "hành trình trở về phương bắc"
       ],
       [
         "several short-lived generations",
-        "vài thế hệ đời ngắn"
+        "vài thế hệ có vòng đời ngắn"
       ]
     ],
     [
@@ -210,7 +210,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-monarch-migration-scene.svg",
-    "alt": "Những con bướm chúa bay qua cây và đồi dưới bầu trời sáng, không có bản đồ tuyến bay hay sơ đồ la bàn.",
+    "alt": "Những con bướm chúa bay trên cây và đồi dưới bầu trời sáng.",
     "caption": "Một hành trình qua nhiều thế hệ."
   },
   "source_sha256": "36bfac375eb8c3b6aea275287263a9e1e1c3412810143bec01b51874497cd582",

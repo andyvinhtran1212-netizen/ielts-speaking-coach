@@ -49,10 +49,14 @@
     ],
     [
       "p2-s1",
-      "Những người ủng hộ chỉ vào công tác bảo tồn.",
+      "Những người ủng hộ viện dẫn công tác bảo tồn.",
       [
         "Defenders",
         "Những người ủng hộ"
+      ],
+      [
+        "point to",
+        "viện dẫn"
       ],
       [
         "conservation",

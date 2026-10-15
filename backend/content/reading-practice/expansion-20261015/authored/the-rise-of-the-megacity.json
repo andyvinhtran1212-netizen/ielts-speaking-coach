@@ -65,18 +65,18 @@
     ],
     [
       "p3-s4",
-      "Chủ yếu do di cư nông thôn, thành phố châu Á, Phi và Mỹ Latin phình trong một đời người, hút người mới tìm việc, giáo dục và phần của cải quốc gia.",
+      "Chủ yếu do dòng người di cư từ nông thôn, các thành phố ở châu Á, châu Phi và Mỹ Latinh đã phát triển nhanh chỉ trong một đời người, thu hút những người mới đến tìm kiếm việc làm, cơ hội học tập và một phần của cải quốc gia.",
       [
         "rural migration",
-        "di cư nông thôn"
+        "dòng người di cư từ nông thôn"
       ],
       [
         "within a single lifetime",
-        "trong một đời người"
+        "chỉ trong một đời người"
       ],
       [
         "newcomers",
-        "người mới"
+        "những người mới đến"
       ]
     ],
     [
@@ -89,14 +89,14 @@
     ],
     [
       "p4-s2",
-      "Khi dân tăng nhanh hơn xây đường, ống nước và dây điện, hạ tầng tụt lại.",
+      "Khi dân số tăng nhanh hơn tốc độ xây dựng đường sá, đường ống nước và đường dây điện, cơ sở hạ tầng không theo kịp.",
       [
         "roads, water pipes and power lines",
-        "đường, ống nước và dây điện"
+        "đường sá, đường ống nước và đường dây điện"
       ],
       [
         "the infrastructure falls behind",
-        "hạ tầng tụt lại"
+        "cơ sở hạ tầng không theo kịp"
       ]
     ],
     [
@@ -117,10 +117,10 @@
     ],
     [
       "p4-s4",
-      "Nơi không kịp cấp nhà, khu ở phi chính thức lớn lan ven ngoài, thường thiếu nước sạch và quyền sở hữu bảo đảm.",
+      "Ở những nơi không thể cung cấp đủ nhà ở kịp thời, các khu dân cư tự phát lớn lan rộng ở vùng ven, thường thiếu nước sạch và quyền sở hữu được bảo đảm.",
       [
         "large informal settlements",
-        "khu ở phi chính thức lớn"
+        "các khu dân cư tự phát lớn"
       ],
       [
         "clean water",
@@ -128,7 +128,7 @@
       ],
       [
         "secure ownership",
-        "quyền sở hữu bảo đảm"
+        "quyền sở hữu được bảo đảm"
       ]
     ],
     [
@@ -165,18 +165,18 @@
     ],
     [
       "p5-s4",
-      "Yếu tố quyết định dường như là quản trị: thành phố quy hoạch vững thường hấp thu tăng trưởng tốt hơn nhiều nơi không có.",
+      "Yếu tố quyết định dường như là năng lực quản trị: các thành phố có quy hoạch tốt thường thích ứng với tăng trưởng tốt hơn nhiều so với những nơi không có quy hoạch như vậy.",
       [
         "governance",
-        "quản trị"
+        "năng lực quản trị"
       ],
       [
         "strong planning",
-        "quy hoạch vững"
+        "quy hoạch tốt"
       ],
       [
         "absorb growth far better",
-        "hấp thu tăng trưởng tốt hơn nhiều"
+        "thích ứng với tăng trưởng tốt hơn nhiều"
       ]
     ],
     [
@@ -189,18 +189,18 @@
     ],
     [
       "p6-s2",
-      "Dự báo Liên Hợp Quốc cho số siêu đô thị có thể tiếp tục tăng tới năm 2030, gần như toàn nơi mới ở châu Á và Phi thay vì vùng công nghiệp lâu đời.",
+      "Dự báo của Liên Hợp Quốc cho thấy số siêu đô thị có thể tiếp tục tăng khi tiến tới năm 2030, với gần như tất cả các siêu đô thị mới nằm ở châu Á và châu Phi thay vì các vùng công nghiệp lâu đời.",
       [
         "United Nations projections",
-        "Dự báo Liên Hợp Quốc"
+        "Dự báo của Liên Hợp Quốc"
       ],
       [
         "may keep climbing toward 2030",
-        "có thể tiếp tục tăng tới năm 2030"
+        "có thể tiếp tục tăng khi tiến tới năm 2030"
       ],
       [
         "almost all of the new entries",
-        "gần như toàn nơi mới"
+        "gần như tất cả các siêu đô thị mới"
       ]
     ],
     [
@@ -218,7 +218,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-city-towers-scene.svg",
-    "alt": "Đường chân trời gồm nhiều tòa cao không định danh, cùng người và cây ở tiền cảnh.",
+    "alt": "Các tòa tháp cao trên đường chân trời thành phố, với người đi bộ và cây ở tiền cảnh.",
     "caption": "Quy mô và đời sống của một đô thị lớn."
   },
   "source_sha256": "4a8cd15ae2c7749936d2e34f2303440b8a2c788225065102c00a4566c861c008",

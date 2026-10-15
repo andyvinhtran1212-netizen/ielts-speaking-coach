@@ -5,14 +5,14 @@
   "sentences": [
     [
       "p1-s1",
-      "Trong thí nghiệm nổi tiếng ở Đại học Princeton, tình nguyện viên được xem mặt người lạ chỉ một phần nhỏ giây và được yêu cầu đánh giá.",
+      "Trong thí nghiệm nổi tiếng ở Đại học Princeton, tình nguyện viên được xem mặt người lạ chỉ một phần nhỏ của một giây và được yêu cầu đánh giá.",
       [
         "the faces of strangers",
         "mặt người lạ"
       ],
       [
         "a fraction of a second",
-        "một phần nhỏ giây"
+        "một phần nhỏ của một giây"
       ]
     ],
     [
@@ -97,10 +97,10 @@
     ],
     [
       "p3-s1",
-      "Vấn đề là ý kiến ban đầu không chỉ phai khi có thêm thông tin.",
+      "Vấn đề là nhận định ban đầu không đơn giản phai đi khi có thêm thông tin.",
       [
         "an early opinion",
-        "ý kiến ban đầu"
+        "nhận định ban đầu"
       ],
       [
         "once more information arrives",

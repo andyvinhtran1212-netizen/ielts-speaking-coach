@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Bàn làm việc của người sáng chế</title>
+  <desc id="desc">Bản phác thảo, bánh răng, dụng cụ và các chi tiết đang lắp ráp trên bàn cạnh đèn.</desc>
+  <rect width="800" height="400" rx="24" fill="#f2f0e6"/>
+  <rect x="43" y="38" width="294" height="135" rx="8" fill="#d9c7a9"/>
+  <path d="M70 59L178 50L186 141L81 150Z" fill="#faf8ef"/>
+  <path d="M103 88L147 79L163 106L126 121Z" fill="none" stroke="#80aaa0" stroke-width="3"/>
+  <path d="M211 66H310V150H211Z" fill="#faf8ef"/>
+  <circle cx="258" cy="103" r="20" fill="none" stroke="#a8cbd0" stroke-width="4"/>
+  <path d="M230 139H292M258 73V132" stroke="#80aaa0" stroke-width="3"/>
+  <path d="M628 238L663 140L590 94" fill="none" stroke="#796249" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M559 66L614 104L585 133L537 97Z" fill="#80aaa0"/>
+  <path d="M565 124L482 237H620Z" fill="#eee2b0" opacity=".5"/>
+  <rect y="255" width="800" height="145" fill="#d9c7a9"/>
+  <path d="M71 276L292 252L385 351L130 371Z" fill="#fffaf0" stroke="#b6a67f" stroke-width="3"/>
+  <path d="M120 302L193 289L240 319L173 337ZM219 278L290 312M276 333L320 328" fill="none" stroke="#80aaa0" stroke-width="3"/>
+  <g transform="translate(449 286)" fill="#80aaa0" stroke="#3d8275" stroke-width="4">
+    <path d="M-17 -53H17L21 -38L35 -33L49 -39L65 -12L52 -1L52 15L65 26L49 52L34 46L20 53L17 68H-17L-21 53L-35 46L-49 52L-65 26L-52 15V-1L-65 -12L-49 -39L-35 -33L-21 -38Z"/>
+    <circle cy="8" r="23" fill="#f2f0e6"/>
+  </g>
+  <path d="M567 284L586 302L643 245C654 255 673 250 680 236L665 241L653 229L658 213C642 219 635 236 642 247L585 304L567 285Z" fill="#a8cbd0" stroke="#6e878d" stroke-width="4" stroke-linejoin="round"/>
+  <rect x="624" y="307" width="94" height="24" rx="12" fill="#aa825e"/>
+  <path d="M596 319H626" stroke="#6e878d" stroke-width="7"/>
+  <path d="M160 218L281 243" stroke="#c9965d" stroke-width="8" stroke-linecap="round"/>
+  <path d="M157 217L142 214L154 225Z" fill="#293b43"/>
+  <rect x="614" y="238" width="86" height="17" rx="8" fill="#3d8275"/>
+</svg>

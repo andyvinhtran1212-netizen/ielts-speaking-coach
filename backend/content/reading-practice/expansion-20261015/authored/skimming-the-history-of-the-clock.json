@@ -17,7 +17,7 @@
     ],
     [
       "p1-s2",
-      "Đồng hồ mặt trời dùng bóng của một que thẳng đứng, di chuyển khi Mặt Trời đi ngang bầu trời.",
+      "Đồng hồ mặt trời dùng bóng của một que thẳng đứng; bóng di chuyển khi Mặt Trời đi ngang bầu trời.",
       [
         "Sundials",
         "Đồng hồ mặt trời"
@@ -250,7 +250,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-clock-scene.svg",
-    "alt": "Đồng hồ kim đặt trên bàn bên các bộ phận cơ học, không ghi niên đại.",
+    "alt": "Đồng hồ quả lắc treo tường cạnh một đồng hồ kim nhỏ trên kệ.",
     "caption": "Đo và chia sẻ thời gian."
   },
   "source_sha256": "9d5d8fa37569f354592c7d567eca43f2c48dc5cdedce2b14999fae93fb34d6ce",

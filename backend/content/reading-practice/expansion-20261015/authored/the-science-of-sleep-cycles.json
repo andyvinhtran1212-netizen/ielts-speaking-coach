@@ -17,10 +17,10 @@
     ],
     [
       "p1-s2",
-      "Điều tiếp theo còn xa mới là nghỉ đơn giản, yên tĩnh.",
+      "Những gì xảy ra tiếp theo hoàn toàn không chỉ là một quãng nghỉ ngơi đơn giản, yên tĩnh.",
       [
         "far from a simple, quiet rest",
-        "còn xa mới là nghỉ đơn giản, yên tĩnh"
+        "hoàn toàn không chỉ là một quãng nghỉ ngơi đơn giản, yên tĩnh"
       ]
     ],
     [
@@ -37,7 +37,7 @@
     ],
     [
       "p2-s1",
-      "Khoa học thường chia ngủ thành non-REM và REM, tức chuyển động mắt nhanh.",
+      "Các nhà khoa học thường chia giấc ngủ thành hai loại: non-REM và REM (chuyển động mắt nhanh).",
       [
         "non-REM and REM",
         "non-REM và REM"
@@ -101,18 +101,18 @@
     ],
     [
       "p3-s2",
-      "Não hoạt động bất ngờ, gần như thức, và giấc mơ sống động nhất tới đây.",
+      "Bộ não trở nên hoạt động mạnh một cách đáng ngạc nhiên, gần như đang thức, và những giấc mơ sống động nhất xuất hiện ở giai đoạn này.",
       [
         "surprisingly active",
-        "hoạt động bất ngờ"
+        "hoạt động mạnh một cách đáng ngạc nhiên"
       ],
       [
         "almost as if awake",
-        "gần như thức"
+        "gần như đang thức"
       ],
       [
         "the most vivid dreams",
-        "giấc mơ sống động nhất"
+        "những giấc mơ sống động nhất"
       ]
     ],
     [
@@ -145,10 +145,10 @@
     ],
     [
       "p3-s5",
-      "Suốt đêm não luân phiên các giai đoạn, một chu kỳ đầy khoảng chín mươi phút.",
+      "Suốt đêm, não luân phiên chuyển qua các giai đoạn này, và một chu kỳ hoàn chỉnh kéo dài khoảng chín mươi phút.",
       [
         "alternates between these stages",
-        "luân phiên các giai đoạn"
+        "luân phiên chuyển qua các giai đoạn này"
       ],
       [
         "roughly ninety minutes",
@@ -157,18 +157,18 @@
     ],
     [
       "p3-s6",
-      "Vòng sớm nhiều ngủ sâu hơn, vòng muộn về sáng có đoạn REM dài dần.",
+      "Các chu kỳ đầu đêm có nhiều giấc ngủ sâu hơn, còn các chu kỳ sau, về gần sáng, có những khoảng ngủ REM dài dần.",
       [
         "The earliest cycles",
-        "Vòng sớm"
+        "Các chu kỳ đầu đêm"
       ],
       [
         "towards morning",
-        "về sáng"
+        "về gần sáng"
       ],
       [
         "steadily longer periods of REM",
-        "đoạn REM dài dần"
+        "những khoảng ngủ REM dài dần"
       ]
     ],
     [
@@ -225,14 +225,18 @@
     ],
     [
       "p4-s5",
-      "Tiếng ồn, ánh sáng hay báo thức sai giờ đều làm gián đoạn chu kỳ, cắt ngủ sâu hoặc REM ngắn.",
+      "Tiếng ồn, ánh sáng hoặc chuông báo thức đặt vào thời điểm không phù hợp đều có thể làm gián đoạn các chu kỳ này, rút ngắn thời gian ngủ sâu hoặc ngủ REM.",
       [
         "a badly timed alarm",
-        "báo thức sai giờ"
+        "chuông báo thức đặt vào thời điểm không phù hợp"
       ],
       [
-        "disrupt these cycles",
-        "làm gián đoạn chu kỳ"
+        "can all disrupt these cycles",
+        "đều có thể làm gián đoạn các chu kỳ này"
+      ],
+      [
+        "cutting deep sleep or REM short",
+        "rút ngắn thời gian ngủ sâu hoặc ngủ REM"
       ]
     ],
     [
@@ -254,7 +258,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-night-sleep-scene.svg",
-    "alt": "Một người ngủ trong phòng có cửa sổ trời đêm và ánh trăng; không có biểu đồ chu kỳ hoặc giờ báo thức.",
+    "alt": "Một người ngủ trên ghế sofa cạnh cửa sổ có trăng và sao.",
     "caption": "Những giai đoạn diễn ra trong một đêm ngủ."
   },
   "source_sha256": "4738ba65d74a235f51b64cd9e27bc2dbb59d00770cb2193c692b913e693de8ce",

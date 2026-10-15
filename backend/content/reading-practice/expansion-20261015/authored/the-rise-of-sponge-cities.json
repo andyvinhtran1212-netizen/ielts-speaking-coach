@@ -17,14 +17,14 @@
     ],
     [
       "p1-s2",
-      "Đường, bãi đỗ và tòa nhà phủ đất bằng bê tông cùng mặt cứng khác, nên mưa không thoát xuống đất.",
+      "Đường sá, bãi đỗ xe và các tòa nhà phủ kín mặt đất bằng bê tông cùng những bề mặt cứng khác, khiến nước mưa không thể thấm xuống đất.",
       [
         "concrete and other hard surfaces",
-        "bê tông cùng mặt cứng khác"
+        "bê tông cùng những bề mặt cứng khác"
       ],
       [
         "drain away into the soil",
-        "thoát xuống đất"
+        "thấm xuống đất"
       ]
     ],
     [
@@ -61,14 +61,14 @@
     ],
     [
       "p2-s2",
-      "Thay đẩy mưa qua ống nhanh nhất, thành phố bọt biển được thiết kế hút và trữ nước, như bọt biển thấm chỗ nước đổ.",
+      "Thay vì đẩy nước mưa đi qua các đường ống càng nhanh càng tốt, thành phố bọt biển được thiết kế để hấp thụ và trữ nước, giống như miếng bọt biển thấm hút nước bị đổ ra.",
       [
         "absorb and store it",
-        "hút và trữ nước"
+        "hấp thụ và trữ nước"
       ],
       [
         "a sponge soaks up a spill",
-        "bọt biển thấm chỗ nước đổ"
+        "miếng bọt biển thấm hút nước bị đổ ra"
       ]
     ],
     [
@@ -85,18 +85,18 @@
     ],
     [
       "p2-s4",
-      "Họ làm công viên, vườn giữ mưa và khôi phục đất ngập nước chứa được nhiều nước lúc giông.",
+      "Họ xây công viên và vườn có khả năng giữ nước mưa, đồng thời khôi phục những vùng đất ngập nước có thể chứa lượng nước lớn trong cơn bão.",
       [
         "retain rainwater",
-        "giữ mưa"
+        "giữ nước mưa"
       ],
       [
         "restore wetlands",
-        "khôi phục đất ngập nước"
+        "khôi phục những vùng đất ngập nước"
       ],
       [
         "large amounts of water during a storm",
-        "nhiều nước lúc giông"
+        "lượng nước lớn trong cơn bão"
       ]
     ],
     [
@@ -214,7 +214,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-rain-city-park-scene.svg",
-    "alt": "Công viên trũng có cây và nước mưa giữa khu đô thị, cạnh lối đi, không có nhãn kỹ thuật hay tỷ lệ chống ngập.",
+    "alt": "Khu trũng chứa nước mưa giữa công viên có cây, lối đi và các tòa nhà xung quanh.",
     "caption": "Dành không gian cho nước mưa trong thành phố."
   },
   "source_sha256": "8b86c62a99838a5f3953576a8b4a3d69c7a0e8128a7bf403d6f5fdebf12c7781",

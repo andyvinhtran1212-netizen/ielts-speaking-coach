@@ -5,19 +5,19 @@
   "sentences": [
     [
       "p1-s1",
-      "Năm 2008, Richard Thaler và Cass Sunstein phổ biến ý tưởng có tầm lan rộng đáng kể: hành vi có thể được hướng không bằng mệnh lệnh hay phạt tốn kém mà bằng cú hích nhẹ.",
+      "Năm 2008, Richard Thaler và Cass Sunstein phổ biến ý tưởng có tầm lan rộng đáng kể: hành vi có thể được định hướng không phải bằng mệnh lệnh hay những hình phạt gây tổn thất lớn mà bằng các cú hích nhẹ.",
       [
         "costly penalties",
-        "phạt tốn kém"
+        "những hình phạt gây tổn thất lớn"
       ],
       [
         "gentle nudges",
-        "cú hích nhẹ"
+        "các cú hích nhẹ"
       ]
     ],
     [
       "p1-s2",
-      "Theo định nghĩa cẩn thận, cú hích đổi hành vi theo hướng đoán được mà không cấm lựa chọn hiện có hay thay đổi đáng kể động lực kinh tế; nói cách khác, nó dùng thuyết phục âm thầm thay cưỡng ép thẳng.",
+      "Theo định nghĩa cẩn thận, cú hích đổi hành vi theo hướng đoán được mà không cấm lựa chọn hiện có hay thay đổi đáng kể động lực kinh tế; nói cách khác, nó dùng thuyết phục âm thầm thay vì cưỡng ép trực tiếp.",
       [
         "without forbidding any of the existing options",
         "mà không cấm lựa chọn hiện có"
@@ -28,7 +28,7 @@
       ],
       [
         "outright coercion",
-        "cưỡng ép thẳng"
+        "cưỡng ép trực tiếp"
       ]
     ],
     [
@@ -45,14 +45,14 @@
     ],
     [
       "p2-s2",
-      "Vì không phương án nào thực sự bị rút, Thaler và Sunstein bảo vệ cách làm như dạng gia trưởng tự do; nhưng nhãn cố ý khiêu khích ấy tự gợi vì sao chủ đề gây tranh cãi dữ.",
+      "Vì không phương án nào thực sự bị rút, Thaler và Sunstein bảo vệ cách làm như dạng chủ nghĩa gia trưởng tự do (định hướng nhưng vẫn giữ quyền lựa chọn); nhưng nhãn cố ý khiêu khích ấy tự gợi vì sao chủ đề gây tranh cãi dữ.",
       [
         "removed from the table",
         "bị rút"
       ],
       [
         "libertarian paternalism",
-        "gia trưởng tự do"
+        "chủ nghĩa gia trưởng tự do"
       ],
       [
         "deliberately provocative label",
@@ -69,14 +69,14 @@
     ],
     [
       "p3-s2",
-      "Khi công dân được tự động ghi danh vào chương trình hưu trí hay danh sách hiến tạng trừ khi chủ động rút, tham gia thường tăng vọt, đôi khi từ thiểu số nhỏ tới đa số áp đảo.",
+      "Khi công dân được tự động ghi danh vào chương trình hưu trí hay danh sách hiến tạng trừ khi họ chủ động từ chối tham gia, tham gia thường tăng vọt, đôi khi từ thiểu số nhỏ tới đa số áp đảo.",
       [
         "enrolled automatically",
         "được tự động ghi danh"
       ],
       [
         "unless they actively opt out",
-        "trừ khi chủ động rút"
+        "trừ khi họ chủ động từ chối tham gia"
       ],
       [
         "the overwhelming majority",
@@ -101,22 +101,22 @@
     ],
     [
       "p4-s1",
-      "Nhưng người phê bình là bên soi cả lĩnh vực gay gắt nhất.",
+      "Nhưng chính những người phê bình mới là bên xem xét toàn bộ lĩnh vực này khắt khe nhất.",
       [
         "the critics",
-        "người phê bình"
+        "những người phê bình"
       ],
       [
         "subject the whole field to its sharpest scrutiny",
-        "soi cả lĩnh vực gay gắt nhất"
+        "xem xét toàn bộ lĩnh vực này khắt khe nhất"
       ]
     ],
     [
       "p4-s2",
-      "Họ hỏi nếu cú hích hoạt động dưới ý thức nhận biết, nó chẳng phải âm thầm thao túng ta tới quyết định chưa thực sự chọn sao?",
+      "Họ hỏi: nếu một cú hích tác động bên dưới ngưỡng nhận biết có ý thức của ta, chẳng phải nó đang âm thầm thao túng ta đưa ra những quyết định mà ta chưa bao giờ thực sự tự chọn hay sao?",
       [
         "below the level of our conscious awareness",
-        "dưới ý thức nhận biết"
+        "bên dưới ngưỡng nhận biết có ý thức của ta"
       ],
       [
         "quietly manipulate us",
@@ -181,20 +181,20 @@
     ],
     [
       "p5-s4",
-      "Về câu ấy, tranh luận còn sôi nổi và hiện chưa thực sự giải quyết.",
+      "Về câu hỏi ấy, cuộc tranh luận vẫn sôi nổi và, cho đến nay, thực sự chưa ngã ngũ.",
       [
         "remains lively",
-        "còn sôi nổi"
+        "vẫn sôi nổi"
       ],
       [
         "genuinely unresolved",
-        "chưa thực sự giải quyết"
+        "thực sự chưa ngã ngũ"
       ]
     ]
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-colour-packaging-scene.svg",
-    "alt": "Các mặt hàng không nhãn được sắp trên kệ, cạnh bảng mẫu màu.",
+    "alt": "Các hộp và chai nhiều màu trên kệ hàng, cạnh bảng mẫu màu.",
     "caption": "Cách trình bày các lựa chọn trong đời sống."
   },
   "source_sha256": "63709ca500a835a77d24cd0bd0e68f409b3ff883c9b83e1cb0ab0bd27b53f7b1",

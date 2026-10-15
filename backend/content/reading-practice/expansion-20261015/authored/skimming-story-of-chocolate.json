@@ -5,7 +5,7 @@
   "sentences": [
     [
       "p1-s1",
-      "A — Từ lâu trước khi chocolate xuất hiện trong cửa hàng, cây ca cao đã mọc hoang trong rừng mưa ấm áp ở châu Mỹ.",
+      "A — Từ lâu trước khi sô-cô-la xuất hiện trong cửa hàng, cây ca cao đã mọc hoang trong rừng mưa ấm áp ở châu Mỹ.",
       [
         "grew wild",
         "mọc hoang"
@@ -33,10 +33,10 @@
     ],
     [
       "p1-s3",
-      "Tuy nhiên, họ không ăn chocolate ngọt.",
+      "Tuy nhiên, họ không ăn sô-cô-la ngọt.",
       [
         "did not eat sweet chocolate",
-        "không ăn chocolate ngọt"
+        "không ăn sô-cô-la ngọt"
       ]
     ],
     [
@@ -141,7 +141,7 @@
     ],
     [
       "p3-s4",
-      "Lần đầu tiên, chocolate có thể được ăn dưới dạng thanh rắn thay vì chỉ uống.",
+      "Lần đầu tiên, sô-cô-la có thể được ăn dưới dạng thanh rắn thay vì chỉ uống.",
       [
         "For the first time",
         "Lần đầu tiên"
@@ -170,7 +170,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-chocolate-scene.svg",
-    "alt": "Quả ca cao, hạt và những thanh chocolate trên một bàn làm việc.",
+    "alt": "Quả ca cao, hạt và những thanh sô-cô-la trên một bàn làm việc.",
     "caption": "Từ hạt ca cao đến món ăn quen thuộc."
   },
   "source_sha256": "538d59225b361f779959566157728598a924628eea87b8d5825dff8368e201ab",

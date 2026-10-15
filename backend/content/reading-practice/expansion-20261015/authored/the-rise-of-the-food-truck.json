@@ -53,30 +53,30 @@
     ],
     [
       "p2-s2",
-      "Từ năm 1866, chủ trại Texas Charles Goodnight đã cải xe quân đội cũ thành bếp di động.",
+      "Ngay từ năm 1866, một chủ trang trại ở Texas tên là Charles Goodnight đã cải tạo một chiếc xe ngựa quân đội cũ thành gian bếp di động.",
       [
         "As early as 1866",
-        "Từ năm 1866"
+        "Ngay từ năm 1866"
       ],
       [
         "an old army wagon",
-        "xe quân đội cũ"
+        "một chiếc xe ngựa quân đội cũ"
       ],
       [
         "a rolling kitchen",
-        "bếp di động"
+        "gian bếp di động"
       ]
     ],
     [
       "p2-s3",
-      "“Chuck wagon” này nuôi cao bồi đói trong những chuyến lùa gia súc dài.",
+      "Chiếc xe bếp, hay “chuck wagon”, này cung cấp thức ăn cho những người chăn bò đói bụng trong các chuyến lùa gia súc đường dài.",
       [
         "hungry cowboys",
-        "cao bồi đói"
+        "những người chăn bò đói bụng"
       ],
       [
         "long cattle drives",
-        "những chuyến lùa gia súc dài"
+        "các chuyến lùa gia súc đường dài"
       ]
     ],
     [
@@ -169,14 +169,18 @@
     ],
     [
       "p4-s3",
-      "Một số chủ dùng xe nổi làm bước đầu tới nhà hàng cố định.",
+      "Một số chủ xe dùng một xe đồ ăn được ưa chuộng làm bước khởi đầu để mở một nhà hàng cố định.",
       [
         "Some owners",
-        "Một số chủ"
+        "Một số chủ xe"
+      ],
+      [
+        "a popular truck",
+        "một xe đồ ăn được ưa chuộng"
       ],
       [
         "a fixed restaurant",
-        "nhà hàng cố định"
+        "một nhà hàng cố định"
       ]
     ],
     [
@@ -194,7 +198,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-food-truck-scene.svg",
-    "alt": "Xe bán đồ ăn có cửa phục vụ và mái che, với khách đứng trước; không có tên thương hiệu hay menu đáp án.",
+    "alt": "Xe bán đồ ăn có cửa phục vụ và mái che, với một khách đứng phía trước.",
     "caption": "Một gian bếp di động trên phố."
   },
   "source_sha256": "d39ae035f8ac797bcb35fabb0c214ea71d7baddf5e8015678a77968fe593a379",

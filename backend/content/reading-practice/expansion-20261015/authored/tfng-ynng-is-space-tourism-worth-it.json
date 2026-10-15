@@ -17,10 +17,10 @@
     ],
     [
       "p1-s2",
-      "Điều đó bắt đầu đổi năm 2021, khi công dân tư nhân mua vé vượt ranh giới không gian trên phương tiện do công ty tư nhân chế tạo.",
+      "Điều đó bắt đầu thay đổi năm 2021, khi những cá nhân tự bỏ tiền mua vé vượt qua ranh giới không gian trên phương tiện do công ty tư nhân chế tạo.",
       [
-        "private citizens",
-        "công dân tư nhân"
+        "private citizens who had bought tickets",
+        "những cá nhân tự bỏ tiền mua vé"
       ],
       [
         "the boundary of space",
@@ -77,14 +77,14 @@
     ],
     [
       "p2-s3",
-      "Người phản đối lập luận rằng ở mức giá ấy, tiền có thể được dùng tốt hơn cho các vấn đề cấp bách hơn ở quê nhà.",
+      "Người phản đối lập luận rằng ở mức giá ấy, tiền có thể được dùng tốt hơn cho các vấn đề cấp bách hơn ngay trên Trái Đất.",
       [
         "critics argue",
         "Người phản đối lập luận"
       ],
       [
         "more pressing problems at home",
-        "các vấn đề cấp bách hơn ở quê nhà"
+        "các vấn đề cấp bách hơn ngay trên Trái Đất"
       ]
     ],
     [
@@ -217,14 +217,14 @@
     ],
     [
       "p5-s3",
-      "Còn quá sớm để nói ngành này sẽ trưởng thành thành thứ có ích rộng rãi hơn hay vẫn là trò đắt đỏ của số ít.",
+      "Còn quá sớm để nói ngành này sẽ phát triển thành một lĩnh vực có ích rộng rãi hơn hay vẫn là một thú vui đắt đỏ dành cho số ít.",
       [
         "something more broadly useful",
-        "thứ có ích rộng rãi hơn"
+        "một lĩnh vực có ích rộng rãi hơn"
       ],
       [
         "an expensive game for the few",
-        "trò đắt đỏ của số ít"
+        "một thú vui đắt đỏ dành cho số ít"
       ],
       [
         "too early to say",
@@ -234,7 +234,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-space-travel-scene.svg",
-    "alt": "Một tên lửa nhỏ và đường cong Trái Đất nhìn từ không gian, không mang thương hiệu hay giá vé.",
+    "alt": "Tên lửa bay phía trên đường cong của Trái Đất dưới bầu trời đầy sao.",
     "caption": "Những hành trình vượt khỏi bầu khí quyển."
   },
   "source_sha256": "77fad9d67f3b15e97bc697b67fd7dc960e63838fb92a375ec4bc804e9e07f91f",

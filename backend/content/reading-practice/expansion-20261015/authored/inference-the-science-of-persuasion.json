@@ -61,10 +61,10 @@
     ],
     [
       "p2-s3",
-      "Lợi ích ấy không cần lớn hay thậm chí được mong muốn; điều quan trọng là cảm giác mang ơn nó để lại, được một món mua nhỏ giải tỏa thuận tiện.",
+      "Lợi ích ấy không cần phải lớn hay thậm chí là điều ta mong muốn; điều quan trọng là cảm giác mang ơn nó để lại, mà một lần mua hàng với giá trị nhỏ cũng dễ dàng giúp ta giải tỏa.",
       [
         "need not be large or even wanted",
-        "không cần lớn hay thậm chí được mong muốn"
+        "không cần phải lớn hay thậm chí là điều ta mong muốn"
       ],
       [
         "the sense of obligation",
@@ -72,7 +72,7 @@
       ],
       [
         "a modest purchase",
-        "một món mua nhỏ"
+        "một lần mua hàng với giá trị nhỏ"
       ]
     ],
     [
@@ -117,10 +117,10 @@
     ],
     [
       "p3-s4",
-      "Đòn bẩy thứ ba, có liên quan, là uy tín thẩm quyền: lời khuyên có sức nặng hơn nhiều khi có vẻ đến từ bác sĩ, chuyên gia hoặc bất kỳ ai ở vị trí được tin cậy.",
+      "Đòn bẩy thứ ba, có liên quan, là uy quyền: lời khuyên có sức nặng hơn nhiều khi có vẻ đến từ bác sĩ, chuyên gia hoặc bất kỳ ai ở vị trí được tin cậy.",
       [
         "authority",
-        "uy tín thẩm quyền"
+        "uy quyền"
       ],
       [
         "carries far more weight",
@@ -157,10 +157,10 @@
     ],
     [
       "p4-s3",
-      "Khoảng thời gian cơ hội đang khép lại không thay đổi sản phẩm; nó thay đổi mức độ ta không muốn mất cơ hội sở hữu sản phẩm ấy.",
+      "Thời hạn sắp hết không thay đổi sản phẩm; nó thay đổi mức độ ta không muốn mất cơ hội sở hữu sản phẩm ấy.",
       [
         "The closing window",
-        "Khoảng thời gian cơ hội đang khép lại"
+        "Thời hạn sắp hết"
       ],
       [
         "lose the chance to have it",
@@ -210,7 +210,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-colour-packaging-scene.svg",
-    "alt": "Những sản phẩm không nhãn bày trên kệ của cửa hàng.",
+    "alt": "Các hộp và chai nhiều màu trên kệ hàng, cạnh bảng mẫu màu.",
     "caption": "Các lựa chọn mua sắm hằng ngày."
   },
   "source_sha256": "527f531604f4f38f5c77c566b6e403a3ad7d544f241f4359977e8c2838a73ce1",

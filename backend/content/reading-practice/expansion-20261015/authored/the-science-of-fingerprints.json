@@ -125,14 +125,14 @@
     ],
     [
       "p3-s4",
-      "Dấu gọi là vân tay tiềm ẩn thường vô hình, nên người điều tra phủ bột mịn trên mặt để hiện ra.",
+      "Những dấu vết này, được gọi là dấu vân tay tiềm ẩn, thường không nhìn thấy bằng mắt thường, nên các điều tra viên phủ bột mịn lên bề mặt để làm chúng hiện ra.",
       [
         "latent prints",
-        "vân tay tiềm ẩn"
+        "dấu vân tay tiềm ẩn"
       ],
       [
         "usually invisible",
-        "thường vô hình"
+        "thường không nhìn thấy bằng mắt thường"
       ],
       [
         "fine powder",
@@ -165,18 +165,18 @@
     ],
     [
       "p4-s2",
-      "Ngày nay dấu được quét, tự so với cơ sở dữ liệu lớn, trả khả năng trùng khớp trong vài giây.",
+      "Ngày nay, dấu vân tay được quét và tự động đối chiếu với một cơ sở dữ liệu khổng lồ, cho ra những dấu có thể trùng khớp chỉ trong vài giây.",
       [
         "a huge database",
-        "cơ sở dữ liệu lớn"
+        "một cơ sở dữ liệu khổng lồ"
       ],
       [
         "possible matches",
-        "khả năng trùng khớp"
+        "những dấu có thể trùng khớp"
       ],
       [
         "in seconds",
-        "trong vài giây"
+        "chỉ trong vài giây"
       ]
     ],
     [
@@ -218,7 +218,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-fingerprint-scene.svg",
-    "alt": "Mẫu đường vân nhân tạo và một điện thoại có biểu tượng khóa, không phải dấu vân của người thật.",
+    "alt": "Một mẫu đường vân cách điệu cạnh điện thoại hiển thị biểu tượng khóa.",
     "caption": "Đường vân trong nhận diện hằng ngày."
   },
   "source_sha256": "6a9be7b77c8532cd61a95130eccaa1ac045d31a835ddc254c4b019e44f8e5b88",

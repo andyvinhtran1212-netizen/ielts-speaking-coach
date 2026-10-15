@@ -133,14 +133,14 @@
     ],
     [
       "p7-s1",
-      "Mẹo luyện tập: Khi đọc tìm chi tiết, hãy tìm chính xác những từ ngữ trong bài trả lời câu hỏi.",
+      "Mẹo luyện tập: Khi đọc tìm chi tiết, hãy tìm những từ ngữ chính xác trong bài để trả lời câu hỏi.",
       [
         "read for detail",
         "đọc tìm chi tiết"
       ],
       [
         "the exact words",
-        "chính xác những từ ngữ"
+        "những từ ngữ chính xác"
       ]
     ],
     [
@@ -158,7 +158,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-bees-garden-scene.svg",
-    "alt": "Ong mật đậu bên hoa trong khu vườn, tổ gỗ ở phía xa.",
+    "alt": "Ong bay bên những bông hoa trong vườn, với tổ ong gỗ ở phía xa.",
     "caption": "Quan sát ong trong vườn hoa."
   },
   "source_sha256": "9277bcc8a7cbc31e2082ba55af23e482ef1de914292a8d2d8f88c8e2aca80346",

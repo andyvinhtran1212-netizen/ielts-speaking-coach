@@ -173,9 +173,9 @@
     ]
   ],
   "illustration": {
-    "src": "/reading-illustrations/exp-ancient-harbour-scene.svg",
-    "alt": "Thuyền buồm nhỏ trước một bến cảng và đường chân trời phía xa.",
-    "caption": "Ra khơi và tìm hiểu những vùng biển xa."
+    "src": "/reading-illustrations/exp-exploration-desk-scene.svg",
+    "alt": "Bản đồ cách điệu, la bàn, ống nhòm một mắt và dây thừng trên bàn cạnh cửa sổ nhìn ra biển.",
+    "caption": "Tìm đường và chuẩn bị cho một chuyến đi biển."
   },
   "source_sha256": "8398370dc52b81a8c0b2f262901eec8e4456d49cdcbdf8065149613abee5a1b2",
   "expected_translation_sha256": "753dfd27f60c520755f6ae5d6a0a7aa6bb1ee1f8d339f3a5c78200a3c0640663"

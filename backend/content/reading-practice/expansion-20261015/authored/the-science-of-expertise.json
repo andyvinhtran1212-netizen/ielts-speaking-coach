@@ -5,18 +5,22 @@
   "sentences": [
     [
       "p1-s1",
-      "Đầu những năm 1990, Anders Ericsson và đồng nghiệp nghiên cứu học viên violin ở học viện âm nhạc nổi tiếng Berlin, muốn tìm điều tách người chỉ đủ năng lực khỏi người thực sự xuất sắc.",
+      "Đầu những năm 1990, nhà tâm lý học Anders Ericsson và các đồng nghiệp nghiên cứu học viên violin tại một học viện âm nhạc nổi tiếng ở Berlin, với hy vọng tìm ra điều gì phân biệt những người chỉ ở mức thành thạo với những người thực sự xuất sắc.",
+      [
+        "the psychologist",
+        "nhà tâm lý học"
+      ],
       [
         "violin students",
         "học viên violin"
       ],
       [
         "a celebrated music academy",
-        "học viện âm nhạc nổi tiếng"
+        "một học viện âm nhạc nổi tiếng"
       ],
       [
-        "the merely competent from the truly outstanding",
-        "người chỉ đủ năng lực khỏi người thực sự xuất sắc"
+        "what separates the merely competent from the truly outstanding",
+        "điều gì phân biệt những người chỉ ở mức thành thạo với những người thực sự xuất sắc"
       ]
     ],
     [
@@ -65,7 +69,7 @@
     ],
     [
       "p2-s2",
-      "Đến tuổi hai mươi, nhóm đầu trung bình tích lũy khoảng mười nghìn giờ luyện ấy, nhiều hơn đáng kể bạn kém thành công; chính công việc kỷ luật chứ không chơi tùy hứng dường như tạo ưu thế.",
+      "Nghiên cứu cho thấy đến tuổi hai mươi, nhóm đứng đầu đã tích lũy trung bình khoảng mười nghìn giờ luyện tập như vậy, nhiều hơn đáng kể so với các bạn có trình độ thấp hơn; chính việc luyện tập có kỷ luật này, thay vì chỉ chơi đàn tùy hứng, dường như đã tạo nên ưu thế của họ.",
       [
         "on average",
         "trung bình"
@@ -76,19 +80,19 @@
       ],
       [
         "rather than casual playing",
-        "chứ không chơi tùy hứng"
+        "thay vì chỉ chơi đàn tùy hứng"
       ]
     ],
     [
       "p3-s1",
-      "Nghiên cứu có thể đã ở trong tâm lý học nếu sách bán chạy không về sau phổ biến một con số dễ nhớ.",
+      "Nghiên cứu này có thể đã chỉ được biết đến trong ngành tâm lý học nếu về sau không có một cuốn sách bán chạy phổ biến một con số duy nhất, dễ nhớ.",
       [
         "a best-selling book",
-        "sách bán chạy"
+        "một cuốn sách bán chạy"
       ],
       [
         "a single, memorable figure",
-        "một con số dễ nhớ"
+        "một con số duy nhất, dễ nhớ"
       ]
     ],
     [
@@ -121,46 +125,46 @@
     ],
     [
       "p3-s4",
-      "Con số chỉ là số tổng hợp, không phải tổng mọi nghệ sĩ violin tài năng thực sự đạt; dù sao số tròn ấy cũng hơi tùy ý, không có quyền lực đặc biệt.",
+      "Con số ấy chỉ là số liệu tổng hợp, chứ không phải tổng số giờ mà mọi nghệ sĩ violin tài năng đều thực sự đạt được; hơn nữa, con số tròn này ít nhiều mang tính tùy ý và không có tác dụng đặc biệt nào gắn với nó.",
       [
         "only an aggregate",
-        "chỉ là số tổng hợp"
+        "chỉ là số liệu tổng hợp"
       ],
       [
         "somewhat arbitrary",
-        "hơi tùy ý"
+        "ít nhiều mang tính tùy ý"
       ],
       [
         "no special power attached to it",
-        "không có quyền lực đặc biệt"
+        "không có tác dụng đặc biệt nào gắn với nó"
       ]
     ],
     [
       "p4-s1",
-      "Nghiêm trọng hơn, bản phổ biến nhầm số lượng luyện là toàn câu chuyện.",
+      "Nghiêm trọng hơn, cách diễn giải phổ biến đã nhầm rằng số lượng giờ luyện tập là tất cả những gì quyết định kết quả.",
       [
         "quantity of practice",
-        "số lượng luyện"
+        "số lượng giờ luyện tập"
       ],
       [
         "the whole story",
-        "toàn câu chuyện"
+        "tất cả những gì quyết định kết quả"
       ]
     ],
     [
       "p4-s2",
-      "Phân tích sau gợi ý số giờ luyện tập chỉ giải thích một phần độ biến thiên thành tích, và lượng cần thiết khác mạnh giữa lĩnh vực, từ cờ vua tới phẫu thuật, thể thao.",
+      "Các phân tích sau đó cho thấy số giờ luyện tập chỉ giải thích được một phần sự khác biệt về thành tích, và lượng luyện tập cần thiết khác nhau rất nhiều giữa các lĩnh vực, từ cờ vua đến phẫu thuật rồi thể thao.",
       [
         "explained only part of the variance in performance",
-        "chỉ giải thích một phần độ biến thiên thành tích"
+        "chỉ giải thích được một phần sự khác biệt về thành tích"
       ],
       [
         "differs sharply across domains",
-        "khác mạnh giữa lĩnh vực"
+        "khác nhau rất nhiều giữa các lĩnh vực"
       ],
       [
         "from chess to surgery to sport",
-        "từ cờ vua tới phẫu thuật, thể thao"
+        "từ cờ vua đến phẫu thuật rồi thể thao"
       ]
     ],
     [
@@ -198,7 +202,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-violin-practice-scene.svg",
-    "alt": "Một người luyện violin trước giá nhạc có dòng kẻ trống, không có giờ đếm hoặc thông điệp đạt trình độ sau số giờ cố định.",
+    "alt": "Một người luyện violin trước giá nhạc trong căn phòng có cửa sổ.",
     "caption": "Luyện tập một kỹ năng qua từng lần chỉnh sửa."
   },
   "source_sha256": "fc7dba62edf7d12da7bc87f83a1480ef722064e5e570985f7daa0d389d2b004a",

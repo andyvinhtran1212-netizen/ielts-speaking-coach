@@ -5,14 +5,14 @@
   "sentences": [
     [
       "p1-s1",
-      "Từ lâu trước khi máy tính thắng đại kiện tướng, một trò chơi bàn đơn giản đã đi hàng nghìn ki-lô-mét trên lưng lạc đà và theo tàu.",
+      "Từ lâu trước khi máy tính thắng đại kiện tướng, một trò chơi đơn giản trên bàn cờ đã đi hàng nghìn ki-lô-mét trên lưng lạc đà và theo tàu.",
       [
         "defeat grandmasters",
         "thắng đại kiện tướng"
       ],
       [
         "a simple board game",
-        "một trò chơi bàn đơn giản"
+        "một trò chơi đơn giản trên bàn cờ"
       ]
     ],
     [
@@ -101,14 +101,14 @@
     ],
     [
       "p3-s2",
-      "Tên quân thay đổi, quyền đi quân cũng vậy.",
+      "Tên gọi các quân thay đổi, và khả năng đi quân của chúng cũng vậy.",
       [
         "The names of the pieces changed",
-        "Tên quân thay đổi"
+        "Tên gọi các quân thay đổi"
       ],
       [
         "their powers",
-        "quyền đi quân"
+        "khả năng đi quân của chúng"
       ]
     ],
     [
@@ -125,14 +125,14 @@
     ],
     [
       "p3-s4",
-      "Mục tiêu vẫn vậy: dồn vua đối thủ vào thế bí, tưởng thưởng kế hoạch cẩn thận và chiến lược khéo thay vì may mắn.",
+      "Mục tiêu vẫn vậy: chiếu bí vua đối phương, qua đó đề cao kế hoạch cẩn thận và chiến lược khéo léo thay vì may mắn.",
       [
         "to trap the opponent's king",
-        "dồn vua đối thủ vào thế bí"
+        "chiếu bí vua đối phương"
       ],
       [
         "clever strategy rather than luck",
-        "chiến lược khéo thay vì may mắn"
+        "chiến lược khéo léo thay vì may mắn"
       ]
     ],
     [
@@ -178,7 +178,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-chess-board-scene.svg",
-    "alt": "Một bàn cờ tám hàng tám cột với vài quân cờ minh hoạ, cạnh cuốn sổ không ghi nước đi.",
+    "alt": "Bàn cờ với một vài quân cờ, cạnh tờ giấy ghi chép.",
     "caption": "Một trò chơi qua nhiều nền văn hóa."
   },
   "source_sha256": "a83b32a091c845bd3fa7a83f11ac8eaa1cf6e6e22efda392bd8107dc5497998f",

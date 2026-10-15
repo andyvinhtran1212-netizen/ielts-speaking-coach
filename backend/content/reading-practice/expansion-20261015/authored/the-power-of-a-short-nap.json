@@ -37,14 +37,14 @@
     ],
     [
       "p2-s1",
-      "Ngủ chợp mắt là giấc ngủ ngắn ban ngày.",
+      "Chợp mắt là ngủ một giấc ngắn vào ban ngày.",
       [
         "A nap",
-        "Ngủ chợp mắt"
+        "Chợp mắt"
       ],
       [
         "a short sleep in the day",
-        "giấc ngủ ngắn ban ngày"
+        "ngủ một giấc ngắn vào ban ngày"
       ]
     ],
     [
@@ -93,7 +93,7 @@
     ],
     [
       "p3-s1",
-      "Nghiên cứu mới cho thấy giấc chợp tốt nhất là ngắn — khoảng 20 phút.",
+      "Nghiên cứu mới cho thấy những giấc ngủ ngắn tốt nhất chỉ kéo dài khoảng 20 phút.",
       [
         "New research shows",
         "Nghiên cứu mới cho thấy"
@@ -105,7 +105,7 @@
     ],
     [
       "p3-s2",
-      "Sau chợp mắt 20 phút, phần lớn mọi người thấy sảng khoái.",
+      "Sau một giấc ngủ ngắn 20 phút, phần lớn mọi người thấy sảng khoái.",
       [
         "most people",
         "phần lớn mọi người"
@@ -129,10 +129,10 @@
     ],
     [
       "p3-s4",
-      "Giấc chợp còn giúp trí nhớ.",
+      "Một giấc ngủ ngắn cũng có thể giúp ích cho trí nhớ của bạn.",
       [
         "your memory",
-        "trí nhớ"
+        "trí nhớ của bạn"
       ]
     ],
     [
@@ -157,10 +157,10 @@
     ],
     [
       "p4-s2",
-      "Ngủ trưa quá dài có thể làm bạn thấy tệ hơn chứ không tốt hơn.",
+      "Một giấc ngủ ban ngày quá dài có thể làm bạn thấy tệ hơn chứ không tốt hơn.",
       [
         "A very long nap",
-        "Ngủ trưa quá dài"
+        "Một giấc ngủ ban ngày quá dài"
       ],
       [
         "worse, not better",
@@ -181,10 +181,10 @@
     ],
     [
       "p4-s4",
-      "Vậy hãy giữ giấc chợp ngắn.",
+      "Vì vậy, đừng kéo dài giấc ngủ ban ngày.",
       [
         "keep your nap short",
-        "hãy giữ giấc chợp ngắn"
+        "đừng kéo dài giấc ngủ ban ngày"
       ]
     ],
     [
@@ -202,7 +202,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-afternoon-nap-scene.svg",
-    "alt": "Một người nghỉ trên ghế sofa trong phòng sáng dịu, cạnh cửa sổ và chậu cây; không có đồng hồ đo thời lượng.",
+    "alt": "Một người nghỉ trên ghế sofa trong căn phòng có ánh nắng, cạnh cửa sổ và chậu cây.",
     "caption": "Một khoảng nghỉ ban ngày."
   },
   "source_sha256": "547d90674680d2cba83df7179f63eee68009f3d0b1aa347205e7b9bb0cf6be43",

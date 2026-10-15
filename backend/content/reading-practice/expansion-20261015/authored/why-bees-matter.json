@@ -101,10 +101,10 @@
     ],
     [
       "p3-s2",
-      "Khi đậu lên hoa, ong hút mật ngọt và mang những hạt phấn li ti trên cơ thể.",
+      "Khi đậu lên hoa, ong hút mật hoa ngọt và mang những hạt phấn li ti trên cơ thể.",
       [
         "the sweet nectar",
-        "mật ngọt"
+        "mật hoa ngọt"
       ],
       [
         "tiny grains of pollen",
@@ -230,7 +230,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-bees-garden-scene.svg",
-    "alt": "Ong bay giữa những bông hoa trong vườn.",
+    "alt": "Ong bay bên những bông hoa trong vườn, với tổ ong gỗ ở phía xa.",
     "caption": "Những vị khách nhỏ của vườn hoa."
   },
   "source_sha256": "809695f180fffeb98244be01d8ac63fa611eec4a13d522921e8fec4cefed2a7f",

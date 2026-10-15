@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Giấy và chữ viết</title>
+  <desc id="desc">Các tờ giấy, cuộn giấy và bút trên bàn cạnh cửa sổ và chậu cây.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f1"/>
+  <rect x="390" y="31" width="280" height="163" fill="#dcecef" stroke="#80aaa0" stroke-width="7"/>
+  <path d="M394 149Q455 108 530 144T666 136V191H394Z" fill="#b6d0b3"/>
+  <path d="M530 33V193" stroke="#80aaa0" stroke-width="5"/>
+  <rect y="234" width="800" height="166" fill="#d9c7a9"/>
+  <path d="M721 227V121M720 169Q684 166 687 140Q714 138 720 169M722 149Q754 142 755 115Q724 114 722 149" fill="#b6d0b3" stroke="#3d8275" stroke-width="3"/>
+  <path d="M683 218H759L746 279H697Z" fill="#c9965d"/>
+  <path d="M59 311L220 288L287 338L119 363ZM61 301L222 278L289 328L121 353ZM63 291L224 268L291 318L123 343Z" fill="#faf8ef" stroke="#b6a67f" stroke-width="3"/>
+  <path d="M310 273L480 245L561 321L383 358Z" fill="#fffaf0" stroke="#b6a67f" stroke-width="3"/>
+  <path d="M352 283L466 266M368 299L482 282M384 315L498 298" stroke="#80aaa0" stroke-width="4"/>
+  <g transform="translate(0 45)">
+    <path d="M91 223Q75 190 112 183L271 164Q244 175 260 207L101 230Z" fill="#eee2b0" stroke="#b6a67f" stroke-width="3"/>
+    <path d="M112 184Q96 202 112 223" fill="none" stroke="#b6a67f" stroke-width="3"/>
+  </g>
+  <path d="M560 348L660 307" stroke="#aa825e" stroke-width="9" stroke-linecap="round"/>
+  <path d="M560 347L545 359L564 356Z" fill="#293b43"/>
+  <rect x="580" y="220" width="58" height="65" rx="4" fill="#a8cbd0"/>
+  <path d="M595 221L588 177M608 221V166M622 221L634 179" stroke="#796249" stroke-width="7" stroke-linecap="round"/>
+</svg>

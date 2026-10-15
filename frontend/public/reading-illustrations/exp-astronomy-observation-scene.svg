@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Quan sát bầu trời đêm</title>
+  <desc id="desc">Kính thiên văn hướng lên bầu trời có sao và một thiên thể sáng, bên cạnh là sổ quan sát mở.</desc>
+  <rect width="800" height="400" rx="24" fill="#293b43"/>
+  <g fill="#edf5f1"><circle cx="55" cy="67" r="3"/><circle cx="164" cy="38" r="2"/><circle cx="274" cy="88" r="3"/><circle cx="409" cy="36" r="2"/><circle cx="511" cy="107" r="3"/><circle cx="747" cy="84" r="2"/><circle cx="675" cy="194" r="3"/><circle cx="432" cy="159" r="2"/><circle cx="87" cy="188" r="2"/><circle cx="319" cy="164" r="2"/></g>
+  <circle cx="645" cy="73" r="25" fill="#eee2b0"/>
+  <path d="M188 115H206M197 106V124M548 45H562M555 38V52M717 136H731M724 129V143" stroke="#d3b26d" stroke-width="3" stroke-linecap="round"/>
+  <path d="M0 303L125 242L248 284L408 230L580 282L697 232L800 283V400H0Z" fill="#6c9288"/>
+  <path d="M0 338Q219 301 402 330T800 326V400H0Z" fill="#b6d0b3"/>
+  <path d="M287 238L230 375M287 238L346 375M287 238V377" stroke="#293b43" stroke-width="10" stroke-linecap="round"/>
+  <g transform="translate(285 220) rotate(-32)">
+    <rect x="-80" y="-23" width="203" height="46" rx="8" fill="#a8cbd0" stroke="#edf5f1" stroke-width="4"/>
+    <rect x="105" y="-30" width="30" height="60" rx="5" fill="#3d8275"/>
+    <path d="M-97 -7H-80M-97 -7V10" fill="none" stroke="#edf5f1" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <circle cx="287" cy="242" r="14" fill="#aa825e"/>
+  <path d="M508 324L609 304L712 324L702 377L609 359L519 377Z" fill="#faf8ef" stroke="#aa825e" stroke-width="3"/>
+  <path d="M609 307V358" stroke="#d9c7a9" stroke-width="3"/>
+  <g fill="#80aaa0"><circle cx="550" cy="339" r="3"/><circle cx="571" cy="325" r="3"/><circle cx="584" cy="350" r="3"/></g>
+  <path d="M633 328L682 336M631 343L675 351" stroke="#80aaa0" stroke-width="3"/>
+</svg>

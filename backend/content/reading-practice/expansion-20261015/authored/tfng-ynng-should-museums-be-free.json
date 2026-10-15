@@ -5,10 +5,10 @@
   "sentences": [
     [
       "p1-s1",
-      "Tháng 12 năm 2001, Vương quốc Anh bỏ phí vào các bảo tàng quốc gia, và thay đổi được cảm nhận ngay.",
+      "Tháng 12 năm 2001, Vương quốc Anh bãi bỏ phí vào cửa các bảo tàng quốc gia, và thay đổi được cảm nhận ngay.",
       [
         "abolished entry charges",
-        "bỏ phí vào"
+        "bãi bỏ phí vào cửa"
       ],
       [
         "its national museums",
@@ -29,14 +29,14 @@
     ],
     [
       "p1-s3",
-      "Với người thiết kế chính sách, bài học đơn giản: ngay cả giá vé khiêm tốn cũng âm thầm ngăn chính những khách bảo tàng mong chào đón nhất.",
+      "Với người thiết kế chính sách, bài học đơn giản: ngay cả một mức giá vé thấp cũng âm thầm làm chùn chân chính những vị khách mà bảo tàng mong chào đón nhất.",
       [
         "even a modest ticket price",
-        "ngay cả giá vé khiêm tốn"
+        "ngay cả một mức giá vé thấp"
       ],
       [
         "quietly deters",
-        "âm thầm ngăn"
+        "âm thầm làm chùn chân"
       ]
     ],
     [
@@ -202,7 +202,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-museum-gallery-scene.svg",
-    "alt": "Khách đứng xem tranh và hiện vật trên bệ trong phòng trưng bày, không có biển giá hoặc nhãn đáp án.",
+    "alt": "Khách tham quan đứng xem tranh và bình gốm trên bệ trong phòng trưng bày.",
     "caption": "Một không gian để nhìn ngắm nghệ thuật và lịch sử."
   },
   "source_sha256": "a2c4bca255bfb62ead99d459f267503ba13b96a108237955f6c667b1c1f4ad65",

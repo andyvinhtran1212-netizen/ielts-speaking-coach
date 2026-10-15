@@ -41,14 +41,14 @@
     ],
     [
       "p2-s2",
-      "Chủ nghĩa hiện thực, tên gọi của phong trào, thay vào đó hướng tới đời thường của người bình dân — lao động, nông dân và dân nghèo thành thị — nhằm thể hiện họ trung thực, không tô hồng hay lãng mạn hóa.",
+      "Chủ nghĩa hiện thực, tên gọi của phong trào, thay vào đó hướng tới đời thường của người bình dân — người lao động, nông dân và dân nghèo thành thị — nhằm thể hiện họ trung thực, không tô hồng hay lãng mạn hóa.",
       [
         "Realism",
         "Chủ nghĩa hiện thực"
       ],
       [
         "labourers, peasants and the urban poor",
-        "lao động, nông dân và dân nghèo thành thị"
+        "người lao động, nông dân và dân nghèo thành thị"
       ],
       [
         "without flattery or romance",
@@ -157,14 +157,14 @@
     ],
     [
       "p5-s3",
-      "Theo một tuyên ngôn công bố năm 1924, họ phủ tranh bằng những hình ảnh như mơ, bất khả, rút ra từ hoạt động ẩn sâu của tâm trí vô thức.",
+      "Theo một tuyên ngôn công bố năm 1924, họ phủ tranh bằng những hình ảnh như mơ, không thể có trong thực tế, rút ra từ hoạt động ẩn sâu của tâm trí vô thức.",
       [
         "a manifesto published in 1924",
         "một tuyên ngôn công bố năm 1924"
       ],
       [
         "dreamlike, impossible images",
-        "những hình ảnh như mơ, bất khả"
+        "những hình ảnh như mơ, không thể có trong thực tế"
       ],
       [
         "the unconscious mind",
@@ -198,7 +198,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-painting-studio-scene.svg",
-    "alt": "Giá vẽ với tranh phong cảnh đang làm dở, bảng pha màu và cửa sổ hướng ra cây xanh.",
+    "alt": "Giá vẽ với tranh phong cảnh đang làm dở, cạnh bảng pha màu, cọ và cửa sổ.",
     "caption": "Nhiều cách nhìn và thể hiện thế giới."
   },
   "source_sha256": "e339e70de2bedc3fb16ec27bea7a978c9bfdc8833222e27693eb269318756d7e",

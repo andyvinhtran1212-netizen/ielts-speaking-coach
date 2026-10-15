@@ -137,7 +137,7 @@
     ],
     [
       "p4-s3",
-      "Ông gọi đây là “vấn đề khó” của ý thức, phân biệt nó với những “vấn đề dễ” hơn là lập bản đồ cơ chế.",
+      "Ông gọi đây là “vấn đề khó” của ý thức, phân biệt nó với những “vấn đề dễ” hơn là xác định các cơ chế hoạt động.",
       [
         "hard problem",
         "vấn đề khó"
@@ -148,7 +148,7 @@
       ],
       [
         "mapping mechanisms",
-        "lập bản đồ cơ chế"
+        "xác định các cơ chế hoạt động"
       ]
     ],
     [
@@ -222,7 +222,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-memory-search-scene.svg",
-    "alt": "Một người suy nghĩ bên máy tính và cuốn sổ đang mở.",
+    "alt": "Một người tra cứu trên máy tính bên cuốn sổ mở và các thẻ ghi chú.",
     "caption": "Tâm trí, cơ chế và trải nghiệm."
   },
   "source_sha256": "27a6c6e284525039c820c7fc8566968d327969ffebf5c7bdd461760b7062be72",

@@ -77,10 +77,10 @@
     ],
     [
       "p3-s1",
-      "C — Phần lớn tài năng xuất chúng của ông thể hiện trong sổ tay.",
+      "C — Một phần đáng kể tài năng xuất chúng của ông thể hiện trong sổ tay.",
       [
         "Much of his genius",
-        "Phần lớn tài năng xuất chúng của ông"
+        "Một phần đáng kể tài năng xuất chúng của ông"
       ],
       [
         "in his notebooks",
@@ -89,7 +89,7 @@
     ],
     [
       "p3-s2",
-      "Leonardo lấp đầy hàng nghìn trang bằng phác thảo, kế hoạch và câu hỏi, ghi chú từ phải sang trái theo một kiểu chữ gương.",
+      "Leonardo lấp đầy hàng nghìn trang bằng phác thảo, kế hoạch và câu hỏi, ghi chú từ phải sang trái theo kiểu chữ viết ngược như ảnh trong gương.",
       [
         "thousands of pages",
         "hàng nghìn trang"
@@ -100,7 +100,7 @@
       ],
       [
         "a kind of mirror writing",
-        "một kiểu chữ gương"
+        "kiểu chữ viết ngược như ảnh trong gương"
       ]
     ],
     [
@@ -202,7 +202,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-painting-studio-scene.svg",
-    "alt": "Giá vẽ, tranh đang làm dở và bảng pha màu trong một không gian sáng.",
+    "alt": "Giá vẽ với tranh phong cảnh đang làm dở, cạnh bảng pha màu, cọ và cửa sổ.",
     "caption": "Quan sát, đặt câu hỏi và sáng tạo."
   },
   "source_sha256": "c3021815d1b90bafb4c2cbf46e7029cd9a2bf69f89868d98676c86a2332037d5",
