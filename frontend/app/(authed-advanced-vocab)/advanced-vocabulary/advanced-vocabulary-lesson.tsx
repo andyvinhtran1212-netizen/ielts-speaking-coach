@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
 import {
   buildSpeakingLadders,
   preserveControlledRewriteResult,
@@ -66,11 +67,7 @@ function BlockSections({ sections }: { sections: Json[] | undefined }) {
 }
 
 function AudioButton({ src, label, tabIndex }: { src?: string | null; label: string; tabIndex?: number }) {
-  const play = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    if (src) void new Audio(src).play();
-  };
-  return <button type="button" className="fcs-audio" onClick={play} disabled={!src} aria-label={label} tabIndex={tabIndex}><span aria-hidden="true">▶</span></button>;
+  return <VocabularyAudioButton url={src} label={label} tabIndex={tabIndex} />;
 }
 
 function InlineText({ text }: { text: string }) {

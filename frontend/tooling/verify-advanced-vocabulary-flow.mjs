@@ -141,6 +141,7 @@ await page.evaluate(() => {
   window.Audio = class FixtureAudio {
     constructor(src) { window.__playedFixtureAudio = String(src); }
     play() { return Promise.resolve(); }
+    pause() {}
   };
 });
 await page.getByRole('button', { name: 'Nghe ví dụ' }).click();
