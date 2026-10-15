@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Chim cánh cụt non trên băng</title><desc id="desc">Ba chim cánh cụt non lông xám đứng gần nhau cạnh một chim trưởng thành, trên nền băng ven biển.</desc>
+  <rect width="800" height="400" rx="24" fill="#e8f1f4"/>
+  <path d="M0 213H800V400H0Z" fill="#a8cbd0"/><path d="M0 294L198 248L432 274L644 236L800 277V400H0Z" fill="#f8faf7"/>
+  <g transform="translate(579 322)"><ellipse cy="-94" rx="46" ry="96" fill="#293b43"/><ellipse cx="4" cy="-76" rx="32" ry="70" fill="#fff"/><circle cy="-179" r="31" fill="#293b43"/><path d="M8 -167Q36 -157 26 -137H6Z" fill="#e5c969"/><path d="M-23 -180L-49 -170L-23 -162Z" fill="#c99660"/><circle cx="-11" cy="-185" r="3" fill="#fff"/><path d="M-36 -128Q-70 -67 -55 -44L-31 -94" fill="#293b43"/><path d="M-25 0L-34 11H-3L4 0M15 0L12 11H42L34 0" fill="#b9914f"/></g>
+  <defs><g id="chick"><ellipse cy="-49" rx="34" ry="51" fill="#9fadb0"/><circle cy="-96" r="26" fill="#293b43"/><ellipse cy="-93" rx="20" ry="18" fill="#edf0e8"/><circle cx="-8" cy="-98" r="3" fill="#293b43"/><circle cx="8" cy="-98" r="3" fill="#293b43"/><path d="M-5 -89L0 -83L6 -89Z" fill="#63463b"/><path d="M-28 -67L-45 -24L-27 -37M29 -67L46 -24L28 -37" fill="#8b9b9e"/><path d="M-15 0L-22 9H-1L3 0M10 0L9 9H31L24 0" fill="#796249"/><path d="M-18 -46Q0 -36 18 -46M-14 -21Q0 -13 14 -21" fill="none" stroke="#bac7c8" stroke-width="4"/></g></defs>
+  <use href="#chick" transform="translate(218 323) scale(.9)"/><use href="#chick" transform="translate(312 344)"/><use href="#chick" transform="translate(412 320) scale(.86)"/>
+  <path d="M61 350H155M445 371H532M650 344H735" stroke="#d4e3e5" stroke-width="5" stroke-linecap="round"/>
+</svg>

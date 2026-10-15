@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Giấy cũ và những tờ giấy mới</title><desc id="desc">Giỏ thu gom chứa báo và bìa hộp nằm cạnh một chồng giấy sạch; mũi tên nối hai phía.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 337H800V400H0Z" fill="#d8c6ab"/>
+  <g transform="translate(92 96)">
+    <path d="M28 80L20 0H146L162 91" fill="#e8e9de" stroke="#8b9b96" stroke-width="4"/>
+    <path d="M36 21H126M39 36H130M43 52H99" stroke="#8b9b96" stroke-width="4"/>
+    <path d="M101 102L138 38L209 70L187 131" fill="#c3a47b" stroke="#9b7958" stroke-width="4"/>
+    <path d="M0 97H222L199 244H24Z" fill="#80aaa0" stroke="#3d8275" stroke-width="5"/>
+    <path d="M58 109L71 230M111 109V230M168 109L155 230" stroke="#b8d5ca" stroke-width="5"/>
+    <path d="M-4 93H226" stroke="#3d8275" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  <g stroke="#9baba6" stroke-width="4" fill="#fff"><path d="M478 235L638 199L733 258L574 299Z"/><path d="M478 246L574 309L733 268M478 257L574 320L733 279M478 268L574 331L733 290" fill="#e7eee8"/><path d="M478 279L574 342L733 301" fill="#fff"/></g>
+  <path d="M344 183C389 125 448 126 487 164" fill="none" stroke="#3d8275" stroke-width="12" stroke-linecap="round"/>
+  <path d="M469 137L491 169L455 172" fill="none" stroke="#3d8275" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M585 96L594 75L607 96L630 99L612 114L614 138L594 126L574 138L577 114L559 99Z" fill="#e5c969"/>
+</svg>

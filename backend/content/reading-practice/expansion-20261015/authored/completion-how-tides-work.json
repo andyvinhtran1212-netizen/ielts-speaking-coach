@@ -1,0 +1,166 @@
+{
+  "slug": "completion-how-tides-work",
+  "review_notes": "Dịch lại các diễn đạt ẩn dụ tự nhiên hơn; giữ mốc thời gian, phân biệt triều cường với triều kém, không diễn giải spring là mùa xuân.",
+  "illustration_brief": "Hai góc nhìn cùng một bãi biển khi nước dâng và khi lộ cát, có cùng mỏm đá và cầu gỗ để đối chiếu; không đánh số chu kỳ hay vẽ đáp án vị trí thiên thể.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Biển chẳng bao giờ hoàn toàn tĩnh lặng.",
+      [
+        "never quite still",
+        "chẳng bao giờ hoàn toàn tĩnh lặng"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Ở phần lớn bờ biển, nước dâng lên bãi rồi lại rút xuống hai lần mỗi ngày, một nhịp điệu đã dẫn đường cho thủy thủ và ngư dân suốt hàng nghìn năm.",
+      [
+        "Twice a day",
+        "hai lần mỗi ngày"
+      ],
+      [
+        "sailors and fishermen",
+        "thủy thủ và ngư dân"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nguyên nhân chính nằm cách xa một phần tư triệu dặm: lực hấp dẫn của Mặt Trăng.",
+      [
+        "a quarter of a million miles away",
+        "cách xa một phần tư triệu dặm"
+      ],
+      [
+        "the gravity of the Moon",
+        "lực hấp dẫn của Mặt Trăng"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Dù Mặt Trăng nhỏ hơn Trái Đất rất nhiều, lực hấp dẫn của nó vẫn đủ mạnh để kéo nhẹ nước trong các đại dương.",
+      [
+        "far smaller than the Earth",
+        "nhỏ hơn Trái Đất rất nhiều"
+      ],
+      [
+        "gravitational pull",
+        "lực hấp dẫn"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nước ở phía Trái Đất hướng về Mặt Trăng bị hút về phía nó và dâng phình lên; một vùng nước dâng tương ứng cũng hình thành ở phía đối diện.",
+      [
+        "facing the Moon",
+        "hướng về Mặt Trăng"
+      ],
+      [
+        "on the opposite side",
+        "ở phía đối diện"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Hai vùng nước dâng này tạo nên triều lên.",
+      [
+        "two heaps of water",
+        "Hai vùng nước dâng"
+      ],
+      [
+        "the high tides",
+        "triều lên"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Khi Trái Đất quay quanh trục một vòng mỗi ngày, mỗi đoạn bờ biển lần lượt đi vào rồi ra khỏi vùng nước dâng; vì vậy, phần lớn nơi có hai lần triều lên và hai lần triều xuống trong khoảng hai mươi tư giờ.",
+      [
+        "rotates on its axis",
+        "quay quanh trục"
+      ],
+      [
+        "two high tides and two low tides",
+        "hai lần triều lên và hai lần triều xuống"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Khoảng cách giữa hai lần triều lên liên tiếp là khoảng mười hai giờ hai mươi lăm phút.",
+      [
+        "one high tide and the next",
+        "hai lần triều lên liên tiếp"
+      ],
+      [
+        "twelve hours and twenty-five minutes",
+        "mười hai giờ hai mươi lăm phút"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Mặt Trời cũng góp thêm lực hút nhỏ hơn, và cách hai thiên thể này sắp hàng làm thay đổi biên độ thủy triều.",
+      [
+        "a smaller pull",
+        "lực hút nhỏ hơn"
+      ],
+      [
+        "the size of the tides",
+        "biên độ thủy triều"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Khi Mặt Trời, Trái Đất và Mặt Trăng nằm thẳng hàng, gần lúc trăng mới và trăng tròn, lực hấp dẫn kết hợp khiến mức nước dâng và rút lớn bất thường, gọi là triều cường.",
+      [
+        "a straight line",
+        "thẳng hàng"
+      ],
+      [
+        "a spring tide",
+        "triều cường"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khoảng một tuần sau, khi hướng từ Trái Đất tới Mặt Trời và Mặt Trăng tạo góc vuông, hai lực hút triệt tiêu nhau một phần, tạo ra triều kém với mức biến động nhỏ hơn.",
+      [
+        "partly cancel",
+        "triệt tiêu nhau một phần"
+      ],
+      [
+        "a gentler neap tide",
+        "triều kém với mức biến động nhỏ hơn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Bờ biển, gió và hình dạng đáy biển khiến bức tranh đơn giản này phức tạp hơn, nên thủy triều thực tế hiếm khi khớp hoàn toàn với mô hình.",
+      [
+        "the shape of the sea floor",
+        "hình dạng đáy biển"
+      ],
+      [
+        "rarely match",
+        "hiếm khi khớp"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Tuy nhiên, động lực nền tảng vẫn là tương tác hấp dẫn đều đặn giữa Trái Đất, Mặt Trăng của nó và Mặt Trời ở xa hơn.",
+      [
+        "The underlying engine",
+        "động lực nền tảng"
+      ],
+      [
+        "the steady gravitational conversation",
+        "tương tác hấp dẫn đều đặn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-tidal-coast-scene.svg",
+    "alt": "Cùng một cầu gỗ và mỏm đá ở hai mực nước, một bên lộ nhiều cát hơn.",
+    "caption": "Đối chiếu sự thay đổi của một bãi biển."
+  },
+  "source_sha256": "e3a12b78536a86a52ea2834da7fe8fdc9f198bc843c623f1d731fc935fe11f70",
+  "expected_translation_sha256": "205eb35738be99188d92d7947dda1d6b6855f194b7fa181d320bd246da0302de"
+}

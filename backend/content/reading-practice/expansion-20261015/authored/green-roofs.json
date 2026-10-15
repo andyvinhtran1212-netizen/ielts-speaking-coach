@@ -1,0 +1,190 @@
+{
+  "slug": "green-roofs",
+  "review_notes": "Dịch lại từng câu, giữ điều kiện và mức độ có thể; phân biệt nước chảy tràn với cống thoát nước, insulation với chỉ che nắng.",
+  "illustration_brief": "Mái bằng phủ cỏ và hoa trên tòa nhà giữa phố, có chim và người đi bộ; không ghi nhãn các lớp cấu tạo.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Trên cao, phía trên một con phố đông đúc ở Singapore, mái bằng của một tòa nhà đã được biến thành thảm cỏ và hoa nhỏ.",
+      [
+        "a flat rooftop",
+        "mái bằng của một tòa nhà"
+      ],
+      [
+        "a small meadow of grass and flowers",
+        "thảm cỏ và hoa nhỏ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Đó là mái xanh, và những khu vườn tương tự đang xuất hiện trên các tòa nhà khắp thế giới.",
+      [
+        "a green roof",
+        "mái xanh"
+      ],
+      [
+        "around the world",
+        "khắp thế giới"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Mái xanh không chỉ gồm vài chậu cây.",
+      [
+        "more than a few pots of plants",
+        "không chỉ gồm vài chậu cây"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nó được tạo từ nhiều lớp: tấm chống thấm bảo vệ tòa nhà, lớp nền thoát nước và đất cho cây phát triển.",
+      [
+        "a waterproof sheet",
+        "tấm chống thấm"
+      ],
+      [
+        "a base for drainage",
+        "lớp nền thoát nước"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Các lớp phối hợp như một tấm chăn cách nhiệt, giúp tòa nhà mát hơn vào hè và ấm hơn vào đông.",
+      [
+        "a blanket of insulation",
+        "một tấm chăn cách nhiệt"
+      ],
+      [
+        "cooler in summer",
+        "mát hơn vào hè"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Cây cối cũng làm những việc hữu ích.",
+      [
+        "do useful work",
+        "làm những việc hữu ích"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Khi mưa lớn, chúng hút lượng nước vốn sẽ đổ nhanh vào cống.",
+      [
+        "During heavy rain",
+        "Khi mưa lớn"
+      ],
+      [
+        "rush into the drains",
+        "đổ nhanh vào cống"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Nhờ đó, lượng nước chảy tràn có thể gây ngập đường phố giảm đi.",
+      [
+        "the runoff",
+        "lượng nước chảy tràn"
+      ],
+      [
+        "flood city streets",
+        "gây ngập đường phố"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Khu vườn cũng trở thành nơi sống của ong, bướm và chim, đưa thiên nhiên trở lại thành phố.",
+      [
+        "a habitat",
+        "nơi sống"
+      ],
+      [
+        "bringing nature back into the city",
+        "đưa thiên nhiên trở lại thành phố"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Mái xanh còn mang lại những lợi ích rộng hơn.",
+      [
+        "wider benefits",
+        "những lợi ích rộng hơn"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Cây giải phóng hơi ẩm và che bóng cho bề mặt, nhờ đó có thể làm giảm nhiệt độ không khí gần đó.",
+      [
+        "release moisture",
+        "giải phóng hơi ẩm"
+      ],
+      [
+        "shade the surface",
+        "che bóng cho bề mặt"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Ở trung tâm đô thị dày đặc, nơi không gian xanh hiếm hoi, ngay cả khu vườn nhỏ trên mái cũng có thể tạo khác biệt.",
+      [
+        "a dense city centre",
+        "trung tâm đô thị dày đặc"
+      ],
+      [
+        "make a difference",
+        "tạo khác biệt"
+      ]
+    ],
+    [
+      "p6-s1",
+      "Tất nhiên, mái xanh cũng có điểm chưa hoàn hảo.",
+      [
+        "not perfect",
+        "có điểm chưa hoàn hảo"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Chi phí lắp đặt có thể cao, và một số loại cần bảo trì thường xuyên.",
+      [
+        "expensive to install",
+        "Chi phí lắp đặt có thể cao"
+      ],
+      [
+        "regular maintenance",
+        "bảo trì thường xuyên"
+      ]
+    ],
+    [
+      "p6-s3",
+      "Vì vậy, một số thành phố hiện hỗ trợ tiền hoặc hình thức khác để khuyến khích chủ sở hữu.",
+      [
+        "money or other support",
+        "hỗ trợ tiền hoặc hình thức khác"
+      ],
+      [
+        "an incentive",
+        "khuyến khích"
+      ]
+    ],
+    [
+      "p6-s4",
+      "Khi ngày càng nhiều tòa nhà phủ xanh, mái nhà tương lai có thể trông giống những cánh đồng hơn là các khối bê tông xám.",
+      [
+        "more buildings go green",
+        "ngày càng nhiều tòa nhà phủ xanh"
+      ],
+      [
+        "grey concrete",
+        "các khối bê tông xám"
+      ]
+    ]
+  ],
+  "source_sha256": "41d6891224b254cc27c94273ee4c4dfb4a48dcba9a98cd9bc5ede99610c301ed",
+  "illustration": {
+    "src": "/reading-illustrations/exp-green-roof-scene.svg",
+    "alt": "Thảm cỏ và hoa trên mái bằng của một tòa nhà thành phố.",
+    "caption": "Một khu vườn trên cao giữa phố."
+  },
+  "expected_translation_sha256": "a7c5d99908d8350a9a7529b6c0c9e496342e4fef2ea0a51d8328dc8437c8bad9"
+}

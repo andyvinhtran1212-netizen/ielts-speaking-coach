@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cơn mưa bên dòng suối</title><desc id="desc">Mây mưa trên mái nhà và một dòng suối; người che ô đi trên lối nhỏ.</desc>
+  <rect width="800" height="400" rx="24" fill="#e8f0f1"/>
+  <g fill="#b5c7ce"><ellipse cx="255" cy="96" rx="147" ry="42"/><circle cx="202" cy="66" r="45"/><circle cx="276" cy="54" r="56"/><ellipse cx="596" cy="82" rx="99" ry="35"/><circle cx="577" cy="52" r="37"/><circle cx="628" cy="51" r="38"/></g>
+  <g stroke="#7ba3b8" stroke-width="5" stroke-linecap="round"><path d="M135 153L126 175M192 153L183 175M249 153L240 175M306 153L297 175M363 153L354 175M552 137L543 159M610 137L601 159M667 137L658 159M165 208L156 230M279 208L270 230M582 191L573 213M696 191L687 213"/></g>
+  <path d="M0 277Q223 236 401 273T800 262V400H0Z" fill="#b6d0b3"/>
+  <path d="M370 271Q478 296 409 321Q344 353 447 400H626Q478 352 528 324Q558 294 429 268Z" fill="#9dc4cf"/>
+  <path d="M84 254L162 199L241 254V344H84Z" fill="#ece6d2" stroke="#9b7958" stroke-width="4"/>
+  <path d="M72 254L162 188L253 254" fill="none" stroke="#9b7958" stroke-width="10" stroke-linejoin="round"/>
+  <rect x="145" y="282" width="35" height="62" fill="#9b7958"/><rect x="101" y="275" width="25" height="30" fill="#b8d5d7"/>
+  <path d="M651 323Q667 326 681 342L716 400H658L624 348Z" fill="#d8c6ab"/>
+  <circle cx="645" cy="288" r="11" fill="#e8bc94"/><path d="M634 303L628 339H662L655 303Z" fill="#b9914f"/>
+  <path d="M636 336L631 371M652 337L663 371M651 310L673 298L677 251" fill="none" stroke="#293b43" stroke-width="6" stroke-linecap="round"/>
+  <path d="M616 251Q677 166 738 251Q718 239 697 251Q677 239 657 251Q636 239 616 251Z" fill="#3d8275"/>
+</svg>

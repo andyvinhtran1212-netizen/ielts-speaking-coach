@@ -1,0 +1,166 @@
+{
+  "slug": "completion-how-a-microphone-works",
+  "review_notes": "Dịch lại toàn bài theo ngữ cảnh chuyển đổi âm thanh thành tín hiệu điện; dùng nhất quán màng rung, cuộn dây, micro điện động và micro tụ điện.",
+  "illustration_brief": "Người nói trước micro trên bàn, các đường sóng âm cách điệu; không gắn nhãn cấu tạo hay điền tên bộ phận.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Chiếc micro thu giọng ca sĩ hay lời người làm podcast thực hiện một nhiệm vụ thoạt nhìn rất đơn giản: chuyển năng lượng của không khí chuyển động thành một dạng tín hiệu điện.",
+      [
+        "a deceptively simple task",
+        "một nhiệm vụ thoạt nhìn rất đơn giản"
+      ],
+      [
+        "moving air",
+        "không khí chuyển động"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Ý tưởng này xuất hiện từ những năm 1870, khi các nhà phát minh như Emile Berliner và David Edward Hughes chế tạo những thiết bị đầu tiên dùng được trong thực tế; tuy nhiên, nguyên lý vật lý của thiết kế phổ biến nhất hiện nay đã được mô tả trước đó hàng chục năm, trong công trình năm 1831 của Michael Faraday về cảm ứng điện từ.",
+      [
+        "the first practical devices",
+        "những thiết bị đầu tiên dùng được trong thực tế"
+      ],
+      [
+        "electromagnetic induction",
+        "cảm ứng điện từ"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ở mặt trước của hầu hết mọi micro có một tấm mỏng, mềm dẻo gọi là màng rung.",
+      [
+        "a thin, flexible sheet",
+        "một tấm mỏng, mềm dẻo"
+      ],
+      [
+        "the diaphragm",
+        "màng rung"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Khi một người nói hoặc hát, sóng âm tạo ra truyền qua không khí và tác động lên tấm màng này, khiến nó dao động theo những thay đổi áp suất.",
+      [
+        "sound waves",
+        "sóng âm"
+      ],
+      [
+        "vibrate in step with the pressure changes",
+        "dao động theo những thay đổi áp suất"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Màng rung nhẹ đến mức phản ứng được cả với âm thanh rất nhỏ, tái hiện hình dạng của âm gốc bằng chuyển động cơ học.",
+      [
+        "even quiet sounds",
+        "cả với âm thanh rất nhỏ"
+      ],
+      [
+        "physical movement",
+        "chuyển động cơ học"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Trong micro điện động — loại bền chắc được dùng trên phần lớn sân khấu — màng rung được gắn vào một cuộn dây nhỏ làm từ dây dẫn mảnh.",
+      [
+        "a dynamic microphone",
+        "micro điện động"
+      ],
+      [
+        "a tiny coil of fine wire",
+        "một cuộn dây nhỏ làm từ dây dẫn mảnh"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Cuộn dây này nằm trong từ trường của một nam châm vĩnh cửu.",
+      [
+        "the field",
+        "từ trường"
+      ],
+      [
+        "a permanent magnet",
+        "một nam châm vĩnh cửu"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khi màng rung dao động, nó đẩy cuộn dây qua lại trong từ trường; theo định luật cảm ứng điện từ, chuyển động này tạo ra một dòng điện nhỏ có dạng biến thiên tương ứng với âm thanh.",
+      [
+        "back and forth",
+        "qua lại"
+      ],
+      [
+        "mirrors the sound",
+        "có dạng biến thiên tương ứng với âm thanh"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Tín hiệu này cực kỳ yếu, nên mọi hệ thống đều cần bộ khuếch đại để tăng cường tín hiệu trước khi ghi âm hoặc phát sóng.",
+      [
+        "an amplifier",
+        "bộ khuếch đại"
+      ],
+      [
+        "recorded or broadcast",
+        "ghi âm hoặc phát sóng"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Các thiết kế khác hoạt động theo cách khác; chẳng hạn, micro tụ điện dùng màng rung làm một bản cực của tụ điện tích điện, thay cho cuộn dây và nam châm.",
+      [
+        "a condenser microphone",
+        "micro tụ điện"
+      ],
+      [
+        "one plate of a charged capacitor",
+        "một bản cực của tụ điện tích điện"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Dù vậy, chúng vẫn có chung nguyên lý nền tảng.",
+      [
+        "the underlying principle",
+        "nguyên lý nền tảng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Dù chọn phương pháp nào, chuỗi hoạt động vẫn giống nhau: không khí làm một bề mặt chuyển động, chuyển động ấy được biến thành điện áp biến thiên, rồi dòng điện yếu được khuếch đại thành tín hiệu có thể sử dụng.",
+      [
+        "a changing voltage",
+        "điện áp biến thiên"
+      ],
+      [
+        "a usable signal",
+        "tín hiệu có thể sử dụng"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Tuy nhiên, mức độ trung thực khi micro tái hiện những chi tiết nhỏ nhất của âm thanh vẫn phụ thuộc vào chất lượng của từng mắt xích trong chuỗi hoạt động đó.",
+      [
+        "the finest detail",
+        "những chi tiết nhỏ nhất"
+      ],
+      [
+        "every link in that chain",
+        "từng mắt xích trong chuỗi hoạt động đó"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-microphone-scene.svg",
+    "alt": "Người nói trước micro đặt trên bàn, với các nét cong biểu thị sóng âm.",
+    "caption": "Giọng nói được thu lại qua micro."
+  },
+  "source_sha256": "9333e7731a580b068ba530dcb2a3222da7cc23107d559570dfb09b587bb85ba2",
+  "expected_translation_sha256": "6285dbd5eb768b554c637fa2368a6af046208e8d6f8af9a7dadbda197b372302"
+}

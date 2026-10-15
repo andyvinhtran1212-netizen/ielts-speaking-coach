@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Chụp một cảnh cây bên hồ</title><desc id="desc">Máy ảnh trên chân đỡ hướng về cây và mặt hồ; một bức ảnh nhỏ tái hiện cùng cảnh vật.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <circle cx="650" cy="80" r="32" fill="#efc565"/>
+  <path d="M0 240 Q160 150 330 235 T800 215 V400 H0Z" fill="#bbd4bb"/>
+  <path d="M400 285 Q570 235 800 275 V400 H360Z" fill="#a8cbd0"/>
+  <path d="M588 262V140" stroke="#796249" stroke-width="14" stroke-linecap="round"/>
+  <path d="M529 159Q508 112 551 94Q544 43 593 53Q631 27 653 78Q704 84 682 132Q673 184 620 168Q564 200 529 159Z" fill="#3d8275"/>
+  <g stroke="#293b43" stroke-width="9" stroke-linejoin="round">
+    <path d="M195 262L145 366M195 262L242 366M195 262V360" fill="none"/>
+    <path d="M123 182H154L167 162H224L236 182H265V263H123Z" fill="#e8ede7"/>
+    <circle cx="209" cy="222" r="32" fill="#2b5e65"/>
+    <circle cx="209" cy="222" r="17" fill="#9fc4c5" stroke-width="5"/>
+    <rect x="136" y="192" width="22" height="13" rx="4" fill="#efc565" stroke="none"/>
+  </g>
+  <g transform="translate(315 58) rotate(-6)">
+    <rect width="150" height="125" rx="7" fill="#fff" stroke="#abbcb6" stroke-width="3"/>
+    <rect x="10" y="10" width="130" height="88" fill="#d6e8e1"/>
+    <path d="M10 72Q60 48 140 72V98H10Z" fill="#a8cbd0"/>
+    <path d="M102 81V45" stroke="#796249" stroke-width="4"/>
+    <circle cx="102" cy="39" r="22" fill="#3d8275"/>
+    <circle cx="125" cy="25" r="9" fill="#efc565"/>
+  </g>
+</svg>

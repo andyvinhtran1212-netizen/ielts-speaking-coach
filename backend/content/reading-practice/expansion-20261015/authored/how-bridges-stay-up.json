@@ -1,0 +1,186 @@
+{
+  "slug": "how-bridges-stay-up",
+  "review_notes": "Dịch rõ lực nén, lực kéo và đường truyền tải trọng. Flexible joints là khớp nối linh hoạt, không diễn giải cầu an toàn phải đứng tuyệt đối yên.",
+  "illustration_brief": "Cầu treo bắc qua sông, một xe tải đang đi trên cầu; không có mũi tên lực hay nhãn cấu tạo.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Một xe tải nặng lăn qua cây cầu dài mà cầu không sập.",
+      [
+        "A heavy lorry",
+        "Một xe tải nặng"
+      ],
+      [
+        "does not fall",
+        "không sập"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Làm sao cầu chịu được tải trọng lớn đến vậy?",
+      [
+        "such an enormous weight",
+        "tải trọng lớn đến vậy"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Câu trả lời nằm ở hai lực vô hình mà mọi cây cầu phải cân bằng.",
+      [
+        "two invisible forces",
+        "hai lực vô hình"
+      ],
+      [
+        "must balance",
+        "phải cân bằng"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Thiết kế đơn giản nhất là cầu dầm: mặt đường phẳng đặt trên những điểm đỡ chắc chắn gọi là trụ cầu.",
+      [
+        "the beam bridge",
+        "cầu dầm"
+      ],
+      [
+        "piers",
+        "trụ cầu"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Khi xe tải ở giữa cầu, mặt trên của dầm bị ép lại, còn mặt dưới bị kéo giãn.",
+      [
+        "squeezed together",
+        "ép lại"
+      ],
+      [
+        "stretched apart",
+        "kéo giãn"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Kỹ sư gọi sự ép này là nén và sự kéo giãn là kéo căng.",
+      [
+        "compression",
+        "nén"
+      ],
+      [
+        "tension",
+        "kéo căng"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Dầm ngắn chịu hai lực ấy dễ dàng, nhưng dầm dài sẽ võng và nứt.",
+      [
+        "handles both forces",
+        "chịu hai lực ấy"
+      ],
+      [
+        "sag and crack",
+        "võng và nứt"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Với khoảng cách rất rộng cần vượt qua, người xây chọn cầu treo.",
+      [
+        "very wide gaps",
+        "khoảng cách rất rộng cần vượt qua"
+      ],
+      [
+        "the suspension bridge",
+        "cầu treo"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Các tháp cao giữ những dây cáp thép lớn, và dây cáp đỡ mặt đường bên dưới.",
+      [
+        "steel cables",
+        "dây cáp thép"
+      ],
+      [
+        "carry the road below",
+        "đỡ mặt đường bên dưới"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Sức nặng xe cộ kéo căng dây cáp; dây truyền tải trọng xuống tháp và móng sâu.",
+      [
+        "in tension",
+        "kéo căng"
+      ],
+      [
+        "deep foundations",
+        "móng sâu"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Đường truyền lực khéo léo này giúp cầu treo vượt nhịp dài hơn một kilômét.",
+      [
+        "This clever path",
+        "Đường truyền lực khéo léo này"
+      ],
+      [
+        "span more than a kilometre",
+        "vượt nhịp dài hơn một kilômét"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Gió, nhiệt và động đất cũng tác động lên mọi cây cầu.",
+      [
+        "Wind, heat, and earthquakes",
+        "Gió, nhiệt và động đất"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Người thiết kế bổ sung khe nhỏ và khớp nối linh hoạt để kết cấu có thể dịch chuyển đôi chút mà không gãy.",
+      [
+        "flexible joints",
+        "khớp nối linh hoạt"
+      ],
+      [
+        "without breaking",
+        "mà không gãy"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Một cây cầu tốt không bao giờ hoàn toàn bất động; nó uốn, đung đưa và tự điều chỉnh suốt ngày.",
+      [
+        "never truly still",
+        "không bao giờ hoàn toàn bất động"
+      ],
+      [
+        "bends, sways, and adjusts",
+        "uốn, đung đưa và tự điều chỉnh"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Những cây cầu an toàn nhất có lẽ chính là những cây cầu được cho phép dịch chuyển nhẹ nhàng.",
+      [
+        "The safest bridges",
+        "Những cây cầu an toàn nhất"
+      ],
+      [
+        "quietly allowed to move",
+        "được cho phép dịch chuyển nhẹ nhàng"
+      ]
+    ]
+  ],
+  "source_sha256": "aa26918cadc4c3539af1b6243dab4fdd8eb102c879251a56876e3a48c64c399c",
+  "illustration": {
+    "src": "/reading-illustrations/exp-suspension-bridge-scene.svg",
+    "alt": "Cầu treo hai tháp và dây cáp bắc qua sông, có xe tải đi trên mặt cầu.",
+    "caption": "Một cây cầu nối hai bờ sông."
+  },
+  "expected_translation_sha256": "7ced5907591b5ff18977afa652d6a6207a3708c41b343bc70b948b2bf714072e"
+}

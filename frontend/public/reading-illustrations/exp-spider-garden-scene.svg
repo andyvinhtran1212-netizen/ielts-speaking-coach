@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Một con nhện trong khu vườn</title><desc id="desc">Con nhện có tám chân nằm cạnh một mạng tơ nhỏ có giọt sương; lá xanh bao quanh cảnh vườn.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 326Q202 278 433 327T800 308V400H0Z" fill="#b6d0b3"/>
+  <path d="M119 398V89M684 400V79" stroke="#9b7958" stroke-width="11"/>
+  <g stroke="#a4b9b4" stroke-width="2" fill="none"><path d="M145 88L610 321M382 68L383 333M615 88L149 318M135 202H629"/>
+    <path d="M383 113L469 157L515 202L470 249L383 291L296 248L250 202L295 157Z"/><path d="M383 144L440 174L470 202L440 232L383 261L325 232L295 202L325 174Z"/><path d="M383 173L410 188L426 202L410 218L383 232L355 218L339 202L355 188Z"/>
+  </g>
+  <g transform="translate(424 209)" stroke="#63463b" stroke-width="6" stroke-linecap="round" fill="none">
+    <path d="M-8 -1L-45 -31L-67 -15M-11 5L-53 -8L-72 17M-9 13L-47 23L-58 52M-3 19L-28 46L-26 70M8 -1L45 -31L67 -15M11 5L53 -8L72 17M9 13L47 23L58 52M3 19L28 46L26 70"/>
+    <ellipse cy="-17" rx="22" ry="29" fill="#aa825e" stroke-width="4"/><ellipse cy="15" rx="17" ry="20" fill="#796249" stroke-width="4"/>
+  </g>
+  <g fill="#e9e0cb"><circle cx="413" cy="218" r="2"/><circle cx="420" cy="220" r="2"/><circle cx="428" cy="220" r="2"/><circle cx="435" cy="218" r="2"/><circle cx="415" cy="226" r="2"/><circle cx="421" cy="228" r="2"/><circle cx="427" cy="228" r="2"/><circle cx="433" cy="226" r="2"/></g>
+  <g fill="#c1dfe0" stroke="#8bb6c2" stroke-width="2"><path d="M294 150Q283 168 294 170Q305 167 294 150Z"/><path d="M506 195Q497 211 506 213Q516 211 506 195Z"/></g>
+  <path d="M97 188Q44 180 42 132Q94 126 113 165M137 138Q144 91 194 94Q198 142 145 155M665 191Q613 176 621 127Q668 132 680 168M699 130Q724 88 763 103Q756 153 705 151" fill="#79a17b"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Một khu chợ nhỏ</title><desc id="desc">Hai quầy chợ trưng ngũ cốc và đồ gốm, với người đứng trao đổi giữa các quầy.</desc>
+  <rect width="800" height="400" rx="24" fill="#f2f0e6"/>
+  <path d="M0 332H800V400H0Z" fill="#d8c6ab"/>
+  <g stroke="#9b7958" stroke-width="7"><path d="M75 151V348M301 151V348M501 151V348M727 151V348"/></g>
+  <path d="M64 146L93 95H283L312 146V171H64Z" fill="#80aaa0"/><path d="M490 146L519 95H709L738 146V171H490Z" fill="#d69b91"/>
+  <path d="M109 98L99 169M170 98L168 169M231 98L239 169M535 98L525 169M596 98L594 169M657 98L665 169" stroke="#f1e8d5" stroke-width="27"/>
+  <path d="M71 276H305V349H71ZM495 276H731V349H495Z" fill="#c3a47b" stroke="#9b7958" stroke-width="4"/>
+  <path d="M100 271L111 229H156L169 271ZM184 271L193 217H239L252 271Z" fill="#e3c58c" stroke="#b9914f" stroke-width="3"/><path d="M113 231H155M196 220H238" stroke="#9b7958" stroke-width="4"/>
+  <path d="M540 270Q519 240 548 222V205H578V222Q607 240 587 270ZM635 271Q613 238 640 220V203H669V220Q696 238 675 271Z" fill="#b78365" stroke="#93673f" stroke-width="3"/>
+  <circle cx="350" cy="224" r="18" fill="#e8bc94"/><path d="M332 244L321 319H373L368 244Z" fill="#3d8275"/><path d="M335 316L328 369M360 316L371 369M366 256L394 272" fill="none" stroke="#293b43" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="451" cy="222" r="18" fill="#c99660"/><path d="M435 242L426 319H477L468 242Z" fill="#8b829e"/><path d="M438 316L430 369M463 316L475 369M433 257L406 272" fill="none" stroke="#293b43" stroke-width="8" stroke-linecap="round"/>
+  <path d="M388 267L400 249L413 267L404 280Z" fill="#e3c58c" stroke="#b9914f" stroke-width="2"/>
+</svg>

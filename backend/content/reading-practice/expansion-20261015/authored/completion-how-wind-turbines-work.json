@@ -1,0 +1,190 @@
+{
+  "slug": "completion-how-wind-turbines-work",
+  "review_notes": "Dịch lại toàn bài. Sửa capacity factor thành hệ số sử dụng công suất theo chính định nghĩa trong bài; central hub là bầu cánh quạt, không đồng nhất với trục quay.",
+  "illustration_brief": "Nhiều tuabin gió trên đồi, cánh quay khác góc, một ngôi nhà nhỏ phía xa; không ghi nhãn hộp số hay sơ đồ máy phát.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Tuabin gió hiện đại thoạt nhìn có vẻ rất đơn giản: ba cánh mảnh quay chậm trên đỉnh một tháp cao.",
+      [
+        "deceptively simple",
+        "thoạt nhìn có vẻ rất đơn giản"
+      ],
+      [
+        "three slim blades",
+        "ba cánh mảnh"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Tuy nhiên, sau chuyển động êm ả ấy là một chuỗi công đoạn biến năng lượng của không khí chuyển động thành điện dùng trong nhà.",
+      [
+        "a chain of steps",
+        "một chuỗi công đoạn"
+      ],
+      [
+        "electricity that homes can use",
+        "điện dùng trong nhà"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Quá trình bắt đầu từ chính các cánh tuabin.",
+      [
+        "the blades themselves",
+        "chính các cánh tuabin"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Mỗi cánh có hình dạng giống cánh máy bay để luồng khí đi qua tạo lực nâng, thay vì chỉ đẩy cánh về phía sau.",
+      [
+        "an aircraft wing",
+        "cánh máy bay"
+      ],
+      [
+        "creates lift",
+        "tạo lực nâng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Khi không khí chuyển động tác động lên các cánh đặt nghiêng, chúng bắt đầu quay và dẫn động bầu cánh quạt ở giữa, vốn quay khá chậm, thường chỉ vài chục vòng mỗi phút.",
+      [
+        "a central hub",
+        "bầu cánh quạt ở giữa"
+      ],
+      [
+        "a few dozen times a minute",
+        "vài chục vòng mỗi phút"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Tốc độ chậm này là một vấn đề, vì máy phát điện cần quay nhanh hơn nhiều mới hoạt động hiệu quả.",
+      [
+        "a generator",
+        "máy phát điện"
+      ],
+      [
+        "work efficiently",
+        "hoạt động hiệu quả"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Để giải quyết, trục quay chậm được nối vào hộp số.",
+      [
+        "the slow shaft",
+        "trục quay chậm"
+      ],
+      [
+        "a gearbox",
+        "hộp số"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Bên trong, bộ bánh răng tăng mạnh tốc độ, biến chuyển động quay chậm thành quay nhanh.",
+      [
+        "a set of gears",
+        "bộ bánh răng"
+      ],
+      [
+        "raises the rotation speed sharply",
+        "tăng mạnh tốc độ"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Trục tốc độ cao sau đó làm quay máy phát, nơi chuyển động được biến thành dòng điện.",
+      [
+        "high-speed shaft",
+        "Trục tốc độ cao"
+      ],
+      [
+        "turned into electric current",
+        "biến thành dòng điện"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Dòng điện chạy xuống bên trong tháp rồi được đưa vào lưới điện.",
+      [
+        "down the inside of the tower",
+        "xuống bên trong tháp"
+      ],
+      [
+        "sent onto the grid",
+        "đưa vào lưới điện"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Tuy nhiên, gió không phải lúc nào cũng thổi, và đây là hạn chế lớn nhất của công nghệ này.",
+      [
+        "does not always blow",
+        "không phải lúc nào cũng thổi"
+      ],
+      [
+        "biggest limit",
+        "hạn chế lớn nhất"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Tuabin chỉ đạt công suất tối đa khi gió mạnh và đều, nên trong phần lớn thời gian của năm, sản lượng thấp hơn nhiều so với công suất định mức cao nhất.",
+      [
+        "strong and steady",
+        "mạnh và đều"
+      ],
+      [
+        "its top rating",
+        "công suất định mức cao nhất"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Nếu gió quá dữ dội, máy thậm chí phải tự dừng để tránh hư hại, xoay các cánh sang góc cho phép chúng lướt qua gió giật thay vì hứng gió.",
+      [
+        "avoid damage",
+        "tránh hư hại"
+      ],
+      [
+        "feathering its blades",
+        "xoay các cánh sang góc cho phép chúng lướt qua gió giật"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Kỹ sư mô tả sự biến động này bằng chỉ số hệ số sử dụng công suất, so sánh sản lượng trung bình thực tế với mức tối đa lý thuyết.",
+      [
+        "the capacity factor",
+        "hệ số sử dụng công suất"
+      ],
+      [
+        "the theoretical maximum",
+        "mức tối đa lý thuyết"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Vì không thể hoàn toàn trông cậy vào một máy đơn lẻ, các tuabin thường được lắp thành cụm lớn gọi là trang trại gió, có tổng sản lượng ổn định hơn bất kỳ tháp riêng lẻ nào.",
+      [
+        "wind farms",
+        "trang trại gió"
+      ],
+      [
+        "their combined output",
+        "tổng sản lượng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-wind-farm-scene.svg",
+    "alt": "Nhiều tuabin trên đồi xanh với một ngôi nhà nhỏ ở xa.",
+    "caption": "Tuabin gió trong cảnh quan rộng mở."
+  },
+  "source_sha256": "1d33809e3c02d494dbcdc8db2aff2dc118055eee4193e0378ac57e5b1cd93d95",
+  "expected_translation_sha256": "5d92b5437bd8777b20d52da781ae5a414f72d465b2864460148e876f81592e11"
+}

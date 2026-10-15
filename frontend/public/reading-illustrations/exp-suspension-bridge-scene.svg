@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cầu bắc qua sông</title><desc id="desc">Cầu treo với hai tháp và dây cáp bắc qua dòng sông, một xe tải đi trên mặt cầu.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 290Q210 261 400 293T800 277V400H0Z" fill="#a8cbd0"/>
+  <path d="M0 263L105 237L107 400H0M702 246L800 262V400H695Z" fill="#b6d0b3"/>
+  <path d="M57 259H745" stroke="#8b9b96" stroke-width="16"/>
+  <path d="M225 340V102M269 340V102M533 340V102M577 340V102" stroke="#9baba6" stroke-width="15"/>
+  <path d="M225 119H269M225 212H269M533 119H577M533 212H577" stroke="#9baba6" stroke-width="13"/>
+  <path d="M73 247Q158 226 247 106Q398 305 555 106Q648 229 732 247" fill="none" stroke="#355f60" stroke-width="7"/>
+  <g stroke="#597d7c" stroke-width="3"><path d="M111 234V254M153 210V254M196 166V254M293 160V254M335 197V254M378 216V254M421 219V254M464 199V254M507 161V254M601 167V254M644 212V254M687 236V254"/></g>
+  <path d="M353 227H423V252H353Z" fill="#c99660" stroke="#796249" stroke-width="3"/><path d="M423 231H445L457 243V252H423Z" fill="#e5c969" stroke="#796249" stroke-width="3"/><circle cx="373" cy="255" r="8" fill="#293b43"/><circle cx="438" cy="255" r="8" fill="#293b43"/>
+  <path d="M143 356H206M335 325H406M581 359H663" stroke="#d9edf0" stroke-width="4" stroke-linecap="round"/>
+</svg>
