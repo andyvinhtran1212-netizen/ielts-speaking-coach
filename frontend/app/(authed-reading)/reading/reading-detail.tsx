@@ -516,8 +516,8 @@ function ReadingPanes({ contextLinks, detail, evidenceSelection, onReturn }: { c
 function ReadingBody({ contextLinks, detail, evidenceSelection, onReturn }: { contextLinks: ContextLink[]; detail: NonNullable<Detail>; evidenceSelection: EvidenceSelection; onReturn(qNum: number): void }) {
   const [dialog, setDialog] = useState<DialogState>(null);
   return <>
-    {detail.imageUrl && <div className="rv-passage__body"><img alt={detail.title} className="prompt-chart-img" onClick={() => setDialog({ kind: 'image', src: detail.imageUrl!, alt: detail.title })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setDialog({ kind: 'image', src: detail.imageUrl!, alt: detail.title }); } }} role="button" src={detail.imageUrl} tabIndex={0} /></div>}
     <PracticeReadingText body={detail.bodyMarkdown} glossary={detail.glossary} support={detail.practiceSupport} translation={detail.translationVi}
+      coverImage={detail.imageUrl ? { src: detail.imageUrl, alt: detail.title } : null}
       evidenceSelection={evidenceSelection} onReturn={onReturn}
       onGlossary={(index) => { if (detail.glossary[index]) setDialog({ kind: 'glossary', entry: detail.glossary[index] }); }}
       onZoom={(src, alt) => setDialog({ kind: 'image', src, alt })} />

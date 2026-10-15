@@ -9,6 +9,7 @@ vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-i
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('from=skill&skill=detail&batches=2&q=colour') }));
 const packet = JSON.parse(readFileSync('../backend/content/reading-practice/20261014-repairs.json', 'utf8'));
 const commons = packet.passages.find((row: any) => row.slug === 'the-tragedy-of-the-commons');
+const contextIllustration = { src: '/reading-illustrations/commons-review.svg', alt: 'A shared pasture', caption: 'Several herders share the pasture.' };
 let fixture: any, post: any;
 beforeEach(() => {
   Object.defineProperty(globalThis, 'crypto', { configurable: true, value: webcrypto });
@@ -16,13 +17,42 @@ beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
   fixture = { id: commons.passage_id, slug: commons.slug, title: 'Commons', body_markdown: commons.source_body_markdown,
     glossary: commons.changes.glossary, translation_vi: commons.changes.metadata.translation_vi,
-    practice_support: commons.changes.metadata.practice_support,
+    practice_support: { ...commons.changes.metadata.practice_support, illustrations: [contextIllustration] },
     questions: [{ q_num: 1, question_type: 'mcq_multi', prompt: 'Choose TWO.', payload: { options: ['A','B','C','D','E'].map((label) => ({ label, text: `Option ${label}` })) } }] };
   post = vi.fn(async () => ({ results: [{ q_num: 1, correct: true, expected: 'A, C', evidence: { ...commons.changes.metadata.practice_support.question_evidence['1'], source_sha256: commons.source_sha256 } }] }));
   Object.defineProperty(window, 'api', { configurable: true, value: { getWith: vi.fn(async () => fixture), post, postWith: vi.fn(async () => ({ links: [] })) } });
   vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => '' } as Selection);
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+it('shows a shared cover and authored illustration once, retaining its caption and zoom', async () => {
+  const figure = fixture.practice_support.illustrations[0];
+  fixture.image_url = figure.src;
+  const view = render(<ReadingDetail library="skill" slug={commons.slug} />);
+  await screen.findByRole('button', { name: 'Dịch câu 2' });
+  expect([...view.container.querySelectorAll('#rv-panel-original img')].filter((image) => image.getAttribute('src') === figure.src)).toHaveLength(1);
+  expect(screen.getByText(figure.caption)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: `Phóng to: ${figure.alt}` }));
+  expect(within(screen.getByRole('dialog')).getByRole('img').getAttribute('src')).toBe(figure.src);
+});
+it('keeps a distinct cover chart alongside authored illustrations and supports keyboard zoom', async () => {
+  fixture.image_url = '/reading-illustrations/distinct-chart.svg';
+  const view = render(<ReadingDetail library="skill" slug={commons.slug} />);
+  await screen.findByRole('button', { name: 'Dịch câu 2' });
+  expect(view.container.querySelectorAll('#rv-panel-original img')).toHaveLength(fixture.practice_support.illustrations.length + 1);
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Commons', exact: true }), { key: 'Enter' });
+  expect(within(screen.getByRole('dialog')).getByRole('img').getAttribute('src')).toBe(fixture.image_url);
+});
+it.each(['missing', 'stale'])('keeps the cover when practice illustrations are %s', async (revision) => {
+  fixture.image_url = fixture.practice_support.illustrations[0].src;
+  if (revision === 'missing') fixture.practice_support = null;
+  else fixture.body_markdown += '\n\nA changed ending.';
+  const view = render(<ReadingDetail library="skill" slug={commons.slug} />);
+  await screen.findByRole('button', { name: 'Định nghĩa: deplete' });
+  expect(view.container.querySelectorAll('#rv-panel-original img')).toHaveLength(1);
+  expect(view.container.querySelector('.rp-figure')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Commons', exact: true }));
+  expect(within(screen.getByRole('dialog')).getByRole('img').getAttribute('src')).toBe(fixture.image_url);
+});
 it('reveals an authored sentence and highlights exact equivalents in both directions', async () => {
   const view = render(<ReadingDetail library="skill" slug={commons.slug} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Dịch câu 2' }));
