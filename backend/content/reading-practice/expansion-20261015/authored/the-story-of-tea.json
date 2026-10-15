@@ -1,7 +1,7 @@
 {
   "slug": "the-story-of-tea",
   "review_notes": "Tự dịch; giữ xuất xứ truyền thuyết và may ở câu cuối. 1500s/1600s là thế kỷ 16/17. Minh hoạ trà hiện tại, không minh chứng câu chuyện Thần Nông.",
-  "illustration_brief": "Một tách trà đặt cạnh ấm và lá trà.",
+  "illustration_brief": "Cốc trà có túi trà và sợi dây vắt qua miệng cốc, với vài lá trà cạnh đĩa.",
   "sentences": [
     [
       "p1-s1",
@@ -174,7 +174,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-tea-bag-scene.svg",
-    "alt": "Một tách trà đặt cạnh ấm và lá trà.",
+    "alt": "Cốc trà có túi trà và sợi dây vắt qua miệng cốc, với vài lá trà cạnh đĩa.",
     "caption": "Trà trong sinh hoạt hằng ngày."
   },
   "source_sha256": "cc5593a358490d86833824ff30655703d76a3e0b71288c86bdae40da13a6cc79",

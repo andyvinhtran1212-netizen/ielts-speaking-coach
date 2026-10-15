@@ -67529,7 +67529,7 @@ DECLARE packet jsonb := $packet${
           "illustrations": [
             {
               "src": "/reading-illustrations/exp-tea-bag-scene.svg",
-              "alt": "Một tách trà đặt cạnh ấm và lá trà.",
+              "alt": "Cốc trà có túi trà và sợi dây vắt qua miệng cốc, với vài lá trà cạnh đĩa.",
               "caption": "Trà trong sinh hoạt hằng ngày."
             }
           ]
@@ -75213,7 +75213,7 @@ DECLARE packet jsonb := $packet${
           "illustrations": [
             {
               "src": "/reading-illustrations/exp-attention-phone-scene.svg",
-              "alt": "Một người ngồi nhìn điện thoại bên cửa sổ.",
+              "alt": "Một người cầm điện thoại giữa các thẻ thông báo cách điệu, cạnh quyển sách và đồng hồ.",
               "caption": "Những cách kết nối qua màn hình."
             }
           ]

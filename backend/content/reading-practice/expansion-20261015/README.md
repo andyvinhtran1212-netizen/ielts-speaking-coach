@@ -71,6 +71,16 @@ PostgreSQL 16 instance (Unix socket, no Supabase connection):
   the existing backend revision/span validator. Hidden HTML word-count comments
   are excluded, and sentence boundaries handle quoted punctuation.
 
+The current frontend Markdown annotation code also resolves every one of the
+3046 sentence actions and 6405 source phrase spans across all 196 compiled
+articles, with no nested buttons. Existing React interactions pass (50 files /
+577 tests), and the full frontend contract suite passes (12976 passes, three
+skips). The focused backend practice-support suite passes (16 tests). The full backend
+pre-push gate passes (10193 passes, 808 configured smoke/credential-dependent
+skips; no external provider calls enabled). Spec validation and diff hygiene
+also pass. These are
+local results; hosted expansion acceptance has not happened yet.
+
 Release remains permissioned. After approval, push one content PR to `staging`,
 resolve its applicable checks/review, deploy its SVG assets and verify their
 availability before applying `staging-apply.sql`. Use only task-owned synthetic

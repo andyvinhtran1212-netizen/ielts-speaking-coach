@@ -1,7 +1,7 @@
 {
   "slug": "ynng-social-media-and-loneliness",
   "review_notes": "Tự dịch, giữ phân biệt tương quan/nhân quả và hành vi thụ động/chủ động, giọng tác giả không kết tội duy nhất cũng không miễn trách nhiệm hoàn toàn. Không dùng dữ liệu người học hoặc thêm kết luận tâm lý ngoài bài.",
-  "illustration_brief": "Một người ngồi nhìn điện thoại bên cửa sổ.",
+  "illustration_brief": "Một người cầm điện thoại giữa các thẻ thông báo cách điệu, cạnh quyển sách và đồng hồ.",
   "sentences": [
     [
       "p1-s1",
@@ -158,7 +158,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-attention-phone-scene.svg",
-    "alt": "Một người ngồi nhìn điện thoại bên cửa sổ.",
+    "alt": "Một người cầm điện thoại giữa các thẻ thông báo cách điệu, cạnh quyển sách và đồng hồ.",
     "caption": "Những cách kết nối qua màn hình."
   },
   "source_sha256": "b11701ec35058337a8367d7d246fd7f045fab1d046de9c340a469e9f826a6abe",

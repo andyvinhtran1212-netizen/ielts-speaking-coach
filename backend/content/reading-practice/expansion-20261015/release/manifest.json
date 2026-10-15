@@ -19,7 +19,7 @@
     "the-tragedy-of-the-commons"
   ],
   "sql_sha256": {
-    "production-apply.sql": "b411eaed1e89a3feff61978dcda9a937aee025e218e74348f127fff852862c71",
-    "staging-apply.sql": "1365566169d35bcc6a3e12d3f30ee6840df3e2c3234c324a40b8eb6795682afe"
+    "production-apply.sql": "03036108f945d8743ea687e4f9a83c00055e1bb0c2d49636d3303753580f3974",
+    "staging-apply.sql": "f6c917a715874cfcf10240604a85f60e8c45609c7b7361dcf3369f8757a8462d"
   }
 }
