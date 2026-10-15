@@ -9493,10 +9493,10 @@ export interface paths {
         put?: never;
         /**
          * Generate Audio
-         * @description Queue a voice-render job for the selected words. Target precedence:
-         *     ids → category → all. engine=openai|elevenlabs; scope=headword|example|both.
-         *     Returns immediately ({queued_count, engine}); the render runs in the
-         *     background and stamps audio_* + status='final' (then reload G1).
+         * @description Keep older clients from silently producing a different Vocabulary voice.
+         *
+         *     Hosted deployments do not contain the local Kokoro model. Do not acknowledge
+         *     a queued job that cannot run, or fall back to another provider.
          */
         post: operations["generate_audio_admin_vocabulary_generate_audio_post"];
         delete?: never;
@@ -16457,8 +16457,8 @@ export interface components {
         /**
          * GenerateAudioRequest
          * @description Which words to render + how. Target = ids OR category OR all (in that
-         *     precedence). engine = openai|elevenlabs; scope = headword|example|both.
-         *     skip_existing_audio=True skips fields that already have a stored URL.
+         *     precedence). Retained for older clients; hosted generation is disabled.
+         *     Vocabulary audio is prepared with Kokoro bf_emma by the operator batch CLI.
          */
         GenerateAudioRequest: {
             /** Ids */
@@ -16472,7 +16472,7 @@ export interface components {
             all: boolean;
             /**
              * Engine
-             * @default openai
+             * @default kokoro
              */
             engine: string;
             /**
@@ -21604,7 +21604,7 @@ export interface components {
          * @description Partial-update payload. EVERY field is a real vocab_cards column (mig 110) —
          *     the schema-aware col-match test pins this (#538 lesson). id/slug/created_at/
          *     updated_at/import_batch_id and the audio_* columns are intentionally absent
-         *     (slug is the stable URL key; audio is owned by the pregen, V-eleven). updated_at
+         *     (slug is the stable URL key; audio is owned by the Kokoro pregen). updated_at
          *     auto-bumps via the BEFORE-UPDATE trigger, so the public cache key (G2) advances.
          */
         VocabUpdate: {

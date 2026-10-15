@@ -53,7 +53,7 @@ it('ignores a late playback rejection from the previous card', async () => {
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
-it('shows a recoverable error when no recording or browser voice can play', async () => {
+it('shows a recoverable error when a recording fails without changing voices', async () => {
   render(<VocabularyAudioButton url="https://audio/broken.mp3" label="Nghe" />);
   fireEvent.click(screen.getByRole('button')); await act(async () => {});
   act(() => instances[0].onerror?.());
@@ -61,4 +61,24 @@ it('shows a recoverable error when no recording or browser voice can play', asyn
   fireEvent.click(screen.getByRole('button')); await act(async () => {});
   expect(instances).toHaveLength(2);
   expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('keeps missing recordings unavailable without synthesizing a different voice', () => {
+  const speak = vi.fn(); vi.stubGlobal('speechSynthesis', { speak, cancel: vi.fn() });
+  render(<VocabularyAudioButton say="A newly added word" label="Nghe" />);
+  expect(screen.getByRole('button').hasAttribute('disabled')).toBe(true);
+  expect(screen.getByText('Audio đang được chuẩn bị.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button'));
+  expect(instances).toHaveLength(0); expect(speak).not.toHaveBeenCalled();
+});
+
+it('never falls back to browser speech on a failed recording and stops on pagehide', async () => {
+  const speak = vi.fn(); vi.stubGlobal('speechSynthesis', { speak, cancel: vi.fn() });
+  render(<VocabularyAudioButton url="https://audio/word.mp3" say="Word" label="Nghe" />);
+  fireEvent.click(screen.getByRole('button')); await act(async () => {});
+  act(() => instances[0].onerror?.());
+  await screen.findByRole('alert'); expect(speak).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button')); await act(async () => {});
+  act(() => window.dispatchEvent(new Event('pagehide')));
+  expect(instances[1].paused).toBe(true);
 });

@@ -60,9 +60,9 @@ describe('/vocabulary native public wiki', () => {
   });
 
   test('audio, anonymous feedback and analytics keep their canonical contracts', () => {
-    assert.match(CLIENT, /new Audio\(audio\)/);
-    assert.match(CLIENT, /new SpeechSynthesisUtterance\(say\)/);
-    assert.match(CLIENT, /window\.speechSynthesis\?\.cancel\(\)/);
+    assert.match(CLIENT, /VocabularyAudioButton/);
+    assert.doesNotMatch(CLIENT, /SpeechSynthesisUtterance/);
+    assert.doesNotMatch(CLIENT, /speechSynthesis/);
     assert.match(CLIENT, /window\.api\.post\('\/api\/feedback'/);
     assert.match(CLIENT, /skill: 'vocabulary'/);
     assert.match(CLIENT, /category: reason === 'audio' \? 'audio_issue' : 'content_issue'/);

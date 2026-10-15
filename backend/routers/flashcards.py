@@ -373,7 +373,7 @@ def _audio_by_headword(headwords: list[str]) -> dict[str, str]:
     quiz_service._resolve_question_audio — no migration, no second writer.
 
     Best-effort: a miss simply leaves the URL empty and the player falls back to
-    speechSynthesis, which is still better than the silent card it replaced.
+    an unavailable-audio state until the Kokoro batch is prepared.
     """
     # One representative per case-insensitive headword: the match is
     # case-insensitive, so querying "gridlock" AND "Gridlock" AND "GRIDLOCK"

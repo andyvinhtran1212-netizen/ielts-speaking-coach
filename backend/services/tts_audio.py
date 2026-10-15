@@ -24,6 +24,7 @@ import logging
 from config import settings
 from database import supabase_admin
 from services import ai_usage_logger
+from services.vocab_speech_text import vocabulary_speech_text
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,8 @@ def _engine_tag(engine: str) -> str:
 def audio_path(text: str, voice: str = DEFAULT_VOICE, engine: str = "openai") -> str:
     """Content-addressed object key: sha256(text|voice|engineTag).mp3. Same text +
     voice + engine → same path → generate-once / de-dup; different engine → new path."""
+    if engine == "kokoro":
+        text = vocabulary_speech_text(text)
     key = f"{text}|{voice}|{_engine_tag(engine)}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest() + ".mp3"
 
@@ -245,7 +248,7 @@ def _synth_kokoro_sync(text: str, voice: str = KOKORO_DEFAULT_VOICE) -> bytes:
 
     lang = _KOKORO_LANG_OF.get((voice or "")[:1], "b")
     pipeline = _kokoro_pipeline(lang)
-    chunks = [audio for _gs, _ps, audio in pipeline(text, voice=voice)]
+    chunks = [audio for _gs, _ps, audio in pipeline(vocabulary_speech_text(text), voice=voice)]
     if not chunks:
         raise RuntimeError(f"Kokoro không sinh được audio cho: {text[:60]!r}")
 

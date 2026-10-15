@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
 import { useAdminProfile } from '@/components/admin-access-gate';
 import {
-  AUDIO_ENGINES,
-  AUDIO_SCOPES,
-  normalizeAudioAck,
   normalizeBulkDeleteAck,
   normalizeDeleteAck,
   normalizeVocabDetail,
@@ -24,7 +22,7 @@ type Detail = { id: string; slug: string; headword: string; category: string; le
 type Draft = { headword: string; category: string; level: string; partOfSpeech: string; pronunciation: string; syllables: string; definitionEn: string; definitionVi: string; glossVi: string; example: string; register: string; commonError: string; memoryHook: string; source: string; group: string; bodyHtml: string; synonyms: string; antonyms: string; collocations: string; relatedWords: string; wordFamilyJson: string };
 type ImportResult = { blocks: { index: number; headword: string; slug: string; category: string; errors: { field: string; message: string }[]; action: string; forecastAction: string }[]; errors: { block: number; headword: string; field: string; message: string }[]; committedIds: string[]; duplicateSlugs: string[]; summary: { total: number; created: number; updated: number; errors: number; forecastCreated: number; forecastUpdated: number } };
 type Notice = { kind: 'success' | 'warning' | 'error'; message: string };
-type ConfirmState = { kind: 'single'; word: Word } | { kind: 'bulk'; words: Word[] } | { kind: 'audio'; ids: string[] };
+type ConfirmState = { kind: 'single'; word: Word } | { kind: 'bulk'; words: Word[] };
 
 const PAGE_SIZE = 50;
 const messageOf = (value: unknown) => value instanceof Error ? value.message : String(value || 'lỗi không xác định');
@@ -58,9 +56,6 @@ export function AdminVocabContent() {
   const [editError, setEditError] = useState('');
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [confirmError, setConfirmError] = useState('');
-  const [audioEngine, setAudioEngine] = useState<'openai' | 'elevenlabs'>('openai');
-  const [audioScope, setAudioScope] = useState<'headword' | 'example' | 'both'>('both');
-  const [skipAudio, setSkipAudio] = useState(true);
   const [importFiles, setImportFiles] = useState<File[]>([]);
   const [importResults, setImportResults] = useState<ImportResult[]>([]);
   const [importError, setImportError] = useState('');
@@ -68,7 +63,6 @@ export function AdminVocabContent() {
   const sequence = useRef(0);
   const accountRef = useRef(profile.id);
   const mutationLock = useRef(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   accountRef.current = profile.id;
 
   const setUrl = (nextCategory: string, nextQuery: string) => {
@@ -143,12 +137,6 @@ export function AdminVocabContent() {
   }, [busy, confirmState, editWord]);
 
   const selectedWords = useMemo(() => words.filter((word) => selected.has(word.id)), [selected, words]);
-  const audioIds = useMemo(() => selectedWords.filter((word) => {
-    if (!skipAudio) return true;
-    if (audioScope === 'headword') return !word.audioHeadword;
-    if (audioScope === 'example') return !word.audioExample;
-    return !(word.audioHeadword && word.audioExample);
-  }).map((word) => word.id), [audioScope, selectedWords, skipAudio]);
   const crossFileDuplicates = useMemo(() => {
     const seen = new Map<string, number>();
     importResults.forEach((result) => result.blocks.forEach((block) => {
@@ -173,13 +161,6 @@ export function AdminVocabContent() {
   const applySearch = () => {
     if (mutationLock.current) return;
     const next = searchInput.trim(); setQuery(next); setUrl(category, next); void loadPage(0, category, next);
-  };
-
-  const play = (url: string, text: string) => {
-    try { window.speechSynthesis?.cancel(); audioRef.current?.pause(); } catch { /* browser fallback */ }
-    const speak = () => { try { const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'en-GB'; utterance.rate = 0.92; window.speechSynthesis?.speak(utterance); } catch { /* preview is best effort */ } };
-    if (!url) { speak(); return; }
-    try { const audio = new Audio(url); audioRef.current = audio; void audio.play().catch(speak); } catch { speak(); }
   };
 
   const openEdit = async (id: string) => {
@@ -228,7 +209,7 @@ export function AdminVocabContent() {
   };
 
   const runDelete = async () => {
-    if (!confirmState || confirmState.kind === 'audio' || mutationLock.current) return;
+    if (!confirmState || mutationLock.current) return;
     const target = confirmState; const account = profile.id; setConfirmError(''); setBusy(true); mutationLock.current = true;
     let partialDeleteCount = 0;
     try {
@@ -257,28 +238,6 @@ export function AdminVocabContent() {
       if (account === accountRef.current) { setConfirmState(null); setNotice({ kind: 'error', message: `Không xác nhận được thao tác xoá: ${messageOf(caught)} Hãy tải lại kho trước khi thử lại để tránh gửi DELETE hai lần.` }); }
     }
     finally { mutationLock.current = false; if (account === accountRef.current) setBusy(false); }
-  };
-
-  const runAudio = async (ids = audioIds) => {
-    if (!ids.length || mutationLock.current) return;
-    const account = profile.id; mutationLock.current = true; setBusy(true); setConfirmError(''); setNotice(null);
-    try {
-      const ack = normalizeAudioAck(await window.api.post<unknown>('/admin/vocabulary/generate-audio', { ids, engine: audioEngine, scope: audioScope, skip_existing_audio: skipAudio }), audioEngine, audioScope, ids.length);
-      if (!ack) throw new Error('Backend không xác nhận đúng audio job vừa tạo.');
-      if (account !== accountRef.current) return;
-      setConfirmState(null); setNotice({ kind: 'success', message: `Đã xếp hàng ${ack.queuedCount} từ qua ${ack.engine}. Đây là background job; tải lại sau ít phút để kiểm tra audio canonical.` });
-    } catch (caught) {
-      if (account === accountRef.current) {
-        setConfirmState(null);
-        setNotice({ kind: 'error', message: `Không xác nhận được audio job: ${messageOf(caught)} Không tự động retry write có chi phí này; kiểm tra audio/status trước khi gửi lại.` });
-      }
-    } finally { mutationLock.current = false; if (account === accountRef.current) setBusy(false); }
-  };
-
-  const requestAudio = () => {
-    if (!audioIds.length) { setNotice({ kind: 'error', message: 'Không có từ phù hợp để tạo audio trong selection hiện tại.' }); return; }
-    if (audioEngine === 'elevenlabs') { setConfirmError(''); setConfirmState({ kind: 'audio', ids: audioIds }); return; }
-    void runAudio(audioIds);
   };
 
   const dryRunFiles = async (files: File[]) => {
@@ -359,10 +318,10 @@ export function AdminVocabContent() {
       <div className="avv-content-bulk">
         <label className="avv-check"><input type="checkbox" checked={words.length > 0 && selected.size === words.length} ref={(node) => { if (node) node.indeterminate = selected.size > 0 && selected.size < words.length; }} disabled={busy || !words.length} onChange={togglePage} />Chọn trang này</label>
         <span>{selected.size ? `Đã chọn ${selected.size} từ` : 'Chưa chọn từ nào'}</span>
-        <div className="avv-content-audio-controls"><select aria-label="Engine audio" value={audioEngine} disabled={busy || !selected.size} onChange={(event) => { const next = event.target.value; if (AUDIO_ENGINES.includes(next)) setAudioEngine(next as 'openai' | 'elevenlabs'); }}><option value="openai">OpenAI</option><option value="elevenlabs">ElevenLabs</option></select><select aria-label="Phạm vi audio" value={audioScope} disabled={busy || !selected.size} onChange={(event) => { const next = event.target.value; if (AUDIO_SCOPES.includes(next)) setAudioScope(next as 'headword' | 'example' | 'both'); }}><option value="headword">Headword</option><option value="example">Ví dụ</option><option value="both">Cả hai</option></select><label className="avv-check"><input type="checkbox" checked={skipAudio} disabled={busy || !selected.size} onChange={(event) => setSkipAudio(event.target.checked)} />Bỏ qua audio sẵn có</label><button className="btn-secondary" type="button" disabled={busy || !audioIds.length} onClick={requestAudio}>Tạo audio ({audioIds.length})</button><button className="btn-danger" type="button" disabled={busy || !selectedWords.length} onClick={() => { setConfirmError(''); setConfirmState({ kind: 'bulk', words: selectedWords }); }}>Xoá ({selectedWords.length})</button></div>
+        <div className="avv-content-audio-controls"><p>Giọng đọc: Kokoro · bf_emma (Anh Anh). Audio từ và câu ví dụ được chuẩn bị theo lô sau khi lưu nội dung mới.</p><button className="btn-danger" type="button" disabled={busy || !selectedWords.length} onClick={() => { setConfirmError(''); setConfirmState({ kind: 'bulk', words: selectedWords }); }}>Xoá ({selectedWords.length})</button></div>
       </div>
 
-      {loading ? <div className="avv-state">Đang tải trang dữ liệu chuẩn…</div> : words.length === 0 ? <div className="avv-state">Không có từ nào khớp bộ lọc.</div> : <div className="avv-table-wrap"><table className="avv-table avv-content-table"><thead><tr><th><span className="sr-only">Chọn</span></th><th>Từ</th><th>Chủ đề</th><th>Nội dung</th><th>Audio</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{words.map((word) => <tr key={word.id}><td data-label="Chọn"><input type="checkbox" aria-label={`Chọn ${word.headword}`} checked={selected.has(word.id)} disabled={busy} onChange={() => toggleWord(word.id)} /></td><td data-label="Từ"><strong>{word.headword}</strong><small>{word.slug}{word.pronunciation ? ` · ${word.pronunciation}` : ''}</small></td><td data-label="Chủ đề"><span className="avv-chip is-muted">{word.category}</span><small>{[word.level, word.partOfSpeech].filter(Boolean).join(' · ') || 'Chưa phân loại'}</small></td><td data-label="Nội dung">{word.glossVi || 'Chưa có nghĩa tiếng Việt'}</td><td data-label="Audio"><span className={`avv-chip is-${word.audioStatus === 'final' ? 'teal' : 'muted'}`}>{word.audioStatus || 'pending'}</span><div className="avv-audio-actions"><button className="btn-secondary" type="button" onClick={() => play(word.audioHeadword, word.headword)}>▶ Từ</button>{word.audioExample ? <button className="btn-secondary" type="button" onClick={() => play(word.audioExample, word.headword)}>▶ Ví dụ</button> : null}</div></td><td className="avv-row-actions"><button className="btn-secondary" type="button" disabled={busy} onClick={() => void openEdit(word.id)}>Sửa</button><button className="btn-danger" type="button" disabled={busy} onClick={() => { setConfirmError(''); setConfirmState({ kind: 'single', word }); }}>Xoá</button></td></tr>)}</tbody></table></div>}
+      {loading ? <div className="avv-state">Đang tải trang dữ liệu chuẩn…</div> : words.length === 0 ? <div className="avv-state">Không có từ nào khớp bộ lọc.</div> : <div className="avv-table-wrap"><table className="avv-table avv-content-table"><thead><tr><th><span className="sr-only">Chọn</span></th><th>Từ</th><th>Chủ đề</th><th>Nội dung</th><th>Audio</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{words.map((word) => <tr key={word.id}><td data-label="Chọn"><input type="checkbox" aria-label={`Chọn ${word.headword}`} checked={selected.has(word.id)} disabled={busy} onChange={() => toggleWord(word.id)} /></td><td data-label="Từ"><strong>{word.headword}</strong><small>{word.slug}{word.pronunciation ? ` · ${word.pronunciation}` : ''}</small></td><td data-label="Chủ đề"><span className="avv-chip is-muted">{word.category}</span><small>{[word.level, word.partOfSpeech].filter(Boolean).join(' · ') || 'Chưa phân loại'}</small></td><td data-label="Nội dung">{word.glossVi || 'Chưa có nghĩa tiếng Việt'}</td><td data-label="Audio"><span className={`avv-chip is-${word.audioStatus === 'final' ? 'teal' : 'muted'}`}>{word.audioStatus || 'pending'}</span><div className="avv-audio-actions"><VocabularyAudioButton url={word.audioHeadword} say={word.headword} label={`Nghe từ ${word.headword}`} className="btn-secondary">▶ Từ</VocabularyAudioButton>{word.audioExample ? <VocabularyAudioButton url={word.audioExample} label={`Nghe ví dụ ${word.headword}`} className="btn-secondary">▶ Ví dụ</VocabularyAudioButton> : null}</div></td><td className="avv-row-actions"><button className="btn-secondary" type="button" disabled={busy} onClick={() => void openEdit(word.id)}>Sửa</button><button className="btn-danger" type="button" disabled={busy} onClick={() => { setConfirmError(''); setConfirmState({ kind: 'single', word }); }}>Xoá</button></td></tr>)}</tbody></table></div>}
       <div className="avv-pagination"><button className="btn-secondary" type="button" disabled={busy || loading || offset === 0} onClick={() => void loadPage(Math.max(0, offset - PAGE_SIZE), category, query)}>← Trước</button><span>{pageFrom}–{pageTo} / {total}</span><button className="btn-secondary" type="button" disabled={busy || loading || offset + PAGE_SIZE >= total} onClick={() => void loadPage(offset + PAGE_SIZE, category, query)}>Sau →</button></div>
     </section>
 
@@ -371,6 +330,6 @@ export function AdminVocabContent() {
       {editError ? <p className="avv-banner is-error" role="alert">{editError}</p> : null}
     </div><div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => { setEditWord(null); setDraft(null); setEditError(''); }}>Hủy</button><button className="btn-primary" type="button" disabled={busy} onClick={() => void saveEdit()}>{busy ? 'Đang xác minh…' : 'Lưu thay đổi'}</button></div></div></div> : null}
 
-    {confirmState ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="avv-confirm-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setConfirmState(null); }}><div className="av-modal avv-dialog-card"><p className="avv-eyebrow">{confirmState.kind === 'audio' ? 'Chi phí bên thứ ba' : 'Xoá vĩnh viễn'}</p><h2 id="avv-confirm-title" className="av-modal-title">{confirmState.kind === 'single' ? `Xoá “${confirmState.word.headword}”?` : confirmState.kind === 'bulk' ? `Xoá ${confirmState.words.length} từ đã chọn?` : `Tạo ${confirmState.ids.length} audio bằng ElevenLabs?`}</h2><p>{confirmState.kind === 'audio' ? 'Thao tác này dùng ElevenLabs credit. Backend sẽ chạy nền và không thể hoàn tác phần chi phí đã sử dụng.' : `Các vocab card sẽ bị hard-delete ${category ? `khỏi chủ đề “${category}”` : 'khỏi toàn bộ thư viện'}. Seed content có thể xuất hiện lại nếu chạy migrate-in.`}</p>{confirmState.kind === 'bulk' ? <div className="avv-confirm-list">{confirmState.words.slice(0, 8).map((word) => <span key={word.id}>{word.headword}</span>)}{confirmState.words.length > 8 ? <span>+{confirmState.words.length - 8} từ khác</span> : null}</div> : null}{confirmError ? <p className="avv-banner is-error" role="alert">{confirmError}</p> : null}<div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => { setConfirmState(null); setConfirmError(''); }}>Hủy</button><button className={confirmState.kind === 'audio' ? 'btn-primary' : 'btn-danger'} type="button" disabled={busy} onClick={() => confirmState.kind === 'audio' ? void runAudio(confirmState.ids) : void runDelete()}>{busy ? 'Đang xác minh…' : 'Xác nhận'}</button></div></div></div> : null}
+    {confirmState ? <div className="av-modal-backdrop avv-dialog" role="dialog" aria-modal="true" aria-labelledby="avv-confirm-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setConfirmState(null); }}><div className="av-modal avv-dialog-card"><p className="avv-eyebrow">Xoá vĩnh viễn</p><h2 id="avv-confirm-title" className="av-modal-title">{confirmState.kind === 'single' ? `Xoá “${confirmState.word.headword}”?` : `Xoá ${confirmState.words.length} từ đã chọn?`}</h2><p>{`Các vocab card sẽ bị hard-delete ${category ? `khỏi chủ đề “${category}”` : 'khỏi toàn bộ thư viện'}. Seed content có thể xuất hiện lại nếu chạy migrate-in.`}</p>{confirmState.kind === 'bulk' ? <div className="avv-confirm-list">{confirmState.words.slice(0, 8).map((word) => <span key={word.id}>{word.headword}</span>)}{confirmState.words.length > 8 ? <span>+{confirmState.words.length - 8} từ khác</span> : null}</div> : null}{confirmError ? <p className="avv-banner is-error" role="alert">{confirmError}</p> : null}<div className="av-modal-footer"><button className="btn-secondary" type="button" disabled={busy} onClick={() => { setConfirmState(null); setConfirmError(''); }}>Hủy</button><button className="btn-danger" type="button" disabled={busy} onClick={() => void runDelete()}>{busy ? 'Đang xác minh…' : 'Xác nhận'}</button></div></div></div> : null}
   </main>;
 }
