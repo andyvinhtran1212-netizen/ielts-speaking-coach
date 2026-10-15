@@ -1,0 +1,214 @@
+{
+  "slug": "skimming-the-history-of-glasses",
+  "review_notes": "Phân biệt convex/lồi, concave/lõm, long-sighted/viễn thị và short-sighted/cận thị; không thêm lời khuyên y khoa hoặc thông số đo mắt. Bifocals là kính hai tròng.",
+  "illustration_brief": "Cặp kính gọng đặt trên sách mở cạnh hộp kính và đèn bàn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Trong phần lớn lịch sử, người có thị lực suy giảm đơn giản phải tự xoay xở tốt nhất có thể.",
+      [
+        "eyesight failed",
+        "thị lực suy giảm"
+      ],
+      [
+        "manage as best they could",
+        "tự xoay xở tốt nhất có thể"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Kính mắt thực thụ đầu tiên xuất hiện ở miền bắc Italy khoảng những năm 1280, có lẽ gần thành phố Pisa.",
+      [
+        "around the 1280s",
+        "khoảng những năm 1280"
+      ],
+      [
+        "probably near the city of Pisa",
+        "có lẽ gần thành phố Pisa"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Trước đó, người đọc dùng “đá đọc sách” — miếng kính cong đặt lên trang để làm chữ trông lớn hơn.",
+      [
+        "reading stone",
+        "đá đọc sách"
+      ],
+      [
+        "a curved piece of glass",
+        "miếng kính cong"
+      ],
+      [
+        "make the letters look bigger",
+        "làm chữ trông lớn hơn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Kính ban đầu dùng thấu kính lồi, cong ra ngoài ở giữa.",
+      [
+        "convex lenses",
+        "thấu kính lồi"
+      ],
+      [
+        "curve outwards in the middle",
+        "cong ra ngoài ở giữa"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Thấu kính ấy giúp người viễn thị: họ thấy rõ vật ở xa nhưng khó đọc chữ nhỏ ở gần.",
+      [
+        "long-sighted",
+        "viễn thị"
+      ],
+      [
+        "distant objects clearly",
+        "rõ vật ở xa"
+      ],
+      [
+        "small print up close",
+        "chữ nhỏ ở gần"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Với học giả lớn tuổi chép sách bằng tay, đây là phát minh thay đổi cuộc đời.",
+      [
+        "ageing scholars",
+        "học giả lớn tuổi"
+      ],
+      [
+        "copied books by hand",
+        "chép sách bằng tay"
+      ],
+      [
+        "a life-changing invention",
+        "phát minh thay đổi cuộc đời"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Mất thêm khoảng hai thế kỷ để giải quyết vấn đề ngược lại.",
+      [
+        "roughly two more centuries",
+        "thêm khoảng hai thế kỷ"
+      ],
+      [
+        "the opposite problem",
+        "vấn đề ngược lại"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Đến thế kỷ XV, người làm kính đã biết mài thấu kính lõm, cong vào trong.",
+      [
+        "the fifteenth century",
+        "thế kỷ XV"
+      ],
+      [
+        "concave lenses",
+        "thấu kính lõm"
+      ],
+      [
+        "curve inwards",
+        "cong vào trong"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Chúng phù hợp với người cận thị, thấy tốt vật gần nhưng thấy vật xa mờ.",
+      [
+        "short-sighted people",
+        "người cận thị"
+      ],
+      [
+        "distant objects blurred",
+        "vật xa mờ"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Kính phổ biến rộng phần lớn nhờ máy in.",
+      [
+        "The spread of glasses",
+        "Kính phổ biến rộng"
+      ],
+      [
+        "the printing press",
+        "máy in"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Sau những năm 1440, sách in rẻ hơn nhiều và nhiều người hơn học đọc.",
+      [
+        "printed books",
+        "sách in"
+      ],
+      [
+        "far cheaper",
+        "rẻ hơn nhiều"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Khi đọc trở nên phổ biến, nhu cầu kính tăng nhanh và người làm thấu kính thành thợ thủ công bận rộn khắp châu Âu.",
+      [
+        "the demand for spectacles",
+        "nhu cầu kính"
+      ],
+      [
+        "lens-makers",
+        "người làm thấu kính"
+      ],
+      [
+        "busy craftsmen",
+        "thợ thủ công bận rộn"
+      ]
+    ],
+    [
+      "p5-s1",
+      "E — Một cải tiến nổi tiếng đến vào những năm 1780, khi người Mỹ Benjamin Franklin chán việc đổi qua lại giữa hai cặp kính.",
+      [
+        "in the 1780s",
+        "vào những năm 1780"
+      ],
+      [
+        "switching between two pairs of glasses",
+        "đổi qua lại giữa hai cặp kính"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Ông ghép hai nửa thấu kính, đặt phần nhìn xa phía trên phần đọc sách.",
+      [
+        "two half-lenses",
+        "hai nửa thấu kính"
+      ],
+      [
+        "one for distance above one for reading",
+        "phần nhìn xa phía trên phần đọc sách"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Loại “kính hai tròng” này cho phép một cặp kính đảm nhiệm hai việc cùng lúc.",
+      [
+        "bifocals",
+        "kính hai tròng"
+      ],
+      [
+        "two jobs at once",
+        "hai việc cùng lúc"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-glasses-reading-scene.svg",
+    "alt": "Cặp kính gọng đặt trên sách mở cạnh hộp kính và đèn bàn.",
+    "caption": "Một dụng cụ giúp việc đọc thuận tiện hơn."
+  },
+  "source_sha256": "7420e95625a3684781af1b3f57534893f9eee8e30c9adf2e8bb75ff4a0212ef7",
+  "expected_translation_sha256": "03e1635a3c89074ec4ad7aff41819dfdc488b74293d19244851cfbe15dc3a6ef"
+}

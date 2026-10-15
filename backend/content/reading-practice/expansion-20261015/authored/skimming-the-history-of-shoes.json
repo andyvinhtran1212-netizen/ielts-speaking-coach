@@ -1,0 +1,158 @@
+{
+  "slug": "skimming-the-history-of-shoes",
+  "review_notes": "Plain là đơn giản; who you were ở đoạn tầng lớp xã hội; come a long way là phát triển qua chặng đường dài, không phải đôi giày tự di chuyển.",
+  "illustration_brief": "Một chiếc giày da và giày thể thao đặt cạnh khuôn giày, vải và chỉ trên bàn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Mỗi sáng, phần lớn mọi người mang giày mà không nghĩ đến việc đó.",
+      [
+        "Every morning",
+        "Mỗi sáng"
+      ],
+      [
+        "put on shoes",
+        "mang giày"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nhưng giày có một câu chuyện rất dài.",
+      [
+        "a very long story",
+        "một câu chuyện rất dài"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Những đôi giày đầu tiên được làm từ lâu bằng da thú và cây cỏ buộc quanh chân để bảo vệ bàn chân khỏi đá sắc và nền đất lạnh.",
+      [
+        "animal skin and plants",
+        "da thú và cây cỏ"
+      ],
+      [
+        "tied around the foot",
+        "buộc quanh chân"
+      ],
+      [
+        "sharp stones and cold ground",
+        "đá sắc và nền đất lạnh"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Ngày xưa, loại giày mang cho thấy bạn thuộc tầng lớp nào.",
+      [
+        "the kind of shoes you wore",
+        "loại giày mang"
+      ],
+      [
+        "showed who you were",
+        "cho thấy bạn thuộc tầng lớp nào"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Người giàu mang giày đẹp bằng da mềm, đôi khi có màu rực rỡ.",
+      [
+        "fine shoes made of soft leather",
+        "giày đẹp bằng da mềm"
+      ],
+      [
+        "bright colours",
+        "màu rực rỡ"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Người nghèo mang giày đơn giản, và nhiều người hoàn toàn không có giày.",
+      [
+        "plain shoes",
+        "giày đơn giản"
+      ],
+      [
+        "no shoes at all",
+        "hoàn toàn không có giày"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Rồi mọi thứ thay đổi.",
+      [
+        "things changed",
+        "mọi thứ thay đổi"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Khoảng hai trăm năm trước, máy móc trong nhà máy bắt đầu làm giày.",
+      [
+        "About two hundred years ago",
+        "Khoảng hai trăm năm trước"
+      ],
+      [
+        "machines in factories",
+        "máy móc trong nhà máy"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Máy làm nhiều giày nhanh và rẻ, nên phần lớn mọi người có thể mua, không chỉ người giàu.",
+      [
+        "quickly and cheaply",
+        "nhanh và rẻ"
+      ],
+      [
+        "not just the rich",
+        "không chỉ người giàu"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Ngày nay có nhiều loại giày khác nhau.",
+      [
+        "many different kinds of shoes",
+        "nhiều loại giày khác nhau"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Có giày chạy bộ và thể thao, giày thường ngày và giày cho dịp đặc biệt.",
+      [
+        "running and sport",
+        "chạy bộ và thể thao"
+      ],
+      [
+        "every day",
+        "thường ngày"
+      ],
+      [
+        "special days",
+        "dịp đặc biệt"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Từ những mảnh da đơn giản tới hàng triệu kiểu dáng, giày đã tiến một chặng đường rất dài.",
+      [
+        "simple pieces of skin",
+        "những mảnh da đơn giản"
+      ],
+      [
+        "millions of styles",
+        "hàng triệu kiểu dáng"
+      ],
+      [
+        "have come a very long way",
+        "đã tiến một chặng đường rất dài"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-shoes-workbench-scene.svg",
+    "alt": "Một chiếc giày da và giày thể thao đặt cạnh khuôn giày, vải và chỉ trên bàn.",
+    "caption": "Giày dép cho những nhu cầu khác nhau."
+  },
+  "source_sha256": "4df9654397f62b1f13786943b6f425c7e90f527a8a30267cffadbfe65fdff270",
+  "expected_translation_sha256": "46aeeb148b392a6dd6802b92ffd55d1d013fcc9f424c51a987cc794af16deb7f"
+}

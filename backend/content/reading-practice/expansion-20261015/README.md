@@ -20,10 +20,10 @@ production has 200 articles/1151 questions, four aligned; staging has 26 L1/L2
 articles/135 questions, four aligned. The Vocabulary chat is active in its own
 scope. No messages were sent to it and its files were not changed.
 
-Local checkpoint: 92 authored articles, 1391 sentence translations, 2870 manually
-chosen phrase pairs and 67 SVG scenes. Related articles share a suitable
-context scene where useful. There are 104 articles still to author in this requested
-expansion. All 92 are local drafts, not a deployed extension.
+Local checkpoint: 128 authored articles, 1950 sentence translations, 4115 manually
+chosen phrase pairs and 89 SVG scenes. Related articles share a suitable
+context scene where useful. There are 68 articles still to author in this requested
+expansion. All 128 are local drafts, not a deployed extension.
 
 `compile_local.py` only assembles this finite batch and calls the existing
 practice-support validator. It makes no network requests. Author files pin the

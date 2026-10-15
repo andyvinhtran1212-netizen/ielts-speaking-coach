@@ -1,0 +1,234 @@
+{
+  "slug": "the-ethics-of-attention-design",
+  "review_notes": "Giữ phân biệt lập luận Harris, lời phản bác và nhận xét của người viết. Agency là năng lực chủ động, autonomy là tự chủ; paternalistic được dịch theo nghĩa quyết định thay người khác, không bàn về quan hệ gia đình.",
+  "illustration_brief": "Một người nhìn điện thoại giữa các ô thông báo và đồng hồ trên bàn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 2013, Tristan Harris, người từng phụ trách đạo đức thiết kế tại Google, lưu hành bản ghi nhớ cho rằng vài kỹ sư ở California đang âm thầm định hình cách hàng triệu người dành sự chú ý.",
+      [
+        "a former Google design ethicist",
+        "người từng phụ trách đạo đức thiết kế tại Google"
+      ],
+      [
+        "circulated a memo",
+        "lưu hành bản ghi nhớ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nhận định chính là các nền tảng số cạnh tranh trong nền kinh tế chú ý, thị trường nơi sự tập trung của con người, thay vì tiền, là tài nguyên khan hiếm được khai thác và bán.",
+      [
+        "an attention economy",
+        "nền kinh tế chú ý"
+      ],
+      [
+        "human focus, rather than money",
+        "sự tập trung của con người, thay vì tiền"
+      ],
+      [
+        "the scarce resource",
+        "tài nguyên khan hiếm"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Lô-gic khó chịu nhưng nhất quán, đi thẳng từ cách các doanh nghiệp thực sự kiếm tiền.",
+      [
+        "uncomfortable but coherent",
+        "khó chịu nhưng nhất quán"
+      ],
+      [
+        "earn their money",
+        "kiếm tiền"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Vì phần lớn nền tảng kiếm tiền từ mức tương tác qua quảng cáo, động lực thương mại là tối đa thời gian và tần suất người dùng quay lại, bất kể việc ấy phục vụ lợi ích ai không.",
+      [
+        "monetise engagement through advertising",
+        "kiếm tiền từ mức tương tác qua quảng cáo"
+      ],
+      [
+        "the time and frequency",
+        "thời gian và tần suất"
+      ],
+      [
+        "irrespective of whether that return serves anyone's interests",
+        "bất kể việc ấy phục vụ lợi ích ai không"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Để làm vậy, nhà thiết kế dùng kỹ thuật thuyết phục, từ phần thưởng biến đổi tới luồng nội dung vô tận, được tinh chỉnh để người dùng cuộn xa quá điểm thỏa mãn.",
+      [
+        "variable rewards",
+        "phần thưởng biến đổi"
+      ],
+      [
+        "infinite feeds",
+        "luồng nội dung vô tận"
+      ],
+      [
+        "well beyond the point of satisfaction",
+        "xa quá điểm thỏa mãn"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Người phê bình cho rằng các cách ấy chủ ý khai thác điểm yếu tâm lý đã được ghi nhận, biến thói quen bình thường thành thứ gần với hành vi thôi thúc, khó cưỡng lại.",
+      [
+        "psychological vulnerabilities",
+        "điểm yếu tâm lý"
+      ],
+      [
+        "compulsive behaviour",
+        "hành vi thôi thúc, khó cưỡng lại"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Theo Harris, lo sâu hơn không phải phút mất đi mà là quyền tự chủ bị bào mòn.",
+      [
+        "lost minutes",
+        "phút mất đi"
+      ],
+      [
+        "eroded autonomy",
+        "quyền tự chủ bị bào mòn"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khi giao diện được thiết kế lấn át suy xét, lựa chọn người ta tin mình tự do đưa ra thực tế có thể bị lợi ích thương mại họ chưa từng chủ động đồng ý âm thầm dẫn hướng.",
+      [
+        "override deliberation",
+        "lấn át suy xét"
+      ],
+      [
+        "covertly steered",
+        "âm thầm dẫn hướng"
+      ],
+      [
+        "never knowingly consented to",
+        "chưa từng chủ động đồng ý"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Người bảo vệ ngành đáp rằng cách nhìn ấy mang tính gia trưởng.",
+      [
+        "Defenders of the industry",
+        "Người bảo vệ ngành"
+      ],
+      [
+        "paternalistic",
+        "mang tính gia trưởng"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Họ lập luận người lớn có thể tự quyết dùng giờ thế nào, và coi người dùng là nạn nhân bất lực bị thao túng dường như phủ nhận chính năng lực chủ động mà người phê bình nói muốn bảo vệ.",
+      [
+        "helpless victims of manipulation",
+        "nạn nhân bất lực bị thao túng"
+      ],
+      [
+        "the very agency",
+        "chính năng lực chủ động"
+      ],
+      [
+        "ostensibly denies",
+        "dường như phủ nhận"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Hơn nữa, chính tính năng bị chê gây nghiện thường lại làm dịch vụ thật sự hữu ích và dễ chịu.",
+      [
+        "condemned as addictive",
+        "bị chê gây nghiện"
+      ],
+      [
+        "genuinely useful and pleasurable",
+        "thật sự hữu ích và dễ chịu"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Nhưng còn sự bất cân xứng cơ cấu mà lời bảo vệ này thường xem nhẹ.",
+      [
+        "a structural asymmetry",
+        "sự bất cân xứng cơ cấu"
+      ],
+      [
+        "tends to underplay",
+        "thường xem nhẹ"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Một bên là cá nhân dựa vào ý chí hạn chế; bên kia là tập đoàn có dữ liệu hành vi khổng lồ và nhóm chuyên gia với nhiệm vụ rõ ràng là thu giữ chú ý.",
+      [
+        "limited willpower",
+        "ý chí hạn chế"
+      ],
+      [
+        "vast behavioural data",
+        "dữ liệu hành vi khổng lồ"
+      ],
+      [
+        "to capture attention",
+        "thu giữ chú ý"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Có thể lập luận rằng gọi cuộc đấu ấy là thương lượng tự do, bình đẳng là mô tả sai.",
+      [
+        "a free and equal negotiation",
+        "thương lượng tự do, bình đẳng"
+      ],
+      [
+        "to misdescribe it",
+        "mô tả sai"
+      ]
+    ],
+    [
+      "p6-s1",
+      "Thiết kế tốt nhất cho chú ý ra sao, bằng quản lý, quy tắc nghề nghiệp cho nhà thiết kế hay công cụ trả quyền kiểm soát cho người dùng, là câu hỏi chưa có đáp án thống nhất.",
+      [
+        "professional codes for designers",
+        "quy tắc nghề nghiệp cho nhà thiết kế"
+      ],
+      [
+        "return control to the user",
+        "trả quyền kiểm soát cho người dùng"
+      ],
+      [
+        "no settled answer",
+        "chưa có đáp án thống nhất"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Tuy nhiên, khó phủ nhận hơn rằng thiết kế chú ý đã trở thành vấn đề đạo đức không kém kỹ thuật, với các lời giải vẫn còn nhiều tranh cãi.",
+      [
+        "an ethical matter as much as a technical one",
+        "vấn đề đạo đức không kém kỹ thuật"
+      ],
+      [
+        "still very much contested",
+        "vẫn còn nhiều tranh cãi"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-attention-phone-scene.svg",
+    "alt": "Một người nhìn điện thoại giữa các ô thông báo và đồng hồ trên bàn.",
+    "caption": "Thiết kế số và sự chú ý của người dùng."
+  },
+  "source_sha256": "036da2d5f80a93e9fc747a8db4410d3f216a521e4f024c1ab5906f803070b734",
+  "expected_translation_sha256": "0257731595407cfc5b2be203c6355652fcb628f31174a210d589a6d4fd3a368e"
+}
