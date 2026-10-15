@@ -1,0 +1,174 @@
+{
+  "slug": "detail-the-arctic-fox",
+  "review_notes": "Dịch tự nhiên, giữ điều kiện thay đổi bộ lông theo mùa và chiến lược kiếm ăn. Giữ nguồn viết âm 50 độ, không tự thêm đơn vị nhiệt độ.",
+  "illustration_brief": "Một cáo Bắc Cực trắng đi trên tuyết, có đá và bụi cây thấp; không đặt cạnh một bảng phân mùa hay tên loại thức ăn.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Bạn có nghĩ một con vật nhỏ có thể sống ở một trong những nơi lạnh nhất trên Trái Đất không?",
+      [
+        "a small animal",
+        "một con vật nhỏ"
+      ],
+      [
+        "the coldest places on Earth",
+        "những nơi lạnh nhất trên Trái Đất"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Cáo Bắc Cực làm được điều đó.",
+      [
+        "The Arctic fox",
+        "Cáo Bắc Cực"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nó sống ở vùng đất lạnh tận phương bắc, nơi nhiệt độ không khí có thể xuống âm 50 độ.",
+      [
+        "the far north",
+        "tận phương bắc"
+      ],
+      [
+        "minus 50 degrees",
+        "âm 50 độ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Cáo Bắc Cực thích nghi tốt với giá lạnh.",
+      [
+        "well made for the cold",
+        "thích nghi tốt với giá lạnh"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nó có bộ lông dày, ấm; đôi tai nhỏ và ngắn giúp giữ nhiệt; cùng bàn chân phủ lông để đi trên băng lạnh.",
+      [
+        "keep heat in",
+        "giữ nhiệt"
+      ],
+      [
+        "furry feet",
+        "bàn chân phủ lông"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Một điểm rất đặc biệt là bộ lông của cáo đổi màu.",
+      [
+        "the fox's coat",
+        "bộ lông của cáo"
+      ],
+      [
+        "changes colour",
+        "đổi màu"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Mùa đông, bộ lông trắng khiến cáo khó bị nhìn thấy trong tuyết.",
+      [
+        "the coat is white",
+        "bộ lông trắng"
+      ],
+      [
+        "hard to see",
+        "khó bị nhìn thấy"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Mùa hè, khi tuyết tan, lông chuyển nâu để hòa với màu đất và đá.",
+      [
+        "when the snow melts",
+        "khi tuyết tan"
+      ],
+      [
+        "turns brown",
+        "chuyển nâu"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Tìm thức ăn ở phương bắc không dễ.",
+      [
+        "Finding food",
+        "Tìm thức ăn"
+      ],
+      [
+        "is not easy",
+        "không dễ"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Cáo Bắc Cực ăn động vật nhỏ, trứng chim và quả mọng.",
+      [
+        "small animals",
+        "động vật nhỏ"
+      ],
+      [
+        "birds' eggs and berries",
+        "trứng chim và quả mọng"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Đôi khi nó còn đi theo gấu Bắc Cực và ăn phần thức ăn gấu để lại.",
+      [
+        "follows a polar bear",
+        "đi theo gấu Bắc Cực"
+      ],
+      [
+        "the food the bear leaves behind",
+        "phần thức ăn gấu để lại"
+      ]
+    ],
+    [
+      "p5-s4",
+      "Nhờ những cách khôn khéo ấy, cáo nhỏ sống sót giữa thế giới băng giá.",
+      [
+        "stays alive",
+        "sống sót"
+      ],
+      [
+        "a world of ice",
+        "thế giới băng giá"
+      ]
+    ],
+    [
+      "p7-s1",
+      "Mẹo luyện tập: Khi đọc tìm chi tiết, hãy tìm chính xác những từ ngữ trong bài trả lời câu hỏi.",
+      [
+        "read for detail",
+        "đọc tìm chi tiết"
+      ],
+      [
+        "the exact words",
+        "chính xác những từ ngữ"
+      ]
+    ],
+    [
+      "p7-s2",
+      "Hãy kiểm tra xem các dữ kiện có thật sự khớp nhau không.",
+      [
+        "the facts",
+        "các dữ kiện"
+      ],
+      [
+        "really match",
+        "thật sự khớp nhau"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-arctic-fox-scene.svg",
+    "alt": "Cáo trắng đi trên tuyết cạnh đá và bụi cây thấp.",
+    "caption": "Cáo trong cảnh quan phương bắc."
+  },
+  "source_sha256": "e194acd9ddce8416eb62bc1161cdd030491d5605c4f06554dca1289870419d7c",
+  "expected_translation_sha256": "127fe125e3a00335321192be76f89c142f15431c4c694a52f026a1962b75dcca"
+}

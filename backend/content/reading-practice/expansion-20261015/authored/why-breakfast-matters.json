@@ -1,0 +1,178 @@
+{
+  "slug": "why-breakfast-matters",
+  "review_notes": "Tự dịch văn đọc, giữ may ở câu kết; không thêm tư vấn sức khoẻ cá nhân. Tách đủ từng câu kể cả câu kết thúc bằng dấu ngoặc kép.",
+  "illustration_brief": "Bữa sáng có bánh mì, trái cây, trứng và cốc sữa trên bàn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Từ “breakfast” có nghĩa là “kết thúc thời gian nhịn ăn”.",
+      [
+        "break the fast",
+        "kết thúc thời gian nhịn ăn"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Sau một đêm ngủ, cơ thể bạn đã không được ăn trong nhiều giờ.",
+      [
+        "After a night of sleep",
+        "Sau một đêm ngủ"
+      ],
+      [
+        "for many hours",
+        "trong nhiều giờ"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Vì vậy, vào buổi sáng cơ thể cần năng lượng mới.",
+      [
+        "new energy",
+        "năng lượng mới"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Đó là lý do bữa ăn đầu tiên trong ngày quan trọng với bạn đến vậy.",
+      [
+        "the first meal of the day",
+        "bữa ăn đầu tiên trong ngày"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Hãy xem thức ăn là nhiên liệu cho cơ thể, giống như xăng đối với ô tô.",
+      [
+        "fuel for your body",
+        "nhiên liệu cho cơ thể"
+      ],
+      [
+        "petrol for a car",
+        "xăng đối với ô tô"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Ô tô không thể chạy khi bình xăng cạn.",
+      [
+        "cannot run",
+        "không thể chạy"
+      ],
+      [
+        "an empty tank",
+        "bình xăng cạn"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Tương tự, khi đói, bạn khó tập trung ở trường hay nơi làm việc hơn.",
+      [
+        "harder to concentrate",
+        "khó tập trung"
+      ],
+      [
+        "when you are hungry",
+        "khi đói"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Một bữa sáng tốt giúp não bạn tỉnh táo.",
+      [
+        "A good breakfast",
+        "Một bữa sáng tốt"
+      ],
+      [
+        "stay awake",
+        "tỉnh táo"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Điều gì tạo nên một bữa sáng tốt?",
+      [
+        "a good breakfast",
+        "một bữa sáng tốt"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Một bữa sáng lành mạnh không chỉ có đường.",
+      [
+        "A healthy one",
+        "Một bữa sáng lành mạnh"
+      ],
+      [
+        "more than just sugar",
+        "không chỉ có đường"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Trứng, trái cây, sữa và bánh mì nguyên cám là những lựa chọn tuyệt vời.",
+      [
+        "whole grain bread",
+        "bánh mì nguyên cám"
+      ],
+      [
+        "great choices",
+        "những lựa chọn tuyệt vời"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Kết hợp lại, chúng cho bạn một khởi đầu ngày mới cân bằng dinh dưỡng.",
+      [
+        "Together",
+        "Kết hợp lại"
+      ],
+      [
+        "a balanced start to the day",
+        "một khởi đầu ngày mới cân bằng dinh dưỡng"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Đáng tiếc, nhiều người bỏ bữa sáng vì vội.",
+      [
+        "skip breakfast",
+        "bỏ bữa sáng"
+      ],
+      [
+        "in a hurry",
+        "vội"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Họ thường cảm thấy mệt vào giữa buổi sáng.",
+      [
+        "feel tired",
+        "cảm thấy mệt"
+      ],
+      [
+        "the middle of the morning",
+        "giữa buổi sáng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ngay cả một bữa sáng nhỏ, đơn giản cũng có thể tốt hơn là không ăn gì.",
+      [
+        "a small, simple breakfast",
+        "một bữa sáng nhỏ, đơn giản"
+      ],
+      [
+        "may be better than nothing at all",
+        "có thể tốt hơn là không ăn gì"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-breakfast-table-scene.svg",
+    "alt": "Bữa sáng có bánh mì, trái cây, trứng và cốc sữa trên bàn.",
+    "caption": "Một bữa ăn đầu ngày."
+  },
+  "source_sha256": "8870369ea073592c24e49b8a5f172103990c190cd166baf66c02734701e9f2f2",
+  "expected_translation_sha256": "52f38fe07d5807e55dfa0c2b062ba9dc6caea9728e9730cca39b93408743284a"
+}

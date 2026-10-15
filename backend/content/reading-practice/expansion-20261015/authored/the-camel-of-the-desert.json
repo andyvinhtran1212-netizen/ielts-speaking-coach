@@ -1,0 +1,202 @@
+{
+  "slug": "the-camel-of-the-desert",
+  "review_notes": "Giữ may và can; nose diễn đạt lỗ mũi; không minh hoạ nhãn đáp án về bướu.",
+  "illustration_brief": "Lạc đà một bướu bước trên cồn cát cạnh hành lý.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Làm sao lạc đà có thể đi nhiều ngày mà không có nước?",
+      [
+        "for days",
+        "nhiều ngày"
+      ],
+      [
+        "with no water",
+        "mà không có nước"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Loài vật đáng kinh ngạc này sống ở sa mạc nóng và khô.",
+      [
+        "hot, dry desert",
+        "sa mạc nóng và khô"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Người ta gọi nó là con tàu của sa mạc.",
+      [
+        "the ship of the desert",
+        "con tàu của sa mạc"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Nhưng nó sống sót bằng cách nào?",
+      [
+        "survive",
+        "sống sót"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Nhiều người nghĩ rằng bướu lạc đà chứa nước.",
+      [
+        "the hump",
+        "bướu lạc đà"
+      ],
+      [
+        "holds water",
+        "chứa nước"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Điều này không đúng.",
+      [
+        "not true",
+        "không đúng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Bướu chứa đầy mỡ.",
+      [
+        "full of fat",
+        "chứa đầy mỡ"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Lạc đà dùng lượng mỡ này để lấy năng lượng khi thức ăn khan hiếm.",
+      [
+        "for energy",
+        "để lấy năng lượng"
+      ],
+      [
+        "when food is scarce",
+        "khi thức ăn khan hiếm"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Một con lạc đà lớn có thể mang hơn 30 ki-lô-gam mỡ.",
+      [
+        "over 30 kilograms of fat",
+        "hơn 30 ki-lô-gam mỡ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Cơ thể lạc đà có cấu tạo phù hợp với vùng đất khô hạn.",
+      [
+        "is built for dry land",
+        "có cấu tạo phù hợp với vùng đất khô hạn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nó có lông mi dài để ngăn cát lọt vào mắt.",
+      [
+        "long eyelashes",
+        "lông mi dài"
+      ],
+      [
+        "to keep out sand",
+        "để ngăn cát lọt vào mắt"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Nó có thể khép lỗ mũi lại trong bão cát.",
+      [
+        "close its nose",
+        "khép lỗ mũi lại"
+      ],
+      [
+        "during a sandstorm",
+        "trong bão cát"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Bàn chân rộng của nó không bị lún xuống nền đất mềm.",
+      [
+        "wide feet",
+        "Bàn chân rộng"
+      ],
+      [
+        "do not sink",
+        "không bị lún"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Khi uống, lạc đà có thể nạp vào 100 lít nước.",
+      [
+        "take in 100 litres of water",
+        "nạp vào 100 lít nước"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Lạc đà cũng giúp ích cho con người.",
+      [
+        "help people",
+        "giúp ích cho con người"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Chúng chở hàng hóa qua những vùng đất khô hạn.",
+      [
+        "carry goods",
+        "chở hàng hóa"
+      ],
+      [
+        "across the dry land",
+        "qua những vùng đất khô hạn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Chúng cung cấp sữa, lông và bóng râm.",
+      [
+        "milk, wool, and shade",
+        "sữa, lông và bóng râm"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Suốt hàng nghìn năm, con người đã tin cậy lạc đà.",
+      [
+        "For thousands of years",
+        "Suốt hàng nghìn năm"
+      ],
+      [
+        "have trusted the camel",
+        "đã tin cậy lạc đà"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Nó có lẽ là người bạn đồng hành hoàn hảo nơi sa mạc.",
+      [
+        "may be",
+        "có lẽ là"
+      ],
+      [
+        "the perfect desert partner",
+        "người bạn đồng hành hoàn hảo nơi sa mạc"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-camel-scene.svg",
+    "alt": "Lạc đà một bướu bước trên cồn cát cạnh hành lý.",
+    "caption": "Một người bạn đồng hành giữa vùng đất khô hạn."
+  },
+  "source_sha256": "9576029d11e6ec7aecc1cfa64247426ff9cad4ac6a0e4bb40247caed86045adb",
+  "expected_translation_sha256": "80a0a3523bde33bedc0ede0690ee59ff21eddb93eed1d97755317391fe1d092d"
+}

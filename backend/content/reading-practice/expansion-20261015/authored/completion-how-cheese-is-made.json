@@ -1,0 +1,194 @@
+{
+  "slug": "completion-how-cheese-is-made",
+  "review_notes": "Dịch lại toàn bài; sửa whey thành phần nước tách khỏi sữa đông thay vì nước váng sữa, và ageing thành ủ chín thay vì già đi.",
+  "illustration_brief": "Những bánh phô mai nguyên khối trên kệ gỗ trong phòng ủ, một miếng phô mai cắt bên cạnh; không gắn nhãn thành phần hay bước điền đáp án.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Làm phô mai là một trong những cách bảo quản sữa khỏi hỏng lâu đời nhất; con người đã làm món này từ hơn 7.000 năm trước.",
+      [
+        "stop milk from going bad",
+        "bảo quản sữa khỏi hỏng"
+      ],
+      [
+        "more than 7,000 years",
+        "hơn 7.000 năm"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Về bản chất, phô mai chỉ là sữa đã được chuyển sang dạng đặc và rắn hơn.",
+      [
+        "At its heart",
+        "Về bản chất"
+      ],
+      [
+        "a thicker, more solid form",
+        "dạng đặc và rắn hơn"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Sữa có thể lấy từ bò, dê hoặc cừu; sự khác nhau về loại sữa là một lý do khiến phô mai khắp thế giới có hương vị rất khác biệt.",
+      [
+        "cows, goats or sheep",
+        "bò, dê hoặc cừu"
+      ],
+      [
+        "taste so different",
+        "có hương vị rất khác biệt"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Quá trình bắt đầu khi sữa tươi được làm ấm nhẹ nhàng trong một bồn lớn.",
+      [
+        "fresh milk",
+        "sữa tươi"
+      ],
+      [
+        "gently warmed",
+        "làm ấm nhẹ nhàng"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Sau đó, người ta thêm vi khuẩn có ích; những sinh vật rất nhỏ này từ từ làm sữa chua đi.",
+      [
+        "Helpful bacteria",
+        "vi khuẩn có ích"
+      ],
+      [
+        "turn the milk sour",
+        "làm sữa chua đi"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Tiếp theo, người làm phô mai thêm chất tạo đông gọi là rennet.",
+      [
+        "the cheese-maker",
+        "người làm phô mai"
+      ],
+      [
+        "a substance called rennet",
+        "chất tạo đông gọi là rennet"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Chất này khiến sữa đặc lại và đông kết, tách thành các khối rắn gọi là curd, tức sữa đông, và phần nước loãng gọi là whey.",
+      [
+        "thicken and set",
+        "đặc lại và đông kết"
+      ],
+      [
+        "a thin liquid called whey",
+        "phần nước loãng gọi là whey"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Khi sữa đông hình thành, người ta cắt thành miếng nhỏ rồi khuấy đều.",
+      [
+        "the curds",
+        "sữa đông"
+      ],
+      [
+        "cut into small pieces and stirred",
+        "cắt thành miếng nhỏ rồi khuấy đều"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Người làm phô mai sau đó nén những khối rắn này để ép bớt phần nước whey còn dư.",
+      [
+        "presses these solid lumps",
+        "nén những khối rắn này"
+      ],
+      [
+        "the extra whey",
+        "phần nước whey còn dư"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khối phô mai được ép càng mạnh và càng lâu thì thành phẩm càng chắc.",
+      [
+        "The harder and longer",
+        "càng mạnh và càng lâu"
+      ],
+      [
+        "the firmer the final cheese will be",
+        "thành phẩm càng chắc"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Muối cũng thường được thêm ở giai đoạn này, vừa tạo hương vị vừa giúp bảo quản phô mai lâu hơn.",
+      [
+        "both for flavour",
+        "vừa tạo hương vị"
+      ],
+      [
+        "keep for longer",
+        "bảo quản phô mai lâu hơn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Cuối cùng, phô mai non được để ở nơi mát để ủ chín, một quá trình gọi là ageing.",
+      [
+        "the young cheese",
+        "phô mai non"
+      ],
+      [
+        "left in a cool place to age",
+        "để ở nơi mát để ủ chín"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nhiều loại phô mai được bảo quản trong nhiều tháng, một số loại trong nhiều năm.",
+      [
+        "stored for months",
+        "bảo quản trong nhiều tháng"
+      ],
+      [
+        "some for years",
+        "một số loại trong nhiều năm"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Trong thời gian này, hương vị trở nên đậm đà và phong phú hơn.",
+      [
+        "During this time",
+        "Trong thời gian này"
+      ],
+      [
+        "stronger and more complex",
+        "đậm đà và phong phú hơn"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Vì thế, một khối phô mai đơn giản là thành quả của thời gian, sự chăm chút và một chút khoa học đời thường.",
+      [
+        "time, care",
+        "thời gian, sự chăm chút"
+      ],
+      [
+        "everyday science",
+        "khoa học đời thường"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-cheese-scene.svg",
+    "alt": "Những bánh phô mai tròn trên kệ gỗ và một miếng phô mai cắt ở phía trước.",
+    "caption": "Phô mai trong không gian bảo quản và ủ chín."
+  },
+  "source_sha256": "ff0fa06aa309f00ec2a0964e5b2b3ebc3f2f8c3e22df6d656b831f304a7cce6d",
+  "expected_translation_sha256": "e21a97d99ae7555176a0a52175ad28b37b4362e1093561fbbb0c3f88205ae3ee"
+}

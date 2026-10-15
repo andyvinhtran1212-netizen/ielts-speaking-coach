@@ -1,0 +1,166 @@
+{
+  "slug": "detail-the-life-of-bees",
+  "review_notes": "Dịch từng câu và mẹo luyện tập; giữ rõ mật hoa, mật ong và phấn hoa là các khái niệm khác nhau.",
+  "illustration_brief": "Ong thợ đậu trên hoa, có nhiều bông hoa và tổ ong ở xa; không gắn nhãn vai trò hay số lượng ong.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Những con ong nhỏ bé nằm trong số các loài côn trùng quan trọng nhất trên Trái Đất.",
+      [
+        "the most important insects",
+        "các loài côn trùng quan trọng nhất"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Ong mật sống cùng nhau thành những nhóm lớn gọi là đàn, và một đàn có thể có hàng nghìn con.",
+      [
+        "large groups called colonies",
+        "những nhóm lớn gọi là đàn"
+      ],
+      [
+        "thousands of bees",
+        "hàng nghìn con"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Trong mỗi tổ, con ong nào cũng có nhiệm vụ riêng.",
+      [
+        "In each nest",
+        "Trong mỗi tổ"
+      ],
+      [
+        "its own job",
+        "nhiệm vụ riêng"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Mỗi tổ chỉ có một ong chúa, làm nhiệm vụ đẻ trứng.",
+      [
+        "just one queen",
+        "chỉ có một ong chúa"
+      ],
+      [
+        "lay eggs",
+        "đẻ trứng"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Ong thợ đều là ong cái.",
+      [
+        "all female",
+        "đều là ong cái"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Chúng dọn tổ, chăm sóc ong non và ra ngoài tìm thức ăn.",
+      [
+        "care for the young bees",
+        "chăm sóc ong non"
+      ],
+      [
+        "go out to find food",
+        "ra ngoài tìm thức ăn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ong nổi tiếng với việc làm mật.",
+      [
+        "famous for making honey",
+        "nổi tiếng với việc làm mật"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Chúng thu chất lỏng ngọt trong hoa gọi là mật hoa rồi biến thành mật ong, dự trữ làm thức ăn.",
+      [
+        "nectar",
+        "mật hoa"
+      ],
+      [
+        "store for food",
+        "dự trữ làm thức ăn"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Ong còn giúp con người và thực vật theo một cách khác.",
+      [
+        "help people and plants",
+        "giúp con người và thực vật"
+      ],
+      [
+        "in another way",
+        "theo một cách khác"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Khi di chuyển từ hoa này sang hoa khác, chúng mang theo phấn hoa.",
+      [
+        "from flower to flower",
+        "từ hoa này sang hoa khác"
+      ],
+      [
+        "pollen",
+        "phấn hoa"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Việc này giúp cây tạo hạt và quả mới.",
+      [
+        "make new seeds and fruit",
+        "tạo hạt và quả mới"
+      ]
+    ],
+    [
+      "p5-s4",
+      "Khi tìm thấy nhiều hoa, ong bay về tổ và thực hiện điệu nhảy đặc biệt để báo cho các con khác vị trí của hoa.",
+      [
+        "a special dance",
+        "điệu nhảy đặc biệt"
+      ],
+      [
+        "where the flowers are",
+        "vị trí của hoa"
+      ]
+    ],
+    [
+      "p7-s1",
+      "Mẹo luyện tập: Khi đọc tìm chi tiết, hãy tìm chính xác những từ ngữ trong bài trả lời câu hỏi.",
+      [
+        "read for detail",
+        "đọc tìm chi tiết"
+      ],
+      [
+        "the exact words",
+        "chính xác những từ ngữ"
+      ]
+    ],
+    [
+      "p7-s2",
+      "Hãy kiểm tra xem các dữ kiện có thật sự khớp nhau không.",
+      [
+        "the facts",
+        "các dữ kiện"
+      ],
+      [
+        "really match",
+        "thật sự khớp nhau"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-bees-garden-scene.svg",
+    "alt": "Ong mật đậu bên hoa trong khu vườn, tổ gỗ ở phía xa.",
+    "caption": "Quan sát ong trong vườn hoa."
+  },
+  "source_sha256": "9277bcc8a7cbc31e2082ba55af23e482ef1de914292a8d2d8f88c8e2aca80346",
+  "expected_translation_sha256": "cd612dadebeea9234f3e4b07e7ed535859201dbd5c705784abcdd6c41e4de1c1"
+}

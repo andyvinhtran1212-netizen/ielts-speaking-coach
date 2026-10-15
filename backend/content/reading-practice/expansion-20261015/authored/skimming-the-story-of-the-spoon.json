@@ -1,0 +1,170 @@
+{
+  "slug": "skimming-the-story-of-the-spoon",
+  "review_notes": "Dùng muỗng nhất quán; bronze là hợp kim đồng, không tự gọi vàng; sign of money là biểu hiện giàu có theo ngữ cảnh. Hình không gắn loại vật liệu với tên nền văn minh.",
+  "illustration_brief": "Muỗng gỗ và muỗng kim loại đặt cạnh bát và khăn trên bàn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Muỗng là một trong những dụng cụ lâu đời nhất thế giới.",
+      [
+        "The spoon",
+        "Muỗng"
+      ],
+      [
+        "one of the oldest tools",
+        "một trong những dụng cụ lâu đời nhất"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Từ lâu trước dao và nĩa, người cổ đại cần cách ăn súp và các thức ăn mềm khác.",
+      [
+        "knives and forks",
+        "dao và nĩa"
+      ],
+      [
+        "soup and other soft food",
+        "súp và các thức ăn mềm khác"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Ban đầu, họ dùng những thứ đơn giản từ tự nhiên.",
+      [
+        "At first",
+        "Ban đầu"
+      ],
+      [
+        "simple things from nature",
+        "những thứ đơn giản từ tự nhiên"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Vỏ sò lớn hoặc mảnh gỗ nhỏ làm thành muỗng sơ khai phù hợp.",
+      [
+        "A large shell or a small piece of wood",
+        "Vỏ sò lớn hoặc mảnh gỗ nhỏ"
+      ],
+      [
+        "a good early spoon",
+        "muỗng sơ khai phù hợp"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Sau đó, người ta bắt đầu chủ ý chế tạo muỗng.",
+      [
+        "on purpose",
+        "chủ ý"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Ở Ai Cập cổ đại, muỗng làm từ gỗ, đá và cả xương động vật.",
+      [
+        "ancient Egypt",
+        "Ai Cập cổ đại"
+      ],
+      [
+        "wood, stone, and even animal bone",
+        "gỗ, đá và cả xương động vật"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một số muỗng đặc biệt rất đẹp và chỉ dùng trong đền.",
+      [
+        "Some special spoons",
+        "Một số muỗng đặc biệt"
+      ],
+      [
+        "only used in temples",
+        "chỉ dùng trong đền"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Người giàu thích muỗng thể hiện sự giàu có.",
+      [
+        "The rich",
+        "Người giàu"
+      ],
+      [
+        "showed their wealth",
+        "thể hiện sự giàu có"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Ở La Mã cổ đại, muỗng lại thay đổi.",
+      [
+        "ancient Rome",
+        "La Mã cổ đại"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Gia đình La Mã dùng muỗng bằng đồng (bronze) và bạc.",
+      [
+        "Roman families",
+        "Gia đình La Mã"
+      ],
+      [
+        "bronze and silver",
+        "đồng (bronze) và bạc"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Gia đình nghèo có muỗng đơn giản, còn gia đình giàu ăn bằng muỗng bạc sáng bóng.",
+      [
+        "A poor family",
+        "Gia đình nghèo"
+      ],
+      [
+        "shiny silver",
+        "muỗng bạc sáng bóng"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Suốt hàng trăm năm, muỗng là dấu hiệu của tiền bạc.",
+      [
+        "For hundreds of years",
+        "Suốt hàng trăm năm"
+      ],
+      [
+        "a sign of money",
+        "dấu hiệu của tiền bạc"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Ngày nay, mọi thứ rất khác.",
+      [
+        "very different",
+        "rất khác"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Phần lớn muỗng làm bằng kim loại rẻ, bền, nên gần như ai trên thế giới cũng sở hữu một chiếc.",
+      [
+        "cheap, strong metal",
+        "kim loại rẻ, bền"
+      ],
+      [
+        "almost everyone in the world owns one",
+        "gần như ai trên thế giới cũng sở hữu một chiếc"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-spoons-table-scene.svg",
+    "alt": "Muỗng gỗ và muỗng kim loại đặt cạnh bát và khăn trên bàn.",
+    "caption": "Một dụng cụ nhỏ trong bữa ăn."
+  },
+  "source_sha256": "0c396e19743842d623ae40da82df8d2bdf1cef044f47aaeb3523b43dff931689",
+  "expected_translation_sha256": "06237378fa7fa5912ab05d0d0ea162ab660ae93033bbe81eab7f805f543d4299"
+}

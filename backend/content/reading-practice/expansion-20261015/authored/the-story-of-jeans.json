@@ -1,0 +1,186 @@
+{
+  "slug": "the-story-of-jeans",
+  "review_notes": "Tự dịch từng câu, giữ vẻ phỏng đoán ở seem và chưa xác định hết ở câu cuối; rivets là đinh tán. Minh hoạ bối cảnh may mặc, không gắn nhãn vị trí đáp án.",
+  "illustration_brief": "Quần jeans gấp trên bàn may cạnh cuộn chỉ và kéo.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1873, hai người đàn ông nhận được một tờ giấy nhỏ sẽ làm thay đổi cách cả thế giới ăn mặc.",
+      [
+        "a small piece of paper",
+        "một tờ giấy nhỏ"
+      ],
+      [
+        "the way the world dressed",
+        "cách cả thế giới ăn mặc"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Một người là Jacob Davis, thợ may ở Nevada; người còn lại là Levi Strauss, người bán vải ở San Francisco.",
+      [
+        "a tailor",
+        "thợ may"
+      ],
+      [
+        "a cloth seller",
+        "người bán vải"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ý tưởng ấy bắt đầu từ một vấn đề.",
+      [
+        "had begun with a problem",
+        "bắt đầu từ một vấn đề"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Davis may quần bền chắc cho một thợ mỏ có người vợ than phiền rằng quần lao động thông thường lúc nào cũng rách ở túi.",
+      [
+        "a miner",
+        "một thợ mỏ"
+      ],
+      [
+        "ordinary work trousers",
+        "quần lao động thông thường"
+      ],
+      [
+        "tear at the pockets",
+        "rách ở túi"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Davis quyết định gia cố những chỗ yếu bằng đinh tán kim loại nhỏ, đặt chúng đúng tại nơi vải chịu sức kéo lớn nhất, chẳng hạn các góc túi.",
+      [
+        "fix the weak spots",
+        "gia cố những chỗ yếu"
+      ],
+      [
+        "small metal rivets",
+        "đinh tán kim loại nhỏ"
+      ],
+      [
+        "took the most strain",
+        "chịu sức kéo lớn nhất"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Cách này hiệu quả đến mức Davis muốn bảo hộ nó, nhưng ông không có tiền làm thủ tục giấy tờ.",
+      [
+        "worked so well",
+        "hiệu quả đến mức"
+      ],
+      [
+        "protect it",
+        "bảo hộ nó"
+      ],
+      [
+        "the paperwork",
+        "thủ tục giấy tờ"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Ông viết thư cho Levi Strauss, người cung cấp vải cho ông, và hai người đồng ý cùng đứng tên bằng sáng chế.",
+      [
+        "supplied his cloth",
+        "cung cấp vải cho ông"
+      ],
+      [
+        "share a patent",
+        "cùng đứng tên bằng sáng chế"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Những chiếc quần có đinh tán làm từ vải denim xanh của họ tỏ ra bền hơn hẳn bất cứ sản phẩm nào khác trên thị trường.",
+      [
+        "made from blue denim",
+        "làm từ vải denim xanh"
+      ],
+      [
+        "far more durable",
+        "bền hơn hẳn"
+      ],
+      [
+        "on the market",
+        "trên thị trường"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ban đầu, loại quần này đơn thuần là đồ lao động dành cho thợ mỏ, nông dân và công nhân xây đường sắt.",
+      [
+        "simply workwear",
+        "đơn thuần là đồ lao động"
+      ],
+      [
+        "railway builders",
+        "công nhân xây đường sắt"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Tuy nhiên, qua những thập niên sau đó, chúng dần bước vào đời sống hằng ngày, và đến giữa thế kỷ hai mươi, quần jeans đã trở thành biểu tượng thời trang của giới trẻ.",
+      [
+        "everyday life",
+        "đời sống hằng ngày"
+      ],
+      [
+        "the middle of the twentieth century",
+        "giữa thế kỷ hai mươi"
+      ],
+      [
+        "a symbol of fashion",
+        "biểu tượng thời trang"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Thương hiệu Levi's trở nên nổi tiếng khắp thế giới.",
+      [
+        "The brand",
+        "Thương hiệu"
+      ],
+      [
+        "famous worldwide",
+        "nổi tiếng khắp thế giới"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Từ một xưởng may, quần jeans xanh dường như đã lan rộng khắp địa cầu.",
+      [
+        "a tailor's workshop",
+        "một xưởng may"
+      ],
+      [
+        "seem to have spread",
+        "dường như đã lan rộng"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Vẫn khó xác định đầy đủ những lý do đằng sau sức hấp dẫn lâu bền của chúng.",
+      [
+        "lasting appeal",
+        "sức hấp dẫn lâu bền"
+      ],
+      [
+        "remain hard to pin down",
+        "Vẫn khó xác định"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-jeans-workbench-scene.svg",
+    "alt": "Quần jeans gấp trên bàn may cạnh cuộn chỉ và kéo.",
+    "caption": "Từ xưởng may đến trang phục quen thuộc."
+  },
+  "source_sha256": "5539571339023daa9fea1bfa3473ee814cd6935cd5d67eb9fa0f9ba8217befda",
+  "expected_translation_sha256": "0cbed2aebc9e2c7aafdfb41d17d5cc9b12df4977ddbef69c047673dbd0125e54"
+}

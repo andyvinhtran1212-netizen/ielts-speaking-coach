@@ -1,0 +1,170 @@
+{
+  "slug": "why-we-yawn",
+  "review_notes": "Tự dịch; lý thuyết làm mát não được giữ là một ý tưởng chưa chắc chắn. Không thêm hướng dẫn y tế hoặc khẳng định nguyên nhân chắc chắn.",
+  "illustration_brief": "Một người ngáp và đưa tay che miệng trên ghế nghỉ.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Bạn có vừa ngáp khi đọc từ này không?",
+      [
+        "yawn",
+        "ngáp"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Ngáp rất phổ biến và ai cũng ngáp.",
+      [
+        "very common",
+        "rất phổ biến"
+      ],
+      [
+        "everyone does it",
+        "ai cũng ngáp"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nhưng vì sao chúng ta ngáp?",
+      [
+        "why do we yawn",
+        "vì sao chúng ta ngáp"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Các nhà khoa học chưa hoàn toàn chắc chắn.",
+      [
+        "not fully sure",
+        "chưa hoàn toàn chắc chắn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Người ta ngáp nhiều hơn khi mệt hoặc buồn chán.",
+      [
+        "tired or bored",
+        "mệt hoặc buồn chán"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nhưng một cái ngáp cũng có thể có tác dụng khác.",
+      [
+        "may do something else too",
+        "cũng có thể có tác dụng khác"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một giả thuyết cho rằng ngáp giúp làm mát não.",
+      [
+        "One idea",
+        "Một giả thuyết"
+      ],
+      [
+        "cool the brain",
+        "làm mát não"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Khi não quá nóng, một cái ngáp có thể giúp hạ nhiệt độ trở lại.",
+      [
+        "gets too warm",
+        "quá nóng"
+      ],
+      [
+        "may help bring it back down",
+        "có thể giúp hạ nhiệt độ trở lại"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Một cái ngáp đưa một hơi hít sâu vào cơ thể.",
+      [
+        "a deep breath of air",
+        "một hơi hít sâu"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Hơi hít này có thể giúp não mát đi đôi chút.",
+      [
+        "may help the brain cool down a little",
+        "có thể giúp não mát đi đôi chút"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Ngáp còn có một điều kỳ lạ khác.",
+      [
+        "a strange thing",
+        "một điều kỳ lạ khác"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Bạn có thể bị lây ngáp từ người khác.",
+      [
+        "catch a yawn",
+        "bị lây ngáp"
+      ],
+      [
+        "another person",
+        "người khác"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khi thấy ai đó ngáp, bạn thường làm theo một cách vô thức.",
+      [
+        "see someone yawn",
+        "thấy ai đó ngáp"
+      ],
+      [
+        "copy it without trying",
+        "làm theo một cách vô thức"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Bạn thậm chí chẳng hề nghĩ đến việc đó.",
+      [
+        "do not even think about it at all",
+        "thậm chí chẳng hề nghĩ đến việc đó"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Vì vậy, lần tới khi ngáp, hãy nhìn quanh những người gần bạn.",
+      [
+        "next time you yawn",
+        "lần tới khi ngáp"
+      ],
+      [
+        "the people near you",
+        "những người gần bạn"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Có lẽ bạn của bạn cũng sẽ sớm ngáp.",
+      [
+        "Maybe",
+        "Có lẽ"
+      ],
+      [
+        "will yawn soon too",
+        "cũng sẽ sớm ngáp"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-yawning-scene.svg",
+    "alt": "Một người ngáp và đưa tay che miệng trên ghế nghỉ.",
+    "caption": "Một khoảnh khắc quen thuộc trong ngày."
+  },
+  "source_sha256": "cc190ad4ee66c0c44be195ee37bff79c8fc6b8e994a88c04d677d72bf5d34399",
+  "expected_translation_sha256": "3aac0d27dca09d66c4e582e83b4aed1232658e4b0cae47d6a416039f029c7d5c"
+}

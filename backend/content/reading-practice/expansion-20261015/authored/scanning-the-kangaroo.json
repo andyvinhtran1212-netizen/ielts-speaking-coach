@@ -1,0 +1,158 @@
+{
+  "slug": "scanning-the-kangaroo",
+  "review_notes": "Giữ số liệu xấp xỉ và tối đa; pouch là túi ở cơ thể, joey là tên con non. Bản dịch bám nguồn; không mở rộng thành khẳng định phân bố mọi loài thú có túi.",
+  "illustration_brief": "Kangaroo trên đồng cỏ khô, với hai chân sau dài và chiếc đuôi tựa về phía sau.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Kangaroo là loài vật rất đặc biệt, và bạn chỉ có thể gặp nó ngoài tự nhiên ở một nơi: tất cả kangaroo hoang dã sống tại Australia.",
+      [
+        "in the wild",
+        "ngoài tự nhiên"
+      ],
+      [
+        "all wild kangaroos live in Australia",
+        "tất cả kangaroo hoang dã sống tại Australia"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Có nhiều loài khác nhau, nhưng lớn nhất là kangaroo đỏ.",
+      [
+        "many different kinds",
+        "nhiều loài khác nhau"
+      ],
+      [
+        "the red kangaroo",
+        "kangaroo đỏ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Kangaroo nổi tiếng với việc nhảy.",
+      [
+        "famous for jumping",
+        "nổi tiếng với việc nhảy"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Chúng dùng hai chân sau khỏe để bật lên, và một con kangaroo đỏ lớn có thể nhảy xa tới 9 mét trong một lần bật.",
+      [
+        "strong back legs",
+        "hai chân sau khỏe"
+      ],
+      [
+        "up to 9 metres in one hop",
+        "tới 9 mét trong một lần bật"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Chúng cũng có thể chạy rất nhanh, di chuyển ở tốc độ khoảng 70 ki-lô-mét mỗi giờ.",
+      [
+        "about 70 kilometres an hour",
+        "khoảng 70 ki-lô-mét mỗi giờ"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Một con kangaroo đực lớn có thể nặng tới 90 ki-lô-gam và đứng cao bằng người.",
+      [
+        "A big male kangaroo",
+        "Một con kangaroo đực lớn"
+      ],
+      [
+        "up to 90 kilograms",
+        "tới 90 ki-lô-gam"
+      ],
+      [
+        "as tall as a man",
+        "cao bằng người"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nó dùng chiếc đuôi lớn để giữ thăng bằng khi nhảy.",
+      [
+        "its big tail",
+        "chiếc đuôi lớn"
+      ],
+      [
+        "keep its balance",
+        "giữ thăng bằng"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Kangaroo cái có một ngăn ở trước cơ thể, gọi là túi.",
+      [
+        "A female kangaroo",
+        "Kangaroo cái"
+      ],
+      [
+        "a pouch",
+        "túi"
+      ],
+      [
+        "on the front of her body",
+        "ở trước cơ thể"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Kangaroo con được gọi là joey.",
+      [
+        "A baby kangaroo",
+        "Kangaroo con"
+      ],
+      [
+        "called a joey",
+        "được gọi là joey"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Joey mới sinh chỉ dài khoảng 2 xăng-ti-mét nên phải sống trong túi mẹ nhiều tháng cho tới khi đủ lớn.",
+      [
+        "only about 2 centimetres long",
+        "chỉ dài khoảng 2 xăng-ti-mét"
+      ],
+      [
+        "its mother's pouch",
+        "túi mẹ"
+      ],
+      [
+        "until it grows big enough",
+        "cho tới khi đủ lớn"
+      ]
+    ],
+    [
+      "p7-s1",
+      "Mẹo luyện tập: Khi đọc quét, hãy đưa mắt nhanh để tìm con số và tên riêng.",
+      [
+        "When you scan",
+        "Khi đọc quét"
+      ],
+      [
+        "find numbers and names",
+        "tìm con số và tên riêng"
+      ]
+    ],
+    [
+      "p7-s2",
+      "Bạn không cần đọc từng từ.",
+      [
+        "do not need to read every word",
+        "không cần đọc từng từ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-kangaroo-scene.svg",
+    "alt": "Kangaroo trên đồng cỏ khô, với hai chân sau dài và chiếc đuôi tựa về phía sau.",
+    "caption": "Một loài thú đặc trưng của Australia."
+  },
+  "source_sha256": "b767cb461860b1ecd6139e1b2268f135d96d7d4e07d55ca560ae8fa35e153811",
+  "expected_translation_sha256": "8521ae60c4f1762d8c24338ead5d5e6b8e3330e42fa0014bedfcdd02bd88a80b"
+}

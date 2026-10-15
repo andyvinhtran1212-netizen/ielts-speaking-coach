@@ -1,0 +1,270 @@
+{
+  "slug": "the-science-of-forgetting",
+  "review_notes": "Giữ 56 phần trăm là kết quả ông ghi nhận trong thí nghiệm, không thành tỷ lệ mọi người luôn quên. Phân biệt encode/mã hóa, consolidate/củng cố, retrieve/truy xuất; spaced repetition không phải học nhồi.",
+  "illustration_brief": "Một người bên máy tính và sổ ghi chép, không có đường cong hoặc tỷ lệ quên ghi trên hình.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1885, nhà tâm lý Đức Hermann Ebbinghaus dành nhiều tháng cố nhớ danh sách dài các âm tiết vô nghĩa để nghiên cứu trí nhớ mình.",
+      [
+        "a German psychologist",
+        "nhà tâm lý Đức"
+      ],
+      [
+        "meaningless syllables",
+        "các âm tiết vô nghĩa"
+      ],
+      [
+        "his own memory",
+        "trí nhớ mình"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Kết quả tạo đường cong quên nổi tiếng, cho thấy thông tin mới phai khỏi trí nhanh thế nào.",
+      [
+        "the famous forgetting curve",
+        "đường cong quên nổi tiếng"
+      ],
+      [
+        "new information fades from the mind",
+        "thông tin mới phai khỏi trí"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Trong khoảng giờ đầu, ông thấy khoảng 56 phần trăm tài liệu vừa học đã trôi mất.",
+      [
+        "roughly the first hour",
+        "khoảng giờ đầu"
+      ],
+      [
+        "about 56 percent",
+        "khoảng 56 phần trăm"
+      ],
+      [
+        "freshly learned material",
+        "tài liệu vừa học"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Đến hôm sau, nếu không ôn, chỉ còn phần nhỏ.",
+      [
+        "By the following day",
+        "Đến hôm sau"
+      ],
+      [
+        "without any review",
+        "nếu không ôn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Quên không đơn giản là lỗi não.",
+      [
+        "not simply a flaw in the brain",
+        "không đơn giản là lỗi não"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nhiều nhà nghiên cứu nay cho đây là quá trình chủ động, hữu ích giúp bỏ chi tiết vụn vặt đời thường.",
+      [
+        "an active and useful process",
+        "quá trình chủ động, hữu ích"
+      ],
+      [
+        "discard the trivial details of daily life",
+        "bỏ chi tiết vụn vặt đời thường"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Ký ức mới hình thành phải được mã hóa rồi củng cố trước khi lưu.",
+      [
+        "encoded",
+        "mã hóa"
+      ],
+      [
+        "consolidated",
+        "củng cố"
+      ],
+      [
+        "stored",
+        "lưu"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Nếu ký ức hiếm được truy xuất, não thường coi không quan trọng và dấu vết yếu dần.",
+      [
+        "rarely retrieved",
+        "hiếm được truy xuất"
+      ],
+      [
+        "unimportant",
+        "không quan trọng"
+      ],
+      [
+        "the trace gradually weakens",
+        "dấu vết yếu dần"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nhiều yếu tố ảnh hưởng ký ức có còn không.",
+      [
+        "Several factors",
+        "Nhiều yếu tố"
+      ],
+      [
+        "whether a memory survives",
+        "ký ức có còn không"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Những ký ức tương tự cạnh tranh với nhau gây nhiễu, khiến thông tin mới có thể ghi đè thông tin cũ.",
+      [
+        "Interference",
+        "nhiễu"
+      ],
+      [
+        "similar memories compete",
+        "Những ký ức tương tự cạnh tranh với nhau"
+      ],
+      [
+        "overwrite older information",
+        "ghi đè thông tin cũ"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Tín hiệu quen như mùi hoặc nơi có thể bất ngờ gợi ký ức tưởng mất.",
+      [
+        "A familiar cue",
+        "Tín hiệu quen"
+      ],
+      [
+        "a smell or a place",
+        "mùi hoặc nơi"
+      ],
+      [
+        "trigger a memory that seemed lost",
+        "gợi ký ức tưởng mất"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Điều này giải thích vì sao gợi nhớ thường tùy hoàn cảnh học ban đầu.",
+      [
+        "recall",
+        "gợi nhớ"
+      ],
+      [
+        "the situation in which learning originally took place",
+        "hoàn cảnh học ban đầu"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nghiên cứu hiện đại gợi cách thực tế làm chậm đường cong.",
+      [
+        "Modern studies",
+        "Nghiên cứu hiện đại"
+      ],
+      [
+        "slow the curve",
+        "làm chậm đường cong"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ôn cách quãng, trong đó tài liệu được ôn lại sau những khoảng thời gian ngày càng dài, dường như củng cố ký ức tốt hơn nhiều so với học nhồi.",
+      [
+        "Spaced repetition",
+        "Ôn cách quãng"
+      ],
+      [
+        "widening intervals",
+        "những khoảng thời gian ngày càng dài"
+      ],
+      [
+        "cramming",
+        "học nhồi"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Tự kiểm tra thay chỉ đọc lại ghi chú cũng buộc não chủ động truy xuất thông tin.",
+      [
+        "Testing oneself",
+        "Tự kiểm tra"
+      ],
+      [
+        "simply rereading notes",
+        "chỉ đọc lại ghi chú"
+      ],
+      [
+        "retrieve information actively",
+        "chủ động truy xuất thông tin"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Kỹ thuật này nay được tích hợp nhiều ứng dụng học ngôn ngữ.",
+      [
+        "These techniques",
+        "Kỹ thuật này"
+      ],
+      [
+        "language-learning apps",
+        "ứng dụng học ngôn ngữ"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Khoa học về quên còn chưa hoàn chỉnh, và cách chính xác não lưu một ký ức vẫn được bàn.",
+      [
+        "remains incomplete",
+        "còn chưa hoàn chỉnh"
+      ],
+      [
+        "is still debated",
+        "vẫn được bàn"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Nhưng điều có vẻ rõ là quên và nhớ là hai mặt cùng hệ thống.",
+      [
+        "forgetting and remembering",
+        "quên và nhớ"
+      ],
+      [
+        "two sides of the same system",
+        "hai mặt cùng hệ thống"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Tâm trí không bao giờ quên gì có thể khó nghĩ rõ ràng.",
+      [
+        "never forgot anything",
+        "không bao giờ quên gì"
+      ],
+      [
+        "might struggle to think clearly",
+        "có thể khó nghĩ rõ ràng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-memory-search-scene.svg",
+    "alt": "Một người bên máy tính và sổ ghi chép, không có đường cong hoặc tỷ lệ quên ghi trên hình.",
+    "caption": "Học, lưu giữ và gợi lại thông tin."
+  },
+  "source_sha256": "5cc0f99ce71702085018b5b421d8de487ae6603ca19328542133126e58868d26",
+  "expected_translation_sha256": "c05ea76edc7e7fe2561ad8a02cb00aada5040be7ea9d15a264901665c1d577a7"
+}

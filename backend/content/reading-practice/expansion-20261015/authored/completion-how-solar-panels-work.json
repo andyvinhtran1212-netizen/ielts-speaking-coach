@@ -1,0 +1,186 @@
+{
+  "slug": "completion-how-solar-panels-work",
+  "review_notes": "Dịch lại từng câu theo luồng ánh sáng–điện, giữ đúng dòng một chiều và xoay chiều, phân biệt điện dự trữ với điện phát dư lên lưới.",
+  "illustration_brief": "Mái nhà có các tấm pin dưới trời nắng, nhà bên cạnh và cây xanh; không vẽ sơ đồ cấu tạo hay ghi tên thiết bị điện.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1839, khi nhà khoa học Pháp Edmond Becquerel nhận thấy một số vật liệu tạo ra dòng điện nhỏ lúc được chiếu sáng, ít ai tưởng tượng khám phá ấy có ngày sẽ cấp điện cho hàng triệu ngôi nhà.",
+      [
+        "when exposed to light",
+        "lúc được chiếu sáng"
+      ],
+      [
+        "power millions of homes",
+        "cấp điện cho hàng triệu ngôi nhà"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Ông đã tình cờ phát hiện điều ngày nay gọi là hiệu ứng quang điện, quá trình cốt lõi của mọi tấm pin mặt trời.",
+      [
+        "stumbled upon",
+        "tình cờ phát hiện"
+      ],
+      [
+        "the photovoltaic effect",
+        "hiệu ứng quang điện"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Ngày nay, các tấm pin lấp lánh trên mái nhà âm thầm biến ánh nắng thông thường thành điện dùng được mà không cần bộ phận chuyển động.",
+      [
+        "usable electricity",
+        "điện dùng được"
+      ],
+      [
+        "no moving parts",
+        "không cần bộ phận chuyển động"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Tấm pin mặt trời không phải một tấm đơn lẻ, mà là mạng lưới nhiều đơn vị nhỏ gọi là tế bào quang điện, nối với nhau phía sau một tấm kính.",
+      [
+        "small units called cells",
+        "đơn vị nhỏ gọi là tế bào quang điện"
+      ],
+      [
+        "behind a pane of glass",
+        "phía sau một tấm kính"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Phần lớn tế bào được làm từ silic, một nguyên tố phổ biến có trong cát thông thường.",
+      [
+        "made from silicon",
+        "làm từ silic"
+      ],
+      [
+        "a common element",
+        "một nguyên tố phổ biến"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Silic được xử lý đặc biệt để khi ánh sáng tới nó, một hiện tượng đáng chú ý xảy ra.",
+      [
+        "specially treated",
+        "xử lý đặc biệt"
+      ],
+      [
+        "when light reaches it",
+        "khi ánh sáng tới nó"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Ánh sáng không truyền đến như một dòng đều đặn, mà dưới dạng những gói năng lượng rất nhỏ gọi là photon.",
+      [
+        "a smooth stream",
+        "một dòng đều đặn"
+      ],
+      [
+        "tiny packets of energy",
+        "những gói năng lượng rất nhỏ"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Khi một photon tác động vào tế bào đủ mạnh, nó đánh bật một electron khỏi nguyên tử.",
+      [
+        "with enough force",
+        "đủ mạnh"
+      ],
+      [
+        "knocks an electron loose",
+        "đánh bật một electron"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Sau khi được giải phóng, các electron dịch chuyển cùng hướng, tạo thành dòng điện.",
+      [
+        "Once freed",
+        "Sau khi được giải phóng"
+      ],
+      [
+        "in the same direction",
+        "cùng hướng"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Tuy nhiên, có một trở ngại.",
+      [
+        "one catch",
+        "một trở ngại"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Dòng điện do tế bào tạo ra chạy theo một hướng duy nhất, được kỹ sư gọi là dòng một chiều, trong khi thiết bị gia dụng cần dòng xoay chiều.",
+      [
+        "direct current",
+        "dòng một chiều"
+      ],
+      [
+        "alternating current",
+        "dòng xoay chiều"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Vì vậy, mỗi hệ thống điện mặt trời đều có thiết bị gọi là bộ biến tần, chuyển điện đầu ra của các tế bào thành dạng đèn, tủ lạnh và máy tính có thể sử dụng.",
+      [
+        "an inverter",
+        "bộ biến tần"
+      ],
+      [
+        "the cells' output",
+        "điện đầu ra của các tế bào"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Tất nhiên, Mặt Trời không phải lúc nào cũng chiếu sáng.",
+      [
+        "does not always shine",
+        "không phải lúc nào cũng chiếu sáng"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Để khắc phục, nhiều hệ thống bổ sung pin lưu trữ lượng điện dư tạo ra ban ngày để dùng khi trời tối.",
+      [
+        "stores spare electricity",
+        "lưu trữ lượng điện dư"
+      ],
+      [
+        "for use after dark",
+        "để dùng khi trời tối"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Vào buổi chiều nắng đẹp, một hộ gia đình thậm chí có thể phát nhiều điện hơn nhu cầu; khi ấy, điện dư có thể đưa trở lại lưới để cấp cho khu vực xung quanh, và ở một số nước còn mang lại khoản tiền nhỏ cho chủ nhà.",
+      [
+        "fed back into the grid",
+        "đưa trở lại lưới"
+      ],
+      [
+        "a modest payment",
+        "khoản tiền nhỏ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-solar-roof-scene.svg",
+    "alt": "Mái nhà lắp các tấm pin dưới trời nắng, cạnh cây và nhà bên cạnh.",
+    "caption": "Điện mặt trời trong khu dân cư."
+  },
+  "source_sha256": "797a039e9632afae5f7edd8f4da9fdbfdc2199c7b0c63088426bc4884fc367ca",
+  "expected_translation_sha256": "7194370614867040d15b4a4ad7bb8e9291af1256ed56096366d55f6b84c47c5c"
+}

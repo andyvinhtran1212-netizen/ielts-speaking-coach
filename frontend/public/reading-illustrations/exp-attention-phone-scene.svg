@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Màn hình và những thông báo</title><desc id="desc">Một người cầm điện thoại giữa các thẻ thông báo cách điệu, cạnh quyển sách và đồng hồ.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 334H800V400H0Z" fill="#d8c6ab"/>
+  <circle cx="364" cy="158" r="39" fill="#c99660"/><path d="M326 155Q310 111 353 104Q392 89 405 132L389 124Q361 151 326 144Z" fill="#293b43"/>
+  <path d="M332 202Q365 190 397 205L423 334H301Z" fill="#80aaa0"/>
+  <path d="M392 222L440 273L462 251" fill="none" stroke="#c99660" stroke-width="18" stroke-linecap="round"/>
+  <g transform="rotate(12 470 224)"><rect x="446" y="175" width="53" height="99" rx="8" fill="#293b43"/><rect x="452" y="186" width="41" height="72" rx="3" fill="#d6e8eb"/><path d="M458 199H487M458 212H481M458 225H487" stroke="#79a17b" stroke-width="4"/></g>
+  <g fill="#fafbf6" stroke="#b6d0b3" stroke-width="3"><rect x="128" y="99" width="110" height="66" rx="11"/><rect x="482" y="54" width="121" height="62" rx="11"/><rect x="569" y="166" width="122" height="67" rx="11"/></g>
+  <path d="M151 119H213M151 138H193M505 73H578M505 93H551M591 188H666M591 209H641" stroke="#9bb9b3" stroke-width="5" stroke-linecap="round"/>
+  <g fill="#d69b91"><circle cx="230" cy="99" r="11"/><circle cx="596" cy="54" r="11"/><circle cx="685" cy="167" r="11"/></g>
+  <path d="M107 314L168 298L239 318L178 339Z" fill="#f1e8d5" stroke="#ab997a" stroke-width="3"/><path d="M168 299L178 338" stroke="#c9b796" stroke-width="3"/>
+  <circle cx="665" cy="301" r="39" fill="#fafbf6" stroke="#aa825e" stroke-width="5"/><path d="M665 301V278M665 301L686 313" stroke="#293b43" stroke-width="5" stroke-linecap="round"/>
+</svg>

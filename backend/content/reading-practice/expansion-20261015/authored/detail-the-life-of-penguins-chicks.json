@@ -1,0 +1,194 @@
+{
+  "slug": "detail-the-life-of-penguins-chicks",
+  "review_notes": "Dịch rõ down là lông tơ và bring the food back up là ợ thức ăn lên để mớm, không chỉ mang thức ăn về tổ. Giữ khả năng chống nước chỉ xuất hiện ở lớp lông mới.",
+  "illustration_brief": "Nhóm chim cánh cụt non lông xám bên một chim trưởng thành trên băng, không gắn nhãn giai đoạn phát triển.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Chim cánh cụt non được gọi là chick.",
+      [
+        "A baby penguin",
+        "Chim cánh cụt non"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Giống mọi loài chim, chim cánh cụt non nở từ trứng.",
+      [
+        "Like all birds",
+        "Giống mọi loài chim"
+      ],
+      [
+        "hatches from an egg",
+        "nở từ trứng"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Chim bố mẹ chăm sóc trứng rất kỹ trước ngày trứng nở.",
+      [
+        "take great care of their eggs",
+        "chăm sóc trứng rất kỹ"
+      ],
+      [
+        "the big day",
+        "ngày trứng nở"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Khi mới nở, chim non trông không giống bố mẹ.",
+      [
+        "does not look like its parents",
+        "trông không giống bố mẹ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Cơ thể nó phủ lớp lông mềm, bông xốp gọi là lông tơ.",
+      [
+        "soft, fluffy feathers",
+        "lớp lông mềm, bông xốp"
+      ],
+      [
+        "down",
+        "lông tơ"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Lông này thường có màu xám hoặc nâu.",
+      [
+        "usually grey or brown",
+        "thường có màu xám hoặc nâu"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Lớp lông giữ ấm cho chim non nhưng không chống nước.",
+      [
+        "keep the chick warm",
+        "giữ ấm cho chim non"
+      ],
+      [
+        "not waterproof",
+        "không chống nước"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Vì thế, chim non lúc này chưa thể bơi.",
+      [
+        "a young chick cannot swim",
+        "chim non lúc này chưa thể bơi"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Nếu xuống biển, nó sẽ bị quá lạnh.",
+      [
+        "went into the sea",
+        "xuống biển"
+      ],
+      [
+        "get too cold",
+        "bị quá lạnh"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Chim cánh cụt non lúc nào cũng đói.",
+      [
+        "always hungry",
+        "lúc nào cũng đói"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Chim bố mẹ bắt cá ngoài biển rồi ợ thức ăn lên để mớm cho chim non.",
+      [
+        "catch fish in the sea",
+        "bắt cá ngoài biển"
+      ],
+      [
+        "bring the food back up",
+        "ợ thức ăn lên"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Một chim non có thể ăn rất nhiều trong một ngày!",
+      [
+        "eat a lot",
+        "ăn rất nhiều"
+      ],
+      [
+        "in one day",
+        "trong một ngày"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Một số chim non gia nhập nhóm lớn gồm các con non khác.",
+      [
+        "join a big group",
+        "gia nhập nhóm lớn"
+      ],
+      [
+        "other young birds",
+        "các con non khác"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nhóm này gọi là crèche, hay nhóm chim non được trông chung.",
+      [
+        "a crèche",
+        "crèche, hay nhóm chim non được trông chung"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ở trong nhóm, chim non được giữ ấm và an toàn trong lúc bố mẹ kiếm thức ăn.",
+      [
+        "stay warm and safe",
+        "được giữ ấm và an toàn"
+      ],
+      [
+        "look for food",
+        "kiếm thức ăn"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Sau vài tuần, chim non mọc lớp lông mới có khả năng chống nước.",
+      [
+        "After some weeks",
+        "Sau vài tuần"
+      ],
+      [
+        "new, waterproof feathers",
+        "lông mới có khả năng chống nước"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Cuối cùng, giờ nó đã có thể bơi và tự bắt cá.",
+      [
+        "catch its own fish",
+        "tự bắt cá"
+      ],
+      [
+        "at last",
+        "Cuối cùng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-penguin-chicks-scene.svg",
+    "alt": "Ba chim cánh cụt non lông xám đứng gần chim trưởng thành trên băng.",
+    "caption": "Chim non trong một nhóm nhỏ trên băng."
+  },
+  "source_sha256": "08485d07caa1f5cbb2a0be8563f61389e48fea2f93d359034d146210078848d5",
+  "expected_translation_sha256": "d34566164247cdd6a6ce1db510b3f11a6c30d8274fb6d770b68ae96bfdc0b373"
+}

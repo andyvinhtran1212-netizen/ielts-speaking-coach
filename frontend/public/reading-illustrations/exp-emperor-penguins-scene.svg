@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Chim cánh cụt trên băng</title><desc id="desc">Một nhóm chim cánh cụt hoàng đế đen trắng với mảng vàng ở cổ đứng trên tảng băng, có biển xanh phía sau.</desc>
+  <rect width="800" height="400" rx="24" fill="#e8f1f4"/>
+  <path d="M0 189H800V400H0Z" fill="#a8cbd0"/>
+  <path d="M0 302L173 249L274 273L403 240L606 278L800 251V400H0Z" fill="#f8faf7"/>
+  <path d="M0 352L180 325L294 350L423 326L623 348L800 325" fill="none" stroke="#d5e5e6" stroke-width="5"/>
+  <defs><g id="penguin"><ellipse cy="-74" rx="42" ry="81" fill="#293b43"/><ellipse cx="5" cy="-61" rx="27" ry="55" fill="#f8faf7"/><circle cy="-148" r="27" fill="#293b43"/><path d="M8 -139Q31 -128 22 -113L5 -113Z" fill="#e5c969"/><path d="M19 -151L45 -143L20 -137Z" fill="#c99660"/><circle cx="10" cy="-154" r="3" fill="#fff"/><path d="M-32 -99Q-62 -53 -49 -28L-27 -71" fill="#293b43"/><path d="M-18 0L-30 10H-1L3 0M15 0L10 10H40L31 0" fill="#b9914f"/></g></defs>
+  <use href="#penguin" transform="translate(283 296) scale(.86)"/>
+  <use href="#penguin" transform="translate(468 295) scale(.8)"/>
+  <use href="#penguin" transform="translate(369 336)"/>
+  <path d="M610 113L645 77L699 115Z" fill="#fff"/><path d="M581 139L612 103L654 139Z" fill="#f8faf7"/>
+  <g fill="none" stroke="#e0eff0" stroke-width="4"><path d="M74 227H149M601 218H712M571 248H619"/></g>
+</svg>

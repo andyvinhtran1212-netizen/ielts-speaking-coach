@@ -1,0 +1,202 @@
+{
+  "slug": "scanning-the-polar-bear",
+  "review_notes": "Giữ riêng fur/lông và skin/da; guinea pig là chuột lang. Cubs được giải nghĩa gấu con, không dịch thành giống gấu khác; không vẽ lớp da hay mỡ như sơ đồ đáp án.",
+  "illustration_brief": "Gấu Bắc Cực trắng đi trên nền băng cạnh vùng nước xanh và các tảng băng xa.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Gấu Bắc Cực là loài gấu lớn nhất Trái Đất.",
+      [
+        "The polar bear",
+        "Gấu Bắc Cực"
+      ],
+      [
+        "the largest bear",
+        "loài gấu lớn nhất"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Một con đực lớn có thể nặng tới 600 ki-lô-gam.",
+      [
+        "A big male",
+        "Một con đực lớn"
+      ],
+      [
+        "up to 600 kilograms",
+        "tới 600 ki-lô-gam"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Như vậy nặng hơn nhiều so với mười người trưởng thành!",
+      [
+        "much heavier than",
+        "nặng hơn nhiều so với"
+      ],
+      [
+        "ten grown people",
+        "mười người trưởng thành"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Gấu Bắc Cực sống ở vùng Bắc Cực, rất xa về phía bắc lạnh giá.",
+      [
+        "the Arctic",
+        "vùng Bắc Cực"
+      ],
+      [
+        "far in the cold north",
+        "rất xa về phía bắc lạnh giá"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Thời tiết ở đó lạnh cóng quanh năm.",
+      [
+        "freezing all year",
+        "lạnh cóng quanh năm"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Để giữ ấm, gấu có lông dày và lớp mỡ dày dưới da.",
+      [
+        "To keep warm",
+        "Để giữ ấm"
+      ],
+      [
+        "a deep layer of fat under its skin",
+        "lớp mỡ dày dưới da"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Gấu Bắc Cực trông trắng, nhưng da nó màu đen.",
+      [
+        "looks white",
+        "trông trắng"
+      ],
+      [
+        "its skin is black",
+        "da nó màu đen"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Da đen giúp nó hấp thụ nhiệt từ Mặt Trời.",
+      [
+        "take in heat",
+        "hấp thụ nhiệt"
+      ],
+      [
+        "from the sun",
+        "từ Mặt Trời"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Lông trắng giúp nó ẩn mình trong tuyết.",
+      [
+        "Its white fur",
+        "Lông trắng"
+      ],
+      [
+        "hide in the snow",
+        "ẩn mình trong tuyết"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Gấu Bắc Cực bơi rất giỏi.",
+      [
+        "great swimmers",
+        "bơi rất giỏi"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Chúng có thể bơi nhiều giờ để tìm thức ăn.",
+      [
+        "for many hours",
+        "nhiều giờ"
+      ],
+      [
+        "to find food",
+        "để tìm thức ăn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Thức ăn chính là hải cẩu mà chúng bắt trên băng.",
+      [
+        "Their main food",
+        "Thức ăn chính"
+      ],
+      [
+        "seals",
+        "hải cẩu"
+      ],
+      [
+        "on the ice",
+        "trên băng"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Con non của gấu Bắc Cực được gọi là gấu con.",
+      [
+        "Baby polar bears",
+        "Con non của gấu Bắc Cực"
+      ],
+      [
+        "cubs",
+        "gấu con"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Gấu mẹ thường có hai con.",
+      [
+        "often has two cubs",
+        "thường có hai con"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Khi chào đời, chúng rất nhỏ — khoảng bằng một con chuột lang.",
+      [
+        "When they are born",
+        "Khi chào đời"
+      ],
+      [
+        "about the size of a guinea pig",
+        "khoảng bằng một con chuột lang"
+      ]
+    ],
+    [
+      "p5-s4",
+      "Gấu mẹ giữ chúng ấm và an toàn trong hang tuyết vào những tháng đầu đời.",
+      [
+        "warm and safe",
+        "ấm và an toàn"
+      ],
+      [
+        "a snow den",
+        "hang tuyết"
+      ],
+      [
+        "the first months of their life",
+        "những tháng đầu đời"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-polar-bear-scene.svg",
+    "alt": "Gấu Bắc Cực trắng đi trên nền băng cạnh vùng nước xanh và các tảng băng xa.",
+    "caption": "Một cư dân của vùng cực lạnh."
+  },
+  "source_sha256": "0ab9dd2a3d54bacecdce2f24a869d75085e9f2395e0598c128ee5aebae645259",
+  "expected_translation_sha256": "841159d317f09bf1306ecc1f6b188164b2a0a536fcd7218d0a340cd07e19f4e6"
+}

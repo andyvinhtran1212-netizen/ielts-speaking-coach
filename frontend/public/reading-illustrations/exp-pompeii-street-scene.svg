@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Một con phố cổ còn lại</title><desc id="desc">Đường lát đá giữa tường cổ và hàng cột còn đứng; phía xa là núi lửa dưới bầu trời sáng.</desc>
+  <rect width="800" height="400" rx="24" fill="#e8f0f1"/>
+  <path d="M276 192L397 87L438 121L476 110L606 192Z" fill="#a4b3ab"/>
+  <path d="M0 208H800V400H0Z" fill="#d8c6ab"/>
+  <path d="M340 208H441L625 400H153Z" fill="#a8b6b5"/>
+  <g stroke="#7b8b88" stroke-width="3"><path d="M309 240H471M274 277H506M231 322H548M184 373H598M369 208L288 400M410 208L471 400"/></g>
+  <path d="M42 192L223 182L292 233V351L42 321Z" fill="#bda387" stroke="#9b7958" stroke-width="4"/><path d="M55 190L92 163L140 167L158 146L215 155L224 185" fill="#cbb99f"/>
+  <path d="M103 326V249Q126 215 151 249V332" fill="#796249"/><path d="M188 235H229V278H188Z" fill="#e5d9c2"/>
+  <g fill="#e5d9c2" stroke="#ab997a" stroke-width="4"><path d="M531 185H558V325H531Z"/><path d="M615 167H650V350H615Z"/><path d="M714 145H756V376H714Z"/>
+    <path d="M521 174H568V190H521ZM604 155H661V174H604ZM702 131H768V152H702Z"/>
+    <path d="M522 325H568V339H522ZM605 350H660V365H605ZM704 376H768V390H704Z"/>
+  </g>
+  <path d="M511 179L771 129V149L511 197Z" fill="#cbb99f" stroke="#ab997a" stroke-width="4"/>
+  <path d="M46 345L73 333L96 348L87 366H48ZM249 359L270 347L291 367L272 380Z" fill="#bda387"/>
+  <path d="M616 80Q643 67 666 80" fill="none" stroke="#709982" stroke-width="4" stroke-linecap="round"/>
+</svg>

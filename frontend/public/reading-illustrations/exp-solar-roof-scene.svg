@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Tấm pin trên mái nhà</title><desc id="desc">Mái nhà lắp pin mặt trời dưới trời nắng, cạnh một ngôi nhà khác và cây xanh.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <circle cx="646" cy="80" r="36" fill="#e5c969"/>
+  <g stroke="#e5c969" stroke-width="5" stroke-linecap="round"><path d="M646 23V12M646 148V137M589 80H578M714 80H703M606 40L598 32M694 128L686 120M606 120L598 128M694 32L686 40"/></g>
+  <path d="M0 313Q220 279 430 315T800 297V400H0Z" fill="#b6d0b3"/>
+  <path d="M123 216L283 118L450 216V359H123Z" fill="#ede7d4" stroke="#9b7958" stroke-width="4"/>
+  <path d="M99 219L282 105L475 219Z" fill="#9b7958"/>
+  <path d="M183 144L284 82L400 165L302 228Z" fill="#345e6e" stroke="#293b43" stroke-width="4"/>
+  <g stroke="#a8cbd0" stroke-width="3"><path d="M208 128L326 211M233 113L351 196M260 98L377 181M210 164L311 103M240 185L340 124M271 207L371 146"/></g>
+  <rect x="252" y="271" width="58" height="88" fill="#aa825e"/><rect x="147" y="262" width="65" height="55" fill="#b8d5d7" stroke="#9b7958" stroke-width="3"/>
+  <path d="M522 264L596 217L672 264V350H522Z" fill="#e5e8dc" stroke="#9b7958" stroke-width="3"/><path d="M509 264L596 207L685 264" fill="none" stroke="#796249" stroke-width="8"/>
+  <rect x="576" y="294" width="32" height="56" fill="#aa825e"/>
+  <path d="M717 349V250" stroke="#796249" stroke-width="10"/>
+  <path d="M672 259Q646 226 685 208Q673 172 711 166Q748 155 754 196Q784 202 769 238Q763 276 726 266Q693 284 672 259Z" fill="#3d8275"/>
+</svg>

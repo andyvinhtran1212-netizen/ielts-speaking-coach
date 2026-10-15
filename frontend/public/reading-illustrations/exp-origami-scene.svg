@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Sếu giấy và thuyền giấy</title><desc id="desc">Mẫu sếu gấp từ giấy cạnh một chiếc thuyền giấy và tờ giấy vuông có nếp gấp, trên mặt bàn.</desc>
+  <rect width="800" height="400" rx="24" fill="#f2f0e6"/>
+  <path d="M0 294Q222 269 415 295T800 278V400H0Z" fill="#d8c6ab"/>
+  <g stroke="#597d7c" stroke-width="4" stroke-linejoin="round">
+    <path d="M147 226L248 192L369 211L296 259L222 261Z" fill="#80aaa0"/>
+    <path d="M248 192L207 90L296 217Z" fill="#b6d0b3"/>
+    <path d="M296 217L414 100L369 211Z" fill="#9bc3b8"/>
+    <path d="M222 261L195 205L158 158L146 172L176 197L186 244Z" fill="#b8d5ca"/>
+    <path d="M158 158L116 173L146 172Z" fill="#3d8275"/>
+    <path d="M296 259L421 267L369 211Z" fill="#3d8275"/>
+    <path d="M248 192L296 217L222 261" fill="none"/>
+  </g>
+  <g transform="translate(483 250)" stroke="#ab8957" stroke-width="3" stroke-linejoin="round"><path d="M-25 19L89 -59L179 19Z" fill="#f4dcab"/><path d="M89 -59L89 19" fill="none"/><path d="M-25 19L16 75H142L179 19L89 37Z" fill="#e3c58c"/><path d="M16 75L89 37L142 75" fill="none"/></g>
+  <path d="M498 104L576 60L649 122L572 167Z" fill="#f1e8d5" stroke="#ab997a" stroke-width="3"/><path d="M498 104L572 167L576 60" fill="none" stroke="#c9b796" stroke-width="3" stroke-dasharray="8 7"/>
+</svg>

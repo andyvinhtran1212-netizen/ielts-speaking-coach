@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cáo Bắc Cực trên tuyết</title><desc id="desc">Cáo trắng có tai nhỏ và đuôi xù đi giữa tuyết, đá và vài bụi cây thấp.</desc>
+  <rect width="800" height="400" rx="24" fill="#e8f1f4"/>
+  <path d="M0 246L173 149L306 238L461 145L627 230L800 179V400H0Z" fill="#d4e3e5"/>
+  <path d="M0 307Q229 256 414 305T800 274V400H0Z" fill="#f8faf7"/>
+  <path d="M391 266C459 196 543 234 597 235Q662 239 691 283Q604 297 544 289Q478 325 391 293Z" fill="#f8faf7" stroke="#9babae" stroke-width="4"/>
+  <path d="M305 238Q348 214 416 248L417 293L309 292Q280 266 305 238Z" fill="#fff" stroke="#9babae" stroke-width="4"/>
+  <path d="M317 270L315 325H335L348 277M387 281L393 325H414L408 274" fill="#f8faf7" stroke="#9babae" stroke-width="4"/>
+  <path d="M322 243L303 220L296 188L324 204L354 203L379 184L379 217L370 247L346 266Z" fill="#fff" stroke="#9babae" stroke-width="4"/>
+  <path d="M306 215L306 201L319 213M365 213L373 198V216" fill="#d9b9ae"/>
+  <path d="M332 239L346 244L355 237" fill="none" stroke="#9babae" stroke-width="3"/><circle cx="322" cy="225" r="4" fill="#293b43"/><circle cx="360" cy="224" r="4" fill="#293b43"/><path d="M337 244L345 251L352 244Z" fill="#293b43"/>
+  <path d="M126 326L146 302L186 307L204 338H117Z" fill="#a8b6b5"/><path d="M585 353L617 331L653 344L665 364H578Z" fill="#c6d2d1"/>
+  <g stroke="#8b9b96" stroke-width="4" fill="none" stroke-linecap="round"><path d="M88 344L82 309M83 326L64 315M83 327L101 314M715 329L718 300M717 317L735 306"/></g>
+</svg>

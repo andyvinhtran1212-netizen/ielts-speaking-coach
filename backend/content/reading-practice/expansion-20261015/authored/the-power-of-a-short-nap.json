@@ -1,0 +1,210 @@
+{
+  "slug": "the-power-of-a-short-nap",
+  "review_notes": "Dịch nội dung bài tập, không thêm lời khuyên giấc ngủ riêng. Giữ can, most và may; nap là giấc ngủ ngắn ban ngày, refreshed là sảng khoái, không phải thức trắng hay ngủ đêm.",
+  "illustration_brief": "Một người nghỉ trên ghế sofa trong phòng sáng dịu, cạnh cửa sổ và chậu cây; không có đồng hồ đo thời lượng.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Bạn thấy mệt vào buổi chiều không?",
+      [
+        "tired in the afternoon",
+        "mệt vào buổi chiều"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Không chỉ mình bạn.",
+      [
+        "You are not alone",
+        "Không chỉ mình bạn"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nhiều người buồn ngủ sau bữa trưa.",
+      [
+        "sleepy after lunch",
+        "buồn ngủ sau bữa trưa"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Giấc ngủ ngắn có thể giúp.",
+      [
+        "A short nap",
+        "Giấc ngủ ngắn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ngủ chợp mắt là giấc ngủ ngắn ban ngày.",
+      [
+        "A nap",
+        "Ngủ chợp mắt"
+      ],
+      [
+        "a short sleep in the day",
+        "giấc ngủ ngắn ban ngày"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Đó không phải giấc ngủ dài ban đêm.",
+      [
+        "not a long sleep at night",
+        "không phải giấc ngủ dài ban đêm"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Khi buồn ngủ, não làm việc chậm.",
+      [
+        "When you are sleepy",
+        "Khi buồn ngủ"
+      ],
+      [
+        "your brain works slowly",
+        "não làm việc chậm"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Bạn không tập trung và mắc lỗi nhiều hơn.",
+      [
+        "cannot focus",
+        "không tập trung"
+      ],
+      [
+        "make more mistakes",
+        "mắc lỗi nhiều hơn"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Ngủ một chút có thể khắc phục.",
+      [
+        "A small sleep",
+        "Ngủ một chút"
+      ],
+      [
+        "can fix this",
+        "có thể khắc phục"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nghiên cứu mới cho thấy giấc chợp tốt nhất là ngắn — khoảng 20 phút.",
+      [
+        "New research shows",
+        "Nghiên cứu mới cho thấy"
+      ],
+      [
+        "about 20 minutes",
+        "khoảng 20 phút"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Sau chợp mắt 20 phút, phần lớn mọi người thấy sảng khoái.",
+      [
+        "most people",
+        "phần lớn mọi người"
+      ],
+      [
+        "feel refreshed",
+        "thấy sảng khoái"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Họ có thêm năng lượng và lại nghĩ rõ ràng.",
+      [
+        "more energy",
+        "thêm năng lượng"
+      ],
+      [
+        "think clearly again",
+        "lại nghĩ rõ ràng"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Giấc chợp còn giúp trí nhớ.",
+      [
+        "your memory",
+        "trí nhớ"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Trong khi ngủ, não lưu điều đã học.",
+      [
+        "While you sleep",
+        "Trong khi ngủ"
+      ],
+      [
+        "saves the things you learned",
+        "lưu điều đã học"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nhưng hãy cẩn thận.",
+      [
+        "be careful",
+        "hãy cẩn thận"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ngủ trưa quá dài có thể làm bạn thấy tệ hơn chứ không tốt hơn.",
+      [
+        "A very long nap",
+        "Ngủ trưa quá dài"
+      ],
+      [
+        "worse, not better",
+        "tệ hơn chứ không tốt hơn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Bạn có thể buồn ngủ khi tỉnh.",
+      [
+        "may feel sleepy",
+        "có thể buồn ngủ"
+      ],
+      [
+        "when you wake up",
+        "khi tỉnh"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Vậy hãy giữ giấc chợp ngắn.",
+      [
+        "keep your nap short",
+        "hãy giữ giấc chợp ngắn"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Hai mươi phút đủ để lại tỉnh táo, sẵn sàng.",
+      [
+        "Twenty minutes",
+        "Hai mươi phút"
+      ],
+      [
+        "awake and ready again",
+        "lại tỉnh táo, sẵn sàng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-afternoon-nap-scene.svg",
+    "alt": "Một người nghỉ trên ghế sofa trong phòng sáng dịu, cạnh cửa sổ và chậu cây; không có đồng hồ đo thời lượng.",
+    "caption": "Một khoảng nghỉ ban ngày."
+  },
+  "source_sha256": "547d90674680d2cba83df7179f63eee68009f3d0b1aa347205e7b9bb0cf6be43",
+  "expected_translation_sha256": "a2f178c9e34adb1d8ce5a25555e7160654e5d73fce5c100a2d639e3b62d4cdd6"
+}

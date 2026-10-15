@@ -1,0 +1,206 @@
+{
+  "slug": "how-plants-drink",
+  "review_notes": "Dịch đủ các ý bản cũ lược mất: ngay dưới chân, hút nước cả ngày, bay hơi vào không khí, giữ cây xanh. Giữ cách diễn đạt đơn giản theo cấp độ bài.",
+  "illustration_brief": "Cây xanh trong chậu đất cạnh bình tưới và các giọt nước; không gắn nhãn mô dẫn hay trình tự đáp án.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Cây không có miệng.",
+      [
+        "do not have a mouth",
+        "không có miệng"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Vậy cây uống nước bằng cách nào?",
+      [
+        "drink water",
+        "uống nước"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Câu trả lời ẩn trong lòng đất, ngay dưới chân bạn.",
+      [
+        "hidden under the ground",
+        "ẩn trong lòng đất"
+      ],
+      [
+        "below your feet",
+        "ngay dưới chân bạn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Cây nào cũng có rễ.",
+      [
+        "roots",
+        "rễ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Rễ mọc xuống dưới lớp đất.",
+      [
+        "grow down",
+        "mọc xuống"
+      ],
+      [
+        "under the soil",
+        "dưới lớp đất"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Rễ hút nước từ đất suốt ngày.",
+      [
+        "take in water",
+        "hút nước"
+      ],
+      [
+        "all day",
+        "suốt ngày"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Bên trong cây có những ống rất nhỏ.",
+      [
+        "Inside the plant",
+        "Bên trong cây"
+      ],
+      [
+        "very small tubes",
+        "những ống rất nhỏ"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Nước đi lên qua các ống mảnh này.",
+      [
+        "moves up",
+        "đi lên"
+      ],
+      [
+        "these thin tubes",
+        "các ống mảnh này"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Nước đi từ rễ lên ngọn, ngay cả ở một cây rất cao.",
+      [
+        "from the roots to the top of the plant",
+        "từ rễ lên ngọn"
+      ],
+      [
+        "a very tall tree",
+        "một cây rất cao"
+      ]
+    ],
+    [
+      "p2-s7",
+      "Một số cây cao hơn 100 mét nhưng nước vẫn tới được những chiếc lá cao nhất.",
+      [
+        "taller than 100 metres",
+        "cao hơn 100 mét"
+      ],
+      [
+        "their highest leaves",
+        "những chiếc lá cao nhất"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nhưng điều gì khiến nước đi lên?",
+      [
+        "makes the water go up",
+        "khiến nước đi lên"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Hãy nhìn những chiếc lá.",
+      [
+        "the leaves",
+        "những chiếc lá"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Nước có thể bay hơi từ lá vào không khí.",
+      [
+        "evaporate",
+        "bay hơi"
+      ],
+      [
+        "into the air",
+        "vào không khí"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Khi nước bay hơi, nó kéo thêm nước lên.",
+      [
+        "When water evaporates",
+        "Khi nước bay hơi"
+      ],
+      [
+        "pulls more water up",
+        "kéo thêm nước lên"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Vì vậy, lá giúp đưa nước lên ngọn cây.",
+      [
+        "bring water to the top",
+        "đưa nước lên ngọn cây"
+      ]
+    ],
+    [
+      "p3-s6",
+      "Đó là cách vận chuyển nước khéo léo mà không cần máy bơm.",
+      [
+        "a clever way to move water",
+        "cách vận chuyển nước khéo léo"
+      ],
+      [
+        "without a pump",
+        "không cần máy bơm"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Cây cần nước để sinh trưởng tốt và giữ màu xanh.",
+      [
+        "grow well",
+        "sinh trưởng tốt"
+      ],
+      [
+        "stay green",
+        "giữ màu xanh"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Lần tới nhìn thấy một cái cây, hãy nhớ rằng nó luôn lặng lẽ uống nước.",
+      [
+        "quietly drinking",
+        "lặng lẽ uống nước"
+      ],
+      [
+        "all the time",
+        "luôn"
+      ]
+    ]
+  ],
+  "source_sha256": "a56f371a21ac790f5f9ba0e4cf6ae6087bf7c7a094ac7df68e2bf09dca3b9d98",
+  "expected_translation_sha256": "f147a013d12057a719b9754c98dfb8f7c3edbd5e1805c627dff58182c6cb0137",
+  "illustration": {
+    "src": "/reading-illustrations/exp-plant-water-scene.svg",
+    "alt": "Cây xanh trong chậu đất cạnh bình tưới với các giọt nước rơi xuống.",
+    "caption": "Nước và một chậu cây trong vườn."
+  }
+}

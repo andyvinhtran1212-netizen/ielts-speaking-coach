@@ -1,0 +1,214 @@
+{
+  "slug": "the-return-of-the-wolf",
+  "review_notes": "Giữ local extinction, không nói sói tuyệt chủng toàn cầu. Browsing là ăn cây lá, không đọc lướt web; trophic cascade/thác dinh dưỡng có giải nghĩa chuỗi tác động. Giữ đầy đủ phản biện cuối bài về vai trò các yếu tố khác.",
+  "illustration_brief": "Một con sói ở bìa rừng, cạnh đồng cỏ và dòng suối, không có sơ đồ chuỗi sinh thái.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Mùa đông năm 1995, nhà sinh học thả 14 sói xám vào Vườn quốc gia Yellowstone, kết thúc gần bảy mươi năm vắng bóng.",
+      [
+        "14 grey wolves",
+        "14 sói xám"
+      ],
+      [
+        "nearly seventy years",
+        "gần bảy mươi năm"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Chúng bị săn tới tuyệt chủng cục bộ trong những năm 1920, và vườn thay đổi khi vắng chúng.",
+      [
+        "local extinction",
+        "tuyệt chủng cục bộ"
+      ],
+      [
+        "the 1920s",
+        "những năm 1920"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Sự trở lại thành một trong thí nghiệm được nghiên cứu nhiều nhất sinh thái hiện đại.",
+      [
+        "one of the most studied experiments",
+        "một trong thí nghiệm được nghiên cứu nhiều nhất"
+      ],
+      [
+        "modern ecology",
+        "sinh thái hiện đại"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Không thú săn mồi đầu chuỗi, hươu elk tăng khoảng hai mươi nghìn, đàn lớn gặm tự do dọc sông, ăn trụi liễu và dương non trước lúc cây trưởng thành.",
+      [
+        "a top predator",
+        "thú săn mồi đầu chuỗi"
+      ],
+      [
+        "around twenty thousand",
+        "khoảng hai mươi nghìn"
+      ],
+      [
+        "young willows and aspen",
+        "liễu và dương non"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Bờ sông mất rễ từng giữ đất, còn gặm quá mức để đất trơ dễ bị lũ xuân cuốn.",
+      [
+        "held the soil in place",
+        "giữ đất"
+      ],
+      [
+        "overgrazing",
+        "gặm quá mức"
+      ],
+      [
+        "spring floods",
+        "lũ xuân"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Chim hót và hải ly phụ thuộc cây ấy thành hiếm.",
+      [
+        "Songbirds and beavers",
+        "Chim hót và hải ly"
+      ],
+      [
+        "became scarce",
+        "thành hiếm"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Sói khởi chuỗi tác động mà nhà khoa học gọi thác dinh dưỡng.",
+      [
+        "a chain of effects",
+        "chuỗi tác động"
+      ],
+      [
+        "a trophic cascade",
+        "thác dinh dưỡng"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Khi thú săn mồi giảm đàn và buộc nai di chuyển, áp lực ăn cây giảm, liễu và dương phục hồi, hải ly về xây đập.",
+      [
+        "thinned the herds",
+        "giảm đàn"
+      ],
+      [
+        "browsing pressure eased",
+        "áp lực ăn cây giảm"
+      ],
+      [
+        "beavers returned to build their dams",
+        "hải ly về xây đập"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Ao mới tạo sinh cảnh cho cá, côn trùng và chim.",
+      [
+        "The new ponds",
+        "Ao mới"
+      ],
+      [
+        "habitat for fish, insects and birds",
+        "sinh cảnh cho cá, côn trùng và chim"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Xác mồi sói để lại nuôi đại bàng, quạ lớn và gấu suốt mùa đông dài.",
+      [
+        "Carcasses left by the wolves",
+        "Xác mồi sói để lại"
+      ],
+      [
+        "eagles, ravens and bears",
+        "đại bàng, quạ lớn và gấu"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Một số thay đổi tới cả sông: khi thực vật trở lại, bờ ổn định hơn và vài suối bớt uốn dữ.",
+      [
+        "vegetation returned",
+        "thực vật trở lại"
+      ],
+      [
+        "banks grew more stable",
+        "bờ ổn định hơn"
+      ],
+      [
+        "a few streams",
+        "vài suối"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Sự định hình lại cảnh quan bởi một loài gọi là hiệu ứng loài then chốt, và hóa ra sói gắn chặt với toàn hệ sinh thái.",
+      [
+        "a keystone effect",
+        "hiệu ứng loài then chốt"
+      ],
+      [
+        "woven tightly into the whole ecosystem",
+        "gắn chặt với toàn hệ sinh thái"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Không phải mọi nhà khoa học chấp nhận bản kể đơn giản nhất.",
+      [
+        "Not every scientist",
+        "Không phải mọi nhà khoa học"
+      ],
+      [
+        "the simplest version of this story",
+        "bản kể đơn giản nhất"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Một số cho khí hậu, hạn hán và thú săn mồi khác cũng định hình phục hồi, và vai trò sói bị nói quá.",
+      [
+        "climate, drought and other predators",
+        "khí hậu, hạn hán và thú săn mồi khác"
+      ],
+      [
+        "the wolf's role has been overstated",
+        "vai trò sói bị nói quá"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Điều rõ là bỏ một loài có thể đảo lộn cả hệ — và phục hồi có thể mang bất ngờ chưa ai dự đoán.",
+      [
+        "removing one species",
+        "bỏ một loài"
+      ],
+      [
+        "unsettle an entire system",
+        "đảo lộn cả hệ"
+      ],
+      [
+        "restoring it may bring surprises",
+        "phục hồi có thể mang bất ngờ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-rewilding-scene.svg",
+    "alt": "Một con sói ở bìa rừng, cạnh đồng cỏ và dòng suối, không có sơ đồ chuỗi sinh thái.",
+    "caption": "Một loài trong hệ sinh thái rộng hơn."
+  },
+  "source_sha256": "7d5e08de5aef603c8139c86040f73005488dffc6e73e413cb7160a0c81a92570",
+  "expected_translation_sha256": "18a67a04916c898db48ba02115c68382e6efc35862ffa35c1b507dc84ceb5411"
+}

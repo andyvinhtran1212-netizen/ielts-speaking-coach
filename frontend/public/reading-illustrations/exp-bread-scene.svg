@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Làm bánh mì trong gian bếp</title><desc id="desc">Ổ bánh mì có đường rạch trên vỏ nằm trên thớt, cạnh bát bột và khăn bếp.</desc>
+  <rect width="800" height="400" rx="24" fill="#f2f3e9"/>
+  <path d="M0 251H800V400H0Z" fill="#d8c6ab"/>
+  <rect x="61" y="293" width="474" height="63" rx="25" fill="#aa825e"/>
+  <ellipse cx="305" cy="299" rx="195" ry="40" fill="#bc936b"/>
+  <path d="M127 274Q142 182 275 165Q415 153 480 240Q496 268 477 289Q283 330 139 296Z" fill="#c68e4c" stroke="#93673f" stroke-width="4"/>
+  <path d="M197 263Q200 211 224 195M272 263Q280 198 303 184M351 259Q361 209 380 204" stroke="#edc78a" stroke-width="17" fill="none" stroke-linecap="round"/>
+  <g stroke="#b7a98d" stroke-width="4"><path d="M557 218H727Q722 297 644 300Q565 293 557 218Z" fill="#e7eee8"/><ellipse cx="642" cy="217" rx="85" ry="24" fill="#faf7e8"/></g>
+  <path d="M620 206L692 123" stroke="#9b734e" stroke-width="15" stroke-linecap="round"/>
+  <path d="M558 342L696 323L733 400H527Z" fill="#edf5f2"/>
+  <path d="M559 351L704 334M550 369L713 353M541 389L722 373" stroke="#8db6ac" stroke-width="4"/>
+  <g fill="#efe4c9"><circle cx="95" cy="274" r="4"/><circle cx="107" cy="284" r="3"/><circle cx="523" cy="312" r="4"/><circle cx="548" cy="304" r="3"/></g>
+</svg>

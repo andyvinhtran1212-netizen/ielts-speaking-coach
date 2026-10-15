@@ -1,0 +1,174 @@
+{
+  "slug": "completion-how-chocolate-is-made",
+  "review_notes": "Dịch theo từng câu; phân biệt cảm giác mịn, vị ngọt, hạt cacao và công đoạn đảo trộn. Giữ weeks và every square, không đổi thành mỗi thanh.",
+  "illustration_brief": "Thanh sô-cô-la bẻ thành miếng trên nền bếp, bên cạnh quả cacao bổ đôi và vài hạt; không có sơ đồ hay nhãn công đoạn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Sô-cô-la có thể mịn và ngọt, nhưng nguyên liệu ban đầu lại đắng và chẳng giống một món kẹo chút nào.",
+      [
+        "smooth and sweet",
+        "mịn và ngọt"
+      ],
+      [
+        "something bitter",
+        "nguyên liệu ban đầu lại đắng"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Mọi loại sô-cô-la đều làm từ những hạt nhỏ nằm trong các quả lớn, gọi là quả cacao, mọc trên cây cacao.",
+      [
+        "small seeds, or beans",
+        "những hạt nhỏ"
+      ],
+      [
+        "large fruits called pods",
+        "các quả lớn, gọi là quả cacao"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Loài cây này sống ở những vùng nóng ẩm gần xích đạo, và một quả có thể chứa tới bốn mươi hạt.",
+      [
+        "hot, wet regions",
+        "những vùng nóng ẩm"
+      ],
+      [
+        "as many as forty beans",
+        "tới bốn mươi hạt"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Sau khi thu hoạch, quả được bổ ra và hạt được lấy ra cùng lớp thịt mềm bao quanh.",
+      [
+        "split open",
+        "bổ ra"
+      ],
+      [
+        "the soft pulp around them",
+        "lớp thịt mềm bao quanh"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Lúc này, các hạt hoàn toàn chưa có hương vị sô-cô-la.",
+      [
+        "no chocolate flavour at all",
+        "hoàn toàn chưa có hương vị sô-cô-la"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Để hương vị hình thành, người ta để hạt lên men trong vài ngày; trong thời gian đó, hạt ấm lên và sẫm màu dần.",
+      [
+        "ferment for several days",
+        "lên men trong vài ngày"
+      ],
+      [
+        "warm up and darken",
+        "ấm lên và sẫm màu dần"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Tiếp theo, hạt được phơi nắng rồi làm nóng trong công đoạn rang, giúp tạo nên hương vị sô-cô-la quen thuộc.",
+      [
+        "dried in the sun",
+        "phơi nắng"
+      ],
+      [
+        "roasting",
+        "rang"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Đến đây, công việc chính mới bắt đầu.",
+      [
+        "the real work begins",
+        "công việc chính mới bắt đầu"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Hạt đã rang được nghiền thành hỗn hợp đặc sệt, lúc này vẫn còn rất đắng.",
+      [
+        "ground into a thick paste",
+        "nghiền thành hỗn hợp đặc sệt"
+      ],
+      [
+        "still very bitter",
+        "vẫn còn rất đắng"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Để làm dịu vị đắng, người ta trộn thêm đường và thường cả sữa.",
+      [
+        "soften the bitter taste",
+        "làm dịu vị đắng"
+      ],
+      [
+        "sugar and often milk",
+        "đường và thường cả sữa"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Hỗn hợp sau đó được khuấy hàng giờ trong công đoạn đảo trộn gọi là conching, giúp sô-cô-la mịn thay vì còn lợn cợn.",
+      [
+        "stirred for hours",
+        "khuấy hàng giờ"
+      ],
+      [
+        "smooth rather than gritty",
+        "mịn thay vì còn lợn cợn"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Cuối cùng, sô-cô-la mịn được rót vào khuôn và để đông lại thành thanh.",
+      [
+        "poured into moulds",
+        "rót vào khuôn"
+      ],
+      [
+        "set into bars",
+        "đông lại thành thanh"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Từ một hạt đắng đến một thanh kẹo ngọt là cả hành trình dài.",
+      [
+        "a bitter seed",
+        "một hạt đắng"
+      ],
+      [
+        "a long journey",
+        "cả hành trình dài"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Mỗi ô sô-cô-la đến được kệ hàng đều đã trải qua nhiều tuần chế biến cẩn thận trước khi sẵn sàng để thưởng thức.",
+      [
+        "Every square of chocolate",
+        "Mỗi ô sô-cô-la"
+      ],
+      [
+        "weeks of careful work",
+        "nhiều tuần chế biến cẩn thận"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-chocolate-scene.svg",
+    "alt": "Quả cacao bổ đôi cùng hạt và một thanh sô-cô-la trên bàn.",
+    "caption": "Từ nguyên liệu cacao tới món ăn quen thuộc."
+  },
+  "source_sha256": "fd15ac7f81cc51889734b467fef664851323ee90d6c31b9a276483725c0081a2",
+  "expected_translation_sha256": "54ad838d41668e12f8b1b354a343628a7bbdd88475b167a676e5f42af3fb2e52"
+}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Không gian một lễ hội</title><desc id="desc">Sân khấu âm nhạc, nhóm khán giả và quầy bán đồ ăn; bên ngoài có một xe taxi nhỏ.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 291Q230 259 451 294T800 270V400H0Z" fill="#b6d0b3"/>
+  <path d="M133 132H438V280H133Z" fill="#597d7c"/>
+  <path d="M121 126L285 69L451 126Z" fill="#3d8275"/><rect x="156" y="147" width="260" height="117" fill="#293b43"/>
+  <path d="M169 148L229 263H291L193 148M382 148L321 263H377L405 148" fill="#e5c969" fill-opacity=".45"/>
+  <circle cx="285" cy="194" r="12" fill="#e8bc94"/><path d="M275 210L268 247H304L297 210Z" fill="#d69b91"/><path d="M283 246V265M295 246V265M296 218L324 208" stroke="#e8bc94" stroke-width="6" stroke-linecap="round"/>
+  <path d="M549 207H743V329H549Z" fill="#c3a47b" stroke="#9b7958" stroke-width="4"/><path d="M538 207L558 170H735L754 207Z" fill="#d69b91"/><path d="M577 171L573 205M626 171V205M676 171L680 205M725 171L731 205" stroke="#f1e8d5" stroke-width="19"/>
+  <path d="M568 271H725" stroke="#9b7958" stroke-width="9"/><path d="M584 258L593 233H614L621 258ZM652 258L661 232H684L693 258Z" fill="#e5c969"/>
+  <g><circle cx="171" cy="303" r="12" fill="#c99660"/><circle cx="226" cy="319" r="12" fill="#e8bc94"/><circle cx="287" cy="303" r="12" fill="#d4ad89"/><circle cx="345" cy="322" r="12" fill="#c99660"/><circle cx="399" cy="305" r="12" fill="#e8bc94"/>
+    <path d="M158 318L151 355H191L184 318Z" fill="#8b829e"/><path d="M213 334L207 374H247L240 334Z" fill="#3d8275"/><path d="M274 318L267 358H307L300 318Z" fill="#b9914f"/><path d="M332 337L325 378H365L358 337Z" fill="#709982"/><path d="M386 320L380 359H420L413 320Z" fill="#d69b91"/>
+  </g>
+  <path d="M558 351L583 327H638L662 351H684V378H542V351Z" fill="#e5c969" stroke="#ab8957" stroke-width="3"/><path d="M590 333H631L647 350H576Z" fill="#a8cbd0"/><circle cx="570" cy="378" r="10" fill="#293b43"/><circle cx="655" cy="378" r="10" fill="#293b43"/>
+</svg>

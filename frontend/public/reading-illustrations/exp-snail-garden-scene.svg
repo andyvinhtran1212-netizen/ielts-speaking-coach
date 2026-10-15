@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Ốc sên trên lá ướt</title><desc id="desc">Ốc sên có vỏ xoắn và hai cặp xúc tu bò trên chiếc lá, cạnh các giọt nước và cỏ trong vườn.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 329Q229 292 441 331T800 310V400H0Z" fill="#b6d0b3"/>
+  <path d="M117 317Q284 173 634 273Q520 398 257 353Z" fill="#79a17b" stroke="#3d8275" stroke-width="5"/>
+  <path d="M141 324L603 279M251 311L235 273M344 301L360 355M441 291L436 257" fill="none" stroke="#b6d0b3" stroke-width="5"/>
+  <path d="M225 276Q277 283 397 269Q453 263 485 247Q520 219 539 238Q559 259 530 286Q499 309 426 312L234 310Q200 303 225 276Z" fill="#c3b18f" stroke="#897c61" stroke-width="4"/>
+  <path d="M517 242L539 182M532 245L569 199M537 264L573 249M527 271L552 282" fill="none" stroke="#897c61" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="540" cy="179" r="7" fill="#293b43"/><circle cx="571" cy="197" r="7" fill="#293b43"/>
+  <circle cx="354" cy="238" r="74" fill="#c99660" stroke="#93673f" stroke-width="5"/>
+  <path d="M368 253C415 251 414 185 363 183C316 181 299 226 322 250C344 274 375 256 373 233C372 216 350 215 348 229" fill="none" stroke="#93673f" stroke-width="8" stroke-linecap="round"/>
+  <g fill="#c1dfe0" stroke="#8bb6c2" stroke-width="2"><path d="M184 247Q166 272 184 275Q203 273 184 247Z"/><path d="M457 327Q443 347 457 350Q471 348 457 327Z"/></g>
+  <g fill="none" stroke="#3d8275" stroke-width="6" stroke-linecap="round"><path d="M64 359Q53 315 75 290M79 356Q87 324 106 317M690 351Q664 310 675 285M704 351Q716 307 743 297"/></g>
+</svg>

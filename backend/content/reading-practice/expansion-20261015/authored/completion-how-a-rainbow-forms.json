@@ -1,0 +1,178 @@
+{
+  "slug": "completion-how-a-rainbow-forms",
+  "review_notes": "Dịch lại toàn bài; phân biệt khúc xạ với phản xạ, giữ nguyên điều kiện quan sát và mốc gần 42 độ. Minh hoạ bối cảnh không gắn nhãn các chỗ trống.",
+  "illustration_brief": "Cầu vồng trên cánh đồng sau mưa, một người đang quan sát; không ghi góc hay thứ tự màu bằng chữ.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Cầu vồng là một vẻ đẹp giản dị của tự nhiên, nhưng sự hình thành của nó phụ thuộc vào những quy luật vật lý chính xác.",
+      [
+        "in nature",
+        "của tự nhiên"
+      ],
+      [
+        "a careful piece of physics",
+        "những quy luật vật lý chính xác"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nó chỉ xuất hiện khi hai điều xảy ra đồng thời: ánh nắng chiếu qua bầu trời và gặp những giọt mưa còn lơ lửng trong không khí.",
+      [
+        "happen at once",
+        "xảy ra đồng thời"
+      ],
+      [
+        "still hanging in the air",
+        "còn lơ lửng trong không khí"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nếu thiếu ánh sáng hoặc nước thì cầu vồng không thể hình thành.",
+      [
+        "Without both the light and the water",
+        "Nếu thiếu ánh sáng hoặc nước"
+      ],
+      [
+        "no rainbow can form",
+        "cầu vồng không thể hình thành"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Khi một tia nắng đi vào giọt mưa, nó chậm lại một chút và đổi hướng.",
+      [
+        "a ray of sunlight",
+        "một tia nắng"
+      ],
+      [
+        "changes direction",
+        "đổi hướng"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Hiện tượng ánh sáng bị bẻ cong này gọi là khúc xạ.",
+      [
+        "bending of light",
+        "ánh sáng bị bẻ cong"
+      ],
+      [
+        "refraction",
+        "khúc xạ"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Ánh sáng trắng từ Mặt Trời thực chất là hỗn hợp nhiều màu, và điểm quan trọng là mỗi màu bị bẻ cong ở một mức độ hơi khác nhau.",
+      [
+        "a mixture of many colours",
+        "hỗn hợp nhiều màu"
+      ],
+      [
+        "a slightly different amount",
+        "một mức độ hơi khác nhau"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Vì vậy, tia sáng ban đầu tách ra thành một dải màu riêng biệt xòe như chiếc quạt bên trong giọt nước.",
+      [
+        "the single ray",
+        "tia sáng ban đầu"
+      ],
+      [
+        "a fan of separate colours",
+        "một dải màu riêng biệt xòe như chiếc quạt"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Sau đó, ánh sáng phản xạ ở mặt sau của giọt nước rồi đi ra ngoài, đồng thời bị bẻ cong thêm lần nữa.",
+      [
+        "reflects off the back of the drop",
+        "phản xạ ở mặt sau của giọt nước"
+      ],
+      [
+        "bent once more",
+        "bị bẻ cong thêm lần nữa"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Với người đứng trên mặt đất, hiện tượng này chỉ quan sát được từ một hướng.",
+      [
+        "on the ground",
+        "đứng trên mặt đất"
+      ],
+      [
+        "from one direction",
+        "từ một hướng"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Ta có thể thấy cầu vồng khi Mặt Trời ở phía sau người quan sát, còn mưa ở vùng trời phía trước.",
+      [
+        "behind the observer",
+        "ở phía sau người quan sát"
+      ],
+      [
+        "in the sky ahead",
+        "ở vùng trời phía trước"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Cầu vồng luôn nằm ở cùng một góc, gần 42 độ so với điểm đối diện trực tiếp với Mặt Trời.",
+      [
+        "close to 42 degrees",
+        "gần 42 độ"
+      ],
+      [
+        "the point directly opposite the Sun",
+        "điểm đối diện trực tiếp với Mặt Trời"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Kết quả là vòng cung quen thuộc mà chúng ta thấy.",
+      [
+        "the familiar arch",
+        "vòng cung quen thuộc"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Các màu luôn xuất hiện theo cùng một thứ tự, với đỏ ở ngoài cùng và tím ở trong cùng.",
+      [
+        "in the same order",
+        "theo cùng một thứ tự"
+      ],
+      [
+        "violet on the inside",
+        "tím ở trong cùng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Vì vậy, dù mỗi cầu vồng có vẻ như một tình cờ may mắn, nó vẫn tuân theo các quy luật cố định; việc một hình mẫu đơn giản như thế vẫn khiến ta ngạc nhiên mỗi lần nhìn thấy có lẽ phản ánh về chính chúng ta nhiều chẳng kém về ánh sáng.",
+      [
+        "a lucky accident",
+        "một tình cờ may mắn"
+      ],
+      [
+        "fixed rules",
+        "các quy luật cố định"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-rainbow-scene.svg",
+    "alt": "Cầu vồng nhiều màu trên đồng cỏ sau mưa, có người đứng quan sát.",
+    "caption": "Một cảnh quan quen thuộc sau cơn mưa."
+  },
+  "source_sha256": "20a7a353bda38b582e5ba931172806e5891f1ddb2d0d798361937a8a4166fe9a",
+  "expected_translation_sha256": "76c54be0ae767d3264cbf5c8049f13a1d73323cc73004a83ec264d698cb0469e"
+}

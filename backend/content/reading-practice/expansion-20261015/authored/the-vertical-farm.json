@@ -1,0 +1,234 @@
+{
+  "slug": "the-vertical-farm",
+  "review_notes": "Tự dịch toàn bộ và giữ các điều kiện kinh tế/môi trường, could, tend, suspect, uncertain. Minh hoạ chung, không định lượng năng suất hay số tầng trả lời câu hỏi.",
+  "illustration_brief": "Các khay cây xanh trên giá trong một không gian trồng cây trong nhà.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Trên một tầng của nhà máy đóng gói thịt cũ ở New Jersey, những hàng rau ăn lá phát triển dưới đèn hồng, cách xa mọi cánh đồng.",
+      [
+        "a former meat-packing plant",
+        "nhà máy đóng gói thịt cũ"
+      ],
+      [
+        "leafy greens",
+        "rau ăn lá"
+      ],
+      [
+        "under pink lamps",
+        "dưới đèn hồng"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Đây là một trang trại thẳng đứng, và những người ủng hộ cho rằng trồng thực phẩm theo chiều cao trong nhà có thể giúp nuôi sống các thành phố đông đúc trong tương lai.",
+      [
+        "a vertical farm",
+        "một trang trại thẳng đứng"
+      ],
+      [
+        "its backers argue",
+        "những người ủng hộ cho rằng"
+      ],
+      [
+        "could help feed",
+        "có thể giúp nuôi sống"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ý tưởng cơ bản rất đơn giản.",
+      [
+        "The basic idea",
+        "Ý tưởng cơ bản"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Thay vì trải cây trồng trên cánh đồng rộng, người trồng xếp chồng các khay cây thành nhiều tầng cao, đôi khi tới mười hai tầng.",
+      [
+        "stack trays of plants",
+        "xếp chồng các khay cây"
+      ],
+      [
+        "a dozen high",
+        "tới mười hai tầng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Vì cùng một diện tích sàn được tận dụng nhiều lần, năng suất trên mỗi mét vuông có thể cao hơn nhiều so với canh tác thông thường.",
+      [
+        "the same floor area",
+        "cùng một diện tích sàn"
+      ],
+      [
+        "the yield per square metre",
+        "năng suất trên mỗi mét vuông"
+      ],
+      [
+        "conventional farming",
+        "canh tác thông thường"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Điều đó có ý nghĩa ở những vùng xây dựng dày đặc, nơi gần như không còn đất canh tác dư ra.",
+      [
+        "built-up regions",
+        "những vùng xây dựng dày đặc"
+      ],
+      [
+        "spare arable land",
+        "đất canh tác dư ra"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Phần lớn các trang trại này dùng phương pháp thuỷ canh, trong đó rễ nằm trong nước mang đủ mọi dưỡng chất cây cần thay vì trong đất.",
+      [
+        "a hydroponic method",
+        "phương pháp thuỷ canh"
+      ],
+      [
+        "water carrying every nutrient the plant needs",
+        "nước mang đủ mọi dưỡng chất cây cần"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Hệ thống này đem lại những lợi ích môi trường thực sự.",
+      [
+        "real environmental gains",
+        "những lợi ích môi trường thực sự"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nước được lọc và tuần hoàn lại thay vì thất thoát vào đất, nên trang trại chỉ dùng một phần nhỏ lượng nước mà cánh đồng ngoài trời cần.",
+      [
+        "filtered and recirculated",
+        "lọc và tuần hoàn lại"
+      ],
+      [
+        "uses only a fraction",
+        "chỉ dùng một phần nhỏ"
+      ],
+      [
+        "an open field",
+        "cánh đồng ngoài trời"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Được ngăn cách với côn trùng, cây trồng cần rất ít hoặc không cần thuốc trừ sâu; đồng thời, vì thực phẩm được trồng cạnh nơi người tiêu dùng sống, khí thải vận chuyển cũng giảm mạnh.",
+      [
+        "little or no pesticide",
+        "rất ít hoặc không cần thuốc trừ sâu"
+      ],
+      [
+        "transport emissions",
+        "khí thải vận chuyển"
+      ],
+      [
+        "fall sharply",
+        "giảm mạnh"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Trở ngại nằm ở năng lượng.",
+      [
+        "The obstacle",
+        "Trở ngại"
+      ],
+      [
+        "energy",
+        "năng lượng"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Cây trồng trong nhà không nhận được ánh nắng, nên đèn công suất cao phải chiếu sáng trong nhiều giờ, và các đèn này tiêu thụ lượng điện lớn.",
+      [
+        "receive no sunlight",
+        "không nhận được ánh nắng"
+      ],
+      [
+        "powerful lamps",
+        "đèn công suất cao"
+      ],
+      [
+        "consume large amounts of electricity",
+        "tiêu thụ lượng điện lớn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ở nơi điện đắt hoặc được sản xuất từ nhiên liệu hoá thạch, lợi thế môi trường thu hẹp và việc kinh doanh khó khả thi.",
+      [
+        "generated from fossil fuels",
+        "được sản xuất từ nhiên liệu hoá thạch"
+      ],
+      [
+        "the environmental advantage shrinks",
+        "lợi thế môi trường thu hẹp"
+      ],
+      [
+        "hard to make viable",
+        "khó khả thi"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Hiện tại, thường chỉ những cây trồng giá trị cao như rau gia vị và rau làm salad mới đủ bù chi phí.",
+      [
+        "high-value crops",
+        "những cây trồng giá trị cao"
+      ],
+      [
+        "pay their way",
+        "đủ bù chi phí"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Liệu ngành này có thể mở rộng quy mô để trồng lương thực chính với giá rẻ hay không vẫn chưa chắc chắn.",
+      [
+        "scale up",
+        "mở rộng quy mô"
+      ],
+      [
+        "staple foods",
+        "lương thực chính"
+      ],
+      [
+        "remains uncertain",
+        "vẫn chưa chắc chắn"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Nhiều nhà nghiên cứu cho rằng trang trại thẳng đứng sẽ bổ trợ cho nông nghiệp truyền thống thay vì thay thế nó, đem đến một công cụ hữu ích, dù có lẽ chưa phải giải pháp trọn vẹn, để nuôi sống thế giới đô thị ngày càng đông dân.",
+      [
+        "supplement traditional agriculture rather than replace it",
+        "bổ trợ cho nông nghiệp truyền thống thay vì thay thế nó"
+      ],
+      [
+        "probably not a complete solution",
+        "có lẽ chưa phải giải pháp trọn vẹn"
+      ],
+      [
+        "a growing urban world",
+        "thế giới đô thị ngày càng đông dân"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-indoor-farm-scene.svg",
+    "alt": "Các khay cây xanh trên giá trong một không gian trồng cây trong nhà.",
+    "caption": "Một hướng trồng thực phẩm trong đô thị."
+  },
+  "source_sha256": "690a46bc2e8bc34a0ddc88e6a7c6ded81bd4dd7f7abb476ceac5eebe92efc0e8",
+  "expected_translation_sha256": "f1029d956096bfca17508e642ae2c19096e27b8644a6e0168d990b3ba28b68fb"
+}
