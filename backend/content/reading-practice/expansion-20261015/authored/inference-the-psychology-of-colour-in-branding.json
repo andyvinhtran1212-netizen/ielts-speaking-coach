@@ -61,7 +61,7 @@
     ],
     [
       "p2-s3",
-      "Một màu sắc nhất quán giống như dấu ấn thị giác: màu đỏ đặc trưng của lon nước ngọt hay màu xanh nhạt của hộp trang sức có thể được nhận ra giữa kệ hàng đông đúc từ lâu trước khi logo hiện rõ.",
+      "Một màu sắc nhất quán giống như dấu ấn thị giác: màu đỏ đặc trưng của lon nước ngọt hay màu xanh lam nhạt của hộp trang sức có thể được nhận ra giữa kệ hàng chật ních từ lâu trước khi logo hiện rõ.",
       [
         "A consistent colour",
         "Một màu sắc nhất quán"
@@ -72,7 +72,11 @@
       ],
       [
         "a crowded shelf",
-        "kệ hàng đông đúc"
+        "kệ hàng chật ních"
+      ],
+      [
+        "the pale blue",
+        "màu xanh lam nhạt"
       ]
     ],
     [
@@ -186,7 +190,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-colour-packaging-scene.svg",
-    "alt": "Các hộp và chai không nhãn với nhiều màu khác nhau trên kệ hàng, cạnh bảng mẫu màu.",
+    "alt": "Các hộp và chai nhiều màu trên kệ hàng, cạnh bảng mẫu màu.",
     "caption": "Màu sắc tạo dấu ấn cho bao bì."
   },
   "source_sha256": "f832e0a020d1c991f727d483c76895af94d1c2f6eadf44ada85d7573b8aad2f8",

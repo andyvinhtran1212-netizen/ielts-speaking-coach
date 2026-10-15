@@ -169,14 +169,14 @@
     ],
     [
       "p4-s1",
-      "Nghiên cứu hiện đại gợi cách thực tế làm chậm đường cong.",
+      "Các nghiên cứu hiện đại gợi ý những cách thực tế để làm chậm tốc độ suy giảm trí nhớ thể hiện trên đường cong này.",
       [
         "Modern studies",
-        "Nghiên cứu hiện đại"
+        "Các nghiên cứu hiện đại"
       ],
       [
         "slow the curve",
-        "làm chậm đường cong"
+        "làm chậm tốc độ suy giảm trí nhớ thể hiện trên đường cong này"
       ]
     ],
     [
@@ -225,14 +225,14 @@
     ],
     [
       "p5-s1",
-      "Khoa học về quên còn chưa hoàn chỉnh, và cách chính xác não lưu một ký ức vẫn được bàn.",
+      "Khoa học về sự quên vẫn chưa hoàn thiện, và cách thức chính xác mà bộ não lưu giữ một ký ức riêng lẻ vẫn còn gây tranh luận.",
       [
         "remains incomplete",
-        "còn chưa hoàn chỉnh"
+        "vẫn chưa hoàn thiện"
       ],
       [
         "is still debated",
-        "vẫn được bàn"
+        "vẫn còn gây tranh luận"
       ]
     ],
     [
@@ -262,7 +262,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-memory-search-scene.svg",
-    "alt": "Một người bên máy tính và sổ ghi chép, không có đường cong hoặc tỷ lệ quên ghi trên hình.",
+    "alt": "Một người tra cứu trên máy tính bên cuốn sổ mở và các thẻ ghi chú.",
     "caption": "Học, lưu giữ và gợi lại thông tin."
   },
   "source_sha256": "5cc0f99ce71702085018b5b421d8de487ae6603ca19328542133126e58868d26",

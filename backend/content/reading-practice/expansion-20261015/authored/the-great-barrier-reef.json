@@ -41,14 +41,14 @@
     ],
     [
       "p2-s1",
-      "Dù trông như đá, rạn là vật sống.",
+      "Dù trông như đá, rạn san hô có sự sống.",
       [
         "looks like rock",
         "trông như đá"
       ],
       [
         "the reef is alive",
-        "rạn là vật sống"
+        "rạn san hô có sự sống"
       ]
     ],
     [
@@ -206,7 +206,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-coral-reef-scene.svg",
-    "alt": "Cá và rùa bơi trên rạn san hô nhiều hình dáng, không có sơ đồ tẩy trắng hoặc số liệu.",
+    "alt": "Cá và rùa bơi quanh những cụm san hô dưới nước.",
     "caption": "Một sinh cảnh biển giàu sự sống."
   },
   "source_sha256": "03005244f602dbcba3e8267b6be8f34678b1d5fd5dba2b31970b3ea62cdf95e5",

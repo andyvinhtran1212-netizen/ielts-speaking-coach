@@ -5,7 +5,7 @@
   "sentences": [
     [
       "p1-s1",
-      "Trong phần lớn thế kỷ XX, tàu điện mặt đất bị coi là lỗi thời.",
+      "Trong một thời gian dài của thế kỷ XX, tàu điện mặt đất bị coi là lỗi thời.",
       [
         "the twentieth century",
         "thế kỷ XX"
@@ -61,7 +61,7 @@
     ],
     [
       "p2-s2",
-      "Khi ùn tắc và ô nhiễm không khí tệ hơn, thành phố Pháp bắt đầu hồi phục tuyến; riêng Pháp nay gần 30 mạng lưới, đa số xây lại sau khi từng đóng.",
+      "Khi ùn tắc và ô nhiễm không khí tệ hơn, các thành phố Pháp bắt đầu khôi phục các tuyến tàu điện; riêng Pháp hiện có gần 30 mạng lưới, phần lớn được xây dựng lại sau khi từng bị đóng cửa.",
       [
         "congestion and air pollution",
         "ùn tắc và ô nhiễm không khí"
@@ -72,15 +72,15 @@
       ],
       [
         "rebuilt after once being shut down",
-        "xây lại sau khi từng đóng"
+        "được xây dựng lại sau khi từng bị đóng cửa"
       ]
     ],
     [
       "p2-s3",
-      "Năm 1994, Strasbourg mở một trong các hệ sàn thấp hoàn toàn đầu tiên ở châu Âu, giúp người đi bộ và người dùng xe lăn dễ lên.",
+      "Năm 1994, Strasbourg đưa vào hoạt động một trong những hệ thống tàu điện có sàn thấp hoàn toàn đầu tiên ở châu Âu, giúp người đi bộ và người dùng xe lăn dễ lên tàu.",
       [
         "fully low-floor systems",
-        "hệ sàn thấp hoàn toàn"
+        "hệ thống tàu điện có sàn thấp hoàn toàn"
       ],
       [
         "wheelchairs",
@@ -141,18 +141,18 @@
     ],
     [
       "p3-s3",
-      "Chở nhiều người dọc một hành lang, tuyến quy hoạch tốt có thể giảm ô tô trung tâm và nhẹ giờ cao điểm hằng ngày.",
+      "Bằng cách chở nhiều người trên cùng một hành lang giao thông, tuyến tàu điện được quy hoạch tốt có thể giảm số ô tô trong trung tâm và giảm áp lực giờ cao điểm hằng ngày.",
       [
         "one corridor",
-        "một hành lang"
+        "một hành lang giao thông"
       ],
       [
         "a well-planned tram line",
-        "tuyến quy hoạch tốt"
+        "tuyến tàu điện được quy hoạch tốt"
       ],
       [
         "ease the daily rush hour",
-        "nhẹ giờ cao điểm hằng ngày"
+        "giảm áp lực giờ cao điểm hằng ngày"
       ]
     ],
     [
@@ -169,14 +169,14 @@
     ],
     [
       "p3-s5",
-      "Cửa hàng và quán cà phê thường theo đường ray, phố yên bị bỏ quên dần sống lại.",
+      "Cửa hàng và quán cà phê thường mọc lên dọc tuyến đường ray, còn những con phố yên ắng bị bỏ quên dần có sức sống trở lại.",
       [
         "Shops and cafes",
         "Cửa hàng và quán cà phê"
       ],
       [
         "come back to life",
-        "sống lại"
+        "có sức sống trở lại"
       ]
     ],
     [
@@ -230,7 +230,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-city-tram-scene.svg",
-    "alt": "Tàu điện mặt đất chạy trên đường ray giữa phố có cây và người đi bộ, không ghi số mạng lưới hoặc niên đại.",
+    "alt": "Tàu điện chạy trên đường ray dưới dây điện giữa phố, cạnh cây và người đi bộ.",
     "caption": "Một lựa chọn giao thông trong thành phố."
   },
   "source_sha256": "c3dcb9fd6b6787d5be9fdad7840a9629dc546798180667a3502a04cbef812362",

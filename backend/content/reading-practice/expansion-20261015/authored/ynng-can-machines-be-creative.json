@@ -177,7 +177,7 @@
     ],
     [
       "p4-s4",
-      "Liệu sự thiếu vắng ấy có khiến kết quả không được tính là sáng tạo, hay ý nghĩa là thứ khán giả đem đến thay vì nghệ sĩ truyền đi, chính là điểm mà những người biết lý lẽ bất đồng.",
+      "Liệu sự thiếu vắng ấy có khiến kết quả không được tính là sáng tạo, hay ý nghĩa là thứ khán giả đem đến thay vì nghệ sĩ truyền đi, chính là điểm mà những người suy xét hợp lý vẫn bất đồng.",
       [
         "that absence disqualifies the result",
         "sự thiếu vắng ấy có khiến kết quả không được tính là sáng tạo"
@@ -188,7 +188,7 @@
       ],
       [
         "reasonable people part company",
-        "những người biết lý lẽ bất đồng"
+        "những người suy xét hợp lý vẫn bất đồng"
       ]
     ],
     [
@@ -250,7 +250,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-painting-studio-scene.svg",
-    "alt": "Giá vẽ và dụng cụ hội hoạ trong một góc xưởng.",
+    "alt": "Giá vẽ với tranh phong cảnh đang làm dở, cạnh bảng pha màu, cọ và cửa sổ.",
     "caption": "Công cụ, tác phẩm và sự sáng tạo."
   },
   "source_sha256": "3e816e515dc68f664190811d4207896059af56fd6ce89f391411981a7c9a3c70",

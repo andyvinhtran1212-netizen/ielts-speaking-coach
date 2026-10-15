@@ -1,0 +1,32 @@
+{
+  "scope": "196 published L1/L2 Reading practice articles; Full Test and the four core articles excluded",
+  "reviewed_articles": 196,
+  "changed_articles": 148,
+  "changed_translation_sentences": 289,
+  "changed_phrase_lists": 258,
+  "changed_illustration_metadata": 89,
+  "sentence_units": 3052,
+  "phrase_pairs": 6437,
+  "illustration_scenes": 128,
+  "new_svg_scenes": 5,
+  "retargeted_articles": 7,
+  "environments": {
+    "staging": {
+      "updates": 148,
+      "inserts": 0,
+      "question_mutations": 0
+    },
+    "production": {
+      "updates": 148,
+      "inserts": 0,
+      "question_mutations": 0
+    }
+  },
+  "reviewed_production_sha": "69b4299b1c600f7914c3f9c83d83b98ce71e6999",
+  "sql_sha256": {
+    "staging-apply.sql": "8d61ddf3a68128ca33e9d1b76714eed82473526094a5ed457f5e37d4d582327d",
+    "staging-rollback.sql": "794b240d58e0c4cff4df53072cc1b530bc1c548e250cc300b6167435852915ff",
+    "production-apply.sql": "a33c568fa28b5d7a6bcd66993a51c4f318655352e62346bbdc908828222329f1",
+    "production-rollback.sql": "dff44104863ed7a50bd21fd3899e3192e37b314f1912f51f892e69a910a0baa0"
+  }
+}

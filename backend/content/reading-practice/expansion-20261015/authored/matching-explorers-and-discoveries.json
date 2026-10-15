@@ -145,9 +145,9 @@
     ]
   ],
   "illustration": {
-    "src": "/reading-illustrations/exp-ancient-harbour-scene.svg",
-    "alt": "Thuyền buồm trước bến cảng gợi những chuyến đi biển xa.",
-    "caption": "Những hành trình vượt khỏi vùng đất quen thuộc."
+    "src": "/reading-illustrations/exp-exploration-desk-scene.svg",
+    "alt": "Bản đồ cách điệu, la bàn, ống nhòm một mắt và dây thừng trên bàn cạnh cửa sổ nhìn ra biển.",
+    "caption": "Chuẩn bị cho những hành trình đến vùng đất mới."
   },
   "source_sha256": "05a4bf2c2887d55aae229d0931a389d45276ee9939fb813f6f2ce01ef1bf1c2e",
   "expected_translation_sha256": "d779c8c0b3d722fbd24ba6575aad64e042614e30e376e5b9491d532f7a377ce5"

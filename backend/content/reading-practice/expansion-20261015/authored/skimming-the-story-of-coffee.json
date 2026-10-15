@@ -69,7 +69,7 @@
     ],
     [
       "p2-s4",
-      "Câu chuyện có thể không có thật, nhưng chỉ đúng góc thế giới: cây cà phê thực sự bắt nguồn từ vùng này.",
+      "Câu chuyện có thể không có thật, nhưng nó hướng ta đến đúng khu vực trên thế giới: cây cà phê thực sự bắt nguồn từ vùng này.",
       [
         "may not be true",
         "có thể không có thật"
@@ -77,6 +77,10 @@
       [
         "really did come from this region",
         "thực sự bắt nguồn từ vùng này"
+      ],
+      [
+        "it points to the right corner of the world",
+        "nó hướng ta đến đúng khu vực trên thế giới"
       ]
     ],
     [

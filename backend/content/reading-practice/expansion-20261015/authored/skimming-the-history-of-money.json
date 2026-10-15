@@ -5,10 +5,14 @@
   "sentences": [
     [
       "p1-s1",
-      "A — Từ lâu, chưa hề có tiền.",
+      "A — Ngày xưa, tiền chưa hề tồn tại.",
+      [
+        "Long ago",
+        "Ngày xưa"
+      ],
       [
         "no money at all",
-        "chưa hề có tiền"
+        "tiền chưa hề tồn tại"
       ]
     ],
     [
@@ -162,7 +166,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-money-wallet-scene.svg",
-    "alt": "Ví mở với tiền xu, tờ giấy và một thẻ thanh toán không có mệnh giá hay thương hiệu.",
+    "alt": "Ví mở với tiền giấy và thẻ, cạnh tiền xu cùng điện thoại.",
     "caption": "Những hình thức thanh toán trong đời sống."
   },
   "source_sha256": "3f26956c3e8174748baa47bfba8914b7ad9f96caca8cec461d068a774c047dd8",

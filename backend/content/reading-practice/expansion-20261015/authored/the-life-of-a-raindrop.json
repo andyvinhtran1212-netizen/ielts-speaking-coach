@@ -125,7 +125,7 @@
     ],
     [
       "p3-s5",
-      "Khi đủ nặng, giọt rơi thành mưa, tuyết hoặc mưa đá — giai đoạn khoa học gọi là giáng thủy.",
+      "Khi đủ nặng, giọt rơi thành mưa, tuyết hoặc mưa đá — giai đoạn mà các nhà khoa học gọi là giáng thủy.",
       [
         "heavy enough",
         "đủ nặng"
@@ -165,32 +165,32 @@
     ],
     [
       "p4-s3",
-      "Sông chậm mang nước về đại dương, nơi toàn chu trình bắt đầu lại.",
+      "Những dòng sông này từ từ đưa nước trở về đại dương, nơi toàn bộ chu trình bắt đầu lại.",
       [
         "back towards the ocean",
-        "về đại dương"
+        "trở về đại dương"
       ],
       [
         "the whole cycle begins again",
-        "toàn chu trình bắt đầu lại"
+        "toàn bộ chu trình bắt đầu lại"
       ]
     ],
     [
       "p4-s4",
-      "Cùng giọt có thể lặp vòng này vô số lần, dù không ai nói chính xác tiếp theo sẽ đi đâu.",
+      "Chính giọt nước ấy có thể trải qua vòng lặp này vô số lần, dù không ai có thể nói chính xác nó sẽ đi đâu tiếp theo.",
       [
         "countless times",
         "vô số lần"
       ],
       [
         "no one can say exactly",
-        "không ai nói chính xác"
+        "không ai có thể nói chính xác"
       ]
     ]
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-rain-scene.svg",
-    "alt": "Mây, mưa và mặt nước trong một cảnh thiên nhiên, không có nhãn các giai đoạn.",
+    "alt": "Mây mưa trên ngôi nhà và dòng nước, với một người che ô ở gần đó.",
     "caption": "Nước qua những hình dạng và nơi chốn khác nhau."
   },
   "source_sha256": "27565c659c58ad148c62d7945d1d2f021a9859f90e3ca61697f792191f0f28f3",

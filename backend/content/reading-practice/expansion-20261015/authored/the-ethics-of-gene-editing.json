@@ -33,7 +33,7 @@
     ],
     [
       "p1-s3",
-      "Nó gây báo động vì thay đổi He tạo ra có thể di truyền.",
+      "Nó gây báo động vì những thay đổi mà He Jiankui tạo ra có thể di truyền.",
       [
         "caused alarm",
         "gây báo động"
@@ -73,7 +73,7 @@
     ],
     [
       "p2-s2",
-      "Một năm sau, tòa án Thâm Quyến tuyên He ba năm tù vì hành nghề y bất hợp pháp, sau khi kết luận ông giả mạo hồ sơ thẩm định đạo đức.",
+      "Một năm sau, tòa án Thâm Quyến tuyên He Jiankui ba năm tù vì hành nghề y bất hợp pháp, sau khi kết luận ông giả mạo hồ sơ thẩm định đạo đức.",
       [
         "three years in prison",
         "ba năm tù"
@@ -257,18 +257,18 @@
     ],
     [
       "p5-s3",
-      "Nhóm thứ hai cảnh báo cấm toàn diện có thể chỉ đẩy nghiên cứu tới nơi pháp lý ít thận trọng hơn, gần như không giám sát gì.",
+      "Nhóm thứ hai cảnh báo rằng một lệnh cấm toàn diện có thể chỉ đẩy hoạt động nghiên cứu sang những khu vực có cơ chế quản lý kém chặt chẽ hơn, nơi gần như không có gì được giám sát.",
       [
         "A blanket prohibition",
-        "cấm toàn diện"
+        "một lệnh cấm toàn diện"
       ],
       [
         "less careful jurisdictions",
-        "nơi pháp lý ít thận trọng hơn"
+        "những khu vực có cơ chế quản lý kém chặt chẽ hơn"
       ],
       [
         "almost nothing is monitored",
-        "gần như không giám sát gì"
+        "gần như không có gì được giám sát"
       ]
     ],
     [
@@ -290,7 +290,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-conservation-lab-scene.svg",
-    "alt": "Phòng nghiên cứu với mô hình vật liệu di truyền trên bàn, không có sơ đồ chỉnh sửa hay hướng dẫn thí nghiệm.",
+    "alt": "Một người quan sát mẫu thực vật và mô hình vật liệu di truyền trên bàn trong phòng nghiên cứu.",
     "caption": "Công nghệ di truyền và các lựa chọn của xã hội."
   },
   "source_sha256": "9a5db3122d386b69226a2f0035d8e3e1c885bd3710fe1fcbd26ecc6b90ec61d5",

@@ -29,7 +29,7 @@
     ],
     [
       "p1-s3",
-      "Người ta gọi màn đẹp ấy là Bắc cực quang.",
+      "Người ta gọi màn trình diễn ánh sáng đẹp đẽ ấy là Bắc cực quang.",
       [
         "the Northern Lights",
         "Bắc cực quang"
@@ -113,18 +113,18 @@
     ],
     [
       "p3-s1",
-      "Bạn không thể thấy màn này ở mọi nơi.",
+      "Bạn không thể thấy màn trình diễn này ở mọi nơi.",
       [
         "cannot see this show everywhere",
-        "không thể thấy màn này ở mọi nơi"
+        "không thể thấy màn trình diễn này ở mọi nơi"
       ]
     ],
     [
       "p3-s2",
-      "Nơi tốt nhất ở vùng phương bắc xa xôi, gần đỉnh thế giới, nơi đêm rất dài vào mùa đông.",
+      "Nơi tốt nhất ở vùng phương bắc xa xôi, gần cực bắc của Trái Đất, nơi đêm rất dài vào mùa đông.",
       [
         "near the top of the world",
-        "gần đỉnh thế giới"
+        "gần cực bắc của Trái Đất"
       ],
       [
         "the nights are very long in winter",
@@ -133,10 +133,10 @@
     ],
     [
       "p3-s3",
-      "Bạn còn cần đêm tối, quang, không mây.",
+      "Bạn còn cần một đêm tối, trời quang và không có mây.",
       [
         "a dark, clear night with no clouds",
-        "đêm tối, quang, không mây"
+        "một đêm tối, trời quang và không có mây"
       ]
     ],
     [
@@ -162,7 +162,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-northern-lights-scene.svg",
-    "alt": "Dải sáng mềm trên trời đêm phía trên núi tuyết và mặt nước tối; không có sơ đồ hạt hoặc nhãn màu.",
+    "alt": "Các dải cực quang trên bầu trời đêm phía trên núi tuyết và mặt nước.",
     "caption": "Một cảnh tượng trên bầu trời phương bắc."
   },
   "source_sha256": "69615a7e2e0e2b6a3a459c3576e61867b2d89486063af1ed1fff62284ec3f5a0",

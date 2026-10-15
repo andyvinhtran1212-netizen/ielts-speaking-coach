@@ -29,14 +29,14 @@
     ],
     [
       "p1-s3",
-      "Người Ai Cập ép cây sậy mọc dọc sông Nile thành tấm gọi là papyrus.",
+      "Người Ai Cập ép cây sậy mọc dọc sông Nile thành những tấm giấy cói gọi là papyrus.",
       [
         "reeds",
         "cây sậy"
       ],
       [
         "sheets called papyrus",
-        "tấm gọi là papyrus"
+        "những tấm giấy cói gọi là papyrus"
       ]
     ],
     [
@@ -165,8 +165,8 @@
     ]
   ],
   "illustration": {
-    "src": "/reading-illustrations/exp-paper-recycling-scene.svg",
-    "alt": "Các tờ giấy và vật liệu giấy trên bàn cạnh cây xanh.",
+    "src": "/reading-illustrations/exp-paper-writing-desk-scene.svg",
+    "alt": "Các tờ giấy, cuộn giấy và bút trên bàn cạnh cửa sổ và chậu cây.",
     "caption": "Một vật liệu giúp lưu giữ và chia sẻ chữ viết."
   },
   "source_sha256": "38809d7f98537dd308c8ba83ec931c7fe8059d9d29127b1d281541f7c56e2db3",

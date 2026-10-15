@@ -49,14 +49,14 @@
     ],
     [
       "p2-s1",
-      "Đầu tiên, nó bay tới hoa và uống mật ngọt.",
+      "Đầu tiên, nó bay tới hoa và uống mật hoa ngọt.",
       [
         "flies to a flower",
         "bay tới hoa"
       ],
       [
         "the sweet nectar",
-        "mật ngọt"
+        "mật hoa ngọt"
       ]
     ],
     [
@@ -185,20 +185,20 @@
     ],
     [
       "p4-s4",
-      "Ngày mai nó làm lại tất cả, và công việc biến thành mật ngọt cho mọi thành viên.",
+      "Ngày mai nó làm lại tất cả, và công việc biến thành mật ong ngọt cho mọi thành viên.",
       [
         "do it all again",
         "làm lại tất cả"
       ],
       [
         "sweet honey for everyone",
-        "mật ngọt cho mọi thành viên"
+        "mật ong ngọt cho mọi thành viên"
       ]
     ]
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-bees-garden-scene.svg",
-    "alt": "Ong bay giữa hoa trong vườn, không có sơ đồ nhảy hoặc công thức làm mật.",
+    "alt": "Ong bay bên những bông hoa trong vườn, với tổ ong gỗ ở phía xa.",
     "caption": "Một ngày tìm hoa của ong thợ."
   },
   "source_sha256": "6e22d9c3a84f84c9c9ca1351bf0371a17234b78b44b29b3d8557d70d1c3d43cc",

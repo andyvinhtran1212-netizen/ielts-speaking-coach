@@ -5,18 +5,18 @@
   "sentences": [
     [
       "p1-s1",
-      "Quan niệm sai phổ biến nói kính cửa sổ rất cũ dày dưới vì đã chậm chảy xuống qua nhiều thế kỷ.",
+      "Một quan niệm sai lầm phổ biến cho rằng kính ở các cửa sổ rất cũ dày hơn ở phía dưới vì đã từ từ chảy xuống qua nhiều thế kỷ.",
       [
         "A common myth",
-        "Quan niệm sai phổ biến"
+        "Một quan niệm sai lầm phổ biến"
       ],
       [
         "thicker at the bottom",
-        "dày dưới"
+        "dày hơn ở phía dưới"
       ],
       [
         "slowly flowed downwards over centuries",
-        "chậm chảy xuống qua nhiều thế kỷ"
+        "từ từ chảy xuống qua nhiều thế kỷ"
       ]
     ],
     [
@@ -53,14 +53,14 @@
     ],
     [
       "p2-s2",
-      "Khi phần lớn vật liệu nguội, nguyên tử khóa vào mẫu gọn lặp gọi là tinh thể.",
+      "Khi hầu hết các vật liệu nguội đi, các nguyên tử của chúng cố định thành một cấu trúc trật tự, lặp lại được gọi là tinh thể.",
       [
         "their atoms",
-        "nguyên tử"
+        "các nguyên tử của chúng"
       ],
       [
         "a neat, repeating pattern",
-        "mẫu gọn lặp"
+        "một cấu trúc trật tự, lặp lại"
       ],
       [
         "a crystal",
@@ -97,18 +97,18 @@
     ],
     [
       "p3-s2",
-      "Khoảng 73 phần trăm là silica, khoáng có trong cát thường, trộn soda và vôi để hạ điểm nóng chảy.",
+      "Khoảng 73 phần trăm thành phần của kính là silica, khoáng chất có trong cát thông thường, được trộn với sô đa và vôi để hạ nhiệt độ nóng chảy.",
       [
         "About 73 percent",
         "Khoảng 73 phần trăm"
       ],
       [
         "soda and lime",
-        "soda và vôi"
+        "sô đa và vôi"
       ],
       [
         "lower the melting point",
-        "hạ điểm nóng chảy"
+        "hạ nhiệt độ nóng chảy"
       ]
     ],
     [
@@ -153,14 +153,14 @@
     ],
     [
       "p3-s6",
-      "Khi lỏng ấy nguội, nó cứng, trong suốt và không kết tinh.",
+      "Khi chất lỏng này nguội đi, nó trở nên cứng và trong suốt mà không hề kết tinh.",
       [
         "hard and transparent",
-        "cứng, trong suốt"
+        "cứng và trong suốt"
       ],
       [
         "never crystallises",
-        "không kết tinh"
+        "không hề kết tinh"
       ]
     ],
     [
@@ -250,7 +250,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-glass-workbench-scene.svg",
-    "alt": "Các tấm kính phẳng và chai lọ trên bàn trước cửa sổ, không có sơ đồ lò nung, nguyên tử hay thành phần hóa học.",
+    "alt": "Các tấm kính phẳng và chai lọ trên bàn trước cửa sổ.",
     "caption": "Một vật liệu trong suốt trong đời sống."
   },
   "source_sha256": "fd1ed94800eab390e0e1d01694f3928d0164790a8edcacdd4f698f3f1040ace3",

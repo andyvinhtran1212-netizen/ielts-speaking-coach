@@ -73,26 +73,26 @@
     ],
     [
       "p2-s3",
-      "Nhưng nhiều thập kỷ nó bị coi là chuyện nghĩ sau, quản chủ yếu qua lo ngại tiếng ồn và mất trật tự.",
+      "Tuy nhiên, suốt nhiều thập kỷ, lĩnh vực này chỉ được quan tâm một cách thứ yếu và được quản lý chủ yếu dựa trên những lo ngại về tiếng ồn và tình trạng mất trật tự.",
       [
         "an afterthought",
-        "chuyện nghĩ sau"
+        "được quan tâm một cách thứ yếu"
       ],
       [
         "noise and disorder",
-        "tiếng ồn và mất trật tự"
+        "tiếng ồn và tình trạng mất trật tự"
       ]
     ],
     [
       "p2-s4",
-      "Người làm thường chịu lương thấp và giờ trái sinh hoạt thông thường.",
+      "Những người làm việc trong lĩnh vực này thường phải chịu mức lương thấp và giờ làm lệch với thời gian sinh hoạt thông thường.",
       [
         "low pay",
-        "lương thấp"
+        "mức lương thấp"
       ],
       [
         "unsocial hours",
-        "giờ trái sinh hoạt thông thường"
+        "giờ làm lệch với thời gian sinh hoạt thông thường"
       ]
     ],
     [
@@ -121,14 +121,14 @@
     ],
     [
       "p3-s3",
-      "Đồng thời thêm người làm ca nên nhu cầu dịch vụ giờ lạ tiếp tục tăng.",
+      "Đồng thời, hiện có nhiều người làm việc theo ca hơn, nên nhu cầu sử dụng dịch vụ ngoài giờ thông thường tiếp tục tăng.",
       [
         "work in shifts",
-        "làm ca"
+        "làm việc theo ca"
       ],
       [
         "at unusual hours",
-        "giờ lạ"
+        "ngoài giờ thông thường"
       ]
     ],
     [
@@ -153,18 +153,18 @@
     ],
     [
       "p4-s2",
-      "Địa điểm hút đám đông cũng gây phàn nàn, và tiền thuê tăng thường đẩy chính câu lạc bộ tạo bản sắc khu đi.",
+      "Những địa điểm thu hút đông người cũng có thể gây ra các lời phàn nàn, và giá thuê tăng thường khiến chính các câu lạc bộ tạo nên bản sắc của một khu phố phải rời đi.",
       [
         "generate complaints",
-        "gây phàn nàn"
+        "gây ra các lời phàn nàn"
       ],
       [
         "rising rents",
-        "tiền thuê tăng"
+        "giá thuê tăng"
       ],
       [
         "give a district its character",
-        "tạo bản sắc khu"
+        "tạo nên bản sắc của một khu phố"
       ]
     ],
     [
@@ -193,14 +193,14 @@
     ],
     [
       "p4-s5",
-      "Người phê bình cảnh báo đẩy cuộc sống đêm có thể làm thượng lưu hóa khu phố cũ nhanh hơn.",
+      "Những người chỉ trích cảnh báo rằng việc thúc đẩy đời sống về đêm có thể đẩy nhanh quá trình cải tạo các khu phố cũ theo hướng phục vụ tầng lớp khá giả.",
       [
         "promoting nightlife",
-        "đẩy cuộc sống đêm"
+        "việc thúc đẩy đời sống về đêm"
       ],
       [
         "the gentrification of older neighbourhoods",
-        "thượng lưu hóa khu phố cũ"
+        "quá trình cải tạo các khu phố cũ theo hướng phục vụ tầng lớp khá giả"
       ]
     ],
     [
@@ -221,14 +221,14 @@
     ],
     [
       "p5-s2",
-      "Nhiều điều tùy giao thông, nhà ở và cấp phép địa phương, nằm ngoài bất cứ một chức vụ.",
+      "Kết quả phụ thuộc nhiều vào giao thông, nhà ở và việc cấp phép tại địa phương — những vấn đề vượt ngoài phạm vi của bất kỳ một chức vụ đơn lẻ nào.",
       [
         "local transport, housing and licensing",
-        "giao thông, nhà ở và cấp phép địa phương"
+        "giao thông, nhà ở và việc cấp phép tại địa phương"
       ],
       [
         "beyond any single post",
-        "ngoài bất cứ một chức vụ"
+        "vượt ngoài phạm vi của bất kỳ một chức vụ đơn lẻ nào"
       ]
     ],
     [
@@ -246,8 +246,8 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-night-street-scene.svg",
-    "alt": "Một phố có cửa hàng và cửa sổ sáng đèn cùng người đi bộ dưới trời tối, không có thương hiệu hay tuyên bố chính sách.",
-    "caption": "Những hoạt động của thành phố sau tối."
+    "alt": "Hai người đi bộ trên phố có cửa hàng và những ô cửa sáng đèn dưới trời đêm.",
+    "caption": "Những hoạt động của thành phố khi trời tối."
   },
   "source_sha256": "16b682cde7b87051429621bd7453a5e4b665e80b06c5a25488b794ba4f9d802f",
   "expected_translation_sha256": "e2addd097e0090efd809e529f4a2fea8839a6287442c5daa3169cf90a08629ff"

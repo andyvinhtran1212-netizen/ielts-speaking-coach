@@ -21,18 +21,18 @@
     ],
     [
       "p1-s2",
-      "Xe điện, từng là vật lạ, đã vững bước vào dòng phổ biến, và lý do đi lên bộc lộ về chính trị không kém kỹ thuật.",
+      "Xe điện, từng là một thứ lạ lẫm, nay đã được chấp nhận rộng rãi, và những lý do đằng sau sự phát triển của nó bộc lộ nhiều điều về chính trị không kém về kỹ thuật.",
       [
         "once a curiosity",
-        "từng là vật lạ"
+        "từng là một thứ lạ lẫm"
       ],
       [
         "into the mainstream",
-        "vào dòng phổ biến"
+        "được chấp nhận rộng rãi"
       ],
       [
         "as much about politics as about engineering",
-        "về chính trị không kém kỹ thuật"
+        "về chính trị không kém về kỹ thuật"
       ]
     ],
     [
@@ -61,14 +61,14 @@
     ],
     [
       "p2-s3",
-      "Ngược lại, động cơ điện không thải khi xe chạy, hấp dẫn thành phố vật lộn với không khí bẩn.",
+      "Ngược lại, động cơ điện không phát thải khi xe đang chạy, điều khiến nó hấp dẫn với các thành phố đang vật lộn với không khí bẩn.",
       [
         "An electric motor",
         "động cơ điện"
       ],
       [
         "no emissions while it is being driven",
-        "không thải khi xe chạy"
+        "không phát thải khi xe đang chạy"
       ],
       [
         "dirty air",
@@ -121,10 +121,10 @@
     ],
     [
       "p3-s3",
-      "Giá dù giảm vẫn cao, nên nhiều chính phủ trợ cấp khuyến khích mua công nghệ sớm hơn.",
+      "Giá xe dù đang giảm vẫn cao, nên nhiều chính phủ đưa ra trợ cấp để khuyến khích người mua sớm sử dụng công nghệ này.",
       [
         "although falling",
-        "dù giảm"
+        "dù đang giảm"
       ],
       [
         "a subsidy",
@@ -132,7 +132,7 @@
       ],
       [
         "adopt the technology sooner",
-        "mua công nghệ sớm hơn"
+        "sớm sử dụng công nghệ này"
       ]
     ],
     [
@@ -145,18 +145,18 @@
     ],
     [
       "p4-s2",
-      "Nếu hàng triệu xe lấy điện từ lưới vẫn đốt than hay gas, lợi ích khí hậu thu hẹp.",
+      "Nếu hàng triệu xe lấy điện từ một lưới điện vẫn phụ thuộc vào việc đốt than hoặc khí đốt, lợi ích đối với khí hậu sẽ giảm đi.",
       [
         "an electricity grid",
-        "lưới"
+        "một lưới điện"
       ],
       [
         "coal or gas",
-        "than hay gas"
+        "than hoặc khí đốt"
       ],
       [
         "the climate benefit shrinks",
-        "lợi ích khí hậu thu hẹp"
+        "lợi ích đối với khí hậu sẽ giảm đi"
       ]
     ],
     [
@@ -230,7 +230,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-electric-car-scene.svg",
-    "alt": "Ô tô cắm sạc ở trạm nhỏ cạnh đường có cây xanh, không có nhãn giá, công suất hoặc tuyên bố phát thải vòng đời.",
+    "alt": "Ô tô nối với trạm sạc cạnh con đường có cây xanh.",
     "caption": "Một cách cấp năng lượng cho việc đi lại."
   },
   "source_sha256": "9b903f1e370c5cfde2cbc5c2bb43216e8564d3a1a4729ec89e94acde124721a7",

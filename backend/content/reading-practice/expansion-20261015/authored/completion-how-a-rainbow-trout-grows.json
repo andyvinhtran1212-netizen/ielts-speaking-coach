@@ -65,14 +65,14 @@
     ],
     [
       "p3-s1",
-      "Sau vài tuần, trứng nở thành những con non rất nhỏ gọi là alevin.",
+      "Sau vài tuần, trứng nở thành những con non rất nhỏ gọi là alevin (cá non còn túi noãn hoàng).",
       [
         "the eggs hatch",
         "trứng nở"
       ],
       [
-        "tiny young",
-        "những con non rất nhỏ"
+        "tiny young known as alevins",
+        "những con non rất nhỏ gọi là alevin (cá non còn túi noãn hoàng)"
       ]
     ],
     [
@@ -89,7 +89,7 @@
     ],
     [
       "p3-s3",
-      "Khi nguồn thức ăn dự trữ này cạn, cá non bơi lên về phía ánh sáng và lúc này được gọi là fry.",
+      "Khi nguồn thức ăn dự trữ này cạn, cá non bơi lên về phía ánh sáng và lúc này được gọi là cá bột (fry).",
       [
         "this store of food",
         "nguồn thức ăn dự trữ này"
@@ -97,6 +97,10 @@
       [
         "towards the light",
         "về phía ánh sáng"
+      ],
+      [
+        "called fry",
+        "gọi là cá bột (fry)"
       ]
     ],
     [
@@ -113,10 +117,14 @@
     ],
     [
       "p4-s2",
-      "Ở giai đoạn này, cá được gọi là parr.",
+      "Ở giai đoạn này, cá được gọi là parr, tức cá non có các vệt sẫm dọc thân.",
       [
         "At this stage",
         "Ở giai đoạn này"
+      ],
+      [
+        "known as parr",
+        "gọi là parr, tức cá non có các vệt sẫm dọc thân"
       ]
     ],
     [
@@ -146,7 +154,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-trout-scene.svg",
-    "alt": "Cá hồi vân bơi trong dòng sông trên lớp sỏi, dưới bờ cỏ và cây ven nước.",
+    "alt": "Cá hồi vân bơi trên nền đá và rong dưới dòng nước, với bờ cỏ phía trên.",
     "caption": "Quan sát cá hồi vân trong môi trường tự nhiên."
   },
   "source_sha256": "d5fd961c6e7a5059ee015dee8d097aefe62c8a6bac99ce994f18e379910d6dcf",

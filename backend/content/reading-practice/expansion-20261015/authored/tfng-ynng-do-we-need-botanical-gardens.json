@@ -53,10 +53,10 @@
     ],
     [
       "p2-s2",
-      "Vườn thực vật lưu giữ các bộ sưu tập sống đại diện cho hàng nghìn loài, một số nay tuyệt chủng ngoài tự nhiên — chỉ còn tồn tại nhờ được trồng.",
+      "Vườn thực vật lưu giữ các bộ sưu tập thực vật sống đại diện cho hàng nghìn loài, một số nay tuyệt chủng ngoài tự nhiên — chỉ còn tồn tại nhờ được trồng.",
       [
         "living collections",
-        "các bộ sưu tập sống"
+        "các bộ sưu tập thực vật sống"
       ],
       [
         "extinct in the wild",
@@ -69,7 +69,7 @@
     ],
     [
       "p2-s3",
-      "Giữ những cây ấy sống và sinh sản giúp vườn bảo tồn vật liệu di truyền có thể một ngày được dùng đưa loài về quê nhà tự nhiên.",
+      "Bằng cách giữ cho những cây ấy sống và sinh sản, các khu vườn bảo tồn nguồn vật liệu di truyền có thể một ngày nào đó được dùng để đưa một loài trở về nơi sinh sống tự nhiên của nó.",
       [
         "alive and reproducing",
         "sống và sinh sản"
@@ -80,7 +80,11 @@
       ],
       [
         "might one day be used",
-        "có thể một ngày được dùng"
+        "có thể một ngày nào đó được dùng"
+      ],
+      [
+        "its natural home",
+        "nơi sinh sống tự nhiên của nó"
       ]
     ],
     [
@@ -129,7 +133,7 @@
     ],
     [
       "p3-s3",
-      "Bộ sưu tập sống còn cho nghiên cứu phản ứng của cây với hạn hán hoặc khí hậu ấm lên, những câu hỏi kho kín không thể trả lời.",
+      "Các bộ sưu tập thực vật sống còn cho phép các nhà nghiên cứu tìm hiểu cách cây phản ứng với hạn hán hoặc khí hậu ấm lên, những câu hỏi mà một kho kín không thể trả lời.",
       [
         "drought or a warming climate",
         "hạn hán hoặc khí hậu ấm lên"
@@ -161,14 +165,14 @@
     ],
     [
       "p4-s2",
-      "Vườn thực vật còn dạy hàng triệu khách về những cây họ có thể không bao giờ chú ý, và sự chú ý ấy có thể nuôi dưỡng ủng hộ bảo vệ sinh cảnh xa xôi.",
+      "Vườn thực vật còn dạy hàng triệu khách về những cây họ có thể không bao giờ chú ý, và sự chú ý ấy có thể củng cố sự ủng hộ đối với việc bảo vệ sinh cảnh xa xôi.",
       [
         "millions of visitors",
         "hàng triệu khách"
       ],
       [
         "feed support",
-        "nuôi dưỡng ủng hộ"
+        "củng cố sự ủng hộ"
       ],
       [
         "protecting habitats far away",

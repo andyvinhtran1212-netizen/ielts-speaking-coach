@@ -5,10 +5,14 @@
   "sentences": [
     [
       "p1-s1",
-      "Mỗi năm, hàng trăm triệu tấn giấy bị vứt bỏ, nhưng phần lớn vẫn có thể dùng lại.",
+      "Mỗi năm, hàng trăm triệu tấn giấy bị vứt bỏ, nhưng một lượng lớn trong số đó vẫn có thể dùng lại.",
       [
         "hundreds of millions of tonnes",
         "hàng trăm triệu tấn"
+      ],
+      [
+        "much of it",
+        "một lượng lớn trong số đó"
       ],
       [
         "used again",
@@ -17,7 +21,7 @@
     ],
     [
       "p1-s2",
-      "Tái chế biến báo cũ, hộp giấy và giấy văn phòng thành những tờ giấy mới qua một quy trình mà các bước chính đơn giản đến bất ngờ.",
+      "Quá trình tái chế biến báo cũ, hộp giấy và giấy văn phòng thành những tờ giấy mới qua một quy trình mà các bước chính đơn giản đến bất ngờ.",
       [
         "fresh sheets",
         "những tờ giấy mới"

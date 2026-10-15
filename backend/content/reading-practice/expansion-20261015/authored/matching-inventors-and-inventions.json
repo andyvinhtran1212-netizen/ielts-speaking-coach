@@ -169,9 +169,9 @@
     ]
   ],
   "illustration": {
-    "src": "/reading-illustrations/exp-early-flight-scene.svg",
-    "alt": "Một máy bay hai tầng cánh nhỏ bay thấp trên bãi cỏ gần bờ biển, bên cạnh sổ phác thảo.",
-    "caption": "Những thử nghiệm mở ra cách di chuyển mới."
+    "src": "/reading-illustrations/exp-invention-workbench-scene.svg",
+    "alt": "Bản phác thảo, bánh răng, dụng cụ và các chi tiết đang lắp ráp trên bàn cạnh đèn.",
+    "caption": "Quan sát, thử nghiệm và phát triển ý tưởng mới."
   },
   "source_sha256": "64316676f9d199a980981d8e144188cceee46fb3a4c981a9423860aa7138cd21",
   "expected_translation_sha256": "a7c475ebd5bdce07b1b866ca0e1684fc0f458bbceac26952e1466d7f5200d534"

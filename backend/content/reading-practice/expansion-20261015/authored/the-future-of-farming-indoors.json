@@ -21,14 +21,14 @@
     ],
     [
       "p1-s2",
-      "Không đất, nắng hay mưa nào đến cây, nhưng chúng vẫn phát triển tốt.",
+      "Cây không tiếp xúc với đất, ánh nắng hay nước mưa, nhưng vẫn phát triển tốt.",
       [
-        "No soil, sunshine or rain",
-        "Không đất, nắng hay mưa nào"
+        "No soil, sunshine or rain reaches the plants",
+        "Cây không tiếp xúc với đất, ánh nắng hay nước mưa"
       ],
       [
         "they thrive",
-        "chúng vẫn phát triển tốt"
+        "vẫn phát triển tốt"
       ]
     ],
     [
@@ -225,14 +225,14 @@
     ],
     [
       "p4-s5",
-      "Xây trang trại ấy còn đòi vốn ban đầu nhiều hơn xa việc cày ruộng mở.",
+      "Xây dựng một trang trại như vậy cũng đòi hỏi vốn đầu tư ban đầu lớn hơn rất nhiều so với việc cày xới một cánh đồng ngoài trời.",
       [
         "far more money upfront",
-        "vốn ban đầu nhiều hơn xa"
+        "vốn đầu tư ban đầu lớn hơn rất nhiều"
       ],
       [
         "ploughing an open field",
-        "việc cày ruộng mở"
+        "việc cày xới một cánh đồng ngoài trời"
       ]
     ],
     [
@@ -274,7 +274,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-indoor-farm-scene.svg",
-    "alt": "Những khay rau xanh xếp tầng dưới các dải đèn trong một căn phòng, không có nhãn quy trình hoặc tỷ lệ nước.",
+    "alt": "Các khay rau xanh xếp thành nhiều tầng dưới những dải đèn trong nhà.",
     "caption": "Trồng rau trong không gian được kiểm soát."
   },
   "source_sha256": "8791076de954c9877a83f28b6fd741bcbef22461f1d28e30694e15862df3753b",
