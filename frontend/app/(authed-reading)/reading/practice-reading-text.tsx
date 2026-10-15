@@ -44,11 +44,12 @@ function LinkedTranslation({ unit, highlighted, onHighlight }: { unit: Unit; hig
   return <p lang="vi">{pieces}</p>;
 }
 
-export function PracticeReadingText({ body, glossary, support, translation, evidenceSelection, onGlossary, onZoom, onReturn }: {
+export function PracticeReadingText({ body, glossary, support, translation, coverImage, evidenceSelection, onGlossary, onZoom, onReturn }: {
   body: string;
   glossary: { term: string; aliases?: string[] }[];
   support: PracticeSupport | null;
   translation: string | null;
+  coverImage?: { src: string; alt: string } | null;
   evidenceSelection: EvidenceSelection;
   onGlossary(index: number): void;
   onZoom(src: string, alt: string): void;
@@ -142,6 +143,11 @@ export function PracticeReadingText({ body, glossary, support, translation, evid
     if (source?.dataset.unitId) select(source.dataset.unitId, phrase ? Number(phrase.dataset.phraseIndex) : null);
   };
   return <>
+    {coverImage && !rendered?.figures.some((figure) => figure.src === coverImage.src) && <div className="rv-passage__body">
+      <img alt={coverImage.alt} className="prompt-chart-img" onClick={() => onZoom(coverImage.src, coverImage.alt)}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onZoom(coverImage.src, coverImage.alt); } }}
+        role="button" src={coverImage.src} tabIndex={0} />
+    </div>}
     <p className="rp-hint">{units.length ? 'Bấm vào câu để xem dịch. Bấm cụm từ trong bản dịch để đối chiếu với tiếng Anh.'
       : translation ? 'Bài này có bản dịch đầy đủ; liên kết theo câu đang được biên soạn.' : 'Bài này chưa có bản dịch.'}</p>
     {rendered?.figures.map((figure) => <PracticeFigure figure={figure} onZoom={onZoom} key={figure.src} />)}
