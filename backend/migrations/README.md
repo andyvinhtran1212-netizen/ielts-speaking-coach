@@ -23,6 +23,18 @@ Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-10-14 the highest is `318`, so the next
 new migration is `319`.
 
+Migration `318` adds a default-empty personal vocabulary pronunciation column
+under existing row ownership/RLS. After applying it, render missing headwords
+with local Kokoro `bf_emma` and upload their content-addressed objects to the
+target's existing `vocab-audio` bucket. With that environment's service
+configuration loaded, run `python -m scripts.backfill_personal_vocabulary_audio
+--project-ref PROJECT_REF --expect-count N` from `backend`, then repeat with
+`--apply`. The checked-in command validates every recording before writing,
+compares each row's current headword/audio, prints counts only and is idempotent.
+Use `--user-id` only to limit synthetic staging acceptance; production repair
+checks all active rows. Missing recordings block the repair and no paid TTS is
+called. This step changes only pronunciation URLs, never learner evidence.
+
 Migration `317` adds admin-owned Vocabulary class sets, published snapshots,
 private study sessions, independent shared-card progress and atomic receipts.
 It leaves personal stacks, Quiz and D1 history intact. Enable only the
