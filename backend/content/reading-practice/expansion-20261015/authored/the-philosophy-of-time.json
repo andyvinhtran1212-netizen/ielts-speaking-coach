@@ -29,14 +29,18 @@
     ],
     [
       "p2-s1",
-      "Trong phần lớn lịch sử, đơn vị chia ngày khá tùy ý, ấn định bởi thói quen và tiện lợi hơn tự nhiên.",
+      "Thẳng thắn mà nói, trong phần lớn lịch sử, các đơn vị con người dùng để chia ngày mang tính tùy ý, được quyết định bởi thói quen và sự tiện lợi nhiều hơn là bởi tự nhiên.",
       [
-        "frankly arbitrary",
-        "khá tùy ý"
+        "frankly",
+        "Thẳng thắn mà nói"
+      ],
+      [
+        "arbitrary",
+        "mang tính tùy ý"
       ],
       [
         "habit and convenience",
-        "thói quen và tiện lợi"
+        "thói quen và sự tiện lợi"
       ]
     ],
     [
@@ -213,18 +217,18 @@
     ],
     [
       "p5-s2",
-      "Trải nghiệm độ dài thời gian rất chủ quan, vì giờ nhàn rỗi bò chậm trong khi giờ vui dường như biến trong chớp mắt.",
+      "Trải nghiệm về độ dài thời gian mang tính chủ quan sâu sắc, vì một giờ nhàn rỗi có thể trôi chậm chạp, trong khi một giờ vui vẻ dường như biến mất chỉ trong chớp mắt.",
       [
         "deeply subjective",
-        "rất chủ quan"
+        "mang tính chủ quan sâu sắc"
       ],
       [
         "an idle hour can crawl",
-        "giờ nhàn rỗi bò chậm"
+        "một giờ nhàn rỗi có thể trôi chậm chạp"
       ],
       [
         "a joyful one",
-        "giờ vui"
+        "một giờ vui vẻ"
       ]
     ],
     [
@@ -270,7 +274,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-clock-scene.svg",
-    "alt": "Đồng hồ kim và những chi tiết cơ học trên bàn, gợi việc đo thời gian trong đời sống.",
+    "alt": "Đồng hồ quả lắc treo tường cạnh một đồng hồ kim nhỏ trên kệ.",
     "caption": "Đo thời gian và cảm nhận thời gian."
   },
   "source_sha256": "64c61d91ec4b2eaf3ad15a878a477dc07ede133e1b72f6acb5042e76d3e3d0c7",

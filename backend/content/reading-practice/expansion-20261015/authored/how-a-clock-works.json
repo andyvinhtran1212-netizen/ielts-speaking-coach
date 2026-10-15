@@ -195,7 +195,7 @@
   "source_sha256": "ab23ecbbde83f757bcba1a69455b09f3f1c77fe19584380d03ceac9015dea271",
   "illustration": {
     "src": "/reading-illustrations/exp-clock-scene.svg",
-    "alt": "Đồng hồ quả lắc trên tường cạnh đồng hồ nhỏ để bàn, đều có hai kim trên mặt số.",
+    "alt": "Đồng hồ quả lắc treo tường cạnh một đồng hồ kim nhỏ trên kệ.",
     "caption": "Hai kiểu đồng hồ trong không gian hằng ngày."
   },
   "expected_translation_sha256": "caf8748c66c2383cccd81a4e0e6c2b99e7e7d89f64f4a57615d3af5a0b28945c"

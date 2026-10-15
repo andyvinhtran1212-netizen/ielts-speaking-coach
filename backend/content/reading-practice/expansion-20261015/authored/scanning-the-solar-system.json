@@ -129,14 +129,14 @@
     ],
     [
       "p3-s1",
-      "Xa hơn nữa là Sao Thiên Vương và Sao Hải Vương, hai thế giới xanh lạnh giá.",
+      "Xa hơn nữa là Sao Thiên Vương và Sao Hải Vương, hai thế giới lạnh giá mang màu xanh lam.",
       [
         "Uranus and Neptune",
         "Sao Thiên Vương và Sao Hải Vương"
       ],
       [
         "two cold blue worlds",
-        "hai thế giới xanh lạnh giá"
+        "hai thế giới lạnh giá mang màu xanh lam"
       ]
     ],
     [
@@ -181,9 +181,9 @@
     ]
   ],
   "illustration": {
-    "src": "/reading-illustrations/exp-planet-moons-scene.svg",
-    "alt": "Hành tinh và các vệ tinh minh hoạ trên nền sao; không phải bản đồ Hệ Mặt Trời theo tỷ lệ.",
-    "caption": "Khám phá các thế giới trong không gian."
+    "src": "/reading-illustrations/exp-astronomy-observation-scene.svg",
+    "alt": "Kính thiên văn hướng lên bầu trời có sao và một thiên thể sáng, bên cạnh sổ quan sát mở.",
+    "caption": "Quan sát và tìm hiểu các thế giới ngoài Trái Đất."
   },
   "source_sha256": "a1c190293472e5972bea3203d119ee4b537346b547f34a12f738a0f25f812471",
   "expected_translation_sha256": "ca53920e728fb722d993420f2e9fcbbd09902ebd2da36d41ebd3ee64c25e2c08"

@@ -33,18 +33,18 @@
     ],
     [
       "p2-s2",
-      "Chuyện đùa bất ngờ hay tình huống vui có thể kích tràng âm và chuyển động khó tạo theo lệnh.",
+      "Một câu đùa bất ngờ hay tình huống vui đùa có thể gây ra một tràng âm thanh và cử động mà người ta khó tạo ra theo yêu cầu.",
       [
         "a playful situation",
-        "tình huống vui"
+        "tình huống vui đùa"
       ],
       [
         "a burst of sound and movement",
-        "tràng âm và chuyển động"
+        "một tràng âm thanh và cử động"
       ],
       [
         "on command",
-        "theo lệnh"
+        "theo yêu cầu"
       ]
     ],
     [
@@ -201,10 +201,10 @@
     ],
     [
       "p5-s3",
-      "Hiện tại, các lợi ích y học còn sơ bộ, và cần nghiên cứu thêm trước khi tiếng cười có thể được kê như một loại thuốc.",
+      "Hiện tại, các lợi ích về mặt y học vẫn chưa chắc chắn, và cần nghiên cứu thêm trước khi tiếng cười có thể được kê như một loại thuốc.",
       [
         "remain tentative",
-        "còn sơ bộ"
+        "vẫn chưa chắc chắn"
       ],
       [
         "further research is needed",
@@ -225,24 +225,24 @@
     ],
     [
       "p6-s2",
-      "Người ta dễ cười khi có bạn hơn lúc riêng, gợi trở lại nguồn gốc khả dĩ là keo xã hội gắn nhóm người.",
+      "Người ta có khả năng bật cười khi ở cùng người khác cao hơn nhiều so với lúc ở một mình; điều này gợi lại nguồn gốc có thể có của tiếng cười là chất keo xã hội gắn kết các nhóm người.",
       [
-        "in company than in private",
-        "khi có bạn hơn lúc riêng"
+        "far more likely to laugh in company than in private",
+        "có khả năng bật cười khi ở cùng người khác cao hơn nhiều so với lúc ở một mình"
       ],
       [
         "its possible origin",
-        "nguồn gốc khả dĩ"
+        "nguồn gốc có thể có của tiếng cười"
       ],
       [
         "a social glue holding human groups together",
-        "keo xã hội gắn nhóm người"
+        "chất keo xã hội gắn kết các nhóm người"
       ]
     ]
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-shared-laughter-scene.svg",
-    "alt": "Ba người ngồi cùng nhau trò chuyện và cười trong không gian sáng, không có biểu đồ sức khỏe.",
+    "alt": "Ba người ngồi trên ghế sofa, cùng trò chuyện và cười.",
     "caption": "Một khoảnh khắc gắn kết cùng nhau."
   },
   "source_sha256": "1cb173dc826bea5704a273aa29ea308b0d5b80d302d2bff21182ac7da3a12e9e",

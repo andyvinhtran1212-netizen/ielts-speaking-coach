@@ -97,10 +97,10 @@
     ],
     [
       "p3-s2",
-      "Điều chủ yếu tách tranh giả khỏi tác phẩm tri ân tôn trọng có thể là ý định lừa dối hơn bất cứ điều gì trong nét cọ.",
+      "Điều chủ yếu phân biệt một bức tranh giả với một tác phẩm bày tỏ lòng kính trọng có thể là ý định lừa dối của người tạo ra, chứ không phải bất cứ điều gì trong chính nét cọ.",
       [
         "a respectful homage",
-        "tác phẩm tri ân tôn trọng"
+        "một tác phẩm bày tỏ lòng kính trọng"
       ],
       [
         "intention to deceive",
@@ -108,7 +108,7 @@
       ],
       [
         "the brushwork itself",
-        "nét cọ"
+        "chính nét cọ"
       ]
     ],
     [
@@ -137,10 +137,10 @@
     ],
     [
       "p4-s2",
-      "Người tiếp thị nay gắn nhãn “đích thực” cho sản phẩm theo cách dàn dựng, tính toán đến mức từ ấy tự bắt đầu sụp dưới áp lực; rõ ràng có nghịch lý khi sản xuất tính xác thực ở quy mô công nghiệp chỉ để bán.",
+      "Người tiếp thị nay gắn nhãn “đích thực” cho sản phẩm theo cách dàn dựng và tính toán đến mức chính từ ấy âm thầm bị bào mòn ý nghĩa; rõ ràng có nghịch lý khi sản xuất tính xác thực ở quy mô công nghiệp chỉ để bán.",
       [
         "so contrived and calculated a way",
-        "cách dàn dựng, tính toán đến mức"
+        "cách dàn dựng và tính toán đến mức"
       ],
       [
         "manufacturing authenticity on an industrial scale",
@@ -202,7 +202,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-painting-studio-scene.svg",
-    "alt": "Giá vẽ và tranh phong cảnh không định danh trong góc làm việc nghệ thuật.",
+    "alt": "Giá vẽ với tranh phong cảnh đang làm dở, cạnh bảng pha màu, cọ và cửa sổ.",
     "caption": "Tác phẩm, nguồn gốc và cách người xem đánh giá."
   },
   "source_sha256": "53d1ac73999bdb691ea7f5e184128f9fd99f61460e4d5e99bbab85e495c47ee1",

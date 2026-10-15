@@ -5,10 +5,10 @@
   "sentences": [
     [
       "p1-s1",
-      "Một quả ớt tươi không có lửa hay nhiệt thật, nhưng làm miệng cảm như chạm bếp nóng.",
+      "Một quả ớt tươi không có ngọn lửa hay sức nóng thực sự, nhưng vẫn có thể khiến miệng có cảm giác như vừa chạm vào bếp nóng.",
       [
         "no flame and no real warmth",
-        "không có lửa hay nhiệt thật"
+        "không có ngọn lửa hay sức nóng thực sự"
       ],
       [
         "a hot stove",
@@ -89,18 +89,18 @@
     ],
     [
       "p2-s5",
-      "Khi capsaicin gắn chỗ, nó kích thụ thể như thể miệng thực nóng.",
+      "Một khi capsaicin gắn vào đúng vị trí, nó có thể kích hoạt thụ thể như thể miệng đang thực sự nóng.",
       [
         "locks into place",
-        "gắn chỗ"
+        "gắn vào đúng vị trí"
       ],
       [
-        "trigger the receptor",
-        "kích thụ thể"
+        "can trigger the receptor",
+        "có thể kích hoạt thụ thể"
       ],
       [
         "as if the mouth were truly hot",
-        "như thể miệng thực nóng"
+        "như thể miệng đang thực sự nóng"
       ]
     ],
     [
@@ -133,18 +133,18 @@
     ],
     [
       "p3-s2",
-      "Đáp cơn đau cảm nhận, cơ thể thả chất giảm đau tự nhiên endorphin, có thể giải thích vì sao nhiều người thèm đồ cay.",
+      "Để đáp ứng với cảm giác đau, cơ thể giải phóng các chất giảm đau tự nhiên gọi là endorphin; điều này có thể giải thích vì sao nhiều người dần thèm những món ăn cay nồng.",
       [
         "the perceived pain",
-        "cơn đau cảm nhận"
+        "cảm giác đau"
       ],
       [
         "natural painkillers",
-        "chất giảm đau tự nhiên"
+        "các chất giảm đau tự nhiên"
       ],
       [
         "crave fiery food",
-        "thèm đồ cay"
+        "thèm những món ăn cay nồng"
       ]
     ],
     [
@@ -161,10 +161,10 @@
     ],
     [
       "p4-s2",
-      "Vị gắt dường như ngăn thú có vú với răng nghiền sẽ hủy hạt; chim không đáp capsaicin cùng cách và đưa hạt đi xa.",
+      "Vị cay gắt dường như xua đuổi động vật có vú, vốn có răng nghiền có thể phá hủy hạt; trong khi đó, chim không phản ứng với capsaicin theo cách tương tự và có thể mang hạt phát tán rộng khắp.",
       [
         "deter mammals",
-        "ngăn thú có vú"
+        "xua đuổi động vật có vú"
       ],
       [
         "grinding teeth",
@@ -172,7 +172,7 @@
       ],
       [
         "carry the seeds far and wide",
-        "đưa hạt đi xa"
+        "mang hạt phát tán rộng khắp"
       ]
     ],
     [
@@ -206,7 +206,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-chillies-board-scene.svg",
-    "alt": "Ớt nguyên quả trên thớt cạnh đĩa nhỏ, không có lửa, phần ruột gắn nhãn hoặc thức uống chỉ cách giảm cay.",
+    "alt": "Những quả ớt và lát ớt trên thớt gỗ, cạnh đĩa nhỏ.",
     "caption": "Cảm giác cay và một loại gia vị quen thuộc."
   },
   "source_sha256": "6792981ab461a1f32bf6c9a9bf5463d4dd607c608952b8b7323a6eaa486e456b",

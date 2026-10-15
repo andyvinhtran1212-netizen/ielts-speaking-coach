@@ -53,10 +53,10 @@
     ],
     [
       "p2-s1",
-      "Dấu hiệu đặc trưng của hỗn loạn là cực nhạy với điều kiện ban đầu.",
+      "Dấu hiệu đặc trưng của một hệ hỗn loạn là độ nhạy cực cao với điều kiện ban đầu.",
       [
         "an extreme sensitivity",
-        "cực nhạy"
+        "độ nhạy cực cao"
       ],
       [
         "initial conditions",
@@ -129,7 +129,7 @@
     ],
     [
       "p3-s3",
-      "Phát hiện chính đáng giật mình là người bình luận truyền hình tự tin nhất, chính người hay được mời nhận xét nhất, trung bình thường dự báo không tốt hơn ngẫu nhiên thuần túy.",
+      "Phát hiện chính đáng giật mình là người bình luận truyền hình tự tin nhất, chính người hay được mời nhận xét nhất, trung bình thường dự báo không tốt hơn việc đoán mò.",
       [
         "the most assured television pundits",
         "người bình luận truyền hình tự tin nhất"
@@ -140,7 +140,7 @@
       ],
       [
         "no better than blind chance",
-        "không tốt hơn ngẫu nhiên thuần túy"
+        "không tốt hơn việc đoán mò"
       ]
     ],
     [
@@ -157,10 +157,10 @@
     ],
     [
       "p4-s2",
-      "Tetlock còn nhận ra thiểu số nhỏ, ông đặt tên dễ nhớ là “siêu dự báo viên”, liên tục vượt người khác ở mức đo được.",
+      "Tetlock còn nhận ra một nhóm thiểu số nhỏ — ông đặt cho họ cái tên dễ nhớ là “siêu dự báo viên” — những người đạt kết quả tốt hơn mọi người khác một cách ổn định, với chênh lệch có thể đo được.",
       [
         "a small minority",
-        "thiểu số nhỏ"
+        "một nhóm thiểu số nhỏ"
       ],
       [
         "superforecasters",
@@ -168,7 +168,7 @@
       ],
       [
         "consistently and measurably outperformed everyone else",
-        "liên tục vượt người khác ở mức đo được"
+        "đạt kết quả tốt hơn mọi người khác một cách ổn định, với chênh lệch có thể đo được"
       ]
     ],
     [
@@ -213,7 +213,7 @@
     ],
     [
       "p5-s3",
-      "Ta có thể nhìn trước tương lai xa tới đâu mà vẫn có ích — điều hoàn toàn tùy loại hệ và loại câu hỏi ta chọn đặt — có lẽ là câu hỏi hữu ích hơn nhiều so với hỏi có thể dự đoán được gì hay không; hiện tại vấn đề ấy vẫn rất bỏ ngỏ.",
+      "Ta có thể nhìn trước tương lai xa tới đâu mà vẫn có ích — điều hoàn toàn tùy loại hệ và loại câu hỏi ta chọn đặt — có lẽ là câu hỏi hữu ích hơn nhiều so với câu hỏi liệu việc dự đoán có khả thi hay không; hiện tại vấn đề ấy vẫn rất bỏ ngỏ.",
       [
         "wholly contingent on",
         "hoàn toàn tùy"
@@ -230,7 +230,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-forecast-desk-scene.svg",
-    "alt": "Người xem các thẻ dự báo thời tiết và ghi chép trên máy tính, không có biểu đồ kết luận hoặc xác suất thật.",
+    "alt": "Một người ghi chép bên màn hình hiển thị các biểu tượng dự báo thời tiết.",
     "caption": "Quan sát, ước tính và cập nhật dự báo."
   },
   "source_sha256": "14900b462d79c61e9ab9a470acec4a4e1f309610ce140cbf8e0be15a8d5afb16",

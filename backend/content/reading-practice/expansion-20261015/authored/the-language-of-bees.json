@@ -73,14 +73,14 @@
     ],
     [
       "p3-s2",
-      "Góc di chuyển của ong so với vị trí Mặt Trời cho biết hướng thức ăn.",
+      "Góc di chuyển của ong so với vị trí Mặt Trời cho biết hướng tới nguồn thức ăn.",
       [
         "compared with the position of the sun",
         "so với vị trí Mặt Trời"
       ],
       [
         "the direction of the food",
-        "hướng thức ăn"
+        "hướng tới nguồn thức ăn"
       ]
     ],
     [
@@ -97,14 +97,14 @@
     ],
     [
       "p3-s4",
-      "Ong quan sát chạm râu vào con đang nhảy và giải mã thông điệp.",
+      "Những con ong theo dõi điệu nhảy chạm râu của mình vào con ong đang nhảy và giải mã thông điệp.",
       [
         "Watching bees",
-        "Ong quan sát"
+        "Những con ong theo dõi điệu nhảy"
       ],
       [
         "their antennae",
-        "râu"
+        "râu của mình"
       ],
       [
         "decode the message",
@@ -166,7 +166,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-bees-garden-scene.svg",
-    "alt": "Ong bay giữa hoa trong vườn, không có đường nhảy hay ký hiệu chỉ hướng.",
+    "alt": "Ong bay bên những bông hoa trong vườn, với tổ ong gỗ ở phía xa.",
     "caption": "Tìm hiểu cách ong chia sẻ thông tin."
   },
   "source_sha256": "63216af94ccca17d51c307b4eb60b7b3760a00e864269d436b1bf8ad830b5782",

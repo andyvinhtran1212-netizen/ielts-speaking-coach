@@ -53,10 +53,10 @@
     ],
     [
       "p2-s3",
-      "Nếu không được hội tụ như vậy, hình ảnh sẽ mờ nhòe.",
+      "Nếu không có sự hội tụ này, hình ảnh sẽ mờ nhòe.",
       [
         "this focusing",
-        "được hội tụ như vậy"
+        "sự hội tụ này"
       ],
       [
         "a blur",
@@ -190,7 +190,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-camera-scene.svg",
-    "alt": "Máy ảnh hướng vào một cảnh cây bên hồ; ảnh nhỏ bên cạnh ghi lại cùng cảnh vật.",
+    "alt": "Máy ảnh trên chân đỡ hướng về cây bên hồ, cạnh bức ảnh nhỏ ghi lại cảnh vật ấy.",
     "caption": "Từ cảnh vật đến bức ảnh."
   },
   "source_sha256": "5c6a76e914f83cae20db0f6184e6a9dbe7c521998ae332698b86881aa122b916",

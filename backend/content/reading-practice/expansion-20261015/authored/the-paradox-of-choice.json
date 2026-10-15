@@ -5,14 +5,14 @@
   "sentences": [
     [
       "p1-s1",
-      "Khi hai nhà tâm lý Sheena Iyengar và Mark Lepper đặt quầy nếm thử trong siêu thị California, họ kỳ vọng gian trưng bày lớn thắng.",
+      "Khi hai nhà tâm lý Sheena Iyengar và Mark Lepper đặt quầy nếm thử trong siêu thị California, họ kỳ vọng quầy trưng bày nhiều loại mứt hơn sẽ thắng.",
       [
         "a tasting booth",
         "quầy nếm thử"
       ],
       [
         "the larger display",
-        "gian trưng bày lớn"
+        "quầy trưng bày nhiều loại mứt hơn"
       ]
     ],
     [
@@ -29,7 +29,7 @@
     ],
     [
       "p1-s3",
-      "Lựa chọn lớn thực sự hút thêm người qua đường tò mò, nhưng kết quả đảo lúc mua: chỉ khoảng ba phần trăm người thấy loạt lớn mua một lọ, so với khoảng ba mươi phần trăm ở nhóm được đưa lựa chọn ít hơn.",
+      "Việc bày nhiều loại mứt hơn quả thực thu hút thêm người qua đường tò mò, nhưng kết quả đảo chiều lúc mua: chỉ khoảng ba phần trăm những người thấy dãy mứt lớn mua một lọ, so với khoảng ba mươi phần trăm những người được giới thiệu ít loại hơn.",
       [
         "only about three per cent",
         "chỉ khoảng ba phần trăm"
@@ -61,10 +61,10 @@
     ],
     [
       "p2-s1",
-      "Nhận định quá nhiều phương án có thể làm ta kém lợi hơn rất trái trực giác, vì tự do chọn thường được coi là điều tốt không điều kiện.",
+      "Nhận định rằng nhiều phương án lựa chọn có thể khiến ta rơi vào tình trạng tệ hơn rất trái trực giác, vì tự do lựa chọn thường được xem là một điều tốt tuyệt đối.",
       [
         "an abundance of options",
-        "quá nhiều phương án"
+        "nhiều phương án lựa chọn"
       ],
       [
         "deeply counterintuitive",
@@ -72,7 +72,7 @@
       ],
       [
         "an unqualified good",
-        "điều tốt không điều kiện"
+        "một điều tốt tuyệt đối"
       ]
     ],
     [
@@ -121,7 +121,7 @@
     ],
     [
       "p3-s3",
-      "Người chấp nhận phương án đủ tốt, hài lòng với điều đơn giản đạt yêu cầu, tránh phần lớn gánh nặng và báo mức thỏa mãn cao hơn với cùng kết quả.",
+      "Người chấp nhận phương án đủ tốt, hài lòng với điều đơn giản đạt yêu cầu, thoát được một phần đáng kể gánh nặng ấy và báo mức thỏa mãn cao hơn với cùng kết quả.",
       [
         "A satisficer",
         "Người chấp nhận phương án đủ tốt"
@@ -210,7 +210,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-colour-packaging-scene.svg",
-    "alt": "Nhiều sản phẩm không nhãn bày trên kệ, không thể hiện số loại mứt hay tỷ lệ mua.",
+    "alt": "Các hộp và chai nhiều màu trên kệ hàng, cạnh bảng mẫu màu.",
     "caption": "Khi người mua đứng trước nhiều lựa chọn."
   },
   "source_sha256": "ae635d331e6cd18864a63ee316978c4bf0afd2b332f7cc669f50befca132e112",

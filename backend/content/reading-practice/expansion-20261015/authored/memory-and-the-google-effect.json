@@ -193,10 +193,10 @@
     ],
     [
       "p5-s3",
-      "Người tìm kiếm, cân nhắc các nguồn đối chiếu nhau và liên hệ kết quả với kiến thức sẵn có lại có thể học nhiều; công cụ giống hệt nhau, nhưng hoạt động nhận thức đi cùng thì khác.",
+      "Người tìm kiếm, cân nhắc các nguồn thông tin có quan điểm khác nhau và liên hệ kết quả với kiến thức sẵn có lại có thể học nhiều; công cụ giống hệt nhau, nhưng hoạt động nhận thức đi cùng thì khác.",
       [
         "weighs competing sources",
-        "cân nhắc các nguồn đối chiếu nhau"
+        "cân nhắc các nguồn thông tin có quan điểm khác nhau"
       ],
       [
         "existing knowledge",
@@ -228,7 +228,7 @@
   "expected_translation_sha256": "9d659cfbab6c9be75cd8313eba6d20b563a13c31b1626e05305580f166cf1b9d",
   "illustration": {
     "src": "/reading-illustrations/exp-memory-search-scene.svg",
-    "alt": "Người tra cứu trên máy tính với sổ ghi chép và các thẻ thông tin cạnh bàn.",
+    "alt": "Một người tra cứu trên máy tính bên cuốn sổ mở và các thẻ ghi chú.",
     "caption": "Tra cứu thông tin và ghi chép khi học."
   }
 }

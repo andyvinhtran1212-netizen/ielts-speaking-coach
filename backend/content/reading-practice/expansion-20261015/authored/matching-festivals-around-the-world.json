@@ -205,9 +205,9 @@
     ]
   ],
   "illustration": {
-    "src": "/reading-illustrations/exp-festival-scene.svg",
-    "alt": "Mọi người tụ họp trong không gian lễ hội ngoài trời.",
-    "caption": "Nhu cầu cùng nhau gặp gỡ và ăn mừng."
+    "src": "/reading-illustrations/exp-community-celebration-scene.svg",
+    "alt": "Mọi người trò chuyện trong sân có dây cờ trang trí và đèn lồng, cạnh bàn thức ăn.",
+    "caption": "Cùng nhau gặp gỡ và đón dịp lễ hội."
   },
   "source_sha256": "5cd0f95e379d054b94f19afae09bbb9312b00a36378055088094b44c63f91519",
   "expected_translation_sha256": "d0aee848b892a9d61f885f0af2e37bd5bc2ea132d203851a1f9d8682223997a6"

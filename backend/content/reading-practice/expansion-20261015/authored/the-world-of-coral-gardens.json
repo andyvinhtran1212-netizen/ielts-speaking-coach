@@ -29,10 +29,14 @@
     ],
     [
       "p1-s3",
-      "Mỗi polyp san hô tí hon là một sinh vật sống thân mềm với một vòng xúc tu.",
+      "Mỗi polyp san hô tí hon là một sinh vật sống có cơ thể mềm, với một vòng xúc tu.",
       [
         "tiny coral polyp",
         "polyp san hô tí hon"
+      ],
+      [
+        "a soft, living creature",
+        "một sinh vật sống có cơ thể mềm"
       ],
       [
         "a ring of arms",
@@ -202,7 +206,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-coral-reef-scene.svg",
-    "alt": "Cá bơi quanh những cụm san hô dưới nước.",
+    "alt": "Cá và rùa bơi quanh những cụm san hô dưới nước.",
     "caption": "Sự sống quanh một rạn san hô."
   },
   "source_sha256": "13dbc79ff6effea33240e429345978923164482d3070767bd7fded5c4f9b4cd1",

@@ -5,10 +5,14 @@
   "sentences": [
     [
       "p1-s1",
-      "Chim cánh cụt non được gọi là chick.",
+      "Chim cánh cụt mới nở là chim non (tiếng Anh gọi là chick).",
       [
         "A baby penguin",
-        "Chim cánh cụt non"
+        "Chim cánh cụt mới nở"
+      ],
+      [
+        "a chick",
+        "chim non (tiếng Anh gọi là chick)"
       ]
     ],
     [

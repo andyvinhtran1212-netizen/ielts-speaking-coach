@@ -33,14 +33,14 @@
     ],
     [
       "p3-s1",
-      "Tác phẩm ban đầu được gọi là graffiti.",
+      "Tác phẩm ban đầu này được gọi là graffiti (lối viết, vẽ lên tường).",
       [
         "This early work",
-        "Tác phẩm ban đầu"
+        "Tác phẩm ban đầu này"
       ],
       [
         "graffiti",
-        "graffiti"
+        "lối viết, vẽ lên tường"
       ]
     ],
     [
@@ -57,14 +57,14 @@
     ],
     [
       "p3-s3",
-      "Mỗi nghệ sĩ có tag cá nhân, chữ ký mà bạn bè và đối thủ nhận ra khắp thành phố.",
+      "Mỗi nghệ sĩ có một ký hiệu riêng (tag), một chữ ký mà bạn bè và đối thủ có thể nhận ra khắp thành phố.",
       [
         "a personal tag",
-        "tag cá nhân"
+        "một ký hiệu riêng (tag)"
       ],
       [
         "a signature",
-        "chữ ký"
+        "một chữ ký"
       ],
       [
         "friends and rivals",
@@ -133,10 +133,10 @@
     ],
     [
       "p5-s1",
-      "Dần dần graffiti lớn thành thứ rộng hơn.",
+      "Dần dần, graffiti phát triển thành một loại hình rộng hơn.",
       [
         "grew into something larger",
-        "lớn thành thứ rộng hơn"
+        "phát triển thành một loại hình rộng hơn"
       ]
     ],
     [
@@ -230,7 +230,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-street-mural-scene.svg",
-    "alt": "Một bức tranh tường hình học không chữ trên phố với người đi bộ, không sao chép tác phẩm nghệ sĩ cụ thể.",
+    "alt": "Hai người đi bộ trước bức tranh tường phong cảnh có các hình khối và màu sắc.",
     "caption": "Một bức tường trở thành không gian thể hiện ý tưởng."
   },
   "source_sha256": "e46dd511bbc4b97601fe5f5e348fb828dc93daacd9b7595fb3c1682608557c6d",

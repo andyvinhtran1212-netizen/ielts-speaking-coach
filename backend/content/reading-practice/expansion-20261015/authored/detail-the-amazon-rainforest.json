@@ -21,7 +21,7 @@
     ],
     [
       "p1-s3",
-      "Rừng trải qua chín quốc gia ở Nam Mỹ, nhưng phần lớn nằm trong một nước là Brazil.",
+      "Khu rừng trải rộng trên chín quốc gia ở Nam Mỹ, nhưng phần lớn nằm trong một nước là Brazil.",
       [
         "nine countries",
         "chín quốc gia"
@@ -146,7 +146,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-amazon-forest-scene.svg",
-    "alt": "Dòng sông uốn lượn qua rừng nhiều tầng cây, có chim bay phía trên.",
+    "alt": "Dòng sông uốn lượn giữa những tán cây xanh, với chim bay phía trên.",
     "caption": "Sông và tán rừng trong một cảnh quan xanh."
   },
   "source_sha256": "fbaa3e7dc45c70c9a5a83c45f85dd729a21d54a2b9b9366c183b6bf1146dfabb",

@@ -5,14 +5,18 @@
   "sentences": [
     [
       "p1-s1",
-      "Một phần đáng ngạc nhiên hành vi hằng ngày diễn ra gần như không suy nghĩ.",
+      "Một tỷ lệ đáng ngạc nhiên trong các hành vi hằng ngày diễn ra mà hầu như không cần suy nghĩ.",
+      [
+        "A surprising share",
+        "Một tỷ lệ đáng ngạc nhiên"
+      ],
       [
         "daily behaviour",
-        "hành vi hằng ngày"
+        "các hành vi hằng ngày"
       ],
       [
         "almost no thought at all",
-        "gần như không suy nghĩ"
+        "mà hầu như không cần suy nghĩ"
       ]
     ],
     [
@@ -201,14 +205,14 @@
     ],
     [
       "p5-s2",
-      "Một nghiên cứu được dẫn rộng gợi ý hành vi mới trung bình cần khoảng 66 ngày để thấy tự động, dù con số khác rất nhiều giữa mỗi người.",
+      "Một nghiên cứu được trích dẫn rộng rãi gợi ý rằng các hành vi mới trung bình cần khoảng 66 ngày để người thực hiện cảm thấy chúng diễn ra tự động, dù con số này khác nhau rất nhiều giữa các cá nhân.",
       [
         "take an average of about 66 days",
         "trung bình cần khoảng 66 ngày"
       ],
       [
         "varies greatly between individuals",
-        "khác rất nhiều giữa mỗi người"
+        "khác nhau rất nhiều giữa các cá nhân"
       ]
     ],
     [

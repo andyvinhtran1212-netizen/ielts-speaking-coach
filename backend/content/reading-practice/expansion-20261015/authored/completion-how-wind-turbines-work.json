@@ -133,7 +133,7 @@
     ],
     [
       "p4-s2",
-      "Tuabin chỉ đạt công suất tối đa khi gió mạnh và đều, nên trong phần lớn thời gian của năm, sản lượng thấp hơn nhiều so với công suất định mức cao nhất.",
+      "Tuabin chỉ đạt công suất tối đa khi gió mạnh và đều, nên trong một phần đáng kể thời gian của năm, sản lượng thấp hơn nhiều so với công suất định mức cao nhất.",
       [
         "strong and steady",
         "mạnh và đều"
@@ -151,8 +151,8 @@
         "tránh hư hại"
       ],
       [
-        "feathering its blades",
-        "xoay các cánh sang góc cho phép chúng lướt qua gió giật"
+        "feathering its blades so that they slip through the gusts instead of catching them",
+        "xoay các cánh sang góc cho phép chúng lướt qua gió giật thay vì hứng gió"
       ]
     ],
     [
@@ -182,7 +182,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-wind-farm-scene.svg",
-    "alt": "Nhiều tuabin trên đồi xanh với một ngôi nhà nhỏ ở xa.",
+    "alt": "Các tua bin gió trên đồi xanh, với ngôi nhà nhỏ ở phía xa.",
     "caption": "Tuabin gió trong cảnh quan rộng mở."
   },
   "source_sha256": "1d33809e3c02d494dbcdc8db2aff2dc118055eee4193e0378ac57e5b1cd93d95",

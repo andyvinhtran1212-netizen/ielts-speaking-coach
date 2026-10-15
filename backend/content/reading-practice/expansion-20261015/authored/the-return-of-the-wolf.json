@@ -41,14 +41,14 @@
     ],
     [
       "p2-s1",
-      "Không thú săn mồi đầu chuỗi, hươu elk tăng khoảng hai mươi nghìn, đàn lớn gặm tự do dọc sông, ăn trụi liễu và dương non trước lúc cây trưởng thành.",
+      "Không thú săn mồi đầu chuỗi, hươu elk đã tăng lên khoảng hai mươi nghìn con, đàn lớn gặm tự do dọc sông, ăn trụi liễu và dương non trước lúc cây trưởng thành.",
       [
         "a top predator",
         "thú săn mồi đầu chuỗi"
       ],
       [
         "around twenty thousand",
-        "khoảng hai mươi nghìn"
+        "khoảng hai mươi nghìn con"
       ],
       [
         "young willows and aspen",
@@ -85,30 +85,30 @@
     ],
     [
       "p3-s1",
-      "Sói khởi chuỗi tác động mà nhà khoa học gọi thác dinh dưỡng.",
+      "Sói khởi phát chuỗi hệ quả mà các nhà khoa học gọi là hiệu ứng dây chuyền qua các bậc dinh dưỡng.",
       [
         "a chain of effects",
-        "chuỗi tác động"
+        "chuỗi hệ quả"
       ],
       [
         "a trophic cascade",
-        "thác dinh dưỡng"
+        "hiệu ứng dây chuyền qua các bậc dinh dưỡng"
       ]
     ],
     [
       "p3-s2",
-      "Khi thú săn mồi giảm đàn và buộc nai di chuyển, áp lực ăn cây giảm, liễu và dương phục hồi, hải ly về xây đập.",
+      "Khi thú săn mồi làm đàn hươu thưa bớt và buộc chúng liên tục di chuyển, áp lực ăn lá và chồi non giảm, liễu và dương phục hồi trong khi hải ly quay về xây đập.",
       [
         "thinned the herds",
-        "giảm đàn"
+        "làm đàn hươu thưa bớt"
       ],
       [
         "browsing pressure eased",
-        "áp lực ăn cây giảm"
+        "áp lực ăn lá và chồi non giảm"
       ],
       [
         "beavers returned to build their dams",
-        "hải ly về xây đập"
+        "hải ly quay về xây đập"
       ]
     ],
     [
@@ -137,18 +137,18 @@
     ],
     [
       "p4-s1",
-      "Một số thay đổi tới cả sông: khi thực vật trở lại, bờ ổn định hơn và vài suối bớt uốn dữ.",
+      "Một số thay đổi lan tới cả các dòng sông: khi thảm thực vật trở lại, bờ sông ổn định hơn và một số dòng suối bắt đầu uốn lượn bớt thất thường.",
       [
         "vegetation returned",
-        "thực vật trở lại"
+        "thảm thực vật trở lại"
       ],
       [
         "banks grew more stable",
-        "bờ ổn định hơn"
+        "bờ sông ổn định hơn"
       ],
       [
         "a few streams",
-        "vài suối"
+        "một số dòng suối"
       ]
     ],
     [
@@ -206,7 +206,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-rewilding-scene.svg",
-    "alt": "Một con sói ở bìa rừng, cạnh đồng cỏ và dòng suối, không có sơ đồ chuỗi sinh thái.",
+    "alt": "Một con sói bên bìa rừng cạnh đồng cỏ, cây bụi và dòng suối.",
     "caption": "Một loài trong hệ sinh thái rộng hơn."
   },
   "source_sha256": "7d5e08de5aef603c8139c86040f73005488dffc6e73e413cb7160a0c81a92570",

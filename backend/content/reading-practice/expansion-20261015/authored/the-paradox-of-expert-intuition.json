@@ -45,14 +45,14 @@
     ],
     [
       "p2-s3",
-      "Khó là phân biệt nhìn thấu nhờ kỹ năng với đoán may.",
+      "Khó khăn nằm ở việc phân biệt sự thấu hiểu nhờ kỹ năng với việc đoán đúng do may mắn.",
       [
         "skilled insight",
-        "nhìn thấu nhờ kỹ năng"
+        "sự thấu hiểu nhờ kỹ năng"
       ],
       [
         "lucky guesswork",
-        "đoán may"
+        "việc đoán đúng do may mắn"
       ]
     ],
     [
@@ -109,18 +109,18 @@
     ],
     [
       "p3-s4",
-      "Bỏ vẻ huyền bí, trực giác thành thứ kiểm thử và giới hạn được, thay vì ngưỡng mộ thiếu phê phán hoặc sợ theo phản xạ.",
+      "Khi được gỡ bỏ vẻ huyền bí, trực giác trở thành điều có thể kiểm chứng và xác định giới hạn, thay vì được ngưỡng mộ thiếu phê phán hoặc bị e sợ theo phản xạ.",
       [
         "Stripped of its mystique",
-        "Bỏ vẻ huyền bí"
+        "Khi được gỡ bỏ vẻ huyền bí"
       ],
       [
         "test and bound",
-        "kiểm thử và giới hạn"
+        "kiểm chứng và xác định giới hạn"
       ],
       [
         "uncritically admired or reflexively feared",
-        "ngưỡng mộ thiếu phê phán hoặc sợ theo phản xạ"
+        "được ngưỡng mộ thiếu phê phán hoặc bị e sợ theo phản xạ"
       ]
     ],
     [
@@ -197,36 +197,36 @@
     ],
     [
       "p6-s1",
-      "Hợp tác này chưa giải hết được ta có thể đánh giá trước đáng tin tới đâu rằng lĩnh vực đủ có quy luật để tin.",
+      "Điều mà cuộc hợp tác này chưa giải quyết trọn vẹn là mức độ đáng tin cậy của việc đánh giá trước xem một lĩnh vực cụ thể có đủ tính quy luật để tin vào trực giác hay không.",
       [
         "in advance",
         "trước"
       ],
       [
         "a given domain is regular enough to trust",
-        "lĩnh vực đủ có quy luật để tin"
+        "một lĩnh vực cụ thể có đủ tính quy luật để tin vào trực giác"
       ]
     ],
     [
       "p6-s2",
-      "Tới khi câu hỏi được giải, tác giả gợi ý thái độ khôn ngoan nhất với chuyên gia tự tin có lẽ không phục tùng hay gạt bỏ, mà cẩn thận hiệu chỉnh niềm tin theo điều môi trường thực sự bảo đảm.",
+      "Cho đến khi câu hỏi ấy được giải quyết, các tác giả gợi ý rằng thái độ khôn ngoan nhất với một chuyên gia tự tin có lẽ không phải là nghe theo hay gạt bỏ, mà là thận trọng điều chỉnh niềm tin đến mức môi trường thực sự cho phép.",
       [
         "neither deference nor dismissal",
-        "không phục tùng hay gạt bỏ"
+        "không phải là nghe theo hay gạt bỏ"
       ],
       [
         "calibrate the trust",
-        "hiệu chỉnh niềm tin"
+        "điều chỉnh niềm tin"
       ],
       [
         "the environment actually warrants",
-        "điều môi trường thực sự bảo đảm"
+        "mức môi trường thực sự cho phép"
       ]
     ]
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-chess-board-scene.svg",
-    "alt": "Một bàn cờ với các quân minh hoạ không tạo câu đố hoặc nước đi cần giải.",
+    "alt": "Bàn cờ với một vài quân cờ, cạnh tờ giấy ghi chép.",
     "caption": "Kinh nghiệm trong một lĩnh vực có quy luật."
   },
   "source_sha256": "ce89e02284496872669229ba183225db37a6f5bd03a1aec41743231931102542",

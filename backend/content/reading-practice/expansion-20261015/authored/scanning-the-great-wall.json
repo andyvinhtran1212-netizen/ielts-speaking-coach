@@ -109,14 +109,14 @@
     ],
     [
       "p5-s2",
-      "Lính gác đứng trong tháp và theo dõi nguy hiểm.",
+      "Lính gác đứng trong tháp và quan sát để phát hiện nguy hiểm.",
       [
         "Guards",
         "Lính gác"
       ],
       [
         "watched for danger",
-        "theo dõi nguy hiểm"
+        "quan sát để phát hiện nguy hiểm"
       ]
     ],
     [
@@ -158,7 +158,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-great-wall-scene.svg",
-    "alt": "Một đoạn tường thành uốn qua các ngọn đồi xanh, với các tháp canh không ghi nhãn.",
+    "alt": "Một đoạn tường thành có tháp canh uốn qua những ngọn đồi xanh.",
     "caption": "Dấu tích một công trình dài qua núi đồi."
   },
   "source_sha256": "b406b725ad3a97cedd19327ffaf93144e7f7d41f4d2161d264115290c51091f9",

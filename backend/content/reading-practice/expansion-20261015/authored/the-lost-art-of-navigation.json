@@ -57,10 +57,10 @@
     ],
     [
       "p2-s3",
-      "Người dẫn đường Polynesia thêm dấu hiệu châu Âu chưa tin: cảm hướng sóng đại dương dưới thân tàu, nhìn chim biển bay về đất xa.",
+      "Người dẫn đường Polynesia còn dựa vào những dấu hiệu mà chưa một người châu Âu nào tin dùng, cảm nhận hướng của sóng lừng trên đại dương dưới thân tàu và quan sát chim biển bay về vùng đất xa.",
       [
         "the direction of the ocean swell",
-        "hướng sóng đại dương"
+        "hướng của sóng lừng trên đại dương"
       ],
       [
         "beneath the hull",
@@ -68,7 +68,7 @@
       ],
       [
         "the flight of seabirds toward distant land",
-        "chim biển bay về đất xa"
+        "chim biển bay về vùng đất xa"
       ]
     ],
     [
@@ -113,14 +113,14 @@
     ],
     [
       "p3-s4",
-      "Tàu mất và hạm đội mắc cạn đơn giản vì không ai biết thật sự ở xa về đông hay tây bao nhiêu.",
+      "Tàu bị mất tích, các hạm đội mắc cạn, chỉ vì không ai biết họ thực sự đang ở xa về phía đông hay phía tây bao nhiêu.",
       [
         "Ships were lost",
-        "Tàu mất"
+        "Tàu bị mất tích"
       ],
       [
         "fleets ran aground",
-        "hạm đội mắc cạn"
+        "các hạm đội mắc cạn"
       ]
     ],
     [
@@ -149,14 +149,14 @@
     ],
     [
       "p4-s3",
-      "So giờ trên tàu với cảng nhà, người dẫn đường tính được bao nhiêu dải kinh tuyến nằm giữa, cuối cùng xác định kinh độ.",
+      "So sánh giờ trên tàu với giờ tại cảng gốc, người dẫn đường có thể tính số dải kinh tuyến nằm giữa hai nơi và cuối cùng xác định được kinh độ.",
       [
         "the time aboard ship",
         "giờ trên tàu"
       ],
       [
         "the home port",
-        "cảng nhà"
+        "cảng gốc"
       ],
       [
         "bands of meridian",
@@ -194,7 +194,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-night-navigation-scene.svg",
-    "alt": "Thuyền nhỏ trên đại dương dưới những ngôi sao không gắn nhãn hoặc tọa độ.",
+    "alt": "Một người trên thuyền buồm nhỏ giữa biển dưới bầu trời đầy sao.",
     "caption": "Quan sát bầu trời và mặt biển để tìm đường."
   },
   "source_sha256": "0dac62760072e8c8da0290a291694a2c880218c3877b2c95dfdb6749770384a7",

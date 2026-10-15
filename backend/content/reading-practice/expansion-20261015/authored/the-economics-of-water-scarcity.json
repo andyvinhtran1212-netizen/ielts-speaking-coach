@@ -157,18 +157,18 @@
     ],
     [
       "p4-s2",
-      "Một công cụ được bàn nhiều là giá bậc thang tăng dần: người dùng nhiều nhất trả mỗi lít đắt dần, trong khi mức cơ bản nhỏ vẫn rẻ.",
+      "Một công cụ được bàn luận rộng rãi là biểu giá bậc thang tăng dần: người dùng nhiều nhất phải trả giá cao dần cho mỗi lít, trong khi một lượng nước cơ bản nhỏ vẫn có giá thấp.",
       [
         "a rising block tariff",
-        "giá bậc thang tăng dần"
+        "biểu giá bậc thang tăng dần"
       ],
       [
         "progressively more per litre",
-        "mỗi lít đắt dần"
+        "giá cao dần cho mỗi lít"
       ],
       [
         "a small basic allowance",
-        "mức cơ bản nhỏ"
+        "một lượng nước cơ bản nhỏ"
       ]
     ],
     [
@@ -218,7 +218,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-water-use-scene.svg",
-    "alt": "Ruộng và kênh tưới cạnh một cụm nhà nhỏ cùng bể nước, không ghi lưu lượng hoặc giá.",
+    "alt": "Ruộng và kênh nước cạnh một cụm nhà nhỏ cùng bể chứa nước.",
     "caption": "Chia sẻ một nguồn nước giữa nhiều nhu cầu."
   },
   "source_sha256": "4c411282eb083b291cdccfb3ce6d667ab1d73361482e9f85aa531943a9c87bfd",

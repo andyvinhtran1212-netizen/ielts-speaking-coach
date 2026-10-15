@@ -117,10 +117,10 @@
     ],
     [
       "p3-s2",
-      "Đưa trở lại một loài săn mồi đã biến mất, hoặc một loài kiến tạo sinh cảnh đã mất như hải ly, có thể khởi phát một chuỗi tác động qua các bậc dinh dưỡng — những hệ quả lan xuyên suốt cả lưới thức ăn và có thể tái tạo sự phong phú mà hàng thập kỷ quản lý cẩn thận chưa từng đạt được.",
+      "Đưa trở lại một loài săn mồi đã vắng bóng, hoặc một loài kiến tạo sinh cảnh đã vắng bóng như hải ly, có thể khởi phát một chuỗi tác động qua các bậc dinh dưỡng — những hệ quả lan xuyên suốt cả lưới thức ăn và có thể tái tạo sự phong phú mà hàng thập kỷ quản lý cẩn thận chưa từng đạt được.",
       [
         "a lost engineer such as the beaver",
-        "một loài kiến tạo sinh cảnh đã mất như hải ly"
+        "một loài kiến tạo sinh cảnh đã vắng bóng như hải ly"
       ],
       [
         "a trophic cascade",
@@ -254,7 +254,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-rewilding-scene.svg",
-    "alt": "Một dòng suối uốn giữa đồng cỏ, cây bụi và hàng cây xa; bóng một con sói đứng bên bìa rừng.",
+    "alt": "Một con sói bên bìa rừng cạnh đồng cỏ, cây bụi và dòng suối.",
     "caption": "Thiên nhiên và sự can thiệp của con người."
   },
   "source_sha256": "33e8785484a5e5684d925bf02ca4f7c5d395340abec1e92f69f9f856a6de7119",

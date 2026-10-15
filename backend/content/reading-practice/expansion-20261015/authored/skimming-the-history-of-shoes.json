@@ -41,10 +41,10 @@
     ],
     [
       "p2-s1",
-      "B — Ngày xưa, loại giày mang cho thấy bạn thuộc tầng lớp nào.",
+      "B — Ngày xưa, loại giày bạn mang cho thấy bạn thuộc tầng lớp nào.",
       [
         "the kind of shoes you wore",
-        "loại giày mang"
+        "loại giày bạn mang"
       ],
       [
         "showed who you were",
@@ -150,7 +150,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-shoes-workbench-scene.svg",
-    "alt": "Một chiếc giày da và giày thể thao đặt cạnh khuôn giày, vải và chỉ trên bàn.",
+    "alt": "Giày da và giày thể thao trên bàn cạnh vải, cuộn chỉ và những mẫu giày trên kệ.",
     "caption": "Giày dép cho những nhu cầu khác nhau."
   },
   "source_sha256": "4df9654397f62b1f13786943b6f425c7e90f527a8a30267cffadbfe65fdff270",

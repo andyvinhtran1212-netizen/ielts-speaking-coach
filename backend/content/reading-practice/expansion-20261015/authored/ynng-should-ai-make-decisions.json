@@ -241,9 +241,9 @@
     ]
   ],
   "illustration": {
-    "src": "/reading-illustrations/exp-electric-car-scene.svg",
-    "alt": "Một chiếc ô tô trên đường phố cạnh cây và các toà nhà.",
-    "caption": "Công nghệ giao thông và lựa chọn của con người."
+    "src": "/reading-illustrations/exp-algorithm-review-scene.svg",
+    "alt": "Hai người xem các hồ sơ trên bàn và màn hình có những nút dữ liệu nối với nhau.",
+    "caption": "Con người xem xét quyết định của hệ thống tự động."
   },
   "source_sha256": "18681f0d3146e37c82571e46bfd4f0c416f8fe6a141d062e433b9548a2f7bda4",
   "expected_translation_sha256": "ea5f20919f898ead37f2359261223efc7d49941b2e93ca2319bf19300a1105d6"

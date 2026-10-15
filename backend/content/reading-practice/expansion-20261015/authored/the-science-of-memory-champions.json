@@ -77,14 +77,18 @@
     ],
     [
       "p2-s3",
-      "Thứ tách chuyên gia không phải phần cứng mà một kỹ thuật gần như ai cũng học được.",
+      "Điều tạo nên sự khác biệt ở các chuyên gia không phải là “phần cứng” — cấu tạo bộ não — mà là một kỹ thuật duy nhất mà gần như ai cũng có thể học được.",
       [
         "not their hardware",
-        "không phải phần cứng"
+        "không phải là “phần cứng” — cấu tạo bộ não"
+      ],
+      [
+        "a single technique",
+        "một kỹ thuật duy nhất"
       ],
       [
         "almost anyone can learn",
-        "gần như ai cũng học được"
+        "gần như ai cũng có thể học được"
       ]
     ],
     [
@@ -101,18 +105,18 @@
     ],
     [
       "p3-s2",
-      "Thay cố giữ danh sách trực tiếp, người dùng tưởng tòa nhà hoặc đường quen rồi đi qua trong đầu, đặt mỗi thông tin vào điểm riêng.",
+      "Thay vì cố ghi nhớ trực tiếp một danh sách, người dùng hình dung một tòa nhà hoặc tuyến đường quen thuộc rồi đi qua đó trong tâm trí, đặt mỗi mẩu thông tin tại một vị trí cụ thể.",
       [
         "a familiar building or route",
-        "tòa nhà hoặc đường quen"
+        "một tòa nhà hoặc tuyến đường quen thuộc"
       ],
       [
         "mentally walks through it",
-        "đi qua trong đầu"
+        "đi qua đó trong tâm trí"
       ],
       [
         "a particular spot",
-        "điểm riêng"
+        "một vị trí cụ thể"
       ]
     ],
     [
@@ -193,14 +197,14 @@
     ],
     [
       "p5-s2",
-      "Nếu rèn được trí nhớ mạnh, cách ấy có thể giúp học viên học từ, ngày tháng hay thuật ngữ y hiệu quả hơn.",
+      "Nếu có thể xây dựng trí nhớ tốt thông qua luyện tập, thì cách tiếp cận tương tự có thể giúp học sinh học từ vựng, ngày tháng hoặc thuật ngữ y khoa hiệu quả hơn.",
       [
         "through practice",
-        "rèn"
+        "thông qua luyện tập"
       ],
       [
         "vocabulary, dates or medical terms",
-        "từ, ngày tháng hay thuật ngữ y"
+        "từ vựng, ngày tháng hoặc thuật ngữ y khoa"
       ]
     ],
     [
@@ -230,7 +234,7 @@
   ],
   "illustration": {
     "src": "/reading-illustrations/exp-memory-cards-scene.svg",
-    "alt": "Các lá bài không tạo ván đấu đặt cạnh sổ và bút trên bàn, gợi một bài tập ghi nhớ.",
+    "alt": "Các lá bài đặt cạnh một bộ bài, tờ ghi chép và bút trên bàn.",
     "caption": "Luyện ghi nhớ một chuỗi thông tin."
   },
   "source_sha256": "18cc970ab4fc6f7fa65a76a8d5b69e9e4b10ae159f1ecf780aee508572081868",
