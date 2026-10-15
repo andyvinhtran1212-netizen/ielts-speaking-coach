@@ -1,0 +1,250 @@
+{
+  "slug": "matching-types-of-renewable-energy",
+  "review_notes": "Giữ giới hạn tái tạo có điều kiện của sinh khối; capacity là công suất chứ không phải sản lượng. Active ground là hoạt động địa chất, không phải nền đất di chuyển thông thường.",
+  "illustration_brief": "Những tua-bin gió trên đồng cỏ, cạnh đường và cây xanh.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Cụm “năng lượng tái tạo” được dùng như thể mô tả một thứ duy nhất, nhưng thực ra bao gồm một nhóm công nghệ rất khác nhau.",
+      [
+        "renewable energy",
+        "năng lượng tái tạo"
+      ],
+      [
+        "very different technologies",
+        "công nghệ rất khác nhau"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Điểm chung không phải cách vận hành mà là một đặc tính: tất cả dùng những nguồn được tự nhiên bổ sung, thay vì đốt nhiên liệu hóa thạch sẽ cạn kiệt.",
+      [
+        "naturally replenished",
+        "được tự nhiên bổ sung"
+      ],
+      [
+        "fossil fuels",
+        "nhiên liệu hóa thạch"
+      ],
+      [
+        "will run out",
+        "sẽ cạn kiệt"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Quen thuộc nhất là điện mặt trời, biến ánh nắng trực tiếp thành điện.",
+      [
+        "solar power",
+        "điện mặt trời"
+      ],
+      [
+        "turning sunlight directly into electricity",
+        "biến ánh nắng trực tiếp thành điện"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Vì tấm pin mặt trời không có bộ phận chuyển động và có thể lắp trên mái sẵn có, chúng có thể được lắp tại nơi các nhà máy điện lớn không vươn tới.",
+      [
+        "no moving parts",
+        "không có bộ phận chuyển động"
+      ],
+      [
+        "rooftops that already exist",
+        "mái sẵn có"
+      ],
+      [
+        "large power stations cannot reach",
+        "các nhà máy điện lớn không vươn tới"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Điểm yếu cũng rõ như sức hấp dẫn của chúng: không tạo điện ban đêm và tạo ít hơn khi có mây, nên sản lượng tăng giảm theo thời tiết.",
+      [
+        "nothing at night",
+        "không tạo điện ban đêm"
+      ],
+      [
+        "less under cloud",
+        "tạo ít hơn khi có mây"
+      ],
+      [
+        "their output rises and falls with the weather",
+        "sản lượng tăng giảm theo thời tiết"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Thủy điện có lịch sử lâu đời hơn nhiều.",
+      [
+        "Hydropower",
+        "Thủy điện"
+      ],
+      [
+        "a far longer history",
+        "lịch sử lâu đời hơn nhiều"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nó đã phát điện quy mô lớn lâu hơn bất cứ nguồn tái tạo nào khác, bằng cách cho nước từ trên cao chảy qua tua-bin.",
+      [
+        "on a large scale",
+        "quy mô lớn"
+      ],
+      [
+        "letting falling water pass through turbines",
+        "cho nước từ trên cao chảy qua tua-bin"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Chẳng hạn, đập Hoover ở Hoa Kỳ có công suất phát điện khoảng 2.080 megawatt.",
+      [
+        "a generating capacity",
+        "công suất phát điện"
+      ],
+      [
+        "around 2,080 megawatts",
+        "khoảng 2.080 megawatt"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Nó đáng tin cậy và mạnh, nhưng phải trả giá: xây đập lớn có thể làm ngập các thung lũng và buộc cộng đồng sống ở đó di dời.",
+      [
+        "drown valleys",
+        "làm ngập các thung lũng"
+      ],
+      [
+        "force the communities living there to move",
+        "buộc cộng đồng sống ở đó di dời"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Điện gió, nay phát triển nhanh khắp thế giới, dùng cánh lớn đón không khí chuyển động để quay máy phát.",
+      [
+        "Wind power",
+        "Điện gió"
+      ],
+      [
+        "turn a generator",
+        "quay máy phát"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Giống điện mặt trời, nó sạch và dồi dào nhưng không đều, mạnh ngày có gió và im lặng ngày lặng gió.",
+      [
+        "clean and plentiful but uneven",
+        "sạch và dồi dào nhưng không đều"
+      ],
+      [
+        "on still ones",
+        "ngày lặng gió"
+      ]
+    ],
+    [
+      "p5-s1",
+      "E — Điện địa nhiệt khai thác một nguồn ngoài tầm với của phần lớn công nghệ khác: nhiệt nằm sâu trong Trái Đất.",
+      [
+        "Geothermal power",
+        "Điện địa nhiệt"
+      ],
+      [
+        "the heat held deep inside the Earth",
+        "nhiệt nằm sâu trong Trái Đất"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Bằng cách bơm nước xuống đá nóng, kỹ sư tạo hơi nước có thể quay tua-bin.",
+      [
+        "pumping water down to hot rock",
+        "bơm nước xuống đá nóng"
+      ],
+      [
+        "raise steam",
+        "tạo hơi nước"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Iceland, nằm trên vùng đất đặc biệt hoạt động mạnh về địa chất, hiện lấy khoảng một phần tư điện năng theo cách này.",
+      [
+        "especially active ground",
+        "vùng đất đặc biệt hoạt động mạnh về địa chất"
+      ],
+      [
+        "around a quarter of its electricity",
+        "khoảng một phần tư điện năng"
+      ]
+    ],
+    [
+      "p5-s4",
+      "Điểm hạn chế là công nghệ hoạt động tốt nhất nơi đá nóng nằm gần bề mặt, thường ở các vùng có núi lửa hoạt động.",
+      [
+        "near the surface",
+        "gần bề mặt"
+      ],
+      [
+        "volcanically active regions",
+        "các vùng có núi lửa hoạt động"
+      ]
+    ],
+    [
+      "p6-s1",
+      "F — Cuối cùng, năng lượng sinh khối đốt vật chất thực vật — gỗ, rơm hoặc cây trồng chuyên dụng — để tạo nhiệt và điện.",
+      [
+        "biomass energy",
+        "năng lượng sinh khối"
+      ],
+      [
+        "wood, straw or special crops",
+        "gỗ, rơm hoặc cây trồng chuyên dụng"
+      ],
+      [
+        "heat and power",
+        "nhiệt và điện"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Đây là trường hợp đặc biệt vì việc đốt thực sự có thải carbon dioxide.",
+      [
+        "a special case",
+        "trường hợp đặc biệt"
+      ],
+      [
+        "does release carbon dioxide",
+        "thực sự có thải carbon dioxide"
+      ]
+    ],
+    [
+      "p6-s3",
+      "Nó chỉ được tính là tái tạo nếu cây mới mọc lại để hấp thụ lượng tương tự, khép kín chu trình theo thời gian.",
+      [
+        "It counts as renewable only if",
+        "Nó chỉ được tính là tái tạo nếu"
+      ],
+      [
+        "absorb a similar amount",
+        "hấp thụ lượng tương tự"
+      ],
+      [
+        "closing the cycle over time",
+        "khép kín chu trình theo thời gian"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-wind-farm-scene.svg",
+    "alt": "Những tua-bin gió trên đồng cỏ, cạnh đường và cây xanh.",
+    "caption": "Một bối cảnh khai thác năng lượng tái tạo."
+  },
+  "source_sha256": "63a3855a4232f7432613fe217cf92c4bc7631cf60fac20e7693e0c419c7c4e12",
+  "expected_translation_sha256": "7f2525261f5341986d250c5cf1ae208eb965d73d212b0d0cc714e817c14009fe"
+}

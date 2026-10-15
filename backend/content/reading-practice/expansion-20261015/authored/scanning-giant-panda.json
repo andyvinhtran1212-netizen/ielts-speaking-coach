@@ -1,0 +1,166 @@
+{
+  "slug": "scanning-giant-panda",
+  "review_notes": "Coat là bộ lông; wild là ngoài tự nhiên; giữ only about và up to, không chuyển 12 giờ thành con số luôn đúng. Không ghi số lượng hoặc kích thước con non trên hình.",
+  "illustration_brief": "Gấu trúc lớn ngồi giữa rừng tre mát xanh.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Gấu trúc lớn là một trong những loài vật được yêu mến nhất thế giới.",
+      [
+        "The giant panda",
+        "Gấu trúc lớn"
+      ],
+      [
+        "one of the most loved animals",
+        "một trong những loài vật được yêu mến nhất"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Với bộ lông đen trắng, nó rất dễ nhận ra.",
+      [
+        "black-and-white coat",
+        "bộ lông đen trắng"
+      ],
+      [
+        "easy to know",
+        "rất dễ nhận ra"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nhưng loài gấu hiền lành này có nhiều điều đáng ngạc nhiên.",
+      [
+        "many surprising facts",
+        "nhiều điều đáng ngạc nhiên"
+      ],
+      [
+        "this gentle bear",
+        "loài gấu hiền lành này"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Gấu trúc lớn hoang dã sống ở vùng núi Trung Quốc.",
+      [
+        "Wild giant pandas",
+        "Gấu trúc lớn hoang dã"
+      ],
+      [
+        "the mountains of China",
+        "vùng núi Trung Quốc"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Chúng thích những khu rừng mát, ẩm ở cao phía trên các thị trấn.",
+      [
+        "cool, wet forests",
+        "những khu rừng mát, ẩm"
+      ],
+      [
+        "high above the towns",
+        "ở cao phía trên các thị trấn"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Ngày nay chỉ khoảng 1.800 gấu trúc lớn sống ngoài tự nhiên, nên con người nỗ lực bảo vệ chúng an toàn.",
+      [
+        "only about 1,800 giant pandas",
+        "chỉ khoảng 1.800 gấu trúc lớn"
+      ],
+      [
+        "in the wild",
+        "ngoài tự nhiên"
+      ],
+      [
+        "keep them safe",
+        "bảo vệ chúng an toàn"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Gấu trúc có chế độ ăn khác thường.",
+      [
+        "an unusual diet",
+        "chế độ ăn khác thường"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Chúng gần như chỉ ăn tre, một loài cây cao lớn nhanh.",
+      [
+        "almost only bamboo",
+        "gần như chỉ ăn tre"
+      ],
+      [
+        "a tall plant that grows fast",
+        "một loài cây cao lớn nhanh"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Tre không cung cấp nhiều năng lượng nên gấu trúc phải ăn rất nhiều.",
+      [
+        "does not give much energy",
+        "không cung cấp nhiều năng lượng"
+      ],
+      [
+        "must eat a lot of it",
+        "phải ăn rất nhiều"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Thực tế, một con gấu trúc lớn có thể dành tới 12 giờ mỗi ngày để ăn.",
+      [
+        "up to 12 hours a day",
+        "tới 12 giờ mỗi ngày"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Gấu trúc sơ sinh rất nhỏ.",
+      [
+        "Baby pandas",
+        "Gấu trúc sơ sinh"
+      ],
+      [
+        "very small",
+        "rất nhỏ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Khi mới sinh, gấu trúc có kích thước khoảng bằng một thỏi bơ — màu hồng và không có lông.",
+      [
+        "about the size of a stick of butter",
+        "kích thước khoảng bằng một thỏi bơ"
+      ],
+      [
+        "pink, with no fur",
+        "màu hồng và không có lông"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Nó chưa nhìn thấy và cần mẹ suốt nhiều tháng.",
+      [
+        "cannot see",
+        "chưa nhìn thấy"
+      ],
+      [
+        "for many months",
+        "suốt nhiều tháng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-panda-forest-scene.svg",
+    "alt": "Gấu trúc lớn ngồi giữa rừng tre mát xanh.",
+    "caption": "Một cư dân của rừng núi Trung Quốc."
+  },
+  "source_sha256": "d2ee373d252e470845517461c1cb0167dfff9952a07804923d9e78ec979c2c79",
+  "expected_translation_sha256": "d4ff6f6bb9daac86662a21da11d5ef2ea6d69a2744252b55e32b95e217451817"
+}

@@ -1,0 +1,190 @@
+{
+  "slug": "scanning-mount-everest",
+  "review_notes": "Giữ above sea level và hai sườn thuộc hai quốc gia; death zone là vùng chết. Mô tả trang bị trong đoạn đọc không được mở rộng thành hướng dẫn an toàn leo núi.",
+  "illustration_brief": "Dãy núi tuyết nhô trên mây cùng những người đi bộ nhỏ ở sườn núi.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Ở độ cao 8.849 mét, Everest là ngọn núi cao nhất Trái Đất tính từ mực nước biển.",
+      [
+        "At 8,849 metres",
+        "Ở độ cao 8.849 mét"
+      ],
+      [
+        "above sea level",
+        "tính từ mực nước biển"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Núi nằm giữa hai quốc gia: sườn phía nam thuộc Nepal, còn sườn phía bắc thuộc Tây Tạng, Trung Quốc.",
+      [
+        "the south side",
+        "sườn phía nam"
+      ],
+      [
+        "the north side",
+        "sườn phía bắc"
+      ],
+      [
+        "Tibet, in China",
+        "Tây Tạng, Trung Quốc"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nhiều người mơ được đứng trên đỉnh núi.",
+      [
+        "dream of standing on the top",
+        "mơ được đứng trên đỉnh núi"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Những người leo núi đầu tiên lên đỉnh đã làm được điều đó năm 1953.",
+      [
+        "The first climbers to reach the top",
+        "Những người leo núi đầu tiên lên đỉnh"
+      ],
+      [
+        "in 1953",
+        "năm 1953"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Họ tên là Edmund Hillary, đến từ New Zealand, và Tenzing Norgay, một hướng dẫn viên người Sherpa từ vùng núi Nepal.",
+      [
+        "from New Zealand",
+        "đến từ New Zealand"
+      ],
+      [
+        "a Sherpa guide",
+        "một hướng dẫn viên người Sherpa"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Ngày nay, hàng trăm người cố leo Everest mỗi năm.",
+      [
+        "hundreds of people",
+        "hàng trăm người"
+      ],
+      [
+        "every year",
+        "mỗi năm"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nhưng ngọn núi rất nguy hiểm.",
+      [
+        "very dangerous",
+        "rất nguy hiểm"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ở trên cao, có ít không khí để thở nên đi bộ hay thậm chí suy nghĩ cũng khó.",
+      [
+        "little air to breathe",
+        "ít không khí để thở"
+      ],
+      [
+        "hard to walk or even think",
+        "đi bộ hay thậm chí suy nghĩ cũng khó"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Người leo núi gọi phần trên 8.000 mét là “vùng chết”.",
+      [
+        "above 8,000 metres",
+        "trên 8.000 mét"
+      ],
+      [
+        "death zone",
+        "vùng chết"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Gió mạnh, và cái lạnh có thể làm da đóng băng chỉ trong vài phút.",
+      [
+        "The wind is strong",
+        "Gió mạnh"
+      ],
+      [
+        "freeze your skin in minutes",
+        "làm da đóng băng chỉ trong vài phút"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Để giữ an toàn, người leo núi mang bình oxy và mặc quần áo dày.",
+      [
+        "bottles of oxygen",
+        "bình oxy"
+      ],
+      [
+        "thick clothes",
+        "quần áo dày"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Họ nghỉ tại các trại nhỏ trên đường lên.",
+      [
+        "small camps",
+        "các trại nhỏ"
+      ],
+      [
+        "on the way up",
+        "trên đường lên"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Dù vậy, Everest không dễ chinh phục và có thể sẽ luôn thử thách những người cố lên đỉnh.",
+      [
+        "Even so",
+        "Dù vậy"
+      ],
+      [
+        "may always test",
+        "có thể sẽ luôn thử thách"
+      ]
+    ],
+    [
+      "p7-s1",
+      "Mẹo luyện tập: Khi đọc quét, bạn không đọc từng từ.",
+      [
+        "When you scan",
+        "Khi đọc quét"
+      ],
+      [
+        "you do not read every word",
+        "bạn không đọc từng từ"
+      ]
+    ],
+    [
+      "p7-s2",
+      "Bạn đưa mắt nhanh để tìm một thông tin — một con số, tên hoặc ngày tháng.",
+      [
+        "move your eyes quickly",
+        "đưa mắt nhanh"
+      ],
+      [
+        "a number, a name or a date",
+        "một con số, tên hoặc ngày tháng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-high-mountains-scene.svg",
+    "alt": "Dãy núi tuyết nhô trên mây cùng những người đi bộ nhỏ ở sườn núi.",
+    "caption": "Khung cảnh gợi một hành trình trên núi cao."
+  },
+  "source_sha256": "f9cca6aa5d255ca015899ccfb21a8523fdaa94ca7a4d0d6203f5874cb2bca0d9",
+  "expected_translation_sha256": "49400c1b358cd9ba22bd44919cbd2220ae19f901448f617a000de060321a16d7"
+}
