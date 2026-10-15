@@ -1,9 +1,9 @@
-"""scripts/pregen_vocab_audio.py — Slice-2 vocab audio pregen.
+"""scripts/pregen_vocab_audio.py — Kokoro-only Vocabulary audio preparation.
 
-For every vocab_cards row missing audio: TTS the headword (+ example) → upload to
+For every vocab_cards row missing the current bf_emma audio: TTS the headword (+ example) → upload to
 the `vocab-audio` bucket (content-addressed, hash-skip) → stamp audio_headword /
-audio_example / audio_status='final'. After a commit run, vocab_service.reload()
-so the grid serves the new audio_url without a restart (G1).
+audio_example / audio_status='final'. The local vocab service is reloaded;
+refresh the deployed service through the normal admin/cache deployment path.
 
     cd backend && python -m scripts.pregen_vocab_audio              # DRY-RUN (default)
     cd backend && python -m scripts.pregen_vocab_audio --commit     # actually synth + write
@@ -17,7 +17,7 @@ would be generated + an estimated char count / cost so the operator can sanity-
 check the run. --commit then does the work;
 hash-skip means a re-run regenerates nothing already done (idempotent).
 
-PREREQUISITE: Andy creates the public `vocab-audio` bucket by hand first. If it's
+PREREQUISITE: a local Kokoro runtime, ffmpeg and the public `vocab-audio` bucket. If it is
 missing, --commit fails LOUDLY on the first upload (Bucket not found) rather than
 silently — fix the bucket and re-run.
 """
@@ -29,13 +29,14 @@ import asyncio
 import logging
 
 from database import supabase_admin
-from services import ai_usage_logger, tts_audio
+from services import tts_audio
 from services.vocab_content import vocab_service
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("pregen_vocab_audio")
 
-_TTS_PER_1K_USD = 0.015   # tts-1 pricing
+_ENGINE = "kokoro"
+_VOICE = "bf_emma"
 
 
 _PAGE = 1000   # PostgREST caps a single response at ~1000 rows
@@ -85,25 +86,27 @@ def _rows_needing_audio(
         # --regen: reprocess EVERY row with a headword so existing (possibly
         # edge-clipped) audio is re-synthesised at the new padded path + re-stamped.
         return [r for r in rows if (r.get("headword") or "").strip()]
-    # A word needs work unless it's already 'final' with a headword audio URL.
-    return [r for r in rows
-            if r.get("audio_status") != "final" or not r.get("audio_headword")]
+    return [r for r in rows if _needs(r, "headword") or _needs(r, "example")
+            or r.get("audio_status") != "final"]
+
+
+def _expected(text: str) -> str:
+    return tts_audio.public_url(tts_audio.audio_path(text.strip(), _VOICE, _ENGINE))
+
+
+def _needs(row: dict, field: str, regen: bool = False) -> bool:
+    text = (row.get(field) or "").strip()
+    return bool(text) and (regen or row.get("audio_" + field) != _expected(text))
 
 
 def _resolved_voice(engine: str, voice: str | None) -> str:
-    if voice:
-        return voice
-    if engine == "kokoro":
-        return tts_audio.KOKORO_DEFAULT_VOICE
-    return tts_audio.DEFAULT_VOICE
+    if engine != _ENGINE or voice not in (None, _VOICE):
+        raise ValueError("Vocabulary audio requires Kokoro bf_emma")
+    return _VOICE
 
 
 async def _get_or_create(text: str, *, engine: str, voice: str) -> tuple[str, bool]:
-    if engine == "openai":
-        return await tts_audio.get_or_create_audio(text, voice)
-    # Kokoro is a local/blocking sync path. This operator script intentionally
-    # renders one clip at a time so a single shared model is reused safely and
-    # each completed card is durably checkpointed in the DB.
+    _resolved_voice(engine, voice)
     return tts_audio.get_or_create_audio_sync(text, engine, voice)
 
 
@@ -112,7 +115,7 @@ def _dry_run(
     *,
     headword_only: bool,
     regen: bool = False,
-    engine: str = "openai",
+    engine: str = "kokoro",
     voice: str | None = None,
 ) -> None:
     n_words = 0
@@ -122,14 +125,14 @@ def _dry_run(
         hw = (r.get("headword") or "").strip()
         ex = (r.get("example") or "").strip()
         will = 0
-        if hw and (regen or not r.get("audio_headword")):
+        if _needs(r, "headword", regen):
             total_chars += len(hw); will += 1
-        if not headword_only and ex and (regen or not r.get("audio_example")):
+        if not headword_only and _needs(r, "example", regen):
             total_chars += len(ex); will += 1
         if will:
             n_words += 1
             n_audios += will
-    cost = total_chars / 1000 * _TTS_PER_1K_USD if engine == "openai" else 0.0
+    cost = 0.0
     logger.info("DRY-RUN — no TTS calls, nothing written.")
     logger.info("  engine / voice      : %s / %s", engine, _resolved_voice(engine, voice))
     logger.info("  words needing audio : %d", n_words)
@@ -146,7 +149,7 @@ async def _commit(
     *,
     headword_only: bool,
     regen: bool = False,
-    engine: str = "openai",
+    engine: str = "kokoro",
     voice: str | None = None,
 ) -> None:
     gen = skip = errors = stamped = 0
@@ -157,41 +160,45 @@ async def _commit(
         ex = (r.get("example") or "").strip()
         stamp: dict = {}
         try:
-            if hw and (regen or not r.get("audio_headword")):
+            if _needs(r, "headword", regen):
                 url, did = await _get_or_create(hw, engine=engine, voice=resolved_voice)
                 stamp["audio_headword"] = url
                 if did:
                     gen += 1
-                    if engine == "openai":
-                        ai_usage_logger.log_tts(user_id=None, session_id=None,
-                                                model="tts-1", text_chars=len(hw))
                 else:
                     skip += 1
 
-            if not headword_only and ex and (regen or not r.get("audio_example")):
+            if not headword_only and _needs(r, "example", regen):
                 url, did = await _get_or_create(ex, engine=engine, voice=resolved_voice)
                 stamp["audio_example"] = url
                 if did:
                     gen += 1
-                    if engine == "openai":
-                        ai_usage_logger.log_tts(user_id=None, session_id=None,
-                                                model="tts-1", text_chars=len(ex))
                 else:
                     skip += 1
 
             # Mark 'final' only when the headword audio exists AND the example is
             # not still pending (either generated, none to gen, or — in
             # --headword-only mode — deliberately deferred → stays non-final).
-            has_hw = bool(r.get("audio_headword") or stamp.get("audio_headword"))
-            example_pending = bool(ex) and not (r.get("audio_example") or stamp.get("audio_example"))
+            has_hw = bool(hw) and (stamp.get("audio_headword") or r.get("audio_headword")) == _expected(hw)
+            example_pending = bool(ex) and (stamp.get("audio_example") or r.get("audio_example")) != _expected(ex)
             if has_hw and not example_pending:
                 stamp["audio_status"] = "final"
+            elif stamp:
+                stamp["audio_status"] = "pending"
 
             if stamp:
                 # Stamp by stable id, not slug: a slug may now be shared across
                 # categories (mig 122), and example audio differs per card — an
                 # eq("slug") update would clobber the wrong row's example audio.
-                supabase_admin.table("vocab_cards").update(stamp).eq("id", r["id"]).execute()
+                query = supabase_admin.table("vocab_cards").update(stamp).eq("id", r["id"])
+                # A long render must not attach old speech after an admin edits
+                # the word/example. Leave that row for a fresh batch instead.
+                for field in ("headword", "example"):
+                    value = r.get(field)
+                    query = query.is_(field, "null") if value is None else query.eq(field, value)
+                result = query.execute()
+                if len(result.data or []) != 1 or result.data[0].get("id") != r["id"]:
+                    raise RuntimeError("Source changed during audio preparation; reload and retry")
                 stamped += 1
                 logger.info("  ✓ %s — %s", slug, ", ".join(sorted(stamp)))
         except Exception as exc:  # noqa: BLE001 — one bad word shouldn't stop the batch
@@ -203,9 +210,11 @@ async def _commit(
     # G1 — refresh the in-memory grid so the new audio URLs are served live.
     try:
         vocab_service.reload()
-        logger.info("vocab_service reloaded — grid serves new audio without restart.")
+        logger.info("Local vocab_service reloaded; verify the deployed cache separately.")
     except Exception as exc:  # noqa: BLE001
         logger.warning("reload after pregen failed (non-fatal): %s", exc)
+    if errors:
+        raise RuntimeError(f"{errors} Vocabulary audio row(s) failed; rerun to resume")
 
 
 def main() -> None:
@@ -218,34 +227,17 @@ def main() -> None:
                     help="re-synthesise audio for ALL rows (even already-final) and "
                          "re-stamp the URLs — use after a synth/post-process change "
                          "(e.g. the silence-padding fix) to replace existing clipped clips.")
-    ap.add_argument("--engine", choices=("openai", "kokoro"),
-                    default="openai", help="TTS engine (default: openai).")
-    ap.add_argument("--voice", default=None,
-                    help="Voice id; defaults to bf_emma for Kokoro and nova for OpenAI.")
+    ap.add_argument("--engine", choices=("kokoro",), default="kokoro",
+                    help="Vocabulary uses Kokoro only.")
+    ap.add_argument("--voice", choices=("bf_emma",), default="bf_emma",
+                    help="Vocabulary uses British bf_emma only.")
     ap.add_argument("--topic-cards-only", action="store_true",
                     help="limit the run to cards visible in Vocabulary Hub topics; "
                          "exclude pure exam-list imports.")
     args = ap.parse_args()
 
-    if (args.engine == "openai" and args.voice
-            and args.voice not in tts_audio.OPENAI_VOICES):
-        allowed = ", ".join(sorted(tts_audio.OPENAI_VOICES))
-        ap.error(f"unsupported OpenAI voice {args.voice!r}; choose one of: {allowed}")
-    if (args.engine == "kokoro" and args.voice
-            and args.voice not in tts_audio.KOKORO_VOICES):
-        allowed = ", ".join(sorted(tts_audio.KOKORO_VOICES))
-        ap.error(f"unsupported Kokoro voice {args.voice!r}; choose one of: {allowed}")
-
-    # Persisted URLs do not record engine/voice provenance. Any partial
-    # regeneration could therefore replace one clip while retaining another
-    # engine or voice on the same card. Keep every regeneration and every
-    # explicit voice change an all-audio replacement.
     if args.regen and args.headword_only:
         ap.error("--regen cannot use --headword-only; regenerate both clips")
-    if args.voice and not args.regen:
-        ap.error("--voice requires --regen so both clips use the selected voice")
-    if args.engine == "kokoro" and not args.regen:
-        ap.error("--engine kokoro requires --regen so both clips switch engines")
 
     rows = _rows_needing_audio(
         regen=args.regen,

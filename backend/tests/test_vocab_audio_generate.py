@@ -81,84 +81,23 @@ def test_get_or_create_sync_synths_when_absent():
     up.assert_called_once()
 
 
-# ── background job: stamp + reload ────────────────────────────────────────
-
-
-def test_generate_job_stamps_both_and_finalizes():
-    rows = [{"id": _ID, "slug": "holistic", "headword": "Holistic", "example": "A holistic approach."}]
-    db = MagicMock()
-    with patch("routers.admin_vocab.tts_audio.get_or_create_audio_sync",
-               return_value=("https://x/clip.mp3", True)), \
-         patch("routers.admin_vocab.supabase_admin", db), \
-         patch("routers.admin_vocab._reload_safe", return_value=True) as reload, \
-         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
-        av._generate_audio_job(rows, "elevenlabs", "both")
-    payload = db.table.return_value.update.call_args[0][0]
-    assert payload["audio_headword"] and payload["audio_example"]
-    assert payload["audio_status"] == "final"
-    reload.assert_called_once()
-    invalidate.assert_called_once()
-
-
-def test_generate_job_headword_only_scope():
-    rows = [{"id": _ID, "slug": "h", "headword": "Holistic", "example": "x."}]
-    db = MagicMock()
-    goc = MagicMock(return_value=("https://x/clip.mp3", True))
-    with patch("routers.admin_vocab.tts_audio.get_or_create_audio_sync", goc), \
-         patch("routers.admin_vocab.supabase_admin", db), \
-         patch("routers.admin_vocab._reload_safe"):
-        av._generate_audio_job(rows, "openai", "headword")
-    assert goc.call_count == 1                       # example skipped
-    payload = db.table.return_value.update.call_args[0][0]
-    assert "audio_headword" in payload and "audio_example" not in payload
-
-
-def test_generate_job_one_bad_word_does_not_abort():
-    rows = [{"id": "a", "slug": "a", "headword": "A", "example": ""},
-            {"id": "b", "slug": "b", "headword": "B", "example": ""}]
-    db = MagicMock()
-    with patch("routers.admin_vocab.tts_audio.get_or_create_audio_sync",
-               side_effect=[RuntimeError("boom"), ("https://x/b.mp3", True)]), \
-         patch("routers.admin_vocab.supabase_admin", db), \
-         patch("routers.admin_vocab._reload_safe"):
-        av._generate_audio_job(rows, "openai", "headword")
-    # 'b' still stamped despite 'a' failing
-    assert db.table.return_value.update.call_count == 1
-
-
-# ── route: target precedence + gates + queue ──────────────────────────────
-
+# Vocabulary hosted generation is batch-only.
 
 def test_generate_route_requires_auth():
     assert _client().post("/admin/vocabulary/generate-audio", json={"all": True}).status_code == 401
 
 
-def test_generate_route_elevenlabs_needs_key_503():
-    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("config.settings.ELEVENLABS_API_KEY", ""):
-        r = _client().post("/admin/vocabulary/generate-audio",
-                           json={"ids": [_ID], "engine": "elevenlabs"}, headers=_ADMIN_AUTH)
-    assert r.status_code == 503
-
-
-def test_generate_route_queues_and_returns_count():
-    db = MagicMock()
-    db.table.return_value.select.return_value.in_.return_value.execute.return_value = \
-        MagicMock(data=[{"id": _ID, "slug": "h", "headword": "H", "example": ""}])
-    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("config.settings.ELEVENLABS_API_KEY", "el-key"), \
-         patch("routers.admin_vocab.supabase_admin", db), \
-         patch("routers.admin_vocab.tts_audio.get_or_create_audio_sync", return_value=("u", True)), \
-         patch("routers.admin_vocab._reload_safe"):
-        r = _client().post("/admin/vocabulary/generate-audio",
-                           json={"ids": [_ID], "engine": "elevenlabs", "scope": "headword"}, headers=_ADMIN_AUTH)
-    assert r.status_code == 200, r.text
-    assert r.json() == {"queued_count": 1, "engine": "elevenlabs", "scope": "headword"}
-
-
-def test_generate_route_no_target_400():
-    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("config.settings.OPENAI_API_KEY", "sk-x"):
-        r = _client().post("/admin/vocabulary/generate-audio",
-                           json={"engine": "openai"}, headers=_ADMIN_AUTH)
-    assert r.status_code == 400
+def test_generate_route_never_queues_or_calls_another_provider():
+    for engine in [None, "kokoro", "openai", "elevenlabs", "typo"]:
+        payload = {"ids": [_ID]}
+        if engine is not None:
+            payload["engine"] = engine
+        with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+             patch("routers.admin_vocab.supabase_admin") as db, \
+             patch("services.tts_audio.get_or_create_audio_sync") as synth:
+            r = _client().post("/admin/vocabulary/generate-audio", json=payload, headers=_ADMIN_AUTH)
+        assert r.status_code == 409
+        assert "Kokoro bf_emma" in r.json()["detail"]
+        assert "Chưa có tác vụ" in r.json()["detail"]
+        db.table.assert_not_called()
+        synth.assert_not_called()

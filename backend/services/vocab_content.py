@@ -211,7 +211,7 @@ class VocabContentService:
             # card renders an orthographic specimen when present, else IPA fallback.
             "syllables":      r.get("syllables") or "",
             # Slice-2 — pregenerated audio URLs (null until pregen stamps them; the
-            # FE ▶ prefers these and falls back to speechSynthesis when absent).
+            # FE ▶ plays these; missing recordings show a preparation state).
             "audio_headword": r.get("audio_headword") or "",
             "audio_example":  r.get("audio_example") or "",
             # V-article re-skin — structured fields surfaced for the v2 detail card

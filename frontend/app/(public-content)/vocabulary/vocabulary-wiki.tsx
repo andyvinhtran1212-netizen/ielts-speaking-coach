@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
+import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
 import { getBrowserJson } from '@/lib/browser-api';
 import { normalizeVocabularyArticle, normalizeVocabularyDirectory, vocabularyKey } from '@/lib/vocabulary-model.mjs';
 import type { VocabularyArticle as Article, VocabularyDirectory, VocabularyWord as Word } from '@/lib/vocabulary-types';
@@ -77,15 +78,9 @@ function PlayIcon() {
   return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>;
 }
 
-function PlayButton({ audio, say, small = false, onPlay }: {
-  audio: string; say: string; small?: boolean; onPlay(audio: string, say: string, button: HTMLButtonElement): void;
-}) {
-  return (
-    <button type="button" className={`va-play${small ? ' va-small va-ghost' : ''}`} aria-label={`Nghe ${say}`}
-      onClick={(event) => { event.preventDefault(); event.stopPropagation(); onPlay(audio, say, event.currentTarget); }}>
-      <PlayIcon />
-    </button>
-  );
+function PlayButton({ audio, say, small = false }: { audio: string; say: string; small?: boolean }) {
+  return <VocabularyAudioButton url={audio} say={say} label={`Nghe ${say}`}
+    className={`va-play${small ? ' va-small va-ghost' : ''}`}><PlayIcon /></VocabularyAudioButton>;
 }
 
 function NetRow({ label, values }: { label: string; values: string[] }) {
@@ -131,7 +126,7 @@ function FlagControl({ article }: { article: Article }) {
   );
 }
 
-function ArticleCard({ article, onPlay }: { article: Article; onPlay(audio: string, say: string, button: HTMLButtonElement): void }) {
+function ArticleCard({ article }: { article: Article }) {
   const definitionVi = article.definitionVi.trim() || article.glossVi;
   const network = article.synonyms.length || article.antonyms.length || article.relatedWords.length || article.wordFamily.length;
   const hasStructuredBody = article.example.trim() || article.memoryHook.trim();
@@ -149,7 +144,7 @@ function ArticleCard({ article, onPlay }: { article: Article; onPlay(audio: stri
           </div>
           <div className="va-head">
             <h2 className="va-headword">{article.headword}</h2>
-            <PlayButton audio={article.audioHeadword} say={article.headword} onPlay={onPlay} />
+            <PlayButton audio={article.audioHeadword} say={article.headword} />
           </div>
           {article.pronunciation ? <p className="va-ipa"><IpaLine article={article} />{article.partOfSpeech ? <span className="va-pos"> · {article.partOfSpeech}</span> : null}</p> : null}
           <StressSpecimen article={article} />
@@ -159,7 +154,7 @@ function ArticleCard({ article, onPlay }: { article: Article; onPlay(audio: stri
           {definitionVi ? <p className="va-def-vi">{definitionVi}</p> : null}
         </div></> : null}
         {article.example || article.collocations.length ? <><div className="va-rule" /><div className="va-pad">
-          {article.example ? <><div className="va-use-head"><span className="va-eyebrow">Dùng khi nói</span><PlayButton audio={article.audioExample} say={article.example} small onPlay={onPlay} /></div>
+          {article.example ? <><div className="va-use-head"><span className="va-eyebrow">Dùng khi nói</span><PlayButton audio={article.audioExample} say={article.example} small /></div>
             <p className="va-example">“<HighlightedExample example={article.example} headword={article.headword} />”</p></> : null}
           {article.collocations.length ? <div className="va-colloc">{article.collocations.map((item) => <span className="va-chip" key={item}>{item}</span>)}</div> : null}
         </div></> : null}
@@ -205,7 +200,6 @@ export function VocabularyWiki({ directory: initialDirectory, initialArticle, in
   const requestRef = useRef<AbortController | null>(null);
   const directoryRequestRef = useRef<AbortController | null>(null);
   const firstDirectoryEffectRef = useRef(true);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyticsRef = useRef(new Set<string>());
   const selectedKey = detail?.key || initialKey;
   const words = directory.items;
@@ -217,8 +211,6 @@ export function VocabularyWiki({ directory: initialDirectory, initialArticle, in
   useEffect(() => () => {
     requestRef.current?.abort();
     directoryRequestRef.current?.abort();
-    audioRef.current?.pause();
-    window.speechSynthesis?.cancel();
   }, []);
 
   useEffect(() => {
@@ -280,26 +272,6 @@ export function VocabularyWiki({ directory: initialDirectory, initialArticle, in
       });
     } catch { /* analytics is best effort */ }
   }, [desktopDetailVisible, detail, showDetail]);
-
-  function play(audio: string, say: string, button: HTMLButtonElement) {
-    window.speechSynthesis?.cancel();
-    audioRef.current?.pause();
-    audioRef.current = null;
-    const speak = () => {
-      if (!say || !window.speechSynthesis) return;
-      const utterance = new SpeechSynthesisUtterance(say);
-      utterance.lang = 'en-GB'; utterance.rate = 0.92;
-      button.classList.add('is-playing');
-      utterance.onend = utterance.onerror = () => button.classList.remove('is-playing');
-      window.speechSynthesis.speak(utterance);
-    };
-    if (!audio) { speak(); return; }
-    const player = new Audio(audio);
-    audioRef.current = player;
-    button.classList.add('is-playing');
-    player.onended = () => button.classList.remove('is-playing');
-    void player.play().catch(() => { button.classList.remove('is-playing'); speak(); });
-  }
 
   async function selectWord(word: Word) {
     const key = vocabularyKey(word.category, word.slug);
@@ -380,7 +352,7 @@ export function VocabularyWiki({ directory: initialDirectory, initialArticle, in
         <div className="vmd-rows" aria-label="Danh sách từ" aria-busy={directoryStatus === 'loading'}>
           {words.length ? words.map((word) => <div className={`vmd-row${selectedKey === vocabularyKey(word.category, word.slug) ? ' active' : ''}`}
             data-category={word.category} data-slug={word.slug} key={vocabularyKey(word.category, word.slug)}>
-            <PlayButton audio={word.audioHeadword} say={word.headword} small onPlay={play} />
+            <PlayButton audio={word.audioHeadword} say={word.headword} small />
             <button type="button" className="vmd-row-main" onClick={() => void selectWord(word)}>
               <span className="vmd-rw">{word.headword}</span><span className="vmd-rmeta">{word.pronunciation}{word.partOfSpeech ? ` · ${word.partOfSpeech}` : ''}</span>
             </button>
@@ -404,7 +376,7 @@ export function VocabularyWiki({ directory: initialDirectory, initialArticle, in
         {!detail ? <p className="va-empty">Chọn một từ ở danh sách để xem chi tiết.</p> : null}
         {detail?.status === 'loading' ? <p className="va-empty">Đang tải…</p> : null}
         {detail?.status === 'error' ? <p className="va-empty" role="alert">Không tải được từ này.</p> : null}
-        {detail?.status === 'ready' ? <ArticleCard article={detail.article} onPlay={play} /> : null}
+        {detail?.status === 'ready' ? <ArticleCard article={detail.article} /> : null}
       </section>
     </div>
   );

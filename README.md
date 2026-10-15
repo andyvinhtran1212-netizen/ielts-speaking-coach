@@ -156,3 +156,24 @@ Internal project; not currently open-source.
 Use the [documentation map](docs/README.md) for current runbooks and historical
 context, and the [implementation status ledger](specs/IMPLEMENTATION_STATUS.md)
 for outstanding feature acceptance.
+
+### Vocabulary audio
+
+Vocabulary words and English examples use local Kokoro `bf_emma` (British
+English), including new admin content. The web console previews stored audio;
+its former OpenAI/ElevenLabs generation route returns 409 and queues nothing.
+Players show a preparation or retry state instead of changing to browser speech.
+
+With the intended Supabase environment and a local Kokoro/ffmpeg runtime:
+
+```bash
+cd backend
+python -m scripts.pregen_vocab_audio          # read-only inventory
+python -m scripts.pregen_vocab_audio --commit # prepare missing/outdated word + example clips
+```
+
+The default batch compares each text's current Kokoro hash, including examples
+on rows already marked final. Re-running reuses matching objects; optional
+`--regen` rechecks every row. No other Vocabulary engine or voice is accepted.
+After a local batch, refresh the deployed vocabulary cache through its normal
+admin update/redeployment path and verify the public URLs before acceptance.

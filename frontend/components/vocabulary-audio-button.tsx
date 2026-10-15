@@ -15,24 +15,23 @@ export function VocabularyAudioButton({ url = '', say = '', label, tabIndex, cla
   const [playing, setPlaying] = useState(false);
   const [notice, setNotice] = useState('');
   const [failed, setFailed] = useState(false);
+  const available = !!url && /^(https:\/\/|\/(?!\/))/.test(url);
   useEffect(() => {
     alive.current = true;
     setNotice(''); setFailed(false); setPlaying(false);
-    return () => { alive.current = false; owned.current?.stop(); };
+    const stop = () => owned.current?.stop();
+    window.addEventListener('pagehide', stop);
+    return () => { alive.current = false; stop(); window.removeEventListener('pagehide', stop); };
   }, [url, say]);
 
   function play() {
     if (owned.current && active === owned.current) { owned.current.stop(); return; }
     active?.stop();
     document.querySelectorAll('audio').forEach(audio => audio.pause());
-    window.speechSynthesis?.cancel();
     setNotice(''); setFailed(false); setPlaying(true);
     let media: HTMLAudioElement | null = null;
-    let utterance: SpeechSynthesisUtterance | null = null;
-    let fallbackStarted = false;
     const owner: Owner = { stop() {
       media?.pause();
-      if (utterance) window.speechSynthesis?.cancel();
       if (active === owner) active = null;
       if (owned.current === owner) owned.current = null;
       if (alive.current) setPlaying(false);
@@ -43,33 +42,22 @@ export function VocabularyAudioButton({ url = '', say = '', label, tabIndex, cla
       if (!current()) return;
       owner.stop(); setFailed(true); setNotice('Chưa phát được audio. Nhấn nút nghe để thử lại.');
     };
-    const speak = () => {
-      if (!current() || fallbackStarted) return;
-      fallbackStarted = true; media?.pause();
-      if (!say || !window.speechSynthesis || !window.SpeechSynthesisUtterance) { fail(); return; }
-      try {
-        utterance = new SpeechSynthesisUtterance(say);
-        utterance.lang = 'en-GB'; utterance.rate = 0.92;
-        utterance.onend = () => { if (current()) owner.stop(); };
-        utterance.onerror = fail;
-        setNotice('Đang dùng giọng của trình duyệt.');
-        window.speechSynthesis.speak(utterance);
-      } catch { fail(); }
-    };
-    if (!url || !/^(https:\/\/|\/(?!\/))/.test(url)) { speak(); return; }
+    if (!available) { fail(); return; }
     try {
-      media = new Audio(url);
+      media = new Audio(url!);
       media.onended = () => { if (current()) owner.stop(); };
-      media.onerror = speak;
-      void media.play().catch(speak);
-    } catch { speak(); }
+      media.onerror = fail;
+      void media.play().catch(fail);
+    } catch { fail(); }
   }
 
   return <span className={styles.control}>
-    <button type="button" className={className} aria-label={label} aria-pressed={playing} tabIndex={tabIndex}
-      disabled={!url && !say} onClick={event => { event.stopPropagation(); play(); }}>
+    <button type="button" className={`${className}${playing ? ' is-playing' : ''}`} aria-label={label} aria-pressed={playing} tabIndex={tabIndex}
+      disabled={!available} title={!available ? 'Audio đang được chuẩn bị.' : undefined}
+      onClick={event => { event.preventDefault(); event.stopPropagation(); play(); }}>
       {children || <span aria-hidden="true">{playing ? 'Ⅱ' : '▶'}</span>}
     </button>
     {notice && <small className={styles.notice} role={failed ? 'alert' : 'status'}>{notice}</small>}
+    {!available && <small className={styles.notice}>Audio đang được chuẩn bị.</small>}
   </span>;
 }

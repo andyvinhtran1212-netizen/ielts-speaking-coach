@@ -684,17 +684,9 @@ await page.getByText('Đã lưu và đọc lại vocab card chuẩn từ backend
 check('Content PATCH đúng body, giữ object word-family và canonical readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/vocabulary/${vocabCardId}` && item.body?.headword === 'mitigate safely' && item.body?.word_family?.[0]?.word === 'mitigation') && contentDetailReads >= 2 && contentReads >= 2);
 
 await page.getByLabel('Chọn mitigate safely').check();
-await page.getByLabel('Engine audio').selectOption('elevenlabs');
-await page.getByRole('button', { name: 'Tạo audio (1)' }).click();
-const audioDialog = page.getByRole('dialog', { name: 'Tạo 1 audio bằng ElevenLabs?' });
-check('Content cảnh báo chi phí trước ElevenLabs write', await audioDialog.getByText('Chi phí bên thứ ba', { exact: true }).count() === 1);
-await audioDialog.getByRole('button', { name: 'Hủy' }).click();
-await page.getByLabel('Engine audio').selectOption('openai');
-await page.getByRole('button', { name: 'Tạo audio (1)' }).click();
-await page.waitForTimeout(40);
-check('Content audio write bị khoá khi chờ ACK', contentWritePending && await page.getByRole('button', { name: 'Tạo audio (1)' }).isDisabled());
-await page.getByText(/Đã xếp hàng 1 từ qua openai/).waitFor();
-check('Content audio gửi đúng engine/scope/selection', requests.some((item) => item.method === 'POST' && item.path === '/admin/vocabulary/generate-audio' && item.body?.ids?.[0] === vocabCardId && item.body?.engine === 'openai' && item.body?.scope === 'both' && item.body?.skip_existing_audio === true));
+await page.getByText(/Giọng đọc: Kokoro · bf_emma/).waitFor();
+check('Content chỉ dùng Kokoro được chuẩn bị theo lô', await page.getByLabel('Engine audio').count() === 0 && await page.getByRole('button', { name: /Tạo audio/ }).count() === 0);
+check('Content không gửi job TTS khác giọng', !requests.some((item) => item.method === 'POST' && item.path === '/admin/vocabulary/generate-audio'));
 
 const contentRow = page.locator('tbody tr').filter({ hasText: 'mitigate safely' });
 await contentRow.getByRole('button', { name: 'Xoá', exact: true }).click();

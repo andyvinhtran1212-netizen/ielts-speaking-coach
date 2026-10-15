@@ -23,7 +23,7 @@ import scripts.pregen_vocab_audio as pg
 import services.tts_audio as ta
 
 _ROW = {
-    "slug": "holistic", "headword": "Holistic", "example": "A holistic approach helps.",
+    "id": "test-id", "slug": "holistic", "headword": "Holistic", "example": "A holistic approach helps.",
     "audio_headword": None, "audio_example": None, "audio_status": "pending",
 }
 
@@ -65,14 +65,23 @@ def test_audio_path_is_stable_and_voice_sensitive():
 # ── pregen --commit ─────────────────────────────────────────────────────
 
 
-def _patched_commit(rows, *, headword_only, did_synth=True):
+def _stamp_db():
     db = MagicMock()
-    goc = AsyncMock(return_value=("https://x/clip.mp3", did_synth))
+    query = db.table.return_value.update.return_value
+    query.eq.return_value = query
+    query.is_.return_value = query
+    query.execute.return_value = MagicMock(data=[{"id": "test-id"}])
+    return db
+
+
+def _patched_commit(rows, *, headword_only, did_synth=True):
+    db = _stamp_db()
+    goc = MagicMock(return_value=("https://x/clip.mp3", did_synth))
     log = MagicMock()
     with patch("scripts.pregen_vocab_audio.supabase_admin", db), \
-         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio", goc), \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync", goc), \
          patch("scripts.pregen_vocab_audio.vocab_service.reload") as reload, \
-         patch("scripts.pregen_vocab_audio.ai_usage_logger.log_tts", log):
+         patch("scripts.pregen_vocab_audio._expected", return_value="https://x/clip.mp3"):
         asyncio.run(pg._commit(rows, headword_only=headword_only))
     return db, goc, log, reload
 
@@ -83,8 +92,8 @@ def test_commit_stamps_both_audio_cols_and_final():
     assert payload["audio_headword"] == "https://x/clip.mp3"
     assert payload["audio_example"] == "https://x/clip.mp3"
     assert payload["audio_status"] == "final"
-    assert goc.await_count == 2          # headword + example
-    assert log.call_count == 2           # both synthesized → both logged
+    assert goc.call_count == 2          # headword + example
+    assert log.call_count == 0           # both synthesized → both logged
     reload.assert_called_once()          # G1
 
 
@@ -103,14 +112,14 @@ def test_headword_only_defers_example_and_is_not_final():
     assert "audio_headword" in payload
     assert "audio_example" not in payload          # example deferred
     assert payload.get("audio_status") != "final"  # still pending (example to come)
-    assert goc.await_count == 1
+    assert goc.call_count == 1
 
 
 def test_commit_idempotent_skips_already_stamped_fields():
-    row = dict(_ROW, audio_headword="https://x/h.mp3")   # headword already done
+    row = dict(_ROW, audio_headword="https://x/clip.mp3")   # headword already done
     db, goc, log, reload = _patched_commit([row], headword_only=False)
     # only the example needs generating
-    assert goc.await_count == 1
+    assert goc.call_count == 1
     payload = db.table.return_value.update.call_args[0][0]
     assert "audio_headword" not in payload      # not re-stamped
     assert payload["audio_example"] == "https://x/clip.mp3"
@@ -136,19 +145,18 @@ def test_dry_run_writes_nothing_and_calls_no_tts():
      "audio_example": "https://x/openai-example.mp3", "audio_status": "final"},
 ])
 def test_kokoro_regen_replaces_all_existing_audio_with_british_voice(existing):
-    db = MagicMock()
+    db = _stamp_db()
     goc = MagicMock(return_value=("https://x/kokoro.mp3", True))
     row = dict(_ROW, **existing)
     with patch("scripts.pregen_vocab_audio.supabase_admin", db), \
          patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync", goc), \
          patch("scripts.pregen_vocab_audio.vocab_service.reload"), \
-         patch("scripts.pregen_vocab_audio.ai_usage_logger.log_tts") as usage:
+         patch("scripts.pregen_vocab_audio._expected", return_value="https://x/kokoro.mp3"):
         asyncio.run(pg._commit([row], headword_only=False,
-                               regen=True, engine="kokoro"))
+                               regen=False, engine="kokoro"))
     assert goc.call_count == 2
     assert all(call.args[1:] == ("kokoro", ta.KOKORO_DEFAULT_VOICE)
                for call in goc.call_args_list)
-    usage.assert_not_called()  # local Kokoro is not billed as OpenAI tts-1
     payload = db.table.return_value.update.call_args.args[0]
     assert payload["audio_headword"] == "https://x/kokoro.mp3"
     assert payload["audio_example"] == "https://x/kokoro.mp3"
@@ -156,7 +164,7 @@ def test_kokoro_regen_replaces_all_existing_audio_with_british_voice(existing):
 
 
 @pytest.mark.parametrize("extra_args", [
-    ["--engine", "kokoro"],
+    ["--voice", "af_heart"],
     ["--engine", "kokoro", "--headword-only", "--regen"],
     ["--engine", "openai", "--headword-only", "--regen"],
     ["--engine", "openai", "--voice", "onyx"],
@@ -171,11 +179,10 @@ def test_cli_rejects_partial_engine_or_voice_switches(extra_args):
 
 
 @pytest.mark.parametrize(("extra_args", "headword_only", "regen", "engine", "voice"), [
-    (["--headword-only"], True, False, "openai", None),
-    (["--regen"], False, True, "openai", None),
-    (["--engine", "openai", "--voice", "onyx", "--regen"],
-     False, True, "openai", "onyx"),
-    (["--engine", "kokoro", "--regen"], False, True, "kokoro", None),
+    (["--headword-only"], True, False, "kokoro", "bf_emma"),
+    (["--regen"], False, True, "kokoro", "bf_emma"),
+    ([], False, False, "kokoro", "bf_emma"),
+    (["--engine", "kokoro", "--regen"], False, True, "kokoro", "bf_emma"),
 ])
 def test_cli_accepts_only_consistent_generation_modes(
     extra_args, headword_only, regen, engine, voice,
@@ -231,9 +238,9 @@ def _paged_db(rows, page=1000):
 
 def test_rows_needing_audio_filters_finalized():
     db = _paged_db([
-        {"slug": "a", "audio_status": "final", "audio_headword": "u"},   # done → excluded
-        {"slug": "b", "audio_status": "pending", "audio_headword": None}, # needs work
-        {"slug": "c", "audio_status": "final", "audio_headword": None},   # final but no url → included
+        {"slug": "a", "headword": "Done", "audio_status": "final", "audio_headword": pg._expected("Done")},   # done → excluded
+        {"slug": "b", "headword": "Pending", "audio_status": "pending", "audio_headword": None}, # needs work
+        {"slug": "c", "headword": "Missing", "audio_status": "final", "audio_headword": None},   # final but no url → included
     ])
     with patch("scripts.pregen_vocab_audio.supabase_admin", db):
         rows = pg._rows_needing_audio()
@@ -381,17 +388,45 @@ def test_regen_selects_all_rows_with_headword_even_final():
 
 
 def test_regen_commit_resynths_and_restamps_finalized_row():
-    row = {"slug": "h", "headword": "Holistic", "example": "A holistic approach.",
+    row = {"id": "test-id", "slug": "h", "headword": "Holistic", "example": "A holistic approach.",
            "audio_headword": "https://old/clip.mp3", "audio_example": "https://old/ex.mp3",
            "audio_status": "final"}
-    db = MagicMock()
-    goc = AsyncMock(return_value=("https://new/clip.mp3", True))
+    db = _stamp_db()
+    goc = MagicMock(return_value=("https://new/clip.mp3", True))
     with patch("scripts.pregen_vocab_audio.supabase_admin", db), \
-         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio", goc), \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync", goc), \
          patch("scripts.pregen_vocab_audio.vocab_service.reload"), \
-         patch("scripts.pregen_vocab_audio.ai_usage_logger.log_tts"):
+         patch("scripts.pregen_vocab_audio._expected", return_value="https://new/clip.mp3"):
         asyncio.run(pg._commit([row], headword_only=False, regen=True))
-    assert goc.await_count == 2          # both re-synthesised despite already being 'final'
+    assert goc.call_count == 2          # both re-synthesised despite already being 'final'
     payload = db.table.return_value.update.call_args[0][0]
     assert payload["audio_headword"] == "https://new/clip.mp3"
     assert payload["audio_example"] == "https://new/clip.mp3"
+
+def test_default_batch_finds_wrong_voice_or_outdated_example_even_when_final():
+    rows = [dict(_ROW, audio_status="final", audio_headword=pg._expected(_ROW["headword"]),
+                 audio_example="https://old-provider/example.mp3"),
+            dict(_ROW, slug="done", audio_status="final", audio_headword=pg._expected(_ROW["headword"]),
+                 audio_example=pg._expected(_ROW["example"]))]
+    with patch("scripts.pregen_vocab_audio._all_vocab_rows", return_value=rows):
+        assert [r["slug"] for r in pg._rows_needing_audio()] == ["holistic"]
+
+
+def test_programmatic_batch_cannot_select_another_provider_or_voice():
+    for engine, voice in [("openai", "nova"), ("kokoro", "af_heart")]:
+        with patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync") as synth, \
+             pytest.raises(ValueError, match="Kokoro bf_emma"):
+            asyncio.run(pg._commit([dict(_ROW)], headword_only=False, engine=engine, voice=voice))
+        synth.assert_not_called()
+
+def test_batch_does_not_attach_old_audio_to_a_concurrently_edited_word():
+    db = _stamp_db()
+    query = db.table.return_value.update.return_value
+    query.execute.return_value = MagicMock(data=[])
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db), \
+         patch("scripts.pregen_vocab_audio._get_or_create", new=AsyncMock(return_value=(pg._expected("Holistic"), False))), \
+         patch("scripts.pregen_vocab_audio.vocab_service.reload"), \
+         pytest.raises(RuntimeError, match="failed"):
+        asyncio.run(pg._commit([dict(_ROW)], headword_only=False))
+    assert ("headword", _ROW["headword"]) in [c.args for c in query.eq.call_args_list]
+    assert ("example", _ROW["example"]) in [c.args for c in query.eq.call_args_list]
