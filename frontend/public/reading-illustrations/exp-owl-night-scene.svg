@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cú trên cành cây</title><desc id="desc">Một con cú với đôi mắt lớn đậu trên cành cây trong cảnh đêm, phía xa có mặt trăng và cây rừng.</desc>
+  <rect width="800" height="400" rx="24" fill="#dfe8ed"/>
+  <circle cx="634" cy="79" r="35" fill="#faf5df"/>
+  <path d="M0 317Q207 285 418 326T800 298V400H0Z" fill="#a2b9ac"/>
+  <path d="M69 400V183M699 400V211" stroke="#8b9b96" stroke-width="11"/>
+  <path d="M19 209Q3 170 37 154Q27 121 63 114Q98 103 115 139Q150 151 131 182Q127 217 94 218Q51 239 19 209M652 237Q637 204 668 185Q662 152 697 151Q724 133 744 164Q780 176 760 208Q764 241 725 242Q682 260 652 237" fill="#709982"/>
+  <path d="M157 319Q390 337 602 288" fill="none" stroke="#796249" stroke-width="19" stroke-linecap="round"/>
+  <g transform="translate(373 239)">
+    <ellipse cy="-25" rx="66" ry="87" fill="#aa825e" stroke="#796249" stroke-width="4"/>
+    <path d="M-60 -76L-58 -131L-25 -109Q0 -121 26 -109L59 -132L62 -74Q58 -33 0 -35Q-57 -35 -60 -76Z" fill="#bda387" stroke="#796249" stroke-width="4"/>
+    <circle cx="-27" cy="-80" r="26" fill="#f0e5cc"/><circle cx="27" cy="-80" r="26" fill="#f0e5cc"/>
+    <circle cx="-27" cy="-80" r="13" fill="#293b43"/><circle cx="27" cy="-80" r="13" fill="#293b43"/><circle cx="-31" cy="-85" r="4" fill="#fff"/><circle cx="23" cy="-85" r="4" fill="#fff"/>
+    <path d="M-9 -60L0 -43L9 -60Z" fill="#b9914f"/>
+    <path d="M-53 -30Q-72 11 -39 47M53 -30Q72 11 39 47" fill="none" stroke="#796249" stroke-width="12" stroke-linecap="round"/>
+    <path d="M-25 1L-13 13L0 1M1 25L13 37L26 25M-19 49L-8 59L3 49" fill="none" stroke="#d8c6ab" stroke-width="5"/>
+    <path d="M-20 61L-24 83M-24 79L-35 85M-24 79L-14 85M22 61L25 83M25 79L15 85M25 79L36 85" fill="none" stroke="#796249" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

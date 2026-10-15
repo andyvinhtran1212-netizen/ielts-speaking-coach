@@ -1,0 +1,214 @@
+{
+  "slug": "the-art-of-map-making",
+  "review_notes": "Dịch đủ toàn bài, bổ sung câu về đội khảo sát bị thiếu trong bản cũ. Giữ khái niệm phép chiếu, kinh tuyến, phương vị và tam giác đạc, không thêm quốc tịch hiện đại vào nhân vật lịch sử.",
+  "illustration_brief": "Quả địa cầu có lưới kinh vĩ tuyến cạnh bản đồ đường bờ cách điệu và la bàn; không ghi quốc gia hay đặt sơ đồ đáp án.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Mỗi bản đồ đều có một sự sai lệch nhỏ.",
+      [
+        "tells a small lie",
+        "đều có một sự sai lệch nhỏ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Khi nhà địa lý người Flanders Gerardus Mercator công bố phép chiếu nổi tiếng năm 1569, ông biết không thể trải quả địa cầu tròn lên giấy phẳng mà không làm biến dạng điều gì đó.",
+      [
+        "his famous projection",
+        "phép chiếu nổi tiếng"
+      ],
+      [
+        "without distorting something",
+        "mà không làm biến dạng điều gì đó"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Thách thức của ngành bản đồ qua nhiều thế kỷ là quyết định giữ lại sự thật nào và hy sinh sự thật nào.",
+      [
+        "cartography",
+        "ngành bản đồ"
+      ],
+      [
+        "which truths to keep and which to sacrifice",
+        "giữ lại sự thật nào và hy sinh sự thật nào"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Bản đồ sớm nhất được vẽ tay trên giấy da, ghép từ chuyện người lữ hành kể và đường bờ thủy thủ ghi lại khi qua vùng đất xa lạ.",
+      [
+        "drawn by hand on parchment",
+        "vẽ tay trên giấy da"
+      ],
+      [
+        "travellers' tales",
+        "chuyện người lữ hành kể"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Chúng thường đẹp nhưng hiếm khi đáng tin; hai tàu dùng cùng hải đồ vẫn có thể tới những nơi rất khác nhau.",
+      [
+        "rarely reliable",
+        "hiếm khi đáng tin"
+      ],
+      [
+        "the same chart",
+        "cùng hải đồ"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Vấn đề sâu hơn nằm ở chính phép chiếu: mọi cách trải bề mặt cong của Trái Đất ra mặt phẳng đều làm biến dạng diện tích, hình dáng hoặc khoảng cách.",
+      [
+        "the Earth's curved surface",
+        "bề mặt cong của Trái Đất"
+      ],
+      [
+        "area, shape or distance",
+        "diện tích, hình dáng hoặc khoảng cách"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Người làm bản đồ không thể tránh; họ chỉ có thể chọn nơi sai số xuất hiện và đặc điểm nào chấp nhận biến dạng.",
+      [
+        "where the error would fall",
+        "nơi sai số xuất hiện"
+      ],
+      [
+        "which feature they were willing to bend",
+        "đặc điểm nào chấp nhận biến dạng"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Giải pháp của Mercator là một cách xử lý toán học tinh tế.",
+      [
+        "an elegant piece of mathematics",
+        "một cách xử lý toán học tinh tế"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Ông muốn đường có phương vị la bàn không đổi, gọi là đường rhumb, hiện thành đường thẳng để người đi biển giữ một hướng mà không phải chỉnh liên tục.",
+      [
+        "a line of constant compass bearing",
+        "đường có phương vị la bàn không đổi"
+      ],
+      [
+        "a straight line",
+        "đường thẳng"
+      ],
+      [
+        "without constant correction",
+        "mà không phải chỉnh liên tục"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Để làm vậy, ông giữ kinh tuyến song song thay vì cho chúng gặp nhau tại hai cực.",
+      [
+        "the meridians parallel",
+        "kinh tuyến song song"
+      ],
+      [
+        "at the poles",
+        "tại hai cực"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Điều này phóng lớn mạnh các vùng đất xa về phía bắc, khiến Greenland trông to như lục địa; bù lại, phép chiếu làm định hướng trên biển đơn giản đến bất ngờ và nhanh chóng trở thành hải đồ tiêu chuẩn cho chuyến đi đại dương.",
+      [
+        "stretched distant northern lands enormously",
+        "phóng lớn mạnh các vùng đất xa về phía bắc"
+      ],
+      [
+        "sea navigation",
+        "định hướng trên biển"
+      ],
+      [
+        "the standard chart",
+        "hải đồ tiêu chuẩn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Trên đất liền, độ chính xác có được từ phương pháp khác.",
+      [
+        "On land",
+        "Trên đất liền"
+      ],
+      [
+        "accuracy",
+        "độ chính xác"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Bằng cách đo một mạng lưới tam giác, kỹ thuật gọi là tam giác đạc, người khảo sát có thể xác định đáng tin cậy khoảng cách và vị trí trên cả quốc gia.",
+      [
+        "a network of triangles",
+        "một mạng lưới tam giác"
+      ],
+      [
+        "triangulation",
+        "tam giác đạc"
+      ],
+      [
+        "fix distances and positions reliably",
+        "xác định đáng tin cậy khoảng cách và vị trí"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Các đội được cử đi khảo sát biên giới, sông và núi; số đo của họ biến phác họa thô thành bản đồ đáng tin cậy.",
+      [
+        "survey borders, rivers and mountains",
+        "khảo sát biên giới, sông và núi"
+      ],
+      [
+        "rough sketches",
+        "phác họa thô"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Bản đồ ngày nay được tạo từ vệ tinh và phần mềm, nhưng nguyên lý cốt lõi không đổi.",
+      [
+        "satellites and software",
+        "vệ tinh và phần mềm"
+      ],
+      [
+        "the central principle",
+        "nguyên lý cốt lõi"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Bản đồ không đơn thuần sao chép thế giới; nó là lựa chọn có chủ đích về điều cần truyền đạt và, một cách âm thầm, về điều có thể được phép biến mất.",
+      [
+        "a deliberate choice",
+        "lựa chọn có chủ đích"
+      ],
+      [
+        "what to convey",
+        "điều cần truyền đạt"
+      ],
+      [
+        "allowed to disappear",
+        "được phép biến mất"
+      ]
+    ]
+  ],
+  "source_sha256": "7fdd6afa76d4faf81295084d5f22f8323bf537698227803d7ceeddc00e29b582",
+  "expected_translation_sha256": "332cbaa39ab9d3f31f23ecae385e5e4b1df7326763d03cedfe89bdf72128d4c2",
+  "illustration": {
+    "src": "/reading-illustrations/exp-map-making-scene.svg",
+    "alt": "Quả địa cầu có lưới kinh vĩ tuyến cạnh bản đồ cách điệu và hoa gió.",
+    "caption": "Từ thế giới ba chiều đến mặt bản đồ."
+  }
+}

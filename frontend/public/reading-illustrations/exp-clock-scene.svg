@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Những chiếc đồng hồ</title><desc id="desc">Đồng hồ quả lắc treo tường cạnh đồng hồ nhỏ để bàn; cả hai có hai kim trên mặt số.</desc>
+  <rect width="800" height="400" rx="24" fill="#f2f0e6"/>
+  <rect x="169" y="42" width="202" height="316" rx="42" fill="#aa825e" stroke="#796249" stroke-width="6"/>
+  <circle cx="270" cy="143" r="75" fill="#fafbf6" stroke="#796249" stroke-width="5"/>
+  <g stroke="#796249" stroke-width="4"><path d="M270 78V91M270 195V208M205 143H218M322 143H335M223 96L232 106M308 180L317 190M223 190L232 180M308 106L317 96"/></g>
+  <path d="M270 143V108M270 143L307 163" stroke="#293b43" stroke-width="8" stroke-linecap="round"/><circle cx="270" cy="143" r="6" fill="#293b43"/>
+  <rect x="218" y="236" width="105" height="98" rx="16" fill="#ede7d4" stroke="#796249" stroke-width="4"/><path d="M270 244V292" stroke="#796249" stroke-width="7"/><circle cx="270" cy="302" r="22" fill="#d3b26d" stroke="#9b7958" stroke-width="3"/>
+  <rect x="462" y="319" width="245" height="26" rx="5" fill="#aa825e"/>
+  <g transform="translate(581 237)"><path d="M-56 50L-70 77M56 50L70 77" stroke="#796249" stroke-width="10" stroke-linecap="round"/><circle r="72" fill="#80aaa0" stroke="#3d8275" stroke-width="5"/><circle r="59" fill="#fafbf6"/><path d="M0 -49V-40M0 40V49M-49 0H-40M40 0H49" stroke="#796249" stroke-width="3"/><path d="M0 0L-17 -29M0 0L29 -13" stroke="#293b43" stroke-width="7" stroke-linecap="round"/><circle r="5" fill="#293b43"/></g>
+  <path d="M482 134Q465 120 472 105M680 134Q697 120 690 105" fill="none" stroke="#b6d0b3" stroke-width="5" stroke-linecap="round"/>
+</svg>

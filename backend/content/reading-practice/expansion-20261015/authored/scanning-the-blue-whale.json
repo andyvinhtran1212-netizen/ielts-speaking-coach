@@ -1,0 +1,190 @@
+{
+  "slug": "scanning-the-blue-whale",
+  "review_notes": "Phân biệt cá voi với cá mập; giữ tên krill, không dịch thành động vật thân mềm. Giữ mức ước lượng và giới hạn up to.",
+  "illustration_brief": "Cá voi xanh bơi dưới làn nước, với đuôi nằm ngang và vài sinh vật nhỏ phía xa.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Cá voi xanh là loài vật lớn nhất từng sống trên Trái Đất.",
+      [
+        "the largest animal that has ever lived",
+        "loài vật lớn nhất từng sống"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nó còn lớn hơn bất kỳ loài khủng long nào.",
+      [
+        "bigger than any dinosaur",
+        "lớn hơn bất kỳ loài khủng long nào"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Người khổng lồ hiền lành này bơi trong các đại dương khắp thế giới.",
+      [
+        "This gentle giant",
+        "Người khổng lồ hiền lành này"
+      ],
+      [
+        "all over the world",
+        "khắp thế giới"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Cá voi xanh rất đồ sộ.",
+      [
+        "huge",
+        "rất đồ sộ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nó có thể dài tới 30 mét — dài hơn ba xe buýt trường học xếp nối đuôi nhau.",
+      [
+        "up to 30 metres long",
+        "dài tới 30 mét"
+      ],
+      [
+        "three school buses in a line",
+        "ba xe buýt trường học xếp nối đuôi nhau"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một con cá voi xanh lớn có thể nặng khoảng 150 tấn.",
+      [
+        "about 150 tonnes",
+        "khoảng 150 tấn"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Ngay cả tim nó cũng khổng lồ: có thể nặng khoảng 180 ki-lô-gam, ngang một con ngựa nhỏ.",
+      [
+        "its heart",
+        "tim nó"
+      ],
+      [
+        "about 180 kilograms",
+        "khoảng 180 ki-lô-gam"
+      ],
+      [
+        "as much as a small horse",
+        "ngang một con ngựa nhỏ"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Riêng lưỡi của nó đã nặng bằng một con voi.",
+      [
+        "Its tongue alone",
+        "Riêng lưỡi của nó"
+      ],
+      [
+        "as heavy as an elephant",
+        "nặng bằng một con voi"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Bạn có thể nghĩ loài vật lớn như vậy ăn thức ăn lớn, nhưng không phải thế.",
+      [
+        "such a big animal",
+        "loài vật lớn như vậy"
+      ],
+      [
+        "but it does not",
+        "nhưng không phải thế"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Cá voi xanh chủ yếu ăn krill, một loài động vật biển rất nhỏ.",
+      [
+        "eats mostly krill",
+        "chủ yếu ăn krill"
+      ],
+      [
+        "a very small sea animal",
+        "một loài động vật biển rất nhỏ"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Krill trông giống tôm tí hon.",
+      [
+        "look like tiny shrimp",
+        "trông giống tôm tí hon"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Một con cá voi xanh có thể ăn nhiều tấn krill trong một ngày.",
+      [
+        "many tonnes of krill",
+        "nhiều tấn krill"
+      ],
+      [
+        "in one day",
+        "trong một ngày"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Để bắt chúng, nó hớp một miệng nước lớn rồi đẩy nước ra, giữ krill bên trong.",
+      [
+        "a huge mouthful of water",
+        "một miệng nước lớn"
+      ],
+      [
+        "pushes the water out",
+        "đẩy nước ra"
+      ],
+      [
+        "keeping the krill inside",
+        "giữ krill bên trong"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ngày nay không dễ tìm thấy cá voi xanh.",
+      [
+        "not easy to find today",
+        "Ngày nay không dễ tìm thấy"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Con người từng săn chúng, khiến số lượng giảm.",
+      [
+        "once hunted them",
+        "từng săn chúng"
+      ],
+      [
+        "their numbers fell",
+        "số lượng giảm"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Giờ chúng được pháp luật bảo vệ, và dần dần người ta lại thấy nhiều cá voi xanh hơn trên biển.",
+      [
+        "kept safe by law",
+        "được pháp luật bảo vệ"
+      ],
+      [
+        "slowly more are seen in the sea again",
+        "dần dần người ta lại thấy nhiều cá voi xanh hơn trên biển"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-blue-whale-scene.svg",
+    "alt": "Cá voi xanh bơi dưới làn nước, với đuôi nằm ngang và vài sinh vật nhỏ phía xa.",
+    "caption": "Một người khổng lồ trong đại dương."
+  },
+  "source_sha256": "05b8a40926c9b8b5c2118b88891e8b3f2498d9ff94ef2c1d55ece5b87a2a7e8c",
+  "expected_translation_sha256": "2618d476eb930e634ad0d77183b3f0f3e57bdcdb19ab40899fd6a8137be3d93f"
+}

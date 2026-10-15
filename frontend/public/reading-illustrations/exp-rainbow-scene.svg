@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cầu vồng sau cơn mưa</title><desc id="desc">Vòng cầu vồng nhiều màu trên đồng cỏ, bên cạnh những đám mây mưa và một người đang ngước nhìn.</desc>
+  <rect width="800" height="400" rx="24" fill="#e8f2f3"/>
+  <g fill="none" stroke-width="16">
+    <path d="M129 300A271 271 0 0 1 671 300" stroke="#c96c5a"/>
+    <path d="M145 300A255 255 0 0 1 655 300" stroke="#dc9b54"/>
+    <path d="M161 300A239 239 0 0 1 639 300" stroke="#e5c969"/>
+    <path d="M177 300A223 223 0 0 1 623 300" stroke="#79a17b"/>
+    <path d="M193 300A207 207 0 0 1 607 300" stroke="#6a9eb9"/>
+    <path d="M209 300A191 191 0 0 1 591 300" stroke="#777aab"/>
+    <path d="M225 300A175 175 0 0 1 575 300" stroke="#9b7eab"/>
+  </g>
+  <path d="M0 305Q170 270 363 307T800 292V400H0Z" fill="#b6d0b3"/>
+  <path d="M0 349Q180 318 365 349T800 332V400H0Z" fill="#8cb39a"/>
+  <g fill="#fff"><ellipse cx="111" cy="93" rx="67" ry="25"/><circle cx="87" cy="76" r="27"/><circle cx="126" cy="65" r="33"/>
+    <ellipse cx="702" cy="125" rx="67" ry="26"/><circle cx="674" cy="104" r="28"/><circle cx="713" cy="94" r="35"/></g>
+  <g stroke="#80aaba" stroke-width="5" stroke-linecap="round"><path d="M666 163L658 181M696 163L688 181M726 163L718 181"/></g>
+  <circle cx="457" cy="301" r="13" fill="#e8bc94"/>
+  <path d="M444 320L437 357H477L471 320Z" fill="#3d8275"/>
+  <path d="M450 355L447 385M465 355L471 385M444 326L425 307M471 327L489 311" fill="none" stroke="#293b43" stroke-width="7" stroke-linecap="round"/>
+</svg>

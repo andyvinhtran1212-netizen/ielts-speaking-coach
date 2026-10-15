@@ -1,0 +1,186 @@
+{
+  "slug": "the-story-of-soap",
+  "review_notes": "Tự dịch từng câu; would diễn đạt thói quen, fat là mỡ, ash là tro. Minh hoạ vật dụng hiện tại, không vẽ sơ đồ nguyên liệu có thể gợi đáp án.",
+  "illustration_brief": "Bánh xà phòng trong khay cạnh bồn rửa và khăn tay.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Bạn dùng gì để rửa tay?",
+      [
+        "wash your hands",
+        "rửa tay"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Phần lớn mọi người dùng xà phòng.",
+      [
+        "Most people",
+        "Phần lớn mọi người"
+      ],
+      [
+        "soap",
+        "xà phòng"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nhưng xà phòng có nguồn gốc từ đâu?",
+      [
+        "where does soap come from",
+        "xà phòng có nguồn gốc từ đâu"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Câu chuyện của nó rất lâu đời, lâu hơn nhiều so với bạn nghĩ.",
+      [
+        "much older than you may think",
+        "lâu hơn nhiều so với bạn nghĩ"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Người cổ đại đã làm xà phòng từ khoảng năm 2800 trước Công nguyên.",
+      [
+        "Ancient people",
+        "Người cổ đại"
+      ],
+      [
+        "about 2800 BC",
+        "khoảng năm 2800 trước Công nguyên"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Người Babylon thuộc những người đầu tiên làm việc đó.",
+      [
+        "The Babylonians",
+        "Người Babylon"
+      ],
+      [
+        "some of the first",
+        "thuộc những người đầu tiên"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Họ dùng mỡ và tro để làm xà phòng.",
+      [
+        "fat and ash",
+        "mỡ và tro"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Họ thường đun mỡ trong nước.",
+      [
+        "would boil",
+        "thường đun"
+      ],
+      [
+        "the fat in water",
+        "mỡ trong nước"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Sau đó họ cho tro củi vào nồi.",
+      [
+        "wood ash",
+        "tro củi"
+      ],
+      [
+        "the pot",
+        "nồi"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Hỗn hợp mỡ và tro này có thể làm sạch đồ vật rất hiệu quả.",
+      [
+        "mix of fat and ash",
+        "Hỗn hợp mỡ và tro"
+      ],
+      [
+        "clean things very well",
+        "làm sạch đồ vật rất hiệu quả"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Ban đầu, người ta không dùng xà phòng để tắm rửa cơ thể.",
+      [
+        "did not use soap",
+        "không dùng xà phòng"
+      ],
+      [
+        "wash their bodies",
+        "tắm rửa cơ thể"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Họ dùng nó để làm sạch len và vải trong nhà.",
+      [
+        "clean wool and cloth",
+        "làm sạch len và vải"
+      ],
+      [
+        "in their homes",
+        "trong nhà"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Sau này, người ta nhận thấy xà phòng cũng dịu nhẹ với da.",
+      [
+        "gentle on the skin",
+        "dịu nhẹ với da"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Vì thế họ bắt đầu dùng nó để rửa tay và tắm hằng ngày.",
+      [
+        "wash their hands and bodies",
+        "rửa tay và tắm"
+      ],
+      [
+        "every day",
+        "hằng ngày"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ngày nay, xà phòng rẻ và dễ mua ở bất kỳ cửa hàng nào.",
+      [
+        "cheap and easy to buy",
+        "rẻ và dễ mua"
+      ],
+      [
+        "any shop",
+        "bất kỳ cửa hàng nào"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nhưng việc làm xà phòng vẫn dựa trên những nguyên lý cũ từ xa xưa.",
+      [
+        "the same old ideas",
+        "những nguyên lý cũ"
+      ],
+      [
+        "from long ago",
+        "từ xa xưa"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-soap-sink-scene.svg",
+    "alt": "Bánh xà phòng trong khay cạnh bồn rửa và khăn tay.",
+    "caption": "Một đồ dùng quen thuộc trong sinh hoạt."
+  },
+  "source_sha256": "7ecd2f623815c436482d070fd239bebca53216e1985a9cb9a381e1add3178338",
+  "expected_translation_sha256": "1c461b770942aebe36e9668bccda223f99e5e139bb4a43ecb8630cddc43d8cc0"
+}

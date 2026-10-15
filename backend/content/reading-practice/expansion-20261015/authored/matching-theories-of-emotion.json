@@ -1,0 +1,270 @@
+{
+  "slug": "matching-theories-of-emotion",
+  "review_notes": "Arousal là kích hoạt sinh lý, không mặc định cảm xúc hưng phấn. Giữ tách biệt chuỗi nhân quả của từng học thuyết; không vẽ sơ đồ kết luận trước khi chữa bài.",
+  "illustration_brief": "Một người dừng ở mép vỉa hè khi một xe đang đi tới, với vạch sang đường ở phía trước.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Một người bước xuống khỏi vỉa hè, nghe còi rồi đứng sững lại có lẽ sẽ nói sau đó rằng nỗi sợ khiến tim đập thình thịch.",
+      [
+        "steps off a kerb",
+        "bước xuống khỏi vỉa hè"
+      ],
+      [
+        "hears a horn and freezes",
+        "nghe còi rồi đứng sững lại"
+      ],
+      [
+        "fear made the heart pound",
+        "nỗi sợ khiến tim đập thình thịch"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Thế nhưng thứ tự mà lời kể ấy hàm ý — cảm giác trước, mạch đập nhanh sau — chính là điều một thế kỷ nghiên cứu cảm xúc đã đặt nghi vấn.",
+      [
+        "first the feeling, then the racing pulse",
+        "cảm giác trước, mạch đập nhanh sau"
+      ],
+      [
+        "called into question",
+        "đặt nghi vấn"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Cảm xúc thực sự bắt đầu ở đâu trong chuỗi nối kích thích, cơ thể và tâm trí có ý thức là vấn đề được các nhà tâm lý học trả lời rất khác nhau.",
+      [
+        "a stimulus",
+        "kích thích"
+      ],
+      [
+        "the conscious mind",
+        "tâm trí có ý thức"
+      ],
+      [
+        "strikingly different ways",
+        "rất khác nhau"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Câu trả lời có hệ thống sớm nhất, được William James và bác sĩ Đan Mạch Carl Lange độc lập đưa ra vào những năm 1880, đảo ngược lẽ thường.",
+      [
+        "advanced independently",
+        "độc lập đưa ra"
+      ],
+      [
+        "inverted common sense",
+        "đảo ngược lẽ thường"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Theo họ, cảnh đáng sợ trước hết kích hoạt phản ứng cơ thể — thở nhanh, một đợt adrenaline, cơ căng lên — và cảm xúc có ý thức đơn giản là cách tâm trí đọc những thay đổi ấy.",
+      [
+        "a bodily reaction",
+        "phản ứng cơ thể"
+      ],
+      [
+        "quickened breathing",
+        "thở nhanh"
+      ],
+      [
+        "the mind's reading of those changes",
+        "cách tâm trí đọc những thay đổi ấy"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Theo cách nói tóm gọn, ta không run vì sợ; ta sợ vì run.",
+      [
+        "We do not tremble because we are afraid",
+        "ta không run vì sợ"
+      ],
+      [
+        "we are afraid because we tremble",
+        "ta sợ vì run"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Trong bức tranh này, mỗi cảm xúc riêng biệt tương ứng với một kiểu phản ứng sinh lý riêng.",
+      [
+        "Each distinct emotion",
+        "mỗi cảm xúc riêng biệt"
+      ],
+      [
+        "its own distinct pattern of physiological response",
+        "một kiểu phản ứng sinh lý riêng"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Walter Cannon, sau có Philip Bard tham gia, thấy điều này khó tin.",
+      [
+        "joined later by Philip Bard",
+        "sau có Philip Bard tham gia"
+      ],
+      [
+        "implausible",
+        "khó tin"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Ông nhận thấy sợ hãi, giận dữ và cả phấn khích đi kèm biến động bên trong khá giống nhau, nên chỉ riêng phản ứng cơ thể khó có thể phân biệt cảm xúc này với cảm xúc khác.",
+      [
+        "fear, rage and even excitement",
+        "sợ hãi, giận dữ và cả phấn khích"
+      ],
+      [
+        "the body's response",
+        "phản ứng cơ thể"
+      ],
+      [
+        "distinguish one emotion from another",
+        "phân biệt cảm xúc này với cảm xúc khác"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Thay vào đó, ông đề xuất rằng kích thích đến não gửi tín hiệu đồng thời theo hai đường — một tạo sự kích hoạt cơ thể, đường kia tạo cảm giác có ý thức — để cả hai đến cùng nhau thay vì cái này gây ra cái kia.",
+      [
+        "simultaneously down two routes",
+        "đồng thời theo hai đường"
+      ],
+      [
+        "the bodily arousal",
+        "sự kích hoạt cơ thể"
+      ],
+      [
+        "rather than one causing the other",
+        "thay vì cái này gây ra cái kia"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Lập trường thứ ba xuất hiện năm 1962, khi Stanley Schachter và Jerome Singer cho rằng sự kích hoạt và diễn giải phải kết hợp.",
+      [
+        "A third position",
+        "Lập trường thứ ba"
+      ],
+      [
+        "arousal and interpretation must combine",
+        "sự kích hoạt và diễn giải phải kết hợp"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Trong thí nghiệm của họ, tình nguyện viên được tiêm chất kích thích rồi ở cùng một diễn viên cư xử vui vẻ hoặc tức giận; người tiếp xúc sự vui vẻ báo cáo thấy hạnh phúc, còn người tiếp xúc cơn giận báo cáo bực bội, dù có cùng trạng thái sinh lý.",
+      [
+        "an injection of a stimulant",
+        "tiêm chất kích thích"
+      ],
+      [
+        "either cheerfully or angrily",
+        "vui vẻ hoặc tức giận"
+      ],
+      [
+        "an identical physiological state",
+        "cùng trạng thái sinh lý"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Họ kết luận cảm xúc cần hai yếu tố: trạng thái kích hoạt và một nhãn nhận thức do hoàn cảnh xung quanh cung cấp.",
+      [
+        "two factors",
+        "hai yếu tố"
+      ],
+      [
+        "a state of arousal",
+        "trạng thái kích hoạt"
+      ],
+      [
+        "a cognitive label",
+        "một nhãn nhận thức"
+      ]
+    ],
+    [
+      "p5-s1",
+      "E — Nghiên cứu gần đây hơn đẩy yếu tố nhận thức lên sớm hơn nữa.",
+      [
+        "the cognitive element",
+        "yếu tố nhận thức"
+      ],
+      [
+        "earlier still",
+        "sớm hơn nữa"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Richard Lazarus cho rằng ngay cả phản ứng cơ thể ban đầu cũng được định hình bởi sự đánh giá — một nhận định nhanh, thường vô thức về việc một sự kiện là đe dọa, đáng đón nhận hay không liên quan đến mục tiêu cá nhân.",
+      [
+        "appraisal",
+        "sự đánh giá"
+      ],
+      [
+        "often unconscious",
+        "thường vô thức"
+      ],
+      [
+        "threatening, welcome or irrelevant",
+        "đe dọa, đáng đón nhận hay không liên quan"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Theo cách hiểu này, đánh giá không chỉ đặt tên cho một trạng thái kích hoạt đã diễn ra mà còn góp phần khởi động nó, nên hai người gặp cùng sự kiện có thể phản ứng rất khác ngay từ khoảnh khắc đầu.",
+      [
+        "an arousal already underway",
+        "một trạng thái kích hoạt đã diễn ra"
+      ],
+      [
+        "helps to set it off",
+        "góp phần khởi động nó"
+      ],
+      [
+        "from the very first instant",
+        "ngay từ khoảnh khắc đầu"
+      ]
+    ],
+    [
+      "p6-s1",
+      "F — Chưa cách lý giải nào thay thế hoàn toàn các cách khác, và giới lý thuyết hiện nay thường coi chúng là mô tả các giai đoạn khác nhau của một quá trình nhanh thay vì những lời giải cạnh tranh cho toàn bộ.",
+      [
+        "wholly displaced the others",
+        "thay thế hoàn toàn các cách khác"
+      ],
+      [
+        "different stages of one rapid process",
+        "các giai đoạn khác nhau của một quá trình nhanh"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Liệu nên hiểu cảm xúc được cảm nhận là nguyên nhân, hệ quả hay bạn đồng hành không thể tách rời của phản ứng cơ thể vẫn là câu hỏi mà thú vị thay, bằng chứng còn chỉ theo nhiều hướng.",
+      [
+        "its consequence",
+        "hệ quả"
+      ],
+      [
+        "its inseparable partner",
+        "bạn đồng hành không thể tách rời"
+      ],
+      [
+        "still points in more than one direction",
+        "còn chỉ theo nhiều hướng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-street-pause-scene.svg",
+    "alt": "Một người dừng ở mép vỉa hè khi một xe đang đi tới, với vạch sang đường ở phía trước.",
+    "caption": "Một tình huống gợi suy nghĩ về phản ứng và cảm xúc."
+  },
+  "source_sha256": "e54dcdf9c59c04fb92c5f3a6e43abec75962e7d309f7b7d7e60430534cfb84e7",
+  "expected_translation_sha256": "e191099800659ec3c8cb33ee2915a0429445fb50d6d7aed901e11e22ce3938db"
+}

@@ -1,0 +1,202 @@
+{
+  "slug": "the-lost-art-of-navigation",
+  "review_notes": "Phân biệt latitude/vĩ độ với longitude/kinh độ; chart là hải đồ, swell là sóng dâng lan truyền, chronometer là đồng hồ chính xác. Hình không vẽ công thức thời gian hoặc chỉ vị trí bằng sao.",
+  "illustration_brief": "Thuyền nhỏ trên đại dương dưới những ngôi sao không gắn nhãn hoặc tọa độ.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1769, người dẫn đường từ đảo Raiatea ở Thái Bình Dương tham gia đoàn thám hiểm châu Âu và dẫn thủy thủ qua biển rộng mà hoàn toàn không dùng hải đồ hay dụng cụ.",
+      [
+        "a navigator",
+        "người dẫn đường"
+      ],
+      [
+        "no charts and no instruments at all",
+        "hoàn toàn không dùng hải đồ hay dụng cụ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Kỹ năng ấy chỉ tới sự thật người đi hiện đại dễ quên: phần lớn lịch sử, định hướng qua đại dương mênh mông dựa vào trí nhớ, quan sát và khả năng đọc thế giới tự nhiên phi thường.",
+      [
+        "memory, observation",
+        "trí nhớ, quan sát"
+      ],
+      [
+        "an extraordinary reading of the natural world",
+        "khả năng đọc thế giới tự nhiên phi thường"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Hành trình xa khả thi vì người tìm đường giỏi học đọc bầu trời.",
+      [
+        "Long-distance voyages",
+        "Hành trình xa"
+      ],
+      [
+        "read the sky",
+        "đọc bầu trời"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Độ cao ngôi sao quen trên chân trời cho biết vĩ độ, vị trí bắc–nam của tàu, và dấu hiệu thiên thể ấy được ghi nhớ qua nhiều năm tập luyện.",
+      [
+        "above the horizon",
+        "trên chân trời"
+      ],
+      [
+        "latitude",
+        "vĩ độ"
+      ],
+      [
+        "its north-south position",
+        "vị trí bắc–nam của tàu"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Người dẫn đường Polynesia thêm dấu hiệu châu Âu chưa tin: cảm hướng sóng đại dương dưới thân tàu, nhìn chim biển bay về đất xa.",
+      [
+        "the direction of the ocean swell",
+        "hướng sóng đại dương"
+      ],
+      [
+        "beneath the hull",
+        "dưới thân tàu"
+      ],
+      [
+        "the flight of seabirds toward distant land",
+        "chim biển bay về đất xa"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nhưng một vấn đề đánh bại cả thủy thủ giỏi nhất.",
+      [
+        "One problem",
+        "một vấn đề"
+      ],
+      [
+        "even the finest sailors",
+        "cả thủy thủ giỏi nhất"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Trong khi vĩ độ tìm khá dễ, kinh độ — vị trí đông–tây — gần như không thể đo.",
+      [
+        "latitude",
+        "vĩ độ"
+      ],
+      [
+        "longitude",
+        "kinh độ"
+      ],
+      [
+        "the east-west position",
+        "vị trí đông–tây"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Thủy thủ chỉ ước đã đi xa bao nhiêu, chưa dụng cụ nào xác định con số chắc chắn.",
+      [
+        "estimate how far they had travelled",
+        "ước đã đi xa bao nhiêu"
+      ],
+      [
+        "fix the figure with confidence",
+        "xác định con số chắc chắn"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Tàu mất và hạm đội mắc cạn đơn giản vì không ai biết thật sự ở xa về đông hay tây bao nhiêu.",
+      [
+        "Ships were lost",
+        "Tàu mất"
+      ],
+      [
+        "fleets ran aground",
+        "hạm đội mắc cạn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Đột phá không từ sao mà từ đồng hồ.",
+      [
+        "not from the stars but from a clock",
+        "không từ sao mà từ đồng hồ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Sau khi chính phủ treo giải lớn cho lời giải, thợ mộc Anh John Harrison dành nhiều thập kỷ làm đồng hồ hàng hải giữ giờ chính xác cả trên boong lắc lư.",
+      [
+        "an English carpenter",
+        "thợ mộc Anh"
+      ],
+      [
+        "a marine chronometer",
+        "đồng hồ hàng hải"
+      ],
+      [
+        "on a rolling deck",
+        "trên boong lắc lư"
+      ]
+    ],
+    [
+      "p4-s3",
+      "So giờ trên tàu với cảng nhà, người dẫn đường tính được bao nhiêu dải kinh tuyến nằm giữa, cuối cùng xác định kinh độ.",
+      [
+        "the time aboard ship",
+        "giờ trên tàu"
+      ],
+      [
+        "the home port",
+        "cảng nhà"
+      ],
+      [
+        "bands of meridian",
+        "dải kinh tuyến"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Từ đó, hệ vệ tinh khiến nỗ lực ấy có vẻ gần như phép màu vì quá khó.",
+      [
+        "Satellite systems",
+        "hệ vệ tinh"
+      ],
+      [
+        "almost magical in its difficulty",
+        "gần như phép màu vì quá khó"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Nhưng nhiều tri thức cũ đang âm thầm mất đi, dù một số ít cộng đồng Thái Bình Dương cố khôi phục nghệ thuật trước khi mất hẳn.",
+      [
+        "older knowledge",
+        "tri thức cũ"
+      ],
+      [
+        "revive the art",
+        "khôi phục nghệ thuật"
+      ],
+      [
+        "before it slips away entirely",
+        "trước khi mất hẳn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-night-navigation-scene.svg",
+    "alt": "Thuyền nhỏ trên đại dương dưới những ngôi sao không gắn nhãn hoặc tọa độ.",
+    "caption": "Quan sát bầu trời và mặt biển để tìm đường."
+  },
+  "source_sha256": "0dac62760072e8c8da0290a291694a2c880218c3877b2c95dfdb6749770384a7",
+  "expected_translation_sha256": "cf2d9ac814e26cfedb8b2c3b129913ab1341a43832161fdd30aec5bae2c24176"
+}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Tra cứu và ghi nhớ thông tin</title><desc id="desc">Người ngồi trước máy tính có biểu tượng tìm kiếm; sổ ghi chép và những thẻ thông tin nằm cạnh bàn.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <rect x="327" y="92" width="270" height="168" rx="13" fill="#d6e8eb" stroke="#597d7c" stroke-width="7"/>
+  <rect x="350" y="115" width="222" height="120" rx="8" fill="#fff"/>
+  <rect x="372" y="137" width="177" height="30" rx="15" fill="#edf5f2" stroke="#b6d0b3" stroke-width="3"/>
+  <circle cx="395" cy="151" r="8" stroke="#3d8275" stroke-width="3" fill="none"/><path d="M400 157L406 163" stroke="#3d8275" stroke-width="3"/>
+  <path d="M376 188H545M376 204H519M376 220H535" stroke="#b8cfc7" stroke-width="5" stroke-linecap="round"/>
+  <path d="M461 260V293M418 295H507" stroke="#597d7c" stroke-width="9" stroke-linecap="round"/>
+  <path d="M93 301H709V326H93Z" fill="#aa825e"/>
+  <circle cx="217" cy="171" r="38" fill="#e8bc94"/><path d="M180 172Q165 120 209 116Q253 107 257 148L241 136Q211 161 180 154Z" fill="#293b43"/>
+  <path d="M185 213Q214 198 245 215L269 301H158Z" fill="#3d8275"/><path d="M242 231L287 283L358 291" fill="none" stroke="#e8bc94" stroke-width="15" stroke-linecap="round"/>
+  <path d="M507 275L575 259L648 288L576 307Z" fill="#fafbf6" stroke="#9baba6" stroke-width="3"/><path d="M575 263V301M527 279L561 271M593 279L627 291" stroke="#b6d0b3" stroke-width="3"/>
+  <g fill="#f1d599" stroke="#b9914f" stroke-width="2"><rect x="651" y="106" width="68" height="49" rx="5" transform="rotate(8 651 106)"/><rect x="91" y="71" width="65" height="48" rx="5" transform="rotate(-8 91 71)"/></g>
+</svg>

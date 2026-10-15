@@ -1,0 +1,166 @@
+{
+  "slug": "completion-how-honey-is-made",
+  "review_notes": "Phân biệt mật hoa với mật ong, ngăn chứa mật với dạ dày tiêu hoá. Dịch nguyên ý quá trình loại nước và niêm kín bằng sáp.",
+  "illustration_brief": "Ong bay tới hoa trong khu vườn, tổ ong gỗ ở xa; không ghi tên cơ quan hoặc các bước sản xuất mật.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Một con ong mật có thể chỉ làm ra khoảng một phần mười hai thìa cà phê mật ong trong cả đời, nhưng cả tổ cùng làm lại tạo ra nhiều kilôgam mỗi năm.",
+      [
+        "one twelfth of a teaspoon",
+        "một phần mười hai thìa cà phê"
+      ],
+      [
+        "in its whole life",
+        "trong cả đời"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Câu chuyện làm ra mật ong là một trong những ví dụ tài tình nhất của tự nhiên về sự phối hợp làm việc.",
+      [
+        "how honey is made",
+        "làm ra mật ong"
+      ],
+      [
+        "teamwork",
+        "sự phối hợp làm việc"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Mọi việc bắt đầu từ những bông hoa.",
+      [
+        "begins with flowers",
+        "bắt đầu từ những bông hoa"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Ong thợ bay từ bông này sang bông khác và hút chất lỏng ngọt gọi là mật hoa.",
+      [
+        "from bloom to bloom",
+        "từ bông này sang bông khác"
+      ],
+      [
+        "nectar",
+        "mật hoa"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nó giữ chất lỏng này trong một cơ quan riêng gọi là dạ dày mật, tách biệt với dạ dày dùng để tiêu hóa thức ăn của chính nó.",
+      [
+        "a separate organ",
+        "một cơ quan riêng"
+      ],
+      [
+        "the honey stomach",
+        "dạ dày mật"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Khi ngăn chứa đã đầy, ong bay về tổ.",
+      [
+        "When it is full",
+        "Khi ngăn chứa đã đầy"
+      ],
+      [
+        "back to the hive",
+        "về tổ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Trở về tổ, công việc thực sự bắt đầu.",
+      [
+        "Back at the hive",
+        "Trở về tổ"
+      ],
+      [
+        "the real work starts",
+        "công việc thực sự bắt đầu"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Mật hoa được truyền bằng miệng từ con ong này sang con ong khác; mỗi lần như vậy, những chất đặc biệt được thêm vào để giúp biến đổi mật hoa.",
+      [
+        "by mouth",
+        "bằng miệng"
+      ],
+      [
+        "special substances",
+        "những chất đặc biệt"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Ở giai đoạn này, mật hoa vẫn rất loãng nên ong dùng cánh quạt để làm nước bay hơi.",
+      [
+        "very thin",
+        "rất loãng"
+      ],
+      [
+        "drive off the water",
+        "làm nước bay hơi"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Nước dần được loại đi, và mật hoa loãng chuyển thành thứ chất lỏng sánh đặc, dính như xi-rô: đó chính là mật ong.",
+      [
+        "the water is removed",
+        "Nước dần được loại đi"
+      ],
+      [
+        "a thick, sticky syrup",
+        "thứ chất lỏng sánh đặc, dính như xi-rô"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Cuối cùng, ong bơm mật vào các ô nhỏ sáu cạnh làm bằng sáp.",
+      [
+        "small six-sided cells",
+        "các ô nhỏ sáu cạnh"
+      ],
+      [
+        "made of wax",
+        "làm bằng sáp"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Khi một ô đầy, chúng đóng kín ô bằng nắp sáp mỏng.",
+      [
+        "seal it",
+        "đóng kín ô"
+      ],
+      [
+        "a thin wax lid",
+        "nắp sáp mỏng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Được đóng kín như vậy, mật ong có thể giữ được nhiều tháng và nuôi cả tổ qua mùa đông lạnh, khi không còn hoa để tìm đến.",
+      [
+        "kept for many months",
+        "giữ được nhiều tháng"
+      ],
+      [
+        "through the cold winter",
+        "qua mùa đông lạnh"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-bees-garden-scene.svg",
+    "alt": "Ong mật bên những bông hoa, với tổ gỗ ở xa.",
+    "caption": "Một góc vườn của những chú ong mật."
+  },
+  "source_sha256": "73a1d01a0572d709ec8b787d881b18c917c4920c0a4d066f702d4c52b2703f4b",
+  "expected_translation_sha256": "51f015b209031b6127ca11cc060a04a30a444567bee1ba745edc8635537ab30b"
+}

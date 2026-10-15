@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cá hồi vân trong dòng sông</title><desc id="desc">Một con cá có dải hồng bên thân bơi trên lớp sỏi dưới nước; trên mặt sông có cây và bờ cỏ.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 99Q150 78 300 102T800 88V400H0Z" fill="#b8d5d7"/>
+  <path d="M0 85Q140 58 263 81L260 109Q120 99 0 127Z" fill="#8cb39a"/>
+  <path d="M571 89Q695 51 800 62V111Q685 96 571 114Z" fill="#8cb39a"/>
+  <g stroke="#ecf6f4" stroke-width="5" fill="none"><path d="M59 157Q116 146 177 157M586 179Q646 168 708 179M225 125Q284 114 345 125"/></g>
+  <path d="M287 235Q352 167 504 215L569 189L553 233L572 273L507 249Q359 301 287 235Z" fill="#779f94" stroke="#355f60" stroke-width="5"/>
+  <path d="M297 239Q394 216 504 238" fill="none" stroke="#d6938e" stroke-width="15"/>
+  <path d="M368 192L406 164L424 191M380 278L420 297L430 272" fill="#6e8d85" stroke="#355f60" stroke-width="3"/>
+  <circle cx="320" cy="226" r="6" fill="#293b43"/>
+  <path d="M343 208Q357 235 343 263" stroke="#355f60" stroke-width="3" fill="none"/>
+  <g fill="#355f60"><circle cx="374" cy="218" r="3"/><circle cx="397" cy="209" r="3"/><circle cx="429" cy="219" r="3"/><circle cx="451" cy="214" r="3"/><circle cx="479" cy="227" r="3"/><circle cx="388" cy="256" r="3"/><circle cx="443" cy="251" r="3"/></g>
+  <path d="M0 360Q230 326 400 356T800 347V400H0Z" fill="#c9c6b2"/>
+  <g fill="#9baba6"><ellipse cx="116" cy="365" rx="37" ry="16"/><ellipse cx="211" cy="377" rx="26" ry="12"/><ellipse cx="655" cy="360" rx="46" ry="19"/><ellipse cx="729" cy="385" rx="23" ry="10"/></g>
+  <g stroke="#3d8275" stroke-width="7" fill="none" stroke-linecap="round"><path d="M83 352Q104 298 80 263M100 350Q133 308 124 284M609 347Q583 306 595 279"/></g>
+</svg>

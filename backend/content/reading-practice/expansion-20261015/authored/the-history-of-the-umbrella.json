@@ -1,0 +1,182 @@
+{
+  "slug": "the-history-of-the-umbrella",
+  "review_notes": "Ribs là nan ô, không phải xương sườn; wax là sáp. Phân biệt parasol che nắng với ô đi mưa. Hình gợi vật dụng hiện đại, không tái dựng chất liệu từng thời kỳ.",
+  "illustration_brief": "Một chiếc ô mở và ô gấp đặt gần cửa, với vài giọt nước và đôi ủng.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Ô là thứ hàng triệu người mang ngày mưa, nhưng ban đầu không được phát minh để chắn mưa.",
+      [
+        "millions of people carry on rainy days",
+        "hàng triệu người mang ngày mưa"
+      ],
+      [
+        "not invented to keep off the rain",
+        "không được phát minh để chắn mưa"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Câu chuyện trải hàng nghìn năm và bắt đầu dưới nắng chứ không dưới mây.",
+      [
+        "thousands of years",
+        "hàng nghìn năm"
+      ],
+      [
+        "under the sun, not the clouds",
+        "dưới nắng chứ không dưới mây"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ô đầu tiên thực ra là ô che nắng, dùng tạo bóng râm.",
+      [
+        "parasols",
+        "ô che nắng"
+      ],
+      [
+        "used for shade",
+        "dùng tạo bóng râm"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Hơn bốn nghìn năm trước, người ở nơi như Ai Cập và Trung Quốc cổ dùng chúng tránh nắng.",
+      [
+        "More than four thousand years ago",
+        "Hơn bốn nghìn năm trước"
+      ],
+      [
+        "stay out of the sun",
+        "tránh nắng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Không ai biết chính xác người phát minh chiếc đầu tiên.",
+      [
+        "No one knows exactly",
+        "Không ai biết chính xác"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Ô che nắng thường là dấu hiệu địa vị cao: người hầu giữ ô trên một nhân vật quan trọng.",
+      [
+        "a sign of high status",
+        "dấu hiệu địa vị cao"
+      ],
+      [
+        "a servant",
+        "người hầu"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Người Trung Quốc tiến một bước lớn.",
+      [
+        "a big step forward",
+        "tiến một bước lớn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Họ là người đầu tiên làm ô chống nước bằng cách thêm sáp vào giấy, nên ô cũng che được mưa.",
+      [
+        "waterproof umbrellas",
+        "ô chống nước"
+      ],
+      [
+        "adding wax to the paper",
+        "thêm sáp vào giấy"
+      ],
+      [
+        "give shelter in the rain too",
+        "cũng che được mưa"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khung nan mỏng giữ tán ô mở.",
+      [
+        "A frame of thin ribs",
+        "Khung nan mỏng"
+      ],
+      [
+        "held the cover open",
+        "giữ tán ô mở"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nhiều năm ở châu Âu, ô được xem là đồ của phụ nữ.",
+      [
+        "For years in Europe",
+        "Nhiều năm ở châu Âu"
+      ],
+      [
+        "items for women",
+        "đồ của phụ nữ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Điều đó đổi nhờ nhà văn Anh Jonas Hanway, người mang ô khắp nước Anh cho tới khi thành mốt cho nam giới.",
+      [
+        "an English writer",
+        "nhà văn Anh"
+      ],
+      [
+        "a fashion for men",
+        "mốt cho nam giới"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Sau đó, năm 1852, Samuel Fox làm ô vững hơn nhiều với nan thép.",
+      [
+        "in 1852",
+        "năm 1852"
+      ],
+      [
+        "steel ribs",
+        "nan thép"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Ô ngày nay nhẹ và gấp được, đủ nhỏ cho vào túi.",
+      [
+        "lightweight and foldable",
+        "nhẹ và gấp được"
+      ],
+      [
+        "small enough to fit in a bag",
+        "đủ nhỏ cho vào túi"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Từ biểu tượng quyền lực, ô thành vật thiết yếu hằng ngày mà gần như ai cũng sở hữu được.",
+      [
+        "a sign of power",
+        "biểu tượng quyền lực"
+      ],
+      [
+        "an essential everyday object",
+        "vật thiết yếu hằng ngày"
+      ],
+      [
+        "almost anyone can own",
+        "gần như ai cũng sở hữu được"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-umbrella-doorway-scene.svg",
+    "alt": "Một chiếc ô mở và ô gấp đặt gần cửa, với vài giọt nước và đôi ủng.",
+    "caption": "Vật dụng quen thuộc trong ngày mưa."
+  },
+  "source_sha256": "9a672f540b99a53ee3f8c3fb908488af6aa6a129351482db0d325d2b687e2441",
+  "expected_translation_sha256": "e99f0d92cf6304aebc1727f63b29ca134737f2ac33a364626f9c62f59204821a"
+}

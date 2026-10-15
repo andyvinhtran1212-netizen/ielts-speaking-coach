@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Đồ dùng chăm sóc răng</title><desc id="desc">Bàn chải, tuýp kem và cốc trên kệ phòng tắm, cạnh hình chiếc răng đơn giản trong gương.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <rect x="80" y="42" width="300" height="250" rx="36" fill="#d6e8eb" stroke="#9baba6" stroke-width="7"/>
+  <path d="M157 101Q176 71 209 90Q227 99 246 90Q280 72 299 101Q316 128 296 170Q283 195 277 226Q265 256 248 220L228 174L209 220Q191 256 179 226Q174 194 159 170Q139 128 157 101Z" fill="#fff" stroke="#8bb6c2" stroke-width="4"/>
+  <path d="M179 120Q190 105 204 113" fill="none" stroke="#d6e8eb" stroke-width="7" stroke-linecap="round"/>
+  <path d="M58 323H745V348H58Z" fill="#aa825e"/>
+  <path d="M454 211H553L544 322H465Z" fill="#e7eee8" stroke="#9baba6" stroke-width="4"/>
+  <g transform="rotate(-12 491 198)"><rect x="483" y="116" width="15" height="178" rx="7" fill="#80aaa0"/><rect x="474" y="91" width="34" height="57" rx="12" fill="#3d8275"/><path d="M475 101H463M475 113H463M475 125H463M475 137H463" stroke="#fafbf6" stroke-width="5"/></g>
+  <path d="M592 179H653L669 303H579Z" fill="#e5e8dc" stroke="#9baba6" stroke-width="4"/>
+  <rect x="588" y="303" width="72" height="20" rx="4" fill="#3d8275"/>
+  <path d="M593 204H649L655 252H586Z" fill="#80aaa0"/><path d="M606 179V160Q621 143 636 161V179" fill="#f8faf7" stroke="#9baba6" stroke-width="4"/>
+  <g fill="#e5c969"><path d="M414 83L421 101L440 108L421 115L414 134L407 115L389 108L407 101Z"/><circle cx="700" cy="144" r="6"/></g>
+</svg>

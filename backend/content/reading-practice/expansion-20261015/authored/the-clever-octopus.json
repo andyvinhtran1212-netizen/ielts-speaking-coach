@@ -1,0 +1,186 @@
+{
+  "slug": "the-clever-octopus",
+  "review_notes": "Dùng cánh tay cho arms của bạch tuộc; giữ các giới hạn some, may và quy thuộc nhận định cho nhà khoa học.",
+  "illustration_brief": "Bạch tuộc với tám cánh tay uốn quanh đá và rong biển.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Bạn có biết bạch tuộc có ba trái tim và máu màu xanh không?",
+      [
+        "three hearts",
+        "ba trái tim"
+      ],
+      [
+        "blue blood",
+        "máu màu xanh"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Loài vật biển này còn rất thông minh.",
+      [
+        "very clever",
+        "rất thông minh"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nó có tám cánh tay mềm và hoàn toàn không có xương.",
+      [
+        "eight soft arms",
+        "tám cánh tay mềm"
+      ],
+      [
+        "no bones at all",
+        "hoàn toàn không có xương"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Các nhà khoa học cho rằng nó có thể là một trong những loài vật thông minh nhất đại dương.",
+      [
+        "Scientists think",
+        "Các nhà khoa học cho rằng"
+      ],
+      [
+        "may be one of the smartest animals",
+        "có thể là một trong những loài vật thông minh nhất"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Bạch tuộc rất giỏi một việc: ẩn nấp.",
+      [
+        "hiding",
+        "ẩn nấp"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nó có thể thay đổi màu sắc và hoa văn trên da chỉ trong một giây.",
+      [
+        "the colour and pattern of its skin",
+        "màu sắc và hoa văn trên da"
+      ],
+      [
+        "in a second",
+        "chỉ trong một giây"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Điều này giúp nó ẩn mình để tránh nguy hiểm.",
+      [
+        "hide from danger",
+        "ẩn mình để tránh nguy hiểm"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Nó có thể trông giống một tảng đá, cát, hoặc thậm chí một loài thực vật.",
+      [
+        "look like",
+        "trông giống"
+      ],
+      [
+        "even a plant",
+        "thậm chí một loài thực vật"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Một con vật săn mồi bơi ngang qua có thể hoàn toàn không nhìn thấy nó.",
+      [
+        "A predator",
+        "Một con vật săn mồi"
+      ],
+      [
+        "may not see it at all",
+        "có thể hoàn toàn không nhìn thấy nó"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Khi cần trốn thoát, bạch tuộc có một mẹo khôn khéo.",
+      [
+        "needs to escape",
+        "cần trốn thoát"
+      ],
+      [
+        "a clever trick",
+        "một mẹo khôn khéo"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nó phun một đám mực đen vào nước.",
+      [
+        "a cloud of black ink",
+        "một đám mực đen"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Nước trở nên tối đen, và bạch tuộc nhanh chóng bơi đi.",
+      [
+        "turns dark",
+        "trở nên tối đen"
+      ],
+      [
+        "swims away fast",
+        "nhanh chóng bơi đi"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Bạch tuộc còn có thể giải những câu đố nhỏ.",
+      [
+        "solve small puzzles",
+        "giải những câu đố nhỏ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Trong các thử nghiệm, một số con đã mở được lọ để lấy thức ăn bên trong.",
+      [
+        "In tests",
+        "Trong các thử nghiệm"
+      ],
+      [
+        "opened jars",
+        "mở được lọ"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Vì không có xương, nó còn có thể lách qua những khe rất nhỏ.",
+      [
+        "Because it has no bones",
+        "Vì không có xương"
+      ],
+      [
+        "squeeze through tiny gaps",
+        "lách qua những khe rất nhỏ"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Vì vậy, lần tới khi nghĩ đến một loài vật thông minh, bạn hãy nhớ đến loài vật kỳ lạ và hiền lành này.",
+      [
+        "next time",
+        "lần tới"
+      ],
+      [
+        "this strange and gentle one",
+        "loài vật kỳ lạ và hiền lành này"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-octopus-scene.svg",
+    "alt": "Bạch tuộc với tám cánh tay uốn quanh đá và rong biển.",
+    "caption": "Khám phá một cư dân linh hoạt của đại dương."
+  },
+  "source_sha256": "e0918e5f5ba397685cf9b324f9c49d0a20c6a0c91a8dabed28171513918e845d",
+  "expected_translation_sha256": "097e037a9cfa6e1180b4176de22ac58672254626700689af4f81d5d281ca1a09"
+}

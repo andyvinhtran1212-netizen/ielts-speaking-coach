@@ -1,0 +1,178 @@
+{
+  "slug": "matching-inventors-and-inventions",
+  "review_notes": "Giữ phân biệt phát minh với cải tiến đèn của Edison. Powered là có động cơ; mould là nấm mốc; thuốc được mô tả theo đoạn đọc, không thêm hướng dẫn sử dụng.",
+  "illustration_brief": "Một máy bay hai tầng cánh nhỏ bay thấp trên bãi cỏ gần bờ biển, bên cạnh sổ phác thảo.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Tháng 12 năm 1903, trên một bãi biển lộng gió ở Bắc Carolina, hai anh em người Mỹ Orville và Wilbur Wright đã thay đổi thế giới.",
+      [
+        "a windy beach",
+        "một bãi biển lộng gió"
+      ],
+      [
+        "two American brothers",
+        "hai anh em người Mỹ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Sau nhiều năm chế tạo tàu lượn, họ cho bay chiếc máy bay có động cơ đầu tiên có thể cất lên và được phi công điều khiển hướng.",
+      [
+        "building gliders",
+        "chế tạo tàu lượn"
+      ],
+      [
+        "the first powered aircraft",
+        "chiếc máy bay có động cơ đầu tiên"
+      ],
+      [
+        "be steered by a pilot",
+        "được phi công điều khiển hướng"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Chuyến bay chỉ kéo dài mười hai giây, nhưng trong vài thập kỷ, cỗ máy của họ sẽ giúp người bình thường vượt những khoảng cách từng mất nhiều ngày.",
+      [
+        "lasted only twelve seconds",
+        "chỉ kéo dài mười hai giây"
+      ],
+      [
+        "ordinary people",
+        "người bình thường"
+      ],
+      [
+        "had once taken days",
+        "từng mất nhiều ngày"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Hai mươi năm trước đó, Thomas Edison bận rộn với một vấn đề rất khác: ánh sáng.",
+      [
+        "Twenty years earlier",
+        "Hai mươi năm trước đó"
+      ],
+      [
+        "a very different problem",
+        "một vấn đề rất khác"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Người ta thường nói Edison phát minh ra đèn điện, nhưng điều này không hoàn toàn đúng.",
+      [
+        "It is often said",
+        "Người ta thường nói"
+      ],
+      [
+        "not quite true",
+        "không hoàn toàn đúng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Những người khác đã làm ra đèn điện từ trước; điều Edison làm là cải tiến ý tưởng cũ đến khi nó đủ rẻ, an toàn và bền để dùng trong một ngôi nhà bình thường.",
+      [
+        "improve the earlier idea",
+        "cải tiến ý tưởng cũ"
+      ],
+      [
+        "cheap, safe and long-lasting enough",
+        "đủ rẻ, an toàn và bền"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Ngay trước cả đèn của Edison, năm 1876, nhà phát minh sinh tại Scotland Alexander Graham Bell đã chế tạo thiết bị có thể truyền giọng nói con người dọc dây dẫn — điện thoại.",
+      [
+        "the Scottish-born inventor",
+        "nhà phát minh sinh tại Scotland"
+      ],
+      [
+        "along a wire",
+        "dọc dây dẫn"
+      ],
+      [
+        "the telephone",
+        "điện thoại"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Lạ thay, ban đầu nhiều người thấy nó ít hữu ích, coi nó là món đồ chơi thông minh hơn là công cụ nghiêm túc.",
+      [
+        "saw little use for it",
+        "thấy nó ít hữu ích"
+      ],
+      [
+        "a clever toy",
+        "món đồ chơi thông minh"
+      ],
+      [
+        "a serious tool",
+        "công cụ nghiêm túc"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Không phải mọi phát minh lớn đều được lên kế hoạch cẩn thận.",
+      [
+        "Not every great invention",
+        "Không phải mọi phát minh lớn"
+      ],
+      [
+        "carefully planned",
+        "được lên kế hoạch cẩn thận"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Năm 1928, nhà khoa học Anh Alexander Fleming trở về sau kỳ nghỉ và thấy nấm mốc mọc trên chiếc đĩa ông đã quên làm sạch.",
+      [
+        "returned from a holiday",
+        "trở về sau kỳ nghỉ"
+      ],
+      [
+        "mould growing on a dish",
+        "nấm mốc mọc trên chiếc đĩa"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Quanh nấm mốc, vi khuẩn đã chết.",
+      [
+        "Around the mould",
+        "Quanh nấm mốc"
+      ],
+      [
+        "the bacteria had died",
+        "vi khuẩn đã chết"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Tình cờ, ông đã phát hiện penicillin, một loại thuốc có thể chống lại vi khuẩn gây nhiễm trùng.",
+      [
+        "By chance",
+        "Tình cờ"
+      ],
+      [
+        "fight off the bacteria",
+        "chống lại vi khuẩn"
+      ],
+      [
+        "cause infections",
+        "gây nhiễm trùng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-early-flight-scene.svg",
+    "alt": "Một máy bay hai tầng cánh nhỏ bay thấp trên bãi cỏ gần bờ biển, bên cạnh sổ phác thảo.",
+    "caption": "Những thử nghiệm mở ra cách di chuyển mới."
+  },
+  "source_sha256": "64316676f9d199a980981d8e144188cceee46fb3a4c981a9423860aa7138cd21",
+  "expected_translation_sha256": "a7c475ebd5bdce07b1b866ca0e1684fc0f458bbceac26952e1466d7f5200d534"
+}

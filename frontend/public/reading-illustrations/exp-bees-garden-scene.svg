@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Ong trong vườn hoa</title><desc id="desc">Một ong mật có sáu chân bên bông hoa, những bông hoa khác và tổ gỗ ở xa.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 288Q230 241 420 290T800 265V400H0Z" fill="#b6d0b3"/>
+  <g transform="translate(566 199)"><path d="M0 29L67 0L131 29V115H0Z" fill="#caab70" stroke="#9b7958" stroke-width="4"/><path d="M-8 29L67 -8L139 29" fill="none" stroke="#796249" stroke-width="8"/><path d="M0 63H131M0 89H131" stroke="#ab8957" stroke-width="4"/><ellipse cx="65" cy="103" rx="16" ry="12" fill="#63463b"/></g>
+  <g stroke="#3d8275" stroke-width="7" fill="none"><path d="M196 353V197M381 369V279M101 365V282"/><path d="M196 309Q163 272 141 291M381 331Q410 295 428 312M101 334Q77 302 58 316"/></g>
+  <g transform="translate(196 191)" fill="#d69b91"><ellipse cy="-35" rx="20" ry="36"/><ellipse cy="35" rx="20" ry="36"/><ellipse cx="35" rx="36" ry="20"/><ellipse cx="-35" rx="36" ry="20"/><circle r="22" fill="#e5c969"/></g>
+  <g transform="translate(382 271) scale(.65)" fill="#edc78a"><ellipse cy="-35" rx="20" ry="36"/><ellipse cy="35" rx="20" ry="36"/><ellipse cx="35" rx="36" ry="20"/><ellipse cx="-35" rx="36" ry="20"/><circle r="22" fill="#b9914f"/></g>
+  <g transform="translate(101 279) scale(.5)" fill="#9b7eab"><ellipse cy="-35" rx="20" ry="36"/><ellipse cy="35" rx="20" ry="36"/><ellipse cx="35" rx="36" ry="20"/><ellipse cx="-35" rx="36" ry="20"/><circle r="22" fill="#e5c969"/></g>
+  <g transform="translate(344 151) rotate(-12)">
+    <g fill="#fff" fill-opacity=".8" stroke="#9bb9b3" stroke-width="3"><ellipse cx="-13" cy="-33" rx="20" ry="32" transform="rotate(-30 -13 -33)"/><ellipse cx="18" cy="-35" rx="20" ry="32" transform="rotate(27 18 -35)"/></g>
+    <g stroke="#293b43" stroke-width="4" fill="none" stroke-linecap="round"><path d="M-24 8L-39 24L-48 22M-8 16L-12 35L-22 40M10 18L20 34L31 38M-20 -10L-38 -22L-48 -22M0 -14L2 -31L12 -39M20 -9L39 -18L48 -17"/></g>
+    <ellipse rx="43" ry="24" fill="#e5c969" stroke="#293b43" stroke-width="4"/>
+    <path d="M-16 -21V21M4 -23V23" stroke="#63463b" stroke-width="9"/>
+    <circle cx="-43" cy="-1" r="18" fill="#63463b"/><circle cx="-49" cy="-5" r="4" fill="#fff"/>
+    <path d="M-52 -15L-61 -29M-41 -18L-43 -33" fill="none" stroke="#293b43" stroke-width="3"/>
+  </g>
+</svg>

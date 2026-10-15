@@ -1,0 +1,226 @@
+{
+  "slug": "the-economics-of-water-scarcity",
+  "review_notes": "Acre-foot giữ đơn vị gốc để không tự thêm số quy đổi; withdrawals là lượng khai thác, không phải nước tiêu hao hoàn toàn. Externality là ngoại tác, aquifer là tầng chứa nước, regressive là lũy thoái theo gánh nặng thu nhập.",
+  "illustration_brief": "Ruộng và kênh tưới cạnh một cụm nhà nhỏ cùng bể nước, không ghi lưu lượng hoặc giá.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Ở vùng nông nghiệp trọng điểm California, nông dân có lúc trả cho một acre-foot nước ít hơn một hộ chi cho bữa ăn nhà hàng, ngay cả khi giếng cạn và sông thu hẹp.",
+      [
+        "the agricultural heartland of California",
+        "vùng nông nghiệp trọng điểm California"
+      ],
+      [
+        "at times",
+        "có lúc"
+      ],
+      [
+        "wells run dry and rivers shrink",
+        "giếng cạn và sông thu hẹp"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Sự lệch ấy nắm bắt câu đố cốt lõi khi nhà kinh tế nghiên cứu khan hiếm nước: chất thiết yếu nhất cho sự sống lại thường có giá phản ánh giá trị thực ít nhất.",
+      [
+        "water scarcity",
+        "khan hiếm nước"
+      ],
+      [
+        "most essential to life",
+        "thiết yếu nhất cho sự sống"
+      ],
+      [
+        "its real value",
+        "giá trị thực"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Khác đa số tài nguyên, nước từ lâu khó được xem như hàng hóa thông thường.",
+      [
+        "Unlike most resources",
+        "Khác đa số tài nguyên"
+      ],
+      [
+        "an ordinary commodity",
+        "hàng hóa thông thường"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Vì được nhiều người coi là quyền cơ bản, nước thường được chính phủ trợ giá mạnh, và giá thấp từ đó gửi tín hiệu sai tới mọi người dùng.",
+      [
+        "a basic right",
+        "quyền cơ bản"
+      ],
+      [
+        "subsidise it heavily",
+        "trợ giá mạnh"
+      ],
+      [
+        "a misleading signal",
+        "tín hiệu sai"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Khi một lít gần như không tốn gì, động lực tiết kiệm ít, và thị trường không phân bổ được tài nguyên cho cách dùng có giá trị nhất.",
+      [
+        "little incentive to conserve",
+        "động lực tiết kiệm ít"
+      ],
+      [
+        "its most valuable uses",
+        "cách dùng có giá trị nhất"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Hệ quả rất đáng kể, vì riêng nông nghiệp chiếm khoảng 70 phần trăm lượng nước ngọt được khai thác trên thế giới.",
+      [
+        "agriculture alone",
+        "riêng nông nghiệp"
+      ],
+      [
+        "roughly 70 per cent",
+        "khoảng 70 phần trăm"
+      ],
+      [
+        "the world's freshwater withdrawals",
+        "lượng nước ngọt được khai thác trên thế giới"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Hệ quả dễ đoán là nguồn rẻ và dồi dào bị rút nhanh hơn tự nhiên có thể bổ sung.",
+      [
+        "cheap, plentiful supplies",
+        "nguồn rẻ và dồi dào"
+      ],
+      [
+        "faster than nature can possibly replace them",
+        "nhanh hơn tự nhiên có thể bổ sung"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Khó khăn sâu hơn là nước mang các chi phí mà giá hiếm phản ánh.",
+      [
+        "The deeper difficulty",
+        "Khó khăn sâu hơn"
+      ],
+      [
+        "its price rarely captures",
+        "giá hiếm phản ánh"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nhà kinh tế gọi gánh nặng ẩn ấy là ngoại tác: khi một trang trại rút mạnh từ tầng chứa nước chung đến mức làm cạn trữ lượng, hàng xóm và thế hệ tương lai không hề xuất hiện trong giao dịch phải gánh mất mát.",
+      [
+        "an externality",
+        "ngoại tác"
+      ],
+      [
+        "a shared aquifer",
+        "tầng chứa nước chung"
+      ],
+      [
+        "future generations",
+        "thế hệ tương lai"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Hơn nữa, tầng chứa nước bị đẩy quá giới hạn có thể mất hàng thế kỷ để đầy lại, nên thiệt hại được giá thấp hôm nay khuyến khích có thể thực chất thành vĩnh viễn.",
+      [
+        "centuries to refill",
+        "hàng thế kỷ để đầy lại"
+      ],
+      [
+        "effectively permanent",
+        "thực chất thành vĩnh viễn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nhiều cải cách được đề xuất để sửa các tín hiệu méo mó.",
+      [
+        "A range of reforms",
+        "Nhiều cải cách"
+      ],
+      [
+        "distorted signals",
+        "các tín hiệu méo mó"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Một công cụ được bàn nhiều là giá bậc thang tăng dần: người dùng nhiều nhất trả mỗi lít đắt dần, trong khi mức cơ bản nhỏ vẫn rẻ.",
+      [
+        "a rising block tariff",
+        "giá bậc thang tăng dần"
+      ],
+      [
+        "progressively more per litre",
+        "mỗi lít đắt dần"
+      ],
+      [
+        "a small basic allowance",
+        "mức cơ bản nhỏ"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Cách ấy có thể hạn chế lãng phí nhưng đặt câu hỏi khó về công bằng, vì khoản phí nhỏ với hộ giàu có thể mang tính lũy thoái, đè nặng nhất lên người nghèo.",
+      [
+        "curb waste",
+        "hạn chế lãng phí"
+      ],
+      [
+        "regressive",
+        "mang tính lũy thoái"
+      ],
+      [
+        "falling hardest on the poor",
+        "đè nặng nhất lên người nghèo"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Vì vậy, thành công cải cách ít phụ thuộc điều khả thi kỹ thuật hơn là các bên có lợi ích cạnh tranh, từ nông dân tới thành phố, có thống nhất cách phân phối họ coi công bằng hay không.",
+      [
+        "technically feasible",
+        "khả thi kỹ thuật"
+      ],
+      [
+        "competing stakeholders",
+        "các bên có lợi ích cạnh tranh"
+      ],
+      [
+        "a distribution they regard as fair",
+        "cách phân phối họ coi công bằng"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Lời giải bền vững thực sự có lẽ kết hợp định giá với quản lý hợp lý và đầu tư dài hạn, dù chính xác cân bằng thế nào hiện vẫn chưa giải quyết và còn gây tranh cãi sâu sắc.",
+      [
+        "blend pricing with sensible regulation and long-term investment",
+        "kết hợp định giá với quản lý hợp lý và đầu tư dài hạn"
+      ],
+      [
+        "unresolved and deeply contentious",
+        "chưa giải quyết và còn gây tranh cãi sâu sắc"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-water-use-scene.svg",
+    "alt": "Ruộng và kênh tưới cạnh một cụm nhà nhỏ cùng bể nước, không ghi lưu lượng hoặc giá.",
+    "caption": "Chia sẻ một nguồn nước giữa nhiều nhu cầu."
+  },
+  "source_sha256": "4c411282eb083b291cdccfb3ce6d667ab1d73361482e9f85aa531943a9c87bfd",
+  "expected_translation_sha256": "c8bb3b314461dff6e2f4b9edf078ca5aa65ea8c4e5a37e27398023d9de86e1f5"
+}

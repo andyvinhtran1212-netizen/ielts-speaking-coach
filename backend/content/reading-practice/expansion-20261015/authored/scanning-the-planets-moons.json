@@ -1,0 +1,202 @@
+{
+  "slug": "scanning-the-planets-moons",
+  "review_notes": "Moon thường là vệ tinh tự nhiên, còn the Moon là Mặt Trăng; pull là lực hút. Giữ known và may: các số lượng là theo bản nguồn, không tự cập nhật bằng API.",
+  "illustration_brief": "Một hành tinh với các vệ tinh nhỏ trên nền không gian, không có tên, số lượng chuẩn hay tỷ lệ kích thước.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Vệ tinh là một thế giới chuyển động quanh hành tinh, và Hệ Mặt Trời của chúng ta có rất nhiều vệ tinh.",
+      [
+        "travels around a planet",
+        "chuyển động quanh hành tinh"
+      ],
+      [
+        "our Solar System",
+        "Hệ Mặt Trời của chúng ta"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Trái Đất chỉ có một vệ tinh mà con người gọi đơn giản là Mặt Trăng.",
+      [
+        "only one moon",
+        "chỉ có một vệ tinh"
+      ],
+      [
+        "the Moon",
+        "Mặt Trăng"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nó đủ gần để được thấy rõ ban đêm, và lực hút của nó góp phần tạo thủy triều trong đại dương.",
+      [
+        "seen clearly at night",
+        "được thấy rõ ban đêm"
+      ],
+      [
+        "its pull",
+        "lực hút của nó"
+      ],
+      [
+        "create the tides",
+        "tạo thủy triều"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Dù vậy, một vệ tinh là con số nhỏ so với vài hành tinh khác.",
+      [
+        "a small number",
+        "con số nhỏ"
+      ],
+      [
+        "compared with some other planets",
+        "so với vài hành tinh khác"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Hành tinh láng giềng Sao Hỏa có hai vệ tinh nhỏ tên Phobos và Deimos.",
+      [
+        "Our neighbour Mars",
+        "Hành tinh láng giềng Sao Hỏa"
+      ],
+      [
+        "two small moons",
+        "hai vệ tinh nhỏ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Cả hai đều rất nhỏ và có hình dạng gồ ghề, giống đá hơn là quả cầu nhẵn.",
+      [
+        "tiny and rough in shape",
+        "rất nhỏ và có hình dạng gồ ghề"
+      ],
+      [
+        "smooth balls",
+        "quả cầu nhẵn"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Xa hơn nữa, các hành tinh khổng lồ mang nhiều vệ tinh hơn hẳn.",
+      [
+        "Further out",
+        "Xa hơn nữa"
+      ],
+      [
+        "far more moons",
+        "nhiều vệ tinh hơn hẳn"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Sao Mộc, hành tinh lớn nhất, có hơn chín mươi vệ tinh đã biết, và các nhà thiên văn tiếp tục tìm thêm.",
+      [
+        "Jupiter",
+        "Sao Mộc"
+      ],
+      [
+        "more than ninety known moons",
+        "hơn chín mươi vệ tinh đã biết"
+      ],
+      [
+        "keep finding more",
+        "tiếp tục tìm thêm"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Một số vệ tinh của Sao Mộc đặc biệt thu hút các nhà khoa học.",
+      [
+        "especially interest scientists",
+        "đặc biệt thu hút các nhà khoa học"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Vệ tinh Europa được bọc trong lớp vỏ băng dày, và bên dưới lớp băng có thể ẩn một đại dương nước lỏng.",
+      [
+        "a thick crust of ice",
+        "lớp vỏ băng dày"
+      ],
+      [
+        "there may be a hidden ocean",
+        "có thể ẩn một đại dương"
+      ],
+      [
+        "liquid water",
+        "nước lỏng"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Một vệ tinh khác, Ganymede, là vệ tinh lớn nhất toàn Hệ Mặt Trời — còn lớn hơn cả hành tinh Sao Thủy.",
+      [
+        "the largest moon",
+        "vệ tinh lớn nhất"
+      ],
+      [
+        "the planet Mercury",
+        "hành tinh Sao Thủy"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Sao Thổ, nổi tiếng với các vành đai sáng, có nhiều vệ tinh nhất trong mọi hành tinh, với hơn hai trăm bảy mươi vệ tinh đã biết.",
+      [
+        "Saturn",
+        "Sao Thổ"
+      ],
+      [
+        "its bright rings",
+        "các vành đai sáng"
+      ],
+      [
+        "more than two hundred and seventy known moons",
+        "hơn hai trăm bảy mươi vệ tinh đã biết"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Vệ tinh lớn nhất của nó, Titan, có khí quyển dày và các hồ chất lỏng lạnh trên bề mặt.",
+      [
+        "a thick atmosphere",
+        "khí quyển dày"
+      ],
+      [
+        "cold liquid lakes",
+        "các hồ chất lỏng lạnh"
+      ],
+      [
+        "on its surface",
+        "trên bề mặt"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Các nhà nghiên cứu càng quan sát kỹ những thế giới xa xôi này càng tìm thấy nhiều bất ngờ, và số vệ tinh đã biết có thể tiếp tục tăng.",
+      [
+        "The closer researchers look",
+        "Các nhà nghiên cứu càng quan sát kỹ"
+      ],
+      [
+        "the number of known moons",
+        "số vệ tinh đã biết"
+      ],
+      [
+        "may keep on rising",
+        "có thể tiếp tục tăng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-planet-moons-scene.svg",
+    "alt": "Một hành tinh với các vệ tinh nhỏ trên nền không gian, không có tên, số lượng chuẩn hay tỷ lệ kích thước.",
+    "caption": "Những thế giới quay quanh hành tinh."
+  },
+  "source_sha256": "a327a16d91266875845d9533324da0cbb1c3b240730d5aeb5fa25746a7f9f0c8",
+  "expected_translation_sha256": "5a102a656094c312a4312ba38ae938a0de24bdf72af7f195fabaac73c871ab03"
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cá mập trong biển</title><desc id="desc">Cá mập xám bơi giữa vùng nước xanh; các đàn cá nhỏ bơi ở xa và có cây dưới đáy biển.</desc>
+  <rect width="800" height="400" rx="24" fill="#d6e8eb"/>
+  <path d="M0 51Q172 30 362 57T800 41V400H0Z" fill="#b8d5d7"/>
+  <path d="M39 63L150 325L224 325L149 57M419 52L523 300L606 300L516 51" fill="#d6e8eb" fill-opacity=".45"/>
+  <path d="M206 215Q280 161 401 189L435 133L452 192Q510 191 568 209L650 169L618 223L651 269L568 238Q491 284 344 249L302 280L307 237Q251 240 206 215Z" fill="#7799a5" stroke="#4c7180" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M210 218Q307 232 397 235Q495 251 566 232Q483 282 345 249L309 238Q254 241 210 218Z" fill="#edf0e8"/>
+  <circle cx="250" cy="207" r="5" fill="#293b43"/>
+  <path d="M232 229L265 226M288 204L282 222M300 205L294 224M312 207L306 225M324 209L318 227M336 211L330 229" stroke="#4c7180" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <defs><g id="fish" fill="#e5c969"><path d="M0 0Q17 -14 35 0Q17 14 0 0L-12 -12V12Z"/><circle cx="26" cy="-1" r="2" fill="#4c7180"/></g></defs>
+  <use href="#fish" transform="translate(549 94) scale(.7)"/><use href="#fish" transform="translate(611 105) scale(.6)"/><use href="#fish" transform="translate(644 79) scale(.7)"/>
+  <path d="M0 367Q217 341 412 370T800 348V400H0Z" fill="#c9c6b2"/>
+  <g stroke="#3d8275" stroke-width="7" stroke-linecap="round" fill="none"><path d="M92 366Q117 321 95 288M108 370Q139 339 135 311M711 359Q691 323 708 294"/></g>
+</svg>

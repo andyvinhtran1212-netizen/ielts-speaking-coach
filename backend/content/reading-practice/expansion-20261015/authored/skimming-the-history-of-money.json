@@ -1,0 +1,170 @@
+{
+  "slug": "skimming-the-history-of-money",
+  "review_notes": "Giữ barter là trao đổi hàng lấy hàng; paper đoạn D là tiền giấy theo ngữ cảnh, không phải mọi giấy tờ. Không vẽ tiền thật, mệnh giá hoặc dữ liệu thanh toán.",
+  "illustration_brief": "Ví mở với tiền xu, tờ giấy và một thẻ thanh toán không có mệnh giá hay thương hiệu.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Từ lâu, chưa hề có tiền.",
+      [
+        "no money at all",
+        "chưa hề có tiền"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Người ta lấy thứ cần bằng cách đổi đồ.",
+      [
+        "by swapping things",
+        "bằng cách đổi đồ"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nông dân dư ngũ cốc có thể đem một ít đổi cá của ngư dân.",
+      [
+        "too much grain",
+        "dư ngũ cốc"
+      ],
+      [
+        "a fisherman",
+        "ngư dân"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Cách buôn bán này gọi là trao đổi hàng lấy hàng.",
+      [
+        "barter",
+        "trao đổi hàng lấy hàng"
+      ]
+    ],
+    [
+      "p1-s5",
+      "Nó hiệu quả nhưng không dễ.",
+      [
+        "It worked",
+        "Nó hiệu quả"
+      ],
+      [
+        "not easy",
+        "không dễ"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Để giao dịch đơn giản hơn, người ta bắt đầu dùng tiền xu.",
+      [
+        "To make trading simpler",
+        "Để giao dịch đơn giản hơn"
+      ],
+      [
+        "coins",
+        "tiền xu"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Tiền xu kim loại đầu tiên được làm tại vùng đất tên Lydia khoảng năm 600 trước Công nguyên.",
+      [
+        "The first metal coins",
+        "Tiền xu kim loại đầu tiên"
+      ],
+      [
+        "about 600 BC",
+        "khoảng năm 600 trước Công nguyên"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Xu nhỏ và làm bằng kim loại nên dễ mang và đếm.",
+      [
+        "small and made of metal",
+        "nhỏ và làm bằng kim loại"
+      ],
+      [
+        "easy to carry and count",
+        "dễ mang và đếm"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Tiền xu có một vấn đề lớn: nặng và khó mang.",
+      [
+        "one big problem",
+        "một vấn đề lớn"
+      ],
+      [
+        "heavy and hard to carry",
+        "nặng và khó mang"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Người ở Trung Quốc tìm ra lời giải.",
+      [
+        "found an answer",
+        "tìm ra lời giải"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Họ bắt đầu dùng tiền giấy, nhẹ và dễ gấp.",
+      [
+        "paper money",
+        "tiền giấy"
+      ],
+      [
+        "light and easy to fold",
+        "nhẹ và dễ gấp"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Theo thời gian, nó lan sang các nơi khác trên thế giới.",
+      [
+        "Over time",
+        "Theo thời gian"
+      ],
+      [
+        "other parts of the world",
+        "các nơi khác trên thế giới"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Ngày nay nhiều người trả tiền mà không cần tiền xu hay tiền giấy.",
+      [
+        "without coins or paper at all",
+        "mà không cần tiền xu hay tiền giấy"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Họ dùng thẻ nhựa hoặc điện thoại.",
+      [
+        "plastic cards or a phone",
+        "thẻ nhựa hoặc điện thoại"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Đây là tiền bạn không thể cầm trong tay, và nó có thể tiếp tục thay đổi.",
+      [
+        "cannot hold in your hand",
+        "không thể cầm trong tay"
+      ],
+      [
+        "may keep changing",
+        "có thể tiếp tục thay đổi"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-money-wallet-scene.svg",
+    "alt": "Ví mở với tiền xu, tờ giấy và một thẻ thanh toán không có mệnh giá hay thương hiệu.",
+    "caption": "Những hình thức thanh toán trong đời sống."
+  },
+  "source_sha256": "3f26956c3e8174748baa47bfba8914b7ad9f96caca8cec461d068a774c047dd8",
+  "expected_translation_sha256": "4bdd58106442e82eb58951ac2fa9532bfd286ac2b536c3e4e084508d34198fc2"
+}

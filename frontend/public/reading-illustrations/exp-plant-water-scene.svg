@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cây xanh và nước tưới</title><desc id="desc">Cây nhiều lá trong chậu đất cạnh bình tưới, với các giọt nước rơi xuống đất trong chậu.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 338H800V400H0Z" fill="#d8c6ab"/>
+  <path d="M214 246H434L410 360H239Z" fill="#c99660" stroke="#93673f" stroke-width="4"/>
+  <ellipse cx="324" cy="244" rx="110" ry="25" fill="#796249" stroke="#93673f" stroke-width="4"/>
+  <path d="M326 243V112M326 180L272 150M327 205L381 170" fill="none" stroke="#3d8275" stroke-width="8" stroke-linecap="round"/>
+  <path d="M326 132Q291 98 322 59Q361 91 326 132M282 160Q213 163 215 115Q266 111 282 160M374 176Q364 119 424 113Q441 162 374 176M326 210Q267 217 256 178Q300 158 326 210" fill="#79a17b" stroke="#3d8275" stroke-width="3"/>
+  <path d="M531 263H650V329H531Z" fill="#80aaa0" stroke="#3d8275" stroke-width="4"/>
+  <path d="M647 273Q713 252 708 298Q704 320 650 309" fill="none" stroke="#3d8275" stroke-width="11"/>
+  <path d="M535 276L478 240L460 253L531 308Z" fill="#80aaa0" stroke="#3d8275" stroke-width="4"/>
+  <path d="M467 235L453 250" stroke="#3d8275" stroke-width="9" stroke-linecap="round"/>
+  <g fill="#8bb6c2"><path d="M424 241Q412 257 424 260Q436 257 424 241Z"/><path d="M450 267Q438 283 450 286Q462 283 450 267Z"/><path d="M399 254Q390 267 399 269Q409 267 399 254Z"/></g>
+  <circle cx="653" cy="85" r="30" fill="#e5c969"/>
+</svg>

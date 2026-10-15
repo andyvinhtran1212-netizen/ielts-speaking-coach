@@ -1,0 +1,194 @@
+{
+  "slug": "why-leaves-change-colour",
+  "review_notes": "Tự dịch, giữ phân biệt sắc tố vốn có và màu đỏ một số cây tạo thêm, không biến bài thành tất cả màu đều xuất hiện từ cùng một cơ chế. Không bổ sung dữ kiện ngoài nguồn.",
+  "illustration_brief": "Cây lá vàng cam và vài chiếc lá rơi trên lối đi.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Mỗi mùa thu, lá xanh chuyển sang đỏ, cam và vàng óng.",
+      [
+        "Every autumn",
+        "Mỗi mùa thu"
+      ],
+      [
+        "red, orange, and gold",
+        "đỏ, cam và vàng óng"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Sau đó chúng rơi xuống đất.",
+      [
+        "fall to the ground",
+        "rơi xuống đất"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Vì sao điều này xảy ra mỗi năm?",
+      [
+        "each year",
+        "mỗi năm"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Vào mùa xuân và mùa hè, lá có màu xanh.",
+      [
+        "In spring and summer",
+        "Vào mùa xuân và mùa hè"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Chúng chứa rất nhiều chất tạo màu xanh.",
+      [
+        "full of a green colour",
+        "chứa rất nhiều chất tạo màu xanh"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Chúng ta gọi chất tạo màu này là diệp lục.",
+      [
+        "chlorophyll",
+        "diệp lục"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Diệp lục giúp cây thu nhận ánh nắng.",
+      [
+        "catch sunlight",
+        "thu nhận ánh nắng"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Cây dùng ánh sáng để tự tạo thức ăn.",
+      [
+        "make its own food",
+        "tự tạo thức ăn"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Vào mùa thu, ngày ngắn hơn và lạnh hơn.",
+      [
+        "shorter and colder",
+        "ngắn hơn và lạnh hơn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Cây ngừng tạo diệp lục.",
+      [
+        "stops making chlorophyll",
+        "ngừng tạo diệp lục"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Dần dần, màu xanh phai đi.",
+      [
+        "the green colour fades away",
+        "màu xanh phai đi"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Khi đó, chúng ta nhìn thấy những màu vốn luôn có sẵn.",
+      [
+        "colours that were always there",
+        "những màu vốn luôn có sẵn"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Những màu này ẩn dưới màu xanh suốt mùa hè.",
+      [
+        "hide under the green",
+        "ẩn dưới màu xanh"
+      ],
+      [
+        "all summer",
+        "suốt mùa hè"
+      ]
+    ],
+    [
+      "p3-s6",
+      "Màu vàng và cam nay xuất hiện trên lá.",
+      [
+        "Yellow and orange",
+        "Màu vàng và cam"
+      ],
+      [
+        "appear on the leaves",
+        "xuất hiện trên lá"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Một số cây cũng tạo màu đỏ vào mùa thu.",
+      [
+        "Some trees",
+        "Một số cây"
+      ],
+      [
+        "a red colour",
+        "màu đỏ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Chẳng bao lâu, lá chết và rụng xuống.",
+      [
+        "die and drop off",
+        "chết và rụng xuống"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Cây nghỉ ngơi suốt mùa đông lạnh giá.",
+      [
+        "rests",
+        "nghỉ ngơi"
+      ],
+      [
+        "the cold winter",
+        "mùa đông lạnh giá"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Khi xuân đến, những chiếc lá xanh mới sẽ lại mọc lên.",
+      [
+        "When spring comes",
+        "Khi xuân đến"
+      ],
+      [
+        "new green leaves",
+        "những chiếc lá xanh mới"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Thiên nhiên có lẽ đang nói với chúng ta rằng thay đổi là điều bình thường.",
+      [
+        "may be telling us",
+        "có lẽ đang nói với chúng ta"
+      ],
+      [
+        "change is normal",
+        "thay đổi là điều bình thường"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-autumn-leaves-scene.svg",
+    "alt": "Cây lá vàng cam và vài chiếc lá rơi trên lối đi.",
+    "caption": "Màu sắc của một mùa thu."
+  },
+  "source_sha256": "274c69033486e74c30d6a1d5c86ed25d47160ab1b49e7da037566c6317b36c74",
+  "expected_translation_sha256": "94aeed14b3d11338f4b8c1981620e58fe270c6cbdbba52cdab15ca17b42abaf0"
+}

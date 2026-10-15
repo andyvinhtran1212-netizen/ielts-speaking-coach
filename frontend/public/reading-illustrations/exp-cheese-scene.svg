@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Phô mai trên kệ ủ</title><desc id="desc">Các bánh phô mai tròn xếp trên kệ gỗ, phía trước có một miếng phô mai được cắt ra.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf0e8"/>
+  <path d="M49 58V348M752 58V348" stroke="#9b7958" stroke-width="20" stroke-linecap="round"/>
+  <path d="M40 177H760M40 323H760" stroke="#aa825e" stroke-width="25"/>
+  <g stroke="#ab8957" stroke-width="3">
+    <path d="M100 125V151Q154 183 219 151V125" fill="#dcb66b"/><ellipse cx="160" cy="125" rx="60" ry="21" fill="#f1d599"/>
+    <path d="M282 121V150Q353 183 421 150V121" fill="#dcb66b"/><ellipse cx="352" cy="121" rx="70" ry="25" fill="#f1d599"/>
+    <path d="M522 126V151Q596 184 670 151V126" fill="#dcb66b"/><ellipse cx="596" cy="126" rx="74" ry="23" fill="#f1d599"/>
+    <path d="M122 269V297Q191 326 260 297V269" fill="#dcb66b"/><ellipse cx="191" cy="269" rx="69" ry="25" fill="#f1d599"/>
+    <path d="M328 268V298Q398 329 466 298V268" fill="#dcb66b"/><ellipse cx="397" cy="268" rx="69" ry="23" fill="#f1d599"/>
+  </g>
+  <ellipse cx="617" cy="363" rx="133" ry="24" fill="#c8b696"/>
+  <path d="M516 337L633 283L712 338V365L516 366Z" fill="#e3bb6b" stroke="#ab8957" stroke-width="3"/>
+  <path d="M516 337L633 283L712 338Z" fill="#f4d997" stroke="#ab8957" stroke-width="3"/>
+  <path d="M516 337L633 342L712 338" fill="none" stroke="#ab8957" stroke-width="3"/>
+  <g fill="#c39755"><ellipse cx="555" cy="352" rx="7" ry="5"/><ellipse cx="596" cy="355" rx="6" ry="4"/><ellipse cx="657" cy="352" rx="7" ry="4"/></g>
+</svg>

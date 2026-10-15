@@ -1,0 +1,226 @@
+{
+  "slug": "matching-stages-of-language-learning",
+  "review_notes": "Giữ đủ các học thuyết đối lập; reinforcement là củng cố, endowment là năng lực sẵn có, fix cuối bài là xác định. Không trình bày universal grammar như kết luận đã thống nhất.",
+  "illustration_brief": "Hai người giao tiếp bên sách mở và công cụ học tập.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Ít câu hỏi trong khoa học con người gây tranh cãi dai dẳng như câu hỏi một đứa trẻ trả lời nhẹ nhàng: làm sao tâm trí non trẻ chỉ trong vài năm ngắn ngủi lại thành thạo hệ thống quy tắc mà ngay cả nhà ngôn ngữ học được đào tạo cũng khó mô tả?",
+      [
+        "stubbornly contested",
+        "gây tranh cãi dai dẳng"
+      ],
+      [
+        "in the space of a few short years",
+        "chỉ trong vài năm ngắn ngủi"
+      ],
+      [
+        "trained linguists",
+        "nhà ngôn ngữ học được đào tạo"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Thế kỷ XX đưa ra một chuỗi câu trả lời cạnh tranh, mỗi câu đều soi sáng vấn đề và rồi theo thời gian đều bộc lộ thiếu sót ở mặt nào đó.",
+      [
+        "a sequence of rival answers",
+        "một chuỗi câu trả lời cạnh tranh"
+      ],
+      [
+        "found wanting in some respect",
+        "bộc lộ thiếu sót ở mặt nào đó"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Câu trả lời thống trị sớm nhất là chủ nghĩa hành vi, gắn trên hết với B. F. Skinner.",
+      [
+        "behaviourism",
+        "chủ nghĩa hành vi"
+      ],
+      [
+        "associated above all with",
+        "gắn trên hết với"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Theo cách lý giải này, ngôn ngữ được học giống các hành vi khác: qua bắt chước và củng cố.",
+      [
+        "imitation and reinforcement",
+        "bắt chước và củng cố"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một trẻ tập đi nói “sữa” rồi được thưởng cả đồ uống lẫn nụ cười tán thành thực chất đang được luyện lặp lại lời nói ấy, trong khi các âm giống lời người lớn dần được định hình bởi phản ứng mà chúng gợi ra.",
+      [
+        "an approving smile",
+        "nụ cười tán thành"
+      ],
+      [
+        "repeat the utterance",
+        "lặp lại lời nói ấy"
+      ],
+      [
+        "gradually shaped",
+        "dần được định hình"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Noam Chomsky nổi tiếng với việc bác bỏ bức tranh gọn ghẽ này, chỉ ra rằng trẻ thường tạo những câu mà chúng không thể đã từng nghe và được thưởng vì nói ra.",
+      [
+        "routinely produce sentences",
+        "thường tạo những câu"
+      ],
+      [
+        "cannot possibly have heard and been rewarded for",
+        "không thể đã từng nghe và được thưởng vì nói ra"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Để giải thích tính sáng tạo ấy, Chomsky đề xuất rằng não vốn đã được trang bị “ngữ pháp phổ quát” — một khuôn mẫu bẩm sinh có từ khi sinh ra, làm nền cho ngữ pháp mọi ngôn ngữ con người và chỉ cần tiếp xúc với một ngôn ngữ cụ thể để được kích hoạt.",
+      [
+        "universal grammar",
+        "ngữ pháp phổ quát"
+      ],
+      [
+        "an innate template",
+        "một khuôn mẫu bẩm sinh"
+      ],
+      [
+        "to be set in motion",
+        "để được kích hoạt"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Trong khi cách lý giải bẩm sinh hướng vào bên trong, về sinh học, truyền thống tương tác xã hội bắt nguồn từ Lev Vygotsky lại hướng ra bên ngoài, về các mối quan hệ.",
+      [
+        "the nativist account",
+        "cách lý giải bẩm sinh"
+      ],
+      [
+        "the social-interactionist tradition",
+        "truyền thống tương tác xã hội"
+      ],
+      [
+        "relationships",
+        "các mối quan hệ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Với Vygotsky, cả tư duy lẫn ngôn ngữ đều hình thành qua đối thoại với người có năng lực hơn — cha mẹ, giáo viên, trẻ lớn hơn — những người hướng dẫn người học qua các nhiệm vụ vừa vượt ngoài khả năng tự làm.",
+      [
+        "more capable partners",
+        "người có năng lực hơn"
+      ],
+      [
+        "just beyond their independent reach",
+        "vừa vượt ngoài khả năng tự làm"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Theo cách nhìn này, ngôn ngữ giống công cụ ban đầu mượn từ người khác rồi mới trở thành của mình hơn là một năng lực sẵn có riêng tư.",
+      [
+        "a private endowment",
+        "một năng lực sẵn có riêng tư"
+      ],
+      [
+        "first borrowed from others",
+        "ban đầu mượn từ người khác"
+      ],
+      [
+        "only later made one's own",
+        "rồi mới trở thành của mình"
+      ]
+    ],
+    [
+      "p5-s1",
+      "E — Gần đây hơn, Michael Tomasello đưa ra cách tiếp cận dựa trên việc sử dụng, theo một nghĩa nào đó là tìm điểm trung dung.",
+      [
+        "a usage-based approach",
+        "cách tiếp cận dựa trên việc sử dụng"
+      ],
+      [
+        "seeks middle ground",
+        "tìm điểm trung dung"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Bác bỏ ý tưởng về ngữ pháp bẩm sinh cố định, ông cho rằng ngôn ngữ nảy sinh từ những năng lực nhận thức tổng quát hơn, nhất là khả năng đặc trưng của con người trong việc hiểu ý định chung đằng sau hành động của người khác.",
+      [
+        "a fixed inborn grammar",
+        "ngữ pháp bẩm sinh cố định"
+      ],
+      [
+        "more general cognitive gifts",
+        "những năng lực nhận thức tổng quát hơn"
+      ],
+      [
+        "the shared intentions",
+        "ý định chung"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Đứa trẻ hiểu người lớn đang cố làm gì đã đi được nửa chặng đường tới việc hiểu người ấy đang muốn nói gì.",
+      [
+        "grasps what an adult is trying to do",
+        "hiểu người lớn đang cố làm gì"
+      ],
+      [
+        "halfway to grasping",
+        "đi được nửa chặng đường tới việc hiểu"
+      ]
+    ],
+    [
+      "p6-s1",
+      "F — Chưa một lý thuyết nào thống trị toàn bộ lĩnh vực, và có lẽ cũng không nên kỳ vọng điều ấy.",
+      [
+        "No single theory",
+        "Chưa một lý thuyết nào"
+      ],
+      [
+        "swept the field",
+        "thống trị toàn bộ lĩnh vực"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Có thể mỗi lý thuyết nắm được một mảnh thực sự của quá trình vô cùng phức tạp — rằng củng cố, cấu trúc bẩm sinh, hướng dẫn xã hội và hiểu ý định đều góp phần, với tỷ lệ vẫn khó xác định.",
+      [
+        "a genuine fragment",
+        "một mảnh thực sự"
+      ],
+      [
+        "reinforcement, innate structure, social guidance and intention-reading",
+        "củng cố, cấu trúc bẩm sinh, hướng dẫn xã hội và hiểu ý định"
+      ],
+      [
+        "difficult to fix",
+        "khó xác định"
+      ]
+    ],
+    [
+      "p6-s3",
+      "Cuộc tranh luận, giống chính tâm trí đứa trẻ, không dễ khép lại bằng một kết luận gọn ghẽ.",
+      [
+        "resists any neat conclusion",
+        "không dễ khép lại bằng một kết luận gọn ghẽ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-language-learning-scene.svg",
+    "alt": "Hai người giao tiếp bên sách mở và công cụ học tập.",
+    "caption": "Tìm hiểu cách con người học ngôn ngữ."
+  },
+  "source_sha256": "d07c9ed9f5d7ee4f1fcbc3ed5d393ebea68ff8e68ae516c6b05416099d0ab6c7",
+  "expected_translation_sha256": "cd6e5d965b8caf98bc505fd023e37dadbde86322d8f33109cb1030a89ca2d1e8"
+}

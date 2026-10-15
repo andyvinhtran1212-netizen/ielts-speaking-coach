@@ -1,0 +1,214 @@
+{
+  "slug": "inference-the-paradox-of-automation",
+  "review_notes": "Deskilling là mai một kỹ năng; defers là nhường quyền xử lý. Giữ ought và can để phân biệt kỳ vọng ban đầu với kết luận của tác giả.",
+  "illustration_brief": "Hai người cùng xem màn hình và các hồ sơ công việc trên bàn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Lập luận quen thuộc ủng hộ tự động hóa nghe có vẻ không thể bác bỏ: máy móc không mệt, mất tập trung hay hoảng loạn, nên càng giao nhiều khâu của một quy trình cho máy, hệ thống đáng lẽ càng an toàn và đáng tin cậy.",
+      [
+        "sounds irrefutable",
+        "nghe có vẻ không thể bác bỏ"
+      ],
+      [
+        "lose focus or panic",
+        "mất tập trung hay hoảng loạn"
+      ],
+      [
+        "ought",
+        "đáng lẽ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Tuy nhiên, những người nghiên cứu hệ thống tự động từ lâu đã nhận thấy một khuôn mẫu không tuân theo lô-gic gọn ghẽ ấy, được nhà nghiên cứu Lisanne Bainbridge đặt một cái tên đáng nhớ vào năm 1983: những nghịch lý trớ trêu của tự động hóa.",
+      [
+        "resists this tidy logic",
+        "không tuân theo lô-gic gọn ghẽ ấy"
+      ],
+      [
+        "the ironies of automation",
+        "những nghịch lý trớ trêu của tự động hóa"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Điểm trớ trêu cốt lõi là thế này.",
+      [
+        "The central irony",
+        "Điểm trớ trêu cốt lõi"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Bằng cách đảm nhận những phần việc thường lệ, lặp đi lặp lại, hệ thống tự động loại bỏ chính sự luyện tập giúp kỹ năng người vận hành luôn thuần thục.",
+      [
+        "the routine, repetitive parts",
+        "những phần việc thường lệ, lặp đi lặp lại"
+      ],
+      [
+        "keeps an operator's skills sharp",
+        "giúp kỹ năng người vận hành luôn thuần thục"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Sự mai một kỹ năng diễn ra âm thầm: người vận hành, giờ hiếm khi điều khiển trực tiếp bằng tay, dần mất đi độ thành thạo từng được duy trì nhờ luyện tập đều đặn.",
+      [
+        "This deskilling",
+        "Sự mai một kỹ năng"
+      ],
+      [
+        "controls things by hand",
+        "điều khiển trực tiếp bằng tay"
+      ],
+      [
+        "regular practice",
+        "luyện tập đều đặn"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Vì vậy, tự động hóa được đưa vào để bù đắp những hạn chế của con người lại có thể khiến phần đóng góp còn lại của họ khó hơn chứ không dễ hơn.",
+      [
+        "compensate for human imperfection",
+        "bù đắp những hạn chế của con người"
+      ],
+      [
+        "harder, not easier",
+        "khó hơn chứ không dễ hơn"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Khó khăn trở nên gay gắt nhất đúng vào lúc quan trọng nhất.",
+      [
+        "sharpest",
+        "gay gắt nhất"
+      ],
+      [
+        "when it matters most",
+        "vào lúc quan trọng nhất"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Máy xử lý các điều kiện thông thường nhưng nhường quyền cho con người khi có điều bất thường — một lỗi hiếm gặp, một tổ hợp sự kiện mà người thiết kế chưa từng lường trước.",
+      [
+        "defers to the human",
+        "nhường quyền cho con người"
+      ],
+      [
+        "a rare fault",
+        "một lỗi hiếm gặp"
+      ],
+      [
+        "never anticipated",
+        "chưa từng lường trước"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Thế là người vận hành được gọi vào để xử lý phần khó nhất chứ không phải phần dễ, lại đúng lúc thiếu luyện tập gần đây khiến họ ít sẵn sàng nhất để ứng phó.",
+      [
+        "for the hardest",
+        "để xử lý phần khó nhất"
+      ],
+      [
+        "a lack of recent practice",
+        "thiếu luyện tập gần đây"
+      ],
+      [
+        "least ready to meet it",
+        "ít sẵn sàng nhất để ứng phó"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Một biến thể thứ hai của vấn đề liên quan đến sự chú ý.",
+      [
+        "A second variant",
+        "Một biến thể thứ hai"
+      ],
+      [
+        "attention",
+        "sự chú ý"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Yêu cầu một người chỉ quan sát một quy trình phần lớn vận hành tốt là đòi hỏi điều con người làm kém: duy trì cảnh giác liên tục trong thời gian dài mà không có gì để làm.",
+      [
+        "maintaining unbroken vigilance",
+        "duy trì cảnh giác liên tục"
+      ],
+      [
+        "over long stretches with nothing to do",
+        "trong thời gian dài mà không có gì để làm"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Tâm trí lang thang, sự chú ý giảm sút, và chính điều bất thường mà người vận hành được bố trí để phát hiện lại có nguy cơ lọt qua ngay khi nó xuất hiện.",
+      [
+        "The mind wanders",
+        "Tâm trí lang thang"
+      ],
+      [
+        "attention slackens",
+        "sự chú ý giảm sút"
+      ],
+      [
+        "risks slipping past",
+        "có nguy cơ lọt qua"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Sẽ thật an tâm nếu cho rằng máy móc tốt hơn cuối cùng sẽ khiến những lo ngại ấy không còn phù hợp.",
+      [
+        "better machines",
+        "máy móc tốt hơn"
+      ],
+      [
+        "render these worries obsolete",
+        "khiến những lo ngại ấy không còn phù hợp"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Sự thật khó chấp nhận hơn là tự động hóa càng giỏi lại thường càng làm sâu sắc nghịch lý thay vì giảm nhẹ nó, bởi nó dành cho con người những tình huống ngày càng hiếm gặp và ngày càng đòi hỏi cao.",
+      [
+        "deepen the paradox rather than ease it",
+        "làm sâu sắc nghịch lý thay vì giảm nhẹ nó"
+      ],
+      [
+        "ever rarer and ever more demanding situations",
+        "những tình huống ngày càng hiếm gặp và ngày càng đòi hỏi cao"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Vì thế, lời giải không nằm nhiều ở việc tự động hóa nhiều hay ít mà ở việc thiết kế cẩn thận vị trí của con người trong hệ thống — duy trì luyện tập kỹ năng, giữ sự chú ý và phân công trách nhiệm rõ ràng.",
+      [
+        "designing the human's place within the system with care",
+        "thiết kế cẩn thận vị trí của con người trong hệ thống"
+      ],
+      [
+        "keeping skills practised",
+        "duy trì luyện tập kỹ năng"
+      ],
+      [
+        "responsibility clearly assigned",
+        "phân công trách nhiệm rõ ràng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-algorithm-review-scene.svg",
+    "alt": "Hai người cùng xem màn hình và các hồ sơ công việc trên bàn.",
+    "caption": "Vai trò của người vận hành trong hệ thống công nghệ."
+  },
+  "source_sha256": "c4ffadb75c7063365e058fab159863dccab506e3bb507403d33d71dc8ae3c1a4",
+  "expected_translation_sha256": "a3991ba2b9dc35f5f81c4205f905e86b9dbe63d33cdf7b1ccd08d0145570dc70"
+}

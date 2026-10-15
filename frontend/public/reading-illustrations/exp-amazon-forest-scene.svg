@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Sông giữa rừng rậm</title><desc id="desc">Dòng sông uốn lượn qua nhiều tầng cây xanh, với chim bay phía trên và tán lá lớn ở gần.</desc>
+  <rect width="800" height="400" rx="24" fill="#e1efeb"/>
+  <path d="M0 195Q120 113 253 158T519 142T800 155V400H0Z" fill="#9cbaa1"/>
+  <path d="M0 260Q120 189 259 230T543 214T800 224V400H0Z" fill="#709982"/>
+  <path d="M409 188C530 216 260 241 356 278C454 312 583 319 435 400H648C768 311 464 279 444 264C395 238 595 212 431 188Z" fill="#a8cbd0"/>
+  <defs><g id="tree"><path d="M0 30V168" stroke="#796249" stroke-width="13"/><path d="M-58 53Q-79 14 -38 -8Q-38 -49 1 -42Q36 -59 50 -20Q90 -12 68 31Q70 73 27 64Q-18 91 -58 53Z" fill="#3d8275"/><path d="M0 76L-23 47M0 88L25 58" stroke="#476c54" stroke-width="8" fill="none"/></g></defs>
+  <use href="#tree" transform="translate(105 175) scale(1.2)"/><use href="#tree" transform="translate(251 196) scale(.7)"/><use href="#tree" transform="translate(691 154) scale(1.4)"/>
+  <path d="M30 400Q22 318 73 278Q93 347 70 400M120 400Q130 327 186 306Q184 366 159 400M722 400Q698 316 747 268Q775 338 762 400" fill="#315f57"/>
+  <path d="M358 105Q374 88 391 104Q406 87 423 104M500 72Q514 58 530 72Q545 58 561 72" fill="none" stroke="#355f60" stroke-width="5" stroke-linecap="round"/>
+  <path d="M508 353Q542 348 567 353M405 270Q426 266 447 270" fill="none" stroke="#d9edf0" stroke-width="4"/>
+</svg>
