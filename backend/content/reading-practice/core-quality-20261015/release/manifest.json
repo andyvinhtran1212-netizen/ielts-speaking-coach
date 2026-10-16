@@ -1,0 +1,70 @@
+{
+  "scope": "The exact 23 previously upgraded published L1/L2 practice articles; 19 overlap the accepted 196-article quality release and 4 are distinct. Full Test and timed Mini excluded.",
+  "reviewed_articles": 23,
+  "changed_articles": 5,
+  "unchanged_reviewed_articles": 18,
+  "changed_translation_sentences": 32,
+  "changed_phrase_lists": 31,
+  "sentence_units": 342,
+  "phrase_pairs": 834,
+  "glossary_definitions_corrected": 3,
+  "context_figures_added": 3,
+  "existing_cover_caption_added": 1,
+  "question_illustration_metadata_preserved_or_clarified": true,
+  "new_svg_scenes": 1,
+  "svg_assets_in_reviewed_cohort": 31,
+  "questions_preserved": 133,
+  "reviewed_production_sha": "085ed752b3e34dfeb4f20a19066a9e7a6cd35629",
+  "reviewed_staging_sha": "c7d8e4f63da24b525f97ee92fe14980a527c6ea0",
+  "environments": {
+    "staging": {
+      "updates": 5,
+      "inserts": 0,
+      "question_mutations": 0
+    },
+    "production": {
+      "updates": 5,
+      "inserts": 0,
+      "question_mutations": 0
+    }
+  },
+  "sql_sha256": {
+    "staging-apply.sql": "f760c39289f8407f295123508b81a252f02ac1061e95fac6c275dc3616549620",
+    "staging-rollback.sql": "07bbb000dc353f5cab5b822aa50b09287f47fa6b4161128ea31206346cce12ea",
+    "production-apply.sql": "0b8854bb5fa2f93ae9bc72b8ef939fd7ed4184388841379340dadb2e4cf26821",
+    "production-rollback.sql": "1966af0f662826a64450de1a747af702390043cc8b105298db231a433bd1fd37"
+  },
+  "asset_sha256": {
+    "/reading-illustrations/art-cubism.svg": "cfd6011a9c6c44649949229cec6d52326bed84e038fc5e46a11ad736bceceb1d",
+    "/reading-illustrations/art-gestures.svg": "dc2fb7b71e3c36154cdddf7e80eaad6c2d8c5b3236dfed4b0e43fdab6cbf9ec3",
+    "/reading-illustrations/art-impressionism.svg": "11ee85dcecfd745197b521e061a6c879fce9eec88682076648cecf92df36309e",
+    "/reading-illustrations/art-surrealism.svg": "7c043ad740f1a0737b785676f2d7e828863b285eb69e0e1fa1da69b91592d683",
+    "/reading-illustrations/battery-anode.svg": "89c32b3e7b951890a6c44dbb9a7bcd641cf95352b2ed47e3f8859a1eda94c638",
+    "/reading-illustrations/battery-cathode.svg": "7dacaf3900c876f884374139c192159dff3f87f14b8a912ef03135910765aecc",
+    "/reading-illustrations/battery-current.svg": "745214433593ebfff98adf0075aba5ef440e8a4c14b8e70c17a09680d2b0800b",
+    "/reading-illustrations/battery-electrons.svg": "c324e24ffde45abd7f8efa1e8a4acc28f730b6fd8bc9b58c8a1996be352daabd",
+    "/reading-illustrations/battery-practice-scene.svg": "231671d03daf90a8e5afea6970312cde8ee5d71db4686b6b59891b332505d998",
+    "/reading-illustrations/colour-review.svg": "10975a930b671e3b9b3164e1dd641b2de48537c79e1d698098009c4b2141fba2",
+    "/reading-illustrations/commons-review.svg": "90913d67941c13cd4c0e52821fe30303eea02009017c03bdcd2962e41aa5533e",
+    "/reading-illustrations/commons-scene.svg": "9f1f8ab86b8dad60259ee4fdb36a35c46a14934557898ff3588294a498563231",
+    "/reading-illustrations/exp-ancient-harbour-scene.svg": "beb716f971e39e37b488dead898c112375aedd6789e40e874b530bcb1062fe21",
+    "/reading-illustrations/exp-animal-habitat-scene.svg": "be99467c7c4d0b83629d5f698b279390e29cce2c007e0cdde7a78aab5aa5fe87",
+    "/reading-illustrations/exp-architecture-sketch-scene.svg": "e35893b3894d82b66b3fa8237e15d672bce4ccf225cd32786d0dbf648da9fa7f",
+    "/reading-illustrations/exp-city-onlookers-scene.svg": "175a07bd3185b604e10f5f8783dad55d3da924d9559ba9a57b32e08faefd1bb0",
+    "/reading-illustrations/exp-colour-packaging-scene.svg": "2e654be2be2dfacc51a6ff409dfd71df6417034438420773fd279a26ee273986",
+    "/reading-illustrations/exp-community-celebration-scene.svg": "4c764fc50fd09487147d83cb3b3132683d59e5d0a41a04d8bceb223fb2633491",
+    "/reading-illustrations/exp-conservation-lab-scene.svg": "6249a29fc3ddf286f47d911f8565167fd8819ca82534e46c7420849561469504",
+    "/reading-illustrations/exp-early-flight-scene.svg": "b33e4aa2497142779d6a96b5f17f7f06cbdcc92cd30943504dbff4e870ee789d",
+    "/reading-illustrations/exp-exploration-desk-scene.svg": "56f4d2812747d2f81d6b905241f14f5f08946160858c799692498e397ac9c81a",
+    "/reading-illustrations/exp-invention-workbench-scene.svg": "7c862953e931d69080d9d38be800608ca58fc417cf1e49be35049c655cc32af4",
+    "/reading-illustrations/exp-language-learning-scene.svg": "fb5ea8a5944563f1018d6a85f06c25c4aaa857459918ef4a29b2a03d85f1e30f",
+    "/reading-illustrations/exp-memory-search-scene.svg": "92a88ae0f3fe19ac5d24194919e4b9aeae68acaa8c6f2366ccf10766717794b6",
+    "/reading-illustrations/exp-microscope-bench-scene.svg": "cad3f1641b25eb3b17f325711a99ab633164304aff639053935321a1e4af289e",
+    "/reading-illustrations/exp-museum-gallery-scene.svg": "ab6ccca55928ba1ef342f8885b361302a1ee18239b9bce0b3a028e3ba9cdfe8e",
+    "/reading-illustrations/exp-painting-studio-scene.svg": "74a9ed1607a0a7a4be2e70ccec707fe8cf7b049f04cf730076ecb32c8d23c512",
+    "/reading-illustrations/exp-progress-survey-scene.svg": "9fdf3b93d3d1519cda684984f8209c3c0a4525efe43322e8124c0003f2ba6e80",
+    "/reading-illustrations/exp-street-pause-scene.svg": "0b5f50854be537b34709caf2b1116863549643a8f0053761800138f8fed36b43",
+    "/reading-illustrations/exp-transport-scene.svg": "1b908144c911b25c646cd9f54bb1720d75a1492f945070333c079c1862fa8231",
+    "/reading-illustrations/exp-wind-farm-scene.svg": "3ba069695329cd3ede448298c0d362df0f9ef77c345939afe750c356c799bac4"
+  }
+}
