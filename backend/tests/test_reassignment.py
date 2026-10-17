@@ -51,6 +51,9 @@ class _Q:
             if isinstance(v, tuple):
                 continue   # in_ filter not enforced by the stub
             rows = [r for r in rows if r.get(c) == v]
+        if self.op == "update":
+            for row in rows:
+                row.update(self.payload)
         return _Exec(rows)
 
 
@@ -135,6 +138,73 @@ def test_refill_issues_mirrored_code_and_assigns(monkeypatch):
     assert ins["payload"]["cohort_id"] == "co1" and ins["payload"]["session_limit"] == 10
     assert any(o["table"] == "user_code_assignments" and o["op"] == "upsert" for o in ops)
 
+
+# ── Admin-side activation ───────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("role", ["user", "instructor", "admin"])
+def test_generate_and_assign_activates_login_with_assigned_permissions(monkeypatch, role):
+    from routers import auth as auth_module
+
+    tables = {
+        "users": [{"id": "uX", "role": role, "is_active": False,
+                   "onboarding_completed": False}],
+    }
+    ops = _install(monkeypatch, tables)
+    monkeypatch.setattr(auth_module, "supabase_admin", _Stub(tables, ops))
+
+    async def current_user(_authorization):
+        return {"id": "uX"}
+
+    monkeypatch.setattr(auth_module, "get_supabase_user", current_user)
+    assert _run(auth_module.check_active(authorization="x")) == {"is_active": False}
+    out = _run(admin_module.generate_and_assign_code(
+        admin_module.GenerateAndAssignRequest(
+            user_id="uX", permissions=["practice_single"], session_limit=10,
+        ), authorization="x"))
+
+    assert out["ok"] and out["user_id"] == "uX"
+    assert _run(auth_module.check_active(authorization="x")) == {"is_active": True}
+    assert tables["users"][0]["role"] == role
+    assert tables["users"][0]["onboarding_completed"] is False
+    issued = next(o for o in ops if o["table"] == "access_codes" and o["op"] == "insert")
+    activated = next(o for o in ops if o["table"] == "users" and o["op"] == "update")
+    assert activated["eqs"] == [("id", "uX")]
+    assert activated["payload"] == {
+        "is_active": True,
+        "access_code_used": issued["payload"]["code"],
+        "permissions": ["practice_single"],
+    }
+    assignment_index = next(i for i, o in enumerate(ops)
+                            if o["table"] == "user_code_assignments" and o["op"] == "upsert")
+    assert assignment_index < ops.index(activated)
+    # Existing code ownership/redemption is never rewritten during activation.
+    assert not any(o["table"] == "access_codes" and o["op"] == "update" for o in ops)
+
+
+def test_generate_and_assign_never_reports_success_when_activation_fails(monkeypatch):
+    ops = _install(monkeypatch, {"users": [{"id": "uX", "is_active": False}]})
+    original_execute = _Q.execute
+
+    def fail_activation(query):
+        if query.name == "users" and query.op == "update":
+            raise RuntimeError("activation write failed")
+        return original_execute(query)
+
+    monkeypatch.setattr(_Q, "execute", fail_activation)
+    with pytest.raises(RuntimeError, match="activation write failed"):
+        _run(admin_module.generate_and_assign_code(
+            admin_module.GenerateAndAssignRequest(user_id="uX"), authorization="x"))
+    assert not any(o["table"] == "access_code_audit" for o in ops)
+
+
+def test_generate_and_assign_missing_user_does_not_issue_code(monkeypatch):
+    from fastapi import HTTPException
+    ops = _install(monkeypatch, {"users": []})
+    with pytest.raises(HTTPException) as exc:
+        _run(admin_module.generate_and_assign_code(
+            admin_module.GenerateAndAssignRequest(user_id="missing"), authorization="x"))
+    assert exc.value.status_code == 404
+    assert not any(o["op"] in ("insert", "upsert", "update") for o in ops)
 
 # ── Cohort add / remove member ───────────────────────────────────────────────────
 

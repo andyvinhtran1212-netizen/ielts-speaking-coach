@@ -2610,6 +2610,19 @@ async def generate_and_assign_code(
         expires_at=body.expires_at,
     )
 
+    # Login gates on users.is_active, independently of code entitlements. Match
+    # self-service activation so an admin-assigned learner can sign in without
+    # entering the already-claimed code. Never change their role or onboarding.
+    activated = (
+        supabase_admin.table("users").update({
+            "is_active": True,
+            "access_code_used": new_code["code"],
+            "permissions": new_code["permissions"],
+        }).eq("id", body.user_id).execute()
+    )
+    if not activated.data:
+        raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
+
     # A direct cohort-linked code adds that class membership without revoking
     # any class the learner already attends. Entitlement remains independent.
     if body.cohort_id:
