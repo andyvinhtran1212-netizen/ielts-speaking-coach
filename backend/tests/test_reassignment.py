@@ -45,7 +45,20 @@ class _Q:
         self.ops.append({"table": self.name, "op": self.op, "payload": self.payload, "eqs": self.eqs})
         if self.op in ("insert", "upsert"):
             rows = self.payload if isinstance(self.payload, list) else [self.payload]
-            return _Exec([dict(r, id=r.get("id", "new-id")) for r in rows])
+            stored = self.t.setdefault(self.name, [])
+            result = []
+            for row in rows:
+                existing = next((r for r in stored
+                                 if self.op == "upsert" and self.name == "user_code_assignments"
+                                 and r.get("user_id") == row.get("user_id")
+                                 and r.get("code_id") == row.get("code_id")), None)
+                if existing is None:
+                    existing = dict(row, id=row.get("id", f"new-{len(stored) + 1}"))
+                    stored.append(existing)
+                else:
+                    existing.update(row)
+                result.append(existing)
+            return _Exec(result)
         rows = list(self.t.get(self.name, []))
         for c, v in self.eqs:
             if isinstance(v, tuple):
@@ -181,20 +194,53 @@ def test_generate_and_assign_activates_login_with_assigned_permissions(monkeypat
     assert not any(o["table"] == "access_codes" and o["op"] == "update" for o in ops)
 
 
-def test_generate_and_assign_never_reports_success_when_activation_fails(monkeypatch):
-    ops = _install(monkeypatch, {"users": [{"id": "uX", "is_active": False}]})
+@pytest.mark.parametrize("failure", ["exception", "no_rows"])
+def test_generate_and_assign_compensates_failed_activation_before_retry(monkeypatch, failure):
+    from fastapi import HTTPException
+
+    old_code = {"id": "prior", "code": "PRIOR-CODE", "is_active": True,
+                "is_used": True, "used_by": "uX", "used_at": "2026-10-01"}
+    old_assignment = {"id": "prior-assignment", "code_id": "prior", "user_id": "uX",
+                      "is_active": True}
+    tables = {"users": [{"id": "uX", "is_active": False}],
+              "access_codes": [dict(old_code)],
+              "user_code_assignments": [dict(old_assignment)]}
+    ops = _install(monkeypatch, tables)
     original_execute = _Q.execute
 
     def fail_activation(query):
         if query.name == "users" and query.op == "update":
+            if failure == "no_rows":
+                return _Exec([])
             raise RuntimeError("activation write failed")
         return original_execute(query)
 
     monkeypatch.setattr(_Q, "execute", fail_activation)
-    with pytest.raises(RuntimeError, match="activation write failed"):
+    with pytest.raises((RuntimeError, HTTPException)) as exc:
         _run(admin_module.generate_and_assign_code(
             admin_module.GenerateAndAssignRequest(user_id="uX"), authorization="x"))
+    if failure == "no_rows":
+        assert exc.value.status_code == 404
+    else:
+        assert str(exc.value) == "activation write failed"
     assert not any(o["table"] == "access_code_audit" for o in ops)
+    failed_code = tables["access_codes"][-1]
+    assert failed_code["is_active"] is False and failed_code["is_revoked"] is True
+    assert failed_code["is_used"] is True and failed_code["used_by"] == "uX"
+    assert tables["user_code_assignments"][-1]["is_active"] is False
+    assert tables["users"][0]["is_active"] is False
+    assert tables["access_codes"][0] == old_code
+    assert tables["user_code_assignments"][0] == old_assignment
+
+    monkeypatch.setattr(_Q, "execute", original_execute)
+    out = _run(admin_module.generate_and_assign_code(
+        admin_module.GenerateAndAssignRequest(user_id="uX"), authorization="x"))
+    assert out["ok"] and tables["users"][0]["is_active"] is True
+    assert [r["id"] for r in tables["access_codes"]
+            if r.get("is_active") and not r.get("is_revoked")
+            and r["id"] != "prior"] == [out["code_id"]]
+    assert [r["code_id"] for r in tables["user_code_assignments"]
+            if r["is_active"] and r["code_id"] != "prior"] == [out["code_id"]]
 
 
 def test_generate_and_assign_missing_user_does_not_issue_code(monkeypatch):

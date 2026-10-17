@@ -2613,15 +2613,28 @@ async def generate_and_assign_code(
     # Login gates on users.is_active, independently of code entitlements. Match
     # self-service activation so an admin-assigned learner can sign in without
     # entering the already-claimed code. Never change their role or onboarding.
-    activated = (
-        supabase_admin.table("users").update({
-            "is_active": True,
-            "access_code_used": new_code["code"],
-            "permissions": new_code["permissions"],
-        }).eq("id", body.user_id).execute()
-    )
-    if not activated.data:
-        raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
+    try:
+        activated = (
+            supabase_admin.table("users").update({
+                "is_active": True,
+                "access_code_used": new_code["code"],
+                "permissions": new_code["permissions"],
+            }).eq("id", body.user_id).execute()
+        )
+        if not activated.data:
+            raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
+    except Exception:
+        # Compensate this issuance only: a failed activation must not leave a
+        # live grant that a retry could duplicate. Revoke the code first so
+        # even a later assignment-cleanup failure cannot keep granting access.
+        # Retain its immutable redemption history instead of deleting records.
+        supabase_admin.table("access_codes").update({
+            "is_revoked": True, "is_active": False,
+        }).eq("id", new_code["id"]).eq("used_by", body.user_id).execute()
+        supabase_admin.table("user_code_assignments").update({
+            "is_active": False, "revoked_at": _now_iso(),
+        }).eq("code_id", new_code["id"]).eq("user_id", body.user_id).execute()
+        raise
 
     # A direct cohort-linked code adds that class membership without revoking
     # any class the learner already attends. Entitlement remains independent.
