@@ -148,6 +148,68 @@ def test_reference_context_cannot_hide_unsupported_strength_or_original():
         validate_writing_grounding(result, ESSAY)
 
 
+@pytest.mark.parametrize("claim", [
+    "Trong biểu đồ, nhóm 12% là nhóm 'twice a year'.",
+    "Dữ liệu 12% thuộc về nhóm 'twice a year', nhưng bài thiếu tên nhóm.",
+    "Em mô tả nhóm 'twice a year' nhưng lại gọi chung là 'the group'.",
+    "Câu chuyển sang một nhóm không tên ('twice a year').",
+    "Khi chưa giới thiệu rõ nhóm 'twice a year', số liệu sẽ khó hiểu.",
+])
+def test_task1_labels_have_a_reference_role_not_a_learner_wording_role(claim):
+    essay = "The group increased to 15 percent."
+    validate_writing_grounding(feedback(claim), essay, task_type="task1_academic")
+
+
+@pytest.mark.parametrize("claim,task", [
+    ("Trong biểu đồ, nhóm 'invented category' tăng.", "task2"),
+    ("Em đã dùng nhóm 'invented category' chính xác.", "task1_academic"),
+    ("Trong biểu đồ, em đã dùng 'invented category' chính xác.", "task1_academic"),
+])
+def test_task_reference_never_exempts_explicit_learner_wording(claim, task):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(feedback(claim), ESSAY, task_type=task)
+
+
+@pytest.mark.parametrize("pattern", ["before + V-ing", "before/after + V-ing", "The share was X in Y, then rose to Z"])
+def test_abstract_grammar_descriptions_are_not_literal_quotes(pattern):
+    claim = f"Bài có mẫu câu dạng '{pattern}'."
+    result = feedback(claim)
+    result.keyTakeaways.strengths = [claim]
+    result.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    validate_writing_grounding(result, "The share fell before rising in 2015.")
+
+
+def test_grammar_notation_does_not_relax_original_excerpt_validation():
+    data = feedback().model_dump()
+    data["mistakeAnalysis"] = [{
+        "original": "before + V-ing", "mistakeType": "Grammar",
+        "explanation": "Fix the clause.", "suggestion": "A suggested rewrite.",
+        "criterion": "Grammatical Range and Accuracy",
+    }]
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(WritingFeedback(**data), ESSAY)
+
+
+@pytest.mark.parametrize("claim", [
+    "Cụm 'Looking back' dùng sai nghĩa của phrasal verb 'look back'.",
+    "Cụm 'Looking back' chưa phù hợp để 'look back' ở đây.",
+    "Cụm 'Looking back' chưa phù hợp để 'nhìn lại' ở đây.",
+    "Em dùng 'dayly' thay cho trạng từ 'daily'.",
+])
+def test_grounded_lemma_translation_and_correction_contrasts(claim):
+    validate_writing_grounding(feedback(claim), "Looking back was unnecessary. They visit dayly.")
+
+
+@pytest.mark.parametrize("claim", [
+    "Cụm 'Walking away' dùng sai nghĩa của phrasal verb 'turn back'.",
+    "Cụm 'Walking away' có vấn đề; em đã dùng 'quay lại' tốt.",
+    "Dùng sai nghĩa của phrasal verb 'turn back'.",
+])
+def test_gloss_context_requires_a_grounded_source_and_lemma(claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(feedback(claim), "Walking away was unnecessary.")
+
+
 def test_source_fields_checked_but_suggestions_and_history_preserved():
     result = feedback()
     data = result.model_dump()
@@ -208,6 +270,23 @@ async def drain_usage():
         if not pending:
             return
         await asyncio.gather(*pending)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("task_type,accepted", [("task1_academic", True), ("task2", False)])
+async def test_task_reference_context_reaches_the_real_validation_boundary(monkeypatch, task_type, accepted):
+    claim = "Trong biểu đồ, nhóm 'twice a year' tăng."
+    grader, calls, rows, _ = setup_provider(monkeypatch, [feedback(claim)])
+    config = GraderConfig(task_type=task_type, prompt_text="Frequency chart", essay_text=ESSAY,
+                          analysis_level=3, selected_model="gemini-3.8-flash")
+    if accepted:
+        result = await grader.grade_essay(config)
+        assert result.feedback.criteriaFeedback.lexicalResource.feedback == claim
+    else:
+        with pytest.raises(UngroundedWritingFeedbackError):
+            await grader.grade_essay(config)
+    await drain_usage()
+    assert len(calls) == len(rows) == (1 if accepted else grader_module.MAX_RETRIES)
 
 
 @pytest.mark.asyncio
