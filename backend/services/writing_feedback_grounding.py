@@ -52,7 +52,9 @@ _PROPOSAL = re.compile(
 )
 _ATTRIBUTION = re.compile(
     r"\b(?:(?:em|bạn|anh|chị|học viên)\s+(?:đã\s+)?(?:sử dụng|dùng|viết|nêu)|"
-    r"(?:you|the student|the learner)\s+(?:have\s+|has\s+)?(?:used|use|wrote|write))\b",
+    r"(?:bài viết|bài làm)(?: này)?\s+(?:đã\s+)?(?:sử dụng|dùng|viết|nêu|gọi)|"
+    r"(?:you|the student|the learner)\s+(?:have\s+|has\s+)?(?:used|use|wrote|write)|"
+    r"(?:the essay|this essay|the writing)\s+(?:has\s+)?(?:used|uses|wrote|states|calls|called))\b",
     re.I,
 )
 # Advice to KEEP a usage presupposes that the learner already used it.
@@ -77,7 +79,6 @@ _SUGGESTION_LABEL = re.compile(
 )
 _GRAMMAR_CONTEXT = re.compile(r"\b(?:mẫu câu|cấu trúc|mệnh đề|liên từ)\b", re.I)
 _GRAMMAR_NOTATION = re.compile(r"\b(?:[SVXYZ]|V(?:-?ing|inf|[123])|NP|Adj|Adv)\b")
-_TASK_SOURCE = re.compile(r"\btrong (?:biểu đồ|đồ thị|bảng|đề bài)\b", re.I)
 _TASK_LABEL = re.compile(
     r"\b(?:nhóm(?: không tên| tần suất| danh mục)?|tần suất|danh mục)\s*\(?\s*$", re.I,
 )
@@ -123,12 +124,13 @@ def _grounded_gloss(excerpt: str, preceding: str, prefix: str, essay: str) -> bo
     if any(c.isalpha() and not c.isascii() for c in excerpt):
         return True  # Explicit non-English gloss of the grounded source.
     first, separator, rest = _normalize(excerpt).partition(" ")
-    if not separator or not first.isascii() or not first.isalpha():
+    if not first.isascii() or not first.isalpha():
         return False
     forms = [first + ending for ending in ("s", "ed", "ing")]
     if first.endswith("e"):
         forms.append(first[:-1] + "ing")
-    return any(_in_essay(form + " " + rest, essay) for form in forms)
+    suffix = " " + rest if separator else ""
+    return any(_in_essay(form + suffix, essay) for form in forms)
 
 
 class UngroundedWritingFeedbackError(ValueError):
@@ -157,7 +159,8 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
         if not _in_essay(text, essay):
             issues.append((path, text[:240]))
 
-    def observations(path: str, text: str, *, allow_proposals: bool = True):
+    def observations(path: str, text: str, *, allow_proposals: bool = True,
+                     allow_grammar: bool = False):
         text = text.translate(_PUNCTUATION)
         for match in _QUOTES.finditer(text):
             excerpt = next(g for g in match.groups() if g is not None)
@@ -168,8 +171,9 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             prefix = re.split(r"[.!?;\n]", masked_prefix)[-1]
             # Abstract grammar notation is a structural description, not a
             # verbatim citation, including in strengths/current observations.
-            # Source fields still go through original(), which has no exemption.
-            if _GRAMMAR_CONTEXT.search(prefix) and _GRAMMAR_NOTATION.search(excerpt):
+            # Strict source excerpts, original ideas and locations never opt in.
+            if (allow_grammar and _GRAMMAR_CONTEXT.search(prefix)
+                    and _GRAMMAR_NOTATION.search(excerpt)):
                 continue
             # Source-only fields cannot turn invented evidence into a proposal.
             if not allow_proposals:
@@ -193,7 +197,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             # label. Restrict this to Task 1 and do not exempt explicit learner
             # wording claims such as "Em đã dùng 'invented category'".
             if (task_type == "task1_academic" and last_attribution < 0
-                    and (_TASK_SOURCE.search(prefix) or _TASK_LABEL.search(prefix))):
+                    and _TASK_LABEL.search(prefix)):
                 continue
             if _grounded_gloss(excerpt, preceding, prefix, essay):
                 continue
@@ -212,29 +216,30 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
 
     if isinstance(feedback, Pass2Refinement):
         mistakes(feedback.added_mistakes, "added_mistakes")
-        observations("rationale", feedback.rationale)
+        observations("rationale", feedback.rationale, allow_grammar=True)
     elif isinstance(feedback, Pass3Rewrites):
         for i, item in enumerate(feedback.sentence_rewrites):
             original(f"sentence_rewrites[{i}].original_sentence", item.original_sentence)
     elif isinstance(feedback, WritingFeedback):
-        observations("overallBandScoreSummary", feedback.overallBandScoreSummary)
+        observations("overallBandScoreSummary", feedback.overallBandScoreSummary, allow_grammar=True)
         for name, item in feedback.criteriaFeedback:
-            observations(f"criteriaFeedback.{name}.feedback", item.feedback)
+            observations(f"criteriaFeedback.{name}.feedback", item.feedback, allow_grammar=True)
         for i, text in enumerate(feedback.keyTakeaways.strengths):
-            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False)
+            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False, allow_grammar=True)
         for i, text in enumerate(feedback.keyTakeaways.areasForImprovement):
-            observations(f"keyTakeaways.areasForImprovement[{i}]", text)
+            observations(f"keyTakeaways.areasForImprovement[{i}]", text, allow_grammar=True)
         mistakes(feedback.mistakeAnalysis, "mistakeAnalysis")
         for i, item in enumerate(feedback.ideaDevelopmentAnalysis or []):
             for field in ("originalIdea", "issue", "explanation"):
                 observations(f"ideaDevelopmentAnalysis[{i}].{field}", getattr(item, field),
-                             allow_proposals=field != "originalIdea")
+                             allow_proposals=field != "originalIdea", allow_grammar=field != "originalIdea")
         for i, item in enumerate(feedback.coherenceAnalysis or []):
             for field in ("location", "issue", "explanation"):
                 observations(f"coherenceAnalysis[{i}].{field}", getattr(item, field),
-                             allow_proposals=field != "location")
+                             allow_proposals=field != "location", allow_grammar=field != "location")
         if feedback.counterargumentAnalysis:
-            observations("counterargumentAnalysis.feedback", feedback.counterargumentAnalysis.feedback)
+            observations("counterargumentAnalysis.feedback", feedback.counterargumentAnalysis.feedback,
+                         allow_grammar=True)
         if feedback.lexicalAnalysis:
             for i, item in enumerate(feedback.lexicalAnalysis.wordsToUpgrade):
                 original(f"lexicalAnalysis.wordsToUpgrade[{i}].original", item.original)
@@ -246,7 +251,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
         current = structure.get("current_essay_observation")
         if isinstance(current, str):
             observations("sentenceStructureAnalysis.current_essay_observation", current,
-                         allow_proposals=False)
+                         allow_proposals=False, allow_grammar=True)
         # Other structure/history fields can legitimately quote older essays.
         # Suggestions, improvedEssay and rewritten sentences may use new words.
     if issues:

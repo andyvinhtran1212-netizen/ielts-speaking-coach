@@ -164,6 +164,10 @@ def test_task1_labels_have_a_reference_role_not_a_learner_wording_role(claim):
     ("Trong biểu đồ, nhóm 'invented category' tăng.", "task2"),
     ("Em đã dùng nhóm 'invented category' chính xác.", "task1_academic"),
     ("Trong biểu đồ, em đã dùng 'invented category' chính xác.", "task1_academic"),
+    ("Trong biểu đồ, bài viết gọi nhóm này là 'invented category'.", "task1_academic"),
+    ("Trong biểu đồ, bài viết gọi là nhóm 'invented category'.", "task1_academic"),
+    ("Trong biểu đồ, bài làm này dùng nhóm 'invented category'.", "task1_academic"),
+    ("The essay calls this group 'invented category'.", "task1_academic"),
 ])
 def test_task_reference_never_exempts_explicit_learner_wording(claim, task):
     with pytest.raises(UngroundedWritingFeedbackError):
@@ -186,6 +190,25 @@ def test_grammar_notation_does_not_relax_original_excerpt_validation():
         "explanation": "Fix the clause.", "suggestion": "A suggested rewrite.",
         "criterion": "Grammatical Range and Accuracy",
     }]
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(WritingFeedback(**data), ESSAY)
+
+
+@pytest.mark.parametrize("source_field", ["originalIdea", "location"])
+def test_grammar_notation_does_not_relax_source_idea_or_location(source_field):
+    data = feedback().model_dump()
+    source = "Cấu trúc 'S + V-ing'"
+    suggestion = {"instruction": "Clarify the source.", "example": "A proposed sentence."}
+    if source_field == "originalIdea":
+        data["ideaDevelopmentAnalysis"] = [{
+            "paragraph": 1, "originalIdea": source, "issue": "Issue",
+            "explanation": "Explanation", "suggestion": suggestion,
+        }]
+    else:
+        data["coherenceAnalysis"] = [{
+            "location": source, "issue": "Issue", "explanation": "Explanation",
+            "suggestion": suggestion,
+        }]
     with pytest.raises(UngroundedWritingFeedbackError):
         validate_writing_grounding(WritingFeedback(**data), ESSAY)
 
@@ -282,6 +305,23 @@ async def test_task_reference_context_reaches_the_real_validation_boundary(monke
     if accepted:
         result = await grader.grade_essay(config)
         assert result.feedback.criteriaFeedback.lexicalResource.feedback == claim
+    else:
+        with pytest.raises(UngroundedWritingFeedbackError):
+            await grader.grade_essay(config)
+    await drain_usage()
+    assert len(calls) == len(rows) == (1 if accepted else grader_module.MAX_RETRIES)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lemma,accepted", [("walk", True), ("talk", False)])
+async def test_single_word_gloss_at_real_retry_boundary(monkeypatch, lemma, accepted):
+    grader, calls, rows, _ = setup_provider(monkeypatch, [feedback(
+        f"Cụm 'walked' dùng sai nghĩa của '{lemma}'.",
+    )])
+    config = GraderConfig(task_type="task2", prompt_text="Walking", essay_text="They walked home.",
+                          analysis_level=3, selected_model="gemini-3.8-flash")
+    if accepted:
+        await grader.grade_essay(config)
     else:
         with pytest.raises(UngroundedWritingFeedbackError):
             await grader.grade_essay(config)
