@@ -36,9 +36,15 @@ _QUOTES = re.compile(
     r"|(?<!\w)'((?:[^']|(?<=\w)'(?=\w)|(?<=s)'(?=\s))+)'(?!\w)"
     r'|`([^`]+)`'
 )
+# Reference labels that the learner omitted and correction contrasts introduce
+# new language too. Later explicit learner attribution still takes precedence;
+# source-only fields never use this proposal exemption.
 _PROPOSAL = re.compile(
     r"\b(?:có thể|nên|hãy|gợi ý|đề xuất|thử dùng|thay(?: thế)?\b[^.!?;]*?\bbằng|"
-    r"cần\s+(?:dùng|sử dụng|thêm|bổ sung|viết|giải thích|nêu)|"
+    r"thay vì|nhầm lẫn giữa|phân biệt giữa|"
+    r"(?:quên|bỏ sót)\s+(?:nêu|gọi tên|ghi|định danh|tên|nhãn)|"
+    r"không rõ\s+là\s+(?:nhóm|danh mục)|"
+    r"cần\s+(?:dùng|sử dụng|thêm|bổ sung|viết|giải thích|nêu|định danh|gọi tên)|"
     r"chưa dùng|chưa sử dụng|không dùng|không sử dụng|thiếu|"
     r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest|replace\b[^.!?;]*?\bwith|instead use|"
     r"does not use|did not use|doesn't use|missing)\b", re.I

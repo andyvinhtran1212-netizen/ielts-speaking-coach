@@ -376,6 +376,8 @@ async def test_bg_grade_essay_happy_path_writes_feedback_and_marks_graded():
     graded_essay = [c for c in fake.calls if c["table"] == "writing_essays"
                     and c["op"] == "update" and c["payload"].get("status") == "graded"][-1]
     assert graded_essay["payload"]["status"] == "graded"
+    assert "error_message" in graded_essay["payload"]
+    assert graded_essay["payload"]["error_message"] is None
     cv_update = [c for c in fake.calls if c["table"] == "writing_essays"
                  and c["op"] == "update" and "current_version" in c["payload"]]
     assert cv_update, "GV-1b must advance current_version after grading"
