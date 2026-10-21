@@ -41,9 +41,10 @@ _QUOTES = re.compile(
 # source-only fields never use this proposal exemption.
 _PROPOSAL = re.compile(
     r"\b(?:có thể|nên|hãy|gợi ý|đề xuất|thử dùng|thay(?: thế)?\b[^.!?;]*?\bbằng|"
-    r"thay vì|nhầm lẫn giữa|phân biệt giữa|"
+    r"thay vì|thay cho|nhầm lẫn giữa|phân biệt giữa|"
     r"(?:quên|bỏ sót)\s+(?:nêu|gọi tên|ghi|định danh|tên|nhãn)|"
     r"không rõ\s+là\s+(?:nhóm|danh mục)|"
+    r"chưa giới thiệu(?: rõ)?\s+(?:nhóm|danh mục)|"
     r"cần\s+(?:dùng|sử dụng|thêm|bổ sung|viết|giải thích|nêu|định danh|gọi tên)|"
     r"chưa dùng|chưa sử dụng|không dùng|không sử dụng|thiếu|"
     r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest|replace\b[^.!?;]*?\bwith|instead use|"
@@ -51,7 +52,9 @@ _PROPOSAL = re.compile(
 )
 _ATTRIBUTION = re.compile(
     r"\b(?:(?:em|bạn|anh|chị|học viên)\s+(?:đã\s+)?(?:sử dụng|dùng|viết|nêu)|"
-    r"(?:you|the student|the learner)\s+(?:have\s+|has\s+)?(?:used|use|wrote|write))\b",
+    r"(?:bài viết|bài làm)(?: này)?\s+(?:đã\s+)?(?:sử dụng|dùng|viết|nêu|gọi)|"
+    r"(?:you|the student|the learner)\s+(?:have\s+|has\s+)?(?:used|use|wrote|write)|"
+    r"(?:the essay|this essay|the writing)\s+(?:has\s+)?(?:used|uses|wrote|states|calls|called))\b",
     re.I,
 )
 # Advice to KEEP a usage presupposes that the learner already used it.
@@ -73,6 +76,14 @@ _SUGGESTION_LABEL = re.compile(
     r"\s*(?:suggestion|suggested (?:example|wording|revision)|"
     r"proposed (?:example|wording|revision))\s*[:：]\s*"
     r"(?:(?:,|/|or\b|and\b)\s*)*", re.I,
+)
+_GRAMMAR_CONTEXT = re.compile(r"\b(?:mẫu câu|cấu trúc|mệnh đề|liên từ)\b", re.I)
+_GRAMMAR_NOTATION = re.compile(r"\b(?:[SVXYZ]|V(?:-?ing|inf|[123])|NP|Adj|Adv)\b")
+_TASK_LABEL = re.compile(
+    r"\b(?:nhóm(?: không tên| tần suất| danh mục)?|tần suất|danh mục)\s*\(?\s*$", re.I,
+)
+_GLOSS_CONTEXT = re.compile(
+    r"\b(?:để|phrasal verb|nghĩa của(?: phrasal verb)?|có nghĩa là|mang nghĩa|dịch là)\s*$", re.I,
 )
 
 
@@ -96,6 +107,32 @@ def _in_essay(excerpt: str, essay: str, *, allow_ellipsis: bool = False) -> bool
     return bool(excerpt) and re.search(r"(?<!\w)" + re.escape(excerpt) + r"(?!\w)", essay) is not None
 
 
+def _grounded_gloss(excerpt: str, preceding: str, prefix: str, essay: str) -> bool:
+    """A translation or dictionary lemma explains an already-quoted source.
+
+    This never validates an original excerpt or credits an unrelated English
+    phrase. Lemmas must inflect to a phrase actually present in the essay.
+    """
+    if not _GLOSS_CONTEXT.search(prefix):
+        return False
+    grounded_source = any(
+        _in_essay(next(g for g in m.groups() if g is not None), essay, allow_ellipsis=True)
+        for m in _QUOTES.finditer(preceding)
+    )
+    if not grounded_source:
+        return False
+    if any(c.isalpha() and not c.isascii() for c in excerpt):
+        return True  # Explicit non-English gloss of the grounded source.
+    first, separator, rest = _normalize(excerpt).partition(" ")
+    if not first.isascii() or not first.isalpha():
+        return False
+    forms = [first + ending for ending in ("s", "ed", "ing")]
+    if first.endswith("e"):
+        forms.append(first[:-1] + "ing")
+    suffix = " " + rest if separator else ""
+    return any(_in_essay(form + suffix, essay) for form in forms)
+
+
 class UngroundedWritingFeedbackError(ValueError):
     def __init__(self, issues: list[tuple[str, str]]):
         self.issues = issues
@@ -114,7 +151,7 @@ class UngroundedWritingFeedbackError(ValueError):
         )
 
 
-def validate_writing_grounding(feedback, essay_text: str) -> None:
+def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | None = None) -> None:
     essay = _normalize(essay_text)
     issues: list[tuple[str, str]] = []
 
@@ -122,11 +159,21 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
         if not _in_essay(text, essay):
             issues.append((path, text[:240]))
 
-    def observations(path: str, text: str, *, allow_proposals: bool = True):
+    def observations(path: str, text: str, *, allow_proposals: bool = True,
+                     allow_grammar: bool = False):
         text = text.translate(_PUNCTUATION)
         for match in _QUOTES.finditer(text):
             excerpt = next(g for g in match.groups() if g is not None)
             if _in_essay(excerpt, essay, allow_ellipsis=True):
+                continue
+            preceding = text[:match.start()]
+            masked_prefix = _QUOTES.sub("", preceding)
+            prefix = re.split(r"[.!?;\n]", masked_prefix)[-1]
+            # Abstract grammar notation is a structural description, not a
+            # verbatim citation, including in strengths/current observations.
+            # Strict source excerpts, original ideas and locations never opt in.
+            if (allow_grammar and _GRAMMAR_CONTEXT.search(prefix)
+                    and _GRAMMAR_NOTATION.search(excerpt)):
                 continue
             # Source-only fields cannot turn invented evidence into a proposal.
             if not allow_proposals:
@@ -135,8 +182,6 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
             # A clearly proposed/absent expression is not a claim of usage.
             # A later explicit attribution resets that distinction, including
             # mixed "could use X, but you used Y" sentences.
-            masked_prefix = _QUOTES.sub("", text[:match.start()])
-            prefix = re.split(r"[.!?;\n]", masked_prefix)[-1]
             proposals = list(_PROPOSAL.finditer(prefix))
             attributions = list(_ATTRIBUTION.finditer(prefix)) + list(_CONTINUATION.finditer(prefix))
             last_attribution = max((m.start() for m in attributions), default=-1)
@@ -147,6 +192,14 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
                     and _normalize(excerpt).rstrip(" ?!:") in _QUESTION_LABELS):
                 continue
             if proposals and proposals[-1].start() > last_attribution:
+                continue
+            # A chart category need not appear in an essay that omitted its
+            # label. Restrict this to Task 1 and do not exempt explicit learner
+            # wording claims such as "Em đã dùng 'invented category'".
+            if (task_type == "task1_academic" and last_attribution < 0
+                    and _TASK_LABEL.search(prefix)):
+                continue
+            if _grounded_gloss(excerpt, preceding, prefix, essay):
                 continue
             # A standalone example label introduces new language. Match the
             # whole prefix so "You used ... For example ..." cannot disguise
@@ -163,29 +216,30 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
 
     if isinstance(feedback, Pass2Refinement):
         mistakes(feedback.added_mistakes, "added_mistakes")
-        observations("rationale", feedback.rationale)
+        observations("rationale", feedback.rationale, allow_grammar=True)
     elif isinstance(feedback, Pass3Rewrites):
         for i, item in enumerate(feedback.sentence_rewrites):
             original(f"sentence_rewrites[{i}].original_sentence", item.original_sentence)
     elif isinstance(feedback, WritingFeedback):
-        observations("overallBandScoreSummary", feedback.overallBandScoreSummary)
+        observations("overallBandScoreSummary", feedback.overallBandScoreSummary, allow_grammar=True)
         for name, item in feedback.criteriaFeedback:
-            observations(f"criteriaFeedback.{name}.feedback", item.feedback)
+            observations(f"criteriaFeedback.{name}.feedback", item.feedback, allow_grammar=True)
         for i, text in enumerate(feedback.keyTakeaways.strengths):
-            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False)
+            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False, allow_grammar=True)
         for i, text in enumerate(feedback.keyTakeaways.areasForImprovement):
-            observations(f"keyTakeaways.areasForImprovement[{i}]", text)
+            observations(f"keyTakeaways.areasForImprovement[{i}]", text, allow_grammar=True)
         mistakes(feedback.mistakeAnalysis, "mistakeAnalysis")
         for i, item in enumerate(feedback.ideaDevelopmentAnalysis or []):
             for field in ("originalIdea", "issue", "explanation"):
                 observations(f"ideaDevelopmentAnalysis[{i}].{field}", getattr(item, field),
-                             allow_proposals=field != "originalIdea")
+                             allow_proposals=field != "originalIdea", allow_grammar=field != "originalIdea")
         for i, item in enumerate(feedback.coherenceAnalysis or []):
             for field in ("location", "issue", "explanation"):
                 observations(f"coherenceAnalysis[{i}].{field}", getattr(item, field),
-                             allow_proposals=field != "location")
+                             allow_proposals=field != "location", allow_grammar=field != "location")
         if feedback.counterargumentAnalysis:
-            observations("counterargumentAnalysis.feedback", feedback.counterargumentAnalysis.feedback)
+            observations("counterargumentAnalysis.feedback", feedback.counterargumentAnalysis.feedback,
+                         allow_grammar=True)
         if feedback.lexicalAnalysis:
             for i, item in enumerate(feedback.lexicalAnalysis.wordsToUpgrade):
                 original(f"lexicalAnalysis.wordsToUpgrade[{i}].original", item.original)
@@ -197,7 +251,7 @@ def validate_writing_grounding(feedback, essay_text: str) -> None:
         current = structure.get("current_essay_observation")
         if isinstance(current, str):
             observations("sentenceStructureAnalysis.current_essay_observation", current,
-                         allow_proposals=False)
+                         allow_proposals=False, allow_grammar=True)
         # Other structure/history fields can legitimately quote older essays.
         # Suggestions, improvedEssay and rewritten sentences may use new words.
     if issues:

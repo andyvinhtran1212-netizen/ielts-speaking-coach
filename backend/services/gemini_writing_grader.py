@@ -334,6 +334,7 @@ class GeminiWritingGrader:
             user_prompt=user_prompt,
             parse_schema=WritingFeedback,   # retry on truncated/malformed body
             source_essay=config.essay_text,
+            source_task_type=config.task_type,
             usage_context=self._usage_context(config, "pass1"),
             **extra,
         )
@@ -557,6 +558,7 @@ class GeminiWritingGrader:
             user_prompt=user_prompt,
             parse_schema=Pass2Refinement,   # retry on truncated/malformed body
             source_essay=config.essay_text,
+            source_task_type=config.task_type,
             usage_context=self._usage_context(config, "pass2"),
         )
         return self._parse_response(response_text, schema=Pass2Refinement), usage
@@ -582,6 +584,7 @@ class GeminiWritingGrader:
             user_prompt=user_prompt,
             parse_schema=Pass3Rewrites,   # retry on truncated/malformed body
             source_essay=config.essay_text,
+            source_task_type=config.task_type,
             usage_context=self._usage_context(config, "pass3"),
         )
         return self._parse_response(response_text, schema=Pass3Rewrites), usage
@@ -823,6 +826,7 @@ class GeminiWritingGrader:
         parse_schema=None,
         usage_context: dict | None = None,
         source_essay: str | None = None,
+        source_task_type: str | None = None,
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
 
@@ -910,7 +914,7 @@ class GeminiWritingGrader:
                     try:
                         parsed = self._parse_response(response_text, schema=parse_schema)
                         if source_essay is not None:
-                            validate_writing_grounding(parsed, source_essay)
+                            validate_writing_grounding(parsed, source_essay, task_type=source_task_type)
                     except Exception as validation_error:
                         await self._log_writing_usage(
                             model_name, usage, usage_context, attempt,
