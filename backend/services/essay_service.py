@@ -1081,7 +1081,7 @@ async def _bg_grade_essay(
         # writing_feedback flat columns already carry single-pass
         # tokens / cost / duration). Empty dicts skipped to avoid
         # unnecessary writes.
-        essay_update: dict = {"status": "graded"}
+        essay_update: dict = {"status": "graded", "error_message": None}
         if result.tier_metadata:
             essay_update["grading_tier_metadata"] = result.tier_metadata
         supabase_admin.table("writing_essays").update(

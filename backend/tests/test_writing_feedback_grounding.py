@@ -97,6 +97,57 @@ def test_word_boundaries_prevent_substring_evidence():
         validate_writing_grounding(feedback("Em dùng 'bus' phù hợp."), "Business is important.")
 
 
+@pytest.mark.parametrize("claim", [
+    "Em nêu số liệu mà chỉ gọi chung là 'the group' thay vì nhóm 'twice a year'.",
+    "Quên gọi tên nhóm 'twice a year', khiến số liệu thiếu nhãn.",
+    "Bỏ sót tên nhóm danh mục 'Twice a year'.",
+    "Cần định danh chính xác là 'twice a year' để phân biệt với nhóm khác.",
+    "Em viết 'the group' chung chung, không rõ là nhóm 'Twice a year'.",
+    "Em nhầm lẫn giữa tính từ 'dayly' với trạng từ 'daily'.",
+    "Cần phân biệt giữa 'dayly' và 'daily'.",
+])
+def test_missing_task_labels_and_correction_contrasts_are_not_source_claims(claim):
+    # Synthetic Task 1 cohort: the missing label and corrected spelling are
+    # reference language, not words attributed to the learner's original.
+    essay = "The group increased to 15 percent. They visit dayly."
+    data = feedback().model_dump()
+    data["criteriaFeedback"]["lexicalResource"]["feedback"] = claim
+    data["keyTakeaways"]["areasForImprovement"] = [claim]
+    data["ideaDevelopmentAnalysis"] = [{
+        "paragraph": 1,
+        "originalIdea": "The group increased to 15 percent.",
+        "issue": claim, "explanation": claim,
+        "suggestion": {"instruction": "Name the category.", "example": "The twice-a-year group increased."},
+    }]
+    data["coherenceAnalysis"] = [{
+        "location": "Paragraph 1", "issue": claim, "explanation": claim,
+        "suggestion": {"instruction": "Name the category.", "example": "The twice-a-year group increased."},
+    }]
+    result = WritingFeedback(**data)
+    before = result.model_dump()
+    validate_writing_grounding(result, essay)
+    assert result.model_dump() == before
+
+
+@pytest.mark.parametrize("claim", [
+    "Em quên gọi tên nhóm, nhưng em đã dùng 'subsidies' chính xác.",
+    "Cần định danh nhóm. Em dùng 'subsidies' hiệu quả.",
+    "Em phân biệt giữa các nhóm; em đã viết 'subsidies'.",
+    "Thay vì dùng từ chung chung, em đã dùng 'subsidies' chính xác.",
+    "Không rõ là nhóm nào, nhưng em dùng 'subsidies' phù hợp.",
+])
+def test_reference_context_does_not_override_a_later_learner_attribution(claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(feedback(claim), ESSAY)
+
+
+def test_reference_context_cannot_hide_unsupported_strength_or_original():
+    result = feedback()
+    result.keyTakeaways.strengths = ["Phân biệt giữa 'subsidies' và 'support'."]
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(result, ESSAY)
+
+
 def test_source_fields_checked_but_suggestions_and_history_preserved():
     result = feedback()
     data = result.model_dump()
