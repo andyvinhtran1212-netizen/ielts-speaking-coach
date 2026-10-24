@@ -80,6 +80,18 @@ test('Cam19 inline pending status occupies layout space during a slow save', asy
   release(); await expect(hint).toHaveCount(0);
 });
 
+test('Cam19 T4 retains all ten note inputs and nests the wildlife example under recovery', async ({ page }) => {
+  const bundle = { id: 'LS-UI', title: 'Cam19 note hierarchy', test_type: 'mini', audio_url: 'https://audio.fixture.test/cam19.mp3',
+    sections: [{ section_num: 4, exercises: [fixture.listening_t4] }] };
+  await installReadingHarness(page, { route: '/listening/test/session?id=LS-UI&admin_preview=1', handleApi: async ({ route, url }) => {
+    if (url.pathname === '/admin/listening/tests/LS-UI/player-preview') { await route.fulfill({ json: bundle, headers: cors }); return true; } return false;
+  } });
+  await expect(page.locator('.ielts-notes-list input')).toHaveCount(10);
+  const example = page.getByLabel('Answer 38', { exact: true });
+  expect(await example.evaluate(el => el.closest('li').parentElement.closest('li').textContent)).toContain('of recovery by attracting animals and birds');
+  await example.fill('source example'); await expect(example).toHaveValue('source example');
+});
+
 test('Listening pending palette digits retain readable contrast in both themes', async ({ page }) => {
   const bundle = { id: 'LS-UI', title: 'Cam19 contrast', audio_url: 'https://audio.fixture.test/cam19.mp3',
     sections: [{ section_num: 4, exercises: [fixture.listening_t4] }] };
@@ -88,13 +100,15 @@ test('Listening pending palette digits retain readable contrast in both themes',
   } });
   await expect(page.locator('.progress-square').first()).toBeAttached();
   for (const theme of ['light', 'dark']) {
-    for (const examTheme of ['light', 'dark']) {
+    for (const examTheme of ['light', 'dark', 'yellow-on-blue']) {
+      for (const state of ['is-unsaved', 'is-save-failed']) {
     // Measure the pending CSS state on the real rendered control. Persistence
     // and queue transitions are covered by the existing lifecycle suites.
-    const ratio = await page.evaluate(({ theme, examTheme }) => {
+    const ratio = await page.evaluate(({ theme, examTheme, state }) => {
       document.documentElement.dataset.theme = theme;
       document.body.dataset.examTheme = examTheme;
-      const el = document.querySelector('.progress-square'); el.classList.add('is-unsaved');
+      const el = document.querySelector('.progress-square');
+      el.classList.remove('is-unsaved', 'is-save-failed'); el.classList.add(state);
       const rgb = value => value.match(/[\d.]+/g).map(Number);
       let bg = [255, 255, 255];
       const ancestors = []; for (let node = el; node; node = node.parentElement) ancestors.unshift(node);
@@ -102,8 +116,9 @@ test('Listening pending palette digits retain readable contrast in both themes',
       const luminance = channels => channels.map(n => n / 255).map(n => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4).reduce((sum, n, i) => sum + n * [.2126, .7152, .0722][i], 0);
       const a = luminance(rgb(getComputedStyle(el).color).slice(0, 3)), b = luminance(bg);
       return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
-    }, { theme, examTheme });
+    }, { theme, examTheme, state });
     expect(ratio).toBeGreaterThanOrEqual(4.5);
+      }
     }
   }
 });

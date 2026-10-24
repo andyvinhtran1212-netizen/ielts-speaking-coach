@@ -52,6 +52,11 @@ it('restores the control-group premise before T3 Q28 and retains all five answer
 });
 
 it('keeps T4 recommendations whole and attaches the wildlife example to the recovery benefit in player and review', async () => {
+  const before = JSON.stringify(fixture.listening_t4);
+  // Existing clients read only this flat list: no numbered answer can be
+  // moved exclusively into a new child structure during a live content edit.
+  const flatSlots = fixture.listening_t4.payload.template.groups.flatMap(group => group.items).filter(item => 'q_num' in item).map(item => item.q_num);
+  expect(flatSlots).toEqual([31, 32, 33, 34, 35, 36, 37, 38, 39, 40]);
   const view = preview(fixture.listening_t4, 4);
   await screen.findByRole('textbox', { name: 'Answer 31', exact: true });
   expect(screen.getByRole('textbox', { name: 'Answer 31', exact: true }).closest('li')?.textContent).not.toContain('aim to capture');
@@ -64,6 +69,7 @@ it('keeps T4 recommendations whole and attaches the wildlife example to the reco
   const review = render(<ReviewQuestionContext value={{ template: fixture.listening_t4.payload.template }} />);
   expect(review.container.querySelector('li ul li ul li')?.textContent).toContain('[Câu 38]');
   expect(review.container.querySelectorAll('input,select')).toHaveLength(0);
+  expect(JSON.stringify(fixture.listening_t4)).toBe(before);
 });
 
 it('hides metadata-only empty contexts while retaining real instructions', () => {

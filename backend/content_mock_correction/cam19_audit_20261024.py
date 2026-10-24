@@ -199,10 +199,10 @@ def repair(baseline):
             {"q_num": 36, "prefix": "Drones are useful for identifying areas in Brazil which are endangered by keeping", "suffix": "and illegal logging."}]},
         {"heading": "Lampang Province, Northern Thailand", "items": [
             {"text": "A forest was restored in an area damaged by mining."},
-            {"text": "A variety of native fig trees were planted, which are important for:", "items": [
-                {"text": "supporting many wildlife species"},
-                {"q_num": 37, "prefix": "increasing the", "suffix": "of recovery by attracting animals and birds", "items": [
-                    {"q_num": 38, "prefix": "e.g.,", "suffix": "were soon attracted to the area."}]}]}]},
+            {"text": "A variety of native fig trees were planted, which are important for:"},
+            {"text": "supporting many wildlife species", "indent": 1},
+            {"q_num": 37, "prefix": "increasing the", "suffix": "of recovery by attracting animals and birds", "indent": 1},
+            {"q_num": 38, "prefix": "e.g.,", "suffix": "were soon attracted to the area.", "indent": 2}]},
         {"heading": "Involving local communities", "items": [
             {"q_num": 39, "prefix": "Destruction of mangrove forests in Madagascar made it difficult for people to make a living from", "suffix": ""}]},
         {"heading": "The mangrove reforestation project", "items": [

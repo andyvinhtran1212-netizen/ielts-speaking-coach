@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, type ReactNode } from 'react';
+import { noteTemplateTree } from '@/lib/note-template-tree.mjs';
 
 const record = (value: unknown): Record<string, any> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : null;
 const list = (value: unknown): any[] => Array.isArray(value) ? value : [];
@@ -109,7 +110,7 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
       {summary.after ? <p style={{ whiteSpace: 'pre-wrap' }}>{segment(summary.after)}</p> : null}
       {list(template.groups).map((group, index) => <div key={index}>
         {group.heading || group.heading_segments ? <h5>{group.heading_segments ? segment(group.heading_segments) : segment(group.heading)}</h5> : null}
-        {noteItems(list(group.items))}
+        {noteItems(noteTemplateTree(list(group.items)))}
       </div>)}
       {list(template.steps).length ? <ol>{template.steps.map((step: unknown, index: number) => <li key={index}>{segment(step)}</li>)}</ol> : null}
     </div> : null}

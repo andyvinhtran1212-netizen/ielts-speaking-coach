@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import { useAuth } from '@/lib/auth/auth-provider';
 import { useDialogFocus } from '@/lib/use-dialog-focus';
 import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
+import { noteTemplateTree } from '@/lib/note-template-tree.mjs';
 import {
   createListeningSaveCoordinator,
   isPracticeListeningTest,
@@ -158,7 +159,7 @@ function NotesTemplate({ template, answers, onAnswer }: { template: any; answers
       {headingSegments || group.heading ? <div className="ielts-notes-group-heading">
         {headingSegments ? headingSegments.map((segment: any, part: number) => <Fragment key={part}>{part ? ' ' : null}<Segment segment={segment} answers={answers} onAnswer={onAnswer} /></Fragment>) : <InlineText text={group.heading} />}
       </div> : null}
-      {items(group.items || [])}
+      {items(noteTemplateTree(group.items || []))}
     </div>; })}
   </div>;
 }
