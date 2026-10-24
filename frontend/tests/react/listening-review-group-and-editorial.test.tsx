@@ -32,8 +32,29 @@ it('opens the real Q12 second slot with shared script, translation and rationale
   expect(card.textContent).toContain('Đừng bao giờ ăn nấm do bạn bè hay hàng xóm hái');
   expect(card.textContent).toContain('Dan gives exactly two warnings');
   expect(card.textContent).not.toContain('Chưa có lời giải chi tiết.');
-  expect(card.querySelector('.lr-card__ans.is-correct code')?.textContent).toBe('C');
+  expect(card.querySelector('.lr-card__ans.is-correct code')?.textContent).toBe('{B, C}');
+  expect(card.textContent).toContain('chấp nhận mọi thứ tự');
   expect(card.textContent).toContain('11:30–11:42');
+  expect(JSON.stringify(raw)).toBe(before);
+});
+
+it('shows the accepted Cam19 C/E set beside a correct reversed E/C response without changing either grade', async () => {
+  const raw = structuredClone(fixture.group_review);
+  raw.preview = false;
+  raw.score = 2;
+  raw.max_score = 2;
+  raw.review = raw.review.map((row, i) => ({ ...row, q_num: 17 + i,
+    prompt: 'Which TWO things does David say about the lifeboat volunteer training?',
+    correct: true, expected: i ? 'E' : 'C', user_answer: i ? 'C' : 'E',
+    question_context: { ...row.question_context, question_id: `ed852bcc-b3c3-57a5-bf60-278d7c4adce2:${17 + i}` },
+  }));
+  const before = JSON.stringify(raw);
+  getWith.mockResolvedValue(raw);
+  const view = render(<ListeningReviewWorkspace />);
+  await screen.findByRole('button', { name: 'Câu 17 — đúng', exact: true });
+  expect(view.container.querySelector('#listening-review-q-17 .lr-card__ans.is-correct code')?.textContent).toBe('{C, E}');
+  expect(view.container.querySelector('#listening-review-q-18 .lr-card__ans.is-correct code')?.textContent).toBe('{C, E}');
+  expect(view.container.querySelector('#listening-review-q-17')?.textContent).toContain('chấp nhận mọi thứ tự');
   expect(JSON.stringify(raw)).toBe(before);
 });
 

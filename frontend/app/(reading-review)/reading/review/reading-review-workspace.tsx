@@ -479,7 +479,20 @@ export function ReadingReviewWorkspace() {
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const [filter, setFilter] = useState<ReviewFilter>('all');
   const surveyRef = useRef<HTMLDivElement | null>(null);
+  const reviewHeaderRef = useRef<HTMLElement | null>(null);
   const requestRef = useRef(0);
+
+  useEffect(() => {
+    const header = reviewHeaderRef.current;
+    const pane = header?.closest<HTMLElement>('.exam-questions');
+    if (!header || !pane) return;
+    const previous = pane.style.scrollPaddingTop;
+    const measure = () => { pane.style.scrollPaddingTop = `${header.getBoundingClientRect().height + 16}px`; };
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(header);
+    return () => { observer?.disconnect(); pane.style.scrollPaddingTop = previous; };
+  }, [phase]);
 
   useEffect(() => { setParams(readingReviewParams(window.location.search)); }, []);
 
@@ -585,7 +598,7 @@ export function ReadingReviewWorkspace() {
   )), [allCurrentItems, filter]);
   const passage = useMemo(() => (data?.passages || []).find((item: any) => item.passage_order === currentPart) || null, [currentPart, data]);
   const back = useMemo(() => readingReviewBackTarget(params), [params]);
-  const skills = useMemo(() => readingReviewSkillRows(data?.skillBreakdown, SKILL_LABELS), [data]);
+  const skills = useMemo(() => readingReviewSkillRows(data?.skillBreakdown, SKILL_LABELS, data?.review), [data]);
   const wrongCount = data?.review.filter((item: any) => !item.correct).length || 0;
 
   useEffect(() => {
@@ -674,7 +687,7 @@ export function ReadingReviewWorkspace() {
         <div className="exam-divider" aria-hidden="true" />
         <section className="exam-questions rr-review" aria-label="Chữa từng câu">
           {!data.preview ? <ReviewContextNotice value={data.contextSource} /> : null}
-          <header className="rr-review-header">
+          <header className="rr-review-header" ref={reviewHeaderRef}>
             <div><p className="rr-review-header__eyebrow">BÀN CHỮA BÀI</p><h1>Hiểu lỗi, sửa đúng cách</h1><p className="rr-review-header__copy">{data.preview
               ? `${data.review.length} câu trong đề · Xem đáp án, trích đoạn nguồn và lời giải trước khi xuất bản.`
               : `${wrongCount} câu cần xem lại · ${data.review.length - wrongCount} câu đúng. ${wrongCount ? 'Bắt đầu từ câu sai, tự định vị bằng chứng rồi mới mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}</p></div>

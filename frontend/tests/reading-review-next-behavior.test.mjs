@@ -13,6 +13,7 @@ import {
   readingReviewParams,
   readingReviewPrompt,
   readingReviewSkillRows,
+  splitReviewProse,
 } from '../lib/reading-review-model.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -49,6 +50,23 @@ function payload(overrides = {}) {
 }
 
 describe('native Reading review model', () => {
+  test('keeps Cam19 ellipsis evidence in one clause', () => {
+    assert.deepEqual(splitReviewProse('greater... than before; need to ensure... benefit. Next idea'),
+      ['greater... than before', 'need to ensure... benefit', 'Next idea']);
+  });
+  test('labels actual Y/N/NG rows separately while retaining frozen grades and other skills', () => {
+    const breakdown = { writer_view_TFNG: { correct: 2, total: 3 }, detail: { correct: 1, total: 1 } };
+    const review = [
+      { skill_tag: 'writer_view_TFNG', question_type: 'true_false_not_given', correct: true },
+      { skill_tag: 'writer_view_TFNG', question_type: 'yes_no_not_given', correct: true },
+      { skill_tag: 'writer_view_TFNG', question_type: 'yes_no_not_given', correct: false },
+    ];
+    const before = JSON.stringify({ breakdown, review });
+    const rows = readingReviewSkillRows(breakdown, {}, review);
+    assert.deepEqual(rows.find(row => row.key === 'writer_view_YNNG'), { key: 'writer_view_YNNG', label: 'writer_view_YNNG', correct: 1, total: 2, percent: 50 });
+    assert.equal(rows.reduce((sum, row) => sum + row.correct, 0), 3);
+    assert.equal(JSON.stringify({ breakdown, review }), before);
+  });
   test('labels blank responses without overriding the canonical grade or mutating historical rows', () => {
     for (const [row, expected] of [
       [{ correct: false, user_answer: '' }, 'blank'],
