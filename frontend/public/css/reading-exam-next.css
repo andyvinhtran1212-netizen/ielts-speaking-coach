@@ -137,15 +137,17 @@
 }
 
 .reading-next-gap-save {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 1;
-  min-width: max-content;
+  position: static;
+  display: block;
+  flex-basis: 100%;
+  grid-column: 1 / -1;
+  min-width: 0;
   color: var(--av-warning);
   background: var(--av-surface-card);
   font-size: 11px;
 }
+
+.reading-next-flow-gap { flex-wrap: wrap; vertical-align: middle; }
 
 .reading-next-save-banner {
   margin: 8px 12px;
@@ -249,9 +251,13 @@
   overflow-x: auto;
   margin-bottom: 16px;
   border: 1px solid var(--exam-border-default);
+  container-type: inline-size;
 }
 
+
 /* Palette navigation must not put an opaque sticky bank over its target row. */
+.reading-next-player-page .exam-questions__group .exam-word-bank-box,
+.reading-next-player-page .exam-questions__group .exam-endings-box,
 .reading-next-player-page .exam-questions__group[data-question-type="matching_features"] .exam-features-box {
   position: static;
   z-index: auto;
@@ -518,4 +524,15 @@ body.reading-next-player-page:is([data-exam-theme="dark"], [data-exam-theme="yel
     width: auto;
     justify-content: center;
   }
+}
+
+@container (max-width: 640px) {
+  .reading-next-match-matrix { display: block; min-width: 0; }
+  .reading-next-match-matrix thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .reading-next-match-matrix tbody { display: block; }
+  .reading-next-match-matrix tbody tr { display: flex; flex-wrap: wrap; }
+  .reading-next-match-matrix tbody th { flex: 1 1 100%; min-width: 0; box-sizing: border-box; }
+  .reading-next-match-matrix tbody td { flex: 1 1 44px; min-width: 0; padding: 6px; }
+  .reading-next-match-matrix tbody td:last-child { flex-basis: 100%; text-align: right; }
+  .reading-next-match-matrix .reading-next-matrix-letter { display: inline; }
 }

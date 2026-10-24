@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import { useAuth } from '@/lib/auth/auth-provider';
 import { useDialogFocus } from '@/lib/use-dialog-focus';
 import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
+import { noteTemplateTree } from '@/lib/note-template-tree.mjs';
 import {
   createListeningSaveCoordinator,
   isPracticeListeningTest,
@@ -146,6 +147,10 @@ function TableTemplate({ template, answers, onAnswer }: { template: any; answers
 
 function NotesTemplate({ template, answers, onAnswer }: { template: any; answers: AnswerMap; onAnswer(q: number, v: string): void }) {
   const groups = Array.isArray(template?.groups) ? template.groups : [];
+  const items = (rows: any[]): ReactNode => <ul className="ielts-notes-list">{rows.map((item: any, index: number) => <li key={index}>
+    {item?.q_num != null ? <GapWithNumber qNum={Number(item.q_num)} value={answers.get(Number(item.q_num)) || ''} onAnswer={onAnswer} prefix={item.prefix || ''} suffix={item.suffix || ''} /> : <InlineText text={String(item?.text || '')} />}
+    {Array.isArray(item?.items) && item.items.length ? items(item.items) : null}
+  </li>)}</ul>;
   return <div className="ielts-notes-container">
     {template?.heading ? <div className="ielts-notes-heading"><InlineText text={template.heading} /></div> : null}
     {groups.map((group: any, index: number) => {
@@ -154,9 +159,7 @@ function NotesTemplate({ template, answers, onAnswer }: { template: any; answers
       {headingSegments || group.heading ? <div className="ielts-notes-group-heading">
         {headingSegments ? headingSegments.map((segment: any, part: number) => <Fragment key={part}>{part ? ' ' : null}<Segment segment={segment} answers={answers} onAnswer={onAnswer} /></Fragment>) : <InlineText text={group.heading} />}
       </div> : null}
-      <ul className="ielts-notes-list">{(group.items || []).map((item: any, itemIndex: number) => <li key={itemIndex}>
-        {item?.q_num != null ? <GapWithNumber qNum={Number(item.q_num)} value={answers.get(Number(item.q_num)) || ''} onAnswer={onAnswer} prefix={item.prefix || ''} suffix={item.suffix || ''} /> : <InlineText text={String(item?.text || '')} />}
-      </li>)}</ul>
+      {items(noteTemplateTree(group.items || []))}
     </div>; })}
   </div>;
 }

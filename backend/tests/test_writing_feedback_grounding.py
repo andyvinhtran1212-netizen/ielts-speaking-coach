@@ -97,6 +97,142 @@ def test_word_boundaries_prevent_substring_evidence():
         validate_writing_grounding(feedback("Em dùng 'bus' phù hợp."), "Business is important.")
 
 
+@pytest.mark.parametrize("claim", [
+    "Em nêu số liệu mà chỉ gọi chung là 'the group' thay vì nhóm 'twice a year'.",
+    "Quên gọi tên nhóm 'twice a year', khiến số liệu thiếu nhãn.",
+    "Bỏ sót tên nhóm danh mục 'Twice a year'.",
+    "Cần định danh chính xác là 'twice a year' để phân biệt với nhóm khác.",
+    "Em viết 'the group' chung chung, không rõ là nhóm 'Twice a year'.",
+    "Em nhầm lẫn giữa tính từ 'dayly' với trạng từ 'daily'.",
+    "Cần phân biệt giữa 'dayly' và 'daily'.",
+])
+def test_missing_task_labels_and_correction_contrasts_are_not_source_claims(claim):
+    # Synthetic Task 1 cohort: the missing label and corrected spelling are
+    # reference language, not words attributed to the learner's original.
+    essay = "The group increased to 15 percent. They visit dayly."
+    data = feedback().model_dump()
+    data["criteriaFeedback"]["lexicalResource"]["feedback"] = claim
+    data["keyTakeaways"]["areasForImprovement"] = [claim]
+    data["ideaDevelopmentAnalysis"] = [{
+        "paragraph": 1,
+        "originalIdea": "The group increased to 15 percent.",
+        "issue": claim, "explanation": claim,
+        "suggestion": {"instruction": "Name the category.", "example": "The twice-a-year group increased."},
+    }]
+    data["coherenceAnalysis"] = [{
+        "location": "Paragraph 1", "issue": claim, "explanation": claim,
+        "suggestion": {"instruction": "Name the category.", "example": "The twice-a-year group increased."},
+    }]
+    result = WritingFeedback(**data)
+    before = result.model_dump()
+    validate_writing_grounding(result, essay)
+    assert result.model_dump() == before
+
+
+@pytest.mark.parametrize("claim", [
+    "Em quên gọi tên nhóm, nhưng em đã dùng 'subsidies' chính xác.",
+    "Cần định danh nhóm. Em dùng 'subsidies' hiệu quả.",
+    "Em phân biệt giữa các nhóm; em đã viết 'subsidies'.",
+    "Thay vì dùng từ chung chung, em đã dùng 'subsidies' chính xác.",
+    "Không rõ là nhóm nào, nhưng em dùng 'subsidies' phù hợp.",
+])
+def test_reference_context_does_not_override_a_later_learner_attribution(claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(feedback(claim), ESSAY)
+
+
+def test_reference_context_cannot_hide_unsupported_strength_or_original():
+    result = feedback()
+    result.keyTakeaways.strengths = ["Phân biệt giữa 'subsidies' và 'support'."]
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(result, ESSAY)
+
+
+@pytest.mark.parametrize("claim", [
+    "Trong biểu đồ, nhóm 12% là nhóm 'twice a year'.",
+    "Dữ liệu 12% thuộc về nhóm 'twice a year', nhưng bài thiếu tên nhóm.",
+    "Em mô tả nhóm 'twice a year' nhưng lại gọi chung là 'the group'.",
+    "Câu chuyển sang một nhóm không tên ('twice a year').",
+    "Khi chưa giới thiệu rõ nhóm 'twice a year', số liệu sẽ khó hiểu.",
+])
+def test_task1_labels_have_a_reference_role_not_a_learner_wording_role(claim):
+    essay = "The group increased to 15 percent."
+    validate_writing_grounding(feedback(claim), essay, task_type="task1_academic")
+
+
+@pytest.mark.parametrize("claim,task", [
+    ("Trong biểu đồ, nhóm 'invented category' tăng.", "task2"),
+    ("Em đã dùng nhóm 'invented category' chính xác.", "task1_academic"),
+    ("Trong biểu đồ, em đã dùng 'invented category' chính xác.", "task1_academic"),
+    ("Trong biểu đồ, bài viết gọi nhóm này là 'invented category'.", "task1_academic"),
+    ("Trong biểu đồ, bài viết gọi là nhóm 'invented category'.", "task1_academic"),
+    ("Trong biểu đồ, bài làm này dùng nhóm 'invented category'.", "task1_academic"),
+    ("The essay calls this group 'invented category'.", "task1_academic"),
+])
+def test_task_reference_never_exempts_explicit_learner_wording(claim, task):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(feedback(claim), ESSAY, task_type=task)
+
+
+@pytest.mark.parametrize("pattern", ["before + V-ing", "before/after + V-ing", "The share was X in Y, then rose to Z"])
+def test_abstract_grammar_descriptions_are_not_literal_quotes(pattern):
+    claim = f"Bài có mẫu câu dạng '{pattern}'."
+    result = feedback(claim)
+    result.keyTakeaways.strengths = [claim]
+    result.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    validate_writing_grounding(result, "The share fell before rising in 2015.")
+
+
+def test_grammar_notation_does_not_relax_original_excerpt_validation():
+    data = feedback().model_dump()
+    data["mistakeAnalysis"] = [{
+        "original": "before + V-ing", "mistakeType": "Grammar",
+        "explanation": "Fix the clause.", "suggestion": "A suggested rewrite.",
+        "criterion": "Grammatical Range and Accuracy",
+    }]
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(WritingFeedback(**data), ESSAY)
+
+
+@pytest.mark.parametrize("source_field", ["originalIdea", "location"])
+def test_grammar_notation_does_not_relax_source_idea_or_location(source_field):
+    data = feedback().model_dump()
+    source = "Cấu trúc 'S + V-ing'"
+    suggestion = {"instruction": "Clarify the source.", "example": "A proposed sentence."}
+    if source_field == "originalIdea":
+        data["ideaDevelopmentAnalysis"] = [{
+            "paragraph": 1, "originalIdea": source, "issue": "Issue",
+            "explanation": "Explanation", "suggestion": suggestion,
+        }]
+    else:
+        data["coherenceAnalysis"] = [{
+            "location": source, "issue": "Issue", "explanation": "Explanation",
+            "suggestion": suggestion,
+        }]
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(WritingFeedback(**data), ESSAY)
+
+
+@pytest.mark.parametrize("claim", [
+    "Cụm 'Looking back' dùng sai nghĩa của phrasal verb 'look back'.",
+    "Cụm 'Looking back' chưa phù hợp để 'look back' ở đây.",
+    "Cụm 'Looking back' chưa phù hợp để 'nhìn lại' ở đây.",
+    "Em dùng 'dayly' thay cho trạng từ 'daily'.",
+])
+def test_grounded_lemma_translation_and_correction_contrasts(claim):
+    validate_writing_grounding(feedback(claim), "Looking back was unnecessary. They visit dayly.")
+
+
+@pytest.mark.parametrize("claim", [
+    "Cụm 'Walking away' dùng sai nghĩa của phrasal verb 'turn back'.",
+    "Cụm 'Walking away' có vấn đề; em đã dùng 'quay lại' tốt.",
+    "Dùng sai nghĩa của phrasal verb 'turn back'.",
+])
+def test_gloss_context_requires_a_grounded_source_and_lemma(claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(feedback(claim), "Walking away was unnecessary.")
+
+
 def test_source_fields_checked_but_suggestions_and_history_preserved():
     result = feedback()
     data = result.model_dump()
@@ -157,6 +293,40 @@ async def drain_usage():
         if not pending:
             return
         await asyncio.gather(*pending)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("task_type,accepted", [("task1_academic", True), ("task2", False)])
+async def test_task_reference_context_reaches_the_real_validation_boundary(monkeypatch, task_type, accepted):
+    claim = "Trong biểu đồ, nhóm 'twice a year' tăng."
+    grader, calls, rows, _ = setup_provider(monkeypatch, [feedback(claim)])
+    config = GraderConfig(task_type=task_type, prompt_text="Frequency chart", essay_text=ESSAY,
+                          analysis_level=3, selected_model="gemini-3.8-flash")
+    if accepted:
+        result = await grader.grade_essay(config)
+        assert result.feedback.criteriaFeedback.lexicalResource.feedback == claim
+    else:
+        with pytest.raises(UngroundedWritingFeedbackError):
+            await grader.grade_essay(config)
+    await drain_usage()
+    assert len(calls) == len(rows) == (1 if accepted else grader_module.MAX_RETRIES)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lemma,accepted", [("walk", True), ("talk", False)])
+async def test_single_word_gloss_at_real_retry_boundary(monkeypatch, lemma, accepted):
+    grader, calls, rows, _ = setup_provider(monkeypatch, [feedback(
+        f"Cụm 'walked' dùng sai nghĩa của '{lemma}'.",
+    )])
+    config = GraderConfig(task_type="task2", prompt_text="Walking", essay_text="They walked home.",
+                          analysis_level=3, selected_model="gemini-3.8-flash")
+    if accepted:
+        await grader.grade_essay(config)
+    else:
+        with pytest.raises(UngroundedWritingFeedbackError):
+            await grader.grade_essay(config)
+    await drain_usage()
+    assert len(calls) == len(rows) == (1 if accepted else grader_module.MAX_RETRIES)
 
 
 @pytest.mark.asyncio
