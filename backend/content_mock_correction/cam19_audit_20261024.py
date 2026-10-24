@@ -93,7 +93,7 @@ def repair(baseline):
     replace(p, "body_markdown", "'environment of evolutionary adaptedness.", "'environment of evolutionary adaptedness'.")
     rs(4, 11, source_excerpt=quote("RDG", 4, 1, "Many of Britain's single-generation", "population increases."))
     rs(4, 20, source_excerpt=quote("RDG", 4, 2, "B 'We're looking", "he argues."),
-       steps="(1) Upton muốn khảo sát tiềm năng thuốc trước khi môi trường biển bị phá hủy. (2) Ông gọi đó là a better way of exploiting the economic potential, so với khai thác khoáng sản. (3) Better way chính là cầu nối tới more worthwhile trong câu hỏi; chọn B.")
+       steps="(1) Upton muốn khảo sát tiềm năng thuốc trước khi môi trường biển bị phá hủy. (2) Ông gọi đó là a better way of exploiting the economic potential, so với khai thác khoáng sản. (3) Better way chính là cầu nối tới more worthwhile trong câu hỏi; chọn A (Professor Mat Upton). B ở đầu trích đoạn là nhãn đoạn văn, không phải mã lựa chọn.")
     rs(4, 30, steps="(1) Knauft mô tả các xã hội săn bắt hái lượm có mức bình đẳng rất cao. (2) Tác giả dùng lối sống này để đối chiếu với xã hội cạnh tranh và ích kỷ xuất hiện sau đó. (3) Lập luận là ích kỷ không phải đặc tính cố định từ đầu mà phát triển tương đối gần đây; không có nghĩa chỉ cộng đồng cô lập mới có thể sống vị tha.")
     rs(4, 36, trap_analysis="NOT GIVEN: tác giả thuật lại niên đại mà nhiều nhà nhân học tin là thời điểm các xã hội như !Kung bắt đầu suy giảm. Bài không nói họ nhầm về niên đại đó; việc nhắc quan điểm của họ không tự tạo thành bất đồng.")
     rs(4, 39, trap_analysis="NOT GIVEN: bài mô tả một thay đổi trong lịch sử dẫn tới các đặc tính tiêu cực ở một số nhóm. Điều đó không so sánh mức độ biểu hiện của các đặc tính này giữa những nền văn hóa hiện đại.")
