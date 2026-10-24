@@ -323,7 +323,7 @@
         },
         {
           "q_num": 34,
-          "prompt": "land which is being used for ___",
+          "prompt": "Plant trees on previously forested land in bad condition; do not select land being used for ___",
           "variant": "sentence_inline"
         },
         {

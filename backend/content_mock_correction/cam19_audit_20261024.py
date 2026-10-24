@@ -61,8 +61,9 @@ def repair(baseline):
         replace(p, "body_markdown", old, new)
     rs(1, 11, steps='(1) Tìm cụm "natural gut made from the outer layer of sheep or cow intestines" trong bài. (2) "the ____ of animals" khớp với bộ phận nguồn gốc của dây tự nhiên. (3) ONE WORD ONLY: dùng intestines (dạng số nhiều như bài) hoặc gut (danh từ không đếm được trong ngữ cảnh này). Không đổi gut thành guts.')
     for n in (20, 21):
-        rs(1, n, source_excerpt=quote("RDG", 1, 2, "While the Mediterranean region", "local coastline and sailing routes."),
-           steps="(1) Đoạn B đối lập vùng màu mỡ với những nơi gồ ghề, đồi núi. (2) Cư dân những nơi đó phụ thuộc nhiều vào tài nguyên biển và có thuyền, kỹ năng đi biển. (3) Đây là cầu nối tới phương án về địa hình gây khó khăn cho canh tác; không chỉ dựa vào một chữ marine.")
+        rs(1, n, source_excerpt=quote("RDG", 1, 2, "While the Mediterranean region", "local coastline and sailing routes.")
+           + "\n\n" + quote("RDG", 1, 2, "In addition, knowledge of the local area", "once a state fleet arrived."),
+           steps="(1) Đoạn B đối lập vùng màu mỡ với những nơi gồ ghề, đồi núi; cư dân những nơi đó phụ thuộc nhiều vào tài nguyên biển. Đây là cầu nối tới phương án D về sinh kế từ biển hơn là canh tác. (2) Knowledge of the local area helped the pirates to avoid retaliation hỗ trợ phương án B về tránh bị nhà chức trách bắt nhờ biết rõ địa phương. (3) Chọn đủ B và D, chấp nhận mọi thứ tự; không chọn chỉ vì một từ trùng với đoạn văn.")
     p = child("RDG", 2, 1)
     replace(p, "body_markdown", "agrarian*", "agrarian")
     replace(p, "body_markdown", '"Luddites\'', "'Luddites'")
@@ -209,6 +210,7 @@ def repair(baseline):
     prompts = {31: "Reforestation projects should not include invasive species because of possible ___ with native species",
                32: "Reforestation projects should provide sustainable sources of ___ for local people",
                33: "Use tree seeds with a high genetic diversity to increase resistance to ___ and climate change",
+               34: "Plant trees on previously forested land in bad condition; do not select land being used for ___",
                36: "Drones identify areas in Brazil endangered by keeping ___ and illegal logging",
                39: "Destruction of mangrove forests made it difficult for local people to make a living from ___",
                40: "The mangrove reforestation project: protects against the higher risk of ___"}
