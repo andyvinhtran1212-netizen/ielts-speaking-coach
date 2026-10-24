@@ -1,0 +1,599 @@
+{
+  "listening_t2": {
+    "id": "c53cedb5-6205-5744-b3b9-fa61402175f9",
+    "exercise_type": "dictation",
+    "payload": {
+      "variant": "dictation_gap_fill",
+      "template": {
+        "rows": [
+          {
+            "label": "Coordinator",
+            "q_num": 1,
+            "prefix": "Gary"
+          },
+          {
+            "label": "Level",
+            "q_num": 2,
+            "prefix": ""
+          },
+          {
+            "label": "Place",
+            "q_num": 3,
+            "prefix": "the"
+          },
+          {
+            "q_num": 4,
+            "prefix": "",
+            "suffix": "Street"
+          },
+          {
+            "text": "First floor, Room T347"
+          },
+          {
+            "label": "Time",
+            "q_num": 5,
+            "prefix": "Thursday morning at"
+          },
+          {
+            "label": "Recommended website",
+            "q_num": 6,
+            "prefix": "‘The perfect",
+            "suffix": "’"
+          }
+        ],
+        "heading": "Guitar Group"
+      },
+      "questions": [
+        {
+          "q_num": 1,
+          "prompt": "Guitar Group — Coordinator: Gary ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 2,
+          "prompt": "Level: ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 3,
+          "prompt": "Place: the ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 4,
+          "prompt": "___ Street",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 5,
+          "prompt": "Time: Thursday morning at ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 6,
+          "prompt": "Recommended website: The perfect ___",
+          "variant": "sentence_inline"
+        }
+      ],
+      "instruction": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "template_kind": "form_completion"
+    }
+  },
+  "listening_t3": {
+    "id": "10395661-f17e-5b38-8b6e-e7ae1f7f0b5c",
+    "exercise_type": "dictation",
+    "payload": {
+      "variant": "matching",
+      "metadata": {
+        "match_options": [
+          {
+            "text": "size",
+            "letter": "A"
+          },
+          {
+            "text": "escape",
+            "letter": "B"
+          },
+          {
+            "text": "age",
+            "letter": "C"
+          },
+          {
+            "text": "water",
+            "letter": "D"
+          },
+          {
+            "text": "cereal",
+            "letter": "E"
+          },
+          {
+            "text": "calculations",
+            "letter": "F"
+          },
+          {
+            "text": "changes",
+            "letter": "G"
+          },
+          {
+            "text": "colour",
+            "letter": "H"
+          }
+        ],
+        "letter_options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H"
+        ],
+        "flow_direction": "top_to_bottom"
+      },
+      "questions": [
+        {
+          "q_num": 26,
+          "prompt": "Choose mice which are all the same ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 27,
+          "prompt": "Divide the mice into two groups, each with a different ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 28,
+          "prompt": "Feed group B the same, but also sugar contained in ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 29,
+          "prompt": "Place them in a weighing chamber to prevent ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 30,
+          "prompt": "Do all necessary ___",
+          "variant": "sentence_inline"
+        }
+      ],
+      "instruction": "Complete the flowchart below. Choose FIVE answers from the box and write the correct letter, A-H, next to Questions 26-30.",
+      "template_kind": "flow_chart_completion",
+      "template": {
+        "heading": "Procedure for the experiment",
+        "steps": [
+          {
+            "q_num": 26,
+            "prefix": "Choose mice which are all the same",
+            "suffix": ""
+          },
+          {
+            "q_num": 27,
+            "prefix": "Divide the mice into two groups, each with a different",
+            "suffix": ""
+          },
+          {
+            "text": "Put each group in a separate cage. Feed group A ordinary mouse food (dry pellets)."
+          },
+          {
+            "q_num": 28,
+            "prefix": "Feed group B the same, but also sugar contained in",
+            "suffix": ""
+          },
+          {
+            "text": "Weigh the mice once a week using an electronic balance."
+          },
+          {
+            "q_num": 29,
+            "prefix": "Place them in a weighing chamber to prevent",
+            "suffix": ""
+          },
+          {
+            "q_num": 30,
+            "prefix": "Do all necessary",
+            "suffix": ""
+          }
+        ]
+      }
+    }
+  },
+  "listening_t4": {
+    "id": "37d96dc5-bb38-546f-a695-68e964943e07",
+    "exercise_type": "dictation",
+    "payload": {
+      "variant": "dictation_gap_fill",
+      "template": {
+        "groups": [
+          {
+            "heading": "Reforestation projects should:",
+            "items": [
+              {
+                "text": "include a range of tree species"
+              },
+              {
+                "q_num": 31,
+                "prefix": "not include invasive species because of possible",
+                "suffix": "with native species"
+              },
+              {
+                "q_num": 32,
+                "prefix": "aim to capture carbon, protect the environment and provide sustainable sources of",
+                "suffix": "for local people"
+              },
+              {
+                "q_num": 33,
+                "prefix": "use tree seeds with a high genetic diversity to increase resistance to",
+                "suffix": "and climate change"
+              },
+              {
+                "q_num": 34,
+                "prefix": "plant trees on previously forested land which is in a bad condition, not select land which is being used for",
+                "suffix": ""
+              }
+            ]
+          },
+          {
+            "heading": "Large-scale reforestation projects",
+            "items": [
+              {
+                "q_num": 35,
+                "prefix": "Base planning decisions on information from accurate",
+                "suffix": ""
+              },
+              {
+                "q_num": 36,
+                "prefix": "Drones are useful for identifying areas in Brazil which are endangered by keeping",
+                "suffix": "and illegal logging."
+              }
+            ]
+          },
+          {
+            "heading": "Lampang Province, Northern Thailand",
+            "items": [
+              {
+                "text": "A forest was restored in an area damaged by mining."
+              },
+              {
+                "text": "A variety of native fig trees were planted, which are important for:",
+                "items": [
+                  {
+                    "text": "supporting many wildlife species"
+                  },
+                  {
+                    "q_num": 37,
+                    "prefix": "increasing the",
+                    "suffix": "of recovery by attracting animals and birds",
+                    "items": [
+                      {
+                        "q_num": 38,
+                        "prefix": "e.g.,",
+                        "suffix": "were soon attracted to the area."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "heading": "Involving local communities",
+            "items": [
+              {
+                "q_num": 39,
+                "prefix": "Destruction of mangrove forests in Madagascar made it difficult for people to make a living from",
+                "suffix": ""
+              }
+            ]
+          },
+          {
+            "heading": "The mangrove reforestation project",
+            "items": [
+              {
+                "text": "provided employment for local people"
+              },
+              {
+                "text": "restored a healthy ecosystem"
+              },
+              {
+                "q_num": 40,
+                "prefix": "protects against the higher risk of",
+                "suffix": ""
+              }
+            ]
+          }
+        ],
+        "heading": "Tree planting"
+      },
+      "questions": [
+        {
+          "q_num": 31,
+          "prompt": "Reforestation projects should not include invasive species because of possible ___ with native species",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 32,
+          "prompt": "Reforestation projects should provide sustainable sources of ___ for local people",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 33,
+          "prompt": "Use tree seeds with a high genetic diversity to increase resistance to ___ and climate change",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 34,
+          "prompt": "land which is being used for ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 35,
+          "prompt": "Large-scale reforestation projects: Base planning decisions on information from accurate ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 36,
+          "prompt": "Drones identify areas in Brazil endangered by keeping ___ and illegal logging",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 37,
+          "prompt": "Lampang Province, Northern Thailand: increasing the ___ of recovery by attracting animals and birds,",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 38,
+          "prompt": "Lampang Province, Northern Thailand: e.g., ___ were soon attracted to the area.",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 39,
+          "prompt": "Destruction of mangrove forests made it difficult for local people to make a living from ___",
+          "variant": "sentence_inline"
+        },
+        {
+          "q_num": 40,
+          "prompt": "The mangrove reforestation project: protects against the higher risk of ___",
+          "variant": "sentence_inline"
+        }
+      ],
+      "instruction": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "template_kind": "notes_completion"
+    }
+  },
+  "reading_matrix": [
+    {
+      "q_num": 18,
+      "question_type": "matching_features",
+      "prompt": "A move away from the exploration of heavily mined reserves on land is a good idea.",
+      "payload": {
+        "options": [
+          {
+            "text": "Professor Mat Upton",
+            "label": "A"
+          },
+          {
+            "text": "Julie Hunter, Julian Aguon and Pradeep Singh",
+            "label": "B"
+          },
+          {
+            "text": "Dr Jon Copley",
+            "label": "C"
+          },
+          {
+            "text": "Mike Johnston",
+            "label": "D"
+          },
+          {
+            "text": "Verena Tunnicliffe",
+            "label": "E"
+          }
+        ],
+        "instruction": "Look at the following statements and the list of people below. Match each statement with the correct person or people, A-E. Write the correct letter, A-E. NB You may use any letter more than once."
+      }
+    },
+    {
+      "q_num": 19,
+      "question_type": "matching_features",
+      "prompt": "The negative effects of undersea exploration on local areas and their inhabitants are being ignored.",
+      "payload": {
+        "options": [
+          {
+            "text": "Professor Mat Upton",
+            "label": "A"
+          },
+          {
+            "text": "Julie Hunter, Julian Aguon and Pradeep Singh",
+            "label": "B"
+          },
+          {
+            "text": "Dr Jon Copley",
+            "label": "C"
+          },
+          {
+            "text": "Mike Johnston",
+            "label": "D"
+          },
+          {
+            "text": "Verena Tunnicliffe",
+            "label": "E"
+          }
+        ],
+        "instruction": "Look at the following statements and the list of people below. Match each statement with the correct person or people, A-E. Write the correct letter, A-E. NB You may use any letter more than once."
+      }
+    },
+    {
+      "q_num": 20,
+      "question_type": "matching_features",
+      "prompt": "There are more worthwhile things to extract from the sea than minerals.",
+      "payload": {
+        "options": [
+          {
+            "text": "Professor Mat Upton",
+            "label": "A"
+          },
+          {
+            "text": "Julie Hunter, Julian Aguon and Pradeep Singh",
+            "label": "B"
+          },
+          {
+            "text": "Dr Jon Copley",
+            "label": "C"
+          },
+          {
+            "text": "Mike Johnston",
+            "label": "D"
+          },
+          {
+            "text": "Verena Tunnicliffe",
+            "label": "E"
+          }
+        ],
+        "instruction": "Look at the following statements and the list of people below. Match each statement with the correct person or people, A-E. Write the correct letter, A-E. NB You may use any letter more than once."
+      }
+    },
+    {
+      "q_num": 21,
+      "question_type": "matching_features",
+      "prompt": "No other form of human exploration will have such a destructive impact on marine life as deep-sea mining.",
+      "payload": {
+        "options": [
+          {
+            "text": "Professor Mat Upton",
+            "label": "A"
+          },
+          {
+            "text": "Julie Hunter, Julian Aguon and Pradeep Singh",
+            "label": "B"
+          },
+          {
+            "text": "Dr Jon Copley",
+            "label": "C"
+          },
+          {
+            "text": "Mike Johnston",
+            "label": "D"
+          },
+          {
+            "text": "Verena Tunnicliffe",
+            "label": "E"
+          }
+        ],
+        "instruction": "Look at the following statements and the list of people below. Match each statement with the correct person or people, A-E. Write the correct letter, A-E. NB You may use any letter more than once."
+      }
+    },
+    {
+      "q_num": 22,
+      "question_type": "matching_features",
+      "prompt": "More is known about outer space than about what lies beneath the oceans.",
+      "payload": {
+        "options": [
+          {
+            "text": "Professor Mat Upton",
+            "label": "A"
+          },
+          {
+            "text": "Julie Hunter, Julian Aguon and Pradeep Singh",
+            "label": "B"
+          },
+          {
+            "text": "Dr Jon Copley",
+            "label": "C"
+          },
+          {
+            "text": "Mike Johnston",
+            "label": "D"
+          },
+          {
+            "text": "Verena Tunnicliffe",
+            "label": "E"
+          }
+        ],
+        "instruction": "Look at the following statements and the list of people below. Match each statement with the correct person or people, A-E. Write the correct letter, A-E. NB You may use any letter more than once."
+      }
+    },
+    {
+      "q_num": 23,
+      "question_type": "matching_features",
+      "prompt": "There is one marine life habitat where experts agree mining should not take place.",
+      "payload": {
+        "options": [
+          {
+            "text": "Professor Mat Upton",
+            "label": "A"
+          },
+          {
+            "text": "Julie Hunter, Julian Aguon and Pradeep Singh",
+            "label": "B"
+          },
+          {
+            "text": "Dr Jon Copley",
+            "label": "C"
+          },
+          {
+            "text": "Mike Johnston",
+            "label": "D"
+          },
+          {
+            "text": "Verena Tunnicliffe",
+            "label": "E"
+          }
+        ],
+        "instruction": "Look at the following statements and the list of people below. Match each statement with the correct person or people, A-E. Write the correct letter, A-E. NB You may use any letter more than once."
+      }
+    }
+  ],
+  "reading_inline": [
+    {
+      "q_num": 8,
+      "question_type": "notes_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "template": {
+          "summary_text": "The tennis racket and how it has changed\nMike and Bob Bryan made changes to the types of {{8}} used on\ntheir racket frames.\n- Players were not allowed to use the spaghetti-strung racket because of the\namount of {{9}} it created.\nChanges to rackets can be regarded as being as important as players' diets or\nthe {{10}} they do.\nAll rackets used to have natural strings made from the {{11}}\nof animals.\n- Pete Sampras had metal {{12}} put into the frames of\nhis rackets.\n- Gonçalo Oliveira changed the {{13}} on his racket handles."
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "q_num": 9,
+      "question_type": "notes_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "q_num": 10,
+      "question_type": "notes_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "q_num": 11,
+      "question_type": "notes_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "q_num": 12,
+      "question_type": "notes_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "q_num": 13,
+      "question_type": "notes_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "word_limit": "ONE WORD ONLY"
+      }
+    }
+  ]
+}

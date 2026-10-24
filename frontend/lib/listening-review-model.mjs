@@ -78,6 +78,12 @@ function inheritMultiAnswerSolutions(items) {
     if (![2, 3].includes(members.length) || !text(members[0].prompt)
         || members.some((item) => item.prompt !== members[0].prompt
           || listeningReviewSection(item) !== listeningReviewSection(members[0]))) continue;
+    const accepted = [...new Set(members.map(item => text(item.expected).toUpperCase()))].sort();
+    if (accepted.length === members.length && accepted.every(answer => /^[A-Z]$/.test(answer))) {
+      for (const item of members) inherited.set(item.q_num, { ...item,
+        unordered_answer_group: { question_numbers: members.map(member => member.q_num), accepted_answers: accepted },
+      });
+    }
     const authors = members.filter((item) => hasSolutionBody(item.solution));
     if (authors.length !== 1) continue;
     const author = authors[0];
@@ -89,7 +95,7 @@ function inheritMultiAnswerSolutions(items) {
         // missing display field, never the shared answer or replay window.
         if (!(key in solution) && key in author.solution) solution[key] = author.solution[key];
       }
-      if (hasSolutionBody(solution)) inherited.set(item.q_num, { ...item, solution,
+      if (hasSolutionBody(solution)) inherited.set(item.q_num, { ...(inherited.get(item.q_num) || item), solution,
         solution_group: { question_numbers: members.map((member) => member.q_num),
           source_question_number: author.q_num } });
     }

@@ -36,6 +36,12 @@ function segment(value: unknown): ReactNode {
   </>;
 }
 
+function noteItems(items: unknown[]): ReactNode {
+  return <ul>{items.map((item, index) => <li key={index}>{segment(item)}
+    {list(record(item)?.items).length ? noteItems(list(record(item)?.items)) : null}
+  </li>)}</ul>;
+}
+
 /** Remove only a serialization that reproduces every authored table cell. */
 function tableSummary(template: Record<string, any> | null): { before: unknown; after?: string } {
   const summary = template?.summary_text;
@@ -80,6 +86,10 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
   const provenance = record(context.context_provenance);
   const banks = options.length || list(context.paragraph_labels).length;
   const summary = tableSummary(template);
+  const hasTemplateContent = Boolean(template && (template.heading || summary.before || summary.after
+    || list(template.rows).length || list(template.steps).length
+    || list(template.groups).some(group => group.heading || group.heading_segments || list(group.items).length)));
+  if (!instruction && context.max_words == null && !banks && !image && !hasTemplateContent) return null;
   return <section className="review-question-context" aria-label="Ngữ cảnh câu hỏi">
     {instruction ? <p>{segment(instruction)}</p> : null}
     {context.max_words != null ? <p>Giới hạn: {context.max_words} từ.</p> : null}
@@ -99,7 +109,7 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
       {summary.after ? <p style={{ whiteSpace: 'pre-wrap' }}>{segment(summary.after)}</p> : null}
       {list(template.groups).map((group, index) => <div key={index}>
         {group.heading || group.heading_segments ? <h5>{group.heading_segments ? segment(group.heading_segments) : segment(group.heading)}</h5> : null}
-        <ul>{list(group.items).map((item, itemIndex) => <li key={itemIndex}>{segment(item)}</li>)}</ul>
+        {noteItems(list(group.items))}
       </div>)}
       {list(template.steps).length ? <ol>{template.steps.map((step: unknown, index: number) => <li key={index}>{segment(step)}</li>)}</ol> : null}
     </div> : null}

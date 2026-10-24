@@ -51,6 +51,16 @@ it('keeps literal semicolons in one authored English prose paragraph', async () 
   expect(blocks[0].textContent).toBe(`EN${prose}`);
 });
 
+it('labels the Cam19 English café paragraph EN and its Vietnamese explanation VN', async () => {
+  const { blocks } = await review('The café on the right is a distractor.\n\nQuán café bên phải là mồi.');
+  expect(blocks.map(block => block.querySelector('.lr-why__lang')?.textContent)).toEqual(['EN', 'VN']);
+});
+
+it('retains Vietnamese labels for short explanations without removing other diacritics', async () => {
+  const { blocks } = await review('Chính xác.');
+  expect(blocks[0].querySelector('.lr-why__lang')?.textContent).toBe('VN');
+});
+
 it.each([
   'First authored row; keep its clause.\nSecond authored row; keep that clause.',
   '- First authored row; keep its clause.\n• Second authored row; keep that clause.',

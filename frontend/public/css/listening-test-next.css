@@ -113,8 +113,8 @@
 .listening-next-palette .progress-square.answered { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 2px; }
 .listening-next-palette .progress-square.current { outline: 3px solid var(--ielts-current-ring, var(--exam-accent)); outline-offset: 1px; }
 .listening-next-palette .progress-square.is-review { border-radius: 50%; }
-.listening-next-palette .progress-square.is-unsaved { border-color: var(--av-warning); background: var(--av-warning-soft); }
-.listening-next-palette .progress-square.is-save-failed { border-color: var(--av-error); background: var(--av-error-soft); }
+.listening-next-palette .progress-square.is-unsaved { border-color: var(--av-warning); background: var(--exam-surface-card); color: var(--exam-text-primary); }
+.listening-next-palette .progress-square.is-save-failed { border-color: var(--av-error); background: var(--exam-surface-card); color: var(--exam-text-primary); }
 .listening-next-palette .ft-unsaved-note, .listening-next-palette .ft-nothing-saved { margin: 5px 0; color: var(--exam-surface-card); }
 .listening-next-submit-row { display: flex; justify-content: flex-end; gap: 12px; align-items: center; flex-wrap: wrap; }
 .listening-next-review { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
