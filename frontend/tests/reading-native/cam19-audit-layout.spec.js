@@ -6,6 +6,25 @@ const paper = questions => ({ test_id: 'RD-NATIVE-1', title: 'Cam19 captured aud
   questions: questions.map(q => ({ ...q, passage_order: 1 })) });
 
 for (const width of [1180, 390]) {
+  for (const [key, first, last] of [['reading_wordbank_t2', 27, 32], ['reading_endings_t3', 31, 34]]) {
+    test(`Cam19 ${key} leaves settled answer fields reachable at ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 757 });
+      const bundle = paper(fixture[key]);
+      await installReadingHarness(page, { bundle, route: '/reading/exam/session?test_id=RD-NATIVE-1&admin_preview=1', handleApi: async ({ route, url }) => {
+        if (url.pathname === '/admin/reading/content/tests/RD-NATIVE-1') { await route.fulfill({ json: bundle, headers: cors }); return true; } return false;
+      } });
+      for (const q of [first, last]) {
+        await page.getByRole('button', { name: new RegExp(`^Question ${q},`) }).click();
+        const input = page.getByLabel(`Answer ${q}`, { exact: true });
+        await expect.poll(() => input.evaluate(el => {
+          const r = el.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el;
+        })).toBe(true);
+        await expect(page.locator('.exam-word-bank-box, .exam-endings-box')).toHaveCSS('position', 'static');
+        await input.focus(); await input.press('ArrowDown');
+        await expect(input).toBeFocused();
+      }
+    });
+  }
   test(`Cam19 T4 matrix retains full stems and A–E together at ${width}`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 757 });
     const bundle = paper(fixture.reading_matrix);
@@ -69,10 +88,12 @@ test('Listening pending palette digits retain readable contrast in both themes',
   } });
   await expect(page.locator('.progress-square').first()).toBeAttached();
   for (const theme of ['light', 'dark']) {
+    for (const examTheme of ['light', 'dark']) {
     // Measure the pending CSS state on the real rendered control. Persistence
     // and queue transitions are covered by the existing lifecycle suites.
-    const ratio = await page.evaluate(theme => {
+    const ratio = await page.evaluate(({ theme, examTheme }) => {
       document.documentElement.dataset.theme = theme;
+      document.body.dataset.examTheme = examTheme;
       const el = document.querySelector('.progress-square'); el.classList.add('is-unsaved');
       const rgb = value => value.match(/[\d.]+/g).map(Number);
       let bg = [255, 255, 255];
@@ -81,7 +102,8 @@ test('Listening pending palette digits retain readable contrast in both themes',
       const luminance = channels => channels.map(n => n / 255).map(n => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4).reduce((sum, n, i) => sum + n * [.2126, .7152, .0722][i], 0);
       const a = luminance(rgb(getComputedStyle(el).color).slice(0, 3)), b = luminance(bg);
       return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
-    }, theme);
+    }, { theme, examTheme });
     expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
   }
 });

@@ -595,5 +595,468 @@
         "word_limit": "ONE WORD ONLY"
       }
     }
+  ],
+  "reading_wordbank_t2": [
+    {
+      "q_num": 27,
+      "question_type": "summary_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "options": [
+          {
+            "text": "appeal",
+            "label": "A"
+          },
+          {
+            "text": "determined",
+            "label": "B"
+          },
+          {
+            "text": "intrigued",
+            "label": "C"
+          },
+          {
+            "text": "single",
+            "label": "D"
+          },
+          {
+            "text": "achievement",
+            "label": "E"
+          },
+          {
+            "text": "devoted",
+            "label": "F"
+          },
+          {
+            "text": "involved",
+            "label": "G"
+          },
+          {
+            "text": "unique",
+            "label": "H"
+          },
+          {
+            "text": "innovative",
+            "label": "I"
+          },
+          {
+            "text": "satisfaction",
+            "label": "J"
+          },
+          {
+            "text": "intent",
+            "label": "K"
+          }
+        ],
+        "template": {
+          "summary_text": "Maryam Mirzakhani is regarded as {{27}} in the field of mathematics\nbecause she was the only female holder of the prestigious Fields Medal -\na record that she retained at the time of her death. However, maths held little\n{{28}} for her as a child and in fact her performance was below\naverage until she was {{29}} by a difficult puzzle that one of her\nsiblings showed her.\nLater, as a professional mathematician, she had an inquiring mind and proved\nherself to be {{30}} when things did not go smoothly. She said she\ngot the greatest {{31}} from making ground-breaking discoveries\nand in fact she was responsible for some extremely {{32}}\nmathematical studies."
+        },
+        "instruction": "Complete the summary using the list of phrases, A-K, below.\nWrite the correct letter, A-K, in boxes 27-32."
+      }
+    },
+    {
+      "q_num": 28,
+      "question_type": "summary_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "options": [
+          {
+            "text": "appeal",
+            "label": "A"
+          },
+          {
+            "text": "determined",
+            "label": "B"
+          },
+          {
+            "text": "intrigued",
+            "label": "C"
+          },
+          {
+            "text": "single",
+            "label": "D"
+          },
+          {
+            "text": "achievement",
+            "label": "E"
+          },
+          {
+            "text": "devoted",
+            "label": "F"
+          },
+          {
+            "text": "involved",
+            "label": "G"
+          },
+          {
+            "text": "unique",
+            "label": "H"
+          },
+          {
+            "text": "innovative",
+            "label": "I"
+          },
+          {
+            "text": "satisfaction",
+            "label": "J"
+          },
+          {
+            "text": "intent",
+            "label": "K"
+          }
+        ],
+        "instruction": "Complete the summary using the list of phrases, A-K, below.\nWrite the correct letter, A-K, in boxes 27-32."
+      }
+    },
+    {
+      "q_num": 29,
+      "question_type": "summary_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "options": [
+          {
+            "text": "appeal",
+            "label": "A"
+          },
+          {
+            "text": "determined",
+            "label": "B"
+          },
+          {
+            "text": "intrigued",
+            "label": "C"
+          },
+          {
+            "text": "single",
+            "label": "D"
+          },
+          {
+            "text": "achievement",
+            "label": "E"
+          },
+          {
+            "text": "devoted",
+            "label": "F"
+          },
+          {
+            "text": "involved",
+            "label": "G"
+          },
+          {
+            "text": "unique",
+            "label": "H"
+          },
+          {
+            "text": "innovative",
+            "label": "I"
+          },
+          {
+            "text": "satisfaction",
+            "label": "J"
+          },
+          {
+            "text": "intent",
+            "label": "K"
+          }
+        ],
+        "instruction": "Complete the summary using the list of phrases, A-K, below.\nWrite the correct letter, A-K, in boxes 27-32."
+      }
+    },
+    {
+      "q_num": 30,
+      "question_type": "summary_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "options": [
+          {
+            "text": "appeal",
+            "label": "A"
+          },
+          {
+            "text": "determined",
+            "label": "B"
+          },
+          {
+            "text": "intrigued",
+            "label": "C"
+          },
+          {
+            "text": "single",
+            "label": "D"
+          },
+          {
+            "text": "achievement",
+            "label": "E"
+          },
+          {
+            "text": "devoted",
+            "label": "F"
+          },
+          {
+            "text": "involved",
+            "label": "G"
+          },
+          {
+            "text": "unique",
+            "label": "H"
+          },
+          {
+            "text": "innovative",
+            "label": "I"
+          },
+          {
+            "text": "satisfaction",
+            "label": "J"
+          },
+          {
+            "text": "intent",
+            "label": "K"
+          }
+        ],
+        "instruction": "Complete the summary using the list of phrases, A-K, below.\nWrite the correct letter, A-K, in boxes 27-32."
+      }
+    },
+    {
+      "q_num": 31,
+      "question_type": "summary_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "options": [
+          {
+            "text": "appeal",
+            "label": "A"
+          },
+          {
+            "text": "determined",
+            "label": "B"
+          },
+          {
+            "text": "intrigued",
+            "label": "C"
+          },
+          {
+            "text": "single",
+            "label": "D"
+          },
+          {
+            "text": "achievement",
+            "label": "E"
+          },
+          {
+            "text": "devoted",
+            "label": "F"
+          },
+          {
+            "text": "involved",
+            "label": "G"
+          },
+          {
+            "text": "unique",
+            "label": "H"
+          },
+          {
+            "text": "innovative",
+            "label": "I"
+          },
+          {
+            "text": "satisfaction",
+            "label": "J"
+          },
+          {
+            "text": "intent",
+            "label": "K"
+          }
+        ],
+        "instruction": "Complete the summary using the list of phrases, A-K, below.\nWrite the correct letter, A-K, in boxes 27-32."
+      }
+    },
+    {
+      "q_num": 32,
+      "question_type": "summary_completion",
+      "prompt": "(see summary above)",
+      "payload": {
+        "options": [
+          {
+            "text": "appeal",
+            "label": "A"
+          },
+          {
+            "text": "determined",
+            "label": "B"
+          },
+          {
+            "text": "intrigued",
+            "label": "C"
+          },
+          {
+            "text": "single",
+            "label": "D"
+          },
+          {
+            "text": "achievement",
+            "label": "E"
+          },
+          {
+            "text": "devoted",
+            "label": "F"
+          },
+          {
+            "text": "involved",
+            "label": "G"
+          },
+          {
+            "text": "unique",
+            "label": "H"
+          },
+          {
+            "text": "innovative",
+            "label": "I"
+          },
+          {
+            "text": "satisfaction",
+            "label": "J"
+          },
+          {
+            "text": "intent",
+            "label": "K"
+          }
+        ],
+        "instruction": "Complete the summary using the list of phrases, A-K, below.\nWrite the correct letter, A-K, in boxes 27-32."
+      }
+    }
+  ],
+  "reading_endings_t3": [
+    {
+      "q_num": 31,
+      "question_type": "matching_sentence_endings",
+      "prompt": "Speech translation methods are developing fast in Japan",
+      "payload": {
+        "options": [
+          {
+            "text": "but there are concerns about this.",
+            "label": "A"
+          },
+          {
+            "text": "as systems do not need to conform to standard practices.",
+            "label": "B"
+          },
+          {
+            "text": "but they are far from perfect.",
+            "label": "C"
+          },
+          {
+            "text": "despite the noise issues.",
+            "label": "D"
+          },
+          {
+            "text": "because translation is immediate.",
+            "label": "E"
+          },
+          {
+            "text": "and have an awareness of good manners.",
+            "label": "F"
+          }
+        ]
+      }
+    },
+    {
+      "q_num": 32,
+      "question_type": "matching_sentence_endings",
+      "prompt": "TV interviews that use translation voiceover methods are successful",
+      "payload": {
+        "options": [
+          {
+            "text": "but there are concerns about this.",
+            "label": "A"
+          },
+          {
+            "text": "as systems do not need to conform to standard practices.",
+            "label": "B"
+          },
+          {
+            "text": "but they are far from perfect.",
+            "label": "C"
+          },
+          {
+            "text": "despite the noise issues.",
+            "label": "D"
+          },
+          {
+            "text": "because translation is immediate.",
+            "label": "E"
+          },
+          {
+            "text": "and have an awareness of good manners.",
+            "label": "F"
+          }
+        ]
+      }
+    },
+    {
+      "q_num": 33,
+      "question_type": "matching_sentence_endings",
+      "prompt": "Future translation systems should address people appropriately",
+      "payload": {
+        "options": [
+          {
+            "text": "but there are concerns about this.",
+            "label": "A"
+          },
+          {
+            "text": "as systems do not need to conform to standard practices.",
+            "label": "B"
+          },
+          {
+            "text": "but they are far from perfect.",
+            "label": "C"
+          },
+          {
+            "text": "despite the noise issues.",
+            "label": "D"
+          },
+          {
+            "text": "because translation is immediate.",
+            "label": "E"
+          },
+          {
+            "text": "and have an awareness of good manners.",
+            "label": "F"
+          }
+        ]
+      }
+    },
+    {
+      "q_num": 34,
+      "question_type": "matching_sentence_endings",
+      "prompt": "Users may be able to maintain their local customs",
+      "payload": {
+        "options": [
+          {
+            "text": "but there are concerns about this.",
+            "label": "A"
+          },
+          {
+            "text": "as systems do not need to conform to standard practices.",
+            "label": "B"
+          },
+          {
+            "text": "but they are far from perfect.",
+            "label": "C"
+          },
+          {
+            "text": "despite the noise issues.",
+            "label": "D"
+          },
+          {
+            "text": "because translation is immediate.",
+            "label": "E"
+          },
+          {
+            "text": "and have an awareness of good manners.",
+            "label": "F"
+          }
+        ]
+      }
+    }
   ]
 }

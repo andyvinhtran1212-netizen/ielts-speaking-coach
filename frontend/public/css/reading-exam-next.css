@@ -256,6 +256,8 @@
 
 
 /* Palette navigation must not put an opaque sticky bank over its target row. */
+.reading-next-player-page .exam-questions__group .exam-word-bank-box,
+.reading-next-player-page .exam-questions__group .exam-endings-box,
 .reading-next-player-page .exam-questions__group[data-question-type="matching_features"] .exam-features-box {
   position: static;
   z-index: auto;

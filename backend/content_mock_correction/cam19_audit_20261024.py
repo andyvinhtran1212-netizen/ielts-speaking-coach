@@ -39,7 +39,7 @@ def repair(baseline):
 
     def quote(skill, test, part, start, end):
         source = child(skill, test, part).get("body_markdown", child(skill, test, part).get("transcript"))
-        source = re.sub(r"\(\s*/\s*\d+\s*\)\s*", "", source)
+        source = re.sub(r"\(\s*/\s*\d+\s*\)[ \t]*", "", source)
         a = source.index(start)
         b = source.index(end, a) + len(end)
         return source[a:b]
@@ -102,8 +102,10 @@ def repair(baseline):
     # exact damaged annotation pattern in the four affected sections.
     for test, part in ((1, 3), (2, 2), (3, 2), (4, 2)):
         c = child("LIS", test, part)
-        c["transcript"], count = re.subn(r"\(\s*/\s*\d+\s*\)\s*", "", c["transcript"])
+        paragraphs = c["transcript"].count("\n\n")
+        c["transcript"], count = re.subn(r"\(\s*/\s*\d+\s*\)[ \t]*", "", c["transcript"])
         assert count > 0
+        assert c["transcript"].count("\n\n") == paragraphs
 
     # UI-05: each address line is an authored form row.
     rows = ex(2, 3)["template"]["rows"]
