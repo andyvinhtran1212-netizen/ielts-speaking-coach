@@ -21,12 +21,14 @@ class _Q:
     def __init__(self, table, sb):
         self.table = table; self.sb = sb
         self._f = []; self._op = "select"; self._payload = None
+        self._range = None
 
     def select(self, *a, **k): self._op = "select"; return self
     def insert(self, p): self._op = "insert"; self._payload = p; return self
     def eq(self, c, v): self._f.append((c, v)); return self
     def limit(self, *a, **k): return self
     def order(self, *a, **k): return self
+    def range(self, start, end): self._range = (start, end); return self
 
     def _match(self, row):
         return all(str(row.get(c)) == str(v) for c, v in self._f)
@@ -38,11 +40,21 @@ class _Q:
             created = [dict(it, id=f"new-{len(rows) + i}") for i, it in enumerate(items)]
             rows.extend(created)
             return _R([dict(r) for r in created])
-        return _R([dict(r) for r in rows if self._match(r)])
+        matched = [dict(r) for r in rows if self._match(r)]
+        if self._range is not None:
+            start, end = self._range
+            cap = self.sb.page_cap
+            # PostgREST serves at most `cap` rows per page even when the
+            # requested .range() span is wider; emulate that so pagination is
+            # actually exercised.
+            end = min(end, start + cap - 1)
+            matched = matched[start:end + 1]
+        return _R(matched)
 
 
 class _FakeSB:
-    def __init__(self, store): self.store = store
+    def __init__(self, store, page_cap=1000):
+        self.store = store; self.page_cap = page_cap
     def table(self, name): return _Q(name, self)
 
 
@@ -118,3 +130,25 @@ def test_no_gives_in_cohort_is_noop():
     db = _FakeSB({"writing_assignments": []})
     res = backfill_cohort_writing_assignments(db, student_id=NEW, cohort_id=COHORT)
     assert res == {"created_count": 0, "assignment_ids": []}
+
+
+def test_open_give_beyond_first_page_is_still_backfilled():
+    """Capped-response guard: the cohort's assignment history fills a full
+    PostgREST page (1000 per-student rows) of already-closed gives, and the only
+    OPEN give sits on page 2. A bare single .execute() would read only the first
+    page and miss it, leaving the late joiner with no homework. Pagination must
+    surface it."""
+    # 1000 overdue filler rows (one full page) + 1 open give beyond the page.
+    filler = [
+        _give(prompt_id=f"old-{i}", assignment_group_id=f"g-old-{i}",
+              deadline="2000-01-01T00:00:00+00:00")
+        for i in range(1000)
+    ]
+    open_give = _give(prompt_id="p-open", assignment_group_id="g-open",
+                      deadline="2999-01-01T00:00:00+00:00")
+    store = {"writing_assignments": filler + [open_give]}
+    db = _FakeSB(store, page_cap=1000)
+    res = backfill_cohort_writing_assignments(db, student_id=NEW, cohort_id=COHORT)
+    assert res["created_count"] == 1
+    mine = [w for w in store["writing_assignments"] if w["student_id"] == NEW]
+    assert [w["prompt_id"] for w in mine] == ["p-open"]

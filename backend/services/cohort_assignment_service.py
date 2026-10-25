@@ -182,6 +182,30 @@ _BACKFILL_TEMPLATE_FIELDS = (
 )
 
 
+_PAGE = 1000
+
+
+def _paged(query_factory, order_col: str = "id") -> list:
+    """Read every row the query matches, one PostgREST page at a time.
+
+    A single ``.execute()`` silently caps at the PostgREST row limit (~1000),
+    and that limit counts per-student rows, not distinct gives: 25 students ×
+    40 prompts already fill a page, so a bare read would drop open gives beyond
+    it and a late joiner could receive no homework despite open gives existing
+    (and the reconciliation script, sharing this helper, could not repair it).
+    Stable ordering by ``order_col`` keeps the page boundary consistent so rows
+    are neither skipped nor repeated across pages."""
+    rows: list = []
+    start = 0
+    while True:
+        page = (query_factory().order(order_col)
+                .range(start, start + _PAGE - 1).execute().data) or []
+        rows.extend(page)
+        if len(page) < _PAGE:
+            return rows
+        start += _PAGE
+
+
 def _deadline_is_open(deadline, now_iso: str) -> bool:
     """An assignment is still open to a late joiner when it has no deadline or
     the deadline has not passed. Compares ISO-8601 timestamps lexicographically
@@ -216,22 +240,20 @@ def backfill_cohort_writing_assignments(
     cohort_str = str(cohort_id)
     now_iso = (now or datetime.now(timezone.utc)).isoformat()
 
-    cohort_rows = (
+    cohort_rows = _paged(lambda: (
         db.table("writing_assignments")
         .select("prompt_id, " + ", ".join(_BACKFILL_TEMPLATE_FIELDS))
         .eq("cohort_id", cohort_str)
-        .execute()
-    ).data or []
+    ))
     if not cohort_rows:
         return {"created_count": 0, "assignment_ids": []}
 
-    mine = (
+    mine = _paged(lambda: (
         db.table("writing_assignments")
         .select("prompt_id, assignment_group_id")
         .eq("student_id", sid)
         .eq("cohort_id", cohort_str)
-        .execute()
-    ).data or []
+    ))
     have = {(r.get("assignment_group_id"), r.get("prompt_id")) for r in mine}
 
     # Collapse the per-student cohort rows into one template per (group, prompt).
