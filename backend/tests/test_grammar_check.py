@@ -482,3 +482,53 @@ def test_real_asset_rule_ids_map_to_taxonomy():
         findings = gc.run_local_rules(sentence)
         assert findings, sentence
         assert expected in {_categorise(f) for f in findings}, (sentence, [f["ruleId"] for f in findings])
+
+
+# ── Local-rule false-positive suppression (PR #1690 review) ──────────────────
+
+
+def _real_local(sentence: str) -> list[dict]:
+    for name in ("grammar_checker", "grammar_data"):
+        sys.modules.pop(name, None)
+    GrammarCheckService()._ensure_asset_on_path()
+    import grammar_checker as gc  # noqa: E402
+    return grammar_check._suppress_local_false_positives(sentence, gc.run_local_rules(sentence))
+
+
+@pytest.mark.parametrize("sentence", [
+    "I know where she is going.",
+    "I like what you do.",
+    "Tell me what you are doing.",
+    "She asked me why I was late. I told her the truth.",
+])
+def test_embedded_clauses_do_not_trigger_question_inversion(sentence):
+    assert not [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT"], sentence
+
+
+@pytest.mark.parametrize("sentence", [
+    "Where you are going?",
+    "What you are doing?",
+    "I was tired. Where you are going?",
+    "Where you are going",  # speech transcript without the question mark
+])
+def test_direct_questions_still_trigger_question_inversion(sentence):
+    assert [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT"], sentence
+
+
+@pytest.mark.parametrize("sentence", [
+    "I appreciate your kind words.",
+    "Your beautiful garden is lovely.",
+    "Thank you for your amazing support.",
+])
+def test_possessive_noun_phrases_do_not_trigger_your_youre(sentence):
+    assert not [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_YOUR_WELCOME_ADJ_SHOULD_BE_YOU_RE"], sentence
+
+
+@pytest.mark.parametrize("sentence", [
+    "Your welcome to come.",
+    "Your right about that.",
+    "Your so kind.",
+    "I think your amazing.",
+])
+def test_contraction_slips_still_trigger_your_youre(sentence):
+    assert [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_YOUR_WELCOME_ADJ_SHOULD_BE_YOU_RE"], sentence
