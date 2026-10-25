@@ -236,7 +236,7 @@ def parse_deadline(value) -> Optional[datetime]:
     return parsed.astimezone(timezone.utc)
 
 
-def _deadline_is_open(deadline, now: datetime) -> bool:
+def _deadline_is_open(deadline, now: datetime, *, row_ref=None) -> bool:
     """An assignment is still open to a late joiner when it has no deadline or
     the deadline has not passed. Both sides are parsed into aware datetimes and
     compared as instants (see `parse_deadline`); on any parse failure we fail
@@ -244,6 +244,8 @@ def _deadline_is_open(deadline, now: datetime) -> bool:
     try:
         due = parse_deadline(deadline)
     except (TypeError, ValueError):
+        logger.warning("[cohort] malformed deadline on give %s; treating as open",
+                       row_ref)
         return True
     if due is None:
         return True
@@ -293,7 +295,8 @@ def backfill_cohort_writing_assignments(
         key = (row.get("assignment_group_id"), row.get("prompt_id"))
         if key in templates or key in have:
             continue
-        if not _deadline_is_open(row.get("deadline"), now_dt):
+        if not _deadline_is_open(row.get("deadline"), now_dt,
+                                 row_ref=row.get("assignment_group_id")):
             continue
         templates[key] = row
 

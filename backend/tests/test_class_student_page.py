@@ -1148,3 +1148,39 @@ def test_a_writing_give_with_a_date_only_or_naive_deadline_does_not_degrade_the_
     assert by_id["d"]["is_missing"] is True
     assert by_id["n"]["is_missing"] is False
     assert by_id["s"]["is_late"] is True
+
+
+# ── a malformed stored deadline must not 500 the class page ────────────────
+
+
+@pytest.mark.asyncio
+async def test_my_class_survives_a_malformed_writing_deadline(caplog):
+    """`parse_deadline` raises on garbage; the sort key and the writing-row
+    shaper must treat it as "no deadline" (open, sorted last) for that row alone,
+    so /my-class still returns 200 with every other assignment."""
+    bad = _give(id="w-bad", deadline="not-a-date")
+    good = _give(id="w-good", deadline="2099-01-01T00:00:00+00:00")
+    db = _writing_db([bad, good])
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "Andy", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "active_cohort_ids_for_student", return_value=["c1"]), \
+         patch.object(mod, "supabase_admin", db), \
+         caplog.at_level("WARNING", logger=mod.logger.name):
+        out = await mod.my_class(None)
+    rows = out["assignments"]
+    assert [r["item_id"] for r in rows] == ["w-good", "w-bad"], \
+        "the malformed row sorts last as no-deadline; the good one is still listed"
+    bad_row = rows[1]
+    assert bad_row["is_missing"] is False and bad_row["is_late"] is False
+    assert out["progress"]["todo"] == 2
+    assert "degraded" not in out
+    assert "w-bad" in caplog.text and "not-a-date" not in caplog.text
+
+
+def test_due_sort_key_treats_a_malformed_ledger_due_at_as_no_deadline():
+    rows = [
+        {"item_id": "bad", "assignment": {"due_at": "garbage"}},
+        {"item_id": "ok", "assignment": {"due_at": "2026-10-25T02:00:00Z"}},
+    ]
+    assert [r["item_id"] for r in sorted(rows, key=mod._due_sort_key)] == ["ok", "bad"]

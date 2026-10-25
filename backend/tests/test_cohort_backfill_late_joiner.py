@@ -228,8 +228,10 @@ def test_z_suffix_is_compared_as_utc_not_as_a_character():
     assert _deadline_is_open("2026-10-25T02:00:00Z", now) is False
 
 
-def test_malformed_deadline_fails_open():
-    assert _deadline_is_open("not-a-date", NOW_UTC) is True
+def test_malformed_deadline_fails_open(caplog):
+    with caplog.at_level("WARNING"):
+        assert _deadline_is_open("not-a-date", NOW_UTC, row_ref="g-1") is True
+    assert "g-1" in caplog.text and "not-a-date" not in caplog.text
 
 
 def test_backfill_uses_instant_order_for_mixed_offset_deadlines():

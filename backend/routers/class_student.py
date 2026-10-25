@@ -318,6 +318,18 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
 _NO_DEADLINE = datetime.min.replace(tzinfo=timezone.utc)
 
 
+def _safe_deadline(value, *, row_id, field: str) -> Optional[datetime]:
+    """`parse_deadline`, but a malformed stored value reads as "no deadline"
+    (sorts last, counts as open) instead of raising: one bad row must not turn
+    the whole class page into a 500. Logs the row id only — never the value."""
+    try:
+        return parse_deadline(value)
+    except (TypeError, ValueError):
+        logger.warning("[class] malformed %s on row %s; treating as no deadline",
+                       field, row_id)
+        return None
+
+
 def _due_sort_key(row: Dict[str, Any]):
     """Nearest deadline FIRST; a give with no deadline is never urgent, so it
     sorts last via its own key rather than by abusing the empty string.
@@ -325,7 +337,8 @@ def _due_sort_key(row: Dict[str, Any]):
     Ledger `due_at` and writing `deadline` can carry different UTC offsets, so
     the order is by parsed instant — string order would put an 08:00+07:00
     deadline (01:00Z) below a 02:00+00:00 one."""
-    due = parse_deadline(row["assignment"]["due_at"])
+    due = _safe_deadline(row["assignment"]["due_at"],
+                         row_id=row.get("item_id"), field="due_at")
     return (due is None, due or _NO_DEADLINE)
 
 
@@ -348,9 +361,10 @@ def _writing_give_row(wa: Dict[str, Any], now: datetime) -> Dict[str, Any]:
     are derived from the deadline exactly as the ledger derives them.
     """
     deadline = wa.get("deadline")
-    due = parse_deadline(deadline)
+    due = _safe_deadline(deadline, row_id=wa.get("id"), field="deadline")
     submitted_at = wa.get("submitted_at")
-    is_late = bool(submitted_at and due and parse_deadline(submitted_at) > due)
+    submitted = _safe_deadline(submitted_at, row_id=wa.get("id"), field="submitted_at")
+    is_late = bool(submitted and due and submitted > due)
     is_missing = bool(not submitted_at and due and due < now)
     prompt = wa.get("writing_prompts") or {}
     title = wa.get("name") or prompt.get("title") or "Bài viết"
@@ -411,8 +425,9 @@ def _visible_writing_gives(student_id: str, cohort_ids: list[str],
         return [_writing_give_row(wa, now) for wa in outstanding + history], False
     except Exception as exc:
         # Degrade this block alone, flagging the page stale — a broken writing
-        # read (or a malformed deadline) must not blank the Speaking/Course
-        # homework beside it.
+        # read must not blank the Speaking/Course homework beside it. (A
+        # malformed deadline never reaches here: `_safe_deadline` absorbs it
+        # per row.)
         logger.warning("[class] writing gives read failed: %s", exc)
         return [], True
 
