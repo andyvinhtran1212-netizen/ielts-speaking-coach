@@ -49,7 +49,10 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-REVISION_RE = re.compile(r"^MOCK0016-PROD-20261006-(ILR-(?:RDG|LIS)-CAM-B(1[3-9]|2[01])-T[1-4])-REV\d{2}$")
+# Production MOCK0016 copies, and the staging Cam19 QA copies used to rehearse
+# the same binding before production.
+REVISION_RE = re.compile(
+    r"^(?:MOCK0016-PROD-20261006|QA-CAM19-\d{8})-(?:ILR-)?((?:RDG|LIS)-CAM-B(?:1[3-9]|2[01])-T[1-4])-REV\d{2}$")
 OVERRIDE_VERSION = "cambridge-release-overrides/1.0"
 SERVABLE = "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES"
 COPIED = ("source_test_key", "skill", "book_number", "test_number", "question_number",
@@ -87,10 +90,10 @@ def fingerprint(value: Any) -> str:
 
 def source_test_id_for(revision_test_id: str, skill: str) -> str:
     match = REVISION_RE.match(revision_test_id or "")
-    expected_prefix = "ILR-RDG-" if skill == "reading" else "ILR-LIS-"
+    expected_prefix = "RDG-" if skill == "reading" else "LIS-"
     if not match or not match.group(1).startswith(expected_prefix):
-        raise BindingRefused([f"{revision_test_id}: không phải bản REV Cambridge {skill} của gói MOCK0016"])
-    return match.group(1)
+        raise BindingRefused([f"{revision_test_id}: không phải bản REV Cambridge {skill} (MOCK0016 hoặc QA-CAM19)"])
+    return "ILR-" + match.group(1)
 
 
 def build_plan(

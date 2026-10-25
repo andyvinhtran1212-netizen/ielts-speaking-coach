@@ -301,3 +301,11 @@ def test_loader_ignores_copy_bookkeeping_but_not_audio_timing():
     _, retimed = _paper_questions(db(metadata={"section_offset": 4.5}), "listening", "paper")
     assert relabelled == base
     assert retimed != base
+
+
+def test_staging_rehearsal_copy_maps_to_the_same_source():
+    assert source_test_id_for("QA-CAM19-20261024-RDG-CAM-B19-T1-REV01", "reading") == "ILR-RDG-CAM-B19-T1"
+    assert source_test_id_for("QA-CAM19-20261024-LIS-CAM-B19-T1-REV01", "listening") == "ILR-LIS-CAM-B19-T1"
+    assert source_test_id_for("MOCK0016-PROD-20261006-ILR-RDG-CAM-B19-T1-REV01", "reading") == "ILR-RDG-CAM-B19-T1"
+    with pytest.raises(BindingRefused):
+        source_test_id_for("QA-CAM19-20261024-RDG-CAM-B19-T1-REV01", "listening")
