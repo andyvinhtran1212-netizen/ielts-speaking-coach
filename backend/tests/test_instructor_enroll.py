@@ -36,6 +36,7 @@ class _Q:
     def __init__(self, table, sb):
         self.table = table; self.sb = sb
         self._f = []; self._op = "select"; self._payload = None; self._conflict = None
+        self._range = None
 
     def select(self, *a, **k): self._op = "select"; return self
     def insert(self, p): self._op = "insert"; self._payload = p; return self
@@ -47,6 +48,7 @@ class _Q:
     def in_(self, c, vs): self._f.append(("in", c, [str(x) for x in vs])); return self
     def limit(self, *a, **k): return self
     def order(self, *a, **k): return self
+    def range(self, start, end): self._range = (int(start), int(end)); return self
 
     def _match(self, row):
         for op, c, v in self._f:
@@ -67,7 +69,12 @@ class _Q:
         if self._op == "upsert":
             rows.append(dict(self._payload)); return _R([dict(self._payload)])
         m = [r for r in rows if self._match(r)]
-        if self._op == "select": return _R([dict(r) for r in m])
+        if self._op == "select":
+            data = [dict(r) for r in m]
+            if self._range is not None:
+                s, e = self._range
+                data = data[s:e + 1]   # PostgREST .range() is inclusive of `end`
+            return _R(data)
         if self._op == "update":
             for r in m: r.update(self._payload)
             return _R([dict(r) for r in m])
