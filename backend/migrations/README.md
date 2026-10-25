@@ -20,8 +20,25 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-14 the highest is `318`, so the next
-new migration is `319`.
+sequence is dense. As of 2026-10-25 the highest is `320`, so the next
+new migration is `321`. `319` is reserved by the open, unapplied PR #1692
+(`319_explanation_version_unavailable_reason.sql`); do not reuse it for a
+different change. The runner applies any unapplied file regardless of order.
+
+Migration `320` is a security lockdown (staging audit 2026-10-25, F01/F03/F04).
+It revokes INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER from `anon` and
+`authenticated` on every `public` relation, changes the runner role's default
+privileges so later tables are not client-writable, and keeps `authenticated`
+writes only on the eight learner-owned Vocabulary/D1 practice tables that
+FastAPI writes with the learner's JWT. On `public.users` the client may update
+only the PATCH `/auth/profile` columns, and a trigger rejects any other column
+change by a client role. The browser performs no direct PostgREST writes, so
+no product journey changes. A new table that genuinely needs a client write
+must now `GRANT` that exact privilege in its own migration. The migration ends
+with a privilege postcondition and aborts if any client write survives (for
+example on a table owned by a role the runner cannot revoke for). Apply it to
+staging, run the read-only query in its header, then apply it to production
+with the advisory-locked runner. Never roll it back with a blanket re-grant.
 
 Migration `318` adds a default-empty personal vocabulary pronunciation column
 under existing row ownership/RLS. After applying it, render missing headwords
