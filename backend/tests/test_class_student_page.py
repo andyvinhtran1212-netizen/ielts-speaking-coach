@@ -896,6 +896,7 @@ def test_actionable_submitted_course_item_is_not_lost_behind_history_cap():
     with patch.object(mod, "supabase_admin", db), \
          patch.object(mod, "_paged_items", side_effect=[[], [old_course, old_passed]]), \
          patch.object(mod, "_paged_items_of", return_value=[assignments[1]]), \
+         patch.object(mod, "_visible_writing_gives", return_value=([], False)), \
          patch.object(mod, "_reread_items",
                       return_value=history + [old_course, old_passed]), \
          patch.object(mod, "reconcile_test_attempts", return_value=0), \
@@ -910,3 +911,185 @@ def test_actionable_submitted_course_item_is_not_lost_behind_history_cap():
     assert reopened["course_action"] == "retake"
     assert all(row["item_id"] != "old-passed" for row in out), \
         "terminal course history beyond the cap must stay capped"
+
+
+# ── bài Writing của lớp hiện trên trang lớp (E1 late-joiner) ────────────────
+#
+# A standalone writing give lives only in `writing_assignments`; the class page
+# reads the class ledger, so without surfacing it here a late joiner — and in fact
+# anyone — saw "Chưa có bài tập nào" while the give sat on the Writing dashboard.
+# These tests use a FILTERING fake (not `_Table`, which ignores predicates) so a
+# test cannot pass by returning rows the real (student_id, cohort, submitted_at)
+# query would exclude.
+
+
+class _WritingQuery:
+    def __init__(self, rows):
+        self._rows = list(rows)
+        self._negate = False
+
+    def select(self, *_a, **_k): return self
+
+    def eq(self, field, value):
+        self._rows = [r for r in self._rows if r.get(field) == value]
+        return self
+
+    def in_(self, field, values):
+        allowed = set(values)
+        self._rows = [r for r in self._rows if r.get(field) in allowed]
+        return self
+
+    def is_(self, field, _null):
+        want_null = not self._negate
+        self._negate = False
+        self._rows = [r for r in self._rows if (r.get(field) is None) is want_null]
+        return self
+
+    @property
+    def not_(self):
+        self._negate = True
+        return self
+
+    def order(self, *_a, **_k): return self
+
+    def range(self, start, end):
+        self._rows = self._rows[start:end + 1]
+        return self
+
+    def limit(self, n):
+        self._rows = self._rows[:n]
+        return self
+
+    def execute(self):
+        return _Resp(self._rows)
+
+
+def _writing_db(writing_rows):
+    rest = {
+        "class_assignment_items": [],
+        "class_assignments": [],
+        "cohorts": [{"id": "c1", "name": "QA Course 1", "course_id": None}],
+        "courses": [],
+        "class_lessons": [],
+    }
+
+    def _table(name):
+        if name == "writing_assignments":
+            return _WritingQuery(writing_rows)
+        return _Table(rest.get(name, []), False)
+
+    db = type("DB", (), {})()
+    db.table = _table
+    return db
+
+
+def _give(**over):
+    row = {
+        "id": "w-open", "student_id": "s1", "cohort_id": "c1",
+        "status": "pending", "submitted_at": None,
+        "deadline": (NOW + timedelta(days=2)).isoformat(),
+        "instructions": None, "name": "QA TEST Task 2",
+        "writing_prompts": {"title": "Task 2 prompt"},
+    }
+    row.update(over)
+    return row
+
+
+def test_my_class_surfaces_a_cohort_writing_give():
+    db = _writing_db([_give()])
+    with patch.object(mod, "supabase_admin", db):
+        out, stale = mod._visible_assignments(
+            {"id": "s1", "cohort_id": "c1"}, NOW, ["c1"])
+    assert stale is False
+    assert len(out) == 1
+    row = out[0]
+    assert row["assignment"]["skill"] == "writing"
+    assert row["item_id"] == "w-open"
+    assert row["assignment"]["title"] == "QA TEST Task 2"
+    assert row["submitted_at"] is None and row["is_missing"] is False
+    assert row["writing_expected"] is False
+    assert mod._progress_summary(out)["todo"] == 1, "an open give is work the student owes"
+
+
+def test_writing_gives_are_scoped_to_the_student_and_their_active_cohorts():
+    """Proves the real predicates: another student's give and another cohort's
+    give must not leak onto this learner's class page."""
+    db = _writing_db([
+        _give(id="mine"),
+        _give(id="other-student", student_id="s2"),
+        _give(id="other-cohort", cohort_id="c9"),
+    ])
+    with patch.object(mod, "supabase_admin", db):
+        out, _ = mod._visible_assignments(
+            {"id": "s1", "cohort_id": "c1"}, NOW, ["c1"])
+    assert [r["item_id"] for r in out] == ["mine"]
+
+
+def test_a_late_joiner_sees_the_writing_give_exactly_like_an_on_time_classmate():
+    """`/my-class` reads `writing_assignments` by (student_id, cohort). The
+    give-time fan-out (on-time) and the E1 backfill (late joiner) write the SAME
+    row shape, so the page cannot tell them apart — the only difference is the
+    row id. Assert the rendered rows are identical once the id is normalised."""
+    on_time = _give(id="w-fanout")
+    backfilled = _give(id="w-backfill")   # same student/cohort/prompt/deadline
+    with patch.object(mod, "supabase_admin", _writing_db([on_time])):
+        a, _ = mod._visible_assignments({"id": "s1", "cohort_id": "c1"}, NOW, ["c1"])
+    with patch.object(mod, "supabase_admin", _writing_db([backfilled])):
+        b, _ = mod._visible_assignments({"id": "s1", "cohort_id": "c1"}, NOW, ["c1"])
+
+    def _blank_id(rows):
+        return [{**r, "item_id": "x",
+                 "assignment": {**r["assignment"], "id": "x"}} for r in rows]
+
+    assert a and _blank_id(a) == _blank_id(b)
+    assert a[0]["assignment"]["skill"] == "writing"
+
+
+def test_writing_give_states_bucket_like_ledger_work():
+    submitted = _give(id="done", status="submitted",
+                      submitted_at=(NOW - timedelta(hours=1)).isoformat())
+    overdue = _give(id="late", deadline=(NOW - timedelta(hours=1)).isoformat())
+    with patch.object(mod, "supabase_admin", _writing_db([submitted, overdue])):
+        out, _ = mod._visible_assignments(
+            {"id": "s1", "cohort_id": "c1"}, NOW, ["c1"])
+    by_id = {r["item_id"]: r for r in out}
+    assert by_id["done"]["submitted_at"] is not None
+    assert by_id["done"]["is_missing"] is False
+    assert by_id["late"]["is_missing"] is True
+    p = mod._progress_summary(out)
+    assert p["submitted"] == 1 and p["missing"] == 1
+
+
+def test_a_broken_writing_read_degrades_that_block_alone_without_blanking_the_page():
+    """A failed writing read must flag the page stale, not raise — the Speaking
+    homework beside it must still render."""
+    class _Boom(_WritingQuery):
+        def execute(self):
+            raise RuntimeError("boom")
+
+    db = _writing_db([])
+    db.table = lambda name: (_Boom([]) if name == "writing_assignments"
+                             else _Table([], False))
+    with patch.object(mod, "supabase_admin", db):
+        out, stale = mod._visible_assignments(
+            {"id": "s1", "cohort_id": "c1"}, NOW, ["c1"])
+    assert out == [] and stale is True
+
+
+@pytest.mark.asyncio
+async def test_my_class_http_lists_a_writing_give_for_a_late_joiner():
+    # my_class() stamps its own wall-clock `now`, so the deadline must be far in
+    # the future for the give to read as outstanding regardless of the run date.
+    db = _writing_db([_give(deadline="2099-01-01T00:00:00+00:00")])
+    student = {"id": "s1", "cohort_id": "c1", "full_name": "Andy", "student_code": "S1"}
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "active_cohort_ids_for_student", return_value=["c1"]), \
+         patch.object(mod, "supabase_admin", db):
+        out = await mod.my_class(None)
+    assert out["has_class"] is True
+    rows = out["assignments"]
+    assert [r["assignment"]["skill"] for r in rows] == ["writing"]
+    assert rows[0]["assignment"]["cohort_name"] == "QA Course 1"
+    assert out["progress"]["todo"] == 1
+    assert "degraded" not in out

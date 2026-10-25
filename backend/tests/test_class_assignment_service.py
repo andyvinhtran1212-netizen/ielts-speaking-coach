@@ -1084,15 +1084,20 @@ def test_student_list_puts_the_nearest_deadline_first():
         None,
     ]
 
-    # …and the endpoint uses exactly that key.
+    # …and the endpoint uses exactly that key. The key now lives in the shared
+    # _due_sort_key helper (one definition for the final sort AND the writing-only
+    # early return), so inspect it there; the endpoint must sort by it, never
+    # reverse=True.
     import inspect, re
     from routers import class_student as mod
     # code_only() re-joins tokens with spaces, so match whitespace-tolerantly.
-    src = code_only(inspect.getsource(mod._visible_assignments))
-    assert not re.search(r"reverse\s*=\s*True", src), (
+    endpoint_src = code_only(inspect.getsource(mod._visible_assignments))
+    key_src = code_only(inspect.getsource(mod._due_sort_key))
+    assert not re.search(r"reverse\s*=\s*True", endpoint_src), (
         "reverse=True puts the farthest deadline first"
     )
-    assert re.search(r'due_at"\s*\]\s*is\s+None', src), (
+    assert "_due_sort_key" in endpoint_src, "the endpoint must sort by the shared key"
+    assert re.search(r'due_at"\s*\]\s*is\s+None', key_src), (
         "no-deadline gives must sort last via their own key"
     )
 
