@@ -207,16 +207,18 @@ async def test_grammar_check_seam(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_grammar_check_health_probe_bypasses_fixture(monkeypatch):
-    # /health/grammar-check verifies the REAL LanguageTool backend with a
+    # /health/grammar-check verifies the REAL grammar backend with a
     # known-bad sample; the fixture's guaranteed-0 result would falsely mark
-    # it degraded. _health_probe=True must take the real path — in the unit
-    # env (no LanguageTool module) that path silent-skips to None, which is
-    # observably different from the fixture's empty result.
+    # it degraded. _health_probe=True must take the real path. Since
+    # assets/grammar-mindmap is committed (PR #1690) the real path always has
+    # the VI-learner local rules, with or without Java, so use a sample those
+    # rules catch: the real result is observably non-empty while the fixture
+    # stays at 0.
     monkeypatch.setattr(settings, "GRADING_PROVIDER_MODE", "fixture")
     from services.grammar_check import get_grammar_check_service
     svc = get_grammar_check_service()
-    sample = "I goes to school yesterday and I doesn't have time."
+    sample = "She go to school every day and I can to swim."
     fixture_result = await svc.check(sample)
     assert fixture_result is not None and fixture_result.total_count == 0
     real_path = await svc.check(sample, _health_probe=True)
-    assert real_path is None or real_path.total_count != 0
+    assert real_path is not None and real_path.total_count != 0
