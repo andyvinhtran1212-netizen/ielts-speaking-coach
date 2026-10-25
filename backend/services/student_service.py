@@ -397,3 +397,61 @@ def bulk_import_students(*, csv_content: str, admin_id: str) -> dict:
             errors.append({"row": line_no, "code": code, "error": str(e)})
 
     return {"imported": imported, "errors": errors}
+
+
+_LINKED_STUDENT_COLUMNS = (
+    "id, user_id, student_code, full_name, target_band, cohort_id, updated_at"
+)
+
+
+def account_display_name(auth_user: Optional[dict]) -> str:
+    """Name already shown in the header and on /home.
+
+    JWT user_metadata only. The email local-part is a greeting fallback, not a
+    roster identity — it must not outrank ``students.full_name``.
+    """
+    metadata = (auth_user or {}).get("user_metadata") or {}
+    for key in ("display_name", "full_name", "name"):
+        value = metadata.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def choose_linked_student(rows: list, account_name: str = "") -> Optional[dict]:
+    """Pick one ``students`` row when several share a ``user_id``.
+
+    ``students.user_id`` is indexed, not unique. An unordered ``limit(1)`` can
+    therefore greet the learner as a different roster row than the account they
+    signed in with. Prefer the row whose name matches the account, then a row
+    that belongs to a class, then the most recently updated row.
+    """
+    candidates = [row for row in (rows or []) if isinstance(row, dict) and row.get("id")]
+    if not candidates:
+        return None
+    wanted = (account_name or "").strip().casefold()
+
+    def rank(row: dict):
+        full_name = (row.get("full_name") or "").strip().casefold()
+        return (
+            1 if wanted and full_name == wanted else 0,
+            1 if row.get("cohort_id") else 0,
+            row.get("updated_at") or "",
+        )
+
+    return max(candidates, key=rank)
+
+
+def fetch_linked_student(db, user_id, account_name: str = "") -> Optional[dict]:
+    """Load the students row linked to this auth user, if any."""
+    if not user_id or db is None:
+        return None
+    result = (
+        db.table("students")
+        .select(_LINKED_STUDENT_COLUMNS)
+        .eq("user_id", str(user_id))
+        .order("updated_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+    return choose_linked_student(getattr(result, "data", None) or [], account_name)

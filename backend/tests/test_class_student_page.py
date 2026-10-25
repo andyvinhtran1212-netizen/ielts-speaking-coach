@@ -164,6 +164,30 @@ async def test_no_student_row_is_not_an_error():
 
 
 @pytest.mark.asyncio
+async def test_a_failed_student_lookup_is_an_error_not_an_empty_class():
+    # A DB hiccup while resolving the student must NOT masquerade as "you're in
+    # no class": that would make the page hide a real student's classes and
+    # homework instead of offering a retry. It surfaces as a retryable 5xx.
+    from fastapi import HTTPException
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("db down")
+
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "supabase_admin", object()), \
+         patch("services.student_service.fetch_linked_student", _boom):
+        with pytest.raises(HTTPException) as caught:
+            await mod.my_class(None)
+    assert caught.value.status_code == 503
+    with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "supabase_admin", object()), \
+         patch("services.student_service.fetch_linked_student", _boom):
+        with pytest.raises(HTTPException) as caught:
+            await mod.my_assignments(None)
+    assert caught.value.status_code == 503
+
+
+@pytest.mark.asyncio
 async def test_student_with_no_cohort_is_not_an_error():
     with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
          patch.object(mod, "_student_for_user", return_value={"id": "s1", "cohort_id": None}), \

@@ -327,6 +327,31 @@ def test_course_assignment_action_fails_safe_for_a_malformed_legacy_ledger():
     assert qs.course_assignment_action(item, assignment) == "start"
 
 
+def test_course_assignment_action_closes_overdue_work_never_submitted():
+    assignment = {
+        "status": "published", "publish_at": None,
+        "due_at": "2020-01-01T00:00:00+00:00",
+        "content_config": {"pass_pct": 80},
+    }
+    item = {"submitted_at": None, "passed_at": None, "mastery": None}
+    assert qs.course_assignment_action(item, assignment) == "closed"
+
+
+def test_course_assignment_action_reviews_a_submitted_overdue_item():
+    assignment = {
+        "status": "published", "publish_at": None,
+        "due_at": "2020-01-01T00:00:00+00:00",
+        "content_config": {"pass_pct": 80},
+    }
+    item = {
+        "submitted_at": "2019-12-01T00:00:00+00:00", "passed_at": None,
+        "mastery": {"attempts": [{
+            "completed": True, "pct": 90, "next_action": "passed",
+        }]},
+    }
+    assert qs.course_assignment_action(item, assignment) == "review"
+
+
 def test_course_assignment_action_closes_retry_when_timer_expires():
     assignment = {
         "status": "published", "publish_at": None, "due_at": None,
