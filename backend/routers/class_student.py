@@ -43,6 +43,7 @@ from services.class_assignment_service import (
     reconcile_test_attempts,
 )
 from services.active_player_lifecycle import is_resume_active
+from services.cohort_assignment_service import parse_deadline
 from services.class_membership_service import (
     active_cohort_ids_for_student,
     student_is_active_in_cohort,
@@ -314,10 +315,18 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
     }
 
 
+_NO_DEADLINE = datetime.min.replace(tzinfo=timezone.utc)
+
+
 def _due_sort_key(row: Dict[str, Any]):
     """Nearest deadline FIRST; a give with no deadline is never urgent, so it
-    sorts last via its own key rather than by abusing the empty string."""
-    return (row["assignment"]["due_at"] is None, row["assignment"]["due_at"] or "")
+    sorts last via its own key rather than by abusing the empty string.
+
+    Ledger `due_at` and writing `deadline` can carry different UTC offsets, so
+    the order is by parsed instant — string order would put an 08:00+07:00
+    deadline (01:00Z) below a 02:00+00:00 one."""
+    due = parse_deadline(row["assignment"]["due_at"])
+    return (due is None, due or _NO_DEADLINE)
 
 
 # A writing give carries its own lifecycle in `writing_assignments` (mig 036); it
@@ -339,9 +348,9 @@ def _writing_give_row(wa: Dict[str, Any], now: datetime) -> Dict[str, Any]:
     are derived from the deadline exactly as the ledger derives them.
     """
     deadline = wa.get("deadline")
-    due = datetime.fromisoformat(deadline) if deadline else None
+    due = parse_deadline(deadline)
     submitted_at = wa.get("submitted_at")
-    is_late = bool(submitted_at and due and datetime.fromisoformat(submitted_at) > due)
+    is_late = bool(submitted_at and due and parse_deadline(submitted_at) > due)
     is_missing = bool(not submitted_at and due and due < now)
     prompt = wa.get("writing_prompts") or {}
     title = wa.get("name") or prompt.get("title") or "Bài viết"

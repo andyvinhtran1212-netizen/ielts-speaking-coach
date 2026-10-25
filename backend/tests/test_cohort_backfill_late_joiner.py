@@ -10,7 +10,15 @@ tiny filtering fake so the contract is pinned independent of the HTTP path.
 
 from __future__ import annotations
 
-from services.cohort_assignment_service import backfill_cohort_writing_assignments
+from datetime import date, datetime, timedelta, timezone
+
+import pytest
+
+from services.cohort_assignment_service import (
+    _deadline_is_open,
+    backfill_cohort_writing_assignments,
+    parse_deadline,
+)
 
 
 class _R:
@@ -152,3 +160,91 @@ def test_open_give_beyond_first_page_is_still_backfilled():
     assert res["created_count"] == 1
     mine = [w for w in store["writing_assignments"] if w["student_id"] == NEW]
     assert [w["prompt_id"] for w in mine] == ["p-open"]
+
+
+# ── deadlines are compared as instants, never as ISO strings ───────────────
+#
+# The cases marked (string-wrong) are ones where STRING order disagrees with
+# TIME order, so a lexicographic compare against now.isoformat() gets them wrong;
+# the rest pin the date-only / naive / equal-instant rules.
+
+NOW_UTC = datetime(2026, 10, 25, 2, 0, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("2026-10-25T02:00:00Z",       datetime(2026, 10, 25, 2, 0, tzinfo=timezone.utc)),
+    ("2026-10-25T02:00:00+00:00",  datetime(2026, 10, 25, 2, 0, tzinfo=timezone.utc)),
+    ("2026-10-25T09:00:00+07:00",  datetime(2026, 10, 25, 2, 0, tzinfo=timezone.utc)),
+    ("2026-10-25T02:00:00",        datetime(2026, 10, 25, 2, 0, tzinfo=timezone.utc)),  # naive = UTC
+    ("2026-10-25",                 datetime(2026, 10, 25, 0, 0, tzinfo=timezone.utc)),  # date-only
+    (date(2026, 10, 25),           datetime(2026, 10, 25, 0, 0, tzinfo=timezone.utc)),
+    (datetime(2026, 10, 25, 2, 0), datetime(2026, 10, 25, 2, 0, tzinfo=timezone.utc)),
+    (None, None),
+    ("", None),
+])
+def test_parse_deadline_normalises_every_shape_to_aware_utc(raw, expected):
+    got = parse_deadline(raw)
+    assert got == expected
+    if got is not None:
+        assert got.utcoffset() == timedelta(0)
+
+
+def test_parse_deadline_rejects_garbage_so_callers_pick_a_policy():
+    with pytest.raises(ValueError):
+        parse_deadline("next friday")
+
+
+@pytest.mark.parametrize("deadline, is_open", [
+    # (string-wrong) 08:00+07:00 == 01:00Z — an hour BEFORE now, though
+    # "08" > "02" as text.
+    ("2026-10-25T08:00:00+07:00", False),
+    # (string-wrong) 23:00-05:00 on the 24th == 04:00Z on the 25th — still
+    # open, though "2026-10-24" < "2026-10-25" as text.
+    ("2026-10-24T23:00:00-05:00", True),
+    # Same instant spelled two ways: open (deadline == now still accepts).
+    ("2026-10-25T09:00:00+07:00", True),
+    # Date-only = midnight UTC of that day, already behind now.
+    ("2026-10-25", False),
+    ("2026-10-26", True),
+    # Naive value is UTC.
+    ("2026-10-25T03:00:00", True),
+    (None, True),
+])
+def test_deadline_is_open_compares_instants_across_offsets(deadline, is_open):
+    assert _deadline_is_open(deadline, NOW_UTC) is is_open
+
+
+def test_deadline_is_open_accepts_a_non_utc_now():
+    now_vn = NOW_UTC.astimezone(timezone(timedelta(hours=7)))   # 09:00+07:00
+    assert _deadline_is_open("2026-10-25T08:00:00+07:00", now_vn) is False
+    assert _deadline_is_open("2026-10-25T03:00:00+00:00", now_vn) is True
+
+
+def test_z_suffix_is_compared_as_utc_not_as_a_character():
+    """(string-wrong) 'Z' sorts after '.', so "02:00:00Z" >= "02:00:00.5+00:00"
+    as text, yet the deadline passed half a second ago."""
+    now = NOW_UTC.replace(microsecond=500000)
+    assert "2026-10-25T02:00:00Z" >= now.isoformat()
+    assert _deadline_is_open("2026-10-25T02:00:00Z", now) is False
+
+
+def test_malformed_deadline_fails_open():
+    assert _deadline_is_open("not-a-date", NOW_UTC) is True
+
+
+def test_backfill_uses_instant_order_for_mixed_offset_deadlines():
+    """End to end through the backfill: the +07:00 give closed an hour ago must
+    NOT be copied, the -05:00 give still open must be — the exact opposite of
+    what a string compare against now.isoformat() decides."""
+    store = {"writing_assignments": [
+        _give(prompt_id="p-closed", assignment_group_id="g-closed",
+              deadline="2026-10-25T08:00:00+07:00"),
+        _give(prompt_id="p-open", assignment_group_id="g-open",
+              deadline="2026-10-24T23:00:00-05:00"),
+    ]}
+    db = _FakeSB(store)
+    res = backfill_cohort_writing_assignments(
+        db, student_id=NEW, cohort_id=COHORT, now=NOW_UTC)
+    assert res["created_count"] == 1
+    mine = [w["prompt_id"] for w in store["writing_assignments"] if w["student_id"] == NEW]
+    assert mine == ["p-open"]

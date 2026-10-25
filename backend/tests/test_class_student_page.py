@@ -1093,3 +1093,58 @@ async def test_my_class_http_lists_a_writing_give_for_a_late_joiner():
     assert rows[0]["assignment"]["cohort_name"] == "QA Course 1"
     assert out["progress"]["todo"] == 1
     assert "degraded" not in out
+
+
+# ── deadlines order and bucket by instant, not by ISO string ───────────────
+
+
+def test_writing_and_ledger_rows_sort_by_instant_across_offsets():
+    """String order would put the +07:00 row (01:00Z) after the +00:00 one
+    (02:00Z) and the -05:00 row (04:00Z, dated the 24th) first."""
+    rows = [
+        {"id": "b", "assignment": {"due_at": "2026-10-25T02:00:00+00:00"}},
+        {"id": "none", "assignment": {"due_at": None}},
+        {"id": "c", "assignment": {"due_at": "2026-10-24T23:00:00-05:00"}},
+        {"id": "a", "assignment": {"due_at": "2026-10-25T08:00:00+07:00"}},
+        {"id": "z", "assignment": {"due_at": "2026-10-25T03:00:00Z"}},
+    ]
+    string_order = [r["id"] for r in sorted(
+        rows, key=lambda r: (r["assignment"]["due_at"] is None,
+                             r["assignment"]["due_at"] or ""))]
+    assert string_order == ["c", "b", "z", "a", "none"], "fixture must expose the string bug"
+    assert [r["id"] for r in sorted(rows, key=mod._due_sort_key)] == \
+        ["a", "b", "z", "c", "none"]
+
+
+def test_a_writing_give_with_a_non_utc_deadline_buckets_by_instant():
+    # NOW is 12:00Z. 18:00+07:00 == 11:00Z → overdue; 20:00+07:00 == 13:00Z → open.
+    overdue = _give(id="vn-late", deadline="2026-08-03T18:00:00+07:00")
+    open_ = _give(id="vn-open", deadline="2026-08-03T20:00:00+07:00")
+    with patch.object(mod, "supabase_admin", _writing_db([open_, overdue])):
+        out, stale = mod._visible_assignments(
+            {"id": "s1", "cohort_id": "c1"}, NOW, ["c1"])
+    assert stale is False
+    by_id = {r["item_id"]: r for r in out}
+    assert by_id["vn-late"]["is_missing"] is True
+    assert by_id["vn-open"]["is_missing"] is False
+    assert [r["item_id"] for r in out] == ["vn-late", "vn-open"]
+    # The wire value is passed through untouched; only the comparison is parsed.
+    assert by_id["vn-open"]["assignment"]["due_at"] == "2026-08-03T20:00:00+07:00"
+
+
+def test_a_writing_give_with_a_date_only_or_naive_deadline_does_not_degrade_the_page():
+    """A naive datetime compared against the aware `now` raised TypeError and
+    blanked the whole writing block as stale; it is UTC by contract."""
+    date_only = _give(id="d", deadline="2026-08-03")             # 00:00Z → overdue
+    naive = _give(id="n", deadline="2026-08-03T13:00:00")        # 13:00Z → open
+    late_submit = _give(id="s", status="submitted",
+                        deadline="2026-08-03T18:00:00+07:00",    # 11:00Z
+                        submitted_at="2026-08-03T11:30:00Z")
+    with patch.object(mod, "supabase_admin", _writing_db([date_only, naive, late_submit])):
+        out, stale = mod._visible_assignments(
+            {"id": "s1", "cohort_id": "c1"}, NOW, ["c1"])
+    assert stale is False
+    by_id = {r["item_id"]: r for r in out}
+    assert by_id["d"]["is_missing"] is True
+    assert by_id["n"]["is_missing"] is False
+    assert by_id["s"]["is_late"] is True
