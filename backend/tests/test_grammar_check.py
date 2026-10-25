@@ -345,3 +345,140 @@ def test_locked_constants():
     assert GRAMMAR_CHECK_TIMEOUT_SECONDS == 15.0
     assert GRAMMAR_CACHE_TTL_HOURS       == 4
     assert MAX_DISPLAYED_ERRORS          == 10
+
+
+# ── Asset presence + privacy guard (2026-10-25 restore) ──────────────────────
+#
+# Production ran for months with ``ModuleNotFoundError: grammar_checker``
+# because ``assets/grammar-mindmap/`` was never committed. These tests import
+# the real asset (no stub) so a stripped asset fails CI, and pin the rule that
+# learner transcripts never reach the public LanguageTool API.
+
+
+def _real_asset_dir() -> Path:
+    return Path(__file__).resolve().parent.parent.parent / "assets" / "grammar-mindmap"
+
+
+def test_asset_directory_is_committed():
+    d = _real_asset_dir()
+    assert (d / "grammar_checker.py").is_file(), "assets/grammar-mindmap/grammar_checker.py missing"
+    assert (d / "grammar_data.py").is_file(), "assets/grammar-mindmap/grammar_data.py missing"
+
+
+def test_real_asset_local_rules_catch_known_bad_transcript():
+    """L11 with the REAL asset: the VI-learner regex layer must import and
+    flag a subject-verb-agreement error without Java or any stub."""
+    for name in ("grammar_checker", "grammar_data"):
+        sys.modules.pop(name, None)
+    svc = GrammarCheckService()
+    svc._ensure_asset_on_path()
+    import grammar_checker as gc  # noqa: E402 — real asset, no stub
+    findings = gc.run_local_rules("She go to school every day.")
+    assert findings, "real asset returned no local findings for a known-bad transcript"
+    assert all("offset" in f and "errorLength" in f for f in findings)
+
+
+def test_backend_rejected_when_asset_starts_in_online_mode():
+    """Privacy: an LTBackend that could only start its online path is refused
+    and reported as languagetool_offline_unavailable."""
+    fake_mod = MagicMock()
+    backend = MagicMock()
+    backend.mode = "online"
+    fake_mod.LTBackend.return_value = backend
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        svc = GrammarCheckService()
+        assert svc._ensure_backend() is None
+    assert svc._backend_init_failed is True
+    assert svc._backend_init_reason == "languagetool_offline_unavailable"
+
+
+def test_offline_backend_has_online_fallback_disabled():
+    """Privacy: the accepted offline instance gets its _check_online replaced
+    so a mid-call flip cannot POST the transcript to api.languagetool.org."""
+    fake_mod = MagicMock()
+    backend = MagicMock()
+    backend.mode = "offline"
+    fake_mod.LTBackend.return_value = backend
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        svc = GrammarCheckService()
+        got = svc._ensure_backend()
+    assert got is backend
+    with pytest.raises(RuntimeError, match="online fallback is disabled"):
+        got._check_online("any transcript")
+
+
+def test_run_sync_retires_backend_that_flipped_to_online():
+    """If the asset flips to online mid-call, its findings are dropped and the
+    backend is retired so later requests stay local-only."""
+    local = [_finding(rule_id="LOCAL_MISSING_SUBJECT", offset=0, err_len=2)]
+    fake_mod = MagicMock()
+    fake_mod.run_local_rules.return_value = local
+    fake_mod.merge_findings.side_effect = lambda text, lt, loc: list(lt) + list(loc)
+    backend = MagicMock()
+    backend.mode = "offline"
+
+    def _flip(text):
+        backend.mode = "online"
+        return [_finding(rule_id="LT_RULE", category="GRAMMAR", offset=5, err_len=2)]
+
+    backend.check.side_effect = _flip
+    fake_mod.LTBackend.return_value = backend
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        svc = GrammarCheckService()
+        result = svc._run_sync("He go to school.")
+    assert svc._backend is None
+    assert svc._backend_init_reason == "languagetool_offline_unavailable"
+    # merge_findings received an empty LT list — only the local finding survives.
+    assert result.total_count == 1
+    assert result.errors[0].category == "missing_subject"
+
+
+def test_module_not_found_is_reported_as_asset_missing():
+    """Health must say the asset is missing, not blame the JRE."""
+    import builtins
+    real_import = builtins.__import__
+
+    def _no_asset(name, *a, **kw):
+        if name == "grammar_checker":
+            raise ModuleNotFoundError("No module named 'grammar_checker'", name="grammar_checker")
+        return real_import(name, *a, **kw)
+
+    sys.modules.pop("grammar_checker", None)
+    with patch("builtins.__import__", side_effect=_no_asset):
+        svc = GrammarCheckService()
+        assert svc._ensure_backend() is None
+    assert svc._backend_init_reason == "asset_missing"
+
+
+def test_health_message_distinguishes_asset_missing(monkeypatch):
+    svc = GrammarCheckService()
+    svc._backend_init_failed = True
+    svc._backend_init_reason = "asset_missing"
+    monkeypatch.setattr(grammar_check, "get_grammar_check_service", lambda: svc)
+    monkeypatch.setattr(svc, "check", AsyncMock(return_value=None))
+    monkeypatch.setattr(svc, "_ensure_backend", lambda: None)
+    out = asyncio.run(grammar_check.grammar_check_health())
+    assert out["status"] == "degraded"
+    assert out["init_failure_reason"] == "asset_missing"
+    assert "assets/grammar-mindmap" in out["messages"][0]
+    assert "JRE" not in out["messages"][0]
+
+
+def test_real_asset_rule_ids_map_to_taxonomy():
+    """The committed asset's LOCAL_ ids must not all collapse into the generic
+    'grammar' bucket — severity ranking depends on the taxonomy key."""
+    for name in ("grammar_checker", "grammar_data"):
+        sys.modules.pop(name, None)
+    GrammarCheckService()._ensure_asset_on_path()
+    import grammar_checker as gc  # noqa: E402
+    cases = {
+        "She go to school every day.":  "subject_verb_agreement",
+        "They was happy yesterday.":    "subject_verb_agreement",
+        "Yesterday I go to the market.": "tense",
+        "I can to swim.":               "verb_form",
+        "I beautiful.":                 "copula",
+    }
+    for sentence, expected in cases.items():
+        findings = gc.run_local_rules(sentence)
+        assert findings, sentence
+        assert expected in {_categorise(f) for f in findings}, (sentence, [f["ruleId"] for f in findings])
