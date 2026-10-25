@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  EXPLANATION_NONE_MESSAGE,
   assignmentSummary,
   defaultVietnamDueDate,
   dueParts,
@@ -271,6 +272,29 @@ describe('admin class homework model — canonical truth', () => {
       deliveryMode: 'assigned_practice', webExplanationMode: 'immediate_after_capture' };
     assert.equal(validateHomeworkDraft(draft, locked).ok, true);
     assert.equal(validateHomeworkDraft({ ...draft, webExplanationMode: 'admin_release' }, locked).ok, true);
+  });
+
+  test('refuses interactive explanations for a paper with zero bound objects before submit', () => {
+    // Cam19 T1 REV01 (2026-10-25): the copy shows 0/0 because its objects are
+    // still bound to the original Cambridge paper.
+    for (const skill of ['reading', 'listening']) {
+      const revision = normalizeCatalog({ items: [{
+        id: `rev-${skill}`, title: 'Cambridge 19 Test 1 REV01', status: 'published', exam_only: true,
+        cohort_ids: ['class-5'], web_explanation_state: 'none',
+        web_explanation_count: 0, web_explanation_ready_count: 0,
+      }] }, 'exam', skill, 'class-5');
+      const draft = { ...homeworkDraft(), skill, title: 'Cam19 T1', contentId: `rev-${skill}`,
+        deliveryMode: 'assigned_practice', webExplanationMode: 'immediate_after_capture', postTestCaptureRequired: true };
+      for (const mode of ['immediate_after_capture', 'admin_release']) {
+        const result = validateHomeworkDraft({ ...draft, webExplanationMode: mode }, revision);
+        assert.equal(result.ok, false);
+        assert.equal(result.error, EXPLANATION_NONE_MESSAGE);
+      }
+      // The ordinary give without interactive explanations is still allowed.
+      assert.equal(validateHomeworkDraft({ ...draft, webExplanationMode: 'disabled' }, revision).ok, true);
+    }
+    assert.match(UI, /explanation_state === 'none'[^\n]*EXPLANATION_NONE_MESSAGE/);
+    assert.doesNotMatch(UI, /explanation_state !== 'ready' && editor\.webExplanationMode/);
   });
 
   test('normalizes paginated action-log details without claiming failed reads are empty', () => {

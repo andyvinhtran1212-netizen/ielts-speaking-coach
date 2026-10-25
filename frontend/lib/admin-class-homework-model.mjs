@@ -119,6 +119,8 @@ export function homeworkDraft(at = new Date()) {
   };
 }
 
+export const EXPLANATION_NONE_MESSAGE = 'Đề này chưa có bộ lời giải tương tác nào gắn với đúng mã đề (0/40). Chọn “Không dùng lời giải tương tác”, hoặc gắn bộ lời giải cho đề này trước khi giao.';
+
 export function validateHomeworkDraft(draft, catalog = [], questions = [], questionsPerGive = 1) {
   const title = text(draft?.title).trim();
   if (!title) return { ok: false, error: 'Nhập tên bài giao để tiếp tục.' };
@@ -130,6 +132,12 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     return { ok: false, error: 'Đề trong kho admin cần chọn “Giao luyện tập có kiểm soát”.' };
   }
   if (draft.recipientScope === 'subset' && !draft.studentIds?.length) return { ok: false, error: 'Chọn ít nhất một học viên nhận bài.' };
+  // A paper with zero current explanation objects (e.g. a REVxx copy whose set is
+  // still bound to the original Cambridge paper) cannot be approved on give.
+  // Say so before the request instead of after an opaque database refusal.
+  if (draft.webExplanationMode && draft.webExplanationMode !== 'disabled' && selected.explanation_state === 'none') {
+    return { ok: false, error: EXPLANATION_NONE_MESSAGE };
+  }
   if (draft.kind === 'lesson') {
     const dueDays = Number(draft.dueDays);
     if (!Number.isInteger(dueDays) || dueDays < 1 || dueDays > 90) return { ok: false, error: 'Số ngày được nộp phải từ 1 đến 90.' };

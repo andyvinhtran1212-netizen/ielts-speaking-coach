@@ -224,8 +224,10 @@ def create_class_assignment(
                 "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
             ) from exc
         if "web_explanation_content_version_unavailable" in str(exc):
+            # Lazy: mock_correction_service binds the Supabase client at import.
+            from services.mock_correction_service import content_version_unavailable_message
             raise ExplanationApprovalError(
-                "Không tìm thấy một content version hiện hành duy nhất cho đề."
+                content_version_unavailable_message(str(exc))
             ) from exc
         if "web_explanation_serving_blocked:" in str(exc):
             object_id = str(exc).split(

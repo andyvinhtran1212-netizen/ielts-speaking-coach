@@ -197,6 +197,32 @@ def non_public_reserved_ids(skill: str, reserved_ids: Iterable[str]) -> set[str]
         return ids
 
 
+CONTENT_VERSION_UNAVAILABLE = "web_explanation_content_version_unavailable"
+
+
+def content_version_unavailable_message(message: str) -> str:
+    """Explain WHICH version ambiguity migration 319 reported.
+
+    The database refuses every ambiguous paper and never picks a version; this
+    only turns its reason suffix into an actionable admin message. An unknown
+    or missing suffix (an older function) keeps the original wording.
+    """
+    detail = message.split(CONTENT_VERSION_UNAVAILABLE, 1)[1] if CONTENT_VERSION_UNAVAILABLE in message else ""
+    if detail.startswith(":none"):
+        return ("Đề này chưa có bộ lời giải tương tác nào gắn với đúng mã đề "
+                "(0/40 object hiện hành). Hãy chọn “Không dùng lời giải tương tác” "
+                "hoặc gắn bộ lời giải cho đề này trước khi giao.")
+    if detail.startswith(":multiple:"):
+        found = re.match(r":multiple:(\d+)", detail)
+        count = found.group(1) if found else "nhiều"
+        return (f"Đề đang có {count} content version lời giải cùng hiện hành. "
+                "Cần xác định đúng một version trước khi bật lời giải tương tác.")
+    if detail.startswith(":pinned_not_current"):
+        return ("Content version lời giải đã chọn không còn hiện hành cho đề này. "
+                "Hãy tải lại và chọn lại.")
+    return "Không tìm thấy một content version hiện hành duy nhất cho đề."
+
+
 def scored_paper_blockers(skill: str, test_id: str, *, db=None) -> list[str]:
     """Return item ids that must not enter an auto-scored delivery."""
     rows = _current_explanation_rows(
@@ -257,10 +283,8 @@ def approve_paper_explanations(
             raise PolicyError(
                 "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
             ) from exc
-        if "web_explanation_content_version_unavailable" in message:
-            raise PolicyError(
-                "Không tìm thấy một content version hiện hành duy nhất cho đề."
-            ) from exc
+        if CONTENT_VERSION_UNAVAILABLE in message:
+            raise PolicyError(content_version_unavailable_message(message)) from exc
         if "web_explanation_serving_blocked:" in message:
             object_id = message.split("web_explanation_serving_blocked:", 1)[1].split()[0]
             raise PolicyError(
@@ -861,10 +885,8 @@ def update_class_assignment_policy(assignment_id: str, patch: dict, actor_id: st
             raise PolicyError(
                 "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
             ) from exc
-        if "web_explanation_content_version_unavailable" in message:
-            raise PolicyError(
-                "Không tìm thấy một content version hiện hành duy nhất cho đề."
-            ) from exc
+        if CONTENT_VERSION_UNAVAILABLE in message:
+            raise PolicyError(content_version_unavailable_message(message)) from exc
         if "web_explanation_serving_blocked:" in message:
             object_id = message.split("web_explanation_serving_blocked:", 1)[1].split()[0]
             raise PolicyError(
@@ -951,10 +973,8 @@ def update_public_test_policy(skill: str, test_id: str, patch: dict, actor_id: s
             raise PolicyError(
                 "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
             ) from exc
-        if "web_explanation_content_version_unavailable" in message:
-            raise PolicyError(
-                "Không tìm thấy một content version hiện hành duy nhất cho đề."
-            ) from exc
+        if CONTENT_VERSION_UNAVAILABLE in message:
+            raise PolicyError(content_version_unavailable_message(message)) from exc
         if "web_explanation_serving_blocked:" in message:
             object_id = message.split(
                 "web_explanation_serving_blocked:", 1
