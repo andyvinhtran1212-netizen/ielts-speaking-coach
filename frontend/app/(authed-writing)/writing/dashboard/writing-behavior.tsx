@@ -41,6 +41,8 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { getBrowserJson } from '@/lib/browser-api';
 import { normalizeWritingContentList } from '@/lib/writing-content-navigation.mjs';
 import { createWritingContentDialog } from '@/lib/writing-content-dialog';
+import { getWithTimeout } from '@/lib/request-with-timeout.mjs';
+import { writingGreetingParts, writingStudentCode } from '@/lib/writing-dashboard-student.mjs';
 
 /** Trạng thái toàn trang — giữ trong object để cleanup dứt điểm. */
 type ModalState = {
@@ -302,10 +304,15 @@ async function reconcilePendingSubmissions(accountId: string, api: any, ms: Moda
 
 function renderStudent(student: any) {
   const s = student || {};
+  // Comma + name are rendered together: a name yields "Chào em, <name>", no
+  // name yields a clean "Chào em" (no "Chào em, em" duplication).
+  const { separator, name } = writingGreetingParts(s);
+  const sepEl = $('greeting-sep');
+  if (sepEl) sepEl.textContent = separator;
   const greetingEl = $('greeting-name');
-  if (greetingEl) greetingEl.textContent = s.full_name || 'em';
+  if (greetingEl) greetingEl.textContent = name;
   const codeEl = $('student-code');
-  if (codeEl) codeEl.textContent = s.student_code || '—';
+  if (codeEl) codeEl.textContent = writingStudentCode(s);
   if (s.target_band != null) {
     const bandEl = $('target-band');
     if (bandEl) bandEl.textContent = s.target_band;
@@ -1539,7 +1546,9 @@ async function loadAssignments(api: any, ms: ModalState) {
   const ps = ms.page;
   const generation = ps.generation;
   try {
-    const data = await api.get('/api/writing/my-assignments');
+    // Hạn giờ phía client: fetch không tự timeout, nên backend treo sẽ để tab
+    // kẹt ở "Đang tải…" mãi mãi. Hết giờ → lỗi rõ ràng, có thể thử lại.
+    const data: any = await getWithTimeout(api, '/api/writing/my-assignments');
     if (!data || ps.dead || ps.generation !== generation) return;
     if (data.student) renderStudent(data.student);
 
@@ -1555,10 +1564,11 @@ async function loadAssignments(api: any, ms: ModalState) {
     if (ps.dead || ps.generation !== generation) return;
     const list = $('assignments-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
-        err,
-        'Không tải được bài giao. Vui lòng thử lại.',
-      )) + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(
+        err?.timeout ? err.message : loadFailureMessage(
+          err,
+          'Không tải được bài giao. Vui lòng thử lại.',
+        )) + '</div>';
     }
   }
 }
@@ -1567,7 +1577,8 @@ async function loadEssays(api: any, ms: ModalState) {
   const ps = ms.page;
   const generation = ps.generation;
   try {
-    const data = await api.get('/api/writing/my-essays');
+    // Cùng lý do với loadAssignments: hạn giờ để không treo vô hạn.
+    const data: any = await getWithTimeout(api, '/api/writing/my-essays');
     if (!data || ps.dead || ps.generation !== generation) return;
     if (data.student) renderStudent(data.student);
     renderEssays(data.essays || [], ps);
@@ -1578,10 +1589,11 @@ async function loadEssays(api: any, ms: ModalState) {
     if (ps.dead || ps.generation !== generation) return;
     const list = $('essays-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
-        err,
-        'Không tải được bài viết. Vui lòng thử lại.',
-      )) + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(
+        err?.timeout ? err.message : loadFailureMessage(
+          err,
+          'Không tải được bài viết. Vui lòng thử lại.',
+        )) + '</div>';
     }
   }
 }

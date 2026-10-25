@@ -41,7 +41,10 @@ export function WritingShell() {
         <section className="mb-8">
           <p className="eyebrow">Writing</p>
           <h1 className="text-2xl md:text-3xl font-semibold mb-2">
-            Chào em, <span id="greeting-name">em</span> 👋
+            {/* "Chào em" is static; the comma + name are JS-owned so the
+                no-name case reads "Chào em 👋" (one "em"), not "Chào em, em".
+                renderStudent() fills #greeting-sep + #greeting-name together. */}
+            Chào em<span id="greeting-sep"></span><span id="greeting-name"></span> 👋
           </h1>
           <p className="text-sm text-gray-300">
             Mã học viên: <span id="student-code" className="font-mono text-gray-200">—</span>
