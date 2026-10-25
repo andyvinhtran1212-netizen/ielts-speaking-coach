@@ -169,3 +169,101 @@ def fan_out_assignment(
         "duplicates_warning": sorted(already),
         "assignment_ids":     [row["id"] for row in created if row.get("id")],
     }
+
+
+# Fields that make up a fan-out "template" — every row created by the same
+# give (group × prompt) shares these, so copying them onto a late joiner
+# reproduces the give faithfully. `status` is intentionally reset to the
+# initial 'pending' state (a new student has not opened the assignment).
+_BACKFILL_TEMPLATE_FIELDS = (
+    "assignment_group_id", "name", "allow_soft_check", "assigned_by",
+    "deadline", "instructions", "is_timed", "time_limit_minutes",
+    "analysis_level", "grading_tier",
+)
+
+
+def _deadline_is_open(deadline, now_iso: str) -> bool:
+    """An assignment is still open to a late joiner when it has no deadline or
+    the deadline has not passed. Compares ISO-8601 timestamps lexicographically
+    after normalising to a comparable shape — both come from the same column so
+    they share a format; on any parse ambiguity we fail OPEN (backfill it) so a
+    joiner is never silently denied homework."""
+    if not deadline:
+        return True
+    try:
+        return str(deadline) >= now_iso
+    except Exception:
+        return True
+
+
+def backfill_cohort_writing_assignments(
+    db, *, student_id: str, cohort_id: str, now: Optional[datetime] = None,
+) -> dict:
+    """Give a newly-enrolled student the cohort's still-open writing gives.
+
+    `fan_out_assignment` snapshots the active roster at give-time, so a student
+    who joins a class LATER has no `writing_assignments` row for gives already
+    fanned out to that cohort — they see "Chưa có bài giao nào" while classmates
+    have the homework (bug E1). This reconciles that gap: for every distinct open
+    (deadline NULL or in the future) give already fanned out to the cohort, it
+    inserts one row for this student, copying the give's template and resetting
+    status to 'pending'. Idempotent — a (group, prompt) the student already has
+    is skipped, so re-running (or a double redemption) creates nothing new.
+
+    Returns {"created_count": int, "assignment_ids": [...]}.
+    """
+    sid = str(student_id)
+    cohort_str = str(cohort_id)
+    now_iso = (now or datetime.now(timezone.utc)).isoformat()
+
+    cohort_rows = (
+        db.table("writing_assignments")
+        .select("prompt_id, " + ", ".join(_BACKFILL_TEMPLATE_FIELDS))
+        .eq("cohort_id", cohort_str)
+        .execute()
+    ).data or []
+    if not cohort_rows:
+        return {"created_count": 0, "assignment_ids": []}
+
+    mine = (
+        db.table("writing_assignments")
+        .select("prompt_id, assignment_group_id")
+        .eq("student_id", sid)
+        .eq("cohort_id", cohort_str)
+        .execute()
+    ).data or []
+    have = {(r.get("assignment_group_id"), r.get("prompt_id")) for r in mine}
+
+    # Collapse the per-student cohort rows into one template per (group, prompt).
+    templates: dict = {}
+    for row in cohort_rows:
+        key = (row.get("assignment_group_id"), row.get("prompt_id"))
+        if key in templates or key in have:
+            continue
+        if not _deadline_is_open(row.get("deadline"), now_iso):
+            continue
+        templates[key] = row
+
+    if not templates:
+        return {"created_count": 0, "assignment_ids": []}
+
+    payload = [
+        {
+            "prompt_id":  prompt_id,
+            "student_id": sid,
+            "cohort_id":  cohort_str,
+            "status":     "pending",
+            **{f: tmpl.get(f) for f in _BACKFILL_TEMPLATE_FIELDS},
+        }
+        for (_group, prompt_id), tmpl in templates.items()
+    ]
+    created = (db.table("writing_assignments").insert(payload).execute()).data or []
+
+    logger.info(
+        "[cohort-backfill] student=%s cohort=%s open_templates=%d created=%d at=%s",
+        sid, cohort_str, len(templates), len(created), now_iso,
+    )
+    return {
+        "created_count":  len(created),
+        "assignment_ids": [row["id"] for row in created if row.get("id")],
+    }
