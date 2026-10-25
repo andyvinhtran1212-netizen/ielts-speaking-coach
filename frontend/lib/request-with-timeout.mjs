@@ -43,23 +43,43 @@ export function getWithTimeout(api, path, opts = {}) {
   }
 
   const controller = new AbortCtor();
-  let timedOut = false;
-  const timer = setTimer(() => {
-    timedOut = true;
-    try { controller.abort(); } catch (_) { /* best-effort */ }
-  }, timeoutMs);
-  const stop = () => { if (clearTimer) clearTimer(timer); };
 
-  return Promise.resolve(api.getWith(path, undefined, { signal: controller.signal })).then(
+  // VÌ SAO phải đua một lời hứa HẠN GIỜ ĐỘC LẬP thay vì chỉ `abort()`:
+  // `api.getWith` (xem `api.js`) `await _getAuthToken()` → `auth.getSession()`
+  // TRƯỚC khi tạo `fetch`. Nếu lấy phiên Supabase bị treo, `fetch` chưa bao giờ
+  // ra đời nên tín hiệu `abort` không có gì để hủy, và transport KHÔNG BAO GIỜ
+  // settle. Nếu lỗi timeout chỉ được tạo trong nhánh reject của transport thì
+  // wrapper treo mãi — đúng cái bug "Bài giao" đứng "Đang tải…". Vì vậy khi hết
+  // giờ ta REJECT thẳng lời hứa `deadline` bằng lỗi có cờ `timeout`, bất kể
+  // transport có settle hay không. `abort()` giữ lại như nỗ lực-tốt-nhất để hủy
+  // request đang bay (khi đã chạm tới `fetch`).
+  let timer = null;
+  const stop = () => {
+    if (timer != null && clearTimer) { clearTimer(timer); }
+    timer = null;
+  };
+
+  const deadline = new Promise((_resolve, reject) => {
+    timer = setTimer(() => {
+      // Reject TRƯỚC rồi mới abort: nếu abort làm transport reject (AbortError)
+      // ngay lập tức, ta vẫn muốn lỗi có cờ `timeout` thắng cuộc đua.
+      const e = /** @type {any} */ (new Error(message));
+      e.timeout = true;
+      reject(e);
+      try { controller.abort(); } catch (_) { /* best-effort */ }
+    }, timeoutMs);
+  });
+
+  const transport = Promise.resolve(api.getWith(path, undefined, { signal: controller.signal }));
+
+  // Tránh "unhandled rejection" từ bên THUA cuộc đua: khi deadline thắng,
+  // transport vẫn có thể reject sau đó (vd AbortError); khi transport thắng,
+  // ta clear timer nên deadline không bao giờ reject (nó treo vô hại).
+  transport.catch(() => {});
+  deadline.catch(() => {});
+
+  return Promise.race([transport, deadline]).then(
     (data) => { stop(); return data; },
-    (err) => {
-      stop();
-      if (timedOut) {
-        const e = /** @type {any} */ (new Error(message));
-        e.timeout = true;
-        throw e;
-      }
-      throw err;
-    },
+    (err) => { stop(); throw err; },
   );
 }

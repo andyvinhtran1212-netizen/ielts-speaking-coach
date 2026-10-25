@@ -118,6 +118,39 @@ describe('getWithTimeout', () => {
     await assert.rejects(p, (e) => e.timeout === true && e.message === 'Tải dữ liệu quá lâu. Vui lòng tải lại trang.');
   });
 
+  test('rejects at the deadline even when the transport NEVER settles (stalled session retrieval)', async () => {
+    // Reproduces the real api.js flow: getWith() awaits _getAuthToken() →
+    // auth.getSession() BEFORE it ever reaches fetch(). If getSession() stalls,
+    // fetch is never created, so aborting the signal cancels nothing and the
+    // transport promise stays pending forever. The wrapper MUST still reject
+    // with the tagged timeout error at the deadline rather than hang.
+    let fire = null;
+    let aborted = false;
+    const neverResolvingGetSession = () => new Promise(() => {});
+    const api = {
+      get: () => { throw new Error('should use getWith when abortable'); },
+      // Mirror api.js: await the (stalled) session BEFORE touching fetch. The
+      // signal is observed but never has an in-flight fetch to abort.
+      getWith: async (_p, _h, o) => {
+        o.signal.onabort = () => { aborted = true; };
+        await neverResolvingGetSession();
+        /* fetch(...) is never reached */
+        return { unreachable: true };
+      },
+    };
+    const p = getWithTimeout(api, '/api/writing/my-assignments', {
+      timeoutMs: 10, message: 'Tải dữ liệu quá lâu. Vui lòng tải lại trang.',
+      AbortCtor: FakeAbortController,
+      setTimer: (cb) => { fire = cb; return 'id'; },
+      clearTimer: () => {},
+    });
+    assert.ok(typeof fire === 'function', 'a timeout must be scheduled');
+    fire(); // deadline elapses while the transport is still pending on getSession
+    await assert.rejects(p, (e) => e.timeout === true && e.message === 'Tải dữ liệu quá lâu. Vui lòng tải lại trang.',
+      'must reject with the tagged timeout error despite a never-settling transport');
+    assert.ok(aborted, 'abort() is still attempted as best-effort cancellation');
+  });
+
   test('falls back to a plain get when AbortController is unavailable', async () => {
     let usedGet = false;
     const api = {
