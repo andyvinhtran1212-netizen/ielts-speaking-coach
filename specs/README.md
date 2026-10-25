@@ -97,3 +97,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | approved | high | [spec](0020-vocabulary-class-sets/spec.md) |
 
 | READINGPRACTICE-0021 | Repair Reading practice and support sentence translation in place | implementing | high | [spec](0021-reading-practice-support/spec.md) |
+
+| SECWRITE-0022 | Client roles cannot write privilege, score or session data | draft | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
