@@ -270,7 +270,7 @@ function renderStats(p) {
     { num: p.todo, label: 'Cần nộp' },
     { num: p.missing, label: 'Quá hạn', alarm: p.missing > 0 },
     { num: p.submitted, label: 'Đã nộp' },
-    { num: !p.total ? '—' : !p.submitted ? '0%' : (p.on_time_pct == null ? '—' : p.on_time_pct + '%'), label: 'Đúng hạn' },
+    { num: !p.submitted ? '—' : (p.on_time_pct == null ? '—' : p.on_time_pct + '%'), label: 'Đúng hạn' },
   ];
   $('mc-stats').innerHTML = cards.map((c) => `
     <div class="mc-stat${c.alarm ? ' is-alarm' : ''}">

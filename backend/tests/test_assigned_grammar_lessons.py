@@ -172,7 +172,7 @@ async def test_my_class_reopens_saved_lesson_after_deadline(monkeypatch, submitt
     rows = {"class_assignment_items": [item], "class_assignments": [assignment]}
     async def user(_header): return {"id": "user-1"}
     monkeypatch.setattr(class_student, "get_supabase_user", user)
-    monkeypatch.setattr(class_student, "_student_for_user", lambda _user: {
+    monkeypatch.setattr(class_student, "_student_for_user", lambda _user, _name="": {
         "id": "student-1", "cohort_id": "cohort-1",
     })
     monkeypatch.setattr(class_student, "supabase_admin", SimpleNamespace(

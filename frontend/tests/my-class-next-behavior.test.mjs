@@ -216,13 +216,16 @@ describe('assignment start contract', () => {
     assert.equal(courseNeedsAction(normalized.assignments[0]), false);
   });
 
-  test('a stale review label for missing work with no receipt stays closed', () => {
+  test('a backend "review" for overdue work stays a result, not closed', () => {
+    // A timed item that expired after a failed retake has no submitted_at /
+    // passed_at receipt, yet the server still serves it read-only and returns
+    // course_action "review". Trust that verdict instead of inferring "closed".
     const normalized = normalizeMyClassResponse(payload({
       assignments: [assignment({ course_action: 'review', is_missing: true })],
       progress: { total: 1, submitted: 0, todo: 0, missing: 1, late: 0, on_time_pct: null },
     }));
     assert.deepEqual(assignmentAction(normalized.assignments[0]), {
-      kind: 'closed', label: 'Đã quá hạn',
+      kind: 'review', label: 'Xem kết quả',
     });
   });
 
@@ -241,9 +244,11 @@ describe('assignment start contract', () => {
     assert.equal(sessionPrefixedTitle(2, 'Buổi 20 — lượng từ'), 'Buổi 2 · Buổi 20 — lượng từ');
   });
 
-  test('on-time tile is 0% when the class has work and nothing handed in', () => {
+  test('on-time tile is — when the class has work but nothing handed in', () => {
+    // Zero submissions means no denominator; "0%" would read as a failing
+    // discipline rate rather than "no data yet".
     const open = normalizeMyClassResponse(payload());
-    assert.equal(classOnTimeLabel(open.assignments), '0%');
+    assert.equal(classOnTimeLabel(open.assignments), '—');
     assert.equal(classOnTimeLabel([]), '—');
     assert.equal(classOnTimeLabel(null), '—');
   });

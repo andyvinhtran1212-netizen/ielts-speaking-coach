@@ -275,10 +275,11 @@ export function assignmentAction(row) {
       closed: 'Đã quá hạn',
     };
     const action = row.courseAction || (row.submittedAt ? 'review' : 'start');
-    // Overdue work with no receipt has nothing to open. A stale "review"
-    // from an older API is the same state: the start call would 409.
-    if (action === 'closed'
-        || (action === 'review' && row.isMissing && !row.submittedAt && !row.passedAt)) {
+    // Trust the backend's verdict: it already distinguishes "closed" (overdue
+    // with nothing to open) from "review" (a failed/timed attempt that still
+    // serves a read-only result). Inferring "closed" from a "review" + missing
+    // deadline would hide "Xem kết quả" for timed items the server still shows.
+    if (action === 'closed') {
       return { kind: 'closed', label: 'Đã quá hạn' };
     }
     return labels[action]
@@ -315,7 +316,9 @@ export function sessionPrefixedTitle(lessonNo, title) {
 export function classOnTimeLabel(rows) {
   if (!rows || !rows.length) return '—';
   const submitted = rows.filter((row) => row.submittedAt);
-  if (!submitted.length) return '0%';
+  // No hand-ins yet means there is no denominator — "0%" would read as a
+  // failing discipline rate, so show "—" until something is actually submitted.
+  if (!submitted.length) return '—';
   const late = submitted.filter((row) => row.isLate).length;
   return `${Math.round((submitted.length - late) / submitted.length * 100)}%`;
 }
