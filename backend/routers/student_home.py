@@ -27,6 +27,7 @@ from services.access_code_permissions import (
     student_id_for_user,
 )
 from services.student_home_aggregator import get_home_summary
+from services.student_service import account_display_name
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -40,16 +41,13 @@ async def home_summary(authorization: str | None = Header(default=None)):
     # Pull display name + email from the JWT-resolved user; fall back to
     # the email's local-part if no display_name is set so the greeting
     # never says "Xin chào, !".
-    metadata = auth_user.get("user_metadata") or {}
     email = auth_user.get("email") or ""
-    name = (
-        metadata.get("display_name")
-        or metadata.get("full_name")
-        or metadata.get("name")
-        or (email.split("@", 1)[0] if email else "bạn")
-    )
+    account_name = account_display_name(auth_user)
+    name = account_name or (email.split("@", 1)[0] if email else "bạn")
 
-    return get_home_summary(supabase_admin, user_id, name=name, email=email)
+    return get_home_summary(
+        supabase_admin, user_id, name=name, email=email, account_name=account_name,
+    )
 
 
 @router.get("/permissions")
@@ -69,6 +67,8 @@ async def my_permissions(authorization: str | None = Header(default=None)):
     # WF entitlement bridge (c): if the code doesn't grant Writing but the
     # student has a writing assignment, surface writing=true so the Writing
     # card + dashboard unlock — consistent with the backend request-time gates.
-    if not summary["writing"] and student_has_writing_assignment(student_id_for_user(user_id)):
+    if not summary["writing"] and student_has_writing_assignment(
+        student_id_for_user(user_id, account_display_name(auth_user))
+    ):
         summary["writing"] = True
     return summary

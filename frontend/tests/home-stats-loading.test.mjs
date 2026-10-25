@@ -27,8 +27,8 @@ const JS = front('js', 'home.js');
 describe('home stats — loading placeholder (not a misleading 0)', () => {
   test('hero + card stat spans paint a loading "…", not a literal 0', () => {
     // every value-num / js-val placeholder carries is-loading + the ellipsis
-    assert.match(HTML, /class="value-num is-loading">…</);
-    assert.match(HTML, /class="js-val is-loading">…</);
+    assert.match(HTML, /class="value-num is-loading"[^>]*>…</);
+    assert.match(HTML, /class="js-val is-loading"[^>]*>…</);
     // and none of them ship a hard-coded 0 anymore
     assert.doesNotMatch(HTML, /class="value-num"[^>]*>0</);
     assert.doesNotMatch(HTML, /class="js-val"[^>]*>0</);
@@ -38,6 +38,7 @@ describe('home stats — loading placeholder (not a misleading 0)', () => {
     assert.match(CSS, /@keyframes av-stat-loading-blink/);
     assert.match(CSS, /\.value-num\.is-loading[\s\S]{0,160}animation:\s*av-stat-loading-blink/);
     assert.match(CSS, /prefers-reduced-motion: reduce[\s\S]{0,200}is-loading[\s\S]{0,80}animation:\s*none/);
+    assert.match(CSS, /:has\(\.value-num\.is-loading\) \.unit[\s\S]{0,120}visibility:\s*hidden/);
   });
 
   test('home.js stops the blink when a real value is written', () => {

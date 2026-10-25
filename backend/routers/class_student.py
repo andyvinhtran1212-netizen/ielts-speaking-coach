@@ -211,13 +211,21 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[Dict[str,
         return None
 
 
-def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
-    rows = (
-        supabase_admin.table("students")
-        .select("id, full_name, student_code, cohort_id")
-        .eq("user_id", user_id).limit(1).execute().data
-    ) or []
-    return rows[0] if rows else None
+def _student_for_user(user_id: str, account_name: str = "") -> Optional[Dict[str, Any]]:
+    from services.student_service import fetch_linked_student
+    try:
+        row = fetch_linked_student(supabase_admin, user_id, account_name)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[class] student lookup failed user=%s: %s", user_id, exc)
+        return None
+    if not row:
+        return None
+    return {
+        "id": row.get("id"),
+        "full_name": row.get("full_name"),
+        "student_code": row.get("student_code"),
+        "cohort_id": row.get("cohort_id"),
+    }
 
 
 # Những trường của `content_config` được phép xuống trình duyệt học viên.
@@ -332,10 +340,14 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     # extended. Fetch those rows through the accepting course assignments,
     # independently of the 200-row terminal-history cap; otherwise an older
     # failed Revision silently disappears behind newer hand-ins.
+    # Narrow columns on purpose: this scan only decides which course
+    # assignments are still accepting. The visible rows are fetched again
+    # below, and `content_config` (the question snapshot) is the heavy part.
     course_assignments = _paged_items_of(
         "class_assignments",
         lambda q: (q.in_("cohort_id", cohort_ids).eq("skill", "course")
                    .eq("status", "published")),
+        "id, skill, status, publish_at, due_at",
     ) if cohort_ids else []
     accepting_course_by_id = {
         row["id"]: row for row in course_assignments
@@ -400,6 +412,12 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     # Một khối riêng cho mỗi bộ đối chiếu: chúng đọc hai nguồn bằng chứng rời
     # nhau, nên gộp chung nghĩa là bộ này hỏng thì bộ kia không được thử.
     stale = False
+    # Course repair reads every classmate's items for the ids it is given.
+    # Speaking and writing assignments are not course ledgers, so they must
+    # not be part of that scan.
+    course_repair_ids = [
+        aid for aid, row in by_id.items() if row.get("skill") == "course"
+    ]
     for what, fn in (
         ("test-attempts", lambda: reconcile_test_attempts(
             supabase_admin, list(by_id.values()))),
@@ -407,7 +425,7 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
         # best-effort nên một lượt hỏng ở chặng CUỐI để bài nằm mãi ở "Cần nộp"
         # cho tới khi giáo viên tình cờ mở bảng. Em ấy thì thấy bài mình vừa
         # làm xong vẫn đang nợ.
-        ("course", lambda: reconcile_course_items(supabase_admin, list(by_id))),
+        ("course", lambda: reconcile_course_items(supabase_admin, course_repair_ids)),
     ):
         try:
             fn()
@@ -454,7 +472,8 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     show the class card at all.
     """
     auth_user = await get_supabase_user(authorization)
-    student = _student_for_user(auth_user["id"])
+    from services.student_service import account_display_name
+    student = _student_for_user(auth_user["id"], account_display_name(auth_user))
 
     if not student:
         return {"has_class": False, "assignments": []}
@@ -497,7 +516,8 @@ async def start_assignment(
     late/missed which are derived.
     """
     auth_user = await get_supabase_user(authorization)
-    student = _student_for_user(auth_user["id"])
+    from services.student_service import account_display_name
+    student = _student_for_user(auth_user["id"], account_display_name(auth_user))
     if not student:
         raise HTTPException(404, "Không tìm thấy hồ sơ học viên")
 
@@ -823,7 +843,8 @@ async def my_class(
     which is the part the student actually needs.
     """
     auth_user = await get_supabase_user(authorization)
-    student = _student_for_user(auth_user["id"])
+    from services.student_service import account_display_name
+    student = _student_for_user(auth_user["id"], account_display_name(auth_user))
 
     if not student:
         return {"has_class": False}
@@ -948,13 +969,13 @@ def _progress_summary(assignments: list) -> Dict[str, Any]:
     }
 
 
-def _paged_items_of(table: str, apply_filters) -> list:
+def _paged_items_of(table: str, apply_filters, columns: str = "*") -> list:
     """Every matching row of `table`, paged (PostgREST caps un-ranged reads)."""
     rows: list = []
     start = 0
     while True:
         page = (
-            apply_filters(supabase_admin.table(table).select("*"))
+            apply_filters(supabase_admin.table(table).select(columns))
             .order("id").range(start, start + _PAGE - 1).execute().data
         ) or []
         rows.extend(page)

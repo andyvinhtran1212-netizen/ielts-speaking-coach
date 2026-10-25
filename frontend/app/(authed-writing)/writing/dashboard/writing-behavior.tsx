@@ -1610,9 +1610,11 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   // The bounded content controller owns canonical reads on tab/history changes.
 }
 
-async function applyWritingPermissionGating(api: any, isCurrent: () => boolean) {
+async function applyWritingPermissionGating(apiOrPromise: any, isCurrent: () => boolean) {
   try {
-    const perms = await api.get('/api/student/permissions');
+    const perms = await (apiOrPromise && typeof apiOrPromise.then === 'function'
+      ? apiOrPromise
+      : apiOrPromise.get('/api/student/permissions'));
     if (!perms || !isCurrent()) return;
     const permitted = perms.writing === true;
     const banner = $('writing-preview-banner');
@@ -1830,12 +1832,16 @@ export function WritingBehavior() {
       // ASYNC LOADS (now that listeners are attached)
       void contentNavigation.reconcile();
       if (new URLSearchParams(window.location.search).get('tab') !== 'prompt-bank') void loadPromptBank(api, ps).catch(() => {});
+      // Start the permission read with the two list calls. Gating still runs
+      // after render: it toggles buttons that do not exist until the lists paint.
+      const permissionsPromise = api.get('/api/student/permissions');
+      permissionsPromise.catch(() => {});
       await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
       if (!isCurrent()) return;
       hideSubmissionNotice();
       if (ms.accountId) await reconcilePendingSubmissions(ms.accountId, api, ms);
       if (!isCurrent()) return;
-      await applyWritingPermissionGating(api, isCurrent);
+      await applyWritingPermissionGating(permissionsPromise, isCurrent);
       if (!isCurrent()) return;
       const requestedAssignment = new URLSearchParams(window.location.search).get('assignment_id');
       if (requestedAssignment) {

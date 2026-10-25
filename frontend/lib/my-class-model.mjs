@@ -7,7 +7,7 @@ import {
 const SKILLS = new Set(['speaking', 'writing', 'reading', 'listening', 'course', 'grammar']);
 const PLAYER_SURFACES = new Set(['speaking', 'reading_exam', 'listening_test']);
 const COURSE_ACTIONS = new Set([
-  'start', 'continue', 'retake', 'retry_full', 'review', 'expired_pending',
+  'start', 'continue', 'retake', 'retry_full', 'review', 'expired_pending', 'closed',
 ]);
 
 function objectOf(value) {
@@ -272,8 +272,15 @@ export function assignmentAction(row) {
       retry_full: 'Làm lại toàn bộ',
       review: 'Xem kết quả',
       expired_pending: 'Đang thu bài',
+      closed: 'Đã quá hạn',
     };
     const action = row.courseAction || (row.submittedAt ? 'review' : 'start');
+    // Overdue work with no receipt has nothing to open. A stale "review"
+    // from an older API is the same state: the start call would 409.
+    if (action === 'closed'
+        || (action === 'review' && row.isMissing && !row.submittedAt && !row.passedAt)) {
+      return { kind: 'closed', label: 'Đã quá hạn' };
+    }
     return labels[action]
       ? { kind: ['review', 'expired_pending'].includes(action) ? 'review' : 'start', label: labels[action] }
       : null;
@@ -291,6 +298,28 @@ export function assignmentAction(row) {
   return null;
 }
 
+function sessionBoundary(prefix) {
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped}(?=\\s|$|[·•—–\\-:])`, 'i');
+}
+
+/** "Buổi N · title", unless the title already starts with that same label. */
+export function sessionPrefixedTitle(lessonNo, title) {
+  const name = textOf(title);
+  if (lessonNo == null || lessonNo === '') return name;
+  const prefix = `Buổi ${lessonNo}`;
+  if (!name) return prefix;
+  return sessionBoundary(prefix).test(name) ? name : `${prefix} · ${name}`;
+}
+
+export function classOnTimeLabel(rows) {
+  if (!rows || !rows.length) return '—';
+  const submitted = rows.filter((row) => row.submittedAt);
+  if (!submitted.length) return '0%';
+  const late = submitted.filter((row) => row.isLate).length;
+  return `${Math.round((submitted.length - late) / submitted.length * 100)}%`;
+}
+
 export function assignmentSubtitle(row) {
   const cfg = row?.assignment?.content || {};
   if (row?.assignment?.skill === 'grammar'
@@ -301,8 +330,7 @@ export function assignmentSubtitle(row) {
     return [cfg.topic, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
   }
   if (row?.assignment?.skill === 'course') {
-    return [cfg.lessonNo ? `Buổi ${cfg.lessonNo}` : '', cfg.testTitle]
-      .filter(Boolean).join(' · ');
+    return sessionPrefixedTitle(cfg.lessonNo, cfg.testTitle);
   }
   const labels = { writing: 'Writing', reading: 'Reading', listening: 'Listening' };
   return [labels[row?.assignment?.skill] || row?.assignment?.skill, cfg.testTitle]

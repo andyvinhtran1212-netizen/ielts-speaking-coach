@@ -87,9 +87,11 @@ for (const [label, impl] of IMPLS) {
     assert.match(s.sub, /12 session/);
     assert.equal(M.speaking({}).sub, 'Chưa luyện session nào');
 
-    assert.deepEqual(plain(M.grammar({ lessons_viewed: 7 })),
-      { primary: { value: '7', unit: 'bài đã xem' }, sub: 'Xem lại các bài đã đánh dấu' });
-    assert.equal(M.grammar({}).sub, 'Khám phá 67 bài học ngữ pháp');
+    assert.deepEqual(plain(M.grammar({ lessons_viewed: 7, catalogue_total: 137 })),
+      { primary: { value: '7', unit: 'bài đã xem' }, sub: 'Trong thư viện 137 bài' });
+    assert.equal(M.grammar({ catalogue_total: 137 }).sub, 'Khám phá 137 bài học ngữ pháp');
+    assert.equal(M.grammar({ lessons_viewed: 7 }).sub, 'Xem lại các bài đã mở');
+    assert.equal(M.grammar({}).sub, 'Khám phá bài học ngữ pháp');
 
     // Ví + Quick-Check: dòng phụ phải gọi ĐÚNG nguồn con số (PR #876).
     assert.match(M.vocabulary({ words_learned: 42, flashcards_due: 5 }).sub, /5 thẻ đến hạn/);
@@ -116,7 +118,8 @@ test('hai bản cho kết quả TRÙNG KHỚP trên mọi ca', () => {
   const CASES = {
     writing: [{}, { last_band: 6.5, essays_count: 3, essays_in_progress: 1 }, { essays_count: 2 }],
     speaking: [{}, { last_band: 7.5, sessions_count: 1 }],
-    grammar: [{}, { lessons_viewed: 0 }, { lessons_viewed: 99 }],
+    grammar: [{}, { lessons_viewed: 0 }, { lessons_viewed: 99 },
+      { catalogue_total: 137 }, { lessons_viewed: 7, catalogue_total: 137 }],
     vocabulary: [{}, { words_learned: 42, flashcards_due: 5 },
       { words_learned: 3, wallet_words: 3 }, { words_learned: 9, quiz_words_mastered: 9 },
       { words_learned: 9, wallet_words: 4, quiz_words_mastered: 5 }],

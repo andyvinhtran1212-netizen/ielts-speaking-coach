@@ -44,11 +44,21 @@ function setStat(el: Element | null, value: string | number) {
 function clearStatLoading(fallback: string) {
   document.querySelectorAll('.value-num.is-loading, .js-val.is-loading')
     .forEach((el) => { el.classList.remove('is-loading'); el.textContent = fallback; });
+  const greet = $('greeting-name');
+  if (greet?.classList.contains('is-loading')) {
+    greet.classList.remove('is-loading');
+    greet.removeAttribute('aria-hidden');
+    if (!greet.textContent || greet.textContent.trim() === '…') greet.textContent = 'bạn';
+  }
 }
 
 function renderHero(data: any) {
   const greetName = $('greeting-name');
-  if (greetName) greetName.textContent = data.student?.name || 'bạn';
+  if (greetName) {
+    greetName.textContent = data.student?.name || 'bạn';
+    greetName.classList.remove('is-loading');
+    greetName.removeAttribute('aria-hidden');
+  }
 
   const streakEl = $('hero-streak');
   const streak = data.streak?.current_days || 0;

@@ -48,6 +48,7 @@ from services.access_code_permissions import (
     has_writing_permission,
     student_has_writing_assignment,
 )
+from services.student_service import account_display_name, fetch_linked_student
 from services.file_extract_service import FileExtractError, extract_text
 from services.spam_detector import detect_flags, format_flag_explanation_vi
 
@@ -129,19 +130,16 @@ async def get_current_student(
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+    # Header and /home greet from this metadata name. The roster `full_name`
+    # stays the fallback, and `student_code` stays the linked roster code.
+    account_name = account_display_name(auth_user)
 
     try:
         # `user_id` is part of the projection so Phase 2.3b's submit
         # endpoint can stamp it on the writing_essays audit row
         # (`submitted_by_admin` FK → users(id) — column name reused
         # for student submissions).
-        result = (
-            supabase_admin.table("students")
-            .select("id, user_id, student_code, full_name, target_band")
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
-        )
+        student = fetch_linked_student(supabase_admin, user_id, account_name)
     except Exception as e:
         logger.warning("[writing-student] students lookup failed user=%s: %s", user_id, e)
         raise HTTPException(
@@ -149,7 +147,7 @@ async def get_current_student(
             detail="Lỗi khi tra cứu hồ sơ học viên",
         )
 
-    if not result.data:
+    if not student:
         raise HTTPException(
             status_code=403,
             detail=(
@@ -157,7 +155,22 @@ async def get_current_student(
                 "Vui lòng liên hệ giảng viên."
             ),
         )
-    return result.data[0]
+    if account_name:
+        student = {**student, "account_name": account_name}
+    return student
+
+
+def _dashboard_student(student: dict) -> dict:
+    """Profile block for the writing dashboard greeting.
+
+    The signed-in account name wins over the roster name so the page matches
+    the header. The student code is the linked roster code either way.
+    """
+    return {
+        "full_name": student.get("account_name") or student.get("full_name"),
+        "student_code": student.get("student_code"),
+        "target_band": student.get("target_band"),
+    }
 
 
 async def require_writing_permission(
@@ -339,11 +352,7 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
         })
 
     return {
-        "student": {
-            "full_name":    student.get("full_name"),
-            "student_code": student.get("student_code"),
-            "target_band":  student.get("target_band"),
-        },
+        "student": _dashboard_student(student),
         "essays": essays,
     }
 
@@ -1246,11 +1255,7 @@ async def list_my_assignments(
         })
 
     return {
-        "student": {
-            "full_name":    student.get("full_name"),
-            "student_code": student.get("student_code"),
-            "target_band":  student.get("target_band"),
-        },
+        "student": _dashboard_student(student),
         "assignments": annotated,
     }
 

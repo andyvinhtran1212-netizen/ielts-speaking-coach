@@ -80,6 +80,16 @@ const SKILL_LABEL = { speaking: 'Speaking', writing: 'Writing',
                      reading: 'Reading', listening: 'Listening',
                      course: 'Bài tập theo buổi' };
 
+function sessionPrefixedTitle(lessonNo, title) {
+  const name = String(title || '').trim();
+  if (lessonNo == null || lessonNo === '') return name;
+  const prefix = `Buổi ${lessonNo}`;
+  if (!name) return prefix;
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const boundary = new RegExp('^' + escaped + '(?=\\s|$|[·•—–\\-:])', 'i');
+  return boundary.test(name) ? name : prefix + ' · ' + name;
+}
+
 function taskSub(a) {
   const cfg = a.assignment.content_config || {};
   if (a.assignment.skill === 'speaking') {
@@ -87,8 +97,8 @@ function taskSub(a) {
   }
   if (a.assignment.skill === 'course') {
     // "Buổi 3" là thứ học viên nhận ra ngay; tên bộ đề đứng sau nó.
-    return [cfg.lesson_no ? `Buổi ${cfg.lesson_no}` : '', cfg.test_title]
-      .filter(Boolean).join(' · ');
+    // Tên đã mở đầu bằng đúng nhãn đó thì không gắn thêm lần nữa.
+    return sessionPrefixedTitle(cfg.lesson_no, cfg.test_title);
   }
   // For a test the paper's own title is the useful line, not the topic field.
   return [SKILL_LABEL[a.assignment.skill] || a.assignment.skill,
@@ -260,7 +270,7 @@ function renderStats(p) {
     { num: p.todo, label: 'Cần nộp' },
     { num: p.missing, label: 'Quá hạn', alarm: p.missing > 0 },
     { num: p.submitted, label: 'Đã nộp' },
-    { num: p.on_time_pct == null ? '—' : p.on_time_pct + '%', label: 'Đúng hạn' },
+    { num: !p.total ? '—' : !p.submitted ? '0%' : (p.on_time_pct == null ? '—' : p.on_time_pct + '%'), label: 'Đúng hạn' },
   ];
   $('mc-stats').innerHTML = cards.map((c) => `
     <div class="mc-stat${c.alarm ? ' is-alarm' : ''}">

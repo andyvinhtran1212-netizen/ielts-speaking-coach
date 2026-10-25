@@ -214,7 +214,7 @@ def _seed_article_view(fake, user_id, **fields):
     row = {
         "id": str(uuid4()),
         "user_id": user_id,
-        "article_slug": "noun-phrase",
+        "article_slug": "nouns",
         "last_viewed_at": _today_iso(),
     }
     row.update(fields)
@@ -296,6 +296,7 @@ def test_active_student_returns_all_skill_cards(fake_db, aggregator):
     assert payload["totals"]["speaking_sessions"] == 1
     assert payload["totals"]["writing_essays"] == 1
     assert payload["totals"]["grammar_lessons_viewed"] == 1
+    assert payload["skills"]["grammar"]["catalogue_total"] >= 1
     assert payload["totals"]["vocab_words_learned"] == 1
     assert payload["skills"]["vocabulary"]["flashcards_due"] == 1
     assert payload["skills"]["vocabulary"]["primary_cta_url"] == "/vocabulary/hub#flashcards"
@@ -485,6 +486,63 @@ def test_speaking_card_falls_back_to_completed_band_when_latest_ungraded(
     )
 
     assert payload["skills"]["speaking"]["last_band"] == 6.5
+
+
+def test_grammar_views_ignore_retired_slugs(fake_db, aggregator, monkeypatch):
+    """Viewed count is unique live lessons, not retired slugs or raw view events."""
+    user_id = str(uuid4())
+    _seed_article_view(fake_db, user_id, article_slug="nouns")
+    _seed_article_view(fake_db, user_id, article_slug="retired-lesson")
+    from services.grammar_content import grammar_service
+    monkeypatch.setattr(
+        grammar_service, "articles_by_slug", {"nouns": {"slug": "nouns"}},
+    )
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+    assert payload["totals"]["grammar_lessons_viewed"] == 1
+    assert payload["skills"]["grammar"]["catalogue_total"] == 1
+
+
+def test_writing_card_uses_the_account_name_when_rows_share_a_user(fake_db, aggregator):
+    user_id = str(uuid4())
+    other = str(uuid4())
+    named = str(uuid4())
+    fake_db.tables["students"].extend([
+        {"id": other, "user_id": user_id, "full_name": "Andy (Test)",
+         "updated_at": "2026-02-01T00:00:00Z"},
+        {"id": named, "user_id": user_id, "full_name": "Vinh Tran",
+         "updated_at": "2026-01-01T00:00:00Z"},
+    ])
+    _seed_essay(fake_db, named, status="delivered")
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="Vinh Tran", email="v@x.com",
+        account_name="Vinh Tran",
+    )
+    assert payload["totals"]["writing_essays"] == 1
+
+
+def test_reading_and_listening_cards_read_separate_tables(fake_db, aggregator):
+    user_id = str(uuid4())
+    fake_db.tables["reading_test_attempts"].append({
+        "id": str(uuid4()), "user_id": user_id, "submitted_at": _today_iso(),
+        "status": "submitted", "band_estimate": 6.0,
+    })
+    fake_db.tables["listening_test_attempts"].append({
+        "id": str(uuid4()), "user_id": user_id, "submitted_at": _days_ago_iso(3),
+        "status": "submitted", "band_estimate": 8.0,
+    })
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+    reading = payload["skills"]["reading"]
+    listening = payload["skills"]["listening"]
+    assert (reading["attempts_count"], reading["last_band"]) == (1, 6.0)
+    assert (listening["attempts_count"], listening["last_band"]) == (1, 8.0)
+    assert reading["last_activity_at"] != listening["last_activity_at"]
 
 
 def test_listening_full_tests_included_in_attempts_count(fake_db, aggregator):
