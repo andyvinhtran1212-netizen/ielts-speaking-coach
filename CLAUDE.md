@@ -84,7 +84,7 @@ The session route fails visibly when `session_id` is missing.
 | `PATCH /sessions/{id}/complete` | `sessions.py` | Mark session done, compute band avg |
 | `GET /sessions/{id}/questions` | `questions.py` | Load existing questions |
 | `POST /sessions/{id}/questions/generate` | `questions.py` | Generate questions via Gemini |
-| **`POST /sessions/{id}/responses`** | **`grading.py`** | **Official grading (Whisper + Claude)** |
+| **`POST /sessions/{id}/responses`** | **`grading.py`** | **Official grading (STT + `SPEAKING_GRADING_MODEL` via `grading_orchestrator.py`)** |
 
 The frontend always uses the `grading.py` route for submitting recordings.
 
@@ -107,7 +107,9 @@ The frontend always uses the `grading.py` route for submitting recordings.
 - `MAX_SESSIONS_PER_USER_PER_DAY` — default is `24` (`config.py`); override in `.env` for local development
 - `MAX_AUDIO_DURATION_SECONDS=300`
 - `OPENAI_API_KEY` — required for Whisper STT
-- `ANTHROPIC_API_KEY` — required for Claude grading
+- `GEMINI_API_KEY` — required for the default Speaking grader, Writing grader and content audits
+- `SPEAKING_GRADING_MODEL` — default `gemini-3.8-flash`; the `gemini-*` / `claude-*` prefix selects the provider, empty string falls back to the Haiku-first chain
+- `ANTHROPIC_API_KEY` — required for the Claude fallback chain, off-topic judge and grammar-check in `claude_grader.py`
 
 ---
 
@@ -155,7 +157,7 @@ HTML document.
 
 ### Feedback-related bugs — inspection checklist
 When debugging a feedback-quality issue, inspect all five layers in order:
-1. **Prompt layer** — what Claude is instructed to return
+1. **Prompt layer** — what the grading model is instructed to return (provider selected by `SPEAKING_GRADING_MODEL`)
 2. **Post-processing layer** — `_filter_false_article_flags`, recommendation cap, dedup logic in `claude_grader.py`
 3. **Mapping/ranking layer** — how issues are scored, filtered, and prioritized
 4. **Persistence layer** — `_save_grammar_recommendations()` in `grading.py` writes to `grammar_recommendations` table; backend recs are the primary source for the frontend
@@ -240,7 +242,7 @@ install both ignored agent entry points. Personal settings remain ignored.
 
 - Full Test: the player and result are Next routes; when changing aggregation,
   verify the complete session chain and persisted finalization contract.
-- PDF export: `GET /sessions/{session_id}/export/pdf` — works. Uses ReportLab (`backend/services/pdf_generator.py`), pure Python, zero system deps (`fonts-dejavu-core` installed via `backend/nixpacks.toml` for Vietnamese glyphs). Migrated off WeasyPrint in commit `a1208a2b`; keep its content aligned with the current Next result surface.
+- PDF export: `GET /sessions/{session_id}/export/pdf` — works. Uses ReportLab (`backend/services/pdf_generator.py`), pure Python, zero system deps (`fonts-dejavu-core` must be present in the Railway image for Vietnamese glyphs — Railway builds with Railpack, which does not read `backend/nixpacks.toml`; see README "Local setup"). Migrated off WeasyPrint in commit `a1208a2b`; keep its content aligned with the current Next result surface.
 - Grammar recommendations: server-side (`grammar_recommendations` table, persisted per practice response); frontend keyword matching in `frontend/public/js/practice.js` is fallback only
 - Progress surfaces differ by domain; inspect the relevant dashboard/progress
   route and persisted aggregates before claiming a feature is absent.
