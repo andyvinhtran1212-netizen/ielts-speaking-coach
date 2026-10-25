@@ -201,11 +201,12 @@ CONTENT_VERSION_UNAVAILABLE = "web_explanation_content_version_unavailable"
 
 
 def content_version_unavailable_message(message: str) -> str:
-    """Explain WHICH version ambiguity migration 319 reported.
+    """Explain WHICH version ambiguity the approval gate reported.
 
     The database refuses every ambiguous paper and never picks a version; this
-    only turns its reason suffix into an actionable admin message. An unknown
-    or missing suffix (an older function) keeps the original wording.
+    only turns its reason suffix (added by migration 319, PR #1692) into an
+    actionable admin message. Until 319 is applied the refusal has no suffix
+    and the original wording is kept.
     """
     detail = message.split(CONTENT_VERSION_UNAVAILABLE, 1)[1] if CONTENT_VERSION_UNAVAILABLE in message else ""
     if detail.startswith(":none"):
