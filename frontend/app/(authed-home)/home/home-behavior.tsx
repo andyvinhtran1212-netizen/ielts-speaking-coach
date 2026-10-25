@@ -40,10 +40,18 @@ function setStat(el: Element | null, value: string | number) {
   if (!el) return;
   el.textContent = String(value);
   el.classList.remove('is-loading');
+  // The static shell marks the `…` placeholder aria-hidden so a screen reader
+  // never announces a not-yet-loaded number. Once a real value lands the span
+  // must rejoin the accessibility tree — same as the greeting below.
+  el.removeAttribute('aria-hidden');
 }
 function clearStatLoading(fallback: string) {
   document.querySelectorAll('.value-num.is-loading, .js-val.is-loading')
-    .forEach((el) => { el.classList.remove('is-loading'); el.textContent = fallback; });
+    .forEach((el) => {
+      el.classList.remove('is-loading');
+      el.textContent = fallback;
+      el.removeAttribute('aria-hidden');   // swept stats rejoin the a11y tree too
+    });
   const greet = $('greeting-name');
   if (greet?.classList.contains('is-loading')) {
     greet.classList.remove('is-loading');

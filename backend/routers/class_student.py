@@ -216,8 +216,14 @@ def _student_for_user(user_id: str, account_name: str = "") -> Optional[Dict[str
     try:
         row = fetch_linked_student(supabase_admin, user_id, account_name)
     except Exception as exc:  # noqa: BLE001
+        # A failed lookup is NOT the same as "no linked student". Returning None
+        # here collapses the two: my_class / my_assignments would answer a cheery
+        # `has_class: false` — "you're in no class" — on a transient DB hiccup,
+        # and the home/class pages would HIDE a real student's classes and
+        # homework instead of offering a retry. Surface it as a retryable error
+        # so the page shows a load failure, not the empty no-class view.
         logger.warning("[class] student lookup failed user=%s: %s", user_id, exc)
-        return None
+        raise HTTPException(503, "Không tải được hồ sơ học viên. Vui lòng thử lại.") from exc
     if not row:
         return None
     return {
