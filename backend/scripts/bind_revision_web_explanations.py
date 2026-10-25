@@ -8,8 +8,10 @@ so a class give with interactive explanations fails.
 
 This tool gives the revision its OWN identity rows, exactly like
 `fn_copy_mock_draft_paper` (migration 315/316) does for private draft copies:
-`object_id = mock-<revision uuid>-<skill>-qNN`, payload/source_hash/statuses
-copied unchanged as source evidence, binding on the row. The source paper's
+`object_id = mock-<revision uuid>-<skill>-qNN`, the SAME content_version (so
+mock pairing still resolves), payload/source_hash copied unchanged as source
+evidence, binding on the row. Rights/editorial statuses start pending so the
+give or mock approval records its own approval event for this paper. The source paper's
 objects are never read for writing, deactivated or changed.
 
 It never chooses a version: the operator names the source version
@@ -18,7 +20,9 @@ with Q1–Q40, the revision must have no objects at all, and every revision answ
 key must agree with the explanation it would serve. The explanations were audited
 against the source paper, so every question the revision changed (any field but
 the worked `solution(s)` text) must be listed by the reviewer in
-`--reviewed-changes`; a missing or extra number refuses. Any disagreement
+`--reviewed-changes`; a missing or extra number refuses. A question's content
+includes its passage (reading) or its whole section — transcript, segments,
+audio fields — (listening), since explanations quote that text. Any disagreement
 refuses the whole paper. A human-adjudicated scoring override that would change the
 revision's runtime key is also a refusal, because binding would change grading.
 
@@ -143,14 +147,18 @@ def build_plan(
     for o in sorted(current, key=lambda row: row["question_number"]):
         q = o["question_number"]
         key = revision_keys.get(q)
-        if key is None:
+        if not isinstance(key, dict):
+            reasons.append(f"Q{q:02d}: đáp án REV không đọc được ({type(key).__name__})")
             continue
         item = (o.get("payload") or {}).get("item") or {}
         answer = item.get("answer") or {}
         accepted = _key_set(answer.get("canonical"), answer.get("accepted_forms"))
         rev_set = _key_set(key.get("answer"), key.get("alternatives"))
         canonical = frozenset(_norm(v) for v in _flat(answer.get("canonical")))
-        if not rev_set or not canonical or not rev_set <= accepted or not canonical <= rev_set:
+        # Equal both ways: the revision must accept exactly what the explanation
+        # tells the learner is accepted — no fewer (a documented answer marked
+        # wrong) and no more (an undocumented answer marked right).
+        if not rev_set or not canonical or rev_set != accepted or not canonical <= rev_set:
             reasons.append(f"Q{q:02d}: đáp án REV {sorted(rev_set)} không khớp lời giải "
                            f"(canonical {answer.get('canonical')!r}, accepted {sorted(accepted)})")
         adjudication = ((o.get("payload") or {}).get("audit") or {}).get("release_adjudication") or {}
@@ -163,7 +171,15 @@ def build_plan(
         rows.append({
             **{field: o.get(field) for field in COPIED},
             "object_id": object_id,
-            "content_version": f"{o['content_version']}@{revision['test_id']}",
+            # Same version as the source, like 315/316 draft copies, so a mock
+            # pairing a bound REV paper with another paper still resolves to one
+            # shared version. Identity and provenance live in object_id and
+            # import_batch_id.
+            "content_version": o["content_version"],
+            # Changed questions were never approved against THIS paper: the copy
+            # waits for the give/mock approval, which records its own event.
+            "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+            "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
             "reading_test_id": revision["id"] if skill == "reading" else None,
             "listening_test_id": revision["id"] if skill == "listening" else None,
             "binding_status": "BOUND",
@@ -179,6 +195,11 @@ def build_plan(
                    "content_version": expected_source_version,
                    "object_ids": [o["object_id"] for o in sorted(current, key=lambda r: r["question_number"])]},
         "changed_questions": changed,
+        "reviewed_changes": sorted(set(reviewed_changes)),
+        # The SHA covers the reviewed content itself: any edit to the revision
+        # between dry run and commit changes it and blocks the commit.
+        "revision_fingerprints": {str(q): revision_fingerprints.get(q) for q in range(1, 41)},
+        "source_fingerprints": {str(q): source_fingerprints.get(q) for q in range(1, 41)},
         "rows": rows,
     }
     plan["sha256"] = hashlib.sha256(
@@ -211,7 +232,7 @@ def load_inputs(db, skill: str, revision_test_id: str) -> dict:
     objects = "id,object_id,content_version,question_number,is_current,binding_status," \
               f"{fk},{','.join(COPIED)}"
     source_objects = _all(lambda: db.table("web_explanation_objects").select(objects)
-                          .eq(fk, source["id"]).order("question_number"))
+                          .eq(fk, source["id"]).order("question_number").order("id"))
     revision_objects = _all(lambda: db.table("web_explanation_objects").select("id,object_id")
                             .eq(fk, revision["id"]).order("object_id"))
     keys, revision_fp = _paper_questions(db, skill, revision["id"])
@@ -226,32 +247,80 @@ def load_inputs(db, skill: str, revision_test_id: str) -> dict:
 _IGNORED = {"solution", "solutions"}
 
 
+def _strip(row: dict | None, *extra: str) -> dict:
+    drop = {"id", "test_id", "content_id", "passage_id", "created_at", "updated_at", *extra}
+    return {k: v for k, v in (row or {}).items() if k not in drop and k not in _IGNORED}
+
+
+# Row bookkeeping that is not evidence an explanation can quote. A copy always
+# differs here (new slug/owner/status/package labels), so including it would
+# mark every question "changed" and make the reviewed list meaningless.
+_ADMIN = ("slug", "status", "created_by", "topic_tags", "cefr_level", "metadata", "library")
+
+
+def _passage_evidence(row: dict | None) -> dict:
+    return _strip(row, *_ADMIN)
+
+
+def _section_evidence(row: dict | None) -> dict:
+    # The section label is admin text; its audio offset is evidence timing.
+    evidence = _strip(row, *_ADMIN, "title")
+    metadata = (row or {}).get("metadata") if isinstance((row or {}).get("metadata"), dict) else {}
+    evidence["section_offset"] = metadata.get("section_offset")
+    return evidence
+
+
 def _paper_questions(db, skill: str, paper_id: str) -> tuple[dict[int, dict], dict[int, str]]:
-    """Answer keys and per-question content fingerprints of one paper."""
+    """Answer keys and per-question content fingerprints of one paper.
+
+    A question's fingerprint includes the passage (reading) or the whole
+    section — transcript, segments, audio fields — (listening) it belongs to,
+    because explanations quote that text as evidence. Malformed rows refuse.
+    """
     keys: dict[int, dict] = {}
     content: dict[int, dict] = {}
+    bad: list[str] = []
     if skill == "reading":
-        passages = db.table("reading_passages").select("id").eq("test_id", paper_id).execute().data or []
-        for row in _all(lambda: db.table("reading_questions")
-                        .select("q_num,question_type,prompt,answer,payload")
-                        .in_("passage_id", [p["id"] for p in passages]).order("q_num")):
-            q = int(row["q_num"])
-            keys[q] = row.get("answer") or {}
-            content[q] = {"type": row.get("question_type"), "prompt": row.get("prompt"),
-                          "answer": row.get("answer"),
-                          "payload": {k: v for k, v in (row.get("payload") or {}).items() if k not in _IGNORED}}
+        # Same scope as grading and the 306 snapshot: test passages only.
+        passages = {p["id"]: p for p in _all(lambda: db.table("reading_passages").select("*")
+                                              .eq("test_id", paper_id).eq("library", "l3_test").order("id"))}
+        for row in _all(lambda: db.table("reading_questions").select("*")
+                        .in_("passage_id", list(passages)).order("q_num").order("id")):
+            try:
+                q = int(row["q_num"])
+            except (TypeError, ValueError, KeyError):
+                bad.append(f"reading_questions {row.get('id')}: q_num không hợp lệ")
+                continue
+            if q in content:
+                bad.append(f"Q{q:02d}: trùng câu trong đề")
+            keys[q] = row.get("answer")
+            payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+            content[q] = {"question": {**_strip(row, "payload"), "payload": _strip(payload)},
+                          "passage": _passage_evidence(passages.get(row.get("passage_id")))}
     else:
-        sections = db.table("listening_content").select("id,section_num").eq("test_id", paper_id).execute().data or []
-        for exercise in _all(lambda: db.table("listening_exercises").select("content_id,order_num,exercise_type,payload")
-                             .in_("content_id", [s["id"] for s in sections]).order("id")):
-            payload = exercise.get("payload") or {}
+        sections = {s["id"]: s for s in _all(lambda: db.table("listening_content").select("*")
+                                              .eq("test_id", paper_id).order("id"))}
+        for exercise in _all(lambda: db.table("listening_exercises").select("*")
+                             .in_("content_id", list(sections)).order("id")):
+            payload = exercise.get("payload") if isinstance(exercise.get("payload"), dict) else {}
             shared = {k: v for k, v in payload.items() if k not in _IGNORED | {"answers", "questions"}}
-            questions = {int(x["q_num"]): x for x in payload.get("questions") or [] if "q_num" in x}
+            questions = {}
+            for item in payload.get("questions") or []:
+                if isinstance(item, dict) and isinstance(item.get("q_num"), int):
+                    questions[item["q_num"]] = item
             for answer in payload.get("answers") or []:
-                q = int(answer["q_num"])
+                if not isinstance(answer, dict) or not isinstance(answer.get("q_num"), int):
+                    bad.append(f"listening_exercises {exercise.get('id')}: đáp án không hợp lệ")
+                    continue
+                q = answer["q_num"]
+                if q in content:
+                    bad.append(f"Q{q:02d}: trùng câu trong đề")
                 keys[q] = answer
-                content[q] = {"type": exercise.get("exercise_type"), "answer": answer,
-                              "question": questions.get(q), "exercise": shared}
+                content[q] = {"answer": answer, "question": questions.get(q),
+                              "exercise": {**_strip(exercise, "payload"), "payload": shared},
+                              "section": _section_evidence(sections.get(exercise.get("content_id")))}
+    if bad:
+        raise BindingRefused(bad)
     return keys, {q: fingerprint(value) for q, value in content.items()}
 
 
@@ -261,18 +330,20 @@ def commit_plan(db, plan: dict, *, imported_by: str | None) -> dict:
     # One PostgREST insert = one INSERT statement: all 40 rows or none.
     db.table("web_explanation_objects").insert(rows).execute()
     fk = f"{plan['skill']}_test_id"
-    bound = db.table("web_explanation_objects").select("object_id,content_version,is_current") \
-        .eq(fk, plan["revision"]["id"]).eq("is_current", True).execute().data or []
+    columns = ",".join(sorted(plan["rows"][0]))
+    bound = db.table("web_explanation_objects").select(columns) \
+        .eq(fk, plan["revision"]["id"]).eq("is_current", True).order("object_id").execute().data or []
     source = db.table("web_explanation_objects").select("object_id") \
         .eq(fk, plan["source"]["id"]).eq("is_current", True).order("question_number").execute().data or []
     readback = {
         "revision_current": len(bound),
         "revision_versions": sorted({row["content_version"] for row in bound}),
         "source_unchanged": [row["object_id"] for row in source] == plan["source"]["object_ids"],
+        "rows_equal_plan": bound == sorted(plan["rows"], key=lambda row: row["object_id"]),
         "import_batch_id": batch,
     }
     if readback["revision_current"] != 40 or len(readback["revision_versions"]) != 1 \
-            or not readback["source_unchanged"]:
+            or not readback["source_unchanged"] or not readback["rows_equal_plan"]:
         raise RuntimeError(f"readback không đạt: {readback}")
     return readback
 
