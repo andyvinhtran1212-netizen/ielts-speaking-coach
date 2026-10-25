@@ -45,6 +45,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -70,6 +71,66 @@ _CACHE_TABLE:                    str   = "grammar_check_cache"
 # the whole backend boot when the asset directory is missing in a
 # stripped-down deployment (e.g. early CI runs before assets/ landed).
 _ASSET_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "grammar-mindmap"
+_ASSET_MODULES = frozenset({"grammar_checker", "grammar_data"})
+
+
+# ── Local-rule false-positive suppression (adapter-side, asset untouched) ─────
+#
+# Two asset regexes over-match on natural speech (PR #1690 review):
+#   * the question-inversion rule fires on embedded clauses
+#     ("I know where she is going.");
+#   * the your/you're rule fires on possessive noun phrases
+#     ("your kind words", "Your beautiful garden").
+# Speaking transcripts rarely carry question marks, so the checks below use
+# sentence position and the following token rather than punctuation alone.
+
+_RULE_QUESTION_INVERSION = "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT"
+_RULE_YOUR_YOURE = "LOCAL_YOUR_WELCOME_ADJ_SHOULD_BE_YOU_RE"
+_SENTENCE_START_RE = re.compile(r'(?:^|[.!?]["\')\]]*\s+)["\'(\[]*$')
+_NEXT_WORD_RE = re.compile(r'\s*([A-Za-z\']+)')
+# Words that may legitimately follow "you're + adjective"; anything else that
+# is alphabetic is treated as the head noun of a possessive phrase.
+_YOURE_INTENSIFIERS = frozenset({"so"})
+_YOURE_ADJ_CONTINUATIONS = frozenset({
+    "to", "and", "but", "or", "so", "now", "here", "there", "too", "very",
+    "for", "with", "at", "in", "on", "of", "because", "if", "when", "that",
+    "as", "about", "than", "then", "again", "already", "also", "just",
+    "really", "still", "yet", "not", "all", "enough", "today", "tonight",
+    "tomorrow", "yesterday", "anyway", "though", "right",
+})
+
+
+def _suppress_local_false_positives(transcript: str, findings: list[dict]) -> list[dict]:
+    kept: list[dict] = []
+    for f in findings:
+        rule_id = (f.get("ruleId") or "").upper()
+        offset = int(f.get("offset") or 0)
+        length = int(f.get("errorLength") or 0)
+        if rule_id == _RULE_QUESTION_INVERSION:
+            # Only a direct question starts a sentence with the wh-word.
+            if not _SENTENCE_START_RE.search(transcript[:offset]):
+                continue
+        elif rule_id == _RULE_YOUR_YOURE:
+            matched_adj = transcript[offset:offset + length].split()[-1].lower() if length else ""
+            m = _NEXT_WORD_RE.match(transcript, offset + length)
+            if (
+                matched_adj not in _YOURE_INTENSIFIERS  # "Your so kind" — "so" is never a possessive head
+                and m
+                and m.group(1).lower() not in _YOURE_ADJ_CONTINUATIONS
+            ):
+                continue  # "your kind words" — possessive, not a contraction slip
+        kept.append(f)
+    return kept
+
+
+def _refuse_online_fallback(text: str) -> list:
+    """Replaces LTBackend._check_online on the live instance.
+
+    The asset would otherwise POST the learner transcript to the public
+    api.languagetool.org endpoint. Raising here keeps the transcript inside the
+    process; the caller treats it like any other mid-call failure (L9).
+    """
+    raise RuntimeError("LanguageTool online fallback is disabled: transcripts must not leave the server")
 
 
 # ── Category taxonomy + severity weighting ───────────────────────────────────
@@ -86,6 +147,17 @@ _CATEGORY_MAP: dict[str, str] = {
     "LOCAL_ARTICLE_OMISSION":                 "article",
     "LOCAL_WRONG_TENSE":                      "tense",
     "LOCAL_BARE_INFINITIVE":                  "verb_form",
+    # Rule ids the committed asset actually emits (LOCAL_ + slugified rule
+    # name, see run_local_rules). Verified 2026-10-25 against
+    # assets/grammar-mindmap/test_checker.py sentences.
+    "LOCAL_HE_SHE_IT_BASE_VERB_MISSING_S":                      "subject_verb_agreement",
+    "LOCAL_HE_SHE_IT_DON_T_DO_NOT_SHOULD_BE_DOESN_T_DOES_NOT":  "subject_verb_agreement",
+    "LOCAL_WE_YOU_THEY_WAS_SHOULD_BE_WERE":                     "subject_verb_agreement",
+    "LOCAL_PAST_TIME_MARKER_PRESENT_VERB":                      "tense",
+    "LOCAL_MISSING_WAS_WITH_BORN":                              "copula",
+    "LOCAL_MODAL_TO_V_INCORRECT":                               "verb_form",
+    "LOCAL_PLURAL_FORM_OF_UNCOUNTABLE_NOUN":                    "article",
+    "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT":                  "grammar",
     # LanguageTool category strings (high-level buckets observed in
     # the asset's online JSON shape).
     "TYPOS":         "spelling",
@@ -283,6 +355,14 @@ class GrammarCheckService:
     def __init__(self, timeout_seconds: float = GRAMMAR_CHECK_TIMEOUT_SECONDS):
         self._backend: Any | None = None
         self._backend_init_failed: bool = False
+        # Why the backend is unavailable, for /health/grammar-check:
+        #   asset_missing                    — assets/grammar-mindmap not importable
+        #                                      (nothing runs, not even local rules)
+        #   languagetool_offline_unavailable — asset present, but the offline
+        #                                      LanguageTool server could not start
+        #                                      (Java missing / LT jar absent)
+        #   backend_init_error               — any other construction failure
+        self._backend_init_reason: str | None = None
         self._timeout_seconds: float = timeout_seconds
 
     def _ensure_asset_on_path(self) -> None:
@@ -301,16 +381,37 @@ class GrammarCheckService:
         try:
             self._ensure_asset_on_path()
             import grammar_checker as _gc  # type: ignore[import-not-found]
-            self._backend = _gc.LTBackend(prefer_offline=True, language="en-US")
-            logger.info("[grammar_check] LTBackend initialised in mode=%s", self._backend.mode)
+            backend = _gc.LTBackend(prefer_offline=True, language="en-US")
         except Exception as exc:
+            if isinstance(exc, ModuleNotFoundError) and exc.name in _ASSET_MODULES:
+                self._backend_init_reason = "asset_missing"
+            else:
+                self._backend_init_reason = "backend_init_error"
             logger.warning(
-                "[grammar_check] LTBackend init failed — falling back to local "
+                "[grammar_check] LTBackend init failed (%s) — falling back to local "
                 "rules only (non-fatal): %s",
+                self._backend_init_reason,
                 exc,
             )
             self._backend_init_failed = True
             return None
+
+        # Privacy boundary: the asset's LTBackend falls back to the public
+        # api.languagetool.org when the offline server cannot start. Learner
+        # transcripts must never leave this process, so only an offline
+        # backend is accepted and the instance's online path is disabled.
+        if getattr(backend, "mode", None) != "offline":
+            logger.warning(
+                "[grammar_check] LTBackend started in mode=%s; online fallback is "
+                "disabled by policy — local rules only",
+                getattr(backend, "mode", None),
+            )
+            self._backend_init_failed = True
+            self._backend_init_reason = "languagetool_offline_unavailable"
+            return None
+        backend._check_online = _refuse_online_fallback  # instance-level, asset untouched
+        self._backend = backend
+        logger.info("[grammar_check] LTBackend initialised in mode=%s", backend.mode)
         return self._backend
 
     def _run_sync(self, transcript: str) -> GrammarCheckResult:
@@ -323,7 +424,7 @@ class GrammarCheckService:
         self._ensure_asset_on_path()
         import grammar_checker as _gc  # type: ignore[import-not-found]
 
-        local_findings = _gc.run_local_rules(transcript)
+        local_findings = _suppress_local_false_positives(transcript, _gc.run_local_rules(transcript))
 
         backend = self._ensure_backend()
         lt_findings: list[dict] = []
@@ -335,6 +436,19 @@ class GrammarCheckService:
                     "[grammar_check] LTBackend.check failed mid-call (continuing "
                     "with local rules only): %s",
                     exc,
+                )
+                lt_findings = []
+            if getattr(backend, "mode", "offline") != "offline":
+                # The asset flipped to its online path after an offline error.
+                # Its online call was refused above; retire the backend so later
+                # requests do not keep attempting it.
+                lt_findings = []
+                self._backend = None
+                self._backend_init_failed = True
+                self._backend_init_reason = "languagetool_offline_unavailable"
+                logger.warning(
+                    "[grammar_check] LTBackend left offline mode; retired — local "
+                    "rules only until restart"
                 )
 
         merged = _gc.merge_findings(transcript, lt_findings, local_findings)
@@ -473,6 +587,20 @@ def get_grammar_check_service() -> GrammarCheckService:
     return _service
 
 
+_INIT_FAILURE_MESSAGES: dict[str, str] = {
+    "asset_missing": (
+        "grammar asset (assets/grammar-mindmap) is not importable — no grammar "
+        "check runs at all, not even the local VI-learner rules"
+    ),
+    "languagetool_offline_unavailable": (
+        "LanguageTool offline server unavailable (Java missing or LT jar not "
+        "downloaded) — local VI-learner rules only; online fallback is disabled "
+        "by policy"
+    ),
+    "backend_init_error": "LanguageTool backend init failed — local VI-learner rules only",
+}
+
+
 async def grammar_check_health() -> dict:
     """Sprint 14.9 (Codex F5) — deploy-time runtime probe for the grammar
     checker.
@@ -491,6 +619,7 @@ async def grammar_check_health() -> dict:
         "status": "unknown",
         "languagetool_available": False,
         "backend_mode": None,
+        "init_failure_reason": None,
         "sample_error_count": 0,
         "messages": [],
     }
@@ -507,7 +636,13 @@ async def grammar_check_health() -> dict:
 
         if svc._backend_init_failed:
             out["status"] = "degraded"
-            out["messages"].append("LanguageTool/JRE backend init failed — local VI-learner rules only")
+            out["init_failure_reason"] = svc._backend_init_reason
+            out["messages"].append(
+                _INIT_FAILURE_MESSAGES.get(
+                    svc._backend_init_reason or "",
+                    "LanguageTool backend init failed — local VI-learner rules only",
+                )
+            )
         elif out["sample_error_count"] <= 0:
             out["status"] = "degraded"
             out["messages"].append("0 errors detected for a known-bad transcript")

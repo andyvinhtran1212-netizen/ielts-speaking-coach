@@ -4,7 +4,10 @@ import { readFileSync } from 'node:fs';
 
 import {
   assignmentAction,
+  assignmentSubtitle,
+  classOnTimeLabel,
   courseNeedsAction,
+  sessionPrefixedTitle,
   nextDue,
   normalizeClassStartResponse,
   normalizeMyClassResponse,
@@ -200,6 +203,54 @@ describe('assignment start contract', () => {
     }, 'grammar-item'), {
       kind: 'grammar-report', url: '/grammar-checkup?session=session%2F1&view=report',
     });
+  });
+
+  test('overdue course work with no receipt is closed instead of a result', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({ course_action: 'closed', is_missing: true })],
+      progress: { total: 1, submitted: 0, todo: 0, missing: 1, late: 0, on_time_pct: null },
+    }));
+    assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+      kind: 'closed', label: 'Đã quá hạn',
+    });
+    assert.equal(courseNeedsAction(normalized.assignments[0]), false);
+  });
+
+  test('a backend "review" for overdue work stays a result, not closed', () => {
+    // A timed item that expired after a failed retake has no submitted_at /
+    // passed_at receipt, yet the server still serves it read-only and returns
+    // course_action "review". Trust that verdict instead of inferring "closed".
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({ course_action: 'review', is_missing: true })],
+      progress: { total: 1, submitted: 0, todo: 0, missing: 1, late: 0, on_time_pct: null },
+    }));
+    assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+      kind: 'review', label: 'Xem kết quả',
+    });
+  });
+
+  test('course subtitle does not repeat a session prefix the title already has', () => {
+    const duplicated = normalizeMyClassResponse(payload({
+      assignments: [assignment({
+        assignment: {
+          ...assignment().assignment,
+          content_config: { lesson_no: 2, test_title: 'Buổi 2 — Danh từ & lượng từ' },
+        },
+      })],
+    }));
+    assert.equal(assignmentSubtitle(duplicated.assignments[0]), 'Buổi 2 — Danh từ & lượng từ');
+    assert.equal(assignmentSubtitle(normalizeMyClassResponse(payload()).assignments[0]),
+      'Buổi 2 · Danh từ và lượng từ');
+    assert.equal(sessionPrefixedTitle(2, 'Buổi 20 — lượng từ'), 'Buổi 2 · Buổi 20 — lượng từ');
+  });
+
+  test('on-time tile is — when the class has work but nothing handed in', () => {
+    // Zero submissions means no denominator; "0%" would read as a failing
+    // discipline rate rather than "no data yet".
+    const open = normalizeMyClassResponse(payload());
+    assert.equal(classOnTimeLabel(open.assignments), '—');
+    assert.equal(classOnTimeLabel([]), '—');
+    assert.equal(classOnTimeLabel(null), '—');
   });
 
   test('a submitted course item remains actionable as a result, not a new attempt', () => {

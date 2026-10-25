@@ -32,6 +32,7 @@ from services.class_assignment_service import (
     CLASS_TZ,
     CourseBankChangedError,
     EmptyRosterError,
+    ExplanationApprovalError,
     TaskMismatchError,
     attach_session_to_class_item,
     compose_due_at,
@@ -382,6 +383,39 @@ def test_course_bank_revision_mismatch_is_a_typed_retryable_error():
             db, cohort_id=COHORT, skill="course", title="Midterm",
             content_id="bank-1", content_config={"bank_revision": "rev-old"},
         )
+
+
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+@pytest.mark.parametrize(("raised", "expected"), [
+    # Cam19 T1 REV01 (2026-10-25): the copy has no objects of its own.
+    ("web_explanation_content_version_unavailable:none", "0/40 object hiện hành"),
+    ("web_explanation_content_version_unavailable:multiple:2", "Đề đang có 2 content version"),
+    ("web_explanation_content_version_unavailable:pinned_not_current", "không còn hiện hành"),
+    # An older database function without a reason keeps the original wording.
+    ("web_explanation_content_version_unavailable", "Không tìm thấy một content version hiện hành duy nhất"),
+])
+def test_scoped_exam_version_refusal_names_the_cause(skill, raised, expected):
+    calls = []
+
+    class _RefusingRPC:
+        def execute(self):
+            raise RuntimeError(f'{{"code":"P0001","message":"{raised}"}}')
+
+    db = type("RefusingDB", (), {
+        "rpc": lambda self, name, _params: calls.append(name) or _RefusingRPC(),
+    })()
+    with pytest.raises(ExplanationApprovalError) as caught:
+        create_class_assignment(
+            db, cohort_id=COHORT, skill=skill, title="Cam19 T1",
+            content_id="rev-paper", exam_scope_kind=skill,
+            content_config={"correction_policy": {
+                "web_explanation_mode": "immediate_after_capture",
+                "post_test_capture_required": True,
+            }},
+        )
+    assert expected in str(caught.value)
+    # One atomic call; the service never retries with another version.
+    assert calls == ["fn_create_scoped_exam_class_assignment"]
 
 
 def test_exam_scope_and_assignment_succeed_together():
