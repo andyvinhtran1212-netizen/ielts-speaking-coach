@@ -618,6 +618,14 @@ def test_reference_language_in_free_text_is_not_an_essay_citation(claim):
     "The essay lacks errors and uses 'subsidies' well.",
     "The essay's use of 'cliché' demonstrates lexical range.",   # accented English, not Vietnamese
     "Từ vựng phong phú, ví dụ 'naïve' và 'café'.",
+    # Codex review #1729: nominal/possessive usage claims and naming verbs.
+    "Your use of the term 'subsidies' demonstrates strong lexical range.",
+    "Việc sử dụng thuật ngữ 'subsidies' trong bài thể hiện vốn từ rộng.",
+    "The essay's use of the concept 'induced demand' is precise.",
+    "Em gọi hiện tượng này là 'induced demand'.",
+    "Cách em dùng khái niệm 'induced demand' rất chính xác.",
+    "Việc sử dụng 'trợ cấp' thể hiện vốn từ học thuật.",
+    "Your use of the question wording 'make public transport free' is apt.",
 ])
 def test_reference_exemptions_never_cover_learner_wording_claims(claim):
     prompt = RT_PROMPT + " Some say governments should make public transport free."

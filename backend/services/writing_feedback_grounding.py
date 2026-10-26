@@ -117,6 +117,16 @@ _ABSENCE = re.compile(
 )
 # A quoted mention of the task question ("câu hỏi 'To what extent ...'").
 _PROMPT_REFERENCE = re.compile(r"\b(?:câu hỏi|đề bài|chủ đề|yêu cầu|question|prompt|task)\b", re.I)
+# Usage claims that _ATTRIBUTION does not name: nominal or possessive use
+# ("your use of the term", "việc sử dụng thuật ngữ") and naming verbs with a
+# learner subject ("em gọi hiện tượng này"). They disable reference exemptions.
+_USAGE_CLAIM = re.compile(
+    r"\b(?:use|usage)\s+of\b|"
+    r"\b(?:việc|cách)\s+(?:em\s+|bạn\s+)?(?:sử dụng|dùng|vận dụng)\b|"
+    r"\b(?:em|bạn|anh|chị|học viên|you|the student|the learner|the writer|the essay|this essay)"
+    r"\s+(?:đã\s+|has\s+|have\s+)?(?:gọi|call(?:s|ed)?|name[sd]?)\b",
+    re.I,
+)
 # Claims about the learner's wording (not ideas): "em dùng", "you used".
 _WORDING_VERB = re.compile(r"\b(?:sử dụng|dùng|viết|gọi|use[sd]?|wrote|write|calls?|called)\b", re.I)
 _NEGATIONS = {"not", "no", "never", "cannot", "nor", "none", "nothing", "neither"}
@@ -456,8 +466,10 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             # Reference language that never claims learner usage: the task
             # question quoted as the question or a named concept/term. An
             # explicit learner attribution in the clause ("Em dùng 'make public
-            # transport free'") still rejects.
-            if last_attribution < 0:
+            # transport free'") or a usage claim ("Your use of the term
+            # 'subsidies'") still rejects.
+            claims_usage = last_attribution >= 0 or _USAGE_CLAIM.search(prefix) is not None
+            if not claims_usage:
                 if (prompt and _PROMPT_REFERENCE.search(prefix)
                         and _in_essay(excerpt, prompt, allow_ellipsis=True)):
                     continue
@@ -467,13 +479,13 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             # ...'") is not a wording claim; "em đã dùng 'quay lại'" is.
             sentence = (re.split(r"[.!?;\n]", preceding)[-1]
                         + re.split(r"[.!?;\n]", text[match.start():])[0])
-            if (_vietnamese_quote(excerpt, sentence)
+            if (_vietnamese_quote(excerpt, sentence) and not _USAGE_CLAIM.search(prefix)
                     and not any(_WORDING_VERB.search(m.group()) for m in attributions)):
                 continue
             # A chart category need not appear in an essay that omitted its
             # label. Restrict this to Task 1 and do not exempt explicit learner
             # wording claims such as "Em đã dùng 'invented category'".
-            if (task_type == "task1_academic" and last_attribution < 0
+            if (task_type == "task1_academic" and not claims_usage
                     and _TASK_LABEL.search(prefix)):
                 continue
             if _grounded_gloss(excerpt, preceding, prefix, essay):
