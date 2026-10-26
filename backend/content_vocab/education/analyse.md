@@ -10,7 +10,7 @@ gloss_vi: "phân tích"
 example: "Researchers analysed the data to find patterns in student performance."
 register: "academic"
 synonyms: ["examine", "study", "investigate", "evaluate"]
-antonyms: ["synthesize"]
+antonyms: ["synthesise"]
 collocations: ["analyse data", "carefully analyse", "analyse the results", "critically analyse"]
 word_family:
   - {form: "analysis", pos: "noun", note_vi: "sự phân tích"}
