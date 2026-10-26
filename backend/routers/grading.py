@@ -38,6 +38,7 @@ from services import fluency_signals
 from services.db_async import aexecute
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, note_owned_speaking_audio, observe_operation
 from routers.auth import get_supabase_user
+from routers.sessions import require_speaking_entitlement
 from services.whisper import transcribe_from_bytes
 from services import claude_grader
 from services import azure_pronunciation
@@ -496,7 +497,8 @@ async def grade_response_endpoint(
                 lambda db: db.table("sessions")
                 .select(
                     "id, user_id, part, topic, status, mode, sitting_id, "
-                    "started_at, resume_expires_at, full_test_attempt_id, renderer_affinity"
+                    "started_at, resume_expires_at, full_test_attempt_id, renderer_affinity, "
+                    "class_assignment_item_id"
                 )
                 .eq("id", session_id)
                 .eq("user_id", user_id)
@@ -510,6 +512,8 @@ async def grade_response_endpoint(
 
         session = s_res.data[0]
         require_resume_active(session)
+        step = "entitlement"
+        require_speaking_entitlement(user_id, session)
         part: int = session["part"]
         session_mode: str = session.get("mode", "practice") or "practice"
 
