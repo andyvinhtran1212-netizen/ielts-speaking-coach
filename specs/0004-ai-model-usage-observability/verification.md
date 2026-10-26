@@ -73,7 +73,7 @@ do not establish hosted migration, provider behavior or invoice accuracy.
 | FR-002 | kind=test; ref=backend/tests/test_ai_usage_logger.py; local failure/legacy compatibility checks pass; gap=operational provider-failure readback | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_ai_pricing.py; effective-date and unpriced-resource checks pass; gap=invoice reconciliation | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_admin_usage.py,frontend/tests/admin-ai-usage-next-behavior.test.mjs; metadata, truncation and Writing deduplication checks pass; gap=live dashboard/full-reload comparison | PENDING |
-| FR-005 | kind=test; ref=backend/tests/test_grading_model_config.py,backend/tests/test_gemini_compat.py; defaults/request shape checks pass; gap=bounded provider smoke and operational rollback evidence | PENDING |
+| FR-005 | kind=test; ref=backend/tests/test_grading_model_config.py,backend/tests/test_gemini_compat.py,backend/tests/test_ai_router.py; revised 2026-10-26 to a Claude Sonnet 5.5 primary; gap=T008 tests for the default order, fallback rungs and malformed retry, staging ledger readback, and the T009 constitution §6 gold-set report and blind false-positive review | PENDING |
 | FR-006 | kind=check; ref=docs/audits/AI_MODEL_AND_USAGE_LEDGER_2026-09-18.md; implementation/rollout runbook exists; gap=target migration ledger, provider smoke and monitoring evidence | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_admin_usage.py,backend/tests/test_ai_usage_logger.py; authorization/logger tests pass; gap=live ledger privacy readback | PENDING |
 
