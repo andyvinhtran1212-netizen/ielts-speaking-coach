@@ -192,6 +192,30 @@ def test_my_essays_403_when_user_not_linked_to_student(monkeypatch):
     assert "chưa được link" in exc.value.detail
 
 
+def test_dashboard_greeting_uses_account_name_and_keeps_roster_code(monkeypatch):
+    """The header greets from JWT metadata. A different roster full_name must
+    not replace it. The student code stays the linked roster code."""
+    _patch(monkeypatch, students_data=[_student_row(
+        full_name="Andy (Test)", student_code="Tester01",
+    )])
+
+    async def _user(_authz):
+        return {
+            "id": _USER_ID,
+            "email": "vinh@example.com",
+            "user_metadata": {"full_name": "Vinh Tran"},
+        }
+
+    monkeypatch.setattr(ws_module, "get_supabase_user", _user)
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    essays = _run(ws_module.list_my_essays(student=student))
+    assignments = _run(ws_module.list_my_assignments(student=student))
+    assert essays["student"]["full_name"] == "Vinh Tran"
+    assert essays["student"]["student_code"] == "Tester01"
+    assert assignments["student"]["full_name"] == "Vinh Tran"
+    assert assignments["student"]["student_code"] == "Tester01"
+
+
 def test_my_essays_500_when_students_lookup_fails(monkeypatch):
     """Students table outage ⇒ 500. Distinguishing this from 403 lets
     monitors page on real DB errors instead of a stable misconfig."""

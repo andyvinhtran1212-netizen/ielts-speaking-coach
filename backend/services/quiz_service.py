@@ -451,7 +451,12 @@ def course_assignment_action(
             "passed", "retake", "retry_full", "timed_out",
         } else "expired_pending")
     if not is_accepting_submissions(assignment, now=now):
-        return "review"
+        # A hand-in (or a quiz receipt) can still be opened read-only. Work
+        # that was never submitted has no result to show — "review" made the
+        # class page offer "Xem kết quả" and then reject the open.
+        if item.get("submitted_at") or item.get("passed_at"):
+            return "review"
+        return "closed"
 
     if not latest:
         return "continue" if pending_legacy_writing else "start"

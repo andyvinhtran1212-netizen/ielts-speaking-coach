@@ -48,6 +48,7 @@ from services.access_code_permissions import (
     has_writing_permission,
     student_has_writing_assignment,
 )
+from services.student_service import account_display_name, fetch_linked_student
 from services.file_extract_service import FileExtractError, extract_text
 from services.spam_detector import detect_flags, format_flag_explanation_vi
 
@@ -129,19 +130,16 @@ async def get_current_student(
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+    # Header and /home greet from this metadata name. The roster `full_name`
+    # stays the fallback, and `student_code` stays the linked roster code.
+    account_name = account_display_name(auth_user)
 
     try:
         # `user_id` is part of the projection so Phase 2.3b's submit
         # endpoint can stamp it on the writing_essays audit row
         # (`submitted_by_admin` FK → users(id) — column name reused
         # for student submissions).
-        result = (
-            supabase_admin.table("students")
-            .select("id, user_id, student_code, full_name, target_band")
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
-        )
+        student = fetch_linked_student(supabase_admin, user_id, account_name)
     except Exception as e:
         logger.warning("[writing-student] students lookup failed user=%s: %s", user_id, e)
         raise HTTPException(
@@ -149,7 +147,7 @@ async def get_current_student(
             detail="Lỗi khi tra cứu hồ sơ học viên",
         )
 
-    if not result.data:
+    if not student:
         raise HTTPException(
             status_code=403,
             detail=(
@@ -157,7 +155,22 @@ async def get_current_student(
                 "Vui lòng liên hệ giảng viên."
             ),
         )
-    return result.data[0]
+    if account_name:
+        student = {**student, "account_name": account_name}
+    return student
+
+
+def _dashboard_student(student: dict) -> dict:
+    """Profile block for the writing dashboard greeting.
+
+    The signed-in account name wins over the roster name so the page matches
+    the header. The student code is the linked roster code either way.
+    """
+    return {
+        "full_name": student.get("account_name") or student.get("full_name"),
+        "student_code": student.get("student_code"),
+        "target_band": student.get("target_band"),
+    }
 
 
 async def require_writing_permission(
@@ -339,11 +352,7 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
         })
 
     return {
-        "student": {
-            "full_name":    student.get("full_name"),
-            "student_code": student.get("student_code"),
-            "target_band":  student.get("target_band"),
-        },
+        "student": _dashboard_student(student),
         "essays": essays,
     }
 
@@ -1114,9 +1123,11 @@ def _assignment_grading_tier(assignment: dict) -> str:
 
     Decision is assignment-ownership only:
       • assigned_by is an instructor  → 'instructor'
-      • assigned_by is admin / mass-code / NULL → 'standard'  (admin path
+      • assigned_by is an ADMIN teaching from /instructor (W-05) → 'instructor'
+        (see `_admin_gave_via_instructor_workflow`)
+      • admin writing tools / mass-code / NULL → 'standard'  (admin path
         untouched — a non-null assigned_by is NOT enough since admins also
-        fan-out assignments, so we must check the role).
+        fan-out assignments, so we must check the role and the origin).
     Self-practice has no assignment and never reaches here.
     """
     assigned_by = assignment.get("assigned_by")
@@ -1139,7 +1150,60 @@ def _assignment_grading_tier(assignment: dict) -> str:
         )
         return "standard"
     role = (r.data or [{}])[0].get("role")
-    return "instructor" if role == "instructor" else "standard"
+    if role == "instructor":
+        return "instructor"
+    if role == "admin" and _admin_gave_via_instructor_workflow(assignment, str(assigned_by)):
+        return "instructor"
+    return "standard"
+
+
+def _admin_gave_via_instructor_workflow(assignment: dict, admin_id: str) -> bool:
+    """W-05 — is this admin-assigned give the admin acting as the class teacher?
+
+    Admins may use /instructor; `users.role` alone cannot tell that apart from
+    the admin writing tools. True only when BOTH hold:
+      1. the give passes the /instructor ownership gate — the student is on the
+         admin's roster (students.instructor_id) or the give's cohort is the
+         admin's (cohorts.created_by) — i.e. the "Chấm bài" owner scope; and
+      2. it was NOT created by the admin writing tools, which always go through
+         the idempotent RPC and leave a `writing_assignment_requests` receipt
+         carrying the give's group_id (late-joiner copies keep that group_id).
+    Any lookup failure → False ('standard'), never a blocked submit."""
+    try:
+        owns = False
+        student_id = assignment.get("student_id")
+        if student_id:
+            owns = bool((
+                supabase_admin.table("students").select("id")
+                .eq("id", str(student_id)).eq("instructor_id", admin_id)
+                .limit(1).execute()
+            ).data)
+        cohort_id = assignment.get("cohort_id")
+        if not owns and cohort_id:
+            owns = bool((
+                supabase_admin.table("cohorts").select("id")
+                .eq("id", str(cohort_id)).eq("created_by", admin_id)
+                .limit(1).execute()
+            ).data)
+        if not owns:
+            return False
+        group_id = assignment.get("assignment_group_id")
+        if group_id:
+            receipt = (
+                supabase_admin.table("writing_assignment_requests").select("id")
+                .eq("assigned_by", admin_id).eq("receipt->>group_id", str(group_id))
+                .limit(1).execute()
+            ).data
+            if receipt:
+                return False
+        return True
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] admin instructor-origin lookup failed "
+            "assignment=%s: %s",
+            assignment.get("id"), exc,
+        )
+        return False
 
 
 def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
@@ -1152,7 +1216,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
         .select(
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, "
-            "essay_id, prompt_id, assigned_by, "
+            "essay_id, prompt_id, assigned_by, cohort_id, "
             "assignment_group_id, name, allow_soft_check, analysis_level, grading_tier, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, renderer_affinity, "
             "renderer_affinity_claimed_at, renderer_affinity_expires_at, "
@@ -1246,11 +1310,7 @@ async def list_my_assignments(
         })
 
     return {
-        "student": {
-            "full_name":    student.get("full_name"),
-            "student_code": student.get("student_code"),
-            "target_band":  student.get("target_band"),
-        },
+        "student": _dashboard_student(student),
         "assignments": annotated,
     }
 
@@ -1586,10 +1646,11 @@ async def submit_my_assignment(
     # the grader (which reads essay.analysis_level) grades at the assigned level.
     level = int(assignment.get("analysis_level") or 3)
 
-    # Fix-1 (D-A) — route instructor-assigned essays into the instructor
-    # review queue by grading them at the 'instructor' tier (see
-    # `_assignment_grading_tier`). Admin/mass-code/self-practice → 'standard'.
-    grading_tier = _assignment_grading_tier(assignment)
+    # Fix-1 (D-A) / W-05 — route instructor-assigned essays (incl. an admin
+    # teaching from /instructor) into the instructor review queue by grading
+    # them at the 'instructor' tier (see `_assignment_grading_tier`).
+    # Admin writing tools/mass-code/self-practice → 'standard'.
+    grading_tier = _assignment_grading_tier({**assignment, "student_id": student_id})
 
     # Sprint W-L3 — the AI pass DEPTH the teacher chose at assign time
     # (standard|deep). Used by `_grade_instructor` to pick _grade_standard vs

@@ -250,6 +250,27 @@ def test_listening_summary_paginates_past_1000_rows():
     assert out["attempts_submitted"] == 1200
 
 
+def test_choose_linked_student_prefers_the_account_name():
+    andy = {"id": "andy", "full_name": "Andy (Test)", "cohort_id": "class-1",
+            "updated_at": "2026-02-01T00:00:00Z"}
+    vinh = {"id": "vinh", "full_name": "Vinh Tran", "cohort_id": None,
+            "updated_at": "2026-01-01T00:00:00Z"}
+    chosen = student_service.choose_linked_student([andy, vinh], "Vinh Tran")
+    assert chosen["id"] == "vinh"
+    fallback = student_service.choose_linked_student([andy, vinh], "")
+    assert fallback["id"] == "andy"
+
+
+def test_account_display_name_ignores_the_email_local_part():
+    assert student_service.account_display_name({
+        "email": "vinh@example.com",
+        "user_metadata": {"full_name": "Vinh Tran"},
+    }) == "Vinh Tran"
+    assert student_service.account_display_name({
+        "email": "vinh@example.com", "user_metadata": {},
+    }) == ""
+
+
 def test_listening_summary_none_without_account_or_on_error():
     assert student_service._listening_summary(None) is None
 

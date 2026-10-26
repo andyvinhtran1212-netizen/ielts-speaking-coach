@@ -570,22 +570,23 @@ def student_has_writing_assignment(student_id: Optional[UUID | str]) -> bool:
         return False
 
 
-def student_id_for_user(user_id: Optional[UUID | str]) -> Optional[str]:
+def student_id_for_user(
+    user_id: Optional[UUID | str],
+    account_name: str = "",
+) -> Optional[str]:
     """users.id → students.id (reverse of get_student_access_code_permissions'
     mapping). Returns None when no linked student row exists. Lets the writing
-    gate resolve a student_id when only the auth user is known."""
+    gate resolve a student_id when only the auth user is known.
+
+    ``account_name`` breaks a tie when more than one students row shares the
+    user id — the same chooser the class page and the writing dashboard use.
+    """
     if not user_id:
         return None
     try:
-        r = (
-            supabase_admin.table("students")
-            .select("id")
-            .eq("user_id", str(user_id))
-            .limit(1)
-            .execute()
-        )
-        rows = r.data or []
-        return rows[0]["id"] if rows else None
+        from services.student_service import fetch_linked_student
+        row = fetch_linked_student(supabase_admin, user_id, account_name)
+        return row["id"] if row else None
     except Exception as e:
         logger.warning("student lookup by user_id failed for %s: %s", user_id, e)
         return None

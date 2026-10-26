@@ -44,9 +44,17 @@ does not prove that a release is pending or complete.
 ## Local setup
 
 Use **Node.js 24+** (`frontend/package.json`). Backend CI uses **Python 3.11**;
-Railway pins **Python 3.12** (`backend/nixpacks.toml`). Use either of those
-Python versions locally. Audio processing also requires `ffmpeg`; the Railway
-config lists the production font/JRE dependencies.
+Railway builds with **Railpack** from the `backend/` directory only (service
+root directory); Python **3.12** is pinned there through the service's
+`RAILPACK_PYTHON_VERSION` variable. Anything the backend reads at runtime
+(for example `backend/assets/grammar-mindmap/`) must live under `backend/`.
+Use either of those Python versions locally. Audio
+processing also requires `ffmpeg`; production additionally needs
+`default-jre-headless` (LanguageTool) and `fonts-dejavu-core` (PDF export).
+`backend/nixpacks.toml` lists those packages for the legacy Nixpacks builder,
+but Railpack does not read it — the Railway service configuration must provide
+them. Verify in the Railway dashboard, not from this file, before relying on
+them.
 
 Configure a development or staging Supabase project and the provider keys
 needed for the flow you are exercising. Keep service credentials in ignored

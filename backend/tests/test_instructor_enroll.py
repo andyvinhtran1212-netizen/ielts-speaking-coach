@@ -36,6 +36,7 @@ class _Q:
     def __init__(self, table, sb):
         self.table = table; self.sb = sb
         self._f = []; self._op = "select"; self._payload = None; self._conflict = None
+        self._range = None
 
     def select(self, *a, **k): self._op = "select"; return self
     def insert(self, p): self._op = "insert"; self._payload = p; return self
@@ -47,6 +48,7 @@ class _Q:
     def in_(self, c, vs): self._f.append(("in", c, [str(x) for x in vs])); return self
     def limit(self, *a, **k): return self
     def order(self, *a, **k): return self
+    def range(self, start, end): self._range = (int(start), int(end)); return self
 
     def _match(self, row):
         for op, c, v in self._f:
@@ -67,7 +69,12 @@ class _Q:
         if self._op == "upsert":
             rows.append(dict(self._payload)); return _R([dict(self._payload)])
         m = [r for r in rows if self._match(r)]
-        if self._op == "select": return _R([dict(r) for r in m])
+        if self._op == "select":
+            data = [dict(r) for r in m]
+            if self._range is not None:
+                s, e = self._range
+                data = data[s:e + 1]   # PostgREST .range() is inclusive of `end`
+            return _R(data)
         if self._op == "update":
             for r in m: r.update(self._payload)
             return _R([dict(r) for r in m])
@@ -83,7 +90,8 @@ class _FakeSB:
     def table(self, name): return _Q(name, self)
 
 
-def _seed(*, issued_by, grants_role=None, intended_email=None, cohort_id=None, students=None):
+def _seed(*, issued_by, grants_role=None, intended_email=None, cohort_id=None,
+          students=None, cohorts=None):
     return {
         "access_codes": [{
             "id": _u(300), "code": "ENROLL1", "is_used": False, "is_revoked": False,
@@ -95,6 +103,8 @@ def _seed(*, issued_by, grants_role=None, intended_email=None, cohort_id=None, s
             {"id": ADMIN, "role": "admin"}, {"id": USER, "role": "user"},
         ],
         "students": students or [],
+        "cohorts": cohorts or [],
+        "writing_assignments": [],
         "access_code_audit": [],
         "user_code_assignments": [],
     }
@@ -222,6 +232,84 @@ def test_instructor_cohort_code_folds_owner_and_cohort():
     assert r.status_code == 200, r.text
     row = _students(store)[0]
     assert row["instructor_id"] == GV_A and row["cohort_id"] == _u(700)   # same atomic write
+
+
+# ── E6 — class code attaches the student to the COHORT OWNER ─────────────────
+
+def test_admin_issued_cohort_code_stamps_cohort_owner_not_null():
+    """E6 regression: an ADMIN mints a class code for GV_A's cohort. The issuer is
+    not an instructor, but the student must still land on GV_A's roster — owner is
+    derived from cohorts.created_by, so instructor_id = GV_A (NOT NULL)."""
+    store = _seed(issued_by=ADMIN, cohort_id=_u(700),
+                  cohorts=[{"id": _u(700), "created_by": GV_A}])
+    r = _activate(store)
+    assert r.status_code == 200, r.text
+    row = _students(store)[0]
+    assert row["instructor_id"] == GV_A      # attached to the CLASS's instructor
+    assert row["cohort_id"] == _u(700)
+
+
+def test_cohort_code_without_cohort_row_leaves_owner_null():
+    """A cohort code whose cohort row can't be resolved (owner unknown) still
+    creates+enrolls the student but leaves instructor_id NULL — never invents an
+    owner. Preserves the admin/no-owner behaviour when no class owner exists."""
+    store = _seed(issued_by=ADMIN, cohort_id=_u(700))   # no cohorts row seeded
+    r = _activate(store)
+    assert r.status_code == 200, r.text
+    assert _students(store)[0]["instructor_id"] is None
+
+
+def test_redeem_twice_same_user_is_idempotent_and_single_student():
+    """Redeeming the SAME code twice: the 2nd attempt is rejected ('already
+    activated') and does NOT create a second students row or re-stamp anything."""
+    store = _seed(issued_by=GV_A, cohort_id=_u(700),
+                  cohorts=[{"id": _u(700), "created_by": GV_A}])
+    r1 = _activate(store)
+    assert r1.status_code == 200, r1.text
+    assert len(_students(store)) == 1
+    r2 = _activate(store)                      # code now is_used by USER
+    assert r2.status_code == 400 and "đã kích hoạt" in r2.text
+    assert len(_students(store)) == 1          # no duplicate profile
+    assert _students(store)[0]["instructor_id"] == GV_A
+
+
+# ── E1 — late joiner backfills the cohort's open gives on redemption ─────────
+
+def _give(store, *, prompt_id, student_id, deadline=None, group=None):
+    store["writing_assignments"].append({
+        "id": _u(800 + len(store["writing_assignments"])),
+        "prompt_id": prompt_id, "student_id": student_id, "cohort_id": _u(700),
+        "assignment_group_id": group or _u(950), "name": "Buổi 1",
+        "allow_soft_check": False, "assigned_by": GV_A, "deadline": deadline,
+        "instructions": "Làm bài", "is_timed": False, "time_limit_minutes": None,
+        "analysis_level": 3, "grading_tier": "standard", "status": "pending",
+    })
+
+
+def test_late_joiner_backfills_open_cohort_give():
+    store = _seed(issued_by=GV_A, cohort_id=_u(700),
+                  cohorts=[{"id": _u(700), "created_by": GV_A}])
+    _give(store, prompt_id=_u(900), student_id=_u(401))   # a classmate already has it
+    r = _activate(store)
+    assert r.status_code == 200, r.text
+    new_sid = _students(store)[0]["id"]
+    mine = [w for w in store["writing_assignments"] if w["student_id"] == new_sid]
+    assert len(mine) == 1                       # the open give was backfilled
+    assert mine[0]["prompt_id"] == _u(900)
+    assert mine[0]["cohort_id"] == _u(700)
+    assert mine[0]["status"] == "pending"       # fresh — late joiner hasn't started
+
+
+def test_late_joiner_skips_overdue_give():
+    store = _seed(issued_by=GV_A, cohort_id=_u(700),
+                  cohorts=[{"id": _u(700), "created_by": GV_A}])
+    _give(store, prompt_id=_u(900), student_id=_u(401),
+          deadline="2000-01-01T00:00:00+00:00")   # long past → not an open give
+    r = _activate(store)
+    assert r.status_code == 200, r.text
+    new_sid = _students(store)[0]["id"]
+    mine = [w for w in store["writing_assignments"] if w["student_id"] == new_sid]
+    assert mine == []                            # overdue homework is not force-fed
 
 
 # ── W-2 promote path untouched ───────────────────────────────────────────────

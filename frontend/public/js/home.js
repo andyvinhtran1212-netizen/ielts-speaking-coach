@@ -29,7 +29,7 @@
     grammar: {
       icon: '✦',
       name: 'Grammar',
-      desc: '67 bài học ngữ pháp dành cho IELTS.',
+      desc: 'Bài học ngữ pháp dành cho IELTS.',
     },
     vocabulary: {
       icon: '⌗',
@@ -97,11 +97,16 @@
       };
     },
     grammar(s) {
+      const viewed = Number(s.lessons_viewed) || 0;
+      const total = Number(s.catalogue_total) || 0;
+      let sub;
+      if (total && viewed) sub = 'Trong thư viện ' + total + ' bài';
+      else if (total) sub = 'Khám phá ' + total + ' bài học ngữ pháp';
+      else if (viewed) sub = 'Xem lại các bài đã mở';
+      else sub = 'Khám phá bài học ngữ pháp';
       return {
-        primary: { value: String(s.lessons_viewed || 0), unit: 'bài đã xem' },
-        sub: s.lessons_viewed
-          ? 'Xem lại các bài đã đánh dấu'
-          : 'Khám phá 67 bài học ngữ pháp',
+        primary: { value: String(viewed), unit: 'bài đã xem' },
+        sub: sub,
       };
     },
     vocabulary(s) {
@@ -165,12 +170,22 @@
     if (!document.querySelectorAll) return;   // defensive (also no-ops under the test DOM mock)
     document.querySelectorAll('.value-num.is-loading, .js-val.is-loading')
       .forEach((el) => { el.classList.remove('is-loading'); el.textContent = fallback; });
+    const greet = document.getElementById && document.getElementById('greeting-name');
+    if (greet && greet.classList && greet.classList.contains('is-loading')) {
+      greet.classList.remove('is-loading');
+      if (greet.removeAttribute) greet.removeAttribute('aria-hidden');
+      if (!greet.textContent || greet.textContent.trim() === '…') greet.textContent = 'bạn';
+    }
   }
 
   // ── Render: hero stats ──────────────────────────────────────────────
   function renderHero(data) {
     const greetName = $('greeting-name');
-    if (greetName) greetName.textContent = data.student.name || 'bạn';
+    if (greetName) {
+      greetName.textContent = data.student.name || 'bạn';
+      if (greetName.classList) greetName.classList.remove('is-loading');
+      if (greetName.removeAttribute) greetName.removeAttribute('aria-hidden');
+    }
 
     const streakEl = $('hero-streak');
     const streak = data.streak.current_days || 0;

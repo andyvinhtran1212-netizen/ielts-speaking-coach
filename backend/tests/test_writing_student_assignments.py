@@ -415,6 +415,44 @@ def test_submit_falls_back_to_draft_text_when_body_essay_text_is_none(monkeypatc
     bg.add_task.assert_called_once()
 
 
+def test_submit_feeds_owner_scope_into_tier_and_essay_row(monkeypatch):
+    """W-05 — submit hands the tier decision the student + cohort (needed for
+    the admin-teaching-from-/instructor owner check) and writes its result
+    onto the essay row that `_bg_grade_essay` keys create_review on."""
+    body_text = "This is a meaningful essay sentence for the grader to read. " * 25
+    client = _Client(
+        assignments_data=[
+            {"id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
+             "status": "in_progress", "assigned_by": "admin-teacher",
+             "cohort_id": "cohort-1", "assignment_group_id": "group-1",
+             "writing_prompts": {"id": _PROMPT_ID, "title": "T",
+                                  "prompt_text": "Some Task 2 prompt.",
+                                  "task_type": "task2"}},
+        ],
+        drafts_data=[],
+    )
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    fake_row, _fake_job = _patch_essay_service(monkeypatch)
+    seen = {}
+
+    def _tier(assignment):
+        seen.update(assignment)
+        return "instructor"
+
+    monkeypatch.setattr(ws_module, "_assignment_grading_tier", _tier)
+    bg = MagicMock()
+    _run(submit_my_assignment(
+        assignment_id=_ASSIGNMENT_ID,
+        body=SubmitEssay(essay_text=body_text),
+        background_tasks=bg,
+        student=_student(),
+    ))
+    assert seen["student_id"] == _STUDENT_ID
+    assert seen["cohort_id"] == "cohort-1"
+    assert seen["assignment_group_id"] == "group-1"
+    assert fake_row.call_args.kwargs["data"]["grading_tier"] == "instructor"
+
+
 def test_submit_blocked_when_already_submitted(monkeypatch):
     """A new request against terminal state is rejected before any write."""
     client = _Client(

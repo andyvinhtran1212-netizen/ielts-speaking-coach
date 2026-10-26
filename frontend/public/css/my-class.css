@@ -128,6 +128,13 @@
   color: var(--av-primary);
 }
 
+.mc-stats-note {
+  margin: var(--av-space-3) 0 0;
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-xs);
+  line-height: 1.45;
+}
+
 .mc-stats {
   position: relative;
   z-index: 1;

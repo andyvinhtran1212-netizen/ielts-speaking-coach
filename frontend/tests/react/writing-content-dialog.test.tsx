@@ -10,7 +10,8 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
 });
 afterEach(() => { dispose?.(); dispose = undefined; cleanup(); document.body.style.overflow = ''; vi.unstubAllGlobals(); });
-function setup(read = vi.fn(async () => ({ enabled: true, items: [{ id: 't1', title: 'Canonical tip' }] }))) {
+function setup(read = vi.fn(async () => ({ enabled: true, items: [{ id: 't1', title: 'Canonical tip' }] })),
+  prepare?: (kind: 'tip' | 'prompt', item: any) => Promise<unknown>) {
   render(<><main><button id="tab-assignments">Assignments</button><button id="tab-tips">Tips</button>
     <button data-tip-id="t1">Read tip</button></main><div id="submit-modal" className="hidden"><button id="modal-close">Submit close</button></div>
     <div id="tip-modal" className="hidden" role="dialog" aria-modal="true" aria-labelledby="tip-modal-title">
@@ -19,7 +20,7 @@ function setup(read = vi.fn(async () => ({ enabled: true, items: [{ id: 't1', ti
   const selectTab = vi.fn();
   const controller = createWritingContentDialog({ account: 'a', current: () => true, read,
     render: (_kind, item) => { document.getElementById('tip-modal-title')!.textContent = item.title; },
-    selectTab, filters: () => ({ tipFilter: 'all', tipTypeFilter: 'all', pbFilter: 'all' }), restoreFilters: vi.fn() });
+    selectTab, filters: () => ({ tipFilter: 'all', tipTypeFilter: 'all', pbFilter: 'all' }), restoreFilters: vi.fn(), prepare });
   dispose = controller.dispose;
   return { controller, card: screen.getByRole('button', { name: 'Read tip' }), read, selectTab };
 }
@@ -89,6 +90,30 @@ it('FR004: closing a pending read prevents late reopening and clears body', asyn
   controller.close(); release({ enabled: true, items: [{ id: 't1', title: 'Late old body' }] }); await pending;
   expect(document.getElementById('tip-modal')!.classList.contains('hidden')).toBe(true);
   expect(document.getElementById('tip-modal-body')!.textContent).toBe('');
+});
+it('deep-linked tip stays loading until prepare (Markdown renderer wait) settles, then renders', async () => {
+  let release!: () => void;
+  const prepare = vi.fn(() => new Promise<void>(resolve => { release = resolve; }));
+  window.history.replaceState({}, '', '/writing/dashboard?tab=tips&tip=t1');
+  const { controller } = setup(undefined, prepare);
+  const pending = controller.reconcile();
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith('tip', { id: 't1', title: 'Canonical tip' }));
+  expect(screen.getByRole('dialog').getAttribute('data-content-state')).toBe('loading');
+  expect(document.getElementById('tip-modal-title')!.textContent).toBe('Mẹo viết');
+  release(); await pending;
+  expect(screen.getByRole('dialog').getAttribute('data-content-state')).toBe('ready');
+  expect(document.getElementById('tip-modal-title')!.textContent).toBe('Canonical tip');
+});
+it('closing during prepare never renders the late tip body', async () => {
+  let release!: () => void;
+  const prepare = vi.fn(() => new Promise<void>(resolve => { release = resolve; }));
+  window.history.replaceState({}, '', '/writing/dashboard?tab=tips&tip=t1');
+  const { controller } = setup(undefined, prepare);
+  const pending = controller.reconcile();
+  await waitFor(() => expect(prepare).toHaveBeenCalled());
+  controller.close(); release(); await pending;
+  expect(document.getElementById('tip-modal')!.classList.contains('hidden')).toBe(true);
+  expect(document.getElementById('tip-modal-title')!.textContent).toBe('');
 });
 it('FR001/004/005: late submit visibility yields inert/focus without touching owner state', async () => {
   let release!: (result: any) => void;

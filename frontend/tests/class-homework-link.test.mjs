@@ -141,7 +141,9 @@ describe('mở bài tập theo buổi', () => {
   });
 
   test('dòng phụ nói BUỔI SỐ MẤY trước, tên bộ sau', () => {
-    // "Buổi 3" là thứ học viên nhận ra ngay.
-    assert.match(MC, /cfg\.lesson_no \? `Buổi \$\{cfg\.lesson_no\}` : ''/);
+    // "Buổi 3" là thứ học viên nhận ra ngay. Tên đã có đúng tiền tố thì không gắn thêm.
+    assert.match(MC, /function sessionPrefixedTitle\(lessonNo, title\)/);
+    assert.match(MC, /const prefix = `Buổi \$\{lessonNo\}`/);
+    assert.match(MC, /sessionPrefixedTitle\(cfg\.lesson_no, cfg\.test_title\)/);
   });
 });

@@ -44,7 +44,9 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
-def get_home_summary(sb, user_id: str, *, name: str, email: str) -> Dict[str, Any]:
+def get_home_summary(
+    sb, user_id: str, *, name: str, email: str, account_name: str = "",
+) -> Dict[str, Any]:
     """Build the multi-skill homepage payload for a single student.
 
     `sb` here is supabase_admin (service-role) — see module docstring for
@@ -79,7 +81,7 @@ def get_home_summary(sb, user_id: str, *, name: str, email: str) -> Dict[str, An
         errors["speaking"] = _short_error(e)
 
     try:
-        writing = _build_writing(sb, user_id)
+        writing = _build_writing(sb, user_id, account_name)
         payload["skills"]["writing"] = writing
         payload["totals"]["writing_essays"] = writing["essays_count"]
     except Exception as e:
@@ -184,20 +186,23 @@ def _build_speaking(sb, user_id: str) -> Dict[str, Any]:
     }
 
 
-def _build_writing(sb, user_id: str) -> Dict[str, Any]:
+def _build_writing(sb, user_id: str, account_name: str = "") -> Dict[str, Any]:
     """Writing aggregates require a `students` row. Students who haven't
     been linked yet (no admin-created students record) get an empty
     writing card — not a 500. Mirrors writing_student.get_current_student
     semantics but degrades gracefully here."""
+    from services.student_service import choose_linked_student
+
     student_res = (
         sb.table("students")
-        .select("id")
+        .select("id, full_name, cohort_id, updated_at")
         .eq("user_id", user_id)
-        .limit(1)
+        .order("updated_at", desc=True)
+        .limit(20)
         .execute()
     )
-    student_rows = student_res.data or []
-    if not student_rows:
+    student = choose_linked_student(student_res.data or [], account_name)
+    if not student:
         return {
             "status": "active",
             "last_activity_at": None,
@@ -208,7 +213,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
             "primary_cta_url": "/writing/dashboard",
         }
 
-    student_id = student_rows[0]["id"]
+    student_id = student["id"]
 
     essays_res = (
         sb.table("writing_essays")
@@ -280,20 +285,44 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
     }
 
 
+def _live_grammar_slugs() -> Optional[set]:
+    """Slugs the Grammar Wiki currently serves.
+
+    ``article_views`` is unique per (user, slug) but keeps rows after an
+    article is retired. Counting those rows makes "bài đã xem" larger than
+    the catalogue the card describes.
+    """
+    try:
+        from services.grammar_content import grammar_service
+        return set(grammar_service.articles_by_slug)
+    except Exception as exc:
+        logger.debug("grammar catalogue unavailable: %s", _short_error(exc))
+        return None
+
+
 def _build_grammar(sb, user_id: str) -> Dict[str, Any]:
-    res = (
+    slugs = _live_grammar_slugs()
+    query = (
         sb.table("article_views")
         .select("article_slug, last_viewed_at", count="exact")
         .eq("user_id", user_id)
-        .order("last_viewed_at", desc=True)
-        .limit(1)
-        .execute()
     )
-    rows = res.data or []
-    total = res.count if res.count is not None else len(rows)
+    if slugs:
+        query = query.in_("article_slug", sorted(slugs))
+    if slugs is not None and not slugs:
+        rows: list = []
+        total = 0
+    else:
+        res = (
+            query.order("last_viewed_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        total = res.count if res.count is not None else len(rows)
     last_activity = rows[0].get("last_viewed_at") if rows else None
 
-    return {
+    payload: Dict[str, Any] = {
         "status": "active",
         "last_activity_at": last_activity,
         "lessons_viewed": int(total),
@@ -303,6 +332,9 @@ def _build_grammar(sb, user_id: str) -> Dict[str, Any]:
         # nên để nguyên bản legacy là một luồng chính vẫn mở trang cũ.
         "primary_cta_url": "/grammar",
     }
+    if slugs is not None:
+        payload["catalogue_total"] = len(slugs)
+    return payload
 
 
 _QUIZ_PAGE = 1000

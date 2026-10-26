@@ -538,6 +538,32 @@ async def activate_account(
             owner = str(issued_by)
 
     code_cohort_id = access_code_row.get("cohort_id")
+
+    # E6 — a CLASS/COHORT code must attach the student to the CLASS's owner
+    # (cohorts.created_by), not only to the code issuer. An instructor who mints
+    # their OWN class code already resolves `owner` above (issuer == owner), but
+    # an admin minting a class code on an instructor's behalf leaves `owner` NULL
+    # — the student then enrolls into the cohort (via students.cohort_id + the
+    # mig-227 membership trigger) yet is orphaned from the instructor roster /
+    # submission-matrix / individual-assign surfaces, which are all scoped by
+    # students.instructor_id. `enroll_owner` falls back to the cohort owner so a
+    # class code always links the student to the class's instructor.
+    #
+    # It is kept SEPARATE from `owner` on purpose: `owner` (issuer-derived) still
+    # drives the cross-instructor conflict 403 below, so this fallback can never
+    # turn an admin's legitimate second-class enroll of an already-owned student
+    # into a 403. It is used ONLY to stamp a NULL instructor_id. Mass/speaking
+    # codes carry no cohort → enroll_owner stays None (anti-pollution preserved).
+    enroll_owner: str | None = owner
+    if enroll_owner is None and code_cohort_id:
+        try:
+            cr = (supabase_admin.table("cohorts").select("created_by")
+                  .eq("id", str(code_cohort_id)).limit(1).execute().data or [None])[0]
+        except Exception as e:
+            raise HTTPException(500, f"Lỗi khi tra cứu lớp của mã: {e}")
+        cohort_owner = (cr or {}).get("created_by")
+        if cohort_owner:
+            enroll_owner = str(cohort_owner)
     try:
         by_user = (supabase_admin.table("students").select("id, user_id, instructor_id, cohort_id")
                    .eq("user_id", user_id).limit(1).execute().data or [])
@@ -590,8 +616,8 @@ async def activate_account(
             if code_cohort_id:
                 upd["cohort_id"] = code_cohort_id            # cohort fold (same atomic write)
                 revert["cohort_id"] = target.get("cohort_id")
-            if owner and not target.get("instructor_id"):
-                upd["instructor_id"] = owner                  # stamp ONLY when currently NULL
+            if enroll_owner and not target.get("instructor_id"):
+                upd["instructor_id"] = enroll_owner           # stamp ONLY when currently NULL
                 revert["instructor_id"] = None
             if upd:
                 supabase_admin.table("students").update(upd).eq("id", target["id"]).execute()
@@ -620,7 +646,7 @@ async def activate_account(
                 "student_code":  code,
                 "full_name":     full_name,
                 "created_by":    issued_by,        # provenance: who issued the code
-                "instructor_id": owner,            # GV if issuer is instructor, else NULL
+                "instructor_id": enroll_owner,     # code issuer if GV, else the class owner
                 "cohort_id":     code_cohort_id,
             }).execute()
             if _ins.data:
@@ -631,6 +657,10 @@ async def activate_account(
     except Exception as e:
         # FATAL, BEFORE consume — fail closed so the code stays retry-able.
         raise HTTPException(500, f"Lỗi khi ghi danh học viên: {e}")
+
+    # The students row this activation enrolled (created or folded). Used after
+    # the claim succeeds to backfill the cohort's open gives for a late joiner.
+    enrolled_student_id = enroll_inserted_id or (target["id"] if target else None)
 
     # ── Step 4: atomically CLAIM the access code (B1 / review Mục 2) ─────────
     # P0 fix for double-redemption. The is_used check in Step 1 and this write
@@ -739,6 +769,30 @@ async def activate_account(
         }, on_conflict="user_id,code_id").execute()
     except Exception as e:
         logger.warning("[warn] Could not create user_code_assignment: %s", e)
+
+    # ── Step 6 (E1): backfill the cohort's open gives for a late joiner ──────
+    # Runs AFTER the claim so a lost-race user gets nothing (and needs no undo).
+    # `fan_out_assignment` snapshots the roster at give-time, so a student who
+    # joins the class later has no writing_assignments row for gives already made
+    # to the cohort. Reconcile that here (idempotent, skip-existing). Best-effort:
+    # a failure must NOT fail an otherwise-complete activation — the one-off
+    # backfill script (scripts/backfill_class_enrollment_roster.py) is the safety
+    # net for any row missed here.
+    if enrolled_student_id and code_cohort_id:
+        try:
+            from services.cohort_assignment_service import (
+                backfill_cohort_writing_assignments,
+            )
+            backfill_cohort_writing_assignments(
+                supabase_admin,
+                student_id=str(enrolled_student_id),
+                cohort_id=str(code_cohort_id),
+            )
+        except Exception as e:
+            logger.warning(
+                "[auth] cohort give backfill failed student=%s cohort=%s: %s",
+                enrolled_student_id, code_cohort_id, e,
+            )
 
     # (Phase-2.1 student-link + WF-1 cohort enroll moved to Step 3b above and
     # folded into the atomic, pre-consume enroll write — see W-5.)

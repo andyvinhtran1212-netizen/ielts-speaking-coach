@@ -17,7 +17,7 @@ export const SKILLS_ORDER = [
 export const SKILL_META = {
   writing: { icon: '✍︎', name: 'Writing', desc: 'Bài luận Task 1 & Task 2 với feedback chi tiết.' },
   speaking: { icon: '🎙', name: 'Speaking', desc: 'Luyện nói 3 phần và nhận điểm band tự động.' },
-  grammar: { icon: '✦', name: 'Grammar', desc: '67 bài học ngữ pháp dành cho IELTS.' },
+  grammar: { icon: '✦', name: 'Grammar', desc: 'Bài học ngữ pháp dành cho IELTS.' },
   vocabulary: { icon: '⌗', name: 'Vocabulary', desc: 'Wallet từ vựng cá nhân + flashcard SRS.' },
   reading: { icon: '✸', name: 'Reading', desc: 'Bài đọc IELTS với phân tích cấu trúc đoạn và chiến lược tìm ý chính.' },
   listening: { icon: '◐', name: 'Listening', desc: 'Bài nghe với note-taking pattern và phân tích bẫy đáp án.' },
@@ -68,9 +68,16 @@ export const METRIC_FORMATTERS = {
     };
   },
   grammar(s) {
+    const viewed = Number(s.lessons_viewed) || 0;
+    const total = Number(s.catalogue_total) || 0;
+    let sub;
+    if (total && viewed) sub = 'Trong thư viện ' + total + ' bài';
+    else if (total) sub = 'Khám phá ' + total + ' bài học ngữ pháp';
+    else if (viewed) sub = 'Xem lại các bài đã mở';
+    else sub = 'Khám phá bài học ngữ pháp';
     return {
-      primary: { value: String(s.lessons_viewed || 0), unit: 'bài đã xem' },
-      sub: s.lessons_viewed ? 'Xem lại các bài đã đánh dấu' : 'Khám phá 67 bài học ngữ pháp',
+      primary: { value: String(viewed), unit: 'bài đã xem' },
+      sub,
     };
   },
   vocabulary(s) {

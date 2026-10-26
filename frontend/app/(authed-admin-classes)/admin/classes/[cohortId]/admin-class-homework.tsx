@@ -6,6 +6,7 @@ import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-direc
 import type { ApiGetJson } from '@/lib/openapi-contract';
 import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
 import {
+  EXPLANATION_NONE_MESSAGE,
   assignmentSummary,
   dueParts,
   homeworkDraft,
@@ -535,7 +536,8 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
               <label className="ach-policy-card"><input type="radio" name="ach-explanation-mode" checked={editor.webExplanationMode === 'immediate_after_capture'} onChange={() => setEditor({ ...editor, webExplanationMode: 'immediate_after_capture', postTestCaptureRequired: true, error: '' })} /><span><b>Tự mở sau tự đánh giá ngắn</b><small>Bật lựa chọn này đồng thời xác nhận duyệt 40 lời giải của đề; học viên nhận lời giải theo từng bước.</small></span></label>
               <label className="ach-policy-card"><input type="radio" name="ach-explanation-mode" checked={editor.webExplanationMode === 'admin_release'} onChange={() => setEditor({ ...editor, webExplanationMode: 'admin_release', postTestCaptureRequired: true, error: '' })} /><span><b>Giáo viên mở lời giải sau</b><small>Điểm và đáp án thường không bị giữ bởi lựa chọn này; chỉ web explanation chờ giáo viên duyệt.</small></span></label>
             </fieldset>
-            {selectedCatalogItem && selectedCatalogItem.explanation_state !== 'ready' && editor.webExplanationMode !== 'disabled' && <div className="acd-warning">Đang chờ admin duyệt ({selectedCatalogItem.explanation_ready_count ?? '—'}/{selectedCatalogItem.explanation_count ?? '—'} câu). Khi bấm giao, hệ thống sẽ xác nhận duyệt đúng 40 lời giải của đề này; đề thiếu object hoặc có matcher/serving blocker vẫn bị chặn.</div>}
+            {selectedCatalogItem && selectedCatalogItem.explanation_state === 'none' && editor.webExplanationMode !== 'disabled' && <div className="acd-warning" role="alert">{EXPLANATION_NONE_MESSAGE}</div>}
+            {selectedCatalogItem && !['ready', 'none'].includes(selectedCatalogItem.explanation_state) && editor.webExplanationMode !== 'disabled' && <div className="acd-warning">Đang chờ admin duyệt ({selectedCatalogItem.explanation_ready_count ?? '—'}/{selectedCatalogItem.explanation_count ?? '—'} câu). Khi bấm giao, hệ thống sẽ xác nhận duyệt đúng 40 lời giải của đề này; đề thiếu object hoặc có matcher/serving blocker vẫn bị chặn.</div>}
             <label className={`ach-confidence-option${editor.webExplanationMode === 'disabled' ? ' is-disabled' : ''}`}><input type="checkbox" checked={editor.webExplanationMode !== 'disabled' && editor.postTestCaptureRequired} disabled={editor.webExplanationMode === 'disabled'} onChange={(event) => setEditor({ ...editor, postTestCaptureRequired: event.target.checked, error: '' })} /><span><b>Thu mức chắc chắn 1–5 trước khi hiện đáp án</b><small>Không ảnh hưởng điểm. Dùng để phát hiện câu đoán đúng và lỗi hiểu sai nhưng confidence cao.</small></span></label>
             <div className="ach-policy-summary" role="status"><b>Học viên sẽ trải qua:</b> {editor.webExplanationMode === 'disabled'
               ? 'Nộp bài → xem kết quả và phần chữa bài thường.'
