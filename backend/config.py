@@ -200,6 +200,11 @@ class Settings(BaseSettings):
     # per user. Generous: a real student rarely exceeds a few dozen gradings/day;
     # this stops abuse (spamming one question 100×). <= 0 disables the cap.
     MAX_GRADINGS_PER_USER_PER_DAY: int = 200
+    # F05 — POST /tts (OpenAI tts-1) caps. Daily per-user count of
+    # ai_usage_logs feature="question_tts" rows since UTC midnight, plus a
+    # per-worker, per-IP sliding minute window. <= 0 disables either cap.
+    TTS_DAILY_LIMIT_PER_USER: int = 200
+    TTS_IP_MAX_PER_MINUTE: int = 60
 
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False
