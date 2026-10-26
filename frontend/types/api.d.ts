@@ -3943,10 +3943,10 @@ export interface paths {
         post?: never;
         /**
          * Delete Assignment
-         * @description Hard delete — only allowed when the assignment is still
-         *     `pending`.  Anything past pending implies real student/grader
-         *     work has touched the row and silently dropping it would lose
-         *     audit context.
+         * @description Hard delete — only allowed while the student has not started:
+         *     status='pending', no started_at / essay_id and no draft (A-08).
+         *     Anything else implies real student/grader work; deleting would
+         *     cascade the draft away (mig 037) and drop audit context → 409.
          */
         delete: operations["delete_assignment_admin_writing_assignments__assignment_id__delete"];
         options?: never;
@@ -4123,7 +4123,11 @@ export interface paths {
         get: operations["get_assignment_instructor_assignments__assignment_id__get"];
         put?: never;
         post?: never;
-        /** Delete Assignment */
+        /**
+         * Delete Assignment
+         * @description Delete only while the student has not started (A-08): pending, no
+         *     started_at / essay_id / draft — else 409, the draft would cascade away.
+         */
         delete: operations["delete_assignment_instructor_assignments__assignment_id__delete"];
         options?: never;
         head?: never;
