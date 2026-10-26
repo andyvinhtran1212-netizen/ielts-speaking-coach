@@ -65,6 +65,10 @@ export function GrammarCheckup() {
   }, [loadNext, showReport]);
 
   useEffect(() => {
+    // G-01: boot only once signed in — that also means api.js has created
+    // window.api. A direct load used to call window.api.get before the script
+    // arrived and showed "Cannot read properties of undefined (reading 'get')".
+    if (status !== 'signed-in') return;
     if (booted.current) return;
     booted.current = true;
     void (async () => {
@@ -87,7 +91,7 @@ export function GrammarCheckup() {
         setPhase(availability.assigned_only ? 'assigned-only' : 'setup');
       } catch (caught) { setError(messageOf(caught)); setPhase('error'); }
     })();
-  }, [assignmentItem, enterSession, requestedSession, requestedView, router, showReport]);
+  }, [assignmentItem, enterSession, requestedSession, requestedView, router, showReport, status]);
 
   const start = async () => {
     if (busy) return;
@@ -120,7 +124,9 @@ export function GrammarCheckup() {
     finally { setBusy(false); }
   };
 
-  if (phase === 'loading') return <main className="gd-shell"><div className="gd-empty">Đang mở Grammar Check-up…</div></main>;
+  // Until signed in, render only the neutral loading state: no error box or
+  // setup screen may flash before the signed-out redirect (U-03 / G-01).
+  if (status !== 'signed-in' || phase === 'loading') return <main className="gd-shell"><div className="gd-empty">Đang mở Grammar Check-up…</div></main>;
   if (phase === 'error') return <main className="gd-shell"><div className="gd-empty gd-error" role="alert"><strong>Không mở được Grammar Check-up.</strong><p>{error}</p><a className="av-button av-button-secondary" href="/my-class">Quay lại My Class</a></div></main>;
   if (phase === 'assigned-only') return <main className="gd-shell"><div className="gd-empty"><strong>Grammar Check-up đang ở giai đoạn giao qua lớp.</strong><p>Hãy mở bài Grammar giáo viên đã giao trong My Class. Chế độ tự luyện công khai sẽ được mở ở một đợt riêng sau khi hoàn tất đánh giá thực tế.</p><a className="av-button av-button-primary" href="/my-class">Mở My Class</a></div></main>;
 
