@@ -54,6 +54,35 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
+    # Anthropic-primary routing (services/ai_router.py). Text/JSON LLM tasks try
+    # Claude first and fall back automatically — on error, timeout, rate limit,
+    # malformed/invalid output, or a missing ANTHROPIC_API_KEY — to the
+    # feature's existing provider with its existing model and behaviour.
+    # Comma list of "anthropic", "openai", "gemini"; the feature's existing
+    # provider is always kept as the final fallback even if omitted.
+    AI_PROVIDER_ORDER: str = "anthropic,openai,gemini"
+    # Per-feature overrides ("" → AI_PROVIDER_ORDER). Speaking grading keeps
+    # the approved AI-0004 FR-005 chain (Gemini 3.8 primary) until that
+    # requirement is revised; set "anthropic" to put Claude first.
+    AI_PROVIDER_ORDER_SPEAKING_GRADING: str = "gemini"
+    AI_PROVIDER_ORDER_WRITING_GRADING: str = ""
+    AI_PROVIDER_ORDER_COURSE_WRITING: str = ""
+    AI_PROVIDER_ORDER_ADVANCED_VOCAB_REWRITE: str = ""
+    AI_PROVIDER_ORDER_QUESTION_GENERATION: str = ""
+    AI_PROVIDER_ORDER_LISTENING_AUDIT: str = ""
+    # Model per tier: GRADING for band grading, FAST for short structured
+    # tasks. A per-feature ANTHROPIC_MODEL_<FEATURE> wins when non-empty.
+    ANTHROPIC_MODEL_GRADING: str = "claude-sonnet-5-5"
+    ANTHROPIC_MODEL_FAST: str = "claude-haiku-5-5"
+    ANTHROPIC_MODEL_SPEAKING_GRADING: str = ""
+    ANTHROPIC_MODEL_WRITING_GRADING: str = ""
+    ANTHROPIC_MODEL_COURSE_WRITING: str = ""
+    ANTHROPIC_MODEL_ADVANCED_VOCAB_REWRITE: str = ""
+    ANTHROPIC_MODEL_QUESTION_GENERATION: str = ""
+    ANTHROPIC_MODEL_LISTENING_AUDIT: str = ""
+    # Bounds one Claude attempt so a slow call still leaves the fallback time.
+    ANTHROPIC_TIMEOUT_SECONDS: float = 60.0
+
     # Speaking grader primary model (audit 2026-07-02).
     # The Speaking grader used to be hardcoded to Claude Haiku 4.5 — the weakest
     # tier — while the Writing grader already uses Gemini Pro. This knob lets ops

@@ -42,7 +42,7 @@ from models.writing_feedback import (
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
 from services.ai_pricing import estimate_token_cost, token_rate
-from services import ai_usage_logger
+from services import ai_router, ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
 from services.writing_feedback_grounding import (
     GROUNDING_INSTRUCTION,
@@ -75,6 +75,13 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
 
 MAX_RETRIES = 3
 INITIAL_RETRY_DELAY_S = 1.0
+
+# Anthropic-primary attempt (services.ai_router) for the full-feedback pass.
+# Output cap only bounds length; cost follows the actual response. The time
+# budget is added to Deep pass 1 so a slow Claude call still leaves Gemini its
+# original budget (pass 1 + 2 + 3 stay under the 600 s Deep reaper timeout).
+CLAUDE_MAX_TOKENS = 16000
+CLAUDE_TIMEOUT_S = 120.0
 
 # Stable marker substring for a text-only Task 1 grade. The grader prepends
 # _MISSING_IMAGE_CAVEAT (built from this) to overallBandScoreSummary when it
@@ -336,8 +343,11 @@ class GeminiWritingGrader:
             source_essay=config.essay_text,
             source_task_type=config.task_type,
             usage_context=self._usage_context(config, "pass1"),
+            anthropic_feature="writing_grading",
             **extra,
         )
+        # Truthful provenance when the Anthropic-primary attempt served it.
+        model_name = usage.get("served_model") or model_name
 
         feedback = self._parse_response(response_text, schema=WritingFeedback)
 
@@ -348,7 +358,7 @@ class GeminiWritingGrader:
             feedback = self._inject_missing_image_caveat(feedback)
 
         duration_ms = int((time.time() - start) * 1000)
-        cost = self._calculate_cost(
+        cost = usage["cost_usd"] if "cost_usd" in usage else self._calculate_cost(
             model=model_name,
             tokens_in=usage.get("input_tokens"),
             tokens_out=usage.get("output_tokens"),
@@ -395,9 +405,12 @@ class GeminiWritingGrader:
 
         # ── Pass 1: Standard grading ──────────────────────────────────
         try:
+            pass1_timeout = self.DEEP_PASS_TIMEOUTS_S["pass1"]
+            if ai_router.anthropic_position("writing_grading", "gemini"):
+                pass1_timeout += CLAUDE_TIMEOUT_S
             pass1 = await asyncio.wait_for(
                 self._grade_standard(config, loader),
-                timeout=self.DEEP_PASS_TIMEOUTS_S["pass1"],
+                timeout=pass1_timeout,
             )
         except (asyncio.TimeoutError, Exception) as e:
             # Pass 1 is the baseline — if it fails, we cannot degrade
@@ -407,6 +420,9 @@ class GeminiWritingGrader:
             raise
 
         tier_metadata["pass1"] = {
+            # Pass 1 may be served by the Anthropic-primary attempt; passes
+            # 2/3 always run on GEMINI_PRO_MODEL.
+            "model":         pass1.model_used,
             "duration_ms":   pass1.grading_duration_ms,
             "tokens_input":  pass1.tokens_input,
             "tokens_output": pass1.tokens_output,
@@ -447,6 +463,9 @@ class GeminiWritingGrader:
                 pass3_cost=None,
                 tier_metadata=tier_metadata,
                 stamp=f"{deep_stamp}-degraded",
+                # Only Pass 1 produced this feedback; attribute it to the model
+                # that actually served Pass 1 (Claude or Gemini).
+                model_used=pass1.model_used,
             )
 
         pass2_cost = self._calculate_cost(
@@ -642,6 +661,7 @@ class GeminiWritingGrader:
         pass3_cost: Optional[float],
         tier_metadata: dict,
         stamp: str,
+        model_used: Optional[str] = None,
     ) -> GradingResult:
         """Assemble the GradingResult for a Deep run.
 
@@ -667,7 +687,7 @@ class GeminiWritingGrader:
 
         return GradingResult(
             feedback=feedback,
-            model_used=settings.GEMINI_PRO_MODEL,
+            model_used=model_used or settings.GEMINI_PRO_MODEL,
             tokens_input=total_tokens_in,
             tokens_output=total_tokens_out,
             thinking_tokens=total_thinking_tokens,
@@ -827,8 +847,16 @@ class GeminiWritingGrader:
         usage_context: dict | None = None,
         source_essay: str | None = None,
         source_task_type: str | None = None,
+        anthropic_feature: str | None = None,
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
+
+        When ``anthropic_feature`` is set, services.ai_router decides whether one
+        Claude attempt runs before the Gemini loop (default) or after it fails.
+        Claude output must pass the SAME schema + grounding validation; a
+        Claude failure (or missing key) leaves the Gemini loop's behaviour
+        unchanged. A Claude success returns usage with ``served_model`` and
+        ``cost_usd``.
 
         Sprint 19.3.5 — `image` (bytes, mime_type) is sent as a multimodal
         inline Part alongside the text when present (Task 1 Academic chart).
@@ -847,6 +875,58 @@ class GeminiWritingGrader:
 
         if source_essay is not None:
             system_prompt += "\n\n" + GROUNDING_INSTRUCTION
+        position = (ai_router.anthropic_position(anthropic_feature, "gemini")
+                    if anthropic_feature else None)
+        claude_kwargs = dict(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            image=image,
+            parse_schema=parse_schema,
+            usage_context=usage_context,
+            source_essay=source_essay,
+            source_task_type=source_task_type,
+        )
+        if position == "first":
+            served = await self._try_claude(anthropic_feature, **claude_kwargs)
+            if served is not None:
+                return served
+        gemini_kwargs = dict(
+            parse_schema=parse_schema,
+            usage_context=usage_context,
+            source_essay=source_essay,
+            source_task_type=source_task_type,
+        )
+        if position != "after":
+            return await self._gemini_call_with_retry(
+                model_name, system_prompt, user_prompt, image, **gemini_kwargs,
+            )
+        # AI_PROVIDER_ORDER_<FEATURE> places Claude after Gemini: Claude is the
+        # fallback once the whole Gemini loop has failed.
+        try:
+            return await self._gemini_call_with_retry(
+                model_name, system_prompt, user_prompt, image, **gemini_kwargs,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            served = await self._try_claude(anthropic_feature, **claude_kwargs)
+            if served is not None:
+                return served
+            raise
+
+    async def _gemini_call_with_retry(
+        self,
+        model_name: str,
+        system_prompt: str,
+        user_prompt: str,
+        image: Optional[tuple[bytes, str]] = None,
+        *,
+        parse_schema=None,
+        usage_context: dict | None = None,
+        source_essay: str | None = None,
+        source_task_type: str | None = None,
+    ) -> tuple[str, dict]:
+        """The existing Gemini retry loop (system prompt already grounded)."""
         model = genai.GenerativeModel(
             model_name=model_name,
             system_instruction=system_prompt,
@@ -970,6 +1050,72 @@ class GeminiWritingGrader:
         if isinstance(last_error, (InvalidJSONError, UngroundedWritingFeedbackError)):
             raise last_error
         raise APIRetryFailedError(f"All {MAX_RETRIES} retries failed: {last_error}")
+
+    async def _try_claude(
+        self,
+        feature: str,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        image: Optional[tuple[bytes, str]],
+        parse_schema,
+        usage_context: dict | None,
+        source_essay: str | None,
+        source_task_type: str | None,
+    ) -> tuple[str, dict] | None:
+        """One Claude attempt; None means "run the unchanged Gemini path"."""
+
+        def _validate(text: str):
+            if len(text.strip()) < 10:
+                raise InvalidJSONError("Empty/near-empty response from Claude")
+            if parse_schema is not None:
+                parsed = self._parse_response(text, schema=parse_schema)
+                if source_essay is not None:
+                    validate_writing_grounding(parsed, source_essay, task_type=source_task_type)
+            return True
+
+        context = dict(usage_context or {})
+        user_id = context.pop("user_id", None)
+        session_id = context.pop("session_id", None)
+        context.pop("feature", None)
+        operation = context.pop("operation", None) or "grade"
+        event_prefix = context.pop("usage_event_prefix", None)
+        if event_prefix:
+            context["usage_event_id"] = f"{event_prefix}:{operation}:anthropic:1"
+        try:
+            result, _ = await ai_router.call_anthropic(
+                feature,
+                system=system_prompt,
+                user=user_prompt,
+                max_tokens=CLAUDE_MAX_TOKENS,
+                operation=operation,
+                validate=_validate,
+                images=[image] if image is not None else (),
+                user_id=user_id,
+                session_id=session_id,
+                usage_context=context,
+                timeout_seconds=CLAUDE_TIMEOUT_S,
+            )
+        except ai_router.AnthropicAttemptError as exc:
+            logger.warning(
+                "[ai_router] feature=%s provider=anthropic failed (%s) — falling back to gemini",
+                feature, exc.error_code,
+            )
+            return None
+        logger.info("[ai_router] feature=%s served_by=anthropic model=%s", feature, result.model)
+        cost, _ = estimate_token_cost("anthropic", result.model, **result.usage)
+        usage = {
+            # Writing rows record total prompt tokens; the cache split is in
+            # the AI usage ledger row written by ai_router.
+            "input_tokens": (result.usage.get("input_tokens", 0)
+                             + result.usage.get("cache_read_tokens", 0)
+                             + result.usage.get("cache_write_tokens", 0)),
+            "output_tokens": result.usage.get("output_tokens", 0),
+            "thinking_tokens": 0,
+            "served_model": result.model,
+            "cost_usd": round(cost, 6) if cost is not None else None,
+        }
+        return result.text, usage
 
     @staticmethod
     def _usage_context(config: GraderConfig, operation: str) -> dict:
