@@ -18,7 +18,9 @@ finished. No migration. Other sessions' work on the binder or
 1. Dry-run each of the 35 refused Cambridge papers with the staging-merged
    binder (exact commit recorded).
 2. Owner reviews each paper's changed questions, synced forms and grading
-   changes on a review page.
+   changes on a review page that also shows each synced question's
+   `answer_summary` and `marking_note`, so visible text that contradicts a form
+   the REV marks right is caught before commit.
 3. Commit only approved papers with their reviewed plan SHA and lists; read
    back; record evidence in this spec.
 

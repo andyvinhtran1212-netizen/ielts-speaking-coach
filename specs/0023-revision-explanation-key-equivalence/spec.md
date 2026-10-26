@@ -80,8 +80,11 @@ out of scope.
   change, then commits the reviewed plan.
 - Owner: reviews each paper's changed questions, synced forms and grading
   changes before commit.
-- Learner: sees an explanation whose accepted answers match how the REV paper
-  marks them; on the 5 override papers, future attempts accept both sets.
+- Learner: sees the same explanation text as the source paper. The explanation
+  view renders `answer_summary` (or `canonical`) and authored prose, not
+  `accepted_forms`, so a sync changes no visible text; it keeps the copy's
+  structured record equal to how the REV marks, and on the 5 override papers it
+  is what makes future attempts accept both sets.
 
 ## Requirements
 
@@ -132,6 +135,7 @@ out of scope.
 
 - Each refused Cambridge paper is either bound after owner review or refused with a named reason no literal-string rule produced.
 - Every synced question and grading change is listed in the reviewed plan and the read-back.
+- No synced question's visible text (`answer_summary`, `marking_note`) contradicts a form the REV marks right; the owner checks this on the review page.
 - Zero writes to answer keys or learner history.
 
 ## Open questions
