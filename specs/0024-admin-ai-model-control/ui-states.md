@@ -8,7 +8,7 @@
 
 Canonical data ownership: every value comes from the four `/admin/ai/*`
 endpoints. A save never edits local state optimistically: the row shows a
-pending state until the PUT returns the refetched `AdminAiModelsResponse`,
+pending state until the PATCH returns the refetched `AdminAiModelsOut`,
 which replaces the whole models panel. A full reload must show the same values
-as the post-save state. Store status (`ok`, `unavailable`, `not_migrated`,
+as the post-save state. Store status (`ok`, `stale`, `unavailable`, `not_migrated`,
 `not_loaded`) is always visible in the models panel header.

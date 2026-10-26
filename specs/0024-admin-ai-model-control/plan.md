@@ -75,12 +75,12 @@ fn_admin_ai_failure_rollup(p_start timestamptz, p_end timestamptz) -- STABLE, gr
 
 | Method/path | Request | Response |
 | --- | --- | --- |
-| `GET /admin/ai/models` | — | `AdminAiModelsResponse`: `features[]` (feature, label, existing_provider, effective_order[] of {provider, slot, model, model_source}, preferred_provider {value, source}, anthropic_model {value, source}, existing_model {value, source}, override {preferred_provider, anthropic_model, updated_at, updated_by, invalid_fields[]} \| null), `allowlist` {providers per feature, anthropic_models}, `anthropic_key_configured`, `store` {status `ok`/`unavailable`/`not_migrated`/`not_loaded`, last_refreshed_at, ttl_seconds}, `recent_changes[]` (≤20 audit rows; actor id + resolved email) |
-| `PUT /admin/ai/models/{feature}` | `{preferred_provider: str \| null, anthropic_model: str \| null}` | `AdminAiModelsResponse` refetched after the write; 422 on invalid; 503 `ai_override_store_unavailable` when the table is missing or the write fails |
-| `GET /admin/ai/usage?window=today\|7d\|30d` | — | `AdminAiUsageResponse`: window {key, start, end, timezone}, totals, `by_feature[]`, `by_provider[]` (calls, failed_calls, input/output/thinking/cache_read/cache_write tokens, cost_usd, priced_calls, unpriced_calls, legacy_calls), meta {source, legacy_rows} |
-| `GET /admin/ai/failures?window=...` | — | `AdminAiFailuresResponse`: window, totals {failures, fallbacks, retries, final}, `by_provider_feature[]` {provider, feature, total, retry, fallback, final, by_error_type{}}, `recent[]` (≤50), store status |
+| `GET /admin/ai/models` | — | `AdminAiModelsOut`: `features[]` (feature, label, existing_provider, allowed_providers[], effective_order[] of {provider, slot, model, model_source, available, note}, preferred_provider {value, source}, anthropic_model {value, source}, existing_models[] {model, setting, source, note}, override {preferred_provider, anthropic_model, updated_at, updated_by, updated_by_email, invalid_fields[]} \| null), `anthropic_models` (allowlist), `anthropic_key_configured`, `store` {status `ok`/`stale`/`unavailable`/`not_migrated`/`not_loaded`, last_refreshed_at, last_error, ttl_seconds}, `recent_changes[]` (≤20 audit rows; actor id + resolved email) |
+| `PATCH /admin/ai/models/{feature}` | `{preferred_provider: str \| null, anthropic_model: str \| null}` | `AdminAiModelsOut` refetched after the write; 422 on invalid; 503 `ai_override_store_unavailable` when the table is missing or the write fails |
+| `GET /admin/ai/usage?window=today\|7d\|30d` | — | `AdminAiUsageOut`: window {key, start, end, timezone}, totals, `by_feature[]`, `by_provider[]` (calls, failed_calls, input/output/thinking/cache_read/cache_write tokens, cost_usd, priced_calls, unpriced_calls, legacy_calls), meta {source, legacy_rows} |
+| `GET /admin/ai/failures?window=...` | — | `AdminAiFailuresOut`: window, `store_status` (`ok`/`not_migrated`), totals {total, retry, fallback, final}, `by_provider_feature[]` {provider, feature, total, retry, fallback, final, by_error_type{}}, `recent[]` (≤50) |
 
-- Invalid `window` → 422. Failures reading a missing table → `store.status =
+- Invalid `window` → 422. Failures reading a missing table → `store_status =
   not_migrated` with empty data (HTTP 200) so the panel can say so.
 - Backward compatibility: all endpoints are new; no existing response shape
   changes. Frontend consumers derive types from the regenerated OpenAPI file.
@@ -103,6 +103,8 @@ Snapshot: one query for all rows; stale-while-revalidate with a background
 refresher started from the existing FastAPI startup hook (interval = TTL,
 default 30 s, clamped to 30–60 s); each refresh has a 5 s timeout; a failed
 refresh empties the snapshot (env/code defaults) and records the error state;
+a snapshot older than three refresh windows (stalled refresher) is ignored and
+reported as `stale`;
 the saving process replaces its snapshot immediately after a successful write.
 
 ### Failure log (FR-007)
