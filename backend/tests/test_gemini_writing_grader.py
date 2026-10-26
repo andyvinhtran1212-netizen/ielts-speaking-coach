@@ -657,3 +657,70 @@ async def test_claude_repair_is_cut_off_at_the_budget(writing_providers, monkeyp
     assert result.model_used == "gemini-3.8-flash" and len(state.gemini_calls) == 1
     claude_rows = [r for r in state.rows if r["service"] == "claude"]
     assert [r["status"] for r in claude_rows] == ["invalid_response", "cancelled"]
+
+
+def _claude_feedback_with_mistakes(originals: list[str]) -> str:
+    data = json.loads(GOOD_CLAUDE)
+    data["mistakeAnalysis"] = [
+        {"original": o, "mistakeType": "Lexis", "explanation": "...",
+         "suggestion": "A suggested rewrite.", "criterion": "Lexical Resource"}
+        for o in originals
+    ]
+    return json.dumps(data)
+
+
+def _config_with_essay_id() -> GraderConfig:
+    config = _grounded_config()
+    config.usage_resource_id = "essay-abc"
+    return config
+
+
+@pytest.mark.asyncio
+async def test_claude_bounded_misquote_is_dropped_not_regraded(writing_providers):
+    # Staging repro shape (a4eeb1b4): one mistakeAnalysis.original with an
+    # invented subject among otherwise verbatim items.
+    state = writing_providers
+    state.claude = [_claude_feedback_with_mistakes(
+        ["dedicated bus lanes", "it is employment centres", "Governments should invest"])]
+    result = await state.grader.grade_essay(_config_with_essay_id())
+
+    assert result.model_used == "claude-sonnet-5-5"
+    assert len(state.claude_requests) == 1 and state.gemini_calls == []
+    assert [m.original for m in result.feedback.mistakeAnalysis] == [
+        "dedicated bus lanes", "Governments should invest"]
+    (row,) = [r for r in state.rows if r["service"] == "claude"]
+    assert row["status"] == "success"
+    assert row["metadata"]["essay_id"] == "essay-abc"
+    assert row["metadata"]["grounding_dropped"] == ["mistakeAnalysis[1]"]
+    assert row["metadata"]["grounding_dropped_count"] == 1
+    assert "it is employment" not in json.dumps(state.rows, default=str)
+
+
+@pytest.mark.asyncio
+async def test_claude_repair_rows_carry_essay_id_and_name_failed_citations(writing_providers):
+    state = writing_providers
+    state.claude = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    await state.grader.grade_essay(_config_with_essay_id())
+
+    repair = _claude_user_text(state.claude_requests[1])
+    assert '- criteriaFeedback.lexicalResource.feedback: "subsidies"' in repair
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["metadata"]["essay_id"] for r in claude_rows] == ["essay-abc", "essay-abc"]
+    assert claude_rows[0]["metadata"]["error_detail"] == (
+        "Unsupported essay citations at criteriaFeedback.lexicalResource.feedback")
+    assert "grounding_dropped" not in claude_rows[1]["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_gemini_rows_after_claude_fallback_carry_error_detail(writing_providers):
+    state = writing_providers
+    state.claude = [UNGROUNDED_CLAUDE, UNGROUNDED_CLAUDE]
+    state.gemini = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_config_with_essay_id())
+
+    assert result.model_used == "gemini-3.8-flash"
+    gemini_rows = [r for r in state.rows if r["service"] == "gemini"]
+    assert [r["status"] for r in gemini_rows] == ["invalid_response", "success"]
+    assert gemini_rows[0]["error_code"] == "ungrounded_feedback"
+    assert gemini_rows[0]["metadata"]["error_detail"].startswith("Unsupported essay citations at")
+    assert all(r["metadata"]["essay_id"] == "essay-abc" for r in state.rows)

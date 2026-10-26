@@ -278,12 +278,14 @@ def _log_attempt(
     session_id: str | None,
     usage_context: dict[str, Any] | None,
     error_detail: str | None = None,
+    extra_metadata: dict[str, Any] | None = None,
 ) -> None:
     context = dict(usage_context or {})
     metadata = dict(context.pop("metadata", None) or {})
     metadata["route"] = "anthropic_primary"
     if error_detail:
         metadata["error_detail"] = error_detail
+    metadata.update(extra_metadata or {})
     common = dict(
         model=model, user_id=user_id, session_id=session_id,
         feature=feature, operation=operation, status=status,
@@ -308,6 +310,7 @@ async def call_anthropic(
     max_tokens: int,
     operation: str,
     validate: Callable[[str], Any] | None = None,
+    success_metadata: Callable[[Any], dict[str, Any] | None] | None = None,
     images: Sequence[tuple[bytes, str]] = (),
     user_id: str | None = None,
     session_id: str | None = None,
@@ -321,6 +324,8 @@ async def call_anthropic(
     ``validate`` is the caller's existing parser/validator; any exception it
     raises (or a ``None`` return) marks the attempt invalid. Raises
     :class:`AnthropicAttemptError` for every failure so callers fall back.
+    ``success_metadata(parsed)`` may add operational fields (never model
+    output) to the success row's ledger metadata.
     """
     s = _settings(settings_obj)
     api_key = getattr(s, "ANTHROPIC_API_KEY", "") or ""
@@ -389,7 +394,9 @@ async def call_anthropic(
             raise
         raise AnthropicAttemptError(code, detail) from exc
 
-    _log_attempt(status="success", latency_ms=latency, usage=usage, error_code=None, **log)
+    extra = success_metadata(parsed) if success_metadata is not None else None
+    _log_attempt(status="success", latency_ms=latency, usage=usage, error_code=None,
+                 extra_metadata=extra, **log)
     return AnthropicResult(text=text, model=model, usage=usage, latency_ms=latency), parsed
 
 

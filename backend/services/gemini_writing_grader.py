@@ -349,6 +349,7 @@ class GeminiWritingGrader:
             parse_schema=WritingFeedback,   # retry on truncated/malformed body
             source_essay=config.essay_text,
             source_task_type=config.task_type,
+            source_prompt=config.prompt_text,
             usage_context=self._usage_context(config, "pass1"),
             anthropic_feature="writing_grading",
             **extra,
@@ -585,6 +586,7 @@ class GeminiWritingGrader:
             parse_schema=Pass2Refinement,   # retry on truncated/malformed body
             source_essay=config.essay_text,
             source_task_type=config.task_type,
+            source_prompt=config.prompt_text,
             usage_context=self._usage_context(config, "pass2"),
         )
         return self._parse_response(response_text, schema=Pass2Refinement), usage
@@ -611,6 +613,7 @@ class GeminiWritingGrader:
             parse_schema=Pass3Rewrites,   # retry on truncated/malformed body
             source_essay=config.essay_text,
             source_task_type=config.task_type,
+            source_prompt=config.prompt_text,
             usage_context=self._usage_context(config, "pass3"),
         )
         return self._parse_response(response_text, schema=Pass3Rewrites), usage
@@ -854,6 +857,7 @@ class GeminiWritingGrader:
         usage_context: dict | None = None,
         source_essay: str | None = None,
         source_task_type: str | None = None,
+        source_prompt: str | None = None,
         anthropic_feature: str | None = None,
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
@@ -892,6 +896,7 @@ class GeminiWritingGrader:
             usage_context=usage_context,
             source_essay=source_essay,
             source_task_type=source_task_type,
+            source_prompt=source_prompt,
         )
         if position == "first":
             served = await self._try_claude(anthropic_feature, **claude_kwargs)
@@ -902,6 +907,7 @@ class GeminiWritingGrader:
             usage_context=usage_context,
             source_essay=source_essay,
             source_task_type=source_task_type,
+            source_prompt=source_prompt,
         )
         if position != "after":
             return await self._gemini_call_with_retry(
@@ -932,6 +938,7 @@ class GeminiWritingGrader:
         usage_context: dict | None = None,
         source_essay: str | None = None,
         source_task_type: str | None = None,
+        source_prompt: str | None = None,
     ) -> tuple[str, dict]:
         """The existing Gemini retry loop (system prompt already grounded)."""
         model = genai.GenerativeModel(
@@ -991,31 +998,34 @@ class GeminiWritingGrader:
                     await self._log_writing_usage(
                         model_name, usage, usage_context, attempt,
                         attempt_started, status="invalid_response",
+                        error_code="invalid_json",
+                        metadata={"error_detail": "Empty/near-empty response from Gemini"},
                     )
                     attempt_logged = True
                     raise InvalidJSONError("Empty/near-empty response from Gemini")
 
                 # Validate inside the loop so a truncated/malformed body is a
                 # RETRYABLE failure (re-roll with backoff), not a hard fail.
+                grounding: dict = {}
                 if parse_schema is not None:
                     try:
-                        parsed = self._parse_response(response_text, schema=parse_schema)
-                        if source_essay is not None:
-                            validate_writing_grounding(parsed, source_essay, task_type=source_task_type)
+                        response_text, grounding = self._validated_text(
+                            response_text, parse_schema, source_essay,
+                            source_task_type, source_prompt,
+                        )
                     except Exception as validation_error:
                         await self._log_writing_usage(
                             model_name, usage, usage_context, attempt,
                             attempt_started, status="invalid_response",
-                            error_code=("ungrounded_feedback" if isinstance(
-                                validation_error, UngroundedWritingFeedbackError
-                            ) else None),
+                            error_code=ai_router.validation_error_code(validation_error),
+                            metadata={"error_detail": ai_router.rejection_detail(validation_error)},
                         )
                         attempt_logged = True
                         raise
 
                 await self._log_writing_usage(
                     model_name, usage, usage_context, attempt,
-                    attempt_started, status="success",
+                    attempt_started, status="success", metadata=grounding,
                 )
                 attempt_logged = True
 
@@ -1041,6 +1051,8 @@ class GeminiWritingGrader:
                     await self._log_writing_usage(
                         model_name, {}, usage_context, attempt,
                         attempt_started, status="error",
+                        # Class only: provider error text stays in app logs.
+                        metadata={"error_detail": type(e).__name__},
                     )
                 logger.warning(
                     "Gemini grading attempt %d/%d failed: %s",
@@ -1069,6 +1081,7 @@ class GeminiWritingGrader:
         usage_context: dict | None,
         source_essay: str | None,
         source_task_type: str | None,
+        source_prompt: str | None = None,
     ) -> tuple[str, dict] | None:
         """Claude attempt (plus one grounding repair); None means "run the
         unchanged Gemini path"."""
@@ -1076,11 +1089,10 @@ class GeminiWritingGrader:
         def _validate(text: str):
             if len(text.strip()) < 10:
                 raise InvalidJSONError("Empty/near-empty response from Claude")
-            if parse_schema is not None:
-                parsed = self._parse_response(text, schema=parse_schema)
-                if source_essay is not None:
-                    validate_writing_grounding(parsed, source_essay, task_type=source_task_type)
-            return True
+            if parse_schema is None:
+                return text, {}
+            return self._validated_text(text, parse_schema, source_essay,
+                                        source_task_type, source_prompt)
 
         context = dict(usage_context or {})
         user_id = context.pop("user_id", None)
@@ -1101,6 +1113,7 @@ class GeminiWritingGrader:
                 max_tokens=CLAUDE_MAX_TOKENS,
                 operation=operation,
                 validate=_validate,
+                success_metadata=lambda validated: validated[1],
                 images=[image] if image is not None else (),
                 user_id=user_id,
                 session_id=session_id,
@@ -1109,10 +1122,10 @@ class GeminiWritingGrader:
             )
             try:
                 if attempt == 1:
-                    result, _ = await call
+                    result, (text, _) = await call
                 else:
                     remaining = CLAUDE_TOTAL_BUDGET_S - (time.monotonic() - started)
-                    result, _ = await asyncio.wait_for(call, timeout=remaining)
+                    result, (text, _) = await asyncio.wait_for(call, timeout=remaining)
                 break
             except asyncio.TimeoutError:
                 logger.warning(
@@ -1152,7 +1165,26 @@ class GeminiWritingGrader:
             "served_model": result.model,
             "cost_usd": round(cost, 6) if cost is not None else None,
         }
-        return result.text, usage
+        return text, usage
+
+    def _validated_text(self, text: str, schema, source_essay: str | None,
+                        task_type: str | None, prompt_text: str | None) -> tuple[str, dict]:
+        """Schema + grounding validation for one provider answer.
+
+        Returns the text callers should persist and grounding ledger metadata.
+        When bounded list items were dropped, the text is the cleaned schema
+        object so the call site's re-parse sees exactly what was validated.
+        """
+        parsed = self._parse_response(text, schema=schema)
+        if source_essay is None:
+            return text, {}
+        report = validate_writing_grounding(parsed, source_essay, task_type=task_type,
+                                            prompt_text=prompt_text)
+        if report.dropped:
+            logger.warning("[grader] dropped %d ungrounded item(s): %s",
+                           len(report.dropped), ", ".join(report.dropped))
+            text = parsed.model_dump_json()
+        return text, report.metadata()
 
     @staticmethod
     def _usage_context(config: GraderConfig, operation: str) -> dict:
@@ -1165,6 +1197,7 @@ class GeminiWritingGrader:
             "resource_id": config.usage_resource_id,
             "usage_event_prefix": config.usage_event_prefix,
             "metadata": {
+                "essay_id": config.usage_resource_id,
                 "student_id": config.usage_student_id,
                 "task_type": config.task_type,
                 "analysis_level": config.analysis_level,
@@ -1182,8 +1215,11 @@ class GeminiWritingGrader:
         *,
         status: str,
         error_code: str | None = None,
+        metadata: dict | None = None,
     ) -> None:
         context = dict(usage_context or {})
+        if metadata:
+            context["metadata"] = {**(context.get("metadata") or {}), **metadata}
         event_prefix = context.pop("usage_event_prefix", None)
         if event_prefix:
             context["usage_event_id"] = (
