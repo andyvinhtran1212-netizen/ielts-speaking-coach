@@ -30,7 +30,7 @@
 
 ## Production
 
-- Owner authorizes the production migration explicitly. Apply 321 to
+- Owner authorizes the production migration explicitly. Apply 322 to
   production (`huwsmtubwulikhlmcirx`) with the advisory-locked runner before the
   `staging` → `main` promotion that contains the dependent code.
 - Health checks after promotion: `/admin` AI section loads for the owner; store
