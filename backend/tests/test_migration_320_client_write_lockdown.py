@@ -30,12 +30,14 @@ import json
 import os
 import re
 import shutil
+import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import pytest
 
-from test_migration_240_core_attempt_evidence import psql
+from test_migration_240_core_attempt_evidence import DB, psql
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
@@ -182,7 +184,14 @@ def test_default_privileges_target_the_owner_roles_with_a_guard():
     statements = re.findall(r"ALTER DEFAULT PRIVILEGES(.*?)(?:'|;)", CODE, re.S)
     assert statements and all(s.strip().startswith("FOR ROLE %I") for s in statements), statements
     assert re.search(r"rolname IN \('postgres', 'supabase_admin', current_user\)", CODE)
+    assert "OR r.oid IN (SELECT d.defaclrole FROM pg_default_acl d" in CODE, (
+        "every role holding a default ACL in public must be revoked when the runner can act for it")
     assert "pg_has_role(current_user, r.oid, 'MEMBER')" in CODE, "must skip roles the runner cannot act for"
+    # The postcondition uses the same "can act for" rule: strict for those
+    # owners, a WARNING (not a silent skip, not an abort) for the others.
+    assert "pg_has_role(current_user, d.defaclrole, 'MEMBER') AS can_act" in CODE
+    assert "RAISE WARNING 'client_default_write_privilege_not_revocable_by_runner" in CODE
+    assert "RAISE NOTICE" not in CODE
     assert "REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER '\n            'ON TABLES" in SQL
     assert "REVOKE UPDATE ON SEQUENCES" in CODE
     assert "client_default_write_privilege_survives" in CODE and "pg_default_acl" in CODE
@@ -279,9 +288,24 @@ def _client_definers(schema: str) -> str:
                            OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))""")
 
 
-def _client_default_writes(schema: str) -> str:
+def _psql_stderr(sql: str) -> str:
+    """psql() for a statement that must succeed; returns its NOTICE/WARNING output."""
+    parsed = urlparse(DB)
+    if parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or parsed.query:
+        raise RuntimeError("Migration tests require a local disposable database URL")
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("PG")}
+    environment["PGCONNECT_TIMEOUT"] = "3"
+    result = subprocess.run(["psql", DB, "-X", "-v", "ON_ERROR_STOP=1", "-tAq", "-c", sql],
+                            capture_output=True, text=True, timeout=30, env=environment)
+    if result.returncode:
+        raise RuntimeError(result.stderr)
+    return result.stderr
+
+
+def _client_default_writes(schema: str, owner: str | None = None) -> str:
+    owned = f"AND d.defaclrole = '{owner}'::regrole" if owner else ""
     return psql(f"""SELECT count(*) FROM pg_default_acl d CROSS JOIN LATERAL aclexplode(d.defaclacl) a
-                    WHERE d.defaclnamespace = '{schema}'::regnamespace
+                    WHERE d.defaclnamespace = '{schema}'::regnamespace {owned}
                       AND pg_get_userbyid(a.grantee) IN ('anon', 'authenticated')
                       AND ((d.defaclobjtype = 'r' AND a.privilege_type <> 'SELECT')
                            OR (d.defaclobjtype = 'S' AND a.privilege_type = 'UPDATE'))""")
@@ -655,3 +679,80 @@ def test_reapplying_restores_a_hand_regranted_default(db):
     assert _client_default_writes(s) == "1"
     psql(_migrated(s))
     assert _client_default_writes(s) == "0"
+
+
+def test_unrevocable_default_acl_owner_warns_but_existing_relations_stay_strict(db):
+    """Hosted Supabase: the runner `postgres` is not superuser and not a member
+    of `supabase_admin`, whose default ACL in public still grants client writes
+    (production 2026-10-26). Simulated with a non-superuser runner that owns a
+    scratch schema and a second default-ACL owner it is not a member of."""
+    suffix = uuid4().hex[:12]
+    s, runner, platform = f"mig320_scratch_{suffix}", f"mig320_runner_{suffix}", f"mig320_platform_{suffix}"
+    try:
+        psql(f"""
+            CREATE ROLE {runner} NOSUPERUSER;
+            CREATE ROLE {platform} NOSUPERUSER;
+            CREATE SCHEMA {s} AUTHORIZATION {runner};
+            GRANT USAGE ON SCHEMA {s} TO anon, authenticated, service_role;
+            GRANT USAGE, CREATE ON SCHEMA {s} TO {platform};
+            ALTER DEFAULT PRIVILEGES FOR ROLE {runner} IN SCHEMA {s}
+                GRANT ALL ON TABLES TO anon, authenticated, service_role;
+            ALTER DEFAULT PRIVILEGES FOR ROLE {runner} IN SCHEMA {s}
+                GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+            ALTER DEFAULT PRIVILEGES FOR ROLE {platform} IN SCHEMA {s}
+                GRANT ALL ON TABLES TO anon, authenticated, service_role;
+            ALTER DEFAULT PRIVILEGES FOR ROLE {platform} IN SCHEMA {s}
+                GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+            SET ROLE {runner};
+            CREATE TABLE {s}.users (id UUID PRIMARY KEY, role TEXT NOT NULL DEFAULT 'user',
+                                    display_name TEXT, updated_at TIMESTAMPTZ);
+            CREATE TABLE {s}.user_d1_questions (id BIGSERIAL PRIMARY KEY, user_id UUID NOT NULL,
+                                                target_answer TEXT, is_active BOOLEAN);
+            CREATE TABLE {s}.vocabulary_exercise_attempts (
+                id UUID PRIMARY KEY, user_id UUID NOT NULL, feedback JSONB,
+                post_processed_at TIMESTAMPTZ);
+        """)
+        assert psql(f"""SELECT rolsuper::text || pg_has_role('{runner}', '{platform}', 'MEMBER')::text
+                        FROM pg_roles WHERE rolname = '{runner}'""") == "falsefalse"
+        assert int(_client_default_writes(s, runner)) > 0 and int(_client_default_writes(s, platform)) > 0
+
+        stderr = _psql_stderr(f"SET ROLE {runner};\n" + _migrated(s))
+        stderr += _psql_stderr(f"SET ROLE {runner};\n" + _migrated(s))  # still idempotent
+        assert stderr.count("WARNING:  client_default_write_privilege_not_revocable_by_runner") == 2, stderr
+        warned = re.findall(r"not_revocable_by_runner: ([^\n]*)", stderr)[0]
+        assert f"{platform}:r:anon:INSERT" in warned and f"{platform}:S:authenticated:UPDATE" in warned
+        assert runner not in warned, "the runner's own ACL must be revoked, not warned"
+        # The runner's own defaults were revoked and verified strictly…
+        assert _client_default_writes(s, runner) == "0"
+        psql(f"SET ROLE {runner}; CREATE TABLE {s}.created_by_runner (id BIGSERIAL PRIMARY KEY)")
+        assert psql(f"""SELECT has_table_privilege('authenticated', '{s}.created_by_runner', 'INSERT')::text
+                        || has_sequence_privilege('anon', '{s}.created_by_runner_id_seq', 'UPDATE')::text
+                        || has_table_privilege('service_role', '{s}.created_by_runner', 'INSERT')::text""") \
+            == "falsefalsetrue"
+        # …and every existing client write is gone.
+        assert psql(f"""SELECT count(*) FROM pg_class c CROSS JOIN unnest(ARRAY['anon','authenticated']) r
+                        CROSS JOIN unnest(ARRAY['INSERT','UPDATE','DELETE']) p
+                        WHERE c.relnamespace = '{s}'::regnamespace AND c.relkind = 'r'
+                          AND CASE WHEN p = 'DELETE' THEN has_table_privilege(r, c.oid, p)
+                                   ELSE has_any_column_privilege(r, c.oid, p) END
+                          AND NOT (r = 'authenticated' AND c.relname = 'user_d1_questions'
+                                   AND p = 'UPDATE')""") == "0"
+
+        # An EXISTING relation the runner cannot revoke still aborts 320: the
+        # default-ACL warning never relaxes the relation postcondition.
+        psql(f"""SET ROLE {platform};
+                 CREATE TABLE {s}.platform_owned (id BIGINT PRIMARY KEY);
+                 GRANT SELECT ON {s}.platform_owned TO {runner};""")
+        assert psql(f"SELECT has_table_privilege('authenticated', '{s}.platform_owned', 'UPDATE')") == "t"
+        with pytest.raises(RuntimeError) as error:
+            psql(f"SET ROLE {runner};\n" + _migrated(s))
+        assert "client_write_privilege_lockdown_incomplete" in str(error.value)
+        assert "platform_owned:authenticated:INSERT" in str(error.value)
+    finally:
+        psql(f"""DROP SCHEMA IF EXISTS {s} CASCADE;
+                 DO $$ BEGIN
+                   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{runner}') THEN
+                     DROP OWNED BY {runner}; DROP ROLE {runner}; END IF;
+                   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{platform}') THEN
+                     DROP OWNED BY {platform}; DROP ROLE {platform}; END IF;
+                 END $$;""")
