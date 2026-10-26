@@ -2,37 +2,62 @@
 
 ## Architecture impact
 
-- Database privilege layer only: `backend/migrations/320_client_write_privilege_lockdown.sql`.
-- No FastAPI route, frontend component or OpenAPI contract changes. The browser
-  uses supabase-js only for auth; FastAPI writes as `service_role`, except
-  `routers/flashcards.py`, `routers/vocabulary_bank.py` and
-  `routers/exercises.py`, which write learner-owned rows with the learner JWT.
+- Database privilege layer: `backend/migrations/320_client_write_privilege_lockdown.sql`.
+- FastAPI admission: `routers/sessions.require_speaking_entitlement` (active
+  account + session-mode permission, class-assignment sessions entitled by the
+  assignment, any Speaking scope when there is no session) is called after the
+  ownership lookup in `routers/questions.py` (generate, custom, cue-card),
+  `routers/grading.py` (POST responses) and `routers/pronunciation.py`
+  (POST pronunciation/full). No response shape changes; new 403s only.
+- D1 results: `routers/exercises.py` writes `d1_sessions` and
+  `vocabulary_exercise_attempts` through `_service_sb()` (service role) with
+  the verified `user_id`, and seals attempts through the new service-only
+  `fn_finalize_d1_attempt_for_user`; ownership reads stay on the learner JWT.
+- No frontend component or OpenAPI contract changes. The browser uses
+  supabase-js only for auth; FastAPI writes as `service_role`, except
+  `routers/flashcards.py` and `routers/vocabulary_bank.py`, which write
+  learner-owned Vocabulary/flashcard rows with the learner JWT.
 
 ## Data and contracts
 
 - Revoke INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER from PUBLIC, `anon`
-  and `authenticated` on every public relation (`r`, `p`, `v`, `m`, `f`).
+  and `authenticated` on every public relation (`r`, `p`, `v`, `m`, `f`), and
+  sequence UPDATE (setval) from the client roles.
 - Keep `authenticated` INSERT/UPDATE/DELETE on `user_vocabulary`,
-  `user_d1_questions`, `flashcard_stacks`, `flashcard_cards`,
-  `flashcard_reviews`, `flashcard_review_log`, `vocabulary_exercise_attempts`
-  and `d1_sessions` (owner-scoped RLS with WITH CHECK).
-- Revoke the same privileges in the runner role's default privileges.
-- Grant `authenticated` UPDATE on the nine PATCH `/auth/profile` columns of
-  `users`; a SECURITY INVOKER BEFORE UPDATE trigger rejects every other column
-  change when `current_user` or the PostgREST JWT role is a client role.
-- A postcondition checks effective privileges and aborts on any survivor.
+  `flashcard_stacks`, `flashcard_cards`, `flashcard_reviews` and
+  `flashcard_review_log` (owner-scoped RLS with WITH CHECK), plus
+  `UPDATE (is_active)` on `user_d1_questions`.
+- Default privileges: `ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA
+  public` for `postgres`, `supabase_admin` (when present and the runner may act
+  for it) and the runner; tables lose client writes, sequences lose client
+  UPDATE. Function EXECUTE defaults stay unchanged (documented).
+- `users`: no client UPDATE; the dashboard policy becomes `TO authenticated`
+  with USING/WITH CHECK `auth.uid() = id` when it exists; a SECURITY INVOKER
+  BEFORE UPDATE trigger rejects non-profile column changes by client roles.
+  `users_role_check` and `chk_users_role` are untouched.
+- Revoke client EXECUTE on every SECURITY DEFINER trigger function in public
+  (the seven F14 guards) and on the retired `fn_finalize_d1_attempt`.
+- A postcondition checks effective relation, column, sequence, default-ACL,
+  function and policy state and aborts on any survivor.
 
 ## Rollout and rollback
 
-- Staging first through the advisory-locked runner, then production before or
-  together with the promotion. Rollback is a narrow forward grant for a proven
-  legitimate write, never a blanket re-grant. See `rollout.md`.
+- Staging first through the advisory-locked runner, then production together
+  with the backend promotion (the previous backend's D1 writes need the old
+  grants). Rollback is a narrow forward grant for a proven legitimate write,
+  never a blanket re-grant. See `rollout.md`.
 
 ## Verification strategy
 
 - `backend/tests/test_migration_320_client_write_lockdown.py`: static drift
-  guards (allowlist equals learner-JWT write surface, grant equals
-  `ProfileUpdate`, browser has no PostgREST writes) and real PostgreSQL tests
-  that reproduce F01 before the migration and prove F01/F03/F04 closed after
-  two applications.
-- Full backend and frontend suites; staging exploit replay and read-only query.
+  guards (allowlist equals learner-JWT write surface, D1 writes use the service
+  client with the user id, column grant equals the learner write, no users
+  grant, FOR ROLE default privileges, F14 coverage, browser has no PostgREST
+  writes) and real PostgreSQL tests that reproduce F01/F03/F14 and the client
+  default ACLs before the migration and prove each closed after two
+  applications, with trigger guards still firing.
+- `backend/tests/test_speaking_entitlement_guard.py`: guard decisions and
+  endpoint wiring (ownership 404 first, then 403 before any AI call).
+- `backend/tests/test_d1_session.py`: the D1 flow works with a learner client
+  that cannot write results; completion is user-scoped.
+- Full backend and frontend suites; staging exploit replay and read-only queries.
