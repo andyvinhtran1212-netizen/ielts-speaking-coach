@@ -214,7 +214,8 @@ function RatingPanel({ detail, onSave }: { detail: any; onSave: (rating: number,
     <section id="grade-rating-panel" className="grade-section" data-section="grade-rating">
       <header className="section-header"><h2>⭐ Đánh giá chất lượng chấm</h2></header>
       <div className="section-content">
-        <p className="meta-line">Model phụ trách: <span id="gr-model" className="tier-badge">{detail.selected_model || '—'}</span></p>
+        {/* The model that actually produced this grade (Claude primary may serve it, or fall back), not the configured one. */}
+        <p className="meta-line">Model phụ trách: <span id="gr-model" className="tier-badge">{detail.feedback.model_used || detail.selected_model || '—'}</span></p>
         <div id="gr-stars" aria-label="Chất lượng chấm (1–5 sao)">
           {[1, 2, 3, 4, 5].map((value) => <button key={value} className="gr-star" type="button" aria-label={`${value} sao`} aria-pressed={rating === value} onClick={() => setRating(value)}>{value <= rating ? '★' : '☆'}</button>)}
         </div>
