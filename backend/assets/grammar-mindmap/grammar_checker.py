@@ -476,8 +476,13 @@ VI_LEARNER_RULES: List[Dict[str, Any]] = [
         # is "have" + (adverb) + past participle. "Since last year I live here."
         # and "Since last year I have a dog." stay flagged.
         "skip_requires_match_from_verb": re.compile(
+            # Regular participles need a 3+ letter stem ("red", "bed" are not), and
+            # -en/-wn participles are listed explicitly ("green", "golden" are not).
             r"have(?:\s+(?:always|never|just|already|ever|not|really|only|also))?"
-            r"\s+(?:[a-z]+(?:ed|en|wn)|been|had|done|gone|got|made|taught|thought|felt"
+            r"\s+(?:(?!(?:speed|breed|greed|hundred|sacred|naked|wicked|beloved|crooked)\b)[a-z]{3,}ed"
+            r"|been|seen|taken|given|written|eaten|spoken|chosen|driven|forgotten|gotten|known"
+            r"|grown|shown|thrown|drawn|flown|broken|fallen|ridden|hidden|woken|stolen|beaten"
+            r"|proven|had|done|gone|got|made|taught|thought|felt"
             r"|kept|left|met|found|told|said|read|heard|won|lost|built|bought|brought"
             r"|caught|sung|drunk|run|come|become|sat|stood|understood|slept|spent|put)\b",
             re.IGNORECASE),

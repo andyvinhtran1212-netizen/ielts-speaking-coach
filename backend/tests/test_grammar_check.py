@@ -559,6 +559,8 @@ _RULE_PAST_MARKER = "LOCAL_PAST_TIME_MARKER_PRESENT_VERB"
     ("For the last week I have studied every day.", _RULE_PAST_MARKER),
     ("Since last year I have always been busy.", _RULE_PAST_MARKER),
     ("Since last month we have taken three tests.", _RULE_PAST_MARKER),
+    ("Since last year I have worked here.", _RULE_PAST_MARKER),
+    ("Since last year we have grown a lot.", _RULE_PAST_MARKER),
 ])
 def test_asset_rules_skip_embedded_if_and_present_perfect(sentence, rule_id):
     assert not [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence
@@ -578,6 +580,10 @@ def test_asset_rules_skip_embedded_if_and_present_perfect(sentence, rule_id):
     ("Since last month we work together.", _RULE_PAST_MARKER),
     ("Since last year I have a dog.", _RULE_PAST_MARKER),
     ("In the last year I live in Hanoi.", _RULE_PAST_MARKER),
+    # Adjective / noun complements of possessive "have" are not participles.
+    ("Since last year I have red hair.", _RULE_PAST_MARKER),
+    ("Since last year I have green eyes.", _RULE_PAST_MARKER),
+    ("Since last month I have a golden ticket.", _RULE_PAST_MARKER),
 ])
 def test_asset_rules_still_flag_conditional_will_and_past_marker(sentence, rule_id):
     assert [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence
