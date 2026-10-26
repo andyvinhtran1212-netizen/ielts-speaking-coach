@@ -14,3 +14,5 @@
 | FR-008 | kind=query; ref=https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1692; 319 applied under advisory lock 173204 with ledger re-check: staging 2026-10-26 04:24:47Z, production 04:53:19Z, before promotion; only pending file in both ledgers; #1699 uses 320 | PASS |
 
 Each further REV binding adds its own FR-007 record (T008).
+
+- 2026-10-26 batch: 30 papers, owner review per paper, staging rehearsal option A, plan SHAs re-verified before commit, read-back 30/30 at 40/40: [batch-2026-10-26.md](batch-2026-10-26.md) — PASS.
