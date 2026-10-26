@@ -260,6 +260,22 @@ def _writing_existing_models(s: Any) -> list[dict[str, str]]:
     ]
 
 
+def routing_bypass_reason(feature: str, settings_obj: Any | None = None) -> str | None:
+    """Why a routed feature currently does not go through ai_router, if so.
+
+    Mirrors ``routers/listening._audit_provider``: only a Gemini
+    ``LISTENING_AUDIT_MODEL`` is wrapped by the router; any other model is
+    called directly, so admin overrides would have no effect.
+    """
+    s = _settings(settings_obj)
+    if feature == "listening_audit":
+        model = str(getattr(s, "LISTENING_AUDIT_MODEL", "") or "")
+        if not model.lower().startswith("gemini"):
+            return (f"LISTENING_AUDIT_MODEL={model or '(trống)'} được gọi trực tiếp, "
+                    "không qua ai_router; lựa chọn ưu tiên không áp dụng.")
+    return None
+
+
 def _failure_outcome(feature: str, s: Any) -> str:
     """After a Claude failure: does an existing-provider fallback follow?"""
     order = effective_order(feature, ai_model_overrides.EXISTING_PROVIDERS.get(feature, "gemini"), s)

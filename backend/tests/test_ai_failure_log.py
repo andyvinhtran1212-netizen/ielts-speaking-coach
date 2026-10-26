@@ -229,24 +229,68 @@ async def test_with_fallback_final_existing_failure(failures, claude_first):
 # ── Claude-after-Gemini call site ──────────────────────────────────────────
 
 
+class ResourceExhausted(Exception):
+    """Stand-in with the google.api_core class name (429)."""
+
+
+class _FakeGemini:
+    def __init__(self, outcome):
+        self.outcome = outcome
+
+    async def generate_content_async(self, _prompt):
+        if isinstance(self.outcome, BaseException):
+            raise self.outcome
+        from types import SimpleNamespace
+        return SimpleNamespace(text=self.outcome, usage_metadata=None)
+
+
+@pytest.mark.parametrize("outcome, error_type, error_code", [
+    (asyncio.TimeoutError(), "timeout", "timeout"),
+    (ResourceExhausted(SECRET), "rate_limit", "ResourceExhausted"),
+    ("not json " + SECRET, "invalid_json", "invalid_json"),
+    ('{"results": []}', "invalid_json", "missing_or_invalid_result"),
+])
 @pytest.mark.asyncio
-async def test_course_writing_records_the_gemini_failure_before_claude(failures, claude_first, monkeypatch):
+async def test_course_writing_records_the_real_gemini_error_before_claude(
+    failures, claude_first, monkeypatch, outcome, error_type, error_code,
+):
     from services import course_writing_grader as cw
 
     monkeypatch.setattr(settings, "AI_PROVIDER_ORDER_COURSE_WRITING", "gemini,anthropic")
-
-    async def gemini(batch, prompt, **_kw):
-        return [], "gemini-3.5-flash-lite", "timeout"
+    monkeypatch.setattr(cw, "_model", lambda: ("gemini-3.5-flash-lite", _FakeGemini(outcome)))
 
     async def claude(batch, payload_json, **_kw):
         return ["served"], "claude-haiku-5-5", None
 
-    monkeypatch.setattr(cw, "_grade_batch_gemini", gemini)
     monkeypatch.setattr(cw, "_grade_batch_claude", claude)
     result = await cw._grade_batch([{"qid": 1, "prompt": SECRET, "answer": SECRET}])
     assert result[1] == "claude-haiku-5-5"
-    assert [(r["feature"], r["provider"], r["model"], r["error_type"], r["outcome"]) for r in failures] == [
-        ("course_writing", "gemini", "gemini-3.5-flash-lite", "timeout", "fallback"),
+    assert [(r["feature"], r["provider"], r["model"], r["error_type"], r["error_code"], r["outcome"])
+            for r in failures] == [
+        ("course_writing", "gemini", "gemini-3.5-flash-lite", error_type, error_code, "fallback"),
+    ]
+    _assert_no_content(failures)
+
+
+@pytest.mark.asyncio
+async def test_gemini_failure_is_not_logged_when_no_claude_follows(failures, claude_first, monkeypatch):
+    from services import course_writing_grader as cw
+
+    # Claude first: a Gemini failure is the final answer, outside FR-007's hand-over.
+    monkeypatch.setattr(cw, "_model", lambda: ("gemini-3.5-flash-lite", _FakeGemini(asyncio.TimeoutError())))
+    await cw._grade_batch_gemini([{"qid": 1, "prompt": "p", "answer": "a"}], "prompt")
+    assert failures == []
+
+
+@pytest.mark.asyncio
+async def test_vocab_rewrite_records_the_real_gemini_error_before_claude(failures, claude_first, monkeypatch):
+    from services import advanced_vocab_rewrite_grader as vr
+
+    monkeypatch.setattr(settings, "AI_PROVIDER_ORDER_ADVANCED_VOCAB_REWRITE", "gemini,anthropic")
+    monkeypatch.setattr(vr, "_model", lambda: ("gemini-3.5-flash-lite", _FakeGemini(ResourceExhausted())))
+    await vr._grade_gemini([{"item_id": "i1", "prompt": "p", "answer": SECRET}], "[]", user_id="u-1")
+    assert [(r["feature"], r["error_type"], r["error_code"], r["outcome"]) for r in failures] == [
+        ("advanced_vocab_rewrite", "rate_limit", "ResourceExhausted", "fallback"),
     ]
     _assert_no_content(failures)
 

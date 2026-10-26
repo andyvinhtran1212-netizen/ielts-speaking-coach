@@ -339,16 +339,22 @@ async def _grade_batch(
     gemini = await _grade_batch_gemini(batch, prompt, usage_user_id=usage_user_id)
     if position == "after" and gemini[2] is not None:
         # Claude configured as the fallback for a failed Gemini batch.
-        ai_router.record_fallback(
-            "course_writing", provider="gemini",
-            model=gemini[1] or settings.COURSE_WRITING_MODEL, error_code=gemini[2],
-        )
         claude = await _grade_batch_claude(
             batch, payload_json, usage_user_id=usage_user_id,
         )
         if claude is not None:
             return claude
     return gemini
+
+
+def _note_gemini_failure(name: str | None, code: str) -> None:
+    """AIOPS-0024 FR-007: record the real Gemini error when Claude is the
+    configured fallback after it (``gemini[2]`` is only a retry category)."""
+    if ai_router.anthropic_position("course_writing", "gemini") == "after":
+        ai_router.record_fallback(
+            "course_writing", provider="gemini",
+            model=name or settings.COURSE_WRITING_MODEL, error_code=code,
+        )
 
 
 async def _grade_batch_gemini(
@@ -366,6 +372,7 @@ async def _grade_batch_gemini(
         name, model = _model()
     except Exception as exc:  # noqa: BLE001
         logger.error("[course-writing] không dựng được client: %s", exc)
+        _note_gemini_failure(None, "model_config")
         return (_fallback(batch, "Bộ chấm chưa sẵn sàng."), None,
                 _BATCH_PROVIDER_FAILURE)
 
@@ -384,6 +391,7 @@ async def _grade_batch_gemini(
             metadata={"item_count": len(batch)},
         ))
         logger.error("[course-writing] model quá hạn %ss", _TIMEOUT_SECONDS)
+        _note_gemini_failure(name, "timeout")
         return (_fallback(batch, "Bộ chấm không phản hồi kịp."), name,
                 _BATCH_PROVIDER_FAILURE)
     except Exception as exc:  # noqa: BLE001
@@ -397,6 +405,7 @@ async def _grade_batch_gemini(
             error_code=type(exc).__name__,
             metadata={"item_count": len(batch)},
         ))
+        _note_gemini_failure(name, type(exc).__name__)
         # Lỗi thô của SDK ở lại log; học viên nhận một câu đọc được.
         #
         # PHÂN BIỆT HỎNG TẠM VỚI HỎNG HẲN. Model bị ngừng cấp trả 404 và sẽ trả
@@ -431,6 +440,7 @@ async def _grade_batch_gemini(
         by_qid = {r.get("qid"): r for r in (results or []) if isinstance(r, dict)}
     except Exception as exc:  # noqa: BLE001
         log_response(status="invalid_response", error_code="invalid_json")
+        _note_gemini_failure(name, "invalid_json")
         logger.error("[course-writing] không đọc được JSON: %s", exc)
         return (_fallback(batch, "Bộ chấm trả về kết quả không đọc được."), name,
                 _BATCH_RESPONSE_FAILURE)
@@ -440,6 +450,8 @@ async def _grade_batch_gemini(
         status="invalid_response" if failure_kind else "success",
         error_code="missing_or_invalid_result" if failure_kind else None,
     )
+    if failure_kind:
+        _note_gemini_failure(name, "missing_or_invalid_result")
     return out, name, failure_kind
 
 

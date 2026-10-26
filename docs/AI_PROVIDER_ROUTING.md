@@ -54,6 +54,9 @@ preference puts that chain first (the slot follows it only when the env/code
 order includes Claude). A DB preference wins over the production pin
 `AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini`, so choosing Claude for Speaking in
 production is bound by the same constitution §6 gate described below.
+`listening_audit` is controllable only while `LISTENING_AUDIT_MODEL` is a Gemini
+model; any other model is called directly (not through the router), so the
+dashboard shows it as `direct` and refuses an override for it.
 
 Each backend process reads the table into memory at startup and then every
 `AI_MODEL_OVERRIDE_TTL_SECONDS` (default 30, clamped to 30–60) in a background

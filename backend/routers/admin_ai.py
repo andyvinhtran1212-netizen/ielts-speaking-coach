@@ -20,7 +20,7 @@ from models.admin_ai import (
     AdminAiUsageOut,
 )
 from routers.admin import _actor_id, require_admin
-from services import admin_ai_dashboard, ai_model_overrides
+from services import admin_ai_dashboard, ai_model_overrides, ai_router
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,12 @@ async def patch_ai_model_override(
 ):
     """Set or clear (null) a feature's preferred provider / Claude model."""
     admin = await require_admin(authorization)
+    bypass = ai_router.routing_bypass_reason(feature, settings)
+    if bypass and (body.preferred_provider is not None or body.anthropic_model is not None):
+        # Clearing (both null) stays allowed so a stale row can be removed.
+        raise HTTPException(422, detail={
+            "error_code": "ai_override_invalid", "field": "feature", "message": bypass,
+        })
     try:
         await ai_model_overrides.save(
             feature,

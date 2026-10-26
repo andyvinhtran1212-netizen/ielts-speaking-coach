@@ -154,6 +154,26 @@ def test_models_endpoint_reports_chain_models_and_sources(db, as_admin, monkeypa
     assert body["store"]["status"] == "ok"
 
 
+def test_listening_audit_on_a_claude_model_is_reported_as_direct_and_not_controllable(db, as_admin, monkeypatch):
+    from config import settings
+
+    monkeypatch.setattr(settings, "LISTENING_AUDIT_MODEL", "claude-sonnet-5")
+    body = TestClient(app).get("/admin/ai/models").json()
+    listening = next(f for f in body["features"] if f["feature"] == "listening_audit")
+    assert listening["allowed_providers"] == []
+    assert "LISTENING_AUDIT_MODEL=claude-sonnet-5" in listening["routing_note"]
+    assert [(s["provider"], s["slot"], s["model"]) for s in listening["effective_order"]] == [
+        ("anthropic", "direct", "claude-sonnet-5")]
+
+    response = TestClient(app).patch("/admin/ai/models/listening_audit",
+                                     json={"preferred_provider": "gemini", "anthropic_model": "claude-haiku-5-5"})
+    assert response.status_code == 422 and response.json()["detail"]["field"] == "feature"
+    assert db.writes() == []
+    # Clearing a stale row is still allowed.
+    assert TestClient(app).patch("/admin/ai/models/listening_audit", json={}).status_code == 200
+    assert [table for table, _ in db.writes()] == ["ai_model_overrides"]
+
+
 def test_models_endpoint_without_the_migration_still_answers(db, as_admin):
     db.errors["ai_model_override_audit"] = _Missing("Could not find the table")
     body = TestClient(app).get("/admin/ai/models").json()

@@ -13945,6 +13945,8 @@ export interface components {
             existing_provider: string;
             /** Allowed Providers */
             allowed_providers: string[];
+            /** Routing Note */
+            routing_note?: string | null;
             /** Effective Order */
             effective_order: components["schemas"]["AiChainStepOut"][];
             preferred_provider: components["schemas"]["AiSourcedValueOut"];

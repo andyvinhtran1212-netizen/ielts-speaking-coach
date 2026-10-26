@@ -138,6 +138,7 @@ function FeatureRow({
   models,
   draft,
   saving,
+  busy,
   rowError,
   onDraft,
   onSave,
@@ -146,12 +147,16 @@ function FeatureRow({
   models: string[];
   draft: Draft;
   saving: boolean;
+  // Any save in flight: saves are serialized so an older full response can
+  // never overwrite a newer one.
+  busy: boolean;
   rowError: string | null;
   onDraft: (draft: Draft) => void;
   onSave: () => void;
 }) {
   const saved = draftFor(feature);
   const changed = draft.provider !== saved.provider || draft.model !== saved.model;
+  const controllable = feature.allowed_providers.length > 0;
   const providerId = `ai-pref-${feature.feature}`;
   const modelId = `ai-model-${feature.feature}`;
   return (
@@ -179,6 +184,7 @@ function FeatureRow({
           {' · '}Model Claude: <code className="ai-code">{feature.anthropic_model.value}</code>{' '}
           <SourceBadge source={feature.anthropic_model.source} />
         </p>
+        {feature.routing_note && <p className="ai-warning">{feature.routing_note}</p>}
         {!!feature.override?.invalid_fields?.length && (
           <p className="ai-warning">
             Giá trị DB không hợp lệ đã bị bỏ qua: {(feature.override.invalid_fields ?? []).join(', ')}
@@ -190,7 +196,7 @@ function FeatureRow({
         <select
           id={providerId}
           value={draft.provider}
-          disabled={saving}
+          disabled={busy || !controllable}
           onChange={(event) => onDraft({ ...draft, provider: event.target.value })}
         >
           <option value="">Mặc định (env/code)</option>
@@ -204,7 +210,7 @@ function FeatureRow({
         <select
           id={modelId}
           value={draft.model}
-          disabled={saving}
+          disabled={busy || !controllable}
           onChange={(event) => onDraft({ ...draft, model: event.target.value })}
         >
           <option value="">Mặc định (env/code)</option>
@@ -215,7 +221,7 @@ function FeatureRow({
         <button
           type="button"
           className="btn-primary"
-          disabled={!changed || saving}
+          disabled={!changed || busy}
           onClick={onSave}
           aria-label={`Lưu lựa chọn cho ${feature.label}`}
         >
@@ -257,6 +263,7 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
   useEffect(() => { void load(); }, [load]);
 
   const save = async (feature: FeatureConfig) => {
+    if (saving !== null) return;
     const draft = drafts[feature.feature] || draftFor(feature);
     setSaving(feature.feature);
     setRowErrors((current) => ({ ...current, [feature.feature]: '' }));
@@ -311,6 +318,7 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
                   models={data.anthropic_models}
                   draft={drafts[feature.feature] || draftFor(feature)}
                   saving={saving === feature.feature}
+                  busy={saving !== null}
                   rowError={rowErrors[feature.feature] || null}
                   onDraft={(draft) => setDrafts((current) => ({ ...current, [feature.feature]: draft }))}
                   onSave={() => void save(feature)}

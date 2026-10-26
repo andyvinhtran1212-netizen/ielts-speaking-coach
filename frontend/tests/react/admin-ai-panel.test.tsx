@@ -252,4 +252,36 @@ describe('AdminAiPanel', () => {
     fireEvent.click(within(screen.getByRole('region', { name: 'Model đang dùng theo tính năng' })).getByRole('button', { name: 'Thử lại' }));
     expect(await screen.findByRole('row', { name: /Chấm Writing/ })).toBeTruthy();
   });
+
+  it('serializes saves so an older full response cannot overwrite a newer one', async () => {
+    render(<AdminAiPanel />);
+    fireEvent.change(await screen.findByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing'), { target: { value: 'gemini' } });
+    fireEvent.change(screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi'), { target: { value: 'gemini' } });
+    const pending = deferred<AdminAiModelsWire>();
+    api.patchAdminAiModel.mockReturnValueOnce(pending.promise);
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+
+    const other = screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }) as HTMLButtonElement;
+    expect(other.disabled).toBe(true);
+    fireEvent.click(other);
+    expect(api.patchAdminAiModel).toHaveBeenCalledTimes(1);
+    expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi') as HTMLSelectElement).disabled).toBe(true);
+
+    await act(async () => pending.resolve(models()));
+    expect((screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi') as HTMLSelectElement).disabled).toBe(false);
+  });
+
+  it('shows a routing note and disables controls for a feature that bypasses the router', async () => {
+    api.getAdminAiModels.mockResolvedValueOnce(models({
+      features: [feature('course_writing', {
+        allowed_providers: [],
+        routing_note: 'LISTENING_AUDIT_MODEL=claude-sonnet-5 được gọi trực tiếp, không qua ai_router; lựa chọn ưu tiên không áp dụng.',
+      })],
+    }));
+    render(<AdminAiPanel />);
+    expect(await screen.findByText(/được gọi trực tiếp, không qua ai_router/)).toBeTruthy();
+    expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi') as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Model Claude cho Soát bài tự luận theo buổi') as HTMLSelectElement).disabled).toBe(true);
+  });
 });

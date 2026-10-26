@@ -126,6 +126,28 @@ def _configured_preference(feature: str, s: Any) -> str:
 def describe_feature(feature: str, s: Any, emails: dict[str, str]) -> dict[str, Any]:
     existing = ai_model_overrides.EXISTING_PROVIDERS[feature]
     existing_models = ai_router.existing_models(feature, s)
+    bypass = ai_router.routing_bypass_reason(feature, s)
+    if bypass:
+        direct = existing_models[0] if existing_models else {}
+        model = direct.get("model") or None
+        provider = ai_failure_log.provider_for(None, model)
+        source = direct.get("source", "code_default")
+        return {
+            "feature": feature,
+            "label": FEATURE_LABELS.get(feature, feature),
+            "existing_provider": existing,
+            "allowed_providers": [],
+            "routing_note": bypass,
+            "effective_order": [{
+                "provider": provider, "slot": "direct", "model": model,
+                "model_source": source, "available": bool(model), "note": "",
+            }],
+            "preferred_provider": {"value": provider, "source": source},
+            "anthropic_model": {"value": model if provider == "anthropic" else None,
+                                "source": source},
+            "existing_models": existing_models,
+            "override": _override_out(feature, emails),
+        }
     if feature == "speaking_grading":
         steps = _slot_steps_speaking(s)
     else:
@@ -149,22 +171,12 @@ def describe_feature(feature: str, s: Any, emails: dict[str, str]) -> dict[str, 
                                       if m.get("note")),
                 })
 
-    stored = ai_model_overrides.all_overrides().get(feature)
-    override = None
-    if stored is not None:
-        override = {
-            "preferred_provider": stored.preferred_provider,
-            "anthropic_model": stored.anthropic_model,
-            "updated_at": stored.updated_at,
-            "updated_by": stored.updated_by,
-            "updated_by_email": emails.get(stored.updated_by or ""),
-            "invalid_fields": list(stored.invalid_fields),
-        }
     return {
         "feature": feature,
         "label": FEATURE_LABELS.get(feature, feature),
         "existing_provider": existing,
         "allowed_providers": list(ai_model_overrides.allowed_providers(feature)),
+        "routing_note": None,
         "effective_order": steps,
         "preferred_provider": {
             "value": _configured_preference(feature, s),
@@ -175,7 +187,21 @@ def describe_feature(feature: str, s: Any, emails: dict[str, str]) -> dict[str, 
             "source": ai_router.anthropic_model_source(feature, s),
         },
         "existing_models": existing_models,
-        "override": override,
+        "override": _override_out(feature, emails),
+    }
+
+
+def _override_out(feature: str, emails: dict[str, str]) -> dict[str, Any] | None:
+    stored = ai_model_overrides.all_overrides().get(feature)
+    if stored is None:
+        return None
+    return {
+        "preferred_provider": stored.preferred_provider,
+        "anthropic_model": stored.anthropic_model,
+        "updated_at": stored.updated_at,
+        "updated_by": stored.updated_by,
+        "updated_by_email": emails.get(stored.updated_by or ""),
+        "invalid_fields": list(stored.invalid_fields),
     }
 
 

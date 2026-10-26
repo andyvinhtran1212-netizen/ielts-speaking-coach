@@ -55,7 +55,9 @@ class AiFeatureConfigOut(_StrictOut):
     feature: str
     label: str
     existing_provider: str
+    # Empty when the feature currently bypasses ai_router (see routing_note).
     allowed_providers: list[str]
+    routing_note: str | None = None
     effective_order: list[AiChainStepOut]
     preferred_provider: AiSourcedValueOut
     anthropic_model: AiSourcedValueOut
