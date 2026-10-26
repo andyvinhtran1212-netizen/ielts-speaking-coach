@@ -11,8 +11,6 @@ import asyncio
 import json
 import logging
 import math
-import random
-import string
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlparse
 
@@ -41,6 +39,9 @@ from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard, ai_usage_logger
+from services.access_code_gen import (
+    generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
+)
 from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
@@ -167,13 +168,9 @@ def _audit_entitlement(
 
 
 def _gen_code() -> str:
-    """Generate a random access code in the format XXXX-XXXX."""
-    chars = string.ascii_uppercase + string.digits
-    return (
-        "".join(random.choices(chars, k=4))
-        + "-"
-        + "".join(random.choices(chars, k=4))
-    )
+    """Generate a CSPRNG access code in the format XXXX-XXXX-XXXX (F07).
+    Kept as a shim: routers/instructor.py imports it."""
+    return generate_access_code()
 
 
 def _utc_now_iso() -> str:
@@ -1081,7 +1078,6 @@ async def generate_access_codes(
     if grants_role == "instructor" and not intended_email:
         raise HTTPException(400, "Mã instructor bắt buộc có intended_email (ràng buộc theo email).")
 
-    codes = [_gen_code() for _ in range(body.count)]
     row_base: dict = {
         "is_used": False,
         "is_active": True,
@@ -1101,10 +1097,12 @@ async def generate_access_codes(
         row_base["grants_role"] = grants_role
     if intended_email is not None:
         row_base["intended_email"] = intended_email
-    rows = [{**row_base, "code": c} for c in codes]
+    rows = [dict(row_base) for _ in range(body.count)]
 
     try:
-        result = supabase_admin.table("access_codes").insert(rows).execute()
+        result, codes = insert_with_unique_codes(
+            lambda: supabase_admin.table("access_codes"), rows,
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tạo access codes: {exc}")
 
@@ -2454,7 +2452,6 @@ def _issue_code_and_assign(*, user_id: str, admin_id: str | None, reason: str | 
     audit. Returns the new code row. Sets is_used/used_by/used_at AT ISSUANCE (the
     code's initial state) — this is the first write, not a mutation of a used code."""
     row = {
-        "code":        _gen_code(),
         "is_used":     True,
         "used_by":     user_id,
         "used_at":     _now_iso(),
@@ -2467,8 +2464,8 @@ def _issue_code_and_assign(*, user_id: str, admin_id: str | None, reason: str | 
         row["session_limit"] = session_limit
     if expires_at is not None:
         row["expires_at"] = expires_at
-    res = supabase_admin.table("access_codes").insert(row).execute()
-    new_code = (res.data or [row])[0]
+    res, code = insert_one_with_unique_code(lambda: supabase_admin.table("access_codes"), row)
+    new_code = (res.data or [{**row, "code": code}])[0]
     _assign_user_to_code(new_code["id"], user_id, admin_id, reason)
     return new_code
 
