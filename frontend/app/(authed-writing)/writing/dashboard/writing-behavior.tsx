@@ -42,6 +42,7 @@ import { getBrowserJson } from '@/lib/browser-api';
 import { normalizeWritingContentList } from '@/lib/writing-content-navigation.mjs';
 import { createWritingContentDialog } from '@/lib/writing-content-dialog';
 import { getWithTimeout, withDeadline } from '@/lib/request-with-timeout.mjs';
+import { renderTipBody, upgradeTipWhenRendererArrives, waitForTipRenderer } from '@/lib/writing-tip-markdown.mjs';
 import {
   clearWritingBootstrapError,
   runWritingBootstrap,
@@ -689,10 +690,26 @@ function renderTipModal(tip: any) {
     }).join('') + '</ol></div>';
   }
 
-  const bodyHtml = (window as any).renderMarkdown ? (window as any).renderMarkdown(tip.body_markdown) : '';
+  // `prepare` đã chờ renderer có hạn; nếu vẫn chưa có thì hiện plaintext đã
+  // escape (không bao giờ thân rỗng) và nâng cấp khi script tới muộn.
+  const body = renderTipBody(tip.body_markdown, getTipRenderer());
   const bodyEl = $('tip-modal-body');
-  if (bodyEl) bodyEl.innerHTML = head + bodyHtml;
+  if (bodyEl) bodyEl.innerHTML = head + body.html;
   if ((window as any).lucide && (window as any).lucide.createIcons) (window as any).lucide.createIcons();
+  if (!body.markdown) {
+    void upgradeTipWhenRendererArrives(getTipRenderer, () => tipModalShowing(tip.id), () => renderTipModal(tip));
+  }
+}
+
+function getTipRenderer() {
+  return (window as any).renderMarkdown;
+}
+
+function tipModalShowing(id: string) {
+  const modal = $('tip-modal');
+  return Boolean(modal && !modal.classList.contains('hidden')
+    && modal.dataset.contentKind === 'tip' && modal.dataset.contentId === id
+    && modal.dataset.contentState === 'ready');
 }
 
 async function loadPromptBank(api: any, ps: PageState) {
@@ -1848,6 +1865,7 @@ export function WritingBehavior() {
         account: user.id, current: isCurrent,
         read: kind => kind === 'tip' ? loadTips(api, ps) : loadPromptBank(api, ps),
         render: (kind, item) => kind === 'tip' ? renderTipModal(item) : renderPromptModal(item),
+        prepare: kind => kind === 'tip' ? waitForTipRenderer(getTipRenderer) : Promise.resolve(),
         selectTab: tab => setTabActive(tab, ps, api),
         filters: () => ({ tipFilter: ps.tipFilter, tipTypeFilter: ps.tipTypeFilter, pbFilter: ps.pbFilter }),
         restoreFilters: filters => {
