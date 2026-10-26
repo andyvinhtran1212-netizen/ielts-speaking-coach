@@ -90,6 +90,14 @@ _RULE_QUESTION_INVERSION = "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT"
 _RULE_YOUR_YOURE = "LOCAL_YOUR_WELCOME_ADJ_SHOULD_BE_YOU_RE"
 _SENTENCE_START_RE = re.compile(r'(?:^|[.!?]["\')\]]*\s+)["\'(\[]*$')
 _NEXT_WORD_RE = re.compile(r'\s*([A-Za-z\']+)')
+# "What she does is important." — a sentence-initial wh-clause followed by a
+# main verb is a declarative subject clause, not an uninverted question.
+_SENTENCE_REST_RE = re.compile(r'[^.!?\n]*([.!?]?)')
+_SUBJECT_CLAUSE_MAIN_VERB_RE = re.compile(
+    r"\b(?:is|are|was|were|seems?|seemed|matters?|mattered|means?|meant|depends?|depended"
+    r"|makes?|made|has|had|will|would|can|could|should|must|may|might)\b",
+    re.IGNORECASE,
+)
 # Words that may legitimately follow "you're + adjective"; anything else that
 # is alphabetic is treated as the head noun of a possessive phrase.
 _YOURE_INTENSIFIERS = frozenset({"so"})
@@ -111,6 +119,9 @@ def _suppress_local_false_positives(transcript: str, findings: list[dict]) -> li
         if rule_id == _RULE_QUESTION_INVERSION:
             # Only a direct question starts a sentence with the wh-word.
             if not _SENTENCE_START_RE.search(transcript[:offset]):
+                continue
+            rest = _SENTENCE_REST_RE.match(transcript, offset + length)
+            if rest.group(1) != "?" and _SUBJECT_CLAUSE_MAIN_VERB_RE.search(rest.group(0)):
                 continue
         elif rule_id == _RULE_YOUR_YOURE:
             matched_adj = transcript[offset:offset + length].split()[-1].lower() if length else ""

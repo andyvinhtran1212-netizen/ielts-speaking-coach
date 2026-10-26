@@ -506,6 +506,8 @@ def _real_local(sentence: str) -> list[dict]:
     "I like what you do.",
     "Tell me what you are doing.",
     "She asked me why I was late. I told her the truth.",
+    "What she does is important.",  # declarative subject clause
+    "Where he lives doesn't matter. What I did was wrong.",
 ])
 def test_embedded_clauses_do_not_trigger_question_inversion(sentence):
     assert not [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT"], sentence
@@ -516,6 +518,8 @@ def test_embedded_clauses_do_not_trigger_question_inversion(sentence):
     "What you are doing?",
     "I was tired. Where you are going?",
     "Where you are going",  # speech transcript without the question mark
+    "What she does?",
+    "What you are doing is that?",
 ])
 def test_direct_questions_still_trigger_question_inversion(sentence):
     assert [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT"], sentence
@@ -538,6 +542,37 @@ def test_possessive_noun_phrases_do_not_trigger_your_youre(sentence):
 ])
 def test_contraction_slips_still_trigger_your_youre(sentence):
     assert [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_YOUR_WELCOME_ADJ_SHOULD_BE_YOU_RE"], sentence
+
+
+_RULE_IF_WILL = "LOCAL_IF_CLAUSE_WITH_WILL_TYPE_1"
+_RULE_PAST_MARKER = "LOCAL_PAST_TIME_MARKER_PRESENT_VERB"
+
+
+@pytest.mark.parametrize("sentence, rule_id", [
+    ("I wonder if he will come.", _RULE_IF_WILL),
+    ("I'm not sure if she will agree.", _RULE_IF_WILL),
+    ("Can you ask him if he will be there?", _RULE_IF_WILL),
+    ("Since last year I have lived here.", _RULE_PAST_MARKER),
+    ("In the last year I have been very busy.", _RULE_PAST_MARKER),
+    ("in the last year I have lived here", _RULE_PAST_MARKER),
+    ("Over the last year I have worked hard.", _RULE_PAST_MARKER),
+    ("For the last week I have studied every day.", _RULE_PAST_MARKER),
+])
+def test_asset_rules_skip_embedded_if_and_present_perfect(sentence, rule_id):
+    assert not [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence
+
+
+@pytest.mark.parametrize("sentence, rule_id", [
+    ("If it will rain tomorrow, I stay home.", _RULE_IF_WILL),
+    ("If it will rain, I will stay home.", _RULE_IF_WILL),
+    ("Yesterday I go to the market.", _RULE_PAST_MARKER),
+    ("Last year I have a dog.", _RULE_PAST_MARKER),
+    # Present perfect is incompatible with a finished-past marker.
+    ("Yesterday I have eaten lunch.", _RULE_PAST_MARKER),
+    ("Last year I have worked in London.", _RULE_PAST_MARKER),
+])
+def test_asset_rules_still_flag_conditional_will_and_past_marker(sentence, rule_id):
+    assert [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence
 
 
 def test_health_probe_counts_local_rule_errors_without_languagetool(monkeypatch):

@@ -433,6 +433,11 @@ VI_LEARNER_RULES: List[Dict[str, Any]] = [
     {
         "name": "If-clause with 'will' (type 1)",
         "pattern": re.compile(r"\bif\s+\w+(?:\s+\w+){0,4}?\s+will\b", re.IGNORECASE),
+        # "I wonder if he will come." — 'if' = 'whether' (embedded question), not a condition.
+        "skip_if_match_left": re.compile(
+            r"\b(?:wonder(?:s|ed|ing)?|ask(?:s|ed|ing)?|know(?:s|ing)?|knew|sure|doubt(?:s|ed|ing)?|see|saw|check(?:s|ed|ing)?)"
+            r"(?:\s+(?:me|you|him|her|us|them))?\s+$",
+            re.IGNORECASE),
         "point": "Conditional sentences",
         "area": "sentence_types",
         "tip_vi": "Mệnh đề 'if' (loại 1) KHÔNG dùng 'will'. Dùng hiện tại đơn: 'If it rains, I will stay home.'",
@@ -459,8 +464,14 @@ VI_LEARNER_RULES: List[Dict[str, Any]] = [
         # Excludes verbs where base==past (read/put/cut/let/set/hit/cost/shut/spread/burst/hurt/split)
         # so "Yesterday I read a book" (read = past) is NOT flagged.
         "pattern": re.compile(
-            r"\b(yesterday|last\s+(?:week|month|year|night|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|\d+\s+(?:days?|weeks?|months?|years?)\s+ago|in\s+\d{4})\b[^.!?\n]{0,40}?\b(I|you|he|she|it|we|they)\s+(go|come|do|have|see|eat|drink|run|play|study|live|work|write|cook|sleep|stay|wait|sing|dance|watch|listen|speak|teach|need|want|know|think|feel|seem|look|try|clean)\b",
+            r"\b(yesterday|last\s+(?:week|month|year|night|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|\d+\s+(?:days?|weeks?|months?|years?)\s+ago|in\s+\d{4})\b[^.!?\n]{0,40}?\b(I|you|he|she|it|we|they)\s+"
+            r"(go|come|do|have|see|eat|drink|run|play|study|live|work|write|cook|sleep|stay|wait|sing|dance|watch|listen|speak|teach|need|want|know|think|feel|seem|look|try|clean)\b",
             re.IGNORECASE),
+        # "Since last year I have lived here." / "In the last year I have been busy." —
+        # the marker sits inside a since- or in/over/during/for-the-phrase, which
+        # anchors present perfect. A bare finished-past marker stays flagged even
+        # with have + V3 ("Yesterday I have eaten lunch.").
+        "skip_if_match_left": re.compile(r"\b(?:since|(?:in|over|during|for)\s+the)\s+$", re.IGNORECASE),
         "point": "Past Simple (with past time markers)",
         "area": "tenses",
         "tip_vi": "Câu có từ chỉ thời gian quá khứ (yesterday, last…, ago) → động từ phải chia QUÁ KHỨ (V2).",
