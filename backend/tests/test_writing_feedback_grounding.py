@@ -262,13 +262,20 @@ def test_deep_passes_cannot_reintroduce_unsupported_originals(schema, payload):
         validate_writing_grounding(schema(**payload), ESSAY)
 
 
-def setup_provider(monkeypatch, responses):
+def setup_provider(monkeypatch, responses, mistake_original="Discounted tickets can help students"):
+    """Fake Gemini serving ``responses``. A pass-1 answer below band 8.5 now
+    needs one real mistake, so an empty mistakeAnalysis is served with one
+    grounded entry (``mistake_original`` must occur in the test's essay)."""
     calls, rows = [], []
     # Other tests may leave tasks tied to a closed event loop. Own this set.
     monkeypatch.setattr(ledger, "_PENDING_USAGE_TASKS", set())
     def generate(contents, **kwargs):
         calls.append(contents)
         payload = responses[min(len(calls) - 1, len(responses) - 1)]
+        if isinstance(payload, WritingFeedback) and not payload.mistakeAnalysis:
+            payload = payload.model_copy(update={"mistakeAnalysis": [MistakeAnalysis(
+                original=mistake_original, mistakeType="Word Choice", explanation="...",
+                suggestion=mistake_original + " more", criterion="Lexical Resource")]})
         return SimpleNamespace(
             candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
             text=payload.model_dump_json(),
@@ -317,7 +324,7 @@ async def test_task_reference_context_reaches_the_real_validation_boundary(monke
 async def test_single_word_gloss_at_real_retry_boundary(monkeypatch, lemma, accepted):
     grader, calls, rows, _ = setup_provider(monkeypatch, [feedback(
         f"Cụm 'walked' dùng sai nghĩa của '{lemma}'.",
-    )])
+    )], mistake_original="They walked home")
     config = GraderConfig(task_type="task2", prompt_text="Walking", essay_text="They walked home.",
                           analysis_level=3, selected_model="gemini-3.8-flash")
     if accepted:
@@ -963,3 +970,65 @@ async def test_gemini_schema_rejection_is_coded_invalid_json(monkeypatch):
     assert rows[0]["error_code"] == "invalid_json"
     assert rows[0]["metadata"]["error_detail"].startswith("Schema validation failed:")
     assert "high" not in rows[0]["metadata"]["error_detail"]
+
+
+# ── mistakeAnalysis minimum below band 8.5 ────────────────────────────
+
+def _band(fb, band, mistakes):
+    return fb.model_copy(update={"overallBandScore": band, "mistakeAnalysis": [
+        MistakeAnalysis(**m) for m in mistakes]})
+
+
+REAL = {"original": "Discounted tickets can help students", "mistakeType": "Word Choice",
+        "explanation": "...", "suggestion": "Discounted tickets can support students",
+        "criterion": "Lexical Resource"}
+SAME = {**REAL, "suggestion": "Discounted  tickets can help students"}   # whitespace only
+
+
+@pytest.mark.parametrize("band,mistakes,missing", [
+    (8.0, [], True),
+    (7.5, [SAME], True),             # non-corrections are dropped by essay_service
+    (4.0, [], True),
+    (8.0, [REAL], False),
+    (7.5, [SAME, REAL], False),
+    (8.5, [], False),
+    (9.0, [], False),
+])
+def test_missing_mistake_analysis_scales_with_band(band, mistakes, missing):
+    assert grounding.missing_mistake_analysis(_band(feedback(), band, mistakes)) is missing
+
+
+@pytest.mark.parametrize("payload", [Pass2Refinement(), Pass3Rewrites()])
+def test_missing_mistake_analysis_never_applies_to_deep_passes(payload):
+    assert grounding.missing_mistake_analysis(payload) is False
+
+
+def test_validated_text_rejects_then_accepts_with_metadata(monkeypatch):
+    grader = grader_module.GeminiWritingGrader.__new__(grader_module.GeminiWritingGrader)
+    text = _band(feedback(), 7.5, []).model_dump_json()
+    with pytest.raises(grounding.MissingMistakeAnalysisError) as err:
+        grader._validated_text(text, WritingFeedback, ESSAY, "task2", "Transport")
+    assert err.value.error_code == "missing_mistake_analysis"
+    assert str(err.value) == "mistakeAnalysis has no real correction at overallBandScore 7.5 (< 8.5)"
+    assert err.value.validated[1]["mistake_analysis_missing"] is True
+    accepted, meta = grader._validated_text(text, WritingFeedback, ESSAY, "task2", "Transport",
+                                            accept_missing_mistakes=True)
+    assert accepted == text and meta == {"mistake_analysis_missing": True}
+    # Deep pass schemas with no items are untouched.
+    assert grader._validated_text(Pass2Refinement().model_dump_json(), Pass2Refinement,
+                                  ESSAY, "task2", "Transport")[1] == {}
+
+
+def test_missing_mistake_repair_instruction_asks_for_verbatim_real_errors():
+    text = grounding.MissingMistakeAnalysisError(7.0).repair_instruction()
+    assert "overallBandScore 7" in text and "INCLUDING the learner's errors" in text
+    assert "Never invent an error" in text and "do not raise the band" in text
+    assert "faulty wording" in grounding.GROUNDING_INSTRUCTION
+
+
+def test_missing_mistake_error_code_mapping():
+    from services import ai_router
+
+    assert ai_router.VALIDATION_ERROR_CODES["MissingMistakeAnalysisError"] == "missing_mistake_analysis"
+    assert ai_router.validation_error_code(
+        grounding.MissingMistakeAnalysisError(6.0)) == "missing_mistake_analysis"

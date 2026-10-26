@@ -164,6 +164,7 @@ class AnthropicAttemptError(Exception):
 # modules. Anything else stays the generic ``invalid_response``.
 VALIDATION_ERROR_CODES: dict[str, str] = {
     "UngroundedWritingFeedbackError": "ungrounded_feedback",
+    "MissingMistakeAnalysisError": "missing_mistake_analysis",
     "InvalidJSONError": "invalid_json",
     "JSONDecodeError": "invalid_json",
 }
@@ -392,7 +393,11 @@ async def call_anthropic(
         )
         if isinstance(exc, AnthropicAttemptError):
             raise
-        raise AnthropicAttemptError(code, detail) from exc
+        error = AnthropicAttemptError(code, detail)
+        # The rejected answer was billed: callers that may still accept it
+        # (a final-provider salvage) need the served model and token usage.
+        error.model, error.usage = model, usage
+        raise error from exc
 
     extra = success_metadata(parsed) if success_metadata is not None else None
     _log_attempt(status="success", latency_ms=latency, usage=usage, error_code=None,

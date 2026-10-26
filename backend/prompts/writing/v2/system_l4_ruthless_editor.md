@@ -75,4 +75,4 @@ In addition to the global validation rules:
 - `sentenceStructureAnalysis.sentenceUpgrades` MUST have **4-8 items**
 - Each upgrade MUST have an `explanation` field tying the rewrite to a band
   descriptor (e.g., "đặc trưng Band 8.0+")
-- `mistakeAnalysis` floor: 0-3 for band 7.5+, 3-5 for band 7.0 (Rule 1)
+- `mistakeAnalysis` floor: 1-3 for band 7.5–8.0, 0-2 only for band 8.5+, 3-5 for band 7.0 (Rule 1)
