@@ -69,6 +69,9 @@ const VALID_ACTIVE = ['home', 'writing', 'class', 'speaking', 'listening', 'gram
 const POLL_INTERVAL_MS = 50;
 const POLL_MAX_TRIES = 60;
 
+// U-20 — must equal the disclosure @media query in STYLE below.
+const MOBILE_NAV_QUERY = '(max-width: 1024.98px)';
+
 installPerfResourceHints();
 
 
@@ -318,9 +321,14 @@ const STYLE = /* css */ `
 
 .mobile-nav-toggle { display: none; }
 
-@media (max-width: 720px) {
-  .topnav-wrap { padding: 0 var(--av-space-4); }
-  .topnav { gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-8); }
+/* U-20: the full eight-link row needs ~1045px beside the brand and the named
+   user pill, so it wrapped to 2-3 rows anywhere from 721px to ~1180px. Below
+   1025px the links move behind the disclosure; 1025-1279.98px keeps the row
+   but compacts it; >=1280px is the untouched desktop layout. The .98 upper
+   bounds keep zoomed fractional widths (e.g. 1024.5px) inside a block. Keep
+   the disclosure query in sync with MOBILE_NAV_QUERY. */
+@media (max-width: 1024.98px) {
+  .topnav { gap: var(--av-space-3); flex-wrap: wrap; }
   .mobile-nav-toggle {
     display: inline-flex;
     align-items: center;
@@ -360,6 +368,24 @@ const STYLE = /* css */ `
   #user-pill-name { display: none; }
   .user-menu-item { box-sizing: border-box; min-height: 44px; }
   .user-menu-item[hidden] { display: none; }
+}
+
+@media (max-width: 720px) {
+  .topnav-wrap { padding: 0 var(--av-space-4); }
+  .topnav { margin-bottom: var(--av-space-8); }
+}
+
+@media (min-width: 1025px) and (max-width: 1279.98px) {
+  .topnav { gap: var(--av-space-4); }
+  .nav-links { flex-wrap: nowrap; }
+  .nav-links a,
+  .nav-links span {
+    padding-left: var(--av-space-2);
+    padding-right: var(--av-space-2);
+    white-space: nowrap;
+  }
+  .user-pill { padding: var(--av-space-1); }
+  #user-pill-name { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -764,7 +790,7 @@ export class AverChrome extends HTMLElement {
       if (event.key === 'Escape') disclosures.forEach((item) => close(item, true));
     };
     document.addEventListener('keydown', this._docKeydownHandler);
-    window.matchMedia('(max-width: 720px)').addEventListener('change', () => {
+    window.matchMedia(MOBILE_NAV_QUERY).addEventListener('change', () => {
       close(disclosures[1]);
     }, { signal });
   }

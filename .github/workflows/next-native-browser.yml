@@ -560,6 +560,7 @@ on:
       - 'frontend/public/css/vocab-wiki.css'
       - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
+      - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
       - 'frontend/public/js/theme-toggle.js'
       - 'frontend/public/js/user-pill.js'
       - 'frontend/public/js/components/perf-hints.js'
@@ -810,6 +811,12 @@ jobs:
 
       - name: Kiểm layout Next ở desktop và điện thoại
         run: node tooling/verify-next-responsive-flow.mjs "http://localhost:$TEST_PORT"
+
+      # U-20: từ 721px tới ~1180px menu đầy đủ từng gãy thành 2-3 hàng và hero
+      # /home làm trang cuộn ngang. Runner này đo nav một hàng hoặc hamburger,
+      # không cuộn ngang ở 720-1280px, và menu tablet vẫn mở/Escape đúng.
+      - name: Kiểm nav chrome không gãy hàng ở bề rộng tablet
+        run: node tooling/verify-chrome-nav-width-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
       # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,

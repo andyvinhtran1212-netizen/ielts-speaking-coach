@@ -350,3 +350,31 @@ describe('home.html / body class', () => {
     );
   });
 });
+
+
+// ── U-20 hero stats below the 1280px desktop ───────────────────────
+
+
+describe('home.css / U-20 hero stats cannot widen the page', () => {
+  const block = (start) => {
+    const at = css.indexOf(start);
+    assert.ok(at > -1, `missing ${start}`);
+    return css.slice(at, css.indexOf('\n}\n', at));
+  };
+
+  test('below 1280px each stat shrinks to its share and wraps instead of overflowing', () => {
+    const narrow = block('@media (max-width: 1279.98px)');
+    assert.match(narrow, /\.hero-stats \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
+    assert.match(narrow, /\.hero-stat \{ min-width: 0; \}/);
+    assert.match(narrow, /\.hero-stat \.value \{ flex-wrap: wrap;/);
+  });
+
+  test('the tablet range stacks the greeting like the chrome disclosure range', () => {
+    assert.match(block('@media (max-width: 1024.98px)'), /\.greeting \{ grid-template-columns: minmax\(0, 1fr\);/);
+  });
+
+  test('the >=1280px desktop hero strip is untouched', () => {
+    assert.match(css, /\.hero-stats \{\n  display: grid;\n  grid-template-columns: repeat\(3, 1fr\);/);
+    assert.doesNotMatch(css, /@media \(min-width: 1[2-9]\d\dpx\)/);
+  });
+});
