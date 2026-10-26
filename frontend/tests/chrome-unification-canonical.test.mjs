@@ -120,6 +120,31 @@ describe('Sprint 6.17 foundation — canonical chrome rules (Sprint 7.14: now in
       '.topnav-wrap should be scoped inside the same mobile @media block');
   });
 
+  // U-20: the eight-link row wrapped to 2-3 rows from 721px to ~1180px. The
+  // disclosure now owns everything below 1025px and the row is compacted up
+  // to 1279.98px, so no width falls between the two and wraps.
+  test('U-20 disclosure breakpoint, its matchMedia twin and the compact row leave no wrapping width', () => {
+    const disclosure = '@media (max-width: 1024.98px)';
+    const compact = '@media (min-width: 1025px) and (max-width: 1279.98px)';
+    assert.equal(chromeJs.split(disclosure).length, 2, 'one disclosure @media block');
+    assert.match(chromeJs, /const MOBILE_NAV_QUERY = '\(max-width: 1024\.98px\)';/);
+    assert.match(chromeJs, /window\.matchMedia\(MOBILE_NAV_QUERY\)/);
+    assert.doesNotMatch(chromeJs, /matchMedia\('\(max-width: 720px\)'\)/);
+    const block = (start) => chromeJs.slice(chromeJs.indexOf(start), chromeJs.indexOf('\n}\n', chromeJs.indexOf(start)));
+    const mobile = block(disclosure);
+    assert.match(mobile, /\.mobile-nav-toggle\s*\{\s*display: inline-flex/);
+    assert.match(mobile, /\.nav-links\s*\{\s*display: none/);
+    assert.match(mobile, /#user-pill-name\s*\{\s*display: none/);
+    const row = block(compact);
+    assert.ok(row.length > compact.length, 'compact desktop row must be declared');
+    assert.match(row, /\.nav-links\s*\{\s*flex-wrap: nowrap/);
+    assert.match(row, /white-space: nowrap/);
+    assert.match(row, /#user-pill-name\s*\{\s*display: none/);
+    // >=1280px stays the pre-U-20 desktop: no other query reaches that range.
+    const queries = [...chromeJs.matchAll(/@media \(([^)]*)\)/g)].map((m) => m[1]);
+    for (const q of queries) assert.doesNotMatch(q, /min-width: (1[2-9]\d\d|[2-9]\d\d\d)px/, q);
+  });
+
   test('mobile disclosure controls the canonical eight links inside the shadow root', () => {
     assert.match(chromeJs, /id="mobile-nav-toggle"[\s\S]*?aria-expanded="false" aria-controls="mobile-nav-menu"/);
     assert.match(chromeJs, /class="nav-links" id="mobile-nav-menu"/);
