@@ -272,6 +272,8 @@
     postWith:  function (path, body, hdrs, opts) { return _apiRequest('POST',  path, body, false, hdrs, opts); },
     /** @template T @param {string} path @param {*} [body] @param {Record<string,string>} [hdrs] @param {*} [opts] @returns {Promise<T>} */
     patchWith: function (path, body, hdrs, opts) { return _apiRequest('PATCH', path, body, false, hdrs, opts); },
+    // U-07: sign-out drops the keepalive token so no later request reuses it.
+    clearAuthCache: function () { _lastToken = null; },
   };
 
   // Expose only what the page scripts need

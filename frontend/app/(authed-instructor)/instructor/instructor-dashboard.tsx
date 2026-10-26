@@ -19,6 +19,7 @@ import {
   normalizeInstructorSummary,
 } from '@/lib/instructor-dashboard-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { clearPersistedAuthSession, rememberSignedOutSession } from '@/lib/auth/sign-out-state.mjs';
 
 type Tab = 'roster' | 'classes' | 'assign' | 'grade';
 type Banner = { tone: 'success' | 'danger' | 'warning'; message: string } | null;
@@ -325,7 +326,10 @@ export function InstructorDashboard() {
   };
 
   const signOut = async () => {
-    try { await (window.getSupabase?.() as any)?.auth?.signOut?.(); } catch { /* redirect still clears page state */ }
+    const client = window.getSupabase?.() as any;
+    await rememberSignedOutSession(client); // U-07: /login must not boot this session
+    try { await client?.auth?.signOut?.(); } catch { /* redirect still clears page state */ }
+    clearPersistedAuthSession(); // a failed revoke leaves the session persisted
     window.location.replace('/');
   };
 

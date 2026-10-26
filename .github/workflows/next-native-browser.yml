@@ -10,6 +10,7 @@ on:
       - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
       - 'frontend/app/(public-auth)/**'
       - 'frontend/lib/login-model.mjs'
+      - 'frontend/public/js/auth-sign-out-state.js'
       - 'frontend/public/login.html'
       - 'frontend/public/css/login-next.css'
       - 'frontend/public/js/exam-player.js'

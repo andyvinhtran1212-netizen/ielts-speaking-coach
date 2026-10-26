@@ -27,6 +27,7 @@ import {
 } from 'react';
 import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '@/lib/learner-tab-drafts.mjs';
+import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
 
 export type AuthStatus = 'initial-loading' | 'signed-in' | 'signed-out';
 
@@ -237,6 +238,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         { type: 'auth_signout_revoke_failed' },
       );
     }
+    // U-07: a failed revoke leaves the session persisted; never let the next
+    // page boot it.
+    clearPersistedAuthSession();
     document.dispatchEvent(
       new CustomEvent('av-chrome-signed-out', { bubbles: true, composed: true }),
     );

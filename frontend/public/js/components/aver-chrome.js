@@ -52,6 +52,7 @@
 import { bindToggleButton } from '/js/theme-toggle.js';
 import { canonicalInitials } from '/js/user-pill.js';
 import { installPerfResourceHints } from '/js/components/perf-hints.js';
+import { clearPersistedAuthSession, rememberSignedOutSession } from '/js/auth-sign-out-state.js';
 
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -799,6 +800,9 @@ export class AverChrome extends HTMLElement {
                    ? window.getSupabase()
                    : null;
         if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
+          // U-07: record the session being ended BEFORE the revoke, so /login
+          // does not boot it if this page dies mid-revoke.
+          await rememberSignedOutSession(sb);
           // AUDIT F6 / review #762: v2 signOut() does NOT throw on a failed
           // revoke — it RESOLVES with { error }. Discarding it made a
           // still-valid refresh token look identical to a real sign-out.
@@ -825,6 +829,11 @@ export class AverChrome extends HTMLElement {
           );
         } catch (e) { /* reporting must never block logout */ }
       }
+      // U-07: a failed revoke (signOut resolves { error }) leaves the session
+      // persisted — possibly already revoked server-side. Fail closed locally
+      // before announcing, so no page can boot it and send it to /auth/me.
+      clearPersistedAuthSession();
+      try { window.api && window.api.clearAuthCache && window.api.clearAuthCache(); } catch (e) { /* page is leaving */ }
       this.dispatchEvent(new CustomEvent('av-chrome-signed-out', {
         bubbles: true,
         composed: true,
