@@ -269,13 +269,8 @@ async def save(
 ) -> None:
     """Validate, upsert (the trigger writes the audit row), then refresh."""
     validate_request(feature, preferred_provider, anthropic_model)
-    current = _state.overrides.get(feature)
-    if (
-        _state.status == "ok" and current is not None and not current.invalid_fields
-        and current.preferred_provider == preferred_provider
-        and current.anthropic_model == anthropic_model
-    ):
-        return  # unchanged: no write, no audit noise
+    # Always write: this process's snapshot may be stale (another instance or a
+    # SQL edit), and last write wins. The audit trigger skips no-op updates.
     row = {
         "feature": feature,
         "preferred_provider": preferred_provider,

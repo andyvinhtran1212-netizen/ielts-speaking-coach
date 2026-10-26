@@ -282,10 +282,51 @@ async def test_save_validates_before_writing_and_refreshes_after(fake_db):
     }
     assert overrides.get_override("course_writing").preferred_provider == "gemini"
 
-    # Unchanged value: no second write (no audit noise).
+    # Same values again: still written (the local snapshot may be stale under
+    # concurrent admins; last write wins). The DB trigger skips the audit row.
+    fake_db.rows = {"ai_model_overrides": [{"feature": "course_writing", "preferred_provider": "anthropic"}]}
+    await overrides.refresh()
+    fake_db.rows = {"ai_model_overrides": [{"feature": "course_writing", "preferred_provider": "gemini"}]}
     await overrides.save("course_writing", preferred_provider="gemini",
                          anthropic_model=None, actor_id="admin-2")
-    assert len(fake_db.executed) == 2
+    assert [table for table, _ in fake_db.executed].count("ai_model_overrides") == 5
+    assert overrides.get_override("course_writing").preferred_provider == "gemini"
+
+
+def test_speaking_orchestrator_is_rebuilt_when_the_routing_changes(monkeypatch):
+    from config import settings
+    from services import claude_grader
+
+    builds: list[object] = []
+
+    def _build(_settings):
+        builds.append(object())
+        return builds[-1]
+
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "AI_PROVIDER_ORDER_SPEAKING_GRADING", "gemini")
+    monkeypatch.setattr(claude_grader, "_build_default_orchestrator", _build)
+    claude_grader.set_orchestrator(None)
+    try:
+        first = claude_grader._get_orchestrator()
+        assert claude_grader._get_orchestrator() is first and len(builds) == 1
+
+        _install(speaking_grading={"preferred_provider": "anthropic"})
+        second = claude_grader._get_orchestrator()
+        assert second is not first and len(builds) == 2
+
+        _install(speaking_grading={"preferred_provider": "anthropic",
+                                   "anthropic_model": "claude-haiku-5-5"})
+        third = claude_grader._get_orchestrator()
+        assert third is not second and claude_grader._get_orchestrator() is third
+        assert len(builds) == 3
+
+        fake = object()
+        claude_grader.set_orchestrator(fake)  # test injection still wins
+        overrides.reset()
+        assert claude_grader._get_orchestrator() is fake
+    finally:
+        claude_grader.set_orchestrator(None)
 
 
 @pytest.mark.asyncio

@@ -423,19 +423,38 @@ def _get_client() -> anthropic.AsyncAnthropic:
 # matches the legacy _client pattern above. Tests can override via
 # `set_orchestrator` below.
 _orchestrator: GradingOrchestrator | None = None
+# AIOPS-0024 — the Claude slot's presence and model depend on the speaking
+# routing, which an admin override can change at runtime. Rebuild when it does.
+_orchestrator_key: tuple | None = None
+_orchestrator_injected = False
+
+
+def _speaking_routing_key() -> tuple:
+    from services import ai_router
+
+    return (
+        ai_router.anthropic_position("speaking_grading", "gemini", settings),
+        ai_router.anthropic_model("speaking_grading", settings),
+    )
 
 
 def _get_orchestrator() -> GradingOrchestrator:
-    global _orchestrator
-    if _orchestrator is None:
+    global _orchestrator, _orchestrator_key
+    if _orchestrator_injected and _orchestrator is not None:
+        return _orchestrator
+    key = _speaking_routing_key()
+    if _orchestrator is None or key != _orchestrator_key:
         _orchestrator = _build_default_orchestrator(settings)
+        _orchestrator_key = key
     return _orchestrator
 
 
 def set_orchestrator(orchestrator: GradingOrchestrator | None) -> None:
     """Test hook — inject a fake orchestrator. Pass None to reset."""
-    global _orchestrator
+    global _orchestrator, _orchestrator_key, _orchestrator_injected
     _orchestrator = orchestrator
+    _orchestrator_key = None
+    _orchestrator_injected = orchestrator is not None
 
 
 # ── Public function ────────────────────────────────────────────────────────────
