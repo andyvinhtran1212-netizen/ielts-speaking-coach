@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { OnboardingBehavior } from './onboarding-behavior';
+import { OnboardingBehavior, OnboardingHeader } from './onboarding-behavior';
 
 export const metadata: Metadata = {
   title: 'Thiết lập tài khoản — Aver Learning',
@@ -10,8 +10,7 @@ export const metadata: Metadata = {
 export default function OnboardingPage() {
   return (
     <>
-      {/* @ts-ignore — custom element do aver-chrome.js đăng ký. */}
-      <aver-chrome active="home" />
+      <OnboardingHeader />
       <OnboardingBehavior />
     </>
   );

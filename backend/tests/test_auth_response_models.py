@@ -2,9 +2,16 @@
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import routers.auth as auth_module  # noqa: E402
+import services.runtime_flags as runtime_flags  # noqa: E402
 from models.auth import (  # noqa: E402
     AuthActivateResponse,
     AuthActiveStatusResponse,
@@ -72,3 +79,43 @@ def test_every_auth_route_exposes_its_response_model():
     }
     for key, model in expected.items():
         assert routes[key] == model
+
+
+def test_profile_patch_can_persist_only_onboarding_completed(monkeypatch):
+    """Skipping onboarding must preserve all existing profile preferences."""
+    row = {**BASE_PROFILE, "onboarding_completed": False}
+    original = dict(row)
+    query = Mock()
+    query.update.return_value = query
+    query.eq.return_value = query
+
+    def execute():
+        assert query.eq.call_args.args == ("id", row["id"])
+        row.update(query.update.call_args.args[0])
+        return SimpleNamespace(data=[dict(row)])
+
+    query.execute.side_effect = execute
+    admin = Mock()
+    admin.table.return_value = query
+
+    async def fake_user(_authorization):
+        return {"id": row["id"], "email": row["email"]}
+
+    monkeypatch.setattr(auth_module, "get_supabase_user", fake_user)
+    monkeypatch.setattr(auth_module, "supabase_admin", admin)
+    monkeypatch.setattr(runtime_flags, "is_enabled", lambda _key, default=True: default)
+    app = FastAPI()
+    app.include_router(router)
+    with TestClient(app) as client:
+        response = client.patch(
+            "/auth/profile",
+            headers={"Authorization": "Bearer fixture"},
+            json={"onboarding_completed": True},
+        )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["onboarding_completed"] is True
+    assert response.headers["cache-control"] == "private, no-store"
+    admin.table.assert_called_once_with("users")
+    query.update.assert_called_once_with({"onboarding_completed": True})
+    assert row == {**original, "onboarding_completed": True}
