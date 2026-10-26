@@ -120,7 +120,7 @@ _PROMPT_REFERENCE = re.compile(r"\b(?:câu hỏi|đề bài|chủ đề|yêu c�
 # Claims about the learner's wording (not ideas): "em dùng", "you used".
 _WORDING_VERB = re.compile(r"\b(?:sử dụng|dùng|viết|gọi|use[sd]?|wrote|write|calls?|called)\b", re.I)
 _NEGATIONS = {"not", "no", "never", "cannot", "nor", "none", "nothing", "neither"}
-_SUFFIXES = ("ing", "ed", "es", "s", "e", "d")
+_SIBILANT_ENDINGS = ("s", "x", "z", "ch", "sh")
 _NEAR_MISS_GAP = 2
 
 
@@ -163,34 +163,42 @@ def _tokens(text: str) -> list[str]:
     return re.findall(r"\w+(?:'\w+)*", text)
 
 
-def _stem(word: str) -> str:
-    for suffix in _SUFFIXES:
-        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
-            return word[:-len(suffix)]
-    return word
+def _same_word(a: str, b: str) -> bool:
+    """Equal, or the same word with/without a plural or third-person -s:
+    'reduce'/'reduces', 'bus'/'buses', 'city'/'cities'. No ending is stripped,
+    so 'plan'/'plane' or 'car'/'care' stay different words (Codex #1729)."""
+    if a == b:
+        return True
+    short, long_ = sorted((a, b), key=len)
+    if len(short) < 3:
+        return False
+    if long_ == short + "s":
+        return True
+    if long_ == short + "es" and short.endswith(_SIBILANT_ENDINGS):
+        return True
+    return short.endswith("y") and short[-2] not in "aeiou" and long_ == short[:-1] + "ies"
 
 
 def _near_miss(excerpt: str, essay: str) -> bool:
     """A slightly misquoted excerpt of language the learner really wrote.
 
-    Every quoted word must occur in the essay, in the same order, up to an
-    inflectional ending, inside one window at most two essay words longer
+    Every quoted word must occur in the essay, in the same order, up to a
+    plural/third-person -s (see _same_word), inside one window at most two essay words longer
     (an omitted "more"). The quote can never add a word or drop a negation.
     Used only to downgrade prose misquotes to warnings, never to ground a
     strict original/context field.
     """
-    quoted = [_stem(w) for w in _tokens(_normalize(excerpt))]
+    quoted = _tokens(_normalize(excerpt))
     if not quoted or "..." in excerpt or "…" in excerpt:
         return False
     words = _tokens(essay)
-    stems = [_stem(w) for w in words]
-    for start, stem in enumerate(stems):
-        if stem != quoted[0]:
+    for start, word in enumerate(words):
+        if not _same_word(word, quoted[0]):
             continue
         i, j = 1, start + 1
         limit = min(len(words), start + len(quoted) + _NEAR_MISS_GAP)
         while i < len(quoted) and j < limit:
-            if stems[j] == quoted[i]:
+            if _same_word(words[j], quoted[i]):
                 i += 1
             elif _is_negation(words[j]):
                 break

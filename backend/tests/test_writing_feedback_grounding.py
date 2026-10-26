@@ -677,6 +677,30 @@ def test_near_miss_never_skips_an_essay_negation(essay, claim):
         validate_writing_grounding(rt_feedback(lexicalResource=claim), essay)
 
 
+@pytest.mark.parametrize("essay,claim", [
+    ("A plan can help.", "You used 'A plane can help' effectively."),
+    ("Many cars pollute.", "Em dùng 'Many care pollute'."),
+    ("People hope for change.", "Em dùng 'People hop for change'."),
+    ("Prices increased sharply.", "Em dùng 'Prices increase sharply'."),   # tense is not tolerated
+    ("Drivers are using buses.", "Em dùng 'Drivers are use buses'."),
+])
+def test_near_miss_never_matches_different_words(essay, claim):
+    # Codex review #1729: only plural/third-person -s is an inflectional near miss.
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(rt_feedback(lexicalResource=claim), essay)
+
+
+@pytest.mark.parametrize("essay,claim", [
+    ("It helps reduce inequality.", "Em dùng 'reduces inequality'."),
+    ("Expanding bus networks helps.", "Em dùng 'Expanding buses networks helps'."),
+    ("Large cities need trams.", "Em dùng 'Large city needs trams'."),
+    ("Many cars pollute.", "Em dùng 'Many car pollute'."),
+])
+def test_near_miss_keeps_plural_and_third_person_agreement(essay, claim):
+    report = validate_writing_grounding(rt_feedback(lexicalResource=claim), essay)
+    assert report.warnings == ["criteriaFeedback.lexicalResource.feedback"]
+
+
 def test_strict_fields_never_use_near_miss():
     result = rt_feedback(mistakeAnalysis=[mistake("reduces inequality")])
     with pytest.raises(UngroundedWritingFeedbackError):
