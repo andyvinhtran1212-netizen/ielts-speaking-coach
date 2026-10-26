@@ -85,6 +85,10 @@ jobs:
           echo "::error::Timed out waiting for exact frontend/backend staging release"
           exit 1
 
+      - name: Grammar checker runs on the staging backend
+        timeout-minutes: 3
+        run: scripts/ci/check-grammar-health.sh https://ielts-speaking-coach-staging.up.railway.app
+
       - name: Run live staging release smoke
         id: release_smoke
         working-directory: frontend

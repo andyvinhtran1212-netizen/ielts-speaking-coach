@@ -44,8 +44,11 @@ does not prove that a release is pending or complete.
 ## Local setup
 
 Use **Node.js 24+** (`frontend/package.json`). Backend CI uses **Python 3.11**;
-Railway builds with **Railpack** and pins **Python 3.12** through the root
-`.python-version`. Use either of those Python versions locally. Audio
+Railway builds with **Railpack** from the `backend/` directory only (service
+root directory); Python **3.12** is pinned there through the service's
+`RAILPACK_PYTHON_VERSION` variable. Anything the backend reads at runtime
+(for example `backend/assets/grammar-mindmap/`) must live under `backend/`.
+Use either of those Python versions locally. Audio
 processing also requires `ffmpeg`; production additionally needs
 `default-jre-headless` (LanguageTool) and `fonts-dejavu-core` (PDF export).
 `backend/nixpacks.toml` lists those packages for the legacy Nixpacks builder,

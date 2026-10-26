@@ -350,19 +350,25 @@ def test_locked_constants():
 # ── Asset presence + privacy guard (2026-10-25 restore) ──────────────────────
 #
 # Production ran for months with ``ModuleNotFoundError: grammar_checker``
-# because ``assets/grammar-mindmap/`` was never committed. These tests import
+# because the grammar asset was never in the deployed image (first missing
+# from the repo, then outside the backend/ build root). These tests import
 # the real asset (no stub) so a stripped asset fails CI, and pin the rule that
 # learner transcripts never reach the public LanguageTool API.
 
 
 def _real_asset_dir() -> Path:
-    return Path(__file__).resolve().parent.parent.parent / "assets" / "grammar-mindmap"
+    return Path(__file__).resolve().parent.parent / "assets" / "grammar-mindmap"
 
 
 def test_asset_directory_is_committed():
     d = _real_asset_dir()
-    assert (d / "grammar_checker.py").is_file(), "assets/grammar-mindmap/grammar_checker.py missing"
-    assert (d / "grammar_data.py").is_file(), "assets/grammar-mindmap/grammar_data.py missing"
+    assert (d / "grammar_checker.py").is_file(), "backend/assets/grammar-mindmap/grammar_checker.py missing"
+    assert (d / "grammar_data.py").is_file(), "backend/assets/grammar-mindmap/grammar_data.py missing"
+    # The Railway image contains only backend/; the asset must live inside it.
+    backend_root = Path(__file__).resolve().parent.parent
+    assert d.is_relative_to(backend_root), "grammar asset must live under backend/ to be deployed"
+    from services.grammar_check import _ASSET_DIR
+    assert _ASSET_DIR.resolve() == d.resolve()
 
 
 def test_real_asset_local_rules_catch_known_bad_transcript():
@@ -532,3 +538,21 @@ def test_possessive_noun_phrases_do_not_trigger_your_youre(sentence):
 ])
 def test_contraction_slips_still_trigger_your_youre(sentence):
     assert [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_YOUR_WELCOME_ADJ_SHOULD_BE_YOU_RE"], sentence
+
+
+def test_health_probe_counts_local_rule_errors_without_languagetool(monkeypatch):
+    """The CI smoke gate asserts sample_error_count > 0 on staging, where the
+    offline LanguageTool server may be absent. The probe sample must therefore
+    contain an error the real asset's local rules catch on their own."""
+    for name in ("grammar_checker", "grammar_data"):
+        sys.modules.pop(name, None)
+    svc = GrammarCheckService()
+    svc._ensure_asset_on_path()
+    svc._backend_init_failed = True
+    svc._backend_init_reason = "languagetool_offline_unavailable"
+    monkeypatch.setattr(grammar_check, "get_grammar_check_service", lambda: svc)
+    monkeypatch.setattr(grammar_check, "_read_cache", lambda *_a, **_k: None, raising=False)
+    monkeypatch.setattr(grammar_check, "_write_cache", lambda *_a, **_k: None, raising=False)
+    out = asyncio.run(grammar_check.grammar_check_health())
+    assert out["init_failure_reason"] == "languagetool_offline_unavailable"
+    assert out["sample_error_count"] > 0, out
