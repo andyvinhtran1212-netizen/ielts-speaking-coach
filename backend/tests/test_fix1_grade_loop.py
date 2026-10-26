@@ -90,13 +90,21 @@ class _Query:
         self.order_by = (field, desc)
         return self
 
+    @staticmethod
+    def _get(row, field):
+        # PostgREST JSON path `col->>key` (W-05 receipt lookup).
+        if "->>" in field:
+            col, key = field.split("->>", 1)
+            return (row.get(col) or {}).get(key)
+        return row.get(field)
+
     def _matches(self, row):
         for field, op, value in self.filters:
             if op == "is_":
-                if value == "null" and row.get(field) is not None:
+                if value == "null" and self._get(row, field) is not None:
                     return False
                 continue
-            if row.get(field) != value:
+            if self._get(row, field) != value:
                 return False
         for field, values in self.in_filters:
             if row.get(field) not in values:
@@ -215,6 +223,72 @@ def test_tier_fail_safe_standard_on_lookup_miss(fake_db):
     (never misroute into the instructor queue on a lookup gap)."""
     from routers import writing_student
     assert writing_student._assignment_grading_tier({"assigned_by": str(uuid4())}) == "standard"
+
+
+# ── W-05 — an ADMIN teaching from /instructor gets the instructor loop ──
+
+
+def _seed_admin_teacher(fake_db, *, roster=True, cohort=True):
+    admin, student, cohort_id, group = (str(uuid4()) for _ in range(4))
+    fake_db.tables["users"] = [{"id": admin, "role": "admin"}]
+    fake_db.tables["students"] = [
+        {"id": student, "instructor_id": admin if roster else None}]
+    fake_db.tables["cohorts"] = [
+        {"id": cohort_id, "created_by": admin if cohort else str(uuid4())}]
+    fake_db.tables["writing_assignment_requests"] = []
+    assignment = {"id": str(uuid4()), "assigned_by": admin, "student_id": student,
+                  "cohort_id": cohort_id, "assignment_group_id": group}
+    return admin, assignment
+
+
+def test_tier_instructor_when_admin_gives_to_own_roster_via_instructor(fake_db):
+    """Staging W-05 shape: role 'admin', student on the admin's roster, cohort
+    created by the admin, no admin-tools receipt → instructor grade loop."""
+    from routers import writing_student
+    _admin, a = _seed_admin_teacher(fake_db)
+    assert writing_student._assignment_grading_tier(a) == "instructor"
+
+
+def test_tier_instructor_when_admin_owns_cohort_but_student_unclaimed(fake_db):
+    """/instructor fan-out allows an unowned (instructor_id NULL) member of MY
+    cohort — cohort ownership alone satisfies the owner gate."""
+    from routers import writing_student
+    _admin, a = _seed_admin_teacher(fake_db, roster=False)
+    assert writing_student._assignment_grading_tier(a) == "instructor"
+
+
+def test_tier_standard_when_admin_writing_tools_receipt_exists(fake_db):
+    """Admin writing tools always leave an idempotency receipt for the group →
+    the admin path stays 'standard' even for the admin's own class."""
+    from routers import writing_student
+    admin, a = _seed_admin_teacher(fake_db)
+    fake_db.tables["writing_assignment_requests"] = [
+        {"id": str(uuid4()), "assigned_by": admin,
+         "receipt": {"group_id": a["assignment_group_id"]}}]
+    assert writing_student._assignment_grading_tier(a) == "standard"
+
+
+def test_tier_standard_when_admin_gives_outside_own_scope(fake_db):
+    """Mass-code / another teacher's student in a class the admin does not own
+    → 'standard' (pure admin path)."""
+    from routers import writing_student
+    _admin, a = _seed_admin_teacher(fake_db, roster=False, cohort=False)
+    assert writing_student._assignment_grading_tier(a) == "standard"
+
+
+def test_tier_admin_origin_lookup_failure_is_standard(fake_db, monkeypatch):
+    """Ownership/receipt lookup error → fail-safe 'standard', never a blocked submit."""
+    from routers import writing_student
+    _admin, a = _seed_admin_teacher(fake_db)
+    real_table = fake_db.table
+
+    def _table(name):
+        if name == "students":
+            raise Exception("boom")
+        return real_table(name)
+
+    monkeypatch.setattr(fake_db, "table", _table)
+    assert writing_student._assignment_grading_tier(a) == "standard"
 
 
 # ── e2e MERGE-GATE — submit → queue → claim → deliver → student sees ──
