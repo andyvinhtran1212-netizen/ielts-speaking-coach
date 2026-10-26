@@ -132,7 +132,7 @@ So that thường chỉ mục đích nhưng cũng chỉ kết quả: “The road
 | **Thus** | trang trọng, học thuật | The sample was small; **thus,** the findings are inconclusive. |
 | **Hence** | rất trang trọng, ngắn gọn | Demand outstripped supply; **hence,** prices climbed. |
 
-> "Therefore/thus" nghiêng về **kết luận logic**; "consequently/as a result" nghiêng về **hệ quả thực tế xảy ra theo thời gian". Cả nhóm đều formal — lý tưởng cho Writing Task 2.
+> "Therefore/thus" nghiêng về **kết luận logic**; "consequently/as a result" nghiêng về **hệ quả thực tế xảy ra theo thời gian**. Cả nhóm đều formal — lý tưởng cho Writing Task 2.
 
 ---
 

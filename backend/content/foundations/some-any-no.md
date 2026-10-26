@@ -2,7 +2,7 @@
 title: Some / Any / No — Phân biệt và cách dùng đúng
 slug: some-any-no
 category: foundations
-summary: 'Some, any và no là ba từ chỉ số lượng không xác định dễ nhầm lẫn nhất trong tiếng Anh. Quy tắc cơ bản: some dùng trong câu khẳng định, any trong câu phủ định và câu hỏi, no thay thế not any. Bài này giải thích đầy đủ các trường hợp ngoại lệ, hợp chất (someone/anyone/no one, something/anything/nothing, somewhere/anywhere/nowhere), và lỗi người Việt hay gặp nhất.
+summary: 'Some, any và no là ba từ chỉ số lượng không xác định dễ nhầm lẫn nhất trong tiếng Anh. Quy tắc cơ bản: some dùng trong câu khẳng định, any trong câu phủ định và câu hỏi, no thay thế not any. Bài này giải thích đầy đủ các trường hợp ngoại lệ, từ ghép (someone/anyone/no one, something/anything/nothing, somewhere/anywhere/nowhere), và lỗi người Việt hay gặp nhất.
 
   '
 level: intermediate
@@ -73,7 +73,7 @@ anchors:
 
 ## Tại sao quan trọng
 
-Some trong câu hỏi đúng khi mong đợi câu trả lời có: “Do you have some ideas for the project?”. Any có cách dùng khẳng định mang nghĩa lựa chọn tự do: “Any student can apply”. Chọn theo nghĩa, không chỉ loại câu. Ngoài ra, các hợp chất như *someone/anyone/no one* thường bị nhầm khi viết (hai từ hay một từ?) và dùng trong ngữ cảnh sai.
+Some trong câu hỏi đúng khi mong đợi câu trả lời có: “Do you have some ideas for the project?”. Any có cách dùng khẳng định mang nghĩa lựa chọn tự do: “Any student can apply”. Chọn theo nghĩa, không chỉ loại câu. Ngoài ra, các từ ghép như *someone/anyone/no one* thường bị nhầm khi viết (hai từ hay một từ?) và dùng trong ngữ cảnh sai.
 
 ---
 
@@ -176,9 +176,9 @@ no + noun (verb is positive) = not any + noun (verb is negative)
 
 ---
 
-## PHẦN 4: HỢP CHẤT — Some-, Any-, No-
+## PHẦN 4: TỪ GHÉP — Some-, Any-, No-
 
-Các hợp chất được tạo bằng cách ghép some/any/no với -one/-body/-thing/-where.
+Các từ ghép được tạo bằng cách ghép some/any/no với -one/-body/-thing/-where.
 
 ### Người (person)
 
@@ -213,7 +213,7 @@ Các hợp chất được tạo bằng cách ghép some/any/no với -one/-body
 
 ---
 
-## PHẦN 5: BẢNG TỔNG HỢP HỢP CHẤT
+## PHẦN 5: BẢNG TỔNG HỢP TỪ GHÉP
 
 | Loại | Khẳng định | Phủ định / Câu hỏi | Phủ định dứt khoát |
 |------|-----------|-------------------|-------------------|
@@ -334,7 +334,7 @@ NO:
   → Thay "not any" với động từ khẳng định: I have no time.
   → Mạnh, dứt khoát hơn "not any"
 
-HỢP CHẤT:
+TỪ GHÉP:
   some- → khẳng định: someone, something, somewhere
   any-  → phủ định / câu hỏi: anyone, anything, anywhere
   no-   → phủ định dứt khoát: no one, nothing, nowhere
