@@ -23,6 +23,12 @@ export function CourseBehavior() {
   // sẽ để nguyên tiến độ của người trước trên màn hình (review #742).
   const bootedFor = useRef<string | null>(null);
 
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
+
   useEffect(() => {
     if (status !== 'signed-in' || !user?.id) return;
     if (bootedFor.current === user.id) return;
