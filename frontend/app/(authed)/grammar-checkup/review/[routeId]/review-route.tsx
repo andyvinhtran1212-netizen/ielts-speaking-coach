@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/lib/auth/auth-provider';
 import type { ApiGetJson } from '@/lib/openapi-contract';
 
 type Report = ApiGetJson<'/api/grammar/diagnostics/sessions/{session_id}/report'>;
@@ -12,6 +13,12 @@ export function ReviewRoute() {
   const session = useSearchParams()?.get('session') || '';
   const [priority, setPriority] = useState<Priority | null>(null);
   const [error, setError] = useState('');
+  const { status } = useAuth();
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
   useEffect(() => {
     if (!session) { setError('Thiếu phiên báo cáo để mở tuyến ôn.'); return; }
     let active = true;

@@ -60,9 +60,12 @@ test('the root error boundary bootstraps the shared design system', () => {
   assert.doesNotMatch(ERROR_STYLES, /#[0-9a-f]{3,8}|rgba?\(/i);
 });
 
-test('diagnostic routes fail closed for every production deployment', () => {
+// U-03 widened this from "every production deployment" to every deployment
+// (staging/preview included) unless `next dev` or AVER_ENABLE_DIAGNOSTIC_ROUTES=1.
+// Full contract: route-auth-guard-inventory.test.mjs.
+test('diagnostic routes fail closed for every deployment unless explicitly enabled', () => {
   for (const source of [NEXT_PROBE, RECORDER_SPIKE]) {
-    assert.match(source, /VERCEL_ENV === 'production'/);
-    assert.match(source, /notFound\(\)/);
+    assert.match(source, /if \(!diagnosticRoutesEnabled\(\)\) notFound\(\);/);
+    assert.doesNotMatch(source, /VERCEL_ENV === 'production'/);
   }
 });

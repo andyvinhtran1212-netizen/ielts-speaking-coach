@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
+import { useAuth } from '@/lib/auth/auth-provider';
 import {
   buildSpeakingLadders,
   preserveControlledRewriteResult,
@@ -381,6 +382,13 @@ export function AdvancedVocabularyLesson() {
   const [error, setError] = useState('');
   const errorHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const inlineErrorRef = useRef<HTMLDivElement | null>(null);
+  const { status } = useAuth();
+
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
