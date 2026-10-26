@@ -12,6 +12,7 @@ import unicodedata
 from dataclasses import dataclass, field
 
 from models.writing_feedback import Pass2Refinement, Pass3Rewrites, WritingFeedback
+from services.mistake_authenticity import is_noncorrection
 
 
 GROUNDING_INSTRUCTION = """
@@ -34,6 +35,9 @@ shorten, join or add words (no added subject such as "it"). Only essay excerpts
 go inside quotation marks: do not quote the task prompt, a paraphrase or
 Vietnamese summary of the learner's idea, a term or concept the learner did not
 use, or a sentence pattern presented as if it were the learner's wording.
+This never discourages reporting errors: a mistakeAnalysis "original" is meant
+to contain the learner's faulty wording, so quote a sentence with errors
+exactly as written and put the correction only in "suggestion".
 """.strip()
 
 # Quote detection in prose keeps its original mark set.
@@ -333,6 +337,53 @@ class UngroundedWritingFeedbackError(ValueError):
             "made-up excerpt. Keep genuinely new language only in clearly labelled "
             "suggestions/rewrites."
         )
+
+
+# Below this overall band an essay always has at least one real, quotable
+# issue (Rule 1 in prompts/writing/v2/shared/strict_grammar_check.md). Only a
+# genuinely error-free 8.5+ script may return an empty mistakeAnalysis.
+MISTAKE_ANALYSIS_EMPTY_MIN_BAND = 8.5
+
+
+class MissingMistakeAnalysisError(ValueError):
+    """A full pass-1 answer below band 8.5 with no real correction."""
+
+    error_code = "missing_mistake_analysis"
+
+    def __init__(self, band: float):
+        self.band = band
+        # Operational text only: the band, never learner or model prose.
+        super().__init__(
+            f"mistakeAnalysis has no real correction at overallBandScore {band:g} "
+            f"(< {MISTAKE_ANALYSIS_EMPTY_MIN_BAND:g})"
+        )
+
+    def repair_instruction(self) -> str:
+        return (
+            f"\n\nThe previous response returned no usable mistakeAnalysis entries for an "
+            f"essay graded overallBandScore {self.band:g}. Below band "
+            f"{MISTAKE_ANALYSIS_EMPTY_MIN_BAND:g} every essay contains real issues: re-scan "
+            "the essay sentence by sentence (grammar, articles, prepositions, word choice, "
+            "collocation, punctuation, awkward phrasing) and list each real error in "
+            "mistakeAnalysis. Copy every \"original\" character-for-character from one "
+            "contiguous stretch of the essay, INCLUDING the learner's errors (quoting a "
+            "faulty sentence exactly is what grounding requires), with a \"suggestion\" "
+            "that actually differs from it. Never invent an error, and do not raise the "
+            "band to avoid listing errors: set every score from the band descriptors. "
+            "Regenerate the complete requested JSON."
+        )
+
+
+def missing_mistake_analysis(feedback) -> bool:
+    """True for a full pass-1 WritingFeedback below band 8.5 whose
+    mistakeAnalysis has no real correction (the entries essay_service keeps
+    after drop_noncorrection_mistakes). Pass 2/3 schemas are never checked."""
+    if not isinstance(feedback, WritingFeedback):
+        return False
+    if feedback.overallBandScore >= MISTAKE_ANALYSIS_EMPTY_MIN_BAND:
+        return False
+    return not any(not is_noncorrection(m.original, m.suggestion)
+                   for m in feedback.mistakeAnalysis)
 
 
 @dataclass
