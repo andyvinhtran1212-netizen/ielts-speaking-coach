@@ -106,8 +106,9 @@ class _Builder:
 
 
 class _Client:
-    def __init__(self, canned: dict):
+    def __init__(self, canned: dict, user_id: str = "user-A"):
         self.canned = canned
+        self.user_id = user_id
         self.inserts: list[tuple] = []
         self.upserts: list[tuple] = []
         self.updates: list[tuple] = []
@@ -116,7 +117,9 @@ class _Client:
         return _Builder(self, name)
 
     def rpc(self, name, params):
-        assert name == "fn_finalize_d1_attempt"
+        # Migration 320: the seal runs as service_role with an explicit owner.
+        assert name == "fn_finalize_d1_attempt_for_user"
+        assert params["p_user_id"] == self.user_id
         client = self
 
         class _Exec:
@@ -162,7 +165,7 @@ class _Client:
 
 def _patch(monkeypatch, canned: dict, *, user_id: str = "user-A"):
     """Wire auth + feature flag + Supabase factory to test doubles."""
-    client = _Client(canned)
+    client = _Client(canned, user_id)
 
     async def _fake_auth(_authz):
         return {"id": user_id}
@@ -174,6 +177,8 @@ def _patch(monkeypatch, canned: dict, *, user_id: str = "user-A"):
     monkeypatch.setattr(ex, "get_supabase_user", _fake_auth)
     monkeypatch.setattr(ex, "_require_d1_enabled", lambda _uid: None)
     monkeypatch.setattr(ex, "_user_sb", lambda _token: client)
+    # Server-computed attempt rows and the finalize RPC use the service client.
+    monkeypatch.setattr(ex, "_service_sb", lambda: client)
     monkeypatch.setattr(ex, "_safe_event", lambda *_a, **_k: None)
     return client, "Bearer fake-jwt"
 

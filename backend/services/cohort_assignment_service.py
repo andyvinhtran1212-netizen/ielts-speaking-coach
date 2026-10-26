@@ -22,9 +22,11 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timezone
-from typing import Optional
+from typing import Annotated, Optional
 from uuid import UUID, uuid4
 
+from pydantic import BeforeValidator
+from services.class_assignment_service import CLASS_TZ, DEFAULT_DUE_TIME
 from services.class_membership_service import active_students_for_cohort
 
 logger = logging.getLogger(__name__)
@@ -130,7 +132,8 @@ def fan_out_assignment(
         already = set()
 
     group_id = str(uuid4())
-    deadline_iso = deadline.isoformat() if deadline else None
+    due = normalize_deadline(deadline)
+    deadline_iso = due.isoformat() if due else None
     payload = [
         {
             "prompt_id":           pid,
@@ -206,6 +209,40 @@ def _paged(query_factory, order_col: str = "id") -> list:
         start += _PAGE
 
 
+def normalize_deadline(value: datetime | date | str | None) -> Optional[datetime]:
+    """Normalize USER INPUT before writing a deadline.
+
+    Naive values mean Vietnam wall time, independent of browser/server locale.
+    Date-only values use DEFAULT_DUE_TIME (19:00 Vietnam), as compose_due_at
+    does. Aware values keep their instant/offset. None clears the deadline;
+    malformed/blank values raise ValueError (422 in request validation).
+    Stored timestamps must instead be read with parse_deadline.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        parsed = datetime.combine(value, DEFAULT_DUE_TIME)
+    elif isinstance(value, str):
+        raw = value.strip()
+        try:
+            day = date.fromisoformat(raw)
+        except ValueError:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        else:
+            parsed = datetime.combine(day, DEFAULT_DUE_TIME)
+    else:
+        raise ValueError("Deadline must be an ISO date or datetime")
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        parsed = parsed.replace(tzinfo=CLASS_TZ)
+    return parsed
+
+
+# Before validation preserves date-only input until the business default is set.
+Deadline = Annotated[datetime, BeforeValidator(normalize_deadline)]
+
+
 def parse_deadline(value) -> Optional[datetime]:
     """A stored deadline/timestamp as a timezone-aware UTC ``datetime``.
 
@@ -217,6 +254,8 @@ def parse_deadline(value) -> Optional[datetime]:
     UTC, a date-only value is midnight UTC of that day, and a naive value is
     treated as UTC. ``None``/blank → ``None`` (no deadline). A malformed string
     raises ``ValueError`` so each caller picks its own failure policy.
+    This is a READ helper (DB timestamps carry offsets). User input MUST pass
+    through normalize_deadline before persistence; its naive semantics differ.
     """
     if value is None:
         return None

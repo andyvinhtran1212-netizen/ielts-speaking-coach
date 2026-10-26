@@ -183,6 +183,7 @@ def _patch_user_route(monkeypatch, fake_client):
     monkeypatch.setattr(exr, "get_supabase_user", _fake_auth)
     monkeypatch.setattr(exr, "is_d1_enabled", lambda *_a, **_k: True)
     monkeypatch.setattr(exr, "_user_sb", lambda _token: fake_client)
+    monkeypatch.setattr(exr, "_service_sb", lambda: fake_client)
     monkeypatch.setattr(exr, "_bearer_token", lambda _h: "fake-token")
 
 

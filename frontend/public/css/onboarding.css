@@ -45,6 +45,30 @@
 .ob-wordmark        { color: var(--av-text-primary); }
 .ob-wordmark__brand { color: var(--av-primary); }
 
+.ob-header {
+  background: var(--av-surface-elevated);
+  border-bottom: 1px solid var(--av-border-subtle);
+  padding: var(--av-space-4) var(--av-space-6);
+}
+.ob-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-4);
+  max-width: 72rem;
+  margin: 0 auto;
+}
+.ob-header .ob-wordmark {
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-tight);
+}
+.ob-header__error {
+  color: var(--av-error);
+  margin-top: var(--av-space-3);
+  text-align: center;
+}
+
 
 /* ── Card surface ────────────────────────────────────────────────── */
 
@@ -204,6 +228,33 @@
 
 
 /* ── Buttons ─────────────────────────────────────────────────────── */
+
+.ob-secondary-button {
+  background: var(--av-surface-sunken);
+  color: var(--av-text-primary);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-3) var(--av-space-4);
+  font-size: var(--av-fs-sm);
+  cursor: pointer;
+}
+.ob-secondary-button:hover {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary-border);
+}
+.ob-secondary-button:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+.ob-secondary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ob-skip {
+  display: block;
+  width: 100%;
+  margin-top: var(--av-space-4);
+}
 
 .btn-primary {
   background: var(--av-primary);

@@ -637,3 +637,35 @@ describe('Era B reconciliation: frontend/landing.html deleted (sentinel)', () =>
     }
   });
 });
+
+
+// The fixture above remains the historical pricing baseline. Mobile navigation
+// belongs to the deployed Next page, so read its actual source here.
+describe('U-01 Next landing mobile navigation', () => {
+  const page = readFileSync(path.join(REPO_ROOT, 'frontend/app/(marketing)/page.tsx'), 'utf8');
+  const behavior = readFileSync(path.join(REPO_ROOT, 'frontend/app/(marketing)/landing-behavior.tsx'), 'utf8');
+  const styles = readFileSync(path.join(REPO_ROOT, 'frontend/public/css/index.css'), 'utf8');
+
+  test('header button controls a panel with all four destinations', () => {
+    assert.match(page, /id="ix-mobile-toggle"[\s\S]*?aria-label="Mở menu" aria-expanded="false" aria-controls="ix-mobile-menu"/);
+    const panel = page.match(/id="ix-mobile-menu"[\s\S]*?<\/div>/)?.[0];
+    assert.ok(panel);
+    for (const label of ['Grammar Wiki', 'Tính năng', 'Đăng nhập', 'Dùng thử miễn phí']) assert.ok(panel.includes(label));
+    assert.match(panel, /href="\/login">Đăng nhập/);
+    assert.match(panel, /href="#features"/);
+  });
+
+  test('mobile styles stop before desktop; theme button remains in header', () => {
+    assert.match(styles, /@media \(max-width: 767px\)/);
+    assert.match(styles, /\.ix-mobile-menu:not\(\[hidden\]\)/);
+    assert.match(page, /className="av-theme-toggle"/);
+  });
+
+  test('disclosure closes on navigation, Escape and outside click and cleans listeners', () => {
+    assert.match(behavior, /closest\('a'\)/);
+    assert.match(behavior, /event\.key === 'Escape'/);
+    assert.match(behavior, /!menu\?\.contains\(event\.target\)/);
+    assert.match(behavior, /menuButton\?\.focus\(\)/);
+    assert.match(behavior, /menuListeners\.abort\(\)/);
+  });
+});

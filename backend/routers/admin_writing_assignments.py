@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
 from routers.admin import require_admin
-from services.cohort_assignment_service import fan_out_assignment
+from services.cohort_assignment_service import Deadline, fan_out_assignment
 from services.class_membership_service import active_student_ids_for_cohort
 
 
@@ -172,7 +172,7 @@ class AssignmentCreate(BaseModel):
     student_ids:         list[UUID]         = Field(..., min_length=1, max_length=100)
     name:                Optional[str]      = Field(None, max_length=200)
     allow_soft_check:    bool               = False
-    deadline:            Optional[datetime] = None
+    deadline:            Optional[Deadline] = None
     instructions:        Optional[str]      = Field(None, max_length=2000)
     is_timed:            bool               = False
     time_limit_minutes:  Optional[int]      = Field(None, ge=1, le=180)
@@ -229,7 +229,7 @@ class AssignmentUpdate(BaseModel):
     Toggling `is_timed` mid-flight on an in-progress assignment would
     let an admin reset a student's started_at, so we don't expose
     timer edits on PATCH (delete + recreate covers that flow)."""
-    deadline:     Optional[datetime] = None
+    deadline:     Optional[Deadline] = None
     instructions: Optional[str]      = Field(None, max_length=2000)
     status:       Optional[str]      = Field(None, pattern=_STATUS_PATTERN)
 
@@ -431,7 +431,7 @@ class FanOutCreate(BaseModel):
     cohort_id:          UUID
     name:               Optional[str]      = Field(None, max_length=200)
     allow_soft_check:   bool               = False
-    deadline:           Optional[datetime] = None
+    deadline:           Optional[Deadline] = None
     instructions:       Optional[str]      = Field(None, max_length=2000)
     is_timed:           bool               = False
     time_limit_minutes: Optional[int]      = Field(None, ge=1, le=180)
