@@ -99,3 +99,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | READINGPRACTICE-0021 | Repair Reading practice and support sentence translation in place | implementing | high | [spec](0021-reading-practice-support/spec.md) |
 
 | REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
+
+| AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | draft | high | [spec](0024-admin-ai-model-control/spec.md) |
