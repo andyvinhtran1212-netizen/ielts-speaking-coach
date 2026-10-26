@@ -47,6 +47,7 @@ import json
 import logging
 import re
 import sys
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -65,6 +66,7 @@ logger = logging.getLogger(__name__)
 GRAMMAR_CHECK_TIMEOUT_SECONDS:   float = 15.0      # L10
 GRAMMAR_CACHE_TTL_HOURS:         int   = 4         # L4 — Mục 20 (B3): was 24h; a grammar-rules/asset update should not be served stale for up to a day
 MAX_DISPLAYED_ERRORS:            int   = 10        # L8
+LT_INIT_RETRY_SECONDS:           float = 600.0     # cooldown before re-trying a failed LanguageTool start
 _CACHE_TABLE:                    str   = "grammar_check_cache"
 
 # Asset path — added to sys.path lazily so import errors don't break
@@ -376,7 +378,26 @@ class GrammarCheckService:
         #                                      (Java missing / LT jar absent)
         #   backend_init_error               — any other construction failure
         self._backend_init_reason: str | None = None
+        # One construction per process. Without it, concurrent first requests
+        # each started a LanguageTool server; one ran against a half-extracted
+        # LT download, crashed (NoClassDefFoundError), and flagged the service
+        # as failed while the other thread's offline backend was live
+        # (staging 2026-10-26).
+        self._init_lock = threading.Lock()
+        self._backend_init_failed_at: float | None = None
         self._timeout_seconds: float = timeout_seconds
+
+    def _retry_window_open(self) -> bool:
+        """A transient LanguageTool failure is retried after a cooldown; a
+        missing asset is permanent until redeploy."""
+        if self._backend_init_reason == "asset_missing" or self._backend_init_failed_at is None:
+            return False
+        return time.monotonic() - self._backend_init_failed_at >= LT_INIT_RETRY_SECONDS
+
+    def _mark_init_failed(self, reason: str) -> None:
+        self._backend_init_failed = True
+        self._backend_init_reason = reason
+        self._backend_init_failed_at = time.monotonic()
 
     def _ensure_asset_on_path(self) -> None:
         asset_str = str(_ASSET_DIR)
@@ -389,24 +410,33 @@ class GrammarCheckService:
         etc.) so the caller can fall back to local rules only."""
         if self._backend is not None:
             return self._backend
-        if self._backend_init_failed:
+        if self._backend_init_failed and not self._retry_window_open():
             return None
+        with self._init_lock:
+            # Another thread may have finished while this one waited.
+            if self._backend is not None:
+                return self._backend
+            if self._backend_init_failed and not self._retry_window_open():
+                return None
+            return self._construct_backend_locked()
+
+    def _construct_backend_locked(self) -> Any | None:
+        """Build the LTBackend. Caller holds ``_init_lock``."""
         try:
             self._ensure_asset_on_path()
             import grammar_checker as _gc  # type: ignore[import-not-found]
             backend = _gc.LTBackend(prefer_offline=True, language="en-US")
         except Exception as exc:
             if isinstance(exc, ModuleNotFoundError) and exc.name in _ASSET_MODULES:
-                self._backend_init_reason = "asset_missing"
+                self._mark_init_failed("asset_missing")
             else:
-                self._backend_init_reason = "backend_init_error"
+                self._mark_init_failed("backend_init_error")
             logger.warning(
                 "[grammar_check] LTBackend init failed (%s) — falling back to local "
                 "rules only (non-fatal): %s",
                 self._backend_init_reason,
                 exc,
             )
-            self._backend_init_failed = True
             return None
 
         # Privacy boundary: the asset's LTBackend falls back to the public
@@ -419,11 +449,13 @@ class GrammarCheckService:
                 "disabled by policy — local rules only",
                 getattr(backend, "mode", None),
             )
-            self._backend_init_failed = True
-            self._backend_init_reason = "languagetool_offline_unavailable"
+            self._mark_init_failed("languagetool_offline_unavailable")
             return None
         backend._check_online = _refuse_online_fallback  # instance-level, asset untouched
         self._backend = backend
+        self._backend_init_failed = False
+        self._backend_init_reason = None
+        self._backend_init_failed_at = None
         logger.info("[grammar_check] LTBackend initialised in mode=%s", backend.mode)
         return self._backend
 
@@ -457,11 +489,10 @@ class GrammarCheckService:
                 # requests do not keep attempting it.
                 lt_findings = []
                 self._backend = None
-                self._backend_init_failed = True
-                self._backend_init_reason = "languagetool_offline_unavailable"
+                self._mark_init_failed("languagetool_offline_unavailable")
                 logger.warning(
                     "[grammar_check] LTBackend left offline mode; retired — local "
-                    "rules only until restart"
+                    "rules only, retry after %ss", LT_INIT_RETRY_SECONDS,
                 )
 
         merged = _gc.merge_findings(transcript, lt_findings, local_findings)
@@ -509,7 +540,9 @@ class GrammarCheckService:
             return None
 
         sha = _hash_transcript(transcript)
-        cached = _cache_get(sha)
+        # The health probe measures the live backend; a cached result (possibly
+        # computed while LanguageTool was down) would hide its real state.
+        cached = None if _health_probe else _cache_get(sha)
         if cached is not None:
             logger.info("[grammar_check] cache hit (%d errors)", cached.total_count)
             return cached
@@ -564,7 +597,8 @@ class GrammarCheckService:
         ))
         self._persist_events(events, session_id, question_id, response_id)
 
-        _cache_set(sha, result)
+        if not _health_probe:
+            _cache_set(sha, result)
         return result
 
     def _persist_events(
