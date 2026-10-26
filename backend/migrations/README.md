@@ -20,10 +20,12 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-26 the highest is `321`, so the next
-new migration is `322`. The runner applies any unapplied file regardless of order.
+sequence is dense. As of 2026-10-26 the highest is `322`, so the next
+new migration is `323`. The runner applies any unapplied file regardless of order.
+`321` is claimed by open PR #1727 (`321_writing_grade_ratings_feedback_version.sql`);
+re-check both numbers before either PR merges.
 
-Migration `321` (AIOPS-0024) is additive: `ai_model_overrides` (admin
+Migration `322` (AIOPS-0024) is additive: `ai_model_overrides` (admin
 per-feature preferred provider / Claude model, NULL = env/code default), the
 trigger-written append-only `ai_model_override_audit`, the routing-layer
 `ai_provider_failures` log and two read-only dashboard rollups. RLS is on with

@@ -1,4 +1,4 @@
-"""Migration 321 (AIOPS-0024 FR-003) on LOCAL disposable PostgreSQL.
+"""Migration 322 (AIOPS-0024 FR-003) on LOCAL disposable PostgreSQL.
 
 Admin-only AI model overrides, their trigger-written append-only audit, the
 routing-layer failure log and the dashboard rollups: RLS on, nothing for
@@ -16,7 +16,7 @@ import pytest
 
 DB = os.environ.get("TEST_PG_URL", "")
 MIGRATION = (Path(__file__).resolve().parents[1]
-             / "migrations/321_ai_model_overrides_and_failures.sql").read_text()
+             / "migrations/322_ai_model_overrides_and_failures.sql").read_text()
 TABLES = ("ai_model_overrides", "ai_model_override_audit", "ai_provider_failures")
 FUNCTIONS = ("fn_admin_ai_usage_rollup(timestamptz,timestamptz)",
              "fn_admin_ai_failure_rollup(timestamptz,timestamptz)")
@@ -44,7 +44,7 @@ def schema():
     parsed = urlparse(DB)
     if parsed.scheme not in {"postgres", "postgresql"} or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
         if os.environ.get("REQUIRE_PG") == "1":
-            pytest.fail("321 requires an explicitly LOCAL disposable PostgreSQL URL")
+            pytest.fail("322 requires an explicitly LOCAL disposable PostgreSQL URL")
         pytest.skip("Local PostgreSQL unavailable")
     name = "ai_overrides_" + uuid4().hex
     query("""DO $$ BEGIN

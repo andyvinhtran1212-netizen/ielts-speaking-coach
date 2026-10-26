@@ -71,7 +71,7 @@ async def patch_ai_model_override(
         raise HTTPException(503, detail={
             "error_code": "ai_override_store_unavailable",
             "status": exc.status,
-            "message": ("Chưa áp dụng migration 321 — không lưu được lựa chọn model."
+            "message": ("Chưa áp dụng migration 322 — không lưu được lựa chọn model."
                         if exc.status == "not_migrated"
                         else "Không lưu được lựa chọn model; cấu hình hiện tại không đổi."),
         })
@@ -92,7 +92,7 @@ async def get_ai_usage_summary(
     except admin_ai_dashboard.DashboardNotMigrated:
         raise HTTPException(503, detail={
             "error_code": "ai_dashboard_not_migrated",
-            "message": "Chưa áp dụng migration 321 — chưa có tổng hợp token.",
+            "message": "Chưa áp dụng migration 322 — chưa có tổng hợp token.",
         })
     except Exception as exc:
         logger.warning("[admin-ai] usage rollup failed: %s", type(exc).__name__)

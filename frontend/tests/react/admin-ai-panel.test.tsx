@@ -162,10 +162,10 @@ describe('AdminAiPanel', () => {
     fireEvent.change(select, { target: { value: 'claude-haiku-5-5' } });
     api.patchAdminAiModel.mockRejectedValueOnce(Object.assign(new Error('HTTP 503'), {
       status: 503,
-      detail: { error_code: 'ai_override_store_unavailable', message: 'Chưa áp dụng migration 321 — không lưu được lựa chọn model.' },
+      detail: { error_code: 'ai_override_store_unavailable', message: 'Chưa áp dụng migration 322 — không lưu được lựa chọn model.' },
     }));
     fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }));
-    const alert = await screen.findByText('Chưa áp dụng migration 321 — không lưu được lựa chọn model.');
+    const alert = await screen.findByText('Chưa áp dụng migration 322 — không lưu được lựa chọn model.');
     expect(alert.getAttribute('role')).toBe('alert');
     const row = screen.getByRole('row', { name: /Soát bài tự luận/ });
     expect(within(row).queryByText('DB override')).toBeNull();
@@ -182,9 +182,9 @@ describe('AdminAiPanel', () => {
       recent_changes_error: 'not_migrated',
     }));
     fireEvent.click(screen.getAllByRole('button', { name: 'Thử lại' })[0]);
-    expect(await screen.findByText('Chưa áp dụng migration 321 — đang dùng env/mặc định code.')).toBeTruthy();
+    expect(await screen.findByText('Chưa áp dụng migration 322 — đang dùng env/mặc định code.')).toBeTruthy();
     expect(screen.getByText(/Thiếu ANTHROPIC_API_KEY/)).toBeTruthy();
-    expect(screen.getByText('Chưa áp dụng migration 321 — chưa có lịch sử thay đổi.')).toBeTruthy();
+    expect(screen.getByText('Chưa áp dụng migration 322 — chưa có lịch sử thay đổi.')).toBeTruthy();
   });
 
   it('renders empty usage/failure states and switches windows with the keyboard', async () => {
@@ -228,12 +228,12 @@ describe('AdminAiPanel', () => {
 
   it('shows usage errors with retry and the failure-log migration state independently', async () => {
     api.getAdminAiUsage.mockRejectedValueOnce(Object.assign(new Error('HTTP 503'), {
-      status: 503, detail: { error_code: 'ai_dashboard_not_migrated', message: 'Chưa áp dụng migration 321 — chưa có tổng hợp token.' },
+      status: 503, detail: { error_code: 'ai_dashboard_not_migrated', message: 'Chưa áp dụng migration 322 — chưa có tổng hợp token.' },
     }));
     api.getAdminAiFailures.mockResolvedValue(failures({ store_status: 'not_migrated' }));
     render(<AdminAiPanel />);
-    expect(await screen.findByText('Chưa áp dụng migration 321 — chưa có tổng hợp token.')).toBeTruthy();
-    expect(await screen.findByText('Chưa áp dụng migration 321 — chưa có nhật ký lỗi gọi AI.')).toBeTruthy();
+    expect(await screen.findByText('Chưa áp dụng migration 322 — chưa có tổng hợp token.')).toBeTruthy();
+    expect(await screen.findByText('Chưa áp dụng migration 322 — chưa có nhật ký lỗi gọi AI.')).toBeTruthy();
     // The models panel is unaffected by the usage failure.
     expect(screen.getByRole('row', { name: /Chấm Writing/ })).toBeTruthy();
 

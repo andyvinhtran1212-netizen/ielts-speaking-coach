@@ -42,7 +42,7 @@ and model of every provider, each labelled `db_override`, `env` or
 `code_default` (shown as DB override / env / mặc định code). An administrator can set a preferred provider (Claude or the
 feature's existing provider) and a Claude model (allowlist:
 `claude-sonnet-5-5`, `claude-haiku-5-5`). They are stored in
-`ai_model_overrides` (migration 321); every change is audited by trigger in
+`ai_model_overrides` (migration 322); every change is audited by trigger in
 `ai_model_override_audit`.
 
 Precedence: **DB override > environment variable > code default**. A

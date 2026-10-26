@@ -38,7 +38,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 const STORE_MESSAGES: Record<string, string> = {
   stale: 'Bộ đệm cấu hình DB đã quá hạn — đang dùng env/mặc định code.',
   unavailable: 'Không đọc được cấu hình DB — đang dùng env/mặc định code.',
-  not_migrated: 'Chưa áp dụng migration 321 — đang dùng env/mặc định code.',
+  not_migrated: 'Chưa áp dụng migration 322 — đang dùng env/mặc định code.',
   not_loaded: 'Chưa tải cấu hình DB — đang dùng env/mặc định code.',
 };
 const OUTCOME_LABELS: Record<string, string> = { retry: 'thử lại', fallback: 'chuyển dự phòng', final: 'thất bại cuối' };
@@ -334,7 +334,7 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
           {data.recent_changes_error ? (
             <p className="ai-muted">
               {data.recent_changes_error === 'not_migrated'
-                ? 'Chưa áp dụng migration 321 — chưa có lịch sử thay đổi.'
+                ? 'Chưa áp dụng migration 322 — chưa có lịch sử thay đổi.'
                 : 'Không tải được lịch sử thay đổi.'}
             </p>
           ) : data.recent_changes.length === 0 ? (
@@ -493,7 +493,7 @@ function FailuresPanel({ range, labels }: { range: AiWindowKey; labels: Record<s
       {error && <PanelError message={error} onRetry={load} />}
       {loading && !data && !error && <div className="ai-loading" role="status">Đang tải nhật ký lỗi…</div>}
       {data && data.store_status === 'not_migrated' && (
-        <p className="ai-warning">Chưa áp dụng migration 321 — chưa có nhật ký lỗi gọi AI.</p>
+        <p className="ai-warning">Chưa áp dụng migration 322 — chưa có nhật ký lỗi gọi AI.</p>
       )}
       {data && data.store_status === 'ok' && (data.totals.total === 0 ? (
         <p className="ai-empty">Không có lỗi gọi AI trong khoảng này.</p>

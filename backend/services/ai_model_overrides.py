@@ -1,6 +1,6 @@
 """Admin per-feature AI model overrides (AIOPS-0024 FR-004/FR-006).
 
-``ai_model_overrides`` (migration 321) holds, per routed ``ai_router`` feature,
+``ai_model_overrides`` (migration 322) holds, per routed ``ai_router`` feature,
 an optional preferred provider and Claude model. Request paths never wait on
 the database: they read an in-process snapshot that a background task
 refreshes every ``AI_MODEL_OVERRIDE_TTL_SECONDS`` (30–60 s, default 30) and

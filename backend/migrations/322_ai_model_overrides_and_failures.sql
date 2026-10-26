@@ -1,4 +1,4 @@
--- Migration 321 — AIOPS-0024: admin AI model control, audit and failure log.
+-- Migration 322 — AIOPS-0024: admin AI model control, audit and failure log.
 --
 -- Additive only. With no ai_model_overrides row every feature keeps its
 -- env/code-default provider order and model (services/ai_router.py); the
