@@ -232,7 +232,7 @@ The reality is more nuanced than...
 
 **Q: Should governments ban fast food advertising aimed at children?**
 
-> "**I strongly believe that** governments should ban fast-food advertising directed at children. **It is undeniable that** children are highly susceptible to advertising, but trends in childhood obesity alone do not prove that current advertising measures caused the problem. **However**, it could be argued that** parents ultimately bear the primary responsibility for their children's diet, and that blanket bans may infringe on commercial freedom. **That said**, **I am convinced that** the health of future generations must take precedence over commercial interests."
+> "**I strongly believe that** governments should ban fast-food advertising directed at children. **It is undeniable that** children are highly susceptible to advertising, but trends in childhood obesity alone do not prove that current advertising measures caused the problem. **However**, **it could be argued that** parents ultimately bear the primary responsibility for their children's diet, and that blanket bans may infringe on commercial freedom. **That said**, **I am convinced that** the health of future generations must take precedence over commercial interests."
 
 **Phân tích cấu trúc:**
 - Câu 1: Strong stance (I strongly believe)

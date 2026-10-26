@@ -206,7 +206,7 @@ export function WritingShell() {
             <div id="tips-empty" className="wd-empty hidden">
               <div className="wd-empty__icon" aria-hidden="true">💡</div>
               <p className="wd-empty__title">Chưa có mẹo nào</p>
-              <p className="wd-empty__hint">Giảng viên sẽ publish mẹo viết sớm — em quay lại sau nhé.</p>
+              <p className="wd-empty__hint">Giảng viên sẽ đăng mẹo viết sớm — em quay lại sau nhé.</p>
             </div>
             <div id="tips-error" className="wd-empty wd-empty--compact hidden" role="alert">
               <p className="wd-empty__hint" id="tips-error-msg">Không tải được mẹo viết.</p>

@@ -7,7 +7,7 @@ import { SearchResultCards } from '../grammar-cards';
 import { SearchBox } from '../search-box';
 
 export const metadata: Metadata = {
-  title: 'Tìm kiếm — Grammar Wiki — IELTS Speaking Coach',
+  title: 'Tìm kiếm — Grammar Wiki — Aver Learning',
   robots: { index: false, follow: true },
 };
 
