@@ -119,6 +119,14 @@ describe('route auth-guard inventory (U-03)', () => {
     });
   }
 
+  test('grammar review route reads its report only once signed in', () => {
+    // A pre-auth window.api call threw before api.js loaded; the error boundary
+    // then unmounted the component and its signed-out guard never ran.
+    const source = code(GUARDED['/grammar-checkup/review/[routeId]']);
+    assert.match(source, /if \(status !== 'signed-in'\) return;\s*let active = true;\s*void window\.api\.get/);
+    assert.match(source, /\}, \[routeId, session, status\]\);/);
+  });
+
   test('public-by-design routes carry no page-wide signed-out redirect', () => {
     for (const route of PUBLIC_BY_DESIGN) {
       if (route === '/grammar/roadmap') continue; // asserted separately below

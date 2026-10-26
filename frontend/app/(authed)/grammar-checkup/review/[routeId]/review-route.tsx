@@ -21,6 +21,10 @@ export function ReviewRoute() {
   }, [status]);
   useEffect(() => {
     if (!session) { setError('Thiếu phiên báo cáo để mở tuyến ôn.'); return; }
+    // Read only once signed in: that also means api.js has created window.api.
+    // Calling it earlier threw synchronously, and the error boundary unmounted
+    // this component (and its signed-out guard) before auth resolved.
+    if (status !== 'signed-in') return;
     let active = true;
     void window.api.get<Report>(`/api/grammar/diagnostics/sessions/${encodeURIComponent(session)}/report`).then((report) => {
       if (!active) return;
@@ -28,7 +32,7 @@ export function ReviewRoute() {
       if (!found) setError('Tuyến ôn này không thuộc báo cáo hiện tại.'); else setPriority(found);
     }).catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : String(caught)); });
     return () => { active = false; };
-  }, [routeId, session]);
+  }, [routeId, session, status]);
   if (error) return <main className="gd-shell"><div className="gd-empty gd-error" role="alert">{error}</div></main>;
   if (!priority) return <main className="gd-shell"><div className="gd-empty">Đang mở tuyến ôn…</div></main>;
   const lessons = priority.lesson_sources.split(',').map((value) => value.trim()).filter(Boolean);
