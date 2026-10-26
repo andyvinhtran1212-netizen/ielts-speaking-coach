@@ -556,3 +556,90 @@ def test_health_probe_counts_local_rule_errors_without_languagetool(monkeypatch)
     out = asyncio.run(grammar_check.grammar_check_health())
     assert out["init_failure_reason"] == "languagetool_offline_unavailable"
     assert out["sample_error_count"] > 0, out
+
+
+# ── Init race, retry cooldown, probe cache bypass (staging 2026-10-26) ───────
+
+
+def test_concurrent_first_requests_construct_backend_once():
+    """Two threads racing the lazy init must build one LTBackend; the loser
+    reuses it instead of starting a second LanguageTool server."""
+    import threading
+    import time as _time
+
+    calls = []
+    backend = MagicMock()
+    backend.mode = "offline"
+
+    def _slow_ctor(**_kw):
+        calls.append(1)
+        _time.sleep(0.2)
+        return backend
+
+    fake_mod = MagicMock()
+    fake_mod.LTBackend.side_effect = _slow_ctor
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        svc = GrammarCheckService()
+        results = []
+        threads = [threading.Thread(target=lambda: results.append(svc._ensure_backend())) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert len(calls) == 1
+    assert results == [backend] * 4
+    assert svc._backend_init_failed is False
+
+
+def test_successful_init_clears_previous_failure_flag():
+    svc = GrammarCheckService()
+    svc._mark_init_failed("languagetool_offline_unavailable")
+    svc._backend_init_failed_at -= grammar_check.LT_INIT_RETRY_SECONDS + 1
+    backend = MagicMock()
+    backend.mode = "offline"
+    fake_mod = MagicMock()
+    fake_mod.LTBackend.return_value = backend
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        assert svc._ensure_backend() is backend
+    assert svc._backend_init_failed is False
+    assert svc._backend_init_reason is None
+
+
+def test_transient_failure_is_not_retried_before_cooldown():
+    svc = GrammarCheckService()
+    svc._mark_init_failed("languagetool_offline_unavailable")
+    fake_mod = MagicMock()
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        assert svc._ensure_backend() is None
+    fake_mod.LTBackend.assert_not_called()
+
+
+def test_asset_missing_is_never_retried():
+    svc = GrammarCheckService()
+    svc._mark_init_failed("asset_missing")
+    svc._backend_init_failed_at -= grammar_check.LT_INIT_RETRY_SECONDS + 1
+    fake_mod = MagicMock()
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        assert svc._ensure_backend() is None
+    fake_mod.LTBackend.assert_not_called()
+
+
+def test_health_probe_bypasses_result_cache(monkeypatch):
+    """A cached result (maybe computed while LanguageTool was down) must not
+    stand in for the live probe, and the probe must not write the cache."""
+    get_calls, set_calls = [], []
+    monkeypatch.setattr(grammar_check, "_cache_get", lambda sha: get_calls.append(sha) or None)
+    monkeypatch.setattr(grammar_check, "_cache_set", lambda sha, r: set_calls.append(sha))
+    local = [_finding(rule_id="LOCAL_MISSING_SUBJECT", offset=0, err_len=2)]
+    fake_mod = MagicMock()
+    fake_mod.run_local_rules.return_value = local
+    fake_mod.merge_findings.return_value = local
+    fake_mod.LTBackend.side_effect = RuntimeError("no java")
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        svc = GrammarCheckService()
+        monkeypatch.setattr(svc, "_persist_events", lambda *a, **k: None)
+        probe = asyncio.run(svc.check("He go to school.", _health_probe=True))
+        normal = asyncio.run(svc.check("He go to school."))
+    assert probe is not None and probe.total_count == 1
+    assert normal is not None
+    assert len(get_calls) == 1 and len(set_calls) == 1  # only the normal call touched the cache
