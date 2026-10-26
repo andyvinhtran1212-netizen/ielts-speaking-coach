@@ -441,6 +441,20 @@ describe('Next Speaking player integration', () => {
     assert.deepEqual(fallbacks, []);
   });
 
+  test('/tts requests carry the active session id so class assignments are admitted', () => {
+    const start = PRACTICE.indexOf('  function _ttsRequestBody(text) {');
+    const end = PRACTICE.indexOf('\n  }\n', start) + 4;
+    assert.ok(start > 0, '_ttsRequestBody must exist');
+    const make = new Function('_sessionId', `${PRACTICE.slice(start, end)}; return _ttsRequestBody;`);
+    assert.deepEqual(JSON.parse(make('sid-1')('Hello')), {
+      text: 'Hello', voice: 'nova', session_id: 'sid-1',
+    });
+    assert.deepEqual(JSON.parse(make(null)('Hello')), { text: 'Hello', voice: 'nova' });
+    const ttsFetches = PRACTICE.match(/fetch\(base \+ '\/tts', \{[\s\S]*?\}\)/g) || [];
+    assert.equal(ttsFetches.length, 2);
+    for (const call of ttsFetches) assert.match(call, /body: _ttsRequestBody\(/);
+  });
+
   test('a stale sequence play rejection cannot stop the replacement sequence', async () => {
     const start = PRACTICE.indexOf('  function _stopAITts() {');
     const end = PRACTICE.indexOf('  // ── END AI TTS', start);
@@ -468,6 +482,7 @@ describe('Next Speaking player integration', () => {
       function _tts() {}
       function _ttsSequence(segments) { fallbacks.push(segments); }
       function _ttsAuthHeaders() { return Promise.resolve({}); }
+      function _ttsRequestBody(text) { return JSON.stringify({ text: text }); }
       function _cancelSpeech() {}
       function _startManagedTimeout() {}
       ${PRACTICE.slice(start, end)}

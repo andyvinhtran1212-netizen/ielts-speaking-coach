@@ -461,3 +461,199 @@ def test_build_user_prompt_injects_trajectory_when_present(grader):
     assert "Task Response"           in prompt
     assert "bandTrajectoryAnalysis"  in prompt
     assert "current_band"            in prompt
+
+
+# ── Parse robustness (Claude has no JSON response mode) ──────────────
+
+def test_parse_response_reads_a_fenced_object_with_a_trailing_note(grader):
+    text = "```json\n" + json.dumps(VALID_FEEDBACK) + "\n```\n\nGhi chú: {không phải JSON}"
+    assert grader._parse_response(text).overallBandScore == 6.5
+
+
+def test_parse_response_accepts_a_raw_newline_inside_a_string(grader):
+    text = json.dumps(VALID_FEEDBACK, ensure_ascii=False).replace(
+        "Improved version of the essay…", "Paragraph one.\nParagraph two.")
+    assert "Paragraph one.\nParagraph" in text          # a raw control character
+    assert grader._parse_response(text).improvedEssay == "Paragraph one.\nParagraph two."
+
+
+def test_parse_response_schema_error_names_fields_without_model_text(grader):
+    data = json.loads(json.dumps(VALID_FEEDBACK))
+    data["criteriaFeedback"]["mainCriterion"]["bandScore"] = "MODEL-WROTE-THIS"
+    with pytest.raises(InvalidJSONError) as err:
+        grader._parse_response(json.dumps(data))
+    message = str(err.value)
+    assert "criteriaFeedback.mainCriterion.bandScore: int_parsing" in message
+    assert "MODEL-WROTE-THIS" not in message
+
+
+# ── Claude attempt + grounding repair ────────────────────────────────
+
+GROUNDED_ESSAY = "Governments should invest in dedicated bus lanes and employment centres."
+
+
+def _claude_feedback(claim: str) -> str:
+    data = json.loads(json.dumps(VALID_FEEDBACK))
+    data["mistakeAnalysis"] = []
+    data["criteriaFeedback"]["lexicalResource"]["feedback"] = claim
+    return json.dumps(data)
+
+
+GOOD_CLAUDE = _claude_feedback("Em dùng 'dedicated bus lanes' phù hợp.")
+UNGROUNDED_CLAUDE = _claude_feedback("Em dùng 'subsidies' tự nhiên.")
+
+
+@pytest.fixture
+def writing_providers(monkeypatch):
+    """Fake Claude + Gemini behind the real grader, router and ledger calls."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock
+
+    from config import settings as real_settings
+    from services import ai_router, ai_usage_logger
+    from services import gemini_writing_grader as gwg
+
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "test-anthropic-key")
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER", "anthropic,openai,gemini")
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER_WRITING_GRADING", "")
+    state = SimpleNamespace(claude=[], claude_requests=[], gemini=[GOOD_CLAUDE],
+                            gemini_calls=[], rows=[])
+
+    def capture(coro):
+        kwargs = dict(coro.cr_frame.f_locals.get("kwargs") or {})
+        kwargs.setdefault("service", "claude" if coro.cr_code.co_name == "log_claude_async"
+                          else "gemini")
+        state.rows.append(kwargs)
+        coro.close()
+
+    async def create(**request):
+        state.claude_requests.append(request)
+        item = state.claude.pop(0)
+        if callable(item):
+            return await item()
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=item)], stop_reason="end_turn",
+            usage=SimpleNamespace(input_tokens=700, output_tokens=6000,
+                                  cache_read_input_tokens=0, cache_creation_input_tokens=0),
+        )
+
+    def generate(contents, **_kw):
+        state.gemini_calls.append(contents)
+        text = state.gemini[min(len(state.gemini_calls), len(state.gemini)) - 1]
+        return SimpleNamespace(
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+            text=text, usage_metadata=None,
+        )
+
+    monkeypatch.setattr(ai_usage_logger, "schedule_usage_log", capture)
+    monkeypatch.setattr(ai_router, "_client",
+                        lambda *_a, **_k: SimpleNamespace(messages=SimpleNamespace(create=create)))
+    monkeypatch.setattr(gwg.genai, "configure", lambda **_kw: None)
+    monkeypatch.setattr(gwg.genai, "GenerativeModel",
+                        MagicMock(return_value=MagicMock(generate_content=generate)))
+    monkeypatch.setattr(gwg.asyncio, "sleep", AsyncMock())
+    state.grader = gwg.GeminiWritingGrader(api_key="test-gemini")
+    return state
+
+
+def _grounded_config() -> GraderConfig:
+    return GraderConfig(task_type="task2", prompt_text="Transport", essay_text=GROUNDED_ESSAY,
+                        analysis_level=3, selected_model="gemini-3.8-flash",
+                        usage_event_prefix="writing:test")
+
+
+def _claude_user_text(request: dict) -> str:
+    return request["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_claude_ungrounded_answer_is_repaired_on_claude(writing_providers):
+    state = writing_providers
+    state.claude = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.model_used == "claude-sonnet-5-5"
+    assert state.gemini_calls == []
+    first, repair = (_claude_user_text(r) for r in state.claude_requests)
+    assert "Regenerate the complete" not in first
+    assert repair.startswith(first) and "Regenerate the complete" in repair
+    assert "subsidies" in repair                    # the unsupported citation is named
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["status"] for r in claude_rows] == ["invalid_response", "success"]
+    assert claude_rows[0]["error_code"] == "ungrounded_feedback"
+    assert claude_rows[0]["metadata"]["error_detail"].startswith("Unsupported essay citations at")
+    assert [r["usage_event_id"] for r in claude_rows] == [
+        "writing:test:pass1:anthropic:1", "writing:test:pass1:anthropic:2"]
+    assert len(state.rows) == 2
+    assert "subsidies" not in json.dumps(state.rows, default=str)
+
+
+@pytest.mark.asyncio
+async def test_claude_failing_twice_leaves_the_gemini_loop_unchanged(writing_providers, monkeypatch):
+    state = writing_providers
+    state.gemini = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]     # Gemini needs its own repair too
+
+    # Baseline: Gemini-only grading of the same essay.
+    from config import settings as real_settings
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "")
+    baseline = await state.grader.grade_essay(_grounded_config())
+    baseline_calls = list(state.gemini_calls)
+    state.gemini_calls.clear()
+    state.rows.clear()
+
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "test-anthropic-key")
+    state.claude = [UNGROUNDED_CLAUDE, UNGROUNDED_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert len(state.claude_requests) == 2
+    assert result.model_used == baseline.model_used == "gemini-3.8-flash"
+    assert state.gemini_calls == baseline_calls and len(baseline_calls) == 2
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["error_code"] for r in claude_rows] == ["ungrounded_feedback"] * 2
+    assert [r["usage_event_id"] for r in claude_rows] == [
+        "writing:test:pass1:anthropic:1", "writing:test:pass1:anthropic:2"]
+
+
+@pytest.mark.asyncio
+async def test_claude_invalid_json_is_not_re_asked(writing_providers):
+    state = writing_providers
+    state.claude = ['{"overallBandScore": 6.5, "keyTakeaways": {"strengths": []} "truncated']
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.claude_requests) == 1
+    assert result.model_used == "gemini-3.8-flash" and len(state.gemini_calls) == 1
+    claude_row = next(r for r in state.rows if r["service"] == "claude")
+    assert claude_row["error_code"] == "invalid_json"
+    assert claude_row["metadata"]["error_detail"].startswith("JSON parse failed:")
+
+
+@pytest.mark.asyncio
+async def test_claude_repair_needs_budget_left(writing_providers, monkeypatch):
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(gwg, "CLAUDE_TOTAL_BUDGET_S", gwg.CLAUDE_REPAIR_MIN_S - 1)
+    state.claude = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.claude_requests) == 1
+    assert result.model_used == "gemini-3.8-flash"
+
+
+@pytest.mark.asyncio
+async def test_claude_repair_is_cut_off_at_the_budget(writing_providers, monkeypatch):
+    import asyncio
+
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(gwg, "CLAUDE_REPAIR_MIN_S", 0.0)
+    monkeypatch.setattr(gwg, "CLAUDE_TOTAL_BUDGET_S", 0.2)
+
+    async def hang():
+        await asyncio.Event().wait()
+
+    state.claude = [UNGROUNDED_CLAUDE, hang]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.claude_requests) == 2
+    assert result.model_used == "gemini-3.8-flash" and len(state.gemini_calls) == 1
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["status"] for r in claude_rows] == ["invalid_response", "cancelled"]

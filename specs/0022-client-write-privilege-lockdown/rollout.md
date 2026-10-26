@@ -20,6 +20,15 @@
     That ACL only affects objects its owner creates later; app migrations
     never create objects as `supabase_admin`, and every existing relation is
     still checked strictly.
+- PostgreSQL 17 (staging and production run 17.6): the Supabase default ACL
+  also grants `MAINTAIN` to `anon`/`authenticated`, and so do existing public
+  tables. 320 revokes `MAINTAIN` from client roles on every relation and in the
+  default ACLs of owners the runner can act for, when
+  `server_version_num >= 170000` (CI runs 16, which has no `MAINTAIN`). The
+  first staging apply (before this was added) aborted atomically with
+  `client_default_write_privilege_survives: postgres:r:anon:MAINTAIN, postgres:r:authenticated:MAINTAIN`
+  and left nothing applied; the `supabase_admin` WARNING now also lists its
+  `MAINTAIN` entries.
 
 ## Staging
 
@@ -27,7 +36,8 @@
 - Promote the backend from the same PR immediately after: between the two,
   D1 attempt/session writes from the previous backend fail closed (HTTP 500).
   D1 is default-off (`D1_ENABLED` and per-user `d1_enabled`).
-- Run the three read-only queries from the migration header: zero rows each.
+- Run the read-only queries from the migration header (the MAINTAIN one on
+  PG 17+): zero rows each.
 - Replay with a synthetic staging student token: PATCH `users` role, PATCH
   `d1_sessions` counts, PATCH `vocabulary_exercise_attempts` score, POST
   `sessions`, POST `/rpc/guard_grammar_assignment_evidence_write`; each denied.
@@ -58,6 +68,8 @@
 - Optional follow-up (not a release blocker; owner decision): ask a Supabase
   superuser / Supabase support to run, as `supabase_admin`,
   `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES FROM PUBLIC, anon, authenticated;`
+  ,
+  `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated;`
   and
   `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated;`
   then confirm the default-ACL query returns zero rows. Until then, any table

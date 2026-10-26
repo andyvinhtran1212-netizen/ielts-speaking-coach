@@ -266,6 +266,54 @@ def _patch_v2_loader(monkeypatch):
     monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
 
 
+@pytest.mark.parametrize("claude_configured", [True, False])
+@pytest.mark.asyncio
+async def test_deep_budget_covers_claude_and_its_repair_under_the_reaper(
+    grader, monkeypatch, reset_loader_cache, claude_configured,
+):
+    """Pass 1 may spend the whole Claude budget (first attempt + grounding
+    repair) and still leave Gemini its original 90 s; the three passes stay
+    under the 600 s Deep stuck-job timeout. Without Claude, unchanged."""
+    import asyncio
+
+    from config import settings as real_settings
+    from services import gemini_writing_grader as gwg
+
+    _patch_v2_loader(monkeypatch)
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER", "anthropic,openai,gemini")
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER_WRITING_GRADING", "")
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY",
+                        "test-anthropic-key" if claude_configured else "")
+    timeouts: list[float] = []
+    real_wait_for = asyncio.wait_for
+
+    async def spy(awaitable, timeout):
+        timeouts.append(timeout)
+        return await real_wait_for(awaitable, timeout)
+
+    responses = iter([
+        (json.dumps(VALID_FEEDBACK_STANDARD), {"input_tokens": 1, "output_tokens": 1}),
+        (json.dumps(VALID_PASS2_EMPTY), {"input_tokens": 1, "output_tokens": 1}),
+        (json.dumps(VALID_PASS3_RESPONSE), {"input_tokens": 1, "output_tokens": 1}),
+    ])
+
+    async def fake_call(*_a, **_kw):
+        return next(responses)
+
+    monkeypatch.setattr(gwg.asyncio, "wait_for", spy)
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        await grader.grade_essay(_deep_config(selected_model="gemini-2.5-pro"))
+
+    passes = GeminiWritingGrader.DEEP_PASS_TIMEOUTS_S
+    claude_budget = gwg.CLAUDE_TOTAL_BUDGET_S if claude_configured else 0
+    assert timeouts == [passes["pass1"] + claude_budget, passes["pass2"], passes["pass3"]]
+    # Attempt 1 is capped at CLAUDE_TIMEOUT_S, inside the budget with room left
+    # for a repair; the repair is cut off at the budget. So the whole Claude
+    # path (attempt + repair) never exceeds CLAUDE_TOTAL_BUDGET_S.
+    assert gwg.CLAUDE_TIMEOUT_S + gwg.CLAUDE_REPAIR_MIN_S <= gwg.CLAUDE_TOTAL_BUDGET_S
+    assert sum(timeouts) < real_settings.WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS == 600
+
+
 @pytest.mark.asyncio
 async def test_deep_tier_runs_3_passes_on_full_success(
     grader, monkeypatch, reset_loader_cache,

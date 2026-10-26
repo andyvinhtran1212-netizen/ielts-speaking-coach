@@ -26,11 +26,18 @@
 
 ## Data evidence
 
-- Migration/schema query: the three read-only queries in the migration 320
+- Migration/schema query: the read-only queries in the migration 320
   header must return zero rows on staging and production.
 - Local: applied twice to `public` of a scratch PostgreSQL 16 database with
   Supabase-like roles, `auth.uid()` and `postgres` default ACLs; and twice in
   the disposable schema of the migration test.
+- Local PostgreSQL 17 (after the first staging apply aborted on
+  `postgres:r:anon:MAINTAIN`): the migration test module on a scratch 17
+  cluster, and 320 applied twice to `public` of a scratch 17 cluster shaped
+  like hosted Supabase (superuser `supabase_admin`, non-superuser runner
+  `postgres`, both default ACLs granting ALL incl. `MAINTAIN`): exit 0 both
+  times, `postgres` defaults reduced to SELECT, zero relations with client
+  `MAINTAIN`, one WARNING per run listing only `supabase_admin` entries.
 - Immediate state versus full reload: privilege state is persistent; no data rewrite.
 
 ## UI evidence
