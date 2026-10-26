@@ -1,7 +1,7 @@
 ---
 id: REVEXPLAIN-0023
 title: Bind Cambridge REV papers by marking-equivalent keys and document accepted forms
-status: draft
+status: approved
 risk: high
 owner: product
 ---
