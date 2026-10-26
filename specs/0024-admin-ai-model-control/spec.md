@@ -161,9 +161,12 @@ and the main dashboard (`/admin`) shows only a single token total.
   (no feature, no pricing version).
 - An outage producing many failure rows: counts are aggregated in the database
   and the recent list is bounded to 50.
-- The concurrent Speaking default change (AI-0004 FR-005 revision on
-  `feat/speaking-anthropic-default`) changes only defaults; the dashboard derives
-  the Speaking chain from settings and needs no change for it.
+- The AI-0004 FR-005 revision (#1715/#1718, 2026-10-26) made Speaking inherit
+  `AI_PROVIDER_ORDER` (Claude Sonnet 5.5 first) while production keeps
+  `AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini` until the §6 gate passes. The
+  dashboard derives the Speaking chain from settings, so it shows whichever
+  default is configured; a DB preference wins over that env pin (see Open
+  questions).
 
 ## Success criteria
 
@@ -182,7 +185,9 @@ and the main dashboard (`/admin`) shows only a single token total.
 - None blocking approval. Owner decisions recorded here for approval:
   - The Claude-model allowlist is `claude-sonnet-5-5` and `claude-haiku-5-5`
     (both priced in `ai_pricing`); adding a model is a code change.
-  - `speaking_grading` is controllable like the other features. Using the
-    Claude preference for Speaking in production remains subject to the AI-0004
-    FR-005 revision and its constitution §6 evaluation; this spec only provides
-    the switch.
+  - `speaking_grading` is controllable like the other features. Because a DB
+    preference wins over env, selecting Claude for Speaking in production
+    overrides the `AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini` pin that the
+    AI-0004 FR-005 revision keeps until its constitution §6 gold-set gate
+    passes. That selection is an owner decision bound by the §6 gate; this
+    spec only provides the switch.

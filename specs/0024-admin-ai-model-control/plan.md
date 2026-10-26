@@ -28,8 +28,8 @@
 
 ### Migration `backend/migrations/321_ai_model_overrides_and_failures.sql`
 
-Number 320 is claimed by open PR #1699; the number is re-checked against
-`backend/migrations/` and open PRs before merge.
+320 is taken by SECWRITE-0022 (#1719, merged 2026-10-26); the number is
+re-checked against `backend/migrations/` and open PRs before merge.
 
 ```sql
 ai_model_overrides(
