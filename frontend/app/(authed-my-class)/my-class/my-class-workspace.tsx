@@ -563,6 +563,13 @@ export function MyClassWorkspace() {
 
   const startAssignment = useCallback(async (row: Assignment) => {
     if (!accountKey || startingItemRef.current) return;
+    // A writing give has no class ledger item, so the class-start endpoint cannot
+    // resolve it. Its lifecycle (draft, timer, submit, grading) lives on the
+    // Writing dashboard — send the learner there to do the task.
+    if (row.assignment.skill === 'writing') {
+      window.location.assign('/writing/dashboard');
+      return;
+    }
     const owner = accountKey;
     startingItemRef.current = row.itemId;
     setStartingItem(row.itemId);
