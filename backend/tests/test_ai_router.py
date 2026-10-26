@@ -232,6 +232,82 @@ async def test_invalid_output_becomes_a_fallback_signal(claude_on, usage_rows, m
 
 
 @pytest.mark.asyncio
+async def test_ungrounded_rejection_records_its_code_and_detail(claude_on, usage_rows, caplog):
+    from services.writing_feedback_grounding import UngroundedWritingFeedbackError
+
+    def reject(_text):
+        raise UngroundedWritingFeedbackError(
+            [("criteriaFeedback.lexicalResource.feedback", "invented subsidies")])
+
+    claude_on.results = [_message('{"answer": "MODEL-ANSWER-SENTINEL"}', in_tok=700, out_tok=6000)]
+    with caplog.at_level("WARNING", logger="services.ai_router"), \
+            pytest.raises(ai_router.AnthropicAttemptError) as err:
+        await ai_router.call_anthropic("writing_grading", system="S", user="U", max_tokens=50,
+                                       operation="pass1", validate=reject)
+    detail = "Unsupported essay citations at criteriaFeedback.lexicalResource.feedback"
+    assert err.value.error_code == "ungrounded_feedback"
+    assert isinstance(err.value.__cause__, UngroundedWritingFeedbackError)
+    row = usage_rows[-1]
+    assert (row["status"], row["error_code"]) == ("invalid_response", "ungrounded_feedback")
+    assert row["metadata"] == {"route": "anthropic_primary", "error_detail": detail}
+    assert row["output_tokens"] == 6000                 # billed attempt stays priced
+    assert detail in caplog.text and "ungrounded_feedback" in caplog.text
+    # Never the model's answer or the cited learner/model text.
+    for leaked in ("invented subsidies", "MODEL-ANSWER-SENTINEL"):
+        assert leaked not in json.dumps(usage_rows, default=str) and leaked not in caplog.text
+
+
+@pytest.mark.parametrize("validate, code, detail", [
+    (json.loads, "invalid_json", "Expecting value: line 1 column 8 (char 7)"),
+    ("InvalidJSONError", "invalid_json", "No JSON object found in response"),
+    ("ValueError", "invalid_response", "missing_or_invalid_result"),
+])
+@pytest.mark.asyncio
+async def test_invalid_answers_keep_a_specific_code_and_reason(claude_on, usage_rows,
+                                                               validate, code, detail):
+    from services.gemini_writing_grader import InvalidJSONError
+
+    errors = {"InvalidJSONError": InvalidJSONError, "ValueError": ValueError}
+    if isinstance(validate, str):
+        exc_type = errors[validate]
+
+        def validate(_text, _exc=exc_type, _msg=detail):
+            raise _exc(_msg)
+
+    claude_on.results = [_message('{"ok": tru')]
+    with pytest.raises(ai_router.AnthropicAttemptError) as err:
+        await ai_router.call_anthropic("course_writing", system="S", user="U",
+                                       max_tokens=50, operation="op", validate=validate)
+    assert err.value.error_code == code and str(err.value) == detail
+    assert usage_rows[-1]["error_code"] == code
+    assert usage_rows[-1]["metadata"]["error_detail"] == detail
+
+
+@pytest.mark.asyncio
+async def test_rejection_detail_is_truncated_and_never_echoes_schema_input(claude_on, usage_rows):
+    from pydantic import BaseModel
+
+    def long_reason(_text):
+        raise ValueError("x" * 2000)
+
+    claude_on.results = [_message("{}")]
+    with pytest.raises(ai_router.AnthropicAttemptError):
+        await ai_router.call_anthropic("course_writing", system="S", user="U",
+                                       max_tokens=50, operation="op", validate=long_reason)
+    assert usage_rows[-1]["metadata"]["error_detail"] == "x" * ai_router.ERROR_DETAIL_MAX_CHARS == "x" * 500
+
+    class Shape(BaseModel):
+        band: int
+
+    claude_on.results = [_message('{"band": "MODEL-WROTE-THIS"}')]
+    with pytest.raises(ai_router.AnthropicAttemptError):
+        await ai_router.call_anthropic("course_writing", system="S", user="U", max_tokens=50,
+                                       operation="op", validate=lambda t: Shape(**json.loads(t)))
+    assert usage_rows[-1]["metadata"]["error_detail"] == "schema: band: int_parsing"
+    assert "MODEL-WROTE-THIS" not in json.dumps(usage_rows)
+
+
+@pytest.mark.asyncio
 async def test_missing_key_never_builds_a_client(claude_off):
     with pytest.raises(ai_router.AnthropicAttemptError) as err:
         await ai_router.call_anthropic("course_writing", system="S", user="U",

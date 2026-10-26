@@ -87,12 +87,22 @@ _GLOSS_CONTEXT = re.compile(
 )
 
 
+_BRACKETED_ELLIPSIS = re.compile(r"[\[(]\s*\.\.\.\s*[\])]")
+_TRAILING_PUNCTUATION = ",.;:!? "
+
+
 def _normalize(text: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", text).translate(_PUNCTUATION).casefold().split())
 
 
 def _in_essay(excerpt: str, essay: str, *, allow_ellipsis: bool = False) -> bool:
     excerpt = _normalize(excerpt).strip()
+    if allow_ellipsis:
+        # Prose quoting conventions, not new wording: "[...]" marks an omission
+        # like "...", and a closing , . ; : ! ? may sit inside the quotes. Every
+        # remaining word must still occur verbatim; strict fields never opt in.
+        excerpt = _BRACKETED_ELLIPSIS.sub("...", excerpt)
+        excerpt = excerpt.rstrip(_TRAILING_PUNCTUATION).strip() or excerpt
     if allow_ellipsis and "..." in excerpt:
         # Explicit omissions are allowed in prose citations. Each remaining
         # fragment must still occur verbatim, in order and at word boundaries.
