@@ -72,7 +72,11 @@ class _Q:
 
     def _match(self, row):
         for op, c, v in self._filters:
-            rv = row.get(c)
+            if "->>" in c:   # PostgREST JSON path `col->>key`
+                col, key = c.split("->>", 1)
+                rv = (row.get(col) or {}).get(key)
+            else:
+                rv = row.get(c)
             if op == "eq" and str(rv) != str(v): return False
             if op == "neq" and str(rv) == str(v): return False
             if op == "in" and str(rv) not in v: return False
@@ -329,6 +333,96 @@ def test_fan_out_cross_owner_prompt_is_403():
                         json={"prompt_ids": [PA], "cohort_id": CA},
                         headers={"Authorization": "Bearer x"})
     assert r.status_code == 403, r.text
+
+
+# ── W-05: an ADMIN teaching from /instructor gets the instructor grade loop ────
+#
+# Staging bug: a users.role='admin' teacher fanned out from /instructor; the
+# student's essay graded 'standard' (tier keyed on role only) → no review row →
+# "Chấm bài" empty while the matrix said "Đã nộp".
+
+CADM, PADM, SADM, EADM = _u(131), _u(111), _u(141), _u(151)
+
+
+def _seed_admin_teacher():
+    store = _seed()
+    store["cohorts"].append({"id": CADM, "created_by": ADM, "name": "Lop ADM"})
+    store["writing_prompts"].append(
+        {"id": PADM, "created_by": ADM, "title": "ADM", "task_type": "task2", "prompt_text": "z"})
+    store["students"].append(
+        {"id": SADM, "instructor_id": ADM, "cohort_id": CADM, "full_name": "SADM",
+         "student_code": "SADM", "user_id": None})
+    store["writing_essays"].append(
+        {"id": EADM, "student_id": SADM, "status": "graded", "deleted_at": None,
+         "analysis_level": 3, "task_type": "task2", "created_at": "2026-01-01T00:00:00Z"})
+    store["writing_assignment_requests"] = []
+    return store
+
+
+class _ReviewDefaultsSB(_FakeSB):
+    """Applies instructor_reviews' DB column defaults on insert (the plain fake
+    stores the payload verbatim; create_review's model needs the timestamps)."""
+
+    def table(self, name):
+        q = _Q(name, self.store)
+        if name == "instructor_reviews":
+            insert = q.insert
+            q.insert = lambda p: insert({
+                "claimed_by": None, "created_at": "2026-01-02T00:00:00Z",
+                "updated_at": "2026-01-02T00:00:00Z", **p,
+            })
+        return q
+
+
+def _tier_for(store, assignment):
+    from routers import writing_student
+    with patch("routers.writing_student.supabase_admin", _FakeSB(store)):
+        return writing_student._assignment_grading_tier(assignment)
+
+
+@pytest.mark.parametrize("path,body", [
+    ("/instructor/assignments/fan-out", {"prompt_ids": [PADM], "cohort_id": CADM}),
+    ("/instructor/assignments", {"prompt_id": PADM, "student_id": SADM}),
+])
+def test_w05_admin_role_instructor_give_grades_instructor_and_reaches_queue(path, body):
+    store = _seed_admin_teacher()
+    with _as(ADM, store) as (client, st):
+        r = client.post(path, json=body, headers={"Authorization": "Bearer x"})
+        assert r.status_code == 201, r.text
+        rows = [w for w in st["writing_assignments"] if w["assigned_by"] == ADM]
+        assert len(rows) == 1 and rows[0]["student_id"] == SADM
+
+        # Submit-time tier: role is 'admin', but the give came from /instructor.
+        assert _tier_for(st, rows[0]) == "instructor"
+
+        # Grade hook (tier == INSTRUCTOR) → review row → this admin's queue.
+        rows[0]["essay_id"] = EADM
+        from services import instructor_workflow
+        with patch("services.instructor_workflow.supabase_admin", _ReviewDefaultsSB(st)):
+            instructor_workflow.create_review(EADM)
+        q = client.get("/instructor/reviews/queue", headers={"Authorization": "Bearer x"})
+    assert q.status_code == 200, q.text
+    assert EADM in {item["essay_id"] for item in q.json()}
+
+
+def test_w05_admin_tools_give_stays_standard():
+    """Admin writing tools (idempotent RPC → receipt with the group_id) keep the
+    standard path even for the admin's own class; so does the late-joiner copy
+    (same assignment_group_id)."""
+    store = _seed_admin_teacher()
+    group = _u(990)
+    store["writing_assignment_requests"].append(
+        {"id": _u(991), "assigned_by": ADM, "receipt": {"group_id": group}})
+    give = {"id": _u(992), "assigned_by": ADM, "student_id": SADM,
+            "cohort_id": CADM, "assignment_group_id": group}
+    assert _tier_for(store, give) == "standard"
+
+
+def test_w05_role_instructor_unchanged():
+    store = _seed()
+    assert _tier_for(store, {"id": AA, "assigned_by": A, "student_id": SA}) == "instructor"
+    # role instructor does not depend on ownership/receipt lookups at all
+    assert _tier_for(store, {"id": AA, "assigned_by": A}) == "instructor"
 
 
 # ── require_instructor gate (defense — W-2 covers depth) ─────────────────────
