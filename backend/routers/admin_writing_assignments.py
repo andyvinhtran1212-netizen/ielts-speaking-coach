@@ -13,7 +13,7 @@ the top of every handler):
   POST   /admin/writing/assignments              — create (single OR bulk)
   GET    /admin/writing/assignments/{id}         — single (with prompt + student joined)
   PATCH  /admin/writing/assignments/{id}         — partial update
-  DELETE /admin/writing/assignments/{id}         — hard delete (only when status='pending')
+  DELETE /admin/writing/assignments/{id}         — hard delete (only while unstarted: pending, no draft/essay)
 
 Duplicate policy: per the 2026-05-06 product decision, duplicate
 (prompt_id, student_id) inserts are ALLOWED but the response carries
@@ -34,6 +34,7 @@ from database import supabase_admin
 from routers.admin import require_admin
 from services.cohort_assignment_service import Deadline, fan_out_assignment
 from services.class_membership_service import active_student_ids_for_cohort
+from services.writing_assignment_delete_guard import delete_unstarted_assignment
 
 
 router = APIRouter(
@@ -667,34 +668,16 @@ async def delete_assignment(
     assignment_id: UUID,
     authorization: str | None = Header(None),
 ):
-    """Hard delete — only allowed when the assignment is still
-    `pending`.  Anything past pending implies real student/grader
-    work has touched the row and silently dropping it would lose
-    audit context."""
+    """Hard delete — only allowed while the student has not started:
+    status='pending', no started_at / essay_id and no draft (A-08).
+    Anything else implies real student/grader work; deleting would
+    cascade the draft away (mig 037) and drop audit context → 409."""
     await require_admin(authorization)
 
-    check = (
-        supabase_admin.table("writing_assignments")
-        .select("status")
-        .eq("id", str(assignment_id))
-        .limit(1)
-        .execute()
-    )
-    if not check.data:
-        raise HTTPException(404, "Assignment not found")
-
-    current = check.data[0].get("status")
-    if current != "pending":
-        raise HTTPException(
-            409,
-            f"Cannot delete assignment in status '{current}'. "
-            f"Only pending assignments can be deleted.",
-        )
-
-    (
-        supabase_admin.table("writing_assignments")
-        .delete()
-        .eq("id", str(assignment_id))
-        .execute()
+    delete_unstarted_assignment(
+        str(assignment_id),
+        assignments=lambda: supabase_admin.table("writing_assignments"),
+        drafts=lambda: supabase_admin.table("writing_drafts"),
+        not_found_detail="Assignment not found",
     )
     return {"message": "Assignment deleted", "assignment_id": str(assignment_id)}

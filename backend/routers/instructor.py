@@ -69,6 +69,7 @@ from services.instructor_access import (
     assert_essay_owned,
 )
 from services.instructor_workflow import ConflictError, NotFoundError
+from services.writing_assignment_delete_guard import delete_unstarted_assignment
 from services.writing_render import render_feedback_html, render_plain_text
 from services.writing_word_exporter import render_essay_to_docx
 
@@ -237,10 +238,15 @@ async def patch_assignment(request: Request, assignment_id: UUID, body: dict, au
 
 @router.delete("/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_assignment(request: Request, assignment_id: UUID, authorization: str | None = Header(None)):
+    """Delete only while the student has not started (A-08): pending, no
+    started_at / essay_id / draft — else 409, the draft would cascade away."""
     me = await _me(authorization, request)
-    r = instructor_db(me).table("writing_assignments").delete().eq("id", str(assignment_id)).execute()
-    if not r.data:
-        raise HTTPException(404, "Không tìm thấy.")
+    delete_unstarted_assignment(
+        str(assignment_id),
+        assignments=lambda: instructor_db(me).table("writing_assignments"),
+        drafts=lambda: supabase_admin.table("writing_drafts"),
+        not_found_detail="Không tìm thấy.",
+    )
     return None
 
 
