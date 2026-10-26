@@ -284,6 +284,27 @@ def _failure_outcome(feature: str, s: Any) -> str:
     return "final"
 
 
+def anthropic_failure_outcome(feature: str, settings_obj: Any | None = None) -> str:
+    """``fallback`` when the feature's existing provider follows Claude."""
+    return _failure_outcome(feature, _settings(settings_obj))
+
+
+def record_anthropic_failure(
+    feature: str,
+    *,
+    model: str | None,
+    error_code: Any,
+    outcome: str | None = None,
+    settings_obj: Any | None = None,
+) -> None:
+    """Record one failed Claude attempt (FR-007). ``outcome`` defaults to the
+    provider-order outcome; callers that retry Claude pass ``retry``."""
+    ai_failure_log.record(
+        feature=feature, provider="anthropic", model=model, error_code=error_code,
+        outcome=outcome or anthropic_failure_outcome(feature, settings_obj),
+    )
+
+
 def record_fallback(
     feature: str,
     *,
@@ -469,6 +490,7 @@ async def call_anthropic(
     timeout_seconds: float | None = None,
     settings_obj: Any | None = None,
     client: Any | None = None,
+    record_failures: bool = True,
 ) -> tuple[AnthropicResult, Any]:
     """One Claude attempt; returns ``(result, validate(text))``.
 
@@ -481,10 +503,10 @@ async def call_anthropic(
     model = anthropic_model(feature, s)
 
     def _record(code: str) -> None:
-        ai_failure_log.record(
-            feature=feature, provider="anthropic", model=model, error_code=code,
-            outcome=_failure_outcome(feature, s),
-        )
+        # A caller that may retry Claude itself (Writing's grounding repair)
+        # passes record_failures=False and records the outcome it decides.
+        if record_failures:
+            record_anthropic_failure(feature, model=model, error_code=code, settings_obj=s)
 
     if client is None:
         if not api_key:
@@ -529,7 +551,7 @@ async def call_anthropic(
     except Exception as exc:
         code = type(exc).__name__
         _log_attempt(status="error", latency_ms=_ms(started), usage=None, error_code=code, **log)
-        _record(code)
+        _record(ai_failure_log.error_code_of(exc))
         raise AnthropicAttemptError(code, str(exc)) from exc
 
     usage = _usage_tokens(response)

@@ -535,6 +535,9 @@ async def grade_response(
         # takes the documented graceful skip path.
         client = None
     orchestrator = None if _fixture_mode else _get_orchestrator()
+    # AIOPS-0024: events of this grade, kept even when the caller passes no
+    # sink, to attribute a rejected answer to the slot that produced it.
+    events_seen: list[FallbackEvent] = fallback_events if fallback_events is not None else []
 
     # ── Attempt 1 ─────────────────────────────────────────────────────────────
     if _fixture_mode:
@@ -543,9 +546,11 @@ async def grade_response(
         raw = await _invoke_orchestrator(
             orchestrator, system_prompt, user_message,
             user_id=user_id, session_id=session_id,
-            sink=fallback_events,
+            sink=events_seen,
         )
     result, error = validator(raw)
+    if result is None:
+        _record_rejected_answer(orchestrator, events_seen, outcome="fallback")
 
     if result is not None:
         logger.info("Claude grader: thành công lần 1 — overall_band=%.1f", result["overall_band"])
@@ -596,10 +601,12 @@ async def grade_response(
         raw2 = await _invoke_orchestrator(
             orchestrator, system_prompt, retry_message,
             user_id=user_id, session_id=session_id,
-            sink=fallback_events,
+            sink=events_seen,
             order=_retry_order,
         )
     result2, error2 = validator(raw2)
+    if result2 is None:
+        _record_rejected_answer(orchestrator, events_seen, outcome="final")
 
     if result2 is not None:
         logger.info("Claude grader: thành công lần 2 — overall_band=%.1f", result2["overall_band"])
@@ -909,6 +916,31 @@ def _parse_json_response(raw: str) -> tuple[dict | None, str | None]:
         f"JSON parse failed after 4 strategies. "
         f"First error: {first_err}. "
         f"Snippet: {preview!r}"
+    )
+
+
+def _record_rejected_answer(
+    orchestrator: GradingOrchestrator | None,
+    events: list[FallbackEvent],
+    *,
+    outcome: str,
+) -> None:
+    """AIOPS-0024 FR-007: a slot answered at transport level but its answer
+    failed JSON validation, so the grader moves on (``fallback``) or gives up
+    (``final``). The orchestrator saw a success, so record it here."""
+    feature = getattr(orchestrator, "_feature", None)
+    served = next((e for e in reversed(events) if getattr(e, "outcome", None) == "success"), None)
+    if not feature or served is None:
+        return
+    from services import ai_failure_log
+
+    provider = orchestrator.providers.get(served.provider)
+    model = (getattr(provider, "model", None) or getattr(provider, "model_name", None)
+             if provider is not None else None)
+    ai_failure_log.record(
+        feature=feature, provider=ai_failure_log.provider_for(served.provider, model),
+        model=model, route_slot=served.provider, attempt=served.attempt,
+        error_type="invalid_json", error_code="invalid_response", outcome=outcome,
     )
 
 

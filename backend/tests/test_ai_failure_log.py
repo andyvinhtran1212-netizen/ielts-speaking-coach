@@ -99,6 +99,20 @@ def test_error_code_of_looks_through_provider_wrappers():
     assert ai_failure_log.normalize_error_type("InvalidJSONError") == "invalid_json"
     assert ai_failure_log.error_code_of(ai_router.AnthropicAttemptError("rate_limited")) == "rate_limited"
     assert ai_failure_log.error_code_of(RuntimeError(SECRET)) == "RuntimeError"
+    try:
+        try:
+            raise ResourceExhausted(SECRET)
+        except ResourceExhausted as cause:
+            raise ValueError("Gemini request failed") from cause
+    except ValueError as exc:
+        assert ai_failure_log.error_code_of(exc) == "ResourceExhausted"
+    try:
+        try:
+            json.loads("{bad")
+        except json.JSONDecodeError:
+            raise ValueError("not json")  # implicit context still classifies
+    except ValueError as exc:
+        assert ai_failure_log.normalize_error_type(ai_failure_log.error_code_of(exc)) == "invalid_json"
 
 
 def test_row_is_bounded_and_enumerated():
@@ -347,6 +361,34 @@ async def test_listening_audit_records_wrapped_gemini_errors(failures, claude_fi
     _assert_no_content(failures)
 
 
+@pytest.mark.parametrize("raised, error_type, error_code", [
+    (asyncio.TimeoutError(), "timeout", "TimeoutError"),
+    (ResourceExhausted(SECRET), "rate_limit", "ResourceExhausted"),
+])
+@pytest.mark.asyncio
+async def test_question_generation_sees_through_the_value_error_wrapper(
+    failures, claude_first, monkeypatch, raised, error_type, error_code,
+):
+    from types import SimpleNamespace
+
+    from services import gemini
+
+    monkeypatch.setattr(settings, "AI_PROVIDER_ORDER_QUESTION_GENERATION", "gemini,anthropic")
+    monkeypatch.setattr(gemini, "_model", _FakeGemini(raised))
+    answer = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text='[{"question_text": "Q?", "question_type": "part1"}]')],
+        stop_reason="end_turn",
+        usage=SimpleNamespace(input_tokens=5, output_tokens=2,
+                              cache_read_input_tokens=0, cache_creation_input_tokens=0))
+    monkeypatch.setattr(ai_router, "_client", lambda *_a, **_k: _FakeClaude(answer))
+    parsed = await gemini._call_gemini(SECRET, expect=list)
+    assert parsed[0]["question_text"] == "Q?"
+    assert [(r["feature"], r["provider"], r["error_type"], r["error_code"], r["outcome"]) for r in failures] == [
+        ("question_generation", "gemini", error_type, error_code, "fallback"),
+    ]
+    _assert_no_content(failures)
+
+
 # ── Speaking grading orchestrator ──────────────────────────────────────────
 
 
@@ -415,3 +457,53 @@ def test_only_the_speaking_grading_chain_is_logged():
                         AI_PROVIDER_ORDER="", AI_PROVIDER_ORDER_SPEAKING_GRADING="gemini")
     assert build_default(s)._feature == "speaking_grading"
     assert build_default(s, feature="off_topic_judge", operation="judge")._feature is None
+
+
+@pytest.mark.parametrize("answers, expected", [
+    # First answer malformed, second valid: one rejected answer, then a fallback.
+    (["not json " + SECRET, "VALID"], [("grading_primary", "gemini", "fallback")]),
+    # Both malformed: the second rejection is final.
+    (["not json", "still not json"], [("grading_primary", "gemini", "fallback"),
+                                      ("claude_haiku", "anthropic", "final")]),
+])
+def test_speaking_answer_rejected_by_json_validation_is_logged(failures, monkeypatch, answers, expected):
+    """A slot can succeed at transport level yet return an unusable grade; the
+    grader then retries on another slot. That rejection is a failed attempt."""
+    import json as _json
+
+    from services import claude_grader
+
+    valid = _json.dumps({
+        "band_fc": 6, "band_lr": 6, "band_gra": 6, "overall_band": 6.0,
+        "fc_feedback": "Nói khá trôi chảy.", "lr_feedback": "Từ vựng ổn.",
+        "gra_feedback": "Ngữ pháp ổn.", "strengths": ["Phát triển ý tốt"],
+        "improvements": ["Dùng từ đa dạng hơn"],
+        "improved_response": "I really love reading books because reading relaxes me after a long day.",
+        "rubric_version": "v3",
+    })
+    replies = [valid if a == "VALID" else a for a in answers]
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "", raising=False)
+    monkeypatch.setattr(claude_grader, "_client", None, raising=False)
+    monkeypatch.setattr(claude_grader, "grading_provider_order",
+                        lambda _s=None: ("grading_primary", "claude_haiku"))
+    orchestrator = GradingOrchestrator({
+        "grading_primary": _Provider("grading_primary", "gemini-3.8-flash", [replies[0]]),
+        "claude_haiku": _Provider("claude_haiku", "claude-haiku-4-5-20251001", [replies[1]]),
+    }, feature="speaking_grading")
+    claude_grader.set_orchestrator(orchestrator)
+    try:
+        call = claude_grader.grade_response(
+            question="What do you like to do in your free time?",
+            transcript="I really love reading books because reading relaxes me after work.",
+            part=1, mode="test",
+        )
+        if answers[1] == "VALID":
+            assert asyncio.run(call)["overall_band"] == 6.0
+        else:
+            with pytest.raises(ValueError):
+                asyncio.run(call)
+    finally:
+        claude_grader.set_orchestrator(None)
+    assert [(r["route_slot"], r["provider"], r["outcome"]) for r in failures] == expected
+    assert all(r["error_type"] == "invalid_json" and r["feature"] == "speaking_grading" for r in failures)
+    _assert_no_content(failures)

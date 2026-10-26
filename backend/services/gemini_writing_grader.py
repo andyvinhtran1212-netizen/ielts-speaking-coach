@@ -1095,6 +1095,9 @@ class GeminiWritingGrader:
         started = time.monotonic()
         prompt = user_prompt
         attempt = 1
+        # AIOPS-0024 FR-007: this loop decides between a Claude repair (retry)
+        # and the Gemini fallback, so it records each failed attempt itself.
+        claude_model = ai_router.anthropic_model(feature)
         while True:
             if event_prefix:
                 context["usage_event_id"] = f"{event_prefix}:{operation}:anthropic:{attempt}"
@@ -1110,6 +1113,7 @@ class GeminiWritingGrader:
                 session_id=session_id,
                 usage_context=dict(context),
                 timeout_seconds=CLAUDE_TIMEOUT_S,
+                record_failures=False,
             )
             try:
                 if attempt == 1:
@@ -1123,6 +1127,7 @@ class GeminiWritingGrader:
                     "[ai_router] feature=%s provider=anthropic repair exceeded the %.0f s "
                     "Claude budget — falling back to gemini", feature, CLAUDE_TOTAL_BUDGET_S,
                 )
+                ai_router.record_anthropic_failure(feature, model=claude_model, error_code="timeout")
                 return None
             except ai_router.AnthropicAttemptError as exc:
                 cause = exc.__cause__
@@ -1136,6 +1141,10 @@ class GeminiWritingGrader:
                     str(exc)[:ai_router.ERROR_DETAIL_MAX_CHARS],
                     "re-asking Claude with the grounding repair" if repair
                     else "falling back to gemini",
+                )
+                ai_router.record_anthropic_failure(
+                    feature, model=claude_model, error_code=exc.error_code,
+                    outcome="retry" if repair else None,
                 )
                 if not repair:
                     return None

@@ -67,6 +67,7 @@ _NAMED_TYPES: dict[str, str] = {
     "missing_or_invalid_result": "invalid_json",
     "invalidjsonerror": "invalid_json",
     "ungroundedwritingfeedbackerror": "invalid_json",
+    "ungrounded_feedback": "invalid_json",
     "aisafetyblockerror": "empty_response",
     "empty_body": "empty_response",
     "blocked_or_empty": "empty_response",
@@ -122,16 +123,24 @@ def normalize_error_type(*codes: Any) -> str:
     return "unknown"
 
 
+# Generic classes call sites use to wrap a provider error (e.g. services.gemini
+# raises ValueError("Gemini request failed") from the SDK error). Their own
+# name says nothing about the failure when a cause is chained.
+_GENERIC_WRAPPERS = frozenset({"ValueError", "RuntimeError", "Exception", "TypeError", "OSError"})
+
+
 def error_code_of(exc: BaseException) -> str:
     """Short code for an exception, looking through provider wrappers.
 
     ``RetryableError``/``NonRetryableError`` carry the real code in
-    ``status`` (and the SDK exception in ``original``); retry-loop wrappers
-    chain the last error as ``__cause__``. The first classifiable code wins,
-    else the outermost class name. Never the exception message.
+    ``status`` (and the SDK exception in ``original``); retry-loop and generic
+    wrappers chain the real error as ``__cause__``/``__context__``. The first
+    classifiable code wins, else the innermost specific class name, else the
+    outermost class name. Never the exception message.
     """
     current: BaseException | None = exc
-    for _ in range(5):
+    specific: str | None = None
+    for _ in range(6):
         if current is None:
             break
         code = getattr(current, "error_code", None)
@@ -141,10 +150,16 @@ def error_code_of(exc: BaseException) -> str:
         if status not in (None, ""):
             return str(status)
         name = type(current).__name__
+        nested = (getattr(current, "original", None) or current.__cause__
+                  or (None if current.__suppress_context__ else current.__context__))
+        if name in _GENERIC_WRAPPERS and nested is not None:
+            current = nested
+            continue
         if normalize_error_type(name) != "unknown":
             return name
-        current = getattr(current, "original", None) or current.__cause__
-    return type(exc).__name__
+        specific = specific or name
+        current = nested
+    return specific or type(exc).__name__
 
 
 def provider_for(provider_or_slot: str | None, model: str | None = None) -> str:
