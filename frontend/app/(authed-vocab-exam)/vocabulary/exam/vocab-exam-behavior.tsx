@@ -2,8 +2,9 @@
 
 // `/api/vocabulary/exam` là endpoint public, read-only, nên request không mang
 // token. Trang thì thuộc khung học viên (U-03): khách chưa đăng nhập bị đẩy về
-// `/login`. Request/render nằm trong React lifecycle để soft navigation chạy
-// lại đúng và request cũ bị hủy khi rời trang.
+// `/login`, và danh sách chỉ tải/hiện sau khi đã xác nhận đăng nhập (G-01).
+// Request/render nằm trong React lifecycle để soft navigation chạy lại đúng và
+// request cũ bị hủy khi rời trang.
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -96,6 +97,9 @@ export function VocabExamBehavior() {
   }, [status]);
 
   useEffect(() => {
+    // Lists appear only for a signed-in learner, never in the ~0.4s before the
+    // signed-out redirect (G-01). Leaving signed-in aborts the request.
+    if (status !== 'signed-in') return;
     const controller = new AbortController();
     let disposed = false;
     setState({ status: 'loading' });
@@ -130,9 +134,9 @@ export function VocabExamBehavior() {
       disposed = true;
       controller.abort();
     };
-  }, []);
+  }, [status]);
 
-  if (state.status === 'loading') {
+  if (status !== 'signed-in' || state.status === 'loading') {
     return <p className="vx-status">Đang tải…</p>;
   }
   if (state.status === 'error') {

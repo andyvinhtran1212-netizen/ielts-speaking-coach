@@ -106,6 +106,10 @@ on:
       - 'frontend/public/css/ds.css'
       - 'frontend/public/js/vocab-modules/**'
       - 'frontend/app/(authed-vocab-exam)/**'
+      - 'frontend/app/(authed)/grammar-checkup/**'
+      - 'frontend/app/(authed)/course-exercises/**'
+      - 'frontend/app/(authed-advanced-vocab)/**'
+      - 'frontend/tooling/verify-learner-route-auth-boot-flow.mjs'
       - 'frontend/app/(authed-exam)/**'
       - 'frontend/lib/exam-player-model.mjs'
       - 'frontend/public/pages/exam.html'
@@ -845,6 +849,12 @@ jobs:
 
       - name: Kiểm luồng Advanced Vocabulary self-paced
         run: node tooling/verify-advanced-vocabulary-flow.mjs "http://localhost:$TEST_PORT"
+
+      # G-01: guarded learner routes boot only once signed in (api.js is
+      # delayed to force the direct-load race) and show nothing private before
+      # the signed-out /login redirect.
+      - name: Kiểm route học viên chờ đăng nhập trước khi khởi động
+        run: node tooling/verify-learner-route-auth-boot-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.

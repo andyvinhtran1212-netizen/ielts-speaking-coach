@@ -127,6 +127,25 @@ describe('route auth-guard inventory (U-03)', () => {
     assert.match(source, /\}, \[routeId, session, status\]\);/);
   });
 
+  test('guarded routes boot only once signed in and render nothing private before (G-01)', () => {
+    // A direct /grammar-checkup load called window.api.get before api.js
+    // created it, and the routes briefly rendered content or an error box
+    // before the signed-out redirect. Behaviour: tests/react/learner-route-auth-boot.
+    const checkup = code(GUARDED['/grammar-checkup']);
+    assert.match(checkup, /if \(status !== 'signed-in'\) return;\s*if \(booted\.current\) return;\s*booted\.current = true;/);
+    assert.match(checkup, /\}, \[assignmentItem, enterSession, requestedSession, requestedView, router, showReport, status\]\);/);
+    assert.match(checkup, /if \(status !== 'signed-in' \|\| phase === 'loading'\) return <main/);
+    assert.match(code(GUARDED['/grammar-checkup/review/[routeId]']), /if \(status !== 'signed-in'\) return <main[^\n]*Đang mở tuyến ôn…/);
+    const advanced = code(GUARDED['/advanced-vocabulary']);
+    assert.match(advanced, /if \(status !== 'signed-in' \|\| loadedOnce\.current\) return;\s*loadedOnce\.current = true;\s*void load\(\);/);
+    assert.match(advanced, /if \(status !== 'signed-in' \|\| phase === 'loading'\) return <main/);
+    const exam = code(GUARDED['/vocabulary/exam']);
+    assert.match(exam, /if \(status !== 'signed-in'\) return;\s*const controller = new AbortController\(\);/);
+    assert.match(exam, /if \(status !== 'signed-in' \|\| state\.status === 'loading'\) \{/);
+    // Static shell shows only its neutral "Đang mở bài tập…"; behaviour waits.
+    assert.match(code(GUARDED['/course-exercises']), /if \(status !== 'signed-in' \|\| !user\?\.id\) return;/);
+  });
+
   test('public-by-design routes carry no page-wide signed-out redirect', () => {
     for (const route of PUBLIC_BY_DESIGN) {
       if (route === '/grammar/roadmap') continue; // asserted separately below

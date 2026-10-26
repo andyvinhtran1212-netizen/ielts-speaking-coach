@@ -33,6 +33,9 @@ export function ReviewRoute() {
     }).catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : String(caught)); });
     return () => { active = false; };
   }, [routeId, session, status]);
+  // Neutral loading until signed in: no error box may flash before the
+  // signed-out redirect (U-03 / G-01).
+  if (status !== 'signed-in') return <main className="gd-shell"><div className="gd-empty">Đang mở tuyến ôn…</div></main>;
   if (error) return <main className="gd-shell"><div className="gd-empty gd-error" role="alert">{error}</div></main>;
   if (!priority) return <main className="gd-shell"><div className="gd-empty">Đang mở tuyến ôn…</div></main>;
   const lessons = priority.lesson_sources.split(',').map((value) => value.trim()).filter(Boolean);

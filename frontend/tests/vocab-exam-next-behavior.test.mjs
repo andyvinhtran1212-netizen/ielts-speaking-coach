@@ -34,11 +34,15 @@ describe('/vocabulary/exam — native React behavior', () => {
     assert.doesNotMatch(BEHAVIOR, /authorization|access_token/i);
   });
 
-  test('uses auth only to send signed-out visitors to /login (U-03)', () => {
+  test('uses auth only to gate the page: /login redirect and signed-in load (U-03, G-01)', () => {
     // The endpoint stays public and token-free; the page itself is a student
-    // surface, so useAuth() drives the redirect and nothing else.
+    // surface, so useAuth() drives the redirect and holds the lists back until
+    // signed in — no token or user identity reaches the request.
     assert.match(BEHAVIOR, /const \{ status \} = useAuth\(\);/);
     assert.match(BEHAVIOR, /if \(status === 'signed-out'\) window\.location\.replace\('\/login'\);/);
+    assert.match(BEHAVIOR, /if \(status !== 'signed-in'\) return;/);
+    assert.match(BEHAVIOR, /if \(status !== 'signed-in' \|\| state\.status === 'loading'\) \{/);
+    assert.doesNotMatch(BEHAVIOR, /\buser\b.*useAuth|useAuth\(\)\.user/);
   });
 
   test('normalizes malformed data and removes empty lists/families', () => {
