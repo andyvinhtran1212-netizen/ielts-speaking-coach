@@ -16,9 +16,14 @@ matched against the published staging package's 1,676 source positions before
 deployment. The source manifest is recorded in the document header.
 
 The API applies these edits only during owner-authorized reveal, submitted
-review or explicitly opened source study. Marking continues to read the
-original explanation; answers, evidence, source warnings, immutable package
-rows and learner attempts are retained. A different item or source explanation
+review or explicitly opened source study. This file contains no answers and
+cannot change them: only the Vietnamese text fields above are overridable.
+Reference answers and printed keys come from the imported package rows.
+Short-answer/gap positions are self-review only ("Tự đối chiếu", no automatic
+score) and show the imported reviewed reference answer beside the printed key.
+Only separately approved objective choice positions are checked automatically,
+against the imported reviewed key. Evidence, source warnings, immutable
+package rows and learner attempts are retained. A different item or source explanation
 does not receive this revision. Reverting the content integration restores
 the original text without a database migration or data rollback.
 
@@ -31,6 +36,12 @@ days, all 350 question blocks / 1,676 source positions, 10 vocabulary blocks and
 attachments. The 41 existing layout overrides retain full passages and fixed
 form/table rows. Original imported question options, multi-gap IDs, grading,
 answer keys, explanations and learner attempts remain authoritative.
+
+Learner-visible text carries no Chinese-language source pages or source-site
+watermarks. Study blocks whose source text was Chinese commentary or story
+summaries show a short Vietnamese notice instead; English exercise reprints keep
+their English text. Mock-test instruction headers state each test's verified
+source question count. Presentation text is not part of the binding digests.
 
 Each row binds the complete original imported block's structural metadata,
 question membership and archival image paths to source manifest
