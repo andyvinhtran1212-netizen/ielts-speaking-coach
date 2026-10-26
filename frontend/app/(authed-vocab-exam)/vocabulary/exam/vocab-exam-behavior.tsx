@@ -1,10 +1,12 @@
 'use client';
 
-// `/api/vocabulary/exam` là endpoint public, read-only. Component không tự
-// phát minh auth gate; nó chỉ đưa request/render vào React lifecycle để soft
-// navigation chạy lại đúng và request cũ bị hủy khi rời trang.
+// `/api/vocabulary/exam` là endpoint public, read-only, nên request không mang
+// token. Trang thì thuộc khung học viên (U-03): khách chưa đăng nhập bị đẩy về
+// `/login`. Request/render nằm trong React lifecycle để soft navigation chạy
+// lại đúng và request cũ bị hủy khi rời trang.
 import { useEffect, useState } from 'react';
 
+import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 interface ExamListPayload {
@@ -85,6 +87,13 @@ function normalizeFamilies(payload: unknown): ExamFamily[] {
 
 export function VocabExamBehavior() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const { status } = useAuth();
+
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
 
   useEffect(() => {
     const controller = new AbortController();

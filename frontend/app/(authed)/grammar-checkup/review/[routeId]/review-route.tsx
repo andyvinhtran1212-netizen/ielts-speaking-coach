@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/lib/auth/auth-provider';
 import type { ApiGetJson } from '@/lib/openapi-contract';
 
 type Report = ApiGetJson<'/api/grammar/diagnostics/sessions/{session_id}/report'>;
@@ -12,8 +13,18 @@ export function ReviewRoute() {
   const session = useSearchParams()?.get('session') || '';
   const [priority, setPriority] = useState<Priority | null>(null);
   const [error, setError] = useState('');
+  const { status } = useAuth();
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
   useEffect(() => {
     if (!session) { setError('Thiếu phiên báo cáo để mở tuyến ôn.'); return; }
+    // Read only once signed in: that also means api.js has created window.api.
+    // Calling it earlier threw synchronously, and the error boundary unmounted
+    // this component (and its signed-out guard) before auth resolved.
+    if (status !== 'signed-in') return;
     let active = true;
     void window.api.get<Report>(`/api/grammar/diagnostics/sessions/${encodeURIComponent(session)}/report`).then((report) => {
       if (!active) return;
@@ -21,7 +32,7 @@ export function ReviewRoute() {
       if (!found) setError('Tuyến ôn này không thuộc báo cáo hiện tại.'); else setPriority(found);
     }).catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : String(caught)); });
     return () => { active = false; };
-  }, [routeId, session]);
+  }, [routeId, session, status]);
   if (error) return <main className="gd-shell"><div className="gd-empty gd-error" role="alert">{error}</div></main>;
   if (!priority) return <main className="gd-shell"><div className="gd-empty">Đang mở tuyến ôn…</div></main>;
   const lessons = priority.lesson_sources.split(',').map((value) => value.trim()).filter(Boolean);

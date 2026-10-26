@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/lib/auth/auth-provider';
 import type { ApiGetJson, ApiPostJson } from '@/lib/openapi-contract';
 
 type Session = ApiGetJson<'/api/grammar/diagnostics/sessions/{session_id}'>;
@@ -34,6 +35,13 @@ export function GrammarCheckup() {
   const [length, setLength] = useState<'QUICK' | 'FULL'>('QUICK');
   const openedAt = useRef(Date.now());
   const booted = useRef(false);
+  const { status } = useAuth();
+
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
 
   const showReport = useCallback(async (sessionId: string) => {
     const value = await window.api.get<Report>(`/api/grammar/diagnostics/sessions/${encodeURIComponent(sessionId)}/report`);

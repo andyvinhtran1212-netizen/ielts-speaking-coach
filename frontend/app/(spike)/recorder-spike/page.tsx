@@ -6,6 +6,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { diagnosticRoutesEnabled } from '@/lib/diagnostic-routes.mjs';
+
 import { SpikeHarness } from './spike-harness';
 
 export const metadata: Metadata = {
@@ -13,7 +15,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Same static, real-404 gate as /next-probe (U-03): this page has no
+// AuthProvider, so it must not render on staging/preview for signed-out visitors.
 export default function RecorderSpikePage() {
-  if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_GIT_COMMIT_REF === 'main') notFound();
+  if (!diagnosticRoutesEnabled()) notFound();
   return <SpikeHarness />;
 }
