@@ -164,8 +164,10 @@ export function validateAssignmentDraft(draft, promptCount, studentCount, cohort
   const minutes = draft.isTimed ? Number(draft.timeLimitMinutes) : null;
   if (draft.isTimed && (!Number.isInteger(minutes) || minutes < 1 || minutes > 180)) return { ok: false, error: 'Thời gian IELTS-mode phải từ 1 đến 180 phút.' };
   const deadline = textOf(draft.deadline);
-  if (deadline && Number.isNaN(new Date(deadline).getTime())) return { ok: false, error: 'Hạn nộp không hợp lệ.' };
-  return { ok: true, expectedCount: promptCount * (draft.mode === 'cohort' ? cohortStudentCount : studentCount), timeLimitMinutes: minutes, deadline: deadline ? new Date(deadline).toISOString() : null };
+  // datetime-local is Vietnam wall time, including when the admin is abroad.
+  const deadlineIso = deadline ? `${deadline}:00+07:00` : null;
+  if (deadline && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(deadline) || Number.isNaN(Date.parse(deadlineIso)))) return { ok: false, error: 'Hạn nộp không hợp lệ.' };
+  return { ok: true, expectedCount: promptCount * (draft.mode === 'cohort' ? cohortStudentCount : studentCount), timeLimitMinutes: minutes, deadline: deadlineIso };
 }
 
 export function normalizeCreateReceipt(raw, expectedCount, requestId = '') {
