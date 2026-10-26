@@ -1,0 +1,162 @@
+{
+  "slug": "completion-how-a-rainbow-trout-grows",
+  "review_notes": "Dịch lại toàn bài; giữ rõ các giai đoạn alevin, fry, parr và túi noãn hoàng, không đồng nhất mọi cá hồi vân với dạng di cư ra biển.",
+  "illustration_brief": "Một cá hồi vân dưới mặt nước sông mát, đá cuội và thực vật ven bờ; không vẽ sơ đồ giai đoạn hay gắn nhãn đáp án.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Cá hồi vân, loài cá nước ngọt sống trong những con sông và hồ mát, trải qua nhiều giai đoạn rõ rệt trước khi trưởng thành.",
+      [
+        "a freshwater fish",
+        "loài cá nước ngọt"
+      ],
+      [
+        "several clear stages",
+        "nhiều giai đoạn rõ rệt"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Vòng đời của nó bắt đầu vào cuối đông hoặc mùa xuân, khi cá cái chọn một đoạn đáy sông sạch có nhiều sỏi.",
+      [
+        "late winter or spring",
+        "cuối đông hoặc mùa xuân"
+      ],
+      [
+        "clean, gravelly riverbed",
+        "đáy sông sạch có nhiều sỏi"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Cá cái dùng đuôi đào một ổ nông trong sỏi, gọi là redd, rồi đẻ trứng vào đó.",
+      [
+        "Using her tail",
+        "dùng đuôi"
+      ],
+      [
+        "a shallow nest",
+        "một ổ nông"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Cá đực thụ tinh cho số trứng này, sau đó cá cái phủ nhẹ một lớp sỏi lên trên để bảo vệ trứng khỏi dòng chảy và những con vật săn mồi đang đói.",
+      [
+        "fertilised by the male",
+        "Cá đực thụ tinh"
+      ],
+      [
+        "hungry predators",
+        "những con vật săn mồi đang đói"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một cá cái có thể đẻ vài nghìn trứng, nhưng chỉ một số ít sống sót.",
+      [
+        "several thousand eggs",
+        "vài nghìn trứng"
+      ],
+      [
+        "only a few will survive",
+        "chỉ một số ít sống sót"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Sau vài tuần, trứng nở thành những con non rất nhỏ gọi là alevin (cá non còn túi noãn hoàng).",
+      [
+        "the eggs hatch",
+        "trứng nở"
+      ],
+      [
+        "tiny young known as alevins",
+        "những con non rất nhỏ gọi là alevin (cá non còn túi noãn hoàng)"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Cá alevin chưa thể săn mồi nên sống nhờ túi noãn hoàng gắn ở mặt dưới cơ thể, đồng thời ẩn mình giữa các viên đá.",
+      [
+        "a yolk sac",
+        "túi noãn hoàng"
+      ],
+      [
+        "staying hidden among the stones",
+        "ẩn mình giữa các viên đá"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khi nguồn thức ăn dự trữ này cạn, cá non bơi lên về phía ánh sáng và lúc này được gọi là cá bột (fry).",
+      [
+        "this store of food",
+        "nguồn thức ăn dự trữ này"
+      ],
+      [
+        "towards the light",
+        "về phía ánh sáng"
+      ],
+      [
+        "called fry",
+        "gọi là cá bột (fry)"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Khi lớn lên, cá fry xuất hiện một hàng vệt sẫm dọc hai bên thân, gọi là vệt parr, giúp chúng ngụy trang trên nền đáy sông.",
+      [
+        "dark marks along their sides",
+        "vệt sẫm dọc hai bên thân"
+      ],
+      [
+        "act as camouflage",
+        "giúp chúng ngụy trang"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ở giai đoạn này, cá được gọi là parr, tức cá non có các vệt sẫm dọc thân.",
+      [
+        "At this stage",
+        "Ở giai đoạn này"
+      ],
+      [
+        "known as parr",
+        "gọi là parr, tức cá non có các vệt sẫm dọc thân"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Dần dần, chúng phát triển thành cá trưởng thành.",
+      [
+        "In time",
+        "Dần dần"
+      ],
+      [
+        "adults",
+        "cá trưởng thành"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Nhiều cá hồi vân sống cả đời trong nước ngọt, nhưng một số bơi ra biển kiếm ăn rồi nhiều năm sau quay lại đúng con sông ấy để đẻ trứng.",
+      [
+        "their whole lives in fresh water",
+        "cả đời trong nước ngọt"
+      ],
+      [
+        "the very same river",
+        "đúng con sông ấy"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-trout-scene.svg",
+    "alt": "Cá hồi vân bơi trên nền đá và rong dưới dòng nước, với bờ cỏ phía trên.",
+    "caption": "Quan sát cá hồi vân trong môi trường tự nhiên."
+  },
+  "source_sha256": "d5fd961c6e7a5059ee015dee8d097aefe62c8a6bac99ce994f18e379910d6dcf",
+  "expected_translation_sha256": "1bd01e6f076b093219d3a7c78a2f12b2a3f7389c21abaca66619f13169b24c33"
+}

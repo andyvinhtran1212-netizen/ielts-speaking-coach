@@ -832,6 +832,9 @@ jobs:
       - name: Kiểm luồng D1 Exercise native
         run: node tooling/verify-d1-exercise-flow.mjs "http://localhost:$TEST_PORT"
 
+      - name: Kiểm bộ từ theo lớp và bốn chế độ học
+        run: node tooling/verify-vocabulary-class-sets-flow.mjs "http://localhost:$TEST_PORT"
+
       - name: Kiểm luồng Advanced Vocabulary self-paced
         run: node tooling/verify-advanced-vocabulary-flow.mjs "http://localhost:$TEST_PORT"
 

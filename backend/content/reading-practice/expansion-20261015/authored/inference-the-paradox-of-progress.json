@@ -1,0 +1,242 @@
+{
+  "slug": "inference-the-paradox-of-progress",
+  "review_notes": "Không dịch global verdict thành phán quyết toàn cầu; giữ mốc lịch sử 1990–2015, điều kiện if và kết luận chưa ngã ngũ. Minh hoạ không dùng biểu đồ kết luận.",
+  "illustration_brief": "Một người điền phiếu cảm nhận cuộc sống trước khung cảnh thành phố và cây xanh.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Theo gần như mọi thước đo khách quan, cư dân các nước giàu có cuộc sống tốt hơn thế hệ cụ của họ.",
+      [
+        "almost every objective measure",
+        "gần như mọi thước đo khách quan"
+      ],
+      [
+        "their great-grandparents",
+        "thế hệ cụ của họ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Họ giàu hơn, khỏe mạnh hơn và ít có nguy cơ chết trẻ hơn nhiều; một đứa trẻ sinh ra hôm nay ở một nước như vậy có thể kỳ vọng sống thêm hàng thập kỷ mà các thế hệ trước không có được.",
+      [
+        "far less likely to die young",
+        "ít có nguy cơ chết trẻ hơn nhiều"
+      ],
+      [
+        "decades of life",
+        "sống thêm hàng thập kỷ"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Theo Ngân hàng Thế giới, tỷ lệ người sống trong nghèo cùng cực trên toàn cầu giảm từ khoảng 36 phần trăm năm 1990 xuống dưới 10 phần trăm vào năm 2015.",
+      [
+        "extreme poverty",
+        "nghèo cùng cực"
+      ],
+      [
+        "under 10 per cent",
+        "dưới 10 phần trăm"
+      ],
+      [
+        "according to the World Bank",
+        "Theo Ngân hàng Thế giới"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Thế nhưng hết khảo sát này đến khảo sát khác không ghi nhận mức tăng tương ứng trong mức độ hài lòng mà người dân tự báo cáo về cuộc sống.",
+      [
+        "survey after survey",
+        "hết khảo sát này đến khảo sát khác"
+      ],
+      [
+        "records no comparable rise",
+        "không ghi nhận mức tăng tương ứng"
+      ]
+    ],
+    [
+      "p1-s5",
+      "Khoảng cách dai dẳng giữa bảng thành tích về vật chất và lời tự thuật về cảm giác mãn nguyện ấy là điều các nhà kinh tế học và tâm lý học gọi là nghịch lý của tiến bộ.",
+      [
+        "This stubborn gap",
+        "Khoảng cách dai dẳng"
+      ],
+      [
+        "felt contentment",
+        "cảm giác mãn nguyện"
+      ],
+      [
+        "the paradox of progress",
+        "nghịch lý của tiến bộ"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Một phần lời giải nằm ở cách lợi ích của sự giàu có được phân bổ giữa các mức thu nhập.",
+      [
+        "the benefits of wealth",
+        "lợi ích của sự giàu có"
+      ],
+      [
+        "across the range of incomes",
+        "giữa các mức thu nhập"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Khi người ta còn nghèo, tiền có thêm giúp họ bớt những khó khăn thực sự, và mức hài lòng được báo cáo tăng mạnh theo đó.",
+      [
+        "relief from genuine hardship",
+        "bớt những khó khăn thực sự"
+      ],
+      [
+        "climbs steeply",
+        "tăng mạnh"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Tuy nhiên, khi các nhu cầu cơ bản đã được đáp ứng đầy đủ, cùng một mức tăng thu nhập lại đem đến mức tăng mãn nguyện ngày càng nhỏ, đến mức của cải quốc gia tăng gấp đôi có thể chỉ hiện thành một nhích lên rất nhẹ trên thang hạnh phúc.",
+      [
+        "basic needs",
+        "các nhu cầu cơ bản"
+      ],
+      [
+        "ever smaller gains in contentment",
+        "mức tăng mãn nguyện ngày càng nhỏ"
+      ],
+      [
+        "a doubling of national wealth",
+        "của cải quốc gia tăng gấp đôi"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Yếu tố thứ hai là sự đánh giá của con người luôn mang tính so sánh.",
+      [
+        "human judgement",
+        "sự đánh giá của con người"
+      ],
+      [
+        "relentlessly comparative",
+        "luôn mang tính so sánh"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Người ta đánh giá hoàn cảnh của mình bằng cách so với người xung quanh thay vì một chuẩn cố định, khiến thu nhập tăng lên của hàng xóm âm thầm trở thành chuẩn đối chiếu để mỗi người đánh giá thu nhập của chính mình.",
+      [
+        "some fixed standard",
+        "một chuẩn cố định"
+      ],
+      [
+        "the benchmark",
+        "chuẩn đối chiếu"
+      ],
+      [
+        "rates their own",
+        "đánh giá thu nhập của chính mình"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khi mọi người cùng tiến lên, vị trí tương đối đạt được nhờ bao nỗ lực hầu như không đổi, và sự hài lòng được kỳ vọng từ tiến bộ ấy không xuất hiện — như chạy trên máy chạy bộ, chạy nhanh hơn mà vẫn gần như ở nguyên chỗ.",
+      [
+        "the relative position",
+        "vị trí tương đối"
+      ],
+      [
+        "scarcely changes",
+        "hầu như không đổi"
+      ],
+      [
+        "a treadmill",
+        "máy chạy bộ"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Bên dưới cả hai xu hướng là một đặc điểm tính khí mà các nhà nghiên cứu gọi là sự thích nghi.",
+      [
+        "Underlying both tendencies",
+        "Bên dưới cả hai xu hướng"
+      ],
+      [
+        "adaptation",
+        "sự thích nghi"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Cả vận may bất ngờ lẫn bất hạnh đều thường chỉ làm tâm trạng đổi khác trong thời gian ngắn trước khi khả năng hồi phục đặc trưng kéo nó về mức ổn định của mỗi người; người trúng số và nạn nhân tai nạn, như ví dụ thường được nhắc đến, trong một hoặc hai năm lại dần trở về cách nhìn gần giống trước kia.",
+      [
+        "Windfalls and misfortunes alike",
+        "Cả vận may bất ngờ lẫn bất hạnh"
+      ],
+      [
+        "move mood only briefly",
+        "chỉ làm tâm trạng đổi khác trong thời gian ngắn"
+      ],
+      [
+        "within a year or two",
+        "trong một hoặc hai năm"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Nếu cảm giác mãn nguyện được neo giữ theo cách ấy, thì tiến bộ tích lũy đến đâu cũng không nâng nó lên lâu dài.",
+      [
+        "If contentment is anchored in this way",
+        "Nếu cảm giác mãn nguyện được neo giữ theo cách ấy"
+      ],
+      [
+        "durably lift it",
+        "nâng nó lên lâu dài"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Không điều nào trong số này có nghĩa tiến bộ là rỗng tuếch.",
+      [
+        "progress is hollow",
+        "tiến bộ là rỗng tuếch"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Cách hiểu thận trọng hơn là nghịch lý bắt nguồn đáng kể từ điều các khảo sát thực sự ghi nhận, và những thước đo tinh tế hơn — đo ý nghĩa, sức khỏe và trải nghiệm từng thời điểm thay vì một đánh giá tổng quát duy nhất — giúp thu hẹp khoảng cách đáng kể.",
+      [
+        "finer instruments",
+        "những thước đo tinh tế hơn"
+      ],
+      [
+        "a single global verdict",
+        "một đánh giá tổng quát duy nhất"
+      ],
+      [
+        "narrow the gap considerably",
+        "thu hẹp khoảng cách đáng kể"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Liệu bí ẩn này phản ánh một giới hạn sâu sắc của thân phận con người hay chủ yếu là sản phẩm của cách đo lường thô sơ vẫn là câu hỏi mà bằng chứng hiện có chưa giải quyết dứt khoát.",
+      [
+        "an artefact of crude measurement",
+        "sản phẩm của cách đo lường thô sơ"
+      ],
+      [
+        "does not yet decisively settle",
+        "chưa giải quyết dứt khoát"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-progress-survey-scene.svg",
+    "alt": "Một người điền phiếu cảm nhận cuộc sống trước khung cảnh thành phố và cây xanh.",
+    "caption": "Đo lường điều kiện sống và trải nghiệm cá nhân."
+  },
+  "source_sha256": "7b590c106ef87cfe24e38bb93258e6333509cd1f7ba529b302167c38e093f025",
+  "expected_translation_sha256": "f7b5e68f8d1e15ebcf0f47603605f03137b58eabb67d1f71fcd41a4b9aea756c"
+}

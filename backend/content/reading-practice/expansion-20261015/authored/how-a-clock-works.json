@@ -1,0 +1,202 @@
+{
+  "slug": "how-a-clock-works",
+  "review_notes": "Dịch sát cơ chế đồng hồ, power là nguồn động lực chứ không phải sức mạnh. Dùng nhất quán con lắc, bộ thoát, bánh răng.",
+  "illustration_brief": "Đồng hồ quả lắc trên tường cạnh đồng hồ để bàn nhỏ, không ghi tên bộ phận hay năm phát minh.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Đồng hồ trông thật đơn giản: hai kim chạy quanh mặt số.",
+      [
+        "two hands",
+        "hai kim"
+      ],
+      [
+        "a face",
+        "mặt số"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nhưng bên trong là một cỗ máy khéo léo được chế tạo để đo thời gian theo nhịp đều đặn.",
+      [
+        "measure time",
+        "đo thời gian"
+      ],
+      [
+        "at a regular speed",
+        "theo nhịp đều đặn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Trong đồng hồ cơ kiểu cũ, nguồn động lực không đến từ điện.",
+      [
+        "an old mechanical clock",
+        "đồng hồ cơ kiểu cũ"
+      ],
+      [
+        "the power",
+        "nguồn động lực"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Thay vào đó, nó đến từ một quả nặng.",
+      [
+        "a weight",
+        "một quả nặng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Quả nặng hạ dần, kéo sợi xích làm quay một bộ bánh răng.",
+      [
+        "slowly falls",
+        "hạ dần"
+      ],
+      [
+        "a set of gears",
+        "một bộ bánh răng"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Các bánh răng nối với nhau và khi quay sẽ làm hai kim trên mặt đồng hồ chuyển động.",
+      [
+        "linked together",
+        "nối với nhau"
+      ],
+      [
+        "the clock face",
+        "mặt đồng hồ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Tuy nhiên, có một vấn đề.",
+      [
+        "a problem",
+        "một vấn đề"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nếu không được kiểm soát, quả nặng sẽ tụt xuống ngay và bánh răng quay quá nhanh.",
+      [
+        "drop at once",
+        "tụt xuống ngay"
+      ],
+      [
+        "spin too fast",
+        "quay quá nhanh"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Hai bộ phận khéo léo giải quyết việc này là con lắc và bộ thoát.",
+      [
+        "the pendulum",
+        "con lắc"
+      ],
+      [
+        "the escapement",
+        "bộ thoát"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Con lắc đung đưa qua lại với nhịp đều, gần như giống nhau mỗi lần.",
+      [
+        "back and forth",
+        "qua lại"
+      ],
+      [
+        "at a steady rate",
+        "với nhịp đều"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Bộ thoát nối với con lắc chỉ cho bánh răng nhích một bước nhỏ mỗi lần.",
+      [
+        "joined to the pendulum",
+        "nối với con lắc"
+      ],
+      [
+        "one small step at a time",
+        "một bước nhỏ mỗi lần"
+      ]
+    ],
+    [
+      "p3-s6",
+      "Nhờ vậy, đồng hồ chạy chậm và đều thay vì lao nhanh mất kiểm soát.",
+      [
+        "slowly and steadily",
+        "chậm và đều"
+      ],
+      [
+        "racing out of control",
+        "lao nhanh mất kiểm soát"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ý tưởng dùng con lắc đã có từ rất lâu.",
+      [
+        "very old",
+        "đã có từ rất lâu"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Năm 1656, nhà khoa học Hà Lan Christiaan Huygens chế tạo một trong những đồng hồ quả lắc đầu tiên, chính xác hơn hẳn mọi đồng hồ trước đó.",
+      [
+        "one of the first pendulum clocks",
+        "một trong những đồng hồ quả lắc đầu tiên"
+      ],
+      [
+        "far more accurate",
+        "chính xác hơn hẳn"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Phần lớn đồng hồ hiện nay hoạt động theo cách khác.",
+      [
+        "in a different way",
+        "theo cách khác"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Một tinh thể rất nhỏ bên trong dao động cực nhanh, được duy trì hoạt động nhờ viên pin nhỏ.",
+      [
+        "A tiny crystal",
+        "Một tinh thể rất nhỏ"
+      ],
+      [
+        "a small battery",
+        "viên pin nhỏ"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Cơ chế đã thay đổi nhưng mục đích vẫn như cũ.",
+      [
+        "The mechanism has changed",
+        "Cơ chế đã thay đổi"
+      ],
+      [
+        "the goal remains the same",
+        "mục đích vẫn như cũ"
+      ]
+    ]
+  ],
+  "source_sha256": "ab23ecbbde83f757bcba1a69455b09f3f1c77fe19584380d03ceac9015dea271",
+  "illustration": {
+    "src": "/reading-illustrations/exp-clock-scene.svg",
+    "alt": "Đồng hồ quả lắc treo tường cạnh một đồng hồ kim nhỏ trên kệ.",
+    "caption": "Hai kiểu đồng hồ trong không gian hằng ngày."
+  },
+  "expected_translation_sha256": "caf8748c66c2383cccd81a4e0e6c2b99e7e7d89f64f4a57615d3af5a0b28945c"
+}

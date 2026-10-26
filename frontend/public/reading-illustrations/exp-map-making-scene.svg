@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Quả địa cầu và bản đồ</title><desc id="desc">Quả địa cầu có lưới kinh vĩ tuyến đặt cạnh tờ bản đồ đường bờ cách điệu và hoa gió.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 326H800V400H0Z" fill="#d8c6ab"/>
+  <g transform="translate(238 181)"><circle r="108" fill="#a8cbd0" stroke="#597d7c" stroke-width="5"/><path d="M-74 -77L-39 -72L-30 -40L-3 -25L-20 7L-51 3L-55 37L-83 51L-103 25L-106 -24ZM31 -95L68 -80L86 -49L62 -20L29 -31L10 -55ZM13 34L44 26L72 54L60 87L28 103L4 76Z" fill="#8cb39a"/><ellipse rx="49" ry="108" fill="none" stroke="#597d7c" stroke-width="2"/><ellipse rx="90" ry="108" fill="none" stroke="#597d7c" stroke-width="2"/><path d="M-108 0H108M-94 -53Q0 -35 94 -53M-94 53Q0 35 94 53" fill="none" stroke="#597d7c" stroke-width="2"/>
+    <path d="M-90 -108Q-147 26 -28 120L-18 143H43" fill="none" stroke="#796249" stroke-width="9" stroke-linecap="round"/><path d="M-54 147H68" stroke="#796249" stroke-width="10" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(425 167) rotate(5)"><path d="M0 0L82 -17L172 1L256 -11V169L172 181L82 164L0 181Z" fill="#f1e8d5" stroke="#ab997a" stroke-width="4"/><path d="M82 -17V164M172 1V181" stroke="#d8c6ab" stroke-width="3"/>
+    <path d="M17 39L52 26L69 41L57 74L82 100L62 133L19 145M109 19L133 42L123 72L141 98L127 130L143 151M193 40L222 25L241 58L217 81L232 110L205 145" fill="none" stroke="#709982" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(649 86)"><circle r="36" fill="#fafbf6" stroke="#9b7958" stroke-width="3"/><path d="M0 -31L9 -4L0 30L-8 4Z" fill="#3d8275"/><path d="M-30 0L-4 -9L31 0L4 8Z" fill="#b9914f"/><circle r="4" fill="#293b43"/></g>
+</svg>

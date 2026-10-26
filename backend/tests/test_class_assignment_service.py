@@ -32,6 +32,7 @@ from services.class_assignment_service import (
     CLASS_TZ,
     CourseBankChangedError,
     EmptyRosterError,
+    ExplanationApprovalError,
     TaskMismatchError,
     attach_session_to_class_item,
     compose_due_at,
@@ -382,6 +383,39 @@ def test_course_bank_revision_mismatch_is_a_typed_retryable_error():
             db, cohort_id=COHORT, skill="course", title="Midterm",
             content_id="bank-1", content_config={"bank_revision": "rev-old"},
         )
+
+
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+@pytest.mark.parametrize(("raised", "expected"), [
+    # Cam19 T1 REV01 (2026-10-25): the copy has no objects of its own.
+    ("web_explanation_content_version_unavailable:none", "0/40 object hiện hành"),
+    ("web_explanation_content_version_unavailable:multiple:2", "Đề đang có 2 content version"),
+    ("web_explanation_content_version_unavailable:pinned_not_current", "không còn hiện hành"),
+    # An older database function without a reason keeps the original wording.
+    ("web_explanation_content_version_unavailable", "Không tìm thấy một content version hiện hành duy nhất"),
+])
+def test_scoped_exam_version_refusal_names_the_cause(skill, raised, expected):
+    calls = []
+
+    class _RefusingRPC:
+        def execute(self):
+            raise RuntimeError(f'{{"code":"P0001","message":"{raised}"}}')
+
+    db = type("RefusingDB", (), {
+        "rpc": lambda self, name, _params: calls.append(name) or _RefusingRPC(),
+    })()
+    with pytest.raises(ExplanationApprovalError) as caught:
+        create_class_assignment(
+            db, cohort_id=COHORT, skill=skill, title="Cam19 T1",
+            content_id="rev-paper", exam_scope_kind=skill,
+            content_config={"correction_policy": {
+                "web_explanation_mode": "immediate_after_capture",
+                "post_test_capture_required": True,
+            }},
+        )
+    assert expected in str(caught.value)
+    # One atomic call; the service never retries with another version.
+    assert calls == ["fn_create_scoped_exam_class_assignment"]
 
 
 def test_exam_scope_and_assignment_succeed_together():
@@ -1035,14 +1069,17 @@ def test_student_list_puts_the_nearest_deadline_first():
     """It is a to-do list: what is due today belongs at the top. Sorting ISO
     strings with reverse=True did the opposite — next week above today — while
     the comment claimed nearest-first."""
+    import inspect, re
+    from routers import class_student as mod
     rows = [
         {"assignment": {"due_at": "2026-08-05T19:00:00+07:00"}},
         {"assignment": {"due_at": None}},
         {"assignment": {"due_at": "2026-08-03T19:00:00+07:00"}},
         {"assignment": {"due_at": "2026-08-04T19:00:00+07:00"}},
     ]
-    rows.sort(key=lambda r: (r["assignment"]["due_at"] is None,
-                             r["assignment"]["due_at"] or ""))
+    # Sort with the endpoint's own key (it parses instants, so mixed offsets
+    # order correctly too — see test_class_student_page); no-deadline rows last.
+    rows.sort(key=mod._due_sort_key)
     assert [r["assignment"]["due_at"] for r in rows] == [
         "2026-08-03T19:00:00+07:00",
         "2026-08-04T19:00:00+07:00",
@@ -1050,17 +1087,15 @@ def test_student_list_puts_the_nearest_deadline_first():
         None,
     ]
 
-    # …and the endpoint uses exactly that key.
-    import inspect, re
-    from routers import class_student as mod
+    # …and the endpoint uses exactly that key. The key lives in the shared
+    # _due_sort_key helper (one definition for the final sort AND the writing-only
+    # early return); the endpoint must sort by it, never reverse=True.
     # code_only() re-joins tokens with spaces, so match whitespace-tolerantly.
-    src = code_only(inspect.getsource(mod._visible_assignments))
-    assert not re.search(r"reverse\s*=\s*True", src), (
+    endpoint_src = code_only(inspect.getsource(mod._visible_assignments))
+    assert not re.search(r"reverse\s*=\s*True", endpoint_src), (
         "reverse=True puts the farthest deadline first"
     )
-    assert re.search(r'due_at"\s*\]\s*is\s+None', src), (
-        "no-deadline gives must sort last via their own key"
-    )
+    assert "_due_sort_key" in endpoint_src, "the endpoint must sort by the shared key"
 
 
 # ── vòng 9 + quét tự soát ────────────────────────────────────────────────

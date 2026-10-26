@@ -1,0 +1,174 @@
+{
+  "slug": "scanning-the-sahara-desert",
+  "review_notes": "Giữ largest hot desert, không bỏ hot thành sa mạc lớn nhất nói chung. Diện tích triệu km²; dry rivers là lòng sông khô, không tự thêm lượng mưa hay tên loài cáo.",
+  "illustration_brief": "Lạc đà và hành lý giữa các cồn cát trong sa mạc.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Hãy tưởng tượng một nơi lớn đến mức có thể phủ toàn bộ Hoa Kỳ.",
+      [
+        "so big that it could cover",
+        "lớn đến mức có thể phủ"
+      ],
+      [
+        "the whole of the United States",
+        "toàn bộ Hoa Kỳ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nơi ấy là Sahara, sa mạc nóng lớn nhất thế giới.",
+      [
+        "the largest hot desert in the world",
+        "sa mạc nóng lớn nhất thế giới"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Sahara bao phủ một vùng rộng lớn của Bắc Phi: khoảng 9,2 triệu ki-lô-mét vuông cát và đá.",
+      [
+        "much of North Africa",
+        "một vùng rộng lớn của Bắc Phi"
+      ],
+      [
+        "about 9.2 million square kilometres",
+        "khoảng 9,2 triệu ki-lô-mét vuông"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Sa mạc trải rộng trên 11 quốc gia khác nhau.",
+      [
+        "11 different countries",
+        "11 quốc gia khác nhau"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Sahara nổi tiếng vì rất nóng.",
+      [
+        "famous for being very hot",
+        "nổi tiếng vì rất nóng"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ban ngày, không khí có thể nóng hơn 50 độ.",
+      [
+        "In the daytime",
+        "Ban ngày"
+      ],
+      [
+        "hotter than 50 degrees",
+        "nóng hơn 50 độ"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Nhưng ban đêm sa mạc trở lạnh, và nhiệt độ có thể xuống dưới không độ.",
+      [
+        "at night",
+        "ban đêm"
+      ],
+      [
+        "fall below zero",
+        "xuống dưới không độ"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Sa mạc không chỉ có cát.",
+      [
+        "not only sand",
+        "không chỉ có cát"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Nó còn có đồi cao, lòng sông khô và đất đá, với rất ít mưa.",
+      [
+        "tall hills, dry rivers and rocky land",
+        "đồi cao, lòng sông khô và đất đá"
+      ],
+      [
+        "very little rain",
+        "rất ít mưa"
+      ]
+    ],
+    [
+      "p6-s1",
+      "Dù vậy, các loài như lạc đà và một loài cáo nhỏ vẫn sống được trên vùng đất khô này.",
+      [
+        "Even so",
+        "Dù vậy"
+      ],
+      [
+        "a small fox",
+        "một loài cáo nhỏ"
+      ],
+      [
+        "this dry land",
+        "vùng đất khô này"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Lạc đà có thể chịu nhiều ngày không có nước, khiến nó rất phù hợp với sa mạc.",
+      [
+        "go for many days without water",
+        "chịu nhiều ngày không có nước"
+      ],
+      [
+        "perfect for the desert",
+        "rất phù hợp với sa mạc"
+      ]
+    ],
+    [
+      "p7-s1",
+      "Con người cũng sống ở Sahara.",
+      [
+        "People live in the Sahara too",
+        "Con người cũng sống ở Sahara"
+      ]
+    ],
+    [
+      "p7-s2",
+      "Suốt hàng trăm năm, các gia đình băng qua cát cùng lạc đà để buôn bán và tìm nước.",
+      [
+        "For hundreds of years",
+        "Suốt hàng trăm năm"
+      ],
+      [
+        "to trade and find water",
+        "để buôn bán và tìm nước"
+      ]
+    ],
+    [
+      "p9-s1",
+      "Mẹo luyện tập: Khi đọc quét, hãy đưa mắt nhanh qua văn bản để tìm từ khóa, con số hoặc tên riêng.",
+      [
+        "When you scan",
+        "Khi đọc quét"
+      ],
+      [
+        "key words, numbers, or names",
+        "từ khóa, con số hoặc tên riêng"
+      ]
+    ],
+    [
+      "p9-s2",
+      "Bạn không cần đọc từng từ.",
+      [
+        "do not need to read every word",
+        "không cần đọc từng từ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-camel-scene.svg",
+    "alt": "Lạc đà và hành lý giữa các cồn cát trong sa mạc.",
+    "caption": "Cuộc sống và hành trình qua vùng đất khô."
+  },
+  "source_sha256": "56dc7983c5af766c65e059338617941a570dff5715d1cd0319359115098ddd7b",
+  "expected_translation_sha256": "0de3070679c4ad88fa403f1214c331fa7f4472de801595331819940b1bef4e5b"
+}

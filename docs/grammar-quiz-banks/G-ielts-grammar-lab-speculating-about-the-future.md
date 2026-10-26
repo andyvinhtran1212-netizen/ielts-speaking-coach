@@ -233,11 +233,11 @@ input: "text"
 headword: "spec-may-might-tentative"
 skill: "production"
 subtype: "intermediate"
-prompt: "Điền modal + auxiliary (phủ định bị động): 'Some jobs ____ lost to automation, but new roles may emerge instead.'"
-accept: ["might not be"]
+prompt: "Điền may hoặc might + not be (3 từ, bị động phủ định): 'Some jobs ____ lost to automation, although others may be lost.'"
+accept: ["might not be", "may not be"]
 case_sensitive: false
 grammar_article_slug: "speculating-about-the-future"
-explain: "'might not be' + V3/ed (bị động) để phủ định khả năng khi chủ ngữ là vật bị tác động: 'jobs' không tự 'lose', mà 'be lost to automation' — toàn câu: 'Some jobs might not be lost to automation'."
+explain: "May not be và might not be đều diễn đạt khả năng một số việc làm không bị mất. Not không biến may/might thành không thể; jobs là đối tượng của lost nên dùng be + V3."
 ---
 
 ---

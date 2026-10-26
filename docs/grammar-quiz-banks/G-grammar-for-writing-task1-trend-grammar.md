@@ -337,11 +337,11 @@ input: "text"
 headword: "t1tg-tense-choice"
 skill: "production"
 subtype: "intermediate"
-prompt: "The graph indicates that the number of internet users ____ expected to rise sharply by 2030."
-accept: ["is expected"]
+prompt: "Điền be ở hiện tại, ONE word: 'The graph indicates that the number of internet users ____ expected to rise sharply by 2030.'"
+accept: ["is"]
 case_sensitive: false
 grammar_article_slug: "task1-trend-grammar"
-explain: "Dự báo tương lai trong biểu đồ → dùng bị động: 'is expected to rise'. Điền 'is expected' (động từ + phân từ II)."
+explain: "Chủ ngữ trung tâm the number là số ít nên dùng is. Expected đã có trong câu; không điền is expected vì sẽ tạo expected expected. To rise biểu thị dự báo tương lai, không có nghĩa mọi dự báo đều buộc động từ reporting ở hiện tại."
 ---
 
 ---

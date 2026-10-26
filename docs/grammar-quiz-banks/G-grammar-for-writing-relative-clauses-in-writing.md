@@ -53,10 +53,10 @@ headword: "rciw-comment-which"
 skill: "usage"
 subtype: "intermediate"
 prompt: "Many factories release untreated waste into rivers, ____ has caused serious damage to aquatic ecosystems."
-options: [", which", " which", ", that", " that"]
+options: ["which", "that", "what", "it"]
 answer: 0
 grammar_article_slug: "relative-clauses-in-writing"
-explain: "'which' bình luận về cả hành động xả thải (không phải riêng 'rivers') nên phải có dấu phẩy trước — đây là non-defining comment clause, không phải mệnh đề xác định danh từ."
+explain: "Which bình luận về việc các nhà máy xả nước thải ở cả mệnh đề trước, nên has hòa hợp với sự việc đó. Dấu phẩy đã có trước ô trống; lựa chọn chỉ chứa which để không tạo hai dấu phẩy."
 ---
 
 ---

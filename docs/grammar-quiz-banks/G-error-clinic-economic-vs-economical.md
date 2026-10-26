@@ -234,10 +234,10 @@ headword: "economic-vs-economical-common-errors"
 skill: "production"
 subtype: "intermediate"
 prompt: "This solution is more ____ (tiết kiệm hơn, đúng dạng so sánh) than the previous one, cutting costs by 20%."
-accept: ["economical"]
+accept: ["economical", "economic"]
 case_sensitive: false
 grammar_article_slug: "economic-vs-economical"
-explain: "Đang so sánh mức độ tiết kiệm chi phí giữa hai giải pháp → 'more economical', không phải 'more economic' (Lỗi 2 trong bài)."
+explain: "Economical là cách diễn đạt rõ, thông dụng cho tiết kiệm chi phí. Economic cũng có nghĩa economical trong từ điển và dùng được với solution trong ngữ cảnh này; không loại tuyệt đối. Economic còn có nghĩa thuộc kinh tế trong ngữ cảnh khác."
 ---
 
 ---

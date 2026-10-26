@@ -133,16 +133,16 @@ explain: "SAI — 'I was a child' là mốc → dùng since: 'I have studied Eng
 
 ---
 id: "pp_vs_b1"
-type: "mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "pp-vs-past-simple"
 skill: "contrast"
 subtype: "basic"
-prompt: "I ____ my keys — I can't find them now."
-options: ["lost", "have lost", "was losing", "am losing"]
-answer: 1
+prompt: "Điền lost hoặc have lost (không giới hạn Anh–Anh/Anh–Mỹ): 'I ____ my keys — I can't find them now.'"
 grammar_article_slug: "present-perfect"
-explain: "Kết quả còn ảnh hưởng đến HIỆN TẠI (giờ vẫn chưa tìm ra) → present perfect: have lost."
+explain: "Have lost nhấn mạnh kết quả còn ở hiện tại, thường gặp trong Anh–Anh. Lost cũng đúng, đặc biệt trong cách dùng Anh–Mỹ. Câu không nêu thời điểm quá khứ kết thúc hay yêu cầu dùng riêng một thì."
+accept: ["lost", "have lost"]
+case_sensitive: false
 ---
 
 ---

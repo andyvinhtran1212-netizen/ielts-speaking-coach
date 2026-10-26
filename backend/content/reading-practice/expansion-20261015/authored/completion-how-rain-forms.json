@@ -1,0 +1,206 @@
+{
+  "slug": "completion-how-rain-forms",
+  "review_notes": "Dịch lại toàn bài; sửa fresh thành nước ngọt, giữ rõ hơi nước, giọt nước và các thuật ngữ bay hơi, ngưng tụ, giáng thủy.",
+  "illustration_brief": "Mưa rơi trên con suối và mái nhà, một người che ô đi trên lối nhỏ; không gắn tên các bước tuần hoàn nước.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Khoảng 97 phần trăm lượng nước trên Trái Đất nằm trong các đại dương mặn, nhưng mưa đổ đầy sông ngòi lại là nước ngọt và sạch.",
+      [
+        "the salty oceans",
+        "các đại dương mặn"
+      ],
+      [
+        "fresh and clean",
+        "nước ngọt và sạch"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Vì sao lại như vậy?",
+      [
+        "How does that happen",
+        "Vì sao lại như vậy"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Câu trả lời là một hành trình khổng lồ, không ngừng nghỉ gọi là vòng tuần hoàn nước, được vận hành hoàn toàn nhờ sức nóng của Mặt Trời.",
+      [
+        "the water cycle",
+        "vòng tuần hoàn nước"
+      ],
+      [
+        "heat from the sun",
+        "sức nóng của Mặt Trời"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Mỗi ngày, Mặt Trời làm ấm mặt biển, hồ và sông; sức nóng ấy biến một phần nước lỏng thành chất khí vô hình gọi là hơi nước.",
+      [
+        "liquid water",
+        "nước lỏng"
+      ],
+      [
+        "water vapour",
+        "hơi nước"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Bước đầu tiên này được gọi là sự bay hơi.",
+      [
+        "evaporation",
+        "sự bay hơi"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Hơi nước ấm nhẹ hơn không khí xung quanh nên bay lên vùng không khí lạnh hơn ở cao phía trên mặt đất.",
+      [
+        "lighter than the air around it",
+        "nhẹ hơn không khí xung quanh"
+      ],
+      [
+        "the cooler air",
+        "vùng không khí lạnh hơn"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Khi bay lên, hơi nước từ từ mất nhiệt.",
+      [
+        "As it climbs",
+        "Khi bay lên"
+      ],
+      [
+        "loses its heat",
+        "mất nhiệt"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Khi đủ lạnh, hơi nước chuyển lại thành các giọt rất nhỏ, nhỏ đến mức khó nhìn rõ từng giọt riêng lẻ.",
+      [
+        "changes back",
+        "chuyển lại"
+      ],
+      [
+        "on their own",
+        "từng giọt riêng lẻ"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Các nhà khoa học gọi sự biến đổi này là ngưng tụ.",
+      [
+        "this change",
+        "sự biến đổi này"
+      ],
+      [
+        "condensation",
+        "ngưng tụ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Những giọt nước li ti này không tồn tại riêng lẻ mãi.",
+      [
+        "do not stay alone",
+        "không tồn tại riêng lẻ mãi"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Hàng triệu giọt tập hợp lại, tạo thành đám mây: vô số giọt nước nhỏ lơ lửng trên bầu trời.",
+      [
+        "join together",
+        "tập hợp lại"
+      ],
+      [
+        "floating in the sky",
+        "lơ lửng trên bầu trời"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Trong một khoảng thời gian, không khí còn có thể giữ chúng ở trên cao.",
+      [
+        "For a while",
+        "Trong một khoảng thời gian"
+      ],
+      [
+        "hold them up",
+        "giữ chúng ở trên cao"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Nhưng các giọt cứ va vào nhau, lớn và nặng dần, nên không khí không thể nâng đỡ chúng mãi.",
+      [
+        "bumping into one another",
+        "va vào nhau"
+      ],
+      [
+        "larger and heavier",
+        "lớn và nặng dần"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Cuối cùng, các giọt nặng đến mức rơi xuống đất thành mưa; hiện tượng này được các nhà khoa học gọi là giáng thủy.",
+      [
+        "fall to the ground as rain",
+        "rơi xuống đất thành mưa"
+      ],
+      [
+        "precipitation",
+        "giáng thủy"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nước sau đó chảy trên mặt đất vào suối và sông, rồi phần lớn cuối cùng trở lại biển.",
+      [
+        "across the land",
+        "trên mặt đất"
+      ],
+      [
+        "returns at last to the sea",
+        "cuối cùng trở lại biển"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ở đó, Mặt Trời lại làm nước ấm lên, và toàn bộ vòng tuần hoàn bắt đầu lại.",
+      [
+        "warm it once more",
+        "lại làm nước ấm lên"
+      ],
+      [
+        "the whole cycle begins again",
+        "toàn bộ vòng tuần hoàn bắt đầu lại"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Tuy nhiên, vẫn khó dự đoán chắc chắn một khu vực cụ thể sẽ nhận được bao nhiêu mưa trong một năm.",
+      [
+        "any single region",
+        "một khu vực cụ thể"
+      ],
+      [
+        "predict with certainty",
+        "dự đoán chắc chắn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-rain-scene.svg",
+    "alt": "Mây mưa trên ngôi nhà và dòng nước, với một người che ô ở gần đó.",
+    "caption": "Một cơn mưa trong cảnh vật hằng ngày."
+  },
+  "source_sha256": "1324390d5aa6abb9aed985e4ed6a4e8a75f2b87ef9aea77b476827a5cb4688e6",
+  "expected_translation_sha256": "642d210ef150fe48e1bcd07a5b5afae0373f8607aa32899e7a9a2e938d54846e"
+}

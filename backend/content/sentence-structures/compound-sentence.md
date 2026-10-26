@@ -4,7 +4,7 @@ slug: compound-sentence
 category: sentence-structures
 summary: 'Compound sentence là câu gồm hai hoặc nhiều independent clauses nối với
   nhau bằng coordinating conjunction (FANBOYS), semicolon, hoặc conjunctive adverb.
-  Đây là bước đầu tiên để thoát khỏi câu đơn đơn điệu và đạt Band 6+ trong IELTS Writing.
+  Dùng để phối hợp các ý; band IELTS phụ thuộc toàn bài, không suy trực tiếp từ loại câu.
 
   '
 level: beginner-intermediate
@@ -97,10 +97,10 @@ Compound sentences là công cụ cơ bản để:
 - **Tăng điểm Coherence** trong IELTS Writing và tính lưu loát trong Speaking
 
 Trong IELTS Writing:
-- ❌ Band 5: "Air pollution is a serious problem. Governments should act immediately."
-- ✅ Band 6+: "Air pollution is a serious problem, **so** governments should act immediately."
+- Hai câu đơn đúng: "Air pollution is a serious problem. Governments should act immediately."
+- Một câu ghép làm rõ kết quả: "Air pollution is a serious problem, **so** governments should act immediately."
 
-Compound sentence một mình không đủ cho Band 7+ (cần thêm complex sentences), nhưng là bước đệm quan trọng từ câu đơn lên câu phức.
+IELTS xét phạm vi cấu trúc, độ linh hoạt, độ chính xác và tác động của lỗi trên toàn bài. Một câu ghép hoặc câu phức riêng lẻ không quyết định band; chọn cấu trúc phục vụ quan hệ ý.
 
 ## Định nghĩa
 
@@ -122,7 +122,7 @@ Câu gồm **ít nhất hai independent clauses** được nối với nhau. C�
 
 **[Independent Clause], [conjunction] [Independent Clause]**
 
-Dấu phẩy đặt **trước** conjunction (khi có ít nhất 5-6 từ ở mỗi vế):
+Dấu phẩy thường đặt **trước** conjunction nối hai mệnh đề độc lập. Có thể lược khi các vế ngắn, rõ và gần nghĩa theo văn phong; không có ngưỡng cứng 5–6 từ:
 
 | Conjunction | Nghĩa | Ví dụ |
 |------------|-------|-------|
@@ -146,7 +146,7 @@ Dùng khi hai ý liên quan chặt chẽ và cân bằng nhau:
 - *She studies hard; she always gets top marks.*
 - *The problem is complex; simple solutions rarely work.*
 
-Semicolon = dấu phẩy "mạnh hơn". Không dùng conjunction khi dùng semicolon (không viết *; and*, *; but*).
+Semicolon thường nối các mệnh đề độc lập không có coordinating conjunction. Với vế dài hoặc có dấu câu nội bộ, một số hướng dẫn văn phong cho phép **; and / ; but** để làm rõ ranh giới; không cấm tuyệt đối.
 
 ### Cách 3: Conjunctive Adverb (Trạng từ liên kết)
 
@@ -210,7 +210,7 @@ Kết hợp bằng compound sentence:
   - *She studied and she passed.* (chấp nhận được, nhưng ít phổ biến trong writing)
 
 **Với semicolon:**
-- Không dùng kèm coordinating conjunction: ❌ *She studied hard; but she failed.*
+- Với câu ngắn, ưu tiên *She studied hard, but she failed*. Semicolon trước coordinating conjunction có thể phù hợp với các vế dài/phức tạp, không phải lệnh cấm mọi trường hợp.
 - Có thể dùng kèm conjunctive adverb: ✅ *She studied hard; however, she failed.*
 
 <!-- anchor: compound-sentence.recognition -->
@@ -256,6 +256,8 @@ Phân tích: Câu 1 dùng *yet* (tương phản); Câu 2 dùng *so* (kết quả
 
 **(Speaking Part 3):**
 > "I think technology has made our lives easier in many ways, **but** it has also created new problems we didn't have before. People can now work from anywhere, **so** the traditional office is becoming less important; **however**, many employers still prefer face-to-face interaction."
+
+Câu đầu có mệnh đề nội dung sau think và mệnh đề quan hệ we didn't have before; vì thế có cả quan hệ chính phụ và phối hợp, không chỉ là câu ghép theo định nghĩa của bài.
 
 <!-- anchor: compound-sentence.common-mistakes -->
 ## Lỗi thường gặp
@@ -309,7 +311,7 @@ Phân tích: Câu 1 dùng *yet* (tương phản); Câu 2 dùng *so* (kết quả
 | **Liên từ** | Không | FANBOYS / semicolon | Subordinating conjunction (*because, although, when...*) |
 | **Ví dụ** | *She works hard.* | *She works hard, so she succeeds.* | *Because she works hard, she succeeds.* |
 | **Cả hai vế bình đẳng?** | — | Có | Không (dependent clause phụ thuộc) |
-| **IELTS Band** | 5 | 6 | 7+ |
+| **Vai trò** | Nêu một ý | Phối hợp các ý | Làm rõ quan hệ chính phụ |
 
 **Compound vs. Complex sentence — sự khác biệt quan trọng:**
 - Compound: **hai ý bình đẳng**, cùng quan trọng như nhau
@@ -342,10 +344,10 @@ Thay vì dừng lại sau mỗi ý ngắn, nối mượt mà:
 
 ### IELTS Writing Task 2 — Kết hợp compound + complex sentences
 
-**Chỉ dùng compound sentences (Band 6 ceiling):**
+**Ba câu đơn:**
 > "Education is important. It opens doors to better opportunities. Governments should invest in it."
 
-**Kết hợp compound + complex (Band 7+):**
+**Kết hợp phối hợp và phụ thuộc, có thêm thông tin:**
 > "**Although education requires significant investment**, the long-term economic returns are substantial, **so** governments should prioritise funding for schools and universities; **moreover**, an educated workforce is essential **if** a country wants to remain competitive globally."
 
 (Complex: *Although...*, *if...*; Compound: *so*, *moreover*)
@@ -390,4 +392,4 @@ Dùng conjunction hoặc dấu câu phù hợp:
 3. FANBOYS: **F**or, **A**nd, **N**or, **B**ut, **O**r, **Y**et, **S**o
 4. Conjunctive adverbs (*however, therefore, moreover*) cần semicolon trước — không dùng chỉ dấu phẩy
 5. Lỗi phổ biến: comma splice (*She studied, she passed* ❌) và dùng sai conjunction sai nghĩa
-6. Compound sentence phù hợp Band 6; cần kết hợp thêm complex sentence cho Band 7+
+6. Dùng cấu trúc đa dạng, đúng và phù hợp ý; không gán band theo một loại câu

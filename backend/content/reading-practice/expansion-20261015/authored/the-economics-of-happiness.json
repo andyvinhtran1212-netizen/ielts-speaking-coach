@@ -1,0 +1,222 @@
+{
+  "slug": "the-economics-of-happiness",
+  "review_notes": "Proxy là chỉ dấu đại diện, relative khác absolute; correlation không tự đổi thành quan hệ nhân quả. Giữ phản biện Stevenson–Wolfers, không dừng ở kết quả Easterlin như kết luận cuối.",
+  "illustration_brief": "Một người điền phiếu cảm nhận cuộc sống trong bối cảnh thành phố.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Trong phần lớn lịch sử dài của mình, kinh tế học âm thầm coi sự thịnh vượng ngày càng tăng là chỉ dấu đại diện đáng tin cậy cho cuộc sống tốt hơn, mãn nguyện hơn.",
+      [
+        "rising prosperity",
+        "sự thịnh vượng ngày càng tăng"
+      ],
+      [
+        "a reliable proxy",
+        "chỉ dấu đại diện đáng tin cậy"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Tuy nhiên, năm 1974, nhà kinh tế Richard Easterlin báo cáo nghịch lý thật khó hiểu: trong một nước tại một thời điểm, người giàu thực sự hạnh phúc hơn những người hàng xóm nghèo của họ, với khác biệt có thể đo được, nhưng khi cả quốc gia giàu dần qua nhiều thập kỷ, mức hạnh phúc tự báo cáo trung bình không nhất thiết tăng theo.",
+      [
+        "at a given moment",
+        "tại một thời điểm"
+      ],
+      [
+        "measurably happier than their poorer neighbours",
+        "hạnh phúc hơn những người hàng xóm nghèo của họ, với khác biệt có thể đo được"
+      ],
+      [
+        "did not necessarily rise along with them",
+        "không nhất thiết tăng theo"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Phát hiện nhanh chóng được gọi là nghịch lý Easterlin, buộc một giới chuyên môn hoài nghi lần đầu xem nghiêm túc ý niệm khó nắm bắt về hạnh phúc chủ quan.",
+      [
+        "the Easterlin paradox",
+        "nghịch lý Easterlin"
+      ],
+      [
+        "a sceptical profession",
+        "một giới chuyên môn hoài nghi"
+      ],
+      [
+        "subjective well-being",
+        "hạnh phúc chủ quan"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Không chỉ tổng thu nhập quốc gia tăng qua mỗi thập kỷ, mức hạnh phúc tự báo cáo còn có xu hướng trì trệ dai dẳng song song với nó, đặt câu hỏi khó xử liệu tăng trưởng kinh tế qua một điểm nhất định có đem lại ít lợi ích cảm xúc hơn nhiều so với điều gần như ai cũng mặc định.",
+      [
+        "aggregate national income",
+        "tổng thu nhập quốc gia"
+      ],
+      [
+        "tended stubbornly to stagnate",
+        "có xu hướng trì trệ dai dẳng"
+      ],
+      [
+        "beyond a certain point",
+        "qua một điểm nhất định"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Hai lời giải cạnh tranh nhanh chóng được đưa ra.",
+      [
+        "Two competing explanations",
+        "Hai lời giải cạnh tranh"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Lời giải đầu nhấn mạnh thu nhập tương đối: theo đó, điều thực sự làm ta vui có thể là cảm giác đứng cao hơn người quanh mình thay vì số tuyệt đối trên phiếu lương.",
+      [
+        "relative income",
+        "thu nhập tương đối"
+      ],
+      [
+        "standing higher than those around us",
+        "đứng cao hơn người quanh mình"
+      ],
+      [
+        "any absolute figure on a payslip",
+        "số tuyệt đối trên phiếu lương"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Lời giải thứ hai dựa vào thích nghi hưởng thụ: con người quen với mức sống cao hơn nhanh đáng kể, nên niềm vui ban đầu khi tăng lương sớm âm thầm phai đi.",
+      [
+        "hedonic adaptation",
+        "thích nghi hưởng thụ"
+      ],
+      [
+        "a higher standard of living",
+        "mức sống cao hơn"
+      ],
+      [
+        "a pay rise",
+        "tăng lương"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Một số nghiên cứu thậm chí nêu điểm bão hòa thu nhập, ngưỡng mà sau đó mỗi bảng Anh hay đô la thêm vào chỉ tăng rất ít cảm giác mãn nguyện.",
+      [
+        "a satiation point for income",
+        "điểm bão hòa thu nhập"
+      ],
+      [
+        "a threshold",
+        "ngưỡng"
+      ],
+      [
+        "added very little",
+        "chỉ tăng rất ít"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Câu chuyện gọn ghẽ, an ủi ấy về sau bị phản bác mạnh.",
+      [
+        "tidy and consoling",
+        "gọn ghẽ, an ủi"
+      ],
+      [
+        "vigorously contested",
+        "bị phản bác mạnh"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Dựa trên dữ liệu theo dõi dọc phong phú hơn nhiều, Betsey Stevenson và Justin Wolfers lập luận rằng thu nhập thực ra vẫn tương quan với hạnh phúc ngay ở mức rất cao, hoàn toàn không có điểm bão hòa rõ.",
+      [
+        "longitudinal datasets",
+        "dữ liệu theo dõi dọc"
+      ],
+      [
+        "still correlates with happiness",
+        "vẫn tương quan với hạnh phúc"
+      ],
+      [
+        "no clear satiation point at all",
+        "hoàn toàn không có điểm bão hòa rõ"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Dần dần hóa ra một phần đáng kể bất đồng nằm ở phương pháp — chính xác hạnh phúc được đo thế nào và chọn nước, giai đoạn nào để so.",
+      [
+        "methodology",
+        "phương pháp"
+      ],
+      [
+        "how happiness is measured",
+        "hạnh phúc được đo thế nào"
+      ],
+      [
+        "which countries and periods are chosen for comparison",
+        "chọn nước, giai đoạn nào để so"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Tranh luận này không chỉ là chuyện học thuật, vì một số chính phủ nay công khai tính đến mức độ hạnh phúc khi hoạch định chính sách, bên cạnh các thước đo quen thuộc như GDP.",
+      [
+        "far from merely academic",
+        "không chỉ là chuyện học thuật"
+      ],
+      [
+        "weigh well-being in policy",
+        "tính đến mức độ hạnh phúc khi hoạch định chính sách"
+      ],
+      [
+        "conventional measures such as GDP",
+        "các thước đo quen thuộc như GDP"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Điều có vẻ rõ là thu nhập, dù hiển nhiên quan trọng, nhiều nhất cũng chỉ là chỉ dấu đại diện không hoàn hảo cho cuộc sống con người phát triển tốt đẹp.",
+      [
+        "though it plainly matters",
+        "dù hiển nhiên quan trọng"
+      ],
+      [
+        "at best an imperfect proxy",
+        "nhiều nhất cũng chỉ là chỉ dấu đại diện không hoàn hảo"
+      ],
+      [
+        "a flourishing human life",
+        "cuộc sống con người phát triển tốt đẹp"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Chỉ khi hỏi điều ta thật sự coi trọng, câu hỏi sâu hơn — hữu ích hơn nhiều so với hỏi giàu có mua được hạnh phúc không — mới xuất hiện; hiện tại vấn đề này vẫn rất bỏ ngỏ.",
+      [
+        "what it is that we truly value",
+        "điều ta thật sự coi trọng"
+      ],
+      [
+        "whether wealth can buy happiness",
+        "hỏi giàu có mua được hạnh phúc không"
+      ],
+      [
+        "remains very much open",
+        "vẫn rất bỏ ngỏ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-progress-survey-scene.svg",
+    "alt": "Một người điền phiếu cảm nhận cuộc sống trong bối cảnh thành phố.",
+    "caption": "Đo thu nhập và cảm nhận về cuộc sống."
+  },
+  "source_sha256": "923ed04b06d828ca8975aa3a1a00501f2470072254eef4e357260d824db78475",
+  "expected_translation_sha256": "40f762fbfb08f00ab4af5641a640ad6872815683f252ee8b5a8c8caba6e770ed"
+}

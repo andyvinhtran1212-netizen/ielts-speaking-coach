@@ -1,0 +1,238 @@
+{
+  "slug": "the-limits-of-prediction",
+  "review_notes": "Deterministic là tất định, không đồng nghĩa luôn dự đoán được; chaotic là hỗn loạn, không tự đổi thành hoàn toàn ngẫu nhiên. Odds là xác suất và pundit là bình luận viên, không hàm ý chuyên môn luôn chính xác.",
+  "illustration_brief": "Người xem các thẻ dự báo thời tiết và ghi chép trên máy tính, không có biểu đồ kết luận hoặc xác suất thật.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1961, nhà khí tượng Edward Lorenz tình cờ gặp điều sẽ âm thầm làm lung lay cả dự báo lẫn triết học.",
+      [
+        "the meteorologist",
+        "nhà khí tượng"
+      ],
+      [
+        "stumbled upon",
+        "tình cờ gặp"
+      ],
+      [
+        "unsettle both forecasting and philosophy",
+        "làm lung lay cả dự báo lẫn triết học"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Làm tròn một số từ sáu chữ số xuống ba trong mô hình thời tiết máy tính sơ khai, ông chỉ kỳ vọng sai lệch nhỏ vô hại; trái lại, lần chạy mới sớm khác hẳn lần cũ, tạo khí hậu tưởng tượng hoàn toàn khác.",
+      [
+        "from six digits to three",
+        "từ sáu chữ số xuống ba"
+      ],
+      [
+        "a tiny and harmless discrepancy",
+        "sai lệch nhỏ vô hại"
+      ],
+      [
+        "diverged entirely from the old",
+        "khác hẳn lần cũ"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Dần dần hóa ra khí quyển mang tính tất định — hoàn toàn tuân quy luật vật lý cố định — nhưng đồng thời thực sự hỗn loạn.",
+      [
+        "deterministic",
+        "mang tính tất định"
+      ],
+      [
+        "fixed physical laws",
+        "quy luật vật lý cố định"
+      ],
+      [
+        "genuinely chaotic",
+        "thực sự hỗn loạn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Dấu hiệu đặc trưng của một hệ hỗn loạn là độ nhạy cực cao với điều kiện ban đầu.",
+      [
+        "an extreme sensitivity",
+        "độ nhạy cực cao"
+      ],
+      [
+        "initial conditions",
+        "điều kiện ban đầu"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Trong hệ ấy, sai số nhỏ nhất ở phép đo mở đầu cũng được khuếch đại theo hàm mũ qua thời gian, cho tới khi hai dự báo gần giống nhau rốt cuộc tách xa dữ dội.",
+      [
+        "the most minuscule errors",
+        "sai số nhỏ nhất"
+      ],
+      [
+        "amplified exponentially over time",
+        "được khuếch đại theo hàm mũ qua thời gian"
+      ],
+      [
+        "two near-identical forecasts",
+        "hai dự báo gần giống nhau"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Đây dứt khoát không đơn thuần là chuyện máy tính chậm hoặc lập trình kém; ngay cả dụng cụ hoàn hảo và sức tính vô hạn vẫn gặp chân trời dự đoán, điểm mà sau đó dự báo trung thực hầu như chỉ còn phỏng đoán.",
+      [
+        "flawless instruments and infinite computing power",
+        "dụng cụ hoàn hảo và sức tính vô hạn"
+      ],
+      [
+        "a predictability horizon",
+        "chân trời dự đoán"
+      ],
+      [
+        "little more than guesswork",
+        "hầu như chỉ còn phỏng đoán"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nếu hệ vật lý Lorenz nghiên cứu đã cứng đầu như vậy, hệ con người còn khó nắm hơn.",
+      [
+        "the physical systems",
+        "hệ vật lý"
+      ],
+      [
+        "the human ones",
+        "hệ con người"
+      ],
+      [
+        "even more slippery still",
+        "còn khó nắm hơn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Trong chuỗi nghiên cứu đáng chú ý bắt đầu những năm 1980, nhà tâm lý học chính trị Philip Tetlock kiên nhẫn theo dõi hàng nghìn dự đoán tự tin của chuyên gia về sự kiện chính trị thực tế.",
+      [
+        "the 1980s",
+        "những năm 1980"
+      ],
+      [
+        "the political psychologist",
+        "nhà tâm lý học chính trị"
+      ],
+      [
+        "real-world political events",
+        "sự kiện chính trị thực tế"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Phát hiện chính đáng giật mình là người bình luận truyền hình tự tin nhất, chính người hay được mời nhận xét nhất, trung bình thường dự báo không tốt hơn việc đoán mò.",
+      [
+        "the most assured television pundits",
+        "người bình luận truyền hình tự tin nhất"
+      ],
+      [
+        "on average",
+        "trung bình"
+      ],
+      [
+        "no better than blind chance",
+        "không tốt hơn việc đoán mò"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nhưng điều quan trọng là không phải người dự báo nào cũng như nhau.",
+      [
+        "crucially",
+        "điều quan trọng"
+      ],
+      [
+        "not all forecasters turned out to be equal",
+        "không phải người dự báo nào cũng như nhau"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Tetlock còn nhận ra một nhóm thiểu số nhỏ — ông đặt cho họ cái tên dễ nhớ là “siêu dự báo viên” — những người đạt kết quả tốt hơn mọi người khác một cách ổn định, với chênh lệch có thể đo được.",
+      [
+        "a small minority",
+        "một nhóm thiểu số nhỏ"
+      ],
+      [
+        "superforecasters",
+        "siêu dự báo viên"
+      ],
+      [
+        "consistently and measurably outperformed everyone else",
+        "đạt kết quả tốt hơn mọi người khác một cách ổn định, với chênh lệch có thể đo được"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Họ suy nghĩ cẩn trọng bằng xác suất, gán xác suất cụ thể cho kết quả thay vì dự báo dứt khoát kiểu tất cả hoặc không; liên tục hiệu chỉnh tự tin theo thành tích thực tế; và chỉ khi có bằng chứng mới mới sửa ước tính hiện tại.",
+      [
+        "explicit odds",
+        "xác suất cụ thể"
+      ],
+      [
+        "their actual record",
+        "thành tích thực tế"
+      ],
+      [
+        "only when fresh evidence arrives",
+        "chỉ khi có bằng chứng mới"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Liên kết hai câu chuyện rất khác là một bài học chung về khiêm nhường.",
+      [
+        "a single, shared lesson in humility",
+        "một bài học chung về khiêm nhường"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Tương lai không phải tấm vải viết sẵn chỉ chờ trải ra đọc; với một số hệ, qua một điểm nhất định đơn giản là không thể biết.",
+      [
+        "some written cloth",
+        "tấm vải viết sẵn"
+      ],
+      [
+        "for certain systems",
+        "với một số hệ"
+      ],
+      [
+        "beyond a particular point",
+        "qua một điểm nhất định"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Ta có thể nhìn trước tương lai xa tới đâu mà vẫn có ích — điều hoàn toàn tùy loại hệ và loại câu hỏi ta chọn đặt — có lẽ là câu hỏi hữu ích hơn nhiều so với câu hỏi liệu việc dự đoán có khả thi hay không; hiện tại vấn đề ấy vẫn rất bỏ ngỏ.",
+      [
+        "wholly contingent on",
+        "hoàn toàn tùy"
+      ],
+      [
+        "the kind of system and the kind of question",
+        "loại hệ và loại câu hỏi"
+      ],
+      [
+        "remains very much open",
+        "vẫn rất bỏ ngỏ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-forecast-desk-scene.svg",
+    "alt": "Một người ghi chép bên màn hình hiển thị các biểu tượng dự báo thời tiết.",
+    "caption": "Quan sát, ước tính và cập nhật dự báo."
+  },
+  "source_sha256": "14900b462d79c61e9ab9a470acec4a4e1f309610ce140cbf8e0be15a8d5afb16",
+  "expected_translation_sha256": "cd9a1747f2b2cd1e612e60116682b874a442378303cff8af2623e722d16da64e"
+}

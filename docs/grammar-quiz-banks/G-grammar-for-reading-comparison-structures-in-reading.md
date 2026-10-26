@@ -123,11 +123,11 @@ input: "text"
 headword: "comparison-not-as-as"
 skill: "production"
 subtype: "intermediate"
-prompt: "Hoàn thành: 'Water scarcity in the south is not as severe as ____ in the north.'"
-accept: ["it is", "the scarcity is", "scarcity"]
+prompt: "Use that, it is, the scarcity is or scarcity: 'Water scarcity in the south is not as severe as ____ in the north.'"
+accept: ["that", "it is", "the scarcity is", "scarcity"]
 case_sensitive: false
 grammar_article_slug: "comparison-structures-in-reading"
-explain: "Sau 'as' cần chủ ngữ (it/scarcity) hoặc tên danh từ để hoàn chỉnh cấu trúc so sánh. Khôi phục: 'not as severe [in the south] as it is [in the north]'."
+explain: "That thay cho water scarcity và được in the north bổ nghĩa. It is/the scarcity is tạo mệnh đề so sánh; scarcity tạo cụm danh từ. Đề không buộc mọi phần sau as đều phải là mệnh đề có động từ."
 ---
 
 ---
@@ -194,11 +194,11 @@ input: "text"
 headword: "comparison-multiples"
 skill: "production"
 subtype: "intermediate"
-prompt: "Viết lại: 'A has doubled compared to B.' → 'A is twice ____ B.'"
-accept: ["as large as", "as big as", "as much as"]
+prompt: "Two quantities have a ratio A:B = 2:1. Use as high as, as large as, as big as or as much as: 'A is twice ____ B.' (This compares two values, not a change over time.)"
+accept: ["as high as", "as large as", "as big as", "as much as"]
 case_sensitive: false
 grammar_article_slug: "comparison-structures-in-reading"
-explain: "'doubled' = 'twice as...as'. A = 2 × B. Cách diễn đạt chính xác số lần."
+explain: "Các cụm được cho diễn đạt giá trị A bằng hai lần B theo đại lượng phù hợp. Doubled thường so một giá trị với chính nó trước đó, không tự xác lập tỷ lệ với đối tượng B khác; đề mới nêu rõ A:B = 2:1."
 ---
 
 ---
@@ -265,11 +265,11 @@ input: "text"
 headword: "comparison-degree"
 skill: "production"
 subtype: "intermediate"
-prompt: "Dịch thành tiếng Anh: 'Tổng sản phẩm nước ngoài tăng đáng kể.' (Chọn trạng từ mức độ phù hợp): GDP increased ____."
-accept: ["significantly", "substantially", "dramatically", "markedly", "considerably"]
+prompt: "Dịch: 'Tổng sản phẩm trong nước tăng đáng kể.' Chọn trạng từ mức độ phù hợp: 'GDP increased ____.'"
+accept: ["significantly", "substantially", "markedly", "considerably"]
 case_sensitive: false
 grammar_article_slug: "comparison-structures-in-reading"
-explain: "'đáng kể' = significant/substantial/considerable. Chọn trạng từ phù hợp quy mô thay đổi (không dùng 'slightly')."
+explain: "GDP là tổng sản phẩm trong nước. Các trạng từ significantly, substantially, markedly và considerably có thể diễn đạt mức tăng đáng kể; không điền các tính từ significant/substantial/considerable. Dramatically nhấn mạnh mức độ mạnh/đáng chú ý hơn, không tự là cách dịch chính xác cho mọi đáng kể."
 ---
 
 ---

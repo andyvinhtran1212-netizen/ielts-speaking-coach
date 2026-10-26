@@ -41,7 +41,10 @@ export function WritingShell() {
         <section className="mb-8">
           <p className="eyebrow">Writing</p>
           <h1 className="text-2xl md:text-3xl font-semibold mb-2">
-            Chào em, <span id="greeting-name">em</span> 👋
+            {/* "Chào em" is static; the comma + name are JS-owned so the
+                no-name case reads "Chào em 👋" (one "em"), not "Chào em, em".
+                renderStudent() fills #greeting-sep + #greeting-name together. */}
+            Chào em<span id="greeting-sep"></span><span id="greeting-name"></span> 👋
           </h1>
           <p className="text-sm text-gray-300">
             Mã học viên: <span id="student-code" className="font-mono text-gray-200">—</span>
@@ -58,10 +61,14 @@ export function WritingShell() {
           <p className="mt-3 text-gray-300">Đang tải...</p>
         </div>
 
-        {/* Error state */}
+        {/* Error state — every bootstrap failure/timeout ends here (see
+            lib/writing-dashboard-bootstrap.mjs); "Thử lại" re-runs it. */}
         <div id="error" className="hidden max-w-md mx-auto text-center py-16">
           <div className="wd-error-box">
             <p className="wd-error-box__msg" id="error-message"></p>
+            <button id="error-retry" type="button" className="wd-retry-btn hidden">
+              Thử lại
+            </button>
             <a id="error-cta"
                href="/home"
                className="inline-block text-teal-light underline hover:text-white transition">
@@ -201,8 +208,9 @@ export function WritingShell() {
               <p className="wd-empty__title">Chưa có mẹo nào</p>
               <p className="wd-empty__hint">Giảng viên sẽ publish mẹo viết sớm — em quay lại sau nhé.</p>
             </div>
-            <div id="tips-error" className="wd-empty wd-empty--compact hidden">
+            <div id="tips-error" className="wd-empty wd-empty--compact hidden" role="alert">
               <p className="wd-empty__hint" id="tips-error-msg">Không tải được mẹo viết.</p>
+              <button id="tips-retry" type="button" className="wd-retry-btn">Thử lại</button>
             </div>
           </section>
 

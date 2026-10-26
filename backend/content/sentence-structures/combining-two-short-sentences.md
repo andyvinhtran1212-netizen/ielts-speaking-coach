@@ -85,7 +85,7 @@ anchors:
 <!-- anchor: combining-two-short-sentences.overview -->
 ## Tóm tắt
 
-Band 5 viết: *"I live in Hanoi. Hanoi is the capital. It is very busy."* — đúng ngữ pháp nhưng rời rạc. Band 7 gộp lại: *"I live in Hanoi, the busy capital of Vietnam."* Cùng nội dung, nhưng thể hiện **Grammatical Range**. Năm công cụ gộp câu:
+Ba câu đơn đúng: *"I live in Hanoi. Hanoi is the capital. It is very busy."* Có thể gộp: *"I live in Hanoi, the busy capital of Vietnam."* Việc gộp tạo cách đóng gói thông tin khác, không tự quy đổi band IELTS. Năm công cụ gộp câu:
 
 | Cách | Công cụ | Ví dụ |
 |------|---------|-------|
@@ -101,7 +101,7 @@ Band 5 viết: *"I live in Hanoi. Hanoi is the capital. It is very busy."* — �
 
 ## Tại sao quan trọng
 
-Tiêu chí **Grammatical Range and Accuracy** yêu cầu "a variety of complex structures". Bài toàn câu đơn (subject–verb–object lặp lại) bị giới hạn ở Band 5–6 dù không sai. Nhưng gộp ẩu lại sinh **run-on sentence** / **comma splice** — cũng bị trừ điểm. Gộp đúng = vừa nâng range vừa giữ accuracy.
+Tiêu chí **Grammatical Range and Accuracy** đánh giá sự đa dạng, linh hoạt và chính xác trên toàn bài; không có mức trần cố định suy từ một câu. Gộp sai có thể tạo run-on/comma splice. Chọn cấu trúc làm rõ ý và giữ accuracy.
 
 ---
 
@@ -144,7 +144,8 @@ Because [subordinate clause], [main clause]
 Khi hai câu nói về **cùng một danh từ**, gộp bằng who / which / that / where.
 
 ```
-..., who/which/that [verb...] ...
+Non-defining: [noun], who/which [clause], ...
+Defining: [noun] who/which/that [clause] ... (không có phẩy)
 ```
 
 - I have a friend. She lives in Canada. → I have a friend **who** lives in Canada.
@@ -187,10 +188,10 @@ Một danh từ/cụm danh từ đặt cạnh để giải thích danh từ trư
 <!-- anchor: combining-two-short-sentences.writing-application -->
 ## WRITING — gộp câu để nâng đoạn văn
 
-**Trước (choppy — Band 5):**
+**Trước (các câu đơn):**
 *"Air pollution is a problem. It affects health. Many cities have it. Governments must act."*
 
-**Sau (combined — Band 7):**
+**Sau (câu kết hợp, có thêm thông tin):**
 *"Air pollution, **which** affects the health of millions, has become a serious problem in many cities, **so** governments must act decisively."*
 
 **Phân tích:** mệnh đề quan hệ (which) + liên từ kết hợp (so) gộp 4 câu thành 1 câu mạch lạc — nhưng vẫn nên xen câu ngắn ở chỗ khác để tạo nhịp.
@@ -241,7 +242,7 @@ Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự
 
 ### Gộp hai câu thành một (theo cách trong ngoặc)
 
-1. The film was long. It was boring. *(but / liên từ kết hợp)*
+1. The film was long. It was boring. *(and / nối hai đặc điểm cùng chiều)*
 2. He missed the bus. He was late. *(because / liên từ phụ thuộc)*
 3. This is my brother. He works in finance. *(mệnh đề quan hệ)*
 4. She finished her essay. She submitted it online. *(cụm phân từ V-ing)*
@@ -249,10 +250,10 @@ Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự
 
 ### Đáp án (gợi ý)
 
-1. The film was long, **but** it was boring. *(hoặc "long and boring")*
+1. The film was long **and** boring. Hoặc: The film was long, **and** it was boring. But chỉ phù hợp nếu ngữ cảnh tạo kỳ vọng tương phản riêng.
 2. He was late **because** he missed the bus.
 3. This is my brother, **who** works in finance.
-4. **Having finished** her essay, she submitted it online. *(hoặc "Finishing her essay,...")*
+4. **Having finished** her essay, she submitted it online. Having finished giữ ý hoàn tất trước khi nộp; finishing không mặc nhiên giữ quan hệ thời gian ấy.
 5. Ha Long Bay, **a UNESCO site,** is stunning.
 
 ---

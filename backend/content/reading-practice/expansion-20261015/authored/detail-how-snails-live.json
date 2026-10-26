@@ -1,0 +1,202 @@
+{
+  "slug": "detail-how-snails-live",
+  "review_notes": "Dịch tự nhiên ở cấp độ cơ bản, làm rõ một chân cơ và vệt chất nhờn theo mô tả nguồn; giữ đúng các mức định lượng vài centimet, đôi khi hàng nghìn răng.",
+  "illustration_brief": "Ốc sên với vỏ xoắn trên chiếc lá ướt sau mưa, có giọt nước và cỏ; không ghi số liệu hay nhãn cấu tạo.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Ốc sên là loài vật nhỏ có thân mềm và vỏ cứng.",
+      [
+        "soft bodies",
+        "thân mềm"
+      ],
+      [
+        "hard shells",
+        "vỏ cứng"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Vỏ ốc giống như một ngôi nhà nhỏ.",
+      [
+        "a little house",
+        "một ngôi nhà nhỏ"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Ốc mang ngôi nhà ấy trên lưng đi khắp nơi.",
+      [
+        "everywhere",
+        "khắp nơi"
+      ],
+      [
+        "on its back",
+        "trên lưng"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Vỏ lớn theo cơ thể ốc nên luôn vừa vặn.",
+      [
+        "grows bigger",
+        "lớn theo"
+      ],
+      [
+        "always fits",
+        "luôn vừa vặn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ốc sên hoàn toàn không có xương.",
+      [
+        "no bones at all",
+        "hoàn toàn không có xương"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nó di chuyển bằng một bàn chân lớn và khỏe.",
+      [
+        "one big, strong foot",
+        "một bàn chân lớn và khỏe"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Khi ốc bò, bàn chân để lại một vệt ướt và dính.",
+      [
+        "a wet, sticky trail",
+        "một vệt ướt và dính"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Chất nhờn giúp ốc trượt đi, kể cả trên vật sắc nhọn.",
+      [
+        "This slime",
+        "Chất nhờn"
+      ],
+      [
+        "sharp things",
+        "vật sắc nhọn"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Nhưng ốc sên di chuyển rất chậm.",
+      [
+        "very slow",
+        "di chuyển rất chậm"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Mỗi phút, chúng chỉ bò được vài xentimét.",
+      [
+        "a few centimetres",
+        "vài xentimét"
+      ],
+      [
+        "in a minute",
+        "Mỗi phút"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Ốc sên thích những nơi ẩm.",
+      [
+        "damp places",
+        "những nơi ẩm"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Bạn thường có thể tìm thấy chúng trong vườn sau mưa.",
+      [
+        "in gardens",
+        "trong vườn"
+      ],
+      [
+        "after rain",
+        "sau mưa"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khi trời nóng và khô, ốc sên ẩn trong vỏ.",
+      [
+        "hot and dry",
+        "nóng và khô"
+      ],
+      [
+        "hides inside its shell",
+        "ẩn trong vỏ"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Nó đóng cửa bằng một lớp chất nhờn và đợi mưa trở lại.",
+      [
+        "the door of slime",
+        "cửa bằng một lớp chất nhờn"
+      ],
+      [
+        "the rain to come back",
+        "mưa trở lại"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Hầu hết ốc sên ăn thực vật.",
+      [
+        "eat plants",
+        "ăn thực vật"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Lưỡi ốc sên phủ những chiếc răng li ti, đôi khi tới hàng nghìn chiếc!",
+      [
+        "tiny teeth",
+        "những chiếc răng li ti"
+      ],
+      [
+        "sometimes thousands",
+        "đôi khi tới hàng nghìn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ốc dùng những chiếc răng đó cạo lá mềm thành mẩu nhỏ.",
+      [
+        "scrape soft leaves",
+        "cạo lá mềm"
+      ],
+      [
+        "small pieces",
+        "mẩu nhỏ"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Nhờ vậy, ngay cả một con ốc bé tí cũng có thể ăn hết một chiếc lá lớn.",
+      [
+        "a tiny snail",
+        "một con ốc bé tí"
+      ],
+      [
+        "a big leaf",
+        "một chiếc lá lớn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-snail-garden-scene.svg",
+    "alt": "Ốc sên có vỏ xoắn bò trên chiếc lá ướt, giữa cỏ và giọt nước.",
+    "caption": "Quan sát ốc sên sau cơn mưa."
+  },
+  "source_sha256": "d5639eba49ad91263d086e383f96b1af97787cd6a7c5d964d20e6c8896f796fe",
+  "expected_translation_sha256": "2c23c673e7f31825fb185b33ce98b0c4054c526311cb143c835509bb77327104"
+}

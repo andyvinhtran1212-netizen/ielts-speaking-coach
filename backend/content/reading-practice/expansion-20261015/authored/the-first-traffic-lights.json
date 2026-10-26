@@ -1,0 +1,182 @@
+{
+  "slug": "the-first-traffic-lights",
+  "review_notes": "Gas là khí đốt, carriage là xe ngựa, blast là vụ nổ. Hình gợi giao thông hiện đại, không nhận là tái dựng đèn gas London hay gắn màu với đáp án.",
+  "illustration_brief": "Người đi bộ và xe ở một góc phố có vạch sang đường.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Bạn dừng ở đèn đỏ mỗi ngày.",
+      [
+        "a red light",
+        "đèn đỏ"
+      ],
+      [
+        "every day",
+        "mỗi ngày"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nhưng đèn giao thông đầu tiên xuất hiện khi nào?",
+      [
+        "the first traffic light",
+        "đèn giao thông đầu tiên"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Câu trả lời có thể làm bạn ngạc nhiên vì nó rất xưa.",
+      [
+        "may surprise you",
+        "có thể làm bạn ngạc nhiên"
+      ],
+      [
+        "very old",
+        "rất xưa"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Đèn giao thông đầu tiên được dựng ở London năm 1868.",
+      [
+        "put up in London",
+        "được dựng ở London"
+      ],
+      [
+        "in 1868",
+        "năm 1868"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Khi đó chưa có ô tô.",
+      [
+        "no cars then",
+        "Khi đó chưa có ô tô"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Đường phố đông ngựa và xe ngựa.",
+      [
+        "horses and carriages",
+        "ngựa và xe ngựa"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Người ta cần cách dừng giao thông an toàn.",
+      [
+        "stop the traffic safely",
+        "dừng giao thông an toàn"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Đèn này đốt khí gas vào ban đêm.",
+      [
+        "used gas to burn at night",
+        "đốt khí gas vào ban đêm"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Đèn có đỏ cho “dừng” và xanh cho “đi”.",
+      [
+        "red for \"stop\"",
+        "đỏ cho “dừng”"
+      ],
+      [
+        "green for \"go\"",
+        "xanh cho “đi”"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nhưng đèn có vấn đề lớn.",
+      [
+        "a big problem",
+        "vấn đề lớn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Một đêm, đèn gas phát nổ.",
+      [
+        "One night",
+        "Một đêm"
+      ],
+      [
+        "began to explode",
+        "phát nổ"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Vụ nổ làm bị thương một cảnh sát đứng gần.",
+      [
+        "The blast",
+        "Vụ nổ"
+      ],
+      [
+        "hurt a policeman",
+        "làm bị thương một cảnh sát"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Vì thế người ta tháo đèn đi.",
+      [
+        "took it away",
+        "tháo đèn đi"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Đèn giao thông điện đầu tiên xuất hiện sau đó, năm 1914 tại Cleveland, Hoa Kỳ.",
+      [
+        "The first electric traffic light",
+        "Đèn giao thông điện đầu tiên"
+      ],
+      [
+        "in 1914",
+        "năm 1914"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nó đứng ở góc phố.",
+      [
+        "a street corner",
+        "góc phố"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Đèn báo cho người lái khi nào dừng và khi nào đi.",
+      [
+        "when to stop and when to go",
+        "khi nào dừng và khi nào đi"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Những đèn ấy giúp đường an toàn hơn cho mọi người trong thành phố.",
+      [
+        "more safe for everyone",
+        "an toàn hơn cho mọi người"
+      ],
+      [
+        "in the city",
+        "trong thành phố"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-street-pause-scene.svg",
+    "alt": "Người đi bộ và xe ở một góc phố có vạch sang đường.",
+    "caption": "Tổ chức việc đi lại an toàn trên phố."
+  },
+  "source_sha256": "d5d6e7def83c7e958568e3b2d01ef51e0b65f0188fcf35b2e01e9906f10644c9",
+  "expected_translation_sha256": "9c7654130d340de63e30cb62107ef84907a1d8a46ddd32b6440f28ce938b4e4e"
+}

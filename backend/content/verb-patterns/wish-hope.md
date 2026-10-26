@@ -84,7 +84,7 @@ anchors:
 | **Dùng khi** | Có thể xảy ra / Thực tế | Không thực / Khó xảy ra |
 | **V theo sau** | Present / Future / to-inf | Past Simple / Past Perfect / would |
 | **Ví dụ** | I hope it doesn't rain. | I wish it didn't rain. |
-| **Cảm giác** | Lạc quan, kỳ vọng hợp lý | Tiếc nuối, mơ ước xa vời |
+| **Trong đối chiếu này** | Mong điều chưa biết kết quả | Wish + quá khứ giả định diễn tả điều trái thực tế |
 
 ## Tại sao quan trọng
 
@@ -105,7 +105,7 @@ hope + to-infinitive (cùng chủ ngữ)
 
 ### Cách dùng
 
-**1. Hope + that + clause (kỳ vọng hợp lý về tương lai)**
+**1. Hope + that + clause (điều mong muốn nhưng chưa biết có đúng/xảy ra không)**
 
 - I **hope** (that) the weather **is** nice tomorrow. (hy vọng thời tiết đẹp — có thể xảy ra)
 - She **hopes** (that) she **will pass** the exam.
@@ -195,7 +195,7 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 
 **Ví dụ so sánh trực tiếp:**
 
-- "I **hope** I pass the exam." (Tôi đang thi và có thể đỗ)
+- "I **hope** I pass the exam." (Tôi mong đỗ; câu không cho biết đang thi hay tâm trạng lạc quan)
 - "I **wish** I could pass the exam." (Tôi không tự tin, khó xảy ra)
 
 - "I **hope** the government acts." (Kỳ vọng thực tế)
@@ -286,7 +286,7 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 1. hope | 2. wish | 3. wishes | 4. hope | 5. wish
 
 **Chia động từ:**
-1. were | 2. hadn't said | 3. had studied | 4. would move | 5. had chosen
+1. were | 2. hadn't said | 3. had studied | 4. moved / would move (mong hiện trạng khác / mong thay đổi) | 5. had chosen
 
 ## Tóm tắt nhanh
 
@@ -303,3 +303,5 @@ Dùng khi muốn ai đó (khác chủ ngữ) thay đổi hành vi — thường 
 - **Wish** = không thực / tiếc nuối → dùng past simple / past perfect
 - **Wish + would** = phàn nàn về hành vi của người khác (không dùng cho cùng chủ ngữ)
 - **If only** = wish nhưng cảm xúc mạnh hơn, thường với dấu chấm than
+
+> Hope còn hướng tới quá khứ chưa biết kết quả: “I hope you had a good trip”. Wish không chỉ trái thực tế: “I wish to speak to the manager” và “I wish you luck”. Bảng trên tập trung vào wish + mệnh đề giả định.

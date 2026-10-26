@@ -75,6 +75,15 @@ class SourceNativeQuestion(SourceModel):
     fields: list[SourceResponseField] = Field(default_factory=list)
 
 
+class SourceSupplementalQuestion(SourceNativeQuestion):
+    part_id: str
+    block_id: str
+    response_type: Literal["single_choice", "multiple_choice", "map_label", "short_answer", "written", "open_rubric", "multi_gap_completion"]
+    selection_count: int | None = None
+    word_limit: int | None = None
+    reason_vi: str
+
+
 class SourceNativePresentation(SourceModel):
     title: str = ""
     kind: Literal["questions", "passage", "form", "table", "vocabulary", "resource"] = "questions"
@@ -258,6 +267,8 @@ class ListeningSourceDayResponse(SourceModel):
     blocks: list[SourceBlock]
     vocabulary_groups: list[SourceVocabularyGroup] = Field(default_factory=list)
     source_only_positions: list[SourcePosition] = Field(default_factory=list)
+    supplemental_questions: list[SourceSupplementalQuestion] = Field(default_factory=list)
+    response_field_count: int | None = None
     partial_data: bool = False
 
 

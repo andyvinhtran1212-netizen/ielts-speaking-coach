@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Thu giọng nói trước micro</title><desc id="desc">Một người đang nói vào micro đặt trên bàn; các nét cong biểu thị âm thanh truyền qua không khí.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 320H800V400H0Z" fill="#d8c6ab"/>
+  <path d="M142 320Q140 235 230 231Q315 230 327 320" fill="#3d8275"/>
+  <path d="M229 219Q177 220 174 165V128Q176 72 231 75Q278 77 281 128L296 153L280 166V190Q276 217 251 219" fill="#e8bc94"/>
+  <path d="M172 148Q154 98 189 72Q233 40 271 78Q294 97 280 126L260 108Q220 133 172 121Z" fill="#293b43"/>
+  <circle cx="260" cy="141" r="4" fill="#293b43"/>
+  <path d="M277 179L290 177" stroke="#8a574d" stroke-width="4" stroke-linecap="round"/>
+  <g fill="none" stroke="#3d8275" stroke-width="6" stroke-linecap="round">
+    <path d="M331 150Q354 173 331 196"/><path d="M356 133Q395 172 356 213"/><path d="M384 114Q441 173 384 233"/>
+  </g>
+  <g stroke="#293b43" stroke-width="7" fill="#e0e6df">
+    <rect x="474" y="91" width="77" height="151" rx="38"/>
+    <path d="M457 192V217Q458 263 511 263Q566 263 567 217V192" fill="none"/>
+    <path d="M511 263V314M472 316H551" fill="none" stroke-linecap="round"/>
+    <path d="M485 122H540M485 142H540M485 162H540M485 182H540" stroke-width="4"/>
+  </g>
+  <path d="M551 315C645 280 581 348 720 342" fill="none" stroke="#596d70" stroke-width="5"/>
+  <rect x="649" y="93" width="82" height="106" rx="12" fill="#fff" stroke="#bbd4bb" stroke-width="3"/>
+  <path d="M666 150H677L684 125L693 170L701 140L708 150H719" fill="none" stroke="#3d8275" stroke-width="4"/>
+</svg>

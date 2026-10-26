@@ -790,7 +790,7 @@
       if (!link) return;
       link.setAttribute('href', '/pages/quiz.html?bank=' + encodeURIComponent(info.bank_id));
       if (sub && info.questions) {
-        sub.textContent = 'Làm ' + info.questions + ' điểm ngữ pháp để kiểm tra kiến thức bài này.';
+        sub.textContent = 'Ngân hàng gồm ' + info.questions + ' chủ điểm ngữ pháp. Phiên luyện có thể gồm nhiều câu cho mỗi chủ điểm.';
       }
       _show('exercise-cta');
     } catch (_) { /* no bank / offline → keep hidden */ }

@@ -1,0 +1,182 @@
+{
+  "slug": "detail-the-truth-about-spiders",
+  "review_notes": "Dịch theo ngữ cảnh, phân biệt nhện với côn trùng và tạo tơ với giăng mạng. Weight for weight được diễn đạt là so cùng khối lượng.",
+  "illustration_brief": "Một nhện tám chân bên mạng nhỏ có giọt sương trong khu vườn; không đặt nhãn số chân hay diễn giải tất cả nhện đều giăng mạng.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Ít sinh vật bị hiểu lầm nhiều như nhện.",
+      [
+        "as misunderstood as the spider",
+        "bị hiểu lầm nhiều như nhện"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nhiều người sợ nhện, nhưng phần lớn điều chúng ta tin về chúng không hoàn toàn đúng.",
+      [
+        "Many people fear them",
+        "Nhiều người sợ nhện"
+      ],
+      [
+        "not quite true",
+        "không hoàn toàn đúng"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nhà khoa học đã nghiên cứu hàng nghìn loài, và sự thật còn bất ngờ hơn những câu chuyện.",
+      [
+        "thousands of species",
+        "hàng nghìn loài"
+      ],
+      [
+        "more surprising than the stories",
+        "bất ngờ hơn những câu chuyện"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Trước hết, nhện không phải côn trùng.",
+      [
+        "not insects",
+        "không phải côn trùng"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Chúng thuộc nhóm động vật hình nhện; khác với côn trùng có sáu chân, nhện có tám chân và không có cánh.",
+      [
+        "arachnids",
+        "động vật hình nhện"
+      ],
+      [
+        "eight legs and no wings",
+        "tám chân và không có cánh"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một quan niệm phổ biến khác cho rằng mọi con nhện đều ngồi trong mạng đợi thức ăn.",
+      [
+        "all spiders",
+        "mọi con nhện"
+      ],
+      [
+        "waiting for food",
+        "đợi thức ăn"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Thực ra, nhiều loài hoàn toàn không giăng mạng; chúng đuổi theo con mồi trên mặt đất hoặc lặng lẽ chờ cơ hội vồ mồi.",
+      [
+        "do not spin webs at all",
+        "hoàn toàn không giăng mạng"
+      ],
+      [
+        "wait quietly to pounce",
+        "lặng lẽ chờ cơ hội vồ mồi"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Điều đúng là mọi con nhện đều tạo được tơ, dù có con chẳng bao giờ giăng mạng.",
+      [
+        "make silk",
+        "tạo được tơ"
+      ],
+      [
+        "never builds a web",
+        "chẳng bao giờ giăng mạng"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Tơ nhện rất đáng chú ý.",
+      [
+        "remarkable",
+        "rất đáng chú ý"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nếu so cùng khối lượng, tơ nhện bền hơn thép, và kỹ sư nghiên cứu nó với hy vọng một ngày có thể chế tạo vật liệu tương tự.",
+      [
+        "Weight for weight",
+        "Nếu so cùng khối lượng"
+      ],
+      [
+        "stronger than steel",
+        "bền hơn thép"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Nhện dùng tơ bọc trứng, di chuyển nhờ gió và, ở một số loài, bẫy thức ăn.",
+      [
+        "wrap their eggs",
+        "bọc trứng"
+      ],
+      [
+        "travel on the wind",
+        "di chuyển nhờ gió"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Có lẽ lầm tưởng lớn nhất là nhện nguy hiểm.",
+      [
+        "the biggest myth",
+        "lầm tưởng lớn nhất"
+      ],
+      [
+        "spiders are dangerous",
+        "nhện nguy hiểm"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Đại đa số nhện vô hại với con người; chỉ một số ít loài có thể gây hại thực sự.",
+      [
+        "harmless to people",
+        "vô hại với con người"
+      ],
+      [
+        "a handful of species",
+        "một số ít loài"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Thay vì là mối đe dọa, nhện có ích: chúng ăn rất nhiều côn trùng phá mùa màng, vì thế nhiều nông dân mừng khi có chúng.",
+      [
+        "Far from being a threat",
+        "Thay vì là mối đe dọa"
+      ],
+      [
+        "damage crops",
+        "phá mùa màng"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Sự thật về nhện có thể tốt đẹp hơn rất nhiều so với tiếng xấu mà chúng mang.",
+      [
+        "far kinder",
+        "tốt đẹp hơn rất nhiều"
+      ],
+      [
+        "their reputation",
+        "tiếng xấu mà chúng mang"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-spider-garden-scene.svg",
+    "alt": "Một con nhện tám chân ở giữa mạng tơ có giọt sương trong vườn.",
+    "caption": "Một con nhện giữa lá và sương."
+  },
+  "source_sha256": "11e76568a9ff01fc88b221b01b9976c43a4c36dcab347a0f12d52ca05731446c",
+  "expected_translation_sha256": "f4f4cf32e48b724b367676ee78170ce8fcf3843ef4002f7fe18b88753d9f7f93"
+}

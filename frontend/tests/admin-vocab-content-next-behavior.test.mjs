@@ -40,7 +40,6 @@ describe('Admin Vocabulary Content native ownership', () => {
     assert.ok((CLIENT.match(/normalizeVocabDetail\(await window\.api\.get/g) || []).length >= 2);
     assert.match(CLIENT, /normalizeDeleteAck/);
     assert.match(CLIENT, /normalizeBulkDeleteAck/);
-    assert.match(CLIENT, /normalizeAudioAck/);
     assert.match(CLIENT, /mutationLock\.current/);
     assert.match(CLIENT, /page\.words\.length === 0 && page\.total <= nextOffset/);
     assert.match(CLIENT, /setEditWord\(null\); setDraft\(null\); setEditError\(''\); setConfirmState\(null\)/);
@@ -56,12 +55,12 @@ describe('Admin Vocabulary Content native ownership', () => {
     assert.match(CLIENT, /word_family: wordFamily/);
   });
 
-  test('keeps audio preview fallback and counted destructive dialogs', () => {
-    assert.match(CLIENT, /new Audio\(url\)/);
-    assert.match(CLIENT, /SpeechSynthesisUtterance/);
+  test('keeps Kokoro previews and counted destructive dialogs', () => {
+    assert.match(CLIENT, /VocabularyAudioButton/);
+    assert.doesNotMatch(CLIENT, /SpeechSynthesisUtterance|generate-audio|elevenlabs|openai/);
     assert.match(CLIENT, /kind: 'bulk'; words: Word\[\]/);
     assert.match(CLIENT, /Xoá \$\{confirmState\.words\.length\} từ đã chọn/);
-    assert.match(CLIENT, /Chi phí bên thứ ba/);
+    assert.match(CLIENT, /Kokoro · bf_emma/);
     assert.match(CLIENT, /<details className="avv-content-import" open=\{importOpen\} onToggle=/);
   });
 });

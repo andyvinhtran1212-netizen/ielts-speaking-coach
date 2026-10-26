@@ -20,6 +20,7 @@ import {
   listeningReviewParams,
   listeningReviewSection,
   listeningSkillsToPractise,
+  listeningTranscriptDisplayText,
   listeningTranscriptParagraphs,
   normalizeListeningReview,
 } from '@/lib/listening-review-model.mjs';
@@ -51,8 +52,9 @@ function clock(raw: unknown) {
 }
 
 function hasVietnamese(value: unknown) {
+  // A borrowed word such as “café” does not make an English paragraph Vietnamese.
   return /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i
-    .test(String(value ?? ''));
+    .test(String(value ?? '').replace(/\bcafés?(?=\s|[.,;:!?)]|$)/gi, 'cafe'));
 }
 
 function inlineNodes(value: unknown): ReactNode[] {
@@ -125,7 +127,7 @@ function ScriptBlock({ value }: { value: unknown }) {
   const rows = source.split(/\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
     const only = /^\[([^\]]+)\]$/.exec(line);
     if (only && speakers[only[1]]) return { speaker: speakers[only[1]], parts: [] as ReactNode[] };
-    const stripped = line.replace(/\[(?!stress:)[^\]]*\]/g, '').replace(/\s{2,}/g, ' ').trim();
+    const stripped = listeningTranscriptDisplayText(line, true).trim();
     const parts = stripped.split(/(\[stress:[^\]]+\]|\(Q\d+\))/g).filter(Boolean).map((part, index) => {
       const stress = /^\[stress:([^\]]+)\]$/.exec(part);
       if (stress) return <strong className="lr-stress" key={`${index}-${part}`}>{stress[1].trim()}</strong>;
@@ -231,10 +233,12 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
     {expanded || selected ? <ReviewQuestionContext value={item.question_context} /> : null}
     <div className="lr-card__answers">
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code></div> : null}
-      <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
+      <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.unordered_answer_group ? `{${item.unordered_answer_group.accepted_answers.join(', ')}}` : item.expected || '—'}</code></div>
     </div>
+    {item.unordered_answer_group && !webExplanation ? <p className="lr-sol__group">Câu {item.unordered_answer_group.question_numbers.join('–')}: chọn đủ {item.unordered_answer_group.accepted_answers.length} chữ cái khác nhau; chấp nhận mọi thứ tự.</p> : null}
     {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button><button type="button" className="lr-card__ts" onClick={onListenContinuously}>Nghe tiếp từ {clock(win.start)}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
+      {item.solution_group ? <p className="lr-sol__group">Lời giải chung cho câu {item.solution_group.question_numbers.join(', ')}.</p> : null}
       {webExplanation && expanded
         ? <WebExplanationPanel
             object={webExplanation}

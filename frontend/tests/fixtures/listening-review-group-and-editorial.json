@@ -1,0 +1,288 @@
+{
+  "group_review": {
+    "attempt_id": null,
+    "test_id": "MOCK0016-PROD-20261006-ILR-LIS-CAM-B18-T3-REV01",
+    "title": "[Revised REV01] ILR-LIS-CAM-B18-T3",
+    "status": "submitted",
+    "score": null,
+    "max_score": 40,
+    "band_estimate": null,
+    "scoring_policy": "diagnostic",
+    "assisted": false,
+    "result_summary": {},
+    "programme_id": "ielts",
+    "listening_lesson_id": null,
+    "form_purpose": null,
+    "replay_policy": null,
+    "support_policy": null,
+    "claim_policy": null,
+    "trap_analytics": {},
+    "audio_url": "",
+    "audio_granularity": null,
+    "audio_duration": 1753,
+    "section_offsets": {
+      "S1": 0.0,
+      "S2": 470.6,
+      "S3": 938.03,
+      "S4": 1293.3
+    },
+    "cue_points": [],
+    "band_conversion": [],
+    "sections": [
+      {
+        "section_num": 2,
+        "title": "Section 2",
+        "theme": "",
+        "transcript": ""
+      }
+    ],
+    "review": [
+      {
+        "q_num": 11,
+        "state": null,
+        "correct": false,
+        "user_answer": "",
+        "expected": "B",
+        "question_type": "mcq_multi",
+        "prompt": "Which TWO warnings does Dan give about picking mushrooms?",
+        "audio_window": {
+          "end": 572.88,
+          "start": 552.58,
+          "section": "S2"
+        },
+        "section": "S2",
+        "transcript_anchor": null,
+        "solution": {
+          "trap": "A/D/E dùng lại từ ngữ nghe quen (\"variety\", \"old mushrooms\") nhưng không phải cảnh báo. E gần đúng vì Dan có nói nấm ở cửa hàng \"several days old and past their best\" — nhưng đó không phải cảnh báo về việc hái. Đánh vào **K2/K5**.",
+          "answer": "**B, C** (theo bất kỳ thứ tự nào)",
+          "script": "```\nDAN: ...you should never consume mushrooms picked by friends or neighbours -\nalways remember that some poisonous mushrooms look very similar to edible\nones and it's easy for people to get confused. (Q11/12) The other thing to\navoid is mushrooms growing beside busy roads for obvious reasons. (Q11/12)\n```",
+          "skills": "K2 (paraphrase hai cảnh báo), K5\n\n**🎧 Vì sao tai bạn trượt chỗ này**\n\nĐề in một đằng, audio viết lại cả cấu trúc một nẻo — C: \"warnings\" → \"never consume mushrooms picked by friends or neighbours\" (đừng ăn nấm người khác cho). B: \"mushrooms growing beside busy roads\" (đừng hái nấm cạnh đường đông xe). Cái phải làm ở đây là **quy đổi tức thời**, không phải nghe rõ hơn. Chỗ này nằm ở **câu đầu tiên của lượt**, trước khi tai kịp chuyển kênh.",
+          "relisten": "Part 2, DAN mở đầu phần an toàn.\n\n---",
+          "paraphrase": "C: \"warnings\" → \"never consume mushrooms picked by friends or neighbours\" (đừng ăn nấm người khác cho). B: \"mushrooms growing beside busy roads\" (đừng hái nấm cạnh đường đông xe).",
+          "vocab_focus": "- **consume** /kənˈsjuːm/ (v) — tiêu thụ, ăn/uống\n- **edible** /ˈed.ɪ.bəl/ (adj) — ăn được\n- **busy road** /ˈbɪz.i rəʊd/ (n) — đường đông xe",
+          "why_correct": "Dan gives exactly two warnings: (1) \"never **consume mushrooms picked by friends or neighbours**\" = **C** (don't eat mushrooms given to you); (2) \"the other thing to avoid is **mushrooms growing beside busy roads**\" = **B** (don't pick near busy roads).\n\nDan đưa đúng hai cảnh báo: (1) \"never **consume mushrooms picked by friends or neighbours**\" (đừng ăn nấm người khác cho) = **C**; (2) \"the other thing to avoid is **mushrooms growing beside busy roads**\" (nấm mọc cạnh đường đông xe) = **B**.",
+          "audio_window": {
+            "end": 572.88,
+            "file": "full_test.mp3",
+            "start": 552.58,
+            "section": "S2"
+          },
+          "paraphrase_map": "| Question keyword | Audio paraphrase | Signal/trap word |\n|---|---|---|\n| warning (given to you) | _never consume mushrooms picked by friends or neighbours_ | \"never\" — cảnh báo |\n| warning (busy roads) | _the other thing to avoid… busy roads_ | \"the other thing to avoid\" — cảnh báo thứ hai |",
+          "translation_vi": "\"Đừng bao giờ ăn nấm do bạn bè hay hàng xóm hái — một số nấm độc trông rất giống nấm ăn được, người ta dễ nhầm. Điều cần tránh nữa là nấm mọc cạnh những con đường đông xe, vì lý do hiển nhiên.\"",
+          "trap_mechanisms": "- `paraphrase_t2` — \"picked by friends or neighbours\" ↔ \"given to you\".\n- `mcq_distractor_drop` — E hấp dẫn nhờ chi tiết \"old… past their best\" ở chỗ khác."
+        },
+        "self_review": {},
+        "first_answer": null,
+        "question_context": {
+          "question_id": "3c0cbc86-64d3-5fc9-bc76-a59968aaa0eb:11",
+          "instructions": null,
+          "instruction": "Choose **TWO** letters, A-E. Which TWO warnings does Dan give about picking mushrooms?",
+          "options": [
+            {
+              "text": "Don't pick more than one variety of mushroom at a time.",
+              "letter": "A"
+            },
+            {
+              "text": "Don't pick mushrooms near busy roads.",
+              "letter": "B"
+            },
+            {
+              "text": "Don't eat mushrooms given to you.",
+              "letter": "C"
+            },
+            {
+              "text": "Don't eat mushrooms while picking them.",
+              "letter": "D"
+            },
+            {
+              "text": "Don't pick old mushrooms.",
+              "letter": "E"
+            }
+          ],
+          "template": null,
+          "max_words": null,
+          "paragraph_labels": null,
+          "labels": null,
+          "image_url": null,
+          "image_alt": null,
+          "template_kind": "mcq_multi",
+          "variant": "sentence_inline",
+          "word_limit": null,
+          "word_limit_text": null,
+          "response_type": null,
+          "map_svg": null,
+          "map_image_url": null,
+          "metadata": {},
+          "context_provenance": {
+            "question_id": "current_content_fallback",
+            "instructions": "unavailable",
+            "instruction": "current_content_fallback",
+            "options": "current_content_fallback",
+            "template": "unavailable",
+            "max_words": "unavailable",
+            "paragraph_labels": "unavailable",
+            "labels": "unavailable",
+            "image_url": "unavailable",
+            "image_alt": "unavailable",
+            "template_kind": "current_content_fallback",
+            "variant": "current_content_fallback",
+            "word_limit": "unavailable",
+            "word_limit_text": "unavailable",
+            "response_type": "unavailable",
+            "map_svg": "unavailable",
+            "map_image_url": "unavailable",
+            "metadata": "unavailable",
+            "metadata.flow_direction": "unavailable"
+          }
+        },
+        "context_provenance": {
+          "prompt": "current_content_fallback",
+          "question_type": "current_content_fallback",
+          "solution": "current_content_fallback",
+          "audio_window": "current_content_fallback",
+          "transcript_anchor": "unavailable",
+          "self_review": "unavailable",
+          "explanation": "unavailable",
+          "question_context": "current_content_fallback",
+          "web_explanation_object": "unavailable"
+        }
+      },
+      {
+        "q_num": 12,
+        "state": null,
+        "correct": false,
+        "user_answer": "",
+        "expected": "C",
+        "question_type": "mcq_multi",
+        "prompt": "Which TWO warnings does Dan give about picking mushrooms?",
+        "audio_window": {
+          "end": 702.46,
+          "start": 690.46,
+          "section": "S2"
+        },
+        "section": "S2",
+        "transcript_anchor": null,
+        "solution": {
+          "audio_window": {
+            "end": 702.46,
+            "file": "full_test.mp3",
+            "start": 690.46,
+            "section": "S2"
+          }
+        },
+        "self_review": {},
+        "first_answer": null,
+        "question_context": {
+          "question_id": "3c0cbc86-64d3-5fc9-bc76-a59968aaa0eb:12",
+          "instructions": null,
+          "instruction": "Choose **TWO** letters, A-E. Which TWO warnings does Dan give about picking mushrooms?",
+          "options": [
+            {
+              "text": "Don't pick more than one variety of mushroom at a time.",
+              "letter": "A"
+            },
+            {
+              "text": "Don't pick mushrooms near busy roads.",
+              "letter": "B"
+            },
+            {
+              "text": "Don't eat mushrooms given to you.",
+              "letter": "C"
+            },
+            {
+              "text": "Don't eat mushrooms while picking them.",
+              "letter": "D"
+            },
+            {
+              "text": "Don't pick old mushrooms.",
+              "letter": "E"
+            }
+          ],
+          "template": null,
+          "max_words": null,
+          "paragraph_labels": null,
+          "labels": null,
+          "image_url": null,
+          "image_alt": null,
+          "template_kind": "mcq_multi",
+          "variant": "sentence_inline",
+          "word_limit": null,
+          "word_limit_text": null,
+          "response_type": null,
+          "map_svg": null,
+          "map_image_url": null,
+          "metadata": {},
+          "context_provenance": {
+            "question_id": "current_content_fallback",
+            "instructions": "unavailable",
+            "instruction": "current_content_fallback",
+            "options": "current_content_fallback",
+            "template": "unavailable",
+            "max_words": "unavailable",
+            "paragraph_labels": "unavailable",
+            "labels": "unavailable",
+            "image_url": "unavailable",
+            "image_alt": "unavailable",
+            "template_kind": "current_content_fallback",
+            "variant": "current_content_fallback",
+            "word_limit": "unavailable",
+            "word_limit_text": "unavailable",
+            "response_type": "unavailable",
+            "map_svg": "unavailable",
+            "map_image_url": "unavailable",
+            "metadata": "unavailable",
+            "metadata.flow_direction": "unavailable"
+          }
+        },
+        "context_provenance": {
+          "prompt": "current_content_fallback",
+          "question_type": "current_content_fallback",
+          "solution": "current_content_fallback",
+          "audio_window": "current_content_fallback",
+          "transcript_anchor": "unavailable",
+          "self_review": "unavailable",
+          "explanation": "unavailable",
+          "question_context": "current_content_fallback",
+          "web_explanation_object": "unavailable"
+        }
+      }
+    ],
+    "controlled_transcripts": {},
+    "web_explanation_access": null,
+    "context_source": {
+      "provenance": "current_content_fallback",
+      "possibly_changed": true,
+      "paper_revision": null,
+      "policy_revision": null,
+      "field_provenance": {
+        "audio_url": "current_content_fallback",
+        "audio_duration": "current_content_fallback",
+        "cue_points": "current_content_fallback",
+        "section_offsets": "current_content_fallback"
+      }
+    },
+    "preview": true,
+    "fixture_provenance": {
+      "production_uuid": "2191dcd5-d99f-5874-856f-87ebdc4486a9",
+      "source": "listening-2191dcd5-d99f-5874-856f-87ebdc4486a9-review-before.json",
+      "projection": "Q11/Q12 review rows unchanged; audio URL and unrelated sections excluded"
+    }
+  },
+  "editorial_scripts": [
+    {
+      "production_uuid": "76b993dc-e05d-5a74-9685-0686411c00a3",
+      "q_num": 21,
+      "script": "```\nADAM: Yeah. It took me ages to decide exactly how I'd organise it, especially how I could\nmake sure that people didn't know which drink I was giving them. It was hard to (Q21/Q22)\nkeep track of it all, especially as [I] had so many people doing it - I had to make (Q21/Q22)\nsure I kept a proper record of what each person had had.\n```"
+    },
+    {
+      "production_uuid": "11f5843a-8baa-506e-970f-e4934bb29610",
+      "q_num": 27,
+      "script": "```\nAMY: Yes - it's been a really good thing for the city. The bikes are popular and the whole system is well maintained but it isn't expanding quickly enough.\nJAKE: Basically, not enough's been spent on increasing the number of cycle lanes. (Q27) Hopefully that [will] change.\n```"
+    },
+    {
+      "production_uuid": "aa667c6d-1b95-5079-a38e-5dcd88a39f0d",
+      "q_num": 34,
+      "script": "```\nLecturer: … Fatalities occur when birds are [alight] on roads to catch and eat their prey and are hit by fast-moving traffic. Drivers in Zambia have to take special care at night as birds may regard the quieter roads as safe places to sleep.\n```"
+    }
+  ]
+}

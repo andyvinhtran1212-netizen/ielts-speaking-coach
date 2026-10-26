@@ -1,0 +1,186 @@
+{
+  "slug": "how-volcanoes-work",
+  "review_notes": "Dịch lại theo nghĩa địa chất, phân biệt macma dưới mặt đất với dung nham ra ngoài. Giữ nguyên dữ kiện nguồn, diễn đạt rise/force its way tự nhiên, không nhân hoá cố gắng.",
+  "illustration_brief": "Núi lửa ở xa có dòng dung nham nhỏ và đám tro cách điệu, xung quanh có sườn đồi xanh; không vẽ mặt cắt hay nhãn lớp đất.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Núi lửa có thể yên lặng hàng trăm năm rồi phun trào chỉ trong một ngày.",
+      [
+        "hundreds of years",
+        "hàng trăm năm"
+      ],
+      [
+        "erupt in a single day",
+        "phun trào chỉ trong một ngày"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Muốn hiểu vì sao, ta phải nhìn sâu xuống dưới chân mình.",
+      [
+        "deep below our feet",
+        "sâu xuống dưới chân mình"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Lớp ngoài của Trái Đất, tức vỏ Trái Đất, không phải một khối liền.",
+      [
+        "the crust",
+        "vỏ Trái Đất"
+      ],
+      [
+        "one solid piece",
+        "một khối liền"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Lớp vỏ chia thành những phần khổng lồ gọi là mảng kiến tạo, luôn chuyển động rất chậm.",
+      [
+        "huge sections called plates",
+        "những phần khổng lồ gọi là mảng kiến tạo"
+      ],
+      [
+        "move very slowly",
+        "chuyển động rất chậm"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Sâu dưới lớp vỏ, đá nóng đến mức biến thành chất lỏng đặc.",
+      [
+        "Far beneath the crust",
+        "Sâu dưới lớp vỏ"
+      ],
+      [
+        "a thick liquid",
+        "chất lỏng đặc"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Đá nóng chảy này được gọi là macma.",
+      [
+        "hot, melted rock",
+        "Đá nóng chảy này"
+      ],
+      [
+        "magma",
+        "macma"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Khi các mảng tách xa hoặc ép vào nhau, nhiệt và chuyển động có thể làm chảy thêm đá, tạo macma mới.",
+      [
+        "pull apart or push together",
+        "tách xa hoặc ép vào nhau"
+      ],
+      [
+        "melt even more rock",
+        "làm chảy thêm đá"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Macma nhẹ hơn đá rắn xung quanh nên có xu hướng dâng lên.",
+      [
+        "lighter than the solid rock",
+        "nhẹ hơn đá rắn"
+      ],
+      [
+        "tries to rise",
+        "có xu hướng dâng lên"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Khi macma đi lên, áp suất tăng dần cho tới khi nó xuyên qua điểm yếu trên bề mặt, gọi là miệng phun.",
+      [
+        "pressure builds up",
+        "áp suất tăng dần"
+      ],
+      [
+        "vent",
+        "miệng phun"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Đó là sự phun trào.",
+      [
+        "an eruption",
+        "sự phun trào"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Khi macma ra ngoài không khí, chúng ta gọi nó bằng tên khác: dung nham.",
+      [
+        "reaches the open air",
+        "ra ngoài không khí"
+      ],
+      [
+        "lava",
+        "dung nham"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Núi lửa cũng có thể phun ra những đám khí nóng và tro xám.",
+      [
+        "hot gas",
+        "khí nóng"
+      ],
+      [
+        "grey ash",
+        "tro xám"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Núi lửa có thể nguy hiểm nhưng cũng góp phần nuôi dưỡng sự sống.",
+      [
+        "can be dangerous",
+        "có thể nguy hiểm"
+      ],
+      [
+        "bring life",
+        "nuôi dưỡng sự sống"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Sau nhiều năm, dung nham cũ phân rã và làm đất rất màu mỡ, vì vậy nông dân thường sống ở gần.",
+      [
+        "breaks down",
+        "phân rã"
+      ],
+      [
+        "very fertile",
+        "rất màu mỡ"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ngày nay, các nhà khoa học theo dõi kỹ núi lửa đang hoạt động, dù dự đoán chính xác lúc phun trào vẫn khó.",
+      [
+        "carefully monitor active volcanoes",
+        "theo dõi kỹ núi lửa đang hoạt động"
+      ],
+      [
+        "predicting the exact moment",
+        "dự đoán chính xác lúc"
+      ]
+    ]
+  ],
+  "source_sha256": "284f6695784f2453cf8c585fb29d0b0115f3826df03984cce27564b74ad4d2c7",
+  "expected_translation_sha256": "e762ca6d7c326f2608abb7aaef8f2ac781bdc78f1ab80c31dc2450889698c442",
+  "illustration": {
+    "src": "/reading-illustrations/exp-volcano-scene.svg",
+    "alt": "Núi lửa ở xa với dung nham, đám tro và đồi xanh phía trước.",
+    "caption": "Một cảnh quan có núi lửa."
+  }
+}

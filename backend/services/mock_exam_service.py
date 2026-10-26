@@ -2255,6 +2255,9 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     for field in ("reading_is_public", "listening_is_public"):
         if payload.get(field) is not None:
             row[field] = bool(payload[field])
+    # A create-only command: never persist this flag or allow it in PATCH.
+    if "private_content_copy" in payload:
+        row["private_content_copy"] = bool(payload["private_content_copy"])
     try:
         result = supabase_admin.rpc("fn_create_mock_exam_with_paper_policy", {
             "p_payload": row, "p_actor_id": str(created_by),
@@ -2265,6 +2268,10 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
             raise policy_error from exc
         if _is_unique_violation(exc):
             raise DuplicateExamCodeError("Mã đề đã tồn tại.") from exc
+        if "mock_copy_source_not_published:" in str(exc):
+            raise ValueError("Đề nguồn không còn được publish. Hãy tải lại kho đề và chọn lại.") from exc
+        if "mock_copy_source_package_unsupported:" in str(exc):
+            raise ValueError("Bài Listening thuộc chương trình học không dùng làm đề Mock Test. Hãy chọn đề Listening độc lập trong kho.") from exc
         if "web_explanation_paper_requires_q01_q40" in str(exc):
             raise ValueError("Chỉ bật web explanation khi từng đề có đủ đúng 40 objects từ Q1 đến Q40.") from exc
         if "web_explanation_content_version_unavailable" in str(exc):
@@ -4602,7 +4609,7 @@ def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> d
     if kind == "reading":
         query = query.eq("status", "published").eq("test_type", "full")
     elif kind == "listening":
-        query = query.eq("status", "published").eq("test_type", "full")
+        query = query.eq("status", "published").eq("test_type", "full").is_("content_package_id", "null")
     else:
         query = query.eq("is_active", True)
         if kind == "writing-task1":

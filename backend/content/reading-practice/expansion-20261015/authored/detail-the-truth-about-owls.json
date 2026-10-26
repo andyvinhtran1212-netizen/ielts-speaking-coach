@@ -1,0 +1,158 @@
+{
+  "slug": "detail-the-truth-about-owls",
+  "review_notes": "Dịch rõ thị lực, thính giác và viên bã thức ăn được ợ ra; không gọi pellet là thức ăn mới hay phân.",
+  "illustration_brief": "Cú đậu trên cành cây dưới bầu trời tối, mắt lớn và lông cánh mềm cách điệu; không vẽ góc quay đầu hay nhãn thức ăn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Ít loài chim bị hiểu lầm nhiều như cú.",
+      [
+        "as misunderstood as the owl",
+        "bị hiểu lầm nhiều như cú"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Trong nhiều câu chuyện, cú tượng trưng cho sự thông thái hoặc vận rủi, nhưng đặc điểm sinh học thật của nó còn lạ hơn mọi truyền thuyết.",
+      [
+        "wisdom or bad luck",
+        "sự thông thái hoặc vận rủi"
+      ],
+      [
+        "stranger than any legend",
+        "lạ hơn mọi truyền thuyết"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Có khoảng 250 loài cú, sống gần như khắp thế giới trừ những vùng băng giá nhất, và tất cả đều là thợ săn có đôi mắt tinh tường.",
+      [
+        "the iciest regions",
+        "những vùng băng giá nhất"
+      ],
+      [
+        "sharp-eyed hunters",
+        "thợ săn có đôi mắt tinh tường"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Một trong những đặc điểm nổi tiếng nhất của cú là chiếc cổ linh hoạt.",
+      [
+        "flexible neck",
+        "chiếc cổ linh hoạt"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Cú có thể xoay đầu khoảng ba phần tư vòng tròn, nhiều hơn con người rất nhiều.",
+      [
+        "three-quarters of a full circle",
+        "ba phần tư vòng tròn"
+      ],
+      [
+        "far more than a person can",
+        "nhiều hơn con người rất nhiều"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nó cần khả năng này vì đôi mắt hình ống cố định tại chỗ, không chuyển động được.",
+      [
+        "tube-shaped eyes",
+        "đôi mắt hình ống"
+      ],
+      [
+        "fixed in place",
+        "cố định tại chỗ"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Muốn nhìn sang bên, cú phải xoay cả đầu thay vì đảo mắt.",
+      [
+        "swing its whole head",
+        "xoay cả đầu"
+      ],
+      [
+        "shift its eyes",
+        "đảo mắt"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Cú cũng bay yên lặng đến đáng kinh ngạc.",
+      [
+        "remarkably quiet fliers",
+        "bay yên lặng đến đáng kinh ngạc"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Mép lông mềm và có dạng như chiếc lược, giúp làm giảm tiếng động của không khí lướt qua để cú bay gần như không phát ra tiếng.",
+      [
+        "shaped like a comb",
+        "có dạng như chiếc lược"
+      ],
+      [
+        "in almost complete silence",
+        "gần như không phát ra tiếng"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Điều này khiến con mồi hầu như không thể nghe thấy cú đến gần.",
+      [
+        "nearly impossible",
+        "hầu như không thể"
+      ],
+      [
+        "hear it coming",
+        "nghe thấy cú đến gần"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Phần lớn cú hoạt động ban đêm, săn mồi khi trời tối và dựa vào thính giác cực nhạy để tìm động vật nhỏ trong bóng đêm.",
+      [
+        "hunt after dark",
+        "săn mồi khi trời tối"
+      ],
+      [
+        "extremely sharp hearing",
+        "thính giác cực nhạy"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Chúng nuốt nguyên con mồi rồi sau đó ợ xương và lông không tiêu hóa được ra thành cục nhỏ gọi là viên bã thức ăn, hay pellet.",
+      [
+        "swallow their prey whole",
+        "nuốt nguyên con mồi"
+      ],
+      [
+        "the undigested bones and fur",
+        "xương và lông không tiêu hóa được"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Bằng cách tách những viên bã này, nhà khoa học có thể biết chính xác cú đã ăn gì — một cách khám phá bất ngờ về cuộc sống của loài chim mà ít người từng thấy đi săn.",
+      [
+        "pulling these pellets apart",
+        "tách những viên bã này"
+      ],
+      [
+        "exactly what an owl has eaten",
+        "chính xác cú đã ăn gì"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-owl-night-scene.svg",
+    "alt": "Một con cú đậu trên cành cây trong cảnh đêm có mặt trăng và cây rừng.",
+    "caption": "Cú trên một cành cây yên tĩnh."
+  },
+  "source_sha256": "6db517231ccd5b6e4ee221642e69fb185140d335dcab3d4c7cbc6c59f18f4cc6",
+  "expected_translation_sha256": "cd59e46e206c00202fbd568d23dd5c62e2c518f98f0d4382f9384cbac8393d43"
+}

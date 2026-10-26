@@ -206,9 +206,9 @@ Tự nhiên hơn: "There are many problems in this area."
 
 ### Lỗi 4: Chia "there are" theo danh từ gần nhất khi có nhiều vật
 
-Khi có danh sách danh từ hỗn hợp, chia theo danh từ **đầu tiên**:
+Trong hội thoại, người nói có thể hòa hợp với danh từ đầu danh sách. Với văn viết trang trọng, thường đặt danh từ số nhiều trước hoặc viết lại để tránh xung đột:
 
-- There **is** a pen and two books on the desk. (pen → is) ✅
+- There **is** a pen and two books on the desk. — cách hòa hợp theo phần đầu thường gặp trong lời nói.
 - There **are** two books and a pen on the desk. (books → are) ✅
 
 **Cả hai đều được chấp nhận — chọn một và nhất quán.**
@@ -229,7 +229,7 @@ Khi có danh sách danh từ hỗn hợp, chia theo danh từ **đầu tiên**:
 | **There is/are** | There is a library near my house. | Giới thiệu sự tồn tại lần đầu |
 | **The ... is/are** | The library is very large. | Nói về đối tượng đã xác định |
 | **It is** | It is a beautiful library. | Mô tả tính chất của đối tượng |
-| **There exist** (hình thức) | Libraries exist in every city. | Cách nói học thuật, ít dùng |
+| **There exist** (tồn tại) | There exist several possible explanations. | Chủ ngữ giả there; thông tin mới ở sau exist |
 
 ## Ứng dụng trong IELTS Speaking
 
@@ -279,7 +279,7 @@ Khi có danh sách danh từ hỗn hợp, chia theo danh từ **đầu tiên**:
 1. There ___ a hospital near my house.
 2. There ___ many students in the library.
 3. There ___ some good news for you.
-4. Is there ___ anything I can help with?
+4. ___ there anything I can help with?
 5. There ___ no easy solutions to this problem.
 6. There ___ several reasons why this happened.
 7. How many people ___ in your class?
@@ -304,7 +304,7 @@ Khi có danh sách danh từ hỗn hợp, chia theo danh từ **đầu tiên**:
 ### Đáp án
 
 **Điền:**
-1. is | 2. are | 3. is | 4. (không cần thêm gì) | 5. are | 6. are | 7. are | 8. is
+1. is | 2. are | 3. is | 4. Is | 5. are | 6. are | 7. are | 8. is
 
 **Dịch:**
 1. There are three bedrooms in my apartment.

@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import { useSearchParams } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   correctAnswerText,
@@ -152,7 +153,6 @@ export function QuizPlayer() {
   const startLockRef = useRef(false);
   const resetLockRef = useRef(false);
   const finishLockRef = useRef(false);
-  const audioCacheRef = useRef(new Map<string, HTMLAudioElement>());
   const nextButtonRef = useRef<HTMLButtonElement | null>(null);
   const textInputRef = useRef<HTMLInputElement | null>(null);
   const promptRef = useRef<HTMLParagraphElement | null>(null);
@@ -169,37 +169,6 @@ export function QuizPlayer() {
     if (!isCurrentScope(scope)) return;
     setMessage(text); setPhase('error'); setCurrent(null); setFeedback(null);
   }, [isCurrentScope]);
-
-  const stopAudio = useCallback(() => {
-    for (const audio of audioCacheRef.current.values()) {
-      try { audio.pause(); audio.src = ''; } catch { /* best effort */ }
-    }
-    audioCacheRef.current.clear();
-    try { window.speechSynthesis?.cancel(); } catch { /* best effort */ }
-  }, []);
-
-  const playAudio = useCallback((url?: unknown, fallback?: unknown) => {
-    const safe = safeQuizLink(typeof url === 'string' ? url : null);
-    if (safe) {
-      let audio = audioCacheRef.current.get(safe);
-      if (!audio) {
-        audio = new Audio(safe);
-        audio.preload = 'auto';
-        audioCacheRef.current.set(safe, audio);
-      }
-      try { audio.currentTime = 0; void audio.play().catch(() => undefined); } catch { /* user agent guard */ }
-      return;
-    }
-    const text = String(fallback || '').trim();
-    if (!text || !window.speechSynthesis) return;
-    try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-GB';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    } catch { /* best effort */ }
-  }, []);
 
   const sendKeepalive = useCallback((selectedScope?: RunScope) => {
     const scope = selectedScope || scopeRef.current;
@@ -225,8 +194,8 @@ export function QuizPlayer() {
   useEffect(() => {
     const onPageHide = () => sendKeepalive();
     window.addEventListener('pagehide', onPageHide);
-    return () => { window.removeEventListener('pagehide', onPageHide); stopAudio(); };
-  }, [sendKeepalive, stopAudio]);
+    return () => { window.removeEventListener('pagehide', onPageHide); };
+  }, [sendKeepalive]);
 
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');
@@ -374,10 +343,9 @@ export function QuizPlayer() {
     return () => {
       sendKeepalive(scope);
       scope.disposed = true; scope.outbox?.dispose(); controller.abort();
-      stopAudio();
       if (scopeRef.current === scope) scopeRef.current = null;
     };
-  }, [querySource, requestKey, reopen, sendKeepalive, startPlay, isCurrentScope, unavailable, stopAudio]);
+  }, [querySource, requestKey, reopen, sendKeepalive, startPlay, isCurrentScope, unavailable]);
 
   useEffect(() => {
     if (feedback && !enterSubmitRef.current) nextButtonRef.current?.focus();
@@ -578,7 +546,7 @@ export function QuizPlayer() {
             <div className="qz-track" role="progressbar" aria-label="Tiến độ bài" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}><div className="qz-bar" style={{ width: `${progressPercent}%` }} /></div>
             <p className="qz-sub">{area.grammar ? 'Trả lời đúng mỗi điểm ngữ pháp ở nhiều dạng câu (có ít nhất 1 câu tự gõ) để được tính là nắm — bài sẽ tự lặp lại điểm bạn còn sai.' : 'Trả lời đúng mỗi từ ở nhiều dạng câu (có ít nhất 1 câu tự gõ) để được tính là thuộc — bài sẽ tự lặp lại từ bạn còn sai.'}</p>
             <article className="av-card qz-card">
-              {question.audio_url || String(question.prompt || '').includes('{{audio}}') ? <button type="button" className="av-button av-button-secondary av-button-sm qz-audio" onClick={() => playAudio(question.audio_url, current.item_key)}>🔊 Nghe</button> : null}
+              {question.audio_url || String(question.prompt || '').includes('{{audio}}') ? <VocabularyAudioButton key={current.item_key} url={safeQuizLink(question.audio_url)} say={current.item_key} label="🔊 Nghe" className="av-button av-button-secondary av-button-sm qz-audio">🔊 Nghe</VocabularyAudioButton> : null}
               <p ref={promptRef} tabIndex={-1} className="qz-prompt"><FormattedText value={stripAudioToken(question.prompt)} /></p>
               {question.hint ? <p className="qz-hint">💡 <FormattedText value={question.hint} /></p> : null}
               <p className="qz-instr">{instruction(question)}</p>
@@ -642,7 +610,7 @@ export function QuizPlayer() {
         <div className="av-modal-backdrop qz-dialog" role="dialog" aria-modal="true" aria-labelledby="qz-card-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setCardKey(null); }}>
           <div className="av-modal">
             <div className="av-modal-header"><div><p className="qz-eyebrow">Xem nhanh thẻ từ</p><h2 id="qz-card-title" className="av-modal-title">{selectedCard.headword || cardKey}</h2>{selectedCard.pronunciation || selectedCard.syllables ? <code className="qz-ipa">{selectedCard.pronunciation || selectedCard.syllables}</code> : null}</div><button ref={cardCloseRef} type="button" className="qz-dialog-close" aria-label="Đóng" onClick={() => setCardKey(null)}>×</button></div>
-            <div className="av-modal-body"><p className="qz-card-meta">{[selectedCard.part_of_speech, selectedCard.level, selectedCard.register].filter(Boolean).join(' · ')}</p>{selectedCard.definition_vi || selectedCard.gloss_vi ? <p className="qz-card-definition"><FormattedText value={selectedCard.definition_vi || selectedCard.gloss_vi} /></p> : null}{selectedCard.definition_en ? <p className="qz-card-definition-en"><FormattedText value={selectedCard.definition_en} /></p> : null}<button type="button" className="av-button av-button-secondary av-button-sm" onClick={() => playAudio(selectedCard.audio_headword, selectedCard.headword || cardKey)}>🔊 Nghe phát âm</button>{selectedCard.example ? <div className="qz-example"><div><b>Ví dụ</b> <button type="button" className="qz-inline-audio" onClick={() => playAudio(selectedCard.audio_example, selectedCard.example)}>🔊 Nghe</button></div><p><FormattedText value={selectedCard.example} /></p></div> : null}{[['Cụm từ thường gặp', selectedCard.collocations], ['Đồng nghĩa', selectedCard.synonyms], ['Trái nghĩa', selectedCard.antonyms], ['Họ từ', selectedCard.word_family], ['Từ liên quan', selectedCard.related_words]].map(([label, value]) => { const rows = stringList(value); return rows.length ? <div className="qz-card-section" key={String(label)}><h3>{label}</h3><div className="qz-chips">{rows.map((row) => <span className="qz-chip" key={row}>{row}</span>)}</div></div> : null; })}{selectedCard.common_error ? <div className="qz-note is-warning"><b>⚠️ Lỗi thường gặp</b><p><FormattedText value={selectedCard.common_error} /></p></div> : null}{selectedCard.memory_hook ? <div className="qz-note is-tip"><b>💡 Mẹo ghi nhớ</b><p><FormattedText value={selectedCard.memory_hook} /></p></div> : null}</div>
+            <div className="av-modal-body"><p className="qz-card-meta">{[selectedCard.part_of_speech, selectedCard.level, selectedCard.register].filter(Boolean).join(' · ')}</p>{selectedCard.definition_vi || selectedCard.gloss_vi ? <p className="qz-card-definition"><FormattedText value={selectedCard.definition_vi || selectedCard.gloss_vi} /></p> : null}{selectedCard.definition_en ? <p className="qz-card-definition-en"><FormattedText value={selectedCard.definition_en} /></p> : null}<VocabularyAudioButton url={safeQuizLink(selectedCard.audio_headword)} say={selectedCard.headword || cardKey} label="🔊 Nghe phát âm" className="av-button av-button-secondary av-button-sm">🔊 Nghe phát âm</VocabularyAudioButton>{selectedCard.example ? <div className="qz-example"><div><b>Ví dụ</b> <VocabularyAudioButton url={safeQuizLink(selectedCard.audio_example)} say={selectedCard.example} label="Nghe câu ví dụ" className="qz-inline-audio">🔊 Nghe</VocabularyAudioButton></div><p><FormattedText value={selectedCard.example} /></p></div> : null}{[['Cụm từ thường gặp', selectedCard.collocations], ['Đồng nghĩa', selectedCard.synonyms], ['Trái nghĩa', selectedCard.antonyms], ['Họ từ', selectedCard.word_family], ['Từ liên quan', selectedCard.related_words]].map(([label, value]) => { const rows = stringList(value); return rows.length ? <div className="qz-card-section" key={String(label)}><h3>{label}</h3><div className="qz-chips">{rows.map((row) => <span className="qz-chip" key={row}>{row}</span>)}</div></div> : null; })}{selectedCard.common_error ? <div className="qz-note is-warning"><b>⚠️ Lỗi thường gặp</b><p><FormattedText value={selectedCard.common_error} /></p></div> : null}{selectedCard.memory_hook ? <div className="qz-note is-tip"><b>💡 Mẹo ghi nhớ</b><p><FormattedText value={selectedCard.memory_hook} /></p></div> : null}</div>
             <div className="av-modal-footer"><button type="button" className="av-button av-button-secondary" onClick={() => setCardKey(null)}>Đóng</button></div>
           </div>
         </div>

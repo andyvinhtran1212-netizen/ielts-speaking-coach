@@ -69,20 +69,20 @@ Cả một mệnh đề trở thành **một cụm danh từ** làm chủ ngữ 
 
 Nhiều danh từ học thuật che giấu một động từ. Khi gặp, hãy "mở gói" lại thành câu:
 
-| Danh hoá | Ý gốc |
+| Danh hoá | Một cách mở rộng có thể có (thì/tình thái cần ngữ cảnh) |
 |---|---|
 | the **reduction** in emissions | emissions were reduced |
 | a **comparison** of two methods | two methods are compared |
 | the **implementation** of the policy | the policy was implemented |
 | widespread **acceptance** of the idea | the idea is widely accepted |
 
-Hỏi: *"Ai làm gì / cái gì xảy ra?"* để khôi phục hành động ẩn.
+Hỏi “Ai làm gì/cái gì xảy ra?” rồi tìm bằng chứng ở câu xung quanh. Implementation có thể là kế hoạch chưa xảy ra; danh từ riêng không tự chứng minh quá khứ hay sự việc thật.
 
 <!-- anchor: nominalization.why-academic -->
 ### Vì sao văn học thuật thích danh hoá
 
 - **Súc tích:** nén cả mệnh đề vào một cụm để câu sau bàn tiếp về nó.
-- **Khách quan:** giấu tác nhân (*the decision was made* → *the decision*), nghe trung lập, phi cá nhân.
+- **Giọng phi cá nhân:** có thể lược tác nhân (*the decision was made* → *the decision*), nghe phi cá nhân nhưng không tự tạo tính khách quan hay bằng chứng; giữ tác nhân nếu cần hiểu trách nhiệm.
 - **Nối ý:** danh hoá ở cuối câu này thường thành **chủ đề** của câu tiếp (*…prices rose. This **increase** led to…*).
 
 Chính đặc điểm "giấu tác nhân + trừu tượng" khiến câu khó — nhưng cũng là tín hiệu để nối các câu.

@@ -104,7 +104,7 @@ learning_blocks:
 > - **KHÔNG** (relative clause cần thiết để biết noun này là cái gì) → **DEFINING** → KHÔNG dấu phẩy → DÙNG "which/who/that"
 >
 > Ví dụ:
-> - "My brother, **who lives in Hanoi**, called me yesterday." (non-defining: chỉ có 1 anh trai → who lives in Hanoi chỉ thêm thông tin → CÓ phẩy)
+> - "My brother, **who lives in Hanoi**, called me yesterday." (non-defining: người anh đã được xác định trong ngữ cảnh, phần quan hệ bổ sung thông tin; dấu phẩy không chứng minh chỉ có một anh trai)
 > - "The book **that I borrowed** is interesting." (defining: nhiều sách → "that I borrowed" cần để biết SÁCH NÀO → KHÔNG phẩy)
 
 
@@ -171,7 +171,7 @@ Nếu bỏ mệnh đề này, câu mất nghĩa hoặc không rõ đề cập đ
 
 Cung cấp thông tin **bổ sung** (có thể bỏ mà không ảnh hưởng đến nghĩa chính) — **có dấu phẩy cả hai đầu**.
 
-- My sister, **who lives in London**, is visiting next week. (đã biết tôi chỉ có một chị → thông tin thêm)
+- My sister, **who lives in London**, is visiting next week. (người chị đã rõ trong ngữ cảnh → thông tin thêm; có thể người nói còn chị em khác)
 - The Eiffel Tower, **which was built in 1889**, is one of the most visited monuments in the world.
 - Last summer, **when I was in Paris**, I visited several museums.
 
@@ -207,7 +207,7 @@ Cung cấp thông tin **bổ sung** (có thể bỏ mà không ảnh hưởng đ
 
 ## Rút gọn mệnh đề quan hệ (Reduced Relative Clauses)
 
-Khi relative pronoun là chủ ngữ, có thể rút gọn bằng cách:
+Một số mệnh đề có relative pronoun làm chủ ngữ có thể chuyển thành phần bổ nghĩa không hữu hạn theo các mẫu dưới. Không tự xóa who/which/that + be ở mọi câu hoặc đổi mọi động từ chủ động thành -ing; kiểm tra thì, thể và quan hệ thời gian:
 
 **→ V-ing** (khi mệnh đề ở thể chủ động):
 - The man **who is standing** at the door is my father.
@@ -219,6 +219,8 @@ Khi relative pronoun là chủ ngữ, có thể rút gọn bằng cách:
 **→ V3 (past participle)** (khi mệnh đề ở thể bị động):
 - The letter **that was written** in French was hard to read.
 - → The letter **written** in French was hard to read.
+
+Ví dụ, **the people who were ill last week** không tự chuyển thành **the people ill** mà vẫn giữ đủ ý quá khứ. Các mẫu standing/written trên không chứng minh phép rút gọn áp dụng cho mọi câu.
 
 - The report **which was published** last year has been updated.
 - → The report **published** last year has been updated.
@@ -307,7 +309,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 2. The student **who** won the prize is from Hanoi. (bỏ "she")
 3. This is the city **where I grew up** / **in which I grew up**. (bỏ "in it")
 4. He's someone **who/whom** I really admire. (người → who/whom, không phải which)
-5. The man **who** lives next door is a doctor. (non-defining sai: nếu đây là mệnh đề xác định → không dấu phẩy; nếu non-defining → The man next door, who is a doctor, ...)
+5. The man, **who** lives next door, is a doctor. (Chỉ đổi whose thành who, giữ dấu phẩy nếu người đó đã rõ trong ngữ cảnh.) The man **who** lives next door is a doctor cũng đúng khi cần xác định người nào, nhưng đổi cách tham chiếu.
 
 <!-- anchor: relative-clauses.compare-with.complex-sentence -->
 ## Tóm tắt nhanh

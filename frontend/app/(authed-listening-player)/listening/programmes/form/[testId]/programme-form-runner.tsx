@@ -7,6 +7,9 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import type { ApiGetJson } from '@/lib/openapi-contract';
 import type { AuthStatus } from '@/lib/auth/auth-provider';
 import { ListeningSourceBlock } from '@/components/listening-source-block';
+import { ListeningQuestionAudio, pauseOtherListeningAudio } from '@/components/listening-question-audio';
+import { ListeningSourceSupplement } from '@/components/listening-source-supplement';
+import type { components } from '@/types/api';
 import { ListeningSourceExplanation } from '@/components/listening-source-explanation';
 import { programmeLessonPath } from '@/lib/listening-programme-navigation.mjs';
 import type { ListeningSourceBlockWire, ListeningSourceResponseFieldWire } from '@/lib/listening-source-collection-api';
@@ -19,9 +22,9 @@ import { createProgrammeReplayController } from '@/lib/listening-programme-repla
 import type { ListeningGuidedStateWire, ListeningProgrammePlayerWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
-interface Question { q_num: number; source_item_id: string; prompt: string; response_type: string; options: Record<string, string>; visual_url?: string; visual_accessibility?: string; editorial_translation?: unknown; source_block_id?: string; source_display_number?: string; selection_count?: number; fields?: ListeningSourceResponseFieldWire[] }
+interface Question { supplement?: components['schemas']['SourceSupplementalQuestion']; q_num: number; source_item_id: string; prompt: string; response_type: string; options: Record<string, string>; visual_url?: string; visual_accessibility?: string; editorial_translation?: unknown; source_block_id?: string; source_display_number?: string; selection_count?: number; fields?: ListeningSourceResponseFieldWire[] }
 type SourceAudio = ApiGetJson<'/api/listening/source-collections/80-days/days/{day_number}/audio'>;
-interface FormData { audioVariants?: SourceAudio['variants']; audioLoadError?: boolean; title: string; programmeId: string; lessonId: string; replayPolicy: string; audioUrl: string; questions: Question[]; guidanceAvailable: boolean; sourceDay?: number; sourceBlocks: ListeningSourceBlockWire[]; audioGranularity?: string }
+interface FormData { questionClips?: SourceAudio['question_clips']; audioVariants?: SourceAudio['variants']; audioLoadError?: boolean; title: string; programmeId: string; lessonId: string; replayPolicy: string; audioUrl: string; questions: Question[]; guidanceAvailable: boolean; sourceDay?: number; sourceBlocks: ListeningSourceBlockWire[]; audioGranularity?: string }
 type FeedbackItem = NonNullable<ListeningGuidedStateWire['items']>[number];
 type LoadState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; form: FormData; attemptId: string };
 interface FormScope { active: boolean; controller: AbortController }
@@ -33,12 +36,13 @@ function feedbackResponseFields(question: Question, item: FeedbackItem | undefin
   return item.fields?.length ? item.fields : question.fields || [];
 }
 
-export function ProgrammeFormRunner({ testId, active = true, embedded = false }: { testId: string; active?: boolean; embedded?: boolean }) {
+interface SupplementScope { supplements?: components['schemas']['SourceSupplementalQuestion'][]; sourceBlocks?: ListeningSourceBlockWire[]; manifest?: string }
+export function ProgrammeFormRunner({ testId, active = true, embedded = false, supplements, sourceBlocks, manifest }: { testId: string; active?: boolean; embedded?: boolean } & SupplementScope) {
   const { status, user } = useAuth();
-  return <ProgrammeFormView key={JSON.stringify([status, user?.id ?? null, testId])} testId={testId} status={status} userId={user?.id ?? null} active={active} embedded={embedded} />;
+  return <ProgrammeFormView key={JSON.stringify([status, user?.id ?? null, testId])} testId={testId} status={status} userId={user?.id ?? null} active={active} embedded={embedded} supplements={supplements} sourceBlocks={sourceBlocks} manifest={manifest} />;
 }
 
-function ProgrammeFormView({ testId, status, userId, active, embedded }: { testId: string; status: AuthStatus; userId: string | null; active: boolean; embedded: boolean }) {
+function ProgrammeFormView({ testId, status, userId, active, embedded, supplements, sourceBlocks, manifest }: { testId: string; status: AuthStatus; userId: string | null; active: boolean; embedded: boolean } & SupplementScope) {
   const params = useSearchParams();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -58,7 +62,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
   const scopeRef = useRef<FormScope | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioSource = useRef('');
-  const [audioVariant, setAudioVariant] = useState('kokoro-v1');
+  const [audioVariant, setAudioVariant] = useState('original');
   const [audioRetrying, setAudioRetrying] = useState(false);
   const playbackUrl = state.status === 'ready' ? state.form.audioVariants?.find((variant) => variant.variant_id === audioVariant)?.url || (!state.form.sourceDay || audioVariant === 'original' ? state.form.audioUrl : '') : '';
   const Container = embedded ? 'section' : 'main';
@@ -192,6 +196,7 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
       setOnceMessage('');
       const replayPolicy = String(test.replay_policy || 'allowed');
       let audioVariants: SourceAudio['variants'] | undefined;
+      let questionClips: SourceAudio['question_clips'] | undefined;
       let audioLoadError = false;
       const sourceDay = test.programme_id === 'ielts-80-days-listening' ? Number(test.source_day) || undefined : undefined;
       if (sourceDay) {
@@ -199,26 +204,35 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
           const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${sourceDay}/audio`, undefined, { signal: scope.controller.signal });
           if (response.day !== sourceDay || !Array.isArray(response.variants)) throw new Error('Audio không khớp buổi học.');
           audioVariants = response.variants;
+          questionClips = response.question_clips;
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') throw error;
           audioLoadError = true;
         }
       }
       if (!active || !current(scope)) return;
+      setAudioVariant(audioVariants?.some((variant) => variant.variant_id === 'original') || test.audio_url ? 'original' : 'kokoro-v1');
       const audioUrl = String(test.audio_url || '');
       setOnceState(attempt.playback_started_at || (replayPolicy === 'once' && !audioUrl) ? 'done' : 'ready');
-      setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy, audioUrl, audioVariants, audioLoadError, questions, guidanceAvailable: guided !== null, sourceDay, sourceBlocks: Array.isArray(test.source_blocks) ? test.source_blocks as ListeningSourceBlockWire[] : [], audioGranularity: test.audio_granularity ? String(test.audio_granularity) : undefined } });
+      setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy, audioUrl, audioVariants, questionClips, audioLoadError, questions, guidanceAvailable: guided !== null, sourceDay, sourceBlocks: Array.isArray(test.source_blocks) ? test.source_blocks as ListeningSourceBlockWire[] : [], audioGranularity: test.audio_granularity ? String(test.audio_granularity) : undefined } });
     })().catch((error: unknown) => { if (active && current(scope) && !(error instanceof DOMException && error.name === 'AbortError')) setState({ status: 'error', message: error instanceof Error ? error.message : 'Không tải được bài nghe.' }); });
     return () => { active = false; scope.controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); pending.current = {}; saveQueue.current = null; draftStore.current = null; submitLock.current = false; replayController.current?.dispose(); revealPromises.current.clear(); };
   }, [status, testId, userId]);
 
   const answeredCount = useMemo(() => Object.values(answers).filter((value) => value.trim()).length, [answers]);
-  const groups = useMemo(() => state.status === 'ready' ? groupProgrammeQuestions(state.form.questions) as Array<{ key: string; sourceBlockId?: string | null; questions: Question[] }> : [], [state]);
+  const practiceQuestions = useMemo(() => {
+    if (state.status !== 'ready') return [];
+    const all: Question[] = [...state.form.questions, ...(supplements || []).map((question, index) => ({ q_num: -index - 1, source_item_id: question.item_id, source_display_number: question.source_display_number, source_block_id: question.block_id, prompt: question.prompt, response_type: question.response_type, options: {}, supplement: question }))];
+    const order = (sourceBlocks || state.form.sourceBlocks).flatMap((block) => block.item_ids || []);
+    if (supplements?.length) all.sort((a, b) => order.indexOf(a.source_item_id) - order.indexOf(b.source_item_id));
+    return all;
+  }, [state, supplements, sourceBlocks]);
+  const groups = useMemo(() => state.status === 'ready' ? groupProgrammeQuestions(practiceQuestions) as Array<{ key: string; sourceBlockId?: string | null; questions: Question[] }> : [], [state, practiceQuestions]);
   const languages = useMemo(() => state.status === 'ready' ? availableQuestionLanguages(state.form.questions) as string[] : [], [state]);
   const bilingualWritten = state.status === 'ready' && languages.length > 0 && state.form.questions.some((question) => ['short_answer', 'written', 'open_rubric'].includes(question.response_type));
   const activeLanguage = languages.includes(language) ? language : 'vi';
   const selectedGroup = Math.min(currentGroup, Math.max(groups.length - 1, 0));
-  const visibleQuestions = state.status === 'ready' ? (mode === 'guided' ? groups[selectedGroup]?.questions || [] : state.form.questions) : [];
+  const visibleQuestions = state.status === 'ready' ? (mode === 'guided' ? groups[selectedGroup]?.questions || [] : practiceQuestions) : [];
   const visibleGroups = mode === 'guided' ? groups.slice(selectedGroup, selectedGroup + 1) : groups;
   function chooseMode(value: 'continuous' | 'guided') {
     setMode(value);
@@ -383,8 +397,8 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
     try {
       const response = await window.api.getWith<SourceAudio>(`/api/listening/source-collections/80-days/days/${day}/audio`, undefined, { signal: scope.controller.signal });
       if (!current(scope) || response.day !== day || !Array.isArray(response.variants)) return;
-      setState((value) => value.status === 'ready' ? { ...value, form: { ...value.form, audioVariants: response.variants, audioLoadError: false } } : value);
-      setAudioVariant('kokoro-v1');
+      setState((value) => value.status === 'ready' ? { ...value, form: { ...value.form, audioVariants: response.variants, questionClips: response.question_clips, audioLoadError: false } } : value);
+      setAudioVariant(response.variants.some((variant) => variant.variant_id === 'original') ? 'original' : 'kokoro-v1');
       setAudioError('');
     } catch { if (current(scope)) setAudioError('Chưa tải được audio. Hãy thử lại.'); }
     finally { if (current(scope)) setAudioRetrying(false); }
@@ -395,9 +409,9 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
   const lessonHref = state.form.programmeId === 'ielts-80-days-listening'
     ? programmeLessonPath(state.form.programmeId, state.form.lessonId, state.form.sourceDay)
     : listeningProgrammeLessonHref(state.form.programmeId, state.form.lessonId, params || undefined);
-  return <Container className="programme-runner shell">
+  return <Container className={`programme-runner shell${state.form.sourceDay ? ' is-source-practice' : ''}`}>
     {state.form.sourceDay ? <link rel="stylesheet" href="/css/listening-source-collection.css" /> : null}
-    <header className="programme-runner__header">{!embedded ? <a href={lessonHref}>← Bài học</a> : null}<div><p>Luyện nghe theo nhịp của bạn</p><h1>{state.form.title}</h1><span>Nghe, thử trả lời và sửa lại. Đây không phải bài tính band IELTS.</span></div><span>{answeredCount}/{state.form.questions.length} câu đã thử</span></header>
+    <header className="programme-runner__header">{!embedded ? <a href={lessonHref}>← Bài học</a> : null}<div><p>Luyện nghe theo nhịp của bạn</p><h1>{state.form.title}</h1><span>Nghe, thử trả lời và sửa lại. Đây không phải bài tính band IELTS.</span></div><span>{answeredCount}/{state.form.questions.length} câu đã thử{supplements?.length ? ` · ${supplements.length} câu tự luyện lưu trên thiết bị` : ''}</span></header>
     <section className="programme-learning-controls" aria-label="Tùy chọn luyện nghe">
       <div><span>Cách luyện</span><div className="programme-segmented" role="group" aria-label="Cách luyện"><button type="button" aria-pressed={mode === 'continuous'} onClick={() => chooseMode('continuous')}>Làm liền mạch</button><button type="button" aria-pressed={mode === 'guided'} onClick={() => chooseMode('guided')}>Luyện từng bước</button></div></div>
       <div><span>Ngôn ngữ câu hỏi</span>{languages.length ? <div className="programme-segmented" role="group" aria-label="Ngôn ngữ câu hỏi"><button type="button" aria-pressed={activeLanguage === 'vi'} onClick={() => chooseLanguage('vi')}>Tiếng Việt</button><button type="button" aria-pressed={activeLanguage === 'en'} onClick={() => chooseLanguage('en')}>English</button></div> : <p className="programme-language-note">Đang hiển thị bản gốc; bản dịch được biên tập dần theo bài.</p>}{bilingualWritten ? <p className="programme-language-note">Đổi ngôn ngữ chỉ đổi câu hỏi, không đổi cách đối chiếu đáp án. Với câu điền, hãy ghi từ hoặc cụm từ nghe được trong audio.</p> : null}</div>
@@ -408,16 +422,17 @@ function ProgrammeFormView({ testId, status, userId, active, embedded }: { testI
         <h2>Nghe và khám phá</h2>
         {state.form.sourceDay ? <label>Phiên bản audio <select className="source-audio-select" value={audioVariant} onChange={(event) => setAudioVariant(event.target.value)}><option value="kokoro-v1">Bản luyện nghe</option>{state.form.audioUrl || state.form.audioVariants?.some((variant) => variant.variant_id === 'original') ? <option value="original">Bản ghi gốc</option> : null}</select></label> : null}
         {state.form.sourceDay && (!playbackUrl || state.form.audioLoadError || audioError) ? <><p role="alert">{state.form.audioLoadError ? `Chưa tải được danh sách audio.${state.form.audioUrl ? ' Bạn có thể chọn Bản ghi gốc hoặc tải lại.' : ' Hãy tải lại audio.'}` : 'Bản audio này chưa sẵn sàng để phát.'}</p><button type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Đang tải audio…' : 'Tải lại audio'}</button></> : null}
-        {state.form.replayPolicy === 'once' ? <><audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} preload="metadata" onEnded={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setOnceState('done'); }} onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} /><button type="button" onClick={() => void controlOnce()} disabled={onceState === 'starting' || onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'starting' ? 'Đang bắt đầu…' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : onceState === 'unconfirmed' ? 'Xác nhận lượt nghe' : 'Đã sử dụng lượt nghe'}</button>{onceMessage ? <p role="status">{onceMessage}</p> : null}</> : <audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} controls preload="metadata" onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} />}
+        {state.form.replayPolicy === 'once' ? <><audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} preload="metadata" onEnded={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setOnceState('done'); }} onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} /><button type="button" onClick={() => void controlOnce()} disabled={onceState === 'starting' || onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'starting' ? 'Đang bắt đầu…' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : onceState === 'unconfirmed' ? 'Xác nhận lượt nghe' : 'Đã sử dụng lượt nghe'}</button>{onceMessage ? <p role="status">{onceMessage}</p> : null}</> : <audio ref={bindAudio} src={active ? playbackUrl || undefined : undefined} controls preload="metadata" onPlay={(event) => pauseOtherListeningAudio(event.currentTarget)} onError={(event) => { if (current(scopeRef.current) && audioRef.current === event.currentTarget) setAudioError('Không tải được audio. Hãy thử lại sau.'); }} />}
         {audioError ? <p role="alert">{audioError}</p> : null}
-        <p>{state.form.replayPolicy === 'once' ? 'Bài này chỉ cho phép bắt đầu audio một lần trong lượt làm hiện tại. Chuyển cách luyện không tạo lượt nghe mới.' : state.form.audioGranularity === 'whole_day' ? 'Audio toàn ngày. Các phần dùng chung file; chưa có mốc nghe riêng từng câu.' : 'Bạn có thể nghe lại toàn bài trong lúc làm hoặc sửa câu trả lời.'}</p>
-        <div className="programme-learning-progress"><strong>Đường nghe</strong><span>{answeredCount}/{state.form.questions.length} câu đã thử · {Object.keys(feedback).length} câu đã đối chiếu</span><ol aria-label="Tiến độ các câu hỏi">{groups.map((group, index) => <li key={group.key} data-current={mode === 'guided' && index === selectedGroup} data-answered={group.questions.every((question) => !!answers[question.q_num]?.trim())} data-revealed={group.questions.every((question) => !!feedback[question.q_num])}><button type="button" onClick={() => { chooseMode('guided'); moveToGroup(index); }} aria-label={`Đến câu ${group.questions[0].q_num}${feedback[group.questions[0].q_num] ? ', đã đối chiếu' : ''}`}>{group.questions[0].q_num}</button></li>)}</ol></div>
+        <p>{state.form.replayPolicy === 'once' ? 'Bài này chỉ cho phép bắt đầu audio một lần trong lượt làm hiện tại. Chuyển cách luyện không tạo lượt nghe mới.' : state.form.audioGranularity === 'whole_day' ? 'Audio toàn buổi. Bạn có thể nghe và lặp đoạn của từng câu bên dưới.' : 'Bạn có thể nghe lại toàn bài trong lúc làm hoặc sửa câu trả lời.'}</p>
+        <div className="programme-learning-progress"><strong>Đường nghe</strong><span>{answeredCount}/{state.form.questions.length} câu đã thử · {Object.keys(feedback).length} câu đã đối chiếu</span><ol aria-label="Tiến độ các câu hỏi">{groups.map((group, index) => <li key={group.key} data-current={mode === 'guided' && index === selectedGroup} data-answered={group.questions.every((question) => !!answers[question.q_num]?.trim())} data-revealed={group.questions.every((question) => !question.supplement && !!feedback[question.q_num])}><button type="button" onClick={() => { chooseMode('guided'); moveToGroup(index); }} aria-label={`Đến câu ${questionLabel(group.questions[0])}${feedback[group.questions[0].q_num] ? ', đã đối chiếu' : ''}`}>{questionLabel(group.questions[0])}</button></li>)}</ol></div>
       </aside>
       <section className="programme-learning-stage" aria-label="Câu hỏi luyện nghe">
         <div className="programme-learning-stage__header"><h2 tabIndex={-1} ref={groupHeadingRef}>{mode === 'guided' ? `Tập trung vào câu ${questionLabel(visibleQuestions[0])}${visibleQuestions.length > 1 ? '–' + questionLabel(visibleQuestions.at(-1)) : ''}` : 'Nghe và trả lời theo mạch'}</h2><p>{mode === 'guided' ? `${state.form.sourceBlocks.length ? 'Khối' : 'Câu'} ${selectedGroup + 1}/${groups.length}` : 'Trả lời từng câu, đối chiếu ngay và sửa khi cần.'}</p></div>
         <div className="programme-questions">
-      {visibleGroups.map((group) => <section className="programme-source-group" key={group.key}>{state.form.sourceBlocks.filter((block) => block.block_id === group.sourceBlockId).map((block) => <ListeningSourceBlock key={block.block_id} block={block} showQuestions={false} />)}{group.questions.map((sourceQuestion) => { const question = languages.length ? displayQuestion(sourceQuestion, activeLanguage) as Question : sourceQuestion; const optionLanguage = languages.length ? displayOptionLanguage(sourceQuestion, activeLanguage) : undefined; const item = feedback[question.q_num]; const feedbackFields = feedbackResponseFields(sourceQuestion, item); const referenceAnswer = question.response_type === 'multi_gap_completion' ? displaySourceReferenceAnswer(item?.explanation?.answer, feedbackFields) : item?.expected?.join(' · ') || item?.reference_answers?.join(' · ') || item?.answer_sentence || item?.core_info; const revealing = revealStatus[question.q_num] === 'revealing'; return <article className="programme-question" key={question.q_num}>
+      {visibleGroups.map((group) => <section className="programme-source-group" key={group.key}>{(sourceBlocks || state.form.sourceBlocks).filter((block) => block.block_id === group.sourceBlockId).map((block) => <ListeningSourceBlock key={block.block_id} block={block} showQuestions={false} />)}{group.questions.map((sourceQuestion) => { const clip = state.form.questionClips?.find((clip) => clip.item_id === sourceQuestion.source_item_id); if (sourceQuestion.supplement) return <ListeningSourceSupplement key={`${sourceQuestion.source_item_id}:${audioVariant}`} question={sourceQuestion.supplement} manifest={manifest || ''} clip={clip} active={active} reload={() => void retryAudio()} />; const question = languages.length ? displayQuestion(sourceQuestion, activeLanguage) as Question : sourceQuestion; const optionLanguage = languages.length ? displayOptionLanguage(sourceQuestion, activeLanguage) : undefined; const item = feedback[question.q_num]; const feedbackFields = feedbackResponseFields(sourceQuestion, item); const referenceAnswer = question.response_type === 'multi_gap_completion' ? displaySourceReferenceAnswer(item?.explanation?.answer, feedbackFields) : item?.expected?.join(' · ') || item?.reference_answers?.join(' · ') || item?.answer_sentence || item?.core_info; const revealing = revealStatus[question.q_num] === 'revealing'; return <article className="programme-question" key={question.q_num}>
         <span className="programme-question__number">{questionLabel(question)}</span><div className="programme-question__body"><p lang={languages.length ? activeLanguage : undefined}>{question.prompt}</p>
+        {state.form.sourceDay ? <ListeningQuestionAudio key={`${question.source_item_id}:${audioVariant}:${clip?.url}`} clip={clip} active={active} reload={() => void retryAudio()} /> : null}
         {question.visual_url && state.form.programmeId !== 'ielts-80-days-listening' ? <figure className="programme-question-visual"><div className="programme-question-visual__viewport" role="region" aria-label={`Sơ đồ câu ${question.q_num}, có thể cuộn ngang`} tabIndex={0}><img src={question.visual_url} alt={question.visual_accessibility || 'Sơ đồ cho câu hỏi'} lang={languages.length ? activeLanguage : undefined} /></div><figcaption>Trên màn hình nhỏ, vuốt ngang hoặc dùng phím mũi tên để xem toàn bộ sơ đồ.</figcaption></figure> : null}
         {['single_choice', 'map_label'].includes(question.response_type) ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="radio" name={`programme-${testId}-q-${question.q_num}`} checked={answers[question.q_num] === key} disabled={submitting || revealing} onChange={() => update(question.q_num, key, true)} /><span lang={optionLanguage}>{!question.source_block_id || /^[A-Za-z]$/.test(key) ? <strong>{key}</strong> : null}{label}</span></label>)}</div> : null}
         {question.response_type === 'multiple_choice' ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="checkbox" checked={(answers[question.q_num] || '').split(',').map((value) => value.trim()).includes(key)} disabled={submitting || revealing} onChange={() => toggleMultiple(question, key)} /><span lang={optionLanguage}>{!question.source_block_id || /^[A-Za-z]$/.test(key) ? <strong>{key}</strong> : null}{label}</span></label>)}</div> : null}

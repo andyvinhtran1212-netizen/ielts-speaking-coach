@@ -6,19 +6,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 from uuid import UUID
+from services.grammar_quiz_policy import CANONICAL_CODES
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, model_validator
 
 Sha256 = Annotated[StrictStr, Field(pattern=r'^[0-9a-f]{64}$')]
-CanonicalCode = Literal[
-    'G-parts-of-speech-verbs', 'G-sentence-structures-passive-voice',
-    'G-tenses-past-continuous', 'G-tenses-present-continuous',
-    'G-tenses-present-perfect-continuous', 'G-tenses-present-simple',
-    'G-grammar-for-reading-participle-clauses',
-    'G-grammar-for-reading-long-sentence-untangling',
-    'G-grammar-for-reading-reduced-relative-clauses', 'G-tenses-past-perfect',
-    'G-foundations-phrase-vs-clause', 'G-error-clinic-dangling-modifiers',
-]
+CanonicalCode = Literal[*sorted(CANONICAL_CODES)]
 TextMatchPolicy = Literal['qid-exact-v1']
 MAX_SOURCE_BYTES = 256 * 1024
 
@@ -42,6 +35,9 @@ class GrammarRevisionFootprint(_StrictModel):
 class GrammarRevisionRead(_StrictModel):
     canonical_code: CanonicalCode
     original_bank_id: UUID
+    canonical_root_bank_id: UUID
+    publication_available: bool
+    bank_ids: list[UUID] = Field(min_length=1, max_length=3)
     current_bank_id: UUID
     topic_id: UUID
     revision: Sha256

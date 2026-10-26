@@ -69,7 +69,7 @@ So sánh cho biết **quan hệ giữa hai giá trị**. Hiểu sai chiều so s
 | *A is not as big as B* | A < B |
 | *A is less common than B* | A < B |
 | *B, unlike A, is rare* | B hiếm, A thì không |
-| *the more…, the less…* | quan hệ tỉ lệ nghịch |
+| *the more…, the less…* | quan hệ ngược chiều; chỉ gọi tỷ lệ nghịch nếu dữ liệu/mô hình xác lập |
 
 Chú ý **not as … as** và **less … than** đảo chiều so với suy nghĩ ban đầu.
 
@@ -89,7 +89,7 @@ Câu hỏi số liệu hay hỏi "gấp mấy lần" hoặc "thay đổi nhiều
 *X is not as expensive as Y* → **X rẻ hơn Y**, không phải đắt hơn.
 
 ### Bẫy 2: Nhầm "gấp 3 lần" với "nhiều hơn 3"
-*three times higher* = **gấp 3**, khác *higher by three*.
+Dùng **three times as high** cho tỷ lệ 3:1; **increased by 200%** cho mức tăng từ 1 lên 3. Three times higher có cách hiểu không thống nhất nên tránh trong câu hỏi cần tỷ lệ chính xác.
 
 ### Bẫy 3: Bỏ qua trạng từ mức độ
 *rose slightly* ≠ *rose sharply* — mức độ quyết định TRUE/FALSE.

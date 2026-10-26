@@ -1,0 +1,182 @@
+{
+  "slug": "keeping-your-teeth-healthy",
+  "review_notes": "Dịch theo nội dung bài đọc, không bổ sung lời khuyên mới; dùng men răng, sâu răng, florua, khám định kỳ nhất quán.",
+  "illustration_brief": "Bàn chải, tuýp kem và cốc trong phòng tắm với biểu tượng răng đơn giản; không có nhãn chất hóa học hay sơ đồ điều trị.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Răng trông có vẻ đơn giản nhưng được phủ men răng, vật liệu cứng nhất trong cơ thể người.",
+      [
+        "enamel",
+        "men răng"
+      ],
+      [
+        "the hardest material",
+        "vật liệu cứng nhất"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Dù vậy, lớp chắc này vẫn có thể hỏng nếu không được chăm sóc.",
+      [
+        "can be damaged",
+        "có thể hỏng"
+      ],
+      [
+        "looked after",
+        "chăm sóc"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Mối nguy chính đến từ đường.",
+      [
+        "The main danger",
+        "Mối nguy chính"
+      ],
+      [
+        "sugar",
+        "đường"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Khi bạn ăn đồ ngọt, vi khuẩn li ti trong miệng dùng đường làm thức ăn.",
+      [
+        "tiny bacteria",
+        "vi khuẩn li ti"
+      ],
+      [
+        "feed on the sugar",
+        "dùng đường làm thức ăn"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Trong quá trình ấy, chúng tạo ra axit.",
+      [
+        "make acid",
+        "tạo ra axit"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Dần dần, axit tấn công men và gây sâu răng.",
+      [
+        "attacks the enamel",
+        "tấn công men"
+      ],
+      [
+        "tooth decay",
+        "sâu răng"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Sâu răng gây lỗ sâu và đau.",
+      [
+        "holes and pain",
+        "lỗ sâu và đau"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Tin tốt là những thói quen đơn giản có thể giúp ích.",
+      [
+        "simple habits",
+        "những thói quen đơn giản"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Bạn nên chải răng nhẹ nhàng hai lần mỗi ngày.",
+      [
+        "brush your teeth gently",
+        "chải răng nhẹ nhàng"
+      ],
+      [
+        "twice a day",
+        "hai lần mỗi ngày"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Phần lớn kem đánh răng chứa florua.",
+      [
+        "toothpaste",
+        "kem đánh răng"
+      ],
+      [
+        "fluoride",
+        "florua"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Chất này làm men răng chắc hơn và giúp chống sâu răng.",
+      [
+        "makes the enamel stronger",
+        "làm men răng chắc hơn"
+      ],
+      [
+        "fight decay",
+        "chống sâu răng"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Ăn ít đường hơn cũng giúp răng khỏe hơn.",
+      [
+        "Eating less sugar",
+        "Ăn ít đường hơn"
+      ],
+      [
+        "in better shape",
+        "khỏe hơn"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Đến gặp nha sĩ để kiểm tra răng định kỳ cũng là việc nên làm.",
+      [
+        "see a dentist",
+        "Đến gặp nha sĩ"
+      ],
+      [
+        "a regular check-up",
+        "kiểm tra răng định kỳ"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Nha sĩ có thể phát hiện vấn đề nhỏ trước khi nó trở nên nghiêm trọng.",
+      [
+        "find a small problem",
+        "phát hiện vấn đề nhỏ"
+      ],
+      [
+        "before it grows",
+        "trước khi nó trở nên nghiêm trọng"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Với một chút chăm sóc hằng ngày, phần lớn mọi người có thể giữ răng khỏe suốt đời.",
+      [
+        "daily care",
+        "chăm sóc hằng ngày"
+      ],
+      [
+        "for life",
+        "suốt đời"
+      ]
+    ]
+  ],
+  "source_sha256": "d8b68af00856b8161bd1840ac05ca00e6720d16479aba4250ff5db4df37124ba",
+  "expected_translation_sha256": "47dd3a3ad3a33c98f5873ab7d043f414de99250e859fc0a62ba509d23d6cdc96",
+  "illustration": {
+    "src": "/reading-illustrations/exp-teeth-care-scene.svg",
+    "alt": "Bàn chải, tuýp kem và cốc trên kệ, cạnh biểu tượng răng trong gương.",
+    "caption": "Những đồ dùng chăm sóc răng quen thuộc."
+  }
+}

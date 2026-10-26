@@ -82,7 +82,7 @@ Ví dụ tốt là ví dụ **cụ thể**, **liên quan**, và được **giớ
 
 ## Tại sao quan trọng
 
-Trong IELTS Writing, **Coherence and Cohesion** và **Task Achievement** đều đánh giá khả năng develop ý và support luận điểm bằng ví dụ cụ thể. Một bài văn chỉ có claim mà không có evidence/example sẽ không vượt qua Band 6.
+Writing Task 2 đánh giá phát triển và hỗ trợ ý trong Task Response; Task 1 dùng Task Achievement. Coherence and Cohesion xét tổ chức và liên kết ý. Không suy trần band chỉ từ số ví dụ.
 
 Trong Speaking, ví dụ giúp bạn nói dài hơn một cách tự nhiên và chứng minh khả năng **expand on a topic** — tiêu chí Fluency & Coherence.
 
@@ -138,9 +138,9 @@ Dùng khi ví dụ sau đó là một đoạn dài, chi tiết — thường tro
 [Statement]. To demonstrate this, [detailed example].
 ```
 
-- The impact of social media on self-image cannot be underestimated. **To illustrate**, a 2019 study by the Royal Society for Public Health found that Instagram was the most harmful platform for young people's mental health, with users reporting increased anxiety, depression, and body image concerns after use.
+- The impact of social media on self-image cannot be underestimated. **To illustrate**, the [RSPH #StatusOfMind report (2017)](https://www.rsph.org.uk/our-work/publications/statusofmind/) used a survey of young people’s ratings of social-media platforms; Instagram received the most negative overall rating. The survey alone does not establish causation.
 
-- Education systems can adapt successfully even in low-resource environments. **To demonstrate**, Finland transformed its education outcomes over two decades without increasing per-pupil spending, simply by investing in teacher training and reducing standardised testing.
+- Education systems can adapt successfully even in low-resource environments. **To demonstrate**, in a hypothetical case, a school improved learning outcomes after introducing teacher training. *(ví dụ giả định; không phải kết quả thực tế về Finland)*
 
 ---
 
@@ -165,7 +165,7 @@ Phù hợp cho cả Speaking Part 3 và Writing Task 2 — nghe tự nhiên hơn
 "Namely" dùng khi bạn muốn nêu tên chính xác sau một câu tổng quát:
 
 ```
-[General statement], namely [specific name/example].
+[General statement], namely [xác định chính xác điều vừa nói; không chỉ một ví dụ trong nhiều khả năng].
 ```
 
 - Two factors are particularly important, **namely** parental involvement and access to quality early childhood education.
@@ -251,7 +251,7 @@ Một ví dụ mạnh:
 
 ### Lỗi 1: "For example" ở giữa câu thay vì đầu câu
 
-- ❌ Technology, for example is changing education.
+- ❌ Technology, for example is changing education. → ✅ Technology, **for example,** is changing education. *(thiếu dấu phẩy thứ hai)*
 - ✅ Technology is changing education. **For example**, online platforms now allow students to learn from world-class universities for free.
 
 ### Lỗi 2: Dùng "such as" để bắt đầu câu
@@ -304,7 +304,7 @@ Hãy thêm một ví dụ vào mỗi câu dưới đây, bắt đầu bằng con
 
 ### Chọn connector phù hợp
 
-Điền vào chỗ trống: for example / such as / namely / to illustrate / in particular / like
+Điền vào chỗ trống: for example / such as / namely / to illustrate / in particular / like / Think about
 
 1. Renewable energy sources, ___ solar and wind, are growing rapidly.
 2. ___, Denmark now generates more than half of its electricity from wind.

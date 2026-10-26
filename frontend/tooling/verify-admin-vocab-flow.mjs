@@ -3,6 +3,7 @@
 // method, path, body, lock and canonical readback where the backend supports it.
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { expect } from '@playwright/test';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
@@ -442,7 +443,8 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/vocab`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Vocabulary workspace', exact: true }).waitFor();
 check('hub qua backend-owned admin gate', requests.some((item) => item.path === '/auth/me'));
-check('hub có đủ mười workspace và canonical links', await page.locator('a.avv-card').count() === 10
+check('hub ưu tiên bộ từ theo lớp và giữ đủ workspace hiện có', await page.locator('a.avv-card').count() === 11
+  && await page.locator('a.avv-card').first().getAttribute('href') === '/admin/vocab/sets'
   && await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/vocabulary/hub'
   && await page.locator('a.avv-card[href="/admin/vocab/curated"]').count() === 1
   && await page.locator('a.avv-card[href="/admin/vocab/pilot-metrics"]').count() === 1
@@ -618,7 +620,7 @@ check('Analytics escape dữ liệu item độc hại', await page.getByText('mi
 await page.getByLabel('Chọn bộ').selectOption('');
 holdNextQuizBankAnalytics = true;
 await page.getByLabel('Chọn bộ').selectOption(quizBankId);
-await page.waitForTimeout(40);
+await expect.poll(() => heldQuizBankAnalyticsStarted).toBe(true);
 check('Analytics bank A được giữ để kiểm freshness', heldQuizBankAnalyticsStarted);
 await page.getByLabel('Chọn bộ').selectOption(quizBankIdB);
 await page.getByText('resilient', { exact: true }).waitFor();
@@ -630,7 +632,7 @@ await page.getByText('Lan <img onerror=alert(1)>', { exact: true }).waitFor();
 check('Analytics đọc rollup canonical và escape identity', requests.some((item) => item.path === '/admin/quiz/students' && item.search === '?skill_area=vocab') && await page.locator('.avv-quiz-analytics img').count() === 0);
 holdNextQuizDetail = true;
 await page.getByRole('button', { name: 'Xem chi tiết' }).click();
-await page.waitForTimeout(40);
+await expect.poll(() => heldQuizDetailStarted).toBe(true);
 check('Analytics detail được giữ để kiểm close freshness', heldQuizDetailStarted);
 await page.keyboard.press('Escape');
 releaseHeldQuizDetail?.();
@@ -682,17 +684,9 @@ await page.getByText('Đã lưu và đọc lại vocab card chuẩn từ backend
 check('Content PATCH đúng body, giữ object word-family và canonical readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/vocabulary/${vocabCardId}` && item.body?.headword === 'mitigate safely' && item.body?.word_family?.[0]?.word === 'mitigation') && contentDetailReads >= 2 && contentReads >= 2);
 
 await page.getByLabel('Chọn mitigate safely').check();
-await page.getByLabel('Engine audio').selectOption('elevenlabs');
-await page.getByRole('button', { name: 'Tạo audio (1)' }).click();
-const audioDialog = page.getByRole('dialog', { name: 'Tạo 1 audio bằng ElevenLabs?' });
-check('Content cảnh báo chi phí trước ElevenLabs write', await audioDialog.getByText('Chi phí bên thứ ba', { exact: true }).count() === 1);
-await audioDialog.getByRole('button', { name: 'Hủy' }).click();
-await page.getByLabel('Engine audio').selectOption('openai');
-await page.getByRole('button', { name: 'Tạo audio (1)' }).click();
-await page.waitForTimeout(40);
-check('Content audio write bị khoá khi chờ ACK', contentWritePending && await page.getByRole('button', { name: 'Tạo audio (1)' }).isDisabled());
-await page.getByText(/Đã xếp hàng 1 từ qua openai/).waitFor();
-check('Content audio gửi đúng engine/scope/selection', requests.some((item) => item.method === 'POST' && item.path === '/admin/vocabulary/generate-audio' && item.body?.ids?.[0] === vocabCardId && item.body?.engine === 'openai' && item.body?.scope === 'both' && item.body?.skip_existing_audio === true));
+await page.getByText(/Giọng đọc: Kokoro · bf_emma/).waitFor();
+check('Content chỉ dùng Kokoro được chuẩn bị theo lô', await page.getByLabel('Engine audio').count() === 0 && await page.getByRole('button', { name: /Tạo audio/ }).count() === 0);
+check('Content không gửi job TTS khác giọng', !requests.some((item) => item.method === 'POST' && item.path === '/admin/vocabulary/generate-audio'));
 
 const contentRow = page.locator('tbody tr').filter({ hasText: 'mitigate safely' });
 await contentRow.getByRole('button', { name: 'Xoá', exact: true }).click();

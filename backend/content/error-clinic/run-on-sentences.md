@@ -129,7 +129,7 @@ learning_blocks:
 |------|-----------|--------|
 | **Comma splice** | "I love cooking, I do it every day." | Dấu phẩy không đủ để nối hai câu độc lập |
 | **Fused sentence** | "I love cooking I do it every day." | Không có dấu câu hoặc liên từ gì cả |
-| **Over-chained "and"** | "I woke up and I ate breakfast and I went to work and I had a meeting." | Quá nhiều mệnh đề nối bằng "and" |
+| **Chuỗi and dài (văn phong)** | “I woke up and I ate breakfast and I went to work and I had a meeting.” | Đúng cú pháp; cân nhắc chia nếu lặp/khó theo dõi, không tự là run-on |
 
 <!-- learning-block: run-on-repair -->
 
@@ -281,7 +281,7 @@ Dấu chấm phẩy (`;`) nối hai câu độc lập **có liên quan chặt ch
 
 "Then" không phải liên từ — nó không thể nối hai câu bằng dấu phẩy.
 
-- ❌ "She studied hard, then she passed the exam."
+- “She studied hard, then she passed the exam” gặp trong lối kể; trong bài luyện dấu câu học thuật này, dùng and then hoặc dấu chấm để đánh dấu hai mệnh đề rõ ràng.
 - ✅ "She studied hard, **and then** she passed the exam."
 - ✅ "She studied hard. **Then** she passed the exam."
 - ✅ "**After** studying hard, she passed the exam."

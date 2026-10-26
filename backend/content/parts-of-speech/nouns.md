@@ -2,7 +2,7 @@
 title: Nouns — Danh từ
 slug: nouns
 category: parts-of-speech
-summary: 'Danh từ là từ chỉ người, vật, nơi chốn, ý niệm hoặc trạng thái. Đây là từ loại phổ biến nhất trong tiếng Anh và là thành phần trung tâm của mọi câu. Hiểu đúng danh từ — đặc biệt là sự khác biệt giữa đếm được / không đếm được và cách dùng mạo từ — là nền tảng để tránh lỗi phổ biến nhất trong IELTS.
+summary: 'Danh từ là từ chỉ người, vật, nơi chốn, ý niệm hoặc trạng thái. Danh từ có nhiều chức năng trong câu, nhưng không phải mọi câu đều có danh từ làm chủ ngữ. Hiểu sự khác biệt giữa đếm được / không đếm được và cách dùng mạo từ giúp tránh các lỗi thường gặp trong IELTS.
 
   '
 level: beginner
@@ -59,7 +59,7 @@ anchors:
 <!-- anchor: nouns.tom-tat -->
 ## Tóm tắt
 
-Danh từ (Noun) là từ dùng để **đặt tên** cho người, nơi chốn, vật, ý niệm hoặc cảm xúc. Mọi câu tiếng Anh đều cần ít nhất một danh từ làm chủ ngữ.
+Danh từ (Noun) là từ dùng để **đặt tên** cho người, nơi chốn, vật, ý niệm hoặc cảm xúc. Không phải mọi câu đều có danh từ làm chủ ngữ: **She smiled** dùng đại từ, **Sit down** có chủ ngữ ngầm, và một mệnh đề cũng có thể làm chủ ngữ.
 
 <!-- anchor: nouns.tai-sao-quan-trong -->
 ## Tại sao quan trọng
@@ -100,7 +100,7 @@ Không đếm được trực tiếp bằng số:
 - *water, rice, advice, information, money, traffic, luggage*
 
 **Không có dạng số nhiều.** Dùng đo lường để đếm:
-- a cup of water (không phải "a water")
+- a cup of water. Khi gọi đồ, **a water** có thể nghĩa một chai/cốc/suất nước; không phải mọi cách dùng có a đều sai.
 - two pieces of advice (không phải "two advices")
 
 ### 5. Abstract Nouns — Danh từ trừu tượng
@@ -119,7 +119,7 @@ Chỉ một nhóm gồm nhiều thành phần:
 
 - *team, family, government, audience, staff*
 
-Trong tiếng Anh Anh, collective nouns thường chia theo số nhiều:
+Trong tiếng Anh Anh, collective nouns có thể hòa hợp số ít khi nhìn cả nhóm như một đơn vị, hoặc số nhiều khi nhìn các thành viên:
 - The team **are** playing well. (British English)
 - The team **is** playing well. (American English)
 
@@ -165,7 +165,7 @@ Một số viết liền, một số có dấu gạch ngang, một số viết t
 | **coffee** | Do you like **coffee**? *(thức uống)* | I'd like **a coffee**, please. *(một ly)* |
 | **time** | There isn't enough **time**. *(thời gian)* | I've visited there many **times**. *(lần)* |
 
-> **Gợi nhớ cho IELTS:** Khi không chắc, dùng *some* hoặc *a lot of* — cả hai dùng được với countable lẫn uncountable và tránh rủi ro thêm -s sai.
+> **Gợi nhớ cho IELTS:** Some/a lot of dùng với danh từ đếm được **số nhiều** hoặc không đếm được. Vẫn phải xác định dạng danh từ: **some books**, **some information**, không phải some book trong nghĩa nhiều cuốn.
 
 ## Vị trí của Noun trong câu
 
@@ -217,8 +217,8 @@ Thêm **'s** để thể hiện sở hữu:
 
 ### Lỗi 3: Dùng "a" trước danh từ không đếm được
 
-- ❌ I'd like **a water**, please.
-- ✅ I'd like **some water** / **a glass of water**, please.
+- Khi gọi đồ: **I'd like a water, please** có thể gọi một suất/chai/cốc nước.
+- Cách nói lượng rõ hơn: **I'd like some water / a glass of water, please**.
 
 ### Lỗi 4: Số nhiều bất quy tắc
 
@@ -263,7 +263,7 @@ Thêm **'s** để thể hiện sở hữu:
 
 **Sửa lỗi:**
 1. advice (bỏ -s)
-2. is planning (American English; hoặc giữ "are" nếu dùng British English)
+2. Nếu nói một chính sách cụ thể: **The government is planning a new policy**; trong Anh Anh có thể **are planning a new policy** khi nhìn các thành viên. **New policy** không có a còn có thể chỉ chính sách nói chung; đề gốc chưa chỉ rõ nghĩa này.
 3. some information (bỏ "an", đây là uncountable)
 4. three children (children = dạng số nhiều bất quy tắc)
 

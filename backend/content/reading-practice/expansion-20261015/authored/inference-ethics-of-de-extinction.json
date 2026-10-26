@@ -1,0 +1,222 @@
+{
+  "slug": "inference-ethics-of-de-extinction",
+  "review_notes": "Undoable ở đây là có thể đảo ngược chứ không phải không thể làm; giữ phân biệt cá thể gần giống với loài nguyên bản, và lập luận của hai phía.",
+  "illustration_brief": "Một người quan sát mẫu thực vật và mô hình vật liệu di truyền trong phòng nghiên cứu cạnh cửa sổ hướng ra thiên nhiên.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1914, một con bồ câu viễn khách tên Martha chết tại Sở thú Cincinnati, và một loài từng bay thành những đàn hàng tỉ con che tối bầu trời Bắc Mỹ đã biến mất vĩnh viễn.",
+      [
+        "a passenger pigeon",
+        "một con bồ câu viễn khách"
+      ],
+      [
+        "was gone for good",
+        "đã biến mất vĩnh viễn"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Một thế kỷ sau, tính vĩnh viễn của hai chữ “vĩnh viễn” ấy không còn có vẻ chắc chắn.",
+      [
+        "A century later",
+        "Một thế kỷ sau"
+      ],
+      [
+        "no longer feels certain",
+        "không còn có vẻ chắc chắn"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Những tiến bộ trong di truyền học khiến việc đưa các loài vật đã biến mất trở lại trở thành điều có thể hình dung, và khả năng ấy kéo theo hàng loạt vấn đề đạo đức đan xen mà bản thân khoa học không thể giải quyết.",
+      [
+        "Advances in genetics",
+        "Những tiến bộ trong di truyền học"
+      ],
+      [
+        "a thicket of ethical questions",
+        "hàng loạt vấn đề đạo đức đan xen"
+      ],
+      [
+        "cannot settle",
+        "không thể giải quyết"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Các dự án hàng đầu có mục tiêu khiêm tốn hơn điều mà từ “hồi sinh” gợi ra.",
+      [
+        "more modest",
+        "khiêm tốn hơn"
+      ],
+      [
+        "resurrection",
+        "hồi sinh"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Chẳng hạn, công ty Colossal Biosciences không đề xuất nhân bản một con voi ma mút đông lạnh; họ hướng tới việc chỉnh sửa bộ gen của voi châu Á, họ hàng còn sống gần nhất của voi ma mút, cho đến khi kết quả mang những đặc điểm quan trọng của voi ma mút như khả năng chịu lạnh và bộ lông dài xù.",
+      [
+        "edit the genome",
+        "chỉnh sửa bộ gen"
+      ],
+      [
+        "the mammoth's closest living relative",
+        "họ hàng còn sống gần nhất của voi ma mút"
+      ],
+      [
+        "cold tolerance and shaggy hair",
+        "khả năng chịu lạnh và bộ lông dài xù"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Sinh vật tạo ra sẽ là một phiên bản gần giống — một con voi được biến đổi để trông giống voi ma mút — chứ không phải sinh vật nguyên bản sống lại.",
+      [
+        "an approximation",
+        "một phiên bản gần giống"
+      ],
+      [
+        "the original creature reborn",
+        "sinh vật nguyên bản sống lại"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Những nỗ lực khác nhắm đến các loài mới biến mất gần đây hơn.",
+      [
+        "more recently lost species",
+        "các loài mới biến mất gần đây hơn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Các nhà nghiên cứu Úc trong dự án thường được gọi là Lazarus đã tạo được phôi giai đoạn đầu chứa vật liệu di truyền của loài ếch ấp con trong dạ dày, một loài nổi tiếng vì nuôi con non trong dạ dày và đã biến mất vào những năm 1980.",
+      [
+        "early embryos",
+        "phôi giai đoạn đầu"
+      ],
+      [
+        "genetic material",
+        "vật liệu di truyền"
+      ],
+      [
+        "raising its young in its stomach",
+        "nuôi con non trong dạ dày"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Tương tự, các nhà bảo tồn đã nêu ý tưởng hồi sinh bồ câu viễn khách dựa vào họ hàng còn tồn tại gần nhất của nó, loài bồ câu đuôi dải.",
+      [
+        "floated reviving",
+        "đã nêu ý tưởng hồi sinh"
+      ],
+      [
+        "its nearest surviving cousin",
+        "họ hàng còn tồn tại gần nhất của nó"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ngay cả khi công việc ấy thành công về mặt kỹ thuật, những vấn đề khó hơn vẫn còn đó.",
+      [
+        "Even if",
+        "Ngay cả khi"
+      ],
+      [
+        "succeeds technically",
+        "thành công về mặt kỹ thuật"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Một con voi ma mút hay bồ câu được hồi sinh sẽ cần nơi sinh sống, nhưng những đồng cỏ và khu rừng mà chúng từng cư ngụ thường đã bị biến đổi hoặc mất đi.",
+      [
+        "somewhere to live",
+        "nơi sinh sống"
+      ],
+      [
+        "transformed or lost",
+        "bị biến đổi hoặc mất đi"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Thả một số ít cá thể được biến đổi vào một hệ sinh thái đã thay đổi có thể làm xáo trộn các loài đã thích nghi trong thời gian chúng vắng mặt, còn một mẫu cá thể duy nhất trong phòng thí nghiệm thì khó có thể coi là cả một loài đã được khôi phục.",
+      [
+        "a handful of engineered individuals",
+        "một số ít cá thể được biến đổi"
+      ],
+      [
+        "could disrupt",
+        "có thể làm xáo trộn"
+      ],
+      [
+        "a single specimen",
+        "một mẫu cá thể duy nhất"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Những người phản đối còn nêu một lo ngại gay gắt hơn: chỉ riêng lời hứa đảo ngược tuyệt chủng cũng có thể làm suy yếu lập luận bảo vệ những gì vẫn đang sống.",
+      [
+        "the mere promise of reversal",
+        "chỉ riêng lời hứa đảo ngược tuyệt chủng"
+      ],
+      [
+        "weaken the case",
+        "làm suy yếu lập luận"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Nếu tuyệt chủng có vẻ có thể đảo ngược, cảm giác cấp bách của công tác bảo tồn có thể âm thầm giảm đi.",
+      [
+        "looks undoable",
+        "có vẻ có thể đảo ngược"
+      ],
+      [
+        "the urgency of conservation",
+        "cảm giác cấp bách của công tác bảo tồn"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Những người ủng hộ đáp rằng các kỹ thuật được phát triển cũng có thể cứu những loài đang bị đe dọa trước khi chúng biến mất, và lý do biện minh cho công việc này nằm ở những công cụ ấy nhiều không kém ở bất kỳ con voi ma mút nào gây chú ý trên báo chí.",
+      [
+        "endangered species",
+        "những loài đang bị đe dọa"
+      ],
+      [
+        "the justification for the work",
+        "lý do biện minh cho công việc này"
+      ],
+      [
+        "any headline-grabbing mammoth",
+        "bất kỳ con voi ma mút nào gây chú ý trên báo chí"
+      ]
+    ],
+    [
+      "p5-s4",
+      "Cán cân cuối cùng nghiêng về phía nào vẫn chưa rõ, và ít nhất các dự án này có thể có giá trị nhờ những câu hỏi mà chúng buộc ta phải đặt ra.",
+      [
+        "not yet clear",
+        "vẫn chưa rõ"
+      ],
+      [
+        "may prove valuable",
+        "có thể có giá trị"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-conservation-lab-scene.svg",
+    "alt": "Một người quan sát mẫu thực vật và mô hình vật liệu di truyền trên bàn trong phòng nghiên cứu.",
+    "caption": "Nghiên cứu di truyền và những câu hỏi về bảo tồn."
+  },
+  "source_sha256": "3d0519d76be3ad731bd194b6f6b19059e6cb86e6c095eaf1428cb57cacafe514",
+  "expected_translation_sha256": "0314c7e84806a4bf44b3ec4a61719d71a9d42c717f53f35cabe1e0fdd6215c55"
+}

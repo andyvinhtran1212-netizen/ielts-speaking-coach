@@ -1,0 +1,234 @@
+{
+  "slug": "memory-and-the-google-effect",
+  "review_notes": "Dịch lại bài nâng cao, giữ rõ các điều kiện, cách diễn giải và mức chưa chắc chắn. Transactive memory được giữ kèm diễn giải, không gán một thuật ngữ Việt chưa xác minh.",
+  "illustration_brief": "Người ngồi trước máy tính với biểu tượng tìm kiếm, cạnh sổ ghi chú và các thẻ thông tin; không có logo nhà cung cấp hay kết luận não bộ yếu đi.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 2011, nhóm nhà tâm lý học do Betsy Sparrow dẫn đầu công bố phát hiện thú vị: khi tin rằng sau này có thể tra cứu, người ta nhớ nội dung thông tin kém hơn nhưng nhớ chỗ tìm lại thông tin tốt hơn nhiều.",
+      [
+        "be able to look something up later",
+        "sau này có thể tra cứu"
+      ],
+      [
+        "the information itself",
+        "nội dung thông tin"
+      ],
+      [
+        "where to find it",
+        "chỗ tìm lại thông tin"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Kết quả nhanh chóng mang biệt danh “hiệu ứng Google” và có vẻ xác nhận nỗi lo phổ biến rằng công cụ tìm kiếm âm thầm làm yếu trí nhớ con người.",
+      [
+        "nicknamed",
+        "mang biệt danh"
+      ],
+      [
+        "it seemed to confirm",
+        "có vẻ xác nhận"
+      ],
+      [
+        "weakening human memory",
+        "làm yếu trí nhớ con người"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Cơ chế đằng sau điều này khá dễ hiểu.",
+      [
+        "The underlying mechanism",
+        "Cơ chế đằng sau điều này"
+      ],
+      [
+        "intuitive",
+        "khá dễ hiểu"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Trước giới hạn về nguồn lực tư duy, não dường như chuyển bớt thông tin sang kho bên ngoài, giống cách nó vốn dựa vào sổ tay, thư viện và người khác.",
+      [
+        "limited mental resources",
+        "giới hạn về nguồn lực tư duy"
+      ],
+      [
+        "offload information",
+        "chuyển bớt thông tin"
+      ],
+      [
+        "external stores",
+        "kho bên ngoài"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Các nhà tâm lý gọi việc chia sẻ trí nhớ qua một nhóm hoặc công cụ như vậy là transactive memory, tức trí nhớ được chia sẻ.",
+      [
+        "sharing of memory across a group or a tool",
+        "chia sẻ trí nhớ qua một nhóm hoặc công cụ"
+      ],
+      [
+        "transactive memory",
+        "transactive memory, tức trí nhớ được chia sẻ"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Khi thiết bị lưu giữ một dữ kiện đáng tin cậy, tâm trí ít có lý do để mã hóa sâu dữ kiện ấy nên khả năng ghi nhớ giảm; thay vì nhớ bản thân thông tin, ta chỉ nhớ nơi lấy lại nó.",
+      [
+        "encode it deeply",
+        "mã hóa sâu dữ kiện ấy"
+      ],
+      [
+        "retention suffers",
+        "khả năng ghi nhớ giảm"
+      ],
+      [
+        "where to retrieve it",
+        "nơi lấy lại nó"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Với người chỉ trích, đây là điều đáng báo động: họ lo kỹ năng tư duy cũng như cơ bắp sẽ teo đi nếu không dùng, khiến hiểu biết nông hơn và cách đọc hời hợt hơn.",
+      [
+        "cause for alarm",
+        "điều đáng báo động"
+      ],
+      [
+        "atrophy without use",
+        "teo đi nếu không dùng"
+      ],
+      [
+        "a more superficial way of reading",
+        "cách đọc hời hợt hơn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Lập luận ấy cho rằng nếu chẳng bao giờ cố gắng giữ các ý tưởng trong đầu, ta sẽ dần mất sự hiểu biết sâu mà nỗ lực bền bỉ ấy vốn nhằm xây dựng.",
+      [
+        "the argument runs",
+        "Lập luận ấy cho rằng"
+      ],
+      [
+        "deep understanding",
+        "sự hiểu biết sâu"
+      ],
+      [
+        "sustained effort",
+        "nỗ lực bền bỉ"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Tuy nhiên, bằng chứng có nhiều sắc thái hơn những tiêu đề gây lo ngại thể hiện.",
+      [
+        "more nuanced",
+        "có nhiều sắc thái hơn"
+      ],
+      [
+        "the alarming headlines",
+        "những tiêu đề gây lo ngại"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Một số nghiên cứu sau đó gặp khó khi lặp lại kết quả ban đầu, và các nhà nghiên cứu hiện khuyên thận trọng, tránh xem một thí nghiệm đơn lẻ là sự thật đã được khẳng định.",
+      [
+        "replicate the original results",
+        "lặp lại kết quả ban đầu"
+      ],
+      [
+        "any single experiment",
+        "một thí nghiệm đơn lẻ"
+      ],
+      [
+        "settled fact",
+        "sự thật đã được khẳng định"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Cũng có cách hiểu lạc quan hơn: biết chính xác chỗ tìm thông tin đáng tin cậy tự nó là một lối tắt tư duy hữu ích; khi được giải phóng khỏi gánh nặng nhớ những chi tiết đáng chú ý của mọi thứ, tâm trí có thể còn nhiều năng lực hơn cho phân tích, tổng hợp và sáng tạo.",
+      [
+        "a valuable heuristic",
+        "một lối tắt tư duy hữu ích"
+      ],
+      [
+        "the salient details",
+        "những chi tiết đáng chú ý"
+      ],
+      [
+        "analysis, synthesis and creativity",
+        "phân tích, tổng hợp và sáng tạo"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Điều có vẻ rõ là hệ quả phụ thuộc vào cách hành xử.",
+      [
+        "What seems clear",
+        "Điều có vẻ rõ"
+      ],
+      [
+        "contingent on behaviour",
+        "phụ thuộc vào cách hành xử"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Học sinh tìm đáp án, chép lại rồi lập tức chuyển việc khác quả thực có thể nhớ rất ít.",
+      [
+        "immediately moves on",
+        "lập tức chuyển việc khác"
+      ],
+      [
+        "retain very little",
+        "nhớ rất ít"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Người tìm kiếm, cân nhắc các nguồn thông tin có quan điểm khác nhau và liên hệ kết quả với kiến thức sẵn có lại có thể học nhiều; công cụ giống hệt nhau, nhưng hoạt động nhận thức đi cùng thì khác.",
+      [
+        "weighs competing sources",
+        "cân nhắc các nguồn thông tin có quan điểm khác nhau"
+      ],
+      [
+        "existing knowledge",
+        "kiến thức sẵn có"
+      ],
+      [
+        "the cognition around it",
+        "hoạt động nhận thức đi cùng"
+      ]
+    ],
+    [
+      "p6-s1",
+      "Hiệu ứng Google có thật sự gây hại hay không vẫn chưa rõ; điều quan trọng hơn là ta chọn suy nghĩ thế nào cùng những cỗ máy mà chúng ta ngày càng phụ thuộc vào — một vấn đề hiện vẫn còn bỏ ngỏ.",
+      [
+        "genuinely detrimental",
+        "thật sự gây hại"
+      ],
+      [
+        "how we choose to think",
+        "ta chọn suy nghĩ thế nào"
+      ],
+      [
+        "remains very much open",
+        "vẫn còn bỏ ngỏ"
+      ]
+    ]
+  ],
+  "source_sha256": "ca260171ae15b5165b0d18f9d499df93191866bd4bed181af00a524b1c5734a4",
+  "expected_translation_sha256": "9d659cfbab6c9be75cd8313eba6d20b563a13c31b1626e05305580f166cf1b9d",
+  "illustration": {
+    "src": "/reading-illustrations/exp-memory-search-scene.svg",
+    "alt": "Một người tra cứu trên máy tính bên cuốn sổ mở và các thẻ ghi chú.",
+    "caption": "Tra cứu thông tin và ghi chép khi học."
+  }
+}

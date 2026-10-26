@@ -150,12 +150,12 @@ input: "text"
 headword: "cis-contrast-structures"
 skill: "production"
 subtype: "intermediate"
-prompt: "Working from home increases productivity for many people. ____, it can blur the boundary between work and personal life."
+prompt: "Use However, Nevertheless, Nonetheless or On the other hand: 'Working from home increases productivity for many people. ____, it can blur the boundary between work and personal life.'"
 hint: "điền connector đứng đầu câu thứ hai, viết hoa chữ đầu"
-accept: ["However", "On the other hand"]
+accept: ["However", "Nevertheless", "Nonetheless", "On the other hand"]
 case_sensitive: false
 grammar_article_slug: "comparing-ideas-in-speaking"
-explain: "Đối lập GIỮA hai câu → dùng 'However,' hoặc 'On the other hand,' ở đầu câu sau, có dấu phẩy."
+explain: "Cả bốn cụm được cho đều nối lợi ích với hạn chế trong câu này. Nevertheless/Nonetheless thường có sắc thái nhượng bộ; However/On the other hand có thể đặt hai mặt đối lập. Dấu phẩy đã có trong khung câu."
 ---
 
 ---
@@ -165,10 +165,10 @@ input: "boolean"
 headword: "cis-contrast-structures"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Cities have jobs. Rural areas have nature. Cities are busy. Rural areas are quiet.'"
-answer: false
+prompt: "Đúng hay Sai về ngữ pháp: 'Cities have jobs. Rural areas have nature. Cities are busy. Rural areas are quiet.'"
+answer: true
 grammar_article_slug: "comparing-ideas-in-speaking"
-explain: "SAI — liệt kê rời rạc không có connector khiến câu trả lời thiếu mạch lạc. Sửa: 'While cities offer more employment opportunities, rural areas provide a calmer environment and closer connection to nature.'"
+explain: "ĐÚNG về cấu trúc ngữ pháp của bốn câu. Đoạn còn có liên kết từ vựng và song song; có thể phát triển so sánh sâu hơn và dùng while để gộp ý, nhưng thiếu connector hiện rõ không tự làm câu sai hoặc chứng minh đoạn vô mạch lạc."
 ---
 
 ---
@@ -337,7 +337,7 @@ prompt: "There ____ (have, hiện tại hoàn thành) been a remarkable shift in
 accept: ["has"]
 case_sensitive: false
 grammar_article_slug: "comparing-ideas-in-speaking"
-explain: "'There has been a considerable shift in...' dùng present perfect vì thay đổi bắt đầu trong quá khứ và còn tiếp diễn/ảnh hưởng hiện tại. Chủ ngữ giả 'there' + 'has' (số ít)."
+explain: "Dùng has vì cụm danh từ sau been là a remarkable shift, số ít. There không tự quyết định số ít/số nhiều: đối chiếu There has been a shift với There have been changes."
 ---
 
 ---

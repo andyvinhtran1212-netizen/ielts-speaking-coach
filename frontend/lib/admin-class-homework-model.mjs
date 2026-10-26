@@ -119,6 +119,8 @@ export function homeworkDraft(at = new Date()) {
   };
 }
 
+export const EXPLANATION_NONE_MESSAGE = 'Đề này chưa có bộ lời giải tương tác nào gắn với đúng mã đề (0/40). Chọn “Không dùng lời giải tương tác”, hoặc gắn bộ lời giải cho đề này trước khi giao.';
+
 export function validateHomeworkDraft(draft, catalog = [], questions = [], questionsPerGive = 1) {
   const title = text(draft?.title).trim();
   if (!title) return { ok: false, error: 'Nhập tên bài giao để tiếp tục.' };
@@ -130,6 +132,12 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     return { ok: false, error: 'Đề trong kho admin cần chọn “Giao luyện tập có kiểm soát”.' };
   }
   if (draft.recipientScope === 'subset' && !draft.studentIds?.length) return { ok: false, error: 'Chọn ít nhất một học viên nhận bài.' };
+  // A paper with zero current explanation objects (e.g. a REVxx copy whose set is
+  // still bound to the original Cambridge paper) cannot be approved on give.
+  // Say so before the request instead of after an opaque database refusal.
+  if (draft.webExplanationMode && draft.webExplanationMode !== 'disabled' && selected.explanation_state === 'none') {
+    return { ok: false, error: EXPLANATION_NONE_MESSAGE };
+  }
   if (draft.kind === 'lesson') {
     const dueDays = Number(draft.dueDays);
     if (!Number.isInteger(dueDays) || dueDays < 1 || dueDays > 90) return { ok: false, error: 'Số ngày được nộp phải từ 1 đến 90.' };
@@ -150,6 +158,7 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     const retake = draft.retakeSize === '' ? null : Number(draft.retakeSize);
     const timeLimit = draft.timeLimitMinutes === '' ? null : Number(draft.timeLimitMinutes);
     if (completionMode === 'single_attempt' && selected.single_attempt_ready !== true) return { ok: false, error: 'Chế độ một lượt chỉ dùng cho bộ trắc nghiệm thuần.' };
+    if (timeLimit != null && selected.single_attempt_ready !== true) return { ok: false, error: 'Giới hạn thời gian chỉ áp dụng cho bộ trắc nghiệm thuần.' };
     if (completionMode === 'mastery' && pass != null && (!Number.isInteger(pass) || pass < 50 || pass > 100)) return { ok: false, error: 'Ngưỡng đạt phải trong khoảng 50–100%.' };
     if (completionMode === 'mastery' && retake != null && (!Number.isInteger(retake) || retake < 5 || retake > 100)) return { ok: false, error: 'Số câu kiểm tra lại phải trong khoảng 5–100.' };
     if (timeLimit != null && (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 720)) return { ok: false, error: 'Thời gian tối đa phải từ 1 đến 720 phút.' };

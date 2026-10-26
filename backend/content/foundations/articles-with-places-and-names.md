@@ -73,15 +73,15 @@ anchors:
 | Loại địa danh | THE? | Ví dụ |
 |--------------|------|-------|
 | Quốc gia đơn | ✗ | France, Vietnam, Japan |
-| Quốc gia số nhiều / liên bang | ✓ | the United States, the Philippines |
+| Tên quốc gia số nhiều hoặc có danh từ mô tả | Thường ✓ | the United States, the Philippines; Canada và Australia không có the |
 | Sông, kênh, eo biển | ✓ | the Mekong, the Suez Canal |
 | Đại dương, biển | ✓ | the Pacific, the Mediterranean |
 | Dãy núi | ✓ | the Alps, the Himalayas |
-| Núi đơn | ✗ | Mount Fuji, Everest |
+| Núi đơn | Thường ✗ | Mount Fuji, Everest; ngoại lệ: the Matterhorn |
 | Hồ đơn | ✗ | Lake Victoria, Lake Superior |
 | Sa mạc | ✓ | the Sahara, the Gobi |
 | Quần đảo | ✓ | the Maldives, the Canary Islands |
-| Bán đảo, vịnh | Thường ✓ | the Korean Peninsula, the Gulf of Mexico |
+| Bán đảo, vịnh | Theo cấu trúc tên | the Korean Peninsula, the Gulf of Mexico, the Bay of Bengal; Ha Long Bay |
 | Thành phố, làng | ✗ | Paris, Hanoi, Tokyo |
 | Đường phố, đại lộ (thường) | ✗ | Oxford Street, Fifth Avenue |
 | Tên người | ✗ | Barack Obama, Marie Curie |
@@ -91,7 +91,7 @@ anchors:
 <!-- anchor: articles-with-places-and-names.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
-Dùng sai mạo từ với địa danh là lỗi rất phổ biến trong IELTS Writing Band 5-6. Câu như "I visited **the** France last summer" hay "**The** Tokyo is one of the world's largest cities" ngay lập tức bị trừ điểm Lexical Resource. Với địa danh, không có quy tắc ngữ pháp tuyệt đối — cần học theo nhóm.
+Dùng sai mạo từ với địa danh là lỗi ngữ pháp, thuộc Grammatical Range and Accuracy trong IELTS Writing và Speaking. Không có mức trừ điểm cố định cho một câu riêng lẻ. Với địa danh, cần học theo cấu trúc tên và những ngoại lệ thông dụng.
 
 ---
 
@@ -149,14 +149,14 @@ Sông, kênh đào và eo biển **luôn dùng THE**:
 
 **Ví dụ câu:**
 - **The** Amazon is the world's largest river by volume.
-- **The** Mekong flows through six countries in Southeast Asia.
+- **The** Mekong flows through six countries in East and Southeast Asia: China, Myanmar, Thailand, Laos, Cambodia and Vietnam.
 - Ships travelling between Europe and Asia often pass through **the** Suez Canal.
 
 ---
 
 ## NHÓM 3: Đại dương, Biển, Vịnh
 
-**Luôn dùng THE:**
+**Các tên sau dùng THE:**
 
 | Loại | Ví dụ |
 |------|-------|
@@ -164,6 +164,8 @@ Sông, kênh đào và eo biển **luôn dùng THE**:
 | Biển | **the** Mediterranean Sea, **the** South China Sea, **the** Red Sea |
 | Vịnh | **the** Gulf of Mexico, **the** Bay of Bengal |
 | Eo biển | **the** Bering Strait |
+
+Tên theo mẫu **Name + Bay** thường không có mạo từ: **Ha Long Bay**, **Hudson Bay**. So sánh với **the Bay of Bengal** và **the Gulf of Mexico**; không suy mạo từ chỉ từ loại địa hình.
 
 **Ví dụ:**
 - **The** Pacific Ocean is the largest ocean on Earth.
@@ -175,11 +177,13 @@ Sông, kênh đào và eo biển **luôn dùng THE**:
 
 ### Không dùng THE — núi đơn lẻ
 
-Tên núi đơn lẻ **không dùng the** — thường có "Mount" hoặc "Mt." trước:
+Tên núi đơn lẻ **thường không dùng the** — nhất là tên có "Mount" hoặc "Mt." trước:
 
 - **∅ Mount Everest**, **∅ Mount Fuji**, **∅ Mount Kilimanjaro**
 - **∅ Everest**, **∅ Fuji** (khi viết không có "Mount")
 - **∅ Ben Nevis** (Scotland — không có "Mount")
+
+Ngoại lệ thông dụng: **the Matterhorn**, **the Jungfrau**. Học mạo từ cùng tên riêng.
 
 ### Dùng THE — dãy núi (mountain ranges)
 
@@ -347,15 +351,18 @@ DÙNG THE:
   Đại dương/biển: the Pacific, the Mediterranean
   Dãy núi: the Alps, the Himalayas
   Sa mạc: the Sahara, the Gobi
-  Quốc gia số nhiều/liên bang: the Philippines, the US, the UK
+  Tên quốc gia số nhiều/có danh từ mô tả: the Philippines, the US, the UK
+  Thể chế liên bang không quyết định mạo từ: Canada, Australia
   Kênh đào/Eo biển: the Suez Canal, the English Channel
-  Vịnh/Bán đảo: the Gulf of Mexico, the Korean Peninsula
+  Vịnh/Bán đảo theo cấu trúc tên: the Gulf of Mexico, the Korean Peninsula
+  Ngoại lệ núi đơn: the Matterhorn, the Jungfrau
   Công trình có descriptor: the Eiffel Tower, the Great Wall
 
 KHÔNG DÙNG THE:
   Quốc gia đơn: France, Japan, Vietnam
   Thành phố: Paris, Hanoi, Tokyo
   Núi đơn: Mount Everest, Mount Fuji
+  Name + Bay: Ha Long Bay, Hudson Bay
   Hồ đơn: Lake Victoria, Lake Baikal
   Đường phố thường: Oxford Street, Fifth Avenue
   Tên người: Barack Obama, Ho Chi Minh

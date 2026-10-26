@@ -394,7 +394,7 @@ async function _initExerciseCTA(category: string, slug: string) {
 
     link.setAttribute('href', `/quiz?bank=${encodeURIComponent(info.bank_id)}`);
     if (sub && info.questions) {
-      sub.textContent = `Làm ${info.questions} điểm ngữ pháp để kiểm tra kiến thức bài này.`;
+      sub.textContent = `Ngân hàng gồm ${info.questions} chủ điểm ngữ pháp. Phiên luyện có thể gồm nhiều câu cho mỗi chủ điểm.`;
     }
 
     const section = document.getElementById('exercise-cta');

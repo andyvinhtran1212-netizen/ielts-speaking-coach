@@ -130,7 +130,7 @@ Chủ ngữ là người/vật thực hiện hành động hoặc được nói 
 
 Động từ là trung tâm của câu — câu không thể thiếu động từ.
 
-**Nhớ:** Tiếng Anh LUÔN cần động từ, kể cả câu đơn giản nhất.
+**Nhớ:** Câu trần thuật đầy đủ thường cần chủ ngữ và động từ hữu hạn. Mệnh lệnh *Close the door* có chủ ngữ you hiểu ngầm; hội thoại còn có câu rút gọn. Chủ ngữ có thể là mệnh đề (*That she succeeded surprised us*) hoặc nhóm to-infinitive (*To learn a language takes time*).
 
 - ❌ "She very tired." → thiếu động từ
 - ✅ "She **is** very tired." → có động từ liên kết "is"
@@ -245,10 +245,10 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
 
 ### Lỗi 3: Nhầm complement và object
 
-- ❌ SAI: "She became **a success**." (muốn nói "She succeeded")
-- ✅ ĐÚNG: "She became **successful**." (tính từ làm complement)
-- ✅ CŨNG ĐÚNG: "She became **a success**." (danh từ làm complement — nhưng nghĩa khác: "cô ấy trở thành một thành công" — hơi lạ)
-- **CHUẨN HƠN:** "She achieved **success**." (object)
+- ✅ *She became **successful**.* — cụm tính từ làm bổ ngữ cho chủ ngữ.
+- ✅ *She became **a success** / **a successful entrepreneur**.* — cụm danh từ làm bổ ngữ, có thể chỉ người thành công.
+- ✅ *She achieved **success**.* — success là tân ngữ của achieved, không phải bản sửa bắt buộc của became a success.
+- ❌ *She became **successfully**.* — trong nghĩa trạng thái này, trạng từ successfully không thay cho bổ ngữ successful.
 
 ### Lỗi 4: Đặt adverbial sai chỗ gây hiểu lầm
 
@@ -276,8 +276,8 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
 
 **Vấn đề chủ ngữ giả:** Tiếng Anh thường dùng *it* và *there* làm chủ ngữ khi không có chủ ngữ thật:
 - *It is raining.* (không có "chủ ngữ thật" — trời đang mưa)
-- *There are many students in the class.* (there chỉ vị trí, không phải chủ ngữ thật)
-- *It seems that technology is changing fast.* (it = that-clause phía sau)
+- *There are many students in the class.* — there là chủ ngữ giả của cấu trúc tồn tại. Trong *There are students there*, there đầu là chủ ngữ giả, there cuối chỉ nơi chốn.
+- *It seems that technology is changing fast.* — it là chủ ngữ giả; that-clause nêu nội dung nhận định sau seems, không phải một vật mà it thay thế.
 
 **Mẹo kiểm tra câu:** Trước khi nói/viết, hỏi nhanh:
 1. Câu này có Subject chưa?
@@ -325,7 +325,9 @@ Phân tích 5 thành phần (S/V/O/C/A) của các câu sau:
 2. S=My father, V=gave, IO=me, DO=advice, A=last night
 3. S=The movie, V=seemed, C=boring, A=to most viewers
 4. S=Technology, V=has made, O=communication, C=faster
-5. A=In my opinion, S=studying grammar, V=is, C=essential, A=for IELTS success
+5. A=In my opinion, S=studying grammar, V=is, C=essential for IELTS success. Ở cấp mệnh đề, cả cụm tính từ là C; essential là từ trung tâm, for IELTS success bổ sung phạm vi bên trong cụm.
+
+Giữ đúng cấp phân tích: trong *The quality of education matters*, toàn cụm The quality of education là S. Trong *She put the book on the table*, on the table là bổ ngữ vị trí được put yêu cầu trong nghĩa này; không phải mọi phần còn lại đều là trạng ngữ tùy chọn.
 
 **Sửa câu:**
 1. **It** is raining heavily outside.
@@ -336,7 +338,7 @@ Phân tích 5 thành phần (S/V/O/C/A) của các câu sau:
 
 ## Tóm tắt nhanh
 1. 5 thành phần câu: Subject, Verb, Object, Complement, Adverbial
-2. Tiếng Anh LUÔN cần Subject và Verb — không bao giờ bỏ được
+2. Câu trần thuật đầy đủ thường có Subject và động từ hữu hạn; mệnh lệnh có chủ ngữ hiểu ngầm, lời thoại có thể rút gọn
 3. Object = vật bị tác động; Complement = mô tả chủ ngữ/tân ngữ
 4. Adverbial linh hoạt về vị trí nhưng ảnh hưởng đến nghĩa
 5. 5 mẫu câu cơ bản: SV / SVO / SVC / SVOO / SVOC

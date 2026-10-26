@@ -165,10 +165,10 @@ input: "boolean"
 headword: "ds-collective-they"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Many companies today, they invest heavily in employee training programmes.'"
-answer: false
+prompt: "Đúng hay Sai: Trong hội thoại, 'Many companies today, they invest heavily in employee training programmes' có thể dùng many companies today làm chủ đề tách (header), và they làm chủ ngữ mệnh đề."
+answer: true
 grammar_article_slug: "double-subject-errors"
-explain: "SAI (double subject) — 'Many companies today' đã đủ làm chủ ngữ. Sửa: 'Many companies today invest heavily in employee training programmes.'"
+explain: "ĐÚNG về khả năng cấu trúc hội thoại: header đứng ngoài mệnh đề chính và được nhắc lại bằng they. Với văn viết học thuật trung tính, 'Many companies today invest...' gọn và thường phù hợp hơn. Không áp ưu tiên văn viết thành lệnh cấm ngữ pháp trong mọi văn phong."
 ---
 
 ---
@@ -207,10 +207,10 @@ input: "boolean"
 headword: "ds-appositive-vs-double"
 skill: "error_id"
 subtype: "basic"
-prompt: "Đúng hay Sai: 'My father, he works very hard.' là câu đúng ngữ pháp."
-answer: false
+prompt: "Đúng hay Sai: Trong hội thoại phù hợp ngữ cảnh/ngữ điệu, 'My father, he works very hard' có thể dùng My father làm chủ đề tách và he làm chủ ngữ."
+answer: true
 grammar_article_slug: "double-subject-errors"
-explain: "SAI — 'he' là đại từ lặp lại chủ ngữ 'My father' → lỗi double subject. Sửa: 'My father works very hard.' hoặc 'He works very hard.'"
+explain: "ĐÚNG — đây có thể là cấu trúc header trong lời nói. Với văn viết học thuật trung tính, thường viết My father works very hard hoặc He works very hard. Đúng về cấu trúc không bảo đảm mọi lượt nói đều tự nhiên; cần ngữ cảnh và ngữ điệu."
 ---
 
 ---

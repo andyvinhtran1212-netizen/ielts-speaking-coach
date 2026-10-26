@@ -1,6 +1,6 @@
 const { expect } = require('@playwright/test');
 
-const API = 'http://localhost:8000';
+const API = 'https://reading-native.fixture.invalid';
 const ORIGIN = 'http://localhost:3211';
 const OWNER = '00000000-0000-4000-8000-0000000000bb';
 const ATTEMPT = '11111111-1111-4111-8111-111111111111';
@@ -63,26 +63,55 @@ function completionBundle() {
 
 async function installReadingHarness(page, {
   signedIn = true,
+  authOwner = OWNER,
+  authStateKey = null,
+  apiBase = API,
   inProgress = null,
   handleApi = null,
   route = '/reading/exam/session?test_id=RD-NATIVE-1',
   bundle = testBundle(),
+  realMarkdown = false,
 } = {}) {
   const calls = [];
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
-  await page.addInitScript(({ owner, signedIn }) => {
+  if (apiBase === API) await page.route(`${ORIGIN}/js/runtime-config.js`, route => route.fulfill({
+    contentType: 'application/javascript',
+    body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze(${JSON.stringify({ environment: 'test', apiBase })});`,
+  }));
+  await page.addInitScript(({ owner, signedIn, authStateKey }) => {
     window.__READING_NATIVE_AUTH_LISTENERS__ = [];
-    window.__READING_NATIVE_SESSION__ = signedIn ? {
+    const persisted = authStateKey ? localStorage.getItem(authStateKey) : null;
+    const initialOwner = persisted === 'signed-out' ? null : persisted || (signedIn ? owner : null);
+    const sessionFor = (id) => id ? {
       access_token: 'reading-native-token', refresh_token: 'refresh', expires_at: 4_102_444_800,
-      user: { id: owner, email: 'reading-native@test.local' },
+      user: { id, email: 'reading-native@test.local' },
     } : null;
+    window.__READING_NATIVE_SESSION__ = sessionFor(initialOwner);
+    window.__AVER_SUPABASE_CLIENT__ = { auth: {
+      getSession: async () => ({ data: { session: window.__READING_NATIVE_SESSION__ } }),
+      onAuthStateChange: (listener) => {
+        window.__READING_NATIVE_AUTH_LISTENERS__.push(listener);
+        return { data: { subscription: { unsubscribe() {
+          const index = window.__READING_NATIVE_AUTH_LISTENERS__.indexOf(listener);
+          if (index >= 0) window.__READING_NATIVE_AUTH_LISTENERS__.splice(index, 1);
+        } } } };
+      },
+      signOut: async () => {
+        if (authStateKey) window.__emitReadingNativeAuth(null);
+        return { error: null };
+      },
+    } };
     window.__emitReadingNativeAuth = (session) => {
       window.__READING_NATIVE_SESSION__ = session;
+      if (authStateKey) localStorage.setItem(authStateKey, session?.user?.id || 'signed-out');
       const event = session ? 'SIGNED_IN' : 'SIGNED_OUT';
       for (const listener of [...window.__READING_NATIVE_AUTH_LISTENERS__]) listener(event, session);
     };
-  }, { owner: OWNER, signedIn });
+    if (authStateKey) addEventListener('storage', (event) => {
+      if (event.key === authStateKey) window.__emitReadingNativeAuth(sessionFor(event.newValue === 'signed-out' ? null : event.newValue));
+    });
+  }, { owner: authOwner, signedIn, authStateKey });
 
   await page.route(SUPABASE_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript',
@@ -91,16 +120,16 @@ async function installReadingHarness(page, {
   await page.route(LUCIDE_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript', body: 'window.lucide={createIcons:function(){}};',
   }));
-  await page.route(MARKED_RUNTIME, (route) => route.fulfill({
+  if (!realMarkdown) await page.route(MARKED_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript', body: 'window.marked={parse:function(s){return "<p>"+s+"</p>"}};',
   }));
-  await page.route(DOMPURIFY_RUNTIME, (route) => route.fulfill({
+  if (!realMarkdown) await page.route(DOMPURIFY_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript', body: 'window.DOMPurify={sanitize:function(s){return s}};',
   }));
   await page.route('https://fonts.googleapis.com/**', (route) => route.abort());
   await page.route('https://fonts.gstatic.com/**', (route) => route.abort());
 
-  await page.route(`${API}/**`, async (route) => {
+  await page.route(`${apiBase}/**`, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const entry = {
@@ -110,15 +139,22 @@ async function installReadingHarness(page, {
     calls.push(entry);
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     if (handleApi && await handleApi({ route, request, url, entry, calls })) return;
+    if (url.pathname.endsWith('/renderer-affinity') && request.method() === 'POST') {
+      return route.fulfill({ json: { renderer_affinity: 'next' }, headers: cors });
+    }
+    if (url.pathname.endsWith('/review-flags') && request.method() === 'GET') {
+      return route.fulfill({ json: { attempt_id: ATTEMPT, protocol: 'question-cas-v1', review_flags: bundle.questions.map(q => ({ q_num: q.q_num, question_id: `question-${q.q_num}`, flagged: false, revision: 0, updated_at: null })) }, headers: cors });
+    }
     if (url.pathname === '/api/reading/test/RD-NATIVE-1/boot') {
-      return route.fulfill({ json: { test: bundle, in_progress: inProgress }, headers: cors });
+      const started = calls.some(call => call.method === 'POST' && call.path.endsWith('/attempts'));
+      return route.fulfill({ json: { test: bundle, in_progress: started ? { attempt_id: ATTEMPT, started_at: new Date().toISOString(), time_limit_minutes: 60, renderer_affinity: 'next', answers: [] } : inProgress }, headers: cors });
     }
     if (url.pathname === '/api/analytics/events') return route.fulfill({ status: 204, headers: cors });
     return route.fulfill({ status: 404, json: { detail: `${request.method()} ${url.pathname}` }, headers: cors });
   });
 
   await page.goto(route);
-  await expect(page.locator('body')).not.toContainText('Đang tải bài thi…');
+  await expect(page.locator('body')).not.toContainText('Loading test…');
   expect(pageErrors).toEqual([]);
   return { calls, pageErrors };
 }

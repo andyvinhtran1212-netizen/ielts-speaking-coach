@@ -1,0 +1,364 @@
+{
+  "the-tragedy-of-the-commons": [
+    {
+      "q_num": 1,
+      "question_type": "mcq_single",
+      "prompt": "In Hardin's model, why does the shared pasture end up ruined?",
+      "payload": {
+        "options": [
+          {
+            "text": "Because the climate suddenly changes",
+            "label": "A"
+          },
+          {
+            "text": "Because each herder gains by adding animals while all share the cost",
+            "label": "B"
+          },
+          {
+            "text": "Because the government takes the land away",
+            "label": "C"
+          },
+          {
+            "text": "Because herders cannot afford more animals",
+            "label": "D"
+          }
+        ]
+      },
+      "skill_tag": "detail",
+      "sub_skill": "locate-fact",
+      "order_num": 1
+    },
+    {
+      "q_num": 2,
+      "question_type": "yes_no_not_given",
+      "prompt": "The writer regards Hardin's conclusion as the final word on shared resources.",
+      "payload": {},
+      "skill_tag": "writer_view_TFNG",
+      "sub_skill": null,
+      "order_num": 2
+    },
+    {
+      "q_num": 3,
+      "question_type": "short_answer",
+      "prompt": "According to critics, which two kinds of resource did Hardin wrongly treat as the same? Give the term for the type with no rules. (one word, hyphenated)",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "locate-fact",
+      "order_num": 3
+    },
+    {
+      "q_num": 4,
+      "question_type": "true_false_not_given",
+      "prompt": "Elinor Ostrom found that successful management of the commons always required either privatisation or central government control.",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "locate-fact",
+      "order_num": 4
+    },
+    {
+      "q_num": 5,
+      "question_type": "sentence_completion",
+      "prompt": "Communities often keep a shared resource healthy by imposing __________ on members who take more than their share. (one word)",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "locate-fact",
+      "order_num": 5
+    },
+    {
+      "q_num": 6,
+      "question_type": "mcq_single",
+      "prompt": "Which statement best captures the passage's overall position?",
+      "payload": {
+        "options": [
+          {
+            "text": "Shared resources are always destroyed unless privatised",
+            "label": "A"
+          },
+          {
+            "text": "Hardin's model fits some cases, but communities can also govern commons well",
+            "label": "B"
+          },
+          {
+            "text": "Ostrom proved that resources can never be overused",
+            "label": "C"
+          },
+          {
+            "text": "Self-interest plays no part in how people use resources",
+            "label": "D"
+          }
+        ]
+      },
+      "skill_tag": "main_idea",
+      "sub_skill": null,
+      "order_num": 6
+    }
+  ],
+  "completion-how-a-battery-works": [
+    {
+      "q_num": 1,
+      "question_type": "summary_completion",
+      "prompt": "Complete the summary. Choose NO MORE THAN TWO WORDS from the passage for each gap.\n\nA battery stores energy in chemical form and releases it as electricity. Inside every cell there are two terminals, or electrodes, separated by a chemical paste or liquid called the (1) __________. When the cell is connected in a circuit, a chemical reaction frees tiny particles known as (2) __________, which carry the electric charge. The first true battery was built in the year (3) __________ by the Italian scientist Alessandro Volta.",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "summary-gap",
+      "order_num": 1
+    },
+    {
+      "q_num": 2,
+      "question_type": "summary_completion",
+      "prompt": "Gap 2: the freed particles that carry the charge are called __________. (ONE WORD ONLY) — see the summary above.",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "summary-gap",
+      "order_num": 2
+    },
+    {
+      "q_num": 3,
+      "question_type": "summary_completion",
+      "prompt": "Gap 3: the first true battery was built in the year __________. (ONE NUMBER ONLY) — see the summary above.",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "summary-gap",
+      "order_num": 3
+    },
+    {
+      "q_num": 4,
+      "question_type": "table_completion",
+      "prompt": "Complete the table. Choose NO MORE THAN TWO WORDS from the passage for each gap.\n\n| Part of a cell | What it does |\n| --- | --- |\n| Negative electrode, or (4) __________ | gives off electrons during the reaction |\n| Positive electrode, or (5) __________ | receives the electrons from the circuit |\n| Electrolyte | lets charged particles move between the two electrodes |",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "table-gap",
+      "order_num": 4
+    },
+    {
+      "q_num": 5,
+      "question_type": "table_completion",
+      "prompt": "Gap 5: the positive electrode is also known as the __________. (ONE WORD ONLY) — see the table above.",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "table-gap",
+      "order_num": 5
+    },
+    {
+      "q_num": 6,
+      "question_type": "flow_chart_completion",
+      "prompt": "Complete the flow-chart. Choose NO MORE THAN TWO WORDS from the passage for each gap.\n\nWHAT HAPPENS WHEN A BATTERY POWERS A DEVICE\nA circuit connects the battery to a device such as a torch\n      ↓\nAt the anode, a chemical reaction releases (6) __________\n      ↓\nThese particles travel along the wire and through the device, creating a (7) __________\n      ↓\nThe moving charge powers the device, then returns to the cathode\n      ↓\nWhen the chemicals are used up, the battery goes (8) __________",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "process-step",
+      "order_num": 6
+    },
+    {
+      "q_num": 7,
+      "question_type": "flow_chart_completion",
+      "prompt": "Gap 7: the electrons moving along the wire create an electric __________. (ONE WORD ONLY) — see the flow-chart above.",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "process-step",
+      "order_num": 7
+    },
+    {
+      "q_num": 8,
+      "question_type": "flow_chart_completion",
+      "prompt": "Gap 8: once the chemicals are used up, the battery goes __________. (ONE WORD ONLY) — see the flow-chart above.",
+      "payload": {},
+      "skill_tag": "detail",
+      "sub_skill": "process-step",
+      "order_num": 8
+    }
+  ],
+  "inference-psychology-of-colour": [
+    {
+      "q_num": 1,
+      "question_type": "mcq_single",
+      "prompt": "What does the passage imply about the claim that wearing red helps combat athletes win?",
+      "payload": {
+        "options": [
+          {
+            "text": "It has been disproved by later studies",
+            "label": "A"
+          },
+          {
+            "text": "It should be treated with some caution",
+            "label": "B"
+          },
+          {
+            "text": "It applies only to professional athletes",
+            "label": "C"
+          },
+          {
+            "text": "It is the strongest finding in the field",
+            "label": "D"
+          }
+        ]
+      },
+      "skill_tag": "inference",
+      "sub_skill": "writer-view",
+      "order_num": 1
+    },
+    {
+      "q_num": 2,
+      "question_type": "mcq_single",
+      "prompt": "What can be inferred about why blue is common in offices and hospitals?",
+      "payload": {
+        "options": [
+          {
+            "text": "Blue is the cheapest paint to produce",
+            "label": "A"
+          },
+          {
+            "text": "People associate blue with calm and focus",
+            "label": "B"
+          },
+          {
+            "text": "Blue improves eyesight in bright rooms",
+            "label": "C"
+          },
+          {
+            "text": "Blue is legally required in workplaces",
+            "label": "D"
+          }
+        ]
+      },
+      "skill_tag": "inference",
+      "sub_skill": "cause-effect",
+      "order_num": 2
+    },
+    {
+      "q_num": 3,
+      "question_type": "mcq_multi",
+      "prompt": "Choose TWO points the passage makes about colour responses.",
+      "payload": {
+        "options": [
+          {
+            "text": "They can be shaped by a person's culture",
+            "label": "A"
+          },
+          {
+            "text": "They are identical across the whole world",
+            "label": "B"
+          },
+          {
+            "text": "They may depend on the situation",
+            "label": "C"
+          },
+          {
+            "text": "They are fixed from birth",
+            "label": "D"
+          },
+          {
+            "text": "They have no effect on behaviour",
+            "label": "E"
+          }
+        ]
+      },
+      "skill_tag": "detail",
+      "sub_skill": "multi-select",
+      "order_num": 3
+    }
+  ],
+  "matching-movements-in-art": [
+    {
+      "q_num": 1,
+      "question_type": "matching_features",
+      "prompt": "Match the statement with the correct option. Choose one letter.\n\nUsed loose brushstrokes to capture the light on an outdoor scene at one fleeting moment.",
+      "payload": {
+        "options": [
+          {
+            "text": "Impressionism",
+            "label": "A"
+          },
+          {
+            "text": "Cubism",
+            "label": "B"
+          },
+          {
+            "text": "Surrealism",
+            "label": "C"
+          },
+          {
+            "text": "Abstract Expressionism",
+            "label": "D"
+          }
+        ]
+      },
+      "skill_tag": "detail",
+      "sub_skill": "matching-features",
+      "order_num": 1
+    },
+    {
+      "q_num": 2,
+      "question_type": "matching_features",
+      "prompt": "Match the statement with the correct option. Choose one letter.\n\nBroke subjects into angular shapes and presented several viewpoints at the same time.",
+      "payload": {
+        "options": [
+          {
+            "text": "Impressionism",
+            "label": "A"
+          },
+          {
+            "text": "Cubism",
+            "label": "B"
+          },
+          {
+            "text": "Surrealism",
+            "label": "C"
+          },
+          {
+            "text": "Abstract Expressionism",
+            "label": "D"
+          }
+        ]
+      },
+      "skill_tag": "detail",
+      "sub_skill": "matching-features",
+      "order_num": 2
+    },
+    {
+      "q_num": 3,
+      "question_type": "matching_features",
+      "prompt": "Match the statement with the correct option. Choose one letter.\n\nDepicted dream-like scenes that did not obey ordinary logic.",
+      "payload": {
+        "options": [
+          {
+            "text": "Impressionism",
+            "label": "A"
+          },
+          {
+            "text": "Cubism",
+            "label": "B"
+          },
+          {
+            "text": "Surrealism",
+            "label": "C"
+          },
+          {
+            "text": "Abstract Expressionism",
+            "label": "D"
+          }
+        ]
+      },
+      "skill_tag": "detail",
+      "sub_skill": "matching-features",
+      "order_num": 3
+    },
+    {
+      "q_num": 4,
+      "question_type": "matching_information",
+      "prompt": "Which paragraph mentions a movement that was first met with mockery before being accepted?",
+      "payload": {},
+      "skill_tag": "scanning",
+      "sub_skill": null,
+      "order_num": 4
+    },
+    {
+      "q_num": 5,
+      "question_type": "matching_information",
+      "prompt": "Which paragraph describes a technique in which paint was applied without the artist touching the canvas with a brush?",
+      "payload": {},
+      "skill_tag": "scanning",
+      "sub_skill": null,
+      "order_num": 5
+    }
+  ]
+}

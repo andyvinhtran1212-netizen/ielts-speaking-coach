@@ -1,0 +1,250 @@
+{
+  "slug": "ynng-should-ai-make-decisions",
+  "review_notes": "Tự dịch, giữ phân biệt tình huống xe điện giả định với xác suất ngoài đường, ý kiến tác giả và accountability. Minh hoạ xe trung tính, không vẽ tình huống thương vong hoặc sơ đồ lựa chọn đáp án.",
+  "illustration_brief": "Một chiếc ô tô trên đường phố cạnh cây và các toà nhà.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1967, triết gia Philippa Foot phác ra một tình huống nan giải nay đã nổi tiếng: một xe điện mất kiểm soát sẽ giết năm người nếu không được chuyển sang đường ray khác, nơi nó sẽ giết một người.",
+      [
+        "a runaway trolley",
+        "một xe điện mất kiểm soát"
+      ],
+      [
+        "unless it is diverted",
+        "nếu không được chuyển"
+      ],
+      [
+        "a track where it will kill one",
+        "đường ray khác, nơi nó sẽ giết một người"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Suốt nhiều thập niên, kịch bản ấy là công cụ kiểm nghiệm trực giác trong các phòng thảo luận học thuật.",
+      [
+        "testing intuitions",
+        "kiểm nghiệm trực giác"
+      ],
+      [
+        "seminar rooms",
+        "các phòng thảo luận học thuật"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Rồi các kỹ sư bắt đầu chế tạo ô tô tự lái, và tình huống nan giải ấy mang ý nghĩa mới đầy bất an, bởi một chiếc xe đôi khi phải chọn giữa các tổn hại, về thực chất, chính là bài toán xe điện được hiện thực hoá bằng thép và phần mềm.",
+      [
+        "cars that steer themselves",
+        "ô tô tự lái"
+      ],
+      [
+        "choose between harms",
+        "chọn giữa các tổn hại"
+      ],
+      [
+        "rendered in steel and software",
+        "được hiện thực hoá bằng thép và phần mềm"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Tuy nhiên, cần cưỡng lại sự cám dỗ xem hai việc ấy là tương đương.",
+      [
+        "treat the two as equivalent",
+        "xem hai việc ấy là tương đương"
+      ],
+      [
+        "should, however, be resisted",
+        "Tuy nhiên, cần cưỡng lại"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Tình thế trong lớp học đưa ra lựa chọn gọn ghẽ giữa hai kết quả được đếm rõ ràng, trong khi xe thật phải đối mặt với xác suất, thông tin không đầy đủ và số đo cảm biến chỉ trong tích tắc; hình thức rõ ràng với hai phương án ấy hiếm khi khớp điều kiện trên đường thực tế.",
+      [
+        "partial information",
+        "thông tin không đầy đủ"
+      ],
+      [
+        "split-second sensor readings",
+        "số đo cảm biến chỉ trong tích tắc"
+      ],
+      [
+        "rarely matches",
+        "hiếm khi khớp"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Trình bày thách thức kỹ thuật như phép đếm mạng người đơn giản khiến phép so sánh có vẻ thuyết phục hơn, đồng thời che giấu bao điều mà thực tế rối rắm hơn vẫn chưa giải quyết.",
+      [
+        "a simple tally of lives",
+        "phép đếm mạng người đơn giản"
+      ],
+      [
+        "flatters the analogy",
+        "khiến phép so sánh có vẻ thuyết phục hơn"
+      ],
+      [
+        "leaves unresolved",
+        "vẫn chưa giải quyết"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Điều thực sự còn đúng khi chuyển sang thực tế là nhận thức đáng lo hơn rằng không thể để đến lúc sự việc xảy ra mới lựa chọn.",
+      [
+        "What does carry over",
+        "Điều thực sự còn đúng khi chuyển sang thực tế"
+      ],
+      [
+        "the choice cannot be left to the moment",
+        "không thể để đến lúc sự việc xảy ra mới lựa chọn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Người lái xe đánh lái tránh hành động theo bản năng và được đánh giá sau đó với phần nào sự châm chước cho cơn hoảng loạn.",
+      [
+        "swerves",
+        "đánh lái tránh"
+      ],
+      [
+        "acts on instinct",
+        "hành động theo bản năng"
+      ],
+      [
+        "some allowance for panic",
+        "phần nào sự châm chước cho cơn hoảng loạn"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Xe được lập trình hành xử theo quy tắc mà ai đó ở đâu đó đã viết sẵn; quyết định đã được chốt trước trong văn phòng, từ rất lâu trước khi tình huống khẩn cấp xuất hiện.",
+      [
+        "a rule that someone, somewhere, has already written",
+        "quy tắc mà ai đó ở đâu đó đã viết sẵn"
+      ],
+      [
+        "settled in advance",
+        "chốt trước"
+      ],
+      [
+        "any emergency arises",
+        "tình huống khẩn cấp xuất hiện"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Có thể lập luận rằng chính chuyển dịch từ phản ứng ứng biến sang chính sách soạn sẵn mới là nét thực sự mới của vấn đề.",
+      [
+        "improvised reaction",
+        "phản ứng ứng biến"
+      ],
+      [
+        "pre-authored policy",
+        "chính sách soạn sẵn"
+      ],
+      [
+        "arguably",
+        "Có thể lập luận rằng"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Điều đó cũng phân tán trách nhiệm theo những cách khó xử.",
+      [
+        "scatters responsibility",
+        "phân tán trách nhiệm"
+      ],
+      [
+        "in awkward ways",
+        "theo những cách khó xử"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Khi hệ thống tự hành gây hại, lỗi có thể bị quy cho các kỹ sư đặt thứ tự ưu tiên, công ty bán nó, chủ sở hữu đưa nó vào sử dụng, hoặc — kém hợp lý hơn — chính cỗ máy.",
+      [
+        "an autonomous system",
+        "hệ thống tự hành"
+      ],
+      [
+        "blame might fall on",
+        "lỗi có thể bị quy cho"
+      ],
+      [
+        "less coherently",
+        "kém hợp lý hơn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Không ai trong các đối tượng này thực sự phù hợp với vai trò chịu trách nhiệm, và trách nhiệm giải trình bị phân tán qua quá nhiều bên là một lý do khiến đạo đức tự động hoá khó chấp nhận những lời giải gọn ghẽ mà nền tảng toán học có thể gợi ra.",
+      [
+        "the diffusion of accountability",
+        "trách nhiệm giải trình bị phân tán"
+      ],
+      [
+        "the ethics of automation",
+        "đạo đức tự động hoá"
+      ],
+      [
+        "the neat resolutions",
+        "những lời giải gọn ghẽ"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Vì lý do này, đề xuất thường gặp về việc loại hoàn toàn con người khỏi quá trình ra quyết định đáng được nhìn với sự hoài nghi.",
+      [
+        "remove the human from the loop altogether",
+        "loại hoàn toàn con người khỏi quá trình ra quyết định"
+      ],
+      [
+        "deserves scepticism",
+        "đáng được nhìn với sự hoài nghi"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Làm vậy có thể giảm những lỗi thất thường của tài xế mệt mỏi hoặc xao nhãng, nhưng có nguy cơ thay chúng bằng mối nguy khác: một kết quả mà khó có thể buộc một người xác định được phải chịu trách nhiệm.",
+      [
+        "tired or distracted drivers",
+        "tài xế mệt mỏi hoặc xao nhãng"
+      ],
+      [
+        "substituting a different danger",
+        "thay chúng bằng mối nguy khác"
+      ],
+      [
+        "held answerable",
+        "phải chịu trách nhiệm"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Do đó, việc xã hội có nên giao những quyết định này cho máy móc hay không có lẽ phụ thuộc ít hơn vào việc máy tính ra được câu trả lời, mà nhiều hơn vào việc có ai sẵn sàng đứng ra chịu trách nhiệm cho những câu trả lời ấy hay không.",
+      [
+        "hand such decisions to machines",
+        "giao những quyết định này cho máy móc"
+      ],
+      [
+        "compute an answer",
+        "tính ra được câu trả lời"
+      ],
+      [
+        "stand behind the answers they give",
+        "đứng ra chịu trách nhiệm cho những câu trả lời ấy"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-algorithm-review-scene.svg",
+    "alt": "Hai người xem các hồ sơ trên bàn và màn hình có những nút dữ liệu nối với nhau.",
+    "caption": "Con người xem xét quyết định của hệ thống tự động."
+  },
+  "source_sha256": "18681f0d3146e37c82571e46bfd4f0c416f8fe6a141d062e433b9548a2f7bda4",
+  "expected_translation_sha256": "ea5f20919f898ead37f2359261223efc7d49941b2e93ca2319bf19300a1105d6"
+}

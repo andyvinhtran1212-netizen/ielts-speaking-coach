@@ -44,9 +44,17 @@ does not prove that a release is pending or complete.
 ## Local setup
 
 Use **Node.js 24+** (`frontend/package.json`). Backend CI uses **Python 3.11**;
-Railway pins **Python 3.12** (`backend/nixpacks.toml`). Use either of those
-Python versions locally. Audio processing also requires `ffmpeg`; the Railway
-config lists the production font/JRE dependencies.
+Railway builds with **Railpack** from the `backend/` directory only (service
+root directory); Python **3.12** is pinned there through the service's
+`RAILPACK_PYTHON_VERSION` variable. Anything the backend reads at runtime
+(for example `backend/assets/grammar-mindmap/`) must live under `backend/`.
+Use either of those Python versions locally. Audio
+processing also requires `ffmpeg`; production additionally needs
+`default-jre-headless` (LanguageTool) and `fonts-dejavu-core` (PDF export).
+`backend/nixpacks.toml` lists those packages for the legacy Nixpacks builder,
+but Railpack does not read it — the Railway service configuration must provide
+them. Verify in the Railway dashboard, not from this file, before relying on
+them.
 
 Configure a development or staging Supabase project and the provider keys
 needed for the flow you are exercising. Keep service credentials in ignored
@@ -156,3 +164,29 @@ Internal project; not currently open-source.
 Use the [documentation map](docs/README.md) for current runbooks and historical
 context, and the [implementation status ledger](specs/IMPLEMENTATION_STATUS.md)
 for outstanding feature acceptance.
+
+### Vocabulary audio
+
+Vocabulary words and English examples use local Kokoro `bf_emma` (British
+English), including new admin content. The web console previews stored audio;
+its former OpenAI/ElevenLabs generation route returns 409 and queues nothing.
+Players show a preparation or retry state instead of changing to browser speech.
+
+With the intended Supabase environment and a local Kokoro/ffmpeg runtime:
+
+```bash
+cd backend
+python -m scripts.pregen_vocab_audio          # read-only inventory
+python -m scripts.pregen_vocab_audio --commit # prepare missing/outdated word + example clips
+```
+
+The default batch compares each text's current Kokoro hash, including examples
+on rows already marked final. Re-running reuses matching objects; optional
+`--regen` rechecks every row. No other Vocabulary engine or voice is accepted.
+After a local batch, refresh the deployed vocabulary cache through its normal
+admin update/redeployment path and verify the public URLs before acceptance.
+
+Kokoro cache keys and synthesis use the spoken text with paired Markdown emphasis
+removed; stored examples keep their display formatting. Prepare and verify audio
+before publishing a set. Published sets retain snapshots, so publish a new
+revision when adding recordings to a previously published set.

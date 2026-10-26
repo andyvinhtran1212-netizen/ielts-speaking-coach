@@ -141,7 +141,7 @@ Subject + be / modal + [always/usually/...] + ...
 
 - I **always** drink coffee in the morning. ✅
 - She **is always** late. ✅ (sau be)
-- She **always is** late. ❌
+- She **always is** late. — có thể dùng khi nhấn mạnh; She is always late là trật tự trung tính thông dụng hơn.
 
 ### Trạng từ thời gian và nơi chốn
 
@@ -159,13 +159,13 @@ Verb + Place + Time
 Đứng **sau động từ / tân ngữ**:
 
 - She spoke **clearly**. ✅ (tự nhiên)
-- She clearly spoke. *(ngữ pháp đúng, nhưng không tự nhiên trong văn nói thông thường — chỉ gặp trong văn viết hoặc khi nhấn mạnh đặc biệt vào trạng từ)*
+- She **clearly** spoke. — clearly có thể mang nghĩa “rõ ràng là cô ấy đã nói”, đánh giá sự việc thay vì cách phát âm. Đối chiếu *She explained it clearly* (cách thức) với *She clearly did not understand* (nhận định). *She quickly finished her homework* minh họa cách thức ở vị trí giữa; không tách cụm động từ–tân ngữ ngắn bằng quickly.
 
 <!-- anchor: word-order.questions.inversion-rule -->
 <!-- anchor: word-order.question-inversion -->
 ## Câu hỏi — đảo trợ động từ lên trước
 
-Khi đặt câu hỏi Yes/No, trợ động từ (do/does/did/is/are/can/will...) đứng trước chủ ngữ:
+Trong câu hỏi Yes/No trung tính, trợ động từ thường đứng trước chủ ngữ. Câu hỏi xác nhận/nhắc lại có thể giữ trật tự trần thuật: “You can drive?” — “Yes, I can.” Câu hỏi chủ ngữ như Who called you? không thêm do; Who did you call? hỏi tân ngữ và dùng do-support.
 
 ```
 Trợ động từ + Subject + Main Verb + ...?
@@ -192,7 +192,7 @@ Wh-word + Trợ động từ + Subject + Main Verb?
 
 - ❌ I drink always coffee.
 - ✅ I **always** drink coffee.
-- **Tại sao:** Frequency adverbs luôn đứng TRƯỚC động từ chính.
+- **Tại sao:** Trật tự trung tính thường đặt always trước động từ thường. Có ngoại lệ theo phạm vi và nhấn mạnh; không áp quy tắc luôn cho mọi trạng từ tần suất.
 
 ### Lỗi 2: Đặt tính từ sau danh từ (theo tiếng Việt)
 
@@ -210,13 +210,13 @@ Wh-word + Trợ động từ + Subject + Main Verb?
 
 - ❌ I rice eat every day.
 - ✅ I **eat rice** every day.
-- **Tại sao:** Tiếng Việt cho phép S-O-V, nhưng tiếng Anh bắt buộc S-V-O.
+- **Tại sao:** Trật tự cơ bản của cả tiếng Việt và tiếng Anh thường là SVO. Khác biệt dễ gặp nằm ở vị trí tính từ (“nhà đẹp” / “a beautiful house”); các cấu trúc chủ đề/nhấn mạnh đặc biệt không biến SOV thành mặc định của tiếng Việt.
 
-### Lỗi 5: Đặt thời gian trước nơi chốn
+### Hai vị trí hợp lệ của thời gian và nơi chốn
 
-- ❌ I study every day at school.
+- ✅ I study every day at school. — nhấn nơi học ở cuối câu.
 - ✅ I study **at school** every day.
-- **Tại sao:** Nơi chốn thường đứng gần động từ hơn thời gian.
+- Nơi chốn trước thời gian là thứ tự thông dụng; câu đảo lại vẫn có thể đúng tùy trọng tâm. Không sửa câu hợp lệ chỉ vì nó không theo thứ tự mặc định.
 
 ## Mẹo cho IELTS Speaking
 
@@ -239,10 +239,10 @@ Trong Speaking, trật tự từ tự nhiên sẽ giúp điểm Grammatical Rang
 3. live / where / do / you → ?
 4. yesterday / the park / in / played / they / football → ?
 
-### Sửa lỗi
+### Sửa lỗi hoặc đổi sang câu hỏi trung tính theo yêu cầu
 1. He goes never to the gym.
 2. I have a bag brown and big.
-3. You can drive?
+3. You can drive? *(Đổi câu hỏi xác nhận thành câu hỏi thông tin trung tính.)*
 4. She the newspaper reads every morning.
 
 ### Đáp án
@@ -255,7 +255,7 @@ Trong Speaking, trật tự từ tự nhiên sẽ giúp điểm Grammatical Rang
 **Sửa lỗi:**
 1. He **never goes** to the gym.
 2. I have a **big brown** bag.
-3. **Can** you drive?
+3. **Can** you drive? là dạng trung tính; You can drive? vẫn dùng được để xác nhận điều gây bất ngờ.
 4. She **reads the newspaper** every morning.
 
 ## Tóm tắt nhanh
@@ -275,7 +275,7 @@ Tiếng Việt: "nhà đẹp" (nhà + đẹp). Tiếng Anh: "a beautiful house" 
 ❌ "I bought a car red." → ✅ "I bought a red car."
 ❌ "She wore a dress beautiful." → ✅ "She wore a beautiful dress."
 
-**Quy tắc:** Tính từ luôn đứng **trước** danh từ khi mô tả trực tiếp (attributive use). Tính từ chỉ đứng **sau** danh từ khi liên kết qua động từ liên kết: "The car **is** red", "The dress **looks** beautiful" (predicative use).
+**Quy tắc mặc định:** Tính từ thường đứng trước danh từ trong cụm danh từ. Còn có hậu vị trực tiếp như something useful và rooms available. The car is red / The dress looks beautiful dùng tính từ làm bổ ngữ vị ngữ sau động từ nối; không phải cách duy nhất tính từ xuất hiện sau danh từ.
 
 ## Adjective ordering (khi có nhiều tính từ)
 
@@ -311,4 +311,4 @@ Adverbs of manner (well, badly, quickly, slowly) thường đứng cuối câu h
 - "She speaks English fluently."
 - "He drove the car carefully."
 
-❌ Lỗi VN phổ biến: "I always am tired" → ✅ "I am always tired" (frequency adverb sau be).
+*I am always tired* là trật tự trung tính. *I always am tired* có thể nhấn mạnh, chẳng hạn đáp lại người cho rằng mình chỉ mệt đôi khi; không tự là lỗi ngữ pháp.

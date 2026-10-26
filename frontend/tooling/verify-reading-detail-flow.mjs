@@ -1,6 +1,6 @@
 // Fixture-backed browser contract for the shared native L1/L2 Reading detail workspace.
 import { chromium } from 'playwright';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 
 import { storageKey } from './supabase-session.mjs';
 import { isLearnerTabPersistenceSupported } from '../lib/learner-tab-draft-support.mjs';
@@ -27,7 +27,7 @@ async function launchChromium() {
 }
 
 const longBody = Array.from({ length: 45 }, (_, index) => `Tea paragraph ${index + 1} explains the ritual and its history.`).join('\n\n');
-const payloadFor = (slug, library) => ({
+const baselinePayloadFor = (slug, library) => ({
   id: `${library}-1`, slug, title: library === 'vocab' ? 'A Short History of Tea' : 'Skimming Climate Change',
   body_markdown: longBody, difficulty_level: 'intermediate', topic_tags: ['history', 'culture'],
   image_url: '/favicon.svg', word_count: 620, estimated_minutes: 8,
@@ -44,6 +44,20 @@ const payloadFor = (slug, library) => ({
   ],
 });
 
+const contentPacket = JSON.parse(readFileSync(new URL('../../backend/content/reading-practice/20261014-repairs.json', import.meta.url), 'utf8'));
+const core = contentPacket.passages.find((row) => row.slug === 'the-tragedy-of-the-commons');
+const coreQuestions = JSON.parse(readFileSync(new URL('../tests/fixtures/reading-practice-core-questions.json', import.meta.url), 'utf8'));
+const payloadFor = (slug, library) => {
+  const article = contentPacket.passages.find((row) => row.slug === slug);
+  return !coreQuestions[slug] ? baselinePayloadFor(slug, library) : ({
+    id: article.passage_id, slug, title: slug === core.slug ? 'The Tragedy of the Commons' : slug,
+    source_sha256: article.source_sha256,
+    body_markdown: article.source_body_markdown, image_url: article.changes.image_url,
+    glossary: article.changes.glossary, translation_vi: article.changes.metadata.translation_vi,
+    practice_support: { ...article.changes.metadata.practice_support, question_evidence: undefined },
+    questions: coreQuestions[slug],
+  });
+};
 const browser = await launchChromium();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 await context.addInitScript(([key, value]) => { try { localStorage.setItem(key, value); } catch (_) {} }, [storageKey(SB), fakeSession]);
@@ -66,6 +80,14 @@ await page.route('**/*', async (route) => {
   if (checkMatch && request.method() === 'POST') {
     const body = request.postDataJSON();
     const qNum = body?.answers?.[0]?.q_num;
+    const article = contentPacket.passages.find((row) => row.slug === checkMatch[2]);
+    if (article && coreQuestions[article.slug]) {
+      const raw = article.changes.metadata.practice_support.question_evidence[String(qNum)];
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: apiHeaders, body: JSON.stringify({ results: [{
+        q_num: qNum, correct: true, expected: article.slug === core.slug ? 'B' : 'A, C',
+        explanation: 'Trích dẫn đã biên soạn theo bài gốc.', evidence: raw ? { source: raw.source, precision: raw.precision, illustrations: raw.illustrations, source_sha256: article.source_sha256 } : null,
+      }] }) });
+    }
     posts.set(qNum, (posts.get(qNum) || 0) + 1);
     if (qNum === 1 && posts.get(qNum) === 1) {
       await new Promise((resolve) => setTimeout(resolve, 120));
@@ -121,8 +143,8 @@ check('tablist hỗ trợ roving keyboard và panel grammar',
 await tabs.nth(2).press('Home');
 check('Home trả về văn bản gốc', await page.locator('#rv-panel-original').isVisible());
 
-await page.locator('.glossary-term').waitFor({ state: 'visible' });
-await page.locator('.glossary-term').click();
+await page.locator('.glossary-term').first().waitFor({ state: 'visible' });
+await page.locator('.glossary-term').first().click();
 check('glossary mở dialog có nghĩa canonical',
   await page.locator('.rv-dialog--glossary').isVisible()
     && (await page.locator('.rv-dialog--glossary').innerText()).includes('nghi thức'));
@@ -221,6 +243,50 @@ scenario = 'leak';
 await page.goto(`${BASE}/reading/vocab/leak-passage`, { waitUntil: 'domcontentloaded' });
 await page.locator('.rv-error').waitFor({ state: 'visible' });
 check('payload GET chứa answer key fail closed', !(await page.locator('body').innerText()).includes('Pick the main idea'));
+scenario = 'valid';
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.goto(`${BASE}/reading/skill/${core.slug}`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Dịch câu 2', exact: true }).click();
+const sentencePanel = page.getByRole('region', { name: 'Dịch câu 2', exact: true });
+await sentencePanel.getByRole('button', { name: 'tài nguyên chung tương ứng với commons' }).click();
+check('bản dịch tại chỗ làm sáng đúng cụm Anh–Việt',
+  await sentencePanel.isVisible() && (await page.locator('.rp-source-phrase.is-highlighted').allTextContents()).join('') === 'commons');
+await sentencePanel.getByRole('button', { name: 'graze their cattle', exact: true }).click();
+check('đối chiếu cụm giữ nguyên markup qua glossary',
+  (await page.locator('.rp-source-phrase.is-highlighted').allTextContents()).join('') === 'graze their cattle');
+await page.locator('.rq-card').first().locator('input[value="B"]').check();
+await sentencePanel.getByRole('button', { name: 'Câu sau →' }).click();
+check('đổi câu dịch giữ lựa chọn luyện tập', await page.locator('.rq-card').first().locator('input[value="B"]').isChecked());
+await page.locator('.rq-card').first().getByRole('button', { name: 'Kiểm tra', exact: true }).click();
+await page.getByRole('button', { name: 'Xem căn cứ trong bài', exact: true }).click();
+await page.locator('.rp-evidence').first().waitFor({ state: 'visible' });
+await page.locator('.rp-evidence-panel img').waitFor({ state: 'visible' });
+check('căn cứ và minh hoạ có đường trở lại câu đã kiểm tra', await page.getByRole('button', { name: 'Trở lại câu 1' }).isVisible() && await page.locator('.rp-evidence-panel img').count() === 1);
+await page.locator('.rp-evidence-panel .rp-figure button').click();
+check('minh hoạ tự vẽ mở được lightbox', await page.locator('.rv-dialog--image').isVisible());
+await page.keyboard.press('Escape');
+const shotDir = process.env.READING_PRACTICE_SCREENSHOTS;
+if (shotDir) mkdirSync(shotDir, { recursive: true });
+for (const width of [1280, 390, 320]) {
+  await page.setViewportSize({ width, height: 900 });
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => document.documentElement.dataset.theme = theme, theme);
+    check(`dịch tại chỗ ${width}px ${theme} không tràn ngang`, await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    if (shotDir) await page.screenshot({ path: `${shotDir}/reading-inline-${width}-${theme}.png`, fullPage: true });
+  }
+}
+await page.getByRole('tab', { name: 'Bài dịch', exact: true }).click();
+check('bài dịch đầy đủ vẫn giữ văn bản gốc', await page.locator('#rv-panel-original').isVisible() && await page.locator('#rv-panel-translation').isVisible());
+await page.goto(`${BASE}/reading/skill/inference-psychology-of-colour`, { waitUntil: 'domcontentloaded' });
+await page.locator('.rq-card').nth(2).locator('input[value="A"]').check();
+await page.locator('.rq-card').nth(2).locator('input[value="C"]').check();
+check('Colour hiện đủ năm lựa chọn và cho chọn hai đáp án', await page.locator('.rq-card').nth(2).locator('input[type="checkbox"]').count() === 5);
+await page.goto(`${BASE}/reading/skill/completion-how-a-battery-works`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('table').waitFor({ state: 'visible' });
+check('Battery giữ bảng và đúng chỗ trống câu 4', await page.getByRole('textbox', { name: 'Câu 4', exact: true }).isVisible() && (await page.getByRole('table').innerText()).includes('(4)'));
+await page.goto(`${BASE}/reading/skill/matching-movements-in-art`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('combobox', { name: 'Câu 1', exact: true }).waitFor({ state: 'visible' });
+check('Modern Art hiện statement đã sửa cùng các lựa chọn', (await page.locator('.rq-card').first().innerText()).includes('Used loose brushstrokes') && await page.getByRole('combobox', { name: 'Câu 1', exact: true }).locator('option').count() === 5);
 scenario = 'error';
 await page.goto(`${BASE}/reading/skill/server-error`, { waitUntil: 'domcontentloaded' });
 await page.locator('.rv-error').waitFor({ state: 'visible' });

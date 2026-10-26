@@ -263,10 +263,10 @@ Thay vì nhiều câu ngắn rời rạc, dùng phrases để kết nối:
 
 ### IELTS Writing — Clause structure cho câu phức tạp
 
-**Band 6:** "Many people use social media. It has both advantages and disadvantages."
-**Band 7+:** "**Although social media offers numerous advantages**, the **psychological impact it has on young users**, **particularly those under sixteen**, is a growing concern **that requires urgent attention**."
+**Ví dụ hai câu đơn:** "Many people use social media. It has both advantages and disadvantages."
+**Ví dụ câu có nhiều mệnh đề và thêm thông tin:** "**Although social media offers numerous advantages**, the **psychological impact it has on young users**, **particularly those under sixteen**, is a growing concern **that requires urgent attention**."
 
-Câu Band 7+ chứa: 1 dependent adverb clause + 1 relative clause + 1 adjective phrase + 1 relative clause.
+Câu thứ hai chứa mệnh đề nhượng bộ, mệnh đề quan hệ it has on young users, cụm danh từ phụ chú particularly those under sixteen (trung tâm those), và mệnh đề quan hệ that requires urgent attention. Chức năng mô tả không tự biến một cụm danh từ thành cụm tính từ. Ví dụ này thêm ý về tác động tâm lý và tính cấp bách, nên không phải paraphrase giữ nguyên nghĩa câu đầu; một câu riêng lẻ không xác định band IELTS.
 
 <!-- anchor: phrase-vs-clause.bai-tap-luyen -->
 ## Bài tập luyện
@@ -282,7 +282,9 @@ Câu Band 7+ chứa: 1 dependent adverb clause + 1 relative clause + 1 adjective
 7. Despite the challenges
 8. The government announced new policies
 
-### Sửa lỗi: Fragment hay Run-on?
+### Phân loại: Fragment, Run-on hay câu đúng?
+
+Nếu sai, sửa cấu trúc hoặc dấu câu và giữ ý đã cho. Chỉ thêm because/so khi ngữ cảnh xác lập nguyên nhân/kết quả; câu đúng không cần sửa ép.
 
 1. "Although the economy has improved significantly."
 2. "She loves cooking she spends every weekend in the kitchen."

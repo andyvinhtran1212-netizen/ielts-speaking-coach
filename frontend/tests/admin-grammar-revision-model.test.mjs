@@ -40,7 +40,9 @@ test('actual local PG/ASGI public read/preview/applied/replayed/current wire ret
 });
 
 test('all twelve schema-shaped admin wires bind the real reviewed source/diff fixture', async () => {
-  assert.deepEqual(new Set(GRAMMAR_REVISION_CODES), new Set(fixture.rows.map((r) => r.code)));
+  assert.equal(GRAMMAR_REVISION_CODES.length, 90);
+  assert.ok(fixture.rows.every((r) => GRAMMAR_REVISION_CODES.includes(r.code)));
+  assert.deepEqual(new Set(GRAMMAR_REVISION_CODES), new Set(Object.keys(JSON.parse(readFileSync(new URL('../../backend/services/grammar_quiz_reviewed_sources.json', import.meta.url),'utf8')))));
   assert.equal(createHash('sha256').update(readFileSync(new URL('fixtures/grammar-exact-form-banks.json', import.meta.url))).digest('hex'), fixture.source_fixture.sha256);
   for (const r of fixture.rows) {
     const digest = await grammarSourceHash(sourceFor(r.code));

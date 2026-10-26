@@ -1,0 +1,178 @@
+{
+  "slug": "undersea-internet-cables",
+  "review_notes": "Tự dịch toàn bộ văn đọc. Không đưa HTML comment wordcount nội bộ vào bản dịch. Giữ source/keys; minh hoạ tàu và cáp không chú giải tỷ lệ dữ liệu hay mốc lịch sử.",
+  "illustration_brief": "Tàu chuyên dụng trên mặt biển với các cuộn cáp trên boong.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Khi gửi tin nhắn cho bạn ở phía bên kia thế giới, bạn có thể nghĩ rằng nó bay qua không gian bằng vệ tinh.",
+      [
+        "on the other side of the world",
+        "ở phía bên kia thế giới"
+      ],
+      [
+        "by satellite",
+        "bằng vệ tinh"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Thực tế, khoảng 95% tổng dữ liệu internet đi dọc theo các tuyến cáp nằm sâu dưới đại dương.",
+      [
+        "about 95% of all internet data",
+        "khoảng 95% tổng dữ liệu internet"
+      ],
+      [
+        "deep under the ocean",
+        "sâu dưới đại dương"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Lần thử đầu tiên với kết nối kiểu này là một tuyến cáp điện báo được đặt xuyên Đại Tây Dương năm 1858, nhưng nó ngừng hoạt động chỉ sau vài tuần; mãi đến khi một tuyến cáp chắc hơn được đặt năm 1866 mới có kết nối lâu dài.",
+      [
+        "a telegraph cable",
+        "một tuyến cáp điện báo"
+      ],
+      [
+        "within weeks",
+        "chỉ sau vài tuần"
+      ],
+      [
+        "a lasting connection",
+        "kết nối lâu dài"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Bên trong mỗi tuyến cáp hiện đại là những sợi thuỷ tinh mảnh, không lớn hơn một sợi tóc người.",
+      [
+        "thin strands of glass fibre",
+        "những sợi thuỷ tinh mảnh"
+      ],
+      [
+        "no wider than a human hair",
+        "không lớn hơn một sợi tóc người"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Ảnh, video và tin nhắn của bạn đi qua chúng dưới dạng những xung ánh sáng nhỏ.",
+      [
+        "travel through them",
+        "đi qua chúng"
+      ],
+      [
+        "tiny pulses of light",
+        "những xung ánh sáng nhỏ"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Tín hiệu có thể vượt cả đại dương chỉ trong một phần nhỏ của giây.",
+      [
+        "an entire ocean",
+        "cả đại dương"
+      ],
+      [
+        "a fraction of a second",
+        "một phần nhỏ của giây"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Những tuyến cáp này không xuất hiện bằng phép màu.",
+      [
+        "do not appear by magic",
+        "không xuất hiện bằng phép màu"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Các tàu chuyên dụng chậm rãi đi trên biển và cẩn thận đặt cáp xuống đáy biển.",
+      [
+        "Special ships",
+        "Các tàu chuyên dụng"
+      ],
+      [
+        "lay them on the sea floor",
+        "đặt cáp xuống đáy biển"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Các tuyến cáp kết nối những châu lục và quốc gia với nhau.",
+      [
+        "connect continents and countries",
+        "kết nối những châu lục và quốc gia"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Đôi khi neo tàu hoặc động đất có thể làm hỏng cáp.",
+      [
+        "a ship's anchor",
+        "neo tàu"
+      ],
+      [
+        "an earthquake",
+        "động đất"
+      ],
+      [
+        "damage a cable",
+        "làm hỏng cáp"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Khi điều đó xảy ra, tàu sửa chữa phải ra khơi để sửa tuyến cáp bị đứt.",
+      [
+        "a repair ship",
+        "tàu sửa chữa"
+      ],
+      [
+        "the broken line",
+        "tuyến cáp bị đứt"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Phần lớn mọi người không bao giờ nghĩ đến những tuyến cáp ẩn này, nhưng thế giới hiện đại sẽ ngừng vận hành nếu thiếu chúng.",
+      [
+        "these hidden cables",
+        "những tuyến cáp ẩn này"
+      ],
+      [
+        "would stop without them",
+        "sẽ ngừng vận hành nếu thiếu chúng"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Ngân hàng, bệnh viện và các cuộc điện thoại đều phụ thuộc vào chúng mỗi ngày.",
+      [
+        "depend on them",
+        "phụ thuộc vào chúng"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Vì vậy, lần sau khi xem video từ nơi xa, hãy nhớ đến những sợi dây lặng lẽ nằm dưới đáy đại dương.",
+      [
+        "from far away",
+        "từ nơi xa"
+      ],
+      [
+        "resting on the ocean floor",
+        "nằm dưới đáy đại dương"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-cable-ship-scene.svg",
+    "alt": "Tàu chuyên dụng trên mặt biển với các cuộn cáp trên boong.",
+    "caption": "Những kết nối vượt đại dương."
+  },
+  "source_sha256": "d02099a80564185612dff4a19f8367a7100bfb3868e0110cde63255a53cf75c9",
+  "expected_translation_sha256": "dd8c1743fb85ee6639a00f789c33d77ef34cd84e3b9682ded60638883840f463"
+}

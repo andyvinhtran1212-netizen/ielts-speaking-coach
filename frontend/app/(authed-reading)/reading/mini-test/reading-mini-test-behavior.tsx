@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
@@ -28,6 +28,7 @@ interface ReadingMiniTest {
   key: string;
   testId: string;
   title: string;
+  lesson: number | null;
   moduleLabel: string | null;
   passageCount: number;
   totalQuestions: number | null;
@@ -68,7 +69,8 @@ function normalizeTests(payload: unknown): ReadingMiniTest[] {
     return [{
       key: `${id || testId}-${index}`,
       testId,
-      title: textValue(raw?.title) || 'Mini Test',
+      title: (textValue(raw?.title).startsWith(`${testId} — `) ? textValue(raw?.title).slice(testId.length + 3) : textValue(raw?.title)) || 'Mini Test',
+      lesson: /^ILR-RDG-LSN-L\d{2}$/.test(testId) ? Number(testId.slice(-2)) : null,
       moduleLabel: module ? (MODULE_LABEL[module] || module) : null,
       passageCount: positiveInteger(raw?.passage_count) || 1,
       totalQuestions: positiveInteger(raw?.total_questions),
@@ -99,6 +101,7 @@ export function ReadingMiniTestBehavior() {
 
 function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
   const [module, setModule] = useState('');
+  const [retryToken, setRetryToken] = useState(0);
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
@@ -133,7 +136,7 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
           { signal: controller.signal },
         );
         if (disposed) return;
-        const tests = normalizeTests(payload);
+        const tests = normalizeTests(payload).sort((a, b) => (a.lesson ?? 1000) - (b.lesson ?? 1000) || (a.testId.startsWith('ILR-RDG-DRL-') && b.testId.startsWith('ILR-RDG-DRL-') ? a.testId.localeCompare(b.testId) : 0));
         setState({ status: 'ready', tests, total: normalizeTotal(payload, tests.length) });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
@@ -145,7 +148,7 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
       disposed = true;
       controller.abort();
     };
-  }, [accountKey, module]);
+  }, [accountKey, module, retryToken]);
 
   const shown = state.status === 'ready' ? state.tests.length : 0;
   const total = state.status === 'ready' ? state.total : null;
@@ -157,8 +160,8 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
       }
     });
   }
-  const popularDuration = [...durationCounts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? null;
+  const durations = [...durationCounts.keys()].sort((a, b) => a - b);
+  const durationLabel = durations.length > 1 ? `${durations[0]}–${durations[durations.length - 1]} phút` : durations.length ? `${durations[0]} phút` : '—';
   const resultText = state.status === 'loading'
     ? 'Đang cập nhật danh sách…'
     : state.status === 'error'
@@ -169,7 +172,7 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
 
   return (
     <ReadingMiniTestShell
-      durationCount={popularDuration ? `${popularDuration} phút` : '—'}
+      durationCount={durationLabel}
       totalCount={total ?? '—'}
     >
       <section className="rv-library" aria-labelledby="rv-library-title">
@@ -207,11 +210,13 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
         <div className="rv-empty" id="state-empty">Chưa có mini test nào.</div>
       ) : null}
       {state.status === 'error' ? (
-        <div className="rv-error" id="state-error">Không tải được danh sách bài thi. Vui lòng thử lại.</div>
+        <div className="rv-error" id="state-error">Không tải được danh sách bài thi. Vui lòng thử lại. <button type="button" onClick={() => setRetryToken((value) => value + 1)}>Thử lại</button></div>
       ) : null}
       {state.status === 'ready' && state.tests.length ? (
         <div className="rv-grid rv-grid--tests" id="rv-grid">
-          {state.tests.map((test) => (
+          {state.tests.map((test, index) => (
+            <Fragment key={test.key}>
+            {(index === 0 || Boolean(test.lesson) !== Boolean(state.tests[index - 1].lesson)) && <h3 className="rv-mini-group">{test.lesson ? 'Lộ trình bài học · theo thứ tự' : 'Luyện từng dạng bài'}</h3>}
             <a
               aria-label={`Bắt đầu mini test ${test.title}`}
               className="rv-card"
@@ -219,10 +224,11 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
               key={test.key}
             >
               <div className="rv-card__top">
-                <span className="rv-card__code">{test.testId || 'MINI TEST'}</span>
+                <span className="rv-card__code">{test.lesson ? `BÀI ${String(test.lesson).padStart(2, '0')}` : 'LUYỆN DẠNG BÀI'}</span>
                 {test.moduleLabel ? <span className="rv-pill is-brand">{test.moduleLabel}</span> : null}
               </div>
               <h3>{test.title}</h3>
+              <small className="rv-card__code">{test.testId}</small>
               <div className="rv-card__facts" aria-label="Cấu trúc mini test">
                 <span><strong>{test.passageCount}</strong> đoạn văn</span>
                 <span><strong>{test.totalQuestions ?? '—'}</strong> câu hỏi</span>
@@ -234,7 +240,7 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
                 </span>
                 <span className="rv-card__cta">Bắt đầu mini test <span aria-hidden="true">→</span></span>
               </div>
-            </a>
+            </a></Fragment>
           ))}
         </div>
       ) : null}

@@ -152,9 +152,9 @@ headword: "pp-nominalization-paraphrase"
 skill: "error_id"
 subtype: "intermediate"
 prompt: "Đúng hay Sai: 'Scientists regulate the ecosystem' và 'Scientific regulation of the ecosystem' là paraphrase vì cả hai nói cùng ý dùng danh hoá."
-answer: true
+answer: false
 grammar_article_slug: "paraphrase-patterns"
-explain: "ĐÚNG — cụm danh từ 'regulation of the ecosystem' (danh hoá của 'regulate the ecosystem') tạo thành paraphrase. Cấu trúc khác nhưng ý như nhau."
+explain: "SAI khi khẳng định luôn cùng nghĩa: Scientists nêu tác nhân là các nhà khoa học; scientific có thể chỉ phương pháp/tính chất khoa học, không bảo toàn tác nhân đó. Có thể danh hóa thành 'the scientists' regulation of the ecosystem' khi ngữ cảnh cần giữ chủ thể. Cụm danh từ cũng chưa phải một câu khẳng định đầy đủ."
 ---
 
 ---
@@ -179,9 +179,9 @@ headword: "pp-nominalization-paraphrase"
 skill: "contrast"
 subtype: "intermediate"
 prompt: "Đúng hay Sai: 'Populations migrated to cities' và 'Population migration to cities was significant' là paraphrase sử dụng cách thay đổi từ loại (nominalization)."
-answer: true
+answer: false
 grammar_article_slug: "paraphrase-patterns"
-explain: "ĐÚNG — 'migrated' (động từ) → 'migration' (danh từ), 'populations' thành tính từ sở hữu 'population' bổ ngữ. Đây là paraphrase danh hoá điển hình trong Reading học thuật."
+explain: "SAI về tương đương toàn bộ nghĩa: migrated → migration là danh hóa, nhưng was significant thêm mức độ hoặc tầm quan trọng chưa có trong câu gốc. Population trong population migration là danh từ bổ nghĩa, không phải tính từ sở hữu. Đổi từ loại không cho phép tự thêm dữ kiện."
 ---
 
 ---
@@ -335,9 +335,9 @@ headword: "pp-negation-of-opposite"
 skill: "usage"
 subtype: "intermediate"
 prompt: "Đúng hay Sai: 'Profit margins increased' và 'Profit margins did not fall' là paraphrase vì chúng nêu cùng ý dù dùng phủ định của trái nghĩa."
-answer: true
+answer: false
 grammar_article_slug: "paraphrase-patterns"
-explain: "ĐÚNG — 'increased' và 'did not fall' diễn đạt cùng thực tế: lợi nhuận đi lên. Phủ định trái nghĩa tạo paraphrase logic tương đương."
+explain: "SAI — increased kéo theo did not fall với cùng đối tượng và hai mốc, nhưng chiều ngược lại không đúng: did not fall còn có thể là stayed the same. Đây là quan hệ suy ra một chiều, không phải paraphrase tương đương. Profit margins là biên lợi nhuận, không chỉ toàn bộ lợi nhuận."
 ---
 
 ---
@@ -374,9 +374,10 @@ input: "text"
 headword: "pp-negation-of-opposite"
 skill: "production"
 subtype: "advanced"
-prompt: "Explain the paraphrase relationship: 'The environmental policy proved ineffective' could be rephrased as 'The environmental policy was ______ effective.' (fill with a negation phrase, 2 words)"
-accept: ["not effective", "not very", "far from", "hardly"]
+prompt: "Replace the prefix in ineffective with the negation not (ONE word): 'The environmental policy was ineffective.' → 'The environmental policy was ____ effective.'"
+accept: ["not"]
 case_sensitive: false
 grammar_article_slug: "paraphrase-patterns"
-explain: "'Ineffective' = 'not effective' = 'not working'. Phủ định của trái nghĩa tạo paraphrase toàn tương trong Reading học thuật."
+explain: "Ineffective được đổi thành not effective trong phép biến đổi này. Chỉ điền not vì effective đã in sẵn. Not very effective, hardly effective hoặc not truly effective có thể mang mức độ/sắc thái khác; không gọi chúng tự động tương đương hoàn toàn."
+hint: "gõ not; effective đã có trong câu"
 ---

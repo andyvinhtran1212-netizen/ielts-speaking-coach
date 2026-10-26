@@ -15,7 +15,7 @@ export function ListeningAnalyticsShell({ children }: { children: ReactNode }) {
           <h1>Biết điểm yếu để luyện đúng bài</h1>
           <p>Đọc xu hướng, xem mức hoàn thành và bắt đầu ngay với dạng bài đang kéo điểm xuống.</p>
         </div>
-        <Link href="/listening/practice">Luyện ngay <span aria-hidden="true">→</span></Link>
+        <Link href="/listening/ielts">Luyện ngay <span aria-hidden="true">→</span></Link>
       </section>
       {children}
     </main>

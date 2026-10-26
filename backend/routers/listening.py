@@ -20,6 +20,7 @@ Storage bucket: `listening-audio` (private, signed URLs only — Sprint
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -33,6 +34,7 @@ from fastapi import (
     UploadFile,
 )
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.concurrency import run_in_threadpool
 
 from config import settings
 from models.dictation_grading import (
@@ -89,6 +91,7 @@ from services.active_player_lifecycle import (
 from models.listening_source_collection import SOURCE_PROGRAMME, SOURCE_CONTRACT
 from models.listening_programmes import (
     ListeningAttemptReviewResponse,
+    ListeningContentListResponse,
     ListeningGuidedStateResponse,
     ListeningLessonDetailResponse,
     ListeningLessonListResponse,
@@ -1939,7 +1942,7 @@ async def admin_delete_listening_exercise(
 # ── User route — content browse (Sprint 11.5) ─────────────────────────────────
 
 
-@user_router.get("/content")
+@user_router.get("/content", response_model=ListeningContentListResponse)
 async def list_listening_content(
     accent_tag: str | None = Query(default=None),
     cefr_level: str | None = Query(default=None),
@@ -1965,17 +1968,56 @@ async def list_listening_content(
             422, f"cefr_level must be one of {sorted(_CEFR_VALUES)}",
         )
 
+    # Resolve eligibility before pagination. Reserved/unfinished test sections
+    # otherwise occupy the first page while the launchable content is buried.
+    content_rows = await run_in_threadpool(
+        _published_content_rows, accent_tag=accent_tag, cefr_level=cefr_level,
+        ielts_section=ielts_section, newest_first=True,
+    )
+    # Standalone modes sign the section's own audio. A public parent can use
+    # assembled audio even when the section is only a render placeholder.
+    audio_content_ids = [row["id"] for row in content_rows
+                         if str(row.get("audio_storage_path") or "").strip()]
+    parent_result, modes_result = await asyncio.gather(
+        run_in_threadpool(_browse_public_parents, content_rows),
+        run_in_threadpool(_published_content_modes, audio_content_ids),
+        return_exceptions=True,
+    )
+    if isinstance(parent_result, BaseException):
+        logger.warning("[listening] parent practice lookup failed: %s", parent_result)
+        raise HTTPException(503, "Listening catalogue temporarily unavailable")
+    parents = parent_result
+    modes_lookup_failed = isinstance(modes_result, BaseException)
+    if modes_lookup_failed:
+        logger.warning("[listening] available_modes lookup failed: %s", modes_result)
+        # Readiness determines membership/total for standalone content. A
+        # failure cannot truthfully be reported as zero eligible exercises.
+        if any(str(row.get("audio_storage_path") or "").strip()
+               and str(row.get("test_id") or "") not in parents for row in content_rows):
+            raise HTTPException(503, "Listening catalogue temporarily unavailable")
+        modes_by_content = {}
+    else:
+        modes_by_content, _ = modes_result
+    standalone_modes = {"dictation", "gist", "true_false", "mcq"}
+    eligible_rows = [row for row in content_rows
+                     if str(row.get("test_id") or "") in parents
+                     or standalone_modes.intersection(modes_by_content.get(str(row["id"]), []))]
+    total = len(eligible_rows)
+    page_ids = [row["id"] for row in eligible_rows[offset:offset + limit]]
+    if not page_ids:
+        return {"items": [], "total": total, "limit": limit, "offset": offset,
+                "modes_lookup_failed": modes_lookup_failed, "practice_lookup_failed": False}
     q = (
         supabase_admin.table("listening_content")
         .select(
             "id,title,description,accent_tag,cefr_level,ielts_section,"
-            "topic_tags,audio_duration_seconds,is_premium,created_at",
-            count="exact",
+            "topic_tags,audio_duration_seconds,is_premium,created_at,test_id",
         )
         .eq("status", "published")
         .neq("source_type", "programme_form")
         .order("created_at", desc=True)
-        .range(offset, offset + limit - 1)
+        .in_("id", page_ids)
+        .order("id")
     )
     if accent_tag:
         q = q.eq("accent_tag", accent_tag)
@@ -1984,50 +2026,25 @@ async def list_listening_content(
     if ielts_section is not None:
         q = q.eq("ielts_section", ielts_section)
 
-    res = q.execute()
+    res = await run_in_threadpool(q.execute)
     items = res.data or []
-
-    # Which exercise modes each row can actually serve. Without this the
-    # browse card offered all four mode links unconditionally, and three of
-    # them dead-ended on "Bài này chưa có dạng ..." because no exercise had
-    # ever been authored. One extra round trip for the whole page, not N+1.
-    modes_by_content: dict[str, list[str]] = {c["id"]: [] for c in items if c.get("id")}
-    modes_lookup_failed = False
-    if modes_by_content:
-        try:
-            ex = (
-                supabase_admin.table("listening_exercises")
-                .select(_EXERCISE_READY_COLS)
-                .eq("status", "published")
-                .in_("content_id", list(modes_by_content))
-                .execute()
-            )
-            for row in ex.data or []:
-                bucket = modes_by_content.get(row.get("content_id"))
-                etype = row.get("exercise_type")
-                if (bucket is not None and etype and etype not in bucket
-                        and _exercise_is_ready(row)):
-                    bucket.append(etype)
-        except Exception as exc:                                             # pragma: no cover
-            logger.warning("[listening] available_modes lookup failed: %s", exc)
-            # An empty list here would be indistinguishable from "this content
-            # genuinely has no exercises" — the browse card would print "chưa có
-            # dạng luyện nào" and a DB fault would read as canonical no-data.
-            # Same rule the access-code endpoints already follow with
-            # `association_lookup_failed`: say the lookup failed, never invent
-            # an answer.
-            modes_lookup_failed = True
     for c in items:
+        parent_id = str(c.pop("test_id", "") or "")
+        parent = parents.get(parent_id)
+        c["practice_test_id"] = str(parent["id"]) if parent else None
+        c["practice_test_type"] = parent["test_type"] if parent else None
         c["available_modes"] = (
-            None if modes_lookup_failed else sorted(modes_by_content.get(c.get("id"), []))
+            None if modes_lookup_failed
+            else sorted(standalone_modes.intersection(modes_by_content.get(str(c.get("id")), [])))
         )
 
     return {
         "items":  items,
-        "total":  getattr(res, "count", None) or 0,
+        "total":  total,
         "limit":  limit,
         "offset": offset,
         "modes_lookup_failed": modes_lookup_failed,
+        "practice_lookup_failed": False,
     }
 
 
@@ -4942,32 +4959,41 @@ def _exercise_is_ready(row: dict) -> bool:
     return False
 
 
-def _published_content_ids() -> list[str]:
+def _published_content_rows(*, accent_tag: str | None = None, cefr_level: str | None = None,
+                            ielts_section: int | None = None, newest_first: bool = False) -> list[dict]:
     """Every published listening_content id, paged past the PostgREST cap.
 
     A bare `.select()` silently stops at 1000 rows, which would under-count
     the exercise-mode tiles the moment the library grows. Page explicitly.
     """
-    out: list[str] = []
+    out: list[dict] = []
     start, step = 0, 1000
     while True:
-        res = (
+        query = (
             supabase_admin.table("listening_content")
-            .select("id")
+            .select("id,test_id,audio_storage_path")
             .eq("status", "published")
             .neq("source_type", "programme_form")
-            # LIMIT/OFFSET without ORDER BY has no defined row order in
-            # Postgres, so successive pages could repeat or skip rows and the
-            # count would drift. `id` is unique, which makes the walk stable.
-            .order("id")
-            .range(start, start + step - 1)
-            .execute()
         )
+        if accent_tag:
+            query = query.eq("accent_tag", accent_tag)
+        if cefr_level:
+            query = query.eq("cefr_level", cefr_level)
+        if ielts_section is not None:
+            query = query.eq("ielts_section", ielts_section)
+        if newest_first:
+            query = query.order("created_at", desc=True)
+        # A unique tie-breaker keeps the metadata walk and card page aligned.
+        res = query.order("id").range(start, start + step - 1).execute()
         rows = res.data or []
-        out.extend(r["id"] for r in rows if r.get("id"))
+        out.extend(r for r in rows if r.get("id"))
         if len(rows) < step:
             return out
         start += step
+
+
+def _published_content_ids() -> list[str]:
+    return [row["id"] for row in _published_content_rows()]
 
 
 _PROGRAMME_COPY = {
@@ -5212,97 +5238,128 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
     return cards, resume, recent, partial
 
 
-@user_router.get("/overview", response_model=ListeningOverviewResponse)
-async def listening_overview(authorization: str | None = Header(default=None)):
-    """How much practice material each Listening surface actually holds.
-
-    The landing page renders one tile per surface. Before this endpoint the
-    tiles were hard-coded, so four of them pointed at surfaces with zero
-    published rows — a learner clicked "Nghe ý chính" and landed on an empty
-    page. The landing page now hides a tile whose count is 0, which means the
-    count MUST match what the corresponding list endpoint would return, or a
-    tile promises content its own page cannot show.
-
-    So every filter here mirrors ``list_published_listening_tests`` /
-    ``list_listening_content`` / ``get_listening_exercises`` exactly:
-    published only, audio-ready only, exam-reserved papers excluded, and an
-    exercise counts only when BOTH it and its content row are published.
-    ``test_counts_consistent_with_list`` in the test suite pins that.
-    """
-    user = await _require_auth(authorization)
-
-    tests: dict[str, int] = {}
-    for kind in ("full", "mini", "drill", "practice"):
-        q = (
+def _published_test_counts() -> tuple[dict[str, int], dict[str, int], set[str]]:
+    """Count all diagnostic shelves in one paged metadata read, without keys."""
+    tests = {kind: 0 for kind in ("full", "mini", "drill", "practice")}
+    groups: dict[str, int] = {}
+    public_test_ids: set[str] = set()
+    offset = 0
+    while True:
+        rows = (
             supabase_admin.table("listening_public_practice_catalog")
-            .select("id", count="exact")
+            .select("id,test_type,practice_group:metadata->>practice_group")
             .eq("status", "published")
-            .eq("test_type", kind)
-            .eq("scoring_policy", "diagnostic")
-            .eq("is_public", True)
-            .or_(_AUDIO_READY_OR)
-            .limit(1)
-        )
-        tests[kind] = getattr(q.execute(), "count", None) or 0
-
-    content_ids = set(_published_content_ids())
-    modes: dict[str, int] = {t: 0 for t in sorted(_EXERCISE_TYPES)}
-    if content_ids:
-        # Intersect in Python rather than `.in_(content_ids)`: the id list is
-        # unbounded and a few thousand UUIDs in a query string exceeds the URL
-        # limit, which would fail as a 4xx rather than a wrong count.
-        start, step = 0, 1000
-        while True:
-            res = (
-                supabase_admin.table("listening_exercises")
-                .select(_EXERCISE_READY_COLS)
-                .eq("status", "published")
-                .order("id")                       # stable paging — see above
-                .range(start, start + step - 1)
-                .execute()
-            )
-            rows = res.data or []
-            for r in rows:
-                if (r.get("content_id") in content_ids
-                        and r.get("exercise_type") in modes
-                        and _exercise_is_ready(r)):
-                    modes[r["exercise_type"]] += 1
-            if len(rows) < step:
-                break
-            start += step
-
-    # The Luyện nhanh page is one library with three tabs, so the landing needs
-    # the per-tab counts too — a tab with nothing behind it should not render,
-    # for the same reason a zero-count tile does not.
-    practice_groups: dict[str, int] = {}
-    if tests.get("practice"):
-        pgq = (
-            supabase_admin.table("listening_public_practice_catalog")
-            .select("metadata")
-            .eq("status", "published")
-            .eq("test_type", "practice")
             .eq("scoring_policy", "diagnostic")
             .eq("is_public", True)
             .or_(_AUDIO_READY_OR)
             .order("id")
-            .limit(2000)
+            .range(offset, offset + 999)
+            .execute().data or []
         )
-        pg = pgq.execute()
-        for row in pg.data or []:
-            g = ((row.get("metadata") or {}).get("practice_group") or "").strip()
-            if g:
-                practice_groups[g] = practice_groups.get(g, 0) + 1
+        for row in rows:
+            kind = row.get("test_type")
+            if kind not in tests:
+                continue
+            tests[kind] += 1
+            public_test_ids.add(str(row["id"]))
+            if kind == "practice":
+                group = (row.get("practice_group") or "").strip()
+                if group:
+                    groups[group] = groups.get(group, 0) + 1
+        if len(rows) < 1000:
+            return tests, groups, public_test_ids
+        offset += 1000
 
-    programmes, resume, recent, partial_data = _load_programme_overview(user["id"])
+
+def _browse_public_parents(content_rows: list[dict]) -> dict[str, dict]:
+    parents: dict[str, dict] = {}
+    parent_ids = sorted({str(row["test_id"]) for row in content_rows if row.get("test_id")})
+    for start in range(0, len(parent_ids), 100):
+        rows = (
+            supabase_admin.table("listening_public_practice_catalog")
+            .select("id,test_type")
+            .in_("id", parent_ids[start:start + 100])
+            .eq("status", "published")
+            .eq("is_public", True)
+            .eq("scoring_policy", "diagnostic")
+            .or_(_AUDIO_READY_OR)
+            .execute().data or []
+        )
+        parents.update({str(row["id"]): row for row in rows
+                        if row.get("test_type") in {"full", "mini", "drill", "practice"}})
+    return parents
+
+
+def _published_content_modes(content_ids: list[str]) -> tuple[dict[str, list[str]], dict[str, int]]:
+    modes = {kind: 0 for kind in sorted(_EXERCISE_TYPES)}
+    by_content: dict[str, list[str]] = {}
+    # Restrict before reading JSON: programme/source form payloads are large
+    # and do not belong to this standalone library. UUID batches bound URL size.
+    for batch_start in range(0, len(content_ids), 100):
+        batch = content_ids[batch_start:batch_start + 100]
+        offset = 0
+        while True:
+            rows = (
+                supabase_admin.table("listening_exercises")
+                .select(_EXERCISE_READY_COLS)
+                .eq("status", "published")
+                .in_("content_id", batch)
+                .in_("exercise_type", sorted(_EXERCISE_TYPES - {"mini_test"}))
+                .order("id")
+                .range(offset, offset + 999)
+                .execute().data or []
+            )
+            for row in rows:
+                kind = row.get("exercise_type")
+                if kind in modes and _exercise_is_ready(row):
+                    modes[kind] += 1
+                    bucket = by_content.setdefault(str(row["content_id"]), [])
+                    if kind not in bucket:
+                        bucket.append(kind)
+            if len(rows) < 1000:
+                break
+            offset += 1000
+    return by_content, modes
+
+
+def _published_library_counts() -> tuple[list[dict], dict[str, int], set[str]]:
+    content_rows = _published_content_rows()
+    audio_content_ids = [row["id"] for row in content_rows
+                         if str(row.get("audio_storage_path") or "").strip()]
+    by_content, modes = _published_content_modes(audio_content_ids)
+    standalone_modes = {"dictation", "gist", "true_false", "mcq"}
+    runnable_ids = {content_id for content_id, kinds in by_content.items()
+                    if standalone_modes.intersection(kinds)}
+    return content_rows, modes, runnable_ids
+
+
+@user_router.get("/overview", response_model=ListeningOverviewResponse)
+async def listening_overview(authorization: str | None = Header(default=None)):
+    """Canonical counts and account-owned activity, without serial I/O stalls.
+
+    The existing wire shape and published/audio/public-policy predicates remain
+    unchanged. Independent reads run in worker threads: synchronous PostgREST
+    must not block the application event loop or unrelated learner pages.
+    """
+    user = await _require_auth(authorization)
+    (tests, practice_groups, public_test_ids), (content_rows, modes, runnable_ids), programme_data = await asyncio.gather(
+        run_in_threadpool(_published_test_counts),
+        run_in_threadpool(_published_library_counts),
+        run_in_threadpool(_load_programme_overview, user["id"]),
+    )
+    programmes, resume, recent, partial_data = programme_data
+    runnable_ids.update(str(row["id"]) for row in content_rows
+                        if str(row.get("test_id") or "") in public_test_ids)
     return {
-        "tests":           tests,
+        "tests": tests,
         "practice_groups": practice_groups,
-        "content":         len(content_ids),
-        "exercise_modes":  modes,
-        "programmes":      programmes,
-        "resume":          resume,
-        "recent":          recent,
-        "partial_data":    partial_data,
+        "content": len(content_rows),
+        "playable_content": len(runnable_ids),
+        "exercise_modes": modes,
+        "programmes": programmes,
+        "resume": resume,
+        "recent": recent,
+        "partial_data": partial_data,
     }
 
 
@@ -8520,12 +8577,27 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             if storage_path and not (isinstance(inline_map, str) and inline_map.strip()):
                 p = dict(p)
                 p["map_image_url"] = _sign_map_image_url(storage_path, expires_in=7200)
+            # Older imports can retain an adjacent block's solution copy.
+            # Only this exercise's actual slots may contribute review fields;
+            # otherwise unordered DB rows can overwrite a corrected owner.
+            owned_questions = {
+                int(item["q_num"])
+                for rows in (p.get("questions"), p.get("answers"))
+                if isinstance(rows, list)
+                for item in rows
+                if isinstance(item, dict) and item.get("q_num") is not None
+            }
+            if isinstance(p.get("answers"), dict):
+                owned_questions.update(int(q) for q in p["answers"] if str(q).isdigit())
             for q, sol in (p.get("solutions") or {}).items():
-                solutions_by_q[int(q)] = sol
+                if int(q) in owned_questions:
+                    solutions_by_q[int(q)] = sol
             for q, w in (p.get("audio_windows") or {}).items():
-                windows_by_q[int(q)] = w
+                if int(q) in owned_questions:
+                    windows_by_q[int(q)] = w
             for q, idx in (p.get("transcript_anchors") or {}).items():
-                anchors_by_q[int(q)] = idx
+                if int(q) in owned_questions:
+                    anchors_by_q[int(q)] = idx
             for q, value in (p.get("self_review") or {}).items():
                 self_review_by_q[int(q)] = value
             for stimulus_id, value in (p.get("controlled_transcripts") or {}).items():

@@ -1,0 +1,731 @@
+{
+  "provenance": "One actual authored template per each of the 39 frozen revised Reading papers imported by MOCK0016-PROD-20261006. No answer keys.",
+  "cases": [
+    {
+      "revised_uuid": "03b84021-21c2-470e-98e1-1f184bd42604",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B14-T1-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Children's play\nUses of children's play\n- building a magical kingdom' may help develop {{1}}\n- board games involve {{2}} and turn-taking\nRecent changes affecting children's play\n- populations of {{3}} have grown\n- opportunities for free play are limited due to\n- fear of {{4}}\n- fear of {{5}}\n- increased {{6}}. in schools\nInternational policies on children's play\n- it is difficult to find {{7}} to support new policies\nresearch needs to study the impact of play on the rest of the child's {{8}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "0fdf2076-79ee-471e-bc00-ac938dbdf895",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B14-T3-REV01",
+      "q_num": 23,
+      "question_type": "summary_completion",
+      "context": {
+        "template": {
+          "summary_text": "Ross Piper and fellow zoologists at Aberystwyth University are using their expertise\nin {{23}} when undertaking bioprospecting with insects. They are\nespecially interested in the compounds that insects produce to overpower and\npreserve their {{24}} They are also interested in compounds which\ninsects use to protect themselves from pathogenic bacteria and fungi found in their\n{{25}}. Piper hopes that these substances will be useful in the\ndevelopment of drugs such as {{26}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "10054c95-f504-4f6a-92bc-649ddbede939",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B14-T2-REV01",
+      "q_num": 9,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Alexander Henderson\nEarly life\n- was born in Scotland in 1831 - father was a {{9}}\n- trained as an accountant, emigrated to Canada in 1855\nStart of a photographic career\n- opened up a photographic studio in 1866\n- took photos of city life, but preferred landscape photography\n- people bought Henderson's photos because photography took up\nconsiderable time and the {{10}} was heavy\n- the photographs Henderson sold were {{11}} or souvenirs\nTravelling as a professional photographer\n- travelled widely in Quebec and Ontario in 1870s and 1880s\n- took many trips along eastern rivers in a {{12}}\n- worked for Canadian railways between 1875 and 1897\nworked for CPR in 1885 and photographed the {{13}}\nand the railway at Rogers Pass"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "173f7689-66a4-4efd-b36a-b602f4406b78",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B15-T4-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The importance of the huarango tree\nits roots can extend as far as 80 metres into the soil\ncan access {{1}} deep below the surface\nwas a crucial part of local inhabitants' {{2}} a long time ago\n- helped people to survive periods of {{3}}\n- prevents {{4}} of the soil\n- prevents land from becoming a {{5}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "1eba64c6-b326-4385-82c6-4384296ab539",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B17-T2-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The Dead Sea Scrolls\nDiscovery\nQumran, 1946/7\nthree Bedouin shepherds in their teens were near an opening on side of cliff\n- heard a noise of breaking when one teenager threw a {{1}}\n- teenagers went into the {{2}} and found a number of containers\nmade of {{3}}\nThe scrolls\ndate from between 150 BCE and 70 CE\nthought to have been written by group of people known as the {{4}}\n- written mainly in the {{5}} language\n- most are on religious topics, written using ink on parchment or papyrus"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "373f07dc-23c6-4460-8670-a9680d4e53b1",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B16-T2-REV01",
+      "q_num": 9,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The Uffington White Horse\nThe location of the Uffington White Horse:\n- a distance of 2.5 km from Uffington village\n- near an ancient road known as the {{9}}\n- close to an ancient cemetery that has a number of burial mounds\nDating the Uffington White Horse:\nfirst reference to White Horse Hill appears in {{10}} from\nthe 1070s\nhorses shown on coins from the period 100 BCE - 1 BCE are similar in\nappearance\n- according to analysis of the surrounding {{11}} , the Horse is\nLate Bronze Age / Early Iron Age\nPossible reasons for creation of the Uffington White Horse:\n- an emblem to indicate land ownership\n- formed part of an ancient ritual\nwas a representation of goddess Epona - associated with protection of horses\nand {{12}}\n- was a representation of a Welsh goddess called {{13}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "38e1d207-54fa-4006-b46a-133aac1b78fc",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B19-T1-REV01",
+      "q_num": 8,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The tennis racket and how it has changed\nMike and Bob Bryan made changes to the types of {{8}} used on\ntheir racket frames.\n- Players were not allowed to use the spaghetti-strung racket because of the\namount of {{9}} it created.\nChanges to rackets can be regarded as being as important as players' diets or\nthe {{10}} they do.\nAll rackets used to have natural strings made from the {{11}}\nof animals.\n- Pete Sampras had metal {{12}} put into the frames of\nhis rackets.\n- Gonçalo Oliveira changed the {{13}} on his racket handles."
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "416c79a8-8102-42ee-967f-73fe71e872fe",
+      "test_id": "MOCK0016-PROD-20261006-AVR-READ-001-REV01",
+      "q_num": 36,
+      "question_type": "summary_completion",
+      "context": {
+        "template": {
+          "summary_text": "During slow-wave sleep, the hippocampus can {{36}} patterns related to earlier experience. Over time, memory storage becomes more widely supported in the {{37}}. One group in the nap experiment was allowed {{38}} minutes. The REM finding concerned {{39}} on a particular task. The writer regards sleep as an essential {{40}} of mental activity."
+        },
+        "word_limit": "ONE WORD AND/OR A NUMBER",
+        "instruction": "Complete the summary. Choose ONE WORD AND/OR A NUMBER from the passage for each answer."
+      }
+    },
+    {
+      "revised_uuid": "422eecee-2e54-46b5-9f8c-f0fd3a594a75",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B15-T3-REV01",
+      "q_num": 8,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Moore's career as an artist\n1930s\nMoore's exhibition at the Leicester Galleries is criticised by the press\n- Moore is urged to offer his {{8}} and leave the Royal College\n1940s\nMoore turns to drawing because {{9}} for sculpting are not\nreadily available\n- While visiting his hometown, Moore does some drawings of {{10}}\n- Moore is employed to produce a sculpture of a {{11}}\n- {{12}} start to buy Moore's work\nMoore's increased {{13}} makes it possible for him to do\nmore ambitious sculptures\n1950s\n- Moore's series of bronze figures marks a further change in his style"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "4f5ecf2c-2a62-4efb-a5ca-c3aff088784e",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B14-T4-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Ysabel Giraldo's research\nFocused on a total of {{1}} different age groups of ants, analysing\nBehaviour\n- how well ants looked after their {{2}}\n- their ability to locate {{3}} using a scent trail\n- the effect that {{4}} had on them\n- how {{5}} they attacked prey\nBrains:\n- comparison between age and the {{6}} of dying cells in the brains of ants\n- condition of synaptic complexes (areas in which {{7}} meet) in\nthe brain's 'mushroom bodies'\n- level of two {{8}} in the brain associated with ageing"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "547e9343-4927-48a0-a7fe-d4b31706e08e",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B17-T1-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The London underground railway\nThe problem\nThe {{1}} of London increased rapidly between 1800 and 1850\n- The streets were full of horse-drawn vehicles\nThe proposed solution\n- Charles Pearson, a solicitor, suggested building an underground railway\n- Building the railway would make it possible to move people to better housing in\nthe {{2}}\n- A number of {{3}} agreed with Pearson's idea\n- The company initially had problems getting the {{4}} needed for\nthe project\n- Negative articles about the project appeared in the {{5}}\nThe construction\n- The chosen route did not require many buildings to be pulled down\n- The 'cut and cover' method was used to construct the tunnels\n- With the completion of the brick arch, the tunnel was covered with {{6}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "63ab586a-cbc9-4f3f-9d51-1e85c8bf40d4",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B16-T4-REV01",
+      "q_num": 18,
+      "question_type": "summary_completion",
+      "context": {
+        "options": [
+          {
+            "text": "fast",
+            "label": "A"
+          },
+          {
+            "text": "isolated",
+            "label": "B"
+          },
+          {
+            "text": "emotional",
+            "label": "C"
+          },
+          {
+            "text": "worrying",
+            "label": "D"
+          },
+          {
+            "text": "many",
+            "label": "E"
+          },
+          {
+            "text": "hard",
+            "label": "F"
+          },
+          {
+            "text": "combined",
+            "label": "G"
+          },
+          {
+            "text": "thorough",
+            "label": "H"
+          }
+        ],
+        "template": {
+          "summary_text": "There have been many studies on digital screen use, showing some {{18}}\ntrends. Psychologist Anne Mangen gave high-school students a short story to read, half\nusing digital and half using print mediums. Her team then used a question-and-answer\ntechnique to find out how {{19}} each group's understanding of the plot\nwas. The findings showed a clear pattern in the responses, with those who read screens\nfinding the order of information {{20}} to recall.\nStudies by Ziming Liu show that students are tending to read {{21}}\nwords and phrases in a text to save time. This approach, she says, gives the reader a\nsuperficial understanding of the {{22}} content of material, leaving no time\nfor thought."
+        }
+      }
+    },
+    {
+      "revised_uuid": "697dbb20-e02b-410d-8b70-bba9fe112a64",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B17-T3-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The thylacine\nAppearance and behaviour\n- looked rather like a dog\nhad a series of stripes along its body and tail\nate an entirely {{1}} diet\n- probably depended mainly on {{2}} when hunting\n- young spent first months of life inside its mother's {{3}}\nDecline and extinction\n- last evidence in mainland Australia is a 3,100-year-old {{4}}\n- probably went extinct in mainland Australia due to animals known as dingoes\n- reduction in {{5}} and available sources of food were partly\nresponsible for decline in Tasmania"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "6c8922a4-1a9e-47f2-9505-c3f9429a8a5a",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B13-T1-REV01",
+      "q_num": 1,
+      "question_type": "table_completion",
+      "context": {
+        "question_id": "511a327f-45e9-4b2d-9616-d3e6b5bad8c7",
+        "instructions": null,
+        "instruction": null,
+        "options": null,
+        "template": {
+          "rows": [
+            [
+              "Database of tourism services",
+              [
+                "easy for tourism-related businesses to get on the list",
+                "allowed businesses to {{1}} information regularly",
+                "provided a country-wide evaluation of businesses, including their impact on the {{2}}"
+              ]
+            ],
+            [
+              "Special features on local topics",
+              "e.g. an interview with a former sports {{3}}, and an interactive tour of various locations used in {{4}}"
+            ],
+            [
+              "Information on driving routes",
+              "varied depending on the {{5}}"
+            ],
+            [
+              "Travel Planner",
+              "included a map showing selected places, details of public transport and local {{6}}"
+            ],
+            [
+              "'Your Words'",
+              "travellers could send a link to their {{7}}"
+            ]
+          ],
+          "headers": [
+            "Section of website",
+            "Comments"
+          ],
+          "heading": "",
+          "summary_text": "Section of website | Comments\n--- | ---\nDatabase of tourism services | easy for tourism-related businesses to get on the list; allowed businesses to {{1}} information regularly; provided a country-wide evaluation of businesses, including their impact on the {{2}}\nSpecial features on local topics | e.g. an interview with a former sports {{3}}, and an interactive tour of various locations used in {{4}}\nInformation on driving routes | varied depending on the {{5}}\nTravel Planner | included a map showing selected places, details of public transport and local {{6}}\n'Your Words' | travellers could send a link to their {{7}}"
+        },
+        "max_words": null,
+        "paragraph_labels": null,
+        "labels": null,
+        "image_url": null,
+        "image_alt": null,
+        "template_kind": null,
+        "variant": null,
+        "word_limit": "ONE WORD ONLY",
+        "word_limit_text": null,
+        "response_type": null,
+        "map_svg": null,
+        "map_image_url": null,
+        "metadata": {},
+        "context_provenance": {
+          "question_id": "current_content_fallback",
+          "instructions": "unavailable",
+          "instruction": "unavailable",
+          "options": "unavailable",
+          "template": "current_content_fallback",
+          "max_words": "unavailable",
+          "paragraph_labels": "unavailable",
+          "labels": "unavailable",
+          "image_url": "unavailable",
+          "image_alt": "unavailable",
+          "template_kind": "unavailable",
+          "variant": "unavailable",
+          "word_limit": "current_content_fallback",
+          "word_limit_text": "unavailable",
+          "response_type": "unavailable",
+          "map_svg": "unavailable",
+          "map_image_url": "unavailable",
+          "metadata": "unavailable",
+          "metadata.flow_direction": "unavailable"
+        }
+      },
+      "provenance": "Authenticated production preview GET captured 2026-10-08 before repair."
+    },
+    {
+      "revised_uuid": "75a69f16-f1bf-4835-ba34-921b67ee6261",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B13-T4-REV01",
+      "q_num": 9,
+      "question_type": "sentence_completion",
+      "context": {
+        "template": {
+          "summary_text": "After 1880, Cutty Sark carried {{9}} as its main cargo during its most\nsuccessful time.\nAs a captain and {{10}} Woodget was very skilled.\nFerreira went to Falmouth to repair damage that a {{11}} had caused.\nBetween 1923 and 1954, Cutty Sark was used for {{12}} .\nCutty Sark has twice been damaged by {{13}} in the 21st century."
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "75ae8de9-9530-4829-831b-e9aa8089d5e4",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B13-T2-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The Early History of Cinnamon\nBiblical times: added to {{1}}\nused to show {{2}} between people\nAncient Rome: used for its sweet smell at {{3}}\nMiddle Ages: added to food, especially meat\nwas an indication of a person's {{4}}\nknown as a treatment for {{5}} and other\nhealth problems\ngrown in {{6}}\nmerchants used {{7}} to bring it to\nthe Mediterranean\narrived in the Mediterranean at {{8}}\ntraders took it to {{9}} and sold it to\ndestinations around Europe"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "8d019924-fefd-42d0-896b-59d07ac03760",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B16-T1-REV01",
+      "q_num": 8,
+      "question_type": "table_completion",
+      "context": {
+        "template": {
+          "summary_text": "Reasons why polar bears should be protected\nPeople think of bears as unintelligent and {{8}}.\nHowever, this may not be correct. For example:\n- In Tennoji Zoo, a bear has been seen using a branch as a {{9}}. This allowed him to knock down some {{10}}.\n- A wild polar bear worked out a method of reaching a platform where a {{11}} was located.\n- Polar bears have displayed behaviour such as conscious manipulation of objects and activity similar to a {{12}}.\nBears may also display emotions. For example:\n- They may make movements suggesting {{13}} if disappointed when hunting.\n- They may form relationships with other species."
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "b0214aa8-0fff-4840-b2cd-4ad2c0a56758",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B16-T3-REV01",
+      "q_num": 6,
+      "question_type": "summary_completion",
+      "context": {
+        "template": {
+          "summary_text": "Warships were designed so that they were {{6}} and moved\nquickly. They often remained afloat after battles and were able to sail close to land as\nthey lacked any additional weight. A battering ram made of {{7}}\nwas included in the design for attacking and damaging the timber and oars of\nenemy ships. Warships, such as the 'trireme', had rowers on three different\n{{8}}. Unlike warships, merchant ships had a broad {{9}} that lay far\nbelow the surface of the sea. Merchant ships were steered through the water with\nthe help of large rudders and a tiller bar. They had both square and {{10}}\nsails. On merchant ships and warships, {{11}} was used to\nensure rowers moved their oars in and out of the water at the same time.\nQuantities of agricultural goods such as {{12}} were transported\nby merchant ships to two main ports in Italy. The ships were pulled to the shore by\n{{13}} When the weather was clear and they could see islands\nor land, sailors used landmarks that they knew to help them navigate their route."
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "c384763e-4c84-4e73-ba56-9ad47c079518",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B15-T2-REV01",
+      "q_num": 7,
+      "question_type": "summary_completion",
+      "context": {
+        "template": {
+          "summary_text": "Guard rails were introduced on British roads to improve the {{7}}\nof pedestrians, while ensuring that the movement of {{8}} is\nnot disrupted. Pedestrians are led to access points, and encouraged to cross one\n{{9}} at a time.\nAn unintended effect is to create psychological difficulties in crossing the road,\nparticularly for less {{10}} people. Another result is that some\npeople cross the road in a {{11}} way. The guard rails separate\n{{12}} ,and make it more difficult to introduce forms of transport\nthat are {{13}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "cf66d2b9-dc7a-49dd-bdd2-dfc40f6c7a2e",
+      "test_id": "MOCK0016-PROD-20261006-AVR-READ-002-REV01",
+      "q_num": 27,
+      "question_type": "summary_completion",
+      "context": {
+        "options": [
+          {
+            "text": "six",
+            "label": "A"
+          },
+          {
+            "text": "ten",
+            "label": "B"
+          },
+          {
+            "text": "twenty",
+            "label": "C"
+          },
+          {
+            "text": "fifty",
+            "label": "D"
+          },
+          {
+            "text": "rockwool",
+            "label": "E"
+          },
+          {
+            "text": "twenty-four",
+            "label": "F"
+          },
+          {
+            "text": "five",
+            "label": "G"
+          },
+          {
+            "text": "lettuce",
+            "label": "H"
+          },
+          {
+            "text": "basil",
+            "label": "I"
+          },
+          {
+            "text": "twelve",
+            "label": "J"
+          }
+        ],
+        "template": {
+          "summary_text": "In the illustrative reference facility, the schedule includes {{27}} harvest batches per year across several racks. Seeds are placed in {{28}} plugs on trays. The germination chamber is set near {{29}} degrees Celsius, and trays stay there for {{30}} days. The experimental blue-rich recipe is assigned to {{31}}. The logistics plan targets supermarket shelves within {{32}} hours of cutting."
+        },
+        "instruction": "Complete the summary using the list of words, A–J. Write the correct letter, A–J."
+      }
+    },
+    {
+      "revised_uuid": "de7337d5-d47b-42c2-8ef5-e9b6b817a9e3",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B17-T4-REV01",
+      "q_num": 7,
+      "question_type": "table_completion",
+      "context": {
+        "template": {
+          "rows": [
+            [
+              "Aim",
+              "- to investigate the feeding habits of bats in farmland near the Ranomafana National Park"
+            ],
+            [
+              "Method",
+              "- ultrasonic recording to identify favourite feeding spots\n- DNA analysis of bat {{7}}"
+            ],
+            [
+              "Findings",
+              "- the bats\n  - were most active in rice fields located on hills\n  - ate pests of rice, {{8}}, sugarcane, nuts and fruit\n  - prevent the spread of disease by eating {{9}} and blackflies\n- local attitudes to bats are mixed:\n  - they provide food rich in {{10}}\n  - the buildings where they roost become {{11}}\n  - they play an important role in local {{12}}"
+            ],
+            [
+              "Recommendation",
+              "- farmers should provide special {{13}} to support the bat population"
+            ]
+          ],
+          "headers": [
+            "",
+            "Details"
+          ],
+          "heading": "The study carried out by Rocha's team",
+          "summary_text": " | Details\n--- | ---\nAim | - to investigate the feeding habits of bats in farmland near the Ranomafana National Park\nMethod | - ultrasonic recording to identify favourite feeding spots\n- DNA analysis of bat {{7}}\nFindings | - the bats\n  - were most active in rice fields located on hills\n  - ate pests of rice, {{8}}, sugarcane, nuts and fruit\n  - prevent the spread of disease by eating {{9}} and blackflies\n- local attitudes to bats are mixed:\n  - they provide food rich in {{10}}\n  - the buildings where they roost become {{11}}\n  - they play an important role in local {{12}}\nRecommendation | - farmers should provide special {{13}} to support the bat population"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "e14df919-ac6c-41ae-9d26-9c913bfbb87f",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B15-T1-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The nutmeg tree and fruit\n- the leaves of the tree are {{1}} in shape\nthe {{2}} surrounds the fruit and breaks open when the fruit\nis ripe\nthe {{3}} is used to produce the spice nutmeg\n- the covering known as the aril is used to produce {{4}}\nthe tree has yellow flowers and fruit"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "ee26860d-79cb-4b2c-9847-e9b34f5ce636",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B18-T1-REV01",
+      "q_num": 1,
+      "question_type": "sentence_completion",
+      "context": {
+        "template": {
+          "summary_text": "Urban farming in Paris\nVertical tubes are used to grow strawberries, {{1}} and herbs.\nThere will eventually be a daily harvest of as much as {{2}} in\nweight of fruit and vegetables.\nIt may be possible that the farm's produce will account for as much as 10% of\nthe city's {{3}} overall."
+        },
+        "word_limit": "NO MORE THAN TWO WORDS AND/OR A NUMBER"
+      }
+    },
+    {
+      "revised_uuid": "f9eab468-4702-4580-adce-01e97e8af2c1",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B13-T3-REV01",
+      "q_num": 1,
+      "question_type": "table_completion",
+      "context": {
+        "template": {
+          "rows": [
+            [
+              "trunk",
+              "up to 30 metres",
+              "timber for houses and the making of {{1}}"
+            ],
+            [
+              "leaves",
+              "up to 6 metres long",
+              "to make brushes"
+            ],
+            [
+              "flowers",
+              "at the top of the trunk",
+              "stems provide sap, used as a drink or a source of {{2}}"
+            ],
+            [
+              "fruits",
+              "outer layer",
+              ""
+            ],
+            [
+              "fruits",
+              "middle layer (coir fibres)",
+              "used for {{3}}, etc."
+            ],
+            [
+              "fruits",
+              "inner layer (shell)",
+              [
+                "a source of {{4}}",
+                "(when halved) for {{5}}"
+              ]
+            ],
+            [
+              "fruits",
+              "coconut water",
+              [
+                "a drink",
+                "a source of {{6}} for other plants"
+              ]
+            ],
+            [
+              "fruits",
+              "coconut flesh",
+              [
+                "oil and milk for cooking and {{7}}",
+                "glycerine (an ingredient in {{8}})"
+              ]
+            ]
+          ],
+          "headers": [
+            "Part",
+            "Description",
+            "Uses"
+          ],
+          "heading": "THE COCONUT PALM",
+          "summary_text": "Part | Description | Uses\n--- | --- | ---\ntrunk | up to 30 metres | timber for houses and the making of {{1}}\nleaves | up to 6 metres long | to make brushes\nflowers | at the top of the trunk | stems provide sap, used as a drink or a source of {{2}}\nfruits | outer layer | \nfruits | middle layer (coir fibres) | used for {{3}}, etc.\nfruits | inner layer (shell) | a source of {{4}}; (when halved) for {{5}}\nfruits | coconut water | a drink; a source of {{6}} for other plants\nfruits | coconut flesh | oil and milk for cooking and {{7}}; glycerine (an ingredient in {{8}})"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "0758ff0a-f643-50ed-8e9d-f9130109f6de",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B20-T1-REV02",
+      "q_num": 7,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "New Zealand's kākāpō\nA type of parrot:\n● diet consists of fern fronds, various parts of a tree and {{7}}.\n● nests are created in {{8}} where eggs are laid.\nArrival of Polynesian settlers\n● the {{9}} of the kākāpō were used to make clothes.\nArrival of European colonisers\n● {{10}} were an animal which they introduced that ate the\nkākāpō's food sources.\nProtecting kākāpō\n● Richard Henry, a conservationist, tried to protect the kākāpō.\n● a definite sighting of female kākāpō on Rakiura Island was reported in\nthe year {{11}}.\n● the Recovery Plan included an increase in {{12}}.\n● a current goal of the Recovery Plan is to maintain the involvement of {{13}} in kākāpō protection."
+        },
+        "word_limit": "ONE WORD AND/OR A NUMBER"
+      }
+    },
+    {
+      "revised_uuid": "25dcb9ed-e196-5cee-a21e-db3ef89fbe46",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B20-T4-REV02",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The life and work of Georgia O'Keeffe\n● studied art, then worked as a {{1}} in various places in the USA\n● created drawings using {{2}} which were exhibited in New York\nCity\n● moved to New York and became famous for her paintings of the city's {{3}}\n● produced a series of innovative close-up paintings of {{4}}\n● went to New Mexico and was initially inspired to paint the many\n● {{5}} that could be found there\n● continued to paint various features that together formed the dramatic\n● {{6}} of New Mexico for over forty years\n● travelled widely by plane in later years, and painted pictures of clouds and {{7}} seen from above"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "282c55e1-0581-5e82-b440-da0d72f22a6b",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B20-T3-REV02",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The history of frozen food\n2,000 years ago, South America\n● People conserved the nutritional value of {{1}}. , using a method\nof freezing then drying.\n1851, USA\n● {{2}}. was kept cool by ice during transportation in specially\nadapted trains.\n1880, Australia\n● Two kinds of {{3}}. were the first frozen food shipped to England.\n1917 onwards, USA\n● Clarence Birdseye introduced innovations including:\n- quick-freezing methods, so that {{4}}. did not spoil the\nfood.\n- packaging products with {{5}}., so the product was visible.\nEarly 1940s, USA\n● Frozen food became popular because of a shortage of {{6}}.\n1950s, USA\n● A large number of homes now had a {{7}}."
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "2d8f0b39-0099-4775-9b83-7cbbb0baa51e",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B18-T3-REV01",
+      "q_num": 5,
+      "question_type": "summary_completion",
+      "context": {
+        "template": {
+          "summary_text": "Wood is a traditional building material, but current environmental concerns are\nencouraging {{5}} to use wood in modern construction projects.\nUsing wood, however, has its challenges. For example, as {{6}} in\nthe atmosphere enters wood, it increases in size. In addition, wood is prone to pests\nand the risk of fire is greater. However, wood can be turned into a better construction\nmaterial if it is treated and combined with other materials. In one process,\n{{7}} of solid wood are glued together to create building blocks. These\nblocks are lighter than concrete and steel but equal them in strength. Experts say\nthat wooden buildings are an improvement on those made of concrete and steel in\nterms of the {{8}} with which they can be constructed and how much\nnoise is generated by the process."
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "311fc87e-cc59-484a-8d91-dd68f09c3bd0",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B21-T2-REV01",
+      "q_num": 1,
+      "question_type": "table_completion",
+      "context": {
+        "template": {
+          "rows": [
+            [
+              "Humans",
+              "- humans experience REM sleep and non-REM sleep\n- in REM sleep, the eyes and muscles move",
+              ""
+            ],
+            [
+              "{{1}}",
+              "- similar brain patterns were observed when active and sleeping",
+              "indicative of dreaming"
+            ],
+            [
+              "Pigeons",
+              "- when sleeping, pigeons displayed activity in parts of the brain that deal with {{2}} input",
+              "may have been dreaming of flying"
+            ],
+            [
+              "Whales and dolphins",
+              "- still have {{3}} their brain awake when they sleep\n- don't experience REM sleep, as this could affect their sensitivity to {{4}}",
+              "their dreams are probably not very {{5}}"
+            ]
+          ],
+          "headers": [
+            "",
+            "Research findings",
+            "Comment"
+          ],
+          "heading": "Research into sleep and dreaming",
+          "summary_text": " | Research findings | Comment\n--- | --- | ---\nHumans | - humans experience REM sleep and non-REM sleep\n- in REM sleep, the eyes and muscles move | \n{{1}} | - similar brain patterns were observed when active and sleeping | indicative of dreaming\nPigeons | - when sleeping, pigeons displayed activity in parts of the brain that deal with {{2}} input | may have been dreaming of flying\nWhales and dolphins | - still have {{3}} their brain awake when they sleep\n- don't experience REM sleep, as this could affect their sensitivity to {{4}} | their dreams are probably not very {{5}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "56adbd3a-0434-49d5-a483-cffc3b9a82f6",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B19-T2-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Britain's Industrial Revolution\nSteam power\n- Newcomen's steam engine was used in mines to remove water.\n- In Watt and Boulton's steam engine, the movement of the {{1}}\nwas linked to a gear system.\nA greater supply of {{2}} was required to power steam engines.\nTextile industry\n- Before the Industrial Revolution, spinners and weavers worked at home and in\n{{3}} .\n- Not as much {{4}} was needed to produce cloth once the\nspinning jenny and power loom were invented.\nIron industry\n- Smelting of iron ore with coke resulted in material that was better\n{{5}} .\n- Demand for iron increased with the growth of the {{6}}\nCommunications\n- Cooke and Wheatstone patented the first telegraphy system.\n- The telegraphy system was used to prevent locomotives colliding.\nUrbanisation\nSmall towns turned into cities very quickly.\nThe new cities were dirty, crowded and lacked sufficient {{7}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "59c36d45-cfeb-46ca-b9e1-675d68ced0a1",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B21-T3-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "The saiga\nAdaptations\n- has a large bulbous nose with swollen nostrils that\nkeep {{1}} out\nlower the temperature of its {{2}} in summer\nwarm the air entering its lungs in winter\n- grows a thick {{3}} in winter, which it loses in spring\nReasons for population decline\n- poaching, especially for the {{4}} of male saiga\n- expansion of farms and settlements, causing\nreduction in the size of the saiga's {{5}} .\nloss of access to the {{6}} which they use for migration\n- various forms of disease, leading to mass mortality events\n- climate change, causing the disappearance of {{7}} which the saiga\nrelied on"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "6db86a45-fffe-4d3d-b47f-903ae31ad05d",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B18-T4-REV01",
+      "q_num": 6,
+      "question_type": "summary_completion",
+      "context": {
+        "template": {
+          "summary_text": "City rooftops covered with greenery have many advantages. These include\nlessening the likelihood that floods will occur, reducing how much money is spent on\n{{6}} and creating environments that are suitable for wildlife. In many\ncases, they can also be used for producing {{7}}. There are also social benefits of green roofs. For example, the medical profession\nrecommends {{8}} as an activity to help people cope with mental\nhealth issues. Studies have also shown that the availability of green spaces can\nprevent physical problems such as {{9}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "808004e2-7e9b-4a10-bc4c-3863d3bc1d8c",
+      "test_id": "MOCK0016-PROD-20261006-TEST_06-REV01",
+      "q_num": 20,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Antibiotic resistance — key points\n\nScale of the problem\n• In 2019, drug-resistant infections caused about {{20}} deaths worldwide, more than either malaria or HIV/AIDS.\n• Resistance genes pass between bacterial species on small mobile pieces of DNA called {{21}}.\n\nThe pipeline\n• In the study covering antibiotic approvals from 1999 to 2014, only {{22}} of the nine antibiotic classes were new under its classification.\n• Many conventional antibiotics originate from {{23}} microbes.\n\nNew sources of drugs\n• A 2016 study found a compound named {{24}} produced by bacteria in the human nose.\n• An MIT team used {{25}} models to scan chemical libraries and identify halicin.\n\nStewardship results\n• Between 1992 and 2016, annual outpatient antibiotic prescriptions per 1,000 inhabitants in Sweden fell by {{26}}."
+        },
+        "instruction": "Complete the notes below. Choose NO MORE THAN TWO WORDS AND/OR A NUMBER from the passage for each answer."
+      }
+    },
+    {
+      "revised_uuid": "a0e8d9e9-3062-432f-ba61-2888e9063352",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B21-T4-REV01",
+      "q_num": 8,
+      "question_type": "flow_chart_completion",
+      "context": {
+        "template": {
+          "image_format": "png",
+          "image_source": "manual_upload",
+          "summary_text": "![Sơ đồ tiến trình — Generating biogas for domestic use in Dunga (Câu 8–10)](assets/cambridge_ielts_21_test_4_reading_q8-10_flowchart.png)\nGenerating biogas for domestic use in Dunga\nFirst, place water hyacinth together with some\n{{8}} into a digester\nLeave the mixture until the {{9}} is completed\nCapture the gas emitted by the digester and\nuse {{10}} to transport it to individual homes\nThen use the gas for cooking as well as making water fit for\nhuman consumption",
+          "image_size_bytes": 230069,
+          "image_uploaded_at": "2026-10-02T19:57:34.167527+00:00",
+          "image_uploaded_by": "7a95640b-3b1b-4acf-baa5-39e49248e76f",
+          "image_storage_path": "tests/a0e8d9e9-3062-432f-ba61-2888e9063352/diagrams/32045d47-9447-4c59-ac86-04d1d75450b6-revised-20261006-139bccc20fd0.png"
+        },
+        "word_limit": "NO MORE THAN TWO WORDS"
+      }
+    },
+    {
+      "revised_uuid": "a11e376e-2417-4e0e-8021-fc2e052f4934",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B19-T4-REV01",
+      "q_num": 7,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Butterflies in the UK\nThe Small Blue\nlives in large {{7}}\n- first appears at the start of {{8}}\nThe High Brown Fritillary\nhas one reproductive cycle\nis considered to be more {{9}} than other species\nits caterpillars occupy a limited range of {{10}}\nThe Silver-studded Blue\n- is already able to reproduce twice a year in warm areas of {{11}}\nThe White Admiral\n- is found in {{12}} areas of England\n- both climate change and the {{13}} of the caterpillar are possible\nreasons for decline"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "b020cacb-dca4-4ada-8b26-57a8e870c418",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B21-T1-REV01",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Gwendoline and Margaret Davies\nFamily and early life\n- their grandfather's wealth came from {{1}} and transportation\nbusinesses\n- their upbringing gave them a sense of social responsibility\n- their {{2}} was designed to give them an interest in activities\nsuch as collecting art\n- their governess took them on trips to art galleries\n- they took lengthy {{3}} about the things they saw in art\ngalleries\nThe sisters as art collectors\n- their {{4}} showed they liked Old Master paintings, but they\nwere expensive to buy\n- their early purchases were safe, popular paintings\n- the first Impressionist paintings they bought showed places in\n{{5}} Impact of First World War\n- they helped bring artists from Belgium to Wales\n- they worked in a {{6}} for soldiers in France\nOpinions about the sisters as art collectors\n- were not considered typical collectors - they lived in isolation in the\ncountryside and did not have any {{7}} who were artists"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "c4fc7485-5194-421e-8f5c-8ee1a7961334",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B19-T3-REV01",
+      "q_num": 8,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Archaeological findings on Obi\nExcavations of rock shelters inside {{8}} near the village of\nKelo revealed:\naxes from around 14,000 years ago, probably used to make canoes\naxes made out of {{9}} , dating from around 11,700 years ago\n{{10}} of an animal: evidence of what ancient islanders ate\nevidence of travel between islands:\n- obsidian: a material that is not found naturally on Obi\n- {{11}} which resembled ones found on other islands.\nIt is thought that from 8,000 years ago, Obi islanders:\nmay have switched from hunting to fishing\nFrom about 1,000 years ago, the Kelo shelters were re-occupied by people who:\nhad {{12}} as well as items made out of metal\nprobably took part in the production and sale of {{13}}"
+        },
+        "word_limit": "ONE WORD ONLY"
+      }
+    },
+    {
+      "revised_uuid": "cc548c72-11c1-4798-83be-ffaa8db55423",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-001-REV02",
+      "q_num": 20,
+      "question_type": "summary_completion",
+      "context": {
+        "template": {
+          "summary_text": "Coral bleaching occurs when stony corals lose the microscopic algae, known as {{20}}, that supply most of their energy. Of the various pressures that can cause bleaching, the most significant by far is elevated {{21}}. The first major event recognised internationally was triggered by an unusually warm {{22}} in 1998 and killed about 16 per cent of the world's living corals. Bleaching events have since become more frequent. Some species are more vulnerable than others: branching corals such as Acropora suffer more than {{23}} species such as Porites. Researchers in Australia have produced {{24}} corals that can survive temperatures roughly one degree higher than their parents. Other scientists are working on 'designer {{25}}' that could be placed into wild corals. According to IPCC projections, warming of 1.5 °C would cause a further decline of 70 to 90 per cent in coral reefs, with larger losses at 2 °C. The writer concludes that reef survival ultimately depends on faster {{26}} at a global scale."
+        }
+      }
+    },
+    {
+      "revised_uuid": "ff6a797f-0ea8-59cb-99dd-48142732a827",
+      "test_id": "MOCK0016-PROD-20261006-ILR-RDG-CAM-B20-T2-REV03",
+      "q_num": 1,
+      "question_type": "notes_completion",
+      "context": {
+        "template": {
+          "summary_text": "Manatees\nAppearance\n● look similar to dugongs, but with a differently shaped {{1}}\nMovement\n● have fewer neck bones than most mammals\n● need to use their {{2}} to help to turn their bodies around in order\nto look sideways\n● sense vibrations in the water by means of {{3}} on their skin\nFeeding\n● eat mainly aquatic vegetation, such as {{4}}\n● grasp and pull up plants with their {{5}}\nBreathing\n● come to the surface for air every 2-4 minutes when awake and every 15-20\nwhile sleeping\n● may regulate the {{6}} of their bodies by using muscles of\ndiaphragm to store air internally"
+        },
+        "word_limit": "ONE WORD AND/OR A NUMBER"
+      }
+    }
+  ]
+}

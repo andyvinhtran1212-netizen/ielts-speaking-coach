@@ -10,6 +10,7 @@ if (!['localhost', '127.0.0.1', '::1'].includes(new URL(BASE).hostname)) throw n
 const SB = process.env.SUPABASE_URL || 'https://example.supabase.co';
 const fixture = JSON.parse(readFileSync(new URL('../tests/fixtures/admin-grammar-revision.json', import.meta.url), 'utf8'));
 const sourceFixture = JSON.parse(readFileSync(new URL('../tests/fixtures/grammar-exact-form-banks.json', import.meta.url), 'utf8'));
+const reviewedCodes = Object.keys(JSON.parse(readFileSync(new URL('../../backend/services/grammar_quiz_reviewed_sources.json', import.meta.url), 'utf8'))).sort();
 const row = fixture.rows[0];
 const bankSource = sourceFixture.banks.find((b) => b.code === row.code).raw_source;
 const results = []; const traffic = []; const errors = [];
@@ -54,7 +55,7 @@ try {
   await page.getByRole('heading', { name: 'Xem trước và xác nhận bản sửa Grammar', exact: true }).waitFor();
   await page.getByText(/Nguồn gốc chưa được sửa/).waitFor();
   check('passive canonical reads dispatch no business POST', traffic.every((r) => r.method === 'GET'));
-  check('picker owns exactly the twelve approved codes', await page.getByLabel('Nguồn Grammar đã duyệt').locator('option').count() === 12);
+  check('picker owns exactly the reviewed audit codes', JSON.stringify((await page.getByLabel('Nguồn Grammar đã duyệt').locator('option').evaluateAll((options) => options.map((option) => option.value))).sort()) === JSON.stringify(reviewedCodes));
   await page.getByLabel('File nguồn UTF-8 đã duyệt').setInputFiles({ name: 'reviewed.md', mimeType: 'text/markdown', buffer: Buffer.from(bankSource, 'utf8') });
   await page.getByRole('button', { name: 'Xem trước bản sửa Grammar', exact: true }).click();
   await page.getByText('Diff đã được backend xác minh').waitFor();

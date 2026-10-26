@@ -206,10 +206,10 @@ input: "boolean"
 headword: "gvi-try"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'The paramedics tried reviving the hiker for almost ten minutes but were unsuccessful.' correctly emphasises a difficult, effortful attempt."
+prompt: "Đúng hay Sai: Trong cách phân biệt giảng dạy thông dụng, 'try doing' luôn chỉ nhấn mạnh nỗ lực khó khăn, còn 'try to do' chỉ việc thử một phương pháp."
 answer: false
 grammar_article_slug: "gerund-vs-infinitive"
-explain: "SAI — khi nhấn mạnh nỗ lực khó khăn có thể thất bại, cần to-infinitive: 'tried to revive'. 'Tried reviving' nghe như đang thử một phương pháp, không phù hợp ngữ cảnh cấp cứu khẩn cấp."
+explain: "SAI — cách phân biệt thông dụng là try to do nhấn mạnh cố gắng đạt mục tiêu, try doing gợi việc thử một cách làm. Đây là khuynh hướng nghĩa, không phải lệnh cấm: try doing còn có thể xuất hiện với nghĩa nỗ lực trong ngữ cảnh phù hợp. Thời gian cấp cứu hoặc kết quả thất bại tự nó không làm tried reviving sai."
 ---
 
 ---

@@ -280,11 +280,11 @@ input: "text"
 headword: "arc-this-is-because"
 skill: "production"
 subtype: "intermediate"
-prompt: "Many students perform poorly despite studying long hours. This ____ ineffective study techniques rather than a lack of effort."
-accept: ["stems from", "arose from", "comes from"]
+prompt: "Use stems from, comes from, arises from, results from or is due to: 'Many students perform poorly despite studying long hours. This ____ ineffective study techniques rather than a lack of effort.'"
+accept: ["stems from", "comes from", "arises from", "results from", "is due to"]
 case_sensitive: false
 grammar_article_slug: "adding-reasons-clearly"
-explain: "'This stems from + noun phrase' là cách tự nhiên để chỉ ra nguyên nhân của một hiện tượng vừa nêu; tương tự 'arises from' hay 'is due to'."
+explain: "Các cụm được cho đều chỉ nguyên nhân của việc học chưa hiệu quả. Results from có hướng nghĩa kết quả bắt nguồn từ nguyên nhân, phù hợp với This ... ineffective study techniques. Dùng hiện tại theo nhận định chung trong câu."
 ---
 
 ---

@@ -66,12 +66,12 @@ input: "text"
 headword: "frequency-adverb-position"
 skill: "production"
 subtype: "intermediate"
-prompt: "Correct the adverb position: 'I skip breakfast sometimes when I'm running late.' → I ____ breakfast..."
+prompt: "Rewrite with sometimes before the main verb (the original is also grammatical): 'I skip breakfast sometimes when I'm running late.' → I ____ breakfast when I'm running late."
 hint: "gõ trạng từ + động từ theo đúng trật tự (2 từ)"
 accept: ["sometimes skip"]
 case_sensitive: false
 grammar_article_slug: "adverbs"
-explain: "Frequency adverb 'sometimes' nên đứng trước động từ thường 'skip': 'I sometimes skip breakfast...'"
+explain: "'I sometimes skip breakfast...' là cách viết lại với trạng từ ở giữa câu. Câu gốc 'I skip breakfast sometimes...' cũng đúng; đây là bài đổi vị trí theo yêu cầu, không phải sửa một lỗi bắt buộc."
 ---
 
 ---
@@ -235,12 +235,12 @@ input: "text"
 headword: "degree-adverb-very-comparative"
 skill: "production"
 subtype: "intermediate"
-prompt: "Correct the sentence: 'This year's exam was very ____ than last year's.'"
-hint: "gõ trạng từ chỉ mức độ thay cho 'very' (đứng trước so sánh hơn)"
+prompt: "Replace very with much, far or considerably: 'This year's exam was ____ harder than last year's.'"
+hint: "gõ 1 trạng từ chỉ mức độ đứng trước harder"
 accept: ["much", "far", "considerably"]
 case_sensitive: false
 grammar_article_slug: "adverbs"
-explain: "'very' không dùng với comparative -er. Thay bằng 'much/far/considerably': 'This year's exam was much/far/considerably harder than last year's.'"
+explain: "Trước 'harder', dùng 'much', 'far' hoặc 'considerably' để nhấn mạnh mức chênh lệch. 'Very' đã được bỏ khỏi khung câu; không điền thêm very."
 ---
 
 ---

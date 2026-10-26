@@ -15,6 +15,7 @@ export default function AdminVocabLayout({ children }: { children: ReactNode }) 
         '/css/aver-design/admin-buttons.css',
         '/css/aver-design/admin-status.css',
         '/css/admin-vocab-next.css',
+        '/css/vocabulary-workspace.css',
       ]}
     >
       {children}

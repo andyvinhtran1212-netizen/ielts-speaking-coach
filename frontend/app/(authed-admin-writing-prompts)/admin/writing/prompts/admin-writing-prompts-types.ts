@@ -40,6 +40,7 @@ export interface PromptDraft {
   promptText: string;
   difficulty: Difficulty | '';
   tags: string;
+  courses: string[];
   imageUrl: string;
   imagePublicId: string;
 }

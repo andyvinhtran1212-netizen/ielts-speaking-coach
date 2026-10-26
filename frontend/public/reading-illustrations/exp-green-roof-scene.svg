@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Khu vườn trên mái nhà</title><desc id="desc">Mái bằng của một tòa nhà thành phố phủ một thảm cỏ và hoa, có người đi bộ trên phố bên dưới.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 357H800V400H0Z" fill="#c9c6b2"/>
+  <path d="M43 158H173V357H43ZM638 124H759V357H638Z" fill="#d4dfdb"/>
+  <path d="M209 164H592V357H209Z" fill="#e9e3cf" stroke="#aa825e" stroke-width="4"/>
+  <path d="M193 141H608V172H193Z" fill="#9b7958"/>
+  <path d="M197 141Q215 126 235 136Q259 117 279 136Q308 118 335 135Q362 116 390 136Q423 115 451 135Q480 118 509 135Q539 117 566 135Q585 122 605 140Z" fill="#79a17b"/>
+  <g stroke="#3d8275" stroke-width="4"><path d="M252 134V95M331 132V104M441 134V89M543 133V103"/></g>
+  <g fill="#d69b91"><circle cx="252" cy="90" r="11"/><circle cx="441" cy="84" r="11"/></g><g fill="#e5c969"><circle cx="331" cy="99" r="10"/><circle cx="543" cy="98" r="10"/></g>
+  <g fill="#a8cbd0"><rect x="234" y="199" width="61" height="46"/><rect x="330" y="199" width="61" height="46"/><rect x="427" y="199" width="61" height="46"/><rect x="523" y="199" width="44" height="46"/><rect x="234" y="279" width="61" height="46"/><rect x="330" y="279" width="61" height="46"/><rect x="523" y="279" width="44" height="46"/><rect x="66" y="184" width="31" height="40"/><rect x="117" y="184" width="31" height="40"/><rect x="664" y="157" width="31" height="40"/><rect x="710" y="157" width="31" height="40"/></g>
+  <rect x="433" y="282" width="52" height="75" fill="#aa825e"/>
+  <circle cx="131" cy="310" r="10" fill="#e8bc94"/><path d="M121 324L116 355H143L139 324Z" fill="#3d8275"/><path d="M124 354L119 381M136 354L145 381" fill="none" stroke="#293b43" stroke-width="5" stroke-linecap="round"/>
+  <path d="M494 61Q510 45 525 61Q540 45 555 61" fill="none" stroke="#355f60" stroke-width="4" stroke-linecap="round"/>
+</svg>

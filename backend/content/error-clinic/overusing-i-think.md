@@ -260,9 +260,9 @@ Lặp hai lần — "In my opinion" đã bao gồm ý "I think".
 
 ### Lỗi 4: Dùng "From my point of view" nhưng không đưa ra quan điểm khác biệt
 
-"From my point of view" ngụ ý góc nhìn cá nhân — đừng dùng nó cho những điều ai cũng đồng ý:
+From my point of view nêu góc nhìn cá nhân; vẫn dùng được cho nhận định nhiều người đồng ý, nếu phù hợp trọng tâm:
 
-- ❌ "From my point of view, clean water is important." (hiển nhiên — không cần phrase này)
+- ✅ “From my point of view, clean water is important.” (hiển nhiên — không cần phrase này)
 - ✅ "From my point of view, the most overlooked solution to urban pollution is simply reducing private car use."
 
 ### Lỗi 5: Dùng phrases trang trọng quá trong Part 1
@@ -349,7 +349,7 @@ Viết câu trả lời cho câu hỏi sau (4-5 câu) mà **không dùng "I thin
 
 *"Do you think people today are more stressed than people in the past? Why?"*
 
-"**In my view**, yes — modern life has become significantly more stressful in several ways, even if we have more material comfort than previous generations. **From my perspective**, the constant connectivity that smartphones create means that people are never truly 'off work' — there's always another message, another notification, another expectation. **Personally**, I find that quite exhausting. **That said**, I tend to think that stress in the past was just as real — people faced economic hardship, war, and illness in ways that are hard to imagine today. **I would say** the nature of stress has changed more than its intensity."
+“**In my view**, the comparison depends on the group and time period. Modern connectivity can create different pressures, while earlier generations faced hardship, war and illness. **From my perspective**, constant connectivity can make it harder for some people to feel off work — there's always another message, another notification, another expectation. **Personally**, I find that quite exhausting. **That said**, I tend to think that stress in the past was just as real — people faced economic hardship, war, and illness in ways that are hard to imagine today. **I would say** the nature of stress has changed more than its intensity."
 
 ---
 
@@ -380,8 +380,8 @@ Informal / Part 1:
 ```
 
 **Quy tắc vàng:**
-- Không dùng "I think" quá 1 lần trong một câu trả lời Part 3
-- Xen kẽ ít nhất 3 phrases khác nhau khi trả lời câu hỏi dài
+- Chọn hoặc lược bỏ cụm quan điểm theo chức năng; số lần I think không tự quyết định band
+- Bài luyện tùy chọn: thử một cách diễn đạt khác ở chỗ lặp thừa, rồi nghe lại độ trôi chảy
 - "In my opinion" và "I think" = cùng ý nghĩa — đừng dùng cả hai trong một câu
 - Đôi khi không cần phrase nào — đặc biệt khi bạn đang phát triển ý sau câu đầu
 - Part 1 → informal phrases; Part 3 → có thể formal hơn

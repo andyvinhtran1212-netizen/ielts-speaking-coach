@@ -93,10 +93,10 @@ input: "boolean"
 headword: "rs-backshift"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'She told me she will come.' là câu tường thuật đúng thì."
-answer: false
+prompt: "Đúng hay Sai: 'She told me she will come' có thể đúng khi việc cô ấy đến vẫn ở tương lai và còn liên quan lúc tường thuật."
+answer: true
 grammar_article_slug: "reported-speech"
-explain: "SAI — 'will' phải lùi thành 'would' vì động từ tường thuật ('told') ở quá khứ. Sửa: 'She told me she would come.'"
+explain: "ĐÚNG trong ngữ cảnh được nêu: người nói có thể giữ will khi thông tin vẫn hiện thời. Would là dạng backshift thông dụng; told ở quá khứ không buộc backshift trong mọi ngữ cảnh."
 ---
 
 # ===== item_key 2 · Đổi đại từ và trạng từ thời gian/nơi chốn =====
@@ -164,10 +164,10 @@ input: "boolean"
 headword: "rs-pronoun-adverb-shift"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: He said \"I will come tomorrow.\" tường thuật đúng là 'He said he would come tomorrow.'"
-answer: false
+prompt: "Đúng hay Sai: Nếu báo lại trong cùng ngày, He said \"I will come tomorrow\" có thể được tường thuật là 'He said he would come tomorrow'."
+answer: true
 grammar_article_slug: "reported-speech"
-explain: "SAI — quên đổi trạng từ thời gian. Sửa: 'He said he would come the next day.' ('tomorrow' phải đổi vì không còn đúng ngữ cảnh thời gian tường thuật)."
+explain: "ĐÚNG — khi điểm quy chiếu ngày không đổi, tomorrow vẫn chỉ cùng ngày tương lai. Nếu báo vào ngày khác, cần chọn the next day hoặc một mốc ngày phù hợp. Lùi will thành would không tự buộc mọi trạng từ thời gian phải đổi."
 ---
 
 # ===== item_key 3 · Tường thuật câu hỏi (không đảo ngữ) =====

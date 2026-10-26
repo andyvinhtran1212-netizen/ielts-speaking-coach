@@ -64,7 +64,7 @@ Một bài band cao **đọc trôi**: mỗi câu nối tự nhiên vào câu tr�
 |---|---|---|
 | **Từ nối** | báo quan hệ ý | *However, As a result, Moreover* |
 | **Tham chiếu** | đại từ thay danh từ | *This trend…, These policies…* |
-| **Từ đồng nghĩa** | tránh lặp | *cars → vehicles → automobiles* |
+| **Liên kết từ vựng** | đồng nghĩa/từ khái quát/cụ thể; giữ phạm vi, có thể lặp khi rõ hơn | *cars → these cars → automobiles*; vehicles rộng hơn cars, chỉ thay khi nhóm quy chiếu vẫn rõ |
 | **Danh hoá nối ý** | ý cuối câu này → chủ đề câu sau | *Prices rose. This **increase**…* |
 
 Đừng chỉ dựa vào từ nối — **tham chiếu + đồng nghĩa** mới cho band 7+.
@@ -96,6 +96,6 @@ Band 7+ yêu cầu liên kết **đa dạng**, không chỉ transition words.
 
 ## Tóm tắt nhanh
 
-- Cohesion = 25% điểm Writing
+- Coherence and Cohesion = 25% điểm bài Writing: coherence xét tổ chức/mạch ý, cohesion xét liên kết
 - Dùng cả 4 công cụ: từ nối · tham chiếu · đồng nghĩa · danh hoá nối ý
 - Đừng lạm dụng từ nối; tránh *this/it* mơ hồ

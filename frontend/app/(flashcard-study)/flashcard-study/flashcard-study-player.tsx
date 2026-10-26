@@ -1,4 +1,5 @@
 'use client';
+import { VocabularyAudioButton as AudioButton } from '@/components/vocabulary-audio-button';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -9,6 +10,7 @@ import {
   normalizePublicStack,
   normalizeReviewReceipt,
   parseFlashcardStack,
+  flashcardReturnHref,
 } from '@/lib/flashcard-study-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -115,35 +117,6 @@ function persistMark(key: string, slug: string, mark: PublicMark) {
   } catch { return false; }
 }
 
-function playAudio(url: string, fallback: string) {
-  try { window.speechSynthesis?.cancel(); } catch { /* no-op */ }
-  const speak = () => {
-    if (!fallback || !window.speechSynthesis) return;
-    const utterance = new SpeechSynthesisUtterance(fallback);
-    utterance.lang = 'en-GB';
-    utterance.rate = 0.92;
-    window.speechSynthesis.speak(utterance);
-  };
-  if (!url) return speak();
-  try {
-    const audio = new Audio(url);
-    void audio.play().catch(speak);
-  } catch { speak(); }
-}
-
-function AudioButton({ url, say, label }: { url: string; say: string; label: string }) {
-  return (
-    <button
-      type="button"
-      className="fcs-audio"
-      aria-label={label}
-      onClick={(event) => { event.stopPropagation(); playAudio(url, say); }}
-    >
-      <span aria-hidden="true">▶</span>
-    </button>
-  );
-}
-
 function Relation({ label, items }: { label: string; items: string[] }) {
   if (!items.length) return null;
   return (
@@ -174,6 +147,7 @@ export function FlashcardStudyPlayer() {
   const sourceCloseRef = useRef<HTMLButtonElement>(null);
 
   const [stack, setStack] = useState<any>(null);
+  const [renderOwner, setRenderOwner] = useState<string | null | undefined>(undefined);
   const [phase, setPhase] = useState<Phase>('loading');
   const [title, setTitle] = useState('Học flashcard');
   const [message, setMessage] = useState('');
@@ -194,7 +168,8 @@ export function FlashcardStudyPlayer() {
 
   const card = cards[index] || null;
   const publicMode = stack?.mode === 'wiki' || stack?.mode === 'exam';
-  const loadIdentity = stack?.mode === 'personal' ? `${status}:${accountKey || ''}` : 'public';
+  const loadIdentity = `${status}:${accountKey || 'guest'}`;
+  const publicStorageKey = `${stack?.storageKey || ''}:account:${accountKey || 'guest'}`;
 
   useEffect(() => {
     const descriptor = parseFlashcardStack(new URLSearchParams(window.location.search).get('stack'));
@@ -208,7 +183,7 @@ export function FlashcardStudyPlayer() {
 
   useEffect(() => {
     if (!stack) return;
-    if (stack.mode === 'personal' && status === 'initial-loading') return;
+    if (status === 'initial-loading') return;
     if (stack.mode === 'personal' && !accountKey) {
       const next = `${window.location.pathname}${window.location.search}`;
       window.location.replace(`/login?next=${encodeURIComponent(next)}`);
@@ -216,11 +191,12 @@ export function FlashcardStudyPlayer() {
     }
 
     const generation = ++generationRef.current;
+    setRenderOwner(accountKey);
     let disposed = false;
     const controller = new AbortController();
     const expectedAccount = accountKey;
     const ownsLoad = () => !disposed && generationRef.current === generation
-      && (stack.mode !== 'personal' || accountRef.current === expectedAccount);
+      && accountRef.current === expectedAccount;
 
     setPhase('loading');
     setMessage('');
@@ -391,10 +367,10 @@ export function FlashcardStudyPlayer() {
 
   const markPublic = useCallback((mark: PublicMark) => {
     if (!card || !publicMode || phase !== 'active') return;
-    if (!persistMark(stack.storageKey, card.slug, mark)) setStorageOkay(false);
+    if (!persistMark(publicStorageKey, card.slug, mark)) setStorageOkay(false);
     setPublicBreakdown((current) => ({ ...current, [mark]: current[mark] + 1 }));
     advance();
-  }, [advance, card, phase, publicMode, stack]);
+  }, [advance, card, phase, publicMode, publicStorageKey]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -427,7 +403,7 @@ export function FlashcardStudyPlayer() {
     setPhase(cards.length ? 'active' : 'empty');
   };
 
-  if (phase === 'loading') {
+  if (phase === 'loading' || (stack && renderOwner !== accountKey)) {
     return <main className="fcs-width fcs-main"><StateCard role="status"><span className="fcs-spinner" /><p>Đang chuẩn bị bộ thẻ…</p></StateCard></main>;
   }
   if (phase === 'error' || phase === 'disabled') {
@@ -453,7 +429,7 @@ export function FlashcardStudyPlayer() {
           {publicMode ? (
             <div className="fcs-breakdown fcs-breakdown--two">
               <div><strong>{publicBreakdown.review}</strong><span>Cần ôn</span></div>
-              <div><strong>{publicBreakdown.known}</strong><span>Đã thuộc</span></div>
+              <div><strong>{publicBreakdown.known}</strong><span>Tự đánh giá nhớ</span></div>
             </div>
           ) : (
             <div className="fcs-breakdown">
@@ -462,14 +438,14 @@ export function FlashcardStudyPlayer() {
           )}
           <div className="fcs-summary__actions">
             <button type="button" className="av-button av-button-primary" onClick={restart}>Học lại</button>
-            <a className="av-button av-button-secondary" href={publicMode ? (stack.mode === 'exam' ? '/vocabulary/exam' : '/vocabulary/hub#vocab-topics') : '/flashcards'}>Chọn bộ khác</a>
+            <a className="av-button av-button-secondary" href={flashcardReturnHref(stack.raw)}>Chọn bộ khác</a>
           </div>
         </section>
       </main>
     );
   }
 
-  const previousMark = publicMode ? readMarks(stack.storageKey)[card.slug] : null;
+  const previousMark = publicMode ? readMarks(publicStorageKey)[card.slug] : null;
   const percent = cards.length ? Math.round((index / cards.length) * 100) : 0;
   const personalContent = !publicMode && !!(card.definitionVi || card.definitionEn || card.example);
 
@@ -485,21 +461,12 @@ export function FlashcardStudyPlayer() {
       <section className="fcs-stage" aria-live="polite">
         <div
           className={`fcs-card${flipped ? ' is-flipped' : ''}`}
-          role="button"
-          tabIndex={0}
-          aria-label={flipped ? 'Lật về mặt từ vựng' : 'Lật thẻ để xem nghĩa'}
           onClick={() => setFlipped((value) => !value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            event.stopPropagation();
-            setFlipped((value) => !value);
-          }}
         >
-          <article className="fcs-face fcs-face--front">
+          <article className="fcs-face fcs-face--front" aria-hidden={flipped} inert={flipped}>
             <div className="fcs-card__topline">
               <span className="fcs-pill">{publicMode ? title : (card.topic || 'My vocabulary')}</span>
-              {previousMark && <span className={`fcs-memory fcs-memory--${previousMark}`}>{previousMark === 'known' ? 'Đã thuộc' : 'Cần ôn'}</span>}
+              {previousMark && <span className={`fcs-memory fcs-memory--${previousMark}`}>{previousMark === 'known' ? 'Tự đánh giá nhớ' : 'Cần ôn'}</span>}
             </div>
             <div className="fcs-word">
               <p>{card.headword}</p>
@@ -509,7 +476,7 @@ export function FlashcardStudyPlayer() {
             <p className="fcs-flip-hint"><span aria-hidden="true">↻</span> Chạm hoặc nhấn Space để xem nghĩa</p>
           </article>
 
-          <article className="fcs-face fcs-face--back">
+          <article className="fcs-face fcs-face--back" aria-hidden={!flipped} inert={!flipped}>
             <div className="fcs-back-head">
               <div><h2>{card.headword}</h2>{(card.pronunciation || card.ipa) && <span>{card.pronunciation || card.ipa}</span>}</div>
               <AudioButton url={card.audioHeadword} say={card.headword} label={`Nghe phát âm ${card.headword}`} />
@@ -533,12 +500,13 @@ export function FlashcardStudyPlayer() {
             {!publicMode && <p className="fcs-meta">{SOURCE_LABEL[card.sourceType] || card.sourceType || 'Từ vựng cá nhân'} · {card.review ? `Đã ôn ${card.review.reviewCount} lần` : 'Chưa học'}</p>}
           </article>
         </div>
+        <button type="button" className="av-button av-button-secondary" onClick={() => setFlipped(value => !value)}>{flipped ? 'Xem mặt từ' : 'Lật thẻ xem nghĩa'}</button>
       </section>
 
       {publicMode ? (
         <div className="fcs-actions fcs-actions--two">
           <button type="button" className="fcs-rate fcs-rate--again" onClick={() => markPublic('review')}><span>Cần ôn</span><kbd>1</kbd></button>
-          <button type="button" className="fcs-rate fcs-rate--good" onClick={() => markPublic('known')}><span>Đã thuộc</span><kbd>2</kbd></button>
+          <button type="button" className="fcs-rate fcs-rate--good" onClick={() => markPublic('known')}><span>Tự đánh giá nhớ</span><kbd>2</kbd></button>
         </div>
       ) : (
         <>

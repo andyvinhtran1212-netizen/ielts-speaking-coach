@@ -1,0 +1,222 @@
+{
+  "slug": "the-rise-of-sponge-cities",
+  "review_notes": "Runoff là dòng chảy mặt, groundwater là nước ngầm, resilient là chống chịu. Giữ giới hạn không tự ngăn lũ lớn nhất và câu hỏi mở về quy mô; các mốc dự án theo bài nguồn, không tự cập nhật.",
+  "illustration_brief": "Công viên trũng có cây và nước mưa giữa khu đô thị, cạnh lối đi, không có nhãn kỹ thuật hay tỷ lệ chống ngập.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Khi mưa lớn xuống thành phố hiện đại, nước không có nơi đi.",
+      [
+        "heavy rain",
+        "mưa lớn"
+      ],
+      [
+        "nowhere to go",
+        "không có nơi đi"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Đường sá, bãi đỗ xe và các tòa nhà phủ kín mặt đất bằng bê tông cùng những bề mặt cứng khác, khiến nước mưa không thể thấm xuống đất.",
+      [
+        "concrete and other hard surfaces",
+        "bê tông cùng những bề mặt cứng khác"
+      ],
+      [
+        "drain away into the soil",
+        "thấm xuống đất"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Thay vào đó nước tụ trên phố, và trong vài phút cơn giông bất chợt có thể gây ngập nghiêm trọng.",
+      [
+        "within minutes",
+        "trong vài phút"
+      ],
+      [
+        "serious flooding",
+        "ngập nghiêm trọng"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Khi thời tiết cực đoan phổ biến hơn, kỹ sư tìm tới ý tưởng đơn giản mà mạnh: “thành phố bọt biển”.",
+      [
+        "extreme weather",
+        "thời tiết cực đoan"
+      ],
+      [
+        "the \"sponge city\"",
+        "“thành phố bọt biển”"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Nguyên lý dễ hình dung.",
+      [
+        "easy to picture",
+        "dễ hình dung"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Thay vì đẩy nước mưa đi qua các đường ống càng nhanh càng tốt, thành phố bọt biển được thiết kế để hấp thụ và trữ nước, giống như miếng bọt biển thấm hút nước bị đổ ra.",
+      [
+        "absorb and store it",
+        "hấp thụ và trữ nước"
+      ],
+      [
+        "a sponge soaks up a spill",
+        "miếng bọt biển thấm hút nước bị đổ ra"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Để làm vậy, người quy hoạch thay một phần nền cứng bằng vỉa hè thấm nước cho nước ngấm qua.",
+      [
+        "permeable pavements",
+        "vỉa hè thấm nước"
+      ],
+      [
+        "let water sink through",
+        "cho nước ngấm qua"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Họ xây công viên và vườn có khả năng giữ nước mưa, đồng thời khôi phục những vùng đất ngập nước có thể chứa lượng nước lớn trong cơn bão.",
+      [
+        "retain rainwater",
+        "giữ nước mưa"
+      ],
+      [
+        "restore wetlands",
+        "khôi phục những vùng đất ngập nước"
+      ],
+      [
+        "large amounts of water during a storm",
+        "lượng nước lớn trong cơn bão"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Hạ tầng xanh này không chỉ ngăn ngập.",
+      [
+        "green infrastructure",
+        "Hạ tầng xanh"
+      ],
+      [
+        "more than prevent floods",
+        "không chỉ ngăn ngập"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nước giữ lại không thành dòng chảy mặt lãng phí mà chậm bổ sung nước ngầm dưới thành phố.",
+      [
+        "wasteful runoff",
+        "dòng chảy mặt lãng phí"
+      ],
+      [
+        "refills the groundwater",
+        "bổ sung nước ngầm"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Chính công viên và cây cũng giảm nóng mùa hè, cho người nơi nghỉ dễ chịu.",
+      [
+        "mitigate summer heat",
+        "giảm nóng mùa hè"
+      ],
+      [
+        "pleasant places to relax",
+        "nơi nghỉ dễ chịu"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Nói ngắn gọn, thành phố chống chịu tốt hơn — ứng phó tốt hơn cả lũ và hạn.",
+      [
+        "more resilient",
+        "chống chịu tốt hơn"
+      ],
+      [
+        "both floods and droughts",
+        "cả lũ và hạn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Trung Quốc thuộc nơi tích cực nhất áp dụng, chỉ định khoảng 30 thành phố làm dự án bọt biển chính thức từ khi chương trình bắt đầu năm 2013.",
+      [
+        "around 30 cities",
+        "khoảng 30 thành phố"
+      ],
+      [
+        "official sponge-city projects",
+        "dự án bọt biển chính thức"
+      ],
+      [
+        "since the program began in 2013",
+        "từ khi chương trình bắt đầu năm 2013"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nước khác mở chương trình riêng, thường bắt đầu thí điểm nhỏ trong một quận rồi mở rộng.",
+      [
+        "a small pilot",
+        "thí điểm nhỏ"
+      ],
+      [
+        "a single district",
+        "một quận"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Ý tưởng không là câu trả lời hoàn chỉnh.",
+      [
+        "not a complete answer",
+        "không là câu trả lời hoàn chỉnh"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Hạng mục bọt biển có thể xây tốn kém, và tự chúng không ngăn được lũ lớn nhất.",
+      [
+        "expensive to build",
+        "xây tốn kém"
+      ],
+      [
+        "on their own",
+        "tự chúng"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Vẫn còn bỏ ngỏ liệu có thể mở rộng chúng đủ nhanh để theo kịp khí hậu thay đổi hay không — nhưng với nhiều thành phố đông, dễ ngập, mô hình bọt biển đem lại hy vọng mới.",
+      [
+        "they can be scaled up fast enough",
+        "có thể mở rộng chúng đủ nhanh"
+      ],
+      [
+        "remains an open question",
+        "Vẫn còn bỏ ngỏ"
+      ],
+      [
+        "crowded, flood-prone cities",
+        "thành phố đông, dễ ngập"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-rain-city-park-scene.svg",
+    "alt": "Khu trũng chứa nước mưa giữa công viên có cây, lối đi và các tòa nhà xung quanh.",
+    "caption": "Dành không gian cho nước mưa trong thành phố."
+  },
+  "source_sha256": "8b86c62a99838a5f3953576a8b4a3d69c7a0e8128a7bf403d6f5fdebf12c7781",
+  "expected_translation_sha256": "779df715b9ae3e3dfb9b72f4f8c02975ff338d7e75536461907cd39c1fdbb088"
+}

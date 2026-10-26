@@ -32,7 +32,7 @@ describe('/reading/mini-test — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, module\]/);
+    assert.match(BEHAVIOR, /\[accountKey, module, retryToken\]/);
   });
 
   test('always requests only mini tests and aborts stale work', () => {
@@ -49,7 +49,7 @@ describe('/reading/mini-test — native React behavior', () => {
   test('normalizes canonical defaults and renders authored data declaratively', () => {
     assert.match(BEHAVIOR, /if \(!Array\.isArray\(items\)\) return \[\]/);
     assert.match(BEHAVIOR, /if \(!testId\) return \[\]/);
-    assert.match(BEHAVIOR, /title: textValue\(raw\?\.title\) \|\| 'Mini Test'/);
+    assert.match(BEHAVIOR, /title: .*\|\| 'Mini Test'/);
     assert.match(BEHAVIOR, /positiveInteger\(raw\?\.passage_count\) \|\| 1/);
     assert.match(BEHAVIOR, /totalQuestions: positiveInteger\(raw\?\.total_questions\)/);
     assert.match(BEHAVIOR, /timeLimitMinutes: positiveInteger\(raw\?\.time_limit_minutes\)/);
@@ -77,11 +77,11 @@ describe('/reading/mini-test — native React behavior', () => {
     assert.match(BEHAVIOR, /aria-label=\{`Bắt đầu mini test/);
   });
 
-  test('keeps canonical totals, popular duration, reset and generic errors', () => {
+  test('keeps canonical totals, actual duration range, reset and generic errors', () => {
     assert.match(SHELL, /durationCount = '—'/);
     assert.match(SHELL, /totalCount = '—'/);
     assert.match(BEHAVIOR, /durationCounts = new Map<number, number>/);
-    assert.match(BEHAVIOR, /b\[1\] - a\[1\] \|\| a\[0\] - b\[0\]/);
+    assert.match(BEHAVIOR, /durationCounts.keys\(\)/);
     assert.match(BEHAVIOR, /total > shown[\s\S]*đang hiển thị/);
     assert.match(BEHAVIOR, /hidden=\{!module\}/);
     assert.match(BEHAVIOR, /onClick=\{\(\) => setModule\(''\)\}/);

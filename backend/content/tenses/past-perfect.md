@@ -228,9 +228,8 @@ Nếu trình tự thời gian đã rõ qua "before/after", Past Simple cũng ch�
 
 ### Lỗi 5: Dùng Past Perfect thay vì Past Simple trong hành động bình thường
 
-- ❌ I had woken up at 7 am and had had breakfast. Then I had gone to school.
-- ✅ I **woke up** at 7 am, **had** breakfast, and **went** to school.
-  (Past Perfect chỉ cần thiết khi muốn làm rõ một hành động xảy ra trước hành động khác)
+- Kể trình tự thông thường: **I woke up at 7 am, had breakfast, and went to school**.
+- **I had woken up at 7 am and had had breakfast. Then I had gone to school** có thể phù hợp trong đoạn hồi tưởng với một mốc quá khứ đã được thiết lập; không tự sai khi đứng trong ngữ cảnh ấy.
 
 ## Ứng dụng trong IELTS
 
@@ -275,7 +274,7 @@ Nếu trình tự thời gian đã rõ qua "before/after", Past Simple cũng ch�
 1. She had **gone** to Paris before. (V3 bất quy tắc)
 2. When I arrived, he **had already left**. (trình tự: left → arrived)
 3. She had **passed** away. (pass away → passed away, không phải "past")
-4. I woke up at 6 am, went for a run, and had breakfast. (không cần PP vì thứ tự đã rõ)
+4. Nếu kể trình tự thông thường: **I woke up at 6 am, went for a run, and had breakfast**. Chuỗi had woken/had gone/had had có thể đúng trong hồi tưởng từ mốc quá khứ; đề gốc chưa nêu khung nên không loại vô điều kiện.
 
 ## Tóm tắt nhanh
 

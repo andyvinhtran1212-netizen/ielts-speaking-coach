@@ -1,0 +1,78 @@
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { ReadingReviewWorkspace } from '@/app/(reading-review)/reading/review/reading-review-workspace';
+import contexts from '../fixtures/reading-mock-repair-contexts.json';
+
+vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'review-owner' } }) }));
+
+let getWith: ReturnType<typeof vi.fn>;
+let post: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+  getWith = vi.fn(); post = vi.fn();
+  Object.defineProperty(window, 'api', { configurable: true, value: { getWith, post } });
+  Object.defineProperty(window, 'renderMarkdown', { configurable: true, value: (text: string) => text });
+  Object.defineProperty(window, 'AverFeedback', { configurable: true, value: { attachCardFlag: vi.fn(), mountSurvey: vi.fn() } });
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
+
+it.each([true, false].flatMap(preview => [
+  { preview, before: '', after: '' },
+  { preview, before: 'Independent instruction before table.', after: '' },
+  { preview, before: '', after: 'Independent qualification after table.' },
+  { preview, before: 'Independent instruction.', after: 'Independent exception.' },
+]))('keeps the actual C13 R1 source table and independent prose in review (preview=$preview, before=$before, after=$after)', async ({ preview, before, after }) => {
+  const source = contexts.cases.find(item => item.revised_uuid === '6c8922a4-1a9e-47f2-9505-c3f9429a8a5a')!;
+  window.history.replaceState(null, '', preview ? `/reading/review?admin_test_id=${source.revised_uuid}` : '/reading/review?attempt_id=numbered-context');
+  const fixture = {
+    preview, status: 'submitted', attempt_id: preview ? null : 'numbered-context', test_id: source.test_id, title: 'Numbered C13 R1 review',
+    score: preview ? null : 0, max_score: 1, context_source: { provenance: 'submission_snapshot', possibly_changed: false }, skill_breakdown: {},
+    passages: [{ passage_order: 1, title: 'New Zealand tourism', body_markdown: 'Original source passage.', translation_vi: 'Bản dịch nguồn vẫn được giữ.' }],
+    review: [{ q_num: 1, passage_order: 1, correct: false, question_type: 'table_completion', prompt: '(see summary above)', expected: 'update', user_answer: '',
+      question_context: { ...source.context, options: [{ label: 'A', text: 'Authored display bank' }],
+        template: { ...source.context.template, summary_text: [before, source.context.template.summary_text, after].filter(Boolean).join('\n\n') } },
+      solution: { question_text: 'Allowed businesses to 1 ____ information regularly.', steps: 'Định vị thông tin trong bảng.', source_excerpt: 'Businesses were able to update the details they gave on a regular basis.' },
+    }],
+  };
+  const original = JSON.stringify(fixture);
+  getWith.mockResolvedValue(fixture);
+  const view = render(<ReadingReviewWorkspace />);
+  await screen.findByText(fixture.title);
+  fireEvent.click(screen.getByRole('button', { name: preview ? 'Câu 1 — xem trước' : 'Câu 1 — bỏ trống', exact: true }));
+  const context = within(view.container.querySelector('.review-question-context') as HTMLElement);
+  expect(context.getByRole('table')).toBeTruthy();
+  expect(context.getAllByLabelText('Chỗ trống câu 1')).toHaveLength(1);
+  expect(context.getAllByRole('table')).toHaveLength(1);
+  const table = context.getByRole('table');
+  if (before) expect(context.getByText(before, { exact: true }).compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  if (after) expect(table.compareDocumentPosition(context.getByText(after, { exact: true })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(context.getByText('Authored display bank')).toBeTruthy();
+  expect(view.container.textContent).not.toMatch(/\{\{\s*\d+\s*\}\}/);
+  expect(screen.getByText('Định vị thông tin trong bảng.')).toBeTruthy();
+  expect(screen.getByText('Businesses were able to update the details they gave on a regular basis.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Bài dịch', exact: true }));
+  await screen.findByText('Bản dịch nguồn vẫn được giữ.');
+  expect(JSON.stringify(fixture)).toBe(original);
+  expect(post).not.toHaveBeenCalled();
+});
+
+it.each(['mini', 'full', undefined])('locates an exact quote only for canonical Mini review (type=%s)', async (testType) => {
+  window.history.replaceState(null, '', '/reading/review?attempt_id=mini-locate&from=mini');
+  getWith.mockResolvedValue({ status: 'submitted', test_type: testType, attempt_id: 'mini-locate', title: 'Mini locator', score: 0, max_score: 1,
+    passages: [{ passage_order: 1, title: 'Source', body_markdown: '<p>Before. <strong>A shared pasture is depleted.</strong> After.</p>' }],
+    review: [{ q_num: 1, passage_order: 1, correct: false, question_type: 'short_answer', prompt: 'What is depleted?', user_answer: '', expected: 'pasture', solution: { source_excerpt: 'A shared pasture is depleted.' } }],
+  });
+  const view = render(<ReadingReviewWorkspace />);
+  await screen.findByText('Mini locator');
+  fireEvent.click(screen.getByRole('button', { name: 'Câu 1 — bỏ trống', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Đến đoạn này trong bài đọc' }));
+  if (testType === 'mini') {
+    await screen.findByText('Đã làm sáng đúng phần trích dẫn.');
+    expect(view.container.querySelector('mark.rr-practice-quote')?.textContent).toBe('A shared pasture is depleted.');
+    expect(view.container.querySelector('.rr-src-hl')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Trở lại câu hỏi' }));
+  } else {
+    expect(view.container.querySelector('mark.rr-practice-quote')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Trở lại câu hỏi' })).toBeNull();
+  }
+});

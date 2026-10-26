@@ -69,12 +69,10 @@ anchors:
 
 Nhầm adjective và adverb là lỗi rất dễ lộ:
 - "She drives **careful**." → người chấm nhận ra ngay — thiếu -ly
-- "He is a **incredibly** talented musician." → "incredibly" đang mô tả tính từ "talented", không phải danh từ — đúng rồi, nhưng nếu viết "He is an incredible talented musician" lại sai
+- “He is **a** incredibly talented musician” cần **an** vì incredibly bắt đầu bằng nguyên âm; incredibly đã là adverb đúng để bổ nghĩa talented. Không đổi thành incredible ở vị trí này.
 
 Trong IELTS:
-- Band 5: nhầm thường xuyên ("speaks good", "work hard-ly")
-- Band 6: thỉnh thoảng nhầm, chủ yếu ở những trường hợp bất quy tắc
-- Band 7+: dùng đúng nhất quán, kể cả linking verbs và trường hợp đặc biệt
+Độ chính xác của dạng từ được xét trên toàn bài; một mẫu lỗi không tự xác định band.
 
 ## Định nghĩa
 
@@ -158,6 +156,8 @@ Subject + linking verb + adjective (không phải adverb)
 ### 2. Adverb sau Action Verbs
 
 Khi động từ diễn tả hành động thực sự (walk, run, speak, write, work, drive...), dùng **adverb** để mô tả *cách thực hiện hành động đó*.
+
+Tính từ vẫn có thể đứng sau động từ hành động để mô tả **trạng thái chủ ngữ**: "She arrived **tired**" không nói cách đến nơi mà nói cô ấy mệt khi đến. Hai tính từ phối hợp như "a talented, confident musician" khác với "an incredibly talented musician", trong đó incredibly bổ nghĩa mức độ cho talented.
 
 ```
 Subject + action verb + (object) + adverb
@@ -334,8 +334,9 @@ Trong tiếng Anh, hai vai trò này **phải dùng hình thức khác nhau**. C
 **Quy trình quyết định nhanh:**
 
 ```
-Từ này đứng sau động từ hành động (run, speak, work...) → ADVERB (+ -ly)
-Từ này đứng sau linking verb (be, seem, look, feel...) → ADJECTIVE (không + -ly)
+Từ này mô tả cách thực hiện hành động → ADVERB (thường -ly, có ngoại lệ)
+Từ này mô tả trạng thái chủ ngữ → có thể là ADJECTIVE, kể cả She arrived tired
+Sau linking verb: adjective để mô tả chủ ngữ; be cũng có thể có noun phrase/place complement
 Từ này đứng trước danh từ → ADJECTIVE (không + -ly)
 Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 ```
@@ -408,7 +409,7 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 **Sửa lỗi:**
 1. The situation became **dangerous**. (linking verb "became" → adjective)
 2. She spoke to the audience very **confidently**. (action verb → adverb)
-3. He is an **incredibly** talented musician. (bổ nghĩa cho adjective → adverb)
+3. He is **an** incredibly talented musician. (Đổi a thành an trước âm nguyên âm /ɪ/; incredibly vốn đã đúng là adverb bổ nghĩa talented.)
 4. I worked **hard** all week. ("hardly" = almost not — sai nghĩa)
 5. She seems **nervous** before exams. (linking verb "seems" → adjective)
 6. The exam was **surprisingly** difficult. (bổ nghĩa cho adjective → adverb)
@@ -417,7 +418,7 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 1. **Adjective** → mô tả **danh từ**: a *careful* driver, she is *beautiful*
 2. **Adverb** → mô tả **động từ / tính từ / adverb khác**: she drives *carefully*, *incredibly* fast
 3. Sau **linking verbs** (be/seem/look/feel/taste/smell/sound/become): dùng **adjective** — "she looks *beautiful*"
-4. Sau **action verbs**: dùng **adverb** — "she drives *carefully*"
+4. Mô tả cách thực hiện hành động: dùng **adverb** — "she drives *carefully*"; mô tả trạng thái chủ ngữ: "she arrived *tired*"
 5. **good** (adj) → **well** (adv) — bất quy tắc, PHẢI nhớ
 6. **hard** (adj/adv = chăm chỉ) ≠ **hardly** (adv = hầu như không)
 7. **late** (adj/adv = muộn) ≠ **lately** (adv = gần đây)

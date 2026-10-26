@@ -7,13 +7,7 @@ CLASSIFY_OWNERS_SQL = r"""
 WITH
 b AS (
   SELECT id, code, meta,
-    code IN ('G-parts-of-speech-verbs',
-      'G-sentence-structures-passive-voice', 'G-tenses-past-continuous',
-      'G-tenses-present-continuous', 'G-tenses-present-perfect-continuous',
-      'G-tenses-present-simple', 'G-grammar-for-reading-participle-clauses',
-      'G-grammar-for-reading-long-sentence-untangling',
-      'G-grammar-for-reading-reduced-relative-clauses', 'G-tenses-past-perfect',
-      'G-foundations-phrase-vs-clause', 'G-error-clinic-dangling-modifiers')
+    public.grammar_quiz_allowed_code(code)
     AND skill_area = 'grammar' AND is_published
     AND jsonb_typeof(meta) = 'object'
     AND meta->'correct_to_master' = '2'::jsonb
@@ -136,3 +130,32 @@ classified AS (
 SELECT user_id,classification FROM classified ORDER BY user_id;
 
 """
+
+# The revised predecessor has server-owned admission/reset/completion markers.
+# Reuse the existing bounded shape/mastery checks, then classify actual run
+# lineage rather than interpreting legacy client summaries as admission proof.
+FOLLOWUP_OWNERS_SQL = CLASSIFY_OWNERS_SQL.replace(
+    "SELECT id, code, meta,", "SELECT id, code, meta, grammar_revision,"
+).replace(
+    "public.grammar_quiz_allowed_code(code)",
+    "public.grammar_quiz_allowed_code(grammar_canonical_code)"
+).replace(
+    "OR COALESCE(s.kind, 'run') <> 'run'",
+    "OR s.grammar_revision IS DISTINCT FROM (SELECT grammar_revision FROM b) OR s.grammar_admission_kind NOT IN ('run','review','continuation')"
+).replace(
+    "WHEN remaining = 0 THEN 'genuinely_mastered'",
+    """WHEN remaining = 0 OR EXISTS(SELECT 1 FROM s WHERE s.user_id=facts.user_id
+        AND s.grammar_mastery_completed_at IS NOT NULL AND s.grammar_reset_at IS NULL)
+      THEN 'genuinely_mastered'
+    WHEN NOT EXISTS(SELECT 1 FROM s WHERE s.user_id=facts.user_id
+        AND s.grammar_admission_kind IN ('run','continuation') AND s.grammar_reset_at IS NULL)
+      THEN 'readonly_or_reset'"""
+).replace(
+    "WHEN hinted_at IS NOT NULL AND NOT post_hint_work\n      THEN 'unknown_reset_or_review'", ""
+).replace(
+    "WHEN has_open THEN", "WHEN EXISTS(SELECT 1 FROM s WHERE s.user_id=facts.user_id AND s.grammar_admission_kind IN ('run','continuation') AND s.grammar_reset_at IS NULL AND s.ended_at IS NULL AND s.ended_by IS NULL) THEN"
+).replace(
+    "WHEN has_paused THEN", "WHEN EXISTS(SELECT 1 FROM s WHERE s.user_id=facts.user_id AND s.grammar_admission_kind IN ('run','continuation') AND s.grammar_reset_at IS NULL AND s.ended_by='paused') THEN"
+).replace(
+    "WHEN has_completed_carryover THEN", "WHEN EXISTS(SELECT 1 FROM s WHERE s.user_id=facts.user_id AND s.grammar_admission_kind IN ('run','continuation') AND s.grammar_reset_at IS NULL AND s.ended_by='completed' AND s.words_carried_over>0) THEN"
+)

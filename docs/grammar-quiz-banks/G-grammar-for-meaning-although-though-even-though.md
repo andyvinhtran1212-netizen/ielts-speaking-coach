@@ -196,10 +196,10 @@ input: "boolean"
 headword: "ate-even-though"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Even though it was raining, I took an umbrella.' là cách dùng 'even though' phù hợp vì mang cảm giác nhượng bộ mạnh."
+prompt: "Đúng hay Sai: Nếu trời mưa là lý do mang ô và không có ngữ cảnh tương phản khác, 'Even though it was raining, I took an umbrella' diễn đạt đúng quan hệ nguyên nhân đó."
 answer: false
 grammar_article_slug: "although-though-even-though"
-explain: "SAI — mang ô khi trời mưa là hành động BÌNH THƯỜNG, không có gì bất ngờ, nên không cần 'even though'. Câu đúng: 'Although it was raining, I took an umbrella.' 'Even though' chỉ phù hợp khi kết quả thực sự bất ngờ, vd: 'Even though it was raining heavily, she walked all the way to school.'"
+explain: "SAI về quan hệ ý đã nêu: nguyên nhân dùng because/as/since, ví dụ 'Because it was raining, I took an umbrella'. Đổi even though thành although vẫn giữ nhượng bộ và chưa sửa quan hệ nguyên nhân. Ngữ cảnh khác có thể tạo nhượng bộ, nhưng không có trong đề này."
 ---
 
 # ===== item_key 4 · Phân biệt với however / despite (contrast tools khác) =====
@@ -244,7 +244,7 @@ hint: "liên từ nhượng bộ + mệnh đề đầy đủ, KHÔNG dùng 'desp
 accept: ["Although", "Though", "Even though"]
 case_sensitive: false
 grammar_article_slug: "although-though-even-though"
-explain: "Với mệnh đề đầy đủ (subject + verb: 'the approach was promising') đứng sau, phải dùng 'Although', không dùng 'Despite' (chỉ theo sau bởi noun phrase)."
+explain: "Although, Though và Even though đều có thể mở mệnh đề nhượng bộ đầy đủ trong khung câu này. Despite không trực tiếp nhận mệnh đề 'the approach was promising'; cần despite the fact that... hoặc một cụm danh từ/-ing phù hợp."
 ---
 
 ---

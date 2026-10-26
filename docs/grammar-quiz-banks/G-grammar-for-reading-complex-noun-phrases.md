@@ -109,11 +109,11 @@ input: "text"
 headword: "cnp-premod-postmod"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete this complex noun phrase: 'The industrial revolution of the ____ fundamentally transformed society.'"
-accept: ["nineteenth century"]
+prompt: "Use eighteenth century or nineteenth century to complete a time post-modifier: 'The industrial revolution of the ____ fundamentally transformed society.'"
+accept: ["eighteenth century", "nineteenth century"]
 case_sensitive: false
 grammar_article_slug: "complex-noun-phrases"
-explain: "Post-modifier 'of the nineteenth century' thêm chi tiết thời gian vào head noun 'revolution'. Cấu trúc: pre-modifier (industrial) → head noun (revolution) → post-modifier (of the nineteenth century)."
+explain: "Cả hai cụm tạo phần bổ nghĩa thời gian đúng cấu trúc. Cách mạng Công nghiệp ở Anh diễn ra qua cuối thế kỷ 18 và đầu thế kỷ 19; đề không cung cấp đoạn đọc hay giai đoạn cụ thể để buộc chỉ chọn thế kỷ 19."
 ---
 
 ---
@@ -138,11 +138,11 @@ input: "choice"
 headword: "cnp-agreement"
 skill: "form"
 subtype: "basic"
-prompt: "Every year, the experts on the committee ____ their recommendation to the board."
+prompt: "Use the present simple for a current annual routine: 'Every year, the experts on the committee ____ their recommendation to the board.'"
 options: ["submits", "submit", "submitted", "have submitted"]
 answer: 1
 grammar_article_slug: "complex-noun-phrases"
-explain: "Head noun là 'experts' (số nhiều); 'on the committee' chỉ là cụm giới từ bổ nghĩa → chia số nhiều: 'submit'. 'submits' (số ít) là lỗi chia theo danh từ gần nhất ('committee') thay vì head noun. 'Every year' → hiện tại đơn, loại 'submitted'/'have submitted'."
+explain: "Theo yêu cầu Present Simple, experts là danh từ trung tâm số nhiều nên dùng submit; on the committee không đổi hòa hợp sang số ít. Every year tự nó có thể xuất hiện với thì khác trong bối cảnh quá khứ hoặc hoàn thành; đề này đã nêu rõ thì đích."
 ---
 
 ---

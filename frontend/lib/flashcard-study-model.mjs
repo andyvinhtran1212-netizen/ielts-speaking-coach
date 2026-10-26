@@ -1,5 +1,12 @@
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export function flashcardReturnHref(rawStack) {
+  const stack = parseFlashcardStack(rawStack);
+  if (stack?.mode === 'exam') return '/vocabulary/exam';
+  if (stack?.mode === 'wiki') return `/vocabulary?cat=${encodeURIComponent(stack.key)}`;
+  return '/flashcards';
+}
+
 function object(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 }

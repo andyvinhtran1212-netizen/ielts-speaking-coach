@@ -223,17 +223,17 @@ Trong IELTS Writing Task 2, nên cân nhắc giữa phrasal verb thông thườn
 
 - ❌ Turn off it.
 - ✅ Turn **it** off.
-- ❌ Look after them → có thể nhầm sang Separable
+- ❌ Look them after → tách sai cụm inseparable
 - ✅ Look after **them** (inseparable — them đứng sau particle là đúng)
 
 ### Lỗi 2: Thêm tân ngữ vào intransitive phrasal verbs
 
-- ❌ She broke down the car.
+- ❌ She broke down the car. *(nếu muốn nói xe tự hỏng; break down + O có nghĩa khác như phân tích/tháo rời)*
 - ✅ The car **broke down**. (intransitive — không có tân ngữ)
 
 ### Lỗi 3: Nhầm nghĩa
 
-- ❌ I **picked up** English from a dictionary. (nghĩa đúng là "nhặt" hoặc "đón")
+- ✅ I **picked up** a few useful English phrases from a dictionary. (học được; pick up cũng có nghĩa tiếp thu ngôn ngữ)
 - ✅ I **looked up** the word in a dictionary. (tra cứu)
 - ✅ I **picked up** some English while living abroad. (học tự nhiên)
 

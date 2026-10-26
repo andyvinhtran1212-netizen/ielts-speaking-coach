@@ -1,0 +1,178 @@
+{
+  "slug": "why-we-dream",
+  "review_notes": "Tự dịch và giữ nguyên giả thuyết/may; không khẳng định một chức năng giấc mơ đã được chứng minh. Minh hoạ giấc ngủ không thêm sơ đồ não hay giai đoạn có thể lộ đáp án.",
+  "illustration_brief": "Một người đang ngủ trong căn phòng có ánh trăng dịu.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Mỗi đêm, khi bạn đang ngủ, tâm trí kể cho bạn những câu chuyện kỳ lạ.",
+      [
+        "while you are asleep",
+        "khi bạn đang ngủ"
+      ],
+      [
+        "strange stories",
+        "những câu chuyện kỳ lạ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Những câu chuyện ấy chính là giấc mơ của bạn.",
+      [
+        "your dreams",
+        "giấc mơ của bạn"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Con người vẫn luôn muốn biết một điều: rốt cuộc vì sao chúng ta mơ?",
+      [
+        "have always wanted to know",
+        "vẫn luôn muốn biết"
+      ],
+      [
+        "why do we dream at all",
+        "rốt cuộc vì sao chúng ta mơ"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Các nhà khoa học vẫn chưa có một câu trả lời rõ ràng.",
+      [
+        "still do not have one clear answer",
+        "vẫn chưa có một câu trả lời rõ ràng"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nhưng họ đã nghiên cứu giấc ngủ nhiều năm và có một số ý tưởng thú vị.",
+      [
+        "studied sleep for many years",
+        "nghiên cứu giấc ngủ nhiều năm"
+      ],
+      [
+        "some interesting ideas",
+        "một số ý tưởng thú vị"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Chúng ta mơ nhiều nhất trong một giai đoạn đặc biệt của giấc ngủ.",
+      [
+        "one special stage of sleep",
+        "một giai đoạn đặc biệt của giấc ngủ"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Trong giai đoạn này, não hoạt động mạnh, gần như bận rộn ngang lúc chúng ta thức.",
+      [
+        "the brain is very active",
+        "não hoạt động mạnh"
+      ],
+      [
+        "when we are awake",
+        "lúc chúng ta thức"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Mắt cũng chuyển động nhanh sau mí mắt đang nhắm.",
+      [
+        "move quickly",
+        "chuyển động nhanh"
+      ],
+      [
+        "our closed eyelids",
+        "mí mắt đang nhắm"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Một ý tưởng liên quan đến trí nhớ.",
+      [
+        "memory",
+        "trí nhớ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Khi chúng ta ngủ, não có thể lưu giữ những việc quan trọng đã xảy ra trong ngày và quên đi những việc nhỏ nhặt.",
+      [
+        "may store the important things",
+        "có thể lưu giữ những việc quan trọng"
+      ],
+      [
+        "forget the small ones",
+        "quên đi những việc nhỏ nhặt"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Vì vậy, giấc mơ có thể giúp chúng ta ghi nhớ.",
+      [
+        "may help us remember",
+        "có thể giúp chúng ta ghi nhớ"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Một ý tưởng khác cho rằng giấc mơ giúp chúng ta luyện tập.",
+      [
+        "Another idea",
+        "Một ý tưởng khác"
+      ],
+      [
+        "dreams help us practice",
+        "giấc mơ giúp chúng ta luyện tập"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Trong mơ, đôi khi chúng ta chạy trốn nguy hiểm.",
+      [
+        "run away from danger",
+        "chạy trốn nguy hiểm"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Điều này có thể rèn luyện não để ứng phó với đời thực.",
+      [
+        "may train the brain",
+        "có thể rèn luyện não"
+      ],
+      [
+        "for real life",
+        "để ứng phó với đời thực"
+      ]
+    ],
+    [
+      "p6-s1",
+      "Phần lớn mọi người nhanh chóng quên giấc mơ của mình.",
+      [
+        "quickly forget their dreams",
+        "nhanh chóng quên giấc mơ của mình"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Chúng ta thường không nhớ được chúng sau khi tỉnh dậy, nhưng lý do chúng ta mơ có lẽ vẫn là điều bí ẩn.",
+      [
+        "after we wake up",
+        "sau khi tỉnh dậy"
+      ],
+      [
+        "may still be a mystery",
+        "có lẽ vẫn là điều bí ẩn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-night-sleep-scene.svg",
+    "alt": "Một người ngủ trên ghế sofa cạnh cửa sổ có trăng và sao.",
+    "caption": "Những câu chuyện trong giấc ngủ."
+  },
+  "source_sha256": "92790faad60b94ab9a192233d1cd81987bfbf6ba530c283668bf842acd3f3b51",
+  "expected_translation_sha256": "a25f381a7aceefe30e656d8c1bc28f8bdc37382c135ed4ee47d13777388785fa"
+}

@@ -166,11 +166,11 @@ input: "text"
 headword: "acn-despite"
 skill: "production"
 subtype: "intermediate"
-prompt: "____ (write the three-word preposition, more formal than 'despite') numerous setbacks, the research team completed the project on schedule."
+prompt: "____ (write the three-word preposition meaning despite) numerous setbacks, the research team completed the project on schedule."
 accept: ["In spite of", "in spite of"]
 case_sensitive: false
 grammar_article_slug: "adding-contrast-naturally"
-explain: "'In spite of' là giới từ đồng nghĩa với 'despite', cũng theo sau bởi danh từ/cụm danh từ."
+explain: "In spite of có nghĩa nhượng bộ tương tự despite và theo sau bởi cụm danh từ trong câu này. Despite thường trang trọng hơn một chút; đề chỉ yêu cầu cụm ba từ, không gọi in spite of trang trọng hơn."
 ---
 
 ---

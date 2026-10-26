@@ -109,11 +109,11 @@ input: "choice"
 headword: "cis-third-conditional"
 skill: "form"
 subtype: "basic"
-prompt: "If she ____ harder in school, she ____ into a better university."
+prompt: "She did not study hard and missed her chance last year. Choose the third conditional about that unreal past: 'If she ____ harder in school, she ____ into a better university.'"
 options: ["had studied / would have got", "studied / would get", "studies / will get", "had studied / would get"]
 answer: 0
 grammar_article_slug: "conditionals-in-speaking"
-explain: "Third conditional: If + past perfect (had studied), would have + V3 (would have got) — dùng khi nhìn lại điều đã không xảy ra trong quá khứ."
+explain: "Bối cảnh đã kết thúc trong quá khứ và trái thực tế: had studied / would have got. Các cặp thuộc điều kiện khác có thể đúng cấu trúc trong ngữ cảnh khác; ở đây chúng không giữ thời gian và tình huống được nêu."
 ---
 
 ---
@@ -127,7 +127,7 @@ prompt: "In Part 3, analysing a past policy failure: 'If governments ____ in ren
 options: ["had invested", "invested", "would invest", "have invested"]
 answer: 0
 grammar_article_slug: "conditionals-in-speaking"
-explain: "Phân tích nguyên nhân-hệ quả đã xảy ra trong quá khứ → third conditional: if + past perfect 'had invested'."
+explain: "Had invested nói giả định trái quá khứ; wouldn't have such a serious climate crisis today nói hệ quả hiện tại. Đây là điều kiện hỗn hợp quá khứ–hiện tại, không phải loại 3 thuần quá khứ với would have + V3."
 ---
 
 ---
@@ -265,11 +265,11 @@ input: "choice"
 headword: "cis-zero-first-conditional"
 skill: "form"
 subtype: "basic"
-prompt: "If you don't sleep enough, your concentration ____."
+prompt: "Choose the zero-conditional form describing a general pattern (present simple in both clauses): 'If you don't sleep enough, your concentration ____.'"
 options: ["drops", "will drop", "would drop", "dropped"]
 answer: 0
 grammar_article_slug: "conditionals-in-speaking"
-explain: "Zero conditional diễn tả sự thật/quy luật chung: if + present simple, present simple (drops)."
+explain: "Theo yêu cầu zero conditional, dùng drops. Will drop cũng đúng nếu câu nhằm dự đoán hệ quả tương lai, nhưng không thực hiện mẫu present simple ở cả hai mệnh đề mà đề này yêu cầu rõ."
 ---
 
 ---

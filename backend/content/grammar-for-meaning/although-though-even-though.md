@@ -88,7 +88,7 @@ anchors:
 
 ## Tại sao quan trọng
 
-Khi phân tích trong IELTS Writing Task 2, bạn cần thừa nhận quan điểm đối lập trước khi phản bác — đây gọi là **concession + counter-argument**. Đây là kỹ năng cốt lõi để đạt Band 7+. Chỉ biết một trong số các từ này sẽ khiến bài viết lặp đi lặp lại. Biết tất cả và dùng đúng ngữ cảnh là thể hiện của Cohesion & Coherence và Lexical Resource cao.
+Concession + counter-argument là một lựa chọn khi phù hợp lập trường. Bạn có thể hoàn toàn đồng ý hoặc đồng ý có điều kiện; không phải mọi Task 2 đều cần khuôn nhượng bộ rồi phản bác. Band được đánh giá trên toàn bài.
 
 ---
 
@@ -167,12 +167,12 @@ Even though + [subject + verb], [main clause].
 [Main clause] even though [subject + verb].
 ```
 
-"Even though" nhấn mạnh rằng kết quả **bất ngờ hoặc đặc biệt mạnh** — "thậm chí cho dù", "ngay cả khi":
+"Even though" nhấn mạnh rằng kết quả **bất ngờ hoặc đặc biệt mạnh** — “mặc dù thực tế...” (khác even if: giả định “ngay cả nếu...”):
 
 - **Even though** he trained for months, he still failed the test. *(kết quả bất ngờ)*
 - **Even though** the evidence is clear, some people still deny climate change.
 - She continued working **even though** she was exhausted.
-- **Even though** the treatment is expensive, many patients cannot access it.
+- **Even though** the treatment is inexpensive, many patients cannot access it because it is unavailable locally.
 - He donated the money **even though** he could barely afford it himself.
 
 ### So sánh mức độ nhấn mạnh:
@@ -307,7 +307,7 @@ While / Whereas [clause A], [clause B].
 
 ### Đáp án
 
-1. Although | 2. though | 3. Even though | 4. though | 5. Although / Even though
+1. Although / Though / Even though | 2. though (cuối câu) | 3. Although / Though / Even though | 4. although / though / even though | 5. Although / Though / Even though
 6. "Despite being tired, she continued working." / "Despite her tiredness, she continued working."
 7. "Although the cost is high, many governments support the programme."
 8. *(gợi ý)* "...it generates significant long-term savings in energy costs."

@@ -74,7 +74,7 @@ Cách này tăng **Grammatical Range** và giảm lặp — giám khảo IELTS �
 | **Xác định** (defining) | KHÔNG phẩy | thông tin **thiết yếu** | *Students **who cheat** should be punished.* |
 | **Không xác định** (non-defining) | CÓ phẩy | thông tin **thêm** | *My teacher, **who is very strict**, cancelled the test.* |
 
-Quy tắc: bỏ mệnh đề đi mà câu vẫn đủ nghĩa → dùng **phẩy**. **that** chỉ dùng cho mệnh đề xác định (không phẩy).
+Quy tắc: mệnh đề có giới hạn nhóm/người/vật đang nói tới không? Nếu đối tượng đã được nhận diện độc lập và mệnh đề chỉ bổ sung, dùng **phẩy**. Bỏ đi vẫn đủ cú pháp không đủ để phân loại. **that** chỉ dùng cho mệnh đề xác định (không phẩy).
 
 <!-- anchor: relative-clauses-in-writing.pitfall -->
 ## Lỗi thường gặp

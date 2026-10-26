@@ -73,7 +73,7 @@ Tuy nhiên, có một logic chung giúp bạn đoán đúng trong nhiều trư�
 
 ## Tại sao quan trọng
 
-Sai **do/make** là lỗi collocation, không phải lỗi ngữ pháp — nhưng bị trừ điểm **Lexical Resource** trong IELTS. Examiners nghe thấy "make homework" hay "do a decision" ngay lập tức sẽ hạ điểm từ vựng. Người bản ngữ không dùng cách đó.
+Sai **do/make** là lỗi collocation, không phải lỗi ngữ pháp — nhưng bị trừ điểm **Lexical Resource** trong IELTS. Ảnh hưởng đến Lexical Resource được xét theo độ chính xác và sự lặp trên toàn bài, không tự trừ ngay cho một kết hợp từ. Người bản ngữ không dùng cách đó.
 
 ---
 
@@ -277,7 +277,7 @@ Khi nói đến một **hoạt động** mà không chỉ rõ tên cụ thể:
 ### Đáp án
 
 **Điền DO/MAKE:**
-1. do | 2. made | 3. do | 4. make | 5. do | 6. do | 7. make | 8. make | 9. make | 10. do
+1. do | 2. made | 3. do | 4. make | 5. do | 6. do | 7. make | 8. make | 9. make | 10. do / make (a presentation; give cũng thông dụng)
 
 **Sửa lỗi:**
 1. I want to **do** exercise more regularly.

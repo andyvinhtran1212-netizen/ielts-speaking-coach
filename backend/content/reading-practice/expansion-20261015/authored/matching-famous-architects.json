@@ -1,0 +1,246 @@
+{
+  "slug": "matching-famous-architects",
+  "review_notes": "Prairie là tên phong cách kiến trúc, giữ tiếng Anh kèm mô tả; stalagmites là măng đá. Câu chưa hoàn thành dịch theo thời điểm nguồn, không cập nhật tình trạng công trình.",
+  "illustration_brief": "Mô hình công trình và bản phác thảo đường cong trên bàn làm việc của kiến trúc sư.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Một tòa nhà có thể hoàn toàn mang tính thực dụng — bốn bức tường và một mái nhà.",
+      [
+        "a purely practical thing",
+        "hoàn toàn mang tính thực dụng"
+      ],
+      [
+        "four walls and a roof",
+        "bốn bức tường và một mái nhà"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nhưng đôi khi kiến trúc sư biến những bức tường ấy thành thứ gần với một tác phẩm điêu khắc mà ta có thể bước vào.",
+      [
+        "a sculpture that can be walked inside",
+        "một tác phẩm điêu khắc mà ta có thể bước vào"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Ba nhân vật làm việc ở những thời điểm và nơi chốn rất khác nhau cho thấy các nhà thiết kế táo bạo có thể mở rộng quan niệm về hình dáng công trình đến đâu.",
+      [
+        "bold designers",
+        "các nhà thiết kế táo bạo"
+      ],
+      [
+        "stretch the idea",
+        "mở rộng quan niệm"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Antoni Gaudí làm việc ở Barcelona cuối thế kỷ XIX và đầu thế kỷ XX.",
+      [
+        "the late nineteenth and early twentieth centuries",
+        "cuối thế kỷ XIX và đầu thế kỷ XX"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Ông lấy cảm hứng cho các đường cong mềm mại từ cây cối, vỏ sinh vật và bộ xương, khiến các tòa nhà trông gần như tự mọc lên hơn là được xây dựng.",
+      [
+        "his flowing curves",
+        "các đường cong mềm mại"
+      ],
+      [
+        "plants, shells and skeletons",
+        "cây cối, vỏ sinh vật và bộ xương"
+      ],
+      [
+        "almost grown rather than built",
+        "gần như tự mọc lên hơn là được xây dựng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nhà thờ lớn Sagrada Família của ông, với những tháp nhọn vươn lên như măng đá, vẫn chưa hoàn thành sau hơn một thế kỷ kể từ ngày khởi công, và các thợ thủ công ngày nay vẫn làm theo thiết kế của ông.",
+      [
+        "spires rising like stone stalagmites",
+        "những tháp nhọn vươn lên như măng đá"
+      ],
+      [
+        "remains incomplete",
+        "vẫn chưa hoàn thành"
+      ],
+      [
+        "today's craftsmen",
+        "các thợ thủ công ngày nay"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Bên kia Đại Tây Dương, kiến trúc sư Mỹ Frank Lloyd Wright theo đuổi một ý tưởng rất khác.",
+      [
+        "Across the Atlantic",
+        "Bên kia Đại Tây Dương"
+      ],
+      [
+        "pursued a very different idea",
+        "theo đuổi một ý tưởng rất khác"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Thay vì vươn lên trời, nhiều ngôi nhà của ông trải thấp ngang cảnh quan bằng những đường dài, nằm ngang, như thể mọc lên từ mặt đất.",
+      [
+        "reaching for the sky",
+        "vươn lên trời"
+      ],
+      [
+        "long, level lines",
+        "những đường dài, nằm ngang"
+      ],
+      [
+        "grow out of the ground",
+        "mọc lên từ mặt đất"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Ông gọi cách tiếp cận này là kiến trúc hữu cơ, tin rằng công trình nên hòa vào bối cảnh thay vì lấn át nó.",
+      [
+        "organic architecture",
+        "kiến trúc hữu cơ"
+      ],
+      [
+        "blend with its setting",
+        "hòa vào bối cảnh"
+      ],
+      [
+        "imposing on it",
+        "lấn át nó"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Những ngôi nhà phong cách Prairie của ông, nằm sát mặt đất, vẫn thuộc số tác phẩm nổi tiếng nhất của ông.",
+      [
+        "His prairie houses",
+        "Những ngôi nhà phong cách Prairie của ông"
+      ],
+      [
+        "hugging the earth",
+        "nằm sát mặt đất"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Gần thời chúng ta hơn, kiến trúc sư Anh gốc Iraq Zaha Hadid đẩy hình khối đi xa hơn nữa.",
+      [
+        "the British-Iraqi architect",
+        "kiến trúc sư Anh gốc Iraq"
+      ],
+      [
+        "pushed form even further",
+        "đẩy hình khối đi xa hơn nữa"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Các tòa nhà của bà uốn cong và uyển chuyển theo những cách mà người xây dựng trước đó không thể dựng lên; chỉ nhờ các công cụ máy tính mới, những hình dáng rộng, uốn lượn như vậy mới trở nên khả thi.",
+      [
+        "curve and flow",
+        "uốn cong và uyển chuyển"
+      ],
+      [
+        "new computer tools",
+        "các công cụ máy tính mới"
+      ],
+      [
+        "became possible",
+        "trở nên khả thi"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Năm 2004, bà trở thành người phụ nữ đầu tiên giành giải thưởng được kính trọng nhất ngành, Giải Pritzker, mở lối trong một nghề từ lâu do nam giới chiếm ưu thế.",
+      [
+        "the first woman to win",
+        "người phụ nữ đầu tiên giành"
+      ],
+      [
+        "the Pritzker Prize",
+        "Giải Pritzker"
+      ],
+      [
+        "long dominated by men",
+        "từ lâu do nam giới chiếm ưu thế"
+      ]
+    ],
+    [
+      "p5-s1",
+      "E — Cả ba nhà thiết kế đều từng bị chế giễu.",
+      [
+        "All three designers",
+        "Cả ba nhà thiết kế"
+      ],
+      [
+        "were mocked at some point",
+        "đều từng bị chế giễu"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Đường cong của Gaudí bị gọi là kỳ quái, mái thấp của Wright bị coi là lạ lùng, và hình khối của Hadid bị một số người gạt bỏ vì cho là thiếu thực tế.",
+      [
+        "bizarre",
+        "kỳ quái"
+      ],
+      [
+        "impractical",
+        "thiếu thực tế"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Công chúng cần thời gian để bắt kịp tầm nhìn của họ.",
+      [
+        "catch up with their vision",
+        "bắt kịp tầm nhìn của họ"
+      ]
+    ],
+    [
+      "p6-s1",
+      "F — Điều gắn kết họ không phải phong cách chung — phong cách của họ khác nhau hết mức — mà là sự sẵn lòng coi công trình như câu hỏi cần được trả lời theo cách mới, thay vì khuôn mẫu để sao chép.",
+      [
+        "not a shared style",
+        "không phải phong cách chung"
+      ],
+      [
+        "a question to be answered freshly",
+        "câu hỏi cần được trả lời theo cách mới"
+      ],
+      [
+        "a pattern to be copied",
+        "khuôn mẫu để sao chép"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Chính xác mỗi người thay đổi kiến trúc đến mức nào vẫn còn được tranh luận, nhưng ảnh hưởng của họ khó có thể bỏ qua.",
+      [
+        "is still debated",
+        "vẫn còn được tranh luận"
+      ],
+      [
+        "hard to overlook",
+        "khó có thể bỏ qua"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-architecture-sketch-scene.svg",
+    "alt": "Mô hình công trình và bản phác thảo đường cong trên bàn làm việc của kiến trúc sư.",
+    "caption": "Từ ý tưởng hình khối đến công trình."
+  },
+  "source_sha256": "0925170aa8e3dc5789610478dc464f83f1f948c5d187b3a6576b86ef906fef4f",
+  "expected_translation_sha256": "295e6079b2f7acc41b792aa4bf1bdba130c376d01f30dca9e3d2ff7494049930"
+}

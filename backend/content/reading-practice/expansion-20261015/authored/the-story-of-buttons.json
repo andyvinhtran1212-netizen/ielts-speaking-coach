@@ -1,0 +1,194 @@
+{
+  "slug": "the-story-of-buttons",
+  "review_notes": "Button/cúc khác buttonhole/khuy. Early button not for clothes được diễn đạt mục đích cài quần áo theo câu chỉ trang trí và đoạn sau, không tự thêm nguồn cổ vật hay địa danh cụ thể.",
+  "illustration_brief": "Những chiếc cúc với lỗ khâu đặt trên vải cạnh chỉ và kim.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Chiếc cúc cổ nhất thế giới khoảng 5.000 năm tuổi.",
+      [
+        "The oldest button in the world",
+        "Chiếc cúc cổ nhất thế giới"
+      ],
+      [
+        "about 5,000 years old",
+        "khoảng 5.000 năm tuổi"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Người ta tìm thấy ở thành phố cổ châu Á.",
+      [
+        "an ancient city in Asia",
+        "thành phố cổ châu Á"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nhưng chiếc cúc sơ khai này không dùng để cài quần áo.",
+      [
+        "this early button",
+        "chiếc cúc sơ khai này"
+      ],
+      [
+        "was not for clothes",
+        "không dùng để cài quần áo"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Nó chỉ để trang trí.",
+      [
+        "only for decoration",
+        "chỉ để trang trí"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Trong thời gian dài, cúc chỉ là đồ đẹp.",
+      [
+        "For a long time",
+        "Trong thời gian dài"
+      ],
+      [
+        "pretty objects",
+        "đồ đẹp"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Người ta khâu lên quần áo để trông giàu.",
+      [
+        "sewed them onto clothes",
+        "khâu lên quần áo"
+      ],
+      [
+        "to look rich",
+        "để trông giàu"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Chúng làm từ vỏ sò, xương hoặc gỗ.",
+      [
+        "shell, bone, or wood",
+        "vỏ sò, xương hoặc gỗ"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Cúc có thể cho biết người giàu có.",
+      [
+        "could show",
+        "có thể cho biết"
+      ],
+      [
+        "wealthy",
+        "giàu có"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Khi đó chỉ gia đình giàu có nhiều cúc.",
+      [
+        "Only rich families",
+        "chỉ gia đình giàu"
+      ],
+      [
+        "many buttons",
+        "nhiều cúc"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Rồi thế kỷ XIII có đổi thay.",
+      [
+        "the 13th century",
+        "thế kỷ XIII"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Người châu Âu tạo ra lỗ khuy áo.",
+      [
+        "the buttonhole",
+        "lỗ khuy áo"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Giờ đây, một chiếc cúc có thể giữ hai mảnh vải lại với nhau.",
+      [
+        "hold two pieces of cloth together",
+        "giữ hai mảnh vải lại với nhau"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Ý nhỏ này rất hữu ích.",
+      [
+        "very useful",
+        "rất hữu ích"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Áo quần ôm sát thành mốt, cúc lan nhanh.",
+      [
+        "Tight clothes",
+        "Áo quần ôm sát"
+      ],
+      [
+        "spread fast",
+        "lan nhanh"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ngày nay cúc có khắp nơi.",
+      [
+        "everywhere",
+        "khắp nơi"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Chúng ta sử dụng chúng mà không cần nghĩ ngợi.",
+      [
+        "without thinking",
+        "mà không cần nghĩ ngợi"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Lần tới cài áo, hãy nhớ câu chuyện dài.",
+      [
+        "fasten your shirt",
+        "cài áo"
+      ],
+      [
+        "its long story",
+        "câu chuyện dài"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Cúc nhỏ có thể giữ hàng nghìn năm lịch sử.",
+      [
+        "A tiny button",
+        "Cúc nhỏ"
+      ],
+      [
+        "thousands of years of history",
+        "hàng nghìn năm lịch sử"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-buttons-sewing-scene.svg",
+    "alt": "Những chiếc cúc với lỗ khâu đặt trên vải cạnh chỉ và kim.",
+    "caption": "Một chi tiết nhỏ trên trang phục."
+  },
+  "source_sha256": "72c56126c8171bbf49b746113df828b641ec8abee57a1564f26d6553c10f7414",
+  "expected_translation_sha256": "fa57969bf6f86cd0f3d4273a54ad4ac33f7c0a0d807c702c06136052ba87c9fa"
+}

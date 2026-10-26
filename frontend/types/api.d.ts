@@ -7316,20 +7316,11 @@ export interface paths {
         };
         /**
          * Listening Overview
-         * @description How much practice material each Listening surface actually holds.
+         * @description Canonical counts and account-owned activity, without serial I/O stalls.
          *
-         *     The landing page renders one tile per surface. Before this endpoint the
-         *     tiles were hard-coded, so four of them pointed at surfaces with zero
-         *     published rows — a learner clicked "Nghe ý chính" and landed on an empty
-         *     page. The landing page now hides a tile whose count is 0, which means the
-         *     count MUST match what the corresponding list endpoint would return, or a
-         *     tile promises content its own page cannot show.
-         *
-         *     So every filter here mirrors ``list_published_listening_tests`` /
-         *     ``list_listening_content`` / ``get_listening_exercises`` exactly:
-         *     published only, audio-ready only, exam-reserved papers excluded, and an
-         *     exercise counts only when BOTH it and its content row are published.
-         *     ``test_counts_consistent_with_list`` in the test suite pins that.
+         *     The existing wire shape and published/audio/public-policy predicates remain
+         *     unchanged. Independent reads run in worker threads: synchronous PostgREST
+         *     must not block the application event loop or unrelated learner pages.
          */
         get: operations["listening_overview_api_listening_overview_get"];
         put?: never;
@@ -9502,12 +9493,201 @@ export interface paths {
         put?: never;
         /**
          * Generate Audio
-         * @description Queue a voice-render job for the selected words. Target precedence:
-         *     ids → category → all. engine=openai|elevenlabs; scope=headword|example|both.
-         *     Returns immediately ({queued_count, engine}); the render runs in the
-         *     background and stamps audio_* + status='final' (then reload G1).
+         * @description Keep older clients from silently producing a different Vocabulary voice.
+         *
+         *     Hosted deployments do not contain the local Kokoro model. Do not acknowledge
+         *     a queued job that cannot run, or fall back to another provider.
          */
         post: operations["generate_audio_admin_vocabulary_generate_audio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["catalog_api_vocabulary_sets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/{set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["detail_api_vocabulary_sets__set_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/{set_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_vocabulary_sets__set_id__sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Session Detail */
+        get: operations["session_detail_api_vocabulary_sets_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/sessions/{session_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer */
+        post: operations["answer_api_vocabulary_sets_sessions__session_id__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary-sets/sessions/{session_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit */
+        post: operations["submit_api_vocabulary_sets_sessions__session_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Catalog */
+        get: operations["admin_catalog_admin_vocabulary_sets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Cards */
+        get: operations["search_cards_admin_vocabulary_sets_cards_get"];
+        put?: never;
+        /** Create Card */
+        post: operations["create_card_admin_vocabulary_sets_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets/{set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Detail */
+        get: operations["admin_detail_admin_vocabulary_sets__set_id__get"];
+        put?: never;
+        /** Save Set */
+        post: operations["save_set_admin_vocabulary_sets__set_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets/{set_id}/publication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publication */
+        post: operations["publication_admin_vocabulary_sets__set_id__publication_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary-sets/{set_id}/outcomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Outcomes */
+        get: operations["outcomes_admin_vocabulary_sets__set_id__outcomes_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13558,6 +13738,25 @@ export interface components {
             /** Answer Text */
             answer_text?: string | null;
         };
+        /** AnswerOut */
+        AnswerOut: {
+            /** Index */
+            index: number;
+            /**
+             * Answer
+             * @default
+             */
+            answer: string;
+            /**
+             * Expected
+             * @default
+             */
+            expected: string;
+            /** Correct */
+            correct?: boolean | null;
+            /** Rating */
+            rating?: ("again" | "hard" | "good" | "easy") | null;
+        };
         /** AssignRow */
         AssignRow: {
             /** User Id */
@@ -13712,6 +13911,15 @@ export interface components {
             assisted_evidence_excluded: number;
             /** Item Ids */
             item_ids: string[];
+        };
+        /** AudienceOption */
+        AudienceOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Course Id */
+            course_id?: string | null;
         };
         /**
          * AuditRunRequest
@@ -14248,6 +14456,45 @@ export interface components {
             /** Self Attribution */
             self_attribution?: string[];
         };
+        /** CardCreate */
+        CardCreate: {
+            /** Headword */
+            headword: string;
+            /** Category */
+            category: string;
+            /** Gloss Vi */
+            gloss_vi: string;
+            /**
+             * Definition En
+             * @default
+             */
+            definition_en: string;
+            /**
+             * Pronunciation
+             * @default
+             */
+            pronunciation: string;
+            /**
+             * Part Of Speech
+             * @default
+             */
+            part_of_speech: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Example
+             * @default
+             */
+            example: string;
+        };
+        /** CardSearchOut */
+        CardSearchOut: {
+            /** Cards */
+            cards: components["schemas"]["SharedCard"][];
+        };
         /** CatalogEntry */
         CatalogEntry: {
             /** Id */
@@ -14292,6 +14539,17 @@ export interface components {
              * @default 0
              */
             supplementary_count: number;
+        };
+        /** CatalogOut */
+        CatalogOut: {
+            /** Sets */
+            sets: components["schemas"]["SetOut"][];
+            /** Courses */
+            courses: components["schemas"]["AudienceOption"][];
+            /** Cohorts */
+            cohorts: components["schemas"]["AudienceOption"][];
+            /** Sessions */
+            sessions?: components["schemas"]["SessionBrief"][];
         };
         /** ClaimRendererAffinityBody */
         ClaimRendererAffinityBody: {
@@ -15877,6 +16135,12 @@ export interface components {
             /** Title */
             title: string;
             /**
+             * Private Content Copy
+             * @default true
+             * @constant
+             */
+            private_content_copy: true;
+            /**
              * Exam Mode
              * @default sequential
              */
@@ -15913,7 +16177,7 @@ export interface components {
             review_sla_days?: number | null;
             /**
              * Web Explanation Mode
-             * @default with_result
+             * @default disabled
              */
             web_explanation_mode: string;
             /** Web Explanation Content Version */
@@ -16193,8 +16457,8 @@ export interface components {
         /**
          * GenerateAudioRequest
          * @description Which words to render + how. Target = ids OR category OR all (in that
-         *     precedence). engine = openai|elevenlabs; scope = headword|example|both.
-         *     skip_existing_audio=True skips fields that already have a stored URL.
+         *     precedence). Retained for older clients; hosted generation is disabled.
+         *     Vocabulary audio is prepared with Kokoro bf_emma by the operator batch CLI.
          */
         GenerateAudioRequest: {
             /** Ids */
@@ -16208,7 +16472,7 @@ export interface components {
             all: boolean;
             /**
              * Engine
-             * @default openai
+             * @default kokoro
              */
             engine: string;
             /**
@@ -16560,7 +16824,7 @@ export interface components {
              * Canonical Code
              * @enum {string}
              */
-            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            canonical_code: "G-error-clinic-affect-vs-effect" | "G-error-clinic-article-errors" | "G-error-clinic-dangling-modifiers" | "G-error-clinic-do-vs-make" | "G-error-clinic-double-subject-errors" | "G-error-clinic-economic-vs-economical" | "G-error-clinic-historic-vs-historical" | "G-error-clinic-overusing-i-think" | "G-error-clinic-preposition-errors" | "G-error-clinic-run-on-sentences" | "G-error-clinic-say-tell-speak-talk" | "G-error-clinic-sentence-fragments" | "G-error-clinic-subject-verb-agreement" | "G-error-clinic-tense-consistency" | "G-error-clinic-wrong-pronoun-reference" | "G-foundations-articles-a-an-sound-rules" | "G-foundations-countable-vs-uncountable" | "G-foundations-few-a-few-little-a-little" | "G-foundations-noun-phrase-basics" | "G-foundations-parts-of-speech" | "G-foundations-phrase-vs-clause" | "G-foundations-singular-vs-plural" | "G-foundations-this-that-these-those-in-use" | "G-foundations-word-order" | "G-foundations-zero-article" | "G-grammar-for-meaning-although-though-even-though" | "G-grammar-for-meaning-comparison" | "G-grammar-for-meaning-conditionals" | "G-grammar-for-meaning-discourse-markers" | "G-grammar-for-meaning-discourse-markers-spoken" | "G-grammar-for-meaning-hedging-language" | "G-grammar-for-meaning-so-vs-such" | "G-grammar-for-reading-appositives-and-parentheticals" | "G-grammar-for-reading-comparison-structures-in-reading" | "G-grammar-for-reading-complex-noun-phrases" | "G-grammar-for-reading-ellipsis-and-substitution" | "G-grammar-for-reading-hedging-and-certainty-in-reading" | "G-grammar-for-reading-logical-connectors-in-reading" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-nominalization" | "G-grammar-for-reading-paraphrase-patterns" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-punctuation-as-meaning-signals" | "G-grammar-for-reading-reduced-relative-clauses" | "G-grammar-for-reading-reference-and-cohesion" | "G-grammar-for-writing-cohesion-devices-in-writing" | "G-grammar-for-writing-complex-sentences-for-task2" | "G-grammar-for-writing-grammar-in-task1" | "G-grammar-for-writing-parallel-structure" | "G-grammar-for-writing-punctuation-for-writing" | "G-grammar-for-writing-relative-clauses-in-writing" | "G-grammar-for-writing-task1-trend-grammar" | "G-ielts-grammar-lab-adding-contrast-naturally" | "G-ielts-grammar-lab-adding-reasons-clearly" | "G-ielts-grammar-lab-agreeing-and-disagreeing-naturally" | "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings" | "G-ielts-grammar-lab-balanced-arguments-grammar" | "G-ielts-grammar-lab-comparing-ideas-in-speaking" | "G-ielts-grammar-lab-conditionals-in-speaking" | "G-ielts-grammar-lab-giving-examples-naturally" | "G-ielts-grammar-lab-grammar-for-band7plus" | "G-ielts-grammar-lab-grammar-in-speaking" | "G-ielts-grammar-lab-speculating-about-the-future" | "G-ielts-grammar-lab-strong-vs-cautious-opinions" | "G-ielts-grammar-lab-talking-about-future-plans" | "G-ielts-grammar-lab-talking-about-habits-and-routines" | "G-modifiers-adverbs" | "G-modifiers-compound-adjectives" | "G-modifiers-intensifiers-and-mitigators" | "G-modifiers-order-of-adjectives" | "G-parts-of-speech-conjunctions" | "G-parts-of-speech-nouns" | "G-parts-of-speech-prepositions" | "G-parts-of-speech-verbs" | "G-parts-of-speech-word-formation-adjective-suffixes" | "G-parts-of-speech-word-formation-noun-suffixes" | "G-sentence-structures-complex-sentence" | "G-sentence-structures-inversion" | "G-sentence-structures-passive-voice" | "G-sentence-structures-reported-speech" | "G-tenses-future-forms" | "G-tenses-past-continuous" | "G-tenses-past-perfect" | "G-tenses-present-continuous" | "G-tenses-present-perfect" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-verb-patterns-gerund-vs-infinitive" | "G-verb-patterns-infinitive" | "G-verb-patterns-phrasal-verbs";
             /**
              * Operation Id
              * Format: uuid
@@ -16661,12 +16925,21 @@ export interface components {
              * Canonical Code
              * @enum {string}
              */
-            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            canonical_code: "G-error-clinic-affect-vs-effect" | "G-error-clinic-article-errors" | "G-error-clinic-dangling-modifiers" | "G-error-clinic-do-vs-make" | "G-error-clinic-double-subject-errors" | "G-error-clinic-economic-vs-economical" | "G-error-clinic-historic-vs-historical" | "G-error-clinic-overusing-i-think" | "G-error-clinic-preposition-errors" | "G-error-clinic-run-on-sentences" | "G-error-clinic-say-tell-speak-talk" | "G-error-clinic-sentence-fragments" | "G-error-clinic-subject-verb-agreement" | "G-error-clinic-tense-consistency" | "G-error-clinic-wrong-pronoun-reference" | "G-foundations-articles-a-an-sound-rules" | "G-foundations-countable-vs-uncountable" | "G-foundations-few-a-few-little-a-little" | "G-foundations-noun-phrase-basics" | "G-foundations-parts-of-speech" | "G-foundations-phrase-vs-clause" | "G-foundations-singular-vs-plural" | "G-foundations-this-that-these-those-in-use" | "G-foundations-word-order" | "G-foundations-zero-article" | "G-grammar-for-meaning-although-though-even-though" | "G-grammar-for-meaning-comparison" | "G-grammar-for-meaning-conditionals" | "G-grammar-for-meaning-discourse-markers" | "G-grammar-for-meaning-discourse-markers-spoken" | "G-grammar-for-meaning-hedging-language" | "G-grammar-for-meaning-so-vs-such" | "G-grammar-for-reading-appositives-and-parentheticals" | "G-grammar-for-reading-comparison-structures-in-reading" | "G-grammar-for-reading-complex-noun-phrases" | "G-grammar-for-reading-ellipsis-and-substitution" | "G-grammar-for-reading-hedging-and-certainty-in-reading" | "G-grammar-for-reading-logical-connectors-in-reading" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-nominalization" | "G-grammar-for-reading-paraphrase-patterns" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-punctuation-as-meaning-signals" | "G-grammar-for-reading-reduced-relative-clauses" | "G-grammar-for-reading-reference-and-cohesion" | "G-grammar-for-writing-cohesion-devices-in-writing" | "G-grammar-for-writing-complex-sentences-for-task2" | "G-grammar-for-writing-grammar-in-task1" | "G-grammar-for-writing-parallel-structure" | "G-grammar-for-writing-punctuation-for-writing" | "G-grammar-for-writing-relative-clauses-in-writing" | "G-grammar-for-writing-task1-trend-grammar" | "G-ielts-grammar-lab-adding-contrast-naturally" | "G-ielts-grammar-lab-adding-reasons-clearly" | "G-ielts-grammar-lab-agreeing-and-disagreeing-naturally" | "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings" | "G-ielts-grammar-lab-balanced-arguments-grammar" | "G-ielts-grammar-lab-comparing-ideas-in-speaking" | "G-ielts-grammar-lab-conditionals-in-speaking" | "G-ielts-grammar-lab-giving-examples-naturally" | "G-ielts-grammar-lab-grammar-for-band7plus" | "G-ielts-grammar-lab-grammar-in-speaking" | "G-ielts-grammar-lab-speculating-about-the-future" | "G-ielts-grammar-lab-strong-vs-cautious-opinions" | "G-ielts-grammar-lab-talking-about-future-plans" | "G-ielts-grammar-lab-talking-about-habits-and-routines" | "G-modifiers-adverbs" | "G-modifiers-compound-adjectives" | "G-modifiers-intensifiers-and-mitigators" | "G-modifiers-order-of-adjectives" | "G-parts-of-speech-conjunctions" | "G-parts-of-speech-nouns" | "G-parts-of-speech-prepositions" | "G-parts-of-speech-verbs" | "G-parts-of-speech-word-formation-adjective-suffixes" | "G-parts-of-speech-word-formation-noun-suffixes" | "G-sentence-structures-complex-sentence" | "G-sentence-structures-inversion" | "G-sentence-structures-passive-voice" | "G-sentence-structures-reported-speech" | "G-tenses-future-forms" | "G-tenses-past-continuous" | "G-tenses-past-perfect" | "G-tenses-present-continuous" | "G-tenses-present-perfect" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-verb-patterns-gerund-vs-infinitive" | "G-verb-patterns-infinitive" | "G-verb-patterns-phrasal-verbs";
             /**
              * Original Bank Id
              * Format: uuid
              */
             original_bank_id: string;
+            /**
+             * Canonical Root Bank Id
+             * Format: uuid
+             */
+            canonical_root_bank_id: string;
+            /** Publication Available */
+            publication_available: boolean;
+            /** Bank Ids */
+            bank_ids: string[];
             /**
              * Current Bank Id
              * Format: uuid
@@ -17072,6 +17345,15 @@ export interface components {
             /** Answer */
             answer: string;
         };
+        /** LearnerOutcome */
+        LearnerOutcome: {
+            /** User Id */
+            user_id: string;
+            /** Name */
+            name: string;
+            /** Sessions */
+            sessions: components["schemas"]["SessionBrief"][];
+        };
         /** LearnerReportResponse */
         LearnerReportResponse: {
             /** Profile Kind */
@@ -17396,6 +17678,56 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ListeningContentListItem */
+        ListeningContentListItem: {
+            /** Id */
+            id: string;
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Accent Tag */
+            accent_tag?: string | null;
+            /** Cefr Level */
+            cefr_level?: string | null;
+            /** Ielts Section */
+            ielts_section?: number | null;
+            /** Topic Tags */
+            topic_tags?: string[] | null;
+            /** Audio Duration Seconds */
+            audio_duration_seconds?: number | null;
+            /** Is Premium */
+            is_premium?: boolean | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Available Modes */
+            available_modes?: string[] | null;
+            /** Practice Test Id */
+            practice_test_id?: string | null;
+            /** Practice Test Type */
+            practice_test_type?: ("full" | "mini" | "drill" | "practice") | null;
+        };
+        /** ListeningContentListResponse */
+        ListeningContentListResponse: {
+            /** Items */
+            items: components["schemas"]["ListeningContentListItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /**
+             * Modes Lookup Failed
+             * @default false
+             */
+            modes_lookup_failed: boolean;
+            /**
+             * Practice Lookup Failed
+             * @default false
+             */
+            practice_lookup_failed: boolean;
+        };
         /**
          * ListeningContentMetadataPatchRequest
          * @description Admin PATCH /admin/listening/content/{id} body — Sprint 13.1.
@@ -17713,6 +18045,11 @@ export interface components {
              * @default 0
              */
             content: number;
+            /**
+             * Playable Content
+             * @default 0
+             */
+            playable_content: number;
             /** Exercise Modes */
             exercise_modes?: {
                 [key: string]: number;
@@ -18036,6 +18373,10 @@ export interface components {
             vocabulary_groups?: components["schemas"]["SourceVocabularyGroup"][];
             /** Source Only Positions */
             source_only_positions?: components["schemas"]["SourcePosition"][];
+            /** Supplemental Questions */
+            supplemental_questions?: components["schemas"]["SourceSupplementalQuestion"][];
+            /** Response Field Count */
+            response_field_count?: number | null;
             /**
              * Partial Data
              * @default false
@@ -18198,7 +18539,7 @@ export interface components {
              * Canonical Code
              * @enum {string}
              */
-            canonical_code: "G-parts-of-speech-verbs" | "G-sentence-structures-passive-voice" | "G-tenses-past-continuous" | "G-tenses-present-continuous" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-reduced-relative-clauses" | "G-tenses-past-perfect" | "G-foundations-phrase-vs-clause" | "G-error-clinic-dangling-modifiers";
+            canonical_code: "G-error-clinic-affect-vs-effect" | "G-error-clinic-article-errors" | "G-error-clinic-dangling-modifiers" | "G-error-clinic-do-vs-make" | "G-error-clinic-double-subject-errors" | "G-error-clinic-economic-vs-economical" | "G-error-clinic-historic-vs-historical" | "G-error-clinic-overusing-i-think" | "G-error-clinic-preposition-errors" | "G-error-clinic-run-on-sentences" | "G-error-clinic-say-tell-speak-talk" | "G-error-clinic-sentence-fragments" | "G-error-clinic-subject-verb-agreement" | "G-error-clinic-tense-consistency" | "G-error-clinic-wrong-pronoun-reference" | "G-foundations-articles-a-an-sound-rules" | "G-foundations-countable-vs-uncountable" | "G-foundations-few-a-few-little-a-little" | "G-foundations-noun-phrase-basics" | "G-foundations-parts-of-speech" | "G-foundations-phrase-vs-clause" | "G-foundations-singular-vs-plural" | "G-foundations-this-that-these-those-in-use" | "G-foundations-word-order" | "G-foundations-zero-article" | "G-grammar-for-meaning-although-though-even-though" | "G-grammar-for-meaning-comparison" | "G-grammar-for-meaning-conditionals" | "G-grammar-for-meaning-discourse-markers" | "G-grammar-for-meaning-discourse-markers-spoken" | "G-grammar-for-meaning-hedging-language" | "G-grammar-for-meaning-so-vs-such" | "G-grammar-for-reading-appositives-and-parentheticals" | "G-grammar-for-reading-comparison-structures-in-reading" | "G-grammar-for-reading-complex-noun-phrases" | "G-grammar-for-reading-ellipsis-and-substitution" | "G-grammar-for-reading-hedging-and-certainty-in-reading" | "G-grammar-for-reading-logical-connectors-in-reading" | "G-grammar-for-reading-long-sentence-untangling" | "G-grammar-for-reading-nominalization" | "G-grammar-for-reading-paraphrase-patterns" | "G-grammar-for-reading-participle-clauses" | "G-grammar-for-reading-punctuation-as-meaning-signals" | "G-grammar-for-reading-reduced-relative-clauses" | "G-grammar-for-reading-reference-and-cohesion" | "G-grammar-for-writing-cohesion-devices-in-writing" | "G-grammar-for-writing-complex-sentences-for-task2" | "G-grammar-for-writing-grammar-in-task1" | "G-grammar-for-writing-parallel-structure" | "G-grammar-for-writing-punctuation-for-writing" | "G-grammar-for-writing-relative-clauses-in-writing" | "G-grammar-for-writing-task1-trend-grammar" | "G-ielts-grammar-lab-adding-contrast-naturally" | "G-ielts-grammar-lab-adding-reasons-clearly" | "G-ielts-grammar-lab-agreeing-and-disagreeing-naturally" | "G-ielts-grammar-lab-avoiding-repetitive-sentence-openings" | "G-ielts-grammar-lab-balanced-arguments-grammar" | "G-ielts-grammar-lab-comparing-ideas-in-speaking" | "G-ielts-grammar-lab-conditionals-in-speaking" | "G-ielts-grammar-lab-giving-examples-naturally" | "G-ielts-grammar-lab-grammar-for-band7plus" | "G-ielts-grammar-lab-grammar-in-speaking" | "G-ielts-grammar-lab-speculating-about-the-future" | "G-ielts-grammar-lab-strong-vs-cautious-opinions" | "G-ielts-grammar-lab-talking-about-future-plans" | "G-ielts-grammar-lab-talking-about-habits-and-routines" | "G-modifiers-adverbs" | "G-modifiers-compound-adjectives" | "G-modifiers-intensifiers-and-mitigators" | "G-modifiers-order-of-adjectives" | "G-parts-of-speech-conjunctions" | "G-parts-of-speech-nouns" | "G-parts-of-speech-prepositions" | "G-parts-of-speech-verbs" | "G-parts-of-speech-word-formation-adjective-suffixes" | "G-parts-of-speech-word-formation-noun-suffixes" | "G-sentence-structures-complex-sentence" | "G-sentence-structures-inversion" | "G-sentence-structures-passive-voice" | "G-sentence-structures-reported-speech" | "G-tenses-future-forms" | "G-tenses-past-continuous" | "G-tenses-past-perfect" | "G-tenses-present-continuous" | "G-tenses-present-perfect" | "G-tenses-present-perfect-continuous" | "G-tenses-present-simple" | "G-verb-patterns-gerund-vs-infinitive" | "G-verb-patterns-infinitive" | "G-verb-patterns-phrasal-verbs";
             /**
              * Bank Id
              * Format: uuid
@@ -18447,6 +18788,11 @@ export interface components {
             /** Client Ids With Multiple Fingerprints */
             client_ids_with_multiple_fingerprints: number;
         };
+        /** OutcomesOut */
+        OutcomesOut: {
+            /** Learners */
+            learners: components["schemas"]["LearnerOutcome"][];
+        };
         /** PaperPolicyDependency */
         PaperPolicyDependency: {
             /** Type */
@@ -18584,6 +18930,37 @@ export interface components {
              */
             reveal: boolean;
         };
+        /** PracticeEvidence */
+        PracticeEvidence: {
+            /** Source */
+            source: string;
+            /**
+             * Precision
+             * @default quote
+             * @constant
+             */
+            precision: "quote";
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Illustrations */
+            illustrations?: components["schemas"]["PracticeIllustration"][];
+        };
+        /** PracticeIllustration */
+        PracticeIllustration: {
+            /** Src */
+            src: string;
+            /** Alt */
+            alt: string;
+            /** Caption */
+            caption: string;
+        };
+        /** PracticePhrase */
+        PracticePhrase: {
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+        };
         /** PracticePolicyPatch */
         PracticePolicyPatch: {
             /** Web Explanation Mode */
@@ -18642,6 +19019,39 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["PracticeQuestionResponse"][];
             progress: components["schemas"]["AdvancedVocabProgressResponse"];
+        };
+        /** PracticeSupport */
+        PracticeSupport: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Translation Sha256 */
+            translation_sha256: string;
+            /** Units */
+            units?: components["schemas"]["PracticeUnit"][];
+            /** Illustrations */
+            illustrations?: components["schemas"]["PracticeIllustration"][];
+        };
+        /** PracticeUnit */
+        PracticeUnit: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Translation Vi */
+            translation_vi: string;
+            /**
+             * Precision
+             * @default sentence
+             * @enum {string}
+             */
+            precision: "sentence" | "paragraph";
+            /** Phrases */
+            phrases?: components["schemas"]["PracticePhrase"][];
         };
         /** PreviewRequest */
         PreviewRequest: {
@@ -18713,6 +19123,33 @@ export interface components {
             word_stats: {
                 [key: string]: unknown;
             }[];
+        };
+        /** ProgressOut */
+        ProgressOut: {
+            /** Card Id */
+            card_id: string;
+            /**
+             * Familiar
+             * @default false
+             */
+            familiar: boolean;
+            /**
+             * Recall Attempts
+             * @default 0
+             */
+            recall_attempts: number;
+            /**
+             * Recall Correct
+             * @default 0
+             */
+            recall_correct: number;
+            /** Next Review At */
+            next_review_at?: string | null;
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
         };
         /**
          * PromptAnalysisReview
@@ -18872,6 +19309,17 @@ export interface components {
              * @default false
              */
             release_now: boolean;
+        };
+        /** PublishedSetInfo */
+        PublishedSetInfo: {
+            /** Title */
+            title: string;
+            /** Library */
+            library: boolean;
+            /** Course Ids */
+            course_ids: string[];
+            /** Cohort Ids */
+            cohort_ids: string[];
         };
         /** Question */
         Question: {
@@ -19257,6 +19705,65 @@ export interface components {
             /** Avg Band */
             avg_band?: number | null;
         };
+        /** ReadingPracticeCheck */
+        ReadingPracticeCheck: {
+            /** Results */
+            results: components["schemas"]["ReadingPracticeResult"][];
+        };
+        /** ReadingPracticeDetail */
+        ReadingPracticeDetail: {
+            /** Id */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Source Sha256 */
+            source_sha256?: string | null;
+            /** Difficulty Level */
+            difficulty_level?: string | null;
+            /** Topic Tags */
+            topic_tags?: string[];
+            /** Image Url */
+            image_url?: string | null;
+            /** Glossary */
+            glossary?: {
+                [key: string]: unknown;
+            }[];
+            /** Skill Focus */
+            skill_focus?: string | null;
+            /** Word Count */
+            word_count?: number | null;
+            /** Estimated Minutes */
+            estimated_minutes?: number | null;
+            /** Translation Vi */
+            translation_vi?: string | null;
+            /** Grammar Focus */
+            grammar_focus?: {
+                [key: string]: unknown;
+            }[];
+            practice_support?: components["schemas"]["PracticeSupport"] | null;
+            /** Questions */
+            questions?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** ReadingPracticeResult */
+        ReadingPracticeResult: {
+            /** Q Num */
+            q_num: number;
+            /** Correct */
+            correct: boolean;
+            /** Expected */
+            expected: string;
+            /** Explanation */
+            explanation?: string | null;
+            /** Skill Tag */
+            skill_tag?: string | null;
+            evidence?: components["schemas"]["PracticeEvidence"] | null;
+        };
         /** ReadingRecentAttemptOut */
         ReadingRecentAttemptOut: {
             /**
@@ -19541,6 +20048,30 @@ export interface components {
             /** Expires In */
             expires_in: number;
         };
+        /** SessionBrief */
+        SessionBrief: {
+            /** Id */
+            id: string;
+            /** Set Id */
+            set_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "flashcards" | "learn" | "cloze" | "test";
+            /** Completed */
+            completed: boolean;
+            /** Answered */
+            answered: number;
+            /** Total */
+            total: number;
+            /** Correct */
+            correct?: number | null;
+            /** Created At */
+            created_at: string;
+        };
         /** SessionClassTask */
         SessionClassTask: {
             /** Item Id */
@@ -19645,6 +20176,30 @@ export interface components {
         SessionListResponse: {
             /** Sessions */
             sessions: components["schemas"]["routers__grammar_diagnostic__SessionResponse"][];
+        };
+        /** SessionOut */
+        SessionOut: {
+            /** Id */
+            id: string;
+            /** Set Id */
+            set_id: string;
+            /** Title */
+            title: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "flashcards" | "learn" | "cloze" | "test";
+            /** Items */
+            items: components["schemas"]["StudyItem"][];
+            /** Answers */
+            answers: components["schemas"]["AnswerOut"][];
+            /** Completed */
+            completed: boolean;
+            /** Correct */
+            correct?: number | null;
         };
         /** SessionPageResponse */
         SessionPageResponse: {
@@ -19759,6 +20314,24 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** SessionStart */
+        SessionStart: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "flashcards" | "learn" | "cloze" | "test";
+            /**
+             * Review Only
+             * @default false
+             */
+            review_only: boolean;
+        };
         /** SessionStatsResponse */
         SessionStatsResponse: {
             /** Sessions */
@@ -19809,12 +20382,145 @@ export interface components {
             /** Last Session At */
             last_session_at: string | null;
         };
+        /** SetAction */
+        SetAction: {
+            /** Expected Version */
+            expected_version: number;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "publish" | "archive";
+        };
+        /** SetOut */
+        SetOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+            /** Version */
+            version: number;
+            /**
+             * Published Revision
+             * @default 0
+             */
+            published_revision: number;
+            /** Library */
+            library: boolean;
+            /** Course Ids */
+            course_ids: string[];
+            /** Cohort Ids */
+            cohort_ids: string[];
+            /** Card Ids */
+            card_ids: string[];
+            /** Cards */
+            cards?: components["schemas"]["SharedCard"][];
+            /** Progress */
+            progress?: components["schemas"]["ProgressOut"][];
+            /** Mode Counts */
+            mode_counts?: {
+                [key: string]: number;
+            };
+            published?: components["schemas"]["PublishedSetInfo"] | null;
+        };
+        /** SetSave */
+        SetSave: {
+            /** Expected Version */
+            expected_version: number;
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Card Ids */
+            card_ids?: string[];
+            /**
+             * Library
+             * @default false
+             */
+            library: boolean;
+            /** Course Ids */
+            course_ids?: string[];
+            /** Cohort Ids */
+            cohort_ids?: string[];
+        };
+        /** SharedCard */
+        SharedCard: {
+            /** Id */
+            id: string;
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /** Headword */
+            headword: string;
+            /**
+             * Gloss Vi
+             * @default
+             */
+            gloss_vi: string;
+            /**
+             * Definition En
+             * @default
+             */
+            definition_en: string;
+            /**
+             * Pronunciation
+             * @default
+             */
+            pronunciation: string;
+            /**
+             * Part Of Speech
+             * @default
+             */
+            part_of_speech: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Example
+             * @default
+             */
+            example: string;
+            /**
+             * Audio Headword
+             * @default
+             */
+            audio_headword: string;
+            /**
+             * Audio Example
+             * @default
+             */
+            audio_example: string;
+        };
         /** SourceAudioResponse */
         SourceAudioResponse: {
             /** Day */
             day: number;
             /** Variants */
             variants: components["schemas"]["SourceAudioVariant"][];
+            /** Question Clips */
+            question_clips?: components["schemas"]["SourceQuestionClip"][];
         };
         /** SourceAudioVariant */
         SourceAudioVariant: {
@@ -20228,6 +20934,30 @@ export interface components {
             /** Source Lines */
             source_lines?: components["schemas"]["SourceKeyCitation"][];
         };
+        /** SourceQuestionClip */
+        SourceQuestionClip: {
+            /** Item Id */
+            item_id: string;
+            /** Part Id */
+            part_id: string;
+            /**
+             * Variant Id
+             * @default original
+             * @constant
+             */
+            variant_id: "original";
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Url */
+            url: string | null;
+            /**
+             * Context Kind
+             * @enum {string}
+             */
+            context_kind: "question" | "shared_context";
+            /** Note Vi */
+            note_vi: string;
+        };
         /** SourceRegion */
         SourceRegion: {
             /** X */
@@ -20304,6 +21034,34 @@ export interface components {
             /** Answer Provenance */
             answer_provenance: string;
             explanation: components["schemas"]["SourceExplanation"];
+        };
+        /** SourceSupplementalQuestion */
+        SourceSupplementalQuestion: {
+            /** Item Id */
+            item_id: string;
+            /** Source Display Number */
+            source_display_number: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options?: components["schemas"]["SourceOption"][];
+            /** Fields */
+            fields?: components["schemas"]["SourceResponseField"][];
+            /** Part Id */
+            part_id: string;
+            /** Block Id */
+            block_id: string;
+            /**
+             * Response Type
+             * @enum {string}
+             */
+            response_type: "single_choice" | "multiple_choice" | "map_label" | "short_answer" | "written" | "open_rubric" | "multi_gap_completion";
+            /** Selection Count */
+            selection_count?: number | null;
+            /** Word Limit */
+            word_limit?: number | null;
+            /** Reason Vi */
+            reason_vi: string;
         };
         /** SourceVocabularyGroup */
         SourceVocabularyGroup: {
@@ -20468,6 +21226,31 @@ export interface components {
             /** Independent Items */
             independent_items: number;
         };
+        /** StudyAnswer */
+        StudyAnswer: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /** Index */
+            index: number;
+            /**
+             * Answer
+             * @default
+             */
+            answer: string;
+            /** Rating */
+            rating?: ("again" | "hard" | "good" | "easy") | null;
+        };
+        /** StudyItem */
+        StudyItem: {
+            /** Card Id */
+            card_id: string;
+            /** Prompt */
+            prompt: string;
+            card?: components["schemas"]["SharedCard"] | null;
+        };
         /** SubmitBody */
         SubmitBody: {
             /** Answers */
@@ -20560,6 +21343,16 @@ export interface components {
             } | null;
             /** Open Url */
             open_url?: string | null;
+        };
+        /** TestSubmit */
+        TestSubmit: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /** Answers */
+            answers: string[];
         };
         /** TipCreate */
         TipCreate: {
@@ -20811,7 +21604,7 @@ export interface components {
          * @description Partial-update payload. EVERY field is a real vocab_cards column (mig 110) —
          *     the schema-aware col-match test pins this (#538 lesson). id/slug/created_at/
          *     updated_at/import_batch_id and the audio_* columns are intentionally absent
-         *     (slug is the stable URL key; audio is owned by the pregen, V-eleven). updated_at
+         *     (slug is the stable URL key; audio is owned by the Kokoro pregen). updated_at
          *     auto-bumps via the BEFORE-UPDATE trigger, so the public cache key (G2) advances.
          */
         VocabUpdate: {
@@ -21123,6 +21916,8 @@ export interface components {
         _CheckRequest: {
             /** Answers */
             answers?: components["schemas"]["_CheckItem"][];
+            /** Source Sha256 */
+            source_sha256?: string | null;
         };
         /** _CustomQBody */
         _CustomQBody: {
@@ -34000,7 +34795,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ListeningContentListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37555,6 +38350,453 @@ export interface operations {
             };
         };
     };
+    catalog_api_vocabulary_sets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detail_api_vocabulary_sets__set_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_vocabulary_sets__set_id__sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    session_detail_api_vocabulary_sets_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_api_vocabulary_sets_sessions__session_id__answers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudyAnswer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_api_vocabulary_sets_sessions__session_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestSubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_catalog_admin_vocabulary_sets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_cards_admin_vocabulary_sets_cards_get: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_card_admin_vocabulary_sets_cards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_detail_admin_vocabulary_sets__set_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_set_admin_vocabulary_sets__set_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publication_admin_vocabulary_sets__set_id__publication_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    outcomes_admin_vocabulary_sets__set_id__outcomes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutcomesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_topics_admin_content_topics_get: {
         parameters: {
             query?: {
@@ -39062,6 +40304,7 @@ export interface operations {
             query?: {
                 difficulty?: string | null;
                 tag?: string | null;
+                q?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -39112,7 +40355,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingPracticeDetail"];
                 };
             };
             /** @description Validation Error */
@@ -39149,7 +40392,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingPracticeCheck"];
                 };
             };
             /** @description Validation Error */
@@ -39168,6 +40411,7 @@ export interface operations {
             query?: {
                 difficulty?: string | null;
                 skill?: string | null;
+                q?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -39218,7 +40462,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingPracticeDetail"];
                 };
             };
             /** @description Validation Error */
@@ -39255,7 +40499,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingPracticeCheck"];
                 };
             };
             /** @description Validation Error */

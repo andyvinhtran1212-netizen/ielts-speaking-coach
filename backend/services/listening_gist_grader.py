@@ -5,7 +5,7 @@ MODULE 4/5).
 Grades a user's free-text "main idea / gist" response against a
 rubric containing the admin-authored model answer + rubric keywords.
 
-Why Haiku (claude-haiku-4-5):
+Why Haiku (configured through LISTENING_GIST_MODEL):
   Gist grading is semantic-equivalence judgement — \"did the user
   capture the main point?\" — which LLMs do well. Cost is low (model
   answers are short, prompts ≤ ~800 tokens, response ~150 tokens →
@@ -32,12 +32,12 @@ import anthropic
 from config import settings
 from services.d1_question_generator import _call_with_retry
 from services import ai_usage_logger
+from services.claude_compat import json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
 
 
-# Reuse the canonical Haiku tier from claude_grader.py.
-_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "claude-haiku-5-5"
 _MAX_TOKENS = 400
 _TEMPERATURE = 0.3
 
@@ -102,11 +102,11 @@ def _extract_json(text: str) -> dict:
     to the LAST '}', so two objects in the output merged into one invalid blob."""
     start = text.find("{")
     if start == -1:
-        raise ValueError("no JSON object found in model output")
+        raise json.JSONDecodeError("no JSON object found in model output", text, 0)
     try:
         obj, _ = json.JSONDecoder().raw_decode(text, start)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"no valid JSON object found: {exc}") from exc
+        raise json.JSONDecodeError("no valid JSON object found", text, exc.pos) from exc
     if not isinstance(obj, dict):
         raise ValueError("extracted JSON is not a JSON object")
     return obj
@@ -179,6 +179,8 @@ def grade_gist_response(
             rubric_keywords=rubric_keywords,
         )
 
+    model = settings.LISTENING_GIST_MODEL or _DEFAULT_MODEL
+
     def _do_call() -> dict[str, Any]:
         client = _get_client()
         user_msg = _build_user_message(
@@ -188,16 +190,14 @@ def grade_gist_response(
         )
         try:
             resp = client.messages.create(
-                model=_MODEL,
-                max_tokens=_MAX_TOKENS,
-                temperature=_TEMPERATURE,
+                **json_request_kwargs(model, max_tokens=_MAX_TOKENS, temperature=_TEMPERATURE),
                 system=_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
         except Exception as exc:
             ai_usage_logger.log_unpriced_usage(
                 service="claude",
-                model=_MODEL,
+                model=model,
                 user_id=usage_user_id,
                 feature="listening_gist",
                 operation="grade_gist",
@@ -205,27 +205,33 @@ def grade_gist_response(
                 error_code=type(exc).__name__,
             )
             raise
-        ai_usage_logger.log_claude_response(
-            resp,
-            model=_MODEL,
-            user_id=usage_user_id,
-            feature="listening_gist",
-            operation="grade_gist",
-        )
-        # Anthropic SDK returns a Message with .content[0].text (Mục 31/B4: .text
-        # can be None even when content is present — coerce to "").
-        text = (resp.content[0].text or "") if resp.content else ""
-        parsed = _extract_json(text)
-        # Coerce types defensively.
-        score = int(parsed.get("score", 0))
-        score = max(0, min(100, score))
-        return {
-            "score":           score,
-            "feedback":        str(parsed.get("feedback") or "").strip()
-                               or "Đã chấm xong.",
-            "keyword_matches": list(parsed.get("keyword_matches") or []),
-            "ai_used":         True,
-        }
+        status, error_code = "error", "invalid_response"
+        try:
+            text = response_text(resp)
+            parsed = _extract_json(text)
+            # Coerce types defensively.
+            score = max(0, min(100, int(parsed.get("score", 0))))
+            result = {
+                "score": score,
+                "feedback": str(parsed.get("feedback") or "").strip() or "Đã chấm xong.",
+                "keyword_matches": list(parsed.get("keyword_matches") or []),
+                "ai_used": True,
+            }
+            status, error_code = "success", None
+            return result
+        except Exception as exc:
+            error_code = getattr(exc, "error_code", type(exc).__name__)
+            raise
+        finally:
+            ai_usage_logger.log_claude_response(
+                resp,
+                model=model,
+                user_id=usage_user_id,
+                feature="listening_gist",
+                operation="grade_gist",
+                status=status,
+                error_code=error_code,
+            )
 
     try:
         return _call_with_retry(_do_call, provider="anthropic", vocab_id="gist")

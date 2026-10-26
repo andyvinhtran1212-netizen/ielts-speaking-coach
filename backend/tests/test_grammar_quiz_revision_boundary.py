@@ -83,6 +83,7 @@ class GrammarPg:
         await self.c.execute(self.adapted(function))
         await self.c.execute(self.adapted((MIGRATIONS / '294_atomic_quiz_import_publish_state.sql').read_text()))
         await self.c.execute(self.adapted((MIGRATIONS / '309_grammar_quiz_revision_cutover.sql').read_text()))
+        await self.c.execute(self.adapted((MIGRATIONS / '314_grammar_audit_reviewed_publication.sql').read_text()))
         for role in self.roles.values():
             await self.c.execute(f'GRANT USAGE ON SCHEMA {self.schema} TO {role}')
             await self.c.execute(f'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA {self.schema} TO {role}')

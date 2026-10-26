@@ -244,3 +244,5 @@
   font-size: var(--av-fs-sm);
   font-weight: 600;
 }
+
+.rr-passage__body mark.rr-practice-quote { background: var(--av-primary-soft); color: inherit; box-shadow: 0 2px 0 var(--av-primary); }

@@ -61,7 +61,7 @@ anchors:
 <!-- anchor: conjunctions.tom-tat -->
 ## Tóm tắt
 
-Liên từ (Conjunction) là từ dùng để **nối** các thành phần trong câu — từ với từ, cụm từ với cụm từ, mệnh đề với mệnh đề. Không có liên từ, ta chỉ có thể viết những câu đơn ngắn, rời rạc.
+Liên từ (Conjunction) là từ dùng để **nối** các thành phần trong câu — từ với từ, cụm từ với cụm từ, mệnh đề với mệnh đề. Liên từ không phải đường duy nhất tạo câu phức hoặc mạch lạc: còn có mệnh đề quan hệ, cấu trúc không hữu hạn, đại từ tham chiếu và liên kết diễn ngôn.
 
 - I like coffee **and** tea.
 - She was tired **but** she kept studying.
@@ -183,7 +183,7 @@ Hai liên từ đi cặp với nhau:
 - ❌ **Although** he was tired, **but** he kept working.
 - ✅ **Although** he was tired, he kept working.
 - ✅ He was tired, **but** he kept working.
-- **Tại sao:** Một câu chỉ cần một liên từ tương phản. Dùng cả hai là thừa.
+- **Tại sao:** Không dùng although và but để nối **cùng một cặp mệnh đề** theo mẫu trên. Một câu có thể có nhiều quan hệ tương phản ở các tầng khác nhau; không có lệnh cấm chỉ dùng một từ tương phản trong toàn câu.
 
 ### Lỗi 2: Dùng "because" và "so" cùng lúc
 
@@ -195,7 +195,7 @@ Hai liên từ đi cặp với nhau:
 
 - ❌ Although she was tired. (không có mệnh đề chính)
 - ✅ **Although** she was tired, she finished the work.
-- ❌ Because I like music.
+- "Because I like music" thường là fragment nếu đứng riêng trong bài luận, nhưng là câu trả lời tự nhiên cho "Why do you practise every day?" trong hội thoại.
 - ✅ **Because** I like music, I practise every day.
 
 ### Lỗi 4: Nhầm "despite" với "although"
@@ -207,8 +207,8 @@ Hai liên từ đi cặp với nhau:
 
 ### Lỗi 5: Nhầm "so" (vì vậy) và "so that" (để)
 
-- ❌ She studied hard **so** she could pass. → nghĩa không rõ
-- ✅ She studied hard **so that** she could pass. (mục đích → so that)
+- ✅ She studied hard **so** she could pass. (so có thể mở mục đích, nhất là trong lời nói)
+- ✅ She studied hard **so that** she could pass. (that làm quan hệ mục đích rõ hơn)
 - ✅ She studied hard, **so** she passed. (kết quả → so)
 
 ## Ứng dụng trong IELTS
@@ -259,7 +259,7 @@ Hai liên từ đi cặp với nhau:
 ### Đáp án
 
 **Điền liên từ:**
-1. so | 2. Although / Even though | 3. unless / if you don't | 4. since | 5. so that
+1. so | 2. Although / Even though | 3. unless (nếu dùng if you don't, viết lại toàn câu: You'll miss the bus if you don't leave now) | 4. since | 5. so that / so
 
 **Sửa lỗi:**
 1. Although it was a long journey, we enjoyed it. (bỏ "but")
@@ -283,6 +283,6 @@ Hai liên từ đi cặp với nhau:
 **Bẫy phổ biến:**
 - Không dùng "although" + "but" cùng lúc
 - Không dùng "because" + "so" cùng lúc
-- Mệnh đề phụ không đứng một mình
+- Trong bài luận, mệnh đề phụ thường cần mệnh đề chính; trong hội thoại có thể là câu đáp ngắn
 - despite + noun/-ing (không + mệnh đề)
 - Sau when/if (chỉ thời gian tương lai) → dùng present simple

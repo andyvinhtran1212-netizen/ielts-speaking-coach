@@ -1,0 +1,174 @@
+{
+  "slug": "scanning-the-amazon-river",
+  "review_notes": "Giữ so sánh lượng nước khác với chiều dài; begins là bắt nguồn, reaches ocean là đổ vào biển. Không thêm số liệu hoặc bản đồ hướng chảy vào hình.",
+  "illustration_brief": "Dòng nước uốn lượn giữa cây cối xanh rậm của rừng mưa.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Amazon là một trong những dòng sông nổi tiếng nhất Trái Đất.",
+      [
+        "one of the most famous rivers",
+        "một trong những dòng sông nổi tiếng nhất"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Sông dài khoảng 6.400 ki-lô-mét.",
+      [
+        "about 6,400 kilometres long",
+        "dài khoảng 6.400 ki-lô-mét"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Điều đó khiến nó là dòng sông dài thứ hai thế giới, sau sông Nile.",
+      [
+        "the second longest river in the world",
+        "dòng sông dài thứ hai thế giới"
+      ],
+      [
+        "after the Nile",
+        "sau sông Nile"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Nhưng không dòng sông nào mang nhiều nước hơn Amazon.",
+      [
+        "no river carries more water than the Amazon",
+        "không dòng sông nào mang nhiều nước hơn Amazon"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Amazon ở Nam Mỹ.",
+      [
+        "South America",
+        "Nam Mỹ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Sông bắt nguồn trên cao trong dãy Andes ở Peru.",
+      [
+        "begins high in the Andes mountains",
+        "bắt nguồn trên cao trong dãy Andes"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Sau đó nó chảy về phía đông qua đất liền suốt nhiều tuần.",
+      [
+        "flows east",
+        "chảy về phía đông"
+      ],
+      [
+        "for many weeks",
+        "suốt nhiều tuần"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Phần lớn dòng sông chảy qua Brazil.",
+      [
+        "Most of the river",
+        "Phần lớn dòng sông"
+      ],
+      [
+        "runs through Brazil",
+        "chảy qua Brazil"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Cuối cùng, sông đổ vào Đại Tây Dương.",
+      [
+        "At last",
+        "Cuối cùng"
+      ],
+      [
+        "the Atlantic Ocean",
+        "Đại Tây Dương"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Sông chảy qua khu rừng mưa khổng lồ, xanh tươi.",
+      [
+        "a huge, green rainforest",
+        "khu rừng mưa khổng lồ, xanh tươi"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nước ấm và đầy sự sống.",
+      [
+        "warm and full of life",
+        "ấm và đầy sự sống"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Cá heo sông màu hồng bơi ở đây, và nhiều loài cá cũng vậy.",
+      [
+        "Pink river dolphins",
+        "Cá heo sông màu hồng"
+      ],
+      [
+        "many kinds of fish",
+        "nhiều loài cá"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Loài cá piranha nổi tiếng cũng sống ở đây.",
+      [
+        "The famous piranha",
+        "Loài cá piranha nổi tiếng"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Hàng triệu người sống gần Amazon.",
+      [
+        "Millions of people",
+        "Hàng triệu người"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Họ dùng sông để lấy thức ăn, nước và đi lại.",
+      [
+        "for food, for water, and for travel",
+        "để lấy thức ăn, nước và đi lại"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Với họ, dòng sông lớn là con đường xuyên rừng.",
+      [
+        "a road through the forest",
+        "con đường xuyên rừng"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Bạn có thể đi thuyền nhiều ngày mà vẫn chưa thấy điểm cuối của nó.",
+      [
+        "for days by boat",
+        "đi thuyền nhiều ngày"
+      ],
+      [
+        "still not see the end of it",
+        "vẫn chưa thấy điểm cuối của nó"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-amazon-forest-scene.svg",
+    "alt": "Dòng sông uốn lượn giữa những tán cây xanh, với chim bay phía trên.",
+    "caption": "Dòng sông gắn liền với rừng và đời sống."
+  },
+  "source_sha256": "435bc4a736f196bcecad743b4f123e61be3e803dbcf47c919775ca30646a5227",
+  "expected_translation_sha256": "f1a6c2e450f0132cd1301dda5ffb1a566199e90bd4ec6ba859889961fb93745d"
+}

@@ -266,11 +266,11 @@ input: "choice"
 headword: "eit-personal"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Personally, I ____ that the relationship between mental health and physical activity is underappreciated."
+prompt: "Choose a grammatical alternative to think, to vary the wording: 'Personally, I ____ that the relationship between mental health and physical activity is underappreciated.'"
 options: ["believe", "think", "am thinking", "thinked"]
 answer: 0
 grammar_article_slug: "overusing-i-think"
-explain: "'Personally' thêm sắc thái cá nhân, kết hợp với 'I believe' (thay vì lặp 'I think') để tạo sự đa dạng từ vựng."
+explain: "Đề yêu cầu chọn một từ khác think nên đáp án là believe. Personally, I think cũng đúng ngữ pháp, nhưng không thực hiện yêu cầu đa dạng hóa từ vựng được nêu rõ trước khi trả lời."
 ---
 
 ---
@@ -356,11 +356,12 @@ input: "text"
 headword: "eit-no-repeat"
 skill: "production"
 subtype: "intermediate"
-prompt: "Fix the redundancy: 'In my opinion, I think the government should invest more in education.' → Rewrite: 'In my opinion, the government ____'"
+prompt: "Remove the repeated opinion marker: 'In my opinion, I think the government should invest more in education.' → 'In my opinion, the government ____ in education.'"
 accept: ["should invest more"]
 case_sensitive: false
 grammar_article_slug: "overusing-i-think"
-explain: "'In my opinion' và 'I think' cùng nghĩa nêu quan điểm — chỉ giữ một trong hai. Cách sửa gọn nhất là bỏ 'I think': 'In my opinion, the government should invest more in education.'"
+explain: "Điền should invest more; in education đã có trong khung nên giữ đầy đủ thông tin gốc. Bỏ I think vì In my opinion đã biểu thị quan điểm. Sự lặp này có thể rườm rà về văn phong, không tự tạo lỗi cú pháp."
+hint: "gõ phần 3 từ: should + động từ + trạng từ chỉ lượng"
 ---
 
 ---

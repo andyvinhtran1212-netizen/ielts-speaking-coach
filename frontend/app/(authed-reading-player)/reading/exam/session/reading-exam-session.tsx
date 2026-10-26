@@ -25,6 +25,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { MockPostTestCapture } from '@/components/mock-post-test-capture';
 import { useAttemptReviewFlags } from '@/lib/use-attempt-review-flags';
 import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status';
+import { formatReadingPassage } from '@/lib/reading-passage-presentation.mjs';
 
 type AnswerMap = Map<number, string>;
 type SaveState = Map<number, 'pending' | 'retrying' | 'failed'>;
@@ -47,6 +48,7 @@ type Question = {
     options?: Option[];
     image_url?: string;
     instruction?: string;
+    option_bank_title?: string;
     word_limit?: string;
     paragraph_labels?: string[];
     template?: {
@@ -78,25 +80,6 @@ type Attempt = {
   renderer_affinity?: 'legacy' | 'next' | null;
   attempt_purpose?: string | null;
   mock_sitting_id?: string | null;
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  matching_headings: 'Matching Headings',
-  true_false_not_given: 'True / False / Not Given',
-  yes_no_not_given: 'Yes / No / Not Given',
-  mcq_single: 'Multiple Choice',
-  mcq_multi: 'Multiple Choice — choose more than one',
-  sentence_completion: 'Sentence Completion',
-  summary_completion: 'Summary Completion',
-  notes_completion: 'Notes Completion',
-  table_completion: 'Table Completion',
-  form_completion: 'Form Completion',
-  short_answer: 'Short Answer',
-  matching_information: 'Matching Information',
-  matching_features: 'Matching Features',
-  matching_sentence_endings: 'Matching Sentence Endings',
-  flow_chart_completion: 'Flow-chart Completion',
-  diagram_label_completion: 'Diagram Labelling',
 };
 
 function formatTime(seconds: number) {
@@ -131,7 +114,7 @@ function questionOptions(question: Question) {
   return Array.isArray(question.payload?.options) ? question.payload!.options! : [];
 }
 
-function useRenderedMarkdown(markdown: string) {
+function useRenderedMarkdown(markdown: string, passage = false) {
   const [html, setHtml] = useState('');
   useEffect(() => {
     let disposed = false;
@@ -139,15 +122,18 @@ function useRenderedMarkdown(markdown: string) {
       () => typeof (window as any).renderMarkdown === 'function',
       'window.renderMarkdown (Reading exam)',
     ).then((ready) => {
-      if (!disposed && ready) setHtml((window as any).renderMarkdown(markdown || '', { breaks: false }));
+      if (!disposed && ready) {
+        const rendered = (window as any).renderMarkdown(markdown || '', { breaks: false });
+        setHtml(passage ? formatReadingPassage(rendered, document) : rendered);
+      }
     });
     return () => { disposed = true; };
-  }, [markdown]);
+  }, [markdown, passage]);
   return html;
 }
 
 function PassageView({ passage }: { passage: Passage | null }) {
-  const html = useRenderedMarkdown(passage?.body_markdown || '');
+  const html = useRenderedMarkdown(passage?.body_markdown || '', true);
   if (!passage) return null;
   return (
     <>
@@ -316,12 +302,11 @@ function QuestionCard({ question, answer, saveState, flagged, flagReady, current
     >
       <span className="exam-q__num">{question.q_num}</span>
       <div className="exam-q__body">
-        <p className="exam-q__type">{TYPE_LABELS[question.question_type || ''] || 'Question'}</p>
         {question.payload?.image_url ? <img className="exam-diagram-image" src={question.payload.image_url} alt={`Question ${question.q_num} diagram`} /> : null}
         {!hasInlinePrompt ? <p className="exam-q__prompt">{question.prompt || ''}</p> : null}
         <QuestionControl question={question} value={answer} onChange={onAnswer} />
         {saveState ? <small role="status">
-          {saveState === 'pending' ? 'Đang lưu…' : saveState === 'retrying' ? 'Đang thử lưu lại…' : 'Chưa lưu được lên máy chủ.'}
+          {saveState === 'pending' ? 'Saving…' : saveState === 'retrying' ? 'Retrying save…' : 'Not saved to the server.'}
         </small> : null}
       </div>
       <button className="exam-q__flag" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged} disabled={!flagReady} onClick={onFlag}>
@@ -360,12 +345,13 @@ type QuestionRunProps = {
 function SaveHint({ state }: { state?: 'pending' | 'retrying' | 'failed' }) {
   if (!state) return null;
   return <small className="reading-next-gap-save" role="status">
-    {state === 'pending' ? 'Đang lưu…' : state === 'retrying' ? 'Đang thử lưu lại…' : 'Chưa lưu được lên máy chủ.'}
+    {state === 'pending' ? 'Saving…' : state === 'retrying' ? 'Retrying save…' : 'Not saved to the server.'}
   </small>;
 }
 
-function QuestionBank({ type, options }: { type: string; options: Option[] }) {
-  const title = BANK_TITLES[type];
+function QuestionBank({ type, options, authoredTitle }: { type: string; options: Option[]; authoredTitle?: string }) {
+  const title = typeof authoredTitle === 'string' && authoredTitle.trim()
+    ? authoredTitle.trim() : BANK_TITLES[type];
   if (!title || !options.length) return null;
   const family = type === 'matching_headings' ? 'headings'
     : type === 'matching_features' ? 'features'
@@ -522,7 +508,7 @@ function DiagramImageRun({ run, answers, saveStates, flagged, flagReady, current
 
 function MatchingMatrixRun({ run, answers, saveStates, flagged, flagReady, currentQuestion, onAnswer, onFlag, onCurrent }: Omit<QuestionRunProps, 'part'>) {
   const options = questionOptions(run[0]);
-  return <div className="reading-next-match-matrix-wrap">
+  return <div className="reading-next-match-matrix-wrap" role="region" aria-label={`Answer choices for questions ${run[0].q_num} to ${run.at(-1)?.q_num}`} tabIndex={0}>
     <table className="reading-next-match-matrix">
       <thead><tr><th scope="col">Statement</th>{options.map((option) => <th scope="col" key={optionValue(option)}>{optionValue(option)}</th>)}<th scope="col">Review</th></tr></thead>
       <tbody>{run.map((question) => <tr
@@ -532,10 +518,10 @@ function MatchingMatrixRun({ run, answers, saveStates, flagged, flagReady, curre
         onClick={() => onCurrent(question.q_num)}
         onFocus={() => onCurrent(question.q_num)}
       >
-        <th scope="row"><span className="exam-q__num">{question.q_num}</span><span>{question.prompt || ''}</span></th>
+        <th scope="row"><div className="reading-next-matrix-statement"><span className="exam-q__num">{question.q_num}</span><span>{question.prompt || ''}</span></div></th>
         {options.map((option) => {
           const value = optionValue(option);
-          return <td key={value}><label aria-label={`Question ${question.q_num}: ${value}`}>
+          return <td key={value}><label aria-label={`Question ${question.q_num}: ${value}`} onFocus={(event) => event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}>
             <input type="radio" name={`q-${question.q_num}`} value={value} checked={answers.get(question.q_num) === value} onChange={() => onAnswer(question.q_num, value)} />
             <span className="reading-next-matrix-letter" aria-hidden="true">{value}</span>
           </label></td>;
@@ -603,7 +589,7 @@ function QuestionRun({ run, part, answers, saveStates, flagged, flagReady, curre
     <div className="exam-questions__instructions exam-questions__instructions--type" data-question-type={type}>
       {readingQuestionInstruction(run, part)}
     </div>
-    {hasBank ? <QuestionBank type={type} options={options} /> : null}
+    {hasBank ? <QuestionBank type={type} options={options} authoredTitle={first.payload?.option_bank_title} /> : null}
     {groupedMcq ? <GroupedMcqRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} onAnswer={onAnswer} onFlag={onFlag} />
       : type === 'matching_features' && options.length ? <MatchingMatrixRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
       : hasImageVariant ? <DiagramImageRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} flagReady={flagReady} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
@@ -642,42 +628,42 @@ function ResultView({ result, title, attemptId, anonId, from, sittingId }: {
         <header className="exam-result-heading">
           <div>
             <p className="exam-result-eyebrow">READING · FULL TEST COMPLETE</p>
-            <h1 id="reading-result-title">Kết quả bài thi</h1>
+            <h1 id="reading-result-title">Test results</h1>
             <p>{title}</p>
           </div>
-          <span className="exam-result-status">Đã nộp bài</span>
+          <span className="exam-result-status">Submitted</span>
         </header>
 
-        <section className="exam-result-hero" aria-label="Tổng quan kết quả">
+        <section className="exam-result-hero" aria-label="Results overview">
           <div className="exam-result-band">
             <span>Estimated band</span>
             <strong>{result?.band_estimate == null ? '—' : Number(result.band_estimate).toFixed(1)}</strong>
-            <small>Kết quả luyện tập</small>
+            <small>Practice result</small>
           </div>
           <div className="exam-result-metrics">
-            <div><span>Đúng</span><strong>{score}<small>/{maxScore}</small></strong></div>
-            <div><span>Tỉ lệ chính xác</span><strong>{accuracy}<small>%</small></strong></div>
-            <div><span>Đã trả lời</span><strong>{answered}<small>/{maxScore}</small></strong></div>
-            <div><span>Cần xem lại</span><strong>{needsReview}</strong></div>
+            <div><span>Correct</span><strong>{score}<small>/{maxScore}</small></strong></div>
+            <div><span>Accuracy</span><strong>{accuracy}<small>%</small></strong></div>
+            <div><span>Answered</span><strong>{answered}<small>/{maxScore}</small></strong></div>
+            <div><span>Review needed</span><strong>{needsReview}</strong></div>
           </div>
         </section>
 
         <section className="exam-result-review-card" aria-labelledby="reading-result-review-title">
           <div className="exam-result-section-heading">
-            <div><p>QUESTION MAP</p><h2 id="reading-result-review-title">Tổng quan {maxScore} câu</h2></div>
-            <div className="exam-result-legend" aria-label="Chú thích"><span className="is-correct" />Đúng <span className="is-wrong" />Cần xem lại <span className="is-empty" />Bỏ trống</div>
+            <div><p>QUESTION MAP</p><h2 id="reading-result-review-title">Overview of {maxScore} questions</h2></div>
+            <div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Review needed <span className="is-empty" />Unanswered</div>
           </div>
           <div className="exam-result-question-map">{rows.map((row: any) => {
             const empty = !String(row.user_answer ?? '').trim();
-            return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Câu ${row.q_num}: ${empty ? 'bỏ trống' : row.correct ? 'đúng' : 'cần xem lại'}`} key={row.q_num}>{row.q_num}</span>;
+            return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'review needed'}`} key={row.q_num}>{row.q_num}</span>;
           })}</div>
         </section>
 
         <section className="exam-result-next-step">
-          <div><p className="exam-result-eyebrow">BƯỚC TIẾP THEO</p><h2>{needsReview ? `Chữa ${needsReview} câu chưa đúng` : 'Xem lại cách làm bài'}</h2><p>Đối chiếu bài đọc, đáp án và phân tích bẫy theo từng câu. Kết quả chi tiết chỉ hiển thị trong không gian chữa bài.</p></div>
+          <div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{needsReview ? `Review ${needsReview} incorrect answers` : 'Review your answers'}</h2><p>Compare the passage, answers and explanations for each question in the review.</p></div>
           <div className="exam-result-actions">
-            {attemptId ? <a className="exam-btn exam-btn--primary" href={readingReviewHref(attemptId, { anonId, from, sittingId })}>Vào chữa bài <span aria-hidden="true">→</span></a> : null}
-            <a className="exam-btn" href={readingLibraryHref(from, sittingId)}>Về kho đề</a>
+            {attemptId ? <a className="exam-btn exam-btn--primary" href={readingReviewHref(attemptId, { anonId, from, sittingId })}>Review answers <span aria-hidden="true">→</span></a> : null}
+            <a className="exam-btn" href={readingLibraryHref(from, sittingId)}>Back to tests</a>
           </div>
         </section>
       </section>
@@ -734,7 +720,7 @@ export function ReadingExamSession() {
       setDisplaySize(localStorage.getItem('ielts-text-size') || 'medium');
       setDisplayTheme(localStorage.getItem('ielts-exam-theme') || 'default');
     } catch {
-      setError('Không có mã đề thi hợp lệ.');
+      setError('No valid test ID was provided.');
       setPhase('error');
     }
   }, []);
@@ -778,7 +764,7 @@ export function ReadingExamSession() {
   }, [params?.testId]);
 
   const claimAttempt = useCallback(async (attemptId: string) => {
-    if (!params) throw new Error('Không có định danh bài thi.');
+    if (!params) throw new Error('Missing test ID.');
     const canonical = await claimReadingAttemptRenderer({
       api: window.api,
       attemptId,
@@ -795,7 +781,7 @@ export function ReadingExamSession() {
   const boot = useCallback(async () => {
     if (!params) return;
     const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (Reading exam)');
-    if (!ready) throw new Error('Không thể kết nối lớp dữ liệu.');
+    if (!ready) throw new Error('Unable to connect. Please try again.');
     if (params.adminPreview) {
       const adminTest = await window.api.get<any>(
         `/admin/reading/content/tests/${encodeURIComponent(params.testId!)}`,
@@ -854,7 +840,7 @@ export function ReadingExamSession() {
       return;
     }
     if (!params.share && caught?.status === 403) {
-      const supplied = window.prompt('🔒 Bài thi này đang khoá. Nhập mật khẩu để vào:');
+      const supplied = window.prompt('This test is locked. Enter the test password:');
       if (supplied?.trim()) {
         try { sessionStorage.setItem(`reading-pw:${params.testId}`, supplied.trim()); } catch {}
         try {
@@ -866,8 +852,8 @@ export function ReadingExamSession() {
       }
     }
     setError(params.share && [403, 404].includes(caught?.status)
-      ? 'Liên kết chia sẻ đã hết hạn hoặc không hợp lệ.'
-      : `Không tải được bài thi. ${caught?.message || ''}`);
+      ? 'This shared link has expired or is invalid.'
+      : "Unable to load the test. Check your connection and try again.");
     setPhase('error');
   }, [boot, params]);
 
@@ -937,7 +923,7 @@ export function ReadingExamSession() {
 
   const enterAttempt = useCallback(async (nextAttempt: Attempt, restored: AnswerMap) => {
     if (nextAttempt.attempt_purpose === 'mock_delivery') {
-      if (!nextAttempt.mock_sitting_id || (params?.sittingId && nextAttempt.mock_sitting_id !== params.sittingId)) throw new Error('Không xác nhận được kỳ thi của bài Reading.');
+      if (!nextAttempt.mock_sitting_id || (params?.sittingId && nextAttempt.mock_sitting_id !== params.sittingId)) throw new Error('Unable to confirm your Reading test session.');
     } else if (params?.sittingId) {
       // RouteScriptChain loads the legacy bridge independently from React
       // hydration.  A one-shot lookup here used to let the native player win
@@ -949,7 +935,7 @@ export function ReadingExamSession() {
         () => typeof (window as any).MockHook?.attach === 'function',
         'window.MockHook.attach (Reading mock)',
       );
-      if (!hookReady) throw new Error('Không thể liên kết bài Reading với kỳ thi.');
+      if (!hookReady) throw new Error('Unable to connect Reading to your test session.');
       await (window as any).MockHook.attach('reading', nextAttempt.attempt_id);
     }
     answersRef.current = restored;
@@ -963,7 +949,7 @@ export function ReadingExamSession() {
   const resume = useCallback(() => {
     if (!attempt) return;
     void enterAttempt(attempt, answersRef.current).catch((caught: any) => {
-      setError(`Không thể tiếp tục bài thi. ${caught?.message || ''}`);
+      setError("Unable to resume the test. Check your connection and try again.");
       setPhase('error');
     });
   }, [attempt, enterAttempt]);
@@ -1003,11 +989,11 @@ export function ReadingExamSession() {
       }
       const confirmed = await boot();
       if (!confirmed?.inProgress || confirmed.inProgress.attempt_id !== String(response.attempt_id)) {
-        throw new Error('Không xác nhận được lượt làm vừa bắt đầu.');
+        throw new Error('Unable to confirm the new attempt.');
       }
       await enterAttempt(confirmed.inProgress, answersFromRows(confirmed.inProgress.answers));
     } catch (caught: any) {
-      setError(`Không bắt đầu được bài thi. ${caught?.message || ''}`);
+      setError("Unable to start the test. Check your connection and try again.");
       setPhase('error');
     }
   }, [admissionRequired, anonHeaders, boot, enterAttempt, params, passwordHeaders, resumeAvailable, user?.id]);
@@ -1070,7 +1056,7 @@ export function ReadingExamSession() {
       setResult(response);
       setPhase('results');
     } catch (caught: any) {
-      setError(`Không nộp được bài. ${caught?.message || ''}`);
+      setError("Unable to submit your answers. Check your connection and try again.");
       setPhase('error');
     }
   }, [flagApi.flush, anonHeaders, attempt, params?.mockEmbed, params?.share, phase, user?.id]);
@@ -1174,8 +1160,19 @@ export function ReadingExamSession() {
   useEffect(() => {
     const testing = ['inprogress', 'submitting'].includes(phase);
     document.body.classList.toggle('reading-next-testing', testing);
-    return () => document.body.classList.remove('reading-next-testing');
-  }, [phase]);
+    document.body.classList.toggle('reading-next-preview', !!params?.adminPreview);
+    return () => document.body.classList.remove('reading-next-testing', 'reading-next-preview');
+  }, [phase, params?.adminPreview]);
+
+  useEffect(() => {
+    const active = document.querySelector<HTMLElement>('.exam-palette [aria-current="step"]');
+    const strip = active?.parentElement;
+    if (!active || !strip) return;
+    const button = active.getBoundingClientRect();
+    const viewport = strip.getBoundingClientRect();
+    if (button.left < viewport.left + 4) strip.scrollLeft -= viewport.left + 4 - button.left;
+    else if (button.right > viewport.right - 4) strip.scrollLeft += button.right - viewport.right + 4;
+  }, [currentQuestion, currentPart, phase]);
 
   if (phase === 'results') return <ResultView
     result={result}
@@ -1200,7 +1197,7 @@ export function ReadingExamSession() {
       <header className="exam-topbar" role="banner">
         <div className="exam-topbar__left">
           <div className="exam-topbar__candidate">Aver Learning <b>{params?.adminPreview ? 'Admin preview' : user?.email || (params?.share ? 'Guest candidate' : 'Candidate')}</b></div>
-          <div className="exam-topbar__section">IELTS Reading Practice · {test?.title || 'Reading Test'}</div>
+          <div className="exam-topbar__section">IELTS Reading · {test?.title || 'Reading Test'}</div>
         </div>
         <div className="exam-timer-wrap" hidden={!['inprogress', 'submitting'].includes(phase) || !!params?.mockEmbed || !!params?.adminPreview}>
           <div className="exam-timer" data-state={remaining <= 300 ? 'critical' : remaining <= 600 ? 'warning' : 'normal'} role="timer" aria-live="off">{formatTime(remaining)}</div>
@@ -1222,32 +1219,32 @@ export function ReadingExamSession() {
         </select></label>
       </aside> : null}
 
-      {phase === 'loading' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Đang tải bài thi…</p></main> : null}
+      {phase === 'loading' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Loading test…</p></main> : null}
       {phase === 'error' ? <main className="exam-state-shell reading-next-state">
         <p className="exam-state-msg exam-state-msg--error" role="alert">{error}</p>
-        <div className="reading-next-error-actions"><button className="exam-btn exam-btn--primary" type="button" onClick={() => void bootWithRecovery()}>Thử lại</button><a className="exam-btn" href={backHref}>← Quay lại kho đề</a></div>
+        <div className="reading-next-error-actions"><button className="exam-btn exam-btn--primary" type="button" onClick={() => void bootWithRecovery()}>Retry</button><a className="exam-btn" href={backHref}>← Back to tests</a></div>
       </main> : null}
       {phase === 'prestart' && admissionRequired ? <main className="exam-state-shell reading-next-state"><div className="exam-card">
-        <h1 className="exam-card__title">Bài Reading trong kỳ thi</h1><p>Đồng hồ bắt đầu chạy khi bạn bắt đầu bài thi.</p>
-        <button className="exam-btn exam-btn--primary" type="button" onClick={() => void startFresh()}>Bắt đầu bài thi</button>
-        <a className="exam-btn" href={backHref}>← Quay lại</a>
+        <h1 className="exam-card__title">Reading test</h1><p>The timer starts when you begin the test.</p>
+        <button className="exam-btn exam-btn--primary" type="button" onClick={() => void startFresh()}>Start test</button>
+        <a className="exam-btn" href={backHref}>← Back</a>
       </div></main> : null}
       {phase === 'prestart' && test ? <main className="exam-state-shell reading-next-state">
         <div className="exam-card">
           <h1 className="exam-card__title">{test.title}</h1>
-          <div className="exam-card__meta">{test.passages.length} đoạn · {total} câu · {test.time_limit_minutes} phút</div>
-          <div className="exam-rules"><h3>Trước khi bắt đầu</h3><ul><li>Đồng hồ chạy liên tục sau khi bắt đầu.</li><li>Mỗi câu trả lời được lưu vào máy chủ.</li><li>Refresh trang có thể tiếp tục attempt đang mở.</li><li>Khi hết giờ, hệ thống tự nộp bài.</li></ul></div>
+          <div className="exam-card__meta">{test.passages.length} passages · {total} questions · {test.time_limit_minutes} minutes</div>
+          <div className="exam-rules"><h3>Before you start</h3><ul><li>The timer runs continuously once you start.</li><li>Your answers are saved automatically.</li><li>Reloading the page resumes your current attempt.</li><li>Your answers are submitted automatically when time runs out.</li></ul></div>
           <div className="reading-next-prestart-actions">
-            <a className="exam-btn" href={backHref}>← Quay lại</a>
-            {resumeAvailable ? <button className="exam-btn exam-btn--primary" type="button" onClick={resume}>Tiếp tục bài đang làm</button> : null}
+            <a className="exam-btn" href={backHref}>← Back</a>
+            {resumeAvailable ? <button className="exam-btn exam-btn--primary" type="button" onClick={resume}>Resume test</button> : null}
             <button className="exam-btn" type="button" onClick={() => {
-              if (!resumeAvailable || window.confirm('Bài đang làm sẽ bị hủy và thay bằng attempt mới. Tiếp tục?')) void startFresh();
-            }}>{resumeAvailable ? 'Bắt đầu lại từ đầu' : 'Bắt đầu bài thi'}</button>
+              if (!resumeAvailable || window.confirm('Your current attempt will be discarded and replaced. Start a new attempt?')) void startFresh();
+            }}>{resumeAvailable ? 'Start a new attempt' : 'Start test'}</button>
           </div>
         </div>
       </main> : null}
       {['inprogress', 'submitting'].includes(phase) && test ? <>
-        {params?.adminPreview ? <aside className="exam-admin-preview" role="status"><strong>Bản duyệt admin</strong><span>Đây là đúng giao diện thi của học viên. Câu trả lời chỉ nằm trong tab này; hệ thống không tạo attempt và không lưu kết quả.</span><span className="exam-admin-preview__actions"><a className="exam-btn" href={`/reading/review?admin_test_id=${encodeURIComponent(test.test_id)}`}>Xem chữa bài</a><a className="exam-btn" href={backHref}>Về kho đề</a></span></aside> : null}
+        {params?.adminPreview ? <aside className="exam-admin-preview" role="status"><strong>Admin preview</strong><span>Preview only. Answers stay in this tab and no test attempt or result is saved.</span><span className="exam-admin-preview__actions"><a className="exam-btn" href={`/reading/review?admin_test_id=${encodeURIComponent(test.test_id)}`}>Review answers</a><a className="exam-btn" href={backHref}>Back to tests</a></span></aside> : null}
         <section className="reading-next-part-strip" aria-label={`Part ${currentPart}`}>
           <strong>Part {currentPart}</strong>
           <span>{questions.length ? `Read the text and answer questions ${questions[0].q_num}–${questions.at(-1)?.q_num}.` : 'Read the text and answer the questions.'}</span>
@@ -1300,12 +1297,15 @@ export function ReadingExamSession() {
             {passages.map((passage) => {
               const part = Number(passage.passage_order || 1);
               const partQuestions = (test.questions || []).filter((question) => Number(question.passage_order || 1) === part);
-              return <div className="exam-palette__group" key={part}>
-                <span className="exam-palette__group-label">PART {part}</span>
-                <div className="exam-palette__group-btns">{partQuestions.map((question) => <button
+              return <div className={`exam-palette__group${part === currentPart ? ' is-active' : ''}`} key={part}>
+                <button className="exam-palette__group-label" type="button" aria-expanded={part === currentPart} aria-controls={`reading-part-${part}-numbers`} onClick={() => { if (partQuestions[0]) jumpToQuestion(partQuestions[0].q_num); }}>
+                  <strong>Part {part}</strong><span>{partQuestions.filter((question) => answers.has(question.q_num)).length} / {partQuestions.length}</span>
+                </button>
+                <div className="exam-palette__group-btns" id={`reading-part-${part}-numbers`} hidden={part !== currentPart}>{partQuestions.map((question) => <button
                   className={`exam-palette__q${answers.has(question.q_num) ? ' is-answered' : ''}${flagged.has(question.q_num) ? ' is-flagged' : ''}${saveStates.has(question.q_num) ? ' is-unsaved' : ''}${saveStates.get(question.q_num) === 'failed' ? ' is-save-failed' : ''}${currentQuestion === question.q_num ? ' is-current' : ''}`}
                   aria-label={`Question ${question.q_num}${answers.has(question.q_num) ? ', answered' : ', not answered'}${flagged.has(question.q_num) ? ', marked for review' : ''}${currentQuestion === question.q_num ? ', current' : ''}`}
                   data-q={question.q_num}
+                  aria-current={currentQuestion === question.q_num ? 'step' : undefined}
                   key={question.q_num}
                   type="button"
                   onClick={() => jumpToQuestion(question.q_num)}
@@ -1314,10 +1314,10 @@ export function ReadingExamSession() {
             })}
           </div>
           {saveStates.size ? <p className="reading-next-save-banner" role="status">
-            {unsavedPending ? `Đang lưu ${unsavedPending} câu. ` : ''}
-            {unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}
-            {unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi cảnh báo biến mất.'}
-            {unsavedFailed ? <button type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}
+            {unsavedPending ? `Saving ${unsavedPending} answers. ` : ''}
+            {unsavedRetrying ? `Retrying ${unsavedRetrying} answers. ` : ''}
+            {unsavedFailed ? `${unsavedFailed} answers have not been saved to the server.` : 'Keep this tab open until saving finishes.'}
+            {unsavedFailed ? <button type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Retry</button> : null}
           </p> : null}
           {!params?.adminPreview ? <AttemptReviewFlagStatus ready={flagApi.ready} states={flagApi.states} error={flagApi.error} onRetry={flagApi.retry} /> : null}
           <div className="exam-palette__actions">
@@ -1326,18 +1326,18 @@ export function ReadingExamSession() {
               <button className="exam-palette__nav-btn" type="button" disabled={currentQuestion === test.questions[0]?.q_num} onClick={() => moveQuestion(-1)}>← Previous</button>
               <button className="exam-palette__nav-btn" type="button" disabled={currentQuestion === test.questions.at(-1)?.q_num} onClick={() => moveQuestion(1)}>Next →</button>
             </div>
-            {params?.adminPreview ? <a className="exam-btn exam-btn--primary" href={`/reading/review?admin_test_id=${encodeURIComponent(test.test_id)}`}>Xem chữa bài</a> : !params?.mockEmbed ? <button className="exam-btn exam-btn--primary" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang nộp…' : 'Submit'}</button> : null}
+            {params?.adminPreview ? <a className="exam-btn exam-btn--primary" href={`/reading/review?admin_test_id=${encodeURIComponent(test.test_id)}`}>Review answers</a> : !params?.mockEmbed ? <button className="exam-btn exam-btn--primary" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Submitting…' : 'Submit'}</button> : null}
           </div>
         </footer>
       </> : null}
-      {phase === 'sealed' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Đã thu bài Reading. Đang chờ kỳ thi chuyển bước tiếp theo…</p></main> : null}
+      {phase === 'sealed' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Reading answers collected. Waiting for the next section…</p></main> : null}
 
       {submitOpen && !params?.adminPreview ? <div className="exam-modal" role="dialog" aria-modal="true" aria-labelledby="reading-next-submit-title">
         <div className="exam-modal__backdrop" onClick={() => { if (phase !== 'submitting') setSubmitOpen(false); }} />
         <div ref={submitDialogRef} className="exam-modal__panel reading-next-submit-panel" tabIndex={-1}>
-          <h2 id="reading-next-submit-title">Nộp bài?</h2>
-          <p>{answers.size < total ? `Bạn còn ${total - answers.size}/${total} câu chưa trả lời.` : `Bạn đã trả lời tất cả ${total} câu.`}</p>
-          <div className="exam-modal__actions"><button ref={submitCancelRef} className="exam-btn" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="exam-btn exam-btn--primary" type="button" disabled={phase === 'submitting'} onClick={() => void submit()}>Nộp bài</button></div>
+          <h2 id="reading-next-submit-title">Submit answers?</h2>
+          <p>{answers.size < total ? `You have ${total - answers.size} unanswered questions out of ${total}.` : `You have answered all ${total} questions.`}</p>
+          <div className="exam-modal__actions"><button ref={submitCancelRef} className="exam-btn" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)}>Return to test</button><button className="exam-btn exam-btn--primary" type="button" disabled={phase === 'submitting'} onClick={() => void submit()}>Submit answers</button></div>
         </div>
       </div> : null}
       {helpOpen ? <div className="exam-modal" role="dialog" aria-modal="true" aria-labelledby="reading-next-help-title">

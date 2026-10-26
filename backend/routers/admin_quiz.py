@@ -15,12 +15,16 @@ from __future__ import annotations
 
 import logging
 import json
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.routing import APIRoute
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
+from starlette.concurrency import run_in_threadpool
 
 from database import supabase_admin
 from routers.admin import require_admin
@@ -38,10 +42,27 @@ router = APIRouter(prefix="/admin/quiz", tags=["admin-quiz"])
 _GRAMMAR_REVISION_ERRORS = {status:{'model':GrammarRevisionErrorResponse} for status in (404,409,422,503)}
 
 
+def _grammar_revision_thread_call(action,url,*args):
+    async def execute():
+        # Request-scoped connection, using the existing configured owner URL.
+        # No pooled async connection crosses event loops; no credentials reload.
+        engine=create_async_engine(url,poolclass=NullPool)
+        try:
+            return await action(engine,*args)
+        finally:
+            await engine.dispose()
+    return asyncio.run(execute())
+
+
 async def _grammar_revision_call(action,*args):
-    # Reuse the configured owner; never create a new pool or load credentials.
     from routers import admin
     try:
+        if admin._db_engine is not None:
+            # Legacy synchronous PostgREST writers can block the HTTP loop
+            # while waiting for a queued exclusive cutover. Run all three
+            # owner transactions independently of that HTTP event loop so
+            # both shared readers and the cutover can release their gates.
+            return await run_in_threadpool(_grammar_revision_thread_call,action,admin._db_engine.url,*args)
         return await action(admin._db_engine,*args)
     except grammar_quiz_revisions.GrammarRevisionError as error:
         raise HTTPException(error.status_code,{'error_code':error.code,

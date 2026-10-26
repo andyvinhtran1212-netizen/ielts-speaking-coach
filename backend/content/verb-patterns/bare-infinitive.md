@@ -276,7 +276,7 @@ see / hear / watch / feel / notice + object + V-ing (hành động đang xảy r
 - ✅ ĐÚNG: I enjoy **swimming** every morning.
 - ❌ SAI: She decided **go** by train.
 - ✅ ĐÚNG: She decided **to go** by train.
-- **TẠI SAO:** Bare infinitive chỉ dùng sau modal verbs và một số cấu trúc đặc biệt — không dùng sau động từ thường.
+- **TẠI SAO:** Bare infinitive không được dùng tự do sau mọi động từ từ vựng. Ngoài modal, make/let/help và một số động từ tri giác cho phép dạng này theo mẫu riêng; enjoy cần V-ing, decide cần to-infinitive.
 
 ### Lỗi 5: Nhầm "used to" (bare infinitive) và "be used to" (gerund)
 
@@ -383,3 +383,5 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 5. **had better / would rather / used to** → bare infinitive
 6. Sau **perception verbs + object** (see, hear, watch...) → bare infinitive (hoàn chỉnh) hoặc -ing (đang diễn ra)
 7. Đừng bao giờ viết "should **to** go", "can **to** speak" — bỏ "to" đi
+
+> Bare infinitive cũng được một số động từ từ vựng cho phép: “make/let somebody do”, “help somebody (to) do”, “see somebody do”. Sau modal, động từ ngay sau có dạng nguyên mẫu: “may **be** working”, “must **have** left”; working/left là bổ ngữ của be/have.

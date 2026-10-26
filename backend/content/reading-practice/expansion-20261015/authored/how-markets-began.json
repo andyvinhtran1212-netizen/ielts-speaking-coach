@@ -1,0 +1,178 @@
+{
+  "slug": "how-markets-began",
+  "review_notes": "Dịch lại từng câu; giữ điều kiện đôi bên cùng muốn hàng đổi chác, phân biệt phần dư với tiền và chợ hàng hóa với trung tâm tin tức.",
+  "illustration_brief": "Một khu chợ nhỏ có quầy ngũ cốc và quầy đồ gốm, hai người trao đổi hàng; không có bảng đáp án hay niên đại.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Từ rất lâu trước khi có tiền, con người vẫn cần những thứ họ không tự làm được.",
+      [
+        "Long before money existed",
+        "Từ rất lâu trước khi có tiền"
+      ],
+      [
+        "could not make themselves",
+        "không tự làm được"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nông dân có thể dư ngũ cốc mà thiếu dụng cụ, còn thợ kim khí có dụng cụ nhưng thiếu thức ăn.",
+      [
+        "plenty of grain",
+        "dư ngũ cốc"
+      ],
+      [
+        "a metalworker",
+        "thợ kim khí"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Để giải quyết, người ta trao đổi với nhau.",
+      [
+        "traded with one another",
+        "trao đổi với nhau"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Hình thức sớm nhất là đổi chác, tức đổi loại hàng này lấy loại khác mà không dùng tiền.",
+      [
+        "barter",
+        "đổi chác"
+      ],
+      [
+        "without using money",
+        "không dùng tiền"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Đổi chác có tác dụng khi một gia đình có phần dư của thứ gì đó.",
+      [
+        "a surplus",
+        "phần dư"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Tuy nhiên, cách này chỉ thành công nếu mỗi người đều muốn thứ người kia đưa ra.",
+      [
+        "each person wanted",
+        "mỗi người đều muốn"
+      ],
+      [
+        "what the other offered",
+        "thứ người kia đưa ra"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nông dân cần nồi có thể không tìm được thợ làm nồi đang cần ngũ cốc.",
+      [
+        "a pot-maker",
+        "thợ làm nồi"
+      ],
+      [
+        "needed grain",
+        "đang cần ngũ cốc"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Vì thế, người ta bắt đầu họp tại cùng một nơi vào ngày cố định để có nhiều hàng hóa hơn cho việc lựa chọn.",
+      [
+        "on fixed days",
+        "vào ngày cố định"
+      ],
+      [
+        "more goods to choose from",
+        "nhiều hàng hóa hơn cho việc lựa chọn"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Những điểm gặp gỡ này dần trở thành chợ.",
+      [
+        "grew into markets",
+        "dần trở thành chợ"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Thương nhân đi từ xa đến, mang theo những mặt hàng lạ.",
+      [
+        "Merchants",
+        "Thương nhân"
+      ],
+      [
+        "unusual goods",
+        "những mặt hàng lạ"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Dần dần, con người bắt đầu dùng những đồng tiền kim loại nhỏ.",
+      [
+        "Over time",
+        "Dần dần"
+      ],
+      [
+        "small metal coins",
+        "những đồng tiền kim loại nhỏ"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Đồng tiền có giá trị cố định được mọi người chấp nhận, nên tiện hơn nhiều so với mang hàng hóa nặng.",
+      [
+        "a fixed value",
+        "giá trị cố định"
+      ],
+      [
+        "far more convenient",
+        "tiện hơn nhiều"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Chợ không còn chỉ là nơi mua bán.",
+      [
+        "more than a place to buy and sell",
+        "không còn chỉ là nơi mua bán"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Chợ là điểm tập trung sầm uất của hàng hóa và tin tức, nơi ý tưởng lan nhanh như đồ vật.",
+      [
+        "a busy hub",
+        "điểm tập trung sầm uất"
+      ],
+      [
+        "both goods and news",
+        "hàng hóa và tin tức"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Các thị trấn gần chợ đông bắt đầu phát triển thịnh vượng, và nhiều thành phố hiện đại có lẽ vẫn mang dấu vết của thời kỳ khởi đầu giao thương ấy.",
+      [
+        "began to thrive",
+        "bắt đầu phát triển thịnh vượng"
+      ],
+      [
+        "these trading beginnings",
+        "thời kỳ khởi đầu giao thương ấy"
+      ]
+    ]
+  ],
+  "source_sha256": "7a0f87c19215afc2afbda8ae1b699fd3491860e4e0565199aef29cb086b10782",
+  "illustration": {
+    "src": "/reading-illustrations/exp-market-scene.svg",
+    "alt": "Hai quầy chợ trưng ngũ cốc và đồ gốm với người đang trao đổi hàng.",
+    "caption": "Hàng hóa và con người gặp nhau ở chợ."
+  },
+  "expected_translation_sha256": "217bd83b1b483af7618ca2752977dccd01ac22f3032991d4b06cf6921c307f2c"
+}

@@ -1,0 +1,166 @@
+{
+  "slug": "scanning-the-great-wall",
+  "review_notes": "Buildings dịch công trình, không gượng thành tòa nhà; packed earth là đất nện. Minh hoạ không dùng tín hiệu lửa/khói để tránh vẽ ra chi tiết được hỏi.",
+  "illustration_brief": "Một đoạn tường thành uốn qua các ngọn đồi xanh, với các tháp canh không ghi nhãn.",
+  "sentences": [
+    [
+      "p2-s1",
+      "Vạn Lý Trường Thành là một trong những công trình nổi tiếng nhất thế giới và nằm ở Trung Quốc.",
+      [
+        "The Great Wall",
+        "Vạn Lý Trường Thành"
+      ],
+      [
+        "one of the most famous buildings",
+        "một trong những công trình nổi tiếng nhất"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Đây không phải một bức tường đơn lẻ mà là nhiều phần nối với nhau.",
+      [
+        "not one single wall",
+        "không phải một bức tường đơn lẻ"
+      ],
+      [
+        "many parts joined together",
+        "nhiều phần nối với nhau"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Cộng tất cả các phần lại, bức tường dài hơn 21.000 ki-lô-mét.",
+      [
+        "add all the parts",
+        "Cộng tất cả các phần lại"
+      ],
+      [
+        "more than 21,000 kilometres long",
+        "dài hơn 21.000 ki-lô-mét"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Con người bắt đầu xây tường ở miền bắc Trung Quốc từ rất lâu.",
+      [
+        "in the north of China",
+        "ở miền bắc Trung Quốc"
+      ],
+      [
+        "very long ago",
+        "từ rất lâu"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Mục đích là ngăn binh lính từ phía bắc và bảo vệ người bên trong.",
+      [
+        "keep out soldiers from the north",
+        "ngăn binh lính từ phía bắc"
+      ],
+      [
+        "protect the people inside",
+        "bảo vệ người bên trong"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Phần lớn bức tường ta thấy ngày nay được xây dưới triều Minh, khoảng 600 năm trước.",
+      [
+        "Most of the wall we see today",
+        "Phần lớn bức tường ta thấy ngày nay"
+      ],
+      [
+        "the Ming dynasty",
+        "triều Minh"
+      ],
+      [
+        "about 600 years ago",
+        "khoảng 600 năm trước"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Thợ thời Minh dùng gạch và đá để làm tường vững hơn nhiều so với tường cũ bằng đất nện.",
+      [
+        "bricks and stone",
+        "gạch và đá"
+      ],
+      [
+        "much stronger",
+        "vững hơn nhiều"
+      ],
+      [
+        "packed earth",
+        "đất nện"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Dọc tường có hàng nghìn tháp canh.",
+      [
+        "Along the wall",
+        "Dọc tường"
+      ],
+      [
+        "thousands of watchtowers",
+        "hàng nghìn tháp canh"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Lính gác đứng trong tháp và quan sát để phát hiện nguy hiểm.",
+      [
+        "Guards",
+        "Lính gác"
+      ],
+      [
+        "watched for danger",
+        "quan sát để phát hiện nguy hiểm"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Khi thấy quân địch, họ dùng lửa và khói truyền cảnh báo nhanh dọc bức tường.",
+      [
+        "enemy soldiers",
+        "quân địch"
+      ],
+      [
+        "fire and smoke",
+        "lửa và khói"
+      ],
+      [
+        "send a quick warning",
+        "truyền cảnh báo nhanh"
+      ]
+    ],
+    [
+      "p7-s1",
+      "Mẹo luyện tập: Khi đọc quét, hãy đưa mắt nhanh để tìm con số và tên riêng.",
+      [
+        "When you scan",
+        "Khi đọc quét"
+      ],
+      [
+        "find numbers and names",
+        "tìm con số và tên riêng"
+      ]
+    ],
+    [
+      "p7-s2",
+      "Bạn không cần đọc từng từ.",
+      [
+        "do not need to read every word",
+        "không cần đọc từng từ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-great-wall-scene.svg",
+    "alt": "Một đoạn tường thành có tháp canh uốn qua những ngọn đồi xanh.",
+    "caption": "Dấu tích một công trình dài qua núi đồi."
+  },
+  "source_sha256": "b406b725ad3a97cedd19327ffaf93144e7f7d41f4d2161d264115290c51091f9",
+  "expected_translation_sha256": "dde6619f7c2bcc0f6fcb0984c7c0f350e7719ad81fbd33e064032f2a539ec870"
+}

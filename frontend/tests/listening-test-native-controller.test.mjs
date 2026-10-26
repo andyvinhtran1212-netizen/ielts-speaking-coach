@@ -266,7 +266,7 @@ describe('native Listening test route contract', () => {
     assert.match(page, /listening-next-audio-prompt/);
     assert.match(page, /cannot pause, rewind or play it again/);
     assert.match(page, /practice \? <>/);
-    assert.match(page, /Audio progress \(kéo để tua\)/);
+    assert.match(page, /Audio progress/);
     assert.match(page, /audioPromptOpen.*!isPracticeListeningTest/s);
     assert.match(page, /setAudioPromptOpen\(false\)/);
   });
@@ -309,7 +309,7 @@ describe('native Listening test route contract', () => {
   test('admin preview reuses the player payload without creating an attempt', () => {
     assert.match(page, /\/admin\/listening\/tests\/\$\{encodeURIComponent\(params\.testId\)\}\/player-preview/);
     assert.match(page, /setAttempt\(null\)/);
-    assert.match(page, /Bản duyệt admin/);
+    assert.match(page, /Admin preview/);
   });
 
   test('preserves mock sealing, canonical resume and submit safety', () => {
@@ -319,7 +319,7 @@ describe('native Listening test route contract', () => {
     assert.match(page, /if \(!clean\)/);
     assert.match(page, /coordinatorRef\.current\?\.snapshot\?\.\(\)\.size/);
     assert.match(page, /audio\.ended \|\| audioEnded/);
-    assert.match(page, /▶ Tiếp tục/);
+    assert.match(page, /Resume/);
     assert.match(page, /flushPage = \(\) => \{ void coordinator\.flush\(\{ keepalive: true \}\); \}/);
     assert.match(page, /flushHidden = \(\) => \{ if \(document\.visibilityState === 'hidden'\) void coordinator\.flush\(\); \}/);
   });
@@ -336,7 +336,7 @@ describe('native Listening test route contract', () => {
   test('surfaces audio failures and refreshes the signed URL at the correct clock offset', () => {
     assert.match(page, /const \[audioError, setAudioError\]/);
     assert.match(page, /onError=\{\(\) => setAudioError/);
-    assert.match(page, /Tải lại audio/);
+    assert.match(page, /Reload audio/);
     assert.match(page, /normalizeListeningTest\(await window\.api\.get/);
     assert.match(page, /const mediaOffset = Number\(audioRef\.current\?\.currentTime\)/);
     assert.match(page, /params\.sittingId \|\| !Number\.isFinite\(mediaOffset\)/);

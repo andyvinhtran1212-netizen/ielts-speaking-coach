@@ -42,7 +42,7 @@ anchors:
   location: '## Tóm tắt'
   type: overview
 - id: hedging-and-certainty-in-reading.scale
-  location: '### Thang mức chắc chắn'
+  location: '### Các tín hiệu và chức năng theo ngữ cảnh'
   type: section
 - id: hedging-and-certainty-in-reading.tfng
   location: '### Vì sao quan trọng cho T/F/NG'
@@ -63,24 +63,24 @@ anchors:
 Cùng chủ đề nhưng **mức chắc chắn khác nhau** → có thể quyết định đáp án đúng/sai.
 
 <!-- anchor: hedging-and-certainty-in-reading.scale -->
-### Thang mức chắc chắn
+### Các tín hiệu và chức năng theo ngữ cảnh
 
 | Mức | Tín hiệu ngôn ngữ |
 |---|---|
-| **Chắc chắn cao** | will, is, clearly, undoubtedly, always, proves |
-| **Trung bình** | likely, probably, tends to, generally, usually |
+| **Cam kết/nhấn khẳng định** | will, clearly, undoubtedly; is là dạng ngữ pháp, không thang xác suất cố định |
+| **Xác suất / xu hướng / tần suất** | likely, probably / tends to / generally, usually — chức năng khác nhau |
 | **Thận trọng (hedged)** | may, might, could, suggests, appears, seems, possibly |
 | **Hạn định phạm vi** | some, often, in many cases, to some extent |
 
-Động từ tường thuật cũng mã hoá mức chắc chắn: *proves > shows > indicates > suggests > hints*.
+Proves/shows/indicates/suggests/hints thể hiện cách nguồn trình bày bằng chứng; không là thang tuyệt đối cho mọi ngữ cảnh. Xác định ai phát biểu và căn cứ nào.
 
 <!-- anchor: hedging-and-certainty-in-reading.tfng -->
 ### Vì sao quan trọng cho T/F/NG
 
 Câu hỏi thường **đổi mức chắc chắn** để bẫy:
 
-- Bài: *X **may** reduce risk.* → Câu hỏi: *X **reduces** risk.* → **FALSE/ không khớp** (bài chỉ nói "có thể", câu hỏi khẳng định chắc).
-- Bài: *Most experts agree…* → Câu hỏi: *All experts agree…* → sai vì *most ≠ all*.
+- Bài: *X **may** reduce risk.* → Câu hỏi: *X **reduces** risk.* → thường **NOT GIVEN** nếu bài chưa xác nhận hay phủ định hiệu quả thật; chỉ FALSE khi có thông tin mâu thuẫn.
+- Bài: *Most experts agree…* → Câu hỏi: *All experts agree…* → không tự TRUE; FALSE nếu có ngoại lệ được nêu, NOT GIVEN nếu việc toàn bộ đồng ý chưa được xác nhận hay bác bỏ.
 
 Với "quan điểm tác giả", hãy đọc **rào đón** để biết tác giả tin chắc hay chỉ gợi ý.
 
@@ -95,7 +95,7 @@ Một chữ *may/some/often* đổi hoàn toàn mức khẳng định — đừn
 
 ### Chiến lược giải mã
 1. Gạch chân từ chỉ mức chắc chắn trong cả bài lẫn câu hỏi.
-2. So mức: nếu câu hỏi **chắc hơn** bài → thường không khớp.
+2. So nội dung và mức khẳng định: mạnh hơn chưa đủ chọn FALSE. Theo [IELTS Reading format](https://ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-reading), FALSE cần mâu thuẫn, NOT GIVEN là chưa xác nhận hoặc bác bỏ.
 3. Phân biệt tiếng nói tác giả với ý được trích dẫn.
 
 ## Tóm tắt nhanh

@@ -242,7 +242,7 @@ Subject + is/are + V3 + to-infinitive
 
 ### Lỗi 6: Dùng bị động cho động từ nội động (intransitive verbs)
 
-Động từ nội động (arrive, happen, occur, exist, sleep...) không có tân ngữ → không có bị động:
+Các động từ như arrive/happen/occur/exist không có tân ngữ trực tiếp trong nghĩa đang xét, nên không tạo bị động thông thường từ tân ngữ ấy. Phân biệt bị động có giới từ: **The bed has been slept in**, **The office was broken into** vẫn hợp lệ:
 - ❌ The accident was happened yesterday.
 - ✅ The accident **happened** yesterday.
 - ❌ The problem was occurred due to human error.
@@ -335,9 +335,9 @@ Subject + is/are + V3 + to-infinitive
 Người học VN thường over-use passive trong Speaking → bài nói nghe sách vở, không tự nhiên, hạ Fluency. Quy tắc:
 
 **Tránh passive khi:**
-1. Agent đã rõ và là focus → active mạnh hơn: "The chef cooked the meal" (✓) vs "The meal was cooked by the chef" (passive yếu khi chef quan trọng)
-2. Trong câu trả lời cá nhân Part 1: "I do this..." luôn tốt hơn "this is done by me..."
-3. Khi muốn sound dynamic và confident — active conveys agency
+1. Khi người thực hiện là chủ đề đang theo dõi, active có thể trực tiếp hơn: "The chef cooked the meal".
+2. Không đổi mọi câu cá nhân sang active: **I was born in Hanoi**, **I was offered a place** tự nhiên trong Speaking.
+3. Chọn voice theo mạch thông tin. Passive có thể giữ đối tượng làm chủ đề và đặt người thực hiện quan trọng ở cuối: "The meal was cooked by the chef" không yếu chỉ vì đã biết chef.
 
 **Dùng passive khi:**
 1. Agent unknown hoặc irrelevant: "My phone was stolen yesterday." (không biết ai trộm)
@@ -354,4 +354,4 @@ Tiếng Việt có "bị" (negative outcome) và "được" (positive outcome) �
 
 "Tôi **được** nhận học bổng" — không cần passive: "I got a scholarship" / "I received a scholarship" (active) tốt hơn "A scholarship was received by me".
 
-Quy tắc: Khi VN có "bị/được" + bản thân là agent thực, thường active English tự nhiên hơn.
+Không dịch bị/được máy móc thành passive. Trong **I received a scholarship**, I là **bên nhận**, không phải người cấp học bổng dù câu ở active voice. Chủ ngữ ngữ pháp và vai nghĩa agent không đồng nhất ở mọi động từ.

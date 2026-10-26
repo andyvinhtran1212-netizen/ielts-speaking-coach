@@ -183,7 +183,7 @@ Subject + am/is/are/was/were + used to + V-ing / Noun
 Subject + get/gets/got + used to + V-ing / Noun
 ```
 
-"Get used to" diễn đạt **quá trình** trở nên quen với điều gì đó — đang thích nghi, chưa hoàn toàn quen. Đây là điểm khác biệt chính với "be used to" (đã quen rồi).
+"Get used to" diễn đạt sự chuyển sang trạng thái quen; dạng tiếp diễn thường chỉ quá trình đang thích nghi, còn got used to có thể chỉ kết quả đã quen. Đây là điểm khác biệt chính với "be used to" (đã quen rồi).
 
 - I am **getting used to** the new schedule. (Tôi đang dần quen với lịch trình mới — chưa hoàn toàn quen)
 - She finally **got used to** living alone. (Cuối cùng cô ấy cũng quen được với việc sống một mình)
@@ -284,7 +284,7 @@ Subject + get/gets/got + used to + V-ing / Noun
 ### Chia dạng đúng
 
 1. When I was young, I ___ (used to / be used to) walk to school every day.
-2. She ___ (get used to) working night shifts after a few weeks.
+2. Last year, she ___ (get used to) working night shifts after a few weeks.
 3. He ___ (be used to) living alone — it doesn't bother him at all.
 4. I'm still ___ (get used to) the new software. It's quite complex.
 5. My parents ___ (used to) have a small farm in the countryside.
@@ -317,7 +317,7 @@ Subject + get/gets/got + used to + V-ing / Noun
 2. I am used to **waking** up at five o'clock.
 3. He **used to** play football every Sunday.
 4. They got used to **living** in a small apartment.
-5. Correct! ✅ (I am used to eating rice — đúng cấu trúc)
+5. ❌ eat → **eating**: “I am used to eating rice” — to là giới từ.
 
 **Điền:**
 1. used to | 2. got used to | 3. is used to | 4. used to | 5. get used to

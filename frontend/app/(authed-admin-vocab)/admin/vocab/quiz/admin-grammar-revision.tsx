@@ -138,7 +138,7 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
     finally { if (live(ticket, target)) setLoading(false); }
   };
   const check = async () => {
-    if (lock.current || !canonical || canonical.is_managed || denied || pending) return;
+    if (lock.current || !canonical || !canonical.publication_available || denied || pending) return;
     const text = source; const target = code; const expected = canonical;
     const body = { source_markdown: text, expected_revision: expected.revision };
     if (sourceBytes(text) === null || !commandFits(body)) { setNotice({ kind: 'error', message: 'Nguồn hoặc payload JSON vượt giới hạn UTF-8 256KiB, hoặc chứa Unicode không hợp lệ.' }); return; }
@@ -221,7 +221,7 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
     catch (error) { if (live(ticket, code)) showError(error); }
     finally { lock.current = false; if (mounted.current) setBusy(false); }
   };
-  const eligible = !!preview && !preview.canonical.is_managed && !preview.canonical.footprint.authoritative_review_required && !pending && previewSource === source;
+  const eligible = !!preview && preview.canonical.publication_available && !preview.canonical.footprint.authoritative_review_required && !pending && previewSource === source;
   const bytes = sourceBytes(source);
 
   return <section className={styles.workspace} id="grammar-revision" aria-labelledby="grammar-revision-title" aria-busy={busy || loading}>
@@ -230,7 +230,7 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
     <div className={styles.actions}><button ref={readButton} type="button" onClick={() => void refresh()} disabled={busy || denied || (!!pending && !verified)}>Đọc lại trạng thái Grammar</button></div>
     {notice && <p className={`avv-banner is-${notice.kind === 'info' ? 'warning' : notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.message}</p>}
     {loading ? <p role="status">Đang xác minh nguồn và lịch sử…</p> : !canonical ? <p>Chưa có trạng thái được xác minh. Số lượng lịch sử chưa xác định.</p> : <>
-      <p>{canonical.is_managed ? 'Nguồn đã có bản sửa; không tạo thêm revision.' : 'Nguồn gốc chưa được sửa trong quy trình này.'} {canonical.new_starts_enabled ? 'Lượt bắt đầu mới đang được phép.' : 'Lượt bắt đầu mới đang tạm ngừng.'}</p>
+      <p>{canonical.is_managed ? (canonical.publication_available ? 'Nguồn có bản sửa; một lần sửa bổ sung đã được duyệt.' : 'Nguồn đã có bản sửa; không tạo thêm revision.') : 'Nguồn gốc chưa được sửa trong quy trình này.'} {canonical.new_starts_enabled ? 'Lượt bắt đầu mới đang được phép.' : 'Lượt bắt đầu mới đang tạm ngừng.'}</p>
       <p>Lịch sử và fingerprint dưới đây thuộc lần đọc đã xác minh gần nhất.</p>
       <dl className={styles.counts}>{[['Người học', canonical.footprint.actors], ['Phiên', canonical.footprint.sessions], ['Thống kê', canonical.footprint.stats], ['Lượt trả lời', canonical.footprint.attempts], ['Bài giao', canonical.footprint.assignments], ['Phiên mở', canonical.footprint.open_sessions], ['Phiên tạm dừng', canonical.footprint.paused_sessions]].map(([label, n]) => <div key={label}><dt>{label}</dt><dd>{n}</dd></div>)}</dl>
       {canonical.footprint.authoritative_review_required && <p role="alert">Lịch sử chưa đủ rõ để phân loại. Cần kiểm tra có thẩm quyền; xác nhận sửa bị chặn.</p>}
@@ -240,7 +240,7 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
     {filename && <p>{filename}</p>}
     <label>Nguồn Markdown nguyên bản<textarea aria-label="Nguồn Markdown Grammar" rows={8} spellCheck={false} value={source} readOnly disabled={denied} /></label>
     <p>{source ? bytes === null ? 'Nguồn UTF-8 không hợp lệ hoặc vượt 256KiB.' : `${bytes.toLocaleString('vi-VN')} byte UTF-8; payload JSON cũng phải trong 256KiB.` : 'Chưa chọn nguồn.'} Không tự sửa META/map hoặc chuẩn hóa nội dung nguồn.</p>
-    <button type="button" onClick={() => void check()} disabled={busy || loading || denied || !canonical || canonical.is_managed || bytes === null || !!pending}>Xem trước bản sửa Grammar</button>
+    <button type="button" onClick={() => void check()} disabled={busy || loading || denied || !canonical || !canonical.publication_available || bytes === null || !!pending}>Xem trước bản sửa Grammar</button>
     {preview && <div className={styles.preview}>
       <h3>Diff đã được backend xác minh</h3><Fingerprint label="Nguồn SHA-256" value={preview.source_sha256} /><Fingerprint label="Manifest META + câu hỏi" value={preview.manifest_sha256} /><Fingerprint label="Preview fingerprint" value={preview.preview_fingerprint} /><Fingerprint label="Revision đề xuất" value={preview.proposed_revision} />
       <p>META/map của nguồn được ràng buộc trong manifest; mọi META không thuộc phạm vi sửa và câu hỏi/lịch sử gốc được giữ. Diff chỉ liệt kê trường câu hỏi thay đổi.</p>

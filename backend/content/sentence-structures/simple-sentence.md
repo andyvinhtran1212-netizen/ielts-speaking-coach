@@ -126,7 +126,7 @@ Hiểu câu đơn cũng giúp bạn:
 - Danh từ: *The dog barks.*
 - Đại từ: *She sings.*
 - Danh động từ (Gerund): *Swimming is fun.*
-- Danh từ ghép: *My older sister studies medicine.*
+- Cụm danh từ: *My older sister studies medicine.* (My + older + sister; không phải danh từ ghép)
 
 **Động từ chính (Main Verb)** — "Làm gì / Như thế nào / Là gì?"
 - Hành động: *runs, wrote, is studying*
@@ -135,7 +135,7 @@ Hiểu câu đơn cũng giúp bạn:
 
 ### Mở rộng câu đơn
 
-Câu đơn có thể mở rộng mà vẫn là một câu đơn — miễn là không thêm mệnh đề độc lập mới.
+Câu đơn có thể mở rộng mà vẫn là câu đơn theo hệ thống phân loại hữu hạn của bài — miễn là không thêm **mệnh đề hữu hạn độc lập hoặc phụ thuộc**. Thêm một mệnh đề phụ hữu hạn sẽ tạo câu phức dù vẫn chỉ có một mệnh đề độc lập.
 
 **Thêm tân ngữ (Object):**
 - *She reads.* → *She reads **novels**.*
@@ -227,14 +227,15 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 
 - Subject: She
 - Compound predicate: woke up / packed / left
-- Adverbials: early / her bags / the house / without breakfast
+- Objects: her bags (của packed) / the house (của left)
+- Adverbials: early / without breakfast
 - → Vẫn là **câu đơn** vì chỉ một chủ ngữ, một mệnh đề
 
 ### Ví dụ giao tiếp tự nhiên
 
 - "That's **a really good point**." (SVC)
-- "I completely **agree** with you." (SVO)
-- "Many young Vietnamese students **study** abroad **every year**." (SVO + Adverbial)
+- "I completely **agree** with you." (S + V + bổ ngữ giới từ with you; completely là trạng từ)
+- "Many young Vietnamese students **study** abroad **every year**." (S + V + trạng ngữ; không có tân ngữ trực tiếp)
 
 ### Ví dụ IELTS
 
@@ -245,7 +246,7 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 "My grandmother taught me a very important lesson about patience and perseverance during a difficult period in my childhood."
 
 **(Writing Task 2 — câu mở đầu đoạn văn):**
-"Technology has transformed the way people communicate."
+"Technology has transformed communication." Đây là câu đơn. "Technology has transformed the way people communicate" có mệnh đề hữu hạn **people communicate** trong cụm the way..., nên không phải ví dụ câu đơn theo hệ thống này.
 
 <!-- anchor: simple-sentence.common-mistakes -->
 ## Lỗi thường gặp
@@ -283,11 +284,11 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 - ✅ ĐÚNG: *My brother works at a bank.*
 - **TẠI SAO:** Tiếng Việt hay thêm đại từ để nhấn mạnh ("Anh tôi, anh ấy làm việc ở ngân hàng") nhưng tiếng Anh cấm dùng hai chủ ngữ cho cùng một động từ.
 
-### Lỗi 6: Câu quá dài thiếu cấu trúc (Dangling sentence)
+### Lưu ý văn phong: chuỗi phối hợp dài
 
-- ❌ SAI: *I went to the market and I bought vegetables and I cooked dinner and I ate with my family and then I washed the dishes.*
-- ✅ ĐÚNG: *After going to the market, I bought vegetables and cooked dinner. I ate with my family, then washed the dishes.*
-- **TẠI SAO:** Quá nhiều "and" liên tiếp không phải là câu phức tạp — đó là câu yếu. Dùng mệnh đề phụ hoặc tách câu.
+- *I went to the market and I bought vegetables and I cooked dinner and I ate with my family and then I washed the dishes.* đúng cấu trúc phối hợp nhưng nhịp có thể đơn điệu.
+- Có thể tách: *After going to the market, I bought vegetables and cooked dinner. I ate with my family, then washed the dishes.*
+- Đây là lựa chọn văn phong, không phải dangling modifier. Câu đáp ngắn/cảm thán trong hội thoại cũng không tự là lỗi vì thiếu một khuôn S–V đầy đủ; đưa chủ đề lên đầu rồi dùng đại từ nhắc lại cần đánh giá theo ngữ cảnh.
 
 <!-- anchor: simple-sentence.compare-with -->
 ## So sánh với
@@ -349,7 +350,7 @@ Mỗi câu là Simple (S), Compound (C) hay Complex (CX)?
 2. My sister she is a nurse. (chủ ngữ kép)
 3. I love reading I go to the library every week. (câu dính)
 4. Because I wanted to improve my English. (câu cụt)
-5. The team of students are ready. (sai số)
+5. The team of students are ready. (Chọn cách hòa hợp khi xem team là một đơn vị.)
 
 ### Viết câu đơn mở rộng
 
@@ -372,7 +373,7 @@ Bắt đầu từ câu đơn giản, thêm thông tin:
 2. My sister is a nurse. (bỏ "she")
 3. I love reading. I go to the library every week. (tách câu)
 4. I studied hard because I wanted to improve my English. (thêm mệnh đề chính)
-5. The team of students **is** ready. (chủ ngữ "team" = số ít)
+5. The team of students **is** ready khi xem nhóm như một đơn vị. **Are** có thể đúng trong Anh Anh khi nhìn các thành viên; đề gốc không xác định phương ngữ thì không loại are vô điều kiện.
 
 **Câu mở rộng (ví dụ):**
 1. She studies English grammar every evening at the library.

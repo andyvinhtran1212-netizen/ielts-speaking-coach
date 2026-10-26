@@ -105,7 +105,7 @@ Trước khi chọn dạng từ, hỏi: **"Vị trí này trong câu cần từ 
 | Vị trí | Từ loại cần | Ví dụ |
 |--------|------------|-------|
 | Trước danh từ | Adjective | a **beautiful** city |
-| Sau be/seem/look/feel/become | Adjective | She seems **happy** |
+| Bổ ngữ miêu tả sau linking verb | Thường adjective; còn có She is a doctor / is here; look carefully là nghĩa hành động | She seems **happy** |
 | Chủ ngữ, tân ngữ | Noun | **Education** is important |
 | Sau động từ | Adverb (nếu bổ nghĩa V) | She sings **beautifully** |
 | Vị ngữ (hành động) | Verb | They **succeed** every time |
@@ -282,7 +282,7 @@ Hầu hết trạng từ = tính từ + **-ly**:
 
 ### Lỗi 8: Quên biến đổi sau "make/keep/find + object"
 
-Sau "make/keep/find + object", cần **adjective** không phải adverb hoặc noun:
+Trong các ví dụ miêu tả trạng thái O dưới đây cần adjective. Các động từ còn cho mẫu khác: “They made her captain” (NP), “Keep the key here” (chỉ vị trí); không suy chỉ từ động từ.
 - ❌ Exercise makes you **healthily**.
 - ✅ Exercise makes you **healthy**.
 - ❌ She finds the work **challenge**.
@@ -295,7 +295,7 @@ Sau "make/keep/find + object", cần **adjective** không phải adverb hoặc n
 
 | Cấu trúc | Từ loại tiếp theo | Ví dụ |
 |----------|------------------|-------|
-| be/seem/look/feel/become/appear | **Adjective** | She seems **confident** |
+| Linking be/seem/look/feel/become/appear | Bổ ngữ miêu tả thường adjective; NP hoặc vị trí tùy nghĩa | She seems **confident**; She became a doctor |
 | very/quite/rather/extremely | **Adjective / Adverb** | very **important** / very **quickly** |
 | make/keep/find + O | **Adjective** | find it **difficult** |
 | a/an/the + __ + noun | **Adjective** | a **significant** change |
@@ -332,7 +332,7 @@ Sau "make/keep/find + object", cần **adjective** không phải adverb hoặc n
 1. The government needs to take (effect/effective/effectively) action on climate change.
 2. She is a very (success/successful/successfully) businesswoman.
 3. (Economic/Economy/Economical) growth has slowed significantly.
-4. Pollution (affect/effect/effective) millions of people worldwide.
+4. Pollution (affects/effect/effective) millions of people worldwide.
 5. He speaks very (fluent/fluency/fluently) in three languages.
 6. The results were (significance/significant/significantly) better than expected.
 7. We need to find an (economy/economic/economical) solution to reduce waste.

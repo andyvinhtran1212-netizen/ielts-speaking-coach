@@ -13,6 +13,7 @@ import {
   assignmentAction,
   assignmentSubtitle,
   awaitingWriting,
+  classOnTimeLabel,
   courseNeedsAction,
   isKnownPlayerSurface,
   nextDue,
@@ -204,13 +205,17 @@ function TaskCard({
         {row.assignment.instructions && (
           <p className="mc-item-sub">{row.assignment.instructions}</p>
         )}
-        {row.isMissing && !action && (
+        {row.isMissing && (!action || action.kind === 'closed') && (
           <p className="mc-item-next-step">
             Hạn nộp đã đóng. Liên hệ giảng viên nếu bạn cần được mở lại bài.
           </p>
         )}
       </div>
-      {action && (
+      {action?.kind === 'closed' ? (
+        <button className="av-button av-button-secondary" type="button" disabled>
+          {action.label}
+        </button>
+      ) : action && (
         <button
           className={`av-button ${action.kind === 'review' ? 'av-button-secondary' : 'av-button-primary'}`}
           type="button"
@@ -346,13 +351,11 @@ function ReadyView({
   const course = selectedClass?.course || (snapshot.classes.length === 1 ? snapshot.classInfo?.course : null);
   const warnings = snapshot.warnings.map((key: string) => WARNING_COPY[key] || `Một phần dữ liệu chưa sẵn sàng (${key}).`);
   if (refreshError) warnings.push(refreshError);
-  const filteredSubmitted = assignments?.filter((row) => row.submittedAt) || [];
-  const filteredLate = filteredSubmitted.filter((row) => row.isLate).length;
   const stats = assignments ? [
     { value: todo.length, label: 'Cần nộp' },
     { value: missing.length, label: 'Quá hạn', alarm: missing.length > 0 },
     { value: done.length, label: 'Đã nộp' },
-    { value: filteredSubmitted.length ? `${Math.round((filteredSubmitted.length - filteredLate) / filteredSubmitted.length * 100)}%` : '—', label: 'Đúng hạn' },
+    { value: classOnTimeLabel(assignments), label: 'Đúng hạn' },
   ] : [{ value: '—', label: 'Chưa đọc được bài tập' }];
 
   return (
@@ -364,13 +367,18 @@ function ReadyView({
           {course && <div className="mc-course"><span className="mc-course-code">{course.code}</span>{course.name}</div>}
           <p className="mc-lead">Theo dõi việc cần làm, nhịp nộp bài và nội dung mới nhất từ lớp.</p>
         </div>
-        <section className="mc-stats" aria-label="Tổng quan bài tập">
-          {stats.map((stat) => (
-            <div className={`mc-stat${stat.alarm ? ' is-alarm' : ''}`} key={stat.label}>
-              <div className="mc-stat-num">{stat.value}</div><div className="mc-stat-label">{stat.label}</div>
-            </div>
-          ))}
-        </section>
+        <div className="mc-stats-col">
+          <section className="mc-stats" aria-label="Tổng quan bài tập">
+            {stats.map((stat) => (
+              <div className={`mc-stat${stat.alarm ? ' is-alarm' : ''}`} key={stat.label}>
+                <div className="mc-stat-num">{stat.value}</div><div className="mc-stat-label">{stat.label}</div>
+              </div>
+            ))}
+          </section>
+          {assignments && assignments.length > 0 && (
+            <p className="mc-stats-note">Các số này đếm bài tập của lớp. Bài luyện Writing và Speaking trên trang chủ là số khác.</p>
+          )}
+        </div>
       </header>
 
       {snapshot.classes.length > 1 && (
@@ -555,6 +563,13 @@ export function MyClassWorkspace() {
 
   const startAssignment = useCallback(async (row: Assignment) => {
     if (!accountKey || startingItemRef.current) return;
+    // A writing give has no class ledger item, so the class-start endpoint cannot
+    // resolve it. Its lifecycle (draft, timer, submit, grading) lives on the
+    // Writing dashboard — send the learner there to do the task.
+    if (row.assignment.skill === 'writing') {
+      window.location.assign('/writing/dashboard');
+      return;
+    }
     const owner = accountKey;
     startingItemRef.current = row.itemId;
     setStartingItem(row.itemId);

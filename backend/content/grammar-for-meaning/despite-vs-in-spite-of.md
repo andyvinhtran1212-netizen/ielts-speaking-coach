@@ -221,9 +221,9 @@ Even though + subject + verb, [main clause]
 
 ### Lỗi 4: Nhầm vị trí
 
-- ❌ She was successful, in spite of she worked hard.
-- ✅ She was successful, **in spite of** working hard.
-- ✅ She was successful, **even though** she worked hard.
+- ❌ She failed, in spite of she worked hard.
+- ✅ She failed **in spite of** working hard.
+- ✅ She failed **even though** she worked hard.
 
 ---
 
@@ -316,10 +316,10 @@ Dùng "although/even though" thay cho "despite":
 | **Theo sau** | noun / V-ing | noun / V-ing | subject + verb |
 | **Lỗi phổ biến** | "despite of..." ❌ | — | "although the rain..." ❌ |
 | **Trang trọng** | Cao | Cao | Trung bình–cao |
-| **Thay thế** | in spite of | despite | however, nevertheless |
+| **Thay thế giữ cấu trúc** | in spite of | despite | although/though; however/nevertheless cần đổi cú pháp và dấu câu |
 
 **Quy tắc vàng:**
 - **Despite / In spite of** + danh từ → *despite the rain*, *in spite of her effort*
-- **Although / Even though** + mệnh đề → *although it rained*, *even though she tried*
+- **Although / Even though** thường + mệnh đề đầy đủ; có dạng rút gọn như “Although tired, she continued” khi chủ ngữ được hiểu đúng. “Although it rained, we played” → “It rained; however, we played”.
 - **Không bao giờ viết "despite of"** — đây là lỗi cực kỳ phổ biến
 - Khi muốn dùng mệnh đề sau despite: **"despite the fact that** + S + V"

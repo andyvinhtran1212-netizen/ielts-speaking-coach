@@ -98,8 +98,8 @@ It + is/was + [phần được nhấn mạnh] + that/who + [phần còn lại c�
 
 ### Quy tắc dùng "that" hay "who"
 
-- **who** → nhấn mạnh **người** (subject)
-- **that** → nhấn mạnh **mọi thứ khác** (thing, time, place, reason...)
+- **Who** có thể nhấn mạnh người làm chủ ngữ hoặc tân ngữ trong mệnh đề còn lại: **It was Anna who I spoke to**.
+- **That** là lựa chọn thông dụng cho nhiều thành phần; **which** cũng có thể xuất hiện khi nhấn mạnh danh ngữ chỉ vật. Không suy khả năng ấy cho mọi cụm thời gian/nơi chốn.
 
 ### Ví dụ chi tiết
 
@@ -151,7 +151,7 @@ What + Subject + verb + is/was + [phần được nhấn mạnh]
 ```
 
 - More investment in education **is what** we need.
-- Stricter regulations **is what** the situation demands.
+- Stricter regulations **are what** the situation demands. (Mẫu trung tính hòa hợp với cụm số nhiều ở đầu câu; một số cách đọc theo nghĩa có thể khác.)
 - Greater awareness **is what** is lacking.
 
 ### Các biến thể khác
@@ -189,15 +189,15 @@ Nghĩa hàm ý: "Chỉ cần / duy nhất điều này":
 
 ## Lỗi thường gặp
 
-### Lỗi 1: Dùng "which" thay "that" trong it-cleft
+### Chọn từ nối trong it-cleft
 
-- ❌ It is education **which** holds the key.
-- ✅ It is education **that** holds the key. (it-cleft dùng "that", không phải "which")
+- **It is education that holds the key** là mẫu thông dụng.
+- **It is education which holds the key** cũng có thể dùng; không cấm which khi thành phần nhấn mạnh là danh ngữ chỉ vật.
 
-### Lỗi 2: Sai thì của "is/was" trong wh-cleft
+### Chọn thời điểm nhìn nhận trong wh-cleft
 
-- ❌ What we needed is better communication.
-- ✅ What we needed **was** better communication. (quá khứ → was)
+- **What we needed is better communication** có thể xác định ở hiện tại một nhu cầu trong quá khứ.
+- **What we needed was better communication** đặt cả nhu cầu và việc xác định trong khung quá khứ; không buộc needed luôn đi với was.
 - ✅ What we need **is** better communication. (hiện tại → is)
 
 ### Lỗi 3: Nhầm cấu trúc it-cleft và relative clause
@@ -228,6 +228,8 @@ It-cleft phù hợp nhất khi người đọc đã biết phần còn lại c�
 - "**It is** at the community level **that** real social change begins."
 - "**What** has changed most dramatically in the past century **is** the pace of technological development."
 - "**All** the evidence suggests **that** early intervention yields the best outcomes."
+
+Câu All the evidence... trên là câu trần thuật với cụm danh từ làm chủ ngữ và mệnh đề nội dung, **không phải all-cleft**. Một all-cleft thực sự là **All we need is more evidence**.
 
 ### Writing Task 2 — Phản bác luận điểm:
 
@@ -280,9 +282,9 @@ It-cleft phù hợp nhất khi người đọc đã biết phần còn lại c�
 | **Reversed:** X is what S V | Đảo chiều, nhấn mạnh X | More time is what we need. |
 
 **Quy tắc vàng:**
-- It-cleft → **that** (không phải "which")
-- Who → chỉ khi nhấn mạnh **người làm chủ ngữ**
-- Wh-cleft → "What S V **is**" → is/was phải hòa hợp với thì câu
+- It-cleft: that thông dụng; who cho người, which có thể cho danh ngữ chỉ vật
+- Who không chỉ dành cho người làm chủ ngữ của mệnh đề lồng
+- Wh-cleft: chọn is/was theo thời điểm nhìn nhận; không buộc mọi thì trong câu giống nhau
 - Dùng cleft khi muốn tương phản rõ ràng: "X, không phải Y"
 
 ## Lưu ý cho người Việt — "chính là..." không luôn map sang cleft

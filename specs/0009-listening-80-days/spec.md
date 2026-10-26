@@ -152,8 +152,9 @@ correctness.
 
 - **FR-016:** Each day retains private, authorized original and newly generated
   audio, bound to the exact package/manifest/day and reviewed bytes. Eligible
-  80-day practice defaults to the new recording; learners may select the original
-  as an alternative. Learner-facing labels are “Bản luyện nghe” and “Bản ghi gốc”
+  80-day practice defaults to the original recording when the original exists;
+  learners may select the new recording as an alternative. Days without an
+  original show that limitation and select the available study recording. Learner-facing labels are “Bản luyện nghe” and “Bản ghi gốc”
   and omit the engine name and generation implementation details. Operator
   provenance retains synthetic status, reviewed hashes, timing and quality limits.
   New recordings preserve English content and dialogue roles, including declared
@@ -181,6 +182,26 @@ correctness.
   private media with digest-bound mappings. Missing generated assets fail visibly,
   without falling back to PDF crops. Image zoom, accessible text, both themes,
   mobile layout and keyboard access are retained.
+
+- **FR-019:** Reconcile every day against the converted source inventory and
+  render all source question positions in authentic Part/Section order, including
+  positions previously excluded from persisted independent practice. Show the
+  source question label and distinguish a question position from its individual
+  answer blanks. Unresolved questions support explicitly unscored self-practice
+  with their evidence limitation; missing source audio remains visible. No absent
+  source question or answer is invented. Existing canonical attempts and first/
+  revised answers retain their immutable numbering and history. Supplemental
+  self-practice drafts are scoped to the signed-in owner, manifest and source
+  item and survive reload on that device without claiming backend submission.
+- **FR-020:** Retain the full lesson audio at the beginning of each Part and add
+  private original-audio clips at each covered source question, available before
+  answering or revealing. Learners may play once, pause or loop without a test
+  timer or listening limit. Clips bind the exact original digest, day, source
+  item and checked time intervals; shared dialogue/passage context is labelled
+  accurately rather than represented as a precise sentence. Missing original
+  coverage has an explicit no-clip state. Switching question, Part, day, variant
+  or owner stops previous playback/looping; media failures are visible/retriable.
+  Existing protected feedback and authorized private signing remain intact.
 
 ## Acceptance scenarios
 
@@ -261,3 +282,13 @@ keep the new recording confined to a separate free-study widget. Original bytes,
 source eligibility, owner/save/reveal/history guards and unconfirmed-item grading
 restrictions remain protected. Approval covers preparing the complete changes
 and a reviewable demonstration; release follows the existing staging-first flow.
+
+### User-directed original-audio practice revision — 2026-10-11
+
+The owner requested an all-day question-count reconciliation, original audio
+as default, full lesson audio plus cut original recordings for each question,
+and unlimited repeat listening for practice. This supersedes FR-016’s new-audio
+default and approves FR-019/020. All source question content is reachable;
+question completeness does not certify answer-key correctness or invent missing
+original recordings. Isolated task ownership and the existing staging-first
+release gates apply. This intent revision lands before dependent implementation.

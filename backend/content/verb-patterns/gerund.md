@@ -153,7 +153,7 @@ Verb + V-ing (object)
 | delay | They **delayed announcing** the results. |
 | recommend | I'd **recommend visiting** the old town. |
 | can't help | I **can't help laughing** at that. |
-| can't stand | She **can't stand waiting** in queues. |
+| can't stand *(cũng có to-infinitive, như cannot stand to see/hear)* | She **can't stand waiting** in queues. |
 | imagine | **Imagine living** in Paris! |
 | involve | The job **involves travelling** a lot. |
 
@@ -162,7 +162,7 @@ Verb + V-ing (object)
 
 ### 3. Gerund sau giới từ (After Prepositions)
 
-**Đây là quy tắc tuyệt đối:** Sau giới từ trong tiếng Anh (in, on, at, of, for, about, by, before, after, without, instead of, v.v.), LUÔN LUÔN dùng gerund, không bao giờ dùng động từ nguyên thể.
+Sau phần lớn giới từ (in, on, at, of, for, about, by, without, instead of...), nếu dùng động từ làm bổ ngữ thì thường dùng gerund. Giới từ cũng đi với cụm danh từ; to giới từ khác to của nguyên mẫu.
 
 ```
 Preposition + V-ing
@@ -252,7 +252,7 @@ Khi nào cần dùng gerund:
 - ✅ ĐÚNG: She left without **saying** goodbye.
 - ❌ SAI: Before **go** out, check the forecast.
 - ✅ ĐÚNG: Before **going** out, check the forecast.
-- **TẠI SAO:** Sau giới từ trong tiếng Anh luôn dùng gerund. Tiếng Việt không có quy tắc này nên người học hay quên.
+- **TẠI SAO:** Khi bổ ngữ sau giới từ là động từ, thường dùng gerund. Tiếng Việt không có quy tắc này nên người học hay quên.
 
 ### Lỗi 3: Nhầm "to" infinitive với "to" giới từ
 
@@ -268,7 +268,7 @@ Khi nào cần dùng gerund:
 - ✅ ĐÚNG: I want **to go** abroad next year.
 - ❌ SAI: She hopes **finding** a better job.
 - ✅ ĐÚNG: She hopes **to find** a better job.
-- **TẠI SAO:** want, hope, plan, decide, need, expect, promise, refuse, agree đi với **infinitive** (to + V), không phải gerund.
+- **TẠI SAO:** want, hope, plan, decide, expect, promise, refuse, agree đi với **infinitive** (to + V), không phải gerund.
 
 ### Lỗi 5: Nhầm gerund với Present Continuous
 
@@ -285,10 +285,10 @@ Khi nào cần dùng gerund:
 
 | | Gerund (V-ing) | Infinitive (to + V) |
 |--|----------------|---------------------|
-| **Sau động từ** | enjoy, avoid, mind, finish, suggest, consider, keep | want, hope, plan, decide, need, expect, promise, agree, refuse, offer |
+| **Sau động từ** | enjoy, avoid, mind, finish, suggest, consider, keep | want, hope, plan, decide, expect, promise, agree, refuse, offer |
 | **Ví dụ** | I enjoy **reading**. | I want **to read**. |
 | **Làm chủ ngữ** | **Swimming** is fun. | **To swim** is fun. *(ít tự nhiên hơn)* |
-| **Sau giới từ** | Luôn dùng gerund | Không dùng được |
+| **Bổ ngữ động từ sau giới từ** | Thường dùng gerund | To-infinitive thường không dùng |
 
 **Một số động từ dùng được cả hai** — nhưng nghĩa thay đổi:
 
@@ -309,10 +309,10 @@ Trong tiếng Anh, khi động từ đóng vai trò danh từ, bạn cần dùng
 
 **Mẹo quyết định nhanh:**
 
-1. Động từ đứng sau giới từ? → **Gerund** (luôn luôn)
+1. Động từ đứng sau giới từ? → **Gerund** (thường dùng khi động từ làm bổ ngữ)
 2. Động từ làm chủ ngữ câu? → **Gerund** (tự nhiên hơn)
 3. Sau enjoy, avoid, mind, suggest, finish, keep, consider, miss, practise? → **Gerund**
-4. Sau want, hope, plan, decide, need, agree, refuse, promise? → **Infinitive**
+4. Sau want, hope, plan, decide, agree, refuse, promise? → **Infinitive**
 5. Sau "look forward to / be used to / object to"? → **Gerund** (to = giới từ)
 
 ## Ứng dụng trong IELTS
@@ -349,7 +349,7 @@ Trong tiếng Anh, khi động từ đóng vai trò danh từ, bạn cần dùng
 4. They suggested _____ (take) the train instead.
 5. Don't forget _____ (call) her tomorrow.
 6. I avoid _____ (eat) junk food during the week.
-7. She stopped _____ (smoke) two years ago.
+7. She stopped _____ (smoke) two years ago and has not smoked since.
 8. I look forward to _____ (see) you at the event.
 
 ### Sửa lỗi
@@ -391,4 +391,6 @@ Trong tiếng Anh, khi động từ đóng vai trò danh từ, bạn cần dùng
 3. **Làm tân ngữ** sau: enjoy, avoid, mind, finish, keep, suggest, consider, miss, practise...
 4. **Sau mọi giới từ:** interested *in* **learning**, good *at* **speaking**, without **saying**...
 5. "look forward **to** + gerund", "be used **to** + gerund" — "to" ở đây là giới từ
-6. Sau want, hope, plan, decide, need, agree → **Infinitive** (to + V), không phải gerund
+6. Sau want, hope, plan, decide, agree → **Infinitive** (to + V), không phải gerund
+
+> **Need:** “I need to wash the car” có chủ ngữ thực hiện hành động; “The car needs washing / needs to be washed” có chủ ngữ nhận hành động. Need không thuộc nhóm chỉ dùng to-infinitive.

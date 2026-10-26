@@ -134,8 +134,8 @@ learning_blocks:
     title: Gộp số liệu thành một câu so sánh có kiểm soát
     context: Academic Task 1 · line chart
     before: Tea sales fell. Coffee sales rose.
-    after: While tea sales fell steadily over the period, coffee consumption rose by approximately 20%.
-    tip: Dùng while/whereas để thể hiện tương phản; chỉ thêm số khi nó giúp câu chính xác hơn.
+    after: While tea sales fell, coffee sales rose.
+    tip: Dùng while/whereas để thể hiện tương phản; chỉ thêm số, cường độ hoặc thời gian nếu đề cung cấp.
 ---
 
 <!-- learning-block: task1-precheck -->
@@ -143,7 +143,7 @@ learning_blocks:
 <!-- anchor: grammar-in-task1.overview -->
 ## Tóm tắt
 
-Task 1 không chấm ý tưởng — nó chấm khả năng **mô tả số liệu chính xác và khách quan**. Điều đó dựa hoàn toàn vào ngữ pháp. Bộ công cụ cốt lõi:
+Task 1 đánh giá Task Achievement, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy; mỗi tiêu chí chiếm một phần tư điểm bài. Mô tả đúng dữ liệu cần nội dung, tổ chức và ngôn ngữ, không chỉ ngữ pháp. Bộ công cụ cốt lõi:
 
 | Mảng ngữ pháp | Dùng để | Ví dụ |
 |---------------|---------|-------|
@@ -162,7 +162,7 @@ Task 1 không chấm ý tưởng — nó chấm khả năng **mô tả số li�
 
 ## Tại sao quan trọng
 
-Task 1 được chấm trên **Grammatical Range and Accuracy** và **Lexical Resource** rất nặng. Một lỗi thì hoặc giới từ lặp đi lặp lại ("increased **of** 10%") kéo điểm GRA xuống nhanh. Ngược lại, dùng đúng bị động + so sánh + giới từ số liệu là cách dễ nhất để chạm Band 7 ở Task 1.
+Task 1 chấm đều bốn tiêu chí đã nêu; GRA và LR mỗi tiêu chí chiếm một phần tư. Một lỗi thì hoặc giới từ lặp đi lặp lại ("increased **of** 10%") kéo điểm GRA xuống nhanh. Bị động, so sánh và giới từ số liệu là công cụ luyện tập; danh sách cấu trúc không bảo đảm band.
 
 ---
 
@@ -338,7 +338,7 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 | Mảng | Quy tắc | Ví dụ |
 |------|---------|-------|
 | Thì | biểu đồ = present; dữ liệu quá khứ = past | shows / rose |
-| Bị động | process = bị động | is heated |
+| Thể trong process | Chọn theo tác nhân/vai nghĩa: manufacture thường bị động; water evaporates chủ động | is heated / evaporates |
 | So sánh | -er than / the -est / that of | higher than that of... |
 | Giới từ | to (mức), by (lượng), from...to, of | rose by 10% to 80% |
 | Hoà hợp | the number of + số ít | The number ... has |

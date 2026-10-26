@@ -1,0 +1,210 @@
+{
+  "slug": "matching-pioneers-of-flight",
+  "review_notes": "Giữ giới hạn there trong kỷ lục Santos-Dumont; axes là trục; control là đóng góp quyết định theo nguồn. Hình không ghi tên người hoặc nhãn lực của câu hỏi.",
+  "illustration_brief": "Một máy bay hai tầng cánh thời kỳ đầu trên vùng cỏ ven biển cùng bản phác thảo.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Câu chuyện bay thường bị thu gọn vào một buổi sáng tháng 12 năm 1903, khi một cỗ máy mỏng manh cất lên khỏi bãi biển lộng gió ở Bắc Carolina.",
+      [
+        "shrunk to a single December morning",
+        "bị thu gọn vào một buổi sáng tháng 12"
+      ],
+      [
+        "a fragile machine",
+        "một cỗ máy mỏng manh"
+      ],
+      [
+        "lifted off",
+        "cất lên"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Nhưng buổi sáng ấy dựa trên hơn một thế kỷ lao động kiên nhẫn của những người chưa từng thấy máy bay chở hành khách.",
+      [
+        "more than a century of patient work",
+        "hơn một thế kỷ lao động kiên nhẫn"
+      ],
+      [
+        "never saw an aeroplane carry a passenger",
+        "chưa từng thấy máy bay chở hành khách"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Người đầu tiên trong số họ là kỹ sư Anh Sir George Cayley.",
+      [
+        "the English engineer",
+        "kỹ sư Anh"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Làm việc vào đầu thế kỷ XIX, từ rất lâu trước khi có động cơ đủ nhẹ để bay, ông trình bày các lực mà máy bay phải vượt qua — lực nâng, trọng lực, lực đẩy và lực cản.",
+      [
+        "light enough to fly",
+        "đủ nhẹ để bay"
+      ],
+      [
+        "set out the forces",
+        "trình bày các lực"
+      ],
+      [
+        "lift, weight, thrust and drag",
+        "lực nâng, trọng lực, lực đẩy và lực cản"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Ông lập luận rằng lực nâng, lực đẩy và điều khiển có thể do những bộ phận riêng của phương tiện đảm nhiệm, một ý tưởng vẫn là nền tảng thiết kế máy bay ngày nay.",
+      [
+        "separate parts of a craft",
+        "những bộ phận riêng của phương tiện"
+      ],
+      [
+        "underlies aircraft design",
+        "là nền tảng thiết kế máy bay"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Nhiều thập kỷ sau, kỹ sư Đức Otto Lilienthal biến lý thuyết thành thực hành.",
+      [
+        "Decades later",
+        "Nhiều thập kỷ sau"
+      ],
+      [
+        "turned theory into practice",
+        "biến lý thuyết thành thực hành"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Từ năm 1891 đến khi qua đời trong tai nạn năm 1896, ông thực hiện khoảng hai nghìn chuyến bay tàu lượn từ các ngọn đồi gần Berlin, ghi dữ liệu cẩn thận về cách cánh cong hoạt động.",
+      [
+        "around two thousand glider flights",
+        "khoảng hai nghìn chuyến bay tàu lượn"
+      ],
+      [
+        "curved wings",
+        "cánh cong"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Các số đo và ảnh ông bay lượn đã đến với các nhà phát minh bên kia Đại Tây Dương.",
+      [
+        "His measurements",
+        "Các số đo"
+      ],
+      [
+        "across the Atlantic",
+        "bên kia Đại Tây Dương"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Trong số các nhà phát minh ấy có hai anh em người Mỹ Wilbur và Orville Wright.",
+      [
+        "Among those inventors",
+        "Trong số các nhà phát minh ấy"
+      ],
+      [
+        "the American brothers",
+        "hai anh em người Mỹ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Đóng góp quyết định của họ là điều khiển chứ không phải động cơ: họ tạo ra hệ thống điều khiển máy bay quanh ba trục, để phi công giữ máy bay ổn định và chủ động đổi hướng.",
+      [
+        "not the engine but control",
+        "điều khiển chứ không phải động cơ"
+      ],
+      [
+        "about three axes",
+        "quanh ba trục"
+      ],
+      [
+        "keep it steady and turn it deliberately",
+        "giữ máy bay ổn định và chủ động đổi hướng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Những chuyến bay có động cơ đầu tiên của họ ngắn, thấp và chỉ có một số ít người chứng kiến.",
+      [
+        "short, low",
+        "ngắn, thấp"
+      ],
+      [
+        "only a handful of people",
+        "chỉ có một số ít người"
+      ]
+    ],
+    [
+      "p5-s1",
+      "E — Bằng chứng công khai rằng chuyến bay có động cơ đã thành hiện thực xuất hiện ở châu Âu qua người Brazil Alberto Santos-Dumont.",
+      [
+        "Public proof",
+        "Bằng chứng công khai"
+      ],
+      [
+        "powered flight had arrived",
+        "chuyến bay có động cơ đã thành hiện thực"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Năm 1906, trước đám đông ở Paris, ông cho chiếc 14-bis hình hộp bay vài trăm mét — chuyến bay máy bay có động cơ đầu tiên tại đó được chứng kiến công khai và ghi nhận chính thức.",
+      [
+        "a few hundred metres",
+        "vài trăm mét"
+      ],
+      [
+        "there",
+        "tại đó"
+      ],
+      [
+        "openly witnessed and officially recorded",
+        "được chứng kiến công khai và ghi nhận chính thức"
+      ]
+    ],
+    [
+      "p6-s1",
+      "F — Không một cá nhân nào có thể nhận mình đã phát minh ra việc bay.",
+      [
+        "No single figure",
+        "Không một cá nhân nào"
+      ],
+      [
+        "invented flight",
+        "phát minh ra việc bay"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Mỗi người đều phát triển từ thất bại và sổ ghi chép của người khác, và công lao chính xác thuộc về ai vẫn còn được tranh luận, có lẽ vì ngay từ đầu thành tựu ấy chưa bao giờ thực sự chỉ thuộc về một người.",
+      [
+        "built on the failures and notebooks of others",
+        "phát triển từ thất bại và sổ ghi chép của người khác"
+      ],
+      [
+        "where exactly the credit should fall",
+        "công lao chính xác thuộc về ai"
+      ],
+      [
+        "to begin with",
+        "ngay từ đầu"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-early-flight-scene.svg",
+    "alt": "Một máy bay hai tầng cánh thời kỳ đầu trên bãi cỏ, với bản phác thảo ở tiền cảnh.",
+    "caption": "Những thử nghiệm nối tiếp nhau trong lịch sử bay."
+  },
+  "source_sha256": "59b4b733e88a343a9a351cd7b7c2720463acaa08a87de5853deff191bbc2d953",
+  "expected_translation_sha256": "ad03ce8eec73f5f1f1f7562047d587823cab155c6c985e8a4d3b4e5bcb2bde28"
+}

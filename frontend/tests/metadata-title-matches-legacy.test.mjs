@@ -111,7 +111,9 @@ describe('metadata.title khớp <title> của archived predecessor', () => {
       const t = /<title>([^<]*)<\/title>/.exec(html);
       if (!t) { bad.push(`${p.legacy}: không có <title>`); continue; }
 
-      if (t[1].trim() !== m[1].trim()) {
+      // The full-test language audit intentionally gives the exam an English tab title.
+      const expected = p.next === '/mock-exam' ? 'IELTS Mock Test - Aver Learning' : t[1].trim();
+      if (expected !== m[1].trim()) {
         bad.push(`${p.next}: next=${JSON.stringify(m[1])} vs legacy=${JSON.stringify(t[1])}`);
       }
     }

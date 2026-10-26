@@ -78,8 +78,8 @@ Tiếng Anh không thể thiếu giới từ. Nhầm giới từ — ví dụ "a
 | **above / over** | Bên trên (không tiếp xúc) | above sea level, a plane over the city |
 | **below / beneath** | Bên dưới | below zero, beneath the surface |
 | **beside / next to** | Bên cạnh | beside the river, next to me |
-| **between** | Giữa hai vật/người | between the two buildings |
-| **among** | Giữa nhiều vật/người (≥3) | among the students |
+| **between** | Quan hệ giữa các đối tượng phân biệt, thường hai nhưng có thể nhiều hơn | between the three countries |
+| **among** | Ở trong/thuộc một nhóm | among the students |
 | **in front of** | Phía trước | in front of the school |
 | **behind** | Phía sau | behind the door |
 | **near / close to** | Gần | near the station |
@@ -111,7 +111,7 @@ at  → điểm cụ thể: at home, at work, at the corner, at 10 Main Street
 > - **IN** = khoảng thời gian lớn (tháng, năm, mùa)
 
 **Ngoại lệ quan trọng:**
-- at night ✅ (không phải "in the night")
+- **at night** nói ban đêm nói chung; **in the night** có thể nói trong một đêm cụ thể: "I woke up in the night."
 - at the weekend / on the weekend (cả hai đều được — British vs American)
 - in the morning / afternoon / evening ✅
 - **Không dùng giới từ** trước: last, next, this, every, yesterday, tomorrow
@@ -204,7 +204,7 @@ Các kết hợp cố định — phải học thuộc:
 > **Lưu ý "arrive":**
 > - arrive **at** the airport / the station / the hotel ✅ (địa điểm cụ thể)
 > - arrive **in** Hanoi / Vietnam ✅ (thành phố / quốc gia)
-> - arrive **to** ❌ — sai hoàn toàn
+> - Không dùng arrive **to + địa điểm** trong các mẫu đích trên. **Arrive to find the door locked** có to mở động từ nguyên mẫu, không phải giới từ chỉ nơi chốn.
 
 ## Cụm giới từ (Prepositional Phrases)
 
@@ -226,7 +226,7 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 - ❌ I'll see you **on** the morning.
 - ✅ I'll see you **in** the morning. (buổi → in)
 
-### Lỗi 2: "arrive to" — sai hoàn toàn
+### Lỗi 2: Dùng "to" trước địa điểm sau arrive
 
 - ❌ We arrived **to** London last night.
 - ✅ We arrived **in** London last night. (thành phố → in)
@@ -248,10 +248,10 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 - ❌ I go to work **with** bus.
 - ✅ I go to work **by** bus. (phương tiện giao thông → by, không dùng "the")
 
-### Lỗi 5: Dùng giới từ sau "discuss"
+### Lỗi 5: Thêm about trước tân ngữ trực tiếp của discuss
 
 - ❌ Let's discuss **about** this problem.
-- ✅ Let's discuss this problem. (discuss không cần giới từ)
+- ✅ Let's discuss this problem. Không dùng about trước tân ngữ; vẫn có thể **discuss the problem with colleagues**.
 
 ### Lỗi 6: Thêm giới từ trước "next/last"
 
@@ -277,7 +277,7 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 
 ## Bài tập luyện
 
-### Điền giới từ đúng: in / on / at
+### Điền giới từ đúng: in / on / at / since
 
 1. I was born ___ January.
 2. The meeting is ___ Friday morning.
@@ -303,8 +303,8 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 
 ### Đáp án
 
-**Điền in/on/at:**
-1. in | 2. on | 3. at | 4. at | 5. since (không phải giới từ chỉ thời điểm — since = từ khi đó đến bây giờ)
+**Điền in/on/at/since:**
+1. in | 2. on | 3. at | 4. at | 5. since (giới từ thời gian mở mốc bắt đầu của khoảng kéo dài đến hiện tại, khác in + năm để định vị sự kiện)
 
 **Điền giới từ:**
 1. in | 2. at / of | 3. for | 4. of / about | 5. because of / due to
@@ -331,6 +331,6 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 **Chuyển động:** to (đến) / into (vào trong) / from (từ) / through (xuyên qua)
 
 **Quan trọng:**
-- arrive **in** (thành phố/quốc gia) / arrive **at** (địa điểm cụ thể) — KHÔNG dùng "arrive to"
-- Không dùng giới từ sau: discuss, reach, enter, resemble
+- arrive **in** (thành phố/quốc gia) / arrive **at** (địa điểm cụ thể); arrive to + động từ nguyên mẫu là cấu trúc khác
+- Không tự thêm giới từ trước tân ngữ trực tiếp: discuss the plan, reach the station, enter the room, resemble her mother. Các cụm như discuss with colleagues / enter into an agreement vẫn hợp lệ.
 - Không dùng giới từ trước: next, last, this, every, yesterday, tomorrow

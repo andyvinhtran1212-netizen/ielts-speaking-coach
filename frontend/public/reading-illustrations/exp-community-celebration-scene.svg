@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cùng nhau đón lễ hội</title>
+  <desc id="desc">Mọi người trò chuyện trong sân có dây cờ trang trí và đèn lồng tròn, cạnh bàn thức ăn.</desc>
+  <rect width="800" height="400" rx="24" fill="#e8f1f2"/>
+  <path d="M20 164H145V61H268V164H345V94H452V164H556V52H691V164H780V306H20Z" fill="#c5d5ce"/>
+  <g fill="#edf5f1"><path d="M176 88H202V120H176ZM225 88H251V120H225ZM374 119H406V149H374ZM582 82H612V117H582ZM640 82H669V117H640Z"/></g>
+  <path d="M20 41Q390 159 780 41" fill="none" stroke="#796249" stroke-width="4"/>
+  <path d="M76 59L98 105L125 74M198 89L219 133L249 99M326 109L348 151L374 112M457 111L480 150L506 107M588 94L616 131L634 83M711 61L742 97L758 48" fill="#d3b26d"/>
+  <path d="M129 71V147M665 76V154" stroke="#796249" stroke-width="3"/>
+  <ellipse cx="129" cy="166" rx="24" ry="28" fill="#d49c91"/>
+  <ellipse cx="665" cy="173" rx="24" ry="28" fill="#80aaa0"/>
+  <path d="M111 144H147M111 188H147M647 151H683M647 195H683" stroke="#aa825e" stroke-width="4"/>
+  <rect y="296" width="800" height="104" fill="#d9c7a9"/>
+  <rect x="503" y="265" width="236" height="17" rx="4" fill="#aa825e"/>
+  <path d="M523 282V356M719 282V356" stroke="#aa825e" stroke-width="9"/>
+  <ellipse cx="560" cy="255" rx="36" ry="10" fill="#faf8ef"/>
+  <path d="M537 252Q560 214 583 252Z" fill="#d3b26d"/>
+  <path d="M629 224H653L650 263H632Z" fill="#a8cbd0"/>
+  <path d="M677 231H698L695 263H680Z" fill="#d49c91"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="204" cy="214" r="23" fill="#c9965d"/>
+    <path d="M188 246L181 302H227L219 246Z" fill="#3d8275"/>
+    <path d="M190 301L186 355M219 301L226 355" stroke="#293b43" stroke-width="11"/>
+    <path d="M190 254L159 281M218 253L260 267" stroke="#c9965d" stroke-width="10"/>
+    <circle cx="314" cy="221" r="22" fill="#e9ba8f"/>
+    <path d="M299 251L290 306H340L330 251Z" fill="#a69bb1"/>
+    <path d="M302 306L299 358M328 306L334 358" stroke="#293b43" stroke-width="11"/>
+    <path d="M300 261L263 267M330 261L370 278" stroke="#e9ba8f" stroke-width="10"/>
+    <circle cx="427" cy="217" r="23" fill="#c9965d"/>
+    <path d="M412 248L400 304H450L440 248Z" fill="#b6d0b3"/>
+    <path d="M411 304L409 357M439 304L446 357" stroke="#293b43" stroke-width="11"/>
+    <path d="M411 257L372 278M440 257L475 238" stroke="#c9965d" stroke-width="10"/>
+  </g>
+</svg>

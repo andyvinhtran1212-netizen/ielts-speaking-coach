@@ -113,7 +113,7 @@ prompt: "Researchers studied the ____ of social media on teenagers."
 options: ["affects", "effects", "affect", "affected"]
 answer: 1
 grammar_article_slug: "affect-vs-effect"
-explain: "'the ____ of + noun' — sau mạo từ 'the' và trước 'of' là vị trí danh từ số nhiều → effects (các tác động)."
+explain: "Trong các lựa chọn này, effects là danh từ phù hợp cho các tác động của social media. Vị trí the ... of đòi danh từ trong khung này, không tự đòi số nhiều: the effect of cũng đúng nếu nói một tác động."
 ---
 
 ---

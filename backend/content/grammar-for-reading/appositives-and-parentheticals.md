@@ -66,9 +66,9 @@ anchors:
 Phần chêm thường được **cô lập** bằng:
 - **Hai dấu phẩy:** *The CEO, a former engineer, approved it.*
 - **Hai dấu gạch ngang:** *The result — a 30% drop — shocked analysts.*
-- **Ngoặc đơn:** *The drug (approved in 2020) is now standard.*
+- **Ngoặc đơn:** *The drug (approved in 2020) is now standard.* *(mệnh đề phân từ bị động, không phải appositive NP)*
 
-Có thể **bỏ cả phần chêm** mà câu vẫn đủ nghĩa ngữ pháp — đó là dấu hiệu để nhận diện.
+Parenthetical/supplement là nhóm phần chêm rộng: appositive NP (a former engineer), relative clause (which experts dismissed), participle clause (approved in 2020). Câu có thể còn đủ cú pháp khi bỏ phần chêm, nhưng mất thông tin; không gọi tất cả là appositive.
 
 <!-- anchor: appositives-and-parentheticals.function -->
 ### Phần chêm dùng để làm gì
@@ -94,5 +94,5 @@ Chủ ngữ vẫn là danh từ **trước** phần chêm, không phải danh t�
 ## Tóm tắt nhanh
 
 - Appositive = cụm danh từ chêm, định nghĩa lại danh từ trước
-- Cô lập bằng phẩy/gạch ngang/ngoặc; có thể bỏ mà câu vẫn đủ
+- Phần chêm còn gồm relative/participle clauses; dấu câu giúp nhận diện nhưng không tự xác định từ loại
 - Gạch phần chêm để lộ khung S–V chính

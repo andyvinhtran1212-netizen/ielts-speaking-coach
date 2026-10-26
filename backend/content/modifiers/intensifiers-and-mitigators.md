@@ -68,13 +68,13 @@ Trạng từ mức độ chỉnh cường độ của tính từ, từ mạnh (*
 | Nhẹ | fairly, somewhat, a little, a bit |
 
 *rather* thường mang sắc thái **hơi tiêu cực/bất ngờ**: *The exam was rather difficult.*
-*quite* trong tiếng Anh Anh = "khá" (trung bình); *fairly* nhẹ hơn *quite*.
+Với tính từ gradable, quite trong Anh Anh thường là "khá"; với **right, certain, impossible**, nó có thể mang nghĩa **hoàn toàn**. Fairly/quite/rather/pretty không có tỷ lệ cường độ cố định; giọng nói, từ đi kèm và văn phong cùng quyết định.
 
 <!-- anchor: intensifiers-and-mitigators.gradable -->
 ### Tính từ thường vs tính từ tuyệt đối
 
 - **Tính từ thường (gradable)** — có mức độ: *hot, big, tired* → đi với *very, quite, a bit*.
-- **Tính từ tuyệt đối (ungradable)** — đã là cực điểm: *freezing, huge, exhausted, perfect* → đi với *absolutely, completely, utterly*, KHÔNG với *very*.
+- **Tính từ cực độ** như freezing/exhausted đã có nghĩa rất lạnh/rất mệt; **tính từ tuyệt đối** như perfect/finished chỉ giới hạn trong nghĩa đích. Thường tránh very trong các nghĩa này; dùng tổ hợp phù hợp như **absolutely exhausted**, **completely finished**, **absolutely perfect**. Absolutely/completely/utterly không thay thế tự do trong mọi tổ hợp.
 
 - ✅ *very cold* / *absolutely freezing*
 - ❌ *very freezing* → ✅ *absolutely freezing*
@@ -89,7 +89,7 @@ Trạng từ mức độ chỉnh cường độ của tính từ, từ mạnh (*
 - *too* = quá mức (tiêu cực): *too hot to sleep*; *very* chỉ mạnh, trung tính.
 
 ### Lỗi 3: Đặt trạng từ mức độ sai chỗ
-- ✅ *quite an interesting film* *(quite + a/an + adj + noun)* — không *a quite interesting*.
+- *quite an interesting film* là thứ tự thường gặp. *a quite interesting film* cũng có thể dùng, tuy ít thông dụng hơn; không coi cả hai là một câu đúng và một câu sai tuyệt đối.
 
 ## Ứng dụng trong bài thi
 
@@ -97,6 +97,6 @@ Trạng từ mức độ chỉnh cường độ của tính từ, từ mạnh (*
 
 ## Tóm tắt nhanh
 
-- Thang: extremely > very > quite/rather > fairly > a bit
-- Tính từ tuyệt đối (freezing, perfect) → *absolutely/completely*, không *very*
+- Thang cường độ chỉ là định hướng; quite còn có nghĩa hoàn toàn theo từ đi kèm
+- Phân biệt tính từ cực độ và tuyệt đối; chọn tổ hợp trạng từ theo nghĩa và cách dùng
 - *too* = quá mức (tiêu cực) ≠ *very* (mạnh, trung tính)

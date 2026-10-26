@@ -1,0 +1,238 @@
+{
+  "slug": "the-rise-of-electric-cars",
+  "review_notes": "Giữ năm 2023, mẫu số ô tô mới và khoảng 18 phần trăm. Emissions ở câu động cơ đang chạy khác phát thải sản xuất/điện; policy là kế hoạch đã công bố, không tự chuyển thành luật đang áp dụng.",
+  "illustration_brief": "Ô tô cắm sạc ở trạm nhỏ cạnh đường có cây xanh, không có nhãn giá, công suất hoặc tuyên bố phát thải vòng đời.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 2023, gần một trên năm ô tô mới bán toàn cầu chạy điện thay xăng — khoảng 18 phần trăm theo Cơ quan Năng lượng Quốc tế — tỷ lệ mới mười năm trước còn có vẻ không thể.",
+      [
+        "In 2023",
+        "Năm 2023"
+      ],
+      [
+        "about 18 percent",
+        "khoảng 18 phần trăm"
+      ],
+      [
+        "the International Energy Agency",
+        "Cơ quan Năng lượng Quốc tế"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Xe điện, từng là một thứ lạ lẫm, nay đã được chấp nhận rộng rãi, và những lý do đằng sau sự phát triển của nó bộc lộ nhiều điều về chính trị không kém về kỹ thuật.",
+      [
+        "once a curiosity",
+        "từng là một thứ lạ lẫm"
+      ],
+      [
+        "into the mainstream",
+        "được chấp nhận rộng rãi"
+      ],
+      [
+        "as much about politics as about engineering",
+        "về chính trị không kém về kỹ thuật"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Sức hấp dẫn chính nằm ở môi trường.",
+      [
+        "The central appeal",
+        "Sức hấp dẫn chính"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Động cơ đốt trong truyền thống đốt nhiên liệu, thải carbon dioxide và chất ô nhiễm khác thẳng vào không khí.",
+      [
+        "A traditional combustion engine",
+        "Động cơ đốt trong truyền thống"
+      ],
+      [
+        "burns fuel",
+        "đốt nhiên liệu"
+      ],
+      [
+        "other pollutants",
+        "chất ô nhiễm khác"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Ngược lại, động cơ điện không phát thải khi xe đang chạy, điều khiến nó hấp dẫn với các thành phố đang vật lộn với không khí bẩn.",
+      [
+        "An electric motor",
+        "động cơ điện"
+      ],
+      [
+        "no emissions while it is being driven",
+        "không phát thải khi xe đang chạy"
+      ],
+      [
+        "dirty air",
+        "không khí bẩn"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Người lái chỉ sạc pin tại nhà hay trạm công cộng, và tiến bộ pin liên tục kéo dài quãng đường xe đi được sau một lần sạc.",
+      [
+        "charge the battery",
+        "sạc pin"
+      ],
+      [
+        "a public station",
+        "trạm công cộng"
+      ],
+      [
+        "on a single charge",
+        "sau một lần sạc"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nhưng chuyển đổi còn xa mới đơn giản.",
+      [
+        "the transition",
+        "chuyển đổi"
+      ],
+      [
+        "far from simple",
+        "còn xa mới đơn giản"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Hạ tầng sạc vẫn không đều, thưa ở nông thôn ngay cả nơi dày trong thành phố.",
+      [
+        "Charging infrastructure",
+        "Hạ tầng sạc"
+      ],
+      [
+        "thin in the countryside",
+        "thưa ở nông thôn"
+      ],
+      [
+        "dense in cities",
+        "dày trong thành phố"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Giá xe dù đang giảm vẫn cao, nên nhiều chính phủ đưa ra trợ cấp để khuyến khích người mua sớm sử dụng công nghệ này.",
+      [
+        "although falling",
+        "dù đang giảm"
+      ],
+      [
+        "a subsidy",
+        "trợ cấp"
+      ],
+      [
+        "adopt the technology sooner",
+        "sớm sử dụng công nghệ này"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Câu hỏi sâu hơn còn đó.",
+      [
+        "Deeper questions",
+        "Câu hỏi sâu hơn"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nếu hàng triệu xe lấy điện từ một lưới điện vẫn phụ thuộc vào việc đốt than hoặc khí đốt, lợi ích đối với khí hậu sẽ giảm đi.",
+      [
+        "an electricity grid",
+        "một lưới điện"
+      ],
+      [
+        "coal or gas",
+        "than hoặc khí đốt"
+      ],
+      [
+        "the climate benefit shrinks",
+        "lợi ích đối với khí hậu sẽ giảm đi"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Lợi ích thực chỉ đến khi lưới được cấp từ nguồn tái tạo như gió và mặt trời.",
+      [
+        "renewable sources",
+        "nguồn tái tạo"
+      ],
+      [
+        "wind and solar",
+        "gió và mặt trời"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Sản xuất gây lo thêm vì công ty phải khai thác kim loại như lithium, cobalt, quá trình có thể hại môi trường địa phương.",
+      [
+        "extract metals",
+        "khai thác kim loại"
+      ],
+      [
+        "lithium and cobalt",
+        "lithium, cobalt"
+      ],
+      [
+        "damage local environments",
+        "hại môi trường địa phương"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Không vấn đề nào dừng đà tiến.",
+      [
+        "stopped the momentum",
+        "dừng đà tiến"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Một số chính phủ công bố kế hoạch bỏ dần bán ô tô xăng mới trong thập kỷ tới, và hãng đầu tư mạnh để kịp hạn.",
+      [
+        "announced plans",
+        "công bố kế hoạch"
+      ],
+      [
+        "phase out the sale of new petrol cars",
+        "bỏ dần bán ô tô xăng mới"
+      ],
+      [
+        "meet the deadline",
+        "kịp hạn"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Chi phí và rào cản còn lại có được gỡ nhanh đủ để khớp tham vọng không là câu hỏi vài năm tới có lẽ trả lời.",
+      [
+        "the remaining barriers",
+        "rào cản còn lại"
+      ],
+      [
+        "quickly enough to match these ambitions",
+        "nhanh đủ để khớp tham vọng"
+      ],
+      [
+        "the next few years",
+        "vài năm tới"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-electric-car-scene.svg",
+    "alt": "Ô tô nối với trạm sạc cạnh con đường có cây xanh.",
+    "caption": "Một cách cấp năng lượng cho việc đi lại."
+  },
+  "source_sha256": "9b903f1e370c5cfde2cbc5c2bb43216e8564d3a1a4729ec89e94acde124721a7",
+  "expected_translation_sha256": "2832166e0e896a3c549a2f407f21ece9d8341e8025d20872779806e24067be30"
+}

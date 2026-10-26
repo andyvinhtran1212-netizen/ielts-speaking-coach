@@ -117,7 +117,8 @@ Tính từ mô tả tính chất của danh từ.
 - *She seems **nervous**.* — đứng sau seem
 
 **Đuôi hay gặp:** -ful, -less, -ous, -al, -ive, -able, -ible, -ic
-- beauty → beauti**ful** / beauti**less** (xấu xí)
+- beauty → beauti**ful**
+- care → care**ful** / care**less**
 - danger → danger**ous**
 - nature → natur**al**
 - effect → effect**ive**
@@ -145,7 +146,8 @@ Trạng từ bổ nghĩa cho động từ, tính từ, hoặc trạng từ khác
 |------|-------|
 | Nhân xưng | I, you, he, she, it, we, they |
 | Tân ngữ | me, you, him, her, it, us, them |
-| Sở hữu | my, your, his, her, its, our, their |
+| Sở hữu phụ thuộc, đứng trước danh từ | my book, your book, his book, her book, its cover, our books, their books |
+| Sở hữu độc lập, thay cả cụm danh từ | mine, yours, his, hers, ours, theirs |
 | Phản thân | myself, yourself, himself |
 | Bất định | someone, anyone, everyone, nothing |
 
@@ -191,15 +193,17 @@ Tiếng Anh rất linh hoạt — cùng một từ có thể đóng vai trò kh�
 
 **Cách nhận biết:** Nhìn vào **vị trí** và **chức năng** của từ trong câu.
 
-### Công thức nhận biết từ loại
+### Dấu hiệu thường gặp khi nhận biết từ loại
 
-1. Đứng sau *a/an/the* → Danh từ
+1. Sau *a/an/the* là một cụm danh từ, có thể bắt đầu bằng tính từ: *a modern city*.
 2. Có chia thì, đứng sau chủ ngữ → Động từ
-3. Đứng trước danh từ HOẶC sau be/seem/look → Tính từ
+3. Tính từ thường đứng trước danh từ hoặc làm bổ ngữ sau be/seem/look. Vị trí này cũng có thể chứa từ loại khác: *school bus* có danh từ bổ nghĩa; *She is a teacher* có cụm danh từ làm bổ ngữ.
 4. Bổ nghĩa cho động từ, tính từ (thường có đuôi -ly) → Trạng từ
 5. Thay thế cho danh từ → Đại từ
 6. Đứng trước noun/pronoun, chỉ quan hệ → Giới từ
 7. Nối hai thành phần → Liên từ
+
+Đây là dấu hiệu để đặt giả thuyết, không phải phép xác định chắc chắn. Luôn xét đồng thời hình thức, nghĩa và chức năng của từ trong câu.
 
 ## Dấu hiệu nhận biết
 
@@ -249,11 +253,11 @@ Tiếng Anh rất linh hoạt — cùng một từ có thể đóng vai trò kh�
 - ✅ ĐÚNG: He is a very **successful** person.
 - **TẠI SAO:** Trước noun "person" cần tính từ, không phải danh từ.
 
-### Lỗi 3: Dùng động từ nguyên thể thay danh từ
-- ❌ SAI: **Study** is important for IELTS.
-- ✅ ĐÚNG: **Studying** is important for IELTS.
-- ✅ CŨNG ĐÚNG: **Study** (danh từ, nghĩa khác: môn học)
-- **TẠI SAO:** Dùng V-ing hoặc danh từ làm chủ ngữ, không dùng động từ nguyên thể trực tiếp.
+### Lỗi 3: Dùng động từ nguyên thể làm chủ ngữ trực tiếp
+- ❌ SAI: **Learn English** takes time.
+- ✅ ĐÚNG: **Learning English** takes time.
+- ✅ CŨNG ĐÚNG: **Regular study** is important for IELTS.
+- **TẠI SAO:** “Study” còn là danh từ chỉ hoạt động học. “Study is important for IELTS” đúng theo cách đọc đó. Với hoạt động “learn English”, dùng “Learning English” hoặc “To learn English” làm chủ ngữ.
 
 ### Lỗi 4: Nhầm adjective và adverb
 - ❌ SAI: I feel **badly** about the mistake.
@@ -270,7 +274,7 @@ Tiếng Anh rất linh hoạt — cùng một từ có thể đóng vai trò kh�
 
 ## Lưu ý cho người học Việt Nam
 
-**Khác biệt lớn nhất:** Tiếng Việt không thay đổi hình thức từ theo từ loại — "đẹp" vừa là tính từ ("đẹp quá"), vừa là danh từ ("cái đẹp"), vừa là trạng từ ("viết đẹp"). Tiếng Anh bắt buộc thay đổi hình thức:
+Nhiều từ tiếng Anh đổi hình thức khi đổi chức năng; một số giữ nguyên, như “work” và “fast”. Luôn xét chức năng trong câu. Một gia đình từ có đổi dạng là:
 - beauty (noun) → beautiful (adjective) → beautifully (adverb)
 
 **Mẹo:** Khi học từ mới, hãy học **cả gia đình từ**:
@@ -280,15 +284,16 @@ Tiếng Anh rất linh hoạt — cùng một từ có thể đóng vai trò kh�
 
 ### IELTS Speaking
 - Part 1: Dùng nhiều adjective và adverb để làm câu trả lời phong phú hơn
-  - ❌ Basic: "I like coffee."
-  - ✅ Better: "I **absolutely love** Vietnamese **drip** coffee — I find it **incredibly** strong and **aromatic**."
+  - Câu cơ bản đúng: "I like coffee."
+  - Mở rộng khi đúng với ý người nói: "I **absolutely love** Vietnamese **drip** coffee — I find it **incredibly** strong and **aromatic**." Câu này thêm loại cà phê, cảm nhận và mức độ yêu thích, nên không phải bản sửa ngữ pháp giữ nguyên nghĩa.
 - Part 2: Dùng noun phrases để mô tả chi tiết
-- Part 3: Dùng conjunction để kết nối ý kiến (however, although, therefore)
+- Part 3: Dùng từ nối theo đúng cấu trúc. “Although” mở mệnh đề phụ; “however” và “therefore” là trạng từ nối. Ví dụ: “It was expensive, but I bought it” hoặc “It was expensive. However, I bought it”.
 
 ### IELTS Writing
 - Task 2: Dùng academic nouns thay vì verb forms thông dụng
-  - ❌ Basic: "Many people want to protect the environment."
-  - ✅ Academic: "**Environmental protection** has become a growing concern."
+  - Câu cơ bản đúng: "Many people want to protect the environment."
+  - Viết lại giữ ý mong muốn: "Many people want to contribute to environmental protection."
+  - “Environmental protection has become a growing concern” nói về sự thay đổi của mối quan tâm. Chỉ dùng khi nguồn cho phép thêm ý này.
 
 <!-- anchor: parts-of-speech.bai-tap-luyen -->
 ## Bài tập luyện
@@ -317,7 +322,7 @@ Tiếng Anh rất linh hoạt — cùng một từ có thể đóng vai trò kh�
 1. Studying → Gerund (Noun/Verb-ing dùng làm chủ ngữ)
 2. extremely → Adverb (bổ nghĩa cho "valuable")
 3. valuable → Adjective (bổ nghĩa cho "experience")
-4. experience → Noun (tân ngữ của "be")
+4. experience → Noun, từ trung tâm của cụm “an extremely valuable experience for young people”. Cả cụm làm bổ ngữ cho chủ ngữ sau “be”, không phải tân ngữ. Đối chiếu “She is a teacher” (bổ ngữ C) với “She teaches students” (tân ngữ O).
 5. for → Preposition
 
 **Sửa lỗi:**
@@ -332,4 +337,4 @@ Tiếng Anh rất linh hoạt — cùng một từ có thể đóng vai trò kh�
 2. Một từ có thể đóng nhiều vai trò tùy vào vị trí trong câu
 3. Nhận dạng qua: vị trí, đuôi từ, chức năng trong câu
 4. Tính từ → trước noun hoặc sau linking verb; Trạng từ → bổ nghĩa cho verb/adj/adv
-5. Tiếng Anh bắt buộc thay đổi hình thức từ — học cả gia đình từ khi học vocabulary
+5. Nhiều từ đổi dạng, một số giữ nguyên khi đổi chức năng — học cả gia đình từ và kiểm tra cách dùng trong câu.

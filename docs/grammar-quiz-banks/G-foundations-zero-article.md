@@ -278,10 +278,10 @@ headword: "za-idiomatic-institutions"
 skill: "production"
 subtype: "intermediate"
 prompt: "She's been in ____ (viết mạo từ; nếu không cần mạo từ, gõ số 0) hospital since Tuesday after a minor surgery."
-accept: ["0", "ø", "no article", "zero article"]
+accept: ["0", "ø", "no article", "zero article", "the"]
 case_sensitive: false
 grammar_article_slug: "zero-article"
-explain: "'in hospital' với nghĩa nhập viện (chức năng, không nói tới toà nhà cụ thể) dùng zero article."
+explain: "'In hospital' thường dùng trong tiếng Anh Anh cho bệnh nhân đang điều trị; tiếng Anh Mỹ thường dùng 'in the hospital' với cùng nghĩa. Đề không giới hạn phương ngữ, nên cả '0' và 'the' đều hợp lệ."
 ---
 
 ---
@@ -294,5 +294,5 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'went to the hospital' (thăm ai đó) và 'in hospital' (nhập viện) là hai cách dùng khác nhau với ý nghĩa khác nhau."
 answer: true
 grammar_article_slug: "zero-article"
-explain: "ĐÚNG — 'went to THE hospital' (có 'the') nghĩa là đến toà nhà bệnh viện để THĂM, còn 'in hospital' (zero article) nghĩa là chính mình đang NHẬP VIỆN — hai ý nghĩa hoàn toàn khác nhau vì mạo từ khác."
+explain: "'Went to the hospital' có thể nói đến việc thăm hoặc điều trị, tùy ngữ cảnh. Trong tiếng Anh Anh, 'in hospital' thường chỉ bệnh nhân; trong tiếng Anh Mỹ, bệnh nhân thường ở 'in the hospital'. Chỉ mạo từ không đủ để suy ra mục đích đến bệnh viện."
 ---

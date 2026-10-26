@@ -66,11 +66,11 @@ input: "text"
 headword: "adn-partial-agreement"
 skill: "production"
 subtype: "intermediate"
-prompt: "Complete with ONE word: 'There is certainly some truth in that, ____ the situation in rural areas is more complicated.'"
-accept: ["although"]
+prompt: "Use although or but (ONE word): 'There is certainly some truth in that, ____ the situation in rural areas is more complicated.'"
+accept: ["although", "but"]
 case_sensitive: false
 grammar_article_slug: "agreeing-and-disagreeing-naturally"
-explain: "'There is certainly some truth in that, although + nuance' — 'although' nối vế nhượng bộ ngay sau khi thừa nhận một phần đúng."
+explain: "Although thể hiện nhượng bộ bằng mệnh đề phụ; but nối hai mệnh đề theo quan hệ tương phản. Cả hai đều phù hợp với sự đồng ý có giới hạn được nêu; đề không bắt buộc riêng liên từ phụ thuộc."
 ---
 
 ---
@@ -93,11 +93,11 @@ input: "choice"
 headword: "adn-partial-agreement"
 skill: "usage"
 subtype: "basic"
-prompt: "Q: 'Should students use smartphones in class?' Choose the natural partial-agreement opener: '____, but I think it depends on how they're used.'"
+prompt: "Respond to the claim 'Smartphones always help students learn in class.' Choose a partial-agreement opener: '____, but I think it depends on how they're used.'"
 options: ["That's partly true", "That's fully true", "That's never true", "That's true never"]
 answer: 0
 grammar_article_slug: "agreeing-and-disagreeing-naturally"
-explain: "'That's partly true, but...' là cách đồng ý một phần đơn giản, tự nhiên, phù hợp Part 1/Part 3 cơ bản."
+explain: "That's partly true phản hồi một nhận định đã có về lợi ích của smartphone. Đề đã nêu nhận định để câu đáp có đối tượng đồng ý một phần, thay vì dùng true để trả lời một câu hỏi khuyến nghị chưa có khẳng định."
 ---
 
 # ===== item_key 2 · Phản đối lịch sự (polite disagreement) =====

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Cùng một bờ biển ở hai mực nước</title><desc id="desc">Hai cảnh cạnh nhau có cùng mỏm đá và cầu gỗ: một cảnh nước cao, cảnh kia lộ bãi cát rộng.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <defs><g id="shore"><path d="M0 198Q125 169 336 195V314H0Z" fill="#dccba6"/><path d="M264 151L306 103L340 130L362 195L251 203Z" fill="#8b9b96"/><path d="M46 171H192M64 173V254M110 173V254M157 173V254" stroke="#9b7958" stroke-width="9"/><path d="M52 156H188M65 151V174M112 151V174M157 151V174" stroke="#aa825e" stroke-width="4"/></g></defs>
+  <g transform="translate(24 48)"><rect width="364" height="314" rx="16" fill="#d9e9ec"/><use href="#shore"/><path d="M0 199Q101 188 200 210T364 205V314H0Z" fill="#8bb6c2"/><path d="M20 242Q65 230 109 242M179 270Q229 259 279 270" fill="none" stroke="#d9edf0" stroke-width="4"/></g>
+  <g transform="translate(412 48)"><rect width="364" height="314" rx="16" fill="#d9e9ec"/><use href="#shore"/><path d="M0 275Q101 264 200 283T364 277V314H0Z" fill="#8bb6c2"/><path d="M26 292Q72 283 119 292M237 304Q282 295 327 304" fill="none" stroke="#d9edf0" stroke-width="4"/><path d="M203 239Q218 219 237 239Q220 252 203 239Z" fill="#c5ab88"/><path d="M73 267L83 257L92 270" fill="none" stroke="#b2a486" stroke-width="4"/></g>
+</svg>

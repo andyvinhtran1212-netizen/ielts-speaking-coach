@@ -255,7 +255,7 @@ effect + change / reform / solution
 ### Từ vựng liên quan — đa dạng hóa diễn đạt:
 
 **Thay thế cho "affect" (động từ):**
-- influence, impact (v), shape, alter, damage, harm, undermine, improve, enhance, transform
+- influence/impact: tác động; shape/alter/transform: thêm ý định hình/thay đổi; damage/harm/undermine: tác động tiêu cực; improve/enhance: tích cực. Không thay tất cả cho affect nếu phải giữ nhận định nguồn.
 
 **Thay thế cho "effect" (danh từ):**
 - impact (n), consequence, result, outcome, repercussion, implication, influence

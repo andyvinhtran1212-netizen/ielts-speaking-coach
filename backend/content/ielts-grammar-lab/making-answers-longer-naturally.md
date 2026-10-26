@@ -230,7 +230,7 @@ Câu trả lời mạnh nhất kết hợp 2-3 patterns liên tiếp. Đây là 
 
 **Q: Do you think the government should do more to encourage healthy eating?**
 
-✅ "Yes, I definitely think governments have an important role to play here. **[Reason]** Because eating habits are shaped heavily by what's affordable and accessible, and in many countries, unhealthy processed food is simply cheaper than fresh produce. **[Example]** For instance, in many low-income neighbourhoods, there are far more fast food outlets than supermarkets selling fresh vegetables — which is sometimes called a 'food desert'. **[Contrast]** That said, I don't think government intervention alone is enough — **[Personal]** and from my own experience, the most lasting changes tend to come from education and awareness rather than regulation alone."
+✅ "Yes, I definitely think governments have an important role to play here. **[Reason]** Because eating habits are shaped heavily by what's affordable and accessible, and in many countries, unhealthy processed food is simply cheaper than fresh produce. **[Example]** For instance, in many low-income neighbourhoods, there are far more fast food outlets than supermarkets selling fresh vegetables — an observation that alone does not establish limited access to affordable, nutritious food (a food desert). **[Contrast]** That said, I don't think government intervention alone is enough — **[Personal]** and from my own experience, the most lasting changes tend to come from education and awareness rather than regulation alone."
 
 ---
 
@@ -238,9 +238,9 @@ Câu trả lời mạnh nhất kết hợp 2-3 patterns liên tiếp. Đây là 
 
 | Part | Câu hỏi | Độ dài phù hợp |
 |------|---------|----------------|
-| Part 1 | "Do you like cooking?" | 2-4 câu (20-40 giây) |
+| Part 1 | "Do you like cooking?" | Mục tiêu luyện tùy chọn 2–4 câu; ưu tiên đúng trọng tâm |
 | Part 2 | "Describe a person you admire" | 1.5-2 phút (monologue) |
-| Part 3 | "Why do you think people enjoy cooking?" | 4-6 câu (40-60 giây) |
+| Part 3 | "Why do you think people enjoy cooking?" | Mục tiêu luyện tùy chọn 4–6 câu; tránh dài và lặp ý |
 
 **Nguyên tắc Part 1:** Đừng quá ngắn, đừng quá dài — 2-4 câu là lý tưởng.
 **Nguyên tắc Part 2:** Lấp đầy 2 phút bằng cách dùng các bullet points trên cue card + details.
@@ -262,7 +262,7 @@ Câu trả lời mạnh nhất kết hợp 2-3 patterns liên tiếp. Đây là 
 
 ### Lỗi 3: Không dùng connectors — câu văn rời rạc
 
-- ❌ "I like reading. I read every day. It is interesting." (ba câu không kết nối)
+- “I like reading. I read every day. It is interesting.” có liên kết từ vựng và quy chiếu it; có thể làm cụ thể hơn: “I enjoy reading and make time for a few pages every day. Fiction helps me relax.”
 - ✅ "I enjoy reading every day, **particularly** fiction, **because** it helps me unwind **and** I find myself becoming more empathetic the more I read."
 
 ### Lỗi 4: Dừng sau khi đưa reason mà không develop thêm

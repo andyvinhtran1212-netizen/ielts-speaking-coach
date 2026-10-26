@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const BEHAVIOR = read('app', '(authed-reading)', 'reading', 'reading-detail.tsx');
+const PRACTICE = read('app', '(authed-reading)', 'reading', 'practice-reading-text.tsx');
 const ASSETS = read('app', '(authed-reading)', 'reading', 'reading-detail-assets.tsx');
 const VOCAB = read('app', '(authed-reading)', 'reading', 'vocab', '[slug]', 'page.tsx');
 const SKILL = read('app', '(authed-reading)', 'reading', 'skill', '[slug]', 'page.tsx');
@@ -55,7 +56,7 @@ describe('native Reading detail workspace', () => {
   test('renders sanitized Markdown and accessible tab/dialog interactions', () => {
     assert.match(ASSETS, /\/vendor\/marked\.min\.js/); assert.match(ASSETS, /\/vendor\/purify\.min\.js/);
     assert.match(VOCAB, /<ReadingDetailAssets/); assert.match(SKILL, /<ReadingDetailAssets/);
-    assert.match(BEHAVIOR, /window\.renderMarkdown!\(detail\.bodyMarkdown, \{ breaks: false \}\)/);
+    assert.match(PRACTICE, /window\.renderMarkdown!\(body, \{ breaks: false \}\)/);
     assert.match(BEHAVIOR, /role="tablist"/); assert.match(BEHAVIOR, /aria-controls=/);
     for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) assert.match(BEHAVIOR, new RegExp(key));
     assert.match(BEHAVIOR, /aria-modal="true"/); assert.match(BEHAVIOR, /event\.key === 'Escape'/);

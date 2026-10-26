@@ -41,6 +41,7 @@ from services.gemini_writing_grader import (
     get_grader,
     summary_flags_missing_image,
 )
+from services.writing_feedback_grounding import UngroundedWritingFeedbackError
 from services.writing_history import (
     get_band_trajectory,
     get_recurring_patterns,
@@ -96,13 +97,13 @@ def estimate_eta_seconds(
 def default_grading_model(level: int) -> str:
     """Multi-model P1-A — the default grading model for a student-submitted
     essay at `level`. With WRITING_LEVEL_AWARE_MODEL on, L1..WRITING_FLASH_MAX_LEVEL
-    grade with the cheaper/faster gemini-3.5-flash (harness-proven equivalent to
-    Pro at ≤L3); deeper levels keep gemini-2.5-pro. Flag off ⇒ always Pro.
+    use WRITING_FLASH_MODEL (3.8 by default, 3.5 for rollback); deeper levels
+    keep gemini-2.5-pro. Flag off ⇒ always Pro.
     Kill-switch via env WRITING_LEVEL_AWARE_MODEL=false (settings load at
     process start, so the Railway var change restarts the service to apply it).
     Admin-picked models bypass this (admins pass selected_model explicitly)."""
     if settings.WRITING_LEVEL_AWARE_MODEL and level <= settings.WRITING_FLASH_MAX_LEVEL:
-        return "gemini-3.5-flash"
+        return settings.WRITING_FLASH_MODEL or "gemini-3.8-flash"
     return "gemini-2.5-pro"
 
 
@@ -1080,7 +1081,7 @@ async def _bg_grade_essay(
         # writing_feedback flat columns already carry single-pass
         # tokens / cost / duration). Empty dicts skipped to avoid
         # unnecessary writes.
-        essay_update: dict = {"status": "graded"}
+        essay_update: dict = {"status": "graded", "error_message": None}
         if result.tier_metadata:
             essay_update["grading_tier_metadata"] = result.tier_metadata
         supabase_admin.table("writing_essays").update(
@@ -1141,8 +1142,8 @@ async def _bg_grade_essay(
                                     kind="AISafetyBlockError", exc=exc)
             _mark_failed(essay_id, job_id, exc, kind="AISafetyBlockError",
                          restore_status=restore_status)
-    except (APIRetryFailedError, InvalidJSONError) as exc:
-        # Transient/hard API failure — requeue if attempts remain (final attempt
+    except (APIRetryFailedError, InvalidJSONError, UngroundedWritingFeedbackError) as exc:
+        # API/response validation failure — requeue if attempts remain (final attempt
         # switches to the fallback model), else terminal.
         await _handle_grade_failure(
             essay_id, job_id, exc, kind=type(exc).__name__,

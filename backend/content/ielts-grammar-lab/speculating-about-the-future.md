@@ -80,7 +80,7 @@ anchors:
 | **will / will not** | Chắc chắn cao | Writing, Speaking cả hai |
 | **is likely / unlikely to** | Có khả năng cao/thấp | Writing, Speaking Part 3 |
 | **may / might** | Không chắc lắm | Cả hai, đặc biệt khi nêu ý thận trọng |
-| **could possibly / could well** | Có thể (khá chắc) | Speaking, Writing informal |
+| **could possibly / could well** | Possibly: khả năng; well: nhấn khả năng đáng kể theo ngữ cảnh | Speaking, Writing; chọn theo văn phong |
 | **there is a (strong/real) chance that** | Xác suất vừa phải | Cả hai |
 | **is expected / predicted / projected to** | Dự báo chuyên môn | Writing, formal speaking |
 
@@ -116,7 +116,7 @@ It is clear / almost certain that [subject] will [verb].
 
 **Writing:**
 
-- "If current trends continue, the global average temperature **will rise** by 1.5 degrees Celsius before 2050."
+- “Under this hypothetical scenario, temperatures **could rise** by 1.5°C by 2050.” *(ví dụ giả định; dự báo thật cần nguồn, ngày, đường cơ sở và kịch bản)*
 - "Without urgent intervention, antibiotic resistance **will become** one of the most serious public health crises of the 21st century."
 
 ---
@@ -171,12 +171,12 @@ It is likely / unlikely that [clause].
 
 ---
 
-## PHẦN 4: COULD / COULD POSSIBLY / COULD WELL — Khả năng vừa phải
+## PHẦN 4: COULD / COULD POSSIBLY / COULD WELL — Sắc thái theo ngữ cảnh
 
 ```
 [Subject] could [verb].
 [Subject] could possibly [verb].
-[Subject] could well [verb]. (= có khả năng cao)
+[Subject] could well [verb]. (= nhấn mạnh điều có cơ sở xảy ra; không có tỷ lệ cố định)
 ```
 
 **Speaking:**
@@ -302,9 +302,9 @@ Một câu suy đoán đơn giản không đủ cho Band 7+. Kết hợp với l
 ```
 TỪ CHẮC ĐẾN KHÔNG CHẮC:
 
-CHẮC CHẮN NHẤT:
+DỰ ĐOÁN/KHẲNG ĐỊNH CỦA NGƯỜI NÓI (không phải xác suất cố định):
   will → "Technology will transform healthcare."
-  is expected/predicted/projected to → "The population is projected to reach 10 billion."
+  is expected/predicted/projected to → nguồn/kịch bản dự báo; không tự chắc hơn will. “According to the hypothetical model, the population is projected to reach 10 billion if its assumptions hold.”
 
 CÓ KHẢ NĂNG CAO:
   is likely to → "This trend is likely to continue."

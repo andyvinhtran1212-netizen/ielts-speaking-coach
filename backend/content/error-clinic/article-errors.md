@@ -75,7 +75,7 @@ anchors:
 ## Tóm tắt
 
 Tiếng Anh có 3 mạo từ:
-- **a / an** — mạo từ không xác định (indefinite article): lần đầu nhắc đến, không xác định cụ thể
+- **a / an** — mạo từ không xác định (indefinite article): danh từ đếm được số ít, đối tượng chưa được xác định với người nghe
 - **the** — mạo từ xác định (definite article): đã biết, duy nhất, hoặc đã nhắc trước
 - **∅** (zero article) — không dùng mạo từ: danh từ số nhiều chung chung, danh từ không đếm được chung chung
 
@@ -165,7 +165,7 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 <!-- anchor: article-errors.common-mistake.missing-the-with-unique-reference -->
 ### Lỗi 1: Bỏ "the" khi nói về thứ duy nhất
 
-- ❌ **∅ Government** should provide free healthcare.
+- “Government should provide free healthcare” có thể chỉ hoạt động/hệ thống quản trị nói chung; với cơ quan xác định trong ngữ cảnh dùng the government.
 - ✅ **The government** should provide free healthcare.
 - ❌ **∅ Internet** has changed communication.
 - ✅ **The internet** has changed communication.
@@ -198,7 +198,7 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 - ✅ I need **∅ information** / **some information**.
 - ❌ She gave me **a** good advice.
 - ✅ She gave me **∅ good advice** / **a piece of good advice**.
-- ❌ He has **a** knowledge of English.
+- ✅ He has **a** knowledge of English. *(mẫu a knowledge of; good/working thường làm cụ thể hơn)*
 - ✅ He has **∅ knowledge** of English / **a good knowledge** of English.
 
 <!-- anchor: article-errors.common-mistake.missing-the-on-second-mention -->
@@ -275,11 +275,11 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 1. an | the | the
 2. ∅ | the | the
 3. an | the | ∅
-4. ∅ | the | ∅
+4. ∅ | the (chỉ hai ô)
 5. the | ∅
 6. The | the | a
 7. the | a | ∅
-8. ∅ | The
+8. ∅ (bệnh nhân trong BrE) / the (AmE) | The
 
 **Sửa lỗi:**
 1. **∅ Education** is **a** key to economic success.
@@ -299,6 +299,6 @@ Tiếng Việt **không có mạo từ** — đây là lý do người Việt m�
 **3 lỗi người Việt mắc nhiều nhất:**
 1. Bỏ "the" trước: the government / the environment / the internet / the first time
 2. Thêm "the" vào: technology, education, people, nature (khi nói chung chung)
-3. Dùng "a" với uncountable: a information, a advice, a knowledge
+3. Dùng "a" với uncountable: a information, a advice; knowledge thường không đếm được nhưng a knowledge of là mẫu hợp lệ
 
-**Quy tắc vàng:** Khi nghi ngờ, hỏi: "Người đọc có biết tôi đang nói về CÁI CỤ THỂ NÀO không?" — Có → the | Không, lần đầu nhắc → a/an | Nói chung chung → ∅
+**Quy tắc vàng:** Khi nghi ngờ, hỏi: "Người đọc có biết tôi đang nói về CÁI CỤ THỂ NÀO không?" — Có → the | Chưa xác định và là đếm được số ít → a/an | Số nhiều/không đếm được khái quát → ∅

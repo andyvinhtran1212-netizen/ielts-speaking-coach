@@ -249,9 +249,9 @@ headword: "inf-after-adjective"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'It is difficult finding a balance between studying and working part-time.'"
-answer: false
+answer: true
 grammar_article_slug: "infinitive"
-explain: "SAI — sau 'It is + adjective' dùng to-infinitive, không dùng gerund: 'It is difficult to find'."
+explain: "ĐÚNG — It is difficult finding... có thể dùng khi đánh giá một hoạt động, đặc biệt trong hội thoại. It is difficult to find... là mẫu trung tính/trang trọng phổ biến hơn; không cấm toàn bộ dạng -ing sau difficult."
 ---
 
 ---

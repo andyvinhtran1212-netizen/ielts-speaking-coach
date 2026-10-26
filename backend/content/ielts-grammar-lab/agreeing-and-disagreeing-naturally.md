@@ -119,7 +119,7 @@ I think [position] is absolutely right.
 <!-- anchor: agreeing-and-disagreeing-naturally.phan-2-dong-y-mot-phan-ky-thuat-quan-trong-nhat -->
 ## PHẦN 2: ĐỒNG Ý MỘT PHẦN — Kỹ thuật quan trọng nhất
 
-Đây là cách trả lời tinh tế nhất và được đánh giá cao nhất trong IELTS.
+Đây là một lựa chọn lập trường; hoàn toàn đồng ý/phản đối hoặc đồng ý có điều kiện đều được đánh giá theo chất lượng lập luận và ngôn ngữ.
 
 ### Công thức cơ bản:
 
@@ -276,7 +276,7 @@ Sau khi đồng ý hoặc phản đối, phải giải thích lý do + ví dụ 
 
 ## Bài tập luyện
 
-### Viết lại với cấu trúc đồng ý một phần
+### Phát triển lập trường có điều kiện (có thể đổi nội dung, không phải paraphrase giữ nguyên nghĩa)
 
 1. "Yes, I agree technology is important."
 2. "No, I don't think young people are irresponsible."
@@ -307,7 +307,7 @@ Sau khi đồng ý hoặc phản đối, phải giải thích lý do + ví dụ 
 
 PHẢN ĐỐI LỊCH SỰ:
   I see your point, but I'd argue that...
-  I understand that perspective, however...
+  I understand that perspective; however, I disagree with the proposed solution.
   I'm afraid I don't entirely agree because...
 
 CÂN BẰNG:

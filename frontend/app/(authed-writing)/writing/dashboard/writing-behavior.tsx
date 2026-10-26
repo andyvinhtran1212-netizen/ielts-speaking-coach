@@ -31,7 +31,7 @@
 // window.WC?.escapeHtml, window.lucide được cung cấp bởi các script mà layout
 // nạp. Không import, không gọi initSupabase() — AuthedShell đã làm rồi.
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { coreOperationHeaders, coreOperationRequest } from '@/lib/core-operation-intent.mjs';
@@ -41,6 +41,15 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { getBrowserJson } from '@/lib/browser-api';
 import { normalizeWritingContentList } from '@/lib/writing-content-navigation.mjs';
 import { createWritingContentDialog } from '@/lib/writing-content-dialog';
+import { getWithTimeout, withDeadline } from '@/lib/request-with-timeout.mjs';
+import { renderTipBody, upgradeTipWhenRendererArrives, waitForTipRenderer } from '@/lib/writing-tip-markdown.mjs';
+import {
+  clearWritingBootstrapError,
+  runWritingBootstrap,
+  showWritingBootstrapError,
+} from '@/lib/writing-dashboard-bootstrap.mjs';
+import type { WritingBootstrapView } from '@/lib/writing-dashboard-bootstrap.mjs';
+import { writingGreetingParts, writingStudentCode } from '@/lib/writing-dashboard-student.mjs';
 
 /** Trạng thái toàn trang — giữ trong object để cleanup dứt điểm. */
 type ModalState = {
@@ -253,7 +262,7 @@ function isDefinitiveSubmitRejection(err: any): boolean {
 async function reconcileSubmission(receipt: any, api: any): Promise<any | null> {
   const helper = (window as any).WritingSubmitReceipt;
   try {
-    const raw = await api.get(
+    const raw = await getWithTimeout(api,
       '/api/writing/my-assignments/' + encodeURIComponent(receipt.assignmentId) +
       '/submission?request_id=' + encodeURIComponent(receipt.requestId)
     );
@@ -302,10 +311,15 @@ async function reconcilePendingSubmissions(accountId: string, api: any, ms: Moda
 
 function renderStudent(student: any) {
   const s = student || {};
+  // Comma + name are rendered together: a name yields "Chào em, <name>", no
+  // name yields a clean "Chào em" (no "Chào em, em" duplication).
+  const { separator, name } = writingGreetingParts(s);
+  const sepEl = $('greeting-sep');
+  if (sepEl) sepEl.textContent = separator;
   const greetingEl = $('greeting-name');
-  if (greetingEl) greetingEl.textContent = s.full_name || 'em';
+  if (greetingEl) greetingEl.textContent = name;
   const codeEl = $('student-code');
-  if (codeEl) codeEl.textContent = s.student_code || '—';
+  if (codeEl) codeEl.textContent = writingStudentCode(s);
   if (s.target_band != null) {
     const bandEl = $('target-band');
     if (bandEl) bandEl.textContent = s.target_band;
@@ -541,7 +555,12 @@ async function loadTips(api: any, ps: PageState) {
   const loadingEl = $('tips-loading');
   if (loadingEl) loadingEl.classList.remove('hidden');
   try {
-    const data = await getBrowserJson('/api/writing/tips');
+    // Không có hạn giờ thì tab "Mẹo viết" đứng ở "Đang tải mẹo…" mãi khi
+    // lấy phiên/backend treo — cùng lỗi với hai danh sách ở #1696.
+    const controller = new AbortController();
+    const data = await withDeadline(getBrowserJson('/api/writing/tips', undefined, controller.signal), {
+      message: 'tải quá lâu', onTimeout: () => controller.abort(),
+    });
     if (ps.dead || ps.generation !== generation || request !== ps.tipsRequest) return { items: [], enabled: false };
     ps.allTips = normalizeWritingContentList('tip', data);
     ps.tipsLoaded = true;
@@ -671,17 +690,36 @@ function renderTipModal(tip: any) {
     }).join('') + '</ol></div>';
   }
 
-  const bodyHtml = (window as any).renderMarkdown ? (window as any).renderMarkdown(tip.body_markdown) : '';
+  // `prepare` đã chờ renderer có hạn; nếu vẫn chưa có thì hiện plaintext đã
+  // escape (không bao giờ thân rỗng) và nâng cấp khi script tới muộn.
+  const body = renderTipBody(tip.body_markdown, getTipRenderer());
   const bodyEl = $('tip-modal-body');
-  if (bodyEl) bodyEl.innerHTML = head + bodyHtml;
+  if (bodyEl) bodyEl.innerHTML = head + body.html;
   if ((window as any).lucide && (window as any).lucide.createIcons) (window as any).lucide.createIcons();
+  if (!body.markdown) {
+    void upgradeTipWhenRendererArrives(getTipRenderer, () => tipModalShowing(tip.id), () => renderTipModal(tip));
+  }
+}
+
+function getTipRenderer() {
+  return (window as any).renderMarkdown;
+}
+
+function tipModalShowing(id: string) {
+  const modal = $('tip-modal');
+  return Boolean(modal && !modal.classList.contains('hidden')
+    && modal.dataset.contentKind === 'tip' && modal.dataset.contentId === id
+    && modal.dataset.contentState === 'ready');
 }
 
 async function loadPromptBank(api: any, ps: PageState) {
   const generation = ps.generation;
   const request = ++ps.promptRequest;
   try {
-    const data = await getBrowserJson('/api/writing/prompt-bank');
+    const controller = new AbortController();
+    const data = await withDeadline(getBrowserJson('/api/writing/prompt-bank', undefined, controller.signal), {
+      onTimeout: () => controller.abort(),
+    });
     if (ps.dead || ps.generation !== generation || request !== ps.promptRequest) return { items: [], enabled: false };
     ps.allPrompts = normalizeWritingContentList('prompt', data);
     const enabled = Boolean(data && typeof data === 'object' && 'enabled' in data && data.enabled === true);
@@ -1535,12 +1573,20 @@ async function openSubmitModal(
   }
 }
 
-async function loadAssignments(api: any, ms: ModalState) {
+// `false` = lần đọc thất bại/hết giờ mà học viên có thể "Thử lại"; bootstrap
+// dùng nó để hiện hộp lỗi cấp trang. 403 là câu trả lời THẬT của backend (chưa
+// liên kết / chưa có quyền Writing) — đã hiện nội tuyến, không phải lỗi tạm.
+async function loadAssignments(api: any, ms: ModalState): Promise<boolean> {
   const ps = ms.page;
   const generation = ps.generation;
   try {
-    const data = await api.get('/api/writing/my-assignments');
-    if (!data || ps.dead || ps.generation !== generation) return;
+    // Hạn giờ phía client: fetch không tự timeout, nên backend treo sẽ để tab
+    // kẹt ở "Đang tải…" mãi mãi. Hết giờ → lỗi rõ ràng, có thể thử lại.
+    const data: any = await getWithTimeout(api, '/api/writing/my-assignments');
+    if (ps.dead || ps.generation !== generation) return true;
+    // `null` = 204/thân rỗng, hoặc api.js đang chuyển về /login sau 401. Trước
+    // đây nhánh này `return` để danh sách giữ "Đang tải…" mãi mãi.
+    if (!data) throw new Error('empty response');
     if (data.student) renderStudent(data.student);
 
     const all = data.assignments || [];
@@ -1551,38 +1597,46 @@ async function loadAssignments(api: any, ms: ModalState) {
 
     renderDeadlines(active);
     renderAssignments(active, ms);
+    return true;
   } catch (err: any) {
-    if (ps.dead || ps.generation !== generation) return;
+    if (ps.dead || ps.generation !== generation) return true;
     const list = $('assignments-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
-        err,
-        'Không tải được bài giao. Vui lòng thử lại.',
-      )) + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(
+        err?.timeout ? err.message : loadFailureMessage(
+          err,
+          'Không tải được bài giao. Vui lòng thử lại.',
+        )) + '</div>';
     }
+    return statusCode(err) === 403;
   }
 }
 
-async function loadEssays(api: any, ms: ModalState) {
+async function loadEssays(api: any, ms: ModalState): Promise<boolean> {
   const ps = ms.page;
   const generation = ps.generation;
   try {
-    const data = await api.get('/api/writing/my-essays');
-    if (!data || ps.dead || ps.generation !== generation) return;
+    // Cùng lý do với loadAssignments: hạn giờ để không treo vô hạn.
+    const data: any = await getWithTimeout(api, '/api/writing/my-essays');
+    if (ps.dead || ps.generation !== generation) return true;
+    if (!data) throw new Error('empty response');
     if (data.student) renderStudent(data.student);
     renderEssays(data.essays || [], ps);
     const countEl = $('essays-count');
     const n = (data.essays || []).length;
     if (countEl) countEl.textContent = n ? '(' + n + ')' : '';
+    return true;
   } catch (err: any) {
-    if (ps.dead || ps.generation !== generation) return;
+    if (ps.dead || ps.generation !== generation) return true;
     const list = $('essays-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
-        err,
-        'Không tải được bài viết. Vui lòng thử lại.',
-      )) + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(
+        err?.timeout ? err.message : loadFailureMessage(
+          err,
+          'Không tải được bài viết. Vui lòng thử lại.',
+        )) + '</div>';
     }
+    return statusCode(err) === 403;
   }
 }
 
@@ -1610,9 +1664,11 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   // The bounded content controller owns canonical reads on tab/history changes.
 }
 
-async function applyWritingPermissionGating(api: any, isCurrent: () => boolean) {
+async function applyWritingPermissionGating(apiOrPromise: any, isCurrent: () => boolean) {
   try {
-    const perms = await api.get('/api/student/permissions');
+    const perms = await (apiOrPromise && typeof apiOrPromise.then === 'function'
+      ? apiOrPromise
+      : apiOrPromise.get('/api/student/permissions'));
     if (!perms || !isCurrent()) return;
     const permitted = perms.writing === true;
     const banner = $('writing-preview-banner');
@@ -1660,6 +1716,61 @@ export function WritingBehavior() {
     modalStateRef.current = createModalState(createPageState());
   }
   const lifecycle = modalStateRef.current;
+  // Bumped by "Thử lại" after a data-stage failure: re-runs the main effect
+  // (fresh generation, listeners re-wired, lists back to "Đang tải…").
+  const [retryNonce, setRetryNonce] = useState(0);
+  const statusRef = useRef(status);
+  const errorStageRef = useRef<string | null>(null);
+  const bootstrapViewRef = useRef<WritingBootstrapView | null>(null);
+  if (!bootstrapViewRef.current) {
+    bootstrapViewRef.current = {
+      error: (e) => {
+        errorStageRef.current = e.stage;
+        showWritingBootstrapError(document, e);
+      },
+      signedOut: () => window.location.replace(LOGIN_URL),
+      ready: () => { errorStageRef.current = null; },
+    };
+  }
+  const bootstrapView = bootstrapViewRef.current;
+
+  useEffect(() => { statusRef.current = status; }, [status]);
+
+  // "Thử lại". A data-stage failure re-runs the bootstrap in place. A
+  // session/globals failure reloads: an in-page re-run would wait on the very
+  // Supabase lock / script that is stuck in this document.
+  useEffect(() => {
+    const btn = $('error-retry');
+    if (!btn) return;
+    const onRetry = () => {
+      if (errorStageRef.current === 'data' && statusRef.current === 'signed-in') {
+        errorStageRef.current = null;
+        clearWritingBootstrapError(document);
+        setRetryNonce((n) => n + 1);
+      } else {
+        window.location.reload();
+      }
+    };
+    btn.addEventListener('click', onRetry);
+    return () => btn.removeEventListener('click', onRetry);
+  }, []);
+
+  // Auth watchdog. AuthProvider awaits `sb.auth.getSession()` with no deadline;
+  // when that hangs (auth lock held, token refresh stalled) `status` stays
+  // `initial-loading`, the main effect below never starts, and the page sat on
+  // its placeholders with no error (staging, >100 s). Any status change tears
+  // this down, so the pending session promise only ever settles by deadline.
+  useEffect(() => {
+    if (status !== 'initial-loading') return;
+    let alive = true;
+    void runWritingBootstrap({
+      getSession: () => new Promise(() => {}),
+      load: () => true,
+      view: bootstrapView,
+      isCurrent: () => alive,
+    });
+    return () => { alive = false; };
+  }, [status, bootstrapView]);
 
   useLayoutEffect(() => () => {
     // Remove read-only content before an account/logout transition can paint.
@@ -1727,19 +1838,15 @@ export function WritingBehavior() {
       cleanups.push(() => el.removeEventListener(ev, fn));
     };
 
-    (async () => {
-      // `whenGlobalReady` thay cho vòng thăm dò tự chế: nó có hạn giờ VÀ báo lỗi
-      // ra console khi hết hạn. Vòng thăm dò im lặng thì trang chỉ đơn giản
-      // không làm gì và không ai biết vì sao.
-      const ok = await whenGlobalReady(
-        () => typeof (window as any).api?.get === 'function' &&
-          typeof (window as any).WritingSubmitReceipt?.begin === 'function',
-        'window.api + WritingSubmitReceipt (writing)',
-      );
-      const isCurrent = () => !ps.dead && ps.generation === generation && ms.accountId === user.id;
-      if (!isCurrent() || !ok) return;
-      const api = (window as any).api;
+    const isCurrent = () => !ps.dead && ps.generation === generation && ms.accountId === user.id;
+    // Wired once `prepare` has the globals; `load` and the tail below reuse them.
+    let api: any = null;
+    let contentNavigation: ReturnType<typeof createWritingContentDialog> | null = null;
+    let permissionsPromise: Promise<any> | null = null;
 
+    // Phase wiring that must run SYNCHRONOUSLY once the globals exist — the
+    // "listener before await" contract above.
+    const wire = () => {
       // GẮN LISTENER TRƯỚC ANY AWAIT
       const tabAssignments = $('tab-assignments');
       const tabEssays = $('tab-essays');
@@ -1754,10 +1861,11 @@ export function WritingBehavior() {
       const submitBtn = $('modal-btn-submit') as HTMLButtonElement | null;
       const modalClose = $('modal-close') as HTMLButtonElement | null;
 
-      const contentNavigation = createWritingContentDialog({
+      const nav = createWritingContentDialog({
         account: user.id, current: isCurrent,
         read: kind => kind === 'tip' ? loadTips(api, ps) : loadPromptBank(api, ps),
         render: (kind, item) => kind === 'tip' ? renderTipModal(item) : renderPromptModal(item),
+        prepare: kind => kind === 'tip' ? waitForTipRenderer(getTipRenderer) : Promise.resolve(),
         selectTab: tab => setTabActive(tab, ps, api),
         filters: () => ({ tipFilter: ps.tipFilter, tipTypeFilter: ps.tipTypeFilter, pbFilter: ps.pbFilter }),
         restoreFilters: filters => {
@@ -1767,20 +1875,22 @@ export function WritingBehavior() {
           }
         },
       });
-      ps.contentNavigation = contentNavigation;
-      on(tabAssignments, 'click', () => contentNavigation.tab('assignments'));
-      on(tabEssays, 'click', () => contentNavigation.tab('essays'));
-      on(tabTips, 'click', () => contentNavigation.tab('tips'));
-      on(tabPromptBank, 'click', () => contentNavigation.tab('prompt-bank'));
+      contentNavigation = nav;
+      ps.contentNavigation = nav;
+      on(tabAssignments, 'click', () => nav.tab('assignments'));
+      on(tabEssays, 'click', () => nav.tab('essays'));
+      on(tabTips, 'click', () => nav.tab('tips'));
+      on(tabPromptBank, 'click', () => nav.tab('prompt-bank'));
+      on($('tips-retry'), 'click', () => { void loadTips(api, ps).catch(() => {}); });
 
       wireEssayFilterTabs(ps, on);
       wirePromptFilterTabs(ps, on);
       wireTipFilterTabs(ps, on);
 
-      on(tipModalClose, 'click', contentNavigation.close);
-      on(tipModalBackdrop, 'click', contentNavigation.close);
+      on(tipModalClose, 'click', nav.close);
+      on(tipModalBackdrop, 'click', nav.close);
       on(document, 'keydown', (ev: KeyboardEvent) => {
-        if (contentNavigation.keydown(ev)) return;
+        if (nav.keydown(ev)) return;
         trapSubmitModalFocus(ev);
         if (ev.key === 'Escape' && !$('spell-panel')?.classList.contains('hidden')) {
           hideSpellPanel();
@@ -1826,16 +1936,53 @@ export function WritingBehavior() {
         hideSpellPanel();
         submitFromModal(ms, true);
       });
+    };
 
-      // ASYNC LOADS (now that listeners are attached)
-      void contentNavigation.reconcile();
+    (async () => {
+      clearWritingBootstrapError(document);
+      // ONE deadline over globals → listeners → the two canonical lists. Every
+      // failure/timeout ends in the #error box with "Thử lại" (see the module).
+      await runWritingBootstrap({
+        // This effect only runs once AuthProvider confirmed the session; the
+        // pre-auth wait is bounded by the watchdog effect above.
+        getSession: () => ({ userId: user.id }),
+        prepare: async () => {
+          // `whenGlobalReady` thay cho vòng thăm dò tự chế: nó có hạn giờ VÀ báo
+          // lỗi khi hết hạn. Hết hạn trước đây là `return` im lặng — trang đứng
+          // ở chữ giữ chỗ mãi mãi; giờ `false` thành hộp lỗi có "Thử lại".
+          const ok = await whenGlobalReady(
+            () => typeof (window as any).api?.get === 'function' &&
+              typeof (window as any).WritingSubmitReceipt?.begin === 'function',
+            'window.api + WritingSubmitReceipt (writing)',
+          );
+          if (!ok || !isCurrent()) return ok;
+          api = (window as any).api;
+          wire();
+          return true;
+        },
+        load: async () => {
+          // ASYNC LOADS (now that listeners are attached)
+          void contentNavigation?.reconcile();
+          // Start the permission read with the two list calls. Gating still runs
+          // after render: it toggles buttons that do not exist until the lists paint.
+          permissionsPromise = getWithTimeout(api, '/api/student/permissions');
+          permissionsPromise.catch(() => {});
+          const [assignmentsOk, essaysOk] = await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
+          return assignmentsOk && essaysOk;
+        },
+        view: bootstrapView,
+        isCurrent,
+      });
+      // A session/globals failure leaves nothing wired; a data failure keeps the
+      // half that loaded usable, so the tail still reconciles and gates.
+      if (!api || !isCurrent()) return;
+      // Off the critical path: this read only decides whether the hidden "Kho
+      // đề" tab appears, so it no longer competes with the two lists above.
       if (new URLSearchParams(window.location.search).get('tab') !== 'prompt-bank') void loadPromptBank(api, ps).catch(() => {});
-      await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
-      if (!isCurrent()) return;
       hideSubmissionNotice();
       if (ms.accountId) await reconcilePendingSubmissions(ms.accountId, api, ms);
       if (!isCurrent()) return;
-      await applyWritingPermissionGating(api, isCurrent);
+      await applyWritingPermissionGating(permissionsPromise, isCurrent);
       if (!isCurrent()) return;
       const requestedAssignment = new URLSearchParams(window.location.search).get('assignment_id');
       if (requestedAssignment) {
@@ -1858,7 +2005,7 @@ export function WritingBehavior() {
       if (ms.countdownInterval) clearInterval(ms.countdownInterval);
       cleanups.forEach((fn) => fn());
     };
-  }, [status, user?.id]);
+  }, [status, user?.id, retryNonce]);
 
   return null;
 }

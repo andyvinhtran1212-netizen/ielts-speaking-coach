@@ -2,11 +2,10 @@
 title: Historic vs. Historical — Sự kiện lịch sử hay thuộc về lịch sử?
 slug: historic-vs-historical
 category: error-clinic
-summary: 'Historic và historical đều có nghĩa liên quan đến lịch sử nhưng không thể
-  dùng thay thế nhau. Historic = quan trọng, nổi tiếng trong lịch sử (có ý nghĩa lịch
-  sử lớn). Historical = thuộc về lịch sử, liên quan đến lịch sử (về mặt học thuật
-  hoặc thực tế). Bài này giải thích đầy đủ với ví dụ và các cặp từ tương tự như classic/classical,
-  electric/electrical.
+summary: 'Historic thường nhấn mạnh tầm quan trọng trong lịch sử; historical thường
+  nói quan hệ với lịch sử hoặc quá khứ. Hai từ có nghĩa chồng lấn: chọn theo trọng tâm
+  và collocation, không biến sự ưu tiên văn phong thành quy tắc đúng/sai tuyệt đối.
+  Bài có ví dụ cùng các cặp từ classic/classical, electric/electrical.
 
   '
 level: intermediate
@@ -81,13 +80,13 @@ anchors:
 | **historic** | quan trọng trong lịch sử, có tầm ảnh hưởng lớn | a historic victory, a historic agreement |
 | **historical** | thuộc về lịch sử, liên quan đến lịch sử như một chủ đề | historical research, historical evidence |
 
-> **Mẹo nhớ:** **Historic** = history-making (tạo ra lịch sử). **Historical** = history-related (liên quan đến lịch sử).
+> **Mẹo chọn từ theo nghĩa thường gặp:** **Historic** nhấn mạnh tầm quan trọng; **historical** nhấn mạnh quan hệ với lịch sử/quá khứ. Hai từ có nghĩa chồng lấn, nên đây không phải quy tắc đúng/sai tuyệt đối. [Merriam-Webster: historic](https://www.merriam-webster.com/dictionary/historic) và [historical](https://www.merriam-webster.com/dictionary/historical) đều ghi nhận sự chồng lấn này.
 
 ---
 
 ## Tại sao quan trọng
 
-Hai từ này có âm thanh rất giống nhau nhưng có thể thay đổi nghĩa của câu đáng kể. "A **historic** building" = tòa nhà nổi tiếng, có ý nghĩa lịch sử. "A **historical** building" = tòa nhà cũ, thuộc về thời kỳ lịch sử nào đó. Trong IELTS Writing, dùng sai có thể làm mất điểm Lexical Resource vì người chấm sẽ hiểu sai ý bạn.
+Chọn từ giúp làm rõ trọng tâm: **a historic building** thường nhấn mạnh giá trị lịch sử, còn **a historical building** có thể nói về quan hệ với quá khứ. Cả hai có thể phù hợp tùy ngữ cảnh. Trong IELTS Writing, độ chính xác về nghĩa và collocation được xét trên toàn bài; không tự trừ điểm chỉ vì một lựa chọn thuộc vùng nghĩa chồng lấn.
 
 ---
 
@@ -125,9 +124,9 @@ historic + noun
 - This is a **historic** day for our country — the first woman elected as president.
 - The **historic** city centre has been preserved as a UNESCO World Heritage Site.
 
-> **Lưu ý a/an:** "Historic" bắt đầu bằng âm /h/ được đọc → dùng **a** (không phải an):
+> **Lưu ý a/an:** Khi đọc âm /h/ đầu "historic", lựa chọn thông dụng là **a**:
 > - ✅ **a** historic victory
-> - ❌ ~~an~~ historic victory *(dù một số người British English có thể dùng "an" nếu không nhấn H)*
+> - **an historic victory** cũng được ghi nhận trong sử dụng; khi phát âm /h/, **a historic victory** là lựa chọn thông dụng. Không coi biến thể an là sai tuyệt đối theo quốc gia.
 
 ---
 
@@ -181,9 +180,9 @@ historical + noun
 | a **historic** novel | tiểu thuyết đi vào lịch sử (nổi tiếng) | ✓ |
 | a **historical** novel | tiểu thuyết về thời kỳ lịch sử | ✓ (nghĩa khác) |
 | **historical** records | hồ sơ lịch sử (dùng để nghiên cứu) | ✓ |
-| ~~**historic** records~~ | ❌ records không thể "tạo ra lịch sử" | ✗ |
+| **historic** records | hồ sơ/bản ghi có tầm quan trọng lịch sử, tùy ngữ cảnh | Có thể dùng |
 | a **historic** victory | chiến thắng quan trọng trong lịch sử | ✓ |
-| a **historical** victory | ❓ thường không dùng — thiếu rõ nghĩa | ✗ |
+| a **historical** victory | chiến thắng trong lịch sử; có thể chồng lấn nghĩa quan trọng | Có thể dùng; historic rõ hơn nếu nhấn mạnh tầm quan trọng |
 
 ---
 
@@ -197,7 +196,7 @@ Tiếng Anh có nhiều cặp tính từ theo mẫu này:
 | **classic** | **classical** | classic = tiêu biểu, bất hủ; classical = thuộc trường phái cổ điển (âm nhạc, kiến trúc) |
 | **electric** | **electrical** | electric = chạy bằng điện; electrical = liên quan đến điện |
 | **comic** | **comical** | comic = thuộc thể loại hài; comical = buồn cười |
-| **magic** | **magical** | magic = dùng như danh từ; magical = kỳ diệu (nghĩa bóng hơn) |
+| **magic** | **magical** | Cả hai là tính từ: a magic trick; a magical evening. Magic cũng là danh từ |
 | **politic** | **political** | politic = khôn ngoan (archaic); political = thuộc về chính trị |
 
 **Ví dụ:**
@@ -209,31 +208,31 @@ Tiếng Anh có nhiều cặp tính từ theo mẫu này:
 <!-- anchor: historic-vs-historical.loi-thuong-gap -->
 ## Lỗi thường gặp
 
-### Lỗi 1: Dùng "historical" thay cho "historic" khi muốn nói tầm quan trọng
+### Lựa chọn 1: Nhấn mạnh tầm quan trọng
 
-- ❌ "The moon landing was a **historical** achievement."
-- ✅ "The moon landing was a **historic** achievement."
+- "The moon landing was a **historical** achievement" có thể dùng, nhưng **historic achievement** nhấn mạnh tầm quan trọng rõ hơn.
+- Ưu tiên theo ý định ấy: "The moon landing was a **historic** achievement."
 
-- ❌ "This is a **historical** moment for our country."
-- ✅ "This is a **historic** moment for our country."
+- "This is a **historical** moment for our country" không tự là lỗi ngữ pháp.
+- Khi muốn nói khoảnh khắc trọng đại: "This is a **historic** moment for our country."
 
-### Lỗi 2: Dùng "historic" thay cho "historical" trong ngữ cảnh học thuật
+### Lựa chọn 2: Nói về dữ liệu và bằng chứng quá khứ
 
-- ❌ "The study uses **historic** data from the 19th century."
-- ✅ "The study uses **historical** data from the 19th century."
+- "The study uses **historic** data from the 19th century" có thể dùng để nói dữ liệu quá khứ; **historical data** là lựa chọn rõ, thông dụng cho nghĩa này.
+- "The study uses **historical** data from the 19th century."
 
-- ❌ "There is **historic** evidence of trade between these regions."
-- ✅ "There is **historical** evidence of trade between these regions."
+- **historic evidence** có thể nhấn mạnh bằng chứng có tầm quan trọng; nếu chỉ nói bằng chứng lịch sử, ưu tiên:
+- "There is **historical** evidence of trade between these regions."
 
-### Lỗi 3: Dùng "historical" với sự kiện có tầm quan trọng đặc biệt
+### Lựa chọn 3: Nói về bước ngoặt
 
-- ❌ "The peace agreement was a **historical** turning point."
-- ✅ "The peace agreement was a **historic** turning point."
+- **historical turning point** có thể dùng; **historic turning point** nhấn mạnh tác động lớn:
+- "The peace agreement was a **historic** turning point."
 
 ### Lỗi 4: Nhầm a/an với "historic"
 
-- ❌ "an **historic** victory" *(trong American English)*
-- ✅ "**a** historic victory" *(phổ biến hơn trong cả hai variants)*
+- "**a** historic victory" thông dụng khi phát âm /h/.
+- "**an** historic victory" cũng được ghi nhận; không dùng nhãn sai tuyệt đối cho biến thể này.
 
 ---
 
@@ -251,7 +250,7 @@ Tiếng Anh có nhiều cặp tính từ theo mẫu này:
 
 ## Bài tập luyện
 
-### Điền historic hoặc historical
+### Điền historic/historical và thêm mạo từ nếu cần
 
 1. The two countries signed ___ peace deal ending decades of conflict.
 2. ___ research suggests that the region was inhabited over 5,000 years ago.
@@ -264,7 +263,7 @@ Tiếng Anh có nhiều cặp tính từ theo mẫu này:
 
 ### Đáp án
 
-1. historic | 2. Historical | 3. historical | 4. historic | 5. historical | 6. a historic | 7. historical | 8. historic
+1. a historic | 2. Historical | 3. historical | 4. historic | 5. historical | 6. a historic | 7. historical | 8. historic
 
 ---
 
@@ -289,5 +288,6 @@ CÁC CẶP TƯƠNG TỰ:
   electric / electrical | classic / classical | comic / comical
 
 LƯU Ý:
-  a (không phải an) historic → H được đọc
+  Khi đọc /h/, a historic là lựa chọn thông dụng; an historic cũng được ghi nhận.
+  Historic/historical có nghĩa chồng lấn; chọn theo ý định, không cấm thay thế tuyệt đối.
 ```

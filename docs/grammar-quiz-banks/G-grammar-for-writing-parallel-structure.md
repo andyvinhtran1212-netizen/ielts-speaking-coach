@@ -123,10 +123,10 @@ input: "boolean"
 headword: "pst-gerund-infinitive"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'The programme was designed to reduce dropout rates, supporting struggling students, and to raise overall achievement.'"
+prompt: "Đúng hay Sai: Nếu muốn liệt kê ba mục đích ngang hàng sau was designed, 'The programme was designed to reduce dropout rates, supporting struggling students, and to raise overall achievement' đã giữ cả ba thành phần cùng dạng to-infinitive."
 answer: false
 grammar_article_slug: "parallel-structure"
-explain: "SAI (parallelism_errors) — hai thành phần đầu và cuối dùng 'to + V' (to reduce, to raise) nhưng thành phần giữa lại chuyển sang V-ing (supporting), phá vỡ song song. Sửa: '...to reduce dropout rates, to support struggling students, and to raise overall achievement.'"
+explain: "SAI đối với nhiệm vụ ba mục đích ngang hàng: dùng to reduce, to support và to raise. Supporting cũng có thể làm mệnh đề phân từ bổ sung trong một cách đọc khác; nó không tự sai chỉ vì hình thức khác, nhưng không thực hiện danh sách ba to-infinitive được yêu cầu rõ ở đây."
 ---
 
 # ===== item_key 3 · Cặp liên từ tương liên (both...and / either...or / neither...nor) =====

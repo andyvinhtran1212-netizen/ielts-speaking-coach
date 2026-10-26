@@ -198,9 +198,9 @@ headword: "fal-negative-nuance"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'A little progress has been made on reducing hospital waiting times, campaigners say — the system is still failing patients.'"
-answer: false
+answer: true
 grammar_article_slug: "few-a-few-little-a-little"
-explain: "SAI về sắc thái — 'the system is still failing patients' mang nghĩa tiêu cực (gần như không có tiến triển), nên phải dùng 'Little progress', không phải 'A little progress'."
+explain: "ĐÚNG — 'a little progress' là có một ít tiến bộ, không có nghĩa đã đủ. Vì vậy vẫn có thể nói hệ thống còn làm bệnh nhân thất vọng. 'Little progress' nhấn mạnh sự thiếu hụt, là thay đổi trọng tâm chứ không phải cách sửa bắt buộc."
 ---
 
 ---

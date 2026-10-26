@@ -1,0 +1,166 @@
+{
+  "slug": "the-world-of-bicycles-today",
+  "review_notes": "Tự dịch từng câu; giữ may ở kết bài. Minh hoạ xe đạp và phố, không đặt nhãn chính sách hoặc số liệu đáp án.",
+  "illustration_brief": "Xe đạp bên lối đi trong thành phố có cây xanh.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Mỗi sáng ở Amsterdam, hàng nghìn chiếc xe đạp tràn ngập các con phố.",
+      [
+        "Every morning",
+        "Mỗi sáng"
+      ],
+      [
+        "thousands of bicycles",
+        "hàng nghìn chiếc xe đạp"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Vì sao ở đó có nhiều người đi xe đạp đến thế?",
+      [
+        "ride bikes",
+        "đi xe đạp"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Câu trả lời nay đang lan đến các thành phố trên khắp thế giới.",
+      [
+        "cities around the world",
+        "các thành phố trên khắp thế giới"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Xe đạp có nhiều ưu điểm.",
+      [
+        "many good points",
+        "nhiều ưu điểm"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Chi phí sử dụng hằng ngày thấp.",
+      [
+        "cheap to use every day",
+        "Chi phí sử dụng hằng ngày thấp"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Xe đạp sạch và không thải khói.",
+      [
+        "makes no smoke",
+        "không thải khói"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Đi xe đạp cũng giữ cho cơ thể khoẻ mạnh.",
+      [
+        "Riding a bike",
+        "Đi xe đạp"
+      ],
+      [
+        "healthy and strong",
+        "khoẻ mạnh"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Giữa dòng xe đông đúc, xe đạp thậm chí có thể nhanh hơn ô tô trong chuyến đi ngắn.",
+      [
+        "busy traffic",
+        "dòng xe đông đúc"
+      ],
+      [
+        "faster than a car",
+        "nhanh hơn ô tô"
+      ],
+      [
+        "a short trip",
+        "chuyến đi ngắn"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nhiều khu trung tâm thành phố nay đang hỗ trợ người đi xe đạp.",
+      [
+        "city centres",
+        "khu trung tâm thành phố"
+      ],
+      [
+        "helping people who ride bikes",
+        "hỗ trợ người đi xe đạp"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Họ xây những làn đường riêng chỉ dành cho xe đạp.",
+      [
+        "special lanes just for bikes",
+        "những làn đường riêng chỉ dành cho xe đạp"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Làn đường giúp người đi xe đạp an toàn khi tham gia giao thông.",
+      [
+        "keeps riders safe",
+        "giúp người đi xe đạp an toàn"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Một số thành phố còn cho phép mọi người dùng chung xe đạp.",
+      [
+        "share bikes with each other",
+        "dùng chung xe đạp"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Bạn có thể thuê xe đạp trong thời gian ngắn rồi để lại cho người tiếp theo sử dụng.",
+      [
+        "rent a bike",
+        "thuê xe đạp"
+      ],
+      [
+        "the next person",
+        "người tiếp theo"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Xe đạp đã tồn tại từ lâu.",
+      [
+        "have been around for a long time",
+        "đã tồn tại từ lâu"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nhưng có lẽ đến bây giờ vai trò của chúng trong thành phố mới bắt đầu lớn lên.",
+      [
+        "their place in the city",
+        "vai trò của chúng trong thành phố"
+      ],
+      [
+        "may",
+        "có lẽ"
+      ],
+      [
+        "starting to grow",
+        "bắt đầu lớn lên"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-city-bicycle-scene.svg",
+    "alt": "Xe đạp bên lối đi trong thành phố có cây xanh.",
+    "caption": "Một phương tiện quen thuộc trong đô thị."
+  },
+  "source_sha256": "e5ddc95c56900439aa278ae3c617efb8098e5c72fb0e9fe5511bcd0d99497a89",
+  "expected_translation_sha256": "291558bdf52dd7158b7e0dcabb11551468f0f4431168c8ba025846721897e4b7"
+}

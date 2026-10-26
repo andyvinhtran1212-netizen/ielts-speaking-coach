@@ -118,8 +118,8 @@ window.MockHook = (function () {
     document.body.innerHTML =
       '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
       'font-family:system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:24px">' +
-      '<div style="font-size:20px;font-weight:700;margin-bottom:8px">Đã thu bài ' + label + '</div>' +
-      '<div style="opacity:.8">Đang quay lại kỳ thi…</div></div>';
+      '<div style="font-size:20px;font-weight:700;margin-bottom:8px">Answers collected: ' + label + '</div>' +
+      '<div style="opacity:.8">Returning to your test session…</div></div>';
     setTimeout(function () {
       location.href = '/mock-exam?sitting=' + encodeURIComponent(sid) + '&done=' + encodeURIComponent(section);
     }, 1200);

@@ -1,0 +1,230 @@
+{
+  "slug": "matching-philosophers-of-mind",
+  "review_notes": "Extended trong Descartes là chiếm không gian, không phải được mở rộng; phân biệt các luận điểm đối lập thay vì chốt quan điểm triết học nào đúng. Chalmers nhấn mạnh cảm giác chủ quan.",
+  "illustration_brief": "Một người suy nghĩ bên máy tính và cuốn sổ đang mở.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Hỏi nhà khoa học thần kinh một ý nghĩ là gì, ta có thể nhận được mô tả về tế bào và dòng điện; hỏi người đang trải qua ý nghĩ ấy, câu trả lời lại rất khác.",
+      [
+        "a neuroscientist",
+        "nhà khoa học thần kinh"
+      ],
+      [
+        "cells and electrical currents",
+        "tế bào và dòng điện"
+      ],
+      [
+        "a person undergoing a thought",
+        "người đang trải qua ý nghĩ ấy"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Khoảng cách giữa hai cách lý giải đã ám ảnh triết học tâm trí suốt nhiều thế kỷ, và các trường phái đối lập hình thành phần lớn quanh cách xử lý khoảng cách ấy.",
+      [
+        "the philosophy of mind",
+        "triết học tâm trí"
+      ],
+      [
+        "rival schools",
+        "các trường phái đối lập"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Cách phát biểu có ảnh hưởng nhất về vấn đề này thuộc về René Descartes, người cho rằng tâm trí và cơ thể là hai loại thực thể khác nhau — một loại biết suy nghĩ và phi vật chất, một loại chiếm không gian và mang tính vật chất.",
+      [
+        "two distinct kinds of substance",
+        "hai loại thực thể khác nhau"
+      ],
+      [
+        "thinking and immaterial",
+        "biết suy nghĩ và phi vật chất"
+      ],
+      [
+        "extended and physical",
+        "chiếm không gian và mang tính vật chất"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Quan điểm nhị nguyên này thống trị trong thời gian dài, nhưng cuối cùng suy yếu bởi câu đố chính nó đặt ra: nếu tâm trí hoàn toàn không có tính vật chất, làm sao nó tác động được lên một cơ thể hoàn toàn vật chất?",
+      [
+        "This dualist view",
+        "Quan điểm nhị nguyên này"
+      ],
+      [
+        "in no way physical",
+        "hoàn toàn không có tính vật chất"
+      ],
+      [
+        "act upon a body",
+        "tác động được lên một cơ thể"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Một phần để tránh câu hỏi ấy, những người theo chức năng luận đề xuất rằng điều khiến một trạng thái thuộc về tinh thần không phải chất liệu tạo nên nó mà là vai trò nó đảm nhiệm.",
+      [
+        "the functionalists",
+        "những người theo chức năng luận"
+      ],
+      [
+        "the stuff it is made of",
+        "chất liệu tạo nên nó"
+      ],
+      [
+        "the role it plays",
+        "vai trò nó đảm nhiệm"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Theo họ, niềm tin hay cơn đau được xác định bằng chức năng trong một mạng lưới đầu vào, đầu ra và các trạng thái khác — giống như phần mềm có thể chạy trên các loại máy khác nhau.",
+      [
+        "a belief or a pain",
+        "niềm tin hay cơn đau"
+      ],
+      [
+        "inputs, outputs and other states",
+        "đầu vào, đầu ra và các trạng thái khác"
+      ],
+      [
+        "different kinds of machine",
+        "các loại máy khác nhau"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Sức hấp dẫn của khuôn khổ này là đặt tâm trí vững chắc trong phạm vi khoa học có thể nghiên cứu mà không viện đến một linh hồn riêng biệt.",
+      [
+        "within the reach of science",
+        "trong phạm vi khoa học có thể nghiên cứu"
+      ],
+      [
+        "a separate soul",
+        "một linh hồn riêng biệt"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Tuy nhiên, không phải ai cũng tin giải thích chức năng là giải quyết được mọi thứ.",
+      [
+        "Not everyone",
+        "không phải ai"
+      ],
+      [
+        "explaining function settled everything",
+        "giải thích chức năng là giải quyết được mọi thứ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "David Chalmers nổi tiếng với lập luận rằng ngay cả lời giải thích đầy đủ về cách não xử lý thông tin vẫn để ngỏ một câu hỏi riêng: vì sao việc ở trong một trạng thái như vậy lại có một cảm giác chủ quan nào đó?",
+      [
+        "a complete account",
+        "lời giải thích đầy đủ"
+      ],
+      [
+        "processes information",
+        "xử lý thông tin"
+      ],
+      [
+        "leave a separate question open",
+        "để ngỏ một câu hỏi riêng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ông gọi đây là “vấn đề khó” của ý thức, phân biệt nó với những “vấn đề dễ” hơn là xác định các cơ chế hoạt động.",
+      [
+        "hard problem",
+        "vấn đề khó"
+      ],
+      [
+        "consciousness",
+        "ý thức"
+      ],
+      [
+        "mapping mechanisms",
+        "xác định các cơ chế hoạt động"
+      ]
+    ],
+    [
+      "p5-s1",
+      "E — Daniel Dennett đáp lại bằng sự hoài nghi rõ rệt.",
+      [
+        "pronounced scepticism",
+        "sự hoài nghi rõ rệt"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Với ông, cảm giác rằng còn sót một phần bí ẩn sau khi mọi chức năng đã được giải thích chính là điều cần được lý giải để loại bỏ, chứ không phải tôn sùng — một sự nhầm lẫn nảy sinh từ cách ta nói về trải nghiệm, và sẽ được phân tích cẩn thận làm tan biến.",
+      [
+        "some mysterious residue",
+        "một phần bí ẩn"
+      ],
+      [
+        "explained away, not revered",
+        "lý giải để loại bỏ, chứ không phải tôn sùng"
+      ],
+      [
+        "a confusion",
+        "một sự nhầm lẫn"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Điều Chalmers coi là vực sâu, Dennett lại xem là ảo tưởng.",
+      [
+        "a deep chasm",
+        "vực sâu"
+      ],
+      [
+        "an illusion",
+        "ảo tưởng"
+      ]
+    ],
+    [
+      "p6-s1",
+      "F — Không lập trường nào đẩy được các lập trường khác ra khỏi cuộc tranh luận, và phần lớn nghiên cứu hiện nay di chuyển giữa chúng, mượn tính chặt chẽ của chức năng luận nhưng vẫn cảm thấy sức hút từ câu hỏi của Chalmers.",
+      [
+        "None of these positions",
+        "Không lập trường nào"
+      ],
+      [
+        "the rigour of functionalism",
+        "tính chặt chẽ của chức năng luận"
+      ],
+      [
+        "the pull of Chalmers's question",
+        "sức hút từ câu hỏi của Chalmers"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Khoảng cách giữa cơ chế và trải nghiệm cuối cùng sẽ khép lại hay chỉ được mô tả lại bằng thuật ngữ mới hơn vẫn là vấn đề mà những người suy nghĩ có lý lẽ tiếp tục bất đồng.",
+      [
+        "mechanism and experience",
+        "cơ chế và trải nghiệm"
+      ],
+      [
+        "redescribed in fresher terms",
+        "được mô tả lại bằng thuật ngữ mới hơn"
+      ],
+      [
+        "continue to disagree",
+        "tiếp tục bất đồng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-memory-search-scene.svg",
+    "alt": "Một người tra cứu trên máy tính bên cuốn sổ mở và các thẻ ghi chú.",
+    "caption": "Tâm trí, cơ chế và trải nghiệm."
+  },
+  "source_sha256": "27a6c6e284525039c820c7fc8566968d327969ffebf5c7bdd461760b7062be72",
+  "expected_translation_sha256": "5c1ff08ab940915f13f66bf90e73ed3b8c66ebace6114e22fe58513ec7b0c4e0"
+}

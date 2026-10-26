@@ -132,7 +132,7 @@ Khi có cụm giới từ (prepositional phrase) nằm giữa chủ ngữ và đ
 
 Danh từ chỉ một nhóm: team, family, government, committee, staff, audience, class, jury...
 
-**Tiếng Anh Anh (British English):** thường dùng **số nhiều**
+**Tiếng Anh Anh (British English):** chọn số ít khi xem nhóm là đơn vị, số nhiều khi nhấn thành viên
 - The team **are** playing well. (British)
 
 **Tiếng Anh Mỹ (American English):** thường dùng **số ít**
@@ -140,7 +140,7 @@ Danh từ chỉ một nhóm: team, family, government, committee, staff, audienc
 
 **Trong IELTS:** cả hai đều được chấp nhận — nhưng phải **nhất quán** trong cả bài.
 
-Một số danh từ tập hợp **luôn số ít:**
+Các ví dụ nhìn nhóm như đơn vị dùng **số ít** (không phải danh sách luôn số ít):
 - The government **is** considering new policies.
 - The committee **has** made its decision.
 - The company **was** founded in 1990.
@@ -190,11 +190,11 @@ Chia theo chủ ngữ **gần nhất** với động từ:
 
 ### Bẫy 6: Tính từ/Mệnh đề làm chủ ngữ
 
-Mệnh đề danh ngữ (what-clause, that-clause) làm chủ ngữ → động từ số ít:
+Mệnh đề làm chủ ngữ thường dùng số ít; what-clause trong cấu trúc xác định có thể hòa hợp số nhiều: “What we need are two new computers”.
 
-- **What we need** **is** more time. (not "are")
+- **What we need** **is** more time. (số ít trong ví dụ này)
 - **What they found** **was** surprising. (not "were")
-- **That he lied** **is** obvious. (not "are")
+- **That he lied** **is** obvious. (số ít trong ví dụ này)
 - **Learning languages** **is** a great hobby. (gerund phrase → singular)
 - **To travel the world** **is** my dream.
 
@@ -324,8 +324,8 @@ Mệnh đề danh ngữ (what-clause, that-clause) làm chủ ngữ → động 
 | Either A or B → chia theo | **B (gần nhất)** |
 | One of the + plural noun | **số ít** (vì "one") |
 | What-clause / Gerund phrase | **số ít** |
-| Mathematics / news / economics | **số ít** |
+| Mathematics / news / economics | Thường số ít trong nghĩa môn học/tin tức; “The economics of the project are complex” là nghĩa khác |
 | Trousers / scissors / jeans | **số nhiều** |
-| 5 km / 20 dollars (đơn vị) | **số ít** |
+| 5 km / 20 dollars | Số ít khi là một lượng; số nhiều khi xét từng đơn vị: “The last five kilometres were difficult” |
 
 **Quy tắc vàng:** Xác định **chủ ngữ thực sự** trước — bỏ qua các cụm giới từ xen giữa.

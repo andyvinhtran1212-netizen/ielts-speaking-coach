@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Đàn kiến mang những mẩu lá</title><desc id="desc">Ba con kiến, mỗi con có sáu chân và ba phần thân, di chuyển trên đất; một con mang mẩu lá lớn.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f2"/>
+  <path d="M0 280Q240 245 427 289T800 266V400H0Z" fill="#cdbb9d"/>
+  <path d="M65 400V144Q51 125 44 96H108Q101 125 88 144V400" fill="#9b7958"/>
+  <path d="M31 116Q-6 74 40 45Q35 6 80 14Q116 -2 130 38Q173 48 144 92Q135 133 97 118Z" fill="#79a17b"/>
+  <defs><g id="ant" fill="#63463b" stroke="#4f3934" stroke-width="4"><g fill="none" stroke-linecap="round"><path d="M-9 -4L-29 -25L-43 -27M-4 -2L-22 -39L-33 -45M4 -3L11 -30L26 -37M-9 4L-29 25L-43 27M-4 2L-22 39L-33 45M4 3L11 30L26 37M32 -9L45 -23M34 -3L52 -12"/></g><ellipse cx="-35" rx="24" ry="16"/><ellipse rx="17" ry="10"/><circle cx="27" r="15"/><circle cx="32" cy="-4" r="3" fill="#f8faf7" stroke="none"/></g></defs>
+  <use href="#ant" transform="translate(253 307) scale(.85)"/>
+  <use href="#ant" transform="translate(446 327)"/>
+  <use href="#ant" transform="translate(644 302) scale(.9)"/>
+  <path d="M475 304L466 245" stroke="#3d8275" stroke-width="4"/>
+  <path d="M465 251Q420 208 455 175Q511 195 503 240Z" fill="#79a17b" stroke="#3d8275" stroke-width="4"/>
+  <path d="M463 190L482 242" stroke="#b6d0b3" stroke-width="3"/>
+  <g fill="#a48c6e"><ellipse cx="166" cy="355" rx="13" ry="6"/><ellipse cx="553" cy="365" rx="17" ry="7"/><ellipse cx="730" cy="329" rx="10" ry="5"/></g>
+</svg>

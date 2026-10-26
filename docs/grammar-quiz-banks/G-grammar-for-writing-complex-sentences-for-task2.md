@@ -83,7 +83,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai (lỗi sentence_structure_errors): 'Because the initiative reduces emissions which most scientists who study climate change support it, it deserves funding.' đúng ngữ pháp."
 answer: false
 grammar_article_slug: "complex-sentences-for-task2"
-explain: "SAI (sentence_structure_errors) — nhồi liên tiếp mệnh đề nguyên nhân + quan hệ + quan hệ lồng nhau mà không có mệnh đề chính rõ ràng, lại thừa đại từ 'it' sau 'support'. Bài Wiki cảnh báo: xếp tầng nhiều mệnh đề dễ mất kiểm soát. Sửa gọn: 'Because the initiative reduces emissions, an outcome that most climate scientists support, it deserves funding.'"
+explain: "SAI — mệnh đề chính 'it deserves funding' đã có. Lỗi rõ là it thừa sau support vì which đã làm tân ngữ của support; tham chiếu which còn dễ khiến ý hỗ trợ initiative hay emissions không rõ. Có thể sửa 'Because the initiative reduces emissions, an outcome that most climate scientists support, it deserves funding.' Nhiều mệnh đề lồng nhau không tự làm mất mệnh đề chính."
 ---
 
 # ===== item_key 2 · Phối hợp điều kiện + nhượng bộ trong cùng một câu =====
@@ -279,11 +279,11 @@ input: "text"
 headword: "cts2-run-on-vs-split"
 skill: "production"
 subtype: "advanced"
-prompt: "Câu sau bị run-on: 'The scheme benefits rural households it also raises costs for urban consumers this trade-off needs careful evaluation.' Tách thành câu đầu tiên (chỉ gõ chủ ngữ + động từ): 'The scheme benefits rural households.' → ____"
-accept: ["The scheme benefits"]
+prompt: "Tách câu run-on thành câu đầu tiên và điền động từ chính của câu đó: 'The scheme benefits rural households it also raises costs for urban consumers this trade-off needs careful evaluation.' → 'The scheme ____ rural households.'"
+accept: ["benefits"]
 case_sensitive: false
 grammar_article_slug: "complex-sentences-for-task2"
-explain: "Cách sửa run-on: tách thành các câu độc lập rõ ràng, mỗi câu một ý. Câu đầu tiên: 'The scheme benefits rural households.' (chủ ngữ + động từ + bổ ngữ)."
+explain: "Câu đầu tiên đầy đủ là 'The scheme benefits rural households.' Chủ ngữ The scheme, động từ benefits và tân ngữ rural households đều được giữ. Chỉ trích The scheme benefits không đáp ứng nhiệm vụ giữ câu đầu tiên đầy đủ này."
 ---
 
 ---

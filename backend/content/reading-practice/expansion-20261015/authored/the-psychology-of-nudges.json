@@ -1,0 +1,202 @@
+{
+  "slug": "the-psychology-of-nudges",
+  "review_notes": "Nudge/cú hích giữ định nghĩa không cấm phương án hay đổi lớn động lực kinh tế. Opt out là chủ động rút khỏi mặc định; paternalism dịch gia trưởng theo nghĩa quyết định định hướng thay người khác, không nói quan hệ gia đình.",
+  "illustration_brief": "Các mặt hàng không nhãn được sắp trên kệ, cạnh bảng mẫu màu.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 2008, Richard Thaler và Cass Sunstein phổ biến ý tưởng có tầm lan rộng đáng kể: hành vi có thể được định hướng không phải bằng mệnh lệnh hay những hình phạt gây tổn thất lớn mà bằng các cú hích nhẹ.",
+      [
+        "costly penalties",
+        "những hình phạt gây tổn thất lớn"
+      ],
+      [
+        "gentle nudges",
+        "các cú hích nhẹ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Theo định nghĩa cẩn thận, cú hích đổi hành vi theo hướng đoán được mà không cấm lựa chọn hiện có hay thay đổi đáng kể động lực kinh tế; nói cách khác, nó dùng thuyết phục âm thầm thay vì cưỡng ép trực tiếp.",
+      [
+        "without forbidding any of the existing options",
+        "mà không cấm lựa chọn hiện có"
+      ],
+      [
+        "the economic incentives",
+        "động lực kinh tế"
+      ],
+      [
+        "outright coercion",
+        "cưỡng ép trực tiếp"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Công cụ chính là điều tác giả gọi kiến trúc lựa chọn — cách thường vô hình mà lựa chọn được sắp xếp, xếp thứ tự và trình bày.",
+      [
+        "choice architecture",
+        "kiến trúc lựa chọn"
+      ],
+      [
+        "arranged, ordered and presented",
+        "sắp xếp, xếp thứ tự và trình bày"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Vì không phương án nào thực sự bị rút, Thaler và Sunstein bảo vệ cách làm như dạng chủ nghĩa gia trưởng tự do (định hướng nhưng vẫn giữ quyền lựa chọn); nhưng nhãn cố ý khiêu khích ấy tự gợi vì sao chủ đề gây tranh cãi dữ.",
+      [
+        "removed from the table",
+        "bị rút"
+      ],
+      [
+        "libertarian paternalism",
+        "chủ nghĩa gia trưởng tự do"
+      ],
+      [
+        "deliberately provocative label",
+        "nhãn cố ý khiêu khích"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Ví dụ nổi tiếng nhất là sức mạnh mặc định.",
+      [
+        "the power of the default",
+        "sức mạnh mặc định"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Khi công dân được tự động ghi danh vào chương trình hưu trí hay danh sách hiến tạng trừ khi họ chủ động từ chối tham gia, tham gia thường tăng vọt, đôi khi từ thiểu số nhỏ tới đa số áp đảo.",
+      [
+        "enrolled automatically",
+        "được tự động ghi danh"
+      ],
+      [
+        "unless they actively opt out",
+        "trừ khi họ chủ động từ chối tham gia"
+      ],
+      [
+        "the overwhelming majority",
+        "đa số áp đảo"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Hiệu ứng tận dụng quán tính thường tình và thiên kiến ăn sâu, đoán được là đơn giản không làm gì; tương tự, làm lựa chọn lành mạnh hơn dễ thấy, nổi bật hơn âm thầm tăng tần suất người ta chọn.",
+      [
+        "ordinary human inertia",
+        "quán tính thường tình"
+      ],
+      [
+        "a deep-seated, predictable bias",
+        "thiên kiến ăn sâu, đoán được"
+      ],
+      [
+        "more visible and salient",
+        "dễ thấy, nổi bật hơn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nhưng chính những người phê bình mới là bên xem xét toàn bộ lĩnh vực này khắt khe nhất.",
+      [
+        "the critics",
+        "những người phê bình"
+      ],
+      [
+        "subject the whole field to its sharpest scrutiny",
+        "xem xét toàn bộ lĩnh vực này khắt khe nhất"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Họ hỏi: nếu một cú hích tác động bên dưới ngưỡng nhận biết có ý thức của ta, chẳng phải nó đang âm thầm thao túng ta đưa ra những quyết định mà ta chưa bao giờ thực sự tự chọn hay sao?",
+      [
+        "below the level of our conscious awareness",
+        "bên dưới ngưỡng nhận biết có ý thức của ta"
+      ],
+      [
+        "quietly manipulate us",
+        "âm thầm thao túng ta"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Người ủng hộ đáp cú hích minh bạch — ai cũng dễ nhìn, hiểu và kháng lại nếu muốn — về cơ bản giữ nguyên tự chủ.",
+      [
+        "a transparent nudge",
+        "cú hích minh bạch"
+      ],
+      [
+        "see, understand and resist",
+        "nhìn, hiểu và kháng lại"
+      ],
+      [
+        "leaves their autonomy essentially intact",
+        "về cơ bản giữ nguyên tự chủ"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Bằng chứng cũng đòi khiêm nhường, vì vài nghiên cứu cú hích từng nổi tiếng gần đây tỏ ra rất khó tái lập.",
+      [
+        "several once-celebrated nudge studies",
+        "vài nghiên cứu cú hích từng nổi tiếng"
+      ],
+      [
+        "hard to replicate",
+        "rất khó tái lập"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Rốt cuộc, không cách trình bày nào trung lập; mọi sắp xếp khả dĩ đều hướng ta đâu đó.",
+      [
+        "neutral",
+        "trung lập"
+      ],
+      [
+        "every possible arrangement of options",
+        "mọi sắp xếp khả dĩ"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Vậy câu hỏi hữu ích không phải có nên hích không, mà hẹp và khó hơn: cú hích có công khai mục tiêu, thiết kế thiện ý và người tạo có chịu trách nhiệm về thứ dựng lên không?",
+      [
+        "open about its aims",
+        "công khai mục tiêu"
+      ],
+      [
+        "well-intentioned in its design",
+        "thiết kế thiện ý"
+      ],
+      [
+        "its architects accountable for what they build",
+        "người tạo có chịu trách nhiệm về thứ dựng lên"
+      ]
+    ],
+    [
+      "p5-s4",
+      "Về câu hỏi ấy, cuộc tranh luận vẫn sôi nổi và, cho đến nay, thực sự chưa ngã ngũ.",
+      [
+        "remains lively",
+        "vẫn sôi nổi"
+      ],
+      [
+        "genuinely unresolved",
+        "thực sự chưa ngã ngũ"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-colour-packaging-scene.svg",
+    "alt": "Các hộp và chai nhiều màu trên kệ hàng, cạnh bảng mẫu màu.",
+    "caption": "Cách trình bày các lựa chọn trong đời sống."
+  },
+  "source_sha256": "63709ca500a835a77d24cd0bd0e68f409b3ff883c9b83e1cb0ab0bd27b53f7b1",
+  "expected_translation_sha256": "ea8b5adae46c03e0fdde5daff54af1f740eb42913932b35109670e2469fa8388"
+}

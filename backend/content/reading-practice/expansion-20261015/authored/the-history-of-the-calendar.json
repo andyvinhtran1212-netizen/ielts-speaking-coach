@@ -1,0 +1,202 @@
+{
+  "slug": "the-history-of-the-calendar",
+  "review_notes": "Neatly divide là chia hết, không phải chia đẹp. Giữ parts of Europe và thời điểm tiếp nhận khác nhau, tránh nói cả châu Âu đồng loạt bỏ mười ngày. Chỉ trường hợp năm 00 mới áp dụng điều kiện 400 trong câu nguồn.",
+  "illustration_brief": "Tờ lịch không ghi ngày và đồng hồ trong một góc bàn làm việc.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Tháng 10 năm 1582, người ở một số vùng châu Âu đi ngủ ngày 4 và thức dậy ngày 15.",
+      [
+        "parts of Europe",
+        "một số vùng châu Âu"
+      ],
+      [
+        "went to sleep on the 4th and woke up on the 15th",
+        "đi ngủ ngày 4 và thức dậy ngày 15"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Mười ngày đơn giản biến khỏi lịch.",
+      [
+        "Ten days",
+        "Mười ngày"
+      ],
+      [
+        "vanished from the calendar",
+        "biến khỏi lịch"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Bước nhảy lạ này không phải lỗi; đó là chỉnh sửa cẩn thận theo lệnh Giáo hoàng Gregory XIII.",
+      [
+        "not a mistake",
+        "không phải lỗi"
+      ],
+      [
+        "a careful repair",
+        "chỉnh sửa cẩn thận"
+      ],
+      [
+        "Pope Gregory XIII",
+        "Giáo hoàng Gregory XIII"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Ông chỉ muốn lịch lại khớp mùa và thiên thể.",
+      [
+        "match the seasons and the heavens once again",
+        "lại khớp mùa và thiên thể"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Rắc rối bắt đầu nhiều thế kỷ trước.",
+      [
+        "centuries earlier",
+        "nhiều thế kỷ trước"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Năm 46 trước Công nguyên, lãnh tụ La Mã Julius Caesar lập lịch có 365 ngày và cứ bốn năm lại thêm một ngày.",
+      [
+        "In 46 BC",
+        "Năm 46 trước Công nguyên"
+      ],
+      [
+        "an extra day every fourth year",
+        "cứ bốn năm lại thêm một ngày"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Cách tính này khéo léo nhưng khiến một năm hơi dài.",
+      [
+        "This rule",
+        "Cách tính này"
+      ],
+      [
+        "slightly too long",
+        "hơi dài"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Năm Mặt Trời thực ngắn hơn khoảng mười một phút nên lịch dần lệch khỏi mùa.",
+      [
+        "The real solar year",
+        "Năm Mặt Trời thực"
+      ],
+      [
+        "about eleven minutes shorter",
+        "ngắn hơn khoảng mười một phút"
+      ],
+      [
+        "drifted away from the seasons",
+        "lệch khỏi mùa"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Đến thế kỷ XVI, khoảng cách tăng thành mười ngày trọn vẹn.",
+      [
+        "By the 1500s",
+        "Đến thế kỷ XVI"
+      ],
+      [
+        "ten whole days",
+        "mười ngày trọn vẹn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Ngày lễ tôn giáo quan trọng như Phục Sinh có thể trượt sang sai mùa.",
+      [
+        "Easter",
+        "Phục Sinh"
+      ],
+      [
+        "the wrong season",
+        "sai mùa"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Để sửa, chuyên gia của Gregory bỏ ngày thừa và chỉnh quy tắc năm nhuận.",
+      [
+        "removed the extra days",
+        "bỏ ngày thừa"
+      ],
+      [
+        "the leap-year rule",
+        "quy tắc năm nhuận"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Năm kết thúc bằng 00 nay chỉ là năm nhuận nếu chia hết cho 400.",
+      [
+        "Years that end in 00",
+        "Năm kết thúc bằng 00"
+      ],
+      [
+        "are now leap years only if",
+        "nay chỉ là năm nhuận nếu"
+      ],
+      [
+        "divide neatly by 400",
+        "chia hết cho 400"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Các nước chấp nhận lịch mới ở thời điểm khác nhau, đôi khi cách nhau nhiều thế kỷ.",
+      [
+        "at different times",
+        "ở thời điểm khác nhau"
+      ],
+      [
+        "sometimes centuries apart",
+        "đôi khi cách nhau nhiều thế kỷ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ngày nay lịch Gregory là hệ thống được dùng rộng nhất Trái Đất.",
+      [
+        "the Gregorian calendar",
+        "lịch Gregory"
+      ],
+      [
+        "the most widely used system",
+        "hệ thống được dùng rộng nhất"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Nhưng vẫn chưa hoàn hảo, và sai số nhỏ nghĩa là có thể cần thêm chỉnh sửa nhỏ trong tương lai xa.",
+      [
+        "tiny errors",
+        "sai số nhỏ"
+      ],
+      [
+        "may be needed",
+        "có thể cần"
+      ],
+      [
+        "the distant future",
+        "tương lai xa"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-deadline-desk-scene.svg",
+    "alt": "Tờ lịch không ghi ngày và đồng hồ trong một góc bàn làm việc.",
+    "caption": "Con người chia và sắp xếp thời gian."
+  },
+  "source_sha256": "fdf7e36ad64251a9a32ec8fca4214e5b8495cc957c77e52cd3f427938830689b",
+  "expected_translation_sha256": "52e00121257c17862b1aa2a4d9897b07fd0f89069583e40158284cd0e5b7b272"
+}

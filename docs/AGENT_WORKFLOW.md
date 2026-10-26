@@ -40,6 +40,17 @@ Use an isolated worktree when another task owns the current checkout or there
 is unrelated work. Inspect available task/session status when coordinating
 shared work; directory age alone does not establish abandonment.
 
+Several agent sessions (Codex, Claude Code, chat agents with device access) may
+work on the same machine at once. Treat the primary checkout as the shared
+integration reference: keep it clean on `main` or `staging`, and do not edit,
+commit, switch branches or run `git pull` there from a task session. Each task
+uses its own worktree beside it, named after the task so `git worktree list`
+shows the owner. Sibling directories that are not Git worktrees (dated
+`*-cleanup-*` / `*-hygiene-*` snapshots, `repo-archives/`) are recovery
+evidence; do not edit or delete them. Before `git worktree prune` or `remove`,
+confirm the path is really gone on the host: a sandboxed shell can report a
+live worktree as "prunable" because it cannot see the host path.
+
 Preserve pre-existing changes, untracked files, stashes and local-only commits.
 Do not reset, clean, overwrite or delete them as a convenience. When cleanup is
 authorized, first establish ownership and recoverability; record the branch,

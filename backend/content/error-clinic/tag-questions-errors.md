@@ -88,7 +88,7 @@ Câu hỏi đuôi là phần ngắn cuối câu để hỏi xác nhận:
 ## Lỗi thường gặp
 
 ### Lỗi 1: Không đảo cực
-- ❌ *You are ready, are you?* → ✅ *…, **aren't** you?*
+- “You are ready, are you?” có thể phản ứng với thông tin mới bằng same-polarity tag. Với kiểu hỏi xác nhận thông dụng, dùng “You are ready, **aren’t you?**”.
 
 ### Lỗi 2: Sai trợ động từ
 - ❌ *She likes tea, **isn't** she?* → ✅ *…, **doesn't** she?*

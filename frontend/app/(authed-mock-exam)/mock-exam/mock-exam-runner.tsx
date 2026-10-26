@@ -95,9 +95,9 @@ const WARN_SECONDS = 120;
 const EMBED_FLUSH_TIMEOUT_MS = 8_000;
 const SUBMIT_RETRY_DELAYS = [2_000, 5_000, 10_000, 20_000] as const;
 const CONNECTION_MESSAGES: Record<Exclude<ConnectionState, null>, string> = {
-  offline: '⚠ Đang mất kết nối với máy chủ — câu trả lời vẫn đang giữ trong tab này. Đừng đóng hoặc tải lại; hệ thống sẽ tự thử lại.',
-  submitting: '⏳ Đang nộp bài — kết nối chập chờn, hệ thống đang thử lại…',
-  submit_failed: '⚠ Chưa nộp được lên máy chủ. Giữ nguyên tab này; hệ thống sẽ tiếp tục thử lại và giám thị có thể thu phần dữ liệu đã lưu.',
+  offline: 'Connection lost. Your answers are still in this tab. Keep it open without reloading; saving will retry automatically.',
+  submitting: 'Submitting answers. The connection is unstable; retrying…',
+  submit_failed: 'Answers have not been submitted. Keep this tab open while submission retries. The invigilator can collect your saved answers.',
 };
 
 function statusOf(caught: unknown) {
@@ -112,10 +112,10 @@ function isAbort(caught: unknown) {
 
 function userMessage(caught: unknown, fallback: string) {
   const status = statusOf(caught);
-  if (status === 401) return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';
-  if (status === 403) return 'Bạn không còn quyền truy cập lượt thi này. Liên hệ giám thị.';
-  if (status === 404) return 'Không tìm thấy lượt thi. Liên hệ giám thị.';
-  if (status === 409) return 'Trạng thái kỳ thi vừa thay đổi. Hệ thống đang đồng bộ lại.';
+  if (status === 401) return 'Your session has expired. Please sign in again.';
+  if (status === 403) return 'You no longer have access to this attempt. Contact your invigilator.';
+  if (status === 404) return 'Attempt not found. Contact your invigilator.';
+  if (status === 409) return 'The test status has changed. Synchronising…';
   return fallback;
 }
 
@@ -165,7 +165,7 @@ function LoadingCard({ children }: { children: string }) {
 }
 
 export function MockExamRunnerLoading() {
-  return <LoadingCard>Đang tải kỳ thi…</LoadingCard>;
+  return <LoadingCard>Loading test session…</LoadingCard>;
 }
 
 function ErrorCard({ message, retry }: { message: string; retry?: () => void }) {
@@ -173,9 +173,9 @@ function ErrorCard({ message, retry }: { message: string; retry?: () => void }) 
     <main className="me-center">
       <section className="me-card me-status-card" role="alert">
         <div className="me-status-icon" aria-hidden="true">!</div>
-        <h1 className="me-h1">Không mở được kỳ thi</h1>
+        <h1 className="me-h1">Unable to open the test</h1>
         <p className="me-muted">{message}</p>
-        {retry ? <button className="av-button av-button-primary" type="button" onClick={retry}>Thử lại</button> : null}
+        {retry ? <button className="av-button av-button-primary" type="button" onClick={retry}>Retry</button> : null}
       </section>
     </main>
   );
@@ -200,7 +200,7 @@ function Checklist({ state, retake, onStart, starting }: {
               type="button"
               onClick={() => onStart(section)}
             >
-              {starting === section ? 'Đang mở…' : `Bắt đầu ${MOCK_SECTION_LABELS[section]}`}
+              {starting === section ? 'Opening…' : `Start ${MOCK_SECTION_LABELS[section]}`}
             </button>
           );
         }
@@ -218,12 +218,12 @@ function WaitingRoom({ state, code, onStart, starting, startError }: {
   startError: string | null;
 }) {
   const retake = state.examMode === 'retake';
-  const title = `${retake ? 'Bài test lại' : 'Thi thử'}: ${state.exam.readingTitle || code || 'IELTS'}`;
+  const title = `${retake ? 'Retake' : 'Mock test'}: ${state.exam.readingTitle || code || 'IELTS'}`;
   const message = retake
-    ? 'Chọn phần để bắt đầu. Mỗi phần có thời gian riêng — web tự thu bài khi hết giờ.'
+    ? 'Select a section to start. Each section has its own timer and is submitted automatically when time runs out.'
     : state.activeSection === 'not_started'
-      ? 'Đang chờ giám thị bắt đầu bài thi…'
-      : 'Đã nộp phần trước — đang chờ giám thị mở phần tiếp theo…';
+      ? 'Waiting for the invigilator to start the test…'
+      : 'Section submitted. Waiting for the invigilator to open the next section…';
   return (
     <main className="me-center">
       <section className="me-card me-status-card">
@@ -246,19 +246,19 @@ function SubmittedCard({ state, onSpeaking, openingSpeaking }: {
     <main className="me-center">
       <section className="me-card me-status-card">
         <div className="me-status-icon me-status-icon--success" aria-hidden="true">✓</div>
-        <h1 className="me-h1">Đã thu bài</h1>
+        <h1 className="me-h1">Test collected</h1>
         <p className="me-muted">
-          Bài của bạn đã được ghi nhận. Giám khảo sẽ trả kết quả trong khoảng <strong>{state.exam.reviewSlaDays ?? 3} ngày</strong>. Bạn sẽ thấy điểm tại trang chủ khi có kết quả.
+          Your answers have been received. Results are expected in <strong>{state.exam.reviewSlaDays ?? 3} days</strong>. Your scores will appear on the home page when available.
         </p>
         {speakingPending ? (
           <div className="me-submitted-extra">
-            <p className="me-muted">Còn phần <strong>Speaking</strong> (vấn đáp 3 phần) để hoàn tất bài thi.</p>
+            <p className="me-muted">Complete the three-part <strong>Speaking</strong> section to finish the test.</p>
             <button className="av-button av-button-primary" disabled={openingSpeaking} type="button" onClick={onSpeaking}>
-              {openingSpeaking ? 'Đang mở…' : 'Vào thi Speaking →'}
+              {openingSpeaking ? 'Opening…' : 'Start Speaking →'}
             </button>
           </div>
-        ) : <p className="me-muted me-submitted-extra">Kết quả đang chờ giám khảo duyệt.</p>}
-        <a className="av-button av-button-secondary" href="/home">Về trang chủ</a>
+        ) : <p className="me-muted me-submitted-extra">Your results are awaiting examiner review.</p>}
+        <a className="av-button av-button-secondary" href="/home">Back to home</a>
       </section>
     </main>
   );
@@ -496,35 +496,35 @@ function WritingWorkspace({ state, register, remaining, locked = false }: {
     ? timeAllocation.task1Minutes
     : timeAllocation.task2Minutes;
   const timeGuidance = recommendedMinutes == null
-    ? `Gợi ý khoảng ${guidance.timeShare}/${MOCK_WRITING_TIME_SHARE_TOTAL} thời gian`
-    : `Gợi ý ${recommendedMinutes} phút`;
+    ? `Suggested time: ${guidance.timeShare}/${MOCK_WRITING_TIME_SHARE_TOTAL} of the section`
+    : `Suggested time: ${recommendedMinutes} minutes`;
   const currentCount = counts[task];
   const targetReached = currentCount >= guidance.minWords;
   const taskVariant = task === 'task1' && prompt?.taskType === 'task1_academic' ? 'Academic'
     : task === 'task1' && prompt?.taskType === 'task1_general' ? 'General Training' : null;
   const taskInstruction = task === 'task2'
-    ? 'Trình bày lập trường rõ ràng, phát triển luận điểm và dùng ví dụ phù hợp.'
+    ? 'Present a clear position, develop your ideas and support them with relevant examples.'
     : prompt?.taskType === 'task1_academic'
-      ? 'Tóm tắt và so sánh các đặc điểm chính của thông tin trực quan; không cần nêu ý kiến cá nhân.'
+      ? 'Summarise and compare the main features. Do not include personal opinions.'
       : prompt?.taskType === 'task1_general'
-        ? 'Viết một lá thư đúng vai trò, mục đích và giọng điệu được yêu cầu; bao quát các ý gợi dẫn.'
-        : 'Thực hiện đúng yêu cầu trong đề và trình bày một câu trả lời hoàn chỉnh.';
+        ? 'Write a letter using the appropriate role, purpose and tone. Address all bullet points.'
+        : 'Follow the instructions and write a complete response.';
   const shortTasks = (['task1', 'task2'] as const).filter((name) => (
     counts[name] < MOCK_WRITING_GUIDANCE[name].minWords
   ));
   const taskStatus = (name: 'task1' | 'task2') => {
     const count = counts[name];
     const target = MOCK_WRITING_GUIDANCE[name].minWords;
-    if (count === 0) return 'Chưa bắt đầu';
-    if (count >= target) return 'Đạt mức tối thiểu';
-    return `${count}/${target} từ`;
+    if (count === 0) return 'Not started';
+    if (count >= target) return 'Minimum reached';
+    return `${count}/${target} words`;
   };
   const splitStyle = { '--mw-split': `${split}%` } as CSSProperties;
 
   return (
     <div className="me-writing">
       <div className="mw-toolbar">
-        <div className="me-wtabs" role="tablist" aria-label="Chọn task">
+        <div className="me-wtabs" role="tablist" aria-label="Select task">
           {(['task1', 'task2'] as const).map((name, index) => (
             <button
               aria-selected={task === name}
@@ -540,14 +540,14 @@ function WritingWorkspace({ state, register, remaining, locked = false }: {
           ))}
         </div>
         <span className={`mw-savecue${saveCue === 'failed' || localBackupFailed ? ' is-failed' : ''}`} role="status" aria-live="polite">
-          {localBackupFailed && saveCue === 'failed' ? 'Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng — tuyệt đối không đóng hoặc tải lại tab; hệ thống vẫn đang thử lại.'
-            : localBackupFailed && saveCue === 'saved' ? `Đã lưu lên máy chủ lúc ${savedAt}, nhưng trình duyệt không tạo được bản dự phòng trên thiết bị.`
-            : localBackupFailed ? 'Trình duyệt không tạo được bản dự phòng trên thiết bị — giữ nguyên tab đến khi hiện “Đã lưu”.'
-            : saveCue === 'saving' ? 'Đang lưu…' : saveCue === 'saved' ? `Đã lưu lúc ${savedAt}`
-              : saveCue === 'failed' ? 'Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn, hệ thống sẽ tự thử lại.' : ''}
+          {localBackupFailed && saveCue === 'failed' ? 'Server save and local backup failed. Do not close or reload this tab; saving is still retrying.'
+            : localBackupFailed && saveCue === 'saved' ? `Saved to the server at ${savedAt}, but a local backup could not be created.`
+            : localBackupFailed ? 'A local backup could not be created. Keep this tab open until “Saved” appears.'
+            : saveCue === 'saving' ? 'Saving…' : saveCue === 'saved' ? `Saved at ${savedAt}`
+              : saveCue === 'failed' ? 'Not saved to the server. Your local backup is available; saving will retry automatically.' : ''}
         </span>
-        <div className="mw-layout" role="group" aria-label="Bố cục đề và khung viết">
-          <span className="mw-layout__label">Bố cục đề:</span>
+        <div className="mw-layout" role="group" aria-label="Question and answer layout">
+          <span className="mw-layout__label">Question position:</span>
           {(['left', 'right', 'top', 'bottom'] as const).map((name) => (
             <button
               aria-pressed={layout === name}
@@ -557,43 +557,43 @@ function WritingWorkspace({ state, register, remaining, locked = false }: {
               onClick={() => setPreferredLayout(name)}
             >
               <span className={`mw-glyph mw-glyph--${name}`} aria-hidden="true" />
-              {{ left: 'Trái', right: 'Phải', top: 'Trên', bottom: 'Dưới' }[name]}
+              {{ left: 'Left', right: 'Right', top: 'Above', bottom: 'Below' }[name]}
             </button>
           ))}
         </div>
       </div>
       {remaining > 0 && remaining <= 600 && shortTasks.length ? (
         <div className="mw-time-guidance">
-          <strong>Còn {formatMockTime(remaining)}</strong>
+          <strong>{formatMockTime(remaining)} remaining</strong>
           <span>
-            {shortTasks.map((name) => `Task ${name === 'task1' ? '1' : '2'} còn thiếu ${MOCK_WRITING_GUIDANCE[name].minWords - counts[name]} từ`).join(' · ')}.
-             Đây là mốc độ dài, không phải đánh giá chất lượng bài viết.
+            {shortTasks.map((name) => `Task ${name === 'task1' ? '1' : '2'} needs ${MOCK_WRITING_GUIDANCE[name].minWords - counts[name]} more words`).join(' · ')}.
+             This is a word count guideline, not an assessment of writing quality.
           </span>
         </div>
       ) : null}
       <div className="mw-split" data-layout={layout} ref={splitRef} style={splitStyle}>
-        <section className="mw-pane mw-pane--prompt" aria-label="Đề bài">
+        <section className="mw-pane mw-pane--prompt" aria-label="Question">
           <header className="mw-prompt-head">
             <p>WRITING TASK {task === 'task1' ? '1' : '2'}</p>
             <h1>{prompt?.title || `Task ${task === 'task1' ? '1' : '2'}`}</h1>
-            <div className="mw-task-meta" aria-label="Thông tin task">
-              <span>Ít nhất {guidance.minWords} từ</span>
+            <div className="mw-task-meta" aria-label="Task information">
+              <span>At least {guidance.minWords} words</span>
               <span>{timeGuidance}</span>
               {taskVariant ? <span>{taskVariant}</span> : null}
-              {guidance.scoreWeight === 2 ? <span>Trọng số gấp 2 Task 1</span> : null}
+              {guidance.scoreWeight === 2 ? <span>Worth twice as much as Task 1</span> : null}
             </div>
           </header>
           <aside className="mw-instructions">
-            <strong>Hướng dẫn</strong>
+            <strong>Instructions</strong>
             <p>{taskInstruction}</p>
           </aside>
           <div className="me-prompt-text">
-            {prompt?.promptText || `(Không có đề ${task === 'task1' ? 'Task 1' : 'Task 2'})`}
+            {prompt?.promptText || `(No question available for ${task === 'task1' ? 'Task 1' : 'Task 2'})`}
           </div>
-          {task === 'task1' && prompt?.promptImageUrl ? <img className="me-prompt-image" src={prompt.promptImageUrl} alt="Biểu đồ hoặc hình minh hoạ của đề Task 1" /> : null}
+          {task === 'task1' && prompt?.promptImageUrl ? <img className="me-prompt-image" src={prompt.promptImageUrl} alt="Task 1 chart or illustration" /> : null}
         </section>
         <div
-          aria-label="Kéo để đổi tỉ lệ đề / khung viết"
+          aria-label="Resize question and answer panels"
           aria-orientation={narrow || layout === 'top' || layout === 'bottom' ? 'horizontal' : 'vertical'}
           aria-valuemax={75}
           aria-valuemin={25}
@@ -607,30 +607,30 @@ function WritingWorkspace({ state, register, remaining, locked = false }: {
           onPointerMove={pointerMove}
           onPointerUp={pointerUp}
         />
-        <section className="mw-pane mw-pane--editor" aria-label="Khung viết bài">
+        <section className="mw-pane mw-pane--editor" aria-label="Your answer">
           <header className="mw-editor-head">
-            <div><span>BÀI LÀM</span><strong>Task {task === 'task1' ? '1' : '2'}</strong></div>
+            <div><span>YOUR ANSWER</span><strong>Task {task === 'task1' ? '1' : '2'}</strong></div>
             <span className={`mw-target-state${targetReached ? ' is-ready' : ''}`}>
-              {targetReached ? 'Đã đạt mức tối thiểu' : `Còn ${guidance.minWords - currentCount} từ đến mức tối thiểu`}
+              {targetReached ? 'Minimum word count reached' : `${guidance.minWords - currentCount} more words to reach the minimum`}
             </span>
           </header>
           <textarea
-            aria-label={`Bài viết ${task === 'task1' ? 'Task 1' : 'Task 2'}`}
+            aria-label={`Answer for ${task === 'task1' ? 'Task 1' : 'Task 2'}`}
             aria-describedby={`mock-writing-count-${task}`}
             autoCorrect="off"
             className="me-essay"
-            placeholder={`Viết ${task === 'task1' ? 'Task 1' : 'Task 2'}…`}
+            placeholder={`Write your answer for ${task === 'task1' ? 'Task 1' : 'Task 2'}…`}
             readOnly={locked}
             spellCheck={false}
             value={value}
             onChange={(event) => edit(task, event.target.value)}
           />
           <div className="mw-count-row" id={`mock-writing-count-${task}`}>
-            <strong>{currentCount} từ</strong>
-            <span>Mức tối thiểu: {guidance.minWords} từ</span>
+            <strong>{currentCount} words</strong>
+            <span>Minimum: {guidance.minWords} words</span>
           </div>
           <div
-            aria-label={`Tiến độ số từ Task ${task === 'task1' ? '1' : '2'}`}
+            aria-label={`Word count progress for Task ${task === 'task1' ? '1' : '2'}`}
             aria-valuemax={guidance.minWords}
             aria-valuemin={0}
             aria-valuenow={Math.min(currentCount, guidance.minWords)}
@@ -649,7 +649,7 @@ export function MockExamRunner() {
   const queryKey = searchParams?.toString() || '';
   const params = useMemo(() => {
     try { return { value: mockExamParams(queryKey), error: null }; }
-    catch { return { value: null, error: 'Thiếu mã kỳ thi (?code=) hoặc mã lượt thi (?sitting=).' }; }
+    catch { return { value: null, error: 'Missing test code or attempt ID.' }; }
   }, [queryKey]);
   const [state, setState] = useState<MockState | null>(null);
   const [fatal, setFatal] = useState<string | null>(params.error);
@@ -816,7 +816,7 @@ export function MockExamRunner() {
         if (debt && typeof debt.retryAll === 'function') debt.retryAll();
       } catch (caught) {
         if (controller.signal.aborted || boot !== bootRef.current || isAbort(caught)) return;
-        setFatal(userMessage(caught, 'Không thể tải trạng thái kỳ thi. Hãy thử lại hoặc liên hệ giám thị.'));
+        setFatal(userMessage(caught, 'Unable to load the test status. Try again or contact your invigilator.'));
       }
     })();
     return () => controller.abort();
@@ -846,7 +846,7 @@ export function MockExamRunner() {
         if (disposed || isAbort(caught)) return;
         const statusCode = statusOf(caught);
         if (statusCode === 403 || statusCode === 404) {
-          setFatal(userMessage(caught, 'Lượt thi này không còn truy cập được.'));
+          setFatal(userMessage(caught, 'This attempt is no longer accessible.'));
           return;
         }
         pollFailuresRef.current += 1;
@@ -1061,7 +1061,7 @@ export function MockExamRunner() {
       const statusCode = statusOf(caught);
       if (statusCode === 403 || statusCode === 404) {
         submittingRef.current = false;
-        setFatal(userMessage(caught, 'Không nộp được bài. Liên hệ giám thị.'));
+        setFatal(userMessage(caught, 'Unable to submit your answers. Contact your invigilator.'));
         return;
       }
       if (statusCode === 409 || statusCode === 422) {
@@ -1140,7 +1140,7 @@ export function MockExamRunner() {
       );
       await loadState(sittingId);
     } catch (caught) {
-      setStartError(userMessage(caught, 'Không bắt đầu được phần thi. Hãy thử lại.'));
+      setStartError(userMessage(caught, 'Unable to start this section. Please try again.'));
     } finally { setStarting(null); }
   }, [loadState, starting]);
 
@@ -1159,7 +1159,7 @@ export function MockExamRunner() {
       if (!sessionId) throw new Error('invalid-speaking-session');
       window.location.assign(mockSpeakingHref(sessionId));
     } catch (caught) {
-      setFatal(userMessage(caught, 'Không mở được phần Speaking. Hãy thử lại hoặc liên hệ giám thị.'));
+      setFatal(userMessage(caught, 'Unable to open Speaking. Try again or contact your invigilator.'));
       setOpeningSpeaking(false);
     }
   }, [openingSpeaking]);
@@ -1175,7 +1175,7 @@ export function MockExamRunner() {
   if (status === 'initial-loading' || (!state && !fatal)) return <MockExamRunnerLoading />;
   if (fatal) return <ErrorCard message={fatal} retry={() => setReloadNonce((value) => value + 1)} />;
   if (!state) return <MockExamRunnerLoading />;
-  if (view === 'void') return <ErrorCard message="Kỳ thi đã bị huỷ. Liên hệ giám khảo để được cấp lượt mới." />;
+  if (view === 'void') return <ErrorCard message="This test has been cancelled. Contact your examiner for a new attempt." />;
   if ((view === 'waiting' || view === 'retake-menu') && !awaitingCollectionFlush) {
     return (
       <>
@@ -1190,26 +1190,26 @@ export function MockExamRunner() {
     skill={pendingCapture.section}
     envelope={pendingCapture.envelope}
     context="mock"
-    completionLabel="Lưu tự đánh giá và nộp phần thi"
+    completionLabel="Save confidence ratings and submit section"
     onComplete={completePostTestCapture}
   />;
 
   return (
     <main className="me-test-shell">
       {connection ? <div className="me-conn-banner" role="status" aria-live="polite">{CONNECTION_MESSAGES[connection]}</div> : null}
-      {awaitingCollectionFlush ? <div className="me-conn-banner" role="status" aria-live="polite">Đang lưu câu trả lời cuối cùng…</div> : null}
+      {awaitingCollectionFlush ? <div className="me-conn-banner" role="status" aria-live="polite">Saving your final answers…</div> : null}
       <header className="me-bar">
         <span className={`me-timer${remaining <= WARN_SECONDS ? ' warn' : ''}`} role="timer">{formatMockTime(remaining)}</span>
         <div className="me-section-label">{renderedSection ? MOCK_SECTION_LABELS[renderedSection] : ''}</div>
-        <span className="me-save-note">Tự động lưu bài</span>
+        <span className="me-save-note">Answers saved automatically</span>
       </header>
-      {remaining <= WARN_SECONDS ? <div className="me-warn-banner" role="status">⚠ Sắp hết giờ phần này — bài sẽ tự nộp khi hết giờ.</div> : null}
-      <section className="me-panels" aria-label={renderedSection ? `Phần thi ${renderedSection}` : 'Phần thi'}>
+      {remaining <= WARN_SECONDS ? <div className="me-warn-banner" role="status">Time is running out. This section will be submitted automatically.</div> : null}
+      <section className="me-panels" aria-label={renderedSection ? `Test section ${renderedSection}` : 'Test section'}>
         {renderedSection === 'writing'
           ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} remaining={remaining} locked={awaitingCollectionFlush} />
           : frameSrc
-            ? <iframe inert={awaitingCollectionFlush} ref={frameRef} src={frameSrc} title={`Bài thi ${renderedSection}`} />
-            : <ErrorCard message="Kỳ thi thiếu nội dung cho phần đang mở. Liên hệ giám thị." />}
+            ? <iframe inert={awaitingCollectionFlush} ref={frameRef} src={frameSrc} title={`${renderedSection} test`} />
+            : <ErrorCard message="Content for this section is unavailable. Contact your invigilator." />}
       </section>
     </main>
   );

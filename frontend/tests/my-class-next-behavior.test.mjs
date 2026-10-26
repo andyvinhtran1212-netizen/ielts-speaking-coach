@@ -4,7 +4,10 @@ import { readFileSync } from 'node:fs';
 
 import {
   assignmentAction,
+  assignmentSubtitle,
+  classOnTimeLabel,
   courseNeedsAction,
+  sessionPrefixedTitle,
   nextDue,
   normalizeClassStartResponse,
   normalizeMyClassResponse,
@@ -202,6 +205,54 @@ describe('assignment start contract', () => {
     });
   });
 
+  test('overdue course work with no receipt is closed instead of a result', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({ course_action: 'closed', is_missing: true })],
+      progress: { total: 1, submitted: 0, todo: 0, missing: 1, late: 0, on_time_pct: null },
+    }));
+    assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+      kind: 'closed', label: 'Đã quá hạn',
+    });
+    assert.equal(courseNeedsAction(normalized.assignments[0]), false);
+  });
+
+  test('a backend "review" for overdue work stays a result, not closed', () => {
+    // A timed item that expired after a failed retake has no submitted_at /
+    // passed_at receipt, yet the server still serves it read-only and returns
+    // course_action "review". Trust that verdict instead of inferring "closed".
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({ course_action: 'review', is_missing: true })],
+      progress: { total: 1, submitted: 0, todo: 0, missing: 1, late: 0, on_time_pct: null },
+    }));
+    assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+      kind: 'review', label: 'Xem kết quả',
+    });
+  });
+
+  test('course subtitle does not repeat a session prefix the title already has', () => {
+    const duplicated = normalizeMyClassResponse(payload({
+      assignments: [assignment({
+        assignment: {
+          ...assignment().assignment,
+          content_config: { lesson_no: 2, test_title: 'Buổi 2 — Danh từ & lượng từ' },
+        },
+      })],
+    }));
+    assert.equal(assignmentSubtitle(duplicated.assignments[0]), 'Buổi 2 — Danh từ & lượng từ');
+    assert.equal(assignmentSubtitle(normalizeMyClassResponse(payload()).assignments[0]),
+      'Buổi 2 · Danh từ và lượng từ');
+    assert.equal(sessionPrefixedTitle(2, 'Buổi 20 — lượng từ'), 'Buổi 2 · Buổi 20 — lượng từ');
+  });
+
+  test('on-time tile is — when the class has work but nothing handed in', () => {
+    // Zero submissions means no denominator; "0%" would read as a failing
+    // discipline rate rather than "no data yet".
+    const open = normalizeMyClassResponse(payload());
+    assert.equal(classOnTimeLabel(open.assignments), '—');
+    assert.equal(classOnTimeLabel([]), '—');
+    assert.equal(classOnTimeLabel(null), '—');
+  });
+
   test('a submitted course item remains actionable as a result, not a new attempt', () => {
     const normalized = normalizeMyClassResponse(payload({
       assignments: [assignment({
@@ -212,6 +263,47 @@ describe('assignment start contract', () => {
     assert.deepEqual(assignmentAction(normalized.assignments[0]), {
       kind: 'review', label: 'Xem kết quả',
     });
+  });
+
+  test('a cohort writing give surfaces on the class page and stays navigable', () => {
+    // The backend now emits writing gives (from writing_assignments) as skill
+    // 'writing' rows so a late joiner sees them on /my-class exactly like an
+    // on-time classmate. They must survive the strict boundary and offer an
+    // action that routes to the Writing dashboard, not the class-start endpoint.
+    const writingGive = {
+      item_id: 'w-open', state: 'pending', submitted_at: null, score: null,
+      passed_at: null, course_action: null, writing_expected: false,
+      is_late: false, is_missing: false,
+      assignment: {
+        id: 'w-open', cohort_id: 'c1', cohort_name: 'QA Course 1',
+        title: 'QA TEST Task 2', skill: 'writing', instructions: null,
+        due_at: '2099-01-01T00:00:00+00:00', content_config: {},
+      },
+    };
+    const open = normalizeMyClassResponse(payload({
+      assignments: [writingGive],
+      progress: { total: 1, submitted: 0, todo: 1, missing: 0, late: 0, on_time_pct: null },
+    }));
+    assert.equal(open.assignments.length, 1, 'the writing give must not be dropped by the boundary');
+    assert.equal(open.assignments[0].assignment.skill, 'writing');
+    assert.deepEqual(assignmentAction(open.assignments[0]), { kind: 'start', label: 'Làm bài' });
+
+    const submitted = normalizeMyClassResponse(payload({
+      assignments: [{ ...writingGive, item_id: 'w-done', state: 'graded',
+        submitted_at: '2026-10-01T10:00:00Z',
+        assignment: { ...writingGive.assignment, id: 'w-done' } }],
+      progress: { total: 1, submitted: 1, todo: 0, missing: 0, late: 0, on_time_pct: 100 },
+    }));
+    assert.deepEqual(assignmentAction(submitted.assignments[0]), { kind: 'review', label: 'Xem bài đã nộp' });
+
+    const overdue = normalizeMyClassResponse(payload({
+      assignments: [{ ...writingGive, item_id: 'w-late', is_missing: true,
+        assignment: { ...writingGive.assignment, id: 'w-late',
+          due_at: '2020-01-01T00:00:00+00:00' } }],
+      progress: { total: 1, submitted: 0, todo: 0, missing: 1, late: 0, on_time_pct: null },
+    }));
+    // Not a dead "closed" button: an overdue essay can still be opened/late-submitted.
+    assert.deepEqual(assignmentAction(overdue.assignments[0]), { kind: 'review', label: 'Mở bài viết' });
   });
 
   test('course review intent survives the strict start-response boundary', () => {

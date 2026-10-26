@@ -206,11 +206,11 @@ input: "text"
 headword: "cpx-noun-clause"
 skill: "production"
 subtype: "intermediate"
-prompt: "Hoàn thành noun clause làm tân ngữ: 'The question is ____ governments should intervene in the market.'"
+prompt: "Hoàn thành noun clause làm bổ ngữ cho chủ ngữ sau động từ nối is: 'The question is ____ governments should intervene in the market.'"
 accept: ["whether"]
 case_sensitive: false
 grammar_article_slug: "complex-sentence"
-explain: "Diễn đạt sự phân vân/lựa chọn sau linking verb 'is' → dùng 'whether' (không phải 'that', vì đây là câu hỏi gián tiếp có/không)."
+explain: "Whether mở câu hỏi gián tiếp có/không. Trong 'The question is whether...', mệnh đề whether là subject complement sau linking verb is, không phải tân ngữ trực tiếp."
 ---
 
 ---
@@ -263,11 +263,11 @@ input: "text"
 headword: "cpx-fragment-dependent-alone"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sửa lỗi câu cụt (fragment) bằng cách thêm mệnh đề chính vào cuối. Chỉ gõ phần thêm vào (không lặp lại phần đã cho): 'Although the economy grew, ____'"
-accept: ["inequality remained high", "inequality remained high.", "poverty rates stayed high", "many people stayed poor"]
+prompt: "Thêm mệnh đề chính, chọn một trong ba chủ ngữ unemployment / inequality / poverty rates và ý 'vẫn ở mức cao': 'Although the economy grew, ____'. Chỉ gõ phần thêm vào."
+accept: ["unemployment remained high", "unemployment stayed high", "inequality remained high", "inequality stayed high", "poverty rates remained high", "poverty rates stayed high"]
 case_sensitive: false
 grammar_article_slug: "complex-sentence"
-explain: "'Although the economy grew' là dependent clause, không thể đứng một mình (fragment) → BẮT BUỘC thêm independent clause đi kèm, vd 'inequality remained high', để hoàn chỉnh câu phức."
+explain: "Các mệnh đề chính này đều hoàn chỉnh và tương phản hợp lý với economy grew. Đề nêu rõ ba chủ ngữ và ý cần diễn đạt để tập đáp án có thể bao quát nhiệm vụ, thay vì chấm một đề mở theo duy nhất ví dụ inequality."
 ---
 
 ---

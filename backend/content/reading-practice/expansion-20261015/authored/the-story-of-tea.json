@@ -1,0 +1,182 @@
+{
+  "slug": "the-story-of-tea",
+  "review_notes": "Tự dịch; giữ xuất xứ truyền thuyết và may ở câu cuối. 1500s/1600s là thế kỷ 16/17. Minh hoạ trà hiện tại, không minh chứng câu chuyện Thần Nông.",
+  "illustration_brief": "Cốc trà có túi trà và sợi dây vắt qua miệng cốc, với vài lá trà cạnh đĩa.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Trà là thức uống phổ biến nhất thế giới sau nước, nhưng ít người biết nó bắt đầu như thế nào.",
+      [
+        "the most popular drink",
+        "thức uống phổ biến nhất"
+      ],
+      [
+        "after water",
+        "sau nước"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Theo một truyền thuyết Trung Hoa xưa, câu chuyện bắt đầu khoảng năm nghìn năm trước — một cách tình cờ.",
+      [
+        "an old Chinese legend",
+        "một truyền thuyết Trung Hoa xưa"
+      ],
+      [
+        "by accident",
+        "một cách tình cờ"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Một người hầu đang đun nước cho vua Thần Nông thì gió thổi vài chiếc lá khô vào nồi.",
+      [
+        "A servant",
+        "Một người hầu"
+      ],
+      [
+        "the emperor Shen Nung",
+        "vua Thần Nông"
+      ],
+      [
+        "dry leaves",
+        "chiếc lá khô"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Nhà vua nếm thức uống mới, thấy thích, và trà ra đời.",
+      [
+        "tasted the new drink",
+        "nếm thức uống mới"
+      ],
+      [
+        "tea was born",
+        "trà ra đời"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Dù câu chuyện có thật hay không, trà quả thực bắt nguồn từ Trung Quốc.",
+      [
+        "Whether or not the story is true",
+        "Dù câu chuyện có thật hay không"
+      ],
+      [
+        "did begin in China",
+        "quả thực bắt nguồn từ Trung Quốc"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Trong hàng trăm năm, người ta chỉ uống trà ở đó.",
+      [
+        "For hundreds of years",
+        "Trong hàng trăm năm"
+      ],
+      [
+        "was drunk only there",
+        "chỉ uống trà ở đó"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Dần dần, trà lan sang những vùng khác của châu Á, và người ta bắt đầu trồng nó như một cây trồng quan trọng.",
+      [
+        "other parts of Asia",
+        "những vùng khác của châu Á"
+      ],
+      [
+        "a serious crop",
+        "một cây trồng quan trọng"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Vào thế kỷ mười sáu, những thương nhân châu Âu đầu tiên tại Trung Quốc biết đến thức uống này.",
+      [
+        "In the 1500s",
+        "Vào thế kỷ mười sáu"
+      ],
+      [
+        "European merchants",
+        "thương nhân châu Âu"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Đến thế kỷ mười bảy, tàu thuyền đã chở trà vượt biển và Anh bắt đầu nhập khẩu trà với số lượng lớn.",
+      [
+        "By the 1600s",
+        "Đến thế kỷ mười bảy"
+      ],
+      [
+        "import tea in large amounts",
+        "nhập khẩu trà với số lượng lớn"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Hoạt động buôn bán này phát triển nhanh chóng.",
+      [
+        "The trade",
+        "Hoạt động buôn bán này"
+      ],
+      [
+        "grew quickly",
+        "phát triển nhanh chóng"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Chẳng bao lâu, trà trở thành thức uống thời thượng trong giới giàu có, rồi cả trong những gia đình bình thường.",
+      [
+        "a fashionable drink",
+        "thức uống thời thượng"
+      ],
+      [
+        "ordinary families",
+        "những gia đình bình thường"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ngày nay, trà được trồng ở nhiều nước, từ Ấn Độ và Sri Lanka đến Kenya.",
+      [
+        "is grown in many countries",
+        "được trồng ở nhiều nước"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Người ta uống trà nóng hoặc lạnh, với sữa, đường hay chanh, và mỗi nền văn hoá đều có cách phục vụ trà riêng.",
+      [
+        "hot or cold",
+        "nóng hoặc lạnh"
+      ],
+      [
+        "its own way of serving it",
+        "cách phục vụ trà riêng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Từ một tách trà được pha tình cờ từ xa xưa, trà có lẽ đã đi xa hơn gần như mọi thức uống khác trong lịch sử.",
+      [
+        "by chance",
+        "tình cờ"
+      ],
+      [
+        "may have travelled further",
+        "có lẽ đã đi xa hơn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-tea-bag-scene.svg",
+    "alt": "Cốc trà có túi trà và sợi dây vắt qua miệng cốc, với vài lá trà cạnh đĩa.",
+    "caption": "Trà trong sinh hoạt hằng ngày."
+  },
+  "source_sha256": "cc5593a358490d86833824ff30655703d76a3e0b71288c86bdae40da13a6cc79",
+  "expected_translation_sha256": "6cfacd005d645a923aa0a9b0e83b2d22f7d7acde9ad01339c09038f4d93315a4"
+}

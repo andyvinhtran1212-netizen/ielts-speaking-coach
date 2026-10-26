@@ -1,0 +1,3 @@
+language_tool_python>=2.7
+# Optional, only needed if you want to regenerate the printable PDF mindmap:
+reportlab>=4.0

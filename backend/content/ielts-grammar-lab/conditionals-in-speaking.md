@@ -177,7 +177,7 @@ Dùng khi nói về điều **đã không xảy ra** — "nếu ngày đó tôi 
 
 ### Trong Part 3 — phân tích vấn đề xã hội:
 
-- **If** governments **had invested** in renewable energy twenty years ago, we **would not have** such a serious climate crisis today.
+- **If** governments **had invested** in renewable energy twenty years ago, we **would not have** such a serious climate crisis today. *(điều kiện hỗn hợp quá khứ → hiện tại, không phải Type 3 thuần)*
 - **If** more attention **had been paid** to mental health in schools, many problems **could have been** prevented.
 
 > Third conditional trong Part 3 thể hiện khả năng **critical thinking** — phân tích nguyên nhân và hệ quả lịch sử.
@@ -285,15 +285,15 @@ Ngoài câu điều kiện truyền thống, "if" còn dùng để hedge và ph�
 ### Hoàn thành câu với đúng dạng conditional
 
 1. If I ___ (be) the prime minister, I ___ (invest) more in renewable energy.
-2. If she ___ (study) medicine, she ___ (become) a doctor by now.
+2. Imagine she did not study medicine. If she ___ (study) medicine, she ___ (be) a doctor now.
 3. If people ___ (recycle) more, there ___ (be) less waste in landfills.
-4. The company ___ (not fail) if the management ___ (make) better decisions.
-5. If I ___ (know) about the event, I ___ (come).
+4. The company failed last year. It ___ (not fail) if the management ___ (make) better decisions before that.
+5. I missed yesterday’s event. If I ___ (know) about it, I ___ (come).
 
 ### Đáp án
 
 1. **were / would invest** (second — giả định hiện tại)
-2. **had studied / would have become** (mixed — quá khứ → hệ quả hiện tại)
+2. **had studied / would be** (mixed — quá khứ → trạng thái hiện tại)
 3. **recycled / would be** (second — giả định chung)
 4. **would not have failed / had made** (third — giả định quá khứ)
 5. **had known / would have come** (third — quá khứ)

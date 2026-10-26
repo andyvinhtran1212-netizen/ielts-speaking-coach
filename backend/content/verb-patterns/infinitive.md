@@ -68,7 +68,9 @@ anchors:
 <!-- anchor: infinitive.overview -->
 ## Tóm tắt
 
-**To-infinitive** = **to + động từ nguyên thể** — được dùng sau một số động từ nhất định, để diễn tả mục đích, và sau nhiều tính từ; khác với gerund (V-ing) ở chỗ nó hướng về *hành động sẽ xảy ra hoặc kết quả mong muốn*.
+**To-infinitive** = **to + động từ nguyên thể** — được dùng sau một số động từ nhất định, để diễn tả mục đích, và sau nhiều tính từ; nghĩa phụ thuộc động từ chính và ngữ cảnh.
+
+To-infinitive là dạng **to + động từ nguyên mẫu**, không phải một thì tương lai. “She seems to know” chỉ trạng thái hiện tại; “I am glad to have met you” nhìn về trước đó. Gerund cũng có thể chỉ tương lai: “I am considering applying next year”. Nghĩa và thời gian phụ thuộc động từ chính, thể và ngữ cảnh; các xu hướng trong bảng dưới không phải định nghĩa.
 
 ## Tại sao quan trọng
 
@@ -201,7 +203,7 @@ Subject + be + adjective + to + base verb
 **Sau tính từ mô tả thứ tự/mức độ (too/enough):**
 - She's **old enough to make** her own decisions.
 - The problem is **too complex to ignore**.
-- He spoke **too quickly to understand**.
+- He spoke **too quickly for us to understand him**.
 
 ### 4. To-infinitive sau danh từ (Noun + to-infinitive)
 
@@ -288,7 +290,7 @@ wh-word + to + base verb
 - ✅ ĐÚNG: I'm interested in **learning** more.
 - ❌ SAI: She left without **to say** anything.
 - ✅ ĐÚNG: She left without **saying** anything.
-- **TẠI SAO:** Sau giới từ (in, on, of, for, without, about...) luôn dùng gerund, không bao giờ dùng to-infinitive.
+- **TẠI SAO:** Khi bổ ngữ sau giới từ là động từ, thường dùng gerund. To trong to-infinitive không phải giới từ.
 
 ### Lỗi 4: Dùng "for to" thay vì chỉ "to" cho mục đích
 
@@ -310,9 +312,9 @@ wh-word + to + base verb
 | | To-infinitive | Gerund |
 |--|--------------|--------|
 | **Hình thức** | to + base verb | base verb + -ing |
-| **Hướng về** | Tương lai / kết quả mong muốn | Hành động chung chung / đã xảy ra |
+| **Thời gian** | Phụ thuộc động từ chính, thể và ngữ cảnh | Phụ thuộc động từ chính và ngữ cảnh |
 | **Sau động từ** | want, hope, plan, decide, need, agree... | enjoy, avoid, mind, finish, keep, suggest... |
-| **Sau giới từ** | ❌ Không dùng | ✅ Luôn dùng |
+| **Bổ ngữ động từ sau giới từ** | To-infinitive thường không dùng; phân biệt to nguyên mẫu | Thường dùng gerund |
 | **Làm chủ ngữ** | To swim is fun. *(ít tự nhiên)* | Swimming is fun. *(tự nhiên hơn)* |
 
 **Động từ dùng được cả hai nhưng đổi nghĩa:**
@@ -321,7 +323,7 @@ wh-word + to + base verb
 |---------|----------|-----------------|
 | **stop** | He stopped **smoking**. *(bỏ thuốc)* | He stopped **to smoke**. *(dừng lại để hút)* |
 | **remember** | I remember **meeting** her. *(nhớ đã gặp)* | Remember **to call** him. *(nhớ gọi nhé)* |
-| **forget** | I'll never forget **seeing** that film. *(quên lần đã xem)* | Don't forget **to buy** milk. *(đừng quên mua)* |
+| **forget** | I'll never forget **seeing** that film. *(không bao giờ quên lần đã xem)* | Don't forget **to buy** milk. *(đừng quên mua)* |
 | **try** | Try **adding** more spice. *(thử thêm gia vị xem)* | Try **to sleep** early. *(cố gắng ngủ sớm)* |
 | **regret** | I regret **saying** that. *(hối tiếc đã nói)* | I regret **to inform** you... *(tiếc phải thông báo)* |
 

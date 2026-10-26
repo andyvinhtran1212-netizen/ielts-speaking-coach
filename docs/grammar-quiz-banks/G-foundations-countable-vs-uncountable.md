@@ -139,10 +139,10 @@ headword: "cu-article-rule"
 skill: "error_id"
 subtype: "intermediate"
 prompt: "Sửa lỗi trong câu: 'The technician gave us an useful equipment for the survey.' → 'The technician gave us ____ for the survey.'"
-accept: ["some useful equipment", "useful equipment"]
+accept: ["some useful equipment", "useful equipment", "a useful piece of equipment"]
 case_sensitive: false
 grammar_article_slug: "countable-vs-uncountable"
-explain: "'equipment' là uncountable — không dùng 'an', dùng 'some' hoặc bỏ mạo từ."
+explain: "'Equipment' là danh từ không đếm được. 'Some useful equipment' hoặc 'useful equipment' đều đúng; 'a useful piece of equipment' giữ nghĩa một đơn vị. Dùng 'a' trước 'useful' vì âm đầu /j/; không dùng 'an useful equipment'."
 ---
 
 ---

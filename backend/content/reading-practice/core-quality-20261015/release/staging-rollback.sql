@@ -1,0 +1,4201 @@
+-- Reading 23-article quality correction: staging ONLY. Requires explicit user release approval.
+-- Content transaction, not a schema migration. No learner or Full Test mutation.
+BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '120s';
+DO $reading$
+DECLARE packet jsonb := $packet${
+  "updates": [
+    {
+      "passage_id": "87726f17-4efc-48db-b08b-d4fea2de8efe",
+      "slug": "completion-how-a-battery-works",
+      "library": "l2_skill",
+      "source_body_markdown": "The battery is so ordinary that most people never wonder how it works, yet the basic idea was settled more than two centuries ago. In 1800 the Italian scientist Alessandro Volta built the first true battery, stacking discs of two different metals separated by cloth soaked in salty water. His invention proved something remarkable: a carefully arranged chemical reaction could produce a steady flow of electricity, rather than the brief sparks people had seen before.\n\nEvery battery cell is built around the same three parts. There are two terminals, called electrodes, made of different materials. The negative electrode is known as the *anode*, and the positive one is the *cathode*. Between them sits a chemical paste or liquid called the *electrolyte*, which allows charged particles to pass from one electrode to the other while keeping the metals apart.\n\nThe electricity itself comes from chemistry. When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons. Because electrons are pushed away from the negative electrode and pulled towards the positive one, they flow steadily along the wire and through whatever device is attached — a torch bulb, perhaps, or a phone. This continuous movement of electrons is what we call an electric current, and it is the current that does the useful work.\n\nNothing, however, lasts forever. As the cell is used, the chemicals inside are gradually consumed, and the reaction slows until it can no longer push electrons around the circuit. At that point the battery goes flat, or dead in everyday speech. In a rechargeable battery, an outside electrical supply can reverse the reaction and restore the chemicals, though even these cells weaken over time. Exactly how to store energy more cheaply and cleanly is a question that researchers are still working to answer.",
+      "expected_metadata": {
+        "grammar_focus": [
+          {
+            "tip": "Bài completion về quy trình đầy câu bị động — khi điền từ, bám vào động từ bị động để xác định 'cái gì bị làm gì', đó thường là bước của tiến trình.",
+            "point": "Câu bị động trong văn quy trình + lược tác nhân",
+            "review": "Bị động: S + be + V3 (+ by O). Trong văn quy trình hầu hết lược 'by…' vì tác nhân hiển nhiên hoặc không quan trọng. Trạng từ (gradually) chen giữa be và V3.",
+            "example": "As the cell is used, the chemicals inside **are gradually consumed**, and the reaction slows.",
+            "analysis": "'are consumed' (be + V3) là bị động hiện tại đơn; tác nhân 'by ai/cái gì' bị lược bỏ vì điều quan trọng là chuyện gì XẢY RA với hóa chất, không phải ai làm. Đây là đặc trưng của văn miêu tả quy trình/khoa học: chủ thể hành động thường bị ẩn đi."
+          },
+          {
+            "tip": "Mệnh đề 'which…' giải thích chức năng của bộ phận — trong bài table/flowchart completion, nó thường khớp với cột 'What it does'.",
+            "point": "Mệnh đề quan hệ xác định 'which' chỉ vật",
+            "review": "Mệnh đề quan hệ chỉ vật: N + which/that + V. allow/enable + O + to V = cho phép ai/cái gì làm gì.",
+            "example": "Between them sits a chemical paste or liquid called the electrolyte, **which allows** charged particles to pass from one electrode to the other.",
+            "analysis": "'which' thay cho 'the electrolyte' (vật) và làm chủ ngữ của 'allows'. Mệnh đề bổ sung chức năng của chất điện phân. Cấu trúc 'allow + O + to V' (allows particles to pass) là mẫu động từ + tân ngữ + to-infinitive."
+          },
+          {
+            "tip": "Mệnh đề 'Because…' đầu câu là nguyên nhân của cả câu — hữu ích cho câu hỏi cause-effect và để hiểu vì sao một bước trong quy trình xảy ra.",
+            "point": "Mệnh đề trạng ngữ chỉ nguyên nhân với 'Because' (mang nghĩa bị động)",
+            "review": "Because + mệnh đề (có thể là bị động: S + be + V3). Khi đặt đầu câu thì có dấu phẩy. Cấu trúc song song: are pushed … and pulled (lược 'are' lần hai).",
+            "example": "**Because electrons are pushed** away from the negative electrode and pulled towards the positive one, they flow steadily along the wire.",
+            "analysis": "Mệnh đề 'Because + S + be + V3' (are pushed … and pulled) ở thể bị động, nêu nguyên nhân; mệnh đề chính 'they flow…' nêu kết quả. Mệnh đề 'Because' đứng đầu nên có dấu phẩy ngăn cách. Hai phân từ 'pushed' và 'pulled' dùng chung trợ động từ 'are' (cấu trúc song song)."
+          }
+        ],
+        "translation_vi": "Pin quen thuộc đến mức hầu hết mọi người không bao giờ tự hỏi nó hoạt động ra sao, dù nguyên lý cơ bản đã được xác lập hơn hai thế kỷ trước. Năm 1800, nhà khoa học người Ý Alessandro Volta chế tạo bộ pin đúng nghĩa đầu tiên bằng cách xếp chồng các đĩa làm từ hai kim loại khác nhau, ngăn cách bởi vải ngâm nước muối. Phát minh của ông chứng minh một điều đáng chú ý: phản ứng hóa học được bố trí cẩn thận có thể tạo ra dòng điện ổn định, thay cho những tia lửa thoáng qua mà trước đó người ta từng thấy.\n\nMỗi ngăn pin đều được cấu tạo từ ba bộ phận cơ bản giống nhau. Có hai đầu cực, gọi là điện cực, được làm từ các vật liệu khác nhau. Điện cực âm được gọi là anot (anode), còn điện cực dương là catot (cathode). Giữa chúng là một chất dạng hồ hoặc chất lỏng gọi là chất điện ly; chất này cho phép các hạt mang điện đi từ điện cực này sang điện cực kia, đồng thời giữ các kim loại tách biệt.\n\nBản thân dòng điện được tạo ra nhờ quá trình hóa học. Khi dây dẫn nối hai điện cực thành một mạch điện, một phản ứng bắt đầu ở anot, giải phóng những hạt rất nhỏ mang điện tích âm gọi là electron. Do bị đẩy ra xa điện cực âm và bị hút về phía điện cực dương, các electron chuyển động đều đặn dọc theo dây dẫn và qua bất kỳ thiết bị nào được nối vào, chẳng hạn bóng đèn pin hoặc điện thoại. Chuyển động liên tục này của electron được gọi là dòng điện, và chính dòng điện thực hiện công việc hữu ích.\n\nTuy vậy, không có gì tồn tại mãi mãi. Khi ngăn pin được sử dụng, các hóa chất bên trong dần bị tiêu hao, và phản ứng chậm lại cho đến khi không còn đẩy được electron đi quanh mạch điện. Khi đó, pin hết điện, hay nói nôm na là “hết sạch pin”. Với pin sạc, một nguồn điện bên ngoài có thể đảo ngược phản ứng và khôi phục các chất ban đầu, dù ngay cả những ngăn pin này cũng suy giảm khả năng hoạt động theo thời gian. Làm thế nào để lưu trữ năng lượng rẻ hơn và sạch hơn vẫn là câu hỏi mà các nhà nghiên cứu đang tìm lời giải.",
+        "practice_support": {
+          "units": [
+            {
+              "id": "p1-s1",
+              "source": "The battery is so ordinary that most people never wonder how it works, yet the basic idea was settled more than two centuries ago.",
+              "phrases": [
+                {
+                  "source": "so ordinary",
+                  "target": "quen thuộc đến mức"
+                },
+                {
+                  "source": "the basic idea",
+                  "target": "nguyên lý cơ bản"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Pin quen thuộc đến mức hầu hết mọi người không bao giờ tự hỏi nó hoạt động ra sao, dù nguyên lý cơ bản đã được xác lập hơn hai thế kỷ trước."
+            },
+            {
+              "id": "p1-s2",
+              "source": "In 1800 the Italian scientist Alessandro Volta built the first true battery, stacking discs of two different metals separated by cloth soaked in salty water.",
+              "phrases": [
+                {
+                  "source": "the first true battery",
+                  "target": "bộ pin đúng nghĩa đầu tiên"
+                },
+                {
+                  "source": "stacking discs",
+                  "target": "xếp chồng các đĩa"
+                },
+                {
+                  "source": "cloth soaked in salty water",
+                  "target": "vải ngâm nước muối"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Năm 1800, nhà khoa học người Ý Alessandro Volta chế tạo bộ pin đúng nghĩa đầu tiên bằng cách xếp chồng các đĩa làm từ hai kim loại khác nhau, ngăn cách bởi vải ngâm nước muối."
+            },
+            {
+              "id": "p1-s3",
+              "source": "His invention proved something remarkable: a carefully arranged chemical reaction could produce a steady flow of electricity, rather than the brief sparks people had seen before.",
+              "phrases": [
+                {
+                  "source": "a steady flow of electricity",
+                  "target": "dòng điện ổn định"
+                },
+                {
+                  "source": "brief sparks",
+                  "target": "những tia lửa thoáng qua"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Phát minh của ông chứng minh một điều đáng chú ý: phản ứng hóa học được bố trí cẩn thận có thể tạo ra dòng điện ổn định, thay cho những tia lửa thoáng qua mà trước đó người ta từng thấy."
+            },
+            {
+              "id": "p2-s1",
+              "source": "Every battery cell is built around the same three parts.",
+              "phrases": [
+                {
+                  "source": "battery cell",
+                  "target": "ngăn pin"
+                },
+                {
+                  "source": "three parts",
+                  "target": "ba bộ phận"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Mỗi ngăn pin đều được cấu tạo từ ba bộ phận cơ bản giống nhau."
+            },
+            {
+              "id": "p2-s2",
+              "source": "There are two terminals, called electrodes, made of different materials.",
+              "phrases": [
+                {
+                  "source": "two terminals",
+                  "target": "hai đầu cực"
+                },
+                {
+                  "source": "electrodes",
+                  "target": "điện cực"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Có hai đầu cực, gọi là điện cực, được làm từ các vật liệu khác nhau."
+            },
+            {
+              "id": "p2-s3",
+              "source": "The negative electrode is known as the anode, and the positive one is the cathode.",
+              "phrases": [
+                {
+                  "source": "negative electrode",
+                  "target": "Điện cực âm"
+                },
+                {
+                  "source": "anode",
+                  "target": "anot (anode)"
+                },
+                {
+                  "source": "positive one",
+                  "target": "điện cực dương"
+                },
+                {
+                  "source": "cathode",
+                  "target": "catot (cathode)"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Điện cực âm được gọi là anot (anode), còn điện cực dương là catot (cathode)."
+            },
+            {
+              "id": "p2-s4",
+              "source": "Between them sits a chemical paste or liquid called the electrolyte, which allows charged particles to pass from one electrode to the other while keeping the metals apart.",
+              "phrases": [
+                {
+                  "source": "the electrolyte",
+                  "target": "chất điện ly"
+                },
+                {
+                  "source": "charged particles",
+                  "target": "các hạt mang điện"
+                },
+                {
+                  "source": "keeping the metals apart",
+                  "target": "giữ các kim loại tách biệt"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Giữa chúng là một chất dạng hồ hoặc chất lỏng gọi là chất điện ly; chất này cho phép các hạt mang điện đi từ điện cực này sang điện cực kia, đồng thời giữ các kim loại tách biệt."
+            },
+            {
+              "id": "p3-s1",
+              "source": "The electricity itself comes from chemistry.",
+              "phrases": [
+                {
+                  "source": "comes from chemistry",
+                  "target": "được tạo ra nhờ quá trình hóa học"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Bản thân dòng điện được tạo ra nhờ quá trình hóa học."
+            },
+            {
+              "id": "p3-s2",
+              "source": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+              "phrases": [
+                {
+                  "source": "form a circuit",
+                  "target": "thành một mạch điện"
+                },
+                {
+                  "source": "anode",
+                  "target": "anot"
+                },
+                {
+                  "source": "releases",
+                  "target": "giải phóng"
+                },
+                {
+                  "source": "electrons",
+                  "target": "electron"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Khi dây dẫn nối hai điện cực thành một mạch điện, một phản ứng bắt đầu ở anot, giải phóng những hạt rất nhỏ mang điện tích âm gọi là electron."
+            },
+            {
+              "id": "p3-s3",
+              "source": "Because electrons are pushed away from the negative electrode and pulled towards the positive one, they flow steadily along the wire and through whatever device is attached — a torch bulb, perhaps, or a phone.",
+              "phrases": [
+                {
+                  "source": "pushed away from",
+                  "target": "bị đẩy ra xa"
+                },
+                {
+                  "source": "pulled towards",
+                  "target": "bị hút về phía"
+                },
+                {
+                  "source": "flow steadily",
+                  "target": "chuyển động đều đặn"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Do bị đẩy ra xa điện cực âm và bị hút về phía điện cực dương, các electron chuyển động đều đặn dọc theo dây dẫn và qua bất kỳ thiết bị nào được nối vào, chẳng hạn bóng đèn pin hoặc điện thoại."
+            },
+            {
+              "id": "p3-s4",
+              "source": "This continuous movement of electrons is what we call an electric current, and it is the current that does the useful work.",
+              "phrases": [
+                {
+                  "source": "what we call an electric current",
+                  "target": "được gọi là dòng điện"
+                },
+                {
+                  "source": "useful work",
+                  "target": "công việc hữu ích"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Chuyển động liên tục này của electron được gọi là dòng điện, và chính dòng điện thực hiện công việc hữu ích."
+            },
+            {
+              "id": "p4-s1",
+              "source": "Nothing, however, lasts forever.",
+              "phrases": [
+                {
+                  "source": "lasts forever",
+                  "target": "tồn tại mãi mãi"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Tuy vậy, không có gì tồn tại mãi mãi."
+            },
+            {
+              "id": "p4-s2",
+              "source": "As the cell is used, the chemicals inside are gradually consumed, and the reaction slows until it can no longer push electrons around the circuit.",
+              "phrases": [
+                {
+                  "source": "the cell",
+                  "target": "ngăn pin"
+                },
+                {
+                  "source": "gradually consumed",
+                  "target": "dần bị tiêu hao"
+                },
+                {
+                  "source": "the reaction slows",
+                  "target": "phản ứng chậm lại"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Khi ngăn pin được sử dụng, các hóa chất bên trong dần bị tiêu hao, và phản ứng chậm lại cho đến khi không còn đẩy được electron đi quanh mạch điện."
+            },
+            {
+              "id": "p4-s3",
+              "source": "At that point the battery goes flat, or dead in everyday speech.",
+              "phrases": [
+                {
+                  "source": "goes flat",
+                  "target": "hết điện"
+                },
+                {
+                  "source": "dead",
+                  "target": "hết sạch pin"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Khi đó, pin hết điện, hay nói nôm na là “hết sạch pin”."
+            },
+            {
+              "id": "p4-s4",
+              "source": "In a rechargeable battery, an outside electrical supply can reverse the reaction and restore the chemicals, though even these cells weaken over time.",
+              "phrases": [
+                {
+                  "source": "a rechargeable battery",
+                  "target": "pin sạc"
+                },
+                {
+                  "source": "reverse the reaction",
+                  "target": "đảo ngược phản ứng"
+                },
+                {
+                  "source": "restore the chemicals",
+                  "target": "khôi phục các chất ban đầu"
+                },
+                {
+                  "source": "weaken over time",
+                  "target": "suy giảm khả năng hoạt động theo thời gian"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Với pin sạc, một nguồn điện bên ngoài có thể đảo ngược phản ứng và khôi phục các chất ban đầu, dù ngay cả những ngăn pin này cũng suy giảm khả năng hoạt động theo thời gian."
+            },
+            {
+              "id": "p4-s5",
+              "source": "Exactly how to store energy more cheaply and cleanly is a question that researchers are still working to answer.",
+              "phrases": [
+                {
+                  "source": "store energy",
+                  "target": "lưu trữ năng lượng"
+                },
+                {
+                  "source": "more cheaply and cleanly",
+                  "target": "rẻ hơn và sạch hơn"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Làm thế nào để lưu trữ năng lượng rẻ hơn và sạch hơn vẫn là câu hỏi mà các nhà nghiên cứu đang tìm lời giải."
+            }
+          ],
+          "illustrations": [
+            {
+              "src": "/reading-illustrations/battery-practice-scene.svg",
+              "alt": "Hai viên pin hình trụ, một khối pin chữ nhật và một đèn pin đặt trên bàn.",
+              "caption": "Pin trong các thiết bị quen thuộc; hình minh hoạ bối cảnh, không mô tả cấu tạo hay đáp án."
+            }
+          ],
+          "source_sha256": "fc7c310ee4dc51e1ac8a66a70b173167a942362aa9f5fa45c71f37135a19cf67",
+          "schema_version": 1,
+          "question_evidence": {
+            "1": {
+              "source": "Between them sits a chemical paste or liquid called the electrolyte, which allows charged particles to pass from one electrode to the other while keeping the metals apart.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "f87c217314267c351e6f1cce446d93b9293f8bf4574b28bc4068e0e189c6b959"
+            },
+            "2": {
+              "source": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "4e337bf334935273e9e128d0226850d1a8164f20db0444a968e544b94bd3e7a9"
+            },
+            "3": {
+              "source": "In 1800 the Italian scientist Alessandro Volta built the first true battery, stacking discs of two different metals separated by cloth soaked in salty water.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "fb844c1ed3c945774b1db3370162c8d7e515f0b11f7f02c82bc81db4f6a95963"
+            },
+            "4": {
+              "source": "The negative electrode is known as the anode, and the positive one is the cathode.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Điện cực âm là anode.",
+                  "src": "/reading-illustrations/battery-anode.svg",
+                  "caption": "Phần mạch ngoài của ngăn pin đang phóng điện. Mũi tên chỉ chiều chuyển động của electron, ngược với chiều dòng điện quy ước."
+                }
+              ],
+              "question_sha256": "ca47ed38d7520c27165688f25a80a811094013afbf65379d2fbe6fd09c1de2da"
+            },
+            "5": {
+              "source": "The negative electrode is known as the anode, and the positive one is the cathode.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Điện cực dương là cathode.",
+                  "src": "/reading-illustrations/battery-cathode.svg",
+                  "caption": "Phần mạch ngoài của ngăn pin đang phóng điện. Mũi tên chỉ chiều chuyển động của electron, ngược với chiều dòng điện quy ước."
+                }
+              ],
+              "question_sha256": "c2587afedaa316ea61ad7f2395f903e533b3e3fc2357871cca4810a0d7bd70a1"
+            },
+            "6": {
+              "source": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Electron đi qua dây dẫn và thiết bị.",
+                  "src": "/reading-illustrations/battery-electrons.svg",
+                  "caption": "Phần mạch ngoài của ngăn pin đang phóng điện. Mũi tên chỉ chiều chuyển động của electron, ngược với chiều dòng điện quy ước."
+                }
+              ],
+              "question_sha256": "7a6d4d71c8d35d03ac0e9364ad12d40a36e9027dc21d4e3c05cf921a157915d6"
+            },
+            "7": {
+              "source": "This continuous movement of electrons is what we call an electric current, and it is the current that does the useful work.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Chuyển động liên tục của electron tạo thành dòng điện.",
+                  "src": "/reading-illustrations/battery-current.svg",
+                  "caption": "Phần mạch ngoài của ngăn pin đang phóng điện. Mũi tên chỉ chiều chuyển động của electron, ngược với chiều dòng điện quy ước."
+                }
+              ],
+              "question_sha256": "2b87247e70920a83c271b6516c91142af0da2494e306509c25bd6d50d71e2759"
+            },
+            "8": {
+              "source": "At that point the battery goes flat, or dead in everyday speech.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "751bf954e845f87cc188e75bd644fb135c2f41dd5ca67c4f77f8543f1316f0d6"
+            }
+          },
+          "translation_sha256": "821ad4efd18d186ebf683beca502182c2f3eeca12446c79a2e2754aa5b12d71b"
+        }
+      },
+      "expected_image_url": "/reading-illustrations/battery-practice-scene.svg",
+      "expected_glossary": [
+        {
+          "term": "electrode",
+          "aliases": [
+            "electrodes"
+          ],
+          "example": "There are two terminals, called electrodes, made of different materials.",
+          "definition": "điện cực"
+        },
+        {
+          "term": "anode",
+          "aliases": [],
+          "example": "The negative electrode is known as the anode, and the positive one is the cathode.",
+          "definition": "anot; điện cực âm của ngăn pin đang phóng điện được mô tả trong bài"
+        },
+        {
+          "term": "cathode",
+          "aliases": [],
+          "example": "The negative electrode is known as the anode, and the positive one is the cathode.",
+          "definition": "catot; điện cực dương của ngăn pin đang phóng điện được mô tả trong bài"
+        },
+        {
+          "term": "electrolyte",
+          "aliases": [],
+          "example": "Between them sits a chemical paste or liquid called the electrolyte, which allows charged particles to pass from one electrode to the other while keeping the metals apart.",
+          "definition": "chất điện ly; môi trường cho các hạt mang điện di chuyển giữa hai điện cực"
+        },
+        {
+          "term": "charged particles",
+          "aliases": [],
+          "example": "Between them sits a chemical paste or liquid called the electrolyte, which allows charged particles to pass from one electrode to the other while keeping the metals apart.",
+          "definition": "các hạt mang điện"
+        },
+        {
+          "term": "circuit",
+          "aliases": [],
+          "example": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+          "definition": "mạch điện"
+        },
+        {
+          "term": "electron",
+          "aliases": [
+            "electrons"
+          ],
+          "example": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+          "definition": "electron; hạt mang điện tích âm"
+        },
+        {
+          "term": "current",
+          "aliases": [],
+          "example": "This continuous movement of electrons is what we call an electric current, and it is the current that does the useful work.",
+          "definition": "dòng điện"
+        },
+        {
+          "term": "rechargeable",
+          "aliases": [],
+          "example": "In a rechargeable battery, an outside electrical supply can reverse the reaction and restore the chemicals, though even these cells weaken over time.",
+          "definition": "có thể sạc lại"
+        },
+        {
+          "term": "goes flat",
+          "aliases": [],
+          "example": "At that point the battery goes flat, or dead in everyday speech.",
+          "definition": "hết điện"
+        }
+      ],
+      "changes": {
+        "metadata": {
+          "translation_vi": "Pin quen thuộc đến mức hầu hết mọi người không bao giờ tự hỏi nó hoạt động ra sao, dù nguyên lý cơ bản đã được xác lập hơn hai thế kỷ trước. Năm 1800, nhà khoa học người Ý Alessandro Volta chế tạo viên pin thực sự đầu tiên bằng cách xếp chồng các đĩa làm từ hai kim loại khác nhau, ngăn cách bởi vải ngâm nước muối. Phát minh của ông chứng minh một điều đáng chú ý: phản ứng hóa học được bố trí cẩn thận có thể tạo ra dòng điện ổn định, thay cho những tia lửa thoáng qua mà trước đó người ta từng thấy.\n\nMỗi tế bào pin đều được cấu tạo từ ba bộ phận cơ bản giống nhau. Có hai đầu cực, gọi là điện cực, được làm từ các vật liệu khác nhau. Điện cực âm được gọi là anode, còn điện cực dương là cathode. Giữa chúng là một chất dạng hồ hoặc chất lỏng gọi là chất điện phân; chất này cho phép các hạt mang điện đi từ điện cực này sang điện cực kia, đồng thời giữ các kim loại tách biệt.\n\nBản thân dòng điện được tạo ra nhờ quá trình hóa học. Khi dây dẫn nối hai điện cực thành một mạch điện, phản ứng bắt đầu ở anode và giải phóng những hạt nhỏ mang điện tích âm gọi là electron. Do bị đẩy khỏi điện cực âm và hút về điện cực dương, các electron chuyển động liên tục dọc theo dây dẫn và qua bất kỳ thiết bị nào được nối vào, chẳng hạn bóng đèn pin hoặc điện thoại. Chuyển động liên tục này của electron được gọi là dòng điện, và chính dòng điện thực hiện công việc hữu ích.\n\nTuy vậy, không có gì tồn tại mãi mãi. Khi tế bào pin được sử dụng, các hóa chất bên trong dần bị tiêu hao, và phản ứng chậm lại cho đến khi không còn đẩy được electron đi quanh mạch điện. Lúc đó pin hết điện, hay theo cách nói hằng ngày là pin chết. Với pin sạc, nguồn điện bên ngoài có thể đảo ngược phản ứng và khôi phục các hóa chất, dù ngay cả những tế bào pin này cũng yếu đi theo thời gian. Làm thế nào để lưu trữ năng lượng rẻ hơn và sạch hơn vẫn là câu hỏi mà các nhà nghiên cứu đang tìm lời giải.",
+          "practice_support": {
+            "units": [
+              {
+                "id": "p1-s1",
+                "source": "The battery is so ordinary that most people never wonder how it works, yet the basic idea was settled more than two centuries ago.",
+                "phrases": [
+                  {
+                    "source": "so ordinary",
+                    "target": "quen thuộc đến mức"
+                  },
+                  {
+                    "source": "the basic idea",
+                    "target": "nguyên lý cơ bản"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Pin quen thuộc đến mức hầu hết mọi người không bao giờ tự hỏi nó hoạt động ra sao, dù nguyên lý cơ bản đã được xác lập hơn hai thế kỷ trước."
+              },
+              {
+                "id": "p1-s2",
+                "source": "In 1800 the Italian scientist Alessandro Volta built the first true battery, stacking discs of two different metals separated by cloth soaked in salty water.",
+                "phrases": [
+                  {
+                    "source": "stacking discs",
+                    "target": "xếp chồng các đĩa"
+                  },
+                  {
+                    "source": "cloth soaked in salty water",
+                    "target": "vải ngâm nước muối"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Năm 1800, nhà khoa học người Ý Alessandro Volta chế tạo viên pin thực sự đầu tiên bằng cách xếp chồng các đĩa làm từ hai kim loại khác nhau, ngăn cách bởi vải ngâm nước muối."
+              },
+              {
+                "id": "p1-s3",
+                "source": "His invention proved something remarkable: a carefully arranged chemical reaction could produce a steady flow of electricity, rather than the brief sparks people had seen before.",
+                "phrases": [
+                  {
+                    "source": "a steady flow of electricity",
+                    "target": "dòng điện ổn định"
+                  },
+                  {
+                    "source": "brief sparks",
+                    "target": "những tia lửa thoáng qua"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Phát minh của ông chứng minh một điều đáng chú ý: phản ứng hóa học được bố trí cẩn thận có thể tạo ra dòng điện ổn định, thay cho những tia lửa thoáng qua mà trước đó người ta từng thấy."
+              },
+              {
+                "id": "p2-s1",
+                "source": "Every battery cell is built around the same three parts.",
+                "phrases": [
+                  {
+                    "source": "battery cell",
+                    "target": "tế bào pin"
+                  },
+                  {
+                    "source": "three parts",
+                    "target": "ba bộ phận"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Mỗi tế bào pin đều được cấu tạo từ ba bộ phận cơ bản giống nhau."
+              },
+              {
+                "id": "p2-s2",
+                "source": "There are two terminals, called electrodes, made of different materials.",
+                "phrases": [
+                  {
+                    "source": "two terminals",
+                    "target": "hai đầu cực"
+                  },
+                  {
+                    "source": "electrodes",
+                    "target": "điện cực"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Có hai đầu cực, gọi là điện cực, được làm từ các vật liệu khác nhau."
+              },
+              {
+                "id": "p2-s3",
+                "source": "The negative electrode is known as the anode, and the positive one is the cathode.",
+                "phrases": [
+                  {
+                    "source": "negative electrode",
+                    "target": "Điện cực âm"
+                  },
+                  {
+                    "source": "positive one",
+                    "target": "điện cực dương"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Điện cực âm được gọi là anode, còn điện cực dương là cathode."
+              },
+              {
+                "id": "p2-s4",
+                "source": "Between them sits a chemical paste or liquid called the electrolyte, which allows charged particles to pass from one electrode to the other while keeping the metals apart.",
+                "phrases": [
+                  {
+                    "source": "the electrolyte",
+                    "target": "chất điện phân"
+                  },
+                  {
+                    "source": "charged particles",
+                    "target": "các hạt mang điện"
+                  },
+                  {
+                    "source": "keeping the metals apart",
+                    "target": "giữ các kim loại tách biệt"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Giữa chúng là một chất dạng hồ hoặc chất lỏng gọi là chất điện phân; chất này cho phép các hạt mang điện đi từ điện cực này sang điện cực kia, đồng thời giữ các kim loại tách biệt."
+              },
+              {
+                "id": "p3-s1",
+                "source": "The electricity itself comes from chemistry.",
+                "phrases": [
+                  {
+                    "source": "comes from chemistry",
+                    "target": "được tạo ra nhờ quá trình hóa học"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Bản thân dòng điện được tạo ra nhờ quá trình hóa học."
+              },
+              {
+                "id": "p3-s2",
+                "source": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+                "phrases": [
+                  {
+                    "source": "form a circuit",
+                    "target": "thành một mạch điện"
+                  },
+                  {
+                    "source": "releases",
+                    "target": "giải phóng"
+                  },
+                  {
+                    "source": "electrons",
+                    "target": "electron"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Khi dây dẫn nối hai điện cực thành một mạch điện, phản ứng bắt đầu ở anode và giải phóng những hạt nhỏ mang điện tích âm gọi là electron."
+              },
+              {
+                "id": "p3-s3",
+                "source": "Because electrons are pushed away from the negative electrode and pulled towards the positive one, they flow steadily along the wire and through whatever device is attached — a torch bulb, perhaps, or a phone.",
+                "phrases": [
+                  {
+                    "source": "pushed away",
+                    "target": "bị đẩy khỏi"
+                  },
+                  {
+                    "source": "pulled towards",
+                    "target": "hút về"
+                  },
+                  {
+                    "source": "flow steadily",
+                    "target": "chuyển động liên tục"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Do bị đẩy khỏi điện cực âm và hút về điện cực dương, các electron chuyển động liên tục dọc theo dây dẫn và qua bất kỳ thiết bị nào được nối vào, chẳng hạn bóng đèn pin hoặc điện thoại."
+              },
+              {
+                "id": "p3-s4",
+                "source": "This continuous movement of electrons is what we call an electric current, and it is the current that does the useful work.",
+                "phrases": [
+                  {
+                    "source": "what we call an electric current",
+                    "target": "được gọi là dòng điện"
+                  },
+                  {
+                    "source": "useful work",
+                    "target": "công việc hữu ích"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Chuyển động liên tục này của electron được gọi là dòng điện, và chính dòng điện thực hiện công việc hữu ích."
+              },
+              {
+                "id": "p4-s1",
+                "source": "Nothing, however, lasts forever.",
+                "phrases": [
+                  {
+                    "source": "lasts forever",
+                    "target": "tồn tại mãi mãi"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Tuy vậy, không có gì tồn tại mãi mãi."
+              },
+              {
+                "id": "p4-s2",
+                "source": "As the cell is used, the chemicals inside are gradually consumed, and the reaction slows until it can no longer push electrons around the circuit.",
+                "phrases": [
+                  {
+                    "source": "gradually consumed",
+                    "target": "dần bị tiêu hao"
+                  },
+                  {
+                    "source": "the reaction slows",
+                    "target": "phản ứng chậm lại"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Khi tế bào pin được sử dụng, các hóa chất bên trong dần bị tiêu hao, và phản ứng chậm lại cho đến khi không còn đẩy được electron đi quanh mạch điện."
+              },
+              {
+                "id": "p4-s3",
+                "source": "At that point the battery goes flat, or dead in everyday speech.",
+                "phrases": [
+                  {
+                    "source": "goes flat",
+                    "target": "hết điện"
+                  },
+                  {
+                    "source": "dead",
+                    "target": "chết"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Lúc đó pin hết điện, hay theo cách nói hằng ngày là pin chết."
+              },
+              {
+                "id": "p4-s4",
+                "source": "In a rechargeable battery, an outside electrical supply can reverse the reaction and restore the chemicals, though even these cells weaken over time.",
+                "phrases": [
+                  {
+                    "source": "a rechargeable battery",
+                    "target": "pin sạc"
+                  },
+                  {
+                    "source": "reverse the reaction",
+                    "target": "đảo ngược phản ứng"
+                  },
+                  {
+                    "source": "weaken over time",
+                    "target": "yếu đi theo thời gian"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Với pin sạc, nguồn điện bên ngoài có thể đảo ngược phản ứng và khôi phục các hóa chất, dù ngay cả những tế bào pin này cũng yếu đi theo thời gian."
+              },
+              {
+                "id": "p4-s5",
+                "source": "Exactly how to store energy more cheaply and cleanly is a question that researchers are still working to answer.",
+                "phrases": [
+                  {
+                    "source": "store energy",
+                    "target": "lưu trữ năng lượng"
+                  },
+                  {
+                    "source": "more cheaply and cleanly",
+                    "target": "rẻ hơn và sạch hơn"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Làm thế nào để lưu trữ năng lượng rẻ hơn và sạch hơn vẫn là câu hỏi mà các nhà nghiên cứu đang tìm lời giải."
+              }
+            ],
+            "illustrations": [],
+            "source_sha256": "fc7c310ee4dc51e1ac8a66a70b173167a942362aa9f5fa45c71f37135a19cf67",
+            "schema_version": 1,
+            "question_evidence": {
+              "1": {
+                "source": "Between them sits a chemical paste or liquid called the electrolyte, which allows charged particles to pass from one electrode to the other while keeping the metals apart.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "f87c217314267c351e6f1cce446d93b9293f8bf4574b28bc4068e0e189c6b959"
+              },
+              "2": {
+                "source": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "4e337bf334935273e9e128d0226850d1a8164f20db0444a968e544b94bd3e7a9"
+              },
+              "3": {
+                "source": "In 1800 the Italian scientist Alessandro Volta built the first true battery, stacking discs of two different metals separated by cloth soaked in salty water.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "fb844c1ed3c945774b1db3370162c8d7e515f0b11f7f02c82bc81db4f6a95963"
+              },
+              "4": {
+                "source": "The negative electrode is known as the anode, and the positive one is the cathode.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Điện cực âm là anode.",
+                    "src": "/reading-illustrations/battery-anode.svg",
+                    "caption": "Minh hoạ tế bào pin khi phóng điện theo bài đọc. Mũi tên mô tả chiều electron, không phải chiều dòng điện quy ước."
+                  }
+                ],
+                "question_sha256": "ca47ed38d7520c27165688f25a80a811094013afbf65379d2fbe6fd09c1de2da"
+              },
+              "5": {
+                "source": "The negative electrode is known as the anode, and the positive one is the cathode.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Điện cực dương là cathode.",
+                    "src": "/reading-illustrations/battery-cathode.svg",
+                    "caption": "Minh hoạ tế bào pin khi phóng điện theo bài đọc. Mũi tên mô tả chiều electron, không phải chiều dòng điện quy ước."
+                  }
+                ],
+                "question_sha256": "c2587afedaa316ea61ad7f2395f903e533b3e3fc2357871cca4810a0d7bd70a1"
+              },
+              "6": {
+                "source": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Electron đi qua dây dẫn và thiết bị.",
+                    "src": "/reading-illustrations/battery-electrons.svg",
+                    "caption": "Minh hoạ tế bào pin khi phóng điện theo bài đọc. Mũi tên mô tả chiều electron, không phải chiều dòng điện quy ước."
+                  }
+                ],
+                "question_sha256": "7a6d4d71c8d35d03ac0e9364ad12d40a36e9027dc21d4e3c05cf921a157915d6"
+              },
+              "7": {
+                "source": "This continuous movement of electrons is what we call an electric current, and it is the current that does the useful work.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Chuyển động liên tục của electron tạo thành dòng điện.",
+                    "src": "/reading-illustrations/battery-current.svg",
+                    "caption": "Minh hoạ tế bào pin khi phóng điện theo bài đọc. Mũi tên mô tả chiều electron, không phải chiều dòng điện quy ước."
+                  }
+                ],
+                "question_sha256": "2b87247e70920a83c271b6516c91142af0da2494e306509c25bd6d50d71e2759"
+              },
+              "8": {
+                "source": "At that point the battery goes flat, or dead in everyday speech.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "751bf954e845f87cc188e75bd644fb135c2f41dd5ca67c4f77f8543f1316f0d6"
+              }
+            },
+            "translation_sha256": "d499b8f1cd751a7c89d5c267456f5137f474a71dcf9582db0879d879f81b5506"
+          }
+        },
+        "image_url": null,
+        "glossary": [
+          {
+            "term": "electrode",
+            "aliases": [
+              "electrodes"
+            ],
+            "example": "There are two terminals, called electrodes, made of different materials.",
+            "definition": "điện cực"
+          },
+          {
+            "term": "anode",
+            "aliases": [],
+            "example": "The negative electrode is known as the anode, and the positive one is the cathode.",
+            "definition": "điện cực âm trong tế bào pin được mô tả"
+          },
+          {
+            "term": "cathode",
+            "aliases": [],
+            "example": "The negative electrode is known as the anode, and the positive one is the cathode.",
+            "definition": "điện cực dương trong tế bào pin được mô tả"
+          },
+          {
+            "term": "electrolyte",
+            "aliases": [],
+            "example": "Between them sits a chemical paste or liquid called the electrolyte, which allows charged particles to pass from one electrode to the other while keeping the metals apart.",
+            "definition": "chất điện phân"
+          },
+          {
+            "term": "charged particles",
+            "aliases": [],
+            "example": "Between them sits a chemical paste or liquid called the electrolyte, which allows charged particles to pass from one electrode to the other while keeping the metals apart.",
+            "definition": "các hạt mang điện"
+          },
+          {
+            "term": "circuit",
+            "aliases": [],
+            "example": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+            "definition": "mạch điện"
+          },
+          {
+            "term": "electron",
+            "aliases": [
+              "electrons"
+            ],
+            "example": "When a wire connects the two electrodes to form a circuit, a reaction begins at the anode that releases tiny negative particles called electrons.",
+            "definition": "electron; hạt mang điện tích âm"
+          },
+          {
+            "term": "current",
+            "aliases": [],
+            "example": "This continuous movement of electrons is what we call an electric current, and it is the current that does the useful work.",
+            "definition": "dòng điện"
+          },
+          {
+            "term": "rechargeable",
+            "aliases": [],
+            "example": "In a rechargeable battery, an outside electrical supply can reverse the reaction and restore the chemicals, though even these cells weaken over time.",
+            "definition": "có thể sạc lại"
+          },
+          {
+            "term": "goes flat",
+            "aliases": [],
+            "example": "At that point the battery goes flat, or dead in everyday speech.",
+            "definition": "hết điện"
+          }
+        ]
+      }
+    },
+    {
+      "passage_id": "59bd33e8-ead5-4edf-8d3f-8c480eb04348",
+      "slug": "inference-psychology-of-colour",
+      "library": "l2_skill",
+      "source_body_markdown": "When the British designer of a well-known soft-drink can chose a deep red, the decision was not only about taste. Red is loud, warm and impossible to ignore, and marketers have long believed it pushes shoppers towards quick, energetic choices. The psychology of colour tries to test such hunches, and the results are more tangled than the confident claims on advertising blogs suggest.\n\nSome patterns do appear with reasonable consistency. People shown the colour blue often report feeling calmer and better able to concentrate, which may help explain why so many offices, classrooms and hospital wards are painted in cool, pale shades rather than bold, saturated ones. Warm colours such as orange and yellow, by contrast, tend to feel stimulating, and they are common in restaurants, gyms and other places that want customers to feel awake, hungry and active.\n\nOther findings are far less settled. One widely reported study of combat sports suggested that athletes wearing red won slightly more often than those in blue, hinting that the colour signals dominance and may unsettle opponents. Yet the effect has not always reappeared when other researchers repeat the experiment, and small differences in crowd size, sport or measurement can easily account for the modest gap that remains.\n\nPart of the difficulty is that colour rarely acts alone. Its meaning shifts from one culture to another: white suggests purity at many Western weddings but mourning at some Asian funerals. The same red that excites a shopper may warn a driver to stop. A colour, in other words, can pull in different directions depending on where it appears and who is looking. Whether colour truly steers our behaviour, or merely nudges it within limits we set elsewhere, remains an open and rather stubborn question.",
+      "expected_metadata": {
+        "grammar_focus": [
+          {
+            "tip": "Yes/No/Not Given và inference soi đúng các từ rào đón: nếu câu hỏi bỏ 'may/tend to' và khẳng định chắc nịch trong khi bài rào đón, đáp án thường KHÔNG khớp (NO/NOT GIVEN).",
+            "point": "Rào đón (hedging) bằng 'tend to' và 'may'",
+            "review": "Hedging: tend to / may / might / appear to / seem to + V làm nhẹ phát biểu. 'may' sau đó là V nguyên mẫu (may unsettle).",
+            "example": "Warm colours such as orange and yellow … **tend to** feel stimulating … the colour signals dominance and **may** unsettle opponents.",
+            "analysis": "'tend to + V' (có xu hướng) và modal 'may + V' (có thể) hạ mức cam kết của phát biểu: tác giả không khẳng định chắc chắn mà chỉ nêu xu hướng/khả năng. Đây là giọng điệu thận trọng đặc trưng của văn học thuật, tránh kết luận tuyệt đối."
+          },
+          {
+            "tip": "'by contrast/however' báo hiệu tác giả đang lật sang ý đối lập — chỗ chuyển ý này hay là nơi đặt câu hỏi so sánh hai nhóm/hai quan điểm.",
+            "point": "Trạng từ/cụm nối tương phản 'by contrast'",
+            "review": "Cụm nối tương phản: by contrast, however, on the other hand, in contrast — đứng đầu hoặc chèn giữa câu, ngăn bằng dấu phẩy. Khác liên từ 'but' (nối trong cùng câu).",
+            "example": "Warm colours such as orange and yellow, **by contrast**, tend to feel stimulating.",
+            "analysis": "'by contrast' là cụm trạng từ nối, chèn giữa câu (ngăn bằng hai dấu phẩy), báo hiệu sự đối lập với ý trước đó (màu xanh dịu >< màu ấm kích thích). Nó nối ý giữa hai câu/đoạn chứ không nối hai mệnh đề như liên từ 'but'."
+          },
+          {
+            "tip": "Cụm '…, V-ing that…' (hinting/suggesting/indicating that) thường nêu KẾT LUẬN tác giả rút ra — đọc kỹ để trả lời câu hỏi suy luận về quan điểm/ý ngầm.",
+            "point": "Mệnh đề phân từ hiện tại (-ing) nêu hệ quả/bổ sung ý",
+            "review": "Participle clause: …, V-ing… rút gọn cho 'and + S + V' hoặc nêu hệ quả. Chủ ngữ ngầm phải khớp mệnh đề chính.",
+            "example": "athletes wearing red won slightly more often than those in blue, **hinting that** the colour signals dominance.",
+            "analysis": "Cụm phân từ 'hinting that…' đứng sau mệnh đề chính, không có chủ ngữ riêng — chủ ngữ logic là cả ý đứng trước (= and this hints that…). Nó diễn tả hệ quả/diễn giải mà sự việc gợi ra. 'hinting' bản thân cũng là một động từ rào đón (gợi ý, chứ không khẳng định)."
+          }
+        ],
+        "translation_vi": "Khi nhà thiết kế người Anh chọn màu đỏ đậm cho mẫu lon nước giải khát nổi tiếng, quyết định đó không chỉ xuất phát từ gu thẩm mỹ. Màu đỏ nổi bật, ấm áp và khó có thể bỏ qua; từ lâu, giới tiếp thị tin rằng nó thúc đẩy người mua đưa ra những lựa chọn nhanh chóng và đầy năng lượng. Tâm lý học màu sắc tìm cách kiểm nghiệm những phỏng đoán dựa trên trực giác như vậy, và kết quả phức tạp hơn điều mà những lời khẳng định đầy tự tin trên các blog quảng cáo gợi ra.\n\nMột số xu hướng thực sự xuất hiện khá nhất quán. Những người được cho xem màu xanh lam thường cho biết họ thấy bình tĩnh hơn và dễ tập trung hơn. Điều này có thể góp phần giải thích vì sao nhiều văn phòng, lớp học và phòng bệnh được sơn những tông màu lạnh, nhạt thay vì những màu đậm, rực rỡ. Ngược lại, các màu ấm như cam và vàng thường tạo cảm giác kích thích; chúng phổ biến ở nhà hàng, phòng tập và những nơi muốn khách cảm thấy tỉnh táo, đói bụng và năng động.\n\nNhững phát hiện khác còn kém chắc chắn hơn nhiều. Một nghiên cứu về các môn thể thao đối kháng được nhắc đến rộng rãi gợi ý rằng vận động viên mặc màu đỏ thắng thường xuyên hơn một chút so với người mặc màu xanh lam. Kết quả này gợi ra khả năng màu đỏ báo hiệu ưu thế và có thể khiến đối thủ bất an. Tuy nhiên, hiệu ứng này không phải lúc nào cũng xuất hiện lại khi các nhà nghiên cứu khác lặp lại thí nghiệm; những khác biệt nhỏ về số khán giả, môn thể thao hoặc cách đo có thể dễ dàng lý giải phần chênh lệch nhỏ còn lại.\n\nMột phần khó khăn nằm ở chỗ màu sắc hiếm khi tác động riêng lẻ. Ý nghĩa của màu sắc thay đổi giữa các nền văn hóa: màu trắng gợi sự thuần khiết trong nhiều đám cưới phương Tây, nhưng gợi sự tang tóc trong một số đám tang ở châu Á. Cũng màu đỏ khiến người mua hào hứng ấy lại có thể cảnh báo người lái xe phải dừng lại. Nói cách khác, một màu có thể dẫn tới những phản ứng trái chiều tùy nơi nó xuất hiện và người đang nhìn nó. Màu sắc có thực sự điều khiển hành vi của chúng ta, hay chỉ tác động nhẹ tới hành vi ấy trong những giới hạn mà chúng ta đặt ra dựa trên các yếu tố khác, vẫn là một câu hỏi bỏ ngỏ và khá khó giải quyết.",
+        "practice_support": {
+          "units": [
+            {
+              "id": "p1-s1",
+              "source": "When the British designer of a well-known soft-drink can chose a deep red, the decision was not only about taste.",
+              "phrases": [
+                {
+                  "source": "a deep red",
+                  "target": "màu đỏ đậm"
+                },
+                {
+                  "source": "not only about taste",
+                  "target": "không chỉ xuất phát từ gu thẩm mỹ"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Khi nhà thiết kế người Anh chọn màu đỏ đậm cho mẫu lon nước giải khát nổi tiếng, quyết định đó không chỉ xuất phát từ gu thẩm mỹ."
+            },
+            {
+              "id": "p1-s2",
+              "source": "Red is loud, warm and impossible to ignore, and marketers have long believed it pushes shoppers towards quick, energetic choices.",
+              "phrases": [
+                {
+                  "source": "impossible to ignore",
+                  "target": "khó có thể bỏ qua"
+                },
+                {
+                  "source": "pushes shoppers",
+                  "target": "thúc đẩy người mua"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Màu đỏ nổi bật, ấm áp và khó có thể bỏ qua; từ lâu, giới tiếp thị tin rằng nó thúc đẩy người mua đưa ra những lựa chọn nhanh chóng và đầy năng lượng."
+            },
+            {
+              "id": "p1-s3",
+              "source": "The psychology of colour tries to test such hunches, and the results are more tangled than the confident claims on advertising blogs suggest.",
+              "phrases": [
+                {
+                  "source": "such hunches",
+                  "target": "những phỏng đoán dựa trên trực giác như vậy"
+                },
+                {
+                  "source": "more tangled",
+                  "target": "phức tạp hơn"
+                },
+                {
+                  "source": "confident claims",
+                  "target": "những lời khẳng định đầy tự tin"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Tâm lý học màu sắc tìm cách kiểm nghiệm những phỏng đoán dựa trên trực giác như vậy, và kết quả phức tạp hơn điều mà những lời khẳng định đầy tự tin trên các blog quảng cáo gợi ra."
+            },
+            {
+              "id": "p2-s1",
+              "source": "Some patterns do appear with reasonable consistency.",
+              "phrases": [
+                {
+                  "source": "reasonable consistency",
+                  "target": "khá nhất quán"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Một số xu hướng thực sự xuất hiện khá nhất quán."
+            },
+            {
+              "id": "p2-s2",
+              "source": "People shown the colour blue often report feeling calmer and better able to concentrate, which may help explain why so many offices, classrooms and hospital wards are painted in cool, pale shades rather than bold, saturated ones.",
+              "phrases": [
+                {
+                  "source": "calmer",
+                  "target": "bình tĩnh hơn"
+                },
+                {
+                  "source": "better able to concentrate",
+                  "target": "dễ tập trung hơn"
+                },
+                {
+                  "source": "may help explain",
+                  "target": "có thể góp phần giải thích"
+                },
+                {
+                  "source": "cool, pale shades",
+                  "target": "những tông màu lạnh, nhạt"
+                },
+                {
+                  "source": "bold, saturated ones",
+                  "target": "những màu đậm, rực rỡ"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Những người được cho xem màu xanh lam thường cho biết họ thấy bình tĩnh hơn và dễ tập trung hơn. Điều này có thể góp phần giải thích vì sao nhiều văn phòng, lớp học và phòng bệnh được sơn những tông màu lạnh, nhạt thay vì những màu đậm, rực rỡ."
+            },
+            {
+              "id": "p2-s3",
+              "source": "Warm colours such as orange and yellow, by contrast, tend to feel stimulating, and they are common in restaurants, gyms and other places that want customers to feel awake, hungry and active.",
+              "phrases": [
+                {
+                  "source": "by contrast",
+                  "target": "Ngược lại"
+                },
+                {
+                  "source": "stimulating",
+                  "target": "kích thích"
+                },
+                {
+                  "source": "awake, hungry and active",
+                  "target": "tỉnh táo, đói bụng và năng động"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Ngược lại, các màu ấm như cam và vàng thường tạo cảm giác kích thích; chúng phổ biến ở nhà hàng, phòng tập và những nơi muốn khách cảm thấy tỉnh táo, đói bụng và năng động."
+            },
+            {
+              "id": "p3-s1",
+              "source": "Other findings are far less settled.",
+              "phrases": [
+                {
+                  "source": "far less settled",
+                  "target": "kém chắc chắn hơn nhiều"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Những phát hiện khác còn kém chắc chắn hơn nhiều."
+            },
+            {
+              "id": "p3-s2",
+              "source": "One widely reported study of combat sports suggested that athletes wearing red won slightly more often than those in blue, hinting that the colour signals dominance and may unsettle opponents.",
+              "phrases": [
+                {
+                  "source": "combat sports",
+                  "target": "các môn thể thao đối kháng"
+                },
+                {
+                  "source": "suggested",
+                  "target": "gợi ý"
+                },
+                {
+                  "source": "slightly more often",
+                  "target": "thường xuyên hơn một chút"
+                },
+                {
+                  "source": "signals dominance",
+                  "target": "báo hiệu ưu thế"
+                },
+                {
+                  "source": "may unsettle opponents",
+                  "target": "có thể khiến đối thủ bất an"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Một nghiên cứu về các môn thể thao đối kháng được nhắc đến rộng rãi gợi ý rằng vận động viên mặc màu đỏ thắng thường xuyên hơn một chút so với người mặc màu xanh lam. Kết quả này gợi ra khả năng màu đỏ báo hiệu ưu thế và có thể khiến đối thủ bất an."
+            },
+            {
+              "id": "p3-s3",
+              "source": "Yet the effect has not always reappeared when other researchers repeat the experiment, and small differences in crowd size, sport or measurement can easily account for the modest gap that remains.",
+              "phrases": [
+                {
+                  "source": "has not always reappeared",
+                  "target": "không phải lúc nào cũng xuất hiện lại"
+                },
+                {
+                  "source": "repeat the experiment",
+                  "target": "lặp lại thí nghiệm"
+                },
+                {
+                  "source": "the modest gap",
+                  "target": "phần chênh lệch nhỏ"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Tuy nhiên, hiệu ứng này không phải lúc nào cũng xuất hiện lại khi các nhà nghiên cứu khác lặp lại thí nghiệm; những khác biệt nhỏ về số khán giả, môn thể thao hoặc cách đo có thể dễ dàng lý giải phần chênh lệch nhỏ còn lại."
+            },
+            {
+              "id": "p4-s1",
+              "source": "Part of the difficulty is that colour rarely acts alone.",
+              "phrases": [
+                {
+                  "source": "rarely acts alone",
+                  "target": "hiếm khi tác động riêng lẻ"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Một phần khó khăn nằm ở chỗ màu sắc hiếm khi tác động riêng lẻ."
+            },
+            {
+              "id": "p4-s2",
+              "source": "Its meaning shifts from one culture to another: white suggests purity at many Western weddings but mourning at some Asian funerals.",
+              "phrases": [
+                {
+                  "source": "purity",
+                  "target": "sự thuần khiết"
+                },
+                {
+                  "source": "mourning",
+                  "target": "sự tang tóc"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Ý nghĩa của màu sắc thay đổi giữa các nền văn hóa: màu trắng gợi sự thuần khiết trong nhiều đám cưới phương Tây, nhưng gợi sự tang tóc trong một số đám tang ở châu Á."
+            },
+            {
+              "id": "p4-s3",
+              "source": "The same red that excites a shopper may warn a driver to stop.",
+              "phrases": [
+                {
+                  "source": "excites a shopper",
+                  "target": "khiến người mua hào hứng"
+                },
+                {
+                  "source": "warn a driver to stop",
+                  "target": "cảnh báo người lái xe phải dừng lại"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Cũng màu đỏ khiến người mua hào hứng ấy lại có thể cảnh báo người lái xe phải dừng lại."
+            },
+            {
+              "id": "p4-s4",
+              "source": "A colour, in other words, can pull in different directions depending on where it appears and who is looking.",
+              "phrases": [
+                {
+                  "source": "pull in different directions",
+                  "target": "dẫn tới những phản ứng trái chiều"
+                },
+                {
+                  "source": "depending on",
+                  "target": "tùy"
+                },
+                {
+                  "source": "who is looking",
+                  "target": "người đang nhìn nó"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Nói cách khác, một màu có thể dẫn tới những phản ứng trái chiều tùy nơi nó xuất hiện và người đang nhìn nó."
+            },
+            {
+              "id": "p4-s5",
+              "source": "Whether colour truly steers our behaviour, or merely nudges it within limits we set elsewhere, remains an open and rather stubborn question.",
+              "phrases": [
+                {
+                  "source": "steers our behaviour",
+                  "target": "điều khiển hành vi của chúng ta"
+                },
+                {
+                  "source": "merely nudges it",
+                  "target": "chỉ tác động nhẹ tới hành vi ấy"
+                },
+                {
+                  "source": "within limits we set elsewhere",
+                  "target": "trong những giới hạn mà chúng ta đặt ra dựa trên các yếu tố khác"
+                },
+                {
+                  "source": "an open and rather stubborn question",
+                  "target": "một câu hỏi bỏ ngỏ và khá khó giải quyết"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Màu sắc có thực sự điều khiển hành vi của chúng ta, hay chỉ tác động nhẹ tới hành vi ấy trong những giới hạn mà chúng ta đặt ra dựa trên các yếu tố khác, vẫn là một câu hỏi bỏ ngỏ và khá khó giải quyết."
+            }
+          ],
+          "illustrations": [
+            {
+              "src": "/reading-illustrations/exp-colour-packaging-scene.svg",
+              "alt": "Các hộp và chai không nhãn, có nhiều màu khác nhau, bày trên hai tầng kệ cạnh một bảng màu.",
+              "caption": "Màu sắc trên bao bì là một bối cảnh của bài đọc; hình không khẳng định màu nào luôn gây ra một phản ứng nhất định."
+            }
+          ],
+          "source_sha256": "035f97d77e7704596f668ec84ee83c1835e0ddd9c8112747cac312b13f9760d6",
+          "schema_version": 1,
+          "question_evidence": {
+            "1": {
+              "source": "Yet the effect has not always reappeared when other researchers repeat the experiment, and small differences in crowd size, sport or measurement can easily account for the modest gap that remains.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "e8efaa67b39c630c2cd08f09f7473b0f612b76a872e9c9b74f345eafbd91336f"
+            },
+            "2": {
+              "source": "People shown the colour blue often report feeling calmer and better able to concentrate, which may help explain why so many offices, classrooms and hospital wards are painted in cool, pale shades rather than bold, saturated ones.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "d647be7db045f1250d0271a6ddd4bd0bb09812ec6168e8b6f19107f4a343268b"
+            },
+            "3": {
+              "source": "Its meaning shifts from one culture to another: white suggests purity at many Western weddings but mourning at some Asian funerals. The same red that excites a shopper may warn a driver to stop. A colour, in other words, can pull in different directions depending on where it appears and who is looking.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Cùng màu đỏ: một nhãn hàng có thể làm người mua hào hứng; biển dừng yêu cầu người lái dừng lại.",
+                  "src": "/reading-illustrations/colour-review.svg",
+                  "caption": "Màu sắc có ý nghĩa phụ thuộc bối cảnh; sơ đồ minh hoạ ví dụ trong bài, không khẳng định một tác động luôn xảy ra."
+                }
+              ],
+              "question_sha256": "cdd7dbeb8db52103dfdf13af7aab02c264e82118558cc78d629d96a89723c5a8"
+            }
+          },
+          "translation_sha256": "1021fbfe93a8efa0890d93b7e61cb825d942cc1e9fbbf03ddf89a8222dbafaf7"
+        }
+      },
+      "expected_image_url": "/reading-illustrations/exp-colour-packaging-scene.svg",
+      "expected_glossary": [
+        {
+          "term": "hunch",
+          "aliases": [
+            "hunches"
+          ],
+          "example": "The psychology of colour tries to test such hunches, and the results are more tangled than the confident claims on advertising blogs suggest.",
+          "definition": "linh cảm, nhận định chưa được kiểm chứng"
+        },
+        {
+          "term": "consistency",
+          "aliases": [],
+          "example": "Some patterns do appear with reasonable consistency.",
+          "definition": "tính nhất quán"
+        },
+        {
+          "term": "stimulating",
+          "aliases": [],
+          "example": "Warm colours such as orange and yellow, by contrast, tend to feel stimulating, and they are common in restaurants, gyms and other places that want customers to feel awake, hungry and active.",
+          "definition": "gây kích thích, làm tỉnh táo"
+        },
+        {
+          "term": "dominance",
+          "aliases": [],
+          "example": "One widely reported study of combat sports suggested that athletes wearing red won slightly more often than those in blue, hinting that the colour signals dominance and may unsettle opponents.",
+          "definition": "sự áp đảo, ưu thế"
+        },
+        {
+          "term": "unsettle",
+          "aliases": [],
+          "example": "One widely reported study of combat sports suggested that athletes wearing red won slightly more often than those in blue, hinting that the colour signals dominance and may unsettle opponents.",
+          "definition": "làm ai bất an"
+        },
+        {
+          "term": "mourning",
+          "aliases": [],
+          "example": "Its meaning shifts from one culture to another: white suggests purity at many Western weddings but mourning at some Asian funerals.",
+          "definition": "sự tang tóc, đau buồn khi có người qua đời"
+        },
+        {
+          "term": "nudge",
+          "aliases": [
+            "nudges"
+          ],
+          "example": "Whether colour truly steers our behaviour, or merely nudges it within limits we set elsewhere, remains an open and rather stubborn question.",
+          "definition": "tác động nhẹ, thúc đẩy một chút"
+        },
+        {
+          "term": "saturated",
+          "aliases": [],
+          "example": "People shown the colour blue often report feeling calmer and better able to concentrate, which may help explain why so many offices, classrooms and hospital wards are painted in cool, pale shades rather than bold, saturated ones.",
+          "definition": "đậm và rực (nói về màu)"
+        },
+        {
+          "term": "modest",
+          "aliases": [],
+          "example": "Yet the effect has not always reappeared when other researchers repeat the experiment, and small differences in crowd size, sport or measurement can easily account for the modest gap that remains.",
+          "definition": "nhỏ, không lớn (nói về mức chênh lệch)"
+        },
+        {
+          "term": "open question",
+          "aliases": [],
+          "example": "",
+          "definition": "câu hỏi còn bỏ ngỏ"
+        }
+      ],
+      "changes": {
+        "metadata": {
+          "translation_vi": "Khi nhà thiết kế người Anh chọn màu đỏ đậm cho một lon nước giải khát nổi tiếng, quyết định đó không chỉ liên quan đến hương vị. Màu đỏ nổi bật, ấm áp và khó có thể bỏ qua; từ lâu, giới tiếp thị tin rằng nó thúc đẩy người mua đưa ra những lựa chọn nhanh chóng và đầy năng lượng. Tâm lý học màu sắc tìm cách kiểm nghiệm những linh cảm như vậy, và kết quả phức tạp hơn những lời khẳng định đầy tự tin trên các blog quảng cáo.\n\nMột số xu hướng thực sự xuất hiện khá nhất quán. Người được cho xem màu xanh lam thường nói rằng họ thấy bình tĩnh hơn và dễ tập trung hơn. Điều này có thể giải thích vì sao nhiều văn phòng, lớp học và phòng bệnh được sơn màu dịu, nhạt thay vì những màu đậm, rực rỡ. Ngược lại, các màu ấm như cam và vàng thường tạo cảm giác kích thích; chúng phổ biến ở nhà hàng, phòng tập và những nơi muốn khách cảm thấy tỉnh táo, đói bụng và năng động.\n\nNhững phát hiện khác còn kém chắc chắn hơn nhiều. Một nghiên cứu về thể thao đối kháng được nhắc đến rộng rãi cho thấy vận động viên mặc đỏ thắng thường xuyên hơn một chút so với người mặc xanh lam. Điều này gợi ý rằng màu đỏ thể hiện sự áp đảo và có thể khiến đối thủ bất an. Tuy nhiên, hiệu ứng này không phải lúc nào cũng xuất hiện lại khi các nhà nghiên cứu khác lặp lại thí nghiệm; những khác biệt nhỏ về số khán giả, môn thể thao hoặc cách đo có thể dễ dàng giải thích khoảng cách khiêm tốn còn lại.\n\nMột phần khó khăn nằm ở chỗ màu sắc hiếm khi tác động riêng lẻ. Ý nghĩa của màu sắc thay đổi giữa các nền văn hóa: màu trắng gợi sự thuần khiết trong nhiều đám cưới phương Tây, nhưng gợi sự tang tóc trong một số đám tang ở châu Á. Cũng màu đỏ khiến người mua hào hứng ấy lại có thể cảnh báo người lái xe phải dừng lại. Nói cách khác, một màu có thể tạo ra những tác động khác nhau tùy nơi nó xuất hiện và người đang nhìn nó. Màu sắc thực sự điều khiển hành vi của chúng ta hay chỉ tác động nhẹ trong những giới hạn được xác lập bởi các yếu tố khác vẫn là câu hỏi bỏ ngỏ và khá khó giải quyết.",
+          "practice_support": {
+            "units": [
+              {
+                "id": "p1-s1",
+                "source": "When the British designer of a well-known soft-drink can chose a deep red, the decision was not only about taste.",
+                "phrases": [
+                  {
+                    "source": "a deep red",
+                    "target": "màu đỏ đậm"
+                  },
+                  {
+                    "source": "not only about taste",
+                    "target": "không chỉ liên quan đến hương vị"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Khi nhà thiết kế người Anh chọn màu đỏ đậm cho một lon nước giải khát nổi tiếng, quyết định đó không chỉ liên quan đến hương vị."
+              },
+              {
+                "id": "p1-s2",
+                "source": "Red is loud, warm and impossible to ignore, and marketers have long believed it pushes shoppers towards quick, energetic choices.",
+                "phrases": [
+                  {
+                    "source": "impossible to ignore",
+                    "target": "khó có thể bỏ qua"
+                  },
+                  {
+                    "source": "pushes shoppers",
+                    "target": "thúc đẩy người mua"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Màu đỏ nổi bật, ấm áp và khó có thể bỏ qua; từ lâu, giới tiếp thị tin rằng nó thúc đẩy người mua đưa ra những lựa chọn nhanh chóng và đầy năng lượng."
+              },
+              {
+                "id": "p1-s3",
+                "source": "The psychology of colour tries to test such hunches, and the results are more tangled than the confident claims on advertising blogs suggest.",
+                "phrases": [
+                  {
+                    "source": "such hunches",
+                    "target": "những linh cảm như vậy"
+                  },
+                  {
+                    "source": "more tangled",
+                    "target": "phức tạp hơn"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Tâm lý học màu sắc tìm cách kiểm nghiệm những linh cảm như vậy, và kết quả phức tạp hơn những lời khẳng định đầy tự tin trên các blog quảng cáo."
+              },
+              {
+                "id": "p2-s1",
+                "source": "Some patterns do appear with reasonable consistency.",
+                "phrases": [
+                  {
+                    "source": "reasonable consistency",
+                    "target": "khá nhất quán"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Một số xu hướng thực sự xuất hiện khá nhất quán."
+              },
+              {
+                "id": "p2-s2",
+                "source": "People shown the colour blue often report feeling calmer and better able to concentrate, which may help explain why so many offices, classrooms and hospital wards are painted in cool, pale shades rather than bold, saturated ones.",
+                "phrases": [
+                  {
+                    "source": "calmer",
+                    "target": "bình tĩnh hơn"
+                  },
+                  {
+                    "source": "better able to concentrate",
+                    "target": "dễ tập trung hơn"
+                  },
+                  {
+                    "source": "may help explain",
+                    "target": "có thể giải thích"
+                  },
+                  {
+                    "source": "cool, pale shades",
+                    "target": "màu dịu, nhạt"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Người được cho xem màu xanh lam thường nói rằng họ thấy bình tĩnh hơn và dễ tập trung hơn. Điều này có thể giải thích vì sao nhiều văn phòng, lớp học và phòng bệnh được sơn màu dịu, nhạt thay vì những màu đậm, rực rỡ."
+              },
+              {
+                "id": "p2-s3",
+                "source": "Warm colours such as orange and yellow, by contrast, tend to feel stimulating, and they are common in restaurants, gyms and other places that want customers to feel awake, hungry and active.",
+                "phrases": [
+                  {
+                    "source": "by contrast",
+                    "target": "Ngược lại"
+                  },
+                  {
+                    "source": "stimulating",
+                    "target": "kích thích"
+                  },
+                  {
+                    "source": "awake, hungry and active",
+                    "target": "tỉnh táo, đói bụng và năng động"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Ngược lại, các màu ấm như cam và vàng thường tạo cảm giác kích thích; chúng phổ biến ở nhà hàng, phòng tập và những nơi muốn khách cảm thấy tỉnh táo, đói bụng và năng động."
+              },
+              {
+                "id": "p3-s1",
+                "source": "Other findings are far less settled.",
+                "phrases": [
+                  {
+                    "source": "far less settled",
+                    "target": "kém chắc chắn hơn nhiều"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Những phát hiện khác còn kém chắc chắn hơn nhiều."
+              },
+              {
+                "id": "p3-s2",
+                "source": "One widely reported study of combat sports suggested that athletes wearing red won slightly more often than those in blue, hinting that the colour signals dominance and may unsettle opponents.",
+                "phrases": [
+                  {
+                    "source": "combat sports",
+                    "target": "thể thao đối kháng"
+                  },
+                  {
+                    "source": "slightly more often",
+                    "target": "thường xuyên hơn một chút"
+                  },
+                  {
+                    "source": "signals dominance",
+                    "target": "thể hiện sự áp đảo"
+                  },
+                  {
+                    "source": "may unsettle opponents",
+                    "target": "có thể khiến đối thủ bất an"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Một nghiên cứu về thể thao đối kháng được nhắc đến rộng rãi cho thấy vận động viên mặc đỏ thắng thường xuyên hơn một chút so với người mặc xanh lam. Điều này gợi ý rằng màu đỏ thể hiện sự áp đảo và có thể khiến đối thủ bất an."
+              },
+              {
+                "id": "p3-s3",
+                "source": "Yet the effect has not always reappeared when other researchers repeat the experiment, and small differences in crowd size, sport or measurement can easily account for the modest gap that remains.",
+                "phrases": [
+                  {
+                    "source": "has not always reappeared",
+                    "target": "không phải lúc nào cũng xuất hiện lại"
+                  },
+                  {
+                    "source": "repeat the experiment",
+                    "target": "lặp lại thí nghiệm"
+                  },
+                  {
+                    "source": "the modest gap",
+                    "target": "khoảng cách khiêm tốn"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Tuy nhiên, hiệu ứng này không phải lúc nào cũng xuất hiện lại khi các nhà nghiên cứu khác lặp lại thí nghiệm; những khác biệt nhỏ về số khán giả, môn thể thao hoặc cách đo có thể dễ dàng giải thích khoảng cách khiêm tốn còn lại."
+              },
+              {
+                "id": "p4-s1",
+                "source": "Part of the difficulty is that colour rarely acts alone.",
+                "phrases": [
+                  {
+                    "source": "rarely acts alone",
+                    "target": "hiếm khi tác động riêng lẻ"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Một phần khó khăn nằm ở chỗ màu sắc hiếm khi tác động riêng lẻ."
+              },
+              {
+                "id": "p4-s2",
+                "source": "Its meaning shifts from one culture to another: white suggests purity at many Western weddings but mourning at some Asian funerals.",
+                "phrases": [
+                  {
+                    "source": "purity",
+                    "target": "sự thuần khiết"
+                  },
+                  {
+                    "source": "mourning",
+                    "target": "sự tang tóc"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Ý nghĩa của màu sắc thay đổi giữa các nền văn hóa: màu trắng gợi sự thuần khiết trong nhiều đám cưới phương Tây, nhưng gợi sự tang tóc trong một số đám tang ở châu Á."
+              },
+              {
+                "id": "p4-s3",
+                "source": "The same red that excites a shopper may warn a driver to stop.",
+                "phrases": [
+                  {
+                    "source": "excites a shopper",
+                    "target": "khiến người mua hào hứng"
+                  },
+                  {
+                    "source": "warn a driver to stop",
+                    "target": "cảnh báo người lái xe phải dừng lại"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Cũng màu đỏ khiến người mua hào hứng ấy lại có thể cảnh báo người lái xe phải dừng lại."
+              },
+              {
+                "id": "p4-s4",
+                "source": "A colour, in other words, can pull in different directions depending on where it appears and who is looking.",
+                "phrases": [
+                  {
+                    "source": "depending on",
+                    "target": "tùy"
+                  },
+                  {
+                    "source": "who is looking",
+                    "target": "người đang nhìn nó"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Nói cách khác, một màu có thể tạo ra những tác động khác nhau tùy nơi nó xuất hiện và người đang nhìn nó."
+              },
+              {
+                "id": "p4-s5",
+                "source": "Whether colour truly steers our behaviour, or merely nudges it within limits we set elsewhere, remains an open and rather stubborn question.",
+                "phrases": [
+                  {
+                    "source": "steers our behaviour",
+                    "target": "điều khiển hành vi của chúng ta"
+                  },
+                  {
+                    "source": "merely nudges it",
+                    "target": "chỉ tác động nhẹ"
+                  },
+                  {
+                    "source": "an open and rather stubborn question",
+                    "target": "câu hỏi bỏ ngỏ và khá khó giải quyết"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Màu sắc thực sự điều khiển hành vi của chúng ta hay chỉ tác động nhẹ trong những giới hạn được xác lập bởi các yếu tố khác vẫn là câu hỏi bỏ ngỏ và khá khó giải quyết."
+              }
+            ],
+            "illustrations": [],
+            "source_sha256": "035f97d77e7704596f668ec84ee83c1835e0ddd9c8112747cac312b13f9760d6",
+            "schema_version": 1,
+            "question_evidence": {
+              "1": {
+                "source": "Yet the effect has not always reappeared when other researchers repeat the experiment, and small differences in crowd size, sport or measurement can easily account for the modest gap that remains.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "e8efaa67b39c630c2cd08f09f7473b0f612b76a872e9c9b74f345eafbd91336f"
+              },
+              "2": {
+                "source": "People shown the colour blue often report feeling calmer and better able to concentrate, which may help explain why so many offices, classrooms and hospital wards are painted in cool, pale shades rather than bold, saturated ones.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "d647be7db045f1250d0271a6ddd4bd0bb09812ec6168e8b6f19107f4a343268b"
+              },
+              "3": {
+                "source": "Its meaning shifts from one culture to another: white suggests purity at many Western weddings but mourning at some Asian funerals. The same red that excites a shopper may warn a driver to stop. A colour, in other words, can pull in different directions depending on where it appears and who is looking.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Cùng màu đỏ: một nhãn hàng có thể làm người mua hào hứng; biển dừng yêu cầu người lái dừng lại.",
+                    "src": "/reading-illustrations/colour-review.svg",
+                    "caption": "Màu sắc có ý nghĩa phụ thuộc bối cảnh; sơ đồ minh hoạ ví dụ trong bài, không khẳng định một tác động luôn xảy ra."
+                  }
+                ],
+                "question_sha256": "cdd7dbeb8db52103dfdf13af7aab02c264e82118558cc78d629d96a89723c5a8"
+              }
+            },
+            "translation_sha256": "29416a6eef3f912b04476f0ee03a1004c34ed340706975552e42c73b8caa94fe"
+          }
+        },
+        "image_url": null,
+        "glossary": [
+          {
+            "term": "hunch",
+            "aliases": [
+              "hunches"
+            ],
+            "example": "The psychology of colour tries to test such hunches, and the results are more tangled than the confident claims on advertising blogs suggest.",
+            "definition": "linh cảm, nhận định chưa được kiểm chứng"
+          },
+          {
+            "term": "consistency",
+            "aliases": [],
+            "example": "Some patterns do appear with reasonable consistency.",
+            "definition": "tính nhất quán"
+          },
+          {
+            "term": "stimulating",
+            "aliases": [],
+            "example": "Warm colours such as orange and yellow, by contrast, tend to feel stimulating, and they are common in restaurants, gyms and other places that want customers to feel awake, hungry and active.",
+            "definition": "gây kích thích, làm tỉnh táo"
+          },
+          {
+            "term": "dominance",
+            "aliases": [],
+            "example": "One widely reported study of combat sports suggested that athletes wearing red won slightly more often than those in blue, hinting that the colour signals dominance and may unsettle opponents.",
+            "definition": "sự áp đảo, ưu thế"
+          },
+          {
+            "term": "unsettle",
+            "aliases": [],
+            "example": "One widely reported study of combat sports suggested that athletes wearing red won slightly more often than those in blue, hinting that the colour signals dominance and may unsettle opponents.",
+            "definition": "làm ai bất an"
+          },
+          {
+            "term": "mourning",
+            "aliases": [],
+            "example": "Its meaning shifts from one culture to another: white suggests purity at many Western weddings but mourning at some Asian funerals.",
+            "definition": "sự tang tóc, đau buồn khi có người qua đời"
+          },
+          {
+            "term": "nudge",
+            "aliases": [
+              "nudges"
+            ],
+            "example": "Whether colour truly steers our behaviour, or merely nudges it within limits we set elsewhere, remains an open and rather stubborn question.",
+            "definition": "tác động nhẹ, thúc đẩy một chút"
+          },
+          {
+            "term": "saturated",
+            "aliases": [],
+            "example": "People shown the colour blue often report feeling calmer and better able to concentrate, which may help explain why so many offices, classrooms and hospital wards are painted in cool, pale shades rather than bold, saturated ones.",
+            "definition": "đậm và rực (nói về màu)"
+          },
+          {
+            "term": "modest",
+            "aliases": [],
+            "example": "Yet the effect has not always reappeared when other researchers repeat the experiment, and small differences in crowd size, sport or measurement can easily account for the modest gap that remains.",
+            "definition": "nhỏ, không lớn (nói về mức chênh lệch)"
+          },
+          {
+            "term": "open question",
+            "aliases": [],
+            "example": "",
+            "definition": "câu hỏi còn bỏ ngỏ"
+          }
+        ]
+      }
+    },
+    {
+      "passage_id": "d4db5c3d-5e07-421b-ad8c-5302bcde7ae2",
+      "slug": "matching-movements-in-art",
+      "library": "l2_skill",
+      "source_body_markdown": "**A** Walk through a museum of modern art and the rooms can feel like separate worlds: soft gardens in one, shattered guitars in the next, melting clocks beyond that, and finally great fields of dripped colour. These are not random styles but four movements, each reacting against the art that came before it and each redefining what a painting was supposed to do.\n\n**B** Impressionism arrived first, in 1870s France. Painters such as Claude Monet left the studio to work outdoors, trying to record how sunlight struck a pond or a field at one fleeting moment. Their loose, visible brushstrokes looked unfinished to many viewers, and early critics mocked them; the very word \"Impressionism\" began as an insult before the artists adopted it with pride.\n\n**C** Cubism, developed around 1908 by Pablo Picasso and Georges Braque, went further from realism. Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together. The result asked viewers to assemble the subject in their own minds.\n\n**D** Surrealism, which took shape in the 1920s around the writer André Breton, turned away from the visible world altogether. Drawing on new ideas about dreams and the unconscious mind, artists such as Salvador Dalí painted scenes that obeyed no ordinary logic — soft watches draped over branches, familiar objects placed in impossible settings — in the hope of releasing thoughts that waking reason normally keeps hidden.\n\n**E** Abstract Expressionism emerged in New York after 1945 and abandoned recognisable subjects entirely. Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object. Critics argued fiercely over whether such paintings were a serious achievement or no achievement at all.\n\n**F** Seen together, the four movements trace a steady loosening of the link between a painting and the world outside it, from Monet's pond to Pollock's bare gesture. Whether that long retreat from likeness counts as the liberation of art or the loss of something it once did well is a question that visitors, standing in those very different rooms, may still answer in different ways.",
+      "expected_metadata": {
+        "grammar_focus": [
+          {
+            "tip": "Mở bài kiểu mệnh lệnh kéo người đọc vào cảnh — thông tin định vị (matching) nằm ở chuỗi liệt kê sau dấu hai chấm.",
+            "point": "Câu mệnh lệnh + 'and' chỉ kết quả (fronting bối cảnh)",
+            "review": "Imperative + and + S will/can… = câu điều kiện ẩn (If you do X, Y happens). Liệt kê song song có thể lược động từ chung.",
+            "example": "**Walk through a museum of modern art and the rooms can feel like separate worlds**: soft gardens in one, shattered guitars in the next…",
+            "analysis": "Mệnh lệnh 'Walk…' + 'and' + mệnh đề kết quả ('the rooms can feel…') = cấu trúc 'Imperative + and + clause' thay cho 'If you walk…, the rooms will…'. Sau dấu hai chấm là chuỗi cụm danh từ song song có lược động từ (ellipsis): 'soft gardens in one, shattered guitars in the next…' (lược 'there are')."
+          },
+          {
+            "tip": "Cụm '-ing' cuối câu bổ nghĩa cho cả mệnh đề trước; quy chiếu về chủ ngữ chính để không gán nhầm hành động.",
+            "point": "Mệnh đề phân từ cuối câu (-ing) chỉ mục đích/đồng thời",
+            "review": "…, V-ing… (cuối câu) = mệnh đề rút gọn cùng chủ ngữ, diễn tả hành động đồng thời/hệ quả/động cơ.",
+            "example": "Painters such as Claude Monet left the studio to work outdoors, **trying to record** how sunlight struck a pond or a field",
+            "analysis": "Cụm phân từ 'trying to record…' đứng cuối, rút gọn từ 'as they tried to record…', bổ sung động cơ cho hành động chính 'left the studio'. Bên trong lồng mệnh đề danh ngữ gián tiếp 'how sunlight struck…' làm tân ngữ của 'record'. Chủ ngữ logic = 'Painters'."
+          },
+          {
+            "tip": "Cụm tương phản đầu câu (Instead of/Rather than) nêu cái KHÔNG đúng với chủ thể — bẫy matching hay lấy đúng phần này gán nhầm.",
+            "point": "Fronting cụm 'Instead of + N' đầu câu (không đảo S-V)",
+            "review": "Instead of + V-ing/N = thay vì… Fronting cụm tương phản lên đầu để nhấn mạnh sự đối lập.",
+            "example": "**Instead of painting an object as the eye sees it from one spot**, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time",
+            "analysis": "Cụm giới từ 'Instead of + V-ing' fronting (đảo lên đầu) nêu cái bị bác bỏ, tạo tương phản với mệnh đề chính. Mệnh đề chính có hai động từ song song 'broke … and showed …'. 'so that…' theo sau dẫn mệnh đề kết quả. Trật tự được đánh dấu (marked) để làm nổi sự tương phản."
+          },
+          {
+            "tip": "Kết bài 'Whether… is a question' = tác giả không kết luận; trong matching information đây là đoạn 'tổng kết/để ngỏ' (đoạn F).",
+            "point": "Mệnh đề danh ngữ 'Whether A or B' làm chủ ngữ + bổ ngữ danh từ",
+            "review": "Whether A or B + is/remains a question = liệu A hay B vẫn là câu hỏi (bỏ ngỏ). Mệnh đề quan hệ tân ngữ lược 'that'.",
+            "example": "**Whether that long retreat from likeness counts as the liberation of art or the loss of something it once did well is a question** that visitors … may still answer in different ways.",
+            "analysis": "Mệnh đề danh ngữ 'Whether A or B' làm chủ ngữ của 'is'; bổ ngữ 'a question' được mệnh đề quan hệ 'that visitors… may answer' bổ nghĩa. Bên trong B còn lồng mệnh đề quan hệ rút gọn 'something [that] it once did well'. Câu nhiều tầng, bỏ ngỏ kết luận."
+          }
+        ],
+        "translation_vi": "Đi qua một bảo tàng nghệ thuật hiện đại, bạn có thể thấy mỗi phòng như một thế giới riêng: những khu vườn với nét vẽ mềm mại ở phòng này, hình đàn ghi-ta bị chia cắt ở phòng kế, rồi đồng hồ tan chảy, và cuối cùng là những khoảng tranh rộng phủ các vệt màu nhỏ giọt. Đây là bốn trào lưu, chứ không phải những phong cách ngẫu nhiên; mỗi trào lưu đều thách thức lối nghệ thuật đi trước và xác định lại điều một bức tranh được kỳ vọng phải làm.\n\nTrào lưu Ấn tượng xuất hiện đầu tiên ở Pháp vào thập niên 1870. Các họa sĩ như Claude Monet rời xưởng để vẽ ngoài trời, cố ghi lại cách ánh nắng chiếu lên ao hoặc cánh đồng trong một khoảnh khắc thoáng qua. Những nét cọ tự do, lộ rõ của họ trông như chưa hoàn thiện với nhiều người xem và bị giới phê bình ban đầu chế giễu. Chính từ 'Ấn tượng' lúc đầu là lời chê bai, trước khi được các nghệ sĩ tự hào nhận làm tên gọi.\n\nLập thể, do Pablo Picasso và Georges Braque phát triển khoảng năm 1908, còn rời xa lối vẽ tả thực hơn nữa. Thay vì vẽ một vật như mắt nhìn thấy từ một vị trí, tranh Lập thể chia nó thành những hình phẳng, góc cạnh và thể hiện đồng thời nhiều góc nhìn. Vì thế, một khuôn mặt hoặc đàn ghi-ta có thể hiện cả phía trước lẫn bên cạnh cùng lúc. Cách thể hiện ấy yêu cầu người xem tự ghép lại hình ảnh đối tượng trong tâm trí mình.\n\nSiêu thực, hình thành vào những năm 1920 quanh nhà văn André Breton, hoàn toàn quay lưng với thế giới nhìn thấy được. Dựa vào những ý tưởng mới về giấc mơ và tâm trí vô thức, các nghệ sĩ như Salvador Dalí vẽ những cảnh không tuân theo lô-gic thông thường: đồng hồ mềm rủ trên cành cây, vật quen thuộc đặt trong bối cảnh không thể có. Họ hy vọng giải phóng những suy nghĩ mà lý trí lúc tỉnh thường che giấu.\n\nBiểu hiện Trừu tượng xuất hiện ở New York sau năm 1945 và hoàn toàn từ bỏ các chủ thể có thể nhận diện. Jackson Pollock đặt những tấm toan khổ lớn trên sàn rồi nhỏ giọt hoặc đổ màu vẽ lên đó, di chuyển quanh các mép để tác phẩm ghi lại động tác cơ thể của ông thay vì một vật thể nào. Giới phê bình tranh cãi gay gắt rằng những bức tranh ấy là thành tựu đáng kể hay chẳng phải thành tựu gì.\n\nĐặt cạnh nhau, bốn trào lưu cho thấy mối liên hệ giữa tranh và thế giới bên ngoài ngày càng lỏng lẻo, từ ao của Monet đến động tác thuần túy của Pollock. Quá trình dài rời xa lối vẽ giống thực ấy là sự giải phóng nghệ thuật hay là sự đánh mất một điều nghệ thuật từng làm tốt? Khách tham quan đứng trong những căn phòng rất khác nhau đó vẫn có thể trả lời câu hỏi này theo những cách khác nhau.",
+        "practice_support": {
+          "units": [
+            {
+              "id": "p1-s1",
+              "source": "Walk through a museum of modern art and the rooms can feel like separate worlds: soft gardens in one, shattered guitars in the next, melting clocks beyond that, and finally great fields of dripped colour.",
+              "phrases": [
+                {
+                  "source": "separate worlds",
+                  "target": "một thế giới riêng"
+                },
+                {
+                  "source": "soft gardens",
+                  "target": "những khu vườn với nét vẽ mềm mại"
+                },
+                {
+                  "source": "shattered guitars",
+                  "target": "hình đàn ghi-ta bị chia cắt"
+                },
+                {
+                  "source": "melting clocks",
+                  "target": "đồng hồ tan chảy"
+                },
+                {
+                  "source": "great fields of dripped colour",
+                  "target": "những khoảng tranh rộng phủ các vệt màu nhỏ giọt"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Đi qua một bảo tàng nghệ thuật hiện đại, bạn có thể thấy mỗi phòng như một thế giới riêng: những khu vườn với nét vẽ mềm mại ở phòng này, hình đàn ghi-ta bị chia cắt ở phòng kế, rồi đồng hồ tan chảy, và cuối cùng là những khoảng tranh rộng phủ các vệt màu nhỏ giọt."
+            },
+            {
+              "id": "p1-s2",
+              "source": "These are not random styles but four movements, each reacting against the art that came before it and each redefining what a painting was supposed to do.",
+              "phrases": [
+                {
+                  "source": "four movements",
+                  "target": "bốn trào lưu"
+                },
+                {
+                  "source": "reacting against",
+                  "target": "thách thức"
+                },
+                {
+                  "source": "what a painting was supposed to do",
+                  "target": "điều một bức tranh được kỳ vọng phải làm"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Đây là bốn trào lưu, chứ không phải những phong cách ngẫu nhiên; mỗi trào lưu đều thách thức lối nghệ thuật đi trước và xác định lại điều một bức tranh được kỳ vọng phải làm."
+            },
+            {
+              "id": "p2-s1",
+              "source": "Impressionism arrived first, in 1870s France.",
+              "phrases": [
+                {
+                  "source": "Impressionism",
+                  "target": "Trào lưu Ấn tượng"
+                },
+                {
+                  "source": "1870s France",
+                  "target": "Pháp vào thập niên 1870"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Trào lưu Ấn tượng xuất hiện đầu tiên ở Pháp vào thập niên 1870."
+            },
+            {
+              "id": "p2-s2",
+              "source": "Painters such as Claude Monet left the studio to work outdoors, trying to record how sunlight struck a pond or a field at one fleeting moment.",
+              "phrases": [
+                {
+                  "source": "work outdoors",
+                  "target": "vẽ ngoài trời"
+                },
+                {
+                  "source": "one fleeting moment",
+                  "target": "một khoảnh khắc thoáng qua"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Các họa sĩ như Claude Monet rời xưởng để vẽ ngoài trời, cố ghi lại cách ánh nắng chiếu lên ao hoặc cánh đồng trong một khoảnh khắc thoáng qua."
+            },
+            {
+              "id": "p2-s3",
+              "source": "Their loose, visible brushstrokes looked unfinished to many viewers, and early critics mocked them; the very word \"Impressionism\" began as an insult before the artists adopted it with pride.",
+              "phrases": [
+                {
+                  "source": "loose, visible brushstrokes",
+                  "target": "Những nét cọ tự do, lộ rõ"
+                },
+                {
+                  "source": "began as an insult",
+                  "target": "lúc đầu là lời chê bai"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Những nét cọ tự do, lộ rõ của họ trông như chưa hoàn thiện với nhiều người xem và bị giới phê bình ban đầu chế giễu. Chính từ 'Ấn tượng' lúc đầu là lời chê bai, trước khi được các nghệ sĩ tự hào nhận làm tên gọi."
+            },
+            {
+              "id": "p3-s1",
+              "source": "Cubism, developed around 1908 by Pablo Picasso and Georges Braque, went further from realism.",
+              "phrases": [
+                {
+                  "source": "Cubism",
+                  "target": "Lập thể"
+                },
+                {
+                  "source": "realism",
+                  "target": "lối vẽ tả thực"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Lập thể, do Pablo Picasso và Georges Braque phát triển khoảng năm 1908, còn rời xa lối vẽ tả thực hơn nữa."
+            },
+            {
+              "id": "p3-s2",
+              "source": "Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together.",
+              "phrases": [
+                {
+                  "source": "flat, angular shapes",
+                  "target": "những hình phẳng, góc cạnh"
+                },
+                {
+                  "source": "several viewpoints",
+                  "target": "nhiều góc nhìn"
+                },
+                {
+                  "source": "front and side together",
+                  "target": "phía trước lẫn bên cạnh cùng lúc"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Thay vì vẽ một vật như mắt nhìn thấy từ một vị trí, tranh Lập thể chia nó thành những hình phẳng, góc cạnh và thể hiện đồng thời nhiều góc nhìn. Vì thế, một khuôn mặt hoặc đàn ghi-ta có thể hiện cả phía trước lẫn bên cạnh cùng lúc."
+            },
+            {
+              "id": "p3-s3",
+              "source": "The result asked viewers to assemble the subject in their own minds.",
+              "phrases": [
+                {
+                  "source": "assemble the subject",
+                  "target": "tự ghép lại hình ảnh đối tượng"
+                },
+                {
+                  "source": "in their own minds",
+                  "target": "trong tâm trí mình"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Cách thể hiện ấy yêu cầu người xem tự ghép lại hình ảnh đối tượng trong tâm trí mình."
+            },
+            {
+              "id": "p4-s1",
+              "source": "Surrealism, which took shape in the 1920s around the writer André Breton, turned away from the visible world altogether.",
+              "phrases": [
+                {
+                  "source": "Surrealism",
+                  "target": "Siêu thực"
+                },
+                {
+                  "source": "the visible world",
+                  "target": "thế giới nhìn thấy được"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Siêu thực, hình thành vào những năm 1920 quanh nhà văn André Breton, hoàn toàn quay lưng với thế giới nhìn thấy được."
+            },
+            {
+              "id": "p4-s2",
+              "source": "Drawing on new ideas about dreams and the unconscious mind, artists such as Salvador Dalí painted scenes that obeyed no ordinary logic — soft watches draped over branches, familiar objects placed in impossible settings — in the hope of releasing thoughts that waking reason normally keeps hidden.",
+              "phrases": [
+                {
+                  "source": "dreams and the unconscious mind",
+                  "target": "giấc mơ và tâm trí vô thức"
+                },
+                {
+                  "source": "impossible settings",
+                  "target": "bối cảnh không thể có"
+                },
+                {
+                  "source": "waking reason",
+                  "target": "lý trí lúc tỉnh"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Dựa vào những ý tưởng mới về giấc mơ và tâm trí vô thức, các nghệ sĩ như Salvador Dalí vẽ những cảnh không tuân theo lô-gic thông thường: đồng hồ mềm rủ trên cành cây, vật quen thuộc đặt trong bối cảnh không thể có. Họ hy vọng giải phóng những suy nghĩ mà lý trí lúc tỉnh thường che giấu."
+            },
+            {
+              "id": "p5-s1",
+              "source": "Abstract Expressionism emerged in New York after 1945 and abandoned recognisable subjects entirely.",
+              "phrases": [
+                {
+                  "source": "Abstract Expressionism",
+                  "target": "Biểu hiện Trừu tượng"
+                },
+                {
+                  "source": "recognisable subjects",
+                  "target": "các chủ thể có thể nhận diện"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Biểu hiện Trừu tượng xuất hiện ở New York sau năm 1945 và hoàn toàn từ bỏ các chủ thể có thể nhận diện."
+            },
+            {
+              "id": "p5-s2",
+              "source": "Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object.",
+              "phrases": [
+                {
+                  "source": "huge canvases",
+                  "target": "những tấm toan khổ lớn"
+                },
+                {
+                  "source": "dripped or poured paint",
+                  "target": "nhỏ giọt hoặc đổ màu vẽ"
+                },
+                {
+                  "source": "physical gestures",
+                  "target": "động tác cơ thể"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Jackson Pollock đặt những tấm toan khổ lớn trên sàn rồi nhỏ giọt hoặc đổ màu vẽ lên đó, di chuyển quanh các mép để tác phẩm ghi lại động tác cơ thể của ông thay vì một vật thể nào."
+            },
+            {
+              "id": "p5-s3",
+              "source": "Critics argued fiercely over whether such paintings were a serious achievement or no achievement at all.",
+              "phrases": [
+                {
+                  "source": "argued fiercely",
+                  "target": "tranh cãi gay gắt"
+                },
+                {
+                  "source": "a serious achievement",
+                  "target": "thành tựu đáng kể"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Giới phê bình tranh cãi gay gắt rằng những bức tranh ấy là thành tựu đáng kể hay chẳng phải thành tựu gì."
+            },
+            {
+              "id": "p6-s1",
+              "source": "Seen together, the four movements trace a steady loosening of the link between a painting and the world outside it, from Monet's pond to Pollock's bare gesture.",
+              "phrases": [
+                {
+                  "source": "Seen together",
+                  "target": "Đặt cạnh nhau"
+                },
+                {
+                  "source": "a steady loosening",
+                  "target": "ngày càng lỏng lẻo"
+                },
+                {
+                  "source": "the world outside it",
+                  "target": "thế giới bên ngoài"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Đặt cạnh nhau, bốn trào lưu cho thấy mối liên hệ giữa tranh và thế giới bên ngoài ngày càng lỏng lẻo, từ ao của Monet đến động tác thuần túy của Pollock."
+            },
+            {
+              "id": "p6-s2",
+              "source": "Whether that long retreat from likeness counts as the liberation of art or the loss of something it once did well is a question that visitors, standing in those very different rooms, may still answer in different ways.",
+              "phrases": [
+                {
+                  "source": "that long retreat from likeness",
+                  "target": "Quá trình dài rời xa lối vẽ giống thực ấy"
+                },
+                {
+                  "source": "the liberation of art",
+                  "target": "sự giải phóng nghệ thuật"
+                },
+                {
+                  "source": "the loss of something it once did well",
+                  "target": "sự đánh mất một điều nghệ thuật từng làm tốt"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Quá trình dài rời xa lối vẽ giống thực ấy là sự giải phóng nghệ thuật hay là sự đánh mất một điều nghệ thuật từng làm tốt? Khách tham quan đứng trong những căn phòng rất khác nhau đó vẫn có thể trả lời câu hỏi này theo những cách khác nhau."
+            }
+          ],
+          "illustrations": [
+            {
+              "src": "/reading-illustrations/exp-museum-gallery-scene.svg",
+              "alt": "Hai người xem tranh phong cảnh và một bình gốm trên bệ trong phòng trưng bày.",
+              "caption": "Khung cảnh phòng trưng bày; đây là hình tự vẽ, không phải tác phẩm của các nghệ sĩ được nhắc trong bài."
+            }
+          ],
+          "source_sha256": "bab4b0f5457a620be683f246c4c388927ad59e09201e3dcb0755e7e9c8609904",
+          "schema_version": 1,
+          "question_evidence": {
+            "1": {
+              "source": "Painters such as Claude Monet left the studio to work outdoors, trying to record how sunlight struck a pond or a field at one fleeting moment.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Cảnh ao và cây được vẽ bằng các mảng màu cùng những nét cọ sáng, rời, dễ nhận thấy.",
+                  "src": "/reading-illustrations/art-impressionism.svg",
+                  "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                }
+              ],
+              "question_sha256": "171d037a46ad32f7f9c23ed51d04449d73445264dff50cec331d5760be37fabf"
+            },
+            "2": {
+              "source": "Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Một khuôn mặt được chia thành các mảng phẳng góc cạnh, ghép góc nhìn chính diện và nghiêng.",
+                  "src": "/reading-illustrations/art-cubism.svg",
+                  "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                }
+              ],
+              "question_sha256": "44aa28bf7989402807c279f6ddd945c644fbfe1429e656d094ac7cd9d286007b"
+            },
+            "3": {
+              "source": "Drawing on new ideas about dreams and the unconscious mind, artists such as Salvador Dalí painted scenes that obeyed no ordinary logic — soft watches draped over branches, familiar objects placed in impossible settings — in the hope of releasing thoughts that waking reason normally keeps hidden.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Một chiếc đồng hồ vàng mềm rủ xuống khỏi thanh ngang, tạo hình ảnh không theo lô-gic thông thường.",
+                  "src": "/reading-illustrations/art-surrealism.svg",
+                  "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                }
+              ],
+              "question_sha256": "76424d814390a74aae6659090365546be4fa4513286bb3f8fbe86c759ec693f1"
+            },
+            "4": {
+              "source": "Their loose, visible brushstrokes looked unfinished to many viewers, and early critics mocked them; the very word \"Impressionism\" began as an insult before the artists adopted it with pride.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Cảnh ao và cây được vẽ bằng các mảng màu cùng những nét cọ sáng, rời, dễ nhận thấy.",
+                  "src": "/reading-illustrations/art-impressionism.svg",
+                  "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                }
+              ],
+              "question_sha256": "327824eaad00c209d9314e2da3daa6e050bf927cf8ae71ad0266155d9aa2944b"
+            },
+            "5": {
+              "source": "Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Những vệt màu uốn và chồng lên nhau trên mặt tranh, không tạo thành vật thể nhận diện được.",
+                  "src": "/reading-illustrations/art-gestures.svg",
+                  "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                }
+              ],
+              "question_sha256": "938f500f4f4b472bb035fd2914f7d6274e73c4c0949874258d8dd6b522f4cfa0"
+            }
+          },
+          "translation_sha256": "84e5fc9843d1ec4b3f6b5dfc09d0f44f676398b0cd52fb67c5cdcdb7e2120c6d"
+        }
+      },
+      "expected_image_url": "/reading-illustrations/exp-museum-gallery-scene.svg",
+      "expected_glossary": [
+        {
+          "term": "movement",
+          "aliases": [
+            "movements"
+          ],
+          "example": "These are not random styles but four movements, each reacting against the art that came before it and each redefining what a painting was supposed to do.",
+          "definition": "trào lưu nghệ thuật"
+        },
+        {
+          "term": "brushstroke",
+          "aliases": [
+            "brushstrokes"
+          ],
+          "example": "Their loose, visible brushstrokes looked unfinished to many viewers, and early critics mocked them; the very word \"Impressionism\" began as an insult before the artists adopted it with pride.",
+          "definition": "nét cọ"
+        },
+        {
+          "term": "fleeting",
+          "aliases": [],
+          "example": "Painters such as Claude Monet left the studio to work outdoors, trying to record how sunlight struck a pond or a field at one fleeting moment.",
+          "definition": "thoáng qua, ngắn ngủi"
+        },
+        {
+          "term": "viewpoint",
+          "aliases": [
+            "viewpoints"
+          ],
+          "example": "Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together.",
+          "definition": "góc nhìn"
+        },
+        {
+          "term": "angular",
+          "aliases": [],
+          "example": "Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together.",
+          "definition": "có góc cạnh"
+        },
+        {
+          "term": "unconscious mind",
+          "aliases": [],
+          "example": "Drawing on new ideas about dreams and the unconscious mind, artists such as Salvador Dalí painted scenes that obeyed no ordinary logic — soft watches draped over branches, familiar objects placed in impossible settings — in the hope of releasing thoughts that waking reason normally keeps hidden.",
+          "definition": "tâm trí vô thức"
+        },
+        {
+          "term": "canvas",
+          "aliases": [
+            "canvases"
+          ],
+          "example": "Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object.",
+          "definition": "toan vẽ"
+        },
+        {
+          "term": "gesture",
+          "aliases": [
+            "gestures"
+          ],
+          "example": "Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object.",
+          "definition": "động tác cơ thể"
+        },
+        {
+          "term": "likeness",
+          "aliases": [],
+          "example": "Whether that long retreat from likeness counts as the liberation of art or the loss of something it once did well is a question that visitors, standing in those very different rooms, may still answer in different ways.",
+          "definition": "sự giống với hình ảnh thực"
+        },
+        {
+          "term": "liberation",
+          "aliases": [],
+          "example": "Whether that long retreat from likeness counts as the liberation of art or the loss of something it once did well is a question that visitors, standing in those very different rooms, may still answer in different ways.",
+          "definition": "sự giải phóng"
+        }
+      ],
+      "changes": {
+        "metadata": {
+          "translation_vi": "Đi qua một bảo tàng nghệ thuật hiện đại, bạn có thể thấy các phòng như những thế giới riêng: vườn cây mềm mại ở phòng này, đàn ghi-ta vỡ vụn ở phòng kế, rồi đồng hồ tan chảy, và cuối cùng là những mảng màu rộng được nhỏ lên tranh. Đây là bốn trào lưu, mỗi trào lưu phản ứng với nghệ thuật đi trước và định nghĩa lại điều một bức tranh nên làm, chứ không phải những phong cách ngẫu nhiên.\n\nẤn tượng xuất hiện trước, ở Pháp vào những năm 1870. Các họa sĩ như Claude Monet rời xưởng để vẽ ngoài trời, cố ghi lại cách ánh nắng chiếu lên ao hoặc cánh đồng trong một khoảnh khắc thoáng qua. Những nét cọ tự do, lộ rõ của họ trông như chưa hoàn thiện với nhiều người xem và bị giới phê bình ban đầu chế giễu. Chính từ 'Ấn tượng' lúc đầu là lời chê bai, trước khi được các nghệ sĩ tự hào nhận làm tên gọi.\n\nLập thể, do Pablo Picasso và Georges Braque phát triển khoảng năm 1908, đi xa hơn nữa khỏi chủ nghĩa hiện thực. Thay vì vẽ một vật như mắt nhìn thấy từ một vị trí, tranh Lập thể chia nó thành những hình phẳng, góc cạnh và thể hiện đồng thời nhiều góc nhìn. Vì thế, một khuôn mặt hoặc đàn ghi-ta có thể hiện cả phía trước lẫn bên cạnh cùng lúc. Kết quả buộc người xem phải tự ráp chủ thể lại trong tâm trí.\n\nSiêu thực, hình thành vào những năm 1920 quanh nhà văn André Breton, hoàn toàn quay lưng với thế giới nhìn thấy được. Dựa vào những ý tưởng mới về giấc mơ và tâm trí vô thức, các nghệ sĩ như Salvador Dalí vẽ những cảnh không tuân theo lô-gic thông thường: đồng hồ mềm rủ trên cành cây, vật quen thuộc đặt trong bối cảnh không thể có. Họ hy vọng giải phóng những suy nghĩ mà lý trí lúc tỉnh thường che giấu.\n\nBiểu hiện Trừu tượng xuất hiện ở New York sau năm 1945 và hoàn toàn từ bỏ các chủ thể có thể nhận diện. Jackson Pollock đặt những tấm toan lớn trên sàn rồi nhỏ hoặc đổ sơn lên đó, di chuyển quanh các mép để tác phẩm ghi lại động tác cơ thể của ông thay vì một vật thể. Giới phê bình tranh cãi gay gắt rằng những bức tranh ấy là thành tựu đáng kể hay chẳng phải thành tựu gì.\n\nNhìn chung, bốn trào lưu cho thấy mối liên hệ giữa tranh và thế giới bên ngoài dần lỏng đi, từ ao của Monet đến động tác thuần túy của Pollock. Sự rời xa hình ảnh giống thực kéo dài ấy là giải phóng nghệ thuật hay đánh mất điều nghệ thuật từng làm tốt? Những khách tham quan đứng trong các phòng rất khác nhau ấy vẫn có thể trả lời khác nhau.",
+          "practice_support": {
+            "units": [
+              {
+                "id": "p1-s1",
+                "source": "Walk through a museum of modern art and the rooms can feel like separate worlds: soft gardens in one, shattered guitars in the next, melting clocks beyond that, and finally great fields of dripped colour.",
+                "phrases": [
+                  {
+                    "source": "separate worlds",
+                    "target": "những thế giới riêng"
+                  },
+                  {
+                    "source": "melting clocks",
+                    "target": "đồng hồ tan chảy"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Đi qua một bảo tàng nghệ thuật hiện đại, bạn có thể thấy các phòng như những thế giới riêng: vườn cây mềm mại ở phòng này, đàn ghi-ta vỡ vụn ở phòng kế, rồi đồng hồ tan chảy, và cuối cùng là những mảng màu rộng được nhỏ lên tranh."
+              },
+              {
+                "id": "p1-s2",
+                "source": "These are not random styles but four movements, each reacting against the art that came before it and each redefining what a painting was supposed to do.",
+                "phrases": [
+                  {
+                    "source": "four movements",
+                    "target": "bốn trào lưu"
+                  },
+                  {
+                    "source": "reacting against",
+                    "target": "phản ứng với"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Đây là bốn trào lưu, mỗi trào lưu phản ứng với nghệ thuật đi trước và định nghĩa lại điều một bức tranh nên làm, chứ không phải những phong cách ngẫu nhiên."
+              },
+              {
+                "id": "p2-s1",
+                "source": "Impressionism arrived first, in 1870s France.",
+                "phrases": [
+                  {
+                    "source": "Impressionism",
+                    "target": "Ấn tượng"
+                  },
+                  {
+                    "source": "1870s France",
+                    "target": "Pháp vào những năm 1870"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Ấn tượng xuất hiện trước, ở Pháp vào những năm 1870."
+              },
+              {
+                "id": "p2-s2",
+                "source": "Painters such as Claude Monet left the studio to work outdoors, trying to record how sunlight struck a pond or a field at one fleeting moment.",
+                "phrases": [
+                  {
+                    "source": "work outdoors",
+                    "target": "vẽ ngoài trời"
+                  },
+                  {
+                    "source": "one fleeting moment",
+                    "target": "một khoảnh khắc thoáng qua"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Các họa sĩ như Claude Monet rời xưởng để vẽ ngoài trời, cố ghi lại cách ánh nắng chiếu lên ao hoặc cánh đồng trong một khoảnh khắc thoáng qua."
+              },
+              {
+                "id": "p2-s3",
+                "source": "Their loose, visible brushstrokes looked unfinished to many viewers, and early critics mocked them; the very word \"Impressionism\" began as an insult before the artists adopted it with pride.",
+                "phrases": [
+                  {
+                    "source": "loose, visible brushstrokes",
+                    "target": "Những nét cọ tự do, lộ rõ"
+                  },
+                  {
+                    "source": "began as an insult",
+                    "target": "lúc đầu là lời chê bai"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Những nét cọ tự do, lộ rõ của họ trông như chưa hoàn thiện với nhiều người xem và bị giới phê bình ban đầu chế giễu. Chính từ 'Ấn tượng' lúc đầu là lời chê bai, trước khi được các nghệ sĩ tự hào nhận làm tên gọi."
+              },
+              {
+                "id": "p3-s1",
+                "source": "Cubism, developed around 1908 by Pablo Picasso and Georges Braque, went further from realism.",
+                "phrases": [
+                  {
+                    "source": "Cubism",
+                    "target": "Lập thể"
+                  },
+                  {
+                    "source": "realism",
+                    "target": "chủ nghĩa hiện thực"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Lập thể, do Pablo Picasso và Georges Braque phát triển khoảng năm 1908, đi xa hơn nữa khỏi chủ nghĩa hiện thực."
+              },
+              {
+                "id": "p3-s2",
+                "source": "Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together.",
+                "phrases": [
+                  {
+                    "source": "flat, angular shapes",
+                    "target": "những hình phẳng, góc cạnh"
+                  },
+                  {
+                    "source": "several viewpoints",
+                    "target": "nhiều góc nhìn"
+                  },
+                  {
+                    "source": "front and side together",
+                    "target": "phía trước lẫn bên cạnh cùng lúc"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Thay vì vẽ một vật như mắt nhìn thấy từ một vị trí, tranh Lập thể chia nó thành những hình phẳng, góc cạnh và thể hiện đồng thời nhiều góc nhìn. Vì thế, một khuôn mặt hoặc đàn ghi-ta có thể hiện cả phía trước lẫn bên cạnh cùng lúc."
+              },
+              {
+                "id": "p3-s3",
+                "source": "The result asked viewers to assemble the subject in their own minds.",
+                "phrases": [
+                  {
+                    "source": "assemble the subject",
+                    "target": "ráp chủ thể lại"
+                  },
+                  {
+                    "source": "in their own minds",
+                    "target": "trong tâm trí"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Kết quả buộc người xem phải tự ráp chủ thể lại trong tâm trí."
+              },
+              {
+                "id": "p4-s1",
+                "source": "Surrealism, which took shape in the 1920s around the writer André Breton, turned away from the visible world altogether.",
+                "phrases": [
+                  {
+                    "source": "Surrealism",
+                    "target": "Siêu thực"
+                  },
+                  {
+                    "source": "the visible world",
+                    "target": "thế giới nhìn thấy được"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Siêu thực, hình thành vào những năm 1920 quanh nhà văn André Breton, hoàn toàn quay lưng với thế giới nhìn thấy được."
+              },
+              {
+                "id": "p4-s2",
+                "source": "Drawing on new ideas about dreams and the unconscious mind, artists such as Salvador Dalí painted scenes that obeyed no ordinary logic — soft watches draped over branches, familiar objects placed in impossible settings — in the hope of releasing thoughts that waking reason normally keeps hidden.",
+                "phrases": [
+                  {
+                    "source": "dreams and the unconscious mind",
+                    "target": "giấc mơ và tâm trí vô thức"
+                  },
+                  {
+                    "source": "impossible settings",
+                    "target": "bối cảnh không thể có"
+                  },
+                  {
+                    "source": "waking reason",
+                    "target": "lý trí lúc tỉnh"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Dựa vào những ý tưởng mới về giấc mơ và tâm trí vô thức, các nghệ sĩ như Salvador Dalí vẽ những cảnh không tuân theo lô-gic thông thường: đồng hồ mềm rủ trên cành cây, vật quen thuộc đặt trong bối cảnh không thể có. Họ hy vọng giải phóng những suy nghĩ mà lý trí lúc tỉnh thường che giấu."
+              },
+              {
+                "id": "p5-s1",
+                "source": "Abstract Expressionism emerged in New York after 1945 and abandoned recognisable subjects entirely.",
+                "phrases": [
+                  {
+                    "source": "Abstract Expressionism",
+                    "target": "Biểu hiện Trừu tượng"
+                  },
+                  {
+                    "source": "recognisable subjects",
+                    "target": "các chủ thể có thể nhận diện"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Biểu hiện Trừu tượng xuất hiện ở New York sau năm 1945 và hoàn toàn từ bỏ các chủ thể có thể nhận diện."
+              },
+              {
+                "id": "p5-s2",
+                "source": "Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object.",
+                "phrases": [
+                  {
+                    "source": "canvases",
+                    "target": "tấm toan"
+                  },
+                  {
+                    "source": "dripped or poured paint",
+                    "target": "nhỏ hoặc đổ sơn"
+                  },
+                  {
+                    "source": "physical gestures",
+                    "target": "động tác cơ thể"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Jackson Pollock đặt những tấm toan lớn trên sàn rồi nhỏ hoặc đổ sơn lên đó, di chuyển quanh các mép để tác phẩm ghi lại động tác cơ thể của ông thay vì một vật thể."
+              },
+              {
+                "id": "p5-s3",
+                "source": "Critics argued fiercely over whether such paintings were a serious achievement or no achievement at all.",
+                "phrases": [
+                  {
+                    "source": "argued fiercely",
+                    "target": "tranh cãi gay gắt"
+                  },
+                  {
+                    "source": "a serious achievement",
+                    "target": "thành tựu đáng kể"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Giới phê bình tranh cãi gay gắt rằng những bức tranh ấy là thành tựu đáng kể hay chẳng phải thành tựu gì."
+              },
+              {
+                "id": "p6-s1",
+                "source": "Seen together, the four movements trace a steady loosening of the link between a painting and the world outside it, from Monet's pond to Pollock's bare gesture.",
+                "phrases": [
+                  {
+                    "source": "a steady loosening",
+                    "target": "dần lỏng đi"
+                  },
+                  {
+                    "source": "the world outside it",
+                    "target": "thế giới bên ngoài"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Nhìn chung, bốn trào lưu cho thấy mối liên hệ giữa tranh và thế giới bên ngoài dần lỏng đi, từ ao của Monet đến động tác thuần túy của Pollock."
+              },
+              {
+                "id": "p6-s2",
+                "source": "Whether that long retreat from likeness counts as the liberation of art or the loss of something it once did well is a question that visitors, standing in those very different rooms, may still answer in different ways.",
+                "phrases": [
+                  {
+                    "source": "retreat from likeness",
+                    "target": "rời xa hình ảnh giống thực"
+                  },
+                  {
+                    "source": "the liberation of art",
+                    "target": "giải phóng nghệ thuật"
+                  },
+                  {
+                    "source": "the loss",
+                    "target": "đánh mất"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Sự rời xa hình ảnh giống thực kéo dài ấy là giải phóng nghệ thuật hay đánh mất điều nghệ thuật từng làm tốt? Những khách tham quan đứng trong các phòng rất khác nhau ấy vẫn có thể trả lời khác nhau."
+              }
+            ],
+            "illustrations": [],
+            "source_sha256": "bab4b0f5457a620be683f246c4c388927ad59e09201e3dcb0755e7e9c8609904",
+            "schema_version": 1,
+            "question_evidence": {
+              "1": {
+                "source": "Painters such as Claude Monet left the studio to work outdoors, trying to record how sunlight struck a pond or a field at one fleeting moment.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Minh hoạ khái niệm impressionism: hình tự vẽ theo đoạn nguồn của câu 1.",
+                    "src": "/reading-illustrations/art-impressionism.svg",
+                    "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                  }
+                ],
+                "question_sha256": "171d037a46ad32f7f9c23ed51d04449d73445264dff50cec331d5760be37fabf"
+              },
+              "2": {
+                "source": "Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Minh hoạ khái niệm cubism: hình tự vẽ theo đoạn nguồn của câu 2.",
+                    "src": "/reading-illustrations/art-cubism.svg",
+                    "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                  }
+                ],
+                "question_sha256": "44aa28bf7989402807c279f6ddd945c644fbfe1429e656d094ac7cd9d286007b"
+              },
+              "3": {
+                "source": "Drawing on new ideas about dreams and the unconscious mind, artists such as Salvador Dalí painted scenes that obeyed no ordinary logic — soft watches draped over branches, familiar objects placed in impossible settings — in the hope of releasing thoughts that waking reason normally keeps hidden.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Minh hoạ khái niệm surrealism: hình tự vẽ theo đoạn nguồn của câu 3.",
+                    "src": "/reading-illustrations/art-surrealism.svg",
+                    "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                  }
+                ],
+                "question_sha256": "76424d814390a74aae6659090365546be4fa4513286bb3f8fbe86c759ec693f1"
+              },
+              "4": {
+                "source": "Their loose, visible brushstrokes looked unfinished to many viewers, and early critics mocked them; the very word \"Impressionism\" began as an insult before the artists adopted it with pride.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Minh hoạ khái niệm impressionism: hình tự vẽ theo đoạn nguồn của câu 4.",
+                    "src": "/reading-illustrations/art-impressionism.svg",
+                    "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                  }
+                ],
+                "question_sha256": "327824eaad00c209d9314e2da3daa6e050bf927cf8ae71ad0266155d9aa2944b"
+              },
+              "5": {
+                "source": "Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Minh hoạ khái niệm gestures: hình tự vẽ theo đoạn nguồn của câu 5.",
+                    "src": "/reading-illustrations/art-gestures.svg",
+                    "caption": "Hình tự vẽ để giải thích các trào lưu trong bài; không phải tác phẩm của Monet, Picasso, Dalí hay Pollock."
+                  }
+                ],
+                "question_sha256": "938f500f4f4b472bb035fd2914f7d6274e73c4c0949874258d8dd6b522f4cfa0"
+              }
+            },
+            "translation_sha256": "2332790ee10a0e2f54e645b03d7c423d4e7a4b40c5b36ed0127380601395b3ff"
+          }
+        },
+        "image_url": null,
+        "glossary": [
+          {
+            "term": "movement",
+            "aliases": [
+              "movements"
+            ],
+            "example": "These are not random styles but four movements, each reacting against the art that came before it and each redefining what a painting was supposed to do.",
+            "definition": "trào lưu nghệ thuật"
+          },
+          {
+            "term": "brushstroke",
+            "aliases": [
+              "brushstrokes"
+            ],
+            "example": "Their loose, visible brushstrokes looked unfinished to many viewers, and early critics mocked them; the very word \"Impressionism\" began as an insult before the artists adopted it with pride.",
+            "definition": "nét cọ"
+          },
+          {
+            "term": "fleeting",
+            "aliases": [],
+            "example": "Painters such as Claude Monet left the studio to work outdoors, trying to record how sunlight struck a pond or a field at one fleeting moment.",
+            "definition": "thoáng qua, ngắn ngủi"
+          },
+          {
+            "term": "viewpoint",
+            "aliases": [
+              "viewpoints"
+            ],
+            "example": "Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together.",
+            "definition": "góc nhìn"
+          },
+          {
+            "term": "angular",
+            "aliases": [],
+            "example": "Instead of painting an object as the eye sees it from one spot, Cubist works broke it into flat, angular shapes and showed several viewpoints at the same time, so that a face or a guitar might appear front and side together.",
+            "definition": "có góc cạnh"
+          },
+          {
+            "term": "unconscious mind",
+            "aliases": [],
+            "example": "Drawing on new ideas about dreams and the unconscious mind, artists such as Salvador Dalí painted scenes that obeyed no ordinary logic — soft watches draped over branches, familiar objects placed in impossible settings — in the hope of releasing thoughts that waking reason normally keeps hidden.",
+            "definition": "tâm trí vô thức"
+          },
+          {
+            "term": "canvas",
+            "aliases": [
+              "canvases"
+            ],
+            "example": "Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object.",
+            "definition": "toan vẽ"
+          },
+          {
+            "term": "gesture",
+            "aliases": [
+              "gestures"
+            ],
+            "example": "Jackson Pollock laid huge canvases on the floor and dripped or poured paint across them, moving around the edges so that the work recorded his physical gestures rather than any object.",
+            "definition": "động tác cơ thể"
+          },
+          {
+            "term": "likeness",
+            "aliases": [],
+            "example": "Whether that long retreat from likeness counts as the liberation of art or the loss of something it once did well is a question that visitors, standing in those very different rooms, may still answer in different ways.",
+            "definition": "sự giống với hình ảnh thực"
+          },
+          {
+            "term": "liberation",
+            "aliases": [],
+            "example": "Whether that long retreat from likeness counts as the liberation of art or the loss of something it once did well is a question that visitors, standing in those very different rooms, may still answer in different ways.",
+            "definition": "sự giải phóng"
+          }
+        ]
+      }
+    },
+    {
+      "passage_id": "9ec8a8a9-d561-4d84-96fc-9c4af4e23940",
+      "slug": "the-tragedy-of-the-commons",
+      "library": "l1_vocab",
+      "source_body_markdown": "In a short essay published in the journal Science in 1968, the ecologist Garrett\nHardin offered a parable that would shape environmental thinking for decades. He\nimagined a pasture, held as a **commons**, on which several herders are free to\n**graze** their cattle. Each herder reasons that adding one more animal brings a\nclear private gain, while the resulting damage to the land is shared by everyone, and\nso the same self-interested calculation pushes every herder toward expansion until\nthe pasture is **depleted** and ruined.\n\nThe force of the argument lies in its bleak logic. Because each individual behaves in\na perfectly **rational** way, the slow **degradation** of the shared resource appears\nnot as a mistake but as an **inevitable** outcome that no single person can prevent\nalone. Hardin concluded that ruin was the destination toward which all such commons\nwere driven, and he insisted that only firm remedies could avert it. Either the state\nshould **privatise** the land into private holdings, or else society should accept a\ndegree of mutual **coercion**, agreed upon by the majority, in order to restrain\nindividual appetite.\n\nFor two decades this gloomy verdict was widely accepted, yet **empirical** research\ngradually undermined it. The political economist Elinor Ostrom, who would later become\nthe first woman to win the Nobel Prize in economics, argued that Hardin had quietly\n**conflated** two very different things. A genuinely **open-access** resource, owned\nby nobody and governed by no rules, may indeed collapse, but most historical commons\nwere nothing of the sort. Studying irrigation systems, forests and fisheries across\nthe world, Ostrom showed that communities had managed shared resources sustainably\nfor centuries, relying neither on privatisation nor on distant government, but instead\non local **norms**, on **sanctions** against those who took too much, and on the trust\nand **reciprocity** that bind neighbours together.\n\nThe picture that emerges today is therefore considerably more **nuanced** than the\noriginal parable suggested. Hardin's logic still illuminates the fate of unregulated\nresources, from open seas to a warming atmosphere, yet the assumption that ruin is\neverywhere unavoidable now looks too sweeping, and how best to govern any particular\ncommons appears to depend on circumstances that no single rule can settle.",
+      "expected_metadata": {
+        "grammar_focus": [
+          {
+            "tip": "Gặp 'V-ing…, S + V' hãy nối V-ing với chủ ngữ ngay sau dấu phẩy; phần sau thường là luận điểm chính của đoạn.",
+            "point": "Mệnh đề phân từ đầu câu (participle clause) chỉ bối cảnh đồng thời",
+            "review": "Participle clause đầu câu = mệnh đề rút gọn cùng chủ ngữ (While/When + S + V → V-ing…). Chủ ngữ cụm phân từ phải trùng chủ ngữ mệnh đề chính (tránh dangling modifier).",
+            "example": "**Studying** irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably…",
+            "analysis": "Cụm phân từ hiện tại 'Studying…' đứng đầu câu có chủ thể logic là 'Ostrom', cùng chủ ngữ với mệnh đề chính; trong ngữ cảnh này, nó nêu hoạt động nghiên cứu làm bối cảnh/cách thức cho kết luận. Mệnh đề chính là 'Ostrom showed…', với 'showed' ở thì quá khứ đơn. Mệnh đề nội dung 'that communities had managed shared resources sustainably…' làm bổ ngữ cho 'showed': 'communities' là chủ ngữ và 'had managed' ở thì quá khứ hoàn thành, diễn tả việc quản lý tài nguyên đã diễn ra trong nhiều thế kỷ trước mốc 'showed'. Vì vậy, 'had managed' thuộc mệnh đề phụ that, không phải động từ của mệnh đề chính."
+          },
+          {
+            "tip": "Thông tin giữa hai dấu phẩy là phụ, không phải ý chính — câu hỏi detail thường nhắm vào mệnh đề chính, đừng lẫn với phần chèn thêm.",
+            "point": "Mệnh đề quan hệ không xác định với 'who would later…'",
+            "review": "Mệnh đề quan hệ không xác định: ,who/which + …, — có dấu phẩy, thêm thông tin phụ. 'would + V' = tương lai trong quá khứ (sẽ … về sau).",
+            "example": "Elinor Ostrom, **who would later become the first woman to win the Nobel Prize in economics**, argued that Hardin had quietly conflated two very different things.",
+            "analysis": "Mệnh đề quan hệ không xác định 'who would later become…' nằm giữa hai dấu phẩy, bổ sung thông tin phụ về Ostrom (bỏ đi câu vẫn đủ nghĩa). 'would' ở đây là tương lai trong quá khứ (future-in-the-past): nhìn từ mốc quá khứ, sự kiện về sau mới xảy ra."
+          },
+          {
+            "tip": "Liệt kê song song dài là 'mỏ vàng' cho câu hỏi multiple-answer/note-completion — mỗi mục song song thường là một đáp án.",
+            "point": "Cấu trúc song song & lược từ (parallelism / ellipsis) sau 'neither … nor'",
+            "review": "Parallelism: các thành phần cùng vai trò phải cùng dạng (on N, on N, on N). 'neither … nor …' nối hai phủ định; 'but instead' đưa ra phương án thay thế.",
+            "example": "relying **neither on** privatisation **nor on** distant government, but instead **on** local norms, **on** sanctions…, and **on** the trust and reciprocity…",
+            "analysis": "Cấu trúc song song với một loạt cụm giới từ bắt đầu bằng 'on…', nối qua 'neither … nor … but instead …'. Các thành phần đồng chức năng được giữ cùng dạng (on + N) tạo nhịp song song; cụm phân từ 'relying…' rút gọn '…and they relied…'."
+          },
+          {
+            "tip": "Từ tương phản (yet/however/nevertheless) là tín hiệu quan điểm tác giả nghiêng về vế sau — chỗ vàng cho câu hỏi Yes/No/Not Given.",
+            "point": "Cụm nhượng bộ & tương phản phức (concessive với 'yet')",
+            "review": "'yet' = liên từ tương phản như 'but', trang trọng hơn. 'the assumption/idea/fact + that + mệnh đề' = mệnh đề đồng cách nêu nội dung danh từ trừu tượng.",
+            "example": "Hardin's logic still illuminates the fate of unregulated resources…, **yet** the assumption that ruin is everywhere unavoidable now looks too sweeping…",
+            "analysis": "Liên từ tương phản 'yet' (= nhưng) nối hai mệnh đề độc lập, nhượng bộ một phần đúng của Hardin rồi phản bác. Chủ ngữ 'the assumption that ruin is…' chứa mệnh đề đồng cách (appositive 'that…') giải thích nội dung của 'assumption'."
+          }
+        ],
+        "translation_vi": "Trong một bài luận ngắn đăng trên tạp chí Science năm 1968, nhà sinh thái học Garrett Hardin đưa ra một câu chuyện ngụ ngôn mà về sau sẽ định hình tư duy về môi trường suốt nhiều thập kỷ. Ông hình dung một đồng cỏ được sử dụng như tài nguyên chung, nơi một số người chăn nuôi được tự do cho gia súc của mình ăn cỏ. Mỗi người chăn nuôi tính rằng thêm một con vật sẽ đem lại lợi ích riêng rõ rệt, còn thiệt hại đối với đất thì mọi người cùng gánh chịu. Vì vậy, cùng một phép tính vì lợi ích cá nhân khiến ai cũng mở rộng đàn, cho đến khi đồng cỏ bị khai thác cạn kiệt và hủy hoại.\n\nSức thuyết phục của lập luận nằm ở lô-gic bi quan của nó. Vì mỗi cá nhân hành động hoàn toàn hợp lý, sự suy thoái dần dần của tài nguyên chung dường như là một kết cục tất yếu mà không ai có thể một mình ngăn chặn, thay vì một sai lầm. Hardin kết luận rằng mọi tài nguyên chung như vậy đều đi tới chỗ bị hủy hoại, và khẳng định chỉ những biện pháp quyết liệt mới có thể ngăn điều đó. Hoặc nhà nước phải tư nhân hóa đất thành những phần sở hữu riêng, hoặc xã hội phải chấp nhận một mức độ cưỡng chế lẫn nhau do đa số đồng thuận, nhằm hạn chế ham muốn của từng cá nhân.\n\nTrong hai thập kỷ, kết luận bi quan này được chấp nhận rộng rãi, nhưng nghiên cứu thực nghiệm dần làm suy yếu nó. Nhà kinh tế chính trị Elinor Ostrom, người sau này trở thành phụ nữ đầu tiên giành giải Nobel Kinh tế, cho rằng Hardin đã ngầm đánh đồng hai điều rất khác nhau. Một nguồn tài nguyên thực sự mở cho bất kỳ ai tiếp cận, không thuộc sở hữu của ai và không chịu quy tắc quản lý nào, quả thật có thể bị suy kiệt; nhưng phần lớn tài nguyên chung trong lịch sử không hề như vậy. Qua nghiên cứu các hệ thống tưới tiêu, rừng và ngư trường trên khắp thế giới, Ostrom cho thấy nhiều cộng đồng đã quản lý tài nguyên chung bền vững suốt hàng thế kỷ. Họ không dựa vào tư nhân hóa hay chính quyền ở xa, mà vào các quy ước của cộng đồng, chế tài đối với người lấy quá nhiều, cùng lòng tin và sự có đi có lại gắn kết những người láng giềng với nhau.\n\nVì thế, bức tranh hiện ra ngày nay có nhiều sắc thái hơn đáng kể so với điều câu chuyện ngụ ngôn ban đầu gợi ra. Lô-gic của Hardin vẫn giúp lý giải số phận của những tài nguyên không được quản lý, từ biển khơi đến bầu khí quyển đang nóng lên. Tuy nhiên, giả định rằng sự hủy hoại ở đâu cũng không thể tránh khỏi nay có vẻ khái quát quá mức; cách quản lý tốt nhất cho từng tài nguyên chung phụ thuộc vào những hoàn cảnh mà không một quy tắc duy nhất nào có thể giải quyết hết.",
+        "practice_support": {
+          "units": [
+            {
+              "id": "p1-s1",
+              "source": "In a short essay published in the journal Science in 1968, the ecologist Garrett Hardin offered a parable that would shape environmental thinking for decades.",
+              "phrases": [
+                {
+                  "source": "a parable",
+                  "target": "một câu chuyện ngụ ngôn"
+                },
+                {
+                  "source": "would shape environmental thinking",
+                  "target": "về sau sẽ định hình tư duy về môi trường"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Trong một bài luận ngắn đăng trên tạp chí Science năm 1968, nhà sinh thái học Garrett Hardin đưa ra một câu chuyện ngụ ngôn mà về sau sẽ định hình tư duy về môi trường suốt nhiều thập kỷ."
+            },
+            {
+              "id": "p1-s2",
+              "source": "He imagined a pasture, held as a commons, on which several herders are free to graze their cattle.",
+              "phrases": [
+                {
+                  "source": "a pasture",
+                  "target": "một đồng cỏ"
+                },
+                {
+                  "source": "commons",
+                  "target": "tài nguyên chung"
+                },
+                {
+                  "source": "graze their cattle",
+                  "target": "cho gia súc của mình ăn cỏ"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Ông hình dung một đồng cỏ được sử dụng như tài nguyên chung, nơi một số người chăn nuôi được tự do cho gia súc của mình ăn cỏ."
+            },
+            {
+              "id": "p1-s3",
+              "source": "Each herder reasons that adding one more animal brings a clear private gain, while the resulting damage to the land is shared by everyone, and so the same self-interested calculation pushes every herder toward expansion until the pasture is depleted and ruined.",
+              "phrases": [
+                {
+                  "source": "private gain",
+                  "target": "lợi ích riêng"
+                },
+                {
+                  "source": "is shared by everyone",
+                  "target": "mọi người cùng gánh chịu"
+                },
+                {
+                  "source": "self-interested calculation",
+                  "target": "phép tính vì lợi ích cá nhân"
+                },
+                {
+                  "source": "depleted and ruined",
+                  "target": "khai thác cạn kiệt và hủy hoại"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Mỗi người chăn nuôi tính rằng thêm một con vật sẽ đem lại lợi ích riêng rõ rệt, còn thiệt hại đối với đất thì mọi người cùng gánh chịu. Vì vậy, cùng một phép tính vì lợi ích cá nhân khiến ai cũng mở rộng đàn, cho đến khi đồng cỏ bị khai thác cạn kiệt và hủy hoại."
+            },
+            {
+              "id": "p2-s1",
+              "source": "The force of the argument lies in its bleak logic.",
+              "phrases": [
+                {
+                  "source": "bleak logic",
+                  "target": "lô-gic bi quan"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Sức thuyết phục của lập luận nằm ở lô-gic bi quan của nó."
+            },
+            {
+              "id": "p2-s2",
+              "source": "Because each individual behaves in a perfectly rational way, the slow degradation of the shared resource appears not as a mistake but as an inevitable outcome that no single person can prevent alone.",
+              "phrases": [
+                {
+                  "source": "perfectly rational",
+                  "target": "hoàn toàn hợp lý"
+                },
+                {
+                  "source": "slow degradation",
+                  "target": "sự suy thoái dần dần"
+                },
+                {
+                  "source": "an inevitable outcome",
+                  "target": "một kết cục tất yếu"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Vì mỗi cá nhân hành động hoàn toàn hợp lý, sự suy thoái dần dần của tài nguyên chung dường như là một kết cục tất yếu mà không ai có thể một mình ngăn chặn, thay vì một sai lầm."
+            },
+            {
+              "id": "p2-s3",
+              "source": "Hardin concluded that ruin was the destination toward which all such commons were driven, and he insisted that only firm remedies could avert it.",
+              "phrases": [
+                {
+                  "source": "firm remedies",
+                  "target": "những biện pháp quyết liệt"
+                },
+                {
+                  "source": "avert it",
+                  "target": "ngăn điều đó"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Hardin kết luận rằng mọi tài nguyên chung như vậy đều đi tới chỗ bị hủy hoại, và khẳng định chỉ những biện pháp quyết liệt mới có thể ngăn điều đó."
+            },
+            {
+              "id": "p2-s4",
+              "source": "Either the state should privatise the land into private holdings, or else society should accept a degree of mutual coercion, agreed upon by the majority, in order to restrain individual appetite.",
+              "phrases": [
+                {
+                  "source": "privatise the land",
+                  "target": "tư nhân hóa đất"
+                },
+                {
+                  "source": "mutual coercion",
+                  "target": "cưỡng chế lẫn nhau"
+                },
+                {
+                  "source": "agreed upon by the majority",
+                  "target": "do đa số đồng thuận"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Hoặc nhà nước phải tư nhân hóa đất thành những phần sở hữu riêng, hoặc xã hội phải chấp nhận một mức độ cưỡng chế lẫn nhau do đa số đồng thuận, nhằm hạn chế ham muốn của từng cá nhân."
+            },
+            {
+              "id": "p3-s1",
+              "source": "For two decades this gloomy verdict was widely accepted, yet empirical research gradually undermined it.",
+              "phrases": [
+                {
+                  "source": "empirical research",
+                  "target": "nghiên cứu thực nghiệm"
+                },
+                {
+                  "source": "undermined it",
+                  "target": "làm suy yếu nó"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Trong hai thập kỷ, kết luận bi quan này được chấp nhận rộng rãi, nhưng nghiên cứu thực nghiệm dần làm suy yếu nó."
+            },
+            {
+              "id": "p3-s2",
+              "source": "The political economist Elinor Ostrom, who would later become the first woman to win the Nobel Prize in economics, argued that Hardin had quietly conflated two very different things.",
+              "phrases": [
+                {
+                  "source": "conflated",
+                  "target": "đánh đồng"
+                },
+                {
+                  "source": "two very different things",
+                  "target": "hai điều rất khác nhau"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Nhà kinh tế chính trị Elinor Ostrom, người sau này trở thành phụ nữ đầu tiên giành giải Nobel Kinh tế, cho rằng Hardin đã ngầm đánh đồng hai điều rất khác nhau."
+            },
+            {
+              "id": "p3-s3",
+              "source": "A genuinely open-access resource, owned by nobody and governed by no rules, may indeed collapse, but most historical commons were nothing of the sort.",
+              "phrases": [
+                {
+                  "source": "A genuinely open-access resource",
+                  "target": "Một nguồn tài nguyên thực sự mở cho bất kỳ ai tiếp cận"
+                },
+                {
+                  "source": "governed by no rules",
+                  "target": "không chịu quy tắc quản lý nào"
+                },
+                {
+                  "source": "may indeed collapse",
+                  "target": "quả thật có thể bị suy kiệt"
+                },
+                {
+                  "source": "nothing of the sort",
+                  "target": "không hề như vậy"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Một nguồn tài nguyên thực sự mở cho bất kỳ ai tiếp cận, không thuộc sở hữu của ai và không chịu quy tắc quản lý nào, quả thật có thể bị suy kiệt; nhưng phần lớn tài nguyên chung trong lịch sử không hề như vậy."
+            },
+            {
+              "id": "p3-s4",
+              "source": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+              "phrases": [
+                {
+                  "source": "local norms",
+                  "target": "các quy ước của cộng đồng"
+                },
+                {
+                  "source": "sanctions",
+                  "target": "chế tài"
+                },
+                {
+                  "source": "trust and reciprocity",
+                  "target": "lòng tin và sự có đi có lại"
+                },
+                {
+                  "source": "sustainably",
+                  "target": "bền vững"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Qua nghiên cứu các hệ thống tưới tiêu, rừng và ngư trường trên khắp thế giới, Ostrom cho thấy nhiều cộng đồng đã quản lý tài nguyên chung bền vững suốt hàng thế kỷ. Họ không dựa vào tư nhân hóa hay chính quyền ở xa, mà vào các quy ước của cộng đồng, chế tài đối với người lấy quá nhiều, cùng lòng tin và sự có đi có lại gắn kết những người láng giềng với nhau."
+            },
+            {
+              "id": "p4-s1",
+              "source": "The picture that emerges today is therefore considerably more nuanced than the original parable suggested.",
+              "phrases": [
+                {
+                  "source": "considerably more nuanced",
+                  "target": "nhiều sắc thái hơn đáng kể"
+                },
+                {
+                  "source": "the original parable",
+                  "target": "câu chuyện ngụ ngôn ban đầu"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Vì thế, bức tranh hiện ra ngày nay có nhiều sắc thái hơn đáng kể so với điều câu chuyện ngụ ngôn ban đầu gợi ra."
+            },
+            {
+              "id": "p4-s2",
+              "source": "Hardin's logic still illuminates the fate of unregulated resources, from open seas to a warming atmosphere, yet the assumption that ruin is everywhere unavoidable now looks too sweeping, and how best to govern any particular commons appears to depend on circumstances that no single rule can settle.",
+              "phrases": [
+                {
+                  "source": "unregulated resources",
+                  "target": "những tài nguyên không được quản lý"
+                },
+                {
+                  "source": "too sweeping",
+                  "target": "khái quát quá mức"
+                },
+                {
+                  "source": "depend on circumstances",
+                  "target": "phụ thuộc vào những hoàn cảnh"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Lô-gic của Hardin vẫn giúp lý giải số phận của những tài nguyên không được quản lý, từ biển khơi đến bầu khí quyển đang nóng lên. Tuy nhiên, giả định rằng sự hủy hoại ở đâu cũng không thể tránh khỏi nay có vẻ khái quát quá mức; cách quản lý tốt nhất cho từng tài nguyên chung phụ thuộc vào những hoàn cảnh mà không một quy tắc duy nhất nào có thể giải quyết hết."
+            }
+          ],
+          "illustrations": [
+            {
+              "src": "/reading-illustrations/commons-scene.svg",
+              "alt": "Ba con bò trên đồng cỏ xanh, với hàng rào ở một góc khung cảnh.",
+              "caption": "Đồng cỏ dùng chung trong câu chuyện của Hardin; hình bối cảnh không hàm ý mọi tài nguyên chung đều bị suy kiệt."
+            }
+          ],
+          "source_sha256": "520aef893b762c00f10f1f635e8bd1ab1869949da4dfb7a41310d2cf84430243",
+          "schema_version": 1,
+          "question_evidence": {
+            "1": {
+              "source": "Each herder reasons that adding one more animal brings a clear private gain, while the resulting damage to the land is shared by everyone, and so the same self-interested calculation pushes every herder toward expansion until the pasture is depleted and ruined.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Lợi ích từ con vật thêm vào thuộc riêng một người; thiệt hại đồng cỏ được mọi người chia sẻ.",
+                  "src": "/reading-illustrations/commons-review.svg",
+                  "caption": "Sơ đồ lập luận của Hardin trong bài; nghiên cứu của Ostrom chỉ ra các cộng đồng cũng có thể quản lý bền vững bằng quy tắc chung."
+                }
+              ],
+              "question_sha256": "e5a6c337e161624287ba534a1888baf8a68f4b6bdba9e5739b9c671e97cb5df9"
+            },
+            "2": {
+              "source": "The picture that emerges today is therefore considerably more nuanced than the original parable suggested.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "aa9d8cfaf910045f3fe4e2ffe995a83bc6f71ba69890023d063e1dbaab81212e"
+            },
+            "3": {
+              "source": "A genuinely open-access resource, owned by nobody and governed by no rules, may indeed collapse, but most historical commons were nothing of the sort.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "6a26290d08a09b73a60dbecb2f70bddd0f587bf9c83e812bbdb30b02ad849858"
+            },
+            "4": {
+              "source": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "14ac0a91c8200a871c44869747c18b28bd947fc9abdb4f023dd9cd403ba13f5f"
+            },
+            "5": {
+              "source": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "7984e0dcab8d2199d5a40be3aa0b947498bfe06b5ae786e2108d0e759a1e81e4"
+            },
+            "6": {
+              "source": "Hardin's logic still illuminates the fate of unregulated resources, from open seas to a warming atmosphere, yet the assumption that ruin is everywhere unavoidable now looks too sweeping, and how best to govern any particular commons appears to depend on circumstances that no single rule can settle.",
+              "precision": "quote",
+              "illustrations": [
+                {
+                  "alt": "Lợi ích từ con vật thêm vào thuộc riêng một người; thiệt hại đồng cỏ được mọi người chia sẻ.",
+                  "src": "/reading-illustrations/commons-review.svg",
+                  "caption": "Sơ đồ lập luận của Hardin trong bài; nghiên cứu của Ostrom chỉ ra các cộng đồng cũng có thể quản lý bền vững bằng quy tắc chung."
+                }
+              ],
+              "question_sha256": "6fbf059e9c4a4ad21626c4293f70e71b3afae91c30b91468c9da5fc494bb356f"
+            }
+          },
+          "translation_sha256": "0c3fadd252d3c6885eb2105df103e8b2792dfce41669b51203d67fedeeb6acd1"
+        }
+      },
+      "expected_image_url": "/reading-illustrations/commons-scene.svg",
+      "expected_glossary": [
+        {
+          "ipa": "/ˈræʃnəl/",
+          "pos": "adj.",
+          "term": "rational",
+          "example": "The rational herder adds one more animal to the herd.",
+          "synonyms": [
+            "logical",
+            "self-interested"
+          ],
+          "definition": "hợp lý, dựa trên lý trí (theo lợi ích cá nhân)"
+        },
+        {
+          "ipa": "/ˌdeɡrəˈdeɪʃn/",
+          "pos": "n.",
+          "term": "degradation",
+          "example": "Each small gain hastens the degradation of the whole.",
+          "synonyms": [
+            "decline",
+            "deterioration"
+          ],
+          "definition": "sự suy thoái, xuống cấp (của môi trường)"
+        },
+        {
+          "ipa": "/ɪnˈevɪtəbl/",
+          "pos": "adj.",
+          "term": "inevitable",
+          "example": "Hardin treated ruin as an inevitable outcome.",
+          "synonyms": [
+            "unavoidable",
+            "certain"
+          ],
+          "definition": "không thể tránh khỏi, tất yếu"
+        },
+        {
+          "ipa": "/ˈpraɪvətaɪz/",
+          "pos": "v.",
+          "term": "privatise",
+          "example": "One remedy is to privatise the land into separate plots.",
+          "synonyms": [
+            "sell off"
+          ],
+          "definition": "tư nhân hóa (chuyển sang sở hữu tư nhân)"
+        },
+        {
+          "ipa": "/ˌəʊpən ˈækses/",
+          "pos": "adj.",
+          "term": "open-access",
+          "example": "A truly open-access resource has no rules at all.",
+          "synonyms": [
+            "unrestricted"
+          ],
+          "definition": "ai cũng tiếp cận được (không có rào cản hay quy tắc)"
+        },
+        {
+          "term": "commons",
+          "aliases": [],
+          "example": "He imagined a pasture, held as a commons, on which several herders are free to graze their cattle.",
+          "definition": "tài nguyên được nhiều người cùng sử dụng; cách quản lý có thể khác nhau tùy cộng đồng"
+        },
+        {
+          "term": "graze",
+          "aliases": [
+            "graze their cattle"
+          ],
+          "example": "He imagined a pasture, held as a commons, on which several herders are free to graze their cattle.",
+          "definition": "cho gia súc ăn cỏ"
+        },
+        {
+          "term": "deplete",
+          "aliases": [
+            "depleted"
+          ],
+          "example": "Each herder reasons that adding one more animal brings a clear private gain, while the resulting damage to the land is shared by everyone, and so the same self-interested calculation pushes every herder toward expansion until the pasture is depleted and ruined.",
+          "definition": "làm cạn kiệt"
+        },
+        {
+          "term": "conflate",
+          "aliases": [
+            "conflated"
+          ],
+          "example": "The political economist Elinor Ostrom, who would later become the first woman to win the Nobel Prize in economics, argued that Hardin had quietly conflated two very different things.",
+          "definition": "đánh đồng những điều khác nhau"
+        },
+        {
+          "term": "norm",
+          "aliases": [
+            "norms"
+          ],
+          "example": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+          "definition": "quy tắc hay chuẩn mực được cộng đồng chấp nhận"
+        },
+        {
+          "term": "sanction",
+          "aliases": [
+            "sanctions"
+          ],
+          "example": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+          "definition": "chế tài đối với người vi phạm"
+        },
+        {
+          "term": "reciprocity",
+          "aliases": [],
+          "example": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+          "definition": "sự có đi có lại"
+        },
+        {
+          "term": "empirical",
+          "aliases": [],
+          "example": "For two decades this gloomy verdict was widely accepted, yet empirical research gradually undermined it.",
+          "definition": "dựa trên quan sát hoặc thực nghiệm"
+        },
+        {
+          "term": "coercion",
+          "aliases": [],
+          "example": "Either the state should privatise the land into private holdings, or else society should accept a degree of mutual coercion, agreed upon by the majority, in order to restrain individual appetite.",
+          "definition": "sự cưỡng chế"
+        },
+        {
+          "term": "nuanced",
+          "aliases": [],
+          "example": "The picture that emerges today is therefore considerably more nuanced than the original parable suggested.",
+          "definition": "có nhiều sắc thái, không đơn giản một chiều"
+        }
+      ],
+      "changes": {
+        "metadata": {
+          "translation_vi": "Trong một bài luận ngắn đăng trên tạp chí Science năm 1968, nhà sinh thái học Garrett Hardin đưa ra một câu chuyện ngụ ngôn có ảnh hưởng tới tư duy về môi trường suốt nhiều thập kỷ. Ông hình dung một đồng cỏ được giữ làm tài nguyên chung, nơi một số người chăn nuôi được tự do cho gia súc của mình ăn cỏ. Mỗi người chăn nuôi tính rằng thêm một con vật sẽ đem lại lợi ích riêng rõ rệt, còn thiệt hại đối với đất thì mọi người cùng gánh chịu. Vì vậy, cùng một phép tính vì lợi ích cá nhân khiến ai cũng mở rộng đàn, cho đến khi đồng cỏ bị khai thác cạn kiệt và hủy hoại.\n\nSức thuyết phục của lập luận nằm ở lô-gic bi quan của nó. Vì mỗi cá nhân hành động hoàn toàn hợp lý, sự suy thoái dần dần của tài nguyên chung dường như là một kết cục tất yếu mà không ai có thể một mình ngăn chặn, thay vì một sai lầm. Hardin kết luận rằng mọi tài nguyên chung như vậy đều đi tới chỗ bị hủy hoại, và khẳng định chỉ những biện pháp quyết liệt mới có thể ngăn điều đó. Hoặc nhà nước phải tư nhân hóa đất thành những phần sở hữu riêng, hoặc xã hội phải chấp nhận một mức độ cưỡng chế lẫn nhau do đa số đồng thuận, nhằm hạn chế ham muốn của từng cá nhân.\n\nTrong hai thập kỷ, kết luận bi quan này được chấp nhận rộng rãi, nhưng nghiên cứu thực nghiệm dần làm suy yếu nó. Nhà kinh tế chính trị Elinor Ostrom, người sau này trở thành phụ nữ đầu tiên giành giải Nobel Kinh tế, cho rằng Hardin đã ngầm đánh đồng hai điều rất khác nhau. Một tài nguyên thực sự ai cũng có thể tiếp cận, không thuộc sở hữu của ai và không chịu quy tắc nào, quả thật có thể sụp đổ; nhưng phần lớn tài nguyên chung trong lịch sử không hề như vậy. Qua nghiên cứu các hệ thống tưới tiêu, rừng và ngư trường trên khắp thế giới, Ostrom cho thấy nhiều cộng đồng đã quản lý tài nguyên chung bền vững suốt hàng thế kỷ. Họ không dựa vào tư nhân hóa hay chính quyền ở xa, mà vào quy tắc địa phương, chế tài đối với người lấy quá nhiều, cùng lòng tin và sự có đi có lại gắn kết hàng xóm với nhau.\n\nVì thế, bức tranh ngày nay hiện ra với nhiều sắc thái hơn đáng kể so với điều câu chuyện ngụ ngôn ban đầu gợi ra. Lô-gic của Hardin vẫn giúp lý giải số phận của những tài nguyên không được quản lý, từ biển khơi đến bầu khí quyển đang nóng lên. Tuy nhiên, giả định rằng sự hủy hoại ở đâu cũng không thể tránh khỏi nay có vẻ quá bao quát; cách quản lý tốt nhất cho từng tài nguyên chung phụ thuộc vào những hoàn cảnh mà không một quy tắc duy nhất nào có thể giải quyết hết.",
+          "practice_support": {
+            "units": [
+              {
+                "id": "p1-s1",
+                "source": "In a short essay published in the journal Science in 1968, the ecologist Garrett Hardin offered a parable that would shape environmental thinking for decades.",
+                "phrases": [
+                  {
+                    "source": "a parable",
+                    "target": "một câu chuyện ngụ ngôn"
+                  },
+                  {
+                    "source": "would shape environmental thinking",
+                    "target": "có ảnh hưởng tới tư duy về môi trường"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Trong một bài luận ngắn đăng trên tạp chí Science năm 1968, nhà sinh thái học Garrett Hardin đưa ra một câu chuyện ngụ ngôn có ảnh hưởng tới tư duy về môi trường suốt nhiều thập kỷ."
+              },
+              {
+                "id": "p1-s2",
+                "source": "He imagined a pasture, held as a commons, on which several herders are free to graze their cattle.",
+                "phrases": [
+                  {
+                    "source": "a pasture",
+                    "target": "một đồng cỏ"
+                  },
+                  {
+                    "source": "commons",
+                    "target": "tài nguyên chung"
+                  },
+                  {
+                    "source": "graze their cattle",
+                    "target": "cho gia súc của mình ăn cỏ"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Ông hình dung một đồng cỏ được giữ làm tài nguyên chung, nơi một số người chăn nuôi được tự do cho gia súc của mình ăn cỏ."
+              },
+              {
+                "id": "p1-s3",
+                "source": "Each herder reasons that adding one more animal brings a clear private gain, while the resulting damage to the land is shared by everyone, and so the same self-interested calculation pushes every herder toward expansion until the pasture is depleted and ruined.",
+                "phrases": [
+                  {
+                    "source": "private gain",
+                    "target": "lợi ích riêng"
+                  },
+                  {
+                    "source": "is shared by everyone",
+                    "target": "mọi người cùng gánh chịu"
+                  },
+                  {
+                    "source": "self-interested calculation",
+                    "target": "phép tính vì lợi ích cá nhân"
+                  },
+                  {
+                    "source": "depleted and ruined",
+                    "target": "khai thác cạn kiệt và hủy hoại"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Mỗi người chăn nuôi tính rằng thêm một con vật sẽ đem lại lợi ích riêng rõ rệt, còn thiệt hại đối với đất thì mọi người cùng gánh chịu. Vì vậy, cùng một phép tính vì lợi ích cá nhân khiến ai cũng mở rộng đàn, cho đến khi đồng cỏ bị khai thác cạn kiệt và hủy hoại."
+              },
+              {
+                "id": "p2-s1",
+                "source": "The force of the argument lies in its bleak logic.",
+                "phrases": [
+                  {
+                    "source": "bleak logic",
+                    "target": "lô-gic bi quan"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Sức thuyết phục của lập luận nằm ở lô-gic bi quan của nó."
+              },
+              {
+                "id": "p2-s2",
+                "source": "Because each individual behaves in a perfectly rational way, the slow degradation of the shared resource appears not as a mistake but as an inevitable outcome that no single person can prevent alone.",
+                "phrases": [
+                  {
+                    "source": "perfectly rational",
+                    "target": "hoàn toàn hợp lý"
+                  },
+                  {
+                    "source": "slow degradation",
+                    "target": "sự suy thoái dần dần"
+                  },
+                  {
+                    "source": "an inevitable outcome",
+                    "target": "một kết cục tất yếu"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Vì mỗi cá nhân hành động hoàn toàn hợp lý, sự suy thoái dần dần của tài nguyên chung dường như là một kết cục tất yếu mà không ai có thể một mình ngăn chặn, thay vì một sai lầm."
+              },
+              {
+                "id": "p2-s3",
+                "source": "Hardin concluded that ruin was the destination toward which all such commons were driven, and he insisted that only firm remedies could avert it.",
+                "phrases": [
+                  {
+                    "source": "firm remedies",
+                    "target": "những biện pháp quyết liệt"
+                  },
+                  {
+                    "source": "avert it",
+                    "target": "ngăn điều đó"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Hardin kết luận rằng mọi tài nguyên chung như vậy đều đi tới chỗ bị hủy hoại, và khẳng định chỉ những biện pháp quyết liệt mới có thể ngăn điều đó."
+              },
+              {
+                "id": "p2-s4",
+                "source": "Either the state should privatise the land into private holdings, or else society should accept a degree of mutual coercion, agreed upon by the majority, in order to restrain individual appetite.",
+                "phrases": [
+                  {
+                    "source": "privatise the land",
+                    "target": "tư nhân hóa đất"
+                  },
+                  {
+                    "source": "mutual coercion",
+                    "target": "cưỡng chế lẫn nhau"
+                  },
+                  {
+                    "source": "agreed upon by the majority",
+                    "target": "do đa số đồng thuận"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Hoặc nhà nước phải tư nhân hóa đất thành những phần sở hữu riêng, hoặc xã hội phải chấp nhận một mức độ cưỡng chế lẫn nhau do đa số đồng thuận, nhằm hạn chế ham muốn của từng cá nhân."
+              },
+              {
+                "id": "p3-s1",
+                "source": "For two decades this gloomy verdict was widely accepted, yet empirical research gradually undermined it.",
+                "phrases": [
+                  {
+                    "source": "empirical research",
+                    "target": "nghiên cứu thực nghiệm"
+                  },
+                  {
+                    "source": "undermined it",
+                    "target": "làm suy yếu nó"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Trong hai thập kỷ, kết luận bi quan này được chấp nhận rộng rãi, nhưng nghiên cứu thực nghiệm dần làm suy yếu nó."
+              },
+              {
+                "id": "p3-s2",
+                "source": "The political economist Elinor Ostrom, who would later become the first woman to win the Nobel Prize in economics, argued that Hardin had quietly conflated two very different things.",
+                "phrases": [
+                  {
+                    "source": "conflated",
+                    "target": "đánh đồng"
+                  },
+                  {
+                    "source": "two very different things",
+                    "target": "hai điều rất khác nhau"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Nhà kinh tế chính trị Elinor Ostrom, người sau này trở thành phụ nữ đầu tiên giành giải Nobel Kinh tế, cho rằng Hardin đã ngầm đánh đồng hai điều rất khác nhau."
+              },
+              {
+                "id": "p3-s3",
+                "source": "A genuinely open-access resource, owned by nobody and governed by no rules, may indeed collapse, but most historical commons were nothing of the sort.",
+                "phrases": [
+                  {
+                    "source": "open-access resource",
+                    "target": "tài nguyên thực sự ai cũng có thể tiếp cận"
+                  },
+                  {
+                    "source": "governed by no rules",
+                    "target": "không chịu quy tắc nào"
+                  },
+                  {
+                    "source": "nothing of the sort",
+                    "target": "không hề như vậy"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Một tài nguyên thực sự ai cũng có thể tiếp cận, không thuộc sở hữu của ai và không chịu quy tắc nào, quả thật có thể sụp đổ; nhưng phần lớn tài nguyên chung trong lịch sử không hề như vậy."
+              },
+              {
+                "id": "p3-s4",
+                "source": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+                "phrases": [
+                  {
+                    "source": "local norms",
+                    "target": "quy tắc địa phương"
+                  },
+                  {
+                    "source": "sanctions",
+                    "target": "chế tài"
+                  },
+                  {
+                    "source": "trust and reciprocity",
+                    "target": "lòng tin và sự có đi có lại"
+                  },
+                  {
+                    "source": "sustainably",
+                    "target": "bền vững"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Qua nghiên cứu các hệ thống tưới tiêu, rừng và ngư trường trên khắp thế giới, Ostrom cho thấy nhiều cộng đồng đã quản lý tài nguyên chung bền vững suốt hàng thế kỷ. Họ không dựa vào tư nhân hóa hay chính quyền ở xa, mà vào quy tắc địa phương, chế tài đối với người lấy quá nhiều, cùng lòng tin và sự có đi có lại gắn kết hàng xóm với nhau."
+              },
+              {
+                "id": "p4-s1",
+                "source": "The picture that emerges today is therefore considerably more nuanced than the original parable suggested.",
+                "phrases": [
+                  {
+                    "source": "more nuanced",
+                    "target": "nhiều sắc thái hơn"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Vì thế, bức tranh ngày nay hiện ra với nhiều sắc thái hơn đáng kể so với điều câu chuyện ngụ ngôn ban đầu gợi ra."
+              },
+              {
+                "id": "p4-s2",
+                "source": "Hardin's logic still illuminates the fate of unregulated resources, from open seas to a warming atmosphere, yet the assumption that ruin is everywhere unavoidable now looks too sweeping, and how best to govern any particular commons appears to depend on circumstances that no single rule can settle.",
+                "phrases": [
+                  {
+                    "source": "unregulated resources",
+                    "target": "những tài nguyên không được quản lý"
+                  },
+                  {
+                    "source": "too sweeping",
+                    "target": "quá bao quát"
+                  },
+                  {
+                    "source": "depend on circumstances",
+                    "target": "phụ thuộc vào những hoàn cảnh"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Lô-gic của Hardin vẫn giúp lý giải số phận của những tài nguyên không được quản lý, từ biển khơi đến bầu khí quyển đang nóng lên. Tuy nhiên, giả định rằng sự hủy hoại ở đâu cũng không thể tránh khỏi nay có vẻ quá bao quát; cách quản lý tốt nhất cho từng tài nguyên chung phụ thuộc vào những hoàn cảnh mà không một quy tắc duy nhất nào có thể giải quyết hết."
+              }
+            ],
+            "illustrations": [],
+            "source_sha256": "520aef893b762c00f10f1f635e8bd1ab1869949da4dfb7a41310d2cf84430243",
+            "schema_version": 1,
+            "question_evidence": {
+              "1": {
+                "source": "Each herder reasons that adding one more animal brings a clear private gain, while the resulting damage to the land is shared by everyone, and so the same self-interested calculation pushes every herder toward expansion until the pasture is depleted and ruined.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Lợi ích từ con vật thêm vào thuộc riêng một người; thiệt hại đồng cỏ được mọi người chia sẻ.",
+                    "src": "/reading-illustrations/commons-review.svg",
+                    "caption": "Sơ đồ lập luận của Hardin trong bài; nghiên cứu của Ostrom chỉ ra các cộng đồng cũng có thể quản lý bền vững bằng quy tắc chung."
+                  }
+                ],
+                "question_sha256": "e5a6c337e161624287ba534a1888baf8a68f4b6bdba9e5739b9c671e97cb5df9"
+              },
+              "2": {
+                "source": "The picture that emerges today is therefore considerably more nuanced than the original parable suggested.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "aa9d8cfaf910045f3fe4e2ffe995a83bc6f71ba69890023d063e1dbaab81212e"
+              },
+              "3": {
+                "source": "A genuinely open-access resource, owned by nobody and governed by no rules, may indeed collapse, but most historical commons were nothing of the sort.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "6a26290d08a09b73a60dbecb2f70bddd0f587bf9c83e812bbdb30b02ad849858"
+              },
+              "4": {
+                "source": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "14ac0a91c8200a871c44869747c18b28bd947fc9abdb4f023dd9cd403ba13f5f"
+              },
+              "5": {
+                "source": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "7984e0dcab8d2199d5a40be3aa0b947498bfe06b5ae786e2108d0e759a1e81e4"
+              },
+              "6": {
+                "source": "Hardin's logic still illuminates the fate of unregulated resources, from open seas to a warming atmosphere, yet the assumption that ruin is everywhere unavoidable now looks too sweeping, and how best to govern any particular commons appears to depend on circumstances that no single rule can settle.",
+                "precision": "quote",
+                "illustrations": [
+                  {
+                    "alt": "Lợi ích từ con vật thêm vào thuộc riêng một người; thiệt hại đồng cỏ được mọi người chia sẻ.",
+                    "src": "/reading-illustrations/commons-review.svg",
+                    "caption": "Sơ đồ lập luận của Hardin trong bài; nghiên cứu của Ostrom chỉ ra các cộng đồng cũng có thể quản lý bền vững bằng quy tắc chung."
+                  }
+                ],
+                "question_sha256": "6fbf059e9c4a4ad21626c4293f70e71b3afae91c30b91468c9da5fc494bb356f"
+              }
+            },
+            "translation_sha256": "36a3a08e86cca0794cefac383dff3ec4ee12bbddffd1c8a9ec8bb458225bbd01"
+          }
+        },
+        "image_url": "/reading-illustrations/commons-scene.svg",
+        "glossary": [
+          {
+            "ipa": "/ˈræʃnəl/",
+            "pos": "adj.",
+            "term": "rational",
+            "example": "The rational herder adds one more animal to the herd.",
+            "synonyms": [
+              "logical",
+              "self-interested"
+            ],
+            "definition": "hợp lý, dựa trên lý trí (theo lợi ích cá nhân)"
+          },
+          {
+            "ipa": "/ˌdeɡrəˈdeɪʃn/",
+            "pos": "n.",
+            "term": "degradation",
+            "example": "Each small gain hastens the degradation of the whole.",
+            "synonyms": [
+              "decline",
+              "deterioration"
+            ],
+            "definition": "sự suy thoái, xuống cấp (của môi trường)"
+          },
+          {
+            "ipa": "/ɪnˈevɪtəbl/",
+            "pos": "adj.",
+            "term": "inevitable",
+            "example": "Hardin treated ruin as an inevitable outcome.",
+            "synonyms": [
+              "unavoidable",
+              "certain"
+            ],
+            "definition": "không thể tránh khỏi, tất yếu"
+          },
+          {
+            "ipa": "/ˈpraɪvətaɪz/",
+            "pos": "v.",
+            "term": "privatise",
+            "example": "One remedy is to privatise the land into separate plots.",
+            "synonyms": [
+              "sell off"
+            ],
+            "definition": "tư nhân hóa (chuyển sang sở hữu tư nhân)"
+          },
+          {
+            "ipa": "/ˌəʊpən ˈækses/",
+            "pos": "adj.",
+            "term": "open-access",
+            "example": "A truly open-access resource has no rules at all.",
+            "synonyms": [
+              "unrestricted"
+            ],
+            "definition": "ai cũng tiếp cận được (không có rào cản hay quy tắc)"
+          },
+          {
+            "term": "commons",
+            "aliases": [],
+            "example": "He imagined a pasture, held as a commons, on which several herders are free to graze their cattle.",
+            "definition": "tài nguyên được nhiều người cùng sử dụng; cách quản lý có thể khác nhau tùy cộng đồng"
+          },
+          {
+            "term": "graze",
+            "aliases": [
+              "graze their cattle"
+            ],
+            "example": "He imagined a pasture, held as a commons, on which several herders are free to graze their cattle.",
+            "definition": "cho gia súc ăn cỏ"
+          },
+          {
+            "term": "deplete",
+            "aliases": [
+              "depleted"
+            ],
+            "example": "Each herder reasons that adding one more animal brings a clear private gain, while the resulting damage to the land is shared by everyone, and so the same self-interested calculation pushes every herder toward expansion until the pasture is depleted and ruined.",
+            "definition": "làm cạn kiệt"
+          },
+          {
+            "term": "conflate",
+            "aliases": [
+              "conflated"
+            ],
+            "example": "The political economist Elinor Ostrom, who would later become the first woman to win the Nobel Prize in economics, argued that Hardin had quietly conflated two very different things.",
+            "definition": "đánh đồng những điều khác nhau"
+          },
+          {
+            "term": "norm",
+            "aliases": [
+              "norms"
+            ],
+            "example": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+            "definition": "quy tắc hay chuẩn mực được cộng đồng chấp nhận"
+          },
+          {
+            "term": "sanction",
+            "aliases": [
+              "sanctions"
+            ],
+            "example": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+            "definition": "chế tài đối với người vi phạm"
+          },
+          {
+            "term": "reciprocity",
+            "aliases": [],
+            "example": "Studying irrigation systems, forests and fisheries across the world, Ostrom showed that communities had managed shared resources sustainably for centuries, relying neither on privatisation nor on distant government, but instead on local norms, on sanctions against those who took too much, and on the trust and reciprocity that bind neighbours together.",
+            "definition": "sự có đi có lại"
+          },
+          {
+            "term": "empirical",
+            "aliases": [],
+            "example": "For two decades this gloomy verdict was widely accepted, yet empirical research gradually undermined it.",
+            "definition": "dựa trên quan sát hoặc thực nghiệm"
+          },
+          {
+            "term": "coercion",
+            "aliases": [],
+            "example": "Either the state should privatise the land into private holdings, or else society should accept a degree of mutual coercion, agreed upon by the majority, in order to restrain individual appetite.",
+            "definition": "sự cưỡng chế"
+          },
+          {
+            "term": "nuanced",
+            "aliases": [],
+            "example": "The picture that emerges today is therefore considerably more nuanced than the original parable suggested.",
+            "definition": "có nhiều sắc thái, không đơn giản một chiều"
+          }
+        ]
+      }
+    },
+    {
+      "passage_id": "071dd482-c2d5-48ac-9e58-2bc2f55ad26c",
+      "slug": "matching-schools-of-architecture",
+      "library": "l2_skill",
+      "source_body_markdown": "**A** A building is rarely only shelter; it is also an argument, made in stone or concrete, about how life should be ordered and what is worth looking up at. The history of Western architecture can therefore be read as a sequence of competing arguments, each reacting against the one before it as much as to the practical needs of its age.\n\n**B** The most ambitious of the medieval arguments was the Gothic style, which emerged in France in the twelfth century. By replacing heavy round arches with pointed ones and ribbed vaults, its builders could raise taller, thinner walls, hollowed out by wide windows. The effect was deliberate: the eye is drawn upward towards heaven, and once-dark interiors are flooded with coloured light, turning the structure itself into an expression of devotion.\n\n**C** Centuries later, the German Bauhaus, founded in 1919, made an almost opposite argument. Rejecting ornament as dishonest, its designers held that the appearance of an object should arise directly from its function and from the straightforward use of modern industrial materials such as steel and glass. Form, in the famous slogan, should follow function, and beauty was to be found in clarity rather than in what was added on.\n\n**D** After the Second World War, a generation of architects pushed that ideal of honesty in a rougher direction. Brutalism, named partly for the French béton brut, \"raw concrete\", left concrete bare and exposed a building's structure plainly rather than hiding it. Conceived as honest and democratic, the style was later condemned by many as bleak, and some of its finest works were demolished before their reputations could recover.\n\n**E** By the 1970s a reaction had formed against the severity that modernism left behind. Postmodernism, as it came to be known, rejected the idea that there was a single true language of form. Instead it borrowed playfully from many past styles at once, mixing classical motifs with bright colour and ironic touches, as if to remind onlookers that architecture too could make jokes.\n\n**F** None of these styles has wholly erased those that preceded it, and most contemporary work borrows from several at once, reaching for whichever vocabulary suits the site and purpose. Whether that mixture represents a maturing of taste or merely the absence of a shared conviction remains a question on which critics continue to disagree.",
+      "expected_metadata": {
+        "grammar_focus": [
+          {
+            "tip": "Cụm 'By + V-ing' đầu câu phải cùng chủ ngữ với mệnh đề chính ('its builders') — xác định để biết ai thực hiện hành động.",
+            "point": "Cụm giới từ 'By + V-ing' fronting chỉ phương thức",
+            "review": "by + V-ing = bằng cách (làm gì); gerund sau giới từ 'by'. replace A with B = thay A bằng B. Fronting cụm phương thức lên đầu, không đảo S–V.",
+            "example": "**By replacing heavy round arches with pointed ones and ribbed vaults**, its builders could raise taller, thinner walls",
+            "analysis": "Cụm giới từ 'By + V-ing' (By replacing…) chỉ phương thức, đưa lên đầu (fronting) trước mệnh đề chính 'its builders could raise…'; S–V mệnh đề chính giữ nguyên trật tự, không đảo. Tân ngữ của 'replacing' có cấu trúc 'replace A with B' (A = heavy round arches, B = pointed ones and ribbed vaults). 'ones' thay cho 'arches' tránh lặp."
+          },
+          {
+            "tip": "Cụm '-ing' mở đầu câu phải cùng chủ ngữ với mệnh đề chính — kiểm tra để tránh hiểu sai chủ thể của hành động.",
+            "point": "Cụm phân từ hiện tại đầu câu (participle clause) chỉ hoàn cảnh",
+            "review": "V-ing + …, S + V… = mệnh đề phân từ chủ động rút gọn, cùng chủ ngữ với mệnh đề chính. reject A as B = bác bỏ A vì coi là B.",
+            "example": "**Rejecting ornament as dishonest**, its designers held that the appearance of an object should arise directly from its function",
+            "analysis": "Cụm phân từ hiện tại 'Rejecting ornament as dishonest' đứng đầu, rút gọn từ mệnh đề chủ động ('Because they rejected…'), bổ nghĩa cho chủ ngữ 'its designers' của mệnh đề chính. 'reject A as B' = bác bỏ A vì cho là B. Mệnh đề danh ngữ 'that the appearance…should arise…' làm tân ngữ cho 'held'."
+          },
+          {
+            "tip": "Cụm '-ed' mở đầu câu là mệnh đề bị động rút gọn — đối lập giữa nó và mệnh đề chính thường hàm ý nhượng bộ ('tuy… nhưng…').",
+            "point": "Cụm phân từ quá khứ đầu câu (participle clause) bị động chỉ nhượng bộ",
+            "review": "V3 (Conceived…) + …, S + V… = mệnh đề phân từ bị động rút gọn (= Although it was conceived…). condemn A as B = lên án A là B.",
+            "example": "**Conceived as honest and democratic**, the style was later condemned by many as bleak",
+            "analysis": "Cụm phân từ quá khứ 'Conceived as honest and democratic' đứng đầu, rút gọn từ mệnh đề bị động ('Although it was conceived…'), bổ nghĩa cho chủ ngữ 'the style'. Tương phản với mệnh đề chính bị động 'was later condemned… as bleak' tạo sắc thái nhượng bộ. 'conceive/condemn A as B' = hình dung/lên án A là B; cả hai vế lược tác nhân, riêng vế sau nêu 'by many'."
+          },
+          {
+            "tip": "Đoạn kết 'Whether… remains a question…disagree' báo hiệu tác giả không nghiêng hẳn về bên nào — câu hỏi quan điểm hay nhắm vào sự lưỡng lự này.",
+            "point": "Mệnh đề danh ngữ 'Whether A or B' làm chủ ngữ + bổ ngữ có mệnh đề quan hệ",
+            "review": "Whether A or B + remains a question on which… = liệu A hay B vẫn là vấn đề mà… (bỏ ngỏ). 'on which' = mệnh đề quan hệ trang trọng.",
+            "example": "**Whether that mixture represents a maturing of taste or merely the absence of a shared conviction remains a question** on which critics continue to disagree.",
+            "analysis": "Mệnh đề 'Whether A or B' (A = a maturing of taste, B = merely the absence of a shared conviction) làm chủ ngữ của 'remains'; bổ ngữ 'a question' được mệnh đề quan hệ trang trọng 'on which critics…disagree' (giới từ + which) bổ nghĩa. Câu bỏ ngỏ kết luận. Đây là mệnh đề danh ngữ, KHÔNG phải cleft."
+          }
+        ],
+        "translation_vi": "A — Một tòa nhà hiếm khi chỉ là chỗ trú; nó còn là một lập luận bằng đá hoặc bê tông về cách tổ chức cuộc sống và điều gì đáng để ngước nhìn. Vì vậy, có thể đọc lịch sử kiến trúc phương Tây như một chuỗi lập luận cạnh tranh: mỗi lập luận vừa phản ứng chống lại lập luận đi trước, vừa đáp ứng nhu cầu thực tế của thời đại mình.\n\nB — Tham vọng nhất trong các lập luận thời trung cổ là phong cách Gothic, xuất hiện ở Pháp vào thế kỷ XII. Bằng cách thay vòm tròn nặng nề bằng vòm nhọn và vòm có gân, người xây dựng có thể dựng tường cao hơn, mỏng hơn, khoét những cửa sổ rộng. Hiệu ứng ấy có chủ ý: mắt bị hút lên cao hướng về thiên đường, còn không gian bên trong vốn tối tăm nay tràn ngập ánh sáng nhiều màu, biến chính công trình thành biểu hiện của lòng sùng kính.\n\nC — Nhiều thế kỷ sau, trường phái Bauhaus ở Đức, thành lập năm 1919, đưa ra lập luận gần như ngược lại. Coi trang trí là thiếu trung thực và bác bỏ nó, các nhà thiết kế của trường phái này cho rằng hình dáng đồ vật phải xuất phát trực tiếp từ chức năng và cách dùng trực tiếp, không cầu kỳ những vật liệu công nghiệp hiện đại như thép và kính. Theo khẩu hiệu nổi tiếng, hình thức phải theo chức năng, và vẻ đẹp nằm ở sự rõ ràng thay vì những thứ được thêm vào.\n\nD — Sau Chiến tranh thế giới thứ hai, một thế hệ kiến trúc sư đẩy lý tưởng trung thực ấy theo hướng thô mộc hơn. Chủ nghĩa thô mộc, có tên một phần từ cụm tiếng Pháp béton brut, “bê tông thô”, để bê tông trần và phơi rõ kết cấu công trình thay vì che giấu nó. Được hình dung là trung thực và dân chủ, phong cách ấy về sau bị nhiều người chê là u ám, và một số tác phẩm xuất sắc nhất đã bị phá bỏ trước khi danh tiếng kịp được khôi phục.\n\nE — Đến thập niên 1970, đã xuất hiện một phản ứng chống lại vẻ khô cứng mà chủ nghĩa hiện đại để lại. Chủ nghĩa hậu hiện đại, như tên gọi về sau, bác bỏ ý tưởng rằng chỉ có một ngôn ngữ hình thức đúng đắn duy nhất. Thay vào đó, nó vay mượn vui nhộn từ nhiều phong cách quá khứ cùng lúc, trộn mô-típ cổ điển với màu sắc rực rỡ và nét châm biếm, như để nhắc người nhìn rằng kiến trúc cũng có thể đùa.\n\nF — Không phong cách nào xóa sạch hoàn toàn những phong cách đi trước, và phần lớn công trình hiện nay vay mượn nhiều phong cách cùng lúc, chọn bất cứ vốn ngôn ngữ nào phù hợp với địa điểm và mục đích. Liệu sự pha trộn ấy thể hiện thị hiếu trưởng thành hay chỉ là thiếu niềm tin chung vẫn là câu hỏi mà các nhà phê bình tiếp tục bất đồng.",
+        "practice_support": {
+          "units": [
+            {
+              "id": "p1-s1",
+              "source": "A A building is rarely only shelter; it is also an argument, made in stone or concrete, about how life should be ordered and what is worth looking up at.",
+              "phrases": [
+                {
+                  "source": "rarely only shelter",
+                  "target": "hiếm khi chỉ là chỗ trú"
+                },
+                {
+                  "source": "an argument, made in stone or concrete",
+                  "target": "một lập luận bằng đá hoặc bê tông"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "A — Một tòa nhà hiếm khi chỉ là chỗ trú; nó còn là một lập luận bằng đá hoặc bê tông về cách tổ chức cuộc sống và điều gì đáng để ngước nhìn."
+            },
+            {
+              "id": "p1-s2",
+              "source": "The history of Western architecture can therefore be read as a sequence of competing arguments, each reacting against the one before it as much as to the practical needs of its age.",
+              "phrases": [
+                {
+                  "source": "a sequence of competing arguments",
+                  "target": "một chuỗi lập luận cạnh tranh"
+                },
+                {
+                  "source": "reacting against the one before it",
+                  "target": "phản ứng chống lại lập luận đi trước"
+                },
+                {
+                  "source": "the practical needs of its age",
+                  "target": "nhu cầu thực tế của thời đại mình"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Vì vậy, có thể đọc lịch sử kiến trúc phương Tây như một chuỗi lập luận cạnh tranh: mỗi lập luận vừa phản ứng chống lại lập luận đi trước, vừa đáp ứng nhu cầu thực tế của thời đại mình."
+            },
+            {
+              "id": "p2-s1",
+              "source": "B The most ambitious of the medieval arguments was the Gothic style, which emerged in France in the twelfth century.",
+              "phrases": [
+                {
+                  "source": "the Gothic style",
+                  "target": "phong cách Gothic"
+                },
+                {
+                  "source": "the twelfth century",
+                  "target": "thế kỷ XII"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "B — Tham vọng nhất trong các lập luận thời trung cổ là phong cách Gothic, xuất hiện ở Pháp vào thế kỷ XII."
+            },
+            {
+              "id": "p2-s2",
+              "source": "By replacing heavy round arches with pointed ones and ribbed vaults, its builders could raise taller, thinner walls, hollowed out by wide windows.",
+              "phrases": [
+                {
+                  "source": "pointed ones and ribbed vaults",
+                  "target": "vòm nhọn và vòm có gân"
+                },
+                {
+                  "source": "taller, thinner walls",
+                  "target": "tường cao hơn, mỏng hơn"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Bằng cách thay vòm tròn nặng nề bằng vòm nhọn và vòm có gân, người xây dựng có thể dựng tường cao hơn, mỏng hơn, khoét những cửa sổ rộng."
+            },
+            {
+              "id": "p2-s3",
+              "source": "The effect was deliberate: the eye is drawn upward towards heaven, and once-dark interiors are flooded with coloured light, turning the structure itself into an expression of devotion.",
+              "phrases": [
+                {
+                  "source": "The effect was deliberate",
+                  "target": "Hiệu ứng ấy có chủ ý"
+                },
+                {
+                  "source": "coloured light",
+                  "target": "ánh sáng nhiều màu"
+                },
+                {
+                  "source": "an expression of devotion",
+                  "target": "biểu hiện của lòng sùng kính"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Hiệu ứng ấy có chủ ý: mắt bị hút lên cao hướng về thiên đường, còn không gian bên trong vốn tối tăm nay tràn ngập ánh sáng nhiều màu, biến chính công trình thành biểu hiện của lòng sùng kính."
+            },
+            {
+              "id": "p3-s1",
+              "source": "C Centuries later, the German Bauhaus, founded in 1919, made an almost opposite argument.",
+              "phrases": [
+                {
+                  "source": "founded in 1919",
+                  "target": "thành lập năm 1919"
+                },
+                {
+                  "source": "an almost opposite argument",
+                  "target": "lập luận gần như ngược lại"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "C — Nhiều thế kỷ sau, trường phái Bauhaus ở Đức, thành lập năm 1919, đưa ra lập luận gần như ngược lại."
+            },
+            {
+              "id": "p3-s2",
+              "source": "Rejecting ornament as dishonest, its designers held that the appearance of an object should arise directly from its function and from the straightforward use of modern industrial materials such as steel and glass.",
+              "phrases": [
+                {
+                  "source": "Rejecting ornament as dishonest",
+                  "target": "Coi trang trí là thiếu trung thực và bác bỏ nó"
+                },
+                {
+                  "source": "directly from its function",
+                  "target": "trực tiếp từ chức năng"
+                },
+                {
+                  "source": "steel and glass",
+                  "target": "thép và kính"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Coi trang trí là thiếu trung thực và bác bỏ nó, các nhà thiết kế của trường phái này cho rằng hình dáng đồ vật phải xuất phát trực tiếp từ chức năng và cách dùng trực tiếp, không cầu kỳ những vật liệu công nghiệp hiện đại như thép và kính."
+            },
+            {
+              "id": "p3-s3",
+              "source": "Form, in the famous slogan, should follow function, and beauty was to be found in clarity rather than in what was added on.",
+              "phrases": [
+                {
+                  "source": "Form",
+                  "target": "hình thức"
+                },
+                {
+                  "source": "follow function",
+                  "target": "theo chức năng"
+                },
+                {
+                  "source": "clarity",
+                  "target": "sự rõ ràng"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Theo khẩu hiệu nổi tiếng, hình thức phải theo chức năng, và vẻ đẹp nằm ở sự rõ ràng thay vì những thứ được thêm vào."
+            },
+            {
+              "id": "p4-s1",
+              "source": "D After the Second World War, a generation of architects pushed that ideal of honesty in a rougher direction.",
+              "phrases": [
+                {
+                  "source": "a generation of architects",
+                  "target": "một thế hệ kiến trúc sư"
+                },
+                {
+                  "source": "a rougher direction",
+                  "target": "hướng thô mộc hơn"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "D — Sau Chiến tranh thế giới thứ hai, một thế hệ kiến trúc sư đẩy lý tưởng trung thực ấy theo hướng thô mộc hơn."
+            },
+            {
+              "id": "p4-s2",
+              "source": "Brutalism, named partly for the French béton brut, \"raw concrete\", left concrete bare and exposed a building's structure plainly rather than hiding it.",
+              "phrases": [
+                {
+                  "source": "Brutalism",
+                  "target": "Chủ nghĩa thô mộc"
+                },
+                {
+                  "source": "raw concrete",
+                  "target": "bê tông thô"
+                },
+                {
+                  "source": "exposed a building's structure plainly",
+                  "target": "phơi rõ kết cấu công trình"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Chủ nghĩa thô mộc, có tên một phần từ cụm tiếng Pháp béton brut, “bê tông thô”, để bê tông trần và phơi rõ kết cấu công trình thay vì che giấu nó."
+            },
+            {
+              "id": "p4-s3",
+              "source": "Conceived as honest and democratic, the style was later condemned by many as bleak, and some of its finest works were demolished before their reputations could recover.",
+              "phrases": [
+                {
+                  "source": "honest and democratic",
+                  "target": "trung thực và dân chủ"
+                },
+                {
+                  "source": "bleak",
+                  "target": "u ám"
+                },
+                {
+                  "source": "were demolished",
+                  "target": "đã bị phá bỏ"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Được hình dung là trung thực và dân chủ, phong cách ấy về sau bị nhiều người chê là u ám, và một số tác phẩm xuất sắc nhất đã bị phá bỏ trước khi danh tiếng kịp được khôi phục."
+            },
+            {
+              "id": "p5-s1",
+              "source": "E By the 1970s a reaction had formed against the severity that modernism left behind.",
+              "phrases": [
+                {
+                  "source": "By the 1970s",
+                  "target": "Đến thập niên 1970"
+                },
+                {
+                  "source": "the severity",
+                  "target": "vẻ khô cứng"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "E — Đến thập niên 1970, đã xuất hiện một phản ứng chống lại vẻ khô cứng mà chủ nghĩa hiện đại để lại."
+            },
+            {
+              "id": "p5-s2",
+              "source": "Postmodernism, as it came to be known, rejected the idea that there was a single true language of form.",
+              "phrases": [
+                {
+                  "source": "Postmodernism",
+                  "target": "Chủ nghĩa hậu hiện đại"
+                },
+                {
+                  "source": "a single true language of form",
+                  "target": "một ngôn ngữ hình thức đúng đắn duy nhất"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Chủ nghĩa hậu hiện đại, như tên gọi về sau, bác bỏ ý tưởng rằng chỉ có một ngôn ngữ hình thức đúng đắn duy nhất."
+            },
+            {
+              "id": "p5-s3",
+              "source": "Instead it borrowed playfully from many past styles at once, mixing classical motifs with bright colour and ironic touches, as if to remind onlookers that architecture too could make jokes.",
+              "phrases": [
+                {
+                  "source": "borrowed playfully",
+                  "target": "vay mượn vui nhộn"
+                },
+                {
+                  "source": "classical motifs",
+                  "target": "mô-típ cổ điển"
+                },
+                {
+                  "source": "ironic touches",
+                  "target": "nét châm biếm"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Thay vào đó, nó vay mượn vui nhộn từ nhiều phong cách quá khứ cùng lúc, trộn mô-típ cổ điển với màu sắc rực rỡ và nét châm biếm, như để nhắc người nhìn rằng kiến trúc cũng có thể đùa."
+            },
+            {
+              "id": "p6-s1",
+              "source": "F None of these styles has wholly erased those that preceded it, and most contemporary work borrows from several at once, reaching for whichever vocabulary suits the site and purpose.",
+              "phrases": [
+                {
+                  "source": "wholly erased",
+                  "target": "xóa sạch hoàn toàn"
+                },
+                {
+                  "source": "the site and purpose",
+                  "target": "địa điểm và mục đích"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "F — Không phong cách nào xóa sạch hoàn toàn những phong cách đi trước, và phần lớn công trình hiện nay vay mượn nhiều phong cách cùng lúc, chọn bất cứ vốn ngôn ngữ nào phù hợp với địa điểm và mục đích."
+            },
+            {
+              "id": "p6-s2",
+              "source": "Whether that mixture represents a maturing of taste or merely the absence of a shared conviction remains a question on which critics continue to disagree.",
+              "phrases": [
+                {
+                  "source": "a maturing of taste",
+                  "target": "thị hiếu trưởng thành"
+                },
+                {
+                  "source": "the absence of a shared conviction",
+                  "target": "thiếu niềm tin chung"
+                },
+                {
+                  "source": "continue to disagree",
+                  "target": "tiếp tục bất đồng"
+                }
+              ],
+              "precision": "sentence",
+              "translation_vi": "Liệu sự pha trộn ấy thể hiện thị hiếu trưởng thành hay chỉ là thiếu niềm tin chung vẫn là câu hỏi mà các nhà phê bình tiếp tục bất đồng."
+            }
+          ],
+          "illustrations": [
+            {
+              "alt": "Mô hình kiến trúc và những bản phác thảo hình khối khác nhau trên bàn.",
+              "src": "/reading-illustrations/exp-architecture-sketch-scene.svg",
+              "caption": "Các cách nghĩ khác nhau về công trình."
+            }
+          ],
+          "source_sha256": "02b28a1ad50f84b8ae5c08e0bcf052c7c18704fb8d782ec7dc05ed984c64f649",
+          "schema_version": 1,
+          "question_evidence": {
+            "1": {
+              "source": "the eye is drawn upward towards heaven",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "9b7d0fe84651048d525c99dfe8aeacc688a392a475012ab30f6a12db976941eb"
+            },
+            "2": {
+              "source": "left concrete bare and exposed a building's structure plainly",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "b54529811cb61be7ef71007eb846baef2c5222fc35ba033b5fb404130e2aea2d"
+            },
+            "3": {
+              "source": "the appearance of an object should arise directly from its function",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "65e716ea223eadb511edc55152ca893b4ba97b4390090496564343629a9f3b25"
+            },
+            "4": {
+              "source": "borrowed playfully from many past styles at once",
+              "precision": "quote",
+              "illustrations": [],
+              "question_sha256": "2d353256f03359428527be1fdd3ff292ed32d667f52c5c6404c658bfcc0480a1"
+            }
+          },
+          "translation_sha256": "761a8d6d49b417111f3b62fc9b7c2f71de05326dd3c13b5a78bcc6eec1b8820c"
+        }
+      },
+      "expected_image_url": "/reading-illustrations/exp-architecture-sketch-scene.svg",
+      "expected_glossary": [
+        {
+          "term": "pointed",
+          "aliases": [],
+          "example": "By replacing heavy round arches with pointed ones and ribbed vaults, its builders could raise taller, thinner walls, hollowed out by wide windows.",
+          "definition": "nhọn, có đầu nhọn (nói về vòm)"
+        },
+        {
+          "term": "devotion",
+          "aliases": [],
+          "example": "The effect was deliberate: the eye is drawn upward towards heaven, and once-dark interiors are flooded with coloured light, turning the structure itself into an expression of devotion.",
+          "definition": "lòng thành kính"
+        },
+        {
+          "term": "ornament",
+          "aliases": [],
+          "example": "Rejecting ornament as dishonest, its designers held that the appearance of an object should arise directly from its function and from the straightforward use of modern industrial materials such as steel and glass.",
+          "definition": "chi tiết trang trí"
+        },
+        {
+          "term": "raw concrete",
+          "aliases": [],
+          "example": "Brutalism, named partly for the French béton brut, \"raw concrete\", left concrete bare and exposed a building's structure plainly rather than hiding it.",
+          "definition": "bê tông để mộc"
+        },
+        {
+          "term": "demolished",
+          "aliases": [],
+          "example": "Conceived as honest and democratic, the style was later condemned by many as bleak, and some of its finest works were demolished before their reputations could recover.",
+          "definition": "bị phá dỡ"
+        }
+      ],
+      "changes": {
+        "metadata": {
+          "translation_vi": "A — Một tòa nhà hiếm khi chỉ là chỗ trú; nó còn là một lập luận bằng đá hoặc bê tông về cách tổ chức cuộc sống và điều gì đáng để ngước nhìn. Vì vậy, lịch sử kiến trúc phương Tây có thể được đọc như chuỗi lập luận cạnh tranh, mỗi lập luận phản ứng với cái trước đó nhiều không kém với nhu cầu thực tế của thời đại mình.\n\nB — Tham vọng nhất trong các lập luận thời trung cổ là phong cách Gothic, xuất hiện ở Pháp vào thế kỷ XII. Bằng cách thay vòm tròn nặng nề bằng vòm nhọn và vòm có gân, người xây dựng có thể dựng tường cao hơn, mỏng hơn, khoét những cửa sổ rộng. Hiệu ứng ấy có chủ ý: mắt bị hút lên cao hướng về thiên đường, còn không gian bên trong vốn tối tăm nay tràn ngập ánh sáng nhiều màu, biến chính công trình thành biểu hiện của lòng sùng kính.\n\nC — Nhiều thế kỷ sau, trường phái Bauhaus ở Đức, thành lập năm 1919, đưa ra lập luận gần như ngược lại. Coi trang trí là thiếu trung thực và bác bỏ nó, các nhà thiết kế của trường phái này cho rằng hình dáng đồ vật phải xuất phát trực tiếp từ chức năng và cách dùng trực tiếp, không cầu kỳ những vật liệu công nghiệp hiện đại như thép và kính. Theo khẩu hiệu nổi tiếng, hình thức phải theo chức năng, và vẻ đẹp nằm ở sự rõ ràng thay vì những thứ được thêm vào.\n\nD — Sau Chiến tranh thế giới thứ hai, một thế hệ kiến trúc sư đẩy lý tưởng trung thực ấy theo hướng thô mộc hơn. Chủ nghĩa thô mộc, có tên một phần từ cụm tiếng Pháp béton brut, “bê tông thô”, để bê tông trần và phơi rõ kết cấu công trình thay vì che giấu nó. Được hình dung là trung thực và dân chủ, phong cách ấy về sau bị nhiều người chê là u ám, và một số tác phẩm xuất sắc nhất đã bị phá bỏ trước khi danh tiếng kịp được khôi phục.\n\nE — Đến những năm 1970, một phản ứng đã hình thành chống lại sự khắc nghiệt mà chủ nghĩa hiện đại để lại. Chủ nghĩa hậu hiện đại, như tên gọi về sau, bác bỏ ý tưởng rằng chỉ có một ngôn ngữ hình thức đúng đắn duy nhất. Thay vào đó, nó vay mượn vui nhộn từ nhiều phong cách quá khứ cùng lúc, trộn mô-típ cổ điển với màu sắc rực rỡ và nét châm biếm, như để nhắc người nhìn rằng kiến trúc cũng có thể đùa.\n\nF — Không phong cách nào xóa sạch hoàn toàn những phong cách đi trước, và phần lớn công trình hiện nay vay mượn nhiều phong cách cùng lúc, chọn bất cứ vốn ngôn ngữ nào phù hợp với địa điểm và mục đích. Liệu sự pha trộn ấy thể hiện thị hiếu trưởng thành hay chỉ là thiếu niềm tin chung vẫn là câu hỏi mà các nhà phê bình tiếp tục bất đồng.",
+          "practice_support": {
+            "units": [
+              {
+                "id": "p1-s1",
+                "source": "A A building is rarely only shelter; it is also an argument, made in stone or concrete, about how life should be ordered and what is worth looking up at.",
+                "phrases": [
+                  {
+                    "source": "rarely only shelter",
+                    "target": "hiếm khi chỉ là chỗ trú"
+                  },
+                  {
+                    "source": "an argument, made in stone or concrete",
+                    "target": "một lập luận bằng đá hoặc bê tông"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "A — Một tòa nhà hiếm khi chỉ là chỗ trú; nó còn là một lập luận bằng đá hoặc bê tông về cách tổ chức cuộc sống và điều gì đáng để ngước nhìn."
+              },
+              {
+                "id": "p1-s2",
+                "source": "The history of Western architecture can therefore be read as a sequence of competing arguments, each reacting against the one before it as much as to the practical needs of its age.",
+                "phrases": [
+                  {
+                    "source": "a sequence of competing arguments",
+                    "target": "chuỗi lập luận cạnh tranh"
+                  },
+                  {
+                    "source": "the practical needs of its age",
+                    "target": "nhu cầu thực tế của thời đại mình"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Vì vậy, lịch sử kiến trúc phương Tây có thể được đọc như chuỗi lập luận cạnh tranh, mỗi lập luận phản ứng với cái trước đó nhiều không kém với nhu cầu thực tế của thời đại mình."
+              },
+              {
+                "id": "p2-s1",
+                "source": "B The most ambitious of the medieval arguments was the Gothic style, which emerged in France in the twelfth century.",
+                "phrases": [
+                  {
+                    "source": "the Gothic style",
+                    "target": "phong cách Gothic"
+                  },
+                  {
+                    "source": "the twelfth century",
+                    "target": "thế kỷ XII"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "B — Tham vọng nhất trong các lập luận thời trung cổ là phong cách Gothic, xuất hiện ở Pháp vào thế kỷ XII."
+              },
+              {
+                "id": "p2-s2",
+                "source": "By replacing heavy round arches with pointed ones and ribbed vaults, its builders could raise taller, thinner walls, hollowed out by wide windows.",
+                "phrases": [
+                  {
+                    "source": "pointed ones and ribbed vaults",
+                    "target": "vòm nhọn và vòm có gân"
+                  },
+                  {
+                    "source": "taller, thinner walls",
+                    "target": "tường cao hơn, mỏng hơn"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Bằng cách thay vòm tròn nặng nề bằng vòm nhọn và vòm có gân, người xây dựng có thể dựng tường cao hơn, mỏng hơn, khoét những cửa sổ rộng."
+              },
+              {
+                "id": "p2-s3",
+                "source": "The effect was deliberate: the eye is drawn upward towards heaven, and once-dark interiors are flooded with coloured light, turning the structure itself into an expression of devotion.",
+                "phrases": [
+                  {
+                    "source": "The effect was deliberate",
+                    "target": "Hiệu ứng ấy có chủ ý"
+                  },
+                  {
+                    "source": "coloured light",
+                    "target": "ánh sáng nhiều màu"
+                  },
+                  {
+                    "source": "an expression of devotion",
+                    "target": "biểu hiện của lòng sùng kính"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Hiệu ứng ấy có chủ ý: mắt bị hút lên cao hướng về thiên đường, còn không gian bên trong vốn tối tăm nay tràn ngập ánh sáng nhiều màu, biến chính công trình thành biểu hiện của lòng sùng kính."
+              },
+              {
+                "id": "p3-s1",
+                "source": "C Centuries later, the German Bauhaus, founded in 1919, made an almost opposite argument.",
+                "phrases": [
+                  {
+                    "source": "founded in 1919",
+                    "target": "thành lập năm 1919"
+                  },
+                  {
+                    "source": "an almost opposite argument",
+                    "target": "lập luận gần như ngược lại"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "C — Nhiều thế kỷ sau, trường phái Bauhaus ở Đức, thành lập năm 1919, đưa ra lập luận gần như ngược lại."
+              },
+              {
+                "id": "p3-s2",
+                "source": "Rejecting ornament as dishonest, its designers held that the appearance of an object should arise directly from its function and from the straightforward use of modern industrial materials such as steel and glass.",
+                "phrases": [
+                  {
+                    "source": "Rejecting ornament as dishonest",
+                    "target": "Coi trang trí là thiếu trung thực và bác bỏ nó"
+                  },
+                  {
+                    "source": "directly from its function",
+                    "target": "trực tiếp từ chức năng"
+                  },
+                  {
+                    "source": "steel and glass",
+                    "target": "thép và kính"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Coi trang trí là thiếu trung thực và bác bỏ nó, các nhà thiết kế của trường phái này cho rằng hình dáng đồ vật phải xuất phát trực tiếp từ chức năng và cách dùng trực tiếp, không cầu kỳ những vật liệu công nghiệp hiện đại như thép và kính."
+              },
+              {
+                "id": "p3-s3",
+                "source": "Form, in the famous slogan, should follow function, and beauty was to be found in clarity rather than in what was added on.",
+                "phrases": [
+                  {
+                    "source": "Form",
+                    "target": "hình thức"
+                  },
+                  {
+                    "source": "follow function",
+                    "target": "theo chức năng"
+                  },
+                  {
+                    "source": "clarity",
+                    "target": "sự rõ ràng"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Theo khẩu hiệu nổi tiếng, hình thức phải theo chức năng, và vẻ đẹp nằm ở sự rõ ràng thay vì những thứ được thêm vào."
+              },
+              {
+                "id": "p4-s1",
+                "source": "D After the Second World War, a generation of architects pushed that ideal of honesty in a rougher direction.",
+                "phrases": [
+                  {
+                    "source": "a generation of architects",
+                    "target": "một thế hệ kiến trúc sư"
+                  },
+                  {
+                    "source": "a rougher direction",
+                    "target": "hướng thô mộc hơn"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "D — Sau Chiến tranh thế giới thứ hai, một thế hệ kiến trúc sư đẩy lý tưởng trung thực ấy theo hướng thô mộc hơn."
+              },
+              {
+                "id": "p4-s2",
+                "source": "Brutalism, named partly for the French béton brut, \"raw concrete\", left concrete bare and exposed a building's structure plainly rather than hiding it.",
+                "phrases": [
+                  {
+                    "source": "Brutalism",
+                    "target": "Chủ nghĩa thô mộc"
+                  },
+                  {
+                    "source": "raw concrete",
+                    "target": "bê tông thô"
+                  },
+                  {
+                    "source": "exposed a building's structure plainly",
+                    "target": "phơi rõ kết cấu công trình"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Chủ nghĩa thô mộc, có tên một phần từ cụm tiếng Pháp béton brut, “bê tông thô”, để bê tông trần và phơi rõ kết cấu công trình thay vì che giấu nó."
+              },
+              {
+                "id": "p4-s3",
+                "source": "Conceived as honest and democratic, the style was later condemned by many as bleak, and some of its finest works were demolished before their reputations could recover.",
+                "phrases": [
+                  {
+                    "source": "honest and democratic",
+                    "target": "trung thực và dân chủ"
+                  },
+                  {
+                    "source": "bleak",
+                    "target": "u ám"
+                  },
+                  {
+                    "source": "were demolished",
+                    "target": "đã bị phá bỏ"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Được hình dung là trung thực và dân chủ, phong cách ấy về sau bị nhiều người chê là u ám, và một số tác phẩm xuất sắc nhất đã bị phá bỏ trước khi danh tiếng kịp được khôi phục."
+              },
+              {
+                "id": "p5-s1",
+                "source": "E By the 1970s a reaction had formed against the severity that modernism left behind.",
+                "phrases": [
+                  {
+                    "source": "By the 1970s",
+                    "target": "Đến những năm 1970"
+                  },
+                  {
+                    "source": "the severity",
+                    "target": "sự khắc nghiệt"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "E — Đến những năm 1970, một phản ứng đã hình thành chống lại sự khắc nghiệt mà chủ nghĩa hiện đại để lại."
+              },
+              {
+                "id": "p5-s2",
+                "source": "Postmodernism, as it came to be known, rejected the idea that there was a single true language of form.",
+                "phrases": [
+                  {
+                    "source": "Postmodernism",
+                    "target": "Chủ nghĩa hậu hiện đại"
+                  },
+                  {
+                    "source": "a single true language of form",
+                    "target": "một ngôn ngữ hình thức đúng đắn duy nhất"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Chủ nghĩa hậu hiện đại, như tên gọi về sau, bác bỏ ý tưởng rằng chỉ có một ngôn ngữ hình thức đúng đắn duy nhất."
+              },
+              {
+                "id": "p5-s3",
+                "source": "Instead it borrowed playfully from many past styles at once, mixing classical motifs with bright colour and ironic touches, as if to remind onlookers that architecture too could make jokes.",
+                "phrases": [
+                  {
+                    "source": "borrowed playfully",
+                    "target": "vay mượn vui nhộn"
+                  },
+                  {
+                    "source": "classical motifs",
+                    "target": "mô-típ cổ điển"
+                  },
+                  {
+                    "source": "ironic touches",
+                    "target": "nét châm biếm"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Thay vào đó, nó vay mượn vui nhộn từ nhiều phong cách quá khứ cùng lúc, trộn mô-típ cổ điển với màu sắc rực rỡ và nét châm biếm, như để nhắc người nhìn rằng kiến trúc cũng có thể đùa."
+              },
+              {
+                "id": "p6-s1",
+                "source": "F None of these styles has wholly erased those that preceded it, and most contemporary work borrows from several at once, reaching for whichever vocabulary suits the site and purpose.",
+                "phrases": [
+                  {
+                    "source": "wholly erased",
+                    "target": "xóa sạch hoàn toàn"
+                  },
+                  {
+                    "source": "the site and purpose",
+                    "target": "địa điểm và mục đích"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "F — Không phong cách nào xóa sạch hoàn toàn những phong cách đi trước, và phần lớn công trình hiện nay vay mượn nhiều phong cách cùng lúc, chọn bất cứ vốn ngôn ngữ nào phù hợp với địa điểm và mục đích."
+              },
+              {
+                "id": "p6-s2",
+                "source": "Whether that mixture represents a maturing of taste or merely the absence of a shared conviction remains a question on which critics continue to disagree.",
+                "phrases": [
+                  {
+                    "source": "a maturing of taste",
+                    "target": "thị hiếu trưởng thành"
+                  },
+                  {
+                    "source": "the absence of a shared conviction",
+                    "target": "thiếu niềm tin chung"
+                  },
+                  {
+                    "source": "continue to disagree",
+                    "target": "tiếp tục bất đồng"
+                  }
+                ],
+                "precision": "sentence",
+                "translation_vi": "Liệu sự pha trộn ấy thể hiện thị hiếu trưởng thành hay chỉ là thiếu niềm tin chung vẫn là câu hỏi mà các nhà phê bình tiếp tục bất đồng."
+              }
+            ],
+            "illustrations": [
+              {
+                "alt": "Mô hình kiến trúc và những bản phác thảo hình khối khác nhau trên bàn.",
+                "src": "/reading-illustrations/exp-architecture-sketch-scene.svg",
+                "caption": "Các cách nghĩ khác nhau về công trình."
+              }
+            ],
+            "source_sha256": "02b28a1ad50f84b8ae5c08e0bcf052c7c18704fb8d782ec7dc05ed984c64f649",
+            "schema_version": 1,
+            "question_evidence": {
+              "1": {
+                "source": "the eye is drawn upward towards heaven",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "9b7d0fe84651048d525c99dfe8aeacc688a392a475012ab30f6a12db976941eb"
+              },
+              "2": {
+                "source": "left concrete bare and exposed a building's structure plainly",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "b54529811cb61be7ef71007eb846baef2c5222fc35ba033b5fb404130e2aea2d"
+              },
+              "3": {
+                "source": "the appearance of an object should arise directly from its function",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "65e716ea223eadb511edc55152ca893b4ba97b4390090496564343629a9f3b25"
+              },
+              "4": {
+                "source": "borrowed playfully from many past styles at once",
+                "precision": "quote",
+                "illustrations": [],
+                "question_sha256": "2d353256f03359428527be1fdd3ff292ed32d667f52c5c6404c658bfcc0480a1"
+              }
+            },
+            "translation_sha256": "d264573f49b10713f18e0131bf19de00dd02cd96c44b3b704c0d0dc4c1676a1d"
+          }
+        },
+        "image_url": "/reading-illustrations/exp-architecture-sketch-scene.svg",
+        "glossary": [
+          {
+            "term": "pointed",
+            "aliases": [],
+            "example": "By replacing heavy round arches with pointed ones and ribbed vaults, its builders could raise taller, thinner walls, hollowed out by wide windows.",
+            "definition": "nhọn, có đầu nhọn (nói về vòm)"
+          },
+          {
+            "term": "devotion",
+            "aliases": [],
+            "example": "The effect was deliberate: the eye is drawn upward towards heaven, and once-dark interiors are flooded with coloured light, turning the structure itself into an expression of devotion.",
+            "definition": "lòng thành kính"
+          },
+          {
+            "term": "ornament",
+            "aliases": [],
+            "example": "Rejecting ornament as dishonest, its designers held that the appearance of an object should arise directly from its function and from the straightforward use of modern industrial materials such as steel and glass.",
+            "definition": "chi tiết trang trí"
+          },
+          {
+            "term": "raw concrete",
+            "aliases": [],
+            "example": "Brutalism, named partly for the French béton brut, \"raw concrete\", left concrete bare and exposed a building's structure plainly rather than hiding it.",
+            "definition": "bê tông để mộc"
+          },
+          {
+            "term": "demolished",
+            "aliases": [],
+            "example": "Conceived as honest and democratic, the style was later condemned by many as bleak, and some of its finest works were demolished before their reputations could recover.",
+            "definition": "bị phá dỡ"
+          }
+        ]
+      }
+    }
+  ],
+  "insert_passages": [],
+  "insert_questions": []
+}$packet$::jsonb;
+        patch jsonb; affected integer;
+BEGIN
+  -- Same lock key as the repository migration runner; held through COMMIT.
+  PERFORM pg_advisory_xact_lock(173204, 1);
+  FOR patch IN SELECT value FROM jsonb_array_elements(packet->'updates') LOOP
+    UPDATE public.reading_passages SET
+      metadata = metadata || (patch->'changes'->'metadata'),
+      image_url = patch->'changes'->>'image_url',
+      glossary = patch->'changes'->'glossary'
+    WHERE id = (patch->>'passage_id')::uuid AND slug = patch->>'slug'
+      AND library = patch->>'library' AND library IN ('l1_vocab','l2_skill')
+      AND status = 'published' AND test_id IS NULL
+      AND body_markdown = patch->>'source_body_markdown'
+      AND metadata = patch->'expected_metadata'
+      AND glossary = patch->'expected_glossary'
+      AND image_url IS NOT DISTINCT FROM (patch->>'expected_image_url');
+    GET DIAGNOSTICS affected = ROW_COUNT;
+    IF affected <> 1 THEN
+      RAISE EXCEPTION 'Reading changed, missing or outside practice: %', patch->>'slug';
+    END IF;
+  END LOOP;
+END $reading$;
+COMMIT;

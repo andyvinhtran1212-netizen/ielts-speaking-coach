@@ -193,8 +193,10 @@ such + (a/an) + (adj) + noun + that + [result]
 - It was **such a boring film that** I fell asleep.
 - He spoke **so quickly that** no one could understand him.
 - He spoke at **such a speed that** no one could understand.
-- She worked **so hard that** she finished early.
-- She did **such hard work that** she finished early.
+- It was **such a difficult task** that she needed help.
+- The task was **so difficult** that she needed help.
+
+Worked hard nhấn nỗ lực, hard work chỉ công việc vất vả; không tự là paraphrase giữ nghĩa.
 
 > **Ghi nhớ:** "that" thường bị bỏ trong văn nói (optional), nhưng nên giữ trong Writing để rõ cấu trúc.
 
@@ -254,7 +256,7 @@ such + (a/an) + (adj) + noun + that + [result]
 
 ### Writing Task 1 — mô tả biến động:
 
-- "The increase was **so dramatic** that it doubled in just five years."
+- “Sales rose **so dramatically** that they doubled in five years.” *(chỉ dùng nếu dữ liệu đề xác nhận mức tăng này)*
 - "There was **such a sharp rise** in 2020 that it distorted the overall trend."
 
 ---
@@ -309,7 +311,7 @@ KIỂM TRA NHANH:
   Sau so/such là gì?
   - Tính từ/Trạng từ → SO
   - Danh từ (có hoặc không có adj) → SUCH
-  - much/many/few/little → SO (luôn luôn)
+  - much/many/few/little chỉ số lượng → SO; little nghĩa “nhỏ” vẫn dùng SUCH: such a little child
 
 KẾT QUẢ dùng THAT:
   so + adj/adv + THAT + result

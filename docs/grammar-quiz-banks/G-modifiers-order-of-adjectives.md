@@ -13,6 +13,8 @@ cooldown: 2
 shuffle_options: true
 words_count: 4
 source: "authored-2026-07"
+text_match_by_qid:
+  oa_cc_i3: exact
 ---
 
 # ===== item_key 1 · Trật tự OSASCOMP đầy đủ (nhiều phạm trù) =====
@@ -277,12 +279,12 @@ input: "text"
 headword: "oa-coordinate-vs-cumulative"
 skill: "production"
 subtype: "intermediate"
-prompt: "Punctuate correctly (add a comma if needed): 'The committee proposed a bold ____ (innovative) strategy to cut emissions.'"
-hint: "gõ từ còn thiếu kèm dấu câu đúng ngay trước 'strategy'"
+prompt: "Write both adjectives with a comma between them: 'The committee proposed a ____ (bold / innovative) strategy to cut emissions.'"
+hint: "gõ 2 tính từ bold và innovative, ngăn cách bằng dấu phẩy"
 accept: ["bold, innovative"]
 case_sensitive: false
 grammar_article_slug: "order-of-adjectives"
-explain: "'bold' và 'innovative' cùng loại (ý kiến đánh giá chiến lược, có thể đảo thành 'an innovative, bold strategy') → coordinate, cần dấu phẩy: 'bold, innovative'."
+explain: "Trong bài này, bold và innovative là hai nhận xét ngang hàng về strategy, nên viết 'bold, innovative'. Ô trống thay cho cả hai tính từ; bold không còn được in sẵn để tránh lặp."
 ---
 
 ---

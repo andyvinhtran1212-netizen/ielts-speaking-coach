@@ -124,11 +124,11 @@ input: "choice"
 headword: "pr-they-ambiguous"
 skill: "form"
 subtype: "basic"
-prompt: "Chọn câu RÕ NGHĨA nhất về bác sĩ và y tá:"
+prompt: "Chọn câu giữ cả hai ý: bác sĩ và y tá đều làm ca dài; cả hai nhóm đều bị trả lương thấp."
 options: ["Doctors and nurses work long shifts. They are underpaid.", "Doctors and nurses work long shifts. Nurses are often underpaid.", "Doctors, and nurses they work long shifts underpaid.", "Doctors and nurses they underpaid work."]
-answer: 1
+answer: 0
 grammar_article_slug: "wrong-pronoun-reference"
-explain: "Câu trước có 2 nhóm số nhiều (doctors, nurses) nên 'they' không rõ nhóm nào — nêu cụ thể 'nurses' để tránh mơ hồ."
+explain: "They có thể quy chiếu tới toàn bộ cụm phối hợp Doctors and nurses, nên câu 'Doctors and nurses work long shifts. They are underpaid.' giữ đúng hai nhóm. Phương án chỉ nói Nurses và thêm often thay đổi nội dung, không phải chỉ làm rõ cùng một ý."
 ---
 
 ---

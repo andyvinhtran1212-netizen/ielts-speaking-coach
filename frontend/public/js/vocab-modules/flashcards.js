@@ -290,8 +290,8 @@ export async function mount(container, opts = {}) {
     setFcContainerHtml(`
       <div class="flex items-center justify-between mb-5">
         <div>
-          <h2 class="text-lg font-semibold text-white">Stacks của bạn</h2>
-          <p class="text-sm text-slate-400">3 nhóm tự động + ${manuals.length} stack thủ công</p>
+          <h2 class="fc-stacks-title">Bộ từ đã lưu</h2>
+          <p class="text-sm text-slate-400">3 nhóm tự động + ${manuals.length} nhóm cá nhân</p>
         </div>
         <button data-action="open-stack-modal" class="btn-primary">+ Tạo stack mới</button>
       </div>
@@ -310,19 +310,19 @@ export async function mount(container, opts = {}) {
                      s.id === 'auto:recent'    ? 'sparkles' : 'target';
     const disabled = s.card_count === 0 ? 'disabled' : '';
     return `
-      <div class="mode-card ${disabled}"
-           data-action="open-stack"
+      <article class="mode-card ${disabled}"
+
            data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">
         <div class="head">
           <div class="icon"><i data-lucide="${iconName}"></i></div>
           <span class="arrow" aria-hidden="true">→</span>
         </div>
         <h3>
-          ${esc(s.name)}
+          <a class="fc-stack-link" href="/flashcard-study?stack=${encodeURIComponent(s.id)}" data-action="open-stack" data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">${esc(s.name)}</a>
           <span class="mode-card__badge">Tự động</span>
         </h3>
         <p class="lede">${s.card_count} thẻ</p>
-      </div>
+      </article>
     `;
   }
 
@@ -334,19 +334,19 @@ export async function mount(container, opts = {}) {
   function manualCard(s) {
     const disabled = s.card_count === 0 ? 'disabled' : '';
     return `
-      <div class="mode-card ${disabled}"
-           data-action="open-stack"
+      <article class="mode-card ${disabled}"
+
            data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">
         <button class="delete-btn"
                 data-action="delete-stack"
-                data-stack-id="${esc(s.id)}" title="Xoá stack">×</button>
+                data-stack-id="${esc(s.id)}" aria-label="Xóa nhóm ${esc(s.name)}" title="Xóa nhóm cá nhân">×</button>
         <div class="head">
           <div class="icon"><i data-lucide="folder"></i></div>
           <span class="arrow" aria-hidden="true">→</span>
         </div>
-        <h3>${esc(s.name)}</h3>
+        <h3><a class="fc-stack-link" href="/flashcard-study?stack=${encodeURIComponent(s.id)}" data-action="open-stack" data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">${esc(s.name)}</a></h3>
         <p class="lede">${s.card_count} thẻ</p>
-      </div>
+      </article>
     `;
   }
 
@@ -589,7 +589,7 @@ export async function mount(container, opts = {}) {
       case 'open-stack-modal':  return openModal();
       case 'close-stack-modal': return closeModal();
       case 'save-stack':        return saveStack();
-      case 'open-stack':        return openStack(btn);
+      case 'open-stack':        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); return openStack(btn);
       case 'toggle-topic':      return toggleTopicChip(btn);
       case 'toggle-category':   return toggleCategoryChip(btn);
       default: return;

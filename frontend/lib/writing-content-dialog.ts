@@ -11,6 +11,8 @@ type Options = {
   account: string;
   read: (kind: Kind) => Promise<{ items: any[]; enabled: boolean }>;
   render: (kind: Kind, item: any) => void;
+  // Optional bounded wait (e.g. the tip Markdown renderer) while still "loading".
+  prepare?: (kind: Kind, item: any) => Promise<unknown>;
   selectTab: (tab: string) => void;
   filters: () => Filters;
   restoreFilters: (filters: Filters) => void;
@@ -146,6 +148,13 @@ export function createWritingContentDialog(options: Options) {
       if (!result.enabled) { show(kind, id, 'unavailable', 'Kho đề hiện chưa được bật.'); return; }
       const item = result.items.find(item => item.id === id);
       if (!item) { show(kind, id, 'missing', 'Nội dung này không còn được cung cấp.'); return; }
+      if (options.prepare) {
+        await options.prepare(kind, item);
+        if (!current() || ticket !== generation) return;
+        const later = selection();
+        if (later.item?.kind !== kind || later.item.id !== id || later.assignment) return;
+        if (submitVisible()) { yieldToSubmit(); return; }
+      }
       body.removeAttribute('role');
       options.render(kind, item);
       modal.dataset.contentState = 'ready'; modal.setAttribute('aria-busy', 'false');

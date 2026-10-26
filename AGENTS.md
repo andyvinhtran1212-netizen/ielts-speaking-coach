@@ -6,8 +6,21 @@ IELTS Speaking Coach — a web app for IELTS/English speaking practice:
 - FastAPI backend (Railway.app)
 - Next.js 16 App Router + React/TypeScript frontend (Vercel)
 - Supabase: PostgreSQL + Auth + Storage
-- AI services: OpenAI Whisper (STT), Anthropic Claude (grading), Google Gemini (question gen), OpenAI TTS, Azure Speech (pronunciation)
-- Grammar Wiki: ~100+ curated Markdown articles, public, no auth required
+- AI services — model choice lives in `backend/config.py`; callers must not
+  hardcode a provider:
+  - STT: OpenAI Whisper (`WHISPER_STT_MODEL`, default `whisper-1`).
+  - Speaking grading: `SPEAKING_GRADING_MODEL` (default Gemini Flash) routed by
+    `services/grading_orchestrator.py`; Claude Haiku in `claude_grader.py` is
+    the fallback chain, off-topic judge and grammar-check, not the primary grader.
+  - Writing grading and course writing checks: Gemini (`gemini_writing_grader.py`,
+    `COURSE_WRITING_MODEL`). Question generation and content audits: Gemini.
+  - TTS: Kokoro is the standard for Vocabulary and Listening audio; ElevenLabs
+    and OpenAI TTS remain for other paths. Azure Speech: pronunciation assessment.
+  - Grammar/lemmatization: LanguageTool (needs a JRE) with local-rule fallback,
+    spaCy `en_core_web_sm`.
+  - Every provider call is recorded through `services/ai_usage_logger.py`
+    (AI-0004); new AI paths must log there.
+- Grammar Wiki: ~150 curated Markdown articles under `backend/content/`, public, no auth required
 - Admin dashboard: user management, access codes, topic library
 - Legacy HTML bodies are retained under test fixtures; root-level compatibility
   aliases are non-deployed symlinks into that archive.

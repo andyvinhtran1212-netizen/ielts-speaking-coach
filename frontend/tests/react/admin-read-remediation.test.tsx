@@ -83,6 +83,34 @@ describe('Grammar preview identity, content and retry', () => {
 });
 
 describe('Listening complete inventory truth', () => {
+  it.each([
+    { scenario: 'concurrent insertion increases total', nextTotal: 202, duplicate: false },
+    { scenario: 'total decreases during paging', nextTotal: 200, duplicate: false },
+    { scenario: 'concurrent insertion shifts offset while total stays fixed', nextTotal: 201, duplicate: true },
+  ])('G-U09 rejects $scenario without presenting a partial inventory as complete', async ({ nextTotal, duplicate }) => {
+    const rows = Array.from({ length: 201 }, (_, index) => inventoryRow(`owned-${String(index).padStart(3, '0')}`));
+    const original = JSON.stringify(rows);
+    // Equal timestamps cross the 100/101 boundary. A new first-row insertion
+    // shifts the old page boundary; a simultaneous old-row deletion can keep
+    // total unchanged, so UUID overlap must also prevent publishing a snapshot.
+    const first = rows.slice(0, 100);
+    const second = rows.slice(duplicate ? 99 : 100, duplicate ? 199 : 200);
+    const get = vi.fn().mockResolvedValueOnce({ items: first, total: 201, limit: 100, offset: 0 })
+      .mockResolvedValueOnce({ items: second, total: nextTotal, limit: 100, offset: 100 });
+    const api = installApi(get); render(<AdminListeningAudit />);
+    await screen.findByText(duplicate ? /lặp giữa các page/ : /Tổng test thay đổi trong lúc phân trang/);
+    expect(screen.getByText('Không hoàn tất')).toBeTruthy();
+    expect(screen.getByText('Inventory chưa khép kín')).toBeTruthy();
+    expect(screen.getByText('Chưa có snapshot inventory hoàn tất')).toBeTruthy();
+    expect(summaryValues()).toEqual(['—', '—', '—', '—']);
+    expect(screen.queryByText('Đã đọc đủ inventory')).toBeNull();
+    expect(screen.queryByText('Kho test đang trống')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Bảng quality audit Listening' })).toBeNull();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(new URL(get.mock.calls[1][0], 'https://fixture.test').searchParams.get('offset')).toBe('100');
+    expect(api.post).not.toHaveBeenCalled(); expect(api.patch).not.toHaveBeenCalled(); expect(api.delete).not.toHaveBeenCalled();
+    expect(JSON.stringify(rows)).toBe(original);
+  });
   it('rejects duplicate UUIDs at page boundaries without scanning or reporting zero health', async () => {
     const rows = Array.from({ length: 100 }, (_, index) => inventoryRow(String(index)));
     const get = vi.fn().mockResolvedValueOnce({ items: rows, total: 101, limit: 100, offset: 0 }).mockResolvedValueOnce({ items: [rows[0]], total: 101, limit: 100, offset: 100 });
@@ -122,6 +150,47 @@ describe('Listening complete inventory truth', () => {
 });
 
 describe('Curated and pilot unavailable/error/empty states', () => {
+  it('G-U08 recovers a generic network error into populated unit/version/diff without content writes', async () => {
+    // Same canonical schema and diff fields as admin-vocab-editorial-model.
+    const gate = { states: { language: 'approved', pedagogy: 'pending', assessment: 'changes_requested' }, pending_review_types: ['pedagogy', 'assessment'], has_distinct_reviewers: false, reviews_ready: false };
+    const baseTask = { id: 'task-1', version_id: 'version-1', sequence: 1, task_type: 'meaning_recall', dimension: 'meaning_recall', prompt: 'Cũ', options: [], answer_key: { accepted: ['a'] }, explanation_vi: 'A', status: 'active' };
+    const base = { id: 'version-1', version_number: 1, status: 'published', content: { title_vi: 'Cũ', usage_vi: 'Giữ nguyên' }, sources: [{ title: 'A', url: 'https://example.com/a' }], tasks: [baseTask], reviews: [], review_gate: gate };
+    const target = { ...base, id: 'version-2', version_number: 2, status: 'in_review', content: { title_vi: 'Mới', usage_vi: 'Giữ nguyên' }, sources: [{ title: 'B', url: 'https://example.com/b' }], tasks: [{ ...baseTask, id: 'task-2', version_id: 'version-2', answer_key: { accepted: ['b'] } }] };
+    const unit = { id: 'unit-1', unit_slug: 'have-an-impact-on', display_headword: 'have an impact on', unit_type: 'learning_unit', target_level: 'B1', status: 'draft', current_published_version_id: 'version-1', versions: [target, base].map(version => ({ id: version.id, unit_id: 'unit-1', version_number: version.version_number, status: version.status, task_count: 1, dimensions: ['meaning_recall'], review_count: 0, review_gate: gate })) };
+    const catalog = { items: [unit], total: 1, offset: 0, limit: 100 };
+    const detail = { unit, versions: [target, base], events: [], events_total: 0, events_has_more: false };
+    const original = JSON.stringify({ catalog, detail });
+    const get = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(catalog).mockResolvedValueOnce(detail);
+    const api = installApi(get); render(<AdminVocabEditorial />);
+    expect(await screen.findByText('Không đọc được catalog')).toBeTruthy();
+    expect(screen.getByText(/Failed to fetch/)).toBeTruthy();
+    expect(screen.queryByText('Curated Editorial chưa khả dụng')).toBeNull();
+    expect(screen.queryByText('Không có unit phù hợp.')).toBeNull();
+    expect(screen.queryByText('0 unit toàn catalog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại catalog' }));
+    await screen.findByRole('heading', { name: 'Mới', exact: true });
+    expect(screen.getByText('1 unit toàn catalog')).toBeTruthy();
+    expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'Version' }).value).toBe('version-2');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Publish version', exact: true }).disabled).toBe(true);
+    expect(screen.getAllByText('Đánh giá · Cần sửa')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Diff (3)', exact: true }));
+    expect(screen.getByRole('heading', { name: 'v1 → v2' })).toBeTruthy();
+    for (const field of ['content.title_vi', 'sources', 'tasks']) expect(screen.getByRole('heading', { name: field, exact: true })).toBeTruthy();
+    expect(screen.getByText('"Cũ"', { exact: true })).toBeTruthy();
+    expect(screen.getByText('"Mới"', { exact: true })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'content.usage_vi', exact: true })).toBeNull();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Version' }), { target: { value: 'version-1' } });
+    expect(screen.getByRole('heading', { name: 'Version đầu tiên · v1' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'v1 → v2' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview', exact: true }));
+    expect(screen.getByRole('heading', { name: 'Cũ', exact: true })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'A', exact: true }).getAttribute('href')).toBe('https://example.com/a');
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(get).toHaveBeenLastCalledWith('/admin/vocabulary/editorial/units/unit-1');
+    expect(api.post).not.toHaveBeenCalled(); expect(api.patch).not.toHaveBeenCalled(); expect(api.delete).not.toHaveBeenCalled();
+    expect(JSON.stringify({ catalog, detail })).toBe(original);
+  });
   it('reports schema unavailability without zero catalog claims and retries into a genuinely empty catalog', async () => {
     const get = vi.fn().mockRejectedValueOnce(unavailable()).mockResolvedValueOnce({ items: [], total: 0, offset: 0, limit: 100 });
     installApi(get); render(<AdminVocabEditorial />);

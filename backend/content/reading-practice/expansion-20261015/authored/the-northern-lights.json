@@ -1,0 +1,170 @@
+{
+  "slug": "the-northern-lights",
+  "review_notes": "Tiny pieces được diễn đạt hạt nhỏ theo ngữ cảnh vật lý, không thêm chuỗi cơ chế chưa có trong nguồn. Giữ some nights và điều kiện trời quang; không biến thành có thể thấy mọi đêm.",
+  "illustration_brief": "Dải sáng mềm trên trời đêm phía trên núi tuyết và mặt nước tối; không có sơ đồ hạt hoặc nhãn màu.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Vào vài đêm lạnh, tối, bầu trời phương bắc xa xôi làm điều kỳ diệu.",
+      [
+        "some cold, dark nights",
+        "vài đêm lạnh, tối"
+      ],
+      [
+        "the far north",
+        "phương bắc xa xôi"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Ánh xanh lá, hồng và tím dịu phát sáng, chuyển động trên tuyết.",
+      [
+        "green, pink, and purple",
+        "xanh lá, hồng và tím"
+      ],
+      [
+        "glow and move above the snow",
+        "phát sáng, chuyển động trên tuyết"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Người ta gọi màn trình diễn ánh sáng đẹp đẽ ấy là Bắc cực quang.",
+      [
+        "the Northern Lights",
+        "Bắc cực quang"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ánh sáng ấy từ đâu?",
+      [
+        "Where do the lights come from",
+        "Ánh sáng ấy từ đâu"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Câu chuyện bắt đầu ở Mặt Trời.",
+      [
+        "begins at the Sun",
+        "bắt đầu ở Mặt Trời"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Mặt Trời liên tục phóng những hạt nhỏ.",
+      [
+        "sends out tiny pieces",
+        "phóng những hạt nhỏ"
+      ],
+      [
+        "all the time",
+        "liên tục"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Những hạt ấy đi rất xa qua không gian tới Trái Đất.",
+      [
+        "a very long way through space",
+        "rất xa qua không gian"
+      ],
+      [
+        "the Earth",
+        "Trái Đất"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Khi tới đây, chúng va vào khí trên cao.",
+      [
+        "When they reach us",
+        "Khi tới đây"
+      ],
+      [
+        "hit gas high in the sky",
+        "va vào khí trên cao"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Khí bắt đầu phát sáng như đèn bảng hiệu.",
+      [
+        "begins to glow",
+        "bắt đầu phát sáng"
+      ],
+      [
+        "the lights in a sign",
+        "đèn bảng hiệu"
+      ]
+    ],
+    [
+      "p2-s7",
+      "Màu phổ biến nhất là xanh lá.",
+      [
+        "The most common colour",
+        "Màu phổ biến nhất"
+      ],
+      [
+        "green",
+        "xanh lá"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Bạn không thể thấy màn trình diễn này ở mọi nơi.",
+      [
+        "cannot see this show everywhere",
+        "không thể thấy màn trình diễn này ở mọi nơi"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nơi tốt nhất ở vùng phương bắc xa xôi, gần cực bắc của Trái Đất, nơi đêm rất dài vào mùa đông.",
+      [
+        "near the top of the world",
+        "gần cực bắc của Trái Đất"
+      ],
+      [
+        "the nights are very long in winter",
+        "đêm rất dài vào mùa đông"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Bạn còn cần một đêm tối, trời quang và không có mây.",
+      [
+        "a dark, clear night with no clouds",
+        "một đêm tối, trời quang và không có mây"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nếu từng ở đúng nơi đúng lúc, bạn rất may mắn.",
+      [
+        "the right place at the right time",
+        "đúng nơi đúng lúc"
+      ],
+      [
+        "very lucky",
+        "rất may mắn"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Bắc cực quang là một trong những cảnh đẹp nhất tự nhiên.",
+      [
+        "one of the most beautiful sights in nature",
+        "một trong những cảnh đẹp nhất tự nhiên"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-northern-lights-scene.svg",
+    "alt": "Các dải cực quang trên bầu trời đêm phía trên núi tuyết và mặt nước.",
+    "caption": "Một cảnh tượng trên bầu trời phương bắc."
+  },
+  "source_sha256": "69615a7e2e0e2b6a3a459c3576e61867b2d89486063af1ed1fff62284ec3f5a0",
+  "expected_translation_sha256": "472c658f6543774731ee6dfe46c60453fcfe0def7b716de01db7393e83155c63"
+}

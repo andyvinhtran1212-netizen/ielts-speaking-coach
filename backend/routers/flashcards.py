@@ -373,7 +373,7 @@ def _audio_by_headword(headwords: list[str]) -> dict[str, str]:
     quiz_service._resolve_question_audio — no migration, no second writer.
 
     Best-effort: a miss simply leaves the URL empty and the player falls back to
-    speechSynthesis, which is still better than the silent card it replaced.
+    an unavailable-audio state until the Kokoro batch is prepared.
     """
     # One representative per case-insensitive headword: the match is
     # case-insensitive, so querying "gridlock" AND "Gridlock" AND "GRIDLOCK"
@@ -413,10 +413,22 @@ def _audio_by_headword(headwords: list[str]) -> dict[str, str]:
 
 def _with_audio(cards: list[dict]) -> list[dict]:
     """Stamp `audio_headword` onto card views (in place) and return them."""
-    audio = _audio_by_headword([c.get("headword") for c in cards])
+    audio = _audio_by_headword([c.get("headword") for c in cards if not c.get("audio_headword")])
     for c in cards:
-        c["audio_headword"] = audio.get((c.get("headword") or "").strip().lower(), "")
+        if not c.get("audio_headword"):
+            c["audio_headword"] = audio.get((c.get("headword") or "").strip().lower(), "")
     return cards
+
+
+def _personal_audio(vocab_row: dict) -> str:
+    """A changed headword must never keep playing the previous word's clip."""
+    from services.tts_audio import audio_path, KOKORO_DEFAULT_VOICE
+    text = (vocab_row.get("headword") or "").strip()
+    if not text or not vocab_row.get("audio_headword"):
+        return ""
+    expected = (settings.SUPABASE_URL.rstrip("/") + "/storage/v1/object/public/vocab-audio/"
+                + audio_path(text, KOKORO_DEFAULT_VOICE, "kokoro"))
+    return expected if vocab_row["audio_headword"] == expected else ""
 
 
 def _vocab_card_view(vocab_row: dict, review_row: dict | None) -> dict:
@@ -428,6 +440,7 @@ def _vocab_card_view(vocab_row: dict, review_row: dict | None) -> dict:
     return {
         "id":                vocab_row.get("id"),
         "headword":          vocab_row.get("headword"),
+        "audio_headword":    _personal_audio(vocab_row),
         "definition_vi":     vocab_row.get("definition_vi"),
         "definition_en":     vocab_row.get("definition_en"),
         "ipa":               vocab_row.get("ipa"),
@@ -825,7 +838,7 @@ async def delete_stack(
 
 
 _VOCAB_FIELDS = (
-    "id, headword, definition_vi, definition_en, "
+    "id, headword, audio_headword, definition_vi, definition_en, "
     "ipa, example_sentence, "
     "context_sentence, topic, category, source_type, created_at, "
     # PR-A: pulled into the SELECT so the manual-stack JOIN path can

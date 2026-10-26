@@ -138,9 +138,9 @@ headword: "ttt-discourse-reference"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'Fewer students are choosing to study abroad this year. This is a problem.'"
-answer: false
+answer: true
 grammar_article_slug: "this-that-these-those-in-use"
-explain: "SAI về mặt văn phong học thuật — 'This' đứng một mình không có danh từ tóm tắt nên không rõ 'this' chỉ điều gì. Cách viết tốt hơn: 'This decline in overseas study is a problem.' — danh từ tóm tắt 'decline' + giới từ 'in' làm rõ phạm vi."
+explain: "ĐÚNG — 'This' có thể chỉ toàn bộ sự việc vừa nêu ở câu trước. 'This decline in overseas study' làm tham chiếu cụ thể hơn khi cần, nhưng danh từ tóm tắt không bắt buộc để câu này đúng."
 ---
 
 ---
@@ -250,11 +250,11 @@ input: "text"
 headword: "ttt-fixed-phrases"
 skill: "production"
 subtype: "intermediate"
-prompt: "I've been practising English every day for six months. ____ (viết 2 từ, dùng 'this') has really boosted my confidence in speaking."
-accept: ["this has"]
+prompt: "I've been practising English every day for six months. ____ (viết 2 từ: this + danh từ practice) has really boosted my confidence in speaking."
+accept: ["this practice"]
 case_sensitive: false
 grammar_article_slug: "this-that-these-those-in-use"
-explain: "'This has' chỉ lại toàn bộ hành động vừa kể (practising every day) và dẫn tới kết quả — mẫu câu rất phổ biến trong Speaking Part 1/2."
+explain: "'This practice' làm chủ ngữ và tóm tắt việc luyện tập ở câu trước. 'Has' đã có trong đề; không điền 'this has' vì sẽ lặp động từ."
 ---
 
 ---

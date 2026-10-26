@@ -87,8 +87,10 @@ Reported Speech thuật lại lời nói mà **không trích dẫn trực tiếp
 | will | would |
 | can | could |
 | may | might |
-| must | had to |
-| shall | would |
+| must chỉ nghĩa vụ | thường had to; must suy luận thường giữ nguyên |
+| shall | có thể would trong lời hứa/dự định; should trong câu hỏi/đề nghị |
+
+**Mustn't** chỉ cấm đoán có thể giữ nguyên. Lùi modal theo nghĩa và tình huống, không theo phép thay chữ bắt buộc.
 
 ### Ví dụ backshift đầy đủ:
 
@@ -121,6 +123,8 @@ Reported Speech thuật lại lời nói mà **không trích dẫn trực tiếp
 | I / me / my / mine | he/she / him/her / his/her / his/hers |
 | we / us / our | they / them / their |
 | you / your | I/he/she, me/him/her (tùy ngữ cảnh) |
+
+Bảng chỉ minh họa tình huống người khác thuật lại. Nếu tự thuật lời mình, **I** có thể giữ I; you phụ thuộc người nghe. Company có thể là **it**, hoặc **they** trong Anh Anh khi nhìn các thành viên; xác định đúng đối tượng trước khi đổi đại từ.
 
 ### Trạng từ thời gian và nơi chốn
 
@@ -299,7 +303,7 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 1. She said (that) she was very happy that day.
 2. The teacher asked me if I had finished my homework.
 3. The supervisor told us not to touch the equipment.
-4. The company said (that) they would announce the results the next/following day.
+4. The company said (that) **it/they** would announce the results the next/following day. (It nhìn công ty như đơn vị; they có thể dùng trong Anh Anh theo nghĩa tập hợp.)
 5. He asked her why she had left early.
 
 **Sửa lỗi:**

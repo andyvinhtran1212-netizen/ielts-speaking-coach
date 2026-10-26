@@ -152,7 +152,7 @@ I tend to + verb / I tend to be + adj
 Đây là cách nói rất tự nhiên trong spoken English:
 
 - "I'm **more of a morning person** — I'm useless at night."
-- "I'm **more of a coffee person** than tea."
+- "I'm **more of a coffee person** than a tea person."
 - "I'm **more of an outdoor person** — I feel restless staying inside."
 - "I'm **more of a one-on-one person** — big groups tire me out."
 
@@ -246,11 +246,11 @@ Sở thích mà không có lý do nghe rất flat. Luôn thêm lý do bằng:
 PREFER:
   I prefer A to B. (không dùng "than")
   I prefer V-ing to V-ing.
-  → dùng cho sở thích chung
+  → thường dùng cho sở thích chung; prefer còn có prefer to do / would prefer to do
 
 I'D RATHER:
   I'd rather + bare infinitive (than...)
-  → dùng cho tình huống cụ thể hoặc lựa chọn hiện tại
+  → dùng được cho lựa chọn cụ thể hoặc chung: “I’d rather live in the countryside”
 
 SINH ĐỘNG HƠN:
   I tend to prefer...

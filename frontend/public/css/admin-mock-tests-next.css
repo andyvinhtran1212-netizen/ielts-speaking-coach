@@ -8,7 +8,7 @@
 .mts-alert.is-warning{border-color:color-mix(in srgb,var(--av-warning) 40%,var(--av-border-default));color:var(--av-warning)}
 .mts-cockpit{display:grid;grid-template-columns:minmax(260px,310px) minmax(0,1fr);gap:16px;align-items:start}
 .mts-cockpit.is-wide{grid-template-columns:minmax(0,1fr)}
-.mts-rail,.mts-panel{border:1px solid var(--av-border-default);border-radius:16px;background:var(--av-surface-card);box-shadow:var(--av-shadow-sm)}
+.mts-rail,.mts-panel{min-width:0;border:1px solid var(--av-border-default);border-radius:16px;background:var(--av-surface-card);box-shadow:var(--av-shadow-sm)}
 .mts-rail{position:sticky;top:24px;overflow:hidden}
 .mts-rail__head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 18px 10px}
 .mts-rail__head>div{display:flex;align-items:baseline;gap:8px}
@@ -33,8 +33,10 @@
 .mts-list small{color:var(--av-text-faint);font-size:11px}
 .mts-rail__state{padding:24px 18px;border-top:1px solid var(--av-border-subtle);color:var(--av-text-muted);font-size:13px}
 .mts-panel{min-height:calc(100vh - 155px);overflow:hidden}
-.mts-tabs{display:flex;gap:2px;overflow-x:auto;padding:8px 12px 0;border-bottom:1px solid var(--av-border-default)}
-.mts-tabs button{position:relative;flex:none;min-height:44px;padding:0 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--av-text-secondary);font:600 13px/1 var(--av-font-sans);cursor:pointer}
+.mts-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:8px 12px 0;border-bottom:1px solid var(--av-border-default)}
+.mts-tabs button{position:relative;min-width:0;min-height:44px;padding:8px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--av-text-secondary);font:600 13px/1.35 var(--av-font-sans);cursor:pointer}
+.mts-panel .mts-tabs button strong{font-size:13px}
+.mts-panel .mts-tabs button small{font-size:11px;line-height:1.35}
 .mts-tabs button:hover{background:var(--av-surface-sunken);color:var(--av-text-primary)}
 .mts-tabs button[aria-selected="true"]{border-bottom-color:var(--av-primary);color:var(--av-primary)}
 .mts-tabs button[data-needs-exam]::before{content:'•';margin-right:6px;color:var(--av-text-faint)}
@@ -42,7 +44,7 @@
 .mts-migration-note{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--av-border-subtle);background:var(--av-surface-sunken);color:var(--av-text-muted);font-size:11px;line-height:1.4}
 .mts-migration-note>span{flex:none;color:var(--av-warning);font:700 9px/1 var(--av-font-mono);letter-spacing:.1em}
 .mts-context{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--av-border-subtle);color:var(--av-text-secondary);font-size:12px}
-.mts-context strong{color:var(--av-text-primary);font-family:var(--av-font-mono)}
+.mts-context strong{min-width:0;overflow-wrap:anywhere;color:var(--av-text-primary);font-family:var(--av-font-mono)}
 .mts-context span:last-child{min-width:0;overflow:hidden;color:var(--av-text-muted);text-overflow:ellipsis;white-space:nowrap}
 .mts-frame-wrap{min-height:calc(100vh - 264px);background:var(--av-surface-card)}
 .mts-frame{display:block;width:100%;min-height:calc(100vh - 264px);border:0;background:var(--av-surface-card)}
@@ -51,10 +53,12 @@
 .mts-need-exam span{color:var(--av-text-muted);font-size:13px}
 .mts-need-exam .adm-btn-primary{justify-self:center;margin-top:var(--av-space-2)}
 .mts-shell :is(button,a):focus-visible,.mts-frame-wrap:focus-visible{outline:3px solid color-mix(in srgb,var(--av-primary) 45%,transparent);outline-offset:2px}
-@media(max-width:900px){.mts-shell{padding:20px}
+@media(max-width:1200px){
 .mts-cockpit{grid-template-columns:1fr}
 .mts-rail{position:static}
 .mts-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:310px}
+}
+@media(max-width:900px){.mts-shell{padding:20px}
 .mts-panel{min-height:70vh}
 .mts-frame,.mts-frame-wrap,.mts-need-exam{min-height:70vh}
 }
@@ -62,7 +66,7 @@
 .mts-hero{align-items:flex-start;flex-direction:column}
 .mts-hero .adm-btn-secondary{width:100%;min-height:44px}
 .mts-list{grid-template-columns:1fr}
-.mts-tabs{padding-inline:6px}
+.mts-tabs{grid-template-columns:repeat(2,minmax(0,1fr));padding-inline:6px}
 .mts-tabs button{padding-inline:11px}
 .mts-migration-note{align-items:flex-start;flex-direction:column;gap:5px}
 .mts-context{align-items:flex-start;flex-wrap:wrap}

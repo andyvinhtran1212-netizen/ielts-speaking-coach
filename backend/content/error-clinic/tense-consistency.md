@@ -132,7 +132,7 @@ IELTS Writing Task 2 thảo luận về vấn đề **hiện tại và tương l
 
 | Phần | Thì | Ví dụ |
 |------|-----|-------|
-| Nêu vấn đề (hiện tại) | Present Simple | Technology **is** transforming... |
+| Nêu quá trình hiện tại | Present Continuous | Technology **is transforming**... |
 | Giải thích lý do | Present Simple | This **is** because... / One reason **is**... |
 | Ví dụ (sự kiện quá khứ) | Past Simple | For example, in 2020, companies **adopted**... |
 | Xu hướng | Present Perfect | The number of users **has increased**... |
@@ -145,7 +145,7 @@ IELTS Writing Task 2 thảo luận về vấn đề **hiện tại và tương l
 ### Lỗi thường gặp trong Task 2:
 
 **Lỗi 1: Dùng Past Simple cho sự thật hiện tại**
-- ❌ Technology **changed** our lives significantly. (đây vẫn đang xảy ra)
+- ✅ Technology **changed** our lives significantly. *(có thể chỉ giai đoạn quá khứ đã rõ; kết quả vẫn liên quan hiện tại)*
 - ✅ Technology **has changed** our lives significantly. (Present Perfect — kết quả đến hiện tại)
 - ✅ Technology **is changing** our lives significantly. (đang tiếp diễn)
 
@@ -241,12 +241,12 @@ Tuy nhiên, câu mở đầu mô tả biểu đồ thì vẫn dùng Present:
 
 ### Lỗi 5: Quên nhất quán khi viết nhiều đoạn
 
-Mỗi đoạn văn nên bắt đầu bằng câu chủ đề với thì rõ ràng, và các câu trong đoạn đó theo thì đó:
+Mỗi mệnh đề cần có mốc tham chiếu rõ; trong một đoạn có thể kết hợp thì để kể phát triển trước đó và sự thật hiện tại. Chỉ sửa chuyển thì vô ý:
 
 ✅ **Nhất quán:**
 > Urbanisation **has brought** significant economic benefits. Cities **have created** millions of jobs and **have driven** innovation. As people **have moved** to urban areas, **they have gained** access to better education and healthcare.
 
-❌ **Không nhất quán:**
+**Cần làm rõ mốc thời gian (không tự sai chỉ vì trộn thì):**
 > Urbanisation **has brought** significant economic benefits. Cities **create** millions of jobs and **have driven** innovation. As people **moved** to urban areas, **they gain** access to better education.
 
 <!-- anchor: tense-consistency.ielts-speaking.storytelling -->

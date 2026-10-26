@@ -230,8 +230,8 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 - ✅ ĐÚNG: She sings **beautifully**. *(beautifully = adverb, mô tả sings)*
 - ❌ SAI: He drives very **careful**.
 - ✅ ĐÚNG: He drives very **carefully**.
-- ❌ SAI: Please speak **slow**.
-- ✅ ĐÚNG: Please speak **slowly**.
+- Trung tính hoặc trang trọng: Please speak **slowly**.
+- Please speak **slow** có thể dùng trong lời nói không trang trọng; slow ở đây là flat adverb, không phải lỗi từ loại trong mọi ngữ cảnh.
 - **TẠI SAO:** Adjective mô tả noun; adverb mô tả verb. Khi mô tả cách thức thực hiện hành động → cần adverb (thường thêm -ly).
 
 ### Lỗi 2: Dùng adverb thay adjective sau linking verbs
@@ -269,7 +269,7 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 - ❌ SAI: She speaks English very **good**.
 - ✅ ĐÚNG: She speaks English very **well**. *(well = adverb)*
 - ✅ ĐÚNG: Her English is very **good**. *(good = adjective)*
-- **TẠI SAO:** "Good" là adjective (mô tả noun); "well" là adverb (mô tả verb).
+- **TẠI SAO:** Trong hai ví dụ này, good là adjective và well là adverb. **Well** còn là adjective nghĩa khỏe: "I feel **well**." "I feel **good**" có thể nói cảm giác dễ chịu; "She sings **well**" nói cách hát.
 
 ## So sánh với
 
@@ -296,11 +296,11 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 | Adjective | Adverb |
 |-----------|--------|
 | quick | quickly |
-| slow | slowly |
+| slow | slowly (trung tính); slow còn là flat adverb trong cách nói không trang trọng |
 | careful | carefully |
 | beautiful | beautifully |
 | easy | easily |
-| good | well |
+| good | well (nghĩa làm tốt); well cũng là adjective nghĩa khỏe |
 | hard | hard *(không phải hardly)* |
 | fast | fast *(không phải fastly)* |
 
@@ -318,7 +318,7 @@ Tiếng Việt và tiếng Anh có hai khác biệt lớn về tính từ:
 
 **Mẹo quyết định:**
 1. Từ mô tả **danh từ** (người, vật, nơi chốn)? → **Adjective** → đặt **trước** noun
-2. Từ đứng sau **is/am/are/seem/look/feel/taste/sound**? → **Adjective**
+2. Đang mô tả chủ ngữ sau **linking verb**? → Có thể dùng adjective: "She looks tired." Không suy mọi từ sau be/look là adjective: "She is a doctor" dùng noun phrase; "She looked carefully" dùng adverb chỉ hành động nhìn.
 3. Từ mô tả **động từ** (cách thức thực hiện)? → **Adverb** (thêm -ly)
 4. Từ mô tả một adjective khác? → **Adverb**: *incredibly **beautiful***, *quite **tired***
 

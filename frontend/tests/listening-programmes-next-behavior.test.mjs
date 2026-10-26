@@ -101,7 +101,8 @@ test('programme UI has complete loading error empty and partial-data states', ()
   assert.match(library, /listeningLessonHref\(programmePath, lesson\.id, \{ filter \}\)/);
   assert.match(library, /showIeltsModes/);
   assert.match(library, /IELTS_MODES/);
-  assert.match(library, /lessonError/);
+  assert.match(library, /state\.status === 'error'/);
+  assert.match(library, /overview\.status !== 'ready'/);
   const detail = read('app', '(authed-listening)', 'listening', 'lessons', '[lessonId]', 'lesson-detail.tsx');
   assert.match(detail, /duration_seconds/);
   assert.match(detail, /checked_item_count/);

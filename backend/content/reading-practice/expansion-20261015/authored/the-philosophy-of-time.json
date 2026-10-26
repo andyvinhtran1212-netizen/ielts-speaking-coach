@@ -1,0 +1,282 @@
+{
+  "slug": "the-philosophy-of-time",
+  "review_notes": "Giữ nguyên số 9.192.631.770 với cách phân nhóm số tiếng Việt; không đổi radiation thành âm thanh. Ruler là thước đo, không phải người cai trị; cảm giác thời gian tách với chuẩn đo, không khẳng định ảo giác là kết luận duy nhất.",
+  "illustration_brief": "Đồng hồ kim và những chi tiết cơ học trên bàn, gợi việc đo thời gian trong đời sống.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Độ dài chính thức của một giây nay nói được chính xác đến kinh ngạc, nhưng gần như không ai nói được bản thân thời gian thật sự là gì.",
+      [
+        "The official length of a single second",
+        "Độ dài chính thức của một giây"
+      ],
+      [
+        "astonishing exactness",
+        "chính xác đến kinh ngạc"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Khoảng cách đo một thứ với hiểu nó nằm ở tâm một trong các câu đố xưa nhất của cả khoa học lẫn triết học.",
+      [
+        "measuring something and understanding it",
+        "đo một thứ với hiểu nó"
+      ],
+      [
+        "science and philosophy",
+        "khoa học lẫn triết học"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Thẳng thắn mà nói, trong phần lớn lịch sử, các đơn vị con người dùng để chia ngày mang tính tùy ý, được quyết định bởi thói quen và sự tiện lợi nhiều hơn là bởi tự nhiên.",
+      [
+        "frankly",
+        "Thẳng thắn mà nói"
+      ],
+      [
+        "arbitrary",
+        "mang tính tùy ý"
+      ],
+      [
+        "habit and convenience",
+        "thói quen và sự tiện lợi"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Phải thừa nhận, các phần chia lớn nhất có dựa trên sự thật thiên thể mà không văn hóa nào bỏ qua được.",
+      [
+        "celestial facts",
+        "sự thật thiên thể"
+      ],
+      [
+        "no culture anywhere could afford to ignore",
+        "không văn hóa nào bỏ qua được"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một ngày ứng một vòng Trái Đất quay quanh trục, còn năm khớp một vòng hành tinh quay quanh Mặt Trời.",
+      [
+        "a single rotation of the Earth upon its axis",
+        "một vòng Trái Đất quay quanh trục"
+      ],
+      [
+        "one complete orbit of the planet around the Sun",
+        "một vòng hành tinh quay quanh Mặt Trời"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Lịch gần như mọi xã hội xây trên hai chu trình lớn ấy.",
+      [
+        "almost every society",
+        "gần như mọi xã hội"
+      ],
+      [
+        "these two great cycles",
+        "hai chu trình lớn ấy"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Rắc rối là chính bầu trời hóa ra là đồng hồ hơi thiếu tin cậy.",
+      [
+        "the heavens themselves",
+        "chính bầu trời"
+      ],
+      [
+        "a slightly unreliable clock",
+        "đồng hồ hơi thiếu tin cậy"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Trái Đất quay hơi không đều, chậm dần qua thời gian dài và lắc theo cách nhà thiên văn trước kia không thể phát hiện.",
+      [
+        "The Earth's spin",
+        "Trái Đất quay"
+      ],
+      [
+        "slowing over long spans",
+        "chậm dần qua thời gian dài"
+      ],
+      [
+        "earlier astronomers could not possibly detect",
+        "nhà thiên văn trước kia không thể phát hiện"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Vì vậy, ngày tự nhiên không hẳn là thước đo đều đặn như từng có vẻ.",
+      [
+        "The natural day",
+        "ngày tự nhiên"
+      ],
+      [
+        "the steady ruler",
+        "thước đo đều đặn"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Khi vật lý tiến bộ, nhà nghiên cứu cần chuẩn chính xác hơn xa, không lệch cùng vòng quay một hành tinh.",
+      [
+        "a far more precise standard",
+        "chuẩn chính xác hơn xa"
+      ],
+      [
+        "the turning of a single planet",
+        "vòng quay một hành tinh"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Lời giải cuối cùng đến từ quy mô nhỏ nhất tưởng tượng được thay vì lớn nhất.",
+      [
+        "the smallest scale imaginable",
+        "quy mô nhỏ nhất tưởng tượng được"
+      ],
+      [
+        "rather than the very largest",
+        "thay vì lớn nhất"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nhà khoa học thấy một số hạt dao động ở nhịp cố định, đáng tin, và đồng hồ chỉ cần đếm dao động thay nhìn trời.",
+      [
+        "a fixed and dependable rate",
+        "nhịp cố định, đáng tin"
+      ],
+      [
+        "count this oscillation",
+        "đếm dao động"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Vì thế năm 1967, thế giới chọn định nghĩa lại giây bằng một nguyên tử nguyên tố xêsi (caesium).",
+      [
+        "In 1967",
+        "năm 1967"
+      ],
+      [
+        "redefine the second",
+        "định nghĩa lại giây"
+      ],
+      [
+        "the element caesium",
+        "nguyên tố xêsi (caesium)"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Một giây thành thời lượng chính xác 9.192.631.770 chu kỳ bức xạ phát ra trong chuyển tiếp cụ thể bên trong nguyên tử ấy.",
+      [
+        "exactly 9,192,631,770 cycles",
+        "chính xác 9.192.631.770 chu kỳ"
+      ],
+      [
+        "the radiation emitted",
+        "bức xạ phát ra"
+      ],
+      [
+        "a particular transition inside that atom",
+        "chuyển tiếp cụ thể bên trong nguyên tử ấy"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Chuẩn này ổn định tới mức đồng hồ xêsi tốt nhất không lệch hơn một giây qua nhiều triệu năm.",
+      [
+        "the best caesium clocks",
+        "đồng hồ xêsi tốt nhất"
+      ],
+      [
+        "would not drift by more than a second",
+        "không lệch hơn một giây"
+      ],
+      [
+        "several million years",
+        "nhiều triệu năm"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Nhưng độ chính xác ấn tượng ấy gần như không nói gì về cảm giác con người thực sự trải qua thời gian.",
+      [
+        "Such impressive precision",
+        "độ chính xác ấn tượng ấy"
+      ],
+      [
+        "how the passage of time actually feels to a human being",
+        "cảm giác con người thực sự trải qua thời gian"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Trải nghiệm về độ dài thời gian mang tính chủ quan sâu sắc, vì một giờ nhàn rỗi có thể trôi chậm chạp, trong khi một giờ vui vẻ dường như biến mất chỉ trong chớp mắt.",
+      [
+        "deeply subjective",
+        "mang tính chủ quan sâu sắc"
+      ],
+      [
+        "an idle hour can crawl",
+        "một giờ nhàn rỗi có thể trôi chậm chạp"
+      ],
+      [
+        "a joyful one",
+        "một giờ vui vẻ"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Nói cách khác, cảm nhận riêng về thời gian trôi ít liên quan số đếm nguyên tử đều đặn.",
+      [
+        "Our private perception",
+        "cảm nhận riêng"
+      ],
+      [
+        "any steady atomic count",
+        "số đếm nguyên tử đều đặn"
+      ]
+    ],
+    [
+      "p5-s4",
+      "Một vài triết gia còn đi xa, gợi ý chính dòng chảy từ quá khứ tới tương lai có thể là ảo giác do tâm trí dệt.",
+      [
+        "A few philosophers",
+        "Một vài triết gia"
+      ],
+      [
+        "from past to future",
+        "từ quá khứ tới tương lai"
+      ],
+      [
+        "illusion woven by the mind",
+        "ảo giác do tâm trí dệt"
+      ]
+    ],
+    [
+      "p5-s5",
+      "Vậy bất chấp độ chính xác đồng hồ hiện đại, bản chất sâu của thời gian vẫn luôn là bí ẩn thực sự.",
+      [
+        "For all the accuracy of the modern clock",
+        "bất chấp độ chính xác đồng hồ hiện đại"
+      ],
+      [
+        "a genuine enigma",
+        "bí ẩn thực sự"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-clock-scene.svg",
+    "alt": "Đồng hồ quả lắc treo tường cạnh một đồng hồ kim nhỏ trên kệ.",
+    "caption": "Đo thời gian và cảm nhận thời gian."
+  },
+  "source_sha256": "64c61d91ec4b2eaf3ad15a878a477dc07ede133e1b72f6acb5042e76d3e3d0c7",
+  "expected_translation_sha256": "79a9a59d7aac13e095d693c5f165723f01feaf6c35cd05c7dd84c735ac412d02"
+}

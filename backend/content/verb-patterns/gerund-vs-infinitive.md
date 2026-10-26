@@ -51,10 +51,10 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: gerund-vs-infinitive.gerund-only
-    location: "### 1. Động từ chỉ đi với GERUND"
+    location: "### 1. Động từ thường đi với GERUND"
     type: section
   - id: gerund-vs-infinitive.infinitive-only
-    location: "### 2. Động từ chỉ đi với TO-INFINITIVE"
+    location: "### 2. Động từ thường đi với TO-INFINITIVE"
     type: section
   - id: gerund-vs-infinitive.both-same-meaning
     location: "### 4. Động từ đi với cả hai — KHÔNG đổi nghĩa (hoặc gần như vậy)"
@@ -109,7 +109,7 @@ learning_blocks:
 <!-- anchor: gerund-vs-infinitive.overview -->
 ## Tóm tắt
 
-Gerund (V-ing) và to-infinitive đều có thể đứng sau động từ, nhưng mỗi động từ chỉ chấp nhận **một trong hai** — hoặc cả hai nhưng với **nghĩa khác nhau** — và không có quy tắc lý giải hoàn toàn, chỉ cần học theo nhóm.
+Gerund (V-ing) và to-infinitive đều có thể đứng sau động từ, nhưng mỗi động từ cho phép những mẫu bổ ngữ riêng; một số dùng cả hai với nghĩa gần nhau, một số đổi nghĩa — và không có quy tắc lý giải hoàn toàn, chỉ cần học theo nhóm.
 
 ## Tại sao quan trọng
 
@@ -118,9 +118,7 @@ Gerund (V-ing) và to-infinitive đều có thể đứng sau động từ, như
 - Người chấm IELTS chú ý đặc biệt đến lỗi verb pattern vì chúng xuất hiện rất thường xuyên
 - Một số cặp (remember/forget/stop/try) **đổi nghĩa hoàn toàn** — không hiểu thì viết câu sai nghĩa
 
-Band 5: dùng sai thường xuyên  
-Band 6: thỉnh thoảng sai  
-Band 7+: dùng đúng nhất quán, kể cả nhóm đổi nghĩa
+Band được đánh giá trên toàn bài theo độ đa dạng, độ chính xác và ảnh hưởng của lỗi đến giao tiếp. Một mẫu verb pattern không tự quyết định band.
 
 ## Định nghĩa
 
@@ -128,12 +126,12 @@ Band 7+: dùng đúng nhất quán, kể cả nhóm đổi nghĩa
 |--|--------|--------------|
 | **Hình thức** | base verb + **-ing** | **to** + base verb |
 | **Ví dụ** | swimming, learning, going | to swim, to learn, to go |
-| **Cảm giác** | Hướng về hành động chung chung, đã xảy ra, hoặc thực tế | Hướng về hành động cụ thể, tương lai, hoặc tiềm năng |
+| **Thời gian/nghĩa** | Phụ thuộc động từ chính và ngữ cảnh; có thể chỉ tương lai (consider applying next year) | Không tự chỉ tương lai: seems to know (hiện tại), glad to have met (trước đó) |
 
 ## Cách dùng phổ biến
 
 <!-- anchor: gerund-vs-infinitive.gerund-only -->
-### 1. Động từ chỉ đi với GERUND
+### 1. Động từ thường đi với GERUND
 
 Học nhóm này trước — nếu bạn nhớ được chúng, bạn sẽ không viết sai với những động từ này nữa.
 
@@ -150,7 +148,7 @@ Verb + V-ing (gerund)
 | like *(thường)* | He **likes reading** in the evening. |
 | hate *(thường)* | I **hate waiting** in queues. |
 | don't mind | I **don't mind working** late. |
-| can't stand | She **can't stand listening** to loud music. |
+| can't stand *(cũng có to-infinitive: can’t stand to see/hear)* | She **can't stand listening** to loud music. |
 | can't help | I **can't help laughing** when I see that clip. |
 | miss | I **miss seeing** my old friends. |
 
@@ -160,7 +158,7 @@ Verb + V-ing (gerund)
 |---------|-------|
 | finish | Have you **finished reading** that book? |
 | quit / give up | He **quit smoking** two years ago. |
-| stop *(bỏ hẳn)* | She **stopped eating** meat last year. |
+| stop *(ngừng hành động; không tự có nghĩa vĩnh viễn)* | She **stopped eating** meat last year. |
 | avoid | I **avoid driving** during rush hour. |
 | keep | She **keeps making** the same mistake. |
 | delay / postpone | They **delayed announcing** the results. |
@@ -189,7 +187,7 @@ Verb + V-ing (gerund)
 > **Mẹo nhớ:** Những động từ này thường liên quan đến việc nhìn nhận, đánh giá, hoặc thể hiện cảm xúc đối với một hành động. Hành động đó thường đã xảy ra hoặc mang tính chung chung.
 
 <!-- anchor: gerund-vs-infinitive.infinitive-only -->
-### 2. Động từ chỉ đi với TO-INFINITIVE
+### 2. Động từ thường đi với TO-INFINITIVE
 
 ```
 Verb + to + base verb (to-infinitive)
@@ -255,7 +253,7 @@ Verb + to + base verb (to-infinitive)
 | Cấu trúc | Nghĩa | Ví dụ |
 |-----------|-------|-------|
 | remember + **gerund** | Nhớ một điều đã xảy ra trong quá khứ | I remember **meeting** her in 2018. *(Tôi nhớ là mình đã gặp cô ấy)* |
-| remember + **to-inf** | Nhớ làm điều gì đó (trong tương lai) | Remember **to lock** the door. *(Nhớ khoá cửa nhé)* |
+| remember + **to-inf** | Nhớ để làm việc sau thời điểm nhớ (có thể đã hoàn thành khi kể lại) | Remember **to lock** the door. *(Nhớ khoá cửa nhé)* |
 
 #### forget
 
@@ -321,7 +319,7 @@ Một số động từ chấp nhận cả gerund và to-infinitive với nghĩa
 
 | Tín hiệu | Ví dụ |
 |---------|-------|
-| Sau: want, hope, plan, decide, need, agree, refuse, offer, manage | I want **to go**. |
+| Sau: want, hope, plan, decide, agree, refuse, offer, manage | I want **to go**. |
 | Diễn tả mục đích | I study **to improve**. |
 | Sau: It is + adjective | It's important **to practise**. |
 | Sau: too + adj / adj + enough | Too hard **to ignore**. |
@@ -393,7 +391,8 @@ Bài này tổng hợp từ [Gerund](/grammar/verb-patterns/gerund) và [To-Infi
 | Nhóm | Động từ | Dùng |
 |------|---------|------|
 | Chỉ Gerund | enjoy, avoid, mind, finish, keep, suggest, consider, miss, practise, deny, admit, risk, involve | V-ing |
-| Chỉ To-infinitive | want, hope, plan, decide, need, agree, refuse, offer, manage, fail, expect, promise, tend, appear, seem | to + V |
+| Chỉ To-infinitive | want, hope, plan, decide, agree, refuse, offer, manage, fail, expect, promise, tend, appear, seem | to + V |
+| Need | need to do (chủ động), need doing / need to be done (bị động) | Xem mục NEED |
 | Cả hai, đổi nghĩa | remember, forget, stop, try, regret, go on | Xem bảng ở trên |
 | Cả hai, gần giống nghĩa | begin, start, continue, like, love, hate, prefer | V-ing / to + V |
 
@@ -403,9 +402,9 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 
 **Chiến lược học:**
 1. Học nhóm Gerund-only trước (enjoy, avoid, mind, finish, keep, suggest, consider)
-2. Học nhóm To-infinitive-only tiếp (want, hope, plan, decide, need, agree, refuse)
+2. Học nhóm To-infinitive-only tiếp (want, hope, plan, decide, agree, refuse)
 3. Học từng cặp đổi nghĩa riêng — remember, forget, stop, try là quan trọng nhất
-4. Khi không chắc: gerund sau giới từ (luôn luôn đúng), to-infinitive diễn tả mục đích
+4. Khi không chắc: gerund thường làm bổ ngữ động từ sau giới từ (phân biệt to giới từ với to-infinitive), to-infinitive diễn tả mục đích
 
 **Mẹo cảm giác:**
 - Gerund = hành động như một *thực thể* — bạn thích nó, ghét nó, tránh nó
@@ -479,15 +478,15 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 1. **meeting** (remember + gerund = nhớ đã gặp)
 2. **to turn off** (remember + to-inf = nhớ phải làm)
 3. **walking** (stop + to-inf = dừng lại để làm gì khác → nhưng câu này dùng gerund: stopped walking = dừng đi → ❌ stop to walk = dừng lại để đi bộ. Đáp án: **walking**)
-4. **drinking** (stop + gerund = bỏ hẳn)
+4. **drinking** (stop + gerund = ngừng hành động; không tự có nghĩa vĩnh viễn)
 5. **sleeping** (try + gerund = thử xem có hiệu quả không)
-6. **to use** (try + to-inf = cố gắng dùng, nhưng thất bại)
+6. **to use / using** (nhấn mạnh nỗ lực / thử phương pháp; thất bại không tự quyết định dạng)
 
 ## Tóm tắt nhanh
 1. **Chỉ Gerund:** enjoy, avoid, mind, finish, keep, suggest, consider, miss, practise, admit, deny, risk
-2. **Chỉ To-infinitive:** want, hope, plan, decide, need, agree, refuse, offer, manage, fail, expect, promise
+2. **Chỉ To-infinitive:** want, hope, plan, decide, agree, refuse, offer, manage, fail, expect, promise
 3. **Đổi nghĩa:** remember, forget, stop, try, regret, go on — học thuộc từng cặp
-4. **Sau giới từ** → luôn dùng gerund: interested in **learning**, without **saying**
+4. **Động từ làm bổ ngữ sau giới từ** → thường dùng gerund: interested in **learning**, without **saying**
 5. **"to" trong look forward to / be used to** = giới từ → dùng gerund sau đó
 6. **Mục đích** → to-infinitive: I study **to improve** my English
 7. Khi không chắc: nhớ nhóm nào động từ đó thuộc về và áp dụng
@@ -517,18 +516,18 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 ## Công thức
 
 ```
-[Thứ/Vật cần được làm] + need + V-ing
-[Thứ/Vật cần được làm] + need + to be + V3 (past participle)
-[Người cần làm] + need + to + V (active)
+[Chủ ngữ nhận hành động: người hoặc vật] + need + V-ing
+[Chủ ngữ nhận hành động: người hoặc vật] + need + to be + V3 (past participle)
+[Chủ ngữ thực hiện hành động: người hoặc vật] + need + to + V (active)
 ```
 
 ---
 
 ## NEED + V-ING — Cách nói ngắn gọn, thông thường
 
-Cấu trúc này dùng **gerund** sau "need". Chủ ngữ là **thứ/vật cần được tác động** — không phải người thực hiện. Gerund ở đây mang nghĩa bị động (passive meaning), dù hình thức là chủ động.
+Cấu trúc này dùng **gerund** sau "need". Chủ ngữ là **bên nhận hành động (người hoặc vật)** — không phải người thực hiện. Gerund ở đây mang nghĩa bị động (passive meaning), dù hình thức là chủ động.
 
-**Cảm giác:** Tự nhiên, thông thường, phổ biến trong speaking và informal writing.
+**Cách dùng:** Gọn và tự nhiên; dùng được trong cả nói và viết, không bị giới hạn vào văn phong thân mật.
 
 ### Ví dụ:
 
@@ -619,10 +618,10 @@ Cấu trúc này dùng **passive infinitive** (to be + past participle). Rõ rà
 
 ## Thêm tác nhân (agent) — "by someone"
 
-Chỉ có thể thêm "by + agent" với cấu trúc "need to be + V3":
+Cả “need + V-ing” mang nghĩa bị động và “need to be + V3” đều có thể thêm “by + agent”:
 
 - ✅ "The report needs **to be reviewed by** the manager."
-- ❌ "The report needs reviewing by the manager." *(nghe không tự nhiên)*
+- ✅ "The report needs reviewing by the manager." *(chủ ngữ nhận hành động)*
 
 ---
 
@@ -695,18 +694,18 @@ Chỉ có thể thêm "by + agent" với cấu trúc "need to be + V3":
 ## Tóm tắt nhanh
 
 ```
-KHI CHỦ NGỮ LÀ THỨ/VẬT CẦN ĐƯỢC TÁC ĐỘNG:
+KHI CHỦ NGỮ NHẬN HÀNH ĐỘNG (NGƯỜI HOẶC VẬT):
 
-need + V-ing         = thông thường, tự nhiên, speaking
+need + V-ing         = nghĩa bị động, dạng gọn
   "The car needs washing."
 
-need + to be + V3    = trang trọng, rõ ràng hơn, writing
+need + to be + V3    = nghĩa bị động, hình thức hiển ngôn
   "The car needs to be washed."
 
 → Hai cấu trúc này GẦN NHƯ CÙNG NGHĨA
-→ Khác nhau ở PHONG CÁCH, không phải nghĩa
+→ Hai cách diễn đạt cùng nhu cầu bị động; lựa chọn theo ngữ cảnh và độ rõ ràng
 
-KHI CHỦ NGỮ LÀ NGƯỜI:
+KHI CHỦ NGỮ THỰC HIỆN HÀNH ĐỘNG (NGƯỜI HOẶC VẬT):
 need + to + V        = cần chủ động làm gì
   "I need to wash the car."
 
@@ -714,7 +713,7 @@ LỖI HAY GẶP:
 ❌ "The room needs to clean." → thiếu "be"
 ✅ "The room needs to be cleaned." hoặc "needs cleaning."
 
-THÊM AGENT: chỉ với "need to be + V3":
+THÊM AGENT: được với cả hai dạng bị động:
 ✅ "This needs to be checked by a professional."
 ```
 
@@ -819,7 +818,7 @@ Dùng khi bạn **nỗ lực thực hiện** một việc gì đó — thường
 
 ---
 
-### IELTS Band 7+ — Mẫu câu kết hợp cả hai cấu trúc
+### Mẫu câu kết hợp cả hai cấu trúc
 
 Dùng cả hai trong cùng một đoạn để tạo grammatical range và phân biệt rõ ý (giải pháp thực tế vs nỗ lực khó khăn):
 
@@ -837,19 +836,19 @@ Chú ý: `tried to reduce` / `tried to integrate` = nỗ lực, hàm ý khó kh�
 
 ## Lỗi thường gặp
 
-### Lỗi 1: Dùng to-infinitive khi đưa ra lời gợi ý
+### Hai cách diễn đạt lời gợi ý
 
-- ❌ "If you're tired, try **to take** a nap."
+- ✅ "If you're tired, try **to take** a nap." *(hãy cố sắp xếp để chợp mắt)*
 - ✅ "If you're tired, try **taking** a nap."
 
-*Gợi ý → dùng gerund (thử phương pháp).*
+*Gerund nhấn mạnh thử phương pháp; to-infinitive nhấn mạnh nỗ lực. Cả hai có thể là lời khuyên.*
 
-### Lỗi 2: Dùng gerund khi mô tả nỗ lực khó khăn
+### Hai cách kể một nỗ lực không thành công
 
-- ❌ "She tried **climbing** the mountain but had to turn back due to bad weather."
+- ✅ "She tried **climbing** the mountain but had to turn back due to bad weather." *(thử hoạt động leo núi)*
 - ✅ "She tried **to climb** the mountain but had to turn back due to bad weather."
 
-*Cố gắng và thất bại → dùng to-infinitive.*
+*To-infinitive nhấn mạnh cố đạt mục tiêu; gerund nhấn mạnh thử hoạt động. Thất bại không tự quyết định dạng.*
 
 ### Lỗi 3: Nhầm với "manage to"
 
@@ -879,7 +878,7 @@ Chú ý: `tried to reduce` / `tried to integrate` = nỗ lực, hàm ý khó kh�
 3. **using** *(gợi ý thử giải pháp khác)*
 4. **to explain** *(cố giải thích nhưng không được nghe)*
 5. **reading** *(gợi ý phương pháp luyện tập)*
-6. **to fix** *(cố sửa nhưng thất bại)*
+6. **to fix / fixing** *(nỗ lực sửa / thử tự sửa; kết quả xấu không loại bỏ cách nào)*
 7. **sleeping** *(gợi ý thử thói quen mới)*
 8. **to complete** *(cố hoàn thành nhưng trễ deadline)*
 
@@ -962,7 +961,7 @@ To-infinitive ở đây là **mục đích** (purpose), không phải tân ngữ
 | Stop + doing | Stop + to do |
 |-------------|-------------|
 | She stopped **smoking**. | She stopped **to smoke**. |
-| *(Cô ấy bỏ thuốc lá — không hút nữa)* | *(Cô ấy dừng lại để hút thuốc — vẫn đang hút)* |
+| *(Cô ấy bỏ thuốc lá — không hút nữa)* | *(Cô ấy dừng lại để hút thuốc — đã dừng để hút; chưa biết hiện tại còn hút hay không)* |
 
 ### Cặp 2: Đi bộ
 | Stop + doing | Stop + to do |
@@ -991,11 +990,11 @@ To-infinitive ở đây là **mục đích** (purpose), không phải tân ngữ
 | Câu | Đúng ngữ pháp? | Nghĩa |
 |-----|---------------|-------|
 | "She stopped smoking." | ✅ | Cô ấy **bỏ** thuốc lá — không hút nữa |
-| "She stopped to smoke." | ✅ | Cô ấy dừng lại **để hút** thuốc — vẫn đang hút |
+| "She stopped to smoke." | ✅ | Cô ấy dừng lại **để hút** thuốc — đã dừng để hút; chưa biết hiện tại còn hút hay không |
 
-Examiner đọc câu sai nghĩa mà không sai grammar — nghĩa là điểm bị trừ vì **Task Response** (sai ý), không phải vì lỗi cú pháp.
+Chọn sai mẫu có thể làm đổi ý dù câu vẫn đúng cú pháp. Tác động được xét trên toàn bài; Writing có Task Response/Task Achievement và Grammatical Range and Accuracy, còn Speaking không có tiêu chí Task Response. Không tự gán một mức trừ điểm cho mẫu này.
 
-**Nguyên tắc thực hành:** Khi muốn mô tả ai đó **bỏ hẳn** một thói quen → gerund (`stopped smoking`). Khi muốn mô tả **dừng giữa chừng** để làm việc khác → to-infinitive (`stopped to smoke`). Viết ngược lại tạo ra câu đúng grammar nhưng sai hoàn toàn về nghĩa.
+**Nguyên tắc thực hành:** Khi muốn mô tả ai đó **ngừng** một thói quen → gerund (`stopped smoking`). Khi muốn mô tả **dừng giữa chừng** để làm việc khác → to-infinitive (`stopped to smoke`). Viết ngược lại tạo ra câu đúng grammar nhưng sai hoàn toàn về nghĩa.
 
 ---
 
@@ -1182,9 +1181,9 @@ regret + to inform / to say / to announce / to tell / to advise
 
 - "We regret **to inform** you that..."
 - "I regret **to say** that your application..."
-- → Câu thức, không diễn đạt cảm xúc cá nhân — chỉ là quy ước lịch sự
+- → Công thức lịch sự để báo tin không vui; vẫn có thể diễn đạt sự tiếc nuối thực sự
 
-> **Lưu ý:** "Regret to do" trong văn trang trọng không có nghĩa là người viết thực sự "hối tiếc" theo nghĩa cảm xúc sâu sắc — đây chỉ là cách diễn đạt lịch sự thông thường.
+> **Lưu ý:** “Regret to inform” dùng để đưa ra thông báo không vui; “regret informing” bày tỏ hối tiếc về việc thông báo. Văn phong và mức cảm xúc không cố định chỉ theo dạng động từ.
 
 ---
 
@@ -1225,9 +1224,9 @@ Trong speaking, người bản ngữ thường dùng các cách khác thay vì c
 - ❌ "I regret **to say** those things to him." *(nghe như đang thông báo, không phải hối tiếc)*
 - ✅ "I regret **saying** those things to him."
 
-### Lỗi 2: Dùng gerund thay to-infinitive trong văn trang trọng
+### Phân biệt mục đích thông báo và hối tiếc về thông báo
 
-- ❌ "We regret **informing** you that your application was unsuccessful."
+- ✅ "We regret **informing** you that your application was unsuccessful." *(hối tiếc về thông báo đã đưa ra)*
 - ✅ "We regret **to inform** you that your application was unsuccessful."
 
 ### Lỗi 3: Bỏ "not" khi hối tiếc vì không làm gì đó
@@ -1392,7 +1391,7 @@ Dùng khi hành động **chưa xảy ra** vì bạn đã quên thực hiện n�
 - "I'll never forget **standing** on top of that mountain."
 - "I'll never forget **receiving** my first job offer."
 
-> **Lưu ý:** Trong cụm này, luôn dùng gerund (doing) vì đây là hồi tưởng ký ức.
+> **Lưu ý:** Với nghĩa hồi tưởng ký ức, dùng gerund. “I’ll never forget to lock the door again” lại là lời hứa nhớ làm nhiệm vụ, nên dùng to-infinitive.
 
 ---
 
@@ -1422,7 +1421,7 @@ Dùng khi hành động **chưa xảy ra** vì bạn đã quên thực hiện n�
 - ❌ "I'll never forget **to see** the Great Wall."
 - ✅ "I'll never forget **seeing** the Great Wall."
 
-*"To see" không diễn đạt ký ức — chỉ dùng gerund cho "I'll never forget..."*
+*To see không diễn đạt ký ức trong ví dụ này. Never forget vẫn đi với to-infinitive khi nói nhớ thực hiện một nhiệm vụ.*
 
 ### Lỗi 3: Nhầm "forget doing" với "forget" đơn giản
 
@@ -1474,7 +1473,7 @@ BẢNG SO SÁNH:
 
 CỤM ĐẶC BIỆT:
   "I'll never forget + DOING" = ký ức không thể quên
-  → Luôn dùng gerund!
+  → Với nghĩa hồi tưởng dùng gerund; lời hứa nhớ làm nhiệm vụ dùng to-infinitive.
 ```
 
 ## Công thức
@@ -1506,7 +1505,7 @@ Dùng khi bạn **hồi tưởng** một sự việc trong quá khứ — bạn 
 
 ## REMEMBER + TO DO — Nhớ phải làm gì
 
-Dùng khi bạn **ghi nhớ trách nhiệm** và thực hiện nó — hành động đó chưa xảy ra, hoặc đang nhắc nhở người khác làm.
+Dùng khi bạn **nhớ việc cần làm** rồi thực hiện, hoặc nhắc người khác đừng quên. Hành động diễn ra sau thời điểm nhớ, nhưng có thể đã hoàn tất trước lúc kể: **I remembered to send the email** thường cho biết tôi đã gửi vì nhớ việc đó. **Remember to send it** là lời nhắc về việc chưa làm.
 
 **Cảm giác:** "Đừng quên phải làm điều này."
 
@@ -1651,7 +1650,7 @@ REMEMBER + TO DO = nhớ phải làm gì (không quên, ghi nhớ)
 
 MẸO NHỚ:
   doing → quá khứ đã xong → "hồi tưởng"
-  to do → tương lai chưa làm → "nhắc nhở"
+  to do → việc được nhớ để thực hiện sau thời điểm nhớ; khi kể lại, việc đó có thể đã hoàn thành
 ```
 
 <!-- anchor: gerund-vs-infinitive.both-different-meaning.overview -->
@@ -1668,3 +1667,5 @@ Một số verbs nhận cả gerund (V-ing) và infinitive (to V) — nhưng M�
 Mỗi verb có subsection riêng dưới đây với pattern + nghĩa + ví dụ + lỗi VN thường mắc.
 
 <!-- BEGIN MERGED CONTENT — see patches/02_merges.yaml for source merging -->
+
+> **Đối chiếu vai nghĩa và thời gian:** “The children need feeding” (người nhận hành động) và “The system needs to run continuously” (vật thực hiện hành động). “I remembered to submit the form yesterday” kể việc đã làm sau lúc nhớ; “I remembered submitting it” là nhớ lại việc đã làm trước lúc nhớ.

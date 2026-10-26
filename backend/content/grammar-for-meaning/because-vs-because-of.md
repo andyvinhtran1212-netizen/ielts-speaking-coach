@@ -110,7 +110,7 @@ Hai cấu trúc, một quy tắc đơn giản:
 - The event was cancelled **because** it **rained** heavily.
 - Many people struggle with English **because** the grammar **is** complex.
 
-"Because" cũng có thể đứng đầu câu (nhưng không nên dùng để bắt đầu câu văn trong IELTS Writing — đây là convention văn phong):
+Because có thể mở đầu câu trong IELTS Writing; viết đủ mệnh đề phụ và chính, dùng dấu phẩy khi mệnh đề phụ đứng trước:
 
 - **Because** she **was** tired, she went to bed early.
 - **Because** the costs **were** too high, the project was abandoned.
@@ -241,7 +241,7 @@ Khi viết IELTS, tránh lặp lại "because / because of" — thay bằng các
 
 ### Writing Task 1 — mô tả xu hướng:
 
-- Sales increased **because** online shopping **became** more popular.
+- Nếu đề có dữ kiện xác nhận nguyên nhân: Sales increased **because** online shopping **became** more popular. Nếu biểu đồ chỉ cho xu hướng: Sales increased.
 - The decline in public transport use was partly **due to** rising fares.
 - Figures fell in 2008, **because of** the global financial crisis.
 - **Because** the population **grew** rapidly, demand for housing increased.
@@ -313,5 +313,5 @@ Dùng "because" thay cho "because of":
 | **Tương đương** | since, as, given that | due to, owing to, as a result of |
 
 **Kiểm tra nhanh:** Sau "because/because of" là gì?
-- Có **động từ chia** (rained, was, increased) → dùng **BECAUSE**
-- Chỉ có **danh từ/cụm danh từ** (the rain, bad weather, a lack of...) → dùng **BECAUSE OF**
+- Bổ ngữ trực tiếp là mệnh đề đầy đủ → **BECAUSE**. Động từ nằm trong mệnh đề quan hệ của cụm danh từ không quyết định lựa chọn.
+- Bổ ngữ là cụm danh từ hoặc V-ing → **BECAUSE OF**: because of the rain / missing the train / the storm that hit the coast.

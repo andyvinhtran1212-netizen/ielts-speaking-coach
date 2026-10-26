@@ -1,0 +1,162 @@
+{
+  "slug": "detail-the-truth-about-sharks",
+  "review_notes": "Dịch sát các mức roughly, about, only a small number. Cartilage là sụn; giữ nguyên số liệu nguồn và đáp án, không thêm nhận định mới.",
+  "illustration_brief": "Một cá mập bơi trong biển với các đàn cá nhỏ ở xa; không có số liệu, nhãn giác quan hay hình mô tả tấn công người.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Ít loài vật khiến con người sợ như cá mập, nhưng rất ít nỗi sợ ấy có cơ sở thực tế.",
+      [
+        "frighten people",
+        "khiến con người sợ"
+      ],
+      [
+        "very little of that fear matches the facts",
+        "rất ít nỗi sợ ấy có cơ sở thực tế"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Cá mập đã bơi trong đại dương từ rất lâu trước khi khủng long đầu tiên xuất hiện, nên chúng thuộc nhóm động vật lớn lâu đời nhất hành tinh.",
+      [
+        "long before the first dinosaurs appeared",
+        "rất lâu trước khi khủng long đầu tiên xuất hiện"
+      ],
+      [
+        "one of the oldest groups of large animals",
+        "thuộc nhóm động vật lớn lâu đời nhất"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Phim thường khắc họa chúng như sát thủ đói khát, nhưng số liệu thực tế cho thấy câu chuyện khác.",
+      [
+        "hungry killers",
+        "sát thủ đói khát"
+      ],
+      [
+        "tell a different story",
+        "cho thấy câu chuyện khác"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Mỗi năm, cá mập giết khoảng mười người trên toàn thế giới.",
+      [
+        "about ten people",
+        "khoảng mười người"
+      ],
+      [
+        "around the world",
+        "trên toàn thế giới"
+      ]
+    ],
+    [
+      "p1-s5",
+      "Cũng trong thời gian ấy, con người giết khoảng 100 triệu cá mập, chủ yếu để lấy vây và thịt.",
+      [
+        "roughly 100 million sharks",
+        "khoảng 100 triệu cá mập"
+      ],
+      [
+        "their fins and meat",
+        "vây và thịt"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Cá mập có cấu tạo khác các loài cá khác.",
+      [
+        "not built like other fish",
+        "có cấu tạo khác các loài cá khác"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Bộ khung cơ thể cá mập không làm bằng xương mà bằng sụn, loại vật liệu nhẹ và dẻo cũng có trong tai, mũi người.",
+      [
+        "cartilage",
+        "sụn"
+      ],
+      [
+        "light, bendy material",
+        "vật liệu nhẹ và dẻo"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Vì sụn nhẹ hơn xương, cá mập di chuyển trong nước tốn ít năng lượng hơn.",
+      [
+        "lighter than bone",
+        "nhẹ hơn xương"
+      ],
+      [
+        "using less energy",
+        "tốn ít năng lượng hơn"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Cá mập cũng là thợ săn đáng kinh ngạc.",
+      [
+        "remarkable hunters",
+        "thợ săn đáng kinh ngạc"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Ngoài mắt tinh và khứu giác nhạy, cá mập còn có cơ quan đặc biệt ở đầu nhận biết tín hiệu điện rất nhỏ phát ra từ mọi động vật sống.",
+      [
+        "a powerful sense of smell",
+        "khứu giác nhạy"
+      ],
+      [
+        "tiny electrical signals",
+        "tín hiệu điện rất nhỏ"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Có hơn 500 loài cá mập, từ cá mập voi khổng lồ tới những loài không dài hơn một bàn tay người.",
+      [
+        "the giant whale shark",
+        "cá mập voi khổng lồ"
+      ],
+      [
+        "no longer than a human hand",
+        "không dài hơn một bàn tay người"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Chỉ một số ít loài trong đó gây nguy hiểm cho con người.",
+      [
+        "Only a small number",
+        "Chỉ một số ít loài"
+      ],
+      [
+        "pose any danger to people",
+        "gây nguy hiểm cho con người"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Không phải những quái vật vô tri, cá mập có vai trò thiết yếu: là động vật săn mồi đầu bảng, chúng giữ số lượng các loài cá khác ở mức cân bằng.",
+      [
+        "top predators",
+        "động vật săn mồi đầu bảng"
+      ],
+      [
+        "keep the numbers of other fish in balance",
+        "giữ số lượng các loài cá khác ở mức cân bằng"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-shark-sea-scene.svg",
+    "alt": "Cá mập xám bơi giữa vùng nước xanh với các đàn cá nhỏ ở xa.",
+    "caption": "Cá mập trong khung cảnh dưới biển."
+  },
+  "source_sha256": "0696c391accdeef39cea9aef7a3010f7057c93a8d1e1e234242239ea1b1cafb3",
+  "expected_translation_sha256": "ba0d9711951dd9108c6ec9991731b8dcf83c41d528220b69b56c6a3afdbc42df"
+}

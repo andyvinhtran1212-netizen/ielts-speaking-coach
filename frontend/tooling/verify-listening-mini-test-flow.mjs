@@ -87,7 +87,7 @@ check('summary tính theo submitted attempt',
     && (await page.locator('#lt-new-count').innerText()).trim() === '1'
     && (await page.locator('#lt-done-count').innerText()).trim() === '1');
 check('title trùng code dùng fallback và theme được React escape',
-  (await page.locator('[data-test-id="mini-draft"] .lt-card-title').innerText()) === 'Mini Listening Test'
+  (await page.locator('[data-test-id="mini-draft"] .lt-card-title').innerText()) === 'Mini test · MINI-01'
     && (await page.locator('[data-test-id="mini-draft"] .lt-card-meta').innerText()).includes('Travel <script>')
     && await page.locator('.lt-card script').count() === 0);
 check('attempt dang dở vẫn thuộc nhóm Chưa làm',

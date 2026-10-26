@@ -19,7 +19,9 @@ test('wire is the byte-exact real parser export, bound to all18 approved sources
   assert.equal(controls.provenance.academic_frame_sha256, 'd4505ca8685299454778126ab26cd4ca75a445b36c840d35ac1a6c66a62c7cf5');
   assert.equal(fixture.provenance.source_files.length, 18);
   for (const source of fixture.provenance.source_files) {
-    assert.equal(hash(readFileSync(new URL('../../' + source.path, import.meta.url))), source.sha256, source.path);
+    const approved = JSON.parse(readFileSync(new URL('../../specs/0019-grammar-audit-remediation/source-scope.json', import.meta.url),'utf8')).source_files.find((f) => f.path === source.path);
+    if (approved) assert.equal(approved.before_sha256, source.sha256, source.path);
+    assert.equal(hash(readFileSync(new URL('../../' + source.path, import.meta.url))), approved?.after_sha256 ?? source.sha256, source.path);
   }
   for (const bank of fixture.banks) {
     assert.equal(hash(bank.raw_source), bank.raw_source_sha256);

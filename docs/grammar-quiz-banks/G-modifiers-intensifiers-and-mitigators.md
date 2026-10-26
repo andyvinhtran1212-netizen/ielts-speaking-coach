@@ -66,11 +66,11 @@ input: "text"
 headword: "im-gradable-vs-ungradable"
 skill: "production"
 subtype: "intermediate"
-prompt: "The final exam results were ____ (surprising / dùng tính từ tuyệt đối 'shocking' + trạng từ phù hợp) — nobody expected such a low pass rate."
-accept: ["absolutely shocking", "completely shocking", "utterly shocking"]
+prompt: "The final exam results were ____ (dùng shocking với absolutely, completely, utterly hoặc very) — nobody expected such a low pass rate."
+accept: ["absolutely shocking", "completely shocking", "utterly shocking", "very shocking"]
 case_sensitive: false
 grammar_article_slug: "intensifiers-and-mitigators"
-explain: "'shocking' (gây sốc) là tính từ tuyệt đối, không có nhiều mức độ → phải dùng 'absolutely/completely/utterly', không dùng 'very shocking'."
+explain: "Shocking diễn đạt điều gây sốc nhưng vẫn có thể được tăng mức độ bằng very hoặc so sánh more/most shocking. Absolutely/completely/utterly shocking là các cách nhấn mạnh khác, không phải những lựa chọn duy nhất đúng."
 ---
 
 ---
@@ -165,9 +165,9 @@ headword: "im-quite-fairly"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'It was a quite good presentation, but the ending felt rushed.'"
-answer: false
+answer: true
 grammar_article_slug: "intensifiers-and-mitigators"
-explain: "SAI — thứ tự đúng là 'quite a good presentation' (quite + a/an + adj + noun), không phải 'a quite good'."
+explain: "ĐÚNG — quite a good presentation là trật tự thông dụng hơn; a quite good presentation cũng có thể dùng. Ít thông dụng không đồng nghĩa với sai ngữ pháp khi đề không yêu cầu một quy ước biên tập riêng."
 ---
 
 ---
@@ -188,30 +188,30 @@ explain: "'fairly' phù hợp khi muốn giảm nhẹ đánh giá (khá tốt, k
 
 ---
 id: "im_rather_b1"
-type: "mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "im-rather-nuance"
 skill: "form"
 subtype: "basic"
-prompt: "The exam was ____ difficult — much harder than I expected."
-options: ["rather", "extremely", "a bit", "somewhat"]
-answer: 0
+prompt: "Choose rather or extremely to complete: 'The exam was ____ difficult — much harder than I expected.'"
 grammar_article_slug: "intensifiers-and-mitigators"
-explain: "'rather' thường mang sắc thái hơi tiêu cực hoặc bất ngờ, rất hợp với ngữ cảnh 'much harder than I expected'."
+explain: "Rather và extremely đều phù hợp: rather có thể thêm sắc thái bất ngờ, extremely nhấn mạnh độ khó rất cao. Much harder than I expected không bắt buộc chỉ một trong hai."
+accept: ["rather", "extremely"]
+case_sensitive: false
 ---
 
 ---
 id: "im_rather_i1"
-type: "gap_mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "im-rather-nuance"
 skill: "usage"
 subtype: "intermediate"
-prompt: "I was ____ disappointed with the service — I'd expected much better from a five-star hotel."
-options: ["rather", "very", "extremely", "so"]
-answer: 0
+prompt: "Choose one of rather, very, extremely or so: 'I was ____ disappointed with the service — I'd expected much better from a five-star hotel.'"
 grammar_article_slug: "intensifiers-and-mitigators"
-explain: "'rather disappointed' truyền tải cảm giác bất ngờ/thất vọng nhẹ nhàng nhưng rõ ràng tiêu cực — đúng sắc thái của 'rather', khác với 'very' vốn trung tính hơn."
+explain: "Cả bốn trạng từ đều đúng cấu trúc trong câu này. Rather thường thêm sắc thái đánh giá/bất ngờ; very, extremely và so có thể nhấn mạnh cường độ. Kỳ vọng bị phá vỡ không làm very hoặc extremely sai."
+accept: ["rather", "very", "extremely", "so"]
+case_sensitive: false
 ---
 
 ---

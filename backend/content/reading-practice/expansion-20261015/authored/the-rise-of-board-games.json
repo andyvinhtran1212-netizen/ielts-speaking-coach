@@ -1,0 +1,190 @@
+{
+  "slug": "the-rise-of-board-games",
+  "review_notes": "Board game là trò chơi bàn; title là tên/trò phát hành, không phải chức danh; household name là tên quen thuộc. Không gọi bàn cờ minh hoạ là hiện vật mộ cổ hoặc trò Monopoly.",
+  "illustration_brief": "Bàn cờ và vài quân tượng trưng một ví dụ trò chơi bàn, không tái dựng luật Senet hay Royal Game of Ur.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Từ lâu trước màn hình hay điện, con người tụ quanh bàn chơi.",
+      [
+        "Long before screens or electricity",
+        "Từ lâu trước màn hình hay điện"
+      ],
+      [
+        "gathered around boards to play",
+        "tụ quanh bàn chơi"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Một số trò xưa nhất đã hơn bốn nghìn năm, cho thấy người cổ thư giãn thế nào.",
+      [
+        "over four thousand years old",
+        "đã hơn bốn nghìn năm"
+      ],
+      [
+        "how ancient people relaxed",
+        "người cổ thư giãn thế nào"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ở Ai Cập cổ, người ta chơi trò Senet.",
+      [
+        "ancient Egypt",
+        "Ai Cập cổ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nhà khảo cổ tìm bàn Senet trong mộ hoàng gia, gồm mộ vua Tutankhamun.",
+      [
+        "Archaeologists",
+        "Nhà khảo cổ"
+      ],
+      [
+        "royal tombs",
+        "mộ hoàng gia"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Trò khác, Royal Game of Ur, đến từ Lưỡng Hà gần đó.",
+      [
+        "nearby Mesopotamia",
+        "Lưỡng Hà gần đó"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Trong cả hai, người chơi đua quân qua bàn, cố đi nhanh hơn đối thủ.",
+      [
+        "raced their pieces across the board",
+        "đua quân qua bàn"
+      ],
+      [
+        "their opponent",
+        "đối thủ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Trò chơi trên bàn lan thế giới, đổi theo thời gian.",
+      [
+        "spread around the world",
+        "lan thế giới"
+      ],
+      [
+        "changed over time",
+        "đổi theo thời gian"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Có trò dựa may mắn, trò khác như cờ vua cần suy nghĩ cẩn thận và chiến lược.",
+      [
+        "relied on luck",
+        "dựa may mắn"
+      ],
+      [
+        "careful thought and strategy",
+        "suy nghĩ cẩn thận và chiến lược"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Thế kỷ XX, nhà máy bắt đầu sản xuất hàng loạt trò rẻ.",
+      [
+        "In the twentieth century",
+        "Thế kỷ XX"
+      ],
+      [
+        "mass-produce cheap games",
+        "sản xuất hàng loạt trò rẻ"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Những trò như Monopoly đã trở thành cái tên quen thuộc ở nhiều nước.",
+      [
+        "household names",
+        "cái tên quen thuộc"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Rồi trò điện tử xuất hiện, doanh số trò chơi trên bàn giảm rõ.",
+      [
+        "video games",
+        "trò điện tử"
+      ],
+      [
+        "a clear decline",
+        "giảm rõ"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nhưng trò chơi trên bàn chưa từng mất hoàn toàn.",
+      [
+        "never vanished completely",
+        "chưa từng mất hoàn toàn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Những năm gần đây còn phục hồi mạnh, hàng nghìn trò mới phát hành mỗi năm.",
+      [
+        "a strong revival",
+        "phục hồi mạnh"
+      ],
+      [
+        "thousands of new titles",
+        "hàng nghìn trò mới"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Sao vật đơn giản bằng giấy, gỗ vẫn thu hút?",
+      [
+        "simple objects of paper and wood",
+        "vật đơn giản bằng giấy, gỗ"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Một lý do có thể là chúng giúp gặp trực tiếp — điều màn hình không luôn làm — khi bạn bè tụ một bàn.",
+      [
+        "face to face",
+        "gặp trực tiếp"
+      ],
+      [
+        "screens do not always do",
+        "màn hình không luôn làm"
+      ],
+      [
+        "a single table",
+        "một bàn"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Sau hàng nghìn năm, niềm vui đơn giản ngồi chơi cùng người khác dường như khó phai.",
+      [
+        "sitting down to play with others",
+        "ngồi chơi cùng người khác"
+      ],
+      [
+        "unlikely to fade away",
+        "khó phai"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-chess-board-scene.svg",
+    "alt": "Bàn cờ với một vài quân cờ, cạnh tờ giấy ghi chép.",
+    "caption": "Ngồi xuống và chơi cùng nhau."
+  },
+  "source_sha256": "772193c0b6a1731e38e583a7d29d49e0e340c591e0ea9212d29e21dcdf9fe03b",
+  "expected_translation_sha256": "7d5e8273c2c26ed73f9e3240fc82f9c4263b6d5fb6751e77beb003cdddeb82bb"
+}

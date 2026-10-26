@@ -90,20 +90,20 @@ learning_blocks:
     variant: decision-tree
     eyebrow: Bản đồ quyết định
     title: Chọn mạo từ bằng ba câu hỏi
-    intro: Đi từ trái sang phải; dừng lại ngay khi điều kiện khớp.
+    intro: Xét loại danh từ, số và khả năng người nghe nhận diện đối tượng theo các bước dưới. Không dừng ở câu hỏi đầu tiên.
     items:
       - label: Đếm được số ít?
-        value: Nếu không, xét nghĩa chung hay cụ thể.
-        note: Danh từ số ít đếm được không đứng trần.
+        value: Xác định đếm được hay danh từ khối, và số ít hay số nhiều.
+        note: Danh từ đếm được số ít thường cần định từ; sau đó vẫn phải xét khả năng nhận diện đối tượng.
       - label: Người nghe biết rõ?
-        value: Có → dùng the.
+        value: Nhận diện được đối tượng → thường dùng the.
         note: Biết nhờ ngữ cảnh, nhắc lại hoặc tính duy nhất.
       - label: Chưa xác định?
-        value: Có → dùng a hoặc an.
+        value: Chưa nhận diện được + đếm được số ít → dùng a/an.
         note: Chọn a/an theo âm đầu, không theo chữ cái.
       - label: Nói chung?
-        value: Số nhiều hoặc không đếm được → zero article.
-        note: Books matter; Education matters.
+        value: Số nhiều/danh từ khối khái quát → thường zero article; một lượng chưa xác định có thể dùng some.
+        note: Books matter; Education matters. Danh từ số ít chỉ loại còn có A dolphin is a mammal; cơ sở và bữa ăn có quy ước riêng.
   - id: articles-microcheck
     type: check
     kind: microcheck
@@ -425,7 +425,7 @@ Phân tích: thiếu "a" trước "small city" (lần đầu nhắc + đếm đ�
 
 1. She works as _____ doctor at _____ local hospital.
 2. I visited _____ United States last summer. _____ trip was amazing.
-3. _____ Mount Fuji is _____ volcano in _____ Japan.
+3. [ô 1] Mount Fuji is [ô 2] volcano in [ô 3] Japan. *(Mỗi ô điền a/an/the hoặc 0; tên núi và quốc gia theo tên thông thường.)*
 4. He plays _____ violin in _____ orchestra.
 5. _____ knowledge of grammar helps you score higher in _____ IELTS.
 
@@ -440,16 +440,16 @@ Phân tích: thiếu "a" trước "small city" (lần đầu nhắc + đếm đ�
 ### Đáp án
 
 **Điền:**
-1. a doctor; a local hospital
+1. a doctor; a local hospital nếu giới thiệu bệnh viện chưa được nhận diện. The local hospital cũng phù hợp khi ngữ cảnh xác định bệnh viện của địa phương; đề không cho ngữ cảnh để loại cách đó.
 2. the United States; The trip
 3. ø Mount Fuji (tên núi đơn); a volcano; ø Japan
 4. the violin; an orchestra
-5. ø Knowledge; ø IELTS (hoặc the IELTS exam)
+5. ø knowledge khi nói chung; the knowledge of grammar khi xác định vốn kiến thức cụ thể. A good knowledge of grammar là mẫu có tính từ, không phải quy tắc mọi knowledge đều có a. IELTS thường không có mạo từ; the IELTS exam có danh từ trung tâm exam.
 
 **Sửa lỗi:**
 1. **Life** is full of surprises. (danh từ không đếm được nói chung)
 2. I travel to work by **train** every morning. (by + transport = zero article)
-3. She bought **an** umbrella (h câm, âm đầu = nguyên âm)
+3. She bought **an** umbrella (âm đầu /ʌ/ là nguyên âm; hour mới là ví dụ h câm)
 4. **Happiness** is more important than **money**. (danh từ trừu tượng nói chung)
 5. He wants to become **a** doctor. (nghề nghiệp = a/an, không phải the)
 

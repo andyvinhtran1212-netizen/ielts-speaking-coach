@@ -253,7 +253,7 @@ There has been a considerable shift in...
 
 ### Lỗi 1: So sánh không đầy đủ (incomplete comparison)
 
-- ❌ "City life is more convenient."
+- ✅ “City life is more convenient.” *(chuẩn nếu điểm so sánh đã rõ từ câu hỏi/ngữ cảnh)*
 - ✅ "City life is **more convenient than** rural life." (hơn cái gì?)
 
 ### Lỗi 2: Dùng "more" với tính từ ngắn
@@ -268,7 +268,7 @@ There has been a considerable shift in...
 
 ### Lỗi 4: "Different than" (không chuẩn)
 
-- ❌ "It's **different than** before."
+- ✅ “It’s **different than** before.” *(phổ biến trong American English)*
 - ✅ "It's **different from** before." (British English)
 - ✅ "It's **different to** before." (informal British)
 
@@ -295,7 +295,7 @@ There has been a considerable shift in...
 ### Gợi ý đáp án
 
 1. "**While** online shopping is convenient, you can't try on clothes before buying." / "Online shopping is convenient, **although** you can't try on clothes before buying."
-2. "My hometown **used to be** very rural, **but** it **has transformed into** a modern city over the past two decades." / "**Whereas** my hometown was once entirely rural, it is now a thriving urban centre."
+2. “My hometown **used to be** very rural, **but now it is** a modern city.” *(không tự thêm 20 năm, entirely hay thriving)*
 3. "Working from home saves commuting time. **However**, it can make people feel isolated." / "**While** working from home saves commuting time, it can also lead to feelings of isolation."
 
 ---

@@ -34,7 +34,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+        "publication_available": true,
+        "bank_ids": [
+          "a6f0155d-28de-5dbe-b908-d6702235314f"
+        ]
       },
       "preview": {
         "canonical": {
@@ -60,7 +65,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+          "publication_available": true,
+          "bank_ids": [
+            "a6f0155d-28de-5dbe-b908-d6702235314f"
+          ]
         },
         "source_sha256": "36e8b94fa47dfb8fc2316a1e1cab6003d79639e1e593f7c42d2d660b258afc9d",
         "manifest_sha256": "e43ebcca9b399eadfa4b030434fdb4d91fd1b9bef2326b4c4d10836ea5843ed5",
@@ -152,7 +162,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "a6f0155d-28de-5dbe-b908-d6702235314f",
+          "publication_available": false,
+          "bank_ids": [
+            "a6f0155d-28de-5dbe-b908-d6702235314f",
+            "93e01d2c-4a88-5e29-a708-d2d80c624fd8"
+          ]
         }
       }
     },
@@ -182,7 +198,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+        "publication_available": true,
+        "bank_ids": [
+          "942f1a7f-fd5c-59f5-8412-9df032ba2c05"
+        ]
       },
       "preview": {
         "canonical": {
@@ -208,7 +229,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+          "publication_available": true,
+          "bank_ids": [
+            "942f1a7f-fd5c-59f5-8412-9df032ba2c05"
+          ]
         },
         "source_sha256": "2299da1f37da6ab306821c0eb34dc5735837156dfac4a7a8a480e3861fe5d866",
         "manifest_sha256": "4d29060817b67b558767e3a9111c926df00eb184294506f9e6accdd772323ddd",
@@ -304,7 +330,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+          "publication_available": false,
+          "bank_ids": [
+            "942f1a7f-fd5c-59f5-8412-9df032ba2c05",
+            "5e286920-fc5c-5236-ba67-8ec555560a8b"
+          ]
         }
       }
     },
@@ -334,7 +366,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+        "publication_available": true,
+        "bank_ids": [
+          "2dc8cb47-462d-5d46-a581-b341b34203b6"
+        ]
       },
       "preview": {
         "canonical": {
@@ -360,7 +397,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+          "publication_available": true,
+          "bank_ids": [
+            "2dc8cb47-462d-5d46-a581-b341b34203b6"
+          ]
         },
         "source_sha256": "1d75f48d70c9e476423383ec269f2a55fcc9eb8ca01307c45c4050c861bb11a6",
         "manifest_sha256": "719d77f2f13ca1f67fcbcd6ae82c0b1351cdb1aca8bd7106c081cc16ac68d0db",
@@ -622,7 +664,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "2dc8cb47-462d-5d46-a581-b341b34203b6",
+          "publication_available": false,
+          "bank_ids": [
+            "2dc8cb47-462d-5d46-a581-b341b34203b6",
+            "c15ab4cb-1486-5cfa-9fa8-1f1823463883"
+          ]
         }
       }
     },
@@ -652,7 +700,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+        "publication_available": true,
+        "bank_ids": [
+          "3f25b300-a3ad-5527-8986-73022b168a0c"
+        ]
       },
       "preview": {
         "canonical": {
@@ -678,7 +731,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+          "publication_available": true,
+          "bank_ids": [
+            "3f25b300-a3ad-5527-8986-73022b168a0c"
+          ]
         },
         "source_sha256": "711e42becddee32bfee93f6d0b691a318403b1b4ffef01302d28d2dbed1c037a",
         "manifest_sha256": "140828a526bfe896663156422e7a0488490bb4289f25d2e310853e3cfe31c5b1",
@@ -909,7 +967,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "3f25b300-a3ad-5527-8986-73022b168a0c",
+          "publication_available": false,
+          "bank_ids": [
+            "3f25b300-a3ad-5527-8986-73022b168a0c",
+            "5e83dd44-1c45-5497-906f-335f34a0d1e7"
+          ]
         }
       }
     },
@@ -939,7 +1003,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+        "publication_available": true,
+        "bank_ids": [
+          "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3"
+        ]
       },
       "preview": {
         "canonical": {
@@ -965,7 +1034,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+          "publication_available": true,
+          "bank_ids": [
+            "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3"
+          ]
         },
         "source_sha256": "67ffbc97e73fdb1d43a88644a77d0ebfbb93b845b8f2dd6c8575dec93d84ef3a",
         "manifest_sha256": "1520fc1a79b33814b518901fc674b2c287d31a7946bb4d924d5312cfb5586c36",
@@ -1170,7 +1244,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+          "publication_available": false,
+          "bank_ids": [
+            "f1c8fdfc-b9e5-598d-bcc6-e5bff4ab6ef3",
+            "4ffa0728-bcfe-5660-bfac-d37593f4db59"
+          ]
         }
       }
     },
@@ -1200,7 +1280,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+        "publication_available": true,
+        "bank_ids": [
+          "d6870202-5865-5cd5-83a5-7c54629e3643"
+        ]
       },
       "preview": {
         "canonical": {
@@ -1226,7 +1311,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+          "publication_available": true,
+          "bank_ids": [
+            "d6870202-5865-5cd5-83a5-7c54629e3643"
+          ]
         },
         "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
         "manifest_sha256": "cc5f490add6a475b8638fcf2866f5e07987e7eebd46edfa1e3c9674ef753651c",
@@ -1437,7 +1527,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "d6870202-5865-5cd5-83a5-7c54629e3643",
+          "publication_available": false,
+          "bank_ids": [
+            "d6870202-5865-5cd5-83a5-7c54629e3643",
+            "4308e748-5d7b-517c-8398-b065aede827a"
+          ]
         }
       }
     },
@@ -1467,7 +1563,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+        "publication_available": true,
+        "bank_ids": [
+          "7ba0a1f8-5be3-5574-9851-c57175f07b46"
+        ]
       },
       "preview": {
         "canonical": {
@@ -1493,7 +1594,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+          "publication_available": true,
+          "bank_ids": [
+            "7ba0a1f8-5be3-5574-9851-c57175f07b46"
+          ]
         },
         "source_sha256": "f63edb03e73d2e657a82d16b4adfff004b01b9bf2e7bb9f2a93b3a6e3eb4a730",
         "manifest_sha256": "85e04eb57d0a0ad72c44dddaf3d3584ba6c2a0d106330245c917b26645eee133",
@@ -1646,7 +1752,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+          "publication_available": false,
+          "bank_ids": [
+            "7ba0a1f8-5be3-5574-9851-c57175f07b46",
+            "c927cae1-c9f3-5296-9842-2ad01cf30952"
+          ]
         }
       }
     },
@@ -1676,7 +1788,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+        "publication_available": true,
+        "bank_ids": [
+          "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6"
+        ]
       },
       "preview": {
         "canonical": {
@@ -1702,7 +1819,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+          "publication_available": true,
+          "bank_ids": [
+            "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6"
+          ]
         },
         "source_sha256": "f272f1d183cb766746c269510f0d226bf88036606dbdb2c3dfa246b716c6fcf0",
         "manifest_sha256": "8c0a7a893647ecb8b72379d50f5fbc1b045b4fd13a86365c89f0a76e1b0792bc",
@@ -1874,7 +1996,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+          "publication_available": false,
+          "bank_ids": [
+            "f6cdf3ff-17ee-58a9-9042-08ef2f444fa6",
+            "3cbf04c2-6adc-5b1e-9c31-46b24832b970"
+          ]
         }
       }
     },
@@ -1904,7 +2032,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+        "publication_available": true,
+        "bank_ids": [
+          "7d5fdf02-8a61-5908-9a27-2ab83686e725"
+        ]
       },
       "preview": {
         "canonical": {
@@ -1930,7 +2063,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+          "publication_available": true,
+          "bank_ids": [
+            "7d5fdf02-8a61-5908-9a27-2ab83686e725"
+          ]
         },
         "source_sha256": "f9c0cab2ce4292531dfeda4d8353f6044d5d77d55d38068e8567f83730d3884d",
         "manifest_sha256": "bb08f18af7392830fac4aa0dc1f88e1fc69d49fc37275f42b25776f2b973e7b0",
@@ -2057,7 +2195,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+          "publication_available": false,
+          "bank_ids": [
+            "7d5fdf02-8a61-5908-9a27-2ab83686e725",
+            "5b4e73e0-02c9-5e81-a3a3-def597c062af"
+          ]
         }
       }
     },
@@ -2087,7 +2231,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+        "publication_available": true,
+        "bank_ids": [
+          "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8"
+        ]
       },
       "preview": {
         "canonical": {
@@ -2113,7 +2262,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+          "publication_available": true,
+          "bank_ids": [
+            "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8"
+          ]
         },
         "source_sha256": "297a5ae369e3bc727601e4c39157b32f43b759d2e33872201cc1df8e58222183",
         "manifest_sha256": "dc18875c1ada1a3e72c05db2b67267cfb7cb2c64abd4402ec53c01aa42b3bc85",
@@ -2300,7 +2454,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+          "publication_available": false,
+          "bank_ids": [
+            "a2a25432-ffd1-5360-8f6e-f8d3a702ffb8",
+            "2747fd3e-c223-5d85-9d72-c982807c737d"
+          ]
         }
       }
     },
@@ -2330,7 +2490,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+        "publication_available": true,
+        "bank_ids": [
+          "8351a1e3-d27b-56a6-8a87-69845bb57676"
+        ]
       },
       "preview": {
         "canonical": {
@@ -2356,7 +2521,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+          "publication_available": true,
+          "bank_ids": [
+            "8351a1e3-d27b-56a6-8a87-69845bb57676"
+          ]
         },
         "source_sha256": "66dfacf3a82258a91252cb33c3624967183c9313291b958b02ef64648a619dd9",
         "manifest_sha256": "c336148456499027f89fb349aaf87fc18039395108292c03657ef8255e45f35d",
@@ -2482,7 +2652,13 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "8351a1e3-d27b-56a6-8a87-69845bb57676",
+          "publication_available": false,
+          "bank_ids": [
+            "8351a1e3-d27b-56a6-8a87-69845bb57676",
+            "1f3ed0df-a0a0-5785-9121-37639cfe555b"
+          ]
         }
       }
     },
@@ -2512,7 +2688,12 @@
             "provably_unfinished_paused": 1
           },
           "authoritative_review_required": false
-        }
+        },
+        "canonical_root_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+        "publication_available": true,
+        "bank_ids": [
+          "87c82820-abe7-5b2e-886d-789cec0c207b"
+        ]
       },
       "preview": {
         "canonical": {
@@ -2538,7 +2719,12 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+          "publication_available": true,
+          "bank_ids": [
+            "87c82820-abe7-5b2e-886d-789cec0c207b"
+          ]
         },
         "source_sha256": "8606094f523bdd1a95666ebeb6139a3e71d1efd6f712aecba06e5bfebd20dec4",
         "manifest_sha256": "477ae949146cb4343d997d709280e69428bb2bf4baed0771fbe2cf62c03f46f7",
@@ -2736,20 +2922,25 @@
               "provably_unfinished_paused": 1
             },
             "authoritative_review_required": false
-          }
+          },
+          "canonical_root_bank_id": "87c82820-abe7-5b2e-886d-789cec0c207b",
+          "publication_available": false,
+          "bank_ids": [
+            "87c82820-abe7-5b2e-886d-789cec0c207b",
+            "5b536662-94e5-512b-8f6c-0781e244bcf2"
+          ]
         }
       }
     }
   ],
   "actual_admin_capture": {
     "provenance": {
-      "artifact": "grammar-history-admin-public-wire-v1.json",
-      "sha256": "9adcb759a8906ec40afc6ccc3d12a72de3926f4c973f67d3b2fd0127ff853c7a",
-      "boundary": "real task-local PG commit/lifecycle + real ASGI; synthetic Auth and snapshot synchronous reads; no live RLS/publication proof",
+      "artifact": "grammar-audit-admin-public-wire.json",
+      "boundary": "actual local PostgreSQL + ASGI; synthetic Auth, users and history; no production or RLS acceptance",
       "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
-      "extraction": "Exact public admin_requests responses/identity fields; raw source is referenced byte-exact from grammar-exact-form-banks.json, no private cohort/history/user or schema data copied."
+      "extraction": "Exact public read/preview/applied/replayed/current wire; no private receipt or learner rows."
     },
-    "actor_id": "71650bf7-0b92-445d-b719-ad283536dce0",
+    "actor_id": "a7b84b0b-4e07-4ca9-acf1-baca21211996",
     "canonical_code": "G-tenses-present-simple",
     "requests": [
       {
@@ -2758,12 +2949,17 @@
         "status": 200,
         "response": {
           "canonical_code": "G-tenses-present-simple",
-          "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-          "current_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-          "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
-          "revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef",
-          "current_bank_revision": "2f1791d0c98f83e498cdb20ac2c9d9ea0443c1c63d99601b8e644009dee8dae9",
-          "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+          "original_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+          "canonical_root_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+          "publication_available": true,
+          "bank_ids": [
+            "a9853691-3d2b-43f3-ab80-c0836ad3fbae"
+          ],
+          "current_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+          "topic_id": "633d5123-50cd-4d97-9f15-c173ea25f087",
+          "revision": "f2e9a569a61cebe3b8ddb5b5bd8c8b683f72073b81f68fdb03f647922e9b855e",
+          "current_bank_revision": "ddd22d671d5ff83fbdc60ffad4d5332e2063d442ac82347e6f35d93899a93480",
+          "original_questions_sha256": "1ab00572d29da2ec5cf7ff3daca859972803296400fd8f9bbf8b92b046a4db43",
           "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
           "is_managed": false,
           "new_starts_enabled": true,
@@ -2780,23 +2976,29 @@
             },
             "authoritative_review_required": false
           }
-        },
-        "request_without_source": null,
-        "source_fixture_code": null
+        }
       },
       {
         "method": "POST",
         "path": "/admin/quiz/grammar-revisions/G-tenses-present-simple/preview",
         "status": 200,
+        "request_without_source": {
+          "expected_revision": "f2e9a569a61cebe3b8ddb5b5bd8c8b683f72073b81f68fdb03f647922e9b855e"
+        },
         "response": {
           "canonical": {
             "canonical_code": "G-tenses-present-simple",
-            "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-            "current_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-            "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
-            "revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef",
-            "current_bank_revision": "2f1791d0c98f83e498cdb20ac2c9d9ea0443c1c63d99601b8e644009dee8dae9",
-            "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+            "original_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+            "canonical_root_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+            "publication_available": true,
+            "bank_ids": [
+              "a9853691-3d2b-43f3-ab80-c0836ad3fbae"
+            ],
+            "current_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+            "topic_id": "633d5123-50cd-4d97-9f15-c173ea25f087",
+            "revision": "f2e9a569a61cebe3b8ddb5b5bd8c8b683f72073b81f68fdb03f647922e9b855e",
+            "current_bank_revision": "ddd22d671d5ff83fbdc60ffad4d5332e2063d442ac82347e6f35d93899a93480",
+            "original_questions_sha256": "1ab00572d29da2ec5cf7ff3daca859972803296400fd8f9bbf8b92b046a4db43",
             "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
             "is_managed": false,
             "new_starts_enabled": true,
@@ -2816,8 +3018,8 @@
           },
           "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
           "manifest_sha256": "cc5f490add6a475b8638fcf2866f5e07987e7eebd46edfa1e3c9674ef753651c",
-          "preview_fingerprint": "818b1cde40bd0c4c5e9ef2e3a2ec675499fd5b5cf57278952634f163645cc817",
-          "proposed_revision": "f50e9d3b48cb18aa2715d69b451b1151bdf2ceef3acd534ee4053be43c850a0d",
+          "preview_fingerprint": "230e0d9376d2a99a4378a70a2cd415d2af40a75daee77a0ef3e4bcb42ad418ef",
+          "proposed_revision": "07e139011a182e15b826823d60e5d790b87cb5187c6328cfac82215401f12203",
           "changed_questions": [
             {
               "qid": "ps_vspc_a1",
@@ -2831,36 +3033,43 @@
           "validation_messages": [
             "Giữ nguyên ID/câu hỏi gốc và lịch sử; chỉ tạo bản sửa đã duyệt."
           ]
-        },
-        "request_without_source": {
-          "expected_revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef"
-        },
-        "source_fixture_code": "G-tenses-present-simple"
+        }
       },
       {
         "method": "POST",
         "path": "/admin/quiz/grammar-revisions/G-tenses-present-simple/commit",
         "status": 200,
+        "request_without_source": {
+          "expected_revision": "f2e9a569a61cebe3b8ddb5b5bd8c8b683f72073b81f68fdb03f647922e9b855e",
+          "preview_fingerprint": "230e0d9376d2a99a4378a70a2cd415d2af40a75daee77a0ef3e4bcb42ad418ef",
+          "operation_id": "88166516-51a4-4b5c-96a3-3087ebf112c7"
+        },
         "response": {
           "canonical_code": "G-tenses-present-simple",
-          "operation_id": "0b36243b-e5f5-4ec3-a735-4e6c64861b59",
+          "operation_id": "88166516-51a4-4b5c-96a3-3087ebf112c7",
           "outcome": "applied",
-          "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-          "corrected_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+          "original_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+          "corrected_bank_id": "f173575b-b287-43a9-9b9f-dc109051d406",
           "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
-          "committed_revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
-          "current_revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+          "committed_revision": "76e5f4d5b3df987cd051663d27e7e5a0477f5a67078ae704a8fe5dee208ec557",
+          "current_revision": "76e5f4d5b3df987cd051663d27e7e5a0477f5a67078ae704a8fe5dee208ec557",
           "current_matches_committed": true,
-          "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
-          "original_history_sha256": "d155010b070b5f00285fc5b63a1946bbf963a9a3938a18acdd6202b2b5d50fc7",
+          "original_questions_sha256": "1ab00572d29da2ec5cf7ff3daca859972803296400fd8f9bbf8b92b046a4db43",
+          "original_history_sha256": "2a28a209888bb3d9e971c0b51de99b0986cc227ae4b283f94469c5d0fa04137a",
           "canonical": {
             "canonical_code": "G-tenses-present-simple",
-            "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-            "current_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
-            "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
-            "revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
-            "current_bank_revision": "f50e9d3b48cb18aa2715d69b451b1151bdf2ceef3acd534ee4053be43c850a0d",
-            "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+            "original_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+            "canonical_root_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+            "publication_available": false,
+            "bank_ids": [
+              "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+              "f173575b-b287-43a9-9b9f-dc109051d406"
+            ],
+            "current_bank_id": "f173575b-b287-43a9-9b9f-dc109051d406",
+            "topic_id": "633d5123-50cd-4d97-9f15-c173ea25f087",
+            "revision": "76e5f4d5b3df987cd051663d27e7e5a0477f5a67078ae704a8fe5dee208ec557",
+            "current_bank_revision": "07e139011a182e15b826823d60e5d790b87cb5187c6328cfac82215401f12203",
+            "original_questions_sha256": "1ab00572d29da2ec5cf7ff3daca859972803296400fd8f9bbf8b92b046a4db43",
             "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
             "is_managed": true,
             "new_starts_enabled": true,
@@ -2878,38 +3087,43 @@
               "authoritative_review_required": false
             }
           }
-        },
-        "request_without_source": {
-          "expected_revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef",
-          "preview_fingerprint": "818b1cde40bd0c4c5e9ef2e3a2ec675499fd5b5cf57278952634f163645cc817",
-          "operation_id": "0b36243b-e5f5-4ec3-a735-4e6c64861b59"
-        },
-        "source_fixture_code": "G-tenses-present-simple"
+        }
       },
       {
         "method": "POST",
         "path": "/admin/quiz/grammar-revisions/G-tenses-present-simple/commit",
         "status": 200,
+        "request_without_source": {
+          "expected_revision": "f2e9a569a61cebe3b8ddb5b5bd8c8b683f72073b81f68fdb03f647922e9b855e",
+          "preview_fingerprint": "230e0d9376d2a99a4378a70a2cd415d2af40a75daee77a0ef3e4bcb42ad418ef",
+          "operation_id": "88166516-51a4-4b5c-96a3-3087ebf112c7"
+        },
         "response": {
           "canonical_code": "G-tenses-present-simple",
-          "operation_id": "0b36243b-e5f5-4ec3-a735-4e6c64861b59",
+          "operation_id": "88166516-51a4-4b5c-96a3-3087ebf112c7",
           "outcome": "already_applied",
-          "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-          "corrected_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
+          "original_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+          "corrected_bank_id": "f173575b-b287-43a9-9b9f-dc109051d406",
           "source_sha256": "97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670",
-          "committed_revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
-          "current_revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
+          "committed_revision": "76e5f4d5b3df987cd051663d27e7e5a0477f5a67078ae704a8fe5dee208ec557",
+          "current_revision": "76e5f4d5b3df987cd051663d27e7e5a0477f5a67078ae704a8fe5dee208ec557",
           "current_matches_committed": true,
-          "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
-          "original_history_sha256": "d155010b070b5f00285fc5b63a1946bbf963a9a3938a18acdd6202b2b5d50fc7",
+          "original_questions_sha256": "1ab00572d29da2ec5cf7ff3daca859972803296400fd8f9bbf8b92b046a4db43",
+          "original_history_sha256": "2a28a209888bb3d9e971c0b51de99b0986cc227ae4b283f94469c5d0fa04137a",
           "canonical": {
             "canonical_code": "G-tenses-present-simple",
-            "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-            "current_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
-            "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
-            "revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
-            "current_bank_revision": "f50e9d3b48cb18aa2715d69b451b1151bdf2ceef3acd534ee4053be43c850a0d",
-            "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+            "original_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+            "canonical_root_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+            "publication_available": false,
+            "bank_ids": [
+              "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+              "f173575b-b287-43a9-9b9f-dc109051d406"
+            ],
+            "current_bank_id": "f173575b-b287-43a9-9b9f-dc109051d406",
+            "topic_id": "633d5123-50cd-4d97-9f15-c173ea25f087",
+            "revision": "76e5f4d5b3df987cd051663d27e7e5a0477f5a67078ae704a8fe5dee208ec557",
+            "current_bank_revision": "07e139011a182e15b826823d60e5d790b87cb5187c6328cfac82215401f12203",
+            "original_questions_sha256": "1ab00572d29da2ec5cf7ff3daca859972803296400fd8f9bbf8b92b046a4db43",
             "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
             "is_managed": true,
             "new_starts_enabled": true,
@@ -2927,13 +3141,7 @@
               "authoritative_review_required": false
             }
           }
-        },
-        "request_without_source": {
-          "expected_revision": "48e1b6395e0aca4956fcdf9990efc25319168f423061d5f6ec749b9f628a14ef",
-          "preview_fingerprint": "818b1cde40bd0c4c5e9ef2e3a2ec675499fd5b5cf57278952634f163645cc817",
-          "operation_id": "0b36243b-e5f5-4ec3-a735-4e6c64861b59"
-        },
-        "source_fixture_code": "G-tenses-present-simple"
+        }
       },
       {
         "method": "GET",
@@ -2941,12 +3149,18 @@
         "status": 200,
         "response": {
           "canonical_code": "G-tenses-present-simple",
-          "original_bank_id": "6fae6ae5-0936-44ae-aefe-b28164b3e08f",
-          "current_bank_id": "f2100cdc-508d-46e0-9f40-ecb02f2b24d5",
-          "topic_id": "a8923520-7504-4b3c-8433-d7c479029ce6",
-          "revision": "c3799020073e7fea97f8bd90344cf151552cc9d07e4e936d67ab2f2665189f24",
-          "current_bank_revision": "f50e9d3b48cb18aa2715d69b451b1151bdf2ceef3acd534ee4053be43c850a0d",
-          "original_questions_sha256": "055e19420079e7742b186fef21caad9f8b6fd7c40528f6cecdf879731a4a1670",
+          "original_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+          "canonical_root_bank_id": "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+          "publication_available": false,
+          "bank_ids": [
+            "a9853691-3d2b-43f3-ab80-c0836ad3fbae",
+            "f173575b-b287-43a9-9b9f-dc109051d406"
+          ],
+          "current_bank_id": "f173575b-b287-43a9-9b9f-dc109051d406",
+          "topic_id": "633d5123-50cd-4d97-9f15-c173ea25f087",
+          "revision": "76e5f4d5b3df987cd051663d27e7e5a0477f5a67078ae704a8fe5dee208ec557",
+          "current_bank_revision": "07e139011a182e15b826823d60e5d790b87cb5187c6328cfac82215401f12203",
+          "original_questions_sha256": "1ab00572d29da2ec5cf7ff3daca859972803296400fd8f9bbf8b92b046a4db43",
           "original_metadata_sha256": "46280a47a25193ae24648397848c42c553e15fc3837b434b332ce1fc8ed955ba",
           "is_managed": true,
           "new_starts_enabled": true,
@@ -2963,9 +3177,7 @@
             },
             "authoritative_review_required": false
           }
-        },
-        "request_without_source": null,
-        "source_fixture_code": null
+        }
       }
     ]
   }

@@ -40,9 +40,10 @@ describe('/flashcard-study native ownership', () => {
     assert.doesNotMatch(player, /failedSyncs|fire-and-forget|tiến độ local đã ghi/);
   });
 
-  test('preserves public local marks, audio fallback, keyboard and rich content', () => {
+  test('preserves public local marks, recorded audio, keyboard and rich content', () => {
     assert.match(player, /localStorage\.setItem/);
-    assert.match(player, /window\.speechSynthesis\.speak/);
+    assert.match(player, /VocabularyAudioButton as AudioButton/);
+    assert.doesNotMatch(readFileSync(new URL('../components/vocabulary-audio-button.tsx', import.meta.url), 'utf8'), /speechSynthesis|SpeechSynthesisUtterance/);
     assert.match(player, /event\.key === ' '/);
     assert.match(player, /card\.collocations/);
     assert.match(player, /card\.memoryHook/);

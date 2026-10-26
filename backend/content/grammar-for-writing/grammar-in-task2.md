@@ -123,7 +123,7 @@ Tiêu chí GRA của Task 2 nói rõ: Band 7 cần "**a variety of complex struc
 
 ## Tại sao quan trọng
 
-Hai phần tư điểm Task 2 là **Grammatical Range and Accuracy** và **Coherence and Cohesion** — cả hai đều là ngữ pháp. Thí sinh mắc kẹt ở Band 6 thường vì viết toàn câu đơn, hoặc nhồi câu phức nhưng sai liên từ/dấu câu. Làm chủ sáu đòn bẩy dưới đây là con đường rõ nhất lên Band 7.
+Hai phần tư điểm Task 2 là **Grammatical Range and Accuracy** và **Coherence and Cohesion** — GRA xét ngữ pháp, CC xét tổ chức và liên kết ý. Thí sinh mắc kẹt ở Band 6 thường vì viết toàn câu đơn, hoặc nhồi câu phức nhưng sai liên từ/dấu câu. Sáu nhóm cấu trúc là công cụ diễn đạt; không tự bảo đảm band.
 
 ---
 
@@ -149,7 +149,8 @@ Câu điều kiện thể hiện giả định và hệ quả — rất hợp es
 |------|----------|----------|
 | **Type 1** | If + present, will + V | hệ quả thực tế, khả thi |
 | **Type 2** | If + past, would + V | giả định, đề xuất |
-| **Mixed / Unless** | Unless + present, ... | "nếu không..." |
+| **Mixed** | If + past perfect, would + V (now) | quá khứ → hiện tại |
+| **Unless** | Unless + điều kiện, ... | ngoại lệ, thường gần “nếu không...” |
 
 - **If** governments **invest** in renewable energy, emissions **will** fall. *(Type 1)*
 - **If** education **were** free, more people **would** attend university. *(Type 2)*
@@ -234,7 +235,7 @@ Task 2 là văn bán trang trọng — tránh:
 
 *"**One major argument in favour of** remote work **is that** it improves work-life balance. **Because** employees save hours of commuting, they **can** devote more time to family and rest. **If** companies **embraced** this model more widely, overall productivity **might well** improve. **However, it could be argued that** remote work **also** weakens team cohesion — a concern **that** should not be dismissed."*
 
-**Phân tích:** câu chẻ (One argument... is that) + mệnh đề phụ (because) + điều kiện (if... might) + hedging (it could be argued) + mệnh đề quan hệ (that). Đa dạng nhưng vẫn chính xác.
+**Phân tích:** mệnh đề that làm bổ ngữ (One argument... is that) + mệnh đề phụ (because) + điều kiện (if... might) + hedging (it could be argued) + mệnh đề quan hệ (that). Đa dạng nhưng vẫn chính xác.
 
 ---
 
@@ -300,5 +301,5 @@ Task 2 là văn bán trang trọng — tránh:
 **Quy tắc vàng:**
 - Đa dạng CÓ KIỂM SOÁT: xen câu đơn và phức chính xác > câu dài sai
 - "however/therefore" = trạng từ → dấu chấm/chấm phẩy, không dấu phẩy nối câu
-- Điều kiện Type 1: if + present, will + V (không "if will")
+- Điều kiện Type 1: if + present, will + V (không dùng will chỉ đánh dấu tương lai; vẫn có if you will help cho ý sẵn lòng)
 - Tránh viết tắt và từ thân mật (kids, a lot of, get worse)

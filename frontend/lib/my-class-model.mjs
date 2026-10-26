@@ -7,7 +7,7 @@ import {
 const SKILLS = new Set(['speaking', 'writing', 'reading', 'listening', 'course', 'grammar']);
 const PLAYER_SURFACES = new Set(['speaking', 'reading_exam', 'listening_test']);
 const COURSE_ACTIONS = new Set([
-  'start', 'continue', 'retake', 'retry_full', 'review', 'expired_pending',
+  'start', 'continue', 'retake', 'retry_full', 'review', 'expired_pending', 'closed',
 ]);
 
 function objectOf(value) {
@@ -264,6 +264,15 @@ export function assignmentAction(row) {
       return { kind: 'review', label: 'Xem bài & chữa lỗi' };
     }
   }
+  if (row?.assignment?.skill === 'writing') {
+    // A writing give's whole lifecycle (draft, submit, grading) lives on the
+    // Writing dashboard; every state navigates there. "Missing" stays navigable
+    // (not a dead `closed` button) because an overdue essay can still be viewed
+    // and, if the teacher left it open, submitted late there.
+    if (row.submittedAt) return { kind: 'review', label: 'Xem bài đã nộp' };
+    if (row.isMissing) return { kind: 'review', label: 'Mở bài viết' };
+    return { kind: 'start', label: 'Làm bài' };
+  }
   if (row?.assignment?.skill === 'course') {
     const labels = {
       start: 'Làm bài',
@@ -272,8 +281,16 @@ export function assignmentAction(row) {
       retry_full: 'Làm lại toàn bộ',
       review: 'Xem kết quả',
       expired_pending: 'Đang thu bài',
+      closed: 'Đã quá hạn',
     };
     const action = row.courseAction || (row.submittedAt ? 'review' : 'start');
+    // Trust the backend's verdict: it already distinguishes "closed" (overdue
+    // with nothing to open) from "review" (a failed/timed attempt that still
+    // serves a read-only result). Inferring "closed" from a "review" + missing
+    // deadline would hide "Xem kết quả" for timed items the server still shows.
+    if (action === 'closed') {
+      return { kind: 'closed', label: 'Đã quá hạn' };
+    }
     return labels[action]
       ? { kind: ['review', 'expired_pending'].includes(action) ? 'review' : 'start', label: labels[action] }
       : null;
@@ -291,6 +308,30 @@ export function assignmentAction(row) {
   return null;
 }
 
+function sessionBoundary(prefix) {
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped}(?=\\s|$|[·•—–\\-:])`, 'i');
+}
+
+/** "Buổi N · title", unless the title already starts with that same label. */
+export function sessionPrefixedTitle(lessonNo, title) {
+  const name = textOf(title);
+  if (lessonNo == null || lessonNo === '') return name;
+  const prefix = `Buổi ${lessonNo}`;
+  if (!name) return prefix;
+  return sessionBoundary(prefix).test(name) ? name : `${prefix} · ${name}`;
+}
+
+export function classOnTimeLabel(rows) {
+  if (!rows || !rows.length) return '—';
+  const submitted = rows.filter((row) => row.submittedAt);
+  // No hand-ins yet means there is no denominator — "0%" would read as a
+  // failing discipline rate, so show "—" until something is actually submitted.
+  if (!submitted.length) return '—';
+  const late = submitted.filter((row) => row.isLate).length;
+  return `${Math.round((submitted.length - late) / submitted.length * 100)}%`;
+}
+
 export function assignmentSubtitle(row) {
   const cfg = row?.assignment?.content || {};
   if (row?.assignment?.skill === 'grammar'
@@ -301,8 +342,7 @@ export function assignmentSubtitle(row) {
     return [cfg.topic, cfg.part ? `Part ${cfg.part}` : ''].filter(Boolean).join(' · ');
   }
   if (row?.assignment?.skill === 'course') {
-    return [cfg.lessonNo ? `Buổi ${cfg.lessonNo}` : '', cfg.testTitle]
-      .filter(Boolean).join(' · ');
+    return sessionPrefixedTitle(cfg.lessonNo, cfg.testTitle);
   }
   const labels = { writing: 'Writing', reading: 'Reading', listening: 'Listening' };
   return [labels[row?.assignment?.skill] || row?.assignment?.skill, cfg.testTitle]

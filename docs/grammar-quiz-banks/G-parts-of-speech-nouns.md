@@ -222,11 +222,11 @@ input: "text"
 headword: "noun-irregular-plurals"
 skill: "production"
 subtype: "intermediate"
-prompt: "Conservationists warn that several endangered ____ (mouse, viết dạng số nhiều bất quy tắc) species may disappear within a decade."
+prompt: "Several endangered ____ (mouse, viết dạng số nhiều bất quy tắc) were found in the protected habitat."
 accept: ["mice"]
 case_sensitive: false
 grammar_article_slug: "nouns"
-explain: "Số nhiều bất quy tắc của 'mouse' là 'mice', không phải 'mouses'."
+explain: "Mouse làm danh từ trung tâm đếm được, nên several đòi dạng số nhiều mice. Đề đã bỏ species để không trộn bài số nhiều với danh từ bổ nghĩa thường dùng mouse species."
 ---
 
 ---
@@ -237,9 +237,9 @@ headword: "noun-irregular-plurals"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Đúng hay Sai: 'The report shows that over three million persons were affected by the flood.'"
-answer: false
+answer: true
 grammar_article_slug: "nouns"
-explain: "SAI — với số lượng lớn người nói chung, dùng 'people' (số nhiều bất quy tắc của person), không dùng 'persons'. Sửa: 'over three million people were affected'."
+explain: "ĐÚNG — persons là dạng số nhiều dùng được, đặc biệt trong văn bản chính thức. People thông dụng hơn khi nói về nhiều người nói chung, nhưng số lượng lớn không tự làm persons sai."
 ---
 
 # ===== item_key 4 · Sở hữu cách 's / danh từ ghép (missing_article context) =====

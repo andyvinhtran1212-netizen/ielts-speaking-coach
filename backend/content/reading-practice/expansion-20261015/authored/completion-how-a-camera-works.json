@@ -1,0 +1,198 @@
+{
+  "slug": "completion-how-a-camera-works",
+  "review_notes": "Dịch lại toàn bài; bổ sung câu cân bằng khẩu độ và thời gian phơi sáng bị thiếu trong bản cũ. Phân biệt máy ảnh với điện thoại chứa camera, ảnh tĩnh với tranh, và thời gian mở màn trập với bản thân màn trập.",
+  "illustration_brief": "Cảnh một người chụp cây qua máy ảnh trên chân đỡ, có khung ảnh thu nhỏ bên cạnh; không ghi tên bộ phận hay các thông số đáp án.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Máy ảnh, dù là camera trong chiếc điện thoại bỏ túi hay một thiết bị chuyên nghiệp đắt tiền, đều giải quyết cùng một bài toán cơ bản: thu nhận ánh sáng phản xạ từ cảnh vật và biến nó thành một bức ảnh tĩnh.",
+      [
+        "capture the light",
+        "thu nhận ánh sáng"
+      ],
+      [
+        "a still picture",
+        "một bức ảnh tĩnh"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Về mặt này, máy ảnh hoạt động khá giống mắt người, với các bộ phận đảm nhiệm những chức năng gần tương tự.",
+      [
+        "the human eye",
+        "mắt người"
+      ],
+      [
+        "roughly similar jobs",
+        "những chức năng gần tương tự"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Hành trình của ánh sáng bắt đầu khi nó phản xạ từ mọi vật nằm trong khung hình.",
+      [
+        "bounces off",
+        "phản xạ từ"
+      ],
+      [
+        "in the frame",
+        "nằm trong khung hình"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Trước tiên, ánh sáng đi qua thấu kính, một miếng thủy tinh hoặc nhựa cong làm các tia sáng đổi hướng và hội tụ chính xác ở phía bên kia.",
+      [
+        "passes through the lens",
+        "đi qua thấu kính"
+      ],
+      [
+        "bends and focuses the rays",
+        "làm các tia sáng đổi hướng và hội tụ"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nếu không có sự hội tụ này, hình ảnh sẽ mờ nhòe.",
+      [
+        "this focusing",
+        "sự hội tụ này"
+      ],
+      [
+        "a blur",
+        "mờ nhòe"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Ngay sau thấu kính là khẩu độ: một lỗ mở có thể điều chỉnh mà ánh sáng phải đi qua.",
+      [
+        "the aperture",
+        "khẩu độ"
+      ],
+      [
+        "an adjustable opening",
+        "một lỗ mở có thể điều chỉnh"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Bằng cách mở rộng hoặc thu hẹp lỗ này, người chụp kiểm soát lượng ánh sáng đi vào máy.",
+      [
+        "widening or narrowing",
+        "mở rộng hoặc thu hẹp"
+      ],
+      [
+        "how much light is let in",
+        "lượng ánh sáng đi vào máy"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Bộ phận tiếp theo là màn trập.",
+      [
+        "the shutter",
+        "màn trập"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Đây là một tấm chắn mở trong khoảng thời gian định trước rồi đóng lại, qua đó quyết định ánh sáng được đi vào trong bao lâu.",
+      [
+        "a set length of time",
+        "khoảng thời gian định trước"
+      ],
+      [
+        "how long light is allowed in",
+        "ánh sáng được đi vào trong bao lâu"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Thời gian mở dài giúp làm sáng cảnh tối, nhưng cũng khiến vật đang chuyển động bị nhòe; vì vậy, để giữ hình ảnh rõ nét, cần thời gian mở màn trập ngắn khi chụp đối tượng chuyển động nhanh.",
+      [
+        "blurs anything that is moving",
+        "khiến vật đang chuyển động bị nhòe"
+      ],
+      [
+        "a brief shutter",
+        "thời gian mở màn trập ngắn"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Vì thế, người chụp phối hợp khẩu độ với màn trập, cân đối độ mở lớn hơn và thời gian phơi sáng ngắn hơn cho phù hợp với cảnh chụp.",
+      [
+        "a wider opening",
+        "độ mở lớn hơn"
+      ],
+      [
+        "a shorter exposure",
+        "thời gian phơi sáng ngắn hơn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Cuối cùng, ánh sáng tới bộ phận ghi nhận hình ảnh.",
+      [
+        "the recording part",
+        "bộ phận ghi nhận hình ảnh"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ở máy ảnh đời cũ, đó là phim: một dải vật liệu phủ hóa chất nhạy sáng, biến đổi khi được chiếu sáng.",
+      [
+        "light-sensitive chemicals",
+        "hóa chất nhạy sáng"
+      ],
+      [
+        "when exposed",
+        "khi được chiếu sáng"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Thay vào đó, phần lớn máy ảnh hiện đại dùng cảm biến kỹ thuật số, một con chip có hàng triệu điểm cực nhỏ biến ánh sáng thành tín hiệu điện.",
+      [
+        "a digital sensor",
+        "cảm biến kỹ thuật số"
+      ],
+      [
+        "electrical signals",
+        "tín hiệu điện"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Sau đó, các tín hiệu được xử lý và lưu thành một tập tin để chúng ta xem trên màn hình.",
+      [
+        "processed and stored",
+        "xử lý và lưu"
+      ],
+      [
+        "on a screen",
+        "trên màn hình"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Hiểu cách bốn bộ phận — thấu kính, khẩu độ, màn trập và cảm biến — phối hợp với nhau cho thấy nhiếp ảnh bớt bí ẩn hơn vẻ ngoài, dù có thể phải mất cả đời mới thành thạo việc cân bằng chúng thật hoàn hảo.",
+      [
+        "work together",
+        "phối hợp với nhau"
+      ],
+      [
+        "take a lifetime to master",
+        "phải mất cả đời mới thành thạo"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-camera-scene.svg",
+    "alt": "Máy ảnh trên chân đỡ hướng về cây bên hồ, cạnh bức ảnh nhỏ ghi lại cảnh vật ấy.",
+    "caption": "Từ cảnh vật đến bức ảnh."
+  },
+  "source_sha256": "5c6a76e914f83cae20db0f6184e6a9dbe7c521998ae332698b86881aa122b916",
+  "expected_translation_sha256": "cdcfe095a275f2e220ca47e44f108f046ca9ceeb492d92262125072a0619ffd4"
+}

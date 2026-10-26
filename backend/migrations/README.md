@@ -20,8 +20,26 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-06 the highest is `313`, so the next
-new migration is `314`.
+sequence is dense. As of 2026-10-14 the highest is `318`, so the next
+new migration is `319`.
+
+Migration `318` adds a default-empty personal vocabulary pronunciation column
+under existing row ownership/RLS. After applying it, render missing headwords
+with local Kokoro `bf_emma` and upload their content-addressed objects to the
+target's existing `vocab-audio` bucket. With that environment's service
+configuration loaded, run `python -m scripts.backfill_personal_vocabulary_audio
+--project-ref PROJECT_REF --expect-count N` from `backend`, then repeat with
+`--apply`. The checked-in command validates every recording before writing,
+compares each row's current headword/audio, prints counts only and is idempotent.
+Use `--user-id` only to limit synthetic staging acceptance; production repair
+checks all active rows. Missing recordings block the repair and no paid TTS is
+called. This step changes only pronunciation URLs, never learner evidence.
+
+Migration `317` adds admin-owned Vocabulary class sets, published snapshots,
+private study sessions, independent shared-card progress and atomic receipts.
+It leaves personal stacks, Quiz and D1 history intact. Enable only the
+`vocabulary_class_sets` forward-policy group on the authorized target before
+deploying its APIs; no content is seeded and no learner evidence is rewritten.
 
 Migration `305` adds frozen Dictation grading versions/references and their
 ownership/immutability guards. It does not enable lexical-v2 starts or regrade
@@ -46,6 +64,25 @@ Migration `313` adds the default-off original full-bank version: 90 scored
 MCQs and 10–30 ungraded writing responses per frozen attempt. It preserves
 legacy attempts and serializes practice exposure with diagnostic admission and
 finalization. Content publication and staged activation are separate release steps.
+
+Migration `314` extends the guarded Grammar publication owner to the exact
+reviewed audit sources. It retains historical receipts and learner rows, and
+allows only the named long-sentence follow-up revision. It changes functions,
+not bank content; content publication remains a separate guarded operation.
+
+Migration `315` creates private Reading/Listening copies atomically with a mock
+draft and hides selected public sources without revoking existing resume rights.
+Exam explanation copies retain independent bindings across Cambridge imports.
+Deploy it before the create API/UI; existing drafts and legacy RPC calls retain
+their admission guards.
+
+Migration `316` follows the already applied `315` without replaying it. Owned,
+unexpired standalone attempts retain their frozen resume entitlement when a
+shared source is hidden, while unrelated exam references still block new starts.
+Immutable Listening programme forms are excluded from the mock picker and
+rejected before source hiding or copying; their package identities stay intact.
+Apply `316` on staging, verify the corrected journeys, then apply it to production
+before promoting the matching picker/API code.
 
 ## Conventions
 

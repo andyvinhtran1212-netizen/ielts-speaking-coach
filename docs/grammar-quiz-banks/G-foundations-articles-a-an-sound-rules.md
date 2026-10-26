@@ -279,7 +279,7 @@ input: "choice"
 headword: "aan-abbreviations"
 skill: "form"
 subtype: "basic"
-prompt: "The clinic asked the patient to bring ____ CV of their medical history for the specialist."
+prompt: "The employer asked the applicant to bring ____ CV to the interview."
 options: ["a", "an", "the", "some"]
 answer: 0
 grammar_article_slug: "articles-a-an-sound-rules"

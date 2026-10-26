@@ -10,15 +10,15 @@ RLS from mig 110):
   DELETE /admin/vocabulary/{id}        — hard delete one word.
   POST   /admin/vocabulary/bulk-delete — hard-delete many by ids (one reload).
   POST   /admin/vocabulary/generate-audio — queue a voice-render job (BackgroundTask):
-         engine openai|elevenlabs × scope headword|example|both → stamp audio_*.
+         retired; returns 409 with the Kokoro batch preparation requirement.
 
 Every WRITE (import commit / patch / delete / bulk-delete) calls vocab_service.reload() (G1) so
 the public /vocabulary grid + article reflect it without a restart; the mig-110
 BEFORE-UPDATE trigger bumps updated_at so the public cache key (G2 = MAX(updated_at))
 invalidates. The importer (services/vocab_import.py) does the parse→validate→upsert.
 
-Out of scope (V-eleven): ElevenLabs render trigger — this console only PREVIEWS
-existing audio_url + shows audio_status; it never synthesizes.
+Audio is prepared locally in batches using Kokoro bf_emma. The console previews
+stored recordings; the retired generation route refuses hosted/provider jobs.
 """
 
 from __future__ import annotations
@@ -30,10 +30,8 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
-from config import settings
 from database import supabase_admin
 from routers.admin import require_admin
-from services import tts_audio
 from services.public_cache_invalidation import invalidate_vocabulary_cache
 from services.vocab_content import vocab_service
 from services.vocab_import import import_vocab_file
@@ -64,7 +62,7 @@ class VocabUpdate(BaseModel):
     """Partial-update payload. EVERY field is a real vocab_cards column (mig 110) —
     the schema-aware col-match test pins this (#538 lesson). id/slug/created_at/
     updated_at/import_batch_id and the audio_* columns are intentionally absent
-    (slug is the stable URL key; audio is owned by the pregen, V-eleven). updated_at
+    (slug is the stable URL key; audio is owned by the Kokoro pregen). updated_at
     auto-bumps via the BEFORE-UPDATE trigger, so the public cache key (G2) advances."""
     headword:       Optional[str]  = None
     category:       Optional[str]  = None
@@ -96,12 +94,12 @@ class BulkDeleteRequest(BaseModel):
 
 class GenerateAudioRequest(BaseModel):
     """Which words to render + how. Target = ids OR category OR all (in that
-    precedence). engine = openai|elevenlabs; scope = headword|example|both.
-    skip_existing_audio=True skips fields that already have a stored URL."""
+    precedence). Retained for older clients; hosted generation is disabled.
+    Vocabulary audio is prepared with Kokoro bf_emma by the operator batch CLI."""
     ids:                  Optional[list[UUID]] = None
     category:             Optional[str]        = None
     all:                  bool                 = False
-    engine:               str                  = "openai"
+    engine:               str                  = "kokoro"
     scope:                str                  = "both"
     skip_existing_audio:  bool                 = False
 
@@ -254,80 +252,15 @@ async def bulk_delete_vocab(
     return {"deleted_count": len(deleted_ids), "not_found": not_found}
 
 
-# ── V-eleven — engine-selectable audio generate (admin-triggered) ─────────────
-
-
-def _generate_audio_job(rows: list, engine: str, scope: str, skip_existing: bool = False) -> None:
-    """BackgroundTask (sync → thread pool, so the blocking synth/upload never
-    blocks the event loop). Per word: synth headword (+ example per scope) via the
-    chosen engine → upload → stamp audio_*; one bad word logs + continues. One
-    reload() at the end so the public grid serves the new audio (G1).
-    skip_existing=True skips any field whose audio URL is already populated in the row."""
-    do_hw = scope in ("headword", "both")
-    do_ex = scope in ("example", "both")
-    gen = skip = errors = stamped = 0
-    for r in rows:
-        slug = r.get("slug")
-        hw = (r.get("headword") or "").strip()
-        ex = (r.get("example") or "").strip()
-        stamp: dict = {}
-        try:
-            if do_hw and hw and (not skip_existing or not r.get("audio_headword")):
-                url, did = tts_audio.get_or_create_audio_sync(hw, engine)
-                stamp["audio_headword"] = url
-                gen, skip = (gen + 1, skip) if did else (gen, skip + 1)
-            elif do_hw and hw:
-                skip += 1
-            if do_ex and ex and (not skip_existing or not r.get("audio_example")):
-                url, did = tts_audio.get_or_create_audio_sync(ex, engine)
-                stamp["audio_example"] = url
-                gen, skip = (gen + 1, skip) if did else (gen, skip + 1)
-            elif do_ex and ex:
-                skip += 1
-            if stamp:
-                stamp["audio_status"] = "final"
-                supabase_admin.table("vocab_cards").update(stamp).eq("id", r.get("id")).execute()
-                stamped += 1
-        except Exception as exc:  # noqa: BLE001 — one bad word shouldn't kill the batch
-            errors += 1
-            logger.error("[vocab] generate-audio failed slug=%s engine=%s: %s", slug, engine, exc)
-    logger.info("[vocab] generate-audio done engine=%s scope=%s gen=%d skip=%d stamped=%d errors=%d",
-                engine, scope, gen, skip, stamped, errors)
-    if stamped and _reload_safe():
-        invalidate_vocabulary_cache()
-
-
 @router.post("/generate-audio")
 async def generate_audio(
     body: GenerateAudioRequest,
-    background_tasks: BackgroundTasks,
     authorization: str | None = Header(None),
 ):
-    """Queue a voice-render job for the selected words. Target precedence:
-    ids → category → all. engine=openai|elevenlabs; scope=headword|example|both.
-    Returns immediately ({queued_count, engine}); the render runs in the
-    background and stamps audio_* + status='final' (then reload G1)."""
+    """Keep older clients from silently producing a different Vocabulary voice.
+
+    Hosted deployments do not contain the local Kokoro model. Do not acknowledge
+    a queued job that cannot run, or fall back to another provider.
+    """
     await require_admin(authorization)
-
-    engine = body.engine if body.engine in tts_audio.VALID_ENGINES else "openai"
-    scope = body.scope if body.scope in ("headword", "example", "both") else "both"
-    # Gate on the engine's key so a misconfig fails loudly, not silently mid-job.
-    if engine == "elevenlabs" and not settings.ELEVENLABS_API_KEY:
-        raise HTTPException(503, "ELEVENLABS_API_KEY chưa cấu hình.")
-    if engine == "openai" and not settings.OPENAI_API_KEY:
-        raise HTTPException(503, "OPENAI_API_KEY chưa cấu hình.")
-
-    sel = "id,slug,headword,example,audio_headword,audio_example"
-    q = supabase_admin.table("vocab_cards").select(sel)
-    if body.ids:
-        q = q.in_("id", [str(i) for i in body.ids])
-    elif body.category:
-        q = q.eq("category", body.category)
-    elif not body.all:
-        raise HTTPException(400, "Chọn từ (ids), chủ đề (category), hoặc all=true.")
-    rows = (q.execute().data) or []
-    if not rows:
-        raise HTTPException(404, "Không có từ nào khớp.")
-
-    background_tasks.add_task(_generate_audio_job, rows, engine, scope, body.skip_existing_audio)
-    return {"queued_count": len(rows), "engine": engine, "scope": scope}
+    raise HTTPException(409, "Audio Vocabulary chỉ dùng Kokoro bf_emma và được chuẩn bị theo lô sau khi lưu nội dung. Chưa có tác vụ nào được xếp hàng.")

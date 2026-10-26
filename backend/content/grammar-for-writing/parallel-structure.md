@@ -56,7 +56,7 @@ anchors:
 <!-- anchor: parallel-structure.overview -->
 ## Tóm tắt
 
-Khi nối các ý bằng **and / or / but** hoặc liệt kê, các thành phần phải **cùng dạng ngữ pháp**:
+Khi nối các ý bằng **and / or / but** hoặc liệt kê, các thành phần cần cùng chức năng và quan hệ nghĩa phù hợp; hình thức cân xứng là mặc định dễ học, không buộc cùng từ loại trong mọi cấu trúc. “She is kind and in good spirits” phối hợp hai bổ ngữ miêu tả:
 
 - ❌ She likes *reading*, *to travel*, and *she paints*.
 - ✅ She likes **reading**, **travelling**, and **painting**. *(cả ba là V-ing)*
@@ -108,4 +108,4 @@ Các cặp sau đòi hai vế **song song hoàn hảo**:
 
 - and/or/but nối các thành phần **cùng dạng**
 - Cặp not only…but also / both…and đòi song song hoàn hảo
-- Giữ cùng dạng và cùng thì trong danh sách
+- Giữ dạng cân xứng khi cùng chức năng; chọn thì theo thời gian: “She worked yesterday and will rest tomorrow” đúng dù khác thì

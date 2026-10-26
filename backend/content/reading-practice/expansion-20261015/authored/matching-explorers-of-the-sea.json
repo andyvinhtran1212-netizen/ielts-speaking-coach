@@ -1,0 +1,182 @@
+{
+  "slug": "matching-explorers-of-the-sea",
+  "review_notes": "Bản dịch bám nguyên văn. Lập luận round Earth/falling off ở p3-s4 được hỏi trực tiếp bởi câu 7; đánh dấu cho audit độ chính xác lịch sử riêng, không tự sửa passage hoặc question/key trong gói bổ sung support này.",
+  "illustration_brief": "Thuyền buồm nhỏ trước một bến cảng và đường chân trời phía xa.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Từ rất lâu trước khi có bản đồ đáng tin cậy hay vệ tinh, những thủy thủ can đảm đã ra khơi trên biển rộng mà biết rất ít về điều chờ phía trước.",
+      [
+        "reliable maps or satellites",
+        "bản đồ đáng tin cậy hay vệ tinh"
+      ],
+      [
+        "with little idea of what lay ahead",
+        "mà biết rất ít về điều chờ phía trước"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Một số đi tìm đất mới, một số tìm kiếm của cải, và một số chỉ muốn biết thế giới thực sự rộng đến đâu.",
+      [
+        "in search of new land",
+        "đi tìm đất mới"
+      ],
+      [
+        "sought riches",
+        "tìm kiếm của cải"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Ba trong số các nhà thám hiểm biển nổi tiếng nhất sống ở những thời điểm và nơi chốn rất khác nhau.",
+      [
+        "very different times and places",
+        "những thời điểm và nơi chốn rất khác nhau"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Đầu thế kỷ XV, đô đốc Trung Quốc Trịnh Hòa chỉ huy một hạm đội “bảo thuyền” khổng lồ cho hoàng đế Trung Quốc.",
+      [
+        "In the early fifteenth century",
+        "Đầu thế kỷ XV"
+      ],
+      [
+        "commanded",
+        "chỉ huy"
+      ],
+      [
+        "treasure ships",
+        "bảo thuyền"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Những con tàu này thuộc số tàu gỗ lớn nhất từng được đóng, chở lụa, vàng và quà tặng để xây dựng tình hữu nghị với những vương quốc xa xôi khắp châu Á và châu Phi.",
+      [
+        "the largest wooden vessels ever built",
+        "tàu gỗ lớn nhất từng được đóng"
+      ],
+      [
+        "silk, gold and gifts",
+        "lụa, vàng và quà tặng"
+      ],
+      [
+        "to build friendship",
+        "để xây dựng tình hữu nghị"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Thay vì chinh phục, Trịnh Hòa muốn thể hiện sức mạnh và sự giàu có của đất nước.",
+      [
+        "Rather than conquer",
+        "Thay vì chinh phục"
+      ],
+      [
+        "the strength and wealth of his country",
+        "sức mạnh và sự giàu có của đất nước"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Một thế kỷ sau, nhà thám hiểm Bồ Đào Nha Ferdinand Magellan khởi hành năm 1519 với kế hoạch táo bạo: đi thuyền vòng quanh toàn bộ thế giới.",
+      [
+        "A century later",
+        "Một thế kỷ sau"
+      ],
+      [
+        "a bold plan",
+        "kế hoạch táo bạo"
+      ],
+      [
+        "to sail around the entire world",
+        "đi thuyền vòng quanh toàn bộ thế giới"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Chuyến đi kéo dài khoảng 1.080 ngày và vô cùng nguy hiểm.",
+      [
+        "about 1,080 days",
+        "khoảng 1.080 ngày"
+      ],
+      [
+        "extremely dangerous",
+        "vô cùng nguy hiểm"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Bản thân Magellan bị giết trước khi hành trình kết thúc, và chỉ ít người trong thủy thủ đoàn trở về nhà.",
+      [
+        "before the journey was over",
+        "trước khi hành trình kết thúc"
+      ],
+      [
+        "only a few of his crew",
+        "chỉ ít người trong thủy thủ đoàn"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Tuy nhiên, những con tàu do ông khởi xướng chuyến đi trở thành hạm đội đầu tiên đi vòng quanh thế giới, chứng minh Trái Đất hình cầu để những thủy thủ về sau không còn sợ rơi khỏi rìa của nó.",
+      [
+        "the first fleet ever to sail right around the world",
+        "hạm đội đầu tiên đi vòng quanh thế giới"
+      ],
+      [
+        "proving that the Earth was round",
+        "chứng minh Trái Đất hình cầu"
+      ],
+      [
+        "no longer feared falling off its edge",
+        "không còn sợ rơi khỏi rìa của nó"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Gần hai thế kỷ rưỡi sau đó, thuyền trưởng người Anh James Cook tiến vào Thái Bình Dương.",
+      [
+        "Nearly two and a half centuries after that",
+        "Gần hai thế kỷ rưỡi sau đó"
+      ],
+      [
+        "the Pacific Ocean",
+        "Thái Bình Dương"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ông là người vẽ bản đồ lành nghề, đã vẽ bản đồ cẩn thận về bờ biển New Zealand và miền đông Australia.",
+      [
+        "a skilled map-maker",
+        "người vẽ bản đồ lành nghề"
+      ],
+      [
+        "eastern Australia",
+        "miền đông Australia"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Công việc của Cook cẩn thận đến mức nhiều bản đồ vẫn được dùng nhiều năm sau khi ông mất, giúp các thủy thủ về sau vượt những vùng biển ấy an toàn.",
+      [
+        "years after his death",
+        "nhiều năm sau khi ông mất"
+      ],
+      [
+        "cross these waters in safety",
+        "vượt những vùng biển ấy an toàn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-exploration-desk-scene.svg",
+    "alt": "Bản đồ cách điệu, la bàn, ống nhòm một mắt và dây thừng trên bàn cạnh cửa sổ nhìn ra biển.",
+    "caption": "Tìm đường và chuẩn bị cho một chuyến đi biển."
+  },
+  "source_sha256": "8398370dc52b81a8c0b2f262901eec8e4456d49cdcbdf8065149613abee5a1b2",
+  "expected_translation_sha256": "753dfd27f60c520755f6ae5d6a0a7aa6bb1ee1f8d339f3a5c78200a3c0640663"
+}

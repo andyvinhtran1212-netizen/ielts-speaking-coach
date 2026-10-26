@@ -1,0 +1,226 @@
+{
+  "slug": "matching-schools-of-economic-thought",
+  "review_notes": "Dịch các trường phái theo ngữ cảnh: classical/cổ điển, monetarist/trọng tiền, behavioural/hành vi; assumed away không phải đã xử lý thực tế. Giữ các quan điểm quy cho từng phái.",
+  "illustration_brief": "Một người xem phiếu khảo sát giữa không gian thành phố và các hoạt động thường ngày.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Hỏi ba nhà kinh tế học giải thích một cuộc suy thoái, ta có thể nhận ba chẩn đoán không tương thích.",
+      [
+        "a recession",
+        "một cuộc suy thoái"
+      ],
+      [
+        "three incompatible diagnoses",
+        "ba chẩn đoán không tương thích"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Đây không phải dấu hiệu ngành học đã thất bại; đúng hơn, nó phản ánh việc kinh tế học từ lâu được tổ chức thành các trường phái cạnh tranh, mỗi phái dựa trên giả định khác nhau về hành vi con người và cách thị trường vận hành.",
+      [
+        "competing schools",
+        "các trường phái cạnh tranh"
+      ],
+      [
+        "different assumptions",
+        "giả định khác nhau"
+      ],
+      [
+        "how markets work",
+        "cách thị trường vận hành"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Lâu đời nhất là truyền thống cổ điển, gắn với Adam Smith và các tác giả đi sau ông.",
+      [
+        "the classical tradition",
+        "truyền thống cổ điển"
+      ],
+      [
+        "associated with Adam Smith",
+        "gắn với Adam Smith"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nó hình dung nền kinh tế gồm những cá nhân duy lý, theo đuổi lợi ích riêng, với vô số quyết định cá nhân được phối hợp thông qua giá cả thường kéo hệ thống trở lại cân bằng.",
+      [
+        "rational, self-interested individuals",
+        "những cá nhân duy lý, theo đuổi lợi ích riêng"
+      ],
+      [
+        "coordinated through prices",
+        "được phối hợp thông qua giá cả"
+      ],
+      [
+        "back towards balance",
+        "trở lại cân bằng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Theo cách nhìn này, nếu phần lớn để thị trường tự vận hành, những xáo trộn tạm thời sẽ tự điều chỉnh mà không cần giúp đỡ từ bên ngoài.",
+      [
+        "markets are left largely alone",
+        "phần lớn để thị trường tự vận hành"
+      ],
+      [
+        "temporary disruptions",
+        "những xáo trộn tạm thời"
+      ],
+      [
+        "without outside help",
+        "mà không cần giúp đỡ từ bên ngoài"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Niềm tin ấy bị lung lay mạnh bởi cuộc Đại suy thoái những năm 1930, khi thất nghiệp ở mức cao suốt nhiều năm mà không có dấu hiệu tự điều chỉnh.",
+      [
+        "the Depression of the 1930s",
+        "cuộc Đại suy thoái những năm 1930"
+      ],
+      [
+        "no sign of self-correction",
+        "không có dấu hiệu tự điều chỉnh"
+      ]
+    ],
+    [
+      "p3-s2",
+      "John Maynard Keynes lập luận rằng nền kinh tế có thể mắc kẹt ở mức hoạt động thấp hơn rất nhiều so với năng lực sản xuất của nó, và trong điều kiện đó có thể cần chi tiêu chính phủ để khôi phục cầu.",
+      [
+        "far below their capacity",
+        "thấp hơn rất nhiều so với năng lực sản xuất của nó"
+      ],
+      [
+        "government spending",
+        "chi tiêu chính phủ"
+      ],
+      [
+        "revive demand",
+        "khôi phục cầu"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Vì thế, kinh tế học Keynes coi vai trò chủ động của nhà nước là trọng tâm chứ không phải ngoại lệ.",
+      [
+        "an active role for the state",
+        "vai trò chủ động của nhà nước"
+      ],
+      [
+        "central rather than exceptional",
+        "trọng tâm chứ không phải ngoại lệ"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Thách thức về sau đến từ các nhà trọng tiền do Milton Friedman dẫn đầu, những người chấp nhận xu hướng thị trường ổn định lại nhưng bất đồng về cách quản lý.",
+      [
+        "the monetarists",
+        "các nhà trọng tiền"
+      ],
+      [
+        "led by Milton Friedman",
+        "do Milton Friedman dẫn đầu"
+      ],
+      [
+        "disputed how to manage them",
+        "bất đồng về cách quản lý"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Với các nhà trọng tiền, lượng tiền lưu thông trong nền kinh tế là đòn bẩy chính chi phối mặt bằng giá; họ lập luận rằng kiểm soát cung tiền một cách ổn định có thể kiềm chế lạm phát mà không cần sự can thiệp mạnh được phái Keynes ưa chuộng.",
+      [
+        "the price level",
+        "mặt bằng giá"
+      ],
+      [
+        "control the money supply with a steady hand",
+        "kiểm soát cung tiền một cách ổn định"
+      ],
+      [
+        "inflation can be tamed",
+        "có thể kiềm chế lạm phát"
+      ]
+    ],
+    [
+      "p5-s1",
+      "E — Gần đây hơn, các nhà kinh tế học hành vi đặt nghi vấn về tiền đề chung của cả ba trường phái cũ: con người ra quyết định duy lý.",
+      [
+        "behavioural economists",
+        "các nhà kinh tế học hành vi"
+      ],
+      [
+        "a premise all three older schools shared",
+        "tiền đề chung của cả ba trường phái cũ"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Dựa vào tâm lý học, họ ghi nhận những sai lầm có hệ thống, lặp lại được — quá tự tin, sợ mất mát thái quá, dễ bị chi phối bởi cách trình bày lựa chọn — vốn đã bị các mô hình truyền thống âm thầm giả định là không tồn tại.",
+      [
+        "overconfidence",
+        "quá tự tin"
+      ],
+      [
+        "an exaggerated fear of loss",
+        "sợ mất mát thái quá"
+      ],
+      [
+        "assumed away",
+        "giả định là không tồn tại"
+      ]
+    ],
+    [
+      "p6-s1",
+      "F — Không trường phái nào đẩy được các trường phái khác ra khỏi lĩnh vực, và phần lớn nhà kinh tế đang hành nghề nay vay mượn nhiều phái cùng lúc, dùng khuôn khổ có vẻ phù hợp với vấn đề trước mắt.",
+      [
+        "borrow from several at once",
+        "vay mượn nhiều phái cùng lúc"
+      ],
+      [
+        "the problem in front of them",
+        "vấn đề trước mắt"
+      ]
+    ],
+    [
+      "p6-s2",
+      "Ngân hàng trung ương chống lạm phát có thể dựa vào trực giác trọng tiền, còn chính phủ đối mặt suy giảm lại theo bản năng tìm đến các giải pháp Keynes.",
+      [
+        "A central bank fighting inflation",
+        "Ngân hàng trung ương chống lạm phát"
+      ],
+      [
+        "Keynesian remedies",
+        "các giải pháp Keynes"
+      ]
+    ],
+    [
+      "p6-s3",
+      "Liệu sự kết hợp thực tiễn ấy thể hiện một cách tổng hợp ngày càng chín muồi hay chỉ là một cuộc tranh luận chưa ngã ngũ được khoác áo ngôn ngữ kỹ thuật cũng là vấn đề mà những người có lý lẽ tiếp tục bất đồng.",
+      [
+        "that pragmatic mixture",
+        "sự kết hợp thực tiễn ấy"
+      ],
+      [
+        "a maturing synthesis",
+        "một cách tổng hợp ngày càng chín muồi"
+      ],
+      [
+        "an unresolved argument dressed in technical language",
+        "một cuộc tranh luận chưa ngã ngũ được khoác áo ngôn ngữ kỹ thuật"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-progress-survey-scene.svg",
+    "alt": "Một người xem phiếu khảo sát giữa không gian thành phố và các hoạt động thường ngày.",
+    "caption": "Nhiều góc nhìn về đời sống kinh tế."
+  },
+  "source_sha256": "4ad5d2d3c1f8d8eb0fea219b519dea40ac0e0132cecb196666b2ab445655c01e",
+  "expected_translation_sha256": "f201bd77cf33f2ca79afb98ff0ea76c342f0c37f3a12f9cf23391ef4ca10e71b"
+}

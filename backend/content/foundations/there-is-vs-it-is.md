@@ -75,7 +75,7 @@ anchors:
 
 Đây là hai cấu trúc căn bản nhưng rất hay bị nhầm, đặc biệt trong Writing Task 2 và Speaking Part 3:
 
-- ❌ "**It is** many problems in today's society." (đang giới thiệu, nên dùng there is)
+- ❌ "**It is** many problems in today's society." — để giới thiệu nhiều vấn đề, dùng **there are many problems**.
 - ❌ "**There is** very important to study." (đang mô tả/nhấn mạnh, nên dùng it is)
 
 Hiểu rõ khi nào dùng cái nào giúp câu văn chính xác và tự nhiên hơn.
@@ -173,8 +173,8 @@ It is + adj + that + clause
 | Đã nhắc đến rồi | — | **It is** a controversial policy. |
 | Sự tồn tại | **There are** many problems. | — |
 | Mô tả | — | **It is** a serious problem. |
-| Thời tiết | — | **It is** hot today. |
-| Thời gian | — | **It is** 3 o'clock. |
+| Thời tiết | **There is** a storm coming. | **It is** hot today. |
+| Thời gian | **There is** time to finish. | **It is** 3 o'clock. |
 | Nhấn mạnh tầm quan trọng | — | **It is** vital that... |
 
 ---
@@ -202,8 +202,8 @@ Nhiều học sinh nhầm "there are" với "they are":
 
 ### Lỗi 1: Dùng "it is" khi giới thiệu sự tồn tại
 
-- ❌ **It is** a book on the table.
-- ✅ **There is** a book on the table.
+- Hỏi “What is on the table?” → **There is a book on the table** giới thiệu sự tồn tại.
+- Chỉ vào vật đã được xác định, hỏi “What is it?” → **It is a book on the table** có thể nhận diện vật đó. Không gắn dấu sai nếu it có đối tượng quy chiếu rõ.
 - ✅ **It is** a book. (trả lời câu hỏi "Cái gì đó là gì?")
 
 ### Lỗi 2: Dùng "there is" khi muốn mô tả

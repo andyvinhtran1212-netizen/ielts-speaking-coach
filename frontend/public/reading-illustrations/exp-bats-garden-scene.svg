@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Dơi bay lúc chạng vạng</title><desc id="desc">Một con dơi dang đôi cánh có màng, bay trên vườn cây lúc trời sẫm, với vài côn trùng nhỏ ở xa.</desc>
+  <rect width="800" height="400" rx="24" fill="#dfe8ed"/>
+  <circle cx="654" cy="79" r="32" fill="#faf5df"/>
+  <path d="M0 305Q230 258 433 309T800 285V400H0Z" fill="#8eac9e"/>
+  <path d="M68 400V224M699 400V229" stroke="#796249" stroke-width="17"/>
+  <path d="M8 250Q-8 204 30 187Q19 145 61 143Q96 123 119 163Q159 178 136 217Q141 261 97 255Q51 279 8 250M632 250Q616 208 657 190Q653 147 692 151Q732 127 751 170Q790 187 770 219Q771 260 728 259Q677 279 632 250" fill="#47766a"/>
+  <g transform="translate(391 174)" stroke="#4f4657" stroke-width="4" stroke-linejoin="round">
+    <path d="M-12 -3Q-62 -93 -173 -92Q-130 -45 -150 4Q-107 -9 -85 39Q-58 11 -15 45Z" fill="#8b829e"/>
+    <path d="M12 -3Q62 -93 173 -92Q130 -45 150 4Q107 -9 85 39Q58 11 15 45Z" fill="#8b829e"/>
+    <path d="M-15 2L-173 -92M-15 2L-150 4M-15 2L-85 39M15 2L173 -92M15 2L150 4M15 2L85 39" fill="none"/>
+    <ellipse cy="22" rx="24" ry="45" fill="#634f5f"/><circle cy="-17" r="24" fill="#634f5f"/>
+    <path d="M-21 -29L-23 -58L-5 -38M21 -29L23 -58L5 -38" fill="#634f5f"/>
+    <path d="M-10 63L-16 75M10 63L16 75" stroke-linecap="round"/>
+    <circle cx="-9" cy="-18" r="4" fill="#fafbf6" stroke="none"/><circle cx="9" cy="-18" r="4" fill="#fafbf6" stroke="none"/>
+  </g>
+  <g fill="#faf5df"><circle cx="163" cy="65" r="3"/><circle cx="544" cy="119" r="3"/><circle cx="98" cy="112" r="3"/></g>
+  <g stroke="#476c54" stroke-width="3"><path d="M548 260L561 252M550 251L560 262M600 224L613 217M602 216L612 228"/></g>
+</svg>

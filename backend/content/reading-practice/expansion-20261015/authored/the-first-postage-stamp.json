@@ -1,0 +1,202 @@
+{
+  "slug": "the-first-postage-stamp",
+  "review_notes": "Giữ khác biệt sender/người gửi với người nhận trả phí trước đây; penny giữ đơn vị tiền gốc, không quy đổi. Con tem trên hình là ký hiệu chung, không nhận là bản sao Penny Black.",
+  "illustration_brief": "Phong thư với một con tem minh hoạ không mệnh giá, cạnh giấy viết và bút.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1840, một mảnh giấy nhỏ thay đổi thế giới.",
+      [
+        "In 1840",
+        "Năm 1840"
+      ],
+      [
+        "a small piece of paper",
+        "một mảnh giấy nhỏ"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Đó là con tem bưu chính đầu tiên, gọi là Penny Black.",
+      [
+        "the first postage stamp",
+        "con tem bưu chính đầu tiên"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Trước đó, gửi thư chậm và đắt.",
+      [
+        "sending a letter",
+        "gửi thư"
+      ],
+      [
+        "slow and costly",
+        "chậm và đắt"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Ngày xưa, người nhận thư trả phí.",
+      [
+        "the person who got the letter",
+        "người nhận thư"
+      ],
+      [
+        "paid for it",
+        "trả phí"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Giá tăng theo khoảng cách.",
+      [
+        "went up with the distance",
+        "tăng theo khoảng cách"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Gửi tin khó với gia đình nghèo.",
+      [
+        "Sending news",
+        "Gửi tin"
+      ],
+      [
+        "poor families",
+        "gia đình nghèo"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Nhiều người không trả nổi nên từ chối thư.",
+      [
+        "could not pay",
+        "không trả nổi"
+      ],
+      [
+        "refused the letter",
+        "từ chối thư"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Hệ thống rất rắc rối.",
+      [
+        "a mess",
+        "rất rắc rối"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Một người Anh tên Rowland Hill có ý tưởng khôn khéo.",
+      [
+        "A British man",
+        "Một người Anh"
+      ],
+      [
+        "a clever idea",
+        "ý tưởng khôn khéo"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Ông nói người gửi nên trả trước.",
+      [
+        "the sender",
+        "người gửi"
+      ],
+      [
+        "pay first",
+        "trả trước"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Người ta có thể mua tem rẻ và dán lên thư.",
+      [
+        "a cheap stamp",
+        "tem rẻ"
+      ],
+      [
+        "stick it on",
+        "dán lên thư"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Mỗi lá thư sẽ chỉ tốn một penny (xu Anh).",
+      [
+        "Every letter",
+        "Mỗi lá thư"
+      ],
+      [
+        "just one penny",
+        "chỉ tốn một penny (xu Anh)"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Tem đầu tiên màu đen nên người ta gọi nó là Penny Black.",
+      [
+        "was black",
+        "màu đen"
+      ],
+      [
+        "called it the Penny Black",
+        "gọi nó là Penny Black"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Tem in gương mặt Nữ hoàng Victoria.",
+      [
+        "the face of Queen Victoria",
+        "gương mặt Nữ hoàng Victoria"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ý tưởng hiệu quả và lan khắp thế giới.",
+      [
+        "The idea worked",
+        "Ý tưởng hiệu quả"
+      ],
+      [
+        "spread around the world",
+        "lan khắp thế giới"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Chẳng bao lâu, nước khác cũng làm theo.",
+      [
+        "Soon",
+        "Chẳng bao lâu"
+      ],
+      [
+        "other countries copied it too",
+        "nước khác cũng làm theo"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Ngày nay, phát minh nhỏ này vẫn giúp ta kết nối.",
+      [
+        "this small invention",
+        "phát minh nhỏ này"
+      ],
+      [
+        "helps us connect",
+        "giúp ta kết nối"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-postage-letter-scene.svg",
+    "alt": "Phong thư với một con tem minh hoạ không mệnh giá, cạnh giấy viết và bút.",
+    "caption": "Một cách gửi tin và giữ liên lạc."
+  },
+  "source_sha256": "b70f2777e93a0c08065158c6619189dd95df8c1cc3bad81e09ee9df6870a4a23",
+  "expected_translation_sha256": "228680ec9ef5bb523db41e1569a5bad91faaa0fafb800208217682fd4a70072c"
+}

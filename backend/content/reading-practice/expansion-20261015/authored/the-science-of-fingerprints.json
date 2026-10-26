@@ -1,0 +1,226 @@
+{
+  "slug": "the-science-of-fingerprints",
+  "review_notes": "Latent là tiềm ẩn, ridge là gờ nổi, match là khả năng trùng khớp trước xác nhận. Không dùng dữ liệu sinh trắc thật; bản dịch giữ cảnh báo dấu nhòe và cần chuyên gia, không biến so tự động thành kết luận chắc chắn.",
+  "illustration_brief": "Mẫu đường vân nhân tạo và một điện thoại có biểu tượng khóa, không phải dấu vân của người thật.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Năm 1892, cảnh sát Argentina phá vụ giết người nhờ vết máu trên khung cửa — một trong các vụ đầu tiên được phá bằng dấu vân tay.",
+      [
+        "a door frame",
+        "khung cửa"
+      ],
+      [
+        "one of the first cases ever cracked by a fingerprint",
+        "một trong các vụ đầu tiên được phá bằng dấu vân tay"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Một dấu ấy không chỉ nhận diện nghi phạm mà giúp mở ngành khoa học vẫn định hình điều tra hình sự hôm nay.",
+      [
+        "identify a suspect",
+        "nhận diện nghi phạm"
+      ],
+      [
+        "criminal investigation",
+        "điều tra hình sự"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Vân tay hình thành từ mẫu đường nổi, hay gờ, phủ đầu mỗi ngón.",
+      [
+        "raised lines, or ridges",
+        "đường nổi, hay gờ"
+      ],
+      [
+        "the tip of each finger",
+        "đầu mỗi ngón"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Mẫu ấy không ngẫu nhiên.",
+      [
+        "not random",
+        "không ngẫu nhiên"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Gờ bắt đầu hình thành trong bụng mẹ, theo cách da lớn và ép vào mô xung quanh.",
+      [
+        "in the womb",
+        "trong bụng mẹ"
+      ],
+      [
+        "the surrounding tissue",
+        "mô xung quanh"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Vì quá trình chịu vô số yếu tố nhỏ, kết quả riêng với từng người.",
+      [
+        "countless tiny factors",
+        "vô số yếu tố nhỏ"
+      ],
+      [
+        "unique to every person",
+        "riêng với từng người"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Nhưng gờ không chỉ là dấu nhận diện; còn giúp tay bám mặt nhẵn và tăng xúc giác.",
+      [
+        "a marker of identity",
+        "dấu nhận diện"
+      ],
+      [
+        "grip smooth surfaces",
+        "bám mặt nhẵn"
+      ],
+      [
+        "the sense of touch",
+        "xúc giác"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Điều nổi bật nhất là cả sinh đôi cùng trứng có cùng gen cũng khác vân tay.",
+      [
+        "identical twins",
+        "sinh đôi cùng trứng"
+      ],
+      [
+        "share the same genes",
+        "có cùng gen"
+      ],
+      [
+        "different fingerprints",
+        "khác vân tay"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Đây là lý do dấu rất có giá trị làm chứng cứ pháp y.",
+      [
+        "forensic evidence",
+        "chứng cứ pháp y"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Ngón tay chạm vào một bề mặt sẽ để lại mồ hôi và dầu theo hình các gờ.",
+      [
+        "sweat and oil",
+        "mồ hôi và dầu"
+      ],
+      [
+        "in the shape of the ridges",
+        "theo hình các gờ"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Những dấu vết này, được gọi là dấu vân tay tiềm ẩn, thường không nhìn thấy bằng mắt thường, nên các điều tra viên phủ bột mịn lên bề mặt để làm chúng hiện ra.",
+      [
+        "latent prints",
+        "dấu vân tay tiềm ẩn"
+      ],
+      [
+        "usually invisible",
+        "thường không nhìn thấy bằng mắt thường"
+      ],
+      [
+        "fine powder",
+        "bột mịn"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Dấu thu được sau đó có thể trở thành chứng cứ tại tòa.",
+      [
+        "The recovered print",
+        "Dấu thu được"
+      ],
+      [
+        "evidence in court",
+        "chứng cứ tại tòa"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Trước đây, cảnh sát phải so bằng mắt, công việc chậm và khó.",
+      [
+        "compare prints by eye",
+        "so bằng mắt"
+      ],
+      [
+        "a slow and difficult job",
+        "công việc chậm và khó"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Ngày nay, dấu vân tay được quét và tự động đối chiếu với một cơ sở dữ liệu khổng lồ, cho ra những dấu có thể trùng khớp chỉ trong vài giây.",
+      [
+        "a huge database",
+        "một cơ sở dữ liệu khổng lồ"
+      ],
+      [
+        "possible matches",
+        "những dấu có thể trùng khớp"
+      ],
+      [
+        "in seconds",
+        "chỉ trong vài giây"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Công nghệ ấy nay ở đời thường: bộ quét nhỏ trên điện thoại đọc ngón để mở màn hình.",
+      [
+        "the small scanner on a phone",
+        "bộ quét nhỏ trên điện thoại"
+      ],
+      [
+        "unlock the screen",
+        "mở màn hình"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Vân tay không phải lời giải hoàn hảo, vì dấu có thể bị nhòe và kết quả trùng khớp vẫn phải được chuyên gia xác nhận.",
+      [
+        "smudged",
+        "nhòe"
+      ],
+      [
+        "confirmed by experts",
+        "được chuyên gia xác nhận"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Dù vậy, hơn thế kỷ sau vụ đầu, đường trên ngón vẫn là một trong các cách đáng tin nhất đã tìm để phân biệt người này với người khác.",
+      [
+        "more than a century",
+        "hơn thế kỷ"
+      ],
+      [
+        "tell one person from another",
+        "phân biệt người này với người khác"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-fingerprint-scene.svg",
+    "alt": "Một mẫu đường vân cách điệu cạnh điện thoại hiển thị biểu tượng khóa.",
+    "caption": "Đường vân trong nhận diện hằng ngày."
+  },
+  "source_sha256": "6a9be7b77c8532cd61a95130eccaa1ac045d31a835ddc254c4b019e44f8e5b88",
+  "expected_translation_sha256": "8600456cb1ef0fa01d2d2f4bb819207cbb14ad71540334fd6043ab96f222a415"
+}

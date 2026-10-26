@@ -1,0 +1,218 @@
+{
+  "slug": "the-honey-badger",
+  "review_notes": "Big heart được hiểu là lòng can đảm trong ngữ cảnh, không phải kích thước tim. Giữ does not kill easily, không đổi thành miễn nhiễm mọi nọc độc. Phần da lỏng diễn đạt khả năng xoay người, không lột da.",
+  "illustration_brief": "Lửng mật có lưng sáng và phần dưới sẫm màu đi giữa bụi cỏ thấp.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Loài vật nào sẽ chiến đấu với sư tử?",
+      [
+        "fight a lion",
+        "chiến đấu với sư tử"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Lửng mật sẽ làm vậy.",
+      [
+        "The honey badger",
+        "Lửng mật"
+      ],
+      [
+        "will",
+        "sẽ làm vậy"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Đây là loài vật nhỏ.",
+      [
+        "a small animal",
+        "loài vật nhỏ"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Nó chỉ cỡ một con chó nhỏ.",
+      [
+        "only the size of a small dog",
+        "chỉ cỡ một con chó nhỏ"
+      ]
+    ],
+    [
+      "p1-s5",
+      "Nhưng nó rất gan dạ.",
+      [
+        "very fearless",
+        "rất gan dạ"
+      ]
+    ],
+    [
+      "p1-s6",
+      "Nó không chạy khỏi loài vật lớn.",
+      [
+        "does not run away",
+        "không chạy khỏi"
+      ],
+      [
+        "big animals",
+        "loài vật lớn"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Lửng mật có da rất dày.",
+      [
+        "very thick skin",
+        "da rất dày"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Da cổ nó rất dày.",
+      [
+        "The skin on its neck",
+        "Da cổ nó"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Lớp da của nó cũng không ôm sát cơ thể.",
+      [
+        "loose",
+        "không ôm sát cơ thể"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Nhờ vậy nó xoay người bên trong lớp da của mình.",
+      [
+        "turn inside its own skin",
+        "xoay người bên trong lớp da của mình"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Rồi nó có thể cắn con vật đang giữ mình.",
+      [
+        "bite the animal that holds it",
+        "cắn con vật đang giữ mình"
+      ]
+    ],
+    [
+      "p2-s6",
+      "Mẹo khôn khéo này giúp nó thoát nguy hiểm.",
+      [
+        "This clever trick",
+        "Mẹo khôn khéo này"
+      ],
+      [
+        "get away from danger",
+        "thoát nguy hiểm"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Loài vật này ăn nhiều loại rắn.",
+      [
+        "many kinds of snake",
+        "nhiều loại rắn"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nọc rắn không dễ giết nó.",
+      [
+        "Snake venom",
+        "Nọc rắn"
+      ],
+      [
+        "does not kill it easily",
+        "không dễ giết nó"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Nó còn ăn được rắn rất nguy hiểm.",
+      [
+        "very dangerous snakes",
+        "rắn rất nguy hiểm"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Một số rắn ấy giết được người chỉ với một vết cắn.",
+      [
+        "Some of these snakes",
+        "Một số rắn ấy"
+      ],
+      [
+        "with one bite",
+        "chỉ với một vết cắn"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Nhưng lửng mật vẫn ổn.",
+      [
+        "the honey badger is fine",
+        "lửng mật vẫn ổn"
+      ]
+    ],
+    [
+      "p3-s6",
+      "Sau một giấc ngủ, nó tỉnh dậy tìm thêm thức ăn.",
+      [
+        "After a sleep",
+        "Sau một giấc ngủ"
+      ],
+      [
+        "looks for more food",
+        "tìm thêm thức ăn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Loài vật này còn thích ăn mật ong.",
+      [
+        "loves to eat honey",
+        "thích ăn mật ong"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nó đào vào tổ ong để tìm mật.",
+      [
+        "dig into a bee nest",
+        "đào vào tổ ong"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Vì vậy mà nó có tên ấy.",
+      [
+        "That is why it has its name",
+        "Vì vậy mà nó có tên ấy"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Một loài vật nhỏ với lòng can đảm lớn.",
+      [
+        "a small animal",
+        "Một loài vật nhỏ"
+      ],
+      [
+        "a big heart",
+        "lòng can đảm lớn"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-honey-badger-scene.svg",
+    "alt": "Lửng mật có lưng sáng và phần dưới sẫm màu đi giữa bụi cỏ thấp.",
+    "caption": "Một loài vật nhỏ nổi bật về sự gan dạ."
+  },
+  "source_sha256": "8cf3a31f48c78b1f0754f1a70fcc19f4d3c9524e7f52b291cd977375b74ab64f",
+  "expected_translation_sha256": "807bd5ffe0e37f77243afec8d0350da9f397d6b481b7e963b8875c0f3b2b97de"
+}

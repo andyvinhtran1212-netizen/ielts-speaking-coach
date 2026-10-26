@@ -1,0 +1,154 @@
+{
+  "slug": "skimming-the-story-of-tea-bags",
+  "review_notes": "Fine là mịn trong ngữ cảnh lụa cản nước; gauze là vải gạc; loose tea là trà rời. Không vẽ chất liệu hay niên đại như bảng đáp án.",
+  "illustration_brief": "Túi trà ngâm trong cốc nước với dây và nhãn giấy trống, bên cạnh là vài lá trà.",
+  "sentences": [
+    [
+      "p1-s1",
+      "A — Ngày nay pha trà thật dễ: chỉ thả túi trà nhỏ vào nước nóng.",
+      [
+        "making a cup of tea",
+        "pha trà"
+      ],
+      [
+        "drop a small tea bag into hot water",
+        "thả túi trà nhỏ vào nước nóng"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Hơn một trăm năm trước, người ta cho lá trà rời thẳng vào ấm và phải vớt ra trước khi uống.",
+      [
+        "More than a hundred years ago",
+        "Hơn một trăm năm trước"
+      ],
+      [
+        "loose tea leaves",
+        "lá trà rời"
+      ],
+      [
+        "take the leaves out",
+        "vớt ra"
+      ]
+    ],
+    [
+      "p2-s1",
+      "B — Túi trà bắt đầu một cách tình cờ.",
+      [
+        "by accident",
+        "một cách tình cờ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Khoảng năm 1908, người bán trà ở New York tên Thomas Sullivan gửi mẫu trà cho khách trong túi lụa nhỏ.",
+      [
+        "Around 1908",
+        "Khoảng năm 1908"
+      ],
+      [
+        "samples of tea",
+        "mẫu trà"
+      ],
+      [
+        "small silk bags",
+        "túi lụa nhỏ"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một số người thả cả túi vào nước nóng.",
+      [
+        "Some people",
+        "Một số người"
+      ],
+      [
+        "the whole bag",
+        "cả túi"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Cách đó rất hiệu quả.",
+      [
+        "worked wonderfully",
+        "rất hiệu quả"
+      ]
+    ],
+    [
+      "p3-s1",
+      "C — Tuy nhiên, lụa quá mịn nên nước không đi qua tốt.",
+      [
+        "too fine",
+        "quá mịn"
+      ],
+      [
+        "did not pass through well",
+        "không đi qua tốt"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Sullivan làm túi tốt hơn bằng vải gạc, rồi sau đó bằng giấy.",
+      [
+        "gauze",
+        "vải gạc"
+      ],
+      [
+        "later from paper",
+        "sau đó bằng giấy"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Túi mới cho nước thấm vào dễ dàng.",
+      [
+        "let the water in easily",
+        "cho nước thấm vào dễ dàng"
+      ]
+    ],
+    [
+      "p4-s1",
+      "D — Từ ý tưởng nhỏ này, túi trà lan khắp nơi.",
+      [
+        "this small idea",
+        "ý tưởng nhỏ này"
+      ],
+      [
+        "spread everywhere",
+        "lan khắp nơi"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Đến những năm 1920, nhà máy bắt đầu làm chúng với số lượng lớn.",
+      [
+        "By the 1920s",
+        "Đến những năm 1920"
+      ],
+      [
+        "in large numbers",
+        "với số lượng lớn"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Ngày nay, hàng tỉ túi trà được dùng mỗi ngày trên khắp thế giới.",
+      [
+        "billions of tea bags",
+        "hàng tỉ túi trà"
+      ],
+      [
+        "every day around the world",
+        "mỗi ngày trên khắp thế giới"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-tea-bag-scene.svg",
+    "alt": "Túi trà ngâm trong cốc nước với dây và nhãn giấy trống, bên cạnh là vài lá trà.",
+    "caption": "Một cách pha trà quen thuộc."
+  },
+  "source_sha256": "9887b133ebf91feaf2e5554cbf26b23764237d2927d567942b939d620c4848d2",
+  "expected_translation_sha256": "eeacd00a7af932e6c573dfb7020a7bd115017c884809047fc8f7ac57e405dc03"
+}

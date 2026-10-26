@@ -18,18 +18,20 @@ import {
   promptsQuery,
 } from '@/lib/admin-writing-prompts-model.mjs';
 
+import { WRITING_COURSES, promptCourses, promptContentTags, tagsWithCourses, promptCourseFilter, promptTagsEqual } from '@/lib/writing-prompt-courses.mjs';
+
 import type { AnalysisDraft, Difficulty, PromptAction, PromptDraft, TaskType, WritingPrompt } from './admin-writing-prompts-types';
 
 const TASK_LABELS: Record<TaskType, string> = { task1_academic: 'Task 1 Academic', task1_general: 'Task 1 General', task2: 'Task 2' };
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { beginner: 'Cơ bản', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
-const EMPTY_DRAFT: PromptDraft = { title: '', taskType: 'task2', promptText: '', difficulty: '', tags: '', imageUrl: '', imagePublicId: '' };
+const EMPTY_DRAFT: PromptDraft = { title: '', taskType: 'task2', promptText: '', difficulty: '', tags: '', courses: [], imageUrl: '', imagePublicId: '' };
 const EMPTY_ANALYSIS: AnalysisDraft = { chartType: 'mixed', overview: '', keyFeatures: '', notableData: '', axesOrCategories: '', gradingNote: '' };
 const PROMPT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const PROMPT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
-type Filters = { taskType: string; difficulty: string; lifecycle: 'active' | 'archived'; visibility: 'all' | 'student' | 'exam'; q: string };
+type Filters = { taskType: string; difficulty: string; lifecycle: 'active' | 'archived'; visibility: 'all' | 'student' | 'exam'; course: string; q: string };
 type Snapshot = { key: string; active: WritingPrompt[]; archived: WritingPrompt[]; malformed: number; capped: boolean; readAt: string };
-type PendingCreate = { id: string; expected: { title: string; promptText: string; taskType: TaskType; difficulty: Difficulty | null; imagePublicId: string | null } };
+type PendingCreate = { id: string; expected: { title: string; promptText: string; taskType: TaskType; difficulty: Difficulty | null; imagePublicId: string | null; tags: string[] } };
 
 function filtersFrom(params: ReturnType<typeof useSearchParams>): Filters {
   const task = params?.get('task_type') || '';
@@ -41,6 +43,7 @@ function filtersFrom(params: ReturnType<typeof useSearchParams>): Filters {
     difficulty: ['beginner', 'intermediate', 'advanced'].includes(difficulty) ? difficulty : '',
     lifecycle: status === 'archived' ? 'archived' : 'active',
     visibility: visibility === 'student' || visibility === 'exam' ? visibility : 'all',
+    course: promptCourseFilter(params?.get('course')),
     q: params?.get('q')?.trim() || '',
   };
 }
@@ -48,9 +51,9 @@ function filtersFrom(params: ReturnType<typeof useSearchParams>): Filters {
 function draftOf(prompt: WritingPrompt | null): PromptDraft {
   return prompt ? {
     title: prompt.title, taskType: prompt.taskType, promptText: prompt.promptText,
-    difficulty: prompt.difficulty || '', tags: prompt.tags.join(', '),
+    difficulty: prompt.difficulty || '', tags: promptContentTags(prompt.tags).join(', '), courses: promptCourses(prompt.tags),
     imageUrl: prompt.imageUrl || '', imagePublicId: prompt.imagePublicId || '',
-  } : { ...EMPTY_DRAFT };
+  } : { ...EMPTY_DRAFT, courses: [] };
 }
 
 function analysisDraftOf(prompt: WritingPrompt): AnalysisDraft {
@@ -194,7 +197,7 @@ export function AdminWritingPrompts() {
 
   const openEditor = (prompt: WritingPrompt | null) => {
     pendingCreate.current = null;
-    setEditor(prompt || 'new'); setDraft(draftOf(prompt)); setImageFile(null); setImageDragActive(false); setRemoveImage(false); setFormError(null);
+    setEditor(prompt || 'new'); setDraft(prompt ? draftOf(prompt) : { ...EMPTY_DRAFT, courses: WRITING_COURSES.includes(filters.course) ? [filters.course] : [] }); setImageFile(null); setImageDragActive(false); setRemoveImage(false); setFormError(null);
   };
 
   const selectImage = (file: File | null) => {
@@ -220,8 +223,8 @@ export function AdminWritingPrompts() {
     const title = draft.title.trim(); const promptText = draft.promptText.trim();
     if (title.length < 2) { setFormError('Tiêu đề phải có ít nhất 2 ký tự.'); return; }
     if (promptText.length < 10) { setFormError('Đề bài phải có ít nhất 10 ký tự.'); return; }
-    const tags = [...new Set(draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean))];
-    if (tags.length > 20) { setFormError('Tối đa 20 tags.'); return; }
+    const tags = tagsWithCourses(draft.tags.split(','), draft.courses);
+    if (tags.length > 20) { setFormError('Tối đa 20 thẻ, gồm thẻ nội dung và khóa học.'); return; }
     const account = profile.id; const editing = editor !== 'new' && editor;
     mutationLock.current = true; setBusy(true); setFormError(null);
     let uploaded: { url: string; publicId: string } | null = null; let writeStarted = false; let acknowledged = false;
@@ -229,7 +232,7 @@ export function AdminWritingPrompts() {
       if (!editing && pendingCreate.current) {
         const pending = pendingCreate.current;
         const saved = await readPrompt(pending.id);
-        if (!saved.isActive || saved.title !== pending.expected.title || saved.promptText !== pending.expected.promptText || saved.taskType !== pending.expected.taskType || saved.difficulty !== pending.expected.difficulty || saved.imagePublicId !== pending.expected.imagePublicId) throw new Error('Đọc lại không khớp prompt đã tạo trước đó.');
+        if (!saved.isActive || saved.title !== pending.expected.title || saved.promptText !== pending.expected.promptText || saved.taskType !== pending.expected.taskType || saved.difficulty !== pending.expected.difficulty || saved.imagePublicId !== pending.expected.imagePublicId || !promptTagsEqual(saved.tags, pending.expected.tags)) throw new Error('Đọc lại không khớp prompt đã tạo trước đó.');
         const canonical = await readAll();
         if (profileRef.current !== account) return;
         pendingCreate.current = null; setCanonical(canonical); setEditor(null); setImageFile(null);
@@ -253,10 +256,10 @@ export function AdminWritingPrompts() {
       acknowledged = true;
       if (!editing) pendingCreate.current = {
         id: ack.id,
-        expected: { title, promptText, taskType: draft.taskType, difficulty: draft.difficulty || null, imagePublicId },
+        expected: { title, promptText, taskType: draft.taskType, difficulty: draft.difficulty || null, imagePublicId, tags },
       };
       const saved = await readPrompt(ack.id);
-      if (!saved.isActive || saved.title !== title || saved.promptText !== promptText || saved.taskType !== draft.taskType || saved.difficulty !== (draft.difficulty || null) || saved.imagePublicId !== imagePublicId) throw new Error('Đọc lại không khớp prompt vừa lưu.');
+      if (!saved.isActive || saved.title !== title || saved.promptText !== promptText || saved.taskType !== draft.taskType || saved.difficulty !== (draft.difficulty || null) || saved.imagePublicId !== imagePublicId || !promptTagsEqual(saved.tags, tags)) throw new Error('Đọc lại không khớp prompt vừa lưu.');
       const canonical = await readAll();
       if (profileRef.current !== account) return;
       pendingCreate.current = null; setCanonical(canonical); setEditor(null); setImageFile(null);
@@ -342,7 +345,7 @@ export function AdminWritingPrompts() {
 
   return <main className="awp-shell">
     <header className="awp-header">
-      <div><p className="acd-eyebrow">Writing · Quản lý nội dung</p><h1>Kho đề Writing</h1><p>Tạo đề, kiểm soát phạm vi sử dụng và duyệt dữ kiện hình trước khi chúng tham gia chấm bài.</p></div>
+      <div><p className="acd-eyebrow">Writing · Quản lý nội dung</p><h1>Kho đề Writing</h1><p>Phân bổ đề cho Course 1–5, tái sử dụng cho các lớp sau và duyệt dữ kiện hình trước khi chấm bài.</p></div>
       <div className="awp-header__actions"><a className="adm-btn-secondary" href="/admin/writing">← Không gian Writing</a><button className="adm-btn-primary" type="button" onClick={() => openEditor(null)}>Tạo đề</button></div>
     </header>
 
@@ -351,6 +354,17 @@ export function AdminWritingPrompts() {
       <div><span>Đã lưu trữ</span><strong>{counts.archived}</strong><small>Có thể khôi phục</small></div>
       <div><span>Chỉ dùng cho thi</span><strong>{counts.exam}</strong><small>Không hiện khi tự luyện</small></div>
       <div><span>Cần xử lý answer key</span><strong>{counts.review}</strong><small>Sẵn sàng hoặc lỗi</small></div>
+    </section>
+
+    <section className="awp-course-library" aria-labelledby="awp-course-title">
+      <div><h2 id="awp-course-title">Kho đề theo khóa học</h2><p>Một đề có thể dùng cho nhiều khóa. Lọc kho đề rồi chọn đề để giao cho lớp mới.</p></div>
+      <div className="awp-course-tabs" role="group" aria-label="Lọc theo khóa học">
+        {['', ...WRITING_COURSES, 'unassigned'].map((course) => <button key={course} type="button" aria-pressed={filters.course === course} onClick={() => navigate({ course })}>
+          <strong>{course === '' ? 'Tất cả' : course === 'unassigned' ? 'Chưa phân bổ' : `Course ${course}`}</strong>
+          <span>{current ? sourceRows.filter((row) => promptMatches(row, { ...filters, course, q: '' })).length : '—'} đề</span>
+        </button>)}
+      </div>
+      <small>Số lượng theo vòng đời, task, độ khó và phạm vi đang chọn. Đề chỉ kỳ thi vẫn giữ phạm vi sử dụng.</small>
     </section>
 
     <StatusBanner banner={banner} />
@@ -379,14 +393,14 @@ export function AdminWritingPrompts() {
         const analysis = promptAnalysisState(prompt);
         return <article className="awp-card" key={prompt.id}>
           <div className="awp-card__visual">{prompt.imageUrl ? <img src={prompt.imageUrl} alt={`Hình minh hoạ cho ${prompt.title}`} loading="lazy"/> : <div aria-hidden="true"><span>{prompt.taskType === 'task1_academic' ? 'T1A' : prompt.taskType === 'task1_general' ? 'T1G' : 'T2'}</span></div>}<span className={`awp-analysis is-${analysis.key}`}>{analysis.label}</span></div>
-          <div className="awp-card__body"><div className="awp-card__meta"><span>{TASK_LABELS[prompt.taskType]}</span>{prompt.difficulty && <span>{DIFFICULTY_LABELS[prompt.difficulty]}</span>}<span className={prompt.examOnly ? 'is-exam' : 'is-student'}>{prompt.examOnly ? 'Chỉ kỳ thi' : 'Thư viện học viên'}</span></div><h3>{prompt.title}</h3><p>{prompt.promptText}</p><div className="awp-tags">{prompt.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>{prompt.analysisError && <div className="awp-card__error">{prompt.analysisError}</div>}{prompt.malformedOptional ? <div className="awp-card__error">Dữ liệu đáp án không nhất quán; cần phân tích hoặc duyệt lại.</div> : null}</div>
-          <footer>{filters.lifecycle === 'active' ? <><a className="adm-btn-primary" href={assignmentHref({}, { promptId: prompt.id })}>Giao đề này</a><button className="adm-btn-secondary" type="button" onClick={() => openEditor(prompt)}>Sửa prompt</button>{prompt.taskType === 'task1_academic' && prompt.imageUrl ? prompt.analysisStatus === 'pending' ? <button className="adm-btn-secondary" type="button" disabled>Đang phân tích…</button> : <button className="adm-btn-secondary" type="button" onClick={() => prompt.analysisStatus === 'ready' ? openAnalysis(prompt) : setConfirming({ kind: 'reanalyze', prompt })}>{prompt.analysisStatus === 'ready' ? 'Duyệt answer key' : 'Phân tích hình'}</button> : null}<button className="adm-btn-secondary" type="button" onClick={() => setConfirming({ kind: 'visibility', prompt })}>{prompt.examOnly ? 'Trả về thư viện' : 'Dành cho kỳ thi'}</button><button className="adm-btn-danger" type="button" onClick={() => setConfirming({ kind: 'archive', prompt })}>Lưu trữ</button></> : <button className="adm-btn-primary" type="button" onClick={() => setConfirming({ kind: 'restore', prompt })}>Khôi phục prompt</button>}</footer>
+          <div className="awp-card__body"><div className="awp-card__meta"><span>{TASK_LABELS[prompt.taskType]}</span>{prompt.difficulty && <span>{DIFFICULTY_LABELS[prompt.difficulty]}</span>}<span className={prompt.examOnly ? 'is-exam' : 'is-student'}>{prompt.examOnly ? 'Chỉ kỳ thi' : 'Thư viện học viên'}</span></div><h3>{prompt.title}</h3><p>{prompt.promptText}</p><div className="awp-course-badges">{promptCourses(prompt.tags).length ? promptCourses(prompt.tags).map((course) => <span key={course}>Course {course}</span>) : <span className="is-unassigned">Chưa phân bổ</span>}</div><div className="awp-tags">{promptContentTags(prompt.tags).map((tag) => <span key={tag}>#{tag}</span>)}</div>{prompt.analysisError && <div className="awp-card__error">{prompt.analysisError}</div>}{prompt.malformedOptional ? <div className="awp-card__error">Dữ liệu đáp án không nhất quán; cần phân tích hoặc duyệt lại.</div> : null}</div>
+          <footer>{filters.lifecycle === 'active' ? <><a className="adm-btn-primary" href={assignmentHref({}, { promptId: prompt.id })}>Giao đề này</a><button className="adm-btn-secondary" type="button" onClick={() => openEditor(prompt)}>Sửa prompt</button><button className="adm-btn-secondary" type="button" onClick={() => openEditor(prompt)}>Phân bổ khóa học</button>{prompt.taskType === 'task1_academic' && prompt.imageUrl ? prompt.analysisStatus === 'pending' ? <button className="adm-btn-secondary" type="button" disabled>Đang phân tích…</button> : <button className="adm-btn-secondary" type="button" onClick={() => prompt.analysisStatus === 'ready' ? openAnalysis(prompt) : setConfirming({ kind: 'reanalyze', prompt })}>{prompt.analysisStatus === 'ready' ? 'Duyệt answer key' : 'Phân tích hình'}</button> : null}<button className="adm-btn-secondary" type="button" onClick={() => setConfirming({ kind: 'visibility', prompt })}>{prompt.examOnly ? 'Trả về thư viện' : 'Dành cho kỳ thi'}</button><button className="adm-btn-danger" type="button" onClick={() => setConfirming({ kind: 'archive', prompt })}>Lưu trữ</button></> : <button className="adm-btn-primary" type="button" onClick={() => setConfirming({ kind: 'restore', prompt })}>Khôi phục prompt</button>}</footer>
         </article>;
       })}</div>
     </section>
 
     <Dialog open={editor !== null} title={editor === 'new' ? 'Tạo đề mới' : 'Sửa đề'} description="Nội dung đề và hình nguồn. Đáp án được duyệt ở không gian riêng." onClose={() => !busy && setEditor(null)} busy={busy} panelClassName="awp-dialog-wide" actions={<><button className="adm-btn-secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Huỷ</button><button className="adm-btn-primary" type="button" onClick={() => void savePrompt()} disabled={busy}>{busy ? 'Đang lưu…' : pendingCreate.current ? 'Thử đối chiếu lại' : 'Lưu đề'}</button></>}>
-      <div className="awp-form"><Field label="Tiêu đề"><input value={draft.title} maxLength={200} onChange={(event) => setDraft({ ...draft, title: event.target.value })}/></Field><div className="awp-form-grid"><Field label="Loại bài"><select value={draft.taskType} onChange={(event) => { const taskType = event.target.value as TaskType; setDraft({ ...draft, taskType }); if (taskType !== 'task1_academic') { setImageFile(null); setRemoveImage(true); } }}><option value="task2">Task 2</option><option value="task1_academic">Task 1 Academic</option><option value="task1_general">Task 1 General</option></select></Field><Field label="Độ khó"><select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value as PromptDraft['difficulty'] })}><option value="">Chưa phân loại</option><option value="beginner">Cơ bản</option><option value="intermediate">Trung cấp</option><option value="advanced">Nâng cao</option></select></Field></div><Field label="Đề bài" hint={`${draft.promptText.length}/5000`}><textarea rows={8} maxLength={5000} value={draft.promptText} onChange={(event) => setDraft({ ...draft, promptText: event.target.value })}/></Field><Field label="Thẻ nội dung" hint="Phân cách bằng dấu phẩy; tối đa 20 thẻ."><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })}/></Field>
+      <div className="awp-form"><fieldset className="awp-course-editor" disabled={busy}><legend>Phân bổ khóa học</legend><p>Chọn một hoặc nhiều khóa để tái sử dụng đề cho các lớp sau. Bỏ chọn tất cả để đưa về Chưa phân bổ.</p><div>{WRITING_COURSES.map((course) => <label key={course}><input type="checkbox" checked={draft.courses.includes(course)} onChange={(event) => setDraft((current) => ({ ...current, courses: event.target.checked ? [...current.courses, course] : current.courses.filter((value) => value !== course) }))}/><span>Course {course}</span></label>)}</div></fieldset><Field label="Tiêu đề"><input value={draft.title} maxLength={200} onChange={(event) => setDraft({ ...draft, title: event.target.value })}/></Field><div className="awp-form-grid"><Field label="Loại bài"><select value={draft.taskType} onChange={(event) => { const taskType = event.target.value as TaskType; setDraft({ ...draft, taskType }); if (taskType !== 'task1_academic') { setImageFile(null); setRemoveImage(true); } }}><option value="task2">Task 2</option><option value="task1_academic">Task 1 Academic</option><option value="task1_general">Task 1 General</option></select></Field><Field label="Độ khó"><select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value as PromptDraft['difficulty'] })}><option value="">Chưa phân loại</option><option value="beginner">Cơ bản</option><option value="intermediate">Trung cấp</option><option value="advanced">Nâng cao</option></select></Field></div><Field label="Đề bài" hint={`${draft.promptText.length}/5000`}><textarea rows={8} maxLength={5000} value={draft.promptText} onChange={(event) => setDraft({ ...draft, promptText: event.target.value })}/></Field><Field label="Thẻ nội dung" hint="Phân cách bằng dấu phẩy; tối đa 20 thẻ."><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })}/></Field>
         {draft.taskType === 'task1_academic' ? <section className="awp-image-field"><div><strong>Hình Task 1 Academic</strong><span id="awp-image-help">PNG, JPG hoặc WebP · tối đa 5 MB. File chỉ upload khi bạn bấm Lưu.</span></div>{!removeImage && (localImagePreview || draft.imageUrl) ? <div className="awp-image-preview">{localImagePreview ? <img src={localImagePreview} alt="Xem trước hình mới"/> : <img src={draft.imageUrl} alt="Hình hiện tại"/>}<div><strong>{imageFile?.name || 'Hình đang sử dụng'}</strong>{imageFile && <span>{(imageFile.size / 1024 / 1024).toFixed(2)} MB</span>}<button className="adm-btn-secondary" type="button" onClick={() => { setImageFile(null); setRemoveImage(true); if (imageInputRef.current) imageInputRef.current.value = ''; }}>Bỏ hình</button></div></div> : null}<label className={`awp-upload${imageDragActive ? ' is-dragging' : ''}`} onDragEnter={(event) => { event.preventDefault(); if (!busy) setImageDragActive(true); }} onDragOver={(event) => { event.preventDefault(); if (!busy) { event.dataTransfer.dropEffect = 'copy'; setImageDragActive(true); } }} onDragLeave={(event) => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setImageDragActive(false); }} onDrop={(event) => { if (busy) { event.preventDefault(); return; } dropImage(event); }}><span className="awp-upload__icon" aria-hidden="true">↑</span><strong>{localImagePreview || (!removeImage && draft.imageUrl) ? 'Kéo thả ảnh khác để thay' : 'Kéo thả ảnh vào đây'}</strong><span>hoặc bấm để chọn từ máy</span><input ref={imageInputRef} className="awp-upload__input" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="awp-image-help" disabled={busy} onChange={(event) => selectImage(event.target.files?.[0] || null)}/></label></section> : null}
         {formError && <div className="acd-form-error" role="alert">{formError}</div>}
       </div>

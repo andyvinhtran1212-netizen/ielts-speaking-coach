@@ -92,11 +92,11 @@ input: "choice"
 headword: "inv-negative-adverbial"
 skill: "contrast"
 subtype: "advanced"
-prompt: "Câu nào KHÔNG phải là inversion mà chỉ là câu hỏi thông thường?"
+prompt: "Câu nào dùng đảo trợ động từ để hỏi thông tin, thay vì đảo ngữ do trạng ngữ phủ định đứng đầu?"
 options: ["Did you see him yesterday?", "Never did I see him again.", "Rarely have they been so productive.", "Not only does it pollute, but it also depletes resources."]
 answer: 0
 grammar_article_slug: "inversion"
-explain: "'Did you see him yesterday?' là câu hỏi thật (kết thúc bằng dấu hỏi, hỏi thông tin). Ba câu còn lại là inversion nhấn mạnh, không phải câu hỏi."
+explain: "Did you see him yesterday? có subject–auxiliary inversion để hỏi thông tin. Ba câu còn lại đảo trợ động từ do Never, Rarely hoặc Not only đứng đầu mệnh đề; mục đích ở đây là nhấn mạnh, không phải hỏi."
 ---
 
 # ===== item_key 2 · Not only...but also (đảo ngữ) =====

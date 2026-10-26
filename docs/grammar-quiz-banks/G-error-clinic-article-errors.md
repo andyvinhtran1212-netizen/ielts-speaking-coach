@@ -38,11 +38,11 @@ input: "choice"
 headword: "aerr-missing-the-unique"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Bài luận Task 2 của một học sinh viết: '____ internet has completely changed the way young people socialise.' Chọn cách sửa đúng."
+prompt: "Chọn toàn bộ cụm làm chủ ngữ cho câu Task 2: '____ has completely changed the way young people socialise.'"
 options: ["Internet (không mạo từ)", "The internet", "An internet", "Internets"]
 answer: 1
 grammar_article_slug: "article-errors"
-explain: "'internet' được xem là thứ duy nhất mà ai cũng biết → luôn đi với 'the': 'The internet has...'."
+explain: "The internet là cụm chủ ngữ thông dụng trong câu này. Ô trống thay cho toàn bộ cụm nên không còn lặp internet. Các cách dùng không mạo từ có thể xuất hiện trong thuật ngữ hoặc cách dùng riêng; không suy ra mọi internet ở mọi ngữ cảnh đều cần the."
 ---
 
 ---
@@ -81,11 +81,11 @@ input: "choice"
 headword: "aerr-extra-the-general"
 skill: "error_id"
 subtype: "basic"
-prompt: "Câu chấm điểm phát hiện lỗi: 'The technology has made our lives easier in many ways.' Lỗi ở đây là gì?"
+prompt: "Nếu muốn nói công nghệ nói chung, chưa xác định một công nghệ cụ thể, cần sửa gì trong 'The technology has made our lives easier in many ways'?"
 options: ["Thừa 'the' vì 'technology' đang nói chung chung", "Thiếu 's' ở 'technology'", "Sai thì động từ", "Không có lỗi"]
 answer: 0
 grammar_article_slug: "article-errors"
-explain: "Khi nói về công nghệ nói chung (không chỉ một công nghệ cụ thể) → không dùng 'the': 'Technology has made our lives easier...'."
+explain: "Theo nghĩa khái quát được nêu rõ trong đề, bỏ the: Technology has made our lives easier. The technology vẫn đúng khi chỉ một công nghệ đã xác định; không đánh dấu sai nếu thiếu ngữ cảnh để loại cách hiểu đó."
 ---
 
 ---

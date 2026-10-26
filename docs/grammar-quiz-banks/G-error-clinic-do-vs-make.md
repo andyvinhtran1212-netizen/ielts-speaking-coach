@@ -296,7 +296,7 @@ subtype: "advanced"
 prompt: "Đúng hay Sai: 'Even though the students did a real effort all semester, their test scores did little progress.'"
 answer: false
 grammar_article_slug: "do-vs-make"
-explain: "SAI — 'effort' và 'progress' đều là outcomes được tạo ra/đạt được → 'the students made a real effort ... their test scores made little progress.'"
+explain: "SAI — dùng make an effort và make progress với người học. Câu tự nhiên: 'Even though the students made a real effort all semester, they made little progress.' Nếu nói điểm số, viết 'their test scores improved only slightly'; không sửa thành 'test scores made progress'."
 ---
 
 # ===== item_key 5 · make (tiếng ồn/bừa bộn) vs do — nhận diện lỗi trái nhóm =====

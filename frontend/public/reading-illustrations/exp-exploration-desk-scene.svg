@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Chuẩn bị một hành trình</title>
+  <desc id="desc">Bản đồ cách điệu, la bàn, ống nhòm một mắt và dây thừng trên bàn gỗ cạnh cửa sổ nhìn ra biển.</desc>
+  <rect width="800" height="400" rx="24" fill="#edf5f1"/>
+  <rect x="496" y="30" width="250" height="164" fill="#dcecef" stroke="#80aaa0" stroke-width="7"/>
+  <path d="M500 130Q559 112 620 130T742 130V190H500Z" fill="#a8cbd0"/>
+  <path d="M500 154Q565 140 620 155T742 155M548 174H590M665 145H706" fill="none" stroke="#edf5f1" stroke-width="4"/>
+  <path d="M621 32V191" stroke="#80aaa0" stroke-width="5"/>
+  <rect y="234" width="800" height="166" fill="#d9c7a9"/>
+  <path d="M75 238L365 207L494 337L150 366Z" fill="#fffaf0" stroke="#b6a67f" stroke-width="4"/>
+  <path d="M151 265L187 237L225 249L244 276L217 290L231 318L196 333L175 304Z" fill="#b6d0b3"/>
+  <path d="M304 243L347 234L383 260L361 280L387 304L349 329L318 301L330 271Z" fill="#80aaa0"/>
+  <path d="M273 236L320 341M120 299L431 279" stroke="#a8cbd0" stroke-width="2" stroke-dasharray="7 8"/>
+  <g transform="translate(582 294)">
+    <circle r="52" fill="#faf8ef" stroke="#aa825e" stroke-width="6"/>
+    <path d="M0 -35L12 0L0 35L-12 0Z" fill="#3d8275"/>
+    <path d="M-35 0L0 -10L35 0L0 10Z" fill="#d3b26d"/>
+    <circle r="5" fill="#293b43"/>
+  </g>
+  <g transform="translate(413 211) rotate(-25)">
+    <rect x="0" y="-16" width="144" height="32" rx="5" fill="#aa825e" stroke="#796249" stroke-width="4"/>
+    <rect x="123" y="-22" width="31" height="44" rx="5" fill="#d3b26d" stroke="#796249" stroke-width="4"/>
+    <path d="M27 -15V15M108 -15V15" stroke="#d3b26d" stroke-width="7"/>
+  </g>
+  <path d="M692 258C639 250 653 358 709 351C759 344 754 277 709 276C674 275 673 330 707 330C731 330 729 297 709 298" fill="none" stroke="#aa825e" stroke-width="8" stroke-linecap="round"/>
+</svg>

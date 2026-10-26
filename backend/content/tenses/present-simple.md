@@ -138,8 +138,8 @@ Does + he / she / it       + V ...?
 
 **Cách phát âm -s/-es:**
 - /s/ sau âm vô thanh (p, k, t, f, th): works /wɜːks/, sits /sɪts/
-- /z/ sau âm hữu thanh (b, g, d, v, m, n, l, r, ð, z): reads /riːdz/, lives /lɪvz/
-- /ɪz/ sau âm /s/, /z/, /ʃ/, /tʃ/, /dʒ/: wishes /ˈwɪʃɪz/, changes /ˈtʃeɪndʒɪz/
+- /z/ sau nguyên âm và phụ âm hữu thanh **không phải âm xuýt** (b, g, d, v, m, n, l, r, ð): reads /riːdz/, lives /lɪvz/
+- /ɪz/ sau âm /s/, /z/, /ʃ/, /ʒ/, /tʃ/, /dʒ/: buzzes /ˈbʌzɪz/, wishes /ˈwɪʃɪz/, changes /ˈtʃeɪndʒɪz/
 
 ## Cách dùng phổ biến
 
@@ -249,9 +249,9 @@ Với các động từ trạng thái (stative verbs), dùng Present Simple khi 
 <!-- anchor: present-simple.common-mistake.do-does-confusion -->
 ### Lỗi 3: Thiếu do/does trong câu hỏi
 
-- ❌ SAI: **You like** coffee?
-- ✅ ĐÚNG: **Do you like** coffee?
-- **TẠI SAO:** Câu hỏi cần trợ động từ do/does (ngoại lệ: be/modal verbs).
+- Trung tính, đầy đủ: **Do you like** coffee?
+- **You like coffee?** có thể xác nhận bằng câu trần thuật lên giọng trong hội thoại.
+- Câu nghi vấn đầy đủ với động từ thường dùng do/does; dạng hội thoại trên không phải lúc nào cũng sai.
 
 ### Lỗi 4: Dùng do/does với "be"
 
@@ -263,7 +263,7 @@ Với các động từ trạng thái (stative verbs), dùng Present Simple khi 
 
 - ❌ SAI: I **study** right now.
 - ✅ ĐÚNG: I **'m studying** right now.
-- **TẠI SAO:** "Now" ngụ ý hành động đang xảy ra → Present Continuous.
+- **TẠI SAO:** Nếu study là hoạt động đang diễn ra, **I'm studying right now** phù hợp. Now không tự buộc mọi động từ dùng tiếp diễn: **Now I understand**, **I need help right now** dùng dạng đơn.
 
 ## Lưu ý cho người học Việt Nam
 
@@ -367,7 +367,7 @@ Chủ ngữ ngôi thứ ba số ít như **water**, **the meeting** và **my sis
 
 **3 dạng phát âm -s** (xem thêm article `pronunciation-grammar-link`):
 - Sau /p, t, k, f, θ/: phát âm /s/ — "works" /wɜːks/, "stops" /stɒps/
-- Sau hữu thanh + nguyên âm: phát âm /z/ — "runs" /rʌnz/, "plays" /pleɪz/
+- Sau hữu thanh không phải âm xuýt + nguyên âm: phát âm /z/ — "runs" /rʌnz/, "plays" /pleɪz/
 - Sau /s, z, ʃ, ʒ, tʃ, dʒ/: phát âm /ɪz/ — "watches" /wɒtʃɪz/, "finishes" /ˈfɪnɪʃɪz/
 
 **Drill:** Mỗi sáng đọc 30 câu present simple với he/she/it. Force -s rõ ràng. Ghi âm + check lại.

@@ -91,3 +91,9 @@ draft -> approved -> implementing -> verified -> shipped
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
 | LEARNERDRAFT-0010 | Preserve Reading answers and Speaking preparation within a browser tab | implementing | medium | [spec](0010-learner-draft-preservation/spec.md) |
+
+| GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | approved | high | [spec](0019-grammar-audit-remediation/spec.md) |
+
+| VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | approved | high | [spec](0020-vocabulary-class-sets/spec.md) |
+
+| READINGPRACTICE-0021 | Repair Reading practice and support sentence translation in place | implementing | high | [spec](0021-reading-practice-support/spec.md) |

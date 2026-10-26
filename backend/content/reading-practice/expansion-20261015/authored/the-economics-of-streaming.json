@@ -1,0 +1,218 @@
+{
+  "slug": "the-economics-of-streaming",
+  "review_notes": "Rightsholders là chủ thể nắm quyền, không tự đồng nhất với cá nhân nghệ sĩ. Pool là quỹ phân chia, tiered là phân tầng; mô tả theo bài nguồn, không cập nhật chính sách các dịch vụ thực tế.",
+  "illustration_brief": "Một người đeo tai nghe và sử dụng điện thoại trong chuyến đi, bên cạnh là biểu tượng sóng âm.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Mỗi lần bài hát phát trên dịch vụ nghe trực tuyến, một khoản tiền nhỏ gần như không thấy được chuyển tay.",
+      [
+        "a streaming service",
+        "dịch vụ nghe trực tuyến"
+      ],
+      [
+        "changes hands",
+        "được chuyển tay"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Người nghe trả phí thuê bao tháng cố định thay vì từng bài, nên nhiều người mặc định nghệ sĩ nhận mức cố định mỗi lượt nghe.",
+      [
+        "a fixed monthly subscription",
+        "phí thuê bao tháng cố định"
+      ],
+      [
+        "a set rate per play",
+        "mức cố định mỗi lượt nghe"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nhưng thực tế lạ hơn nhiều.",
+      [
+        "far stranger",
+        "lạ hơn nhiều"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Thay vì trả riêng từng lượt, nền tảng gom toàn bộ tiền thuê bao và quảng cáo tháng vào một quỹ lớn.",
+      [
+        "each play separately",
+        "riêng từng lượt"
+      ],
+      [
+        "subscription and advertising money",
+        "tiền thuê bao và quảng cáo"
+      ],
+      [
+        "one large pool",
+        "một quỹ lớn"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Khoảng hai phần ba doanh thu sau đó được chuyển cho các chủ thể nắm giữ bản quyền, phần còn lại trang trải thuế, phí thanh toán thẻ và chi phí vận hành dịch vụ.",
+      [
+        "Around two-thirds of that revenue",
+        "Khoảng hai phần ba doanh thu"
+      ],
+      [
+        "rightsholders",
+        "các chủ thể nắm giữ bản quyền"
+      ],
+      [
+        "tax, card fees",
+        "thuế, phí thanh toán thẻ"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Quỹ được chia theo thị phần: nghệ sĩ có một phần trăm tổng lượt nghe nhận một phần trăm tiền bản quyền.",
+      [
+        "by market share",
+        "theo thị phần"
+      ],
+      [
+        "one per cent of all streams",
+        "một phần trăm tổng lượt nghe"
+      ],
+      [
+        "the royalties",
+        "tiền bản quyền"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Theo mô hình này, lượt nghe từ người thuê bao trả tiền có giá trị hơn lượt chỉ được quảng cáo hỗ trợ.",
+      [
+        "a paying subscriber",
+        "người thuê bao trả tiền"
+      ],
+      [
+        "supported only by advertising",
+        "chỉ được quảng cáo hỗ trợ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Hệ thống phân tầng này, được nhiều người mô tả là phần lớn không công khai, dẫn tới con số nhỏ đáng ngạc nhiên.",
+      [
+        "This tiered system",
+        "Hệ thống phân tầng này"
+      ],
+      [
+        "largely undisclosed",
+        "phần lớn không công khai"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Mỗi lượt thường chỉ đáng giá một phần nhỏ của một xu, nên bài phải vượt ngưỡng lượt nghe tối thiểu mỗi năm mới tạo bất kỳ khoản nào.",
+      [
+        "worth only a fraction of a cent",
+        "chỉ đáng giá một phần nhỏ của một xu"
+      ],
+      [
+        "a minimum threshold of plays",
+        "ngưỡng lượt nghe tối thiểu"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Bài dưới ngưỡng không kiếm được gì, dù vài người hâm mộ trung thành phát lại thường xuyên.",
+      [
+        "earn nothing",
+        "không kiếm được gì"
+      ],
+      [
+        "a few loyal fans",
+        "vài người hâm mộ trung thành"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Vì thế, để kiếm thu nhập khiêm tốn, nghệ sĩ độc lập có thể cần hàng trăm nghìn lượt, và số tiền chính xác còn đổi theo nước nơi người nghe ở.",
+      [
+        "an independent artist",
+        "nghệ sĩ độc lập"
+      ],
+      [
+        "hundreds of thousands of streams",
+        "hàng trăm nghìn lượt"
+      ],
+      [
+        "the country in which the listening happens",
+        "nước nơi người nghe ở"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Ở vùng giàu hơn, mỗi lượt thường đáng giá nhỉnh hơn cùng lượt ở nơi khác.",
+      [
+        "wealthier regions",
+        "vùng giàu hơn"
+      ],
+      [
+        "a little more",
+        "nhỉnh hơn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Với ngôi sao lớn nhất thu hút hàng tỉ lượt, mô hình vẫn có thể sinh lời cao.",
+      [
+        "billions of plays",
+        "hàng tỉ lượt"
+      ],
+      [
+        "highly profitable",
+        "sinh lời cao"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Với mọi người khác, khó duy trì sự nghiệp chỉ nhờ tiền bản quyền nghe trực tuyến, và nhiều nhạc sĩ nay dựa vào hòa nhạc cùng hàng lưu niệm.",
+      [
+        "sustain a career",
+        "duy trì sự nghiệp"
+      ],
+      [
+        "concerts and merchandise",
+        "hòa nhạc cùng hàng lưu niệm"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Người phê bình cho rằng công thức thưởng số lượng hơn chất lượng.",
+      [
+        "rewards quantity rather than quality",
+        "thưởng số lượng hơn chất lượng"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Liệu có thể điều chỉnh mô hình để hỗ trợ nghệ sĩ công bằng hơn hay không vẫn chưa chắc chắn — nhưng hiện tại, giá trị kinh tế của một lượt nghe vẫn nhỏ đáng ngạc nhiên.",
+      [
+        "support artists more fairly",
+        "hỗ trợ nghệ sĩ công bằng hơn"
+      ],
+      [
+        "remains uncertain",
+        "vẫn chưa chắc chắn"
+      ],
+      [
+        "a single play",
+        "một lượt nghe"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-podcast-scene.svg",
+    "alt": "Một người đeo tai nghe và sử dụng điện thoại trong chuyến đi, bên cạnh là biểu tượng sóng âm.",
+    "caption": "Nghe âm thanh qua thiết bị cá nhân."
+  },
+  "source_sha256": "87faa02e126914c1cfd896a0b61128de2f21fcdc474a26705d6e777c32a09cee",
+  "expected_translation_sha256": "492b283b124c68ffed0526bc843db49c4d03b0528f64740389769acf279b8abe"
+}

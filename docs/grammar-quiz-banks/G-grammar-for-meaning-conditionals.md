@@ -279,10 +279,10 @@ input: "boolean"
 headword: "cond-unless"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai: 'Unless governments don't act, the situation will worsen.'"
+prompt: "Đúng hay Sai: 'Unless governments don't act, the situation will worsen' giữ nghĩa 'If governments do not act, the situation will worsen'."
 answer: false
 grammar_article_slug: "conditionals"
-explain: "SAI — 'unless' đã mang nghĩa phủ định ('if...not'), thêm 'don't' tạo phủ định kép (double negative): 'Unless governments act, the situation will worsen.'"
+explain: "SAI về nghĩa được yêu cầu: unless governments don't act nghĩa là ngoại trừ trường hợp chính phủ không hành động, gần với if governments act. Muốn giữ ý gốc, viết unless governments act. Unless + mệnh đề phủ định không tự sai ngữ pháp; nó thay đổi điều kiện/ngoại lệ."
 ---
 
 ---

@@ -192,9 +192,8 @@ Với động từ có hai nghĩa, kiểm nghĩa trước: *I have had this car 
 
 ### Lỗi 1: Dùng Present Continuous thay vì PPC
 
-- ❌ I am studying English for 3 years.
-- ✅ I **have been studying** English for 3 years.
-  (Hiện tại đơn tiếp diễn chỉ hành động đang xảy ra ngay lúc này, không có liên kết với quá khứ)
+- Nếu nói đã học ba năm **tới nay**: **I have been studying English for 3 years**.
+- **I am studying English for 3 years** có thể nói độ dài khóa học đang theo một kế hoạch; Present Continuous còn diễn tả hoạt động tạm thời và sắp xếp tương lai, không chỉ đúng thời khắc đang nói.
 
 ### Lỗi 2: Dùng stative verbs với PPC
 
@@ -282,8 +281,8 @@ Với động từ có hai nghĩa, kiểm nghĩa trước: *I have had this car 
 | Hành động lặp lại gần đây | She's been calling me every day. |
 | Xu hướng đang diễn ra | Cities have been growing rapidly. |
 
-**Phân biệt mấu chốt:**
-- **PP đơn:** *Đã xong chưa?* → She has finished. (xong rồi)
-- **PPC:** *Đang làm bao lâu?* → She has been working for hours. (quá trình)
+**Trọng tâm thường gặp, không phải phân chia xong/chưa xong tuyệt đối:**
+- **PP đơn:** kết quả/số lượng hoặc trạng thái kéo dài — **She has finished**, **He has worked here for ten years** (có thể vẫn đang làm).
+- **PPC:** hoạt động/quá trình — **She has been working for hours** (có thể còn làm hoặc vừa ngừng).
 
 **Stative verbs → thường dùng PP đơn khi nói trạng thái kéo dài:** know, want, love, believe, own, understand. Một số nghĩa và ngữ cảnh cho phép PPC; không chỉ nhìn đuôi -ing để kết luận sai.

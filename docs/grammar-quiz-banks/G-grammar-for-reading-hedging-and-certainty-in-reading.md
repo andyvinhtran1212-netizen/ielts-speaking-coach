@@ -65,12 +65,12 @@ input: "text"
 headword: "hc-certainty-scale"
 skill: "production"
 subtype: "intermediate"
-prompt: "Rewrite this sentence with a hedging word to lower certainty: 'Digital technology transforms education.' Insert a hedging word/phrase: 'Digital technology ____ transforms education.'"
-hint: "1 từ hoặc cụm ngắn"
-accept: ["may", "might", "could", "appears to", "seems to", "tends to"]
+prompt: "Insert a hedging adverb possibly, perhaps, potentially or probably: 'Digital technology ____ transforms education.'"
+hint: "gõ 1 trạng từ trước transforms; không điền modal/to-infinitive vào khung này"
+accept: ["possibly", "perhaps", "potentially", "probably"]
 case_sensitive: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
-explain: "'May', 'might', 'could', 'appears to', 'seems to', 'tends to' đều là từ rào đón để hạ mức khẳng định từ chắc chắn → thận trọng."
+explain: "Các trạng từ được cho có thể đứng trước transforms và giảm tính khẳng định tuyệt đối theo các sắc thái khác nhau. Nếu dùng may/might/could hoặc appears/seems/tends to, động từ phải đổi thành transform; không chèn các cụm ấy trước transforms giữ nguyên -s."
 ---
 
 ---
@@ -107,11 +107,11 @@ input: "text"
 headword: "hc-certainty-scale"
 skill: "production"
 subtype: "advanced"
-prompt: "Analyze mức chắc chắn: 'The study PROVES that exercise reduces depression' vs 'The study SUGGESTS that exercise may reduce depression.' Mệnh đề nào thể hiện mức chắc chắn cao hơn? → ____"
-accept: ["first", "the first", "first one"]
+prompt: "So sánh hai câu: 'The study PROVES that exercise reduces depression' và 'The study SUGGESTS that exercise may reduce depression.' Dùng first, the first, first one hoặc the first statement để chỉ câu khẳng định mạnh hơn."
+accept: ["first", "the first", "first one", "the first statement"]
 case_sensitive: false
 grammar_article_slug: "hedging-and-certainty-in-reading"
-explain: "'Proves' (chứng minh) không rào đón → khẳng định mạnh. 'Suggests' + 'may' → hai lớp rào đón → mức chắc chắn thấp. Thứ nhất cao hơn thứ hai."
+explain: "Trong cặp này, câu PROVES khẳng định mạnh hơn câu SUGGESTS ... may. The first statement xác định đúng cùng câu như first/the first; đề cho phép các nhãn đó, không buộc chỉ một từ."
 ---
 
 # ===== item_key 2 · Rào đón: may, might, could, suggests, appears, tends to, likely =====

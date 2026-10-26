@@ -192,10 +192,10 @@ input: "boolean"
 headword: "t1-passive-process"
 skill: "error_id"
 subtype: "advanced"
-prompt: "Đúng hay Sai (process diagram): 'Then they heat the mixture until it dissolves completely.'"
-answer: false
+prompt: "Đúng hay Sai về ngữ pháp: 'Then they heat the mixture until it dissolves completely' có thể dùng trong mô tả quy trình nếu they chỉ người thực hiện đã được xác định."
+answer: true
 grammar_article_slug: "grammar-in-task1"
-explain: "SAI — process diagram nên khách quan, không nêu chủ thể 'they' → sửa lại bị động: 'Then the mixture is heated until it dissolves completely.'"
+explain: "ĐÚNG khi they có tham chiếu rõ. Bị động 'The mixture is heated...' hữu ích khi tác nhân không quan trọng hoặc không được cho, nhưng mô tả quy trình không buộc mọi câu phải bị động. Không có sơ đồ thì chưa thể kiểm chứng mức độ đúng của nội dung thao tác."
 ---
 
 # ===== item_key 3 · So sánh hơn/nhất cho số liệu =====

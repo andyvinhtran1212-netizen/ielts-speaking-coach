@@ -77,13 +77,13 @@ Câu hỏi IELTS hiếm khi có đáp án một chiều. "Discuss both views", "
 | Đảo hướng | that said / having said that / then again | That said, ... |
 | Liệt kê song song | not only... but also / both... and | Not only X but also Y |
 
-> Lập luận cân bằng KHÔNG có nghĩa là không có quan điểm — bạn vẫn nên nghiêng về một bên ở cuối, sau khi đã công nhận bên kia.
+> Lập luận cân bằng KHÔNG có nghĩa là không có quan điểm — chọn mức đồng ý và cách kết luận theo yêu cầu đề, có thể giữ một lập trường rõ xuyên suốt.
 
 ---
 
 ## Tại sao quan trọng
 
-Trong **Writing Task 2 discussion essay**, tiêu chí Task Response đòi bạn trình bày **cả hai quan điểm** trước khi đưa ý kiến. Trong **Speaking Part 3**, câu trả lời một chiều ("It's just bad, full stop") thể hiện tư duy hạn chế. Cấu trúc cân bằng giúp bạn vừa thể hiện **Grammatical Range** (cấu trúc tương phản, song song) vừa **Coherence** (lập luận có tổ chức).
+Trong **Writing Task 2 discussion essay**, tiêu chí Task Response đòi bạn trình bày **cả hai quan điểm** trước khi đưa ý kiến. Trong **Speaking Part 3**, một lập trường có thể được phát triển tốt bằng lý do và ví dụ; không bắt buộc hai phía. Cấu trúc cân bằng giúp bạn vừa thể hiện **Grammatical Range** (cấu trúc tương phản, song song) vừa **Coherence** (lập luận có tổ chức).
 
 ---
 
@@ -157,7 +157,7 @@ neither [X] nor [Y]
 
 - The policy is **not only** expensive **but also** difficult to enforce.
 - Good education develops **both** knowledge **and** character.
-- **Neither** banning nor ignoring the problem will work.
+- **Neither** banning the activity **nor** ignoring its consequences will work.
 
 ⚠ **Song song về dạng từ:** hai vế phải cùng loại (danh từ–danh từ, động từ–động từ).
 - ❌ not only expensive but also it is hard. → ✅ not only **expensive** but also **hard**.
@@ -239,7 +239,7 @@ While both views have merit, [quan điểm nghiêng của bạn]
 4. **On the other hand / That said,** they can be stressful and crowded.
 
 **Song song:**
-1. The course is **not only** interesting **but also** useful (in teaching practical skills).
+1. **Not only is** the course interesting, **but it also teaches** useful skills.
 
 ---
 
@@ -257,4 +257,4 @@ While both views have merit, [quan điểm nghiêng của bạn]
 - Đề "discuss both views" → bắt buộc trình bày CẢ HAI mặt
 - Công nhận phía đối lập (concession) làm lập luận của bạn mạnh hơn, không yếu hơn
 - Cấu trúc song song phải cân về dạng từ (not only ADJ but also ADJ)
-- Cân bằng ≠ trung lập: vẫn nên nghiêng về một bên ở cuối
+- Đáp ứng dạng đề và giữ lập trường rõ; không phải mọi bài đều cần một đoạn mỗi phía

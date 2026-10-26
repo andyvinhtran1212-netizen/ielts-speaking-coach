@@ -122,7 +122,7 @@ Past Continuous (background) + when + Past Simple (interruption)
 - She **was cooking** dinner when he **arrived** home.
 - They **were discussing** the plan when the power **went** out.
 
-> **Mẹo:** Past Continuous = hành động nền dài; Past Simple = sự kiện ngắn bất ngờ xảy đến.
+> **Mẹo:** Past Continuous thường tạo nền đang diễn ra, Past Simple nêu sự kiện trong khung đó. Sự kiện không buộc ngắn/bất ngờ, và **She was cooking when he arrived** không chứng minh cô ấy ngừng nấu.
 
 **3. Hai hành động song song trong quá khứ**
 
@@ -158,7 +158,7 @@ Past Continuous + while + Past Continuous
 |--|---------------|------------|
 | **Ý nghĩa** | Đang xảy ra (chưa xong) | Đã xảy ra và kết thúc |
 | **Thời gian** | Kéo dài / nền | Điểm thời gian / hoàn thành |
-| **Kết hợp** | "when + PS" = bị gián đoạn | "when + PC" = sự kiện bất ngờ |
+| **Kết hợp** | when + PS định vị sự kiện trong bối cảnh đang diễn ra | Sự kiện không tự là ngắn/bất ngờ hoặc chứng minh hành động kia dừng |
 
 - I **was walking** home when it **started** to rain. (đang đi thì trời bắt đầu mưa)
 - I **walked** home when it **stopped** raining. (đợi tạnh mưa rồi đi bộ về)
@@ -194,13 +194,12 @@ Khi nói trạng thái nói chung, các động từ như know, believe, underst
 
 - ❌ While she arrived, I was cooking.
 - ✅ **When** she arrived, I was cooking.
-- ❌ When I was sleeping, he knocked.
-- ✅ While I **was sleeping**, he knocked. / When I was sleeping, he **knocked**.
+- **When I was sleeping, he knocked** đúng với when mở khoảng thời gian nền. **While I was sleeping, he knocked** cũng đúng và làm nền đồng thời rõ hơn.
 
 ### Lỗi 5: Dùng Past Continuous thay vì Past Simple cho hành động đã hoàn thành
 
-- ❌ Yesterday, I was finishing my homework at 9 pm. (hàm ý chưa xong)
-- ✅ Yesterday, I **finished** my homework at 9 pm.
+- **Yesterday, I was finishing my homework at 9 pm** nói công đoạn cuối đang diễn ra lúc đó; không tự sai hay phủ nhận hoàn tất về sau.
+- **Yesterday, I finished my homework at 9 pm** khẳng định hoàn tất tại mốc đó, có khác biệt về nghĩa.
 - ✅ Yesterday, at 9 pm, I **was finishing** my homework. (đang làm tại thời điểm đó)
 
 <!-- anchor: past-continuous.ielts-applications -->
@@ -261,7 +260,7 @@ Khi nói trạng thái nói chung, các động từ như know, believe, underst
 1. She **knew** the truth all along. (stative verb)
 2. **You were** working very hard yesterday.
 3. **When** he arrived, I was cooking.
-4. I **finished** the report at 6 pm yesterday. (hành động hoàn thành → Past Simple)
+4. **I was finishing the report at 6 pm yesterday** đúng nếu công đoạn cuối đang diễn ra lúc ấy. **I finished...** nói hoàn tất đúng sáu giờ; thiếu ngữ cảnh thì không buộc đổi thể.
 
 ## Tóm tắt nhanh
 

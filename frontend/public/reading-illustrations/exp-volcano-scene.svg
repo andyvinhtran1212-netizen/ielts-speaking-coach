@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Núi lửa trong cảnh quan rộng</title><desc id="desc">Núi lửa ở xa có dải dung nham và đám tro cách điệu, phía trước là thung lũng và đồi xanh.</desc>
+  <rect width="800" height="400" rx="24" fill="#e8f0f1"/>
+  <path d="M83 322L317 129L352 151L385 126L626 322Z" fill="#8b9b96" stroke="#71857d" stroke-width="4"/>
+  <path d="M317 129L352 151L385 126L366 167L390 218L376 240L395 285L372 274L356 218L363 195L340 161Z" fill="#d68157"/>
+  <path d="M346 146L351 179L370 202L365 220L376 260" fill="none" stroke="#e5c969" stroke-width="6" stroke-linecap="round"/>
+  <path d="M323 117Q295 91 317 71Q286 39 319 19Q353 -2 376 26Q414 13 430 42Q456 71 426 95Q403 119 373 99Q344 124 323 117Z" fill="#b2bfbd"/>
+  <path d="M170 321Q248 282 338 316T542 304T800 299V400H0V330Z" fill="#9cbaa1"/>
+  <path d="M0 356Q184 314 355 359T800 326V400H0Z" fill="#709982"/>
+  <path d="M52 327V276M710 330V275" stroke="#796249" stroke-width="8"/>
+  <path d="M28 288Q5 258 37 241Q30 211 58 214Q86 196 97 224Q123 239 102 267Q103 297 72 293Z" fill="#3d8275"/>
+  <path d="M685 287Q664 258 695 243Q688 213 716 215Q746 198 756 229Q783 242 762 269Q760 294 732 291Z" fill="#3d8275"/>
+  <path d="M533 349L602 329L659 350L579 375Z" fill="#b6d0b3"/><path d="M558 347L610 361M579 340L632 353" stroke="#8cb39a" stroke-width="4"/>
+</svg>

@@ -1,0 +1,190 @@
+{
+  "slug": "how-we-taste-food",
+  "review_notes": "Giữ rõ vị giác và khứu giác, dùng vị cho năm vị cơ bản và hương vị cho trải nghiệm món ăn; không tạo bản đồ chia vùng lưỡi vốn bị bài bác bỏ.",
+  "illustration_brief": "Một bàn ăn nhỏ có đĩa thực phẩm nhiều màu, lát chanh, bánh mì và bát nóng; không vẽ sơ đồ lưỡi hay gán vùng vị giác.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Lưỡi của bạn có khoảng 10.000 nụ vị giác li ti.",
+      [
+        "about 10,000",
+        "khoảng 10.000"
+      ],
+      [
+        "tiny taste buds",
+        "nụ vị giác li ti"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Những bộ phận nhỏ ấy giúp bạn thưởng thức món ăn.",
+      [
+        "enjoy your food",
+        "thưởng thức món ăn"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nhưng chúng ta thật sự cảm nhận vị bằng cách nào?",
+      [
+        "really taste things",
+        "thật sự cảm nhận vị"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Nụ vị giác nhận biết năm vị chính.",
+      [
+        "five main flavours",
+        "năm vị chính"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Đó là ngọt, chua, mặn, đắng và một vị đậm đà gọi là umami.",
+      [
+        "sweet, sour, salty, bitter",
+        "ngọt, chua, mặn, đắng"
+      ],
+      [
+        "a savoury taste",
+        "một vị đậm đà"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nhiều người cho rằng đầu lưỡi chỉ cảm nhận vị ngọt.",
+      [
+        "the tip of the tongue",
+        "đầu lưỡi"
+      ],
+      [
+        "only tastes sweet things",
+        "chỉ cảm nhận vị ngọt"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Quan niệm cũ này không đúng.",
+      [
+        "This old idea",
+        "Quan niệm cũ này"
+      ],
+      [
+        "wrong",
+        "không đúng"
+      ]
+    ],
+    [
+      "p2-s5",
+      "Mọi phần của lưỡi đều nhận biết được mọi vị.",
+      [
+        "Every part of the tongue",
+        "Mọi phần của lưỡi"
+      ],
+      [
+        "every flavour",
+        "mọi vị"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Nhưng vị giác mới chỉ là một nửa câu chuyện.",
+      [
+        "taste",
+        "vị giác"
+      ],
+      [
+        "half the story",
+        "một nửa câu chuyện"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Mũi của bạn cũng rất quan trọng.",
+      [
+        "Your nose",
+        "Mũi của bạn"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Phần lớn thứ chúng ta gọi là hương vị thực ra đến từ mùi.",
+      [
+        "flavour",
+        "hương vị"
+      ],
+      [
+        "smell",
+        "mùi"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Khi bị cảm, mũi bạn bị nghẹt.",
+      [
+        "have a cold",
+        "bị cảm"
+      ],
+      [
+        "your nose is blocked",
+        "mũi bạn bị nghẹt"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Món ăn có thể trở nên nhạt nhẽo và kém hấp dẫn.",
+      [
+        "bland and boring",
+        "nhạt nhẽo và kém hấp dẫn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Vì vậy, vị giác và khứu giác phối hợp với nhau.",
+      [
+        "taste and smell",
+        "vị giác và khứu giác"
+      ],
+      [
+        "work as a team",
+        "phối hợp với nhau"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Lần tới ăn, hãy hít vào chậm rãi.",
+      [
+        "breathe in slowly",
+        "hít vào chậm rãi"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Bạn có thể cảm nhận nhiều hương vị hơn trước.",
+      [
+        "notice more flavours",
+        "cảm nhận nhiều hương vị hơn"
+      ],
+      [
+        "than before",
+        "trước"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Ăn uống là công việc của cả lưỡi lẫn mũi.",
+      [
+        "both the tongue and the nose",
+        "cả lưỡi lẫn mũi"
+      ]
+    ]
+  ],
+  "source_sha256": "958287529dc2aadcb9358bb6520274ba908ef792b9bc80ca8b532046c43bdfe9",
+  "expected_translation_sha256": "d0ab1c9e94bb91ea27536c8331c3c7072321c432720a4980d7b2f380a873d17a",
+  "illustration": {
+    "src": "/reading-illustrations/exp-tasting-food-scene.svg",
+    "alt": "Đĩa thực phẩm nhiều màu cạnh chanh, bánh mì, bát nóng và dao nĩa.",
+    "caption": "Những món ăn quen thuộc để cảm nhận hương vị."
+  }
+}

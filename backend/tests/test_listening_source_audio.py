@@ -31,7 +31,9 @@ def test_all_days_have_new_audio_and_original_gaps_remain_truthful():
         assert result["variants"][-1]["synthetic"] is True
         assert result["variants"][-1]["variant_id"] == "kokoro-v1"
         originals += len(result["variants"]) == 2
-        assert len(paths) == len(result["variants"])
+        from services.listening_source_question_audio import clip_catalog
+        clip_paths = {row['storage_path'] for row in clip_catalog()['clips'] if row['day'] == day}
+        assert len(paths) == len(result["variants"]) + len(clip_paths)
         assert all(path.startswith(f"source-collections/{package()['package_id']}/{package()['manifest_sha256']}/") for path in paths)
         text = json.dumps(result)
         assert all(f'"{secret}"' not in text for secret in ("storage_path", "source_sha256", "role_map", "transcript", "answer"))
@@ -63,6 +65,51 @@ def test_unavailable_storage_is_not_reported_playable():
     assert all(row["url"] is None for row in result["variants"])
 
 
+def test_original_playback_uses_edited_audio_without_rebinding_question_source():
+    from services.listening_source_question_audio import clip_catalog
+    for row in audio.audio_catalog()["days"]:
+        if not (original := row["original"]):
+            continue
+        playback = original["practice"]
+        paths = []
+        result = audio.audio_response(package(), lesson(row["day"]), lambda path: paths.append(path))
+        assert paths[0] == playback["storage_path"]
+        assert result["variants"][0]["duration_seconds"] == playback["duration_seconds"]
+        assert playback["duration_seconds"] < original["duration_seconds"]
+        assert all(clip["source_sha256"] == original["sha256"] for clip in clip_catalog()["clips"] if clip["day"] == row["day"])
+
+
+@pytest.mark.parametrize("field,value", [("storage_path", "unbound.mp3"), ("kept_intervals", [[0, 999999]]), ("duration_seconds", 1)])
+def test_invalid_edited_original_binding_is_rejected(tmp_path, monkeypatch, field, value):
+    catalog = deepcopy(audio.audio_catalog())
+    catalog["days"][0]["original"]["practice"][field] = value
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(catalog))
+    monkeypatch.setattr(audio, "CATALOG_PATH", path)
+    audio.audio_catalog.cache_clear()
+    try:
+        with pytest.raises(ValueError, match="practice audio binding"):
+            audio.audio_catalog()
+    finally:
+        audio.audio_catalog.cache_clear()
+
+
+def test_editing_announcements_preserves_complete_numbered_sentences():
+    from services.listening_source_question_audio import clip_catalog
+    clips = {row["item_id"]: row for row in clip_catalog()["clips"]}
+    # The false trailing '2.' in Day 20 ASR must not replace the actual Q2.
+    q2 = clips["80-days:day-20:main:q-02"]
+    q3 = clips["80-days:day-20:main:q-03"]
+    assert q2["start"] <= 14.04 and q2["end"] >= 18.3
+    assert q2["end"] < q3["start"] and q2["duration_seconds"] > 4.5
+    # Day 33 Q1 continues after the first ASR segment, through 'review the
+    # previous lesson'; cutting at the first segment would omit that sentence.
+    assert clips["80-days:day-33:main:q-01"]["end"] >= 42.26
+    # Day 2's previously omitted first five numbers must precede Q6.
+    first = [clips[f"80-days:day-02:main:q-{number:02d}"] for number in range(1, 7)]
+    assert all(left["start"] < right["start"] for left, right in zip(first, first[1:]))
+
+
 def test_audio_route_authenticates_before_reading_package(monkeypatch):
     from routers import listening_source_collection as router
     async def deny(_):
@@ -72,6 +119,27 @@ def test_audio_route_authenticates_before_reading_package(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         asyncio.run(router.get_source_audio(1, None))
     assert exc.value.status_code == 401
+
+
+def test_audio_route_batch_signs_only_bound_paths_and_preserves_partial_failure(monkeypatch):
+    from types import SimpleNamespace
+    from routers import listening_source_collection as router
+    calls = []
+    async def allow(_): return {'id': 'learner'}
+    def sign(paths, expiry):
+        calls.append((paths, expiry))
+        assert len(paths) == len(set(paths))
+        return [{'path': path, 'signedURL': 'https://private.example/' + str(i)}
+                if i else {'path': path, 'error': 'unavailable'} for i, path in enumerate(paths)] + [
+                    {'path': 'unrequested.mp3', 'signedURL': 'https://unbound.example'}]
+    monkeypatch.setattr(router, 'get_supabase_user', allow)
+    monkeypatch.setattr(router, '_context', lambda _: (package(), [lesson(1)]))
+    monkeypatch.setattr(router, 'supabase_admin', SimpleNamespace(storage=SimpleNamespace(from_=lambda _: SimpleNamespace(create_signed_urls=sign))))
+    result = asyncio.run(router.get_source_audio(1, 'Bearer learner'))
+    assert len(calls) == 1 and calls[0][1] == 7200
+    assert result['variants'][0]['url'] is None
+    assert result['question_clips'] and all(row['url'] for row in result['question_clips'])
+    assert 'unbound.example' not in json.dumps(result)
 
 
 def test_upload_preflight_rejects_tampering_before_upload(tmp_path, monkeypatch):

@@ -271,7 +271,7 @@ hint: "viết từ nối kèm dấu phẩy của nó"
 accept: ["Therefore,"]
 case_sensitive: false
 grammar_article_slug: "discourse-markers"
-explain: "'Therefore' cần đứng sau dấu chấm (câu mới) và có dấu phẩy ngay sau nó: 'The results are promising. Therefore, we should proceed.'"
+explain: "Trong khung sửa đã cho, therefore đứng ở đầu câu mới và theo sau bằng dấu phẩy: 'The results are promising. Therefore, we should proceed.' Dấu chấm phẩy hoặc một số vị trí xen giữa cũng có thể phù hợp trong cấu trúc khác; dấu chấm không phải yêu cầu cho mọi cách dùng therefore."
 ---
 
 ---
@@ -295,8 +295,8 @@ headword: "dm-however-punctuation"
 skill: "error_id"
 subtype: "advanced"
 prompt: "Identify the sentence with a punctuation error around the discourse marker."
-options: ["Air pollution has worsened, consequently, governments must act.", "Air pollution has worsened. Consequently, governments must act.", "Air pollution has worsened; consequently, governments must act.", "All three above are correctly punctuated."]
+options: ["Air pollution has worsened, consequently, governments must act.", "Air pollution has worsened. Consequently, governments must act.", "Air pollution has worsened; consequently, governments must act.", "Air pollution has worsened, so governments must act."]
 answer: 0
 grammar_article_slug: "discourse-markers"
-explain: "SAI ở câu 1 — chỉ dùng MỘT dấu phẩy trước 'consequently' (không phải dấu chấm/chấm phẩy) là lỗi phổ biến (comma splice); cần dấu chấm hoặc chấm phẩy thay vì dấu phẩy đơn."
+explain: "'Air pollution has worsened, consequently, governments must act' nối hai mệnh đề độc lập bằng dấu phẩy (comma splice). Trước consequently cần dấu chấm hoặc chấm phẩy trong cấu trúc này. Dẫn lại nội dung câu, không dùng số thứ tự vì lựa chọn có thể bị xáo trộn."
 ---

@@ -134,7 +134,7 @@ Tiếng Việt không biến đổi động từ theo thì, nên người Việt
 | Dấu hiệu trong câu | Thì dùng |
 |-------------------|---------|
 | yesterday, last year, in 2010, ago | Past Simple |
-| since, for, already, yet, ever, never, just | Present Perfect |
+| since, for, already, yet, ever, never, just | Gợi ý Present Perfect tùy thời gian/nghĩa; for dùng được với quá khứ đã kết thúc |
 | now, at the moment, currently | Present Continuous |
 | always, usually, every day | Present Simple |
 | tomorrow, next week, in the future | Future (will / going to) |
@@ -199,9 +199,9 @@ Người Việt học từ vựng thường nhớ nghĩa mà không nhớ dạng
 | Vị trí trong câu | Dạng từ cần |
 |-----------------|------------|
 | Sau a/an/the, trước noun | Adjective |
-| Sau be/seem/become/feel | Adjective |
+| Bổ ngữ miêu tả sau linking be/seem/become/feel | Thường adjective; có thể NP (She is a doctor). Be trợ động từ có is working/is treated |
 | Sau động từ (bổ nghĩa cho V) | Adverb |
-| Sau giới từ (of, in, on, for...) | Noun |
+| Sau giới từ | Cụm danh từ hoặc V-ing: without speaking |
 | Chủ ngữ của câu | Noun |
 | Sau modal verb / trợ động từ | Verb (bare infinitive) |
 
@@ -237,7 +237,8 @@ Giới từ trong tiếng Anh rất cố định và không có quy tắc hoàn 
 |-----|-------------|
 | good / bad / skilled | **at** |
 | interested / experienced / involved | **in** |
-| responsible / afraid / proud / aware | **of** |
+| afraid / proud / aware | **of** |
+| responsible | **for** (chịu trách nhiệm việc gì) / **to** (báo cáo với ai) |
 | different | **from** |
 | similar | **to** |
 | depend / rely | **on** |
@@ -291,9 +292,9 @@ Câu điều kiện yêu cầu phối hợp thì chính xác giữa if-clause v�
 - ✅ If I **had** more time, I would travel the world.
   *(Type 2: if + Past Simple, NOT "would have")*
 
-- ❌ If she **studied** harder, she would have passed the exam.
+- “If she **studied** harder, she would have passed the exam” cần ngữ cảnh điều kiện về thói quen → kết quả quá khứ. Nếu nói lần ôn tập quá khứ cụ thể đã bỏ lỡ:
 - ✅ If she **had studied** harder, she would have passed the exam.
-  *(Type 3: if + Past Perfect, NOT Past Simple)*
+  *(Type 3 cho sự việc quá khứ cụ thể; không cấm mọi điều kiện hỗn hợp)*
 
 ### Bảng tra nhanh
 
@@ -314,7 +315,7 @@ Câu bị động ở thì hoàn thành cần "have/has/had + **been** + V3". Ng
 ### Ví dụ lỗi
 
 - ❌ The report has **published** last month.
-- ✅ The report has **been published** last month. (Present Perfect Passive)
+- ✅ The report **was published** last month. (Past Simple Passive; giữ mốc quá khứ đã kết thúc)
 
 - ❌ The policy was **introducing** in 2018.
 - ✅ The policy was **introduced** in 2018. (Past Simple Passive: was + V3)
@@ -404,7 +405,7 @@ Trước khi nộp bài Task 1 hoặc Task 2, kiểm tra nhanh 10 điểm sau:
 
 ## Bài tập luyện
 
-### Xác định và sửa lỗi (mỗi câu có 1 lỗi)
+### Xác định và sửa tất cả lỗi trong mỗi câu
 
 1. The number of tourists visiting the city have increased dramatically.
 2. I arrived to the airport two hours early.
@@ -423,9 +424,11 @@ Trước khi nộp bài Task 1 hoặc Task 2, kiểm tra nhanh 10 điểm sau:
 2. I arrived **at** the airport. *(arrive at, không phải "to")*
 3. **Despite the difficulty of** the project / **Although** the project **was** difficult. *(despite + noun; although + clause)*
 4. If the government **reduces** taxes. *(Type 1: Present Simple trong if-clause)*
-5. The building **has been under construction** / **is being built** since last year. *(is being built = đúng bị động tiếp diễn)*
-6. She is the scientist **whose** work I admire. *(possessive) hoặc "who I admire" (bỏ "her")*
+5. The building **has been under construction** since last year. *(trạng thái kéo dài đến hiện tại)*
+6. She is the scientist **whose** work I admire. *(possessive; who I admire đổi đối tượng từ công trình sang nhà khoa học)*
 7. Economics **is** one of the most popular subjects. *(-ics = số ít)*
-8. The new regulations **have been introduced**. *(plural → have; bị động = been + V3)*
+8. The new regulations **were introduced in January**. *(tháng Một đã qua; giữ thời gian và dùng bị động quá khứ)*
 9. **Although he was tired**, he continued working. *(không thể kết thúc bằng dấu chấm sau "tired")*
 10. I am very **interested** in environmental issues. *(interested in = adj; interesting = adj mô tả sự vật)*
+
+> Từ tín hiệu không tự quyết định thì: “I am working here every day this month” là lịch tạm thời; “I know the answer now” là trạng thái; for two years có thể thuộc khoảng quá khứ đã kết thúc. Has finished/is working khác can work/do work. Lần nhắc đầu vẫn dùng the nếu đối tượng đã xác định theo hoàn cảnh: “Please close the door”.

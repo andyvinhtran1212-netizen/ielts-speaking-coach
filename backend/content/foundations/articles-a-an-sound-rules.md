@@ -70,14 +70,16 @@ anchors:
 
 ## Tại sao quan trọng
 
-Lỗi "a apple" hoặc "an university" là lỗi rất dễ nhận thấy và làm giảm điểm Linguistic Range trong IELTS Speaking, cũng như Lexical Resource trong Writing. Quy tắc tưởng đơn giản nhưng lại có nhiều trường hợp gây nhầm lẫn vì chữ cái và âm không phải lúc nào cũng khớp nhau.
+Lỗi "a apple" hoặc "an university" thuộc Grammatical Range and Accuracy trong IELTS Speaking và Writing. Điểm được đánh giá trên toàn bộ phần thể hiện, không có mức trừ cố định cho từng lỗi này. Chữ cái và âm không phải lúc nào cũng khớp nhau.
 
 ---
 
 <!-- anchor: articles-a-an-sound-rules.core.sound-not-letter -->
 ## QUY TẮC CỐT LÕI: ÂM ĐẦU, KHÔNG PHẢI CHỮ CÁI ĐẦU
 
-### Dùng AN khi từ tiếp theo bắt đầu bằng nguyên âm /a, e, i, o, u/
+### Dùng AN khi từ tiếp theo bắt đầu bằng âm nguyên âm
+
+Ví dụ âm đầu: apple /æ/, egg /e/, idea /aɪ/, orange /ɒ/ trong Anh Anh, umbrella /ʌ/. Các chữ a, e, i, o, u là chữ viết, không phải danh sách đầy đủ các âm nguyên âm tiếng Anh.
 
 - **an** apple, **an** egg, **an** idea, **an** orange, **an** umbrella
 - **an** argument, **an** elevator, **an** island, **an** option, **an** update
@@ -126,7 +128,7 @@ Một số từ bắt đầu bằng **H** nhưng chữ H không được đọc 
 | honest | /ˈɒnɪst/ | **an** honest person |
 | honour | /ˈɒnər/ | **an** honour |
 | heir | /eər/ | **an** heir |
-| herb | /ɜːb/ *(British English)* | **an** herb |
+| herb | /ɝːb/ *(cách đọc thường gặp trong Anh Mỹ, không có /h/)* | **an** herb |
 
 - I waited for **an** hour.
 - She is **an** honest and hardworking student.
@@ -141,6 +143,7 @@ Một số từ bắt đầu bằng **H** nhưng chữ H không được đọc 
 | house | /haʊs/ | **a** house |
 | history | /ˈhɪstəri/ | **a** history lesson |
 | hand | /hænd/ | **a** hand |
+| herb | /hɜːb/ *(cách đọc thường gặp trong Anh Anh)* | **a** herb |
 
 > **Mẹo:** Nếu bạn có thể nghe tiếng "h" rõ khi đọc từ → dùng **a**. Nếu không nghe thấy → dùng **an**.
 
@@ -153,7 +156,7 @@ Chữ **O** đôi khi phát âm là /wʌ/ (giống "wuh") → phụ âm → dùn
 | Từ | Phát âm | Dùng |
 |----|---------|------|
 | one | /wʌn/ | **a** one-day trip |
-| once | /wʌns/ | (không dùng a/an trước once) |
+| once | /wʌns/ | **a** once-in-a-lifetime experience |
 | one-sided | /wʌn-saɪdɪd/ | **a** one-sided argument |
 
 - **A** one-day workshop was held at the conference centre.
@@ -175,7 +178,7 @@ Với chữ viết tắt, quy tắc vẫn dựa trên **âm của chữ đầu t
 | MBA | /em-biː-eɪ/ | **an** MBA |
 | MP | /em-piː/ | **an** MP (Member of Parliament) |
 | NGO | /en-dʒiː-əʊ/ | **an** NGO |
-| FAQ | /ef-eɪ-kjuː/ | **an** FAQ |
+| FAQ | /ef-eɪ-kjuː/ (đọc từng chữ) | **an** FAQ |
 | X-ray | /eks-reɪ/ | **an** X-ray |
 | MRI | /em-ɑːr-aɪ/ | **an** MRI scan |
 | SMS | /es-em-es/ | **an** SMS |
@@ -195,15 +198,19 @@ Với chữ viết tắt, quy tắc vẫn dựa trên **âm của chữ đầu t
 - He attached **a** PDF to the email.
 - They passed **a** UN resolution on climate change.
 
+Nếu FAQ được đọc như một từ /fæk/, dùng **a FAQ**. Bài tập dùng cách đọc được ghi trong đề. Tương tự, **a historic event** là mẫu trung tính khi /h/ được phát âm; cách dùng **an historic** có thể xuất hiện theo cách đọc và văn phong, không phải quy tắc mọi từ viết H đều dùng a.
+
 ---
 
-## PHẦN 5: CHỮ "E" — Luôn là nguyên âm
+## PHẦN 5: CHỮ "E" — Vẫn phải xét âm đầu
 
-Tất cả từ bắt đầu bằng **E** đều dùng **AN** (không có ngoại lệ phổ biến):
+Nhiều từ bắt đầu bằng **E** có âm đầu nguyên âm và dùng **AN**:
 
 - **an** economy, **an** education system, **an** effective solution
 - **an** example, **an** expert, **an** elderly person
 - **an** EU country (/iː-juː/ — chữ E đọc là /iː/ → AN)
+
+Nhưng **a European country**, **a euro** bắt đầu bằng phụ âm /j/. Chính âm đầu quyết định, không phải chữ E.
 
 ---
 
@@ -256,7 +263,7 @@ Khi có tính từ trước danh từ, a/an phụ thuộc vào âm của **tính
 5. It is ___ honour to be invited to ___ European summit.
 6. He spent ___ hour reading ___ useful article.
 7. They launched ___ new product — ___ innovative device designed for ___ urban market.
-8. This represents ___ historic achievement for ___ united team.
+8. This represents ___ historic achievement for ___ united team. (Đọc historic với /h/ ở đầu.)
 
 ### Đáp án
 

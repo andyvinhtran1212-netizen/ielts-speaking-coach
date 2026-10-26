@@ -1,0 +1,218 @@
+{
+  "slug": "the-puzzle-of-animal-migration",
+  "review_notes": "Giữ inclination/góc nghiêng khác strength/cường độ, magnetic compass là dự phòng ở bướm chúa. Không đổi may, appears, thought thành kết luận chắc chắn hoặc nói một cá thể bay cả khứ hồi.",
+  "illustration_brief": "Những con bướm chúa bay qua cây và đồi dưới bầu trời sáng, không có bản đồ tuyến bay hay sơ đồ la bàn.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Mỗi mùa thu, hàng triệu bướm chúa rời miền đông Bắc Mỹ, bay hàng nghìn ki-lô-mét tới rừng ấm Mexico — nơi chưa con nào từng thấy.",
+      [
+        "monarch butterflies",
+        "bướm chúa"
+      ],
+      [
+        "eastern North America",
+        "miền đông Bắc Mỹ"
+      ],
+      [
+        "none of them has ever seen",
+        "chưa con nào từng thấy"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Không bản đồ hay bố mẹ dẫn, bằng cách nào đó chúng tới đúng vài ngọn núi ấy mỗi năm.",
+      [
+        "With no map and no parents to follow",
+        "Không bản đồ hay bố mẹ dẫn"
+      ],
+      [
+        "the same few mountains every year",
+        "đúng vài ngọn núi ấy mỗi năm"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Sinh vật bé ấy tìm đường thế nào từ lâu là câu đố hấp dẫn bậc nhất của khoa học.",
+      [
+        "such tiny creatures navigate",
+        "Sinh vật bé ấy tìm đường"
+      ],
+      [
+        "one of science's most fascinating puzzles",
+        "câu đố hấp dẫn bậc nhất của khoa học"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Một phần lời giải là chúng cùng dựa vào nhiều dấu hiệu.",
+      [
+        "several cues at once",
+        "cùng dựa vào nhiều dấu hiệu"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Ngày quang, nhiều loài di cư dùng Mặt Trời làm la bàn, chỉnh hướng theo vị trí của nó trên trời.",
+      [
+        "the sun as a compass",
+        "Mặt Trời làm la bàn"
+      ],
+      [
+        "adjusting their direction",
+        "chỉnh hướng"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nhưng không phải luôn thấy Mặt Trời, nên bản năng đơn giản không giải thích hết di cư.",
+      [
+        "not always visible",
+        "không phải luôn thấy"
+      ],
+      [
+        "cannot fully explain the migration",
+        "không giải thích hết di cư"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Dấu hiệu thứ hai đến từ chính Trái Đất.",
+      [
+        "A second clue",
+        "Dấu hiệu thứ hai"
+      ],
+      [
+        "the Earth itself",
+        "chính Trái Đất"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Nghiên cứu cho thấy cả chim và bướm chúa cảm được từ trường hành tinh.",
+      [
+        "both birds and monarchs",
+        "cả chim và bướm chúa"
+      ],
+      [
+        "the planet's magnetic field",
+        "từ trường hành tinh"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Chúng đọc góc nghiêng thay vì cường độ từ trường, dùng góc ấy định hướng theo trục bắc–nam.",
+      [
+        "the field's strength",
+        "cường độ từ trường"
+      ],
+      [
+        "its inclination",
+        "góc nghiêng"
+      ],
+      [
+        "a north–south line",
+        "trục bắc–nam"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Giác quan này được cho là hoạt động thông qua một protein đặc biệt gọi là cryptochrome trong mắt hoặc râu; ánh sáng kích hoạt protein này tham gia một phản ứng nhạy với từ tính.",
+      [
+        "is thought to work",
+        "được cho là hoạt động"
+      ],
+      [
+        "the eye or antennae",
+        "mắt hoặc râu"
+      ],
+      [
+        "a reaction sensitive to magnetism",
+        "một phản ứng nhạy với từ tính"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Vì phản ứng phụ thuộc ánh sáng, động vật chỉ đọc được la bàn từ của mình vào ban ngày, không phải trong bóng tối hoàn toàn.",
+      [
+        "depends on light",
+        "phụ thuộc ánh sáng"
+      ],
+      [
+        "during the day, not in total darkness",
+        "vào ban ngày, không phải trong bóng tối hoàn toàn"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Với bướm chúa, la bàn từ dường như là hệ dự phòng.",
+      [
+        "appears to act",
+        "dường như là"
+      ],
+      [
+        "a backup system",
+        "hệ dự phòng"
+      ]
+    ],
+    [
+      "p4-s2",
+      "La bàn Mặt Trời vẫn chính, nhưng la bàn từ giúp giữ hướng cả ngày u ám không nhìn được Mặt Trời.",
+      [
+        "remains the main one",
+        "vẫn chính"
+      ],
+      [
+        "overcast days",
+        "ngày u ám"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Nó còn dẫn côn trùng khi trú đông xa về nam, và lạnh trên núi có thể giúp đặt lại la bàn khi tới.",
+      [
+        "overwinter far to the south",
+        "trú đông xa về nam"
+      ],
+      [
+        "may help reset the compass on arrival",
+        "có thể giúp đặt lại la bàn khi tới"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Cả hành trình còn ấn tượng hơn vì không một con bướm nào hoàn thành toàn bộ hành trình khứ hồi; hành trình trở về phương bắc được chia qua vài thế hệ có vòng đời ngắn.",
+      [
+        "no single butterfly completes the round trip",
+        "không một con bướm nào hoàn thành toàn bộ hành trình khứ hồi"
+      ],
+      [
+        "the return north",
+        "hành trình trở về phương bắc"
+      ],
+      [
+        "several short-lived generations",
+        "vài thế hệ có vòng đời ngắn"
+      ]
+    ],
+    [
+      "p4-s5",
+      "Còn nhiều điều phải học, nhưng hành trình vẫn là kỳ tích tự nhiên.",
+      [
+        "Much remains to be learned",
+        "Còn nhiều điều phải học"
+      ],
+      [
+        "a remarkable feat of nature",
+        "kỳ tích tự nhiên"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-monarch-migration-scene.svg",
+    "alt": "Những con bướm chúa bay trên cây và đồi dưới bầu trời sáng.",
+    "caption": "Một hành trình qua nhiều thế hệ."
+  },
+  "source_sha256": "36bfac375eb8c3b6aea275287263a9e1e1c3412810143bec01b51874497cd582",
+  "expected_translation_sha256": "8b376b5f6b021833e8a1b2d818c99c8eaee25f94301426aedd140f77e9bdd20b"
+}

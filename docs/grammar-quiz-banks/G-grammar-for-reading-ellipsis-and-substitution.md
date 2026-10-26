@@ -175,16 +175,16 @@ explain: "'did so' thay cho cả cụm động từ 'reduced costs'. Tránh lặ
 
 ---
 id: "sub_ds_i1"
-type: "gap_mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "substitution-do-so"
 skill: "usage"
 subtype: "intermediate"
-prompt: "Research shows that early intervention helps vulnerable children recover, and continued support does ____."
-options: ["so", "this", "that", "so too"]
-answer: 0
+prompt: "Use so or so too: 'Research shows that early intervention helps vulnerable children recover, and continued support does ____.'"
 grammar_article_slug: "ellipsis-and-substitution"
-explain: "'so' thay cho cả mệnh đề 'helps vulnerable children recover'. Dùng 'so' sau 'does' để tránh lặp động từ + tân ngữ."
+explain: "Does so thay cho helps vulnerable children recover; does so too còn thêm nghĩa hỗ trợ tiếp tục cũng có tác dụng đó. Too không phá cấu trúc do so; so thay cho cụm động từ, không thay toàn bộ mệnh đề có chủ ngữ riêng."
+accept: ["so", "so too"]
+case_sensitive: false
 ---
 
 ---
@@ -265,11 +265,11 @@ input: "text"
 headword: "substitution-so-neither"
 skill: "production"
 subtype: "intermediate"
-prompt: "Many economists predicted a recession, and the central bank officials feared ____."
-accept: ["so", "the same", "likewise"]
+prompt: "Use one, so or the same: 'Many economists predicted a recession, and the central bank officials feared ____.'"
+accept: ["one", "so", "the same"]
 case_sensitive: false
 grammar_article_slug: "ellipsis-and-substitution"
-explain: "'so' thay cho 'a recession would occur' / 'feared the same'. Sau 'feared' có thể dùng 'so' để tránh lặp cả mệnh đề."
+explain: "One thay cho một recession; so có thể thay nội dung rằng suy thoái sẽ xảy ra; the same chỉ cùng điều được dự đoán. Đây là các cách thay thế có phạm vi tham chiếu khác nhau. Likewise là trạng từ, không phải cách thay tân ngữ trực tiếp tương đương trong nhiệm vụ này."
 ---
 
 ---
@@ -294,7 +294,7 @@ skill: "contrast"
 subtype: "advanced"
 prompt: "Certain sectors thrived during the pandemic, whereas others did not; traditional retail was particularly affected, and online commerce was not ____."
 options: ["so", "neither", "either", "affected"]
-answer: 1
+answer: 3
 grammar_article_slug: "ellipsis-and-substitution"
-explain: "'neither' thay cho phủ định của 'affected'. Phù hợp với bối cảnh đối chiếu hai tình huống (một hưởng lợi, một thì không)."
+explain: "Affected tạo 'online commerce was not affected', đối chiếu với traditional retail was particularly affected. Neither không thay cho phân từ affected sau was not; khóa cũ tạo was not neither không hoàn thành cấu trúc bị động."
 ---

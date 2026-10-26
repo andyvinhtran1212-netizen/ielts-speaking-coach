@@ -1,0 +1,206 @@
+{
+  "slug": "the-life-of-a-honeybee",
+  "review_notes": "Giữ phân biệt nectar/mật hoa, honey/mật ong, pollen/phấn hoa; worker và queen là ong thợ và ong chúa. She được dùng tự nhiên là nó, không đổi giới tính ong thợ thành đực.",
+  "illustration_brief": "Ong bay giữa hoa trong vườn, không có sơ đồ nhảy hoặc công thức làm mật.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Bạn từng quan sát ong vào buổi sáng hè ấm áp chưa?",
+      [
+        "watched a bee",
+        "quan sát ong"
+      ],
+      [
+        "a warm summer morning",
+        "buổi sáng hè ấm áp"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Ong thợ rất bận.",
+      [
+        "A worker bee",
+        "Ong thợ"
+      ],
+      [
+        "very busy",
+        "rất bận"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nó dậy sớm và rời tổ tìm thức ăn.",
+      [
+        "wakes early",
+        "dậy sớm"
+      ],
+      [
+        "leaves the hive",
+        "rời tổ"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Ngày của nó ngắn nhưng đầy việc.",
+      [
+        "short but full of work",
+        "ngắn nhưng đầy việc"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Đầu tiên, nó bay tới hoa và uống mật hoa ngọt.",
+      [
+        "flies to a flower",
+        "bay tới hoa"
+      ],
+      [
+        "the sweet nectar",
+        "mật hoa ngọt"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Nó còn gom hạt phấn hoa vàng nhỏ trên chân.",
+      [
+        "tiny grains of yellow pollen",
+        "hạt phấn hoa vàng nhỏ"
+      ],
+      [
+        "on her legs",
+        "trên chân"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một con ong có thể ghé hàng trăm hoa một ngày.",
+      [
+        "hundreds of flowers",
+        "hàng trăm hoa"
+      ],
+      [
+        "in a day",
+        "một ngày"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Nó phải gom đủ thức ăn cho mọi chị em ở tổ.",
+      [
+        "collect enough food",
+        "gom đủ thức ăn"
+      ],
+      [
+        "all her sisters at home",
+        "mọi chị em ở tổ"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Khi no, ong bay về tổ.",
+      [
+        "When she is full",
+        "Khi no"
+      ],
+      [
+        "flies back to the hive",
+        "bay về tổ"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Ở đó nó thực hiện điệu nhảy nhỏ.",
+      [
+        "a little dance",
+        "điệu nhảy nhỏ"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Điệu nhảy cho ong khác biết tìm hoa ở đâu.",
+      [
+        "the other bees",
+        "ong khác"
+      ],
+      [
+        "where to find the flowers",
+        "tìm hoa ở đâu"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Đây là cách ong nói chuyện với nhau.",
+      [
+        "how bees talk to each other",
+        "cách ong nói chuyện với nhau"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Sau đó, ong biến mật hoa thành mật ong.",
+      [
+        "After that",
+        "Sau đó"
+      ],
+      [
+        "turn the nectar into honey",
+        "biến mật hoa thành mật ong"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Ong chúa ở trong tổ cả ngày.",
+      [
+        "The queen",
+        "Ong chúa"
+      ],
+      [
+        "inside the hive all day",
+        "trong tổ cả ngày"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nó đẻ trứng cho cả gia đình.",
+      [
+        "lays the eggs",
+        "đẻ trứng"
+      ],
+      [
+        "the whole family",
+        "cả gia đình"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Đến tối, ong thợ nhỏ rất mệt.",
+      [
+        "By evening",
+        "Đến tối"
+      ],
+      [
+        "the little worker",
+        "ong thợ nhỏ"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Ngày mai nó làm lại tất cả, và công việc biến thành mật ong ngọt cho mọi thành viên.",
+      [
+        "do it all again",
+        "làm lại tất cả"
+      ],
+      [
+        "sweet honey for everyone",
+        "mật ong ngọt cho mọi thành viên"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-bees-garden-scene.svg",
+    "alt": "Ong bay bên những bông hoa trong vườn, với tổ ong gỗ ở phía xa.",
+    "caption": "Một ngày tìm hoa của ong thợ."
+  },
+  "source_sha256": "6e22d9c3a84f84c9c9ca1351bf0371a17234b78b44b29b3d8557d70d1c3d43cc",
+  "expected_translation_sha256": "c35278f2dc6aa7d0b83ded6782d8815cfc436288d8d361ab1ffb9ca6524d37f7"
+}

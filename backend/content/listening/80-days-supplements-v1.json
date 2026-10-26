@@ -1,0 +1,1344 @@
+{
+  "schema": "80-days-supplements/1",
+  "source_manifest_sha256": "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841",
+  "days": [
+    {
+      "day": 1,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 2,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 3,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 4,
+      "source_position_count": 27,
+      "response_field_count": 29
+    },
+    {
+      "day": 5,
+      "source_position_count": 20,
+      "response_field_count": 20
+    },
+    {
+      "day": 6,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 7,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 8,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 9,
+      "source_position_count": 20,
+      "response_field_count": 24
+    },
+    {
+      "day": 10,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 11,
+      "source_position_count": 18,
+      "response_field_count": 18
+    },
+    {
+      "day": 12,
+      "source_position_count": 20,
+      "response_field_count": 20
+    },
+    {
+      "day": 13,
+      "source_position_count": 20,
+      "response_field_count": 20
+    },
+    {
+      "day": 14,
+      "source_position_count": 20,
+      "response_field_count": 24
+    },
+    {
+      "day": 15,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 16,
+      "source_position_count": 24,
+      "response_field_count": 24
+    },
+    {
+      "day": 17,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 18,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 19,
+      "source_position_count": 21,
+      "response_field_count": 21
+    },
+    {
+      "day": 20,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 21,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 22,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 23,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 24,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 25,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 26,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 27,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 28,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 29,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 30,
+      "source_position_count": 20,
+      "response_field_count": 23
+    },
+    {
+      "day": 31,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 32,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 33,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 34,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 35,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 36,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 37,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 38,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 39,
+      "source_position_count": 24,
+      "response_field_count": 24
+    },
+    {
+      "day": 40,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 41,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 42,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 43,
+      "source_position_count": 22,
+      "response_field_count": 22
+    },
+    {
+      "day": 44,
+      "source_position_count": 20,
+      "response_field_count": 20
+    },
+    {
+      "day": 45,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 46,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 47,
+      "source_position_count": 25,
+      "response_field_count": 25
+    },
+    {
+      "day": 48,
+      "source_position_count": 27,
+      "response_field_count": 27
+    },
+    {
+      "day": 49,
+      "source_position_count": 22,
+      "response_field_count": 22
+    },
+    {
+      "day": 50,
+      "source_position_count": 23,
+      "response_field_count": 23
+    },
+    {
+      "day": 51,
+      "source_position_count": 7,
+      "response_field_count": 7
+    },
+    {
+      "day": 52,
+      "source_position_count": 6,
+      "response_field_count": 6
+    },
+    {
+      "day": 53,
+      "source_position_count": 10,
+      "response_field_count": 10
+    },
+    {
+      "day": 54,
+      "source_position_count": 4,
+      "response_field_count": 4
+    },
+    {
+      "day": 55,
+      "source_position_count": 6,
+      "response_field_count": 6
+    },
+    {
+      "day": 56,
+      "source_position_count": 3,
+      "response_field_count": 3
+    },
+    {
+      "day": 57,
+      "source_position_count": 2,
+      "response_field_count": 2
+    },
+    {
+      "day": 58,
+      "source_position_count": 16,
+      "response_field_count": 16
+    },
+    {
+      "day": 59,
+      "source_position_count": 10,
+      "response_field_count": 10
+    },
+    {
+      "day": 60,
+      "source_position_count": 5,
+      "response_field_count": 5
+    },
+    {
+      "day": 61,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 62,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 63,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 64,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 65,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 66,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 67,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 68,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 69,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 70,
+      "source_position_count": 0,
+      "response_field_count": 0
+    },
+    {
+      "day": 71,
+      "source_position_count": 41,
+      "response_field_count": 41
+    },
+    {
+      "day": 72,
+      "source_position_count": 41,
+      "response_field_count": 41
+    },
+    {
+      "day": 73,
+      "source_position_count": 41,
+      "response_field_count": 41
+    },
+    {
+      "day": 74,
+      "source_position_count": 41,
+      "response_field_count": 41
+    },
+    {
+      "day": 75,
+      "source_position_count": 42,
+      "response_field_count": 42
+    },
+    {
+      "day": 76,
+      "source_position_count": 41,
+      "response_field_count": 41
+    },
+    {
+      "day": 77,
+      "source_position_count": 40,
+      "response_field_count": 40
+    },
+    {
+      "day": 78,
+      "source_position_count": 41,
+      "response_field_count": 41
+    },
+    {
+      "day": 79,
+      "source_position_count": 41,
+      "response_field_count": 41
+    },
+    {
+      "day": 80,
+      "source_position_count": 40,
+      "response_field_count": 40
+    }
+  ],
+  "questions": [
+    {
+      "day": 1,
+      "item_id": "80-days:day-01:main:q-09",
+      "part_id": "80-days:day-01:part-1",
+      "block_id": "80-days:day-01:part-1:block-2",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 2,
+      "item_id": "80-days:day-02:main:q-14",
+      "part_id": "80-days:day-02:part-2",
+      "block_id": "80-days:day-02:part-2:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 5,
+      "item_id": "80-days:day-05:main:q-11",
+      "part_id": "80-days:day-05:part-2",
+      "block_id": "80-days:day-05:part-2:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 7,
+      "item_id": "80-days:day-07:main:q-06",
+      "part_id": "80-days:day-07:part-1",
+      "block_id": "80-days:day-07:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 7,
+      "item_id": "80-days:day-07:main:q-12",
+      "part_id": "80-days:day-07:part-2",
+      "block_id": "80-days:day-07:part-2:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 13,
+      "item_id": "80-days:day-13:main:q-07",
+      "part_id": "80-days:day-13:part-1",
+      "block_id": "80-days:day-13:part-1:block-1",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 24,
+      "item_id": "80-days:day-24:main:q-05",
+      "part_id": "80-days:day-24:part-1",
+      "block_id": "80-days:day-24:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 27,
+      "item_id": "80-days:day-27:main:q-19",
+      "part_id": "80-days:day-27:part-3",
+      "block_id": "80-days:day-27:part-3:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 28,
+      "item_id": "80-days:day-28:main:q-09",
+      "part_id": "80-days:day-28:part-1",
+      "block_id": "80-days:day-28:part-1:block-2",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 29,
+      "item_id": "80-days:day-29:main:q-13",
+      "part_id": "80-days:day-29:part-2",
+      "block_id": "80-days:day-29:part-2:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 31,
+      "item_id": "80-days:day-31:main:q-17",
+      "part_id": "80-days:day-31:part-2",
+      "block_id": "80-days:day-31:part-2:block-1",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 4
+    },
+    {
+      "day": 32,
+      "item_id": "80-days:day-32:main:q-07",
+      "part_id": "80-days:day-32:part-1",
+      "block_id": "80-days:day-32:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 32,
+      "item_id": "80-days:day-32:main:q-11",
+      "part_id": "80-days:day-32:part-2",
+      "block_id": "80-days:day-32:part-2:block-1",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 33,
+      "item_id": "80-days:day-33:main:q-10",
+      "part_id": "80-days:day-33:part-1",
+      "block_id": "80-days:day-33:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 33,
+      "item_id": "80-days:day-33:main:q-11",
+      "part_id": "80-days:day-33:part-2",
+      "block_id": "80-days:day-33:part-2:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 33,
+      "item_id": "80-days:day-33:main:q-19",
+      "part_id": "80-days:day-33:part-2",
+      "block_id": "80-days:day-33:part-2:block-2",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 34,
+      "item_id": "80-days:day-34:main:q-19",
+      "part_id": "80-days:day-34:part-3",
+      "block_id": "80-days:day-34:part-3:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 35,
+      "item_id": "80-days:day-35:main:q-20",
+      "part_id": "80-days:day-35:part-3",
+      "block_id": "80-days:day-35:part-3:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 37,
+      "item_id": "80-days:day-37:main:q-17",
+      "part_id": "80-days:day-37:part-2",
+      "block_id": "80-days:day-37:part-2:block-2",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 38,
+      "item_id": "80-days:day-38:main:q-14",
+      "part_id": "80-days:day-38:part-2",
+      "block_id": "80-days:day-38:part-2:block-1",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 4
+    },
+    {
+      "day": 40,
+      "item_id": "80-days:day-40:main:q-04",
+      "part_id": "80-days:day-40:part-1",
+      "block_id": "80-days:day-40:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 40,
+      "item_id": "80-days:day-40:main:q-14",
+      "part_id": "80-days:day-40:part-2",
+      "block_id": "80-days:day-40:part-2:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 40,
+      "item_id": "80-days:day-40:main:q-20",
+      "part_id": "80-days:day-40:part-3",
+      "block_id": "80-days:day-40:part-3:block-1",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 41,
+      "item_id": "80-days:day-41:main:q-06",
+      "part_id": "80-days:day-41:part-1",
+      "block_id": "80-days:day-41:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 42,
+      "item_id": "80-days:day-42:main:q-05",
+      "part_id": "80-days:day-42:part-1",
+      "block_id": "80-days:day-42:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 42,
+      "item_id": "80-days:day-42:main:q-24",
+      "part_id": "80-days:day-42:part-3",
+      "block_id": "80-days:day-42:part-3:block-1",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 44,
+      "item_id": "80-days:day-44:main:q-09",
+      "part_id": "80-days:day-44:part-1",
+      "block_id": "80-days:day-44:part-1:block-2",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 47,
+      "item_id": "80-days:day-47:main:q-03",
+      "part_id": "80-days:day-47:part-1",
+      "block_id": "80-days:day-47:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 47,
+      "item_id": "80-days:day-47:main:q-15",
+      "part_id": "80-days:day-47:part-2",
+      "block_id": "80-days:day-47:part-2:block-1",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 5
+    },
+    {
+      "day": 49,
+      "item_id": "80-days:day-49:main:q-02",
+      "part_id": "80-days:day-49:part-1",
+      "block_id": "80-days:day-49:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 50,
+      "item_id": "80-days:day-50:main:q-05",
+      "part_id": "80-days:day-50:part-1",
+      "block_id": "80-days:day-50:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 50,
+      "item_id": "80-days:day-50:main:q-19",
+      "part_id": "80-days:day-50:part-3",
+      "block_id": "80-days:day-50:part-3:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 71,
+      "item_id": "80-days:day-71:main:q-34",
+      "part_id": "80-days:day-71:part-4",
+      "block_id": "80-days:day-71:part-4:block-1",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 72,
+      "item_id": "80-days:day-72:main:q-40",
+      "part_id": "80-days:day-72:part-4",
+      "block_id": "80-days:day-72:part-4:block-3",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 73,
+      "item_id": "80-days:day-73:main:q-19",
+      "part_id": "80-days:day-73:part-2",
+      "block_id": "80-days:day-73:part-2:block-3",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 73,
+      "item_id": "80-days:day-73:main:q-35",
+      "part_id": "80-days:day-73:part-4",
+      "block_id": "80-days:day-73:part-4:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 73,
+      "item_id": "80-days:day-73:main:q-38",
+      "part_id": "80-days:day-73:part-4",
+      "block_id": "80-days:day-73:part-4:block-2",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 74,
+      "item_id": "80-days:day-74:main:q-22",
+      "part_id": "80-days:day-74:part-3",
+      "block_id": "80-days:day-74:part-3:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 75,
+      "item_id": "80-days:day-75:main:q-03",
+      "part_id": "80-days:day-75:part-1",
+      "block_id": "80-days:day-75:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 75,
+      "item_id": "80-days:day-75:main:q-04",
+      "part_id": "80-days:day-75:part-1",
+      "block_id": "80-days:day-75:part-1:block-1",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 75,
+      "item_id": "80-days:day-75:main:q-08",
+      "part_id": "80-days:day-75:part-1",
+      "block_id": "80-days:day-75:part-1:block-3",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-19",
+      "part_id": "80-days:day-76:part-2",
+      "block_id": "80-days:day-76:part-2:block-tornado-true-false",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-21",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-true-false",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-22",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-true-false",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-23",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-true-false",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-24",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-true-false",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-25",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-mcq",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-26",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-mcq",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-27",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-notes",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-28",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-notes",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-29",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-notes",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-30",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-notes",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-31",
+      "part_id": "80-days:day-76:part-3",
+      "block_id": "80-days:day-76:part-3:block-logging-notes",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-32",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-professions",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-33",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-professions",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-34",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-professions",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-35",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-climate-mcq",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-36",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-climate-mcq",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-37",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-climate-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-38",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-climate-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-39",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-climate-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-40",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-climate-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 76,
+      "item_id": "80-days:day-76:main:q-41",
+      "part_id": "80-days:day-76:part-4",
+      "block_id": "80-days:day-76:part-4:block-climate-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-01",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-table",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-02",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-table",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-03",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-table",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-04",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-table",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-05",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-table",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-06",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-table",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-07",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-08",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-09",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-10",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-11",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-12",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-13",
+      "part_id": "80-days:day-77:part-1",
+      "block_id": "80-days:day-77:part-1:block-watt-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-14",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-mcq",
+      "response_type": "multiple_choice",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-15",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-mcq",
+      "response_type": "multiple_choice",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-16",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-mcq",
+      "response_type": "multiple_choice",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-17",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-18",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-19",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-20",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-21",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-completion",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-22",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-completion",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-23",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-completion",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-24",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-completion",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-25",
+      "part_id": "80-days:day-77:part-2",
+      "block_id": "80-days:day-77:part-2:block-circus-completion",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-26",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-mcq",
+      "response_type": "multiple_choice",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-27",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-mcq",
+      "response_type": "multiple_choice",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-28",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-mcq",
+      "response_type": "multiple_choice",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-29",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-mcq",
+      "response_type": "multiple_choice",
+      "selection_count": null,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-30",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-31",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-32",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-summary",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-33",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-accuracy",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-34",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-accuracy",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-35",
+      "part_id": "80-days:day-77:part-3",
+      "block_id": "80-days:day-77:part-3:block-birds-accuracy",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-36",
+      "part_id": "80-days:day-77:part-4",
+      "block_id": "80-days:day-77:part-4:block-judge-picture",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-37",
+      "part_id": "80-days:day-77:part-4",
+      "block_id": "80-days:day-77:part-4:block-courtroom-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-38",
+      "part_id": "80-days:day-77:part-4",
+      "block_id": "80-days:day-77:part-4:block-courtroom-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-39",
+      "part_id": "80-days:day-77:part-4",
+      "block_id": "80-days:day-77:part-4:block-courtroom-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 77,
+      "item_id": "80-days:day-77:main:q-40",
+      "part_id": "80-days:day-77:part-4",
+      "block_id": "80-days:day-77:part-4:block-courtroom-tfn",
+      "response_type": "single_choice",
+      "selection_count": 1,
+      "word_limit": null
+    },
+    {
+      "day": 80,
+      "item_id": "80-days:day-80:main:q-10",
+      "part_id": "80-days:day-80:part-2",
+      "block_id": "80-days:day-80:part-2:block-paper-short",
+      "response_type": "short_answer",
+      "selection_count": null,
+      "word_limit": 3
+    }
+  ]
+}

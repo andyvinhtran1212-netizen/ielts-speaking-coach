@@ -6,7 +6,7 @@ Called from a FastAPI BackgroundTask in vocabulary_bank.py at confirm
 time, and from the backfill script for existing alive rows.
 
 Pipeline:
-    1. Try Claude Haiku 4.5 (primary — cheap, fast for short structured
+    1. Try configured Claude Haiku (primary — cheap, fast for short structured
        output; same model already used by vocab_extractor.py).
     2. On Haiku failure (network, malformed JSON, schema validation),
        try Gemini 2.5 Flash (fallback — same family used by the existing
@@ -44,11 +44,12 @@ import anthropic
 
 from config import settings
 from services import ai_usage_logger
+from services.claude_compat import ClaudeTruncatedResponseError, json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
 
 
-_DEFAULT_HAIKU_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_HAIKU_MODEL = "claude-haiku-5-5"
 
 
 # Sprint 10.7 — inline retry + evidence truncation.
@@ -271,7 +272,7 @@ def _is_retryable(exc: BaseException) -> bool:
             return True
         return False
     # JSON parse failures — a retry sometimes produces clean output.
-    if isinstance(exc, json.JSONDecodeError):
+    if isinstance(exc, (json.JSONDecodeError, ClaudeTruncatedResponseError)):
         return True
     # Generic timeouts (socket, asyncio).
     if isinstance(exc, TimeoutError):
@@ -459,7 +460,7 @@ def _shuffled_options(target: str, distractors: list[str], *, seed: str) -> list
 
 
 def _try_haiku(vocab_row: dict) -> dict | None:
-    """Primary path — Claude Haiku 4.5.
+    """Primary path — configured Claude Haiku (5.5 by default).
 
     Sprint 10.7 — wraps the call + JSON parse in `_call_with_retry` so
     a single transient failure (5xx, timeout, malformed JSON) doesn't
@@ -471,33 +472,41 @@ def _try_haiku(vocab_row: dict) -> dict | None:
         return None
 
     headword = (vocab_row.get("headword") or "").strip()
-    model = _DEFAULT_HAIKU_MODEL
+    model = settings.D1_QUESTION_MODEL or _DEFAULT_HAIKU_MODEL
 
     def _attempt() -> dict | None:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=60.0)  # Mục 11 (B4): bound the sync Claude call
         msg = client.messages.create(
-            model=model,
-            max_tokens=512,
+            **json_request_kwargs(model, max_tokens=512),
             system=[{"type": "text", "text": _SYSTEM_PROMPT}],
             messages=[{"role": "user", "content": _build_user_prompt(vocab_row)}],
         )
-        ai_usage_logger.log_claude_response(
-            msg,
-            model=model,
-            feature="d1_question_generation",
-            operation="generate_question",
-            resource_type="vocabulary",
-            resource_id=(str(vocab_row["id"]) if vocab_row.get("id") else None),
-        )
-        raw = msg.content[0].text if msg.content else ""
-        # JSON parse runs inside the retry loop — malformed output is a
-        # retryable failure (the model sometimes truncates; a fresh
-        # attempt clears it).
-        payload = json.loads(_strip_json_fences(raw))
-        if not isinstance(payload, dict):
-            # Structural drift; not retryable.
-            return None
-        return _validate_ai_payload(payload, headword)
+        status, error_code = "error", "invalid_response"
+        try:
+            raw = response_text(msg)
+            # Malformed/truncated output retries within the existing budget.
+            payload = json.loads(_strip_json_fences(raw))
+            if not isinstance(payload, dict):
+                return None  # Structural drift is not retryable.
+            validated = _validate_ai_payload(payload, headword)
+            if validated is not None:
+                status, error_code = "success", None
+            return validated
+        except Exception as exc:
+            error_code = getattr(exc, "error_code", type(exc).__name__)
+            raise
+        finally:
+            # Preserve paid tokens exactly once, with the outcome of this attempt.
+            ai_usage_logger.log_claude_response(
+                msg,
+                model=model,
+                feature="d1_question_generation",
+                operation="generate_question",
+                resource_type="vocabulary",
+                resource_id=(str(vocab_row["id"]) if vocab_row.get("id") else None),
+                status=status,
+                error_code=error_code,
+            )
 
     try:
         validated = _call_with_retry(

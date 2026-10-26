@@ -403,7 +403,7 @@ function ListeningAnalyticsDashboard({ accountKey }: { accountKey: string | null
         <div className="empty-state" id="state-empty" role="status">
           <p><strong>Chưa có dữ liệu luyện tập trong khoảng này.</strong></p>
           <p>Bắt đầu một bài nghe để thấy thống kê.</p>
-          <a href="/listening/practice">Bắt đầu luyện nghe</a>
+          <a href="/listening/ielts">Bắt đầu luyện nghe</a>
         </div>
       )}
       {state.status === 'error' && (

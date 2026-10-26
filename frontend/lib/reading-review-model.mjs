@@ -139,6 +139,7 @@ export function normalizeReadingReview(payload) {
   return Object.freeze({
     attemptId: payload.attempt_id == null ? null : text(payload.attempt_id),
     status: 'submitted',
+    practiceReview: payload.test_type === 'mini',
     testId: text(payload.test_id),
     title: text(payload.title) || text(payload.test_id) || 'Chữa bài Reading',
     preview,
@@ -152,8 +153,20 @@ export function normalizeReadingReview(payload) {
   });
 }
 
-export function readingReviewSkillRows(skillBreakdown, labels = {}) {
-  return Object.entries(skillBreakdown || {}).map(([key, row]) => ({
+export function readingReviewSkillRows(skillBreakdown, labels = {}, review = []) {
+  const breakdown = { ...skillBreakdown };
+  const writerItems = review.filter(item => ['writer_view_TFNG', 'writer_view_YNNG'].includes(item.skill_tag));
+  if (writerItems.length && writerItems.every(item => ['true_false_not_given', 'yes_no_not_given'].includes(item.question_type))) {
+    delete breakdown.writer_view_TFNG;
+    delete breakdown.writer_view_YNNG;
+    for (const item of writerItems) {
+      const key = item.question_type === 'yes_no_not_given' ? 'writer_view_YNNG' : 'writer_view_TFNG';
+      const row = breakdown[key] || (breakdown[key] = { correct: 0, total: 0 });
+      row.total += 1;
+      row.correct += item.correct ? 1 : 0;
+    }
+  }
+  return Object.entries(breakdown).map(([key, row]) => ({
     key,
     label: labels[key] || key,
     correct: row.correct,
@@ -179,7 +192,16 @@ export function readingReviewPrompt(item) {
 }
 
 export function splitReviewProse(value) {
-  return String(value ?? '').split(/;\s+|\.\s+/).map((part) => part.trim()).filter(Boolean);
+  const source = String(value ?? '');
+  const parts = [];
+  let start = 0;
+  for (const match of source.matchAll(/;\s+|\.+\s+/g)) {
+    if (match[0].startsWith('..')) continue;
+    parts.push(source.slice(start, match.index).trim());
+    start = match.index + match[0].length;
+  }
+  parts.push(source.slice(start).trim());
+  return parts.filter(Boolean);
 }
 
 export function splitReviewSteps(value) {

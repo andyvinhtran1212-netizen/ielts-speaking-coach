@@ -65,12 +65,11 @@ input: "text"
 headword: "wo-svo-basic"
 skill: "production"
 subtype: "intermediate"
-prompt: "Sắp xếp lại thành câu đúng trật tự S-V-O, viết lại cả câu: 'homework / finishes / she / quickly' → She ____"
-accept: ["finishes homework quickly"]
+prompt: "Sắp xếp các từ 'homework / finishes / quickly' để điền ba từ còn thiếu: She ____"
+accept: ["finishes homework quickly", "quickly finishes homework"]
 case_sensitive: false
 grammar_article_slug: "word-order"
-explain: "Cả hai đều đúng: 'She finishes homework quickly' (adverb cuối câu) và 'She quickly finishes homework' (adverb giữa câu, đứng TRƯỚC động từ chính). Điểm mấu chốt: cụm S-V-O 'finishes homework' luôn liền nhau — chỉ SAI khi chen adverb vào giữa V và O: 'finishes quickly homework' ✗."
-explain: "Trật tự chuẩn: Subject (She) → Verb (finishes) → Object (homework) → Adverb (quickly). 'Quickly' là manner adverb nên đứng sau V-O, không đứng trước động từ."
+explain: "Cả 'She finishes homework quickly' và 'She quickly finishes homework' đều đúng. 'Quickly' có thể ở cuối câu hoặc trước động từ chính. Với cụm tân ngữ ngắn trong câu này, không đặt 'quickly' giữa 'finishes' và 'homework'."
 ---
 
 ---

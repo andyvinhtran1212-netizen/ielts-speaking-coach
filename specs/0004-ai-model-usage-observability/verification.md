@@ -1,5 +1,46 @@
 # Verification
 
+## Writing source-evidence regression — 2026-10-13
+
+Promotion review follow-up on `codex/writing-example-labels-20261013`, based on
+staging `d5520689`: standalone “Ví dụ” / “Example” labels and clause-leading
+“Suggestion:” / “Suggested wording:” / “Proposed revision:” labels accept new
+language in mixed feedback. Possessive and past-verb uses are not proposals.
+The third-round scope audit found one common cause: proposal exemptions were
+too broad for the meaning of the field. Source-only strengths, originalIdea,
+coherence location and current-essay observations now require source evidence
+regardless of proposal wording. Structured originals stay strict; dedicated
+suggestions/rewrites and historical examples remain untouched. The complete
+retry, ledger, persistence and renderer contract was rechecked with no further
+scope change. Focused suite: 235 passed; full backend: 10,147 passed, 800 skipped,
+14 warnings. Writing 3.8 and rollback 3.5 unchanged.
+
+Bounded FR-006 grading-regression repair on
+`codex/writing-grounded-feedback-20261013`, based on staging `81ebe4a0`.
+The transport canary incorrectly credited “subsidies”, which occurred only in
+the generated improved essay. The new literal-evidence guard rejects that
+claim before persistence and requests a complete corrected response within the
+existing retry budget; FR-001 ledger rows price rejected attempts explicitly.
+Writing remains Gemini 3.8 Flash, with the existing 3.5 rollback configuration.
+
+206 focused tests pass, covering real excerpts, shortened citations, explicit
+new-language proposals, deep-pass source fields, retry exhaustion, job failure
+classification and paid-attempt accounting. Replaying the original result
+rejects exactly the false “subsidies” attribution. A real Gemini 3.8 call with
+the same synthetic essay produced accepted prompt v2.2 feedback after two
+attempts (estimated total $0.06372375, band 8); this is one sample, not a quality
+or average-cost claim. Historical feedback is untouched. Unquoted semantic
+claims and IELTS calibration still require human review.
+
+PR review additionally pins continuation advice ("keep using" / "tiếp tục")
+as claimed existing usage. Genuine "Cần dùng" proposals and the shipped L3
+calibration's quoted "NHƯ THẾ NÀO" teaching question remain valid.
+
+Release evidence belongs to the associated PR: full backend/CI, exact staging
+frontend/backend SHA, a fresh student submission, persisted feedback, ledger
+readback and the admin review screen. Production promotion of this repair is
+outside this staging-first verification step.
+
 ## Current implementation evidence — 2026-09-26
 
 Approval PR #1453 preceded implementation PR #1452. The implementation is

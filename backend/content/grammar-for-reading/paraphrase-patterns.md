@@ -69,7 +69,7 @@ Paraphrase = nói cùng một ý bằng từ ngữ khác. Câu hỏi khớp vớ
 |---|---|---|
 | **Từ đồng nghĩa** | *big rise* | *substantial increase* |
 | **Đổi từ loại** (danh hoá) | *prices rose* | *the rise in prices* |
-| **Đổi chủ động ↔ bị động** | *Scientists discovered X* | *X was discovered* |
+| **Đổi chủ động ↔ bị động** | *Scientists discovered X* | *X was discovered by scientists* (bỏ tác nhân làm thiếu thông tin nếu cần giữ toàn bộ) |
 | **Đổi cấu trúc** | *because it was cheap* | *due to its low cost* |
 
 Người đọc giỏi **không quét từ khớp** mà quét **ý khớp**.
@@ -80,7 +80,7 @@ Người đọc giỏi **không quét từ khớp** mà quét **ý khớp**.
 Một ý có thể được diễn đạt bằng **phủ định của từ trái nghĩa** — dễ gây hiểu lầm:
 
 - *rare* ↔ *not common*
-- *increased* ↔ *did not fall*
+- *increased* ↔ *rose*; did not fall còn bao gồm không đổi, chỉ suy ra một chiều
 - *mandatory* ↔ *not optional*
 
 Đây cũng là nền cho câu **TRUE/FALSE/NOT GIVEN**: cùng nghĩa (dù ngược từ) → TRUE.
@@ -89,7 +89,7 @@ Một ý có thể được diễn đạt bằng **phủ định của từ trá
 ## Bẫy khi đọc
 
 ### Bẫy 1: Chọn đáp án chỉ vì "trùng từ"
-Đáp án lặp lại nguyên văn từ bài thường là **bẫy** — bài thật diễn đạt lại. Trùng từ ≠ trùng nghĩa.
+Trùng từ chưa đủ chứng minh trùng nghĩa; cũng không tự là bẫy. Kiểm chủ thể, thời gian, phạm vi và phủ định.
 
 ### Bẫy 2: Bỏ sót vì không nhận ra từ đồng nghĩa
 *fall = decline = drop = decrease*; *cause = lead to = result in = trigger*. Cần vốn cụm đồng nghĩa.

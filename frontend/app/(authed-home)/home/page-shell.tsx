@@ -22,15 +22,15 @@ const SKILLS: Array<{
   /** Thẻ nào khởi tạo ở trạng thái đang tải (`…`) thay vì gạch ngang. */
   loading?: boolean;
 }> = [
-  { id: 'writing', icon: '✍︎', title: 'Writing', unit: 'band',
+  { id: 'writing', icon: '✍︎', title: 'Writing', unit: 'band', loading: true,
     sub: <>Bài luận Task 1 &amp; Task 2 với feedback chi tiết.</> },
-  { id: 'speaking', icon: '🎙', title: 'Speaking', unit: 'band',
+  { id: 'speaking', icon: '🎙', title: 'Speaking', unit: 'band', loading: true,
     sub: <>Luyện nói 3 phần và nhận điểm band tự động.</> },
   { id: 'grammar', icon: '✦', title: 'Grammar', unit: 'bài đã xem', loading: true,
-    sub: <>Khám phá 67 bài học ngữ pháp.</> },
+    sub: <>Bài học ngữ pháp cho IELTS.</> },
   { id: 'vocabulary', icon: '⌗', title: 'Vocabulary', unit: 'từ', loading: true,
     sub: <>Wallet từ vựng cá nhân + flashcard SRS.</> },
-  { id: 'reading', icon: '✸', title: 'Reading', unit: 'band',
+  { id: 'reading', icon: '✸', title: 'Reading', unit: 'band', loading: true,
     sub: <>Bài đọc IELTS với phân tích cấu trúc đoạn và chiến lược tìm ý chính.</> },
   { id: 'listening', icon: '◐', title: 'Listening', unit: 'bài', loading: true,
     sub: <>Bài nghe với note-taking pattern và phân tích bẫy đáp án.</> },
@@ -46,7 +46,7 @@ function SkillCard({ skill }: { skill: (typeof SKILLS)[number] }) {
       <h3>{skill.title}</h3>
       <div className="metric-row">
         <span className="metric">
-          <span className={skill.loading ? 'js-val is-loading' : 'js-val'}>
+          <span className={skill.loading ? 'js-val is-loading' : 'js-val'} aria-hidden={skill.loading ? true : undefined}>
             {skill.loading ? '…' : '—'}
           </span>
           <span className="unit"> <span className="js-unit">{skill.unit}</span></span>
@@ -69,7 +69,7 @@ function HeroStat({
     <div className={className ? `hero-stat ${className}` : 'hero-stat'} id={id}>
       <span className="label">{label}</span>
       <span className="value">
-        <span className="value-num is-loading">…</span>
+        <span className="value-num is-loading" aria-hidden="true">…</span>
         <span className="unit">{unit}</span>
         {extra}
       </span>
@@ -86,7 +86,7 @@ export function HomeShell() {
       <header className="greeting">
         <div>
           <p className="eyebrow">Trang chủ</p>
-          <h1>Xin chào, <span className="name" id="greeting-name">…</span></h1>
+          <h1>Xin chào, <span className="name is-loading" id="greeting-name" aria-hidden="true">…</span></h1>
           <p className="lede">
             Tiếp tục hành trình IELTS của bạn — luyện đều mỗi ngày để giữ đà tiến bộ.
           </p>

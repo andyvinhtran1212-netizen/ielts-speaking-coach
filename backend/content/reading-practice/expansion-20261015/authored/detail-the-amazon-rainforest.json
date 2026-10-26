@@ -1,0 +1,154 @@
+{
+  "slug": "detail-the-amazon-rainforest",
+  "review_notes": "Dịch sát nội dung nguồn, giữ các mức xấp xỉ và cách gọi ẩn dụ lá phổi; không thay đổi dữ kiện hoặc đáp án.",
+  "illustration_brief": "Dòng sông uốn lượn dưới tán rừng rậm, chim và nhiều lớp cây; không có bản đồ quốc gia hay nhãn số liệu.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Rừng mưa Amazon là khu rừng mưa lớn nhất trên Trái Đất.",
+      [
+        "the largest rainforest",
+        "khu rừng mưa lớn nhất"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Khu rừng rộng tới khoảng 5,5 triệu kilômét vuông.",
+      [
+        "about 5.5 million square kilometres",
+        "khoảng 5,5 triệu kilômét vuông"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Khu rừng trải rộng trên chín quốc gia ở Nam Mỹ, nhưng phần lớn nằm trong một nước là Brazil.",
+      [
+        "nine countries",
+        "chín quốc gia"
+      ],
+      [
+        "South America",
+        "Nam Mỹ"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Amazon tràn đầy sự sống.",
+      [
+        "full of life",
+        "tràn đầy sự sống"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Các nhà khoa học cho rằng khoảng 10% số loài đã biết trên thế giới sống ở đây.",
+      [
+        "Scientists believe",
+        "Các nhà khoa học cho rằng"
+      ],
+      [
+        "all known species",
+        "số loài đã biết"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Nhiều loài thực vật, côn trùng, chim và động vật chỉ sống ở Amazon.",
+      [
+        "plants, insects, birds and animals",
+        "thực vật, côn trùng, chim và động vật"
+      ],
+      [
+        "only in the Amazon",
+        "chỉ sống ở Amazon"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Một dòng sông lớn chảy qua khu rừng.",
+      [
+        "A great river",
+        "Một dòng sông lớn"
+      ],
+      [
+        "runs through the forest",
+        "chảy qua khu rừng"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Sông Amazon thuộc nhóm sông dài nhất thế giới, dù sông Nile thường được gọi là dài nhất.",
+      [
+        "one of the longest rivers",
+        "thuộc nhóm sông dài nhất"
+      ],
+      [
+        "usually called the longest",
+        "thường được gọi là dài nhất"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Sông Amazon mang lượng nước lớn hơn mọi sông khác, và nhiều sông nhỏ hơn đổ vào nó.",
+      [
+        "more water than any other river",
+        "lượng nước lớn hơn mọi sông khác"
+      ],
+      [
+        "flow into it",
+        "đổ vào nó"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Rừng mưa cũng có vai trò quan trọng với cả hành tinh.",
+      [
+        "the whole planet",
+        "cả hành tinh"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Cây trong rừng hấp thụ khí từ không khí và thải ra ôxy mà chúng ta hít thở.",
+      [
+        "take in gas",
+        "hấp thụ khí"
+      ],
+      [
+        "the oxygen we breathe",
+        "ôxy mà chúng ta hít thở"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Vì thế, đôi khi người ta gọi Amazon là “lá phổi của Trái Đất”.",
+      [
+        "For this reason",
+        "Vì thế"
+      ],
+      [
+        "the lungs of the Earth",
+        "lá phổi của Trái Đất"
+      ]
+    ],
+    [
+      "p4-s4",
+      "Bảo vệ khu rừng có thể mang lại lợi ích cho tất cả chúng ta.",
+      [
+        "Keeping the forest safe",
+        "Bảo vệ khu rừng"
+      ],
+      [
+        "help all of us",
+        "mang lại lợi ích cho tất cả chúng ta"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-amazon-forest-scene.svg",
+    "alt": "Dòng sông uốn lượn giữa những tán cây xanh, với chim bay phía trên.",
+    "caption": "Sông và tán rừng trong một cảnh quan xanh."
+  },
+  "source_sha256": "fbaa3e7dc45c70c9a5a83c45f85dd729a21d54a2b9b9366c183b6bf1146dfabb",
+  "expected_translation_sha256": "4735d54573c9f134539771423cb7bfab25976f59a97aab3a018cc4ac4f76fe44"
+}

@@ -76,16 +76,16 @@ explain: "SAI — lặp cùng một kiểu mở câu ('I think') nhiều lần l
 
 ---
 id: "arso_front_b1"
-type: "mcq"
-input: "choice"
+type: "gap_text"
+input: "text"
 headword: "arso-fronting-adverbials"
 skill: "form"
 subtype: "basic"
-prompt: "____ online learning has grown rapidly across the world."
-options: ["In recent years,", "In recent years", "Recent years,", "Recently years,"]
-answer: 0
+prompt: "Start with 'In recent years' (comma optional for this short introductory phrase): '____ online learning has grown rapidly across the world.'"
 grammar_article_slug: "avoiding-repetitive-sentence-openings"
-explain: "Trạng ngữ thời gian đứng đầu câu ('In recent years') phải có dấu phẩy ngay sau nó trước khi vào mệnh đề chính."
+explain: "Với cụm mở đầu ngắn và rõ In recent years, có thể dùng hoặc bỏ dấu phẩy theo văn phong. Dấu phẩy hữu ích khi cần đánh dấu ranh giới/nhịp đọc; không bắt buộc cho mọi trạng ngữ thời gian đầu câu."
+accept: ["In recent years,", "In recent years"]
+case_sensitive: false
 ---
 
 ---

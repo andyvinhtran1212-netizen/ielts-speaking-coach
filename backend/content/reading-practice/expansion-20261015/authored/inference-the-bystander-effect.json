@@ -1,0 +1,198 @@
+{
+  "slug": "inference-the-bystander-effect",
+  "review_notes": "Giữ rõ thông tin 38 là tường thuật bị nghi vấn, không xác nhận huyền thoại; freeze và spell là trạng thái bất động tâm lý, không phải lạnh hay phép thuật.",
+  "illustration_brief": "Một nhóm người đứng ở quảng trường thành phố, một người quay sang người bên cạnh.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Vào một đêm mùa đông năm 1964, một phụ nữ trẻ tên Kitty Genovese bị tấn công và sát hại gần nhà ở New York.",
+      [
+        "a winter night",
+        "một đêm mùa đông"
+      ],
+      [
+        "was attacked and killed",
+        "bị tấn công và sát hại"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Câu chuyện lan truyền sau đó còn gây bất an hơn chính vụ án: một tờ báo đưa tin rằng 38 người hàng xóm được coi là đứng đắn đã nhìn từ cửa sổ mà không làm gì.",
+      [
+        "a newspaper reported",
+        "một tờ báo đưa tin"
+      ],
+      [
+        "done nothing",
+        "không làm gì"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Vụ việc trở thành biểu tượng cho sự lạnh lùng nơi đô thị, nhưng nhiều điều làm nó nổi tiếng về sau lại hóa ra thiếu vững chắc.",
+      [
+        "a symbol of urban coldness",
+        "biểu tượng cho sự lạnh lùng nơi đô thị"
+      ],
+      [
+        "turned out to be shaky",
+        "hóa ra thiếu vững chắc"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Nhiều thập kỷ sau, những nhà nghiên cứu xem lại hồ sơ tìm thấy rất ít bằng chứng ủng hộ con số 38 gọn ghẽ ấy.",
+      [
+        "returned to the records",
+        "xem lại hồ sơ"
+      ],
+      [
+        "little support",
+        "rất ít bằng chứng ủng hộ"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Con số này dường như bắt nguồn từ một lời nhận xét của viên chức cảnh sát rồi được đưa thẳng lên báo mà không kiểm tra kỹ.",
+      [
+        "appears to have come from",
+        "dường như bắt nguồn từ"
+      ],
+      [
+        "without close checking",
+        "mà không kiểm tra kỹ"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Một số người hàng xóm chỉ nghe được những đoạn âm thanh rời rạc qua cửa sổ đóng kín trong đêm lạnh; ít nhất hai người đã thực sự liên hệ cảnh sát, và một người ở bên người phụ nữ đang hấp hối.",
+      [
+        "only fragments",
+        "những đoạn âm thanh rời rạc"
+      ],
+      [
+        "at least two",
+        "ít nhất hai người"
+      ],
+      [
+        "stayed with the dying woman",
+        "ở bên người phụ nữ đang hấp hối"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Nói ngắn gọn, câu chuyện lưu truyền ấy đơn giản, gọn ghẽ hơn nhiều so với sự thật phức tạp đằng sau.",
+      [
+        "The myth",
+        "câu chuyện lưu truyền ấy"
+      ],
+      [
+        "the messy truth",
+        "sự thật phức tạp"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Điều vụ việc thực sự làm được là thúc đẩy hai nhà tâm lý học John Darley và Bibb Latané đặt câu hỏi vì sao một nhóm người chứng kiến có thể đứng sững mà không hành động.",
+      [
+        "a group of onlookers",
+        "một nhóm người chứng kiến"
+      ],
+      [
+        "might freeze",
+        "có thể đứng sững mà không hành động"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Trong một thí nghiệm nổi tiếng, họ để khói len vào căn phòng nơi các sinh viên đang ngồi điền biểu mẫu.",
+      [
+        "let smoke seep into a room",
+        "để khói len vào căn phòng"
+      ],
+      [
+        "filling in forms",
+        "điền biểu mẫu"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Khi ở một mình, phần lớn nhanh chóng báo có khói; khi ngồi cạnh những người lạ bình thản vốn bí mật tham gia nghiên cứu, số người lên tiếng ít hơn nhiều, vì họ coi sự bình thản của những người lạ là dấu hiệu cho thấy không có chuyện gì bất thường.",
+      [
+        "far fewer spoke up",
+        "số người lên tiếng ít hơn nhiều"
+      ],
+      [
+        "the strangers' stillness",
+        "sự bình thản của những người lạ"
+      ],
+      [
+        "nothing was wrong",
+        "không có chuyện gì bất thường"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Các nhà nghiên cứu quy một phần nguyên nhân cho sự phân tán trách nhiệm — cảm giác rằng trong đám đông, mỗi người chứng kiến đều cho là sẽ có người khác can thiệp, nên không ai thấy chính mình có nghĩa vụ làm vậy.",
+      [
+        "diffusion of responsibility",
+        "sự phân tán trách nhiệm"
+      ],
+      [
+        "another will step in",
+        "sẽ có người khác can thiệp"
+      ],
+      [
+        "no single person feels obliged to",
+        "không ai thấy chính mình có nghĩa vụ làm vậy"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Hiệu ứng người ngoài cuộc hiện là một trong những ý tưởng được trích dẫn nhiều nhất trong tâm lý học xã hội, nhưng cách diễn giải nó đã trở nên thận trọng hơn theo thời gian.",
+      [
+        "The bystander effect",
+        "Hiệu ứng người ngoài cuộc"
+      ],
+      [
+        "has grown more cautious with age",
+        "cách diễn giải nó đã trở nên thận trọng hơn theo thời gian"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Nghiên cứu về những vụ tấn công thực được camera ghi lại cho thấy sự giúp đỡ quả thực thường xuất hiện, nhất là khi nguy hiểm rõ ràng hoặc khi một người phá vỡ trạng thái bất động bằng cách hành động trước.",
+      [
+        "caught on camera",
+        "được camera ghi lại"
+      ],
+      [
+        "when the danger is plain",
+        "khi nguy hiểm rõ ràng"
+      ],
+      [
+        "acting first",
+        "hành động trước"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Theo cách hiểu này, hiệu ứng ấy tác động đến hành vi chứ không quyết định hành vi, và mức độ chi phối một đám đông có thể phụ thuộc vào tình huống không kém số người đang chứng kiến.",
+      [
+        "bends rather than dictates behaviour",
+        "tác động đến hành vi chứ không quyết định hành vi"
+      ],
+      [
+        "depend on the moment as much as on the number of people watching",
+        "phụ thuộc vào tình huống không kém số người đang chứng kiến"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-city-onlookers-scene.svg",
+    "alt": "Một nhóm người đứng ở quảng trường thành phố, một người quay sang người bên cạnh.",
+    "caption": "Hành vi cá nhân trong bối cảnh một nhóm người."
+  },
+  "source_sha256": "e61ea430c846e827e16de167d8d49272ad037da882a92a6427f2fbc8c811e929",
+  "expected_translation_sha256": "5ece9036496783a87e050fa7c015d7c7789179ef4e75301eb9be123f33110584"
+}

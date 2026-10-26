@@ -95,10 +95,10 @@ headword: "pfw-semicolon"
 skill: "form"
 subtype: "basic"
 prompt: "Which sentence correctly uses a semicolon to join two closely related independent clauses?"
-options: ["Renewable energy is expensive; it reduces emissions.", "Solar panels are getting cheaper; more households can now afford them.", "Solar panels are getting cheaper; and more households can afford them.", "Solar panels; are getting cheaper for more households."]
+options: ["Renewable energy; reduces emissions.", "Solar panels are getting cheaper; more households can now afford them.", "Solar panels are getting cheaper, more households can now afford them.", "Solar panels; are getting cheaper for more households."]
 answer: 1
 grammar_article_slug: "punctuation-for-writing"
-explain: "Dấu chấm phẩy nối 2 mệnh đề độc lập có quan hệ Ý CHẶT CHẼ với nhau, KHÔNG kèm theo liên từ (and/but/so...). 'Solar panels are getting cheaper' và 'more households can now afford them' có quan hệ nhân-quả rõ ràng, không cần liên từ."
+explain: "'Solar panels are getting cheaper; more households can now afford them' nối hai mệnh đề độc lập có liên hệ. Dấu chấm phẩy cũng có thể nối hai ý tương phản như 'Renewable energy is expensive; it reduces emissions'; quan hệ nhân quả không bắt buộc. Các phương án còn lại ở đề mới bị tách chủ ngữ khỏi vị ngữ hoặc nối câu bằng dấu phẩy."
 ---
 
 ---
@@ -108,10 +108,10 @@ input: "boolean"
 headword: "pfw-semicolon"
 skill: "error_id"
 subtype: "basic"
-prompt: "Đúng hay Sai: 'Cities are expanding rapidly; and green spaces are shrinking.' dùng dấu chấm phẩy đúng."
-answer: false
+prompt: "Đúng hay Sai: Với hai mệnh đề ngắn và không có dấu phẩy bên trong, dấu phẩy + and là lựa chọn văn phong thông dụng hơn trong 'Cities are expanding rapidly; and green spaces are shrinking'."
+answer: true
 grammar_article_slug: "punctuation-for-writing"
-explain: "SAI — sau dấu chấm phẩy KHÔNG được thêm liên từ 'and'. Chỉ chọn MỘT trong hai: dấu chấm phẩy một mình ('Cities are expanding rapidly; green spaces are shrinking.') hoặc dấu phẩy + liên từ ('Cities are expanding rapidly, and green spaces are shrinking.')."
+explain: "ĐÚNG về ưu tiên văn phong của câu ngắn này: viết ', and' hoặc dùng ';' không kèm and đều gọn. Không cấm tuyệt đối semicolon + conjunction: dấu chấm phẩy trước and/but có thể hữu ích khi các mệnh đề dài hoặc đã chứa dấu phẩy."
 ---
 
 ---

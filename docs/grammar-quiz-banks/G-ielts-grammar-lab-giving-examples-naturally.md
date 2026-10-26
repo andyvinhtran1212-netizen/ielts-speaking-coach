@@ -138,10 +138,10 @@ headword: "gen-such-as"
 skill: "production"
 subtype: "intermediate"
 prompt: "Many industries, ____ (viết cụm 2 từ nghĩa 'chẳng hạn như') manufacturing and retail, have been disrupted by automation."
-accept: ["such as"]
+accept: ["such as", "for example", "for example,"]
 case_sensitive: false
 grammar_article_slug: "giving-examples-naturally"
-explain: "'such as' liệt kê ví dụ ngay sau danh từ tổng quát (industries), không cần câu mới."
+explain: "Such as đưa ra ví dụ sau industries. For example cũng có thể giới thiệu danh sách ví dụ ở vị trí này; có thể thêm dấu phẩy sau example theo quy ước biên tập. Đề không bắt buộc riêng such as."
 ---
 
 ---

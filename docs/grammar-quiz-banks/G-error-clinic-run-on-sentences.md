@@ -135,11 +135,11 @@ input: "choice"
 headword: "ro-missing-connector"
 skill: "usage"
 subtype: "intermediate"
-prompt: "He moved to Australia ____ is a beautiful country. (nối thông tin thêm về 'Australia')"
+prompt: "He moved to Australia, ____ is a beautiful country. (nối thông tin thêm về Australia)"
 options: ["it", "which", "so", "however"]
 answer: 1
 grammar_article_slug: "run-on-sentences"
-explain: "Câu thứ hai bổ sung thông tin về danh từ 'Australia' → dùng mệnh đề quan hệ với 'which': 'He moved to Australia, which is a beautiful country.'"
+explain: "Which mở mệnh đề quan hệ bổ sung cho Australia. Dấu phẩy trước which đã được in trong đề; chỉ điền đại từ quan hệ, không cần thêm một dấu phẩy nữa."
 ---
 
 ---

@@ -133,7 +133,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 |------|-----------------|----------------|
 | depend **on** | on | ❌ depend to/from/of |
 | rely **on** | on | ❌ rely to |
-| consist **of** | of | ❌ consist in/from |
+| consist **of** (gồm thành phần) | of | consist in là nghĩa “cốt ở”: The benefit consists in lower costs |
 | result **in** (gây ra kết quả) | in | ❌ result to |
 | result **from** (xuất phát từ) | from | ❌ result of |
 | contribute **to** | to | ❌ contribute for |
@@ -141,7 +141,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 | benefit **from** | from | ❌ benefit of/by |
 | respond **to** | to | ❌ respond on |
 | agree **with** (người) | with | ❌ agree to someone |
-| agree **to** (kế hoạch) | to | ❌ agree with a plan |
+| agree **to** (chấp thuận đề xuất) | to | agree with a plan cũng được khi đồng tình với nội dung |
 | disagree **with** | with | ❌ disagree to |
 | concentrate **on** | on | ❌ concentrate in |
 | focus **on** | on | ❌ focus in |
@@ -150,7 +150,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 | search **for** | for | ❌ search about |
 | apply **for** (xin việc) | for | ❌ apply to a job |
 | apply **to** (nộp vào trường) | to | apply to university |
-| aim **at/for** | at/for | ❌ aim to (when using as noun) |
+| aim | aim **to achieve** (V), aim **at improving** (V), aim **for a target** (V); the aim **of** the project / its aim is **to** help (N) | Theo vai trò và nghĩa |
 
 **Ví dụ đúng:**
 - The success of the project **depends on** several factors.
@@ -223,7 +223,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 
 - ❌ The reason **of** this problem is inequality.
 - ✅ The reason **for** this problem is inequality.
-- ❌ There is no solution **for** this problem.
+- “There is no solution **for** this problem” có thể gặp theo ngữ cảnh; solution to a problem là mặc định học thuật an toàn, không cấm tuyệt đối for.
 - ✅ There is no solution **to** this problem.
 - ❌ Technology has a great impact **to** our society.
 - ✅ Technology has a great impact **on** our society.
@@ -246,7 +246,7 @@ Tiếng Việt: "quan tâm đến" — người học dùng "care to"
 
 ### Lỗi 2: Nhầm "result in" và "result from"
 
-- ❌ Poverty **results in** poor policies. (nghĩa ngược)
+- “Poverty **results in** poor policies” đúng cấu trúc, nhưng đảo hướng so với mệnh đề nguồn giả định “Poor policies cause poverty”.
 - ✅ Poor policies **result in** poverty. (result in = gây ra)
 - ✅ Poverty **results from** poor policies. (result from = xuất phát từ)
 

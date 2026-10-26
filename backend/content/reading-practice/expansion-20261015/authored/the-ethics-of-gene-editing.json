@@ -1,0 +1,298 @@
+{
+  "slug": "the-ethics-of-gene-editing",
+  "review_notes": "Dịch theo nguồn, giữ ý định kháng HIV khác với chứng minh thành công; heritable là có thể di truyền. Đoạn every descendant giữ nguyên mức khẳng định của nguồn, không tự mở rộng thành lời giải thích di truyền học hoặc hướng dẫn y khoa.",
+  "illustration_brief": "Phòng nghiên cứu với mô hình vật liệu di truyền trên bàn, không có sơ đồ chỉnh sửa hay hướng dẫn thí nghiệm.",
+  "sentences": [
+    [
+      "p1-s1",
+      "Tháng 11 năm 2018, nhà khoa học Trung Quốc He Jiankui thông báo đã dùng công cụ chỉnh sửa gen CRISPR để sửa bộ gen hai bé gái sinh đôi, nhằm khiến các em kháng HIV.",
+      [
+        "the gene-editing tool CRISPR",
+        "công cụ chỉnh sửa gen CRISPR"
+      ],
+      [
+        "the genomes of twin girls",
+        "bộ gen hai bé gái sinh đôi"
+      ],
+      [
+        "intending to make them resistant to HIV",
+        "nhằm khiến các em kháng HIV"
+      ]
+    ],
+    [
+      "p1-s2",
+      "Tuyên bố gây báo động không phải vì kỹ thuật chưa từng có; thực ra phòng thí nghiệm đã tinh chỉnh độ chính xác suốt nhiều năm.",
+      [
+        "not because the technique itself was unprecedented",
+        "không phải vì kỹ thuật chưa từng có"
+      ],
+      [
+        "refining its precision",
+        "tinh chỉnh độ chính xác"
+      ]
+    ],
+    [
+      "p1-s3",
+      "Nó gây báo động vì những thay đổi mà He Jiankui tạo ra có thể di truyền.",
+      [
+        "caused alarm",
+        "gây báo động"
+      ],
+      [
+        "heritable",
+        "có thể di truyền"
+      ]
+    ],
+    [
+      "p1-s4",
+      "Chúng tác động dòng mầm, dòng tế bào sinh sản, nên sẽ được mọi hậu duệ tương lai của cặp sinh đôi mang theo.",
+      [
+        "the germline",
+        "dòng mầm"
+      ],
+      [
+        "the line of reproductive cells",
+        "dòng tế bào sinh sản"
+      ],
+      [
+        "every one of the twins' future descendants",
+        "mọi hậu duệ tương lai của cặp sinh đôi"
+      ]
+    ],
+    [
+      "p2-s1",
+      "Giới khoa học gần như đồng loạt lên án thí nghiệm.",
+      [
+        "almost as one",
+        "gần như đồng loạt"
+      ],
+      [
+        "condemn the experiment",
+        "lên án thí nghiệm"
+      ]
+    ],
+    [
+      "p2-s2",
+      "Một năm sau, tòa án Thâm Quyến tuyên He Jiankui ba năm tù vì hành nghề y bất hợp pháp, sau khi kết luận ông giả mạo hồ sơ thẩm định đạo đức.",
+      [
+        "three years in prison",
+        "ba năm tù"
+      ],
+      [
+        "the illegal practice of medicine",
+        "hành nghề y bất hợp pháp"
+      ],
+      [
+        "forged ethical-review documents",
+        "giả mạo hồ sơ thẩm định đạo đức"
+      ]
+    ],
+    [
+      "p2-s3",
+      "Tóm lại, có đồng thuận rộng rằng công việc quá sớm, bí mật và liều lĩnh.",
+      [
+        "a broad consensus",
+        "đồng thuận rộng"
+      ],
+      [
+        "premature, secretive and reckless",
+        "quá sớm, bí mật và liều lĩnh"
+      ]
+    ],
+    [
+      "p2-s4",
+      "Nhưng phẫn nộ với một vụ xử lý tệ tự nó không giải quyết được câu hỏi nguyên tắc sâu hơn mà công nghệ nền tảng tiếp tục đặt ra.",
+      [
+        "by itself",
+        "tự nó"
+      ],
+      [
+        "the deeper question of principle",
+        "câu hỏi nguyên tắc sâu hơn"
+      ]
+    ],
+    [
+      "p3-s1",
+      "Ở tâm tranh luận là ranh giới mong manh và nhiều bất đồng.",
+      [
+        "At the heart of the debate",
+        "Ở tâm tranh luận"
+      ],
+      [
+        "a fragile and much-disputed line",
+        "ranh giới mong manh và nhiều bất đồng"
+      ]
+    ],
+    [
+      "p3-s2",
+      "Phần lớn người quan sát chấp nhận chỉnh sửa trị liệu nhằm chữa bệnh di truyền khắc nghiệt đeo bám gia đình qua nhiều thế hệ.",
+      [
+        "therapeutic edits",
+        "chỉnh sửa trị liệu"
+      ],
+      [
+        "inherited diseases",
+        "bệnh di truyền"
+      ],
+      [
+        "across generations",
+        "qua nhiều thế hệ"
+      ]
+    ],
+    [
+      "p3-s3",
+      "Tuy nhiên, nhiều người sợ trượt dần từ chữa trị sang tăng cường — chủ ý chọn chiều cao, trí thông minh hay ngoại hình.",
+      [
+        "from cure towards enhancement",
+        "từ chữa trị sang tăng cường"
+      ],
+      [
+        "height, intelligence or appearance",
+        "chiều cao, trí thông minh hay ngoại hình"
+      ]
+    ],
+    [
+      "p3-s4",
+      "Nỗi sợ cụ thể ấy có lẽ bị phóng đại, vì ít đặc điểm con người phụ thuộc một gen duy nhất.",
+      [
+        "perhaps overstated",
+        "có lẽ bị phóng đại"
+      ],
+      [
+        "few human traits",
+        "ít đặc điểm con người"
+      ],
+      [
+        "a single gene",
+        "một gen duy nhất"
+      ]
+    ],
+    [
+      "p3-s5",
+      "Dù vậy, lập luận tỉnh táo hơn thừa nhận công cụ còn xa mới hoàn hảo, và vết cắt ngoài mục tiêu vẫn có thể hại các đoạn DNA không liên quan.",
+      [
+        "far from perfect",
+        "còn xa mới hoàn hảo"
+      ],
+      [
+        "off-target cuts",
+        "vết cắt ngoài mục tiêu"
+      ],
+      [
+        "unrelated stretches of DNA",
+        "các đoạn DNA không liên quan"
+      ]
+    ],
+    [
+      "p4-s1",
+      "Nhưng điều khiến chỉnh sửa dòng mầm đặc biệt rủi ro là không thể đảo ngược.",
+      [
+        "germline editing",
+        "chỉnh sửa dòng mầm"
+      ],
+      [
+        "irreversible",
+        "không thể đảo ngược"
+      ]
+    ],
+    [
+      "p4-s2",
+      "Người sẽ chịu ảnh hưởng chưa tồn tại nên không bao giờ có thể đồng ý với quyết định được đưa ra thay họ.",
+      [
+        "do not yet exist",
+        "chưa tồn tại"
+      ],
+      [
+        "give their consent",
+        "đồng ý"
+      ],
+      [
+        "on their behalf",
+        "thay họ"
+      ]
+    ],
+    [
+      "p4-s3",
+      "Thêm vào đó là lo ngại dai dẳng về công bằng, vì liệu pháp đắt chỉ cho người giàu có nguy cơ mở rộng chính bất bình đẳng vốn chia rẽ xã hội.",
+      [
+        "equity",
+        "công bằng"
+      ],
+      [
+        "an expensive therapy available only to the wealthy",
+        "liệu pháp đắt chỉ cho người giàu"
+      ],
+      [
+        "widening the very inequalities",
+        "mở rộng chính bất bình đẳng"
+      ]
+    ],
+    [
+      "p5-s1",
+      "Trước nguy cơ ấy, một số nhà khoa học kêu gọi tạm đình chỉ.",
+      [
+        "some scientists",
+        "một số nhà khoa học"
+      ],
+      [
+        "a temporary moratorium",
+        "tạm đình chỉ"
+      ]
+    ],
+    [
+      "p5-s2",
+      "Người khác nghi ngờ có thể thực sự giám sát một đợt dừng hay không, đòi kiểm soát chặt và lâu dài hơn thay cấm hẳn.",
+      [
+        "really be policed",
+        "thực sự giám sát"
+      ],
+      [
+        "tighter and more permanent oversight",
+        "kiểm soát chặt và lâu dài hơn"
+      ],
+      [
+        "an outright ban",
+        "cấm hẳn"
+      ]
+    ],
+    [
+      "p5-s3",
+      "Nhóm thứ hai cảnh báo rằng một lệnh cấm toàn diện có thể chỉ đẩy hoạt động nghiên cứu sang những khu vực có cơ chế quản lý kém chặt chẽ hơn, nơi gần như không có gì được giám sát.",
+      [
+        "A blanket prohibition",
+        "một lệnh cấm toàn diện"
+      ],
+      [
+        "less careful jurisdictions",
+        "những khu vực có cơ chế quản lý kém chặt chẽ hơn"
+      ],
+      [
+        "almost nothing is monitored",
+        "gần như không có gì được giám sát"
+      ]
+    ],
+    [
+      "p5-s4",
+      "Nói cách khác, cốt lõi thế khó không nằm nhiều ở tính khả thi kỹ thuật mà ở giới hạn tự đặt — việc xác định xã hội sẵn lòng đi xa tới đâu, một quyết định mà xã hội vẫn chưa đưa ra.",
+      [
+        "The crux of the dilemma",
+        "cốt lõi thế khó"
+      ],
+      [
+        "self-imposed limitation",
+        "giới hạn tự đặt"
+      ],
+      [
+        "just how far a society is willing to go",
+        "xã hội sẵn lòng đi xa tới đâu"
+      ]
+    ]
+  ],
+  "illustration": {
+    "src": "/reading-illustrations/exp-conservation-lab-scene.svg",
+    "alt": "Một người quan sát mẫu thực vật và mô hình vật liệu di truyền trên bàn trong phòng nghiên cứu.",
+    "caption": "Công nghệ di truyền và các lựa chọn của xã hội."
+  },
+  "source_sha256": "9a5db3122d386b69226a2f0035d8e3e1c885bd3710fe1fcbd26ecc6b90ec61d5",
+  "expected_translation_sha256": "a2ff4615d2db56a41c5e537bdb57f70cd56bcffc71c59d1d9498f8867e37cbc1"
+}
