@@ -990,3 +990,18 @@ async def test_degraded_deep_result_is_attributed_to_the_pass1_model(monkeypatch
     assert result.prompt_version.endswith("-degraded")
     assert result.model_used == "claude-sonnet-5-5"
     assert result.tier_metadata["pass1"]["model"] == "claude-sonnet-5-5"
+
+
+@pytest.mark.asyncio
+async def test_success_metadata_is_added_to_the_success_row_only(claude_on, usage_rows):
+    claude_on.results = [_message('{"ok": true}')]
+    _, parsed = await ai_router.call_anthropic(
+        "writing_grading", system="S", user="U", max_tokens=50, operation="pass1",
+        validate=json.loads, success_metadata=lambda value: {"grounding_dropped_count": 1},
+        usage_context={"metadata": {"essay_id": "e-1"}},
+    )
+    assert parsed == {"ok": True}
+    row = usage_rows[-1]
+    assert row["status"] == "success"
+    assert row["metadata"] == {"essay_id": "e-1", "route": "anthropic_primary",
+                               "grounding_dropped_count": 1}

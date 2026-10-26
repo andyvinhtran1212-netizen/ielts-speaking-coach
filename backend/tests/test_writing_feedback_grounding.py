@@ -464,13 +464,358 @@ def test_prose_quoting_conventions_never_admit_fabricated_spans(claim):
         validate_writing_grounding(feedback(claim), ESSAY)
 
 
-def test_strict_original_fields_do_not_take_prose_quote_conventions():
+@pytest.mark.parametrize("original", [
+    "Governments should invest […] employment centres",   # omission marker
+    "Governments should invest ... employment centres",
+    "dedicated bus lanes/employment centres",              # slash-joined fragments
+])
+def test_strict_original_fields_do_not_take_prose_quote_conventions(original):
+    from models.writing_feedback import MistakeAnalysis
+
+    data = feedback()
+    data.mistakeAnalysis = [MistakeAnalysis(
+        original=original, mistakeType="Lexis", explanation="...",
+        suggestion="...", criterion="Lexical Resource")]
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        validate_writing_grounding(data, ESSAY)
+    assert err.value.issues == [("mistakeAnalysis[0].original", original)]
+
+
+def test_strict_original_fields_tolerate_only_edge_punctuation():
+    # Staging repro (Claude, a4eeb1b4): a verbatim sentence closed with "."
+    # where the essay continues with ",". Words stay verbatim and contiguous.
     from models.writing_feedback import MistakeAnalysis
 
     data = feedback()
     data.mistakeAnalysis = [MistakeAnalysis(
         original="dedicated bus lanes.", mistakeType="Lexis", explanation="...",
         suggestion="...", criterion="Lexical Resource")]
+    assert validate_writing_grounding(data, ESSAY).dropped == []
+
+
+
+# ── Staging evidence 2026-10-26 (offline repro of e48c78f7/a4eeb1b4/9beb6ab4) ──
+# Short excerpts of the real QA essays and the real failing citation shapes.
+
+from models.writing_feedback import MistakeAnalysis  # noqa: E402
+from services import writing_feedback_grounding as grounding  # noqa: E402
+
+RT_PROMPT = ("Some people think governments should spend more money on public transport "
+             "than on roads. To what extent do you agree or disagree?")
+RT_ESSAY = (
+    "Expanding metro and bus networks is one of the most effective ways to improve air quality. "
+    "It helps reduce inequality.\n\nIn rural areas, where populations are small and distances "
+    "are long, public transport is rarely practical, so roads remain vital. Businesses benefit "
+    "from a more reliable flow of workers and goods. Cheaper tickets could be offered to students "
+    "and people with low incomes, and people on low incomes would gain most. Secondly, governments "
+    "should give priority to public transport because it brings greater environmental, economic "
+    "and social benefits to the majority of people."
+)
+
+
+def rt_feedback(**fields):
+    data = copy.deepcopy(VALID_FEEDBACK)
+    data["mistakeAnalysis"] = []
+    for key, value in fields.items():
+        if key in data["criteriaFeedback"]:
+            data["criteriaFeedback"][key]["feedback"] = value
+        else:
+            data[key] = value
+    return WritingFeedback(**data)
+
+
+def mistake(original):
+    return {"original": original, "mistakeType": "Word Choice", "explanation": "...",
+            "suggestion": "A suggested rewrite.", "criterion": "Lexical Resource"}
+
+
+def idea(text):
+    return {"paragraph": 2, "originalIdea": "Roads remain vital.", "issue": "Needs a rebuttal",
+            "explanation": text, "suggestion": {"instruction": "Explain", "example": "A new example."}}
+
+
+def rt_validate(result, **kw):
+    return validate_writing_grounding(result, RT_ESSAY, task_type="task2", prompt_text=RT_PROMPT, **kw)
+
+
+@pytest.mark.parametrize("original", [
+    "In rural areas, where populations are small and distances are long, public transport is rarely practical.",
+    "Expanding metro and bus networks is one of the most effective ways",
+    "EXPANDING METRO and bus networks",                                   # case
+    "It helps reduce inequality. In rural areas",                         # paragraph break
+    "It helps reduce   inequality.\nIn rural areas",                      # whitespace runs
+    "Businesses benefit from a more reliable flow of workers and goods",
+    "Busi​nesses benefit",                                           # zero-width char
+    "metro and bus networks is one of the most effective ways",
+])
+def test_normalization_grounds_verbatim_strict_spans(original):
+    result = rt_feedback(mistakeAnalysis=[mistake(original)])
+    report = rt_validate(result)
+    assert report.dropped == [] and report.warnings == []
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng ‘reduce inequality’ chính xác.",                       # curly single quotes
+    "Em dùng “a more reliable flow of workers and goods” tự nhiên.",  # curly double quotes
+    "Em viết 'Expanding metro … air quality' rõ ràng.",              # Unicode ellipsis
+    "Em viết 'distances are long, public transport is rarely practical,' rõ ràng.",
+    "Em dùng 'low incomes/people with low incomes' hai lần.",        # slash-joined real fragments
+])
+def test_normalization_grounds_prose_citations(claim):
+    result = rt_feedback(lexicalResource=claim)
+    before = result.model_dump()
+    report = rt_validate(result)
+    assert report.dropped == [] and report.warnings == []
+    assert result.model_dump() == before
+
+
+def test_dash_variants_ground_both_ways():
+    essay = "Public transport – buses and trains – reduces congestion."
+    result = rt_feedback(lexicalResource="Em dùng 'transport - buses and trains — reduces' tốt.")
+    validate_writing_grounding(result, essay)
+
+
+@pytest.mark.parametrize("original", [
+    "it is one of the most effective ways",                 # repro: invented subject "it"
+    "bring greater environmental, economic and social benefits to the majority of people",  # "brings"
+    "induce more driving",                                  # word the learner did not use
+])
+def test_fabricated_strict_span_is_never_grounded(original):
+    result = rt_feedback(mistakeAnalysis=[mistake(original)])
     with pytest.raises(UngroundedWritingFeedbackError) as err:
-        validate_writing_grounding(data, ESSAY)
-    assert err.value.issues == [("mistakeAnalysis[0].original", "dedicated bus lanes.")]
+        rt_validate(result)
+    assert err.value.issues == [("mistakeAnalysis[0].original", original)]
+
+
+@pytest.mark.parametrize("claim", [
+    "Em trả lời đầy đủ câu hỏi 'to what extent', có lập trường rõ ràng.",
+    "Em trả lời đầy đủ câu hỏi 'To what extent do you agree or disagree?' với lập trường rõ.",
+    "Em dùng nhiều dạng câu: mệnh đề quan hệ, cấu trúc 'especially + danh sách'.",
+    "Em thừa nhận vai trò của đường bộ nhưng chưa bảo vệ lập luận 'ưu tiên giao thông công cộng'.",
+    "Em nêu rằng đường rộng hơn 'khuyến khích lái xe nhiều hơn' nhưng chưa giải thích.",
+    "Ý chính chưa tách bạch rõ giữa 'giá' và 'chất lượng'.",
+    "Nếu em chỉ rõ thuật ngữ chuyên môn như 'social mobility' (sự dịch chuyển xã hội) hoặc 'spatial inclusion', bài sẽ tốt hơn.",
+    "Hiện tượng 'induced demand' chưa được gọi tên chính thức.",
+    "Đây là một khái niệm quy hoạch kinh điển ('induced demand' - nhu cầu phát sinh).",
+    "Em dùng 'Secondly' ở đoạn 3 nhưng đoạn 2 lại không có 'Firstly'.",
+])
+def test_reference_language_in_free_text_is_not_an_essay_citation(claim):
+    result = rt_feedback(mainCriterion=claim, ideaDevelopmentAnalysis=[idea(claim)])
+    before = result.model_dump()
+    report = rt_validate(result)
+    assert report.dropped == [] and report.warnings == []
+    assert result.model_dump() == before
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng 'make public transport free' rất tự nhiên.",   # prompt wording credited as learner's
+    "Em sử dụng 'to what extent' chính xác.",
+    "Em đã dùng 'giao thông công cộng' tốt.",               # Vietnamese wording credited as used
+    "Em dùng thuật ngữ 'induced demand' chính xác.",        # term credited as used
+    "Bài có mẫu câu 'induce more driving'.",                # no grammar notation
+    "Bài có hiện tượng lặp từ 'subsidies' nhiều lần.",      # repetition claim, not a term
+    "Em không có lỗi khi viết 'subsidies'.",                # absence must precede the quote
+    "The essay lacks errors and uses 'subsidies' well.",
+])
+def test_reference_exemptions_never_cover_learner_wording_claims(claim):
+    prompt = RT_PROMPT + " Some say governments should make public transport free."
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(rt_feedback(lexicalResource=claim), RT_ESSAY, prompt_text=prompt)
+
+
+def test_prompt_quote_needs_a_question_reference_and_the_prompt():
+    claim = "Lập luận 'to what extent' rất hay."               # no reference to the question
+    with pytest.raises(UngroundedWritingFeedbackError):
+        rt_validate(rt_feedback(mainCriterion=claim))
+    with pytest.raises(UngroundedWritingFeedbackError):       # no prompt passed
+        validate_writing_grounding(
+            rt_feedback(mainCriterion="Em trả lời câu hỏi 'to what extent'."), RT_ESSAY)
+
+
+@pytest.mark.parametrize("claim,path", [
+    ("Vốn từ rộng: 'reduce inequality', 'a reliable flow of workers and goods'.", "criteriaFeedback.lexicalResource.feedback"),
+    ("Em dùng vốn từ chính xác: 'reduces inequality'.", "criteriaFeedback.lexicalResource.feedback"),
+])
+def test_near_miss_prose_misquote_is_a_warning_not_a_rejection(claim, path):
+    result = rt_feedback(lexicalResource=claim)
+    before = result.model_dump()
+    report = rt_validate(result)
+    assert report.warnings == [path] and report.dropped == []
+    assert result.model_dump() == before
+    assert report.metadata() == {"grounding_warning_count": 1, "grounding_warnings": [path]}
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng 'a reliable flow of new workers' tốt.",          # adds a word
+    "Em dùng 'roads remain not vital' tốt.",                  # adds a negation
+    "Em dùng 'transport is practical' tốt.",                  # omits the essay's "rarely"
+    "Em dùng 'goods reliable flow' tốt.",                     # order changed
+    "Em dùng 'subsidies reduce inequality' tốt.",
+])
+def test_near_miss_never_accepts_new_or_reordered_words(claim):
+    if "transport is practical" in claim:
+        # Omitting one essay word ("rarely") inside the window is a near miss;
+        # the guard only downgrades it to a warning, never grounds it.
+        assert rt_validate(rt_feedback(lexicalResource=claim)).warnings
+        return
+    with pytest.raises(UngroundedWritingFeedbackError):
+        rt_validate(rt_feedback(lexicalResource=claim))
+
+
+def test_near_miss_never_skips_an_essay_negation():
+    essay = "Governments should not build wider roads."
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(rt_feedback(lexicalResource="Em dùng 'should build wider roads'."), essay)
+
+
+def test_strict_fields_never_use_near_miss():
+    result = rt_feedback(mistakeAnalysis=[mistake("reduces inequality")])
+    with pytest.raises(UngroundedWritingFeedbackError):
+        rt_validate(result)
+
+
+def test_degradation_drops_only_the_bad_list_items_and_reports_paths():
+    good = ["Expanding metro and bus networks", "reduce inequality", "a more reliable flow",
+            "people with low incomes", "the majority of people"]
+    bad = {2: "it is one of the most effective ways",
+           4: "bring greater environmental, economic and social benefits to the majority of people"}
+    items = [mistake(bad.get(i, text)) for i, text in enumerate(good)]
+    result = rt_feedback(mistakeAnalysis=items)
+    report = rt_validate(result)
+    assert report.dropped == ["mistakeAnalysis[2]", "mistakeAnalysis[4]"]
+    assert [m.original for m in result.mistakeAnalysis] == [good[0], good[1], good[3]]
+    assert report.metadata() == {"grounding_dropped_count": 2,
+                                 "grounding_dropped": ["mistakeAnalysis[2]", "mistakeAnalysis[4]"]}
+    assert "inequality" not in json.dumps(report.metadata())   # paths only
+
+
+def test_degradation_covers_sentence_upgrades_strengths_and_ideas():
+    result = rt_feedback(
+        keyTakeaways={"strengths": ["Em dùng 'reduce inequality'.", "Em dùng 'induce more driving'.",
+                                    "Lập luận rõ ràng."], "areasForImprovement": ["Cần ví dụ."]},
+        ideaDevelopmentAnalysis=[idea("Em dùng 'subsidies' tốt."), idea("Rõ ràng."), idea("Ổn.")],
+        sentenceStructureAnalysis={"sentenceUpgrades": [
+            {"original": "It helps reduce inequality.", "rewritten": "A rewrite."},
+            {"original": "It helps reduce poverty.", "rewritten": "A rewrite."},
+        ]},
+    )
+    report = rt_validate(result)
+    assert report.dropped == ["ideaDevelopmentAnalysis[0]", "keyTakeaways.strengths[1]",
+                              "sentenceStructureAnalysis.sentenceUpgrades[1]"]
+    assert len(result.keyTakeaways.strengths) == 2 and len(result.ideaDevelopmentAnalysis) == 2
+    assert result.sentenceStructureAnalysis["sentenceUpgrades"] == [
+        {"original": "It helps reduce inequality.", "rewritten": "A rewrite."}]
+
+
+@pytest.mark.parametrize("fields", [
+    # Single-valued field: no item to drop.
+    {"lexicalResource": "Em dùng 'subsidies' tự nhiên.",
+     "mistakeAnalysis": [mistake("induce more driving"), mistake("reduce inequality")]},
+    # Last item of a list.
+    {"mistakeAnalysis": [mistake("induce more driving")]},
+    # More than half of a list.
+    {"mistakeAnalysis": [mistake("induce more driving"), mistake("new words"), mistake("reduce inequality")]},
+    # More than MAX_DROPPED_ITEMS in total.
+    {"mistakeAnalysis": [mistake(t) for t in ("x1 x1", "x2 x2", "x3 x3", "a more reliable flow",
+                                              "people with low incomes", "the majority of people")],
+     "keyTakeaways": {"strengths": ["Em dùng 'zzz'.", "Ổn.", "Tốt."], "areasForImprovement": ["Cần ví dụ."]}},
+])
+def test_severe_failures_still_reject_without_editing(fields):
+    result = rt_feedback(**fields)
+    before = result.model_dump()
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(result)
+    assert result.model_dump() == before                     # nothing dropped on rejection
+    assert len(err.value.issues) >= 1
+
+
+def test_max_dropped_items_constant_is_the_documented_threshold():
+    assert grounding.MAX_DROPPED_ITEMS == 3
+
+
+def test_repair_instruction_lists_each_failed_path_and_truncated_span():
+    long_span = "it is one of the most effective ways " * 10
+    err = UngroundedWritingFeedbackError([
+        ("criteriaFeedback.lexicalResource.feedback", "subsidies"),
+        ("mistakeAnalysis[2].original", long_span),
+    ])
+    text = err.repair_instruction()
+    assert '- criteriaFeedback.lexicalResource.feedback: "subsidies"' in text
+    assert "- mistakeAnalysis[2].original: " + json.dumps(long_span[:grounding.REPAIR_SPAN_CHARS]) in text
+    assert long_span not in text
+    assert "character-for-character" in text and "Regenerate the complete" in text
+    assert "subsidies" not in str(err)                       # log text stays paths only
+
+
+def test_grounding_instruction_asks_for_verbatim_copies():
+    assert "character-for-character" in grounding.GROUNDING_INSTRUCTION
+    assert "task prompt" in grounding.GROUNDING_INSTRUCTION
+
+
+@pytest.mark.asyncio
+async def test_gemini_degraded_answer_is_served_and_ledgered(monkeypatch):
+    items = [mistake(t) for t in ("Expanding metro and bus networks", "it is one of the most effective ways",
+                                  "reduce inequality")]
+    grader, calls, rows, _ = setup_provider(monkeypatch, [rt_feedback(mistakeAnalysis=items)])
+    result = await grader.grade_essay(GraderConfig(
+        task_type="task2", prompt_text=RT_PROMPT, essay_text=RT_ESSAY, analysis_level=3,
+        selected_model="gemini-3.8-flash", usage_event_prefix="grounding:degrade",
+        usage_resource_id="essay-123",
+    ))
+    await drain_usage()
+    assert len(calls) == 1                                   # no regrade
+    assert [m.original for m in result.feedback.mistakeAnalysis] == [
+        "Expanding metro and bus networks", "reduce inequality"]
+    assert [r["status"] for r in rows] == ["success"]
+    meta = rows[0]["metadata"]
+    assert meta["essay_id"] == "essay-123"
+    assert meta["grounding_dropped"] == ["mistakeAnalysis[1]"] and meta["grounding_dropped_count"] == 1
+    assert "effective ways" not in json.dumps(rows)
+
+
+@pytest.mark.asyncio
+async def test_gemini_rejection_rows_carry_essay_id_and_error_detail(monkeypatch):
+    grader, calls, rows, _ = setup_provider(monkeypatch, [feedback(BAD_CLAIM), feedback()])
+    await grader.grade_essay(GraderConfig(
+        task_type="task2", prompt_text="Transport", essay_text=ESSAY, analysis_level=3,
+        selected_model="gemini-3.8-flash", usage_event_prefix="grounding:detail",
+        usage_resource_id="essay-456",
+    ))
+    await drain_usage()
+    assert [r["status"] for r in rows] == ["invalid_response", "success"]
+    assert rows[0]["error_code"] == "ungrounded_feedback"
+    assert rows[0]["metadata"]["error_detail"] == (
+        "Unsupported essay citations at criteriaFeedback.lexicalResource.feedback")
+    assert all(r["metadata"]["essay_id"] == "essay-456" for r in rows)
+    assert "subsidies" in calls[1] and "- criteriaFeedback.lexicalResource.feedback:" in calls[1]
+    assert "subsidies" not in json.dumps(rows)
+
+
+@pytest.mark.asyncio
+async def test_gemini_schema_rejection_is_coded_invalid_json(monkeypatch):
+    grader, calls, rows, _ = setup_provider(monkeypatch, [feedback()])
+    bad = SimpleNamespace(
+        candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+        text='{"overallBandScore": "high", "padding": "................"}',
+        usage_metadata=SimpleNamespace(prompt_token_count=10, candidates_token_count=5, thoughts_token_count=0),
+    )
+    good = feedback()
+    responses = iter([bad])
+
+    def generate(contents, **kwargs):
+        calls.append(contents)
+        item = next(responses, None)
+        if item is not None:
+            return item
+        return SimpleNamespace(
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+            text=good.model_dump_json(),
+            usage_metadata=SimpleNamespace(prompt_token_count=10, candidates_token_count=5, thoughts_token_count=0),
+        )
+    grader_module.genai.GenerativeModel.return_value = MagicMock(generate_content=generate)
+    await grader.grade_essay(GraderConfig(task_type="task2", prompt_text="Transport", essay_text=ESSAY,
+                                          analysis_level=3, usage_resource_id="essay-789"))
+    await drain_usage()
+    assert rows[0]["error_code"] == "invalid_json"
+    assert rows[0]["metadata"]["error_detail"].startswith("Schema validation failed:")
+    assert "high" not in rows[0]["metadata"]["error_detail"]
