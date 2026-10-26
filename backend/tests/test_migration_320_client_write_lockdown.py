@@ -310,6 +310,10 @@ def db():
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role BYPASSRLS; END IF;
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='supabase_admin') THEN CREATE ROLE supabase_admin; END IF;
     END $$;""")
+    # Supabase's service_role bypasses RLS. An earlier test on the shared CI
+    # cluster may have created it without BYPASSRLS; align it so the
+    # service-only D1/F14 probes exercise the real role, whatever the order.
+    psql("ALTER ROLE service_role BYPASSRLS")
     if created_uid:
         # Supabase's auth.uid(): the JWT `sub` claim PostgREST puts in the GUCs.
         psql("""CREATE SCHEMA IF NOT EXISTS auth;
