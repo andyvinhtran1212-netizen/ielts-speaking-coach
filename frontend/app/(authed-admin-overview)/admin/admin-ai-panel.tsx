@@ -81,6 +81,38 @@ function errorMessage(caught: unknown) {
   return error?.message || 'Lỗi không xác định';
 }
 
+// Runtime guards: a malformed or empty body must become a visible error state,
+// never a render-time crash of the dashboard.
+const INVALID_PAYLOAD = 'Phản hồi không hợp lệ từ máy chủ.';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isModelsPayload(value: unknown): value is AdminAiModelsWire {
+  return isRecord(value)
+    && Array.isArray(value.features)
+    && value.features.every((feature) => isRecord(feature)
+      && typeof feature.feature === 'string'
+      && Array.isArray(feature.effective_order)
+      && Array.isArray(feature.allowed_providers)
+      && isRecord(feature.preferred_provider)
+      && isRecord(feature.anthropic_model))
+    && Array.isArray(value.anthropic_models)
+    && isRecord(value.store)
+    && Array.isArray(value.recent_changes);
+}
+
+function isUsagePayload(value: unknown): value is AdminAiUsageWire {
+  return isRecord(value) && isRecord(value.window) && isRecord(value.totals)
+    && Array.isArray(value.by_feature) && Array.isArray(value.by_provider) && isRecord(value.meta);
+}
+
+function isFailuresPayload(value: unknown): value is AdminAiFailuresWire {
+  return isRecord(value) && isRecord(value.window) && typeof value.store_status === 'string'
+    && isRecord(value.totals) && Array.isArray(value.by_provider_feature) && Array.isArray(value.recent);
+}
+
 function SourceBadge({ source }: { source: string }) {
   return <span className={`ai-badge is-${source}`}>{SOURCE_LABELS[source] || source}</span>;
 }
@@ -203,7 +235,8 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
   const [saving, setSaving] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
-  const apply = useCallback((next: AdminAiModelsWire) => {
+  const apply = useCallback((next: unknown) => {
+    if (!isModelsPayload(next)) throw new Error(INVALID_PAYLOAD);
     setData(next);
     setDrafts(Object.fromEntries(next.features.map((feature) => [feature.feature, draftFor(feature)])));
     onLabels(Object.fromEntries(next.features.map((feature) => [feature.feature, feature.label])));
@@ -317,7 +350,11 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
   );
 }
 
-function useWindowed<T>(loader: (range: AiWindowKey) => Promise<T>, range: AiWindowKey) {
+function useWindowed<T>(
+  loader: (range: AiWindowKey) => Promise<unknown>,
+  isValid: (value: unknown) => value is T,
+  range: AiWindowKey,
+) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -328,6 +365,7 @@ function useWindowed<T>(loader: (range: AiWindowKey) => Promise<T>, range: AiWin
     setError(null);
     try {
       const next = await loader(range);
+      if (!isValid(next)) throw new Error(INVALID_PAYLOAD);
       if (request === sequence.current) setData(next);
     } catch (caught) {
       if (request === sequence.current) {
@@ -337,7 +375,7 @@ function useWindowed<T>(loader: (range: AiWindowKey) => Promise<T>, range: AiWin
     } finally {
       if (request === sequence.current) setLoading(false);
     }
-  }, [loader, range]);
+  }, [loader, isValid, range]);
   useEffect(() => { void load(); }, [load]);
   return { data, error, loading, load };
 }
@@ -387,7 +425,7 @@ function UsageTable({ caption, rows, nameOf }: {
 }
 
 function UsagePanel({ range, labels }: { range: AiWindowKey; labels: Record<string, string> }) {
-  const { data, error, loading, load } = useWindowed(getAdminAiUsage, range);
+  const { data, error, loading, load } = useWindowed(getAdminAiUsage, isUsagePayload, range);
   const featureName = (key: string) => (key === 'unattributed' ? 'Chưa gắn tính năng' : labels[key] || key);
   const totals = data?.totals;
   return (
@@ -437,7 +475,7 @@ function UsagePanel({ range, labels }: { range: AiWindowKey; labels: Record<stri
 }
 
 function FailuresPanel({ range, labels }: { range: AiWindowKey; labels: Record<string, string> }) {
-  const { data, error, loading, load } = useWindowed(getAdminAiFailures, range);
+  const { data, error, loading, load } = useWindowed(getAdminAiFailures, isFailuresPayload, range);
   const featureName = (key: string) => labels[key] || key;
   return (
     <section className="ai-panel" aria-labelledby="ai-failures-title" aria-busy={loading || undefined}>

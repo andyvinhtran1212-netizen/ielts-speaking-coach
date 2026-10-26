@@ -240,4 +240,16 @@ describe('AdminAiPanel', () => {
     fireEvent.click(within(screen.getByRole('region', { name: /Token và chi phí/ })).getByRole('button', { name: 'Thử lại' }));
     expect(await screen.findByText('Chưa có lượt gọi AI trong khoảng này.')).toBeTruthy();
   });
+
+  it('turns malformed or empty bodies into visible errors instead of crashing', async () => {
+    api.getAdminAiModels.mockResolvedValueOnce({});
+    api.getAdminAiUsage.mockResolvedValueOnce({ totals: null });
+    api.getAdminAiFailures.mockResolvedValueOnce([]);
+    render(<AdminAiPanel />);
+    await waitFor(() => expect(screen.getAllByText('Phản hồi không hợp lệ từ máy chủ.')).toHaveLength(3));
+    expect(screen.queryByRole('table')).toBeNull();
+
+    fireEvent.click(within(screen.getByRole('region', { name: 'Model đang dùng theo tính năng' })).getByRole('button', { name: 'Thử lại' }));
+    expect(await screen.findByRole('row', { name: /Chấm Writing/ })).toBeTruthy();
+  });
 });
