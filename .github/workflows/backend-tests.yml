@@ -80,7 +80,11 @@ jobs:
     runs-on: ubuntu-latest
     # Full pytest plus PG/audio setup and cleanup exceeded 10 minutes in PR1563.
     # Keep every test and required PG guard within a finite total job budget.
-    timeout-minutes: 15
+    # pytest alone now takes 10–12.5 min, and a slow Ubuntu mirror has made the
+    # ffmpeg install take 8–11 min, cancelling the exact-SHA staging push run
+    # that the promotion gate requires (#1695, 2026-10-26). 25 min keeps a
+    # finite budget with headroom for one slow mirror.
+    timeout-minutes: 25
 
     # Postgres THẬT cho các chốt nạp một tệp migration rồi GỌI hàm trong đó.
     # Không có nó thì `test_delete_rpc_course_evidence.py` tự bỏ qua, và một PR
@@ -133,8 +137,8 @@ jobs:
 
       - name: Install audio validation tools
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends ffmpeg
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --yes --no-install-recommends ffmpeg
           ffmpeg -version
           ffprobe -version
 
