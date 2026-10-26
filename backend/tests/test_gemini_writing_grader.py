@@ -872,3 +872,21 @@ async def test_claude_as_last_provider_accepts_empty_mistakes_rather_than_fail(
     if budget_for_repair:
         assert claude_rows[1]["status"] == "success"
         assert claude_rows[1]["metadata"]["mistake_analysis_missing"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("second", [EMPTY_CLAUDE, UNGROUNDED_CLAUDE])
+async def test_claude_empty_answer_is_served_when_the_gemini_fallback_fails(writing_providers, second):
+    # Codex #1730: Anthropic-first, Claude's answer fails only this check and
+    # Gemini is down — the usable Claude answer must not end in a hard failure.
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    state.claude = [EMPTY_CLAUDE, second]
+    state.gemini = [RuntimeError("gemini down")]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert len(state.claude_requests) == 2
+    assert len(state.gemini_calls) == gwg.MAX_RETRIES
+    assert result.model_used == "claude-sonnet-5-5" and result.feedback.mistakeAnalysis == []
+    assert result.cost_usd and result.cost_usd > 0

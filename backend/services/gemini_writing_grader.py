@@ -904,8 +904,12 @@ class GeminiWritingGrader:
             source_task_type=source_task_type,
             source_prompt=source_prompt,
         )
+        # A Claude answer rejected only for an empty mistakeAnalysis. Served if
+        # the Gemini fallback then fails, so the check never fails grading.
+        claude_salvage: list = []
         if position == "first":
-            served = await self._try_claude(anthropic_feature, **claude_kwargs)
+            served = await self._try_claude(anthropic_feature, salvage_sink=claude_salvage,
+                                            **claude_kwargs)
             if served is not None:
                 return served
         gemini_kwargs = dict(
@@ -916,9 +920,22 @@ class GeminiWritingGrader:
             source_prompt=source_prompt,
         )
         if position != "after":
-            return await self._gemini_call_with_retry(
-                model_name, system_prompt, user_prompt, image, **gemini_kwargs,
-            )
+            if not claude_salvage:
+                return await self._gemini_call_with_retry(
+                    model_name, system_prompt, user_prompt, image, **gemini_kwargs,
+                )
+            try:
+                return await self._gemini_call_with_retry(
+                    model_name, system_prompt, user_prompt, image, **gemini_kwargs,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(
+                    "[grader] gemini fallback failed (%s) — serving the Claude answer "
+                    "rejected only for missing_mistake_analysis", type(exc).__name__,
+                )
+                return self._claude_served(anthropic_feature, *claude_salvage[-1])
         # AI_PROVIDER_ORDER_<FEATURE> places Claude after Gemini: Claude is the
         # fallback once the whole Gemini loop has failed.
         try:
@@ -1107,10 +1124,12 @@ class GeminiWritingGrader:
         source_task_type: str | None,
         source_prompt: str | None = None,
         final: bool = False,
+        salvage_sink: list | None = None,
     ) -> tuple[str, dict] | None:
         """Claude attempt (plus one repair); None means "run the unchanged
-        Gemini path". ``final`` (no provider after Claude) accepts an answer
-        whose only problem is an empty mistakeAnalysis instead of failing."""
+        Gemini path". An answer whose only problem is an empty mistakeAnalysis
+        is accepted when ``final`` (no provider after Claude); otherwise it is
+        appended to ``salvage_sink`` as (text, model, usage) for the caller."""
 
         def _validate(text: str):
             if len(text.strip()) < 10:
@@ -1130,7 +1149,15 @@ class GeminiWritingGrader:
         started = time.monotonic()
         prompt = user_prompt
         attempt = 1
-        salvage = None      # final only: (text, model, usage) of a missing-only answer
+
+        def give_up():
+            if salvage and final:
+                return self._claude_served(feature, *salvage)
+            if salvage and salvage_sink is not None:
+                salvage_sink.append(salvage)
+            return None
+
+        salvage = None      # (text, model, usage) of the latest missing-only answer
         while True:
             if event_prefix:
                 context["usage_event_id"] = f"{event_prefix}:{operation}:anthropic:{attempt}"
@@ -1160,10 +1187,10 @@ class GeminiWritingGrader:
                     "[ai_router] feature=%s provider=anthropic repair exceeded the %.0f s "
                     "Claude budget — falling back to gemini", feature, CLAUDE_TOTAL_BUDGET_S,
                 )
-                return self._claude_served(feature, *salvage) if salvage else None
+                return give_up()
             except ai_router.AnthropicAttemptError as exc:
                 cause = exc.__cause__
-                if (final and isinstance(cause, MissingMistakeAnalysisError)
+                if (isinstance(cause, MissingMistakeAnalysisError)
                         and getattr(exc, "usage", None) is not None):
                     salvage = (cause.validated[0], exc.model, exc.usage)
                 remaining = CLAUDE_TOTAL_BUDGET_S - (time.monotonic() - started)
@@ -1178,7 +1205,7 @@ class GeminiWritingGrader:
                     else "falling back to gemini",
                 )
                 if not repair:
-                    return self._claude_served(feature, *salvage) if salvage else None
+                    return give_up()
                 # Same repair the Gemini loop applies: original prompt plus
                 # the error's instruction, never accumulated across tries.
                 prompt = user_prompt + cause.repair_instruction()
