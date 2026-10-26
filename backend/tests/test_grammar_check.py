@@ -561,6 +561,12 @@ _RULE_PAST_MARKER = "LOCAL_PAST_TIME_MARKER_PRESENT_VERB"
     ("Since last month we have taken three tests.", _RULE_PAST_MARKER),
     ("Since last year I have worked here.", _RULE_PAST_MARKER),
     ("Since last year we have grown a lot.", _RULE_PAST_MARKER),
+    # Short-stem / unlisted participles and adverb runs (Codex review on #1702).
+    ("Since last year I have used this app.", _RULE_PAST_MARKER),
+    ("Since last year I have paid rent every month.", _RULE_PAST_MARKER),
+    ("Since last month we have recently moved to London.", _RULE_PAST_MARKER),
+    ("Since last year I have never really been happy.", _RULE_PAST_MARKER),
+    ("Since last year I have fed the cat every day.", _RULE_PAST_MARKER),
 ])
 def test_asset_rules_skip_embedded_if_and_present_perfect(sentence, rule_id):
     assert not [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence
@@ -584,6 +590,8 @@ def test_asset_rules_skip_embedded_if_and_present_perfect(sentence, rule_id):
     ("Since last year I have red hair.", _RULE_PAST_MARKER),
     ("Since last year I have green eyes.", _RULE_PAST_MARKER),
     ("Since last month I have a golden ticket.", _RULE_PAST_MARKER),
+    ("Since last year I have two cats.", _RULE_PAST_MARKER),
+    ("Since last year I have to commute.", _RULE_PAST_MARKER),
 ])
 def test_asset_rules_still_flag_conditional_will_and_past_marker(sentence, rule_id):
     assert [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence

@@ -472,19 +472,18 @@ VI_LEARNER_RULES: List[Dict[str, Any]] = [
         # anchors present perfect. A bare finished-past marker stays flagged even
         # with have + V3 ("Yesterday I have eaten lunch.").
         "skip_if_match_left": re.compile(r"\b(?:since|(?:in|over|during|for)\s+the)\s+$", re.IGNORECASE),
-        # ...but only when the clause really is present perfect: the matched verb
-        # is "have" + (adverb) + past participle. "Since last year I live here."
-        # and "Since last year I have a dog." stay flagged.
+        # ...but only when the matched verb is "have" used as the present-perfect
+        # auxiliary. Participles and adverb runs are open-ended ("have used",
+        # "have paid", "have never really been"), so the exemption holds unless
+        # "have" is clearly possessive: followed by a determiner, number,
+        # possessive, a common colour/size adjective, or "to". "Since last year
+        # I live here." (verb is not "have") and "Since last year I have a dog."
+        # stay flagged; a missed error is preferred to a false flag.
         "skip_requires_match_from_verb": re.compile(
-            # Regular participles need a 3+ letter stem ("red", "bed" are not), and
-            # -en/-wn participles are listed explicitly ("green", "golden" are not).
-            r"have(?:\s+(?:always|never|just|already|ever|not|really|only|also))?"
-            r"\s+(?:(?!(?:speed|breed|greed|hundred|sacred|naked|wicked|beloved|crooked)\b)[a-z]{3,}ed"
-            r"|been|seen|taken|given|written|eaten|spoken|chosen|driven|forgotten|gotten|known"
-            r"|grown|shown|thrown|drawn|flown|broken|fallen|ridden|hidden|woken|stolen|beaten"
-            r"|proven|had|done|gone|got|made|taught|thought|felt"
-            r"|kept|left|met|found|told|said|read|heard|won|lost|built|bought|brought"
-            r"|caught|sung|drunk|run|come|become|sat|stood|understood|slept|spent|put)\b",
+            r"have\s+(?!(?:a|an|the|my|your|his|her|its|our|their|some|any|no|many|much"
+            r"|this|that|these|those|one|two|three|four|five|six|seven|eight|nine|ten|\d+"
+            r"|lots|plenty|enough|to|red|green|blue|black|white|brown|grey|gray|yellow"
+            r"|pink|purple|orange|long|short|big|small|curly|straight|blond|blonde)\b)[a-z]",
             re.IGNORECASE),
         "point": "Past Simple (with past time markers)",
         "area": "tenses",
