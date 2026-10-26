@@ -119,17 +119,44 @@ _ABSENCE = re.compile(
 _PROMPT_REFERENCE = re.compile(r"\b(?:câu hỏi|đề bài|chủ đề|yêu cầu|question|prompt|task)\b", re.I)
 # Claims about the learner's wording (not ideas): "em dùng", "you used".
 _WORDING_VERB = re.compile(r"\b(?:sử dụng|dùng|viết|gọi|use[sd]?|wrote|write|calls?|called)\b", re.I)
-_NEGATIONS = {"not", "no", "never", "cannot", "can't", "don't", "doesn't", "didn't",
-              "won't", "isn't", "aren't", "wasn't", "weren't", "n't"}
+_NEGATIONS = {"not", "no", "never", "cannot", "nor", "none", "nothing", "neither"}
 _SUFFIXES = ("ing", "ed", "es", "s", "e", "d")
 _NEAR_MISS_GAP = 2
 
 
-def _foreign_text(excerpt: str, essay: str) -> bool:
-    """A quote with letters the essay never uses ('giá', 'ưu tiên ...') is a
-    Vietnamese description, never an excerpt of the English essay."""
-    return any(c.isalpha() and not c.isascii() and c not in essay
-               for c in _normalize(excerpt))
+_VI_MARKS = {"\u031b", "\u0306", "\u0309", "\u0323"}   # horn, breve, hook, dot below
+_VI_TONES = {"\u0300", "\u0301", "\u0303", "\u0309", "\u0323"}
+
+
+def _is_negation(word: str) -> bool:
+    return word in _NEGATIONS or word.endswith("n't")
+
+
+def _vietnamese(text: str) -> bool:
+    """Letters only Vietnamese writes: horn/breve/hook/dot-below marks, đ,
+    ĩ/ũ/ỹ, or a circumflex stacked with a tone (ấ, ề). A lone acute or
+    grave ('cliché', 'giá') is not enough on its own."""
+    for char in unicodedata.normalize("NFC", text.casefold()):
+        if char == "đ":
+            return True
+        base, *marks = unicodedata.normalize("NFD", char)
+        if (_VI_MARKS.intersection(marks)
+                or ("\u0303" in marks and base in "iuy")
+                or ("\u0302" in marks and _VI_TONES.intersection(marks))):
+            return True
+    return False
+
+
+def _vietnamese_quote(excerpt: str, sentence: str) -> bool:
+    """A Vietnamese description, never an excerpt of the English essay: the
+    quote itself is Vietnamese, or it is an accented word quoted in the same
+    sentence as a Vietnamese quote ("giữa 'giá' và 'chất lượng'")."""
+    if _vietnamese(excerpt):
+        return True
+    if not any(c.isalpha() and not c.isascii() for c in excerpt):
+        return False
+    return any(_vietnamese(next(g for g in m.groups() if g is not None))
+               for m in _QUOTES.finditer(sentence))
 
 
 def _tokens(text: str) -> list[str]:
@@ -165,7 +192,7 @@ def _near_miss(excerpt: str, essay: str) -> bool:
         while i < len(quoted) and j < limit:
             if stems[j] == quoted[i]:
                 i += 1
-            elif words[j] in _NEGATIONS:
+            elif _is_negation(words[j]):
                 break
             j += 1
         if i == len(quoted):
@@ -430,7 +457,9 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                     continue
             # A Vietnamese paraphrase of an idea ("Em nêu rằng 'khuyến khích
             # ...'") is not a wording claim; "em đã dùng 'quay lại'" is.
-            if (_foreign_text(excerpt, essay)
+            sentence = (re.split(r"[.!?;\n]", preceding)[-1]
+                        + re.split(r"[.!?;\n]", text[match.start():])[0])
+            if (_vietnamese_quote(excerpt, sentence)
                     and not any(_WORDING_VERB.search(m.group()) for m in attributions)):
                 continue
             # A chart category need not appear in an essay that omitted its

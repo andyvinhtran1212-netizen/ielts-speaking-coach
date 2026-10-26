@@ -616,6 +616,8 @@ def test_reference_language_in_free_text_is_not_an_essay_citation(claim):
     "Bài có hiện tượng lặp từ 'subsidies' nhiều lần.",      # repetition claim, not a term
     "Em không có lỗi khi viết 'subsidies'.",                # absence must precede the quote
     "The essay lacks errors and uses 'subsidies' well.",
+    "The essay's use of 'cliché' demonstrates lexical range.",   # accented English, not Vietnamese
+    "Từ vựng phong phú, ví dụ 'naïve' và 'café'.",
 ])
 def test_reference_exemptions_never_cover_learner_wording_claims(claim):
     prompt = RT_PROMPT + " Some say governments should make public transport free."
@@ -662,10 +664,17 @@ def test_near_miss_never_accepts_new_or_reordered_words(claim):
         rt_validate(rt_feedback(lexicalResource=claim))
 
 
-def test_near_miss_never_skips_an_essay_negation():
-    essay = "Governments should not build wider roads."
+@pytest.mark.parametrize("essay,claim", [
+    ("Governments should not build wider roads.", "Em dùng 'should build wider roads'."),
+    ("Governments shouldn't subsidize cars.", "You used 'Governments subsidize cars' effectively."),
+    ("People wouldn't pay higher fares.", "Em dùng 'People pay higher fares'."),
+    ("Cities haven't expanded bus lanes.", "Em dùng 'Cities expanded bus lanes'."),
+    ("Drivers never share cars.", "Em dùng 'Drivers share cars'."),
+])
+def test_near_miss_never_skips_an_essay_negation(essay, claim):
+    # Codex review #1729: contractions are negations too.
     with pytest.raises(UngroundedWritingFeedbackError):
-        validate_writing_grounding(rt_feedback(lexicalResource="Em dùng 'should build wider roads'."), essay)
+        validate_writing_grounding(rt_feedback(lexicalResource=claim), essay)
 
 
 def test_strict_fields_never_use_near_miss():
