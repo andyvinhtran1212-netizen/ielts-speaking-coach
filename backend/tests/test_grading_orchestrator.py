@@ -325,6 +325,9 @@ def test_build_default_degrades_when_gemini_key_missing():
 
 
 def test_build_default_includes_all_three_when_both_keys_present():
+    """AI-0004 FR-005 (revised 2026-10-26): with both keys and the default
+    order, the Claude Speaking primary slot is registered alongside the three
+    judge/fallback providers; ordering "gemini" for Speaking removes it."""
     from services.grading_orchestrator import build_default
 
     class _Settings:
@@ -333,5 +336,12 @@ def test_build_default_includes_all_three_when_both_keys_present():
 
     orch = build_default(_Settings())
     assert set(orch.providers.keys()) == {
+        "claude_haiku", "gemini", "claude_sonnet", "anthropic_primary",
+    }
+
+    class _RolledBack(_Settings):
+        AI_PROVIDER_ORDER_SPEAKING_GRADING = "gemini"
+
+    assert set(build_default(_RolledBack()).providers.keys()) == {
         "claude_haiku", "gemini", "claude_sonnet",
     }
