@@ -153,6 +153,14 @@ def build_plan(
         if not isinstance(key, dict):
             reasons.append(f"Q{q:02d}: đáp án REV không đọc được ({type(key).__name__})")
             continue
+        # An authored response policy replaces answer/alternatives at marking
+        # (mock_paper_policy.frozen_answer_key). This tool cannot yet compare a
+        # policy with the explanation's accepted forms, so it refuses instead of
+        # approving a key learners are not actually marked against.
+        if "response_policy" in key:
+            reasons.append(f"Q{q:02d}: đáp án REV có response_policy — chưa hỗ trợ đối chiếu "
+                           "policy với lời giải, không gắn")
+            continue
         item = (o.get("payload") or {}).get("item") or {}
         answer = item.get("answer") or {}
         accepted = _key_set(answer.get("canonical"), answer.get("accepted_forms"))
@@ -273,6 +281,39 @@ def _section_evidence(row: dict | None) -> dict:
     return evidence
 
 
+LISTENING_AUDIO_BUCKET = "listening-audio"
+
+
+def _listening_paper_audio(db, paper_id: str, bad: list[str]) -> dict:
+    """Identity of the test-level recording learners actually hear.
+
+    Mirrors routers/listening.py::_student_audio_url_for_test: the assembled
+    track wins over the full premix. A copy always gets its own storage path,
+    so the identity is the content SHA-256 (plus the assembly mode), not the
+    path; the duration is derived from the same bytes.
+    """
+    rows = db.table("listening_tests").select(
+        "id,audio_assembly_mode,assembled_audio_storage_path,full_audio_storage_path"
+    ).eq("id", paper_id).execute().data or []
+    if len(rows) != 1:
+        bad.append(f"listening_tests {paper_id}: không tìm thấy đúng 1 dòng đề")
+        return {}
+    row = rows[0]
+    path = row.get("assembled_audio_storage_path") or row.get("full_audio_storage_path")
+    evidence = {"mode": row.get("audio_assembly_mode"), "sha256": None}
+    if path:
+        try:
+            data = db.storage.from_(LISTENING_AUDIO_BUCKET).download(path)
+        except Exception as exc:  # noqa: BLE001 — any failure refuses the paper
+            bad.append(f"audio đề {path}: không tải được ({type(exc).__name__})")
+            return evidence
+        if not isinstance(data, (bytes, bytearray)) or not data:
+            bad.append(f"audio đề {path}: rỗng hoặc không đọc được")
+            return evidence
+        evidence["sha256"] = hashlib.sha256(data).hexdigest()
+    return evidence
+
+
 def _paper_questions(db, skill: str, paper_id: str) -> tuple[dict[int, dict], dict[int, str]]:
     """Answer keys and per-question content fingerprints of one paper.
 
@@ -301,6 +342,7 @@ def _paper_questions(db, skill: str, paper_id: str) -> tuple[dict[int, dict], di
             content[q] = {"question": {**_strip(row, "payload"), "payload": _strip(payload)},
                           "passage": _passage_evidence(passages.get(row.get("passage_id")))}
     else:
+        paper_audio = _listening_paper_audio(db, paper_id, bad)
         sections = {s["id"]: s for s in _all(lambda: db.table("listening_content").select("*")
                                               .eq("test_id", paper_id).order("id"))}
         for exercise in _all(lambda: db.table("listening_exercises").select("*")
@@ -321,7 +363,8 @@ def _paper_questions(db, skill: str, paper_id: str) -> tuple[dict[int, dict], di
                 keys[q] = answer
                 content[q] = {"answer": answer, "question": questions.get(q),
                               "exercise": {**_strip(exercise, "payload"), "payload": shared},
-                              "section": _section_evidence(sections.get(exercise.get("content_id")))}
+                              "section": _section_evidence(sections.get(exercise.get("content_id"))),
+                              "paper_audio": paper_audio}
     if bad:
         raise BindingRefused(bad)
     return keys, {q: fingerprint(value) for q, value in content.items()}

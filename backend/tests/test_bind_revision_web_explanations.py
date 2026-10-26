@@ -228,9 +228,30 @@ class _Query:
         return type("R", (), {"data": rows[start:end + 1]})()
 
 
+class _Bucket:
+    def __init__(self, files):
+        self.files = files
+
+    def download(self, path):
+        if path not in self.files:
+            raise FileNotFoundError(path)
+        return self.files[path]
+
+
+class _Storage:
+    def __init__(self, files):
+        self.files = files
+
+    def from_(self, bucket):
+        assert bucket == "listening-audio"
+        return _Bucket(self.files)
+
+
 class _FakeDB:
-    def __init__(self, tables):
-        self.tables = tables
+    def __init__(self, tables, files=None):
+        self.tables = {"listening_tests": [{"id": "paper", "audio_assembly_mode": "full_premixed",
+                                            "full_audio_storage_path": None}], **tables}
+        self.storage = _Storage(files or {})
 
     def table(self, name):
         return _Query(self.tables.get(name, []))
@@ -309,3 +330,48 @@ def test_staging_rehearsal_copy_maps_to_the_same_source():
     assert source_test_id_for("MOCK0016-PROD-20261006-ILR-RDG-CAM-B19-T1-REV01", "reading") == "ILR-RDG-CAM-B19-T1"
     with pytest.raises(BindingRefused):
         source_test_id_for("QA-CAM19-20261024-RDG-CAM-B19-T1-REV01", "listening")
+
+
+# ── Codex review on #1692 ────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+def test_policy_bearing_revision_key_is_refused_until_supported(skill):
+    inputs = _inputs(skill)
+    # Primary a7 + alias in the legacy fields, but the authored policy (what
+    # graders actually use) accepts only a7: the binder must not approve it.
+    inputs["revision_keys"][7] = {"answer": "a7", "alternatives": ["alias"],
+                                  "response_policy": {"kind": "literal", "accepted": ["a7"]}}
+    inputs["source_objects"][6]["payload"]["item"]["answer"]["accepted_forms"] = ["a7", "alias"]
+    assert "Q07: đáp án REV có response_policy" in _refusal(inputs)
+
+
+def _listening_audio_db(path, data, mode="full_premixed"):
+    return _FakeDB({
+        "listening_tests": [{"id": "paper", "audio_assembly_mode": mode, "full_audio_storage_path": path}],
+        "listening_content": [{"id": "s1", "test_id": "paper", "transcript": "Area is 69 hectares"}],
+        "listening_exercises": [{"id": "e1", "content_id": "s1", "exercise_type": "dictation",
+                                 "payload": {"answers": [{"q_num": 1, "answer": "69"}]}}],
+    }, files={path: data} if path else {})
+
+
+def test_listening_fingerprint_tracks_test_level_audio_content_not_its_path():
+    _, base = _paper_questions(_listening_audio_db("tests/src/full.mp3", b"recording-A"), "listening", "paper")
+    _, copied = _paper_questions(_listening_audio_db("tests/rev/full.mp3", b"recording-A"), "listening", "paper")
+    _, replaced = _paper_questions(_listening_audio_db("tests/rev/full.mp3", b"recording-B"), "listening", "paper")
+    _, remixed = _paper_questions(_listening_audio_db("tests/rev/full.mp3", b"recording-A",
+                                                      mode="parts_auto_assembled"), "listening", "paper")
+    assert copied == base  # same bytes under the copy's own path
+    assert replaced != base  # a different recording invalidates the reviewed SHA
+    assert remixed != base
+
+
+def test_listening_loader_refuses_unreadable_audio_or_missing_test_row():
+    db = _listening_audio_db("tests/rev/full.mp3", b"recording-A")
+    db.storage.files.clear()
+    with pytest.raises(BindingRefused):
+        _paper_questions(db, "listening", "paper")
+    db = _listening_audio_db(None, b"")
+    db.tables["listening_tests"] = []
+    with pytest.raises(BindingRefused):
+        _paper_questions(db, "listening", "paper")
