@@ -4,7 +4,10 @@ Staging audit F05: /tts only authenticated the caller, then called OpenAI tts-1.
 Signup is open, so any free account could burn TTS money. The route now runs a
 per-IP minute throttle, the Speaking entitlement guard, and a per-user daily
 quota — all before synthesize_mp3 — and the 502 wrapper must not swallow the
-guards' 403/429. synthesize_mp3 is mocked throughout — no network.
+guards' 403/429. An optional owned session_id admits a class-assignment
+session without a Speaking scope (review of 677d6d212: assignment-only
+students must keep OpenAI read-aloud). synthesize_mp3 is mocked throughout —
+no network.
 """
 from __future__ import annotations
 
@@ -19,14 +22,18 @@ from routers import sessions as sessions_module
 from routers import tts as tts_module
 
 OWNER = "user-1"
+OTHER = "user-2"
+CLASS_SID = "11111111-1111-4111-8111-111111111111"
+PRACTICE_SID = "22222222-2222-4222-8222-222222222222"
+FOREIGN_SID = "33333333-3333-4333-8333-333333333333"
 
 
 def _run(coro):
     return asyncio.run(coro)
 
 
-def _body(text="Describe your hometown."):
-    return tts_module.TTSRequest(text=text, voice="nova")
+def _body(text="Describe your hometown.", session_id=None):
+    return tts_module.TTSRequest(text=text, voice="nova", session_id=session_id)
 
 
 class _CountQuery:
@@ -55,15 +62,55 @@ class _CountQuery:
         return SimpleNamespace(data=[], count=self._count)
 
 
+class _SessionsQuery:
+    """sessions stand-in: applies eq filters so ownership is really enforced."""
+
+    def __init__(self, rows, log, raises=None):
+        self._rows = list(rows)
+        self._log = log
+        self._raises = raises
+
+    def select(self, columns, **_k):
+        self._log.append(("sessions.select", columns))
+        return self
+
+    def eq(self, column, value):
+        self._log.append(("sessions.eq", column, value))
+        self._rows = [r for r in self._rows if str(r.get(column)) == str(value)]
+        return self
+
+    def limit(self, *_a, **_k):
+        return self
+
+    def execute(self):
+        if self._raises:
+            raise self._raises
+        return SimpleNamespace(data=self._rows)
+
+
+SESSION_ROWS = [
+    {"id": CLASS_SID, "user_id": OWNER, "mode": "practice", "status": "active",
+     "class_assignment_item_id": "item-1"},
+    {"id": PRACTICE_SID, "user_id": OWNER, "mode": "practice", "status": "active",
+     "class_assignment_item_id": None},
+    {"id": FOREIGN_SID, "user_id": OTHER, "mode": "practice", "status": "active",
+     "class_assignment_item_id": "item-9"},
+]
+
+
 class _DB:
     def __init__(self, count=0, raises=None):
         self.count = count
         self.raises = raises
+        self.sessions = SESSION_ROWS
+        self.sessions_raises = None
         self.tables: list[str] = []
         self.log: list[tuple] = []
 
     def table(self, name):
         self.tables.append(name)
+        if name == "sessions":
+            return _SessionsQuery(self.sessions, self.log, self.sessions_raises)
         return _CountQuery(self.count, self.log, self.raises)
 
 
@@ -143,6 +190,115 @@ def test_active_entitled_account_gets_audio(env):
     assert env.synth_calls == [("Read this aloud", "nova")]
     assert env.logged and env.logged[0]["user_id"] == OWNER
     assert env.logged[0]["feature"] == "question_tts"
+
+
+# ── Optional session_id (class-assignment admission) ───────────────────────
+
+def _real_guard(monkeypatch, *, is_active=True, perms=("writing",)):
+    users = SimpleNamespace(
+        table=lambda _name: _UsersQuery([{"id": OWNER, "is_active": is_active}]))
+    monkeypatch.setattr(sessions_module, "supabase_admin", users)
+    monkeypatch.setattr(sessions_module, "get_user_access_code_permissions_cached",
+                        lambda _uid: list(perms))
+    monkeypatch.setattr(tts_module, "require_speaking_entitlement",
+                        sessions_module.require_speaking_entitlement)
+
+
+def test_class_assigned_student_without_speaking_scope_gets_audio(env, monkeypatch):
+    _real_guard(monkeypatch, perms=("writing",))
+    resp = _run(tts_module.text_to_speech(
+        _body("Read this aloud", session_id=CLASS_SID), authorization="Bearer x"))
+    assert resp.status_code == 200
+    assert resp.body == b"MP3BYTES"
+    assert env.synth_calls == [("Read this aloud", "nova")]
+    # Ownership is part of the lookup, not a post-filter.
+    assert ("sessions.eq", "id", CLASS_SID) in env.db.log
+    assert ("sessions.eq", "user_id", OWNER) in env.db.log
+    assert env.db.tables == ["sessions", "ai_usage_logs"]
+
+
+def test_guard_receives_the_owned_session_row(env):
+    _run(tts_module.text_to_speech(_body(session_id=CLASS_SID), authorization="Bearer x"))
+    assert len(env.guard_calls) == 1
+    user_id, session = env.guard_calls[0]
+    assert user_id == OWNER
+    assert session["id"] == CLASS_SID
+    assert session["class_assignment_item_id"] == "item-1"
+
+
+def test_someone_elses_session_is_404_and_openai_is_never_called(env, monkeypatch):
+    _real_guard(monkeypatch, perms=())
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(
+            _body(session_id=FOREIGN_SID), authorization="Bearer x"))
+    assert error.value.status_code == 404
+    assert error.value.detail == "Session không tồn tại"
+    assert env.synth_calls == []
+    assert env.logged == []
+    assert "ai_usage_logs" not in env.db.tables
+
+
+def test_unknown_session_is_404_even_for_an_entitled_account(env):
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(
+            _body(session_id="44444444-4444-4444-8444-444444444444"),
+            authorization="Bearer x"))
+    assert error.value.status_code == 404
+    assert env.guard_calls == []
+    assert env.synth_calls == []
+
+
+@pytest.mark.parametrize("session_id", [CLASS_SID, PRACTICE_SID])
+def test_inactive_account_with_own_session_gets_403(env, monkeypatch, session_id):
+    _real_guard(monkeypatch, is_active=False, perms=("speaking_full",))
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(
+            _body(session_id=session_id), authorization="Bearer x"))
+    assert error.value.status_code == 403
+    assert env.synth_calls == []
+    assert env.logged == []
+    assert "ai_usage_logs" not in env.db.tables
+
+
+def test_own_non_class_session_without_scope_gets_403(env, monkeypatch):
+    """A self-practice session still needs its mode's Speaking scope."""
+    _real_guard(monkeypatch, perms=("writing",))
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(
+            _body(session_id=PRACTICE_SID), authorization="Bearer x"))
+    assert error.value.status_code == 403
+    assert env.synth_calls == []
+
+
+def test_no_session_id_without_scope_still_gets_403(env, monkeypatch):
+    _real_guard(monkeypatch, perms=("writing",))
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
+    assert error.value.status_code == 403
+    assert "sessions" not in env.db.tables
+    assert env.synth_calls == []
+
+
+def test_session_lookup_error_is_500_and_openai_is_never_called(env):
+    env.db.sessions_raises = RuntimeError("db down")
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(_body(session_id=CLASS_SID), authorization="Bearer x"))
+    assert error.value.status_code == 500
+    assert env.guard_calls == []
+    assert env.synth_calls == []
+
+
+def test_session_id_over_http_is_uuid_validated(env):
+    client = _client()
+    headers = {"Authorization": "Bearer x"}
+    bad = client.post("/tts", json={"text": "Hi", "session_id": "not-a-uuid"},
+                      headers=headers)
+    assert bad.status_code == 422
+    ok = client.post("/tts", json={"text": "Hi", "session_id": CLASS_SID},
+                     headers=headers)
+    assert ok.status_code == 200
+    assert env.guard_calls[-1][1]["id"] == CLASS_SID
+    assert len(env.synth_calls) == 1
 
 
 # ── Per-user daily quota ───────────────────────────────────────────────────

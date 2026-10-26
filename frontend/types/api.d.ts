@@ -21279,6 +21279,8 @@ export interface components {
              * @default nova
              */
             voice: string;
+            /** Session Id */
+            session_id?: string | null;
         };
         /** TaskCreateRequest */
         TaskCreateRequest: {

@@ -2,7 +2,7 @@
 routers/tts.py — Text-to-speech endpoint using OpenAI TTS API
 
 POST /tts
-  JSON body: { "text": "...", "voice": "nova" }
+  JSON body: { "text": "...", "voice": "nova", "session_id": "<uuid>"? }
   Returns:   audio/mpeg bytes
 
 Voice options (OpenAI): alloy, echo, fable, onyx, nova, shimmer
@@ -14,12 +14,15 @@ Cost: tts-1 = $0.015 / 1K chars  (~1–2 cents per question read-aloud)
 
 Guards (F05): per-IP minute throttle, Speaking entitlement, then a per-user
 daily quota — all before the OpenAI call. Signup is open, so an account that
-never redeemed a code must not be able to spend TTS budget.
+never redeemed a code must not be able to spend TTS budget. An optional owned
+session_id lets a class-assignment session pass the guard without a Speaking
+access-code scope, as it does for the other Speaking steps.
 """
 
 import logging
 import time
 from collections import deque
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Header, Request
 from fastapi.responses import Response
@@ -43,6 +46,7 @@ _MAX_TEXT_LEN = 4096   # OpenAI TTS hard limit is 4096 chars
 class TTSRequest(BaseModel):
     text:  str         = Field(..., min_length=1, max_length=_MAX_TEXT_LEN)
     voice: str         = Field(default="nova")
+    session_id: UUID | None = None
 
 
 # ── Per-IP throttle ───────────────────────────────────────────────────────────
@@ -142,6 +146,28 @@ def _enforce_daily_quota(user_id: str) -> None:
         )
 
 
+def _load_owned_session(user_id: str, session_id: UUID | None) -> dict | None:
+    # No resume-window check (require_resume_active): reading an already-loaded
+    # question aloud writes nothing to the session, and a review or resumed
+    # player must keep its voice. Spend stays bounded by entitlement + quotas.
+    if session_id is None:
+        return None
+    try:
+        result = (
+            supabase_admin.table("sessions")
+            .select("id, mode, status, class_assignment_item_id")
+            .eq("id", str(session_id))
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi tải session: {e}")
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Session không tồn tại")
+    return result.data[0]
+
+
 @router.post("/tts")
 async def text_to_speech(
     body: TTSRequest,
@@ -156,7 +182,7 @@ async def text_to_speech(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
-    require_speaking_entitlement(user_id, None)
+    require_speaking_entitlement(user_id, _load_owned_session(user_id, body.session_id))
 
     if not settings.OPENAI_API_KEY:
         raise HTTPException(503, "OpenAI API key not configured — TTS unavailable")
