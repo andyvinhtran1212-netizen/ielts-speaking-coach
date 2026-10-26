@@ -111,3 +111,9 @@ describe('/instructor native route contracts', () => {
     assert.match(VIEW, /setDrawerSummary\(null\)/);
   });
 });
+
+test('assignment requests interpret datetime-local as Vietnam time for both targets', () => {
+  assert.match(VIEW, /const deadline = deadlineValue \? `\$\{deadlineValue\}:00\+07:00` : null/);
+  assert.equal((VIEW.match(/if \(deadline\) body\.deadline = deadline;/g) || []).length, 2);
+  assert.match(VIEW, /Hạn nộp \(giờ Việt Nam\)/);
+});

@@ -22,6 +22,7 @@ import logging
 import anthropic
 
 from services import ai_usage_logger
+from services.claude_compat import json_request_kwargs
 
 from .base import AbstractGradingProvider
 from .errors import NonRetryableError, RetryableError
@@ -35,6 +36,8 @@ logger = logging.getLogger(__name__)
 _RETRYABLE_STATUS_CODES: frozenset[int] = frozenset({429, 500, 502, 503, 504, 529})
 _NON_RETRYABLE_STATUS_CODES: frozenset[int] = frozenset({400, 401, 403, 404, 422})
 _SDK_TIMEOUT_SECONDS = 45.0
+# Models whose request shape comes from services.claude_compat.
+_COMPAT_MODELS: frozenset[str] = frozenset({"claude-sonnet-5-5", "claude-haiku-5-5"})
 
 
 class ClaudeProvider(AbstractGradingProvider):
@@ -93,7 +96,12 @@ class ClaudeProvider(AbstractGradingProvider):
             ],
             "messages": [{"role": "user", "content": user_message}],
         }
-        if self.model.startswith("claude-sonnet-5"):
+        if self.model in _COMPAT_MODELS:
+            # Current-generation models (Anthropic-primary slot): request shape
+            # from the shared compatibility helper — no sampling controls,
+            # thinking off in the form each model accepts.
+            request.update(json_request_kwargs(self.model, max_tokens=self._max_tokens))
+        elif self.model.startswith("claude-sonnet-5"):
             # Sonnet 5 uses adaptive thinking by default and rejects sampling
             # controls. Disable thinking for this deterministic JSON fallback.
             # anthropic 0.39.0's prompt-caching beta method does not expose a
@@ -153,6 +161,20 @@ class ClaudeProvider(AbstractGradingProvider):
                 provider=self.provider_name,
                 status=type(exc).__name__,
                 original=exc,
+            )
+
+        stop_reason = getattr(response, "stop_reason", None)
+        if self.model in _COMPAT_MODELS and stop_reason in (
+            "max_tokens", "refusal", "model_context_window_exceeded",
+        ):
+            # Truncated or declined output is not a grade; escalate to the
+            # next provider instead of handing partial JSON to the parser.
+            await self._log_usage(
+                response, user_id=user_id, session_id=session_id,
+                status="invalid_response",
+            )
+            raise NonRetryableError(
+                provider=self.provider_name, status=f"claude_{stop_reason}", original=None,
             )
 
         text_blocks = [

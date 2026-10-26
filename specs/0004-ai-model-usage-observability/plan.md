@@ -7,8 +7,13 @@
   without moving their provider timeout or fallback ownership.
 - Extend the existing admin usage endpoint and Next.js admin surface rather than
   creating a competing reporting source.
-- Keep model selection in existing settings, with the Speaking primary routed by
-  `SPEAKING_GRADING_MODEL` and the current orchestrator owning retries/fallbacks.
+- Keep model selection in existing settings, with the current orchestrator owning
+  retries/fallbacks. After the FR-005 revision (2026-10-26), the Speaking
+  primary is the `services/ai_router.py` slot `anthropic_primary`
+  (`claude-sonnet-5-5`), selected by `AI_PROVIDER_ORDER_SPEAKING_GRADING`, which
+  is empty by default and so inherits `AI_PROVIDER_ORDER`. It is followed
+  unchanged by `SPEAKING_GRADING_MODEL` (Gemini 3.8 Flash), Haiku 4.5 and
+  Sonnet 5.
 
 ## Data and contracts
 
@@ -49,8 +54,12 @@
   for each provider class.
 - Monitor usage completeness, duplicate keys, fallback/error rates, latency, ratings,
   regrade reports, and estimated-versus-billed cost for 24–48 hours.
-- Revert Speaking through `SPEAKING_GRADING_MODEL=gemini-3.5-flash`; retain the
-  additive schema and ledger history during application rollback.
+- Revert Speaking to the Gemini-primary chain through
+  `AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini`, and from Gemini 3.8 to 3.5 through
+  `SPEAKING_GRADING_MODEL=gemini-3.5-flash`. Retain the additive schema and
+  ledger history during application rollback.
+- Run the FR-005 constitution §6 Speaking gold-set comparison outside per-PR CI
+  and record its report before the Claude default reaches production.
 
 ## Verification strategy
 

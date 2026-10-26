@@ -2,6 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildSkipPayload } from '../lib/onboarding-model.mjs';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -15,11 +16,25 @@ const LOGIN_MODEL = read('lib', 'login-model.mjs');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/onboarding native account setup', () => {
-  test('owns an authenticated noindex route with canonical student chrome', () => {
+  test('owns an authenticated noindex route with a minimal header and no app navigation', () => {
     assert.match(PAGE, /robots: \{ index: false, follow: false \}/);
-    assert.match(PAGE, /<aver-chrome active="home"/);
+    assert.match(PAGE, /<OnboardingHeader\s*\/>/);
+    assert.match(BEHAVIOR, /<header className="ob-header">/);
+    assert.match(BEHAVIOR, /aria-label="Aver Learning"/);
+    assert.match(BEHAVIOR, /Đăng xuất/);
+    assert.match(BEHAVIOR, /window\.getSupabase\(\)/);
+    assert.match(BEHAVIOR, /await client\.auth\.signOut\(\)/);
+    assert.doesNotMatch(PAGE + BEHAVIOR, /<aver-chrome|<nav\b|<a\b|<Link\b|href=/);
     assert.match(LAYOUT, /<AuthedShell/);
     assert.match(LAYOUT, /'\/css\/onboarding\.css'/);
+  });
+
+  test('skip saves only the completion flag through the canonical submit/readback path', () => {
+    assert.deepEqual(buildSkipPayload(), { onboarding_completed: true });
+    assert.match(BEHAVIOR, /mode === 'skip' \? \{ payload: buildSkipPayload\(\) \} : buildOnboardingPayload\(draft\)/);
+    assert.match(BEHAVIOR, /onClick=\{\(\) => void submit\('skip'\)\} disabled=\{submitting\}/);
+    assert.match(BEHAVIOR, /Bỏ qua, thiết lập sau/);
+    assert.match(BEHAVIOR, /mode === 'skip' \? '\/home' : `\/home\?first_topic=/);
   });
 
   test('fails closed from strict canonical profile truth', () => {

@@ -35,6 +35,10 @@
  *     so the auto-fetch path skips (or is overridden if called late).
  *
  * Events:
+ *   av-chrome-signing-out (bubbles, composed)
+ *     Dispatched when the user clicks Đăng xuất, before the awaited revoke.
+ *     The Next AuthProvider holds pages out of their signed-out /login
+ *     redirect so the chrome's own '/' redirect stays the destination.
  *   av-chrome-signed-out (bubbles, composed)
  *     Dispatched right before the post-signOut redirect to /index.html.
  *     Pages can listen for cleanup (cancel polls, close dialogs, etc).
@@ -48,6 +52,7 @@
 import { bindToggleButton } from '/js/theme-toggle.js';
 import { canonicalInitials } from '/js/user-pill.js';
 import { installPerfResourceHints } from '/js/components/perf-hints.js';
+import { clearPersistedAuthSession, rememberSignedOutSession } from '/js/auth-sign-out-state.js';
 
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -63,6 +68,9 @@ const VALID_ACTIVE = ['home', 'writing', 'class', 'speaking', 'listening', 'gram
 // pattern. 50ms tick × 60 tries.
 const POLL_INTERVAL_MS = 50;
 const POLL_MAX_TRIES = 60;
+
+// U-20 — must equal the disclosure @media query in STYLE below.
+const MOBILE_NAV_QUERY = '(max-width: 1024.98px)';
 
 installPerfResourceHints();
 
@@ -311,21 +319,73 @@ const STYLE = /* css */ `
   background: var(--av-error-soft);
 }
 
-@media (max-width: 720px) {
-  .topnav-wrap { padding: 0 var(--av-space-4); }
-  .topnav { gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-8); }
+.mobile-nav-toggle { display: none; }
+
+/* U-20: the full eight-link row needs ~1045px beside the brand and the named
+   user pill, so it wrapped to 2-3 rows anywhere from 721px to ~1180px. Below
+   1025px the links move behind the disclosure; 1025-1279.98px keeps the row
+   but compacts it; >=1280px is the untouched desktop layout. The .98 upper
+   bounds keep zoomed fractional widths (e.g. 1024.5px) inside a block. Keep
+   the disclosure query in sync with MOBILE_NAV_QUERY. */
+@media (max-width: 1024.98px) {
+  .topnav { gap: var(--av-space-3); flex-wrap: wrap; }
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: var(--av-surface-card);
+    border: 1px solid var(--av-border-default);
+    border-radius: var(--av-radius-md);
+    color: var(--av-text-primary);
+    cursor: pointer;
+  }
+  .mobile-nav-toggle:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
   .nav-links {
+    display: none;
     width: 100%;
     min-width: 0;
     order: 3;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch;
+    align-items: stretch;
+    flex-direction: column;
   }
+  .nav-links.is-open { display: flex; }
+  .nav-links a {
+    box-sizing: border-box;
+    min-height: 44px;
+    border-radius: var(--av-radius-md);
+  }
+  .nav-links a[aria-current="page"] {
+    color: var(--av-primary);
+    background: var(--av-primary-soft);
+    font-weight: var(--av-fw-bold);
+  }
+  .nav-links a:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+  .topnav-right { margin-left: auto; gap: var(--av-space-2); }
+  .user-pill { padding: var(--av-space-1); }
+  #user-pill-name { display: none; }
+  .user-menu-item { box-sizing: border-box; min-height: 44px; }
+  .user-menu-item[hidden] { display: none; }
+}
+
+@media (max-width: 720px) {
+  .topnav-wrap { padding: 0 var(--av-space-4); }
+  .topnav { margin-bottom: var(--av-space-8); }
+}
+
+@media (min-width: 1025px) and (max-width: 1279.98px) {
+  .topnav { gap: var(--av-space-4); }
+  .nav-links { flex-wrap: nowrap; }
   .nav-links a,
-  .nav-links span { flex: 0 0 auto; }
-  .topnav-right { margin-left: auto; }
+  .nav-links span {
+    padding-left: var(--av-space-2);
+    padding-right: var(--av-space-2);
+    white-space: nowrap;
+  }
+  .user-pill { padding: var(--av-space-1); }
+  #user-pill-name { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -339,7 +399,7 @@ const TEMPLATE = /* html */ `
   <nav class="topnav" aria-label="Primary">
     <a href="/home" class="brand">Aver<span class="dot">.</span>Learning</a>
 
-    <div class="nav-links">
+    <div class="nav-links" id="mobile-nav-menu">
       <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/writing/dashboard" data-tab="writing">Writing</a>
       <a href="/my-class" data-tab="class">MY CLASS</a>
@@ -351,6 +411,13 @@ const TEMPLATE = /* html */ `
     </div>
 
     <div class="topnav-right">
+      <button class="mobile-nav-toggle" id="mobile-nav-toggle" type="button"
+              aria-label="Mở menu" aria-expanded="false" aria-controls="mobile-nav-menu">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
       <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
         <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="4"></circle>
@@ -654,31 +721,14 @@ export class AverChrome extends HTMLElement {
     if (!root) return;
     const links = root.querySelectorAll('.nav-links a[data-tab]');
     const target = VALID_ACTIVE.includes(value) ? value : null;
-    let activeLink = null;
     links.forEach((a) => {
       const isActive = target && a.dataset.tab === target;
-      if (isActive) {
-        a.classList.add('active');
-        a.setAttribute('aria-current', 'page');
-        activeLink = a;
-      } else {
-        a.classList.remove('active');
-        a.removeAttribute('aria-current');
-      }
+      // Preserve the desktop highlight roster; mark all eight current
+      // destinations semantically and visually in the mobile panel.
+      a.classList.toggle('active', Boolean(isActive));
+      if (a.dataset.tab === value) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
     });
-
-    // The primary nav becomes a horizontal strip on phones. Bring the active
-    // destination into view without moving the page vertically.
-    if (activeLink && typeof window.matchMedia === 'function'
-        && window.matchMedia('(max-width: 720px)').matches) {
-      requestAnimationFrame(() => {
-        if (!this.isConnected) return;
-        const nav = activeLink.closest('.nav-links');
-        if (!nav || !activeLink.offsetWidth) return;
-        const targetLeft = activeLink.offsetLeft - (nav.clientWidth - activeLink.offsetWidth) / 2;
-        nav.scrollLeft = Math.max(0, targetLeft);
-      });
-    }
   }
 
   _bindToggle() {
@@ -696,39 +746,53 @@ export class AverChrome extends HTMLElement {
     this._abortController = new AbortController();
     const { signal } = this._abortController;
 
-    const close = () => {
-      menu.setAttribute('hidden', '');
-      toggle.setAttribute('aria-expanded', 'false');
+    const mobileToggle = root.getElementById('mobile-nav-toggle');
+    const mobileMenu = root.getElementById('mobile-nav-menu');
+    const disclosures = [
+      { button: toggle, panel: menu, mobile: false },
+      { button: mobileToggle, panel: mobileMenu, mobile: true },
+    ];
+    const isOpen = ({ button }) => button.getAttribute('aria-expanded') === 'true';
+    const close = (item, restoreFocus = false) => {
+      if (!isOpen(item)) return;
+      item.button.setAttribute('aria-expanded', 'false');
+      if (item.mobile) item.panel.classList.remove('is-open');
+      else item.panel.hidden = true;
+      if (restoreFocus) item.button.focus();
     };
-    const open = () => {
-      menu.removeAttribute('hidden');
-      toggle.setAttribute('aria-expanded', 'true');
-    };
-    const isOpen = () => !menu.hasAttribute('hidden');
+    disclosures.forEach((item) => {
+      item.button.addEventListener('click', () => {
+        if (isOpen(item)) close(item, true);
+        else {
+          disclosures.forEach((other) => close(other));
+          item.button.setAttribute('aria-expanded', 'true');
+          if (item.mobile) {
+            item.panel.classList.add('is-open');
+            item.panel.querySelector('a')?.focus();
+          }
+          else item.panel.hidden = false;
+        }
+      }, { signal });
+      item.panel.addEventListener('click', (event) => {
+        if (event.target.closest('a')) close(item, true);
+      }, { signal });
+    });
 
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (isOpen()) close(); else open();
-    }, { signal });
-
-    // Outside-click close. Composed events from inside the shadow root
-    // surface on document with composedPath()[0] === shadow target;
-    // we close when the click does NOT pass through this host element.
-    this._docClickHandler = (e) => {
-      if (!isOpen()) return;
-      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
-      if (path.includes(this)) return;
-      close();
+    // composedPath includes shadow targets, unlike the retargeted document event.
+    this._docClickHandler = (event) => {
+      const path = event.composedPath();
+      disclosures.forEach((item) => {
+        if (!path.includes(item.button) && !path.includes(item.panel)) close(item, true);
+      });
     };
     document.addEventListener('click', this._docClickHandler);
-
-    this._docKeydownHandler = (e) => {
-      if (e.key === 'Escape' && isOpen()) {
-        close();
-        toggle.focus();
-      }
+    this._docKeydownHandler = (event) => {
+      if (event.key === 'Escape') disclosures.forEach((item) => close(item, true));
     };
     document.addEventListener('keydown', this._docKeydownHandler);
+    window.matchMedia(MOBILE_NAV_QUERY).addEventListener('change', () => {
+      close(disclosures[1]);
+    }, { signal });
   }
 
   _bindLogout() {
@@ -745,12 +809,26 @@ export class AverChrome extends HTMLElement {
       // mid-revoke, cancelling BOTH the revoke and the storage cleanup:
       // the next page load would restore the session and the logout would
       // silently undo itself.
+      //
+      // av-chrome-signing-out is NOT a sign-out announcement: it only tells
+      // the AuthProvider that this user-initiated logout owns the final
+      // navigation ('/'). Without it, SIGNED_OUT (fired inside signOut()) and
+      // av-chrome-signed-out flip Next pages to signed-out, and their
+      // fail-closed `location.replace('/login')` effect runs after — and
+      // overrides — the `location.href = '/'` below.
+      this.dispatchEvent(new CustomEvent('av-chrome-signing-out', {
+        bubbles: true,
+        composed: true,
+      }));
       try {
         const sb = (typeof window !== 'undefined'
                     && typeof window.getSupabase === 'function')
                    ? window.getSupabase()
                    : null;
         if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
+          // U-07: record the session being ended BEFORE the revoke, so /login
+          // does not boot it if this page dies mid-revoke.
+          await rememberSignedOutSession(sb);
           // AUDIT F6 / review #762: v2 signOut() does NOT throw on a failed
           // revoke — it RESOLVES with { error }. Discarding it made a
           // still-valid refresh token look identical to a real sign-out.
@@ -777,6 +855,11 @@ export class AverChrome extends HTMLElement {
           );
         } catch (e) { /* reporting must never block logout */ }
       }
+      // U-07: a failed revoke (signOut resolves { error }) leaves the session
+      // persisted — possibly already revoked server-side. Fail closed locally
+      // before announcing, so no page can boot it and send it to /auth/me.
+      clearPersistedAuthSession();
+      try { window.api && window.api.clearAuthCache && window.api.clearAuthCache(); } catch (e) { /* page is leaving */ }
       this.dispatchEvent(new CustomEvent('av-chrome-signed-out', {
         bubbles: true,
         composed: true,

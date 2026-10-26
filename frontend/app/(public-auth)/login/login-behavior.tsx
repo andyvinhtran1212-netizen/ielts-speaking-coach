@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { AuthMeWire } from '@/lib/auth-api';
+import {
+  clearPersistedAuthSession,
+  forgetSignedOutSession,
+  isSignedOutSession,
+} from '@/lib/auth/sign-out-state.mjs';
 import { loginDestination, normalizeAccessCode, normalizeLoginProfile } from '@/lib/login-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -11,6 +16,7 @@ type SupabaseClient = {
   auth: {
     getSession(): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
     signInWithOAuth(input: unknown): Promise<{ error?: { message?: string } | null }>;
+    signOut(): Promise<unknown>;
   };
 };
 
@@ -66,6 +72,16 @@ function hasAuthCallbackMaterial() {
       .some((key) => fragment.has(key));
 }
 
+// U-07: a session this tab already signed out (its page died mid-revoke, or
+// the revoke failed) is dead or dying — never send it to /auth/me. Finish the
+// revoke the logout started (an already-revoked session counts as signed out)
+// and purge it locally whatever the outcome.
+async function discardSignedOutSession(client: SupabaseClient) {
+  try { await client.auth.signOut(); } catch { /* purged below */ }
+  clearPersistedAuthSession();
+  forgetSignedOutSession();
+}
+
 async function bootstrap(): Promise<BootResult> {
   const client = await sharedClient();
   const callback = hasAuthCallbackMaterial();
@@ -83,6 +99,12 @@ async function bootstrap(): Promise<BootResult> {
     throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
   }
   if (!session?.access_token) return { kind: 'signed-out', client };
+  if (callback) {
+    forgetSignedOutSession(); // a fresh sign-in supersedes the last logout
+  } else if (isSignedOutSession(session.access_token)) {
+    await discardSignedOutSession(client);
+    return { kind: 'signed-out', client };
+  }
   return { kind: 'profile', client, profile: await canonicalProfile(session.access_token) };
 }
 
@@ -117,7 +139,8 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   useEffect(() => {
     let disposed = false;
     if (!bootPromise) bootPromise = bootstrap();
-    void bootPromise.then((result) => {
+    const pendingBoot = bootPromise;
+    void pendingBoot.then((result) => {
       if (disposed) return;
       clientRef.current = result.client;
       if (result.kind === 'signed-out') setBusyMessage('');
@@ -126,6 +149,9 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
       if (disposed) return;
       setBusyMessage('');
       setError(messageOf(caught, 'Không thể khởi tạo đăng nhập. Vui lòng thử lại.'));
+    }).finally(() => {
+      // Share an in-flight boot across Strict Mode mounts, never a stale profile.
+      if (bootPromise === pendingBoot) bootPromise = null;
     });
 
     const themeButton = document.querySelector<HTMLButtonElement>('.av-theme-toggle');

@@ -42,6 +42,9 @@ def client(monkeypatch):
         return {"id": "user-1"}
 
     monkeypatch.setattr(questions_router, "get_supabase_user", _fake_auth)
+    # Activation/permission admission is covered by
+    # test_speaking_entitlement_guard.py; these tests pin the payload contract.
+    monkeypatch.setattr(questions_router, "require_speaking_entitlement", lambda *_a: None)
     return TestClient(app)
 
 

@@ -19,7 +19,7 @@ function querySlug(params: Record<string, string | string[] | undefined>) {
 
 export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
   const slug = querySlug(await searchParams);
-  if (!slug) return { title: 'So sánh — Grammar Wiki — IELTS Speaking Coach', robots: { index: false, follow: true } };
+  if (!slug) return { title: 'So sánh — Grammar Wiki — Aver Learning', robots: { index: false, follow: true } };
   const data = await getCompare(slug);
   if (!data) notFound();
   return { title: `${data.left.title} vs ${data.right.title} — Grammar Wiki`, robots: { index: false, follow: true } };

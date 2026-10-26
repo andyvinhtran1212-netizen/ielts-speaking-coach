@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-25 the highest is `319`, so the next
-new migration is `320`.
+sequence is dense. As of 2026-10-26 the highest is `320`, so the next
+new migration is `321`. The runner applies any unapplied file regardless of order.
 
 Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
 change: the `web_explanation_content_version_unavailable` refusal now names its
@@ -32,6 +32,35 @@ every other refusal are unchanged, and it still never chooses a version. No data
 changes; safe to re-apply. Binding a REVxx copy is a separate, reviewed data
 step: `python -m scripts.bind_revision_web_explanations` (dry run by default;
 `--commit` requires the reviewed `--plan-sha`).
+
+Migration `320` is a security lockdown (staging audit 2026-10-25, F01/F03/F04/
+F14, plus the Project Coordinator review of 2026-10-26). It revokes
+INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER from `anon` and
+`authenticated` on every `public` relation and sequence UPDATE (setval), and
+runs `ALTER DEFAULT PRIVILEGES FOR ROLE` for the table owner `postgres` (and
+`supabase_admin` when it exists and the runner may act for it) so later
+tables/sequences are not client-writable. Function EXECUTE defaults are left
+unchanged on purpose; instead every SECURITY DEFINER trigger function loses
+client EXECUTE (trigger firing does not check EXECUTE, so the guards still run).
+`authenticated` keeps writes only on the five learner-owned Vocabulary/flashcard
+tables written with the learner's JWT, plus `UPDATE (is_active)` on
+`user_d1_questions`. D1 results (`d1_sessions`, `vocabulary_exercise_attempts`)
+are now written by `routers/exercises.py` with the service role and the
+verified user id, sealed through the new service-only
+`fn_finalize_d1_attempt_for_user`; apply 320 and promote that backend together,
+because the previous backend's D1 writes fail closed in between. On
+`public.users` no client UPDATE remains (PATCH `/auth/profile` writes with the
+service role), the dashboard policy "Users can update own data" becomes
+`TO authenticated` with WITH CHECK, and a trigger rejects any non-profile
+column change by a client role. `users_role_check` is intentionally untouched.
+The browser performs no direct PostgREST writes. A new table that genuinely
+needs a client write must now `GRANT` that exact privilege in its own
+migration. The migration ends with a postcondition over privileges, default
+ACLs, SECURITY DEFINER functions and the users policy, and aborts if any client
+write survives. Run the pre-checks in
+`specs/0022-client-write-privilege-lockdown/rollout.md`, apply to staging, run
+the read-only queries in its header, then apply to production with the
+advisory-locked runner. Never roll it back with a blanket re-grant.
 
 Migration `318` adds a default-empty personal vocabulary pronunciation column
 under existing row ownership/RLS. After applying it, render missing headwords

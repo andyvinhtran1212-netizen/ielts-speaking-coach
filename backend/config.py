@@ -54,7 +54,41 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
-    # Speaking grader primary model (audit 2026-07-02).
+    # Anthropic-primary routing (services/ai_router.py). Text/JSON LLM tasks try
+    # Claude first and fall back automatically — on error, timeout, rate limit,
+    # malformed/invalid output, or a missing ANTHROPIC_API_KEY — to the
+    # feature's existing provider with its existing model and behaviour.
+    # Comma list of "anthropic", "openai", "gemini"; the feature's existing
+    # provider is always kept as the final fallback even if omitted.
+    AI_PROVIDER_ORDER: str = "anthropic,openai,gemini"
+    # Per-feature overrides ("" → AI_PROVIDER_ORDER). AI-0004 FR-005 (revised
+    # 2026-10-26): Speaking grading inherits the global order, so Claude
+    # Sonnet 5.5 grades first and SPEAKING_GRADING_MODEL (Gemini 3.8) →
+    # Haiku 4.5 → Sonnet 5 follow unchanged. Set "gemini" to restore the
+    # Gemini-primary chain.
+    AI_PROVIDER_ORDER_SPEAKING_GRADING: str = ""
+    AI_PROVIDER_ORDER_WRITING_GRADING: str = ""
+    AI_PROVIDER_ORDER_COURSE_WRITING: str = ""
+    AI_PROVIDER_ORDER_ADVANCED_VOCAB_REWRITE: str = ""
+    AI_PROVIDER_ORDER_QUESTION_GENERATION: str = ""
+    AI_PROVIDER_ORDER_LISTENING_AUDIT: str = ""
+    # Model per tier: GRADING for band grading, FAST for short structured
+    # tasks. A per-feature ANTHROPIC_MODEL_<FEATURE> wins when non-empty.
+    ANTHROPIC_MODEL_GRADING: str = "claude-sonnet-5-5"
+    ANTHROPIC_MODEL_FAST: str = "claude-haiku-5-5"
+    ANTHROPIC_MODEL_SPEAKING_GRADING: str = ""
+    ANTHROPIC_MODEL_WRITING_GRADING: str = ""
+    ANTHROPIC_MODEL_COURSE_WRITING: str = ""
+    ANTHROPIC_MODEL_ADVANCED_VOCAB_REWRITE: str = ""
+    ANTHROPIC_MODEL_QUESTION_GENERATION: str = ""
+    ANTHROPIC_MODEL_LISTENING_AUDIT: str = ""
+    # Bounds one Claude attempt so a slow call still leaves the fallback time.
+    ANTHROPIC_TIMEOUT_SECONDS: float = 60.0
+
+    # Speaking grader Gemini rung (audit 2026-07-02). Since the AI-0004 FR-005
+    # revision it is the first fallback behind the Claude primary
+    # (AI_PROVIDER_ORDER_SPEAKING_GRADING), and the primary again when that is
+    # set to "gemini".
     # The Speaking grader used to be hardcoded to Claude Haiku 4.5 — the weakest
     # tier — while the Writing grader already uses Gemini Pro. This knob lets ops
     # point the *grader* at any model without a code change; the fallback chain
@@ -166,6 +200,11 @@ class Settings(BaseSettings):
     # per user. Generous: a real student rarely exceeds a few dozen gradings/day;
     # this stops abuse (spamming one question 100×). <= 0 disables the cap.
     MAX_GRADINGS_PER_USER_PER_DAY: int = 200
+    # F05 — POST /tts (OpenAI tts-1) caps. Daily per-user count of
+    # ai_usage_logs feature="question_tts" rows since UTC midnight, plus a
+    # per-worker, per-IP sliding minute window. <= 0 disables either cap.
+    TTS_DAILY_LIMIT_PER_USER: int = 200
+    TTS_IP_MAX_PER_MINUTE: int = 60
 
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False

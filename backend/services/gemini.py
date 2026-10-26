@@ -31,7 +31,7 @@ import google.generativeai as genai
 
 from config import settings
 from database import supabase_admin
-from services import ai_usage_logger
+from services import ai_router, ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +101,76 @@ def _cache_set(part: int, topic: str, questions) -> None:
 _FENCE_RE = re.compile(r"^```[a-z]*\n?|\n?```$", re.MULTILINE)
 
 
+_CLAUDE_SYSTEM = (
+    "You write IELTS Speaking questions. Return ONLY the JSON the user message "
+    "asks for: no markdown fences, no explanation."
+)
+_CLAUDE_MAX_TOKENS = 1024
+
+
+def _parse_question_json(text: str, expect: type | None):
+    """Same fence-stripping + json.loads as the Gemini path, plus shape check."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = _FENCE_RE.sub("", text).strip()
+    parsed = json.loads(text)
+    if expect is not None and not isinstance(parsed, expect):
+        raise ValueError(f"expected JSON {expect.__name__}")
+    # Required fields are checked here, before anything is cached: a Claude
+    # answer that parses but lacks them must fall back to Gemini.
+    if isinstance(parsed, list):
+        if not parsed or not all(_has_question_fields(q) for q in parsed):
+            raise ValueError("question list items need question_text and question_type")
+    elif isinstance(parsed, dict):
+        if not (_nonempty_str(parsed.get("question_text"))
+                and isinstance(parsed.get("cue_card_bullets"), list)
+                and parsed["cue_card_bullets"]
+                and all(_nonempty_str(b) for b in parsed["cue_card_bullets"])):
+            raise ValueError("cue card needs question_text and cue_card_bullets")
+    return parsed
+
+
+def _nonempty_str(value) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _has_question_fields(q) -> bool:
+    return (isinstance(q, dict) and _nonempty_str(q.get("question_text"))
+            and _nonempty_str(q.get("question_type")))
+
+
 async def _call_gemini(prompt: str, *, _retry: bool = True,
-                       user_id: str | None = None, session_id: str | None = None):
+                       user_id: str | None = None, session_id: str | None = None,
+                       expect: type | None = None):
+    """Question-generation JSON call: Claude first (services.ai_router), then
+    the unchanged Gemini path. Returns parsed JSON (list or dict); raises
+    ValueError when every provider fails, exactly as the Gemini path did."""
+
+    async def _claude():
+        _, parsed = await ai_router.call_anthropic(
+            "question_generation",
+            system=_CLAUDE_SYSTEM,
+            user=prompt,
+            max_tokens=_CLAUDE_MAX_TOKENS,
+            operation="generate_questions",
+            validate=lambda text: _parse_question_json(text, expect),
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return parsed
+
+    return await ai_router.with_fallback(
+        "question_generation",
+        legacy_provider="gemini",
+        anthropic_call=_claude,
+        legacy_call=lambda: _gemini_generate(
+            prompt, _retry=_retry, user_id=user_id, session_id=session_id,
+        ),
+    )
+
+
+async def _gemini_generate(prompt: str, *, _retry: bool = True,
+                           user_id: str | None = None, session_id: str | None = None):
     """Send prompt, return parsed JSON (list or dict). Raises ValueError on failure.
 
     Defensive measures applied in order:
@@ -170,7 +238,7 @@ async def _call_gemini(prompt: str, *, _retry: bool = True,
                 "[gemini] JSON parse failed (will retry once) — preview: %r | error: %s",
                 preview, exc,
             )
-            return await _call_gemini(prompt, _retry=False, user_id=user_id, session_id=session_id)
+            return await _gemini_generate(prompt, _retry=False, user_id=user_id, session_id=session_id)
 
         logger.error(
             "[gemini] JSON parse failed after retry — preview: %r | error: %s",
@@ -251,7 +319,7 @@ Return ONLY a valid JSON array — no markdown, no explanation, nothing else:
 ]"""
 
     # First attempt
-    valid = _validate(await _call_gemini(_build_prompt(count), user_id=user_id))
+    valid = _validate(await _call_gemini(_build_prompt(count), user_id=user_id, expect=list))
 
     # Retry if we got fewer than needed
     if len(valid) < count:
@@ -261,7 +329,7 @@ Return ONLY a valid JSON array — no markdown, no explanation, nothing else:
             topic, len(valid), count, deficit,
         )
         try:
-            extra = _validate(await _call_gemini(_build_prompt(deficit), user_id=user_id))
+            extra = _validate(await _call_gemini(_build_prompt(deficit), user_id=user_id, expect=list))
             valid = valid + extra
         except Exception as exc:
             logger.warning("[gemini] Part 1 retry failed for topic=%r: %s", topic, exc)
@@ -317,7 +385,7 @@ Rules:
 - cue_card_reflection: one clause starting with "and explain why/how/what"
 """
 
-    cuecard: dict = await _call_gemini(prompt, user_id=user_id)
+    cuecard: dict = await _call_gemini(prompt, user_id=user_id, expect=dict)
 
     # Ensure bullets is a list of exactly 3
     bullets = cuecard.get("cue_card_bullets", [])
@@ -370,7 +438,7 @@ Return ONLY a valid JSON array — no markdown, no explanation:
   ...
 ]"""
 
-    questions: list[dict] = await _call_gemini(prompt, user_id=user_id)
+    questions: list[dict] = await _call_gemini(prompt, user_id=user_id, expect=list)
 
     def _filter(raw) -> list[dict]:
         result = []
@@ -401,7 +469,7 @@ Return ONLY a valid JSON array — no markdown, no explanation:
             topic, len(valid), count, deficit,
         )
         try:
-            extra_raw = await _call_gemini(prompt, user_id=user_id)
+            extra_raw = await _call_gemini(prompt, user_id=user_id, expect=list)
             existing_texts = {q["question_text"] for q in valid}
             for q in _filter(extra_raw):
                 if q["question_text"] not in existing_texts:

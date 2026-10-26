@@ -38,6 +38,7 @@ from services.class_assignment_service import (
     validate_class_item_for_session,
 )
 from services.access_code_permissions import (
+    SPEAKING_PERMISSIONS,
     get_user_access_code_permissions_cached,
     get_user_session_quota,
     has_permission,
@@ -328,6 +329,34 @@ def _require_active(user_id: str) -> None:
 
     if not r.data or not r.data[0].get("is_active"):
         raise HTTPException(status_code=403, detail="Tài khoản chưa được kích hoạt")
+
+
+def require_speaking_entitlement(user_id: str, session: dict | None) -> None:
+    """Re-check create_session's admission on every paid Speaking step.
+
+    Question generation, grading and pronunciation spend AI budget, so they
+    must not trust that the session row was created through POST /sessions
+    (audit F04: a client could INSERT one directly before migration 320) or
+    that the account is still entitled. The account must be active and hold
+    the session mode's scope, unless the session answers a class assignment —
+    the same assignment entitlement create_session grants. Without a session
+    (the cue-card generator) any Speaking scope is required.
+    """
+    _require_active(user_id)
+    if session is None:
+        try:
+            perms = get_user_access_code_permissions_cached(user_id)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quyền: {e}")
+        if not any(has_permission(perms, scope) for scope in sorted(SPEAKING_PERMISSIONS)):
+            raise HTTPException(
+                status_code=403,
+                detail="Tài khoản không có quyền sử dụng Speaking",
+            )
+        return
+    if session.get("class_assignment_item_id"):
+        return
+    _require_permission(user_id, session.get("mode") or "practice")
 
 
 def _resolve_full_test_attempt_id(user_id: str, body: CreateSessionBody) -> str | None:

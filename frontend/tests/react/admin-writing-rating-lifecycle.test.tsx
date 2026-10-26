@@ -109,3 +109,19 @@ it('G-U04 resets rating to the second essay identity while preserving unsaved ta
   expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
   expect(JSON.stringify(essays)).toBe(original);
 });
+
+it('labels the rating panel with the model that actually graded, not the configured one', async () => {
+  const runtime = { window: {} as { WritingRenderers?: unknown } };
+  runInNewContext(readFileSync(resolve(process.cwd(), 'public/js/writing-renderers.js'), 'utf8'), runtime);
+  Object.defineProperty(window, 'WritingRenderers', { configurable: true, value: runtime.window.WritingRenderers });
+  const get = vi.fn().mockResolvedValue({
+    id: 'essay-1', status: 'graded', task_type: 'task2', grading_tier: 'standard', analysis_level: 3,
+    essay_text: 'Owned synthetic essay fixture.', selected_model: 'gemini-3.8-flash', student: { full_name: 'Fixture student' },
+    feedback: { overall_band_score: 6.5, model_used: 'claude-sonnet-5-5', feedback_json: {} },
+  });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, post: vi.fn() } });
+  render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+
+  await screen.findByRole('heading', { name: /Đánh giá chất lượng chấm/ });
+  expect(document.querySelector('#gr-model')?.textContent).toBe('claude-sonnet-5-5');
+});

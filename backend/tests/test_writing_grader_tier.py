@@ -135,7 +135,7 @@ async def test_standard_tier_uses_pro_and_full_schema(
     assert captured["model_name"] == "gemini-2.5-pro"
     assert isinstance(result.feedback, WritingFeedback)
     assert result.feedback.improvedEssay == "Improved version…"  # full-schema field
-    assert result.prompt_version == "v2.2"
+    assert result.prompt_version == "v2.3"
     assert "-quick" not in result.prompt_version  # removed in 2.7a.1
     assert result.grading_tier == GradingTier.STANDARD
 
@@ -181,7 +181,7 @@ async def test_instructor_tier_runs_standard_pass1_with_pending_stamp(
     assert result.grading_tier == GradingTier.INSTRUCTOR
     # Stamp ends with -instructor-pending so the deliver action can
     # strip the suffix and replace with -instructor cleanly.
-    assert result.prompt_version == "v2.2-instructor-pending", (
+    assert result.prompt_version == "v2.3-instructor-pending", (
         f"Expected -instructor-pending stamp, got {result.prompt_version!r}"
     )
     # Feedback shape identical to Standard — Pass 1 IS Standard.
@@ -266,13 +266,61 @@ def _patch_v2_loader(monkeypatch):
     monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
 
 
+@pytest.mark.parametrize("claude_configured", [True, False])
+@pytest.mark.asyncio
+async def test_deep_budget_covers_claude_and_its_repair_under_the_reaper(
+    grader, monkeypatch, reset_loader_cache, claude_configured,
+):
+    """Pass 1 may spend the whole Claude budget (first attempt + grounding
+    repair) and still leave Gemini its original 90 s; the three passes stay
+    under the 600 s Deep stuck-job timeout. Without Claude, unchanged."""
+    import asyncio
+
+    from config import settings as real_settings
+    from services import gemini_writing_grader as gwg
+
+    _patch_v2_loader(monkeypatch)
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER", "anthropic,openai,gemini")
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER_WRITING_GRADING", "")
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY",
+                        "test-anthropic-key" if claude_configured else "")
+    timeouts: list[float] = []
+    real_wait_for = asyncio.wait_for
+
+    async def spy(awaitable, timeout):
+        timeouts.append(timeout)
+        return await real_wait_for(awaitable, timeout)
+
+    responses = iter([
+        (json.dumps(VALID_FEEDBACK_STANDARD), {"input_tokens": 1, "output_tokens": 1}),
+        (json.dumps(VALID_PASS2_EMPTY), {"input_tokens": 1, "output_tokens": 1}),
+        (json.dumps(VALID_PASS3_RESPONSE), {"input_tokens": 1, "output_tokens": 1}),
+    ])
+
+    async def fake_call(*_a, **_kw):
+        return next(responses)
+
+    monkeypatch.setattr(gwg.asyncio, "wait_for", spy)
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        await grader.grade_essay(_deep_config(selected_model="gemini-2.5-pro"))
+
+    passes = GeminiWritingGrader.DEEP_PASS_TIMEOUTS_S
+    claude_budget = gwg.CLAUDE_TOTAL_BUDGET_S if claude_configured else 0
+    assert timeouts == [passes["pass1"] + claude_budget, passes["pass2"], passes["pass3"]]
+    # Attempt 1 is capped at CLAUDE_TIMEOUT_S, inside the budget with room left
+    # for a repair; the repair is cut off at the budget. So the whole Claude
+    # path (attempt + repair) never exceeds CLAUDE_TOTAL_BUDGET_S.
+    assert gwg.CLAUDE_TIMEOUT_S + gwg.CLAUDE_REPAIR_MIN_S <= gwg.CLAUDE_TOTAL_BUDGET_S
+    assert sum(timeouts) < real_settings.WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS == 600
+
+
 @pytest.mark.asyncio
 async def test_deep_tier_runs_3_passes_on_full_success(
     grader, monkeypatch, reset_loader_cache,
 ):
     """All 3 passes succeed. Pass 1 returns the Standard payload,
     Pass 2 returns an empty refinement, Pass 3 returns 1 rewrite.
-    Result is WritingFeedbackDeep stamped 'v2.2-deep'."""
+    Result is WritingFeedbackDeep stamped 'v2.3-deep'."""
     _patch_v2_loader(monkeypatch)
 
     pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
@@ -299,7 +347,7 @@ async def test_deep_tier_runs_3_passes_on_full_success(
     assert len(call_log) == 3, "Deep tier must run exactly 3 Gemini calls"
     assert result.grading_tier == GradingTier.DEEP
     assert isinstance(result.feedback, WritingFeedbackDeep)
-    assert result.prompt_version == "v2.2-deep"
+    assert result.prompt_version == "v2.3-deep"
     assert "degraded" not in result.prompt_version
 
 
@@ -337,7 +385,7 @@ async def test_instructor_tier_with_deep_depth_runs_3_passes(
     # Deep depth → 3 passes, but routed as instructor (review queue) tier.
     assert len(call_log) == 3, "Instructor+Deep must run the 3-pass Deep flow"
     assert result.grading_tier == GradingTier.INSTRUCTOR
-    assert result.prompt_version == "v2.2-deep-instructor-pending", (
+    assert result.prompt_version == "v2.3-deep-instructor-pending", (
         f"Expected -deep-instructor-pending stamp, got {result.prompt_version!r}"
     )
 
@@ -361,7 +409,7 @@ async def test_instructor_tier_defaults_to_standard_single_pass(
 
     assert len(call_log) == 1, "Instructor+Standard stays a single pass"
     assert result.grading_tier == GradingTier.INSTRUCTOR
-    assert result.prompt_version == "v2.2-instructor-pending"
+    assert result.prompt_version == "v2.3-instructor-pending"
 
 
 @pytest.mark.asyncio
@@ -417,7 +465,7 @@ async def test_deep_tier_pass2_failure_falls_back_to_pass1(
     # Exactly Pass 1 + Pass 2 attempted; Pass 3 skipped.
     assert len(call_log) == 2
     assert result.grading_tier == GradingTier.DEEP
-    assert result.prompt_version == "v2.2-deep-degraded"
+    assert result.prompt_version == "v2.3-deep-degraded"
     assert isinstance(result.feedback, WritingFeedbackDeep)
     # Pass 1 feedback preserved bit-for-bit.
     assert result.feedback.overallBandScore == VALID_FEEDBACK_STANDARD["overallBandScore"]
@@ -450,7 +498,7 @@ async def test_deep_tier_pass3_failure_falls_back_to_merged_pass1_pass2(
         result = await grader.grade_essay(cfg)
 
     assert len(call_log) == 3, "All 3 passes must be attempted"
-    assert result.prompt_version == "v2.2-deep-degraded"
+    assert result.prompt_version == "v2.3-deep-degraded"
     assert isinstance(result.feedback, WritingFeedbackDeep)
     assert result.feedback.sentenceRewrites == []
     # Pass 2 result still flows through (refinement worked, only

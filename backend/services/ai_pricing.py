@@ -57,6 +57,10 @@ TOKEN_RATES: tuple[TokenRate, ...] = (
               3.00, 15.00, cache_read_per_million=0.30, cache_write_per_million=3.75),
     TokenRate("anthropic", "claude-sonnet-5", date(2026, 6, 30), None,
               2.00, 10.00, cache_read_per_million=0.20, cache_write_per_million=2.50),
+    # https://platform.claude.com/docs/en/about-claude/pricing — checked
+    # 2026-10-26: cache hits are 0.05x base input on Sonnet 5.5.
+    TokenRate("anthropic", "claude-sonnet-5-5", date(2026, 9, 28), None,
+              2.00, 10.00, cache_read_per_million=0.10, cache_write_per_million=2.50),
     TokenRate("google", "gemini-2.5-flash", date(2025, 6, 17), None, 0.30, 2.50),
     TokenRate("google", "gemini-2.5-pro", date(2025, 6, 17), None, 1.25, 10.00),
     TokenRate("google", "gemini-3.1-flash-lite", date(2026, 5, 7), None, 0.25, 1.50),

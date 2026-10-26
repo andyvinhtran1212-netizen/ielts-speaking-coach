@@ -16,6 +16,7 @@ The date in a report describes its observation window, not today's deployment.
 | Verification | [Backend tests](../backend/tests/README.md), [browser tests](../frontend/tests/e2e/README.md), [AI evaluation](EVAL_HARNESS.md) |
 | Durable design decisions | [Architecture decisions](adr/README.md) |
 | Listening architecture | [Listening architecture](listening-architecture.md) |
+| AI provider routing and env vars | [AI provider routing](AI_PROVIDER_ROUTING.md) |
 | Brand | [Brand index](brand/README.md) |
 | Repository maintenance | [Maintenance and scale](REPOSITORY_MAINTENANCE.md) |
 

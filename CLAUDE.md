@@ -107,9 +107,10 @@ The frontend always uses the `grading.py` route for submitting recordings.
 - `MAX_SESSIONS_PER_USER_PER_DAY` — default is `24` (`config.py`); override in `.env` for local development
 - `MAX_AUDIO_DURATION_SECONDS=300`
 - `OPENAI_API_KEY` — required for Whisper STT
-- `GEMINI_API_KEY` — required for the default Speaking grader, Writing grader and content audits
-- `SPEAKING_GRADING_MODEL` — default `gemini-3.8-flash`; the `gemini-*` / `claude-*` prefix selects the provider, empty string falls back to the Haiku-first chain
-- `ANTHROPIC_API_KEY` — required for the Claude fallback chain, off-topic judge and grammar-check in `claude_grader.py`
+- `GEMINI_API_KEY` — required for the Speaking Gemini fallback, Writing grader and content audits
+- `SPEAKING_GRADING_MODEL` — default `gemini-3.8-flash`, the first Speaking fallback behind the Claude primary; the `gemini-*` / `claude-*` prefix selects the provider, empty string skips that rung
+- `ANTHROPIC_API_KEY` — required for the Claude Speaking primary (`claude-sonnet-5-5`), the Claude fallback chain, off-topic judge and grammar-check in `claude_grader.py`; blank → Speaking grades on Gemini
+- `AI_PROVIDER_ORDER` (default `anthropic,openai,gemini`), `AI_PROVIDER_ORDER_<FEATURE>`, `ANTHROPIC_MODEL_GRADING` / `ANTHROPIC_MODEL_FAST` — Claude-first routing with automatic fallback (`services/ai_router.py`, `docs/AI_PROVIDER_ROUTING.md`); Speaking grading is Claude-primary too (AI-0004 FR-005), and `AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini` restores the Gemini-primary chain
 
 ---
 

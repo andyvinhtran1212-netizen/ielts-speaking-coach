@@ -119,7 +119,9 @@ class _FakeClient:
         return _FakeQuery(name, self.store)
 
     def rpc(self, name, params):
-        assert name == "fn_finalize_d1_attempt"
+        # Migration 320: the seal runs as service_role with an explicit owner.
+        assert name == "fn_finalize_d1_attempt_for_user"
+        assert params["p_user_id"]
         store = self.store
 
         class _Rpc:
@@ -191,6 +193,8 @@ def _patch_user_route(monkeypatch, store: dict, user_id: str = USER_ID):
     monkeypatch.setattr(exr, "get_supabase_user", _fake_auth)
     monkeypatch.setattr(exr, "is_d1_enabled", lambda *_a, **_k: True)
     monkeypatch.setattr(exr, "_user_sb", lambda _token: fake)
+    # Server-computed attempt/session writes use the service client (mig 320).
+    monkeypatch.setattr(exr, "_service_sb", lambda: fake)
     monkeypatch.setattr(exr, "_bearer_token", lambda _h: "fake-token")
     return fake
 
@@ -261,6 +265,7 @@ def _replace_user_client(monkeypatch, store: dict, query_type: type[_FakeQuery])
 
     client_type = type("_SpecialClient", (_QueryClient,), {"query_type": query_type})
     monkeypatch.setattr(exr, "_user_sb", lambda _token: client_type(store))
+    monkeypatch.setattr(exr, "_service_sb", lambda: client_type(store))
 
 
 # ── start_d1_session ──────────────────────────────────────────────────────────
@@ -1359,3 +1364,81 @@ def test_session_rls_isolation():
         )
     finally:
         client_a.table("d1_sessions").delete().eq("id", row_id).execute()
+
+
+# ── Migration 320: D1 results are server-written ──────────────────────────────
+
+
+class _ReadOnlyLearnerQuery(_FakeQuery):
+    """The learner JWT after migration 320: reads only on D1 result tables."""
+
+    def execute(self):
+        if (self.table_name in {"d1_sessions", "vocabulary_exercise_attempts"}
+                and (self._insert is not None or self._update is not None)):
+            raise RuntimeError("permission denied for table " + self.table_name)
+        return super().execute()
+
+
+class _ReadOnlyLearnerClient(_QueryClient):
+    query_type = _ReadOnlyLearnerQuery
+
+    def rpc(self, name, params):
+        raise RuntimeError("permission denied for function " + name)
+
+
+def test_d1_flow_works_when_learner_jwt_cannot_write_results(monkeypatch):
+    """Session snapshot, attempt correctness/score/feedback, the finalize RPC
+    and completion counts all go through the service client with the verified
+    user id; the learner client only reads under RLS."""
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest, StartSessionRequest
+
+    store = {
+        "vocabulary_exercises": [_exercise(i) for i in range(2)],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+    monkeypatch.setattr(exr, "_user_sb", lambda _token: _ReadOnlyLearnerClient(store))
+
+    started = asyncio.run(exr.start_d1_session(StartSessionRequest(size=2), authorization="Bearer x"))
+    session_id = started["session_id"]
+    store["d1_sessions"][0].setdefault("status", "active")  # column default
+    for item in started["exercises"]:
+        asyncio.run(exr.submit_d1_attempt(
+            exercise_id=item["id"],
+            body=D1AttemptRequest(user_answer=item["answer"], session_id=session_id),
+            authorization="Bearer x",
+        ))
+    out = asyncio.run(exr.complete_d1_session(session_id=session_id, authorization="Bearer x"))
+
+    assert out["correct_count"] == 2 and out["total_count"] == 2
+    assert store["d1_sessions"][0]["user_id"] == USER_ID
+    assert store["d1_sessions"][0]["status"] == "completed"
+    attempts = store["vocabulary_exercise_attempts"]
+    assert len(attempts) == 2
+    assert all(a["user_id"] == USER_ID and a["is_correct"] is True and a["score"] == 1.0
+               and a.get("post_processed_at") for a in attempts)
+
+
+def test_completion_update_is_scoped_to_the_verified_user(monkeypatch):
+    """The service-role completion write must not trust the session id alone."""
+    from routers import exercises as exr
+
+    store = {
+        "d1_sessions": [{
+            "id": "sess-x", "user_id": OTHER_USER_ID, "exercise_ids": ["ex-0"],
+            "exercise_snapshot": [{"id": "ex-0", "sentence": "S ___", "answer": "answer0"}],
+            "total_count": 1, "status": "active",
+        }],
+        "vocabulary_exercise_attempts": [{
+            "id": "att-0", "exercise_id": "ex-0", "user_answer": "answer0", "is_correct": True,
+            "session_id": "sess-x", "user_id": OTHER_USER_ID, "exercise_type": "D1",
+        }],
+    }
+    _patch_user_route(monkeypatch, store)  # the fake learner client ignores RLS
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(exr.complete_d1_session(session_id="sess-x", authorization="Bearer x"))
+    assert error.value.status_code == 500
+    assert store["d1_sessions"][0]["status"] == "active"

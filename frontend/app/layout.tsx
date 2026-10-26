@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   applicationName: 'Aver Learning',
   icons: { icon: '/favicon.svg' },
   manifest: '/manifest.webmanifest',
-  title: 'averlearning',
+  title: 'Aver Learning',
   description:
     '6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện.',
   openGraph: {

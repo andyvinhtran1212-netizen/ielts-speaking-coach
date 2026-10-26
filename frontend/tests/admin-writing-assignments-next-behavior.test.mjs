@@ -119,3 +119,14 @@ describe('/admin/writing/assignments native ownership and safety', () => {
     for (const style of ['admin-components.css', 'admin-buttons.css', 'admin-status.css', 'admin-writing-assignments-next.css']) assert.ok(LAYOUT.includes(style));
   });
 });
+
+test('deadline payload and review use Vietnam wall time regardless of browser timezone', () => {
+  const result = validateAssignmentDraft({ mode: 'individual', isTimed: false, deadline: '2026-10-27T23:00' }, 1, 1, 0);
+  assert.equal(result.ok, true);
+  assert.equal(result.deadline, '2026-10-27T23:00:00+07:00');
+  assert.equal(new Date(result.deadline).toISOString(), '2026-10-27T16:00:00.000Z');
+  assert.equal(validateAssignmentDraft({ mode: 'individual', isTimed: false, deadline: 'invalid' }, 1, 1, 0).ok, false);
+  assert.equal(validateAssignmentDraft({ mode: 'individual', isTimed: false, deadline: '' }, 1, 1, 0).deadline, null);
+  assert.match(COMPONENT, /validation\.deadline \? formatDate\(validation\.deadline\)/);
+  assert.match(COMPONENT, /Hạn nộp \(giờ Việt Nam, tuỳ chọn\)/);
+});

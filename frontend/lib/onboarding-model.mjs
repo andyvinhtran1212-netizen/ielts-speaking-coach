@@ -31,6 +31,10 @@ export function onboardingDestination(profile) {
   return null;
 }
 
+export function buildSkipPayload() {
+  return { onboarding_completed: true };
+}
+
 function validIsoDate(value) {
   if (value === '') return true;
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

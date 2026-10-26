@@ -26,6 +26,11 @@ def json_request_kwargs(
         # pinned Anthropic 0.39 SDK and was verified against the Messages API.
         request["max_tokens"] = ceil(max_tokens * 1.3)
         request["extra_body"] = {"thinking": {"type": "disabled"}}
+    elif model == "claude-sonnet-5-5":
+        # Sonnet 5.5 rejects `disabled` thinking and non-default sampling;
+        # `between_tools` is its no-up-front-thinking mode (default effort
+        # `high` is within its allowed range).
+        request["extra_body"] = {"thinking": {"type": "between_tools"}}
     elif temperature is not None:
         request["temperature"] = temperature
     return request
