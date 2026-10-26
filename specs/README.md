@@ -101,3 +101,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
 
 | SECWRITE-0022 | Client roles cannot write privilege, score or session data | approved | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
+
+| WRITINGRATE-0025 | Repair writing_grade_ratings drift so admin grade ratings key on the graded run | draft | high | [spec](0025-writing-grade-ratings-feedback-version/spec.md) |
