@@ -568,7 +568,9 @@ forceCollected.state.current.active_section = 'done';
 forceCollected.state.current.section_time_left_seconds = 0;
 await forceCollected.page.clock.runFor(8_001);
 await forceCollected.page.getByRole('heading', { name: 'Test collected' }).waitFor();
-await forceCollected.page.goto(`${BASE}/next-probe`, { waitUntil: 'domcontentloaded' });
+// Leave the runner (unmount) for a public same-origin page; /next-probe is a
+// 404 in production builds since U-03.
+await forceCollected.page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
 const forceCollectedLocal = await forceCollected.page.evaluate((id) => (
   localStorage.getItem(`mock-writing:${id}:task1`)
 ), SITTING_ID);

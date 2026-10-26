@@ -31,7 +31,14 @@ describe('/vocabulary/exam — native React behavior', () => {
     assert.match(BEHAVIOR, /'\/api\/vocabulary\/exam'/);
     assert.match(BEHAVIOR, /new AbortController\(\)/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
-    assert.doesNotMatch(BEHAVIOR, /useAuth|authorization|access_token/i);
+    assert.doesNotMatch(BEHAVIOR, /authorization|access_token/i);
+  });
+
+  test('uses auth only to send signed-out visitors to /login (U-03)', () => {
+    // The endpoint stays public and token-free; the page itself is a student
+    // surface, so useAuth() drives the redirect and nothing else.
+    assert.match(BEHAVIOR, /const \{ status \} = useAuth\(\);/);
+    assert.match(BEHAVIOR, /if \(status === 'signed-out'\) window\.location\.replace\('\/login'\);/);
   });
 
   test('normalizes malformed data and removes empty lists/families', () => {
