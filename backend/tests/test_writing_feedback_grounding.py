@@ -742,6 +742,109 @@ def test_max_dropped_items_constant_is_the_documented_threshold():
     assert grounding.MAX_DROPPED_ITEMS == 3
 
 
+# Staging error_detail path shapes (2026-10-26, #1726 validator) replayed with
+# the span classes the offline repro of the same essays and prompts produced.
+FABRICATED = "Em dùng 'induce more driving' rất tự nhiên."
+TASK_QUESTION = "Em trả lời trực tiếp câu hỏi 'To what extent', lập trường rõ ràng."
+
+
+def upgrades(bad=None):
+    good = ["Expanding metro and bus networks is one of the most effective ways to improve air quality.",
+            "It helps reduce inequality.",
+            "Businesses benefit from a more reliable flow of workers and goods.",
+            "Cheaper tickets could be offered to students and people with low incomes,",
+            # Repro a4eeb1b4 r2 [4]: the essay continues with "," not ".".
+            "In rural areas, where populations are small and distances are long, public transport is rarely practical."]
+    return {"sentenceUpgrades": [{"original": (bad or {}).get(i, text), "rewritten": "A rewrite."}
+                                 for i, text in enumerate(good)]}
+
+
+def takeaways(strengths=None, areas=None):
+    base_s = ["Lập trường rõ ràng.", "Mạch lạc.", "Từ vựng chính xác như 'reduce inequality'."]
+    base_a = ["Cần ví dụ cụ thể.", "Cần dùng 'nevertheless' thay vì lặp 'however'.",
+              "Ý chính chưa tách bạch rõ giữa 'giá' và 'chất lượng'."]
+    for i, text in (strengths or {}).items():
+        base_s[i] = text
+    for i, text in (areas or {}).items():
+        base_a[i] = text
+    return {"strengths": base_s, "areasForImprovement": base_a}
+
+
+def three_ideas(i=None, text=None):
+    items = [idea("Rõ ràng."), idea("Ổn."), idea("Cần thêm ví dụ.")]
+    if i is not None:
+        items[i] = idea(text)
+    return items
+
+
+@pytest.mark.parametrize("fields,dropped,warnings", [
+    # e48c78f7 #1: mainCriterion + ideaDevelopmentAnalysis[2].explanation (term).
+    ({"mainCriterion": TASK_QUESTION,
+      "ideaDevelopmentAnalysis": three_ideas(2, "Hiện tượng 'induced demand' chưa được gọi tên chính thức.")},
+     [], []),
+    # ... and when [2].explanation is a real fabrication, only that item goes.
+    ({"mainCriterion": TASK_QUESTION, "ideaDevelopmentAnalysis": three_ideas(2, FABRICATED)},
+     ["ideaDevelopmentAnalysis[2]"], []),
+    # e48c78f7 repair: keyTakeaways.strengths[2] near-miss -> warning; fabrication -> dropped.
+    ({"keyTakeaways": takeaways(strengths={2: "Từ vựng chính xác như 'reduces inequality'."})},
+     [], ["keyTakeaways.strengths[2]"]),
+    ({"keyTakeaways": takeaways(strengths={2: FABRICATED})}, ["keyTakeaways.strengths[2]"], []),
+    # a4eeb1b4 #1: mainCriterion + ideaDevelopmentAnalysis[1].explanation (concept).
+    ({"mainCriterion": "Em trả lời đầy đủ câu hỏi 'to what extent', có lập trường rõ ràng.",
+      "ideaDevelopmentAnalysis": three_ideas(
+          1, "Đây là một khái niệm quy hoạch đô thị kinh điển ('induced demand' - nhu cầu phát sinh).")},
+     [], []),
+    # a4eeb1b4 repair: coherenceCohesion absence, areasForImprovement[1],[2] near-miss
+    # and proposal, sentenceUpgrades[4] edge punctuation, [2] a real misquote.
+    ({"coherenceCohesion": "Em dùng 'Secondly' ở đoạn 3 nhưng đoạn 2 lại không có 'Firstly'.",
+      "keyTakeaways": takeaways(areas={1: "Cụm 'reduces inequality' cần ví dụ.",
+                                       2: "Nên dùng 'mass transit' thay cho 'public transport'."}),
+      "sentenceStructureAnalysis": upgrades({2: "it is one of the most effective ways"})},
+     ["sentenceStructureAnalysis.sentenceUpgrades[2]"], ["keyTakeaways.areasForImprovement[1]"]),
+    # 9beb6ab4 #1: full task question + areasForImprovement[1],[2] (proposal, Vietnamese).
+    ({"mainCriterion": "Em trả lời đầy đủ câu hỏi 'To what extent do you agree or disagree?' với lập trường rõ.",
+      "keyTakeaways": takeaways()},
+     [], []),
+])
+def test_staging_path_shapes_are_accepted_by_the_rule_that_owns_them(fields, dropped, warnings):
+    report = rt_validate(rt_feedback(**fields))
+    assert report.dropped == dropped and report.warnings == warnings
+
+
+@pytest.mark.parametrize("fields,paths", [
+    # a4eeb1b4 repair if every list path were a real fabrication: 4 items > MAX_DROPPED_ITEMS
+    # and 2 of 3 areasForImprovement (more than half).
+    ({"keyTakeaways": takeaways(areas={1: FABRICATED, 2: FABRICATED}),
+      "sentenceStructureAnalysis": upgrades({2: "it is one of the most effective ways",
+                                             4: "public transport is rarely practical in rural areas"})},
+     ["keyTakeaways.areasForImprovement[1]", "keyTakeaways.areasForImprovement[2]",
+      "sentenceStructureAnalysis.sentenceUpgrades[2].original",
+      "sentenceStructureAnalysis.sentenceUpgrades[4].original"]),
+    # 9beb6ab4 #1 if areasForImprovement[1],[2] were fabrications: within the cap,
+    # but only one of three areas would survive.
+    ({"keyTakeaways": takeaways(areas={1: FABRICATED, 2: FABRICATED})},
+     ["keyTakeaways.areasForImprovement[1]", "keyTakeaways.areasForImprovement[2]"]),
+    # Single-valued criterion feedback is never dropped: a real usage claim rejects.
+    ({"coherenceCohesion": "Em dùng 'Firstly' và 'Secondly' hợp lý.",
+      "keyTakeaways": takeaways(areas={1: FABRICATED})},
+     ["criteriaFeedback.coherenceCohesion.feedback", "keyTakeaways.areasForImprovement[1]"]),
+])
+def test_staging_path_shapes_still_reject_when_the_failures_are_real(fields, paths):
+    result = rt_feedback(**fields)
+    before = result.model_dump()
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(result)
+    assert [p for p, _ in err.value.issues] == paths
+    assert result.model_dump() == before
+
+
+def test_two_item_area_list_may_lose_one_item():
+    # Seven of 21 observed answers have two areasForImprovement; one drop keeps half.
+    result = rt_feedback(keyTakeaways={"strengths": ["Ổn."], "areasForImprovement": ["Cần ví dụ.", FABRICATED]})
+    assert rt_validate(result).dropped == ["keyTakeaways.areasForImprovement[1]"]
+    assert result.keyTakeaways.areasForImprovement == ["Cần ví dụ."]
+
+
 def test_repair_instruction_lists_each_failed_path_and_truncated_span():
     long_span = "it is one of the most effective ways " * 10
     err = UngroundedWritingFeedbackError([
