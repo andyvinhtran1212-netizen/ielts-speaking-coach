@@ -1069,14 +1069,17 @@ def test_student_list_puts_the_nearest_deadline_first():
     """It is a to-do list: what is due today belongs at the top. Sorting ISO
     strings with reverse=True did the opposite — next week above today — while
     the comment claimed nearest-first."""
+    import inspect, re
+    from routers import class_student as mod
     rows = [
         {"assignment": {"due_at": "2026-08-05T19:00:00+07:00"}},
         {"assignment": {"due_at": None}},
         {"assignment": {"due_at": "2026-08-03T19:00:00+07:00"}},
         {"assignment": {"due_at": "2026-08-04T19:00:00+07:00"}},
     ]
-    rows.sort(key=lambda r: (r["assignment"]["due_at"] is None,
-                             r["assignment"]["due_at"] or ""))
+    # Sort with the endpoint's own key (it parses instants, so mixed offsets
+    # order correctly too — see test_class_student_page); no-deadline rows last.
+    rows.sort(key=mod._due_sort_key)
     assert [r["assignment"]["due_at"] for r in rows] == [
         "2026-08-03T19:00:00+07:00",
         "2026-08-04T19:00:00+07:00",
@@ -1084,17 +1087,15 @@ def test_student_list_puts_the_nearest_deadline_first():
         None,
     ]
 
-    # …and the endpoint uses exactly that key.
-    import inspect, re
-    from routers import class_student as mod
+    # …and the endpoint uses exactly that key. The key lives in the shared
+    # _due_sort_key helper (one definition for the final sort AND the writing-only
+    # early return); the endpoint must sort by it, never reverse=True.
     # code_only() re-joins tokens with spaces, so match whitespace-tolerantly.
-    src = code_only(inspect.getsource(mod._visible_assignments))
-    assert not re.search(r"reverse\s*=\s*True", src), (
+    endpoint_src = code_only(inspect.getsource(mod._visible_assignments))
+    assert not re.search(r"reverse\s*=\s*True", endpoint_src), (
         "reverse=True puts the farthest deadline first"
     )
-    assert re.search(r'due_at"\s*\]\s*is\s+None', src), (
-        "no-deadline gives must sort last via their own key"
-    )
+    assert "_due_sort_key" in endpoint_src, "the endpoint must sort by the shared key"
 
 
 # ── vòng 9 + quét tự soát ────────────────────────────────────────────────

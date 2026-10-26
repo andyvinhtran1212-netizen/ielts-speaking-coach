@@ -43,6 +43,7 @@ from services.class_assignment_service import (
     reconcile_test_attempts,
 )
 from services.active_player_lifecycle import is_resume_active
+from services.cohort_assignment_service import parse_deadline
 from services.class_membership_service import (
     active_cohort_ids_for_student,
     student_is_active_in_cohort,
@@ -314,6 +315,123 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
     }
 
 
+_NO_DEADLINE = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _safe_deadline(value, *, row_id, field: str) -> Optional[datetime]:
+    """`parse_deadline`, but a malformed stored value reads as "no deadline"
+    (sorts last, counts as open) instead of raising: one bad row must not turn
+    the whole class page into a 500. Logs the row id only — never the value."""
+    try:
+        return parse_deadline(value)
+    except (TypeError, ValueError):
+        logger.warning("[class] malformed %s on row %s; treating as no deadline",
+                       field, row_id)
+        return None
+
+
+def _due_sort_key(row: Dict[str, Any]):
+    """Nearest deadline FIRST; a give with no deadline is never urgent, so it
+    sorts last via its own key rather than by abusing the empty string.
+
+    Ledger `due_at` and writing `deadline` can carry different UTC offsets, so
+    the order is by parsed instant — string order would put an 08:00+07:00
+    deadline (01:00Z) below a 02:00+00:00 one."""
+    due = _safe_deadline(row["assignment"]["due_at"],
+                         row_id=row.get("item_id"), field="due_at")
+    return (due is None, due or _NO_DEADLINE)
+
+
+# A writing give carries its own lifecycle in `writing_assignments` (mig 036); it
+# never wrote a `class_assignment_items` row, yet mig 177 always meant the class
+# page to show it "beside the Speaking task". These are the only columns the class
+# page needs to render + bucket the give the same way it buckets a ledger item.
+_WRITING_GIVE_COLUMNS = (
+    "id, status, submitted_at, deadline, instructions, cohort_id, name, "
+    "writing_prompts(title)"
+)
+
+
+def _writing_give_row(wa: Dict[str, Any], now: datetime) -> Dict[str, Any]:
+    """Shape one `writing_assignments` row like a `_decorate`d ledger item.
+
+    `writing_expected` is False on purpose: that flag asks whether a *course*
+    bank has a self-written section, which has nothing to do with a standalone
+    writing give. `course_action` is None for the same reason. Lateness/missing
+    are derived from the deadline exactly as the ledger derives them.
+    """
+    deadline = wa.get("deadline")
+    due = _safe_deadline(deadline, row_id=wa.get("id"), field="deadline")
+    submitted_at = wa.get("submitted_at")
+    submitted = _safe_deadline(submitted_at, row_id=wa.get("id"), field="submitted_at")
+    is_late = bool(submitted and due and submitted > due)
+    is_missing = bool(not submitted_at and due and due < now)
+    prompt = wa.get("writing_prompts") or {}
+    title = wa.get("name") or prompt.get("title") or "Bài viết"
+    return {
+        "item_id":         wa["id"],
+        "state":           wa.get("status") or "assigned",
+        "submitted_at":    submitted_at,
+        "score":           None,
+        "passed_at":       None,
+        "course_action":   None,
+        "writing_expected": False,
+        "is_late":         is_late,
+        "is_missing":      is_missing,
+        "assignment": {
+            "id":             wa["id"],
+            "cohort_id":      wa.get("cohort_id"),
+            "cohort_name":    None,
+            "title":          title,
+            "skill":          "writing",
+            "instructions":   wa.get("instructions"),
+            "due_at":         deadline,
+            "content_config": {},
+        },
+    }
+
+
+def _visible_writing_gives(student_id: str, cohort_ids: list[str],
+                           now: datetime) -> tuple[list, bool]:
+    """The student's cohort writing gives, shaped like class-ledger rows.
+
+    `/my-class` reads the class ledger; a standalone writing give lives only in
+    `writing_assignments`, so without this a learner saw "Chưa có bài tập nào"
+    on the class page while the give sat on the Writing dashboard. Both the
+    cohort fan-out (give-time) and the late-joiner backfill (E1) write THIS
+    table, so reading it here is what lets a late joiner see the give on the
+    class page exactly like a classmate who was present at give-time — the query
+    is keyed on (student_id, cohort) and does not care which path created the row.
+
+    OUTSTANDING WORK IS NEVER CAPPED (same rule as `_visible_assignments`);
+    finished gives are capped to the newest `_MAX_HISTORY`.
+    """
+    if not cohort_ids:
+        return [], False
+    try:
+        outstanding = _paged_items_of(
+            "writing_assignments",
+            lambda q: (q.eq("student_id", student_id)
+                       .in_("cohort_id", cohort_ids)
+                       .is_("submitted_at", "null")),
+            _WRITING_GIVE_COLUMNS,
+        )
+        history = (
+            supabase_admin.table("writing_assignments").select(_WRITING_GIVE_COLUMNS)
+            .eq("student_id", student_id).in_("cohort_id", cohort_ids)
+            .not_.is_("submitted_at", "null")
+            .order("submitted_at", desc=True).limit(_MAX_HISTORY).execute().data
+        ) or []
+        return [_writing_give_row(wa, now) for wa in outstanding + history], False
+    except Exception as exc:
+        # Degrade this block alone, flagging the page stale — a broken writing
+        # read must not blank the Speaking/Course homework beside it. (A
+        # malformed deadline never reaches here: `_safe_deadline` absorbs it
+        # per row.)
+        logger.warning("[class] writing gives read failed: %s", exc)
+        return [], True
+
+
 def _visible_assignments(student: Dict[str, Any], now: datetime,
                          cohort_ids: list[str] | None = None) -> tuple[list, bool]:
     """This student's assignments — outstanding in full, history capped.
@@ -329,6 +447,11 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     """
     cohort_ids = cohort_ids if cohort_ids is not None else (
         [str(student["cohort_id"])] if student.get("cohort_id") else [])
+    # Writing gives live in their own table and never produced a ledger item, so
+    # they are fetched alongside — and merged below — rather than through the
+    # class_assignment_items reads. A learner who has ONLY writing homework must
+    # still see it, so this cannot sit behind the "no ledger items" early return.
+    writing_out, writing_stale = _visible_writing_gives(student["id"], cohort_ids, now)
     outstanding = _paged_items(
         lambda q: q.eq("student_id", student["id"]).is_("submitted_at", "null")
     )
@@ -380,7 +503,9 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     items = list(items_by_id.values())
 
     if not items:
-        return [], False
+        # No ledger homework, but the student may still owe a writing give.
+        writing_out.sort(key=_due_sort_key)
+        return writing_out, writing_stale
 
     if not cohort_ids:
         return [], False
@@ -460,11 +585,15 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     # "Cần hoàn thành" là trạng thái chính thức.
     if any(row.get("writing_expected") is None for row in out):
         stale = True
+    # Merge the writing gives in before the one sort so they interleave with the
+    # ledger work by deadline — a writing task due today must sort above a
+    # Speaking task due tomorrow, not into a separate block.
+    out.extend(writing_out)
+    stale = stale or writing_stale
     # Nearest deadline FIRST — this is a to-do list, so what is due today has to
     # be at the top. A give with no deadline is never urgent, so it sorts last
     # via its own key rather than by abusing the empty string.
-    out.sort(key=lambda r: (r["assignment"]["due_at"] is None,
-                            r["assignment"]["due_at"] or ""))
+    out.sort(key=_due_sort_key)
     return out, stale
 
 

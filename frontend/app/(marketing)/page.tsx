@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { LandingBehavior } from './landing-behavior';
 
 export const metadata: Metadata = {
-  title: 'averlearning — Luyện IELTS toàn diện cùng AI',
+  title: 'Aver Learning — Luyện IELTS toàn diện cùng AI',
   description:
     'Luyện Speaking, Writing, Reading và Listening cùng ngữ pháp và từ vựng. Speaking và Writing có phản hồi AI; các bài luyện có đáp án, giải thích và nội dung tra cứu.',
   alternates: { canonical: '/' },
@@ -45,7 +45,7 @@ export default function LandingPreviewPage() {
               </svg>
             </div>
             <span className="ix-logo__text font-bold text-lg tracking-tight">
-              averlearning
+              Aver Learning
             </span>
           </a>
 
@@ -414,7 +414,7 @@ export default function LandingPreviewPage() {
               <p className="ix-skill-card__eyebrow">Bài đọc và câu hỏi luyện IELTS</p>
               <h3 className="ix-skill-card__title">Reading</h3>
               <p className="ix-skill-card__body">
-                Bài đọc IELTS thực tế với phân tích cấu trúc đoạn, chiến lược tìm
+                Bài đọc theo format IELTS với phân tích cấu trúc đoạn, chiến lược tìm
                 ý chính và phân tích bẫy câu hỏi.
               </p>
               <ul className="ix-skill-card__feats">
@@ -445,14 +445,14 @@ export default function LandingPreviewPage() {
               <div className="ix-skill-card__icon">
                 <SkillIcon name="headphones" />
               </div>
-              <p className="ix-skill-card__eyebrow">Audio thực tế IELTS</p>
+              <p className="ix-skill-card__eyebrow">Audio luyện nghe theo chuẩn IELTS</p>
               <h3 className="ix-skill-card__title">Listening</h3>
               <p className="ix-skill-card__body">
                 Dictation, note-taking và phân tích bẫy đáp án — rèn kỹ năng nghe
                 toàn diện từ cơ bản đến nâng cao.
               </p>
               <ul className="ix-skill-card__feats">
-                <li>Section 1–4 theo chuẩn IELTS</li>
+                <li>Part 1–4 theo chuẩn IELTS</li>
                 <li>Dictation và note-taking</li>
                 <li>Phân tích bẫy đáp án phổ biến</li>
               </ul>
@@ -1039,7 +1039,7 @@ export default function LandingPreviewPage() {
                   </svg>
                 </div>
                 <span className="ix-footer__brand font-bold text-lg tracking-tight">
-                  averlearning
+                  Aver Learning
                 </span>
               </div>
               <p className="ix-footer__tagline text-sm leading-relaxed max-w-xs">
@@ -1103,7 +1103,7 @@ export default function LandingPreviewPage() {
 
           <div className="ix-footer__divider pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="ix-footer__copy text-sm">
-              © 2026 averlearning. Mọi quyền được bảo lưu.
+              © 2026 Aver Learning. Mọi quyền được bảo lưu.
             </p>
             <p className="ix-footer__powered text-xs">
               Phản hồi AI cho Speaking và Writing

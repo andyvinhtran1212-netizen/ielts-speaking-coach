@@ -21,7 +21,7 @@ MagicMock, mirroring how the routers keep DB calls thin.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -206,18 +206,50 @@ def _paged(query_factory, order_col: str = "id") -> list:
         start += _PAGE
 
 
-def _deadline_is_open(deadline, now_iso: str) -> bool:
+def parse_deadline(value) -> Optional[datetime]:
+    """A stored deadline/timestamp as a timezone-aware UTC ``datetime``.
+
+    ISO strings must be compared as instants, never as text: PostgREST and
+    callers may hand back the same column with different offsets ('Z',
+    '+00:00', '+07:00'), and "2026-10-25T08:00:00+07:00" sorts AFTER
+    "2026-10-25T02:00:00+00:00" as a string while being a full hour EARLIER.
+    Accepts a ``datetime``/``date`` or an ISO-8601 string; a trailing 'Z' means
+    UTC, a date-only value is midnight UTC of that day, and a naive value is
+    treated as UTC. ``None``/blank → ``None`` (no deadline). A malformed string
+    raises ``ValueError`` so each caller picks its own failure policy.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        parsed = datetime(value.year, value.month, value.day)
+    else:
+        raw = str(value).strip()
+        if not raw:
+            return None
+        if raw[-1] in "Zz":
+            raw = raw[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(raw)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _deadline_is_open(deadline, now: datetime, *, row_ref=None) -> bool:
     """An assignment is still open to a late joiner when it has no deadline or
-    the deadline has not passed. Compares ISO-8601 timestamps lexicographically
-    after normalising to a comparable shape — both come from the same column so
-    they share a format; on any parse ambiguity we fail OPEN (backfill it) so a
-    joiner is never silently denied homework."""
-    if not deadline:
-        return True
+    the deadline has not passed. Both sides are parsed into aware datetimes and
+    compared as instants (see `parse_deadline`); on any parse failure we fail
+    OPEN (backfill it) so a joiner is never silently denied homework."""
     try:
-        return str(deadline) >= now_iso
-    except Exception:
+        due = parse_deadline(deadline)
+    except (TypeError, ValueError):
+        logger.warning("[cohort] malformed deadline on give %s; treating as open",
+                       row_ref)
         return True
+    if due is None:
+        return True
+    return due >= parse_deadline(now)
 
 
 def backfill_cohort_writing_assignments(
@@ -238,7 +270,8 @@ def backfill_cohort_writing_assignments(
     """
     sid = str(student_id)
     cohort_str = str(cohort_id)
-    now_iso = (now or datetime.now(timezone.utc)).isoformat()
+    now_dt = parse_deadline(now) or datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
 
     cohort_rows = _paged(lambda: (
         db.table("writing_assignments")
@@ -262,7 +295,8 @@ def backfill_cohort_writing_assignments(
         key = (row.get("assignment_group_id"), row.get("prompt_id"))
         if key in templates or key in have:
             continue
-        if not _deadline_is_open(row.get("deadline"), now_iso):
+        if not _deadline_is_open(row.get("deadline"), now_dt,
+                                 row_ref=row.get("assignment_group_id")):
             continue
         templates[key] = row
 

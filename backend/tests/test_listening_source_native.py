@@ -2,6 +2,7 @@
 from copy import deepcopy
 import asyncio
 import json
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -41,6 +42,21 @@ def test_complete_native_topology_and_svg_safety():
             for child in value: yield from keys(child)
     assert not {'answer', 'printed_key', 'evidence', 'explanation', 'transcript', 'reference_answer', 'storage_path'} & set(keys(content))
     assert all(len(row) == len(p['columns']) for b in content['blocks'].values() if (p := b['presentation'])['columns'] for row in p['rows'])
+
+
+def test_learner_text_has_no_chinese_source_pages_watermarks_or_wrong_mock_counts():
+    content = native.revision()
+    raw = native.CONTENT.read_text(encoding='utf-8')
+    assert not re.search(r'[　-〿一-鿿＀-￯]', raw)
+    assert 'topsage' not in raw.lower()
+    for day in range(71, 81):
+        headers = [row['presentation']['text'] for block_id, row in content['blocks'].items()
+                   if block_id.startswith(f'80-days:day-{day}:') and 'NUMBER OF QUESTIONS' in row['presentation']['text']]
+        positions = sum(len(row['presentation']['questions']) for block_id, row in content['blocks'].items()
+                        if block_id.startswith(f'80-days:day-{day}:'))
+        assert len(headers) == 1 and headers[0].count('Instructions') == 1
+        assert f'NUMBER OF QUESTIONS: {positions}\n' in headers[0]
+        assert 'different recordings' in headers[0]
 
 
 def test_exact_source_binding_survives_player_allowlist_and_never_signs_crops():

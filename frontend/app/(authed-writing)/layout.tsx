@@ -31,8 +31,13 @@ export default function AuthedWritingLayout({ children }: { children: ReactNode 
             { src: '/vendor/marked.min.js' },
             { src: '/vendor/purify.min.js' },
             { src: '/js/markdown.js' },
-            { src: '/js/writing-submit-receipt.js' },
           ]} />
+          {/* CHUỖI RIÊNG, chạy song song: `writing-submit-receipt.js` không
+              phụ thuộc marked/DOMPurify, nhưng `WritingBehavior` chờ nó
+              (`whenGlobalReady`) trước khi gọi BẤT KỲ API nào. Xếp nó thứ tư
+              trong chuỗi markdown là bắt hai danh sách chờ thêm ba lượt tải
+              script nối tiếp. */}
+          <RouteScriptChain scripts={[{ src: '/js/writing-submit-receipt.js' }]} />
         </>
       }
     >

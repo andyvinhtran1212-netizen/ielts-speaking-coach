@@ -20,10 +20,18 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-25 the highest is `320`, so the next
-new migration is `321`. `319` is reserved by the open, unapplied PR #1692
-(`319_explanation_version_unavailable_reason.sql`); do not reuse it for a
-different change. The runner applies any unapplied file regardless of order.
+sequence is dense. As of 2026-10-26 the highest is `320`, so the next
+new migration is `321`. The runner applies any unapplied file regardless of order.
+
+Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
+change: the `web_explanation_content_version_unavailable` refusal now names its
+cause — `:none` (no current object bound to this paper, e.g. a MOCK0016 REVxx
+copy whose set is still bound to the original Cambridge paper),
+`:multiple:N` or `:pinned_not_current`. Signature, grants, approval writes and
+every other refusal are unchanged, and it still never chooses a version. No data
+changes; safe to re-apply. Binding a REVxx copy is a separate, reviewed data
+step: `python -m scripts.bind_revision_web_explanations` (dry run by default;
+`--commit` requires the reviewed `--plan-sha`).
 
 Migration `320` is a security lockdown (staging audit 2026-10-25, F01/F03/F04/
 F14, plus the Project Coordinator review of 2026-10-26). It revokes

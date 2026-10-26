@@ -350,19 +350,25 @@ def test_locked_constants():
 # ── Asset presence + privacy guard (2026-10-25 restore) ──────────────────────
 #
 # Production ran for months with ``ModuleNotFoundError: grammar_checker``
-# because ``assets/grammar-mindmap/`` was never committed. These tests import
+# because the grammar asset was never in the deployed image (first missing
+# from the repo, then outside the backend/ build root). These tests import
 # the real asset (no stub) so a stripped asset fails CI, and pin the rule that
 # learner transcripts never reach the public LanguageTool API.
 
 
 def _real_asset_dir() -> Path:
-    return Path(__file__).resolve().parent.parent.parent / "assets" / "grammar-mindmap"
+    return Path(__file__).resolve().parent.parent / "assets" / "grammar-mindmap"
 
 
 def test_asset_directory_is_committed():
     d = _real_asset_dir()
-    assert (d / "grammar_checker.py").is_file(), "assets/grammar-mindmap/grammar_checker.py missing"
-    assert (d / "grammar_data.py").is_file(), "assets/grammar-mindmap/grammar_data.py missing"
+    assert (d / "grammar_checker.py").is_file(), "backend/assets/grammar-mindmap/grammar_checker.py missing"
+    assert (d / "grammar_data.py").is_file(), "backend/assets/grammar-mindmap/grammar_data.py missing"
+    # The Railway image contains only backend/; the asset must live inside it.
+    backend_root = Path(__file__).resolve().parent.parent
+    assert d.is_relative_to(backend_root), "grammar asset must live under backend/ to be deployed"
+    from services.grammar_check import _ASSET_DIR
+    assert _ASSET_DIR.resolve() == d.resolve()
 
 
 def test_real_asset_local_rules_catch_known_bad_transcript():
@@ -500,6 +506,8 @@ def _real_local(sentence: str) -> list[dict]:
     "I like what you do.",
     "Tell me what you are doing.",
     "She asked me why I was late. I told her the truth.",
+    "What she does is important.",  # declarative subject clause
+    "Where he lives doesn't matter. What I did was wrong.",
 ])
 def test_embedded_clauses_do_not_trigger_question_inversion(sentence):
     assert not [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT"], sentence
@@ -510,6 +518,8 @@ def test_embedded_clauses_do_not_trigger_question_inversion(sentence):
     "What you are doing?",
     "I was tired. Where you are going?",
     "Where you are going",  # speech transcript without the question mark
+    "What she does?",
+    "What you are doing is that?",
 ])
 def test_direct_questions_still_trigger_question_inversion(sentence):
     assert [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_QUESTION_WORD_S_AUX_SHOULD_INVERT"], sentence
@@ -532,3 +542,139 @@ def test_possessive_noun_phrases_do_not_trigger_your_youre(sentence):
 ])
 def test_contraction_slips_still_trigger_your_youre(sentence):
     assert [f for f in _real_local(sentence) if f["ruleId"] == "LOCAL_YOUR_WELCOME_ADJ_SHOULD_BE_YOU_RE"], sentence
+
+
+_RULE_IF_WILL = "LOCAL_IF_CLAUSE_WITH_WILL_TYPE_1"
+_RULE_PAST_MARKER = "LOCAL_PAST_TIME_MARKER_PRESENT_VERB"
+
+
+@pytest.mark.parametrize("sentence, rule_id", [
+    ("I wonder if he will come.", _RULE_IF_WILL),
+    ("I'm not sure if she will agree.", _RULE_IF_WILL),
+    ("Can you ask him if he will be there?", _RULE_IF_WILL),
+    ("Since last year I have lived here.", _RULE_PAST_MARKER),
+    ("In the last year I have been very busy.", _RULE_PAST_MARKER),
+    ("in the last year I have lived here", _RULE_PAST_MARKER),
+    ("Over the last year I have worked hard.", _RULE_PAST_MARKER),
+    ("For the last week I have studied every day.", _RULE_PAST_MARKER),
+])
+def test_asset_rules_skip_embedded_if_and_present_perfect(sentence, rule_id):
+    assert not [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence
+
+
+@pytest.mark.parametrize("sentence, rule_id", [
+    ("If it will rain tomorrow, I stay home.", _RULE_IF_WILL),
+    ("If it will rain, I will stay home.", _RULE_IF_WILL),
+    ("Yesterday I go to the market.", _RULE_PAST_MARKER),
+    ("Last year I have a dog.", _RULE_PAST_MARKER),
+    # Present perfect is incompatible with a finished-past marker.
+    ("Yesterday I have eaten lunch.", _RULE_PAST_MARKER),
+    ("Last year I have worked in London.", _RULE_PAST_MARKER),
+])
+def test_asset_rules_still_flag_conditional_will_and_past_marker(sentence, rule_id):
+    assert [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence
+
+
+def test_health_probe_counts_local_rule_errors_without_languagetool(monkeypatch):
+    """The CI smoke gate asserts sample_error_count > 0 on staging, where the
+    offline LanguageTool server may be absent. The probe sample must therefore
+    contain an error the real asset's local rules catch on their own."""
+    for name in ("grammar_checker", "grammar_data"):
+        sys.modules.pop(name, None)
+    svc = GrammarCheckService()
+    svc._ensure_asset_on_path()
+    svc._backend_init_failed = True
+    svc._backend_init_reason = "languagetool_offline_unavailable"
+    monkeypatch.setattr(grammar_check, "get_grammar_check_service", lambda: svc)
+    monkeypatch.setattr(grammar_check, "_read_cache", lambda *_a, **_k: None, raising=False)
+    monkeypatch.setattr(grammar_check, "_write_cache", lambda *_a, **_k: None, raising=False)
+    out = asyncio.run(grammar_check.grammar_check_health())
+    assert out["init_failure_reason"] == "languagetool_offline_unavailable"
+    assert out["sample_error_count"] > 0, out
+
+
+# ── Init race, retry cooldown, probe cache bypass (staging 2026-10-26) ───────
+
+
+def test_concurrent_first_requests_construct_backend_once():
+    """Two threads racing the lazy init must build one LTBackend; the loser
+    reuses it instead of starting a second LanguageTool server."""
+    import threading
+    import time as _time
+
+    calls = []
+    backend = MagicMock()
+    backend.mode = "offline"
+
+    def _slow_ctor(**_kw):
+        calls.append(1)
+        _time.sleep(0.2)
+        return backend
+
+    fake_mod = MagicMock()
+    fake_mod.LTBackend.side_effect = _slow_ctor
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        svc = GrammarCheckService()
+        results = []
+        threads = [threading.Thread(target=lambda: results.append(svc._ensure_backend())) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert len(calls) == 1
+    assert results == [backend] * 4
+    assert svc._backend_init_failed is False
+
+
+def test_successful_init_clears_previous_failure_flag():
+    svc = GrammarCheckService()
+    svc._mark_init_failed("languagetool_offline_unavailable")
+    svc._backend_init_failed_at -= grammar_check.LT_INIT_RETRY_SECONDS + 1
+    backend = MagicMock()
+    backend.mode = "offline"
+    fake_mod = MagicMock()
+    fake_mod.LTBackend.return_value = backend
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        assert svc._ensure_backend() is backend
+    assert svc._backend_init_failed is False
+    assert svc._backend_init_reason is None
+
+
+def test_transient_failure_is_not_retried_before_cooldown():
+    svc = GrammarCheckService()
+    svc._mark_init_failed("languagetool_offline_unavailable")
+    fake_mod = MagicMock()
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        assert svc._ensure_backend() is None
+    fake_mod.LTBackend.assert_not_called()
+
+
+def test_asset_missing_is_never_retried():
+    svc = GrammarCheckService()
+    svc._mark_init_failed("asset_missing")
+    svc._backend_init_failed_at -= grammar_check.LT_INIT_RETRY_SECONDS + 1
+    fake_mod = MagicMock()
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        assert svc._ensure_backend() is None
+    fake_mod.LTBackend.assert_not_called()
+
+
+def test_health_probe_bypasses_result_cache(monkeypatch):
+    """A cached result (maybe computed while LanguageTool was down) must not
+    stand in for the live probe, and the probe must not write the cache."""
+    get_calls, set_calls = [], []
+    monkeypatch.setattr(grammar_check, "_cache_get", lambda sha: get_calls.append(sha) or None)
+    monkeypatch.setattr(grammar_check, "_cache_set", lambda sha, r: set_calls.append(sha))
+    local = [_finding(rule_id="LOCAL_MISSING_SUBJECT", offset=0, err_len=2)]
+    fake_mod = MagicMock()
+    fake_mod.run_local_rules.return_value = local
+    fake_mod.merge_findings.return_value = local
+    fake_mod.LTBackend.side_effect = RuntimeError("no java")
+    with patch.dict(sys.modules, {"grammar_checker": fake_mod}):
+        svc = GrammarCheckService()
+        monkeypatch.setattr(svc, "_persist_events", lambda *a, **k: None)
+        probe = asyncio.run(svc.check("He go to school.", _health_probe=True))
+        normal = asyncio.run(svc.check("He go to school."))
+    assert probe is not None and probe.total_count == 1
+    assert normal is not None
+    assert len(get_calls) == 1 and len(set_calls) == 1  # only the normal call touched the cache

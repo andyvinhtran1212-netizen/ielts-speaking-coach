@@ -61,10 +61,14 @@ export function WritingShell() {
           <p className="mt-3 text-gray-300">Đang tải...</p>
         </div>
 
-        {/* Error state */}
+        {/* Error state — every bootstrap failure/timeout ends here (see
+            lib/writing-dashboard-bootstrap.mjs); "Thử lại" re-runs it. */}
         <div id="error" className="hidden max-w-md mx-auto text-center py-16">
           <div className="wd-error-box">
             <p className="wd-error-box__msg" id="error-message"></p>
+            <button id="error-retry" type="button" className="wd-retry-btn hidden">
+              Thử lại
+            </button>
             <a id="error-cta"
                href="/home"
                className="inline-block text-teal-light underline hover:text-white transition">
@@ -202,10 +206,11 @@ export function WritingShell() {
             <div id="tips-empty" className="wd-empty hidden">
               <div className="wd-empty__icon" aria-hidden="true">💡</div>
               <p className="wd-empty__title">Chưa có mẹo nào</p>
-              <p className="wd-empty__hint">Giảng viên sẽ publish mẹo viết sớm — em quay lại sau nhé.</p>
+              <p className="wd-empty__hint">Giảng viên sẽ đăng mẹo viết sớm — em quay lại sau nhé.</p>
             </div>
-            <div id="tips-error" className="wd-empty wd-empty--compact hidden">
+            <div id="tips-error" className="wd-empty wd-empty--compact hidden" role="alert">
               <p className="wd-empty__hint" id="tips-error-msg">Không tải được mẹo viết.</p>
+              <button id="tips-retry" type="button" className="wd-retry-btn">Thử lại</button>
             </div>
           </section>
 

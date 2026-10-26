@@ -264,6 +264,15 @@ export function assignmentAction(row) {
       return { kind: 'review', label: 'Xem bài & chữa lỗi' };
     }
   }
+  if (row?.assignment?.skill === 'writing') {
+    // A writing give's whole lifecycle (draft, submit, grading) lives on the
+    // Writing dashboard; every state navigates there. "Missing" stays navigable
+    // (not a dead `closed` button) because an overdue essay can still be viewed
+    // and, if the teacher left it open, submitted late there.
+    if (row.submittedAt) return { kind: 'review', label: 'Xem bài đã nộp' };
+    if (row.isMissing) return { kind: 'review', label: 'Mở bài viết' };
+    return { kind: 'start', label: 'Làm bài' };
+  }
   if (row?.assignment?.skill === 'course') {
     const labels = {
       start: 'Làm bài',

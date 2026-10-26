@@ -259,4 +259,36 @@ def repair(baseline):
             else:
                 assert a["payload"]["answers"] == b["payload"]["answers"]
                 assert a["payload"].get("audio_windows") == b["payload"].get("audio_windows")
+    return repair_followup(data)
+
+
+def repair_followup(baseline):
+    """Apply only the two editorial follow-ups to an already repaired bundle.
+
+    This is also used by the original repair so rebuilding from its historical
+    baseline cannot reintroduce the speaker markup or the obsolete gloss.
+    It is pure and idempotent; callers still own guarded persistence.
+    """
+    data = deepcopy(baseline)
+
+    def solution(test, number):
+        bundle = data[f"MOCK0016-PROD-20261006-ILR-LIS-CAM-B19-T{test}-REV01"]
+        exercise = next(e for e in bundle["items"]
+                        if any(q["q_num"] == number for q in e["payload"]["questions"]))
+        return exercise["payload"]["solutions"][str(number)]
+
+    for number in (21, 22, 23, 24):
+        item = solution(1, number)
+        item["script"] = item["script"].replace("**Colin:**", "Colin:").replace("**Marie:**", "Marie:")
+
+    item = solution(4, 7)
+    old = "— hạn dùng ghi trên bao bì"
+    new = "— hạn bán (ngày cuối được bày bán)"
+    lines = item["vocab_focus"].split("\n")
+    matches = [i for i, line in enumerate(lines) if "sell-by date" in line and (old in line or new in line)]
+    if len(matches) != 1:
+        raise ValueError("Cam19 T4 Q7 sell-by vocabulary line differs from the reviewed source")
+    index = matches[0]
+    lines[index] = lines[index].replace(old, new)
+    item["vocab_focus"] = "\n".join(lines)
     return data

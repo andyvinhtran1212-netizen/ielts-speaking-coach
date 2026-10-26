@@ -265,6 +265,47 @@ describe('assignment start contract', () => {
     });
   });
 
+  test('a cohort writing give surfaces on the class page and stays navigable', () => {
+    // The backend now emits writing gives (from writing_assignments) as skill
+    // 'writing' rows so a late joiner sees them on /my-class exactly like an
+    // on-time classmate. They must survive the strict boundary and offer an
+    // action that routes to the Writing dashboard, not the class-start endpoint.
+    const writingGive = {
+      item_id: 'w-open', state: 'pending', submitted_at: null, score: null,
+      passed_at: null, course_action: null, writing_expected: false,
+      is_late: false, is_missing: false,
+      assignment: {
+        id: 'w-open', cohort_id: 'c1', cohort_name: 'QA Course 1',
+        title: 'QA TEST Task 2', skill: 'writing', instructions: null,
+        due_at: '2099-01-01T00:00:00+00:00', content_config: {},
+      },
+    };
+    const open = normalizeMyClassResponse(payload({
+      assignments: [writingGive],
+      progress: { total: 1, submitted: 0, todo: 1, missing: 0, late: 0, on_time_pct: null },
+    }));
+    assert.equal(open.assignments.length, 1, 'the writing give must not be dropped by the boundary');
+    assert.equal(open.assignments[0].assignment.skill, 'writing');
+    assert.deepEqual(assignmentAction(open.assignments[0]), { kind: 'start', label: 'Làm bài' });
+
+    const submitted = normalizeMyClassResponse(payload({
+      assignments: [{ ...writingGive, item_id: 'w-done', state: 'graded',
+        submitted_at: '2026-10-01T10:00:00Z',
+        assignment: { ...writingGive.assignment, id: 'w-done' } }],
+      progress: { total: 1, submitted: 1, todo: 0, missing: 0, late: 0, on_time_pct: 100 },
+    }));
+    assert.deepEqual(assignmentAction(submitted.assignments[0]), { kind: 'review', label: 'Xem bài đã nộp' });
+
+    const overdue = normalizeMyClassResponse(payload({
+      assignments: [{ ...writingGive, item_id: 'w-late', is_missing: true,
+        assignment: { ...writingGive.assignment, id: 'w-late',
+          due_at: '2020-01-01T00:00:00+00:00' } }],
+      progress: { total: 1, submitted: 0, todo: 0, missing: 1, late: 0, on_time_pct: null },
+    }));
+    // Not a dead "closed" button: an overdue essay can still be opened/late-submitted.
+    assert.deepEqual(assignmentAction(overdue.assignments[0]), { kind: 'review', label: 'Mở bài viết' });
+  });
+
   test('course review intent survives the strict start-response boundary', () => {
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'course',

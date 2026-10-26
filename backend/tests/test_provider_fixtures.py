@@ -210,13 +210,16 @@ async def test_grammar_check_health_probe_bypasses_fixture(monkeypatch):
     # /health/grammar-check verifies the REAL grammar backend with a
     # known-bad sample; the fixture's guaranteed-0 result would falsely mark
     # it degraded. _health_probe=True must take the real path. Since
-    # assets/grammar-mindmap is committed (PR #1690) the real path always has
+    # backend/assets/grammar-mindmap is committed (PR #1690) the real path always has
     # the VI-learner local rules, with or without Java, so use a sample those
     # rules catch: the real result is observably non-empty while the fixture
     # stays at 0.
     monkeypatch.setattr(settings, "GRADING_PROVIDER_MODE", "fixture")
     from services.grammar_check import get_grammar_check_service
     svc = get_grammar_check_service()
+    # Keep this test about the fixture bypass: on a machine with Java the real
+    # LanguageTool start can exceed the 15s timeout and return None (flaky).
+    monkeypatch.setattr(svc, "_ensure_backend", lambda: None)
     sample = "She go to school every day and I can to swim."
     fixture_result = await svc.check(sample)
     assert fixture_result is not None and fixture_result.total_count == 0
