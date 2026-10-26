@@ -60,6 +60,21 @@ GRADING_PROVIDER_ORDER: tuple[str, ...] = (
     "claude_sonnet",
 )
 
+# Anthropic-primary slot (services.ai_router). Prepended to the grader order
+# only when the speaking_grading provider order puts "anthropic" before
+# "gemini"; the existing chain then follows unchanged as the fallback.
+ANTHROPIC_PRIMARY_SLOT = "anthropic_primary"
+
+
+def grading_provider_order(settings_obj=None) -> tuple[str, ...]:
+    """Effective Speaking grader order for the current configuration."""
+    from services import ai_router
+
+    if ai_router.anthropic_first("speaking_grading", "gemini", settings_obj):
+        return (ANTHROPIC_PRIMARY_SLOT, *GRADING_PROVIDER_ORDER)
+    return GRADING_PROVIDER_ORDER
+
+
 # L4 — retry policy. The +1 is the original attempt; we retry exactly
 # once on transient errors before escalating to the next provider.
 RETRY_ATTEMPTS_PER_PROVIDER = 1
@@ -103,6 +118,11 @@ class GradingOrchestrator:
         list) if every provider in `order` exhausts its retries.
         """
         events: list[FallbackEvent] = []
+        # The Anthropic-primary slot runs ahead of the existing chain; its one
+        # attempt gets its own time so the chain keeps its original budget.
+        slot = self._providers.get(ANTHROPIC_PRIMARY_SLOT)
+        if slot is not None and ANTHROPIC_PRIMARY_SLOT in order:
+            total_timeout_seconds += attempt_timeout_seconds
         deadline = time.monotonic() + total_timeout_seconds
 
         for provider_name in order:
@@ -122,7 +142,8 @@ class GradingOrchestrator:
                 ))
                 continue
 
-            for attempt in range(RETRY_ATTEMPTS_PER_PROVIDER + 1):
+            retries = getattr(provider, "retry_attempts", RETRY_ATTEMPTS_PER_PROVIDER)
+            for attempt in range(retries + 1):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     events.append(FallbackEvent(
@@ -152,7 +173,7 @@ class GradingOrchestrator:
                         error_status="timeout",
                         error_type=type(exc).__name__,
                     ))
-                    if attempt < RETRY_ATTEMPTS_PER_PROVIDER:
+                    if attempt < retries:
                         backoff = INITIAL_BACKOFF_SECONDS * (2 ** attempt)
                         jitter = backoff * JITTER_RATIO * (random.random() * 2 - 1)
                         delay = min(max(0.0, backoff + jitter), max(0.0, deadline - time.monotonic()))
@@ -191,7 +212,7 @@ class GradingOrchestrator:
                         error_status=str(exc.status) if exc.status is not None else None,
                         error_type=type(exc.original).__name__ if exc.original else "RetryableError",
                     ))
-                    if attempt < RETRY_ATTEMPTS_PER_PROVIDER:
+                    if attempt < retries:
                         backoff = INITIAL_BACKOFF_SECONDS * (2 ** attempt)
                         jitter = backoff * JITTER_RATIO * (random.random() * 2 - 1)
                         delay = max(0.0, backoff + jitter)
@@ -214,6 +235,12 @@ class GradingOrchestrator:
                         outcome="success",
                         latency_ms=int((time.monotonic() - start) * 1000),
                     ))
+                    logger.info(
+                        "[orchestrator] served_by=%s model=%s attempt=%d",
+                        provider_name,
+                        getattr(provider, "model", None) or getattr(provider, "model_name", None),
+                        attempt,
+                    )
                     return raw, events
 
         raise AllProvidersFailedError(events=events)
@@ -265,6 +292,23 @@ def build_default(
     )
     if primary is not None:
         providers["grading_primary"] = primary
+
+    from services import ai_router
+
+    if feature == "speaking_grading" and ai_router.anthropic_first(
+        "speaking_grading", "gemini", settings_obj,
+    ):
+        # Room for four Vietnamese feedback blocks + improved_response; the cap
+        # only bounds output, cost follows the actual length.
+        claude_primary = ClaudeProvider(
+            api_key=anthropic_key, max_tokens=4096,
+            usage_feature=feature, usage_operation=operation,
+        )
+        claude_primary.model = ai_router.anthropic_model("speaking_grading", settings_obj)
+        claude_primary.provider_name = ANTHROPIC_PRIMARY_SLOT
+        # One attempt: on 429/5xx/timeout go straight to the existing chain.
+        claude_primary.retry_attempts = 0
+        providers[ANTHROPIC_PRIMARY_SLOT] = claude_primary
 
     return GradingOrchestrator(providers)
 

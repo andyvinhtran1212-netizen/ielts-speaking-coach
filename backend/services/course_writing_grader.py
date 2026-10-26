@@ -31,11 +31,12 @@ from typing import Any, Dict, List
 import google.generativeai as genai
 
 from config import settings
-from services import ai_usage_logger
+from services import ai_router, ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
 _TIMEOUT_SECONDS = 45.0
+_CLAUDE_TIMEOUT_SECONDS = 30.0
 # Sáu câu giữ response JSON cách xa trần output ngay cả khi mỗi câu có nhiều
 # lỗi. Buổi 08 có 15 câu: bản cũ gom 12 câu vào mẻ đầu; response mẻ ấy không
 # parse được nhưng mẻ 3 câu sau vẫn qua, tạo một bản chấm giả 3/15. Mẻ hỏng còn
@@ -232,11 +233,110 @@ def _keeps_all_answer_lines(answer: Any, corrected: Any) -> bool:
     return len(after) >= len(before)
 
 
+def _parse_by_qid(text: str) -> Dict[Any, Dict[str, Any]]:
+    data = json.loads(_strip_fences(text))
+    results = data.get("results") if isinstance(data, dict) else data
+    return {r.get("qid"): r for r in (results or []) if isinstance(r, dict)}
+
+
+async def _grade_batch_claude(
+    batch: List[Dict[str, Any]],
+    payload_json: str,
+    *,
+    usage_user_id: str | None = None,
+) -> tuple[List[Dict[str, Any]], str | None, str | None] | None:
+    """Claude attempt (services.ai_router). Returns a complete result only when
+    every item maps cleanly; otherwise None and the Gemini path runs as before."""
+
+    def _validate(text: str):
+        out, failure_kind = _build_results(batch, _parse_by_qid(text))
+        if failure_kind:
+            raise ValueError("missing_or_invalid_result")
+        return out
+
+    try:
+        result, out = await ai_router.call_anthropic(
+            "course_writing",
+            system=_PROMPT,
+            user=payload_json,
+            max_tokens=4096,
+            operation="grade_batch",
+            validate=_validate,
+            user_id=usage_user_id,
+            usage_context={"metadata": {"item_count": len(batch)}},
+            # Shorter than the Gemini budget: a slow Claude call must leave the
+            # learner's single submission enough time for the fallback.
+            timeout_seconds=_CLAUDE_TIMEOUT_SECONDS,
+        )
+    except ai_router.AnthropicAttemptError as exc:
+        logger.warning("[course-writing] Claude attempt failed (%s) — Gemini fallback",
+                       exc.error_code)
+        return None
+    logger.info("[ai_router] feature=course_writing served_by=anthropic model=%s",
+                result.model)
+    return out, result.model, None
+
+
+def _build_results(
+    batch: List[Dict[str, Any]], by_qid: Dict[Any, Dict[str, Any]],
+) -> tuple[List[Dict[str, Any]], str | None]:
+    """Map one provider response onto the batch (shared by every provider)."""
+    out: List[Dict[str, Any]] = []
+    failure_kind = None
+    for it in batch:
+        r = by_qid.get(it["qid"])
+        if not r:
+            # Thiếu MỘT câu không được kéo cả cụm xuống — nói riêng câu ấy.
+            out.append(_fallback([it], "Bộ chấm bỏ sót câu này.")[0])
+            failure_kind = _BATCH_RESPONSE_FAILURE
+            continue
+        issues = [{**x, "type": _classify(x)}
+                  for x in (r.get("issues") or []) if isinstance(x, dict)][:6]
+        corrected = (r.get("corrected") or "").strip() or it.get("answer", "")
+        if not _keeps_all_answer_lines(it.get("answer"), corrected):
+            logger.error("[course-writing] corrected làm mất dòng qid=%s", it["qid"])
+            out.append(_fallback(
+                [it], "Bộ chấm trả về kết quả không nhất quán.")[0])
+            failure_kind = _BATCH_RESPONSE_FAILURE
+            continue
+        out.append({
+            "qid":       it["qid"],
+            "prompt":    it.get("prompt", ""),
+            "explain":   it.get("explain", ""),
+            "answer":    it.get("answer", ""),
+            "corrected": corrected,
+            "issues":    issues,
+            # `ok` suy từ ISSUES, không tin cờ `ok` của model: model hay trả
+            # ok=true kèm một danh sách lỗi không rỗng, và khi hai thứ mâu
+            # thuẫn thì danh sách lỗi mới là thứ học viên đọc.
+            #
+            # Lỗi HÌNH THỨC không vào phép đếm này — xem `_classify`. Câu vẫn
+            # hiện đủ lời nhắc, chỉ là ô đúng/sai nói về ngữ pháp, đúng thứ bài
+            # tập này dạy.
+            "ok":        not any(x["type"] in _COUNTED_TYPES for x in issues),
+        })
+    return out, failure_kind
+
+
 async def _grade_batch(
     batch: List[Dict[str, Any]],
     *,
     usage_user_id: str | None = None,
 ) -> tuple[List[Dict[str, Any]], str | None, str | None]:
+    payload = [{"qid": it["qid"],
+                "de": (it.get("prompt") or "")[:400],
+                "cau_hoc_vien_viet": (it.get("answer") or "")[:MAX_ANSWER_CHARS]}
+               for it in batch]
+    payload_json = json.dumps(payload, ensure_ascii=False, indent=1)
+    prompt = _PROMPT + payload_json
+
+    if ai_router.anthropic_first("course_writing", "gemini"):
+        claude = await _grade_batch_claude(
+            batch, payload_json, usage_user_id=usage_user_id,
+        )
+        if claude is not None:
+            return claude
+
     # Dựng client TRONG lớp bảo vệ: thiếu khoá API / tên model sai là lỗi cấu
     # hình, và nó phải thành một lời nhắn đọc được như mọi đường hỏng khác —
     # không phải một 500 nuốt mất lượt nộp DUY NHẤT của học viên.
@@ -246,12 +346,6 @@ async def _grade_batch(
         logger.error("[course-writing] không dựng được client: %s", exc)
         return (_fallback(batch, "Bộ chấm chưa sẵn sàng."), None,
                 _BATCH_PROVIDER_FAILURE)
-
-    payload = [{"qid": it["qid"],
-                "de": (it.get("prompt") or "")[:400],
-                "cau_hoc_vien_viet": (it.get("answer") or "")[:MAX_ANSWER_CHARS]}
-               for it in batch]
-    prompt = _PROMPT + json.dumps(payload, ensure_ascii=False, indent=1)
 
     try:
         resp = await asyncio.wait_for(
@@ -319,40 +413,7 @@ async def _grade_batch(
         return (_fallback(batch, "Bộ chấm trả về kết quả không đọc được."), name,
                 _BATCH_RESPONSE_FAILURE)
 
-    out: List[Dict[str, Any]] = []
-    failure_kind = None
-    for it in batch:
-        r = by_qid.get(it["qid"])
-        if not r:
-            # Thiếu MỘT câu không được kéo cả cụm xuống — nói riêng câu ấy.
-            out.append(_fallback([it], "Bộ chấm bỏ sót câu này.")[0])
-            failure_kind = _BATCH_RESPONSE_FAILURE
-            continue
-        issues = [{**x, "type": _classify(x)}
-                  for x in (r.get("issues") or []) if isinstance(x, dict)][:6]
-        corrected = (r.get("corrected") or "").strip() or it.get("answer", "")
-        if not _keeps_all_answer_lines(it.get("answer"), corrected):
-            logger.error("[course-writing] corrected làm mất dòng qid=%s", it["qid"])
-            out.append(_fallback(
-                [it], "Bộ chấm trả về kết quả không nhất quán.")[0])
-            failure_kind = _BATCH_RESPONSE_FAILURE
-            continue
-        out.append({
-            "qid":       it["qid"],
-            "prompt":    it.get("prompt", ""),
-            "explain":   it.get("explain", ""),
-            "answer":    it.get("answer", ""),
-            "corrected": corrected,
-            "issues":    issues,
-            # `ok` suy từ ISSUES, không tin cờ `ok` của model: model hay trả
-            # ok=true kèm một danh sách lỗi không rỗng, và khi hai thứ mâu
-            # thuẫn thì danh sách lỗi mới là thứ học viên đọc.
-            #
-            # Lỗi HÌNH THỨC không vào phép đếm này — xem `_classify`. Câu vẫn
-            # hiện đủ lời nhắc, chỉ là ô đúng/sai nói về ngữ pháp, đúng thứ bài
-            # tập này dạy.
-            "ok":        not any(x["type"] in _COUNTED_TYPES for x in issues),
-        })
+    out, failure_kind = _build_results(batch, by_qid)
     log_response(
         status="invalid_response" if failure_kind else "success",
         error_code="missing_or_invalid_result" if failure_kind else None,

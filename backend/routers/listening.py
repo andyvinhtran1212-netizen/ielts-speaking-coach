@@ -3765,12 +3765,58 @@ async def admin_get_test_audit(
     }
 
 
+class _RoutedAuditProvider:
+    """Claude first (services.ai_router), then the configured audit provider.
+
+    The Claude answer must contain a parseable JSON array (the same shape
+    `parse_llm_audit` reads) or the configured provider runs unchanged.
+    `served_model` records which model actually produced the audit.
+    """
+
+    def __init__(self, legacy):
+        self._legacy = legacy
+        self.served_model: str | None = None
+
+    async def invoke(self, system_prompt: str, user_message: str, **_kw) -> str:
+        import json as _json
+        import re as _re
+
+        from services import ai_router
+
+        def _validate(text: str):
+            match = _re.search(r"\[.*\]", text, _re.DOTALL)
+            if not match or not isinstance(_json.loads(match.group(0)), list):
+                raise ValueError("audit response is not a JSON array")
+            return text
+
+        async def _claude() -> str:
+            result, text = await ai_router.call_anthropic(
+                "listening_audit", system=system_prompt, user=user_message,
+                max_tokens=2048, operation="content_audit", validate=_validate,
+            )
+            self.served_model = result.model
+            return text
+
+        async def _legacy() -> str:
+            if self._legacy is None:
+                raise RuntimeError("LISTENING_AUDIT_MODEL provider not configured")
+            text = await self._legacy.invoke(system_prompt, user_message)
+            self.served_model = settings.LISTENING_AUDIT_MODEL
+            return text
+
+        return await ai_router.with_fallback(
+            "listening_audit", legacy_provider="gemini",
+            anthropic_call=_claude, legacy_call=_legacy,
+        )
+
+
 def _audit_provider():
+    from services import ai_router
     from services.grading_orchestrator import _build_grading_primary
     anthropic_key = getattr(settings, "ANTHROPIC_API_KEY", "") or ""
     gemini_key = getattr(settings, "GEMINI_API_KEY", "") or ""
     try:
-        return _build_grading_primary(
+        legacy = _build_grading_primary(
             settings.LISTENING_AUDIT_MODEL,
             anthropic_key,
             gemini_key,
@@ -3778,7 +3824,12 @@ def _audit_provider():
             operation="content_audit",
         )
     except Exception:
-        return None
+        legacy = None
+    # A Claude LISTENING_AUDIT_MODEL already is Anthropic; route only a Gemini one.
+    if (str(settings.LISTENING_AUDIT_MODEL or "").lower().startswith("gemini")
+            and ai_router.anthropic_first("listening_audit", "gemini")):
+        return _RoutedAuditProvider(legacy)
+    return legacy
 
 
 class AuditRunRequest(BaseModel):
@@ -3824,7 +3875,8 @@ async def admin_run_test_audit(
     request_id = body.request_id if body and body.request_id else str(uuid4())
     health = {**listening_audit_svc.summarize(issues),
               "question_count": len(h["all_questions"]),
-              "llm_model": settings.LISTENING_AUDIT_MODEL if provider else None,
+              "llm_model": ((getattr(provider, "served_model", None)
+                             or settings.LISTENING_AUDIT_MODEL) if provider else None),
               "request_id": request_id}
     status = health["status"]
     from datetime import datetime, timezone

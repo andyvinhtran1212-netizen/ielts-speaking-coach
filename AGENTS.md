@@ -14,6 +14,10 @@ IELTS Speaking Coach — a web app for IELTS/English speaking practice:
     the fallback chain, off-topic judge and grammar-check, not the primary grader.
   - Writing grading and course writing checks: Gemini (`gemini_writing_grader.py`,
     `COURSE_WRITING_MODEL`). Question generation and content audits: Gemini.
+  - Anthropic-primary routing: `services/ai_router.py` tries Claude first for
+    Writing grading, course writing, vocabulary rewrite, question generation and
+    Listening audit (Speaking grading is opt-in), then falls back to the
+    providers above unchanged. Env vars: `docs/AI_PROVIDER_ROUTING.md`.
   - TTS: Kokoro is the standard for Vocabulary and Listening audio; ElevenLabs
     and OpenAI TTS remain for other paths. Azure Speech: pronunciation assessment.
   - Grammar/lemmatization: LanguageTool (needs a JRE) with local-rule fallback,

@@ -32,7 +32,7 @@ from services import ai_usage_logger
 from services import fluency_signals as _fluency_mod
 from services.grammar_content import grammar_service
 from services.grading_orchestrator import (
-    GRADING_PROVIDER_ORDER,
+    grading_provider_order,
     GradingOrchestrator,
     build_default as _build_default_orchestrator,
 )
@@ -907,13 +907,14 @@ def _order_after(events: list[FallbackEvent] | None) -> tuple[str, ...]:
     for e in (events or []):
         if getattr(e, "outcome", None) == "success":
             answered = getattr(e, "provider", None)
-    if answered and answered in GRADING_PROVIDER_ORDER:
-        i = GRADING_PROVIDER_ORDER.index(answered)
-        rest = GRADING_PROVIDER_ORDER[i + 1:]
+    order = grading_provider_order(settings)
+    if answered and answered in order:
+        i = order.index(answered)
+        rest = order[i + 1:]
         # Hết hàng phía sau thì quay lại từ đầu, BỎ chính bên vừa trả lời.
-        return rest or tuple(x for x in GRADING_PROVIDER_ORDER if x != answered) \
-            or GRADING_PROVIDER_ORDER
-    return GRADING_PROVIDER_ORDER[1:] or GRADING_PROVIDER_ORDER
+        return rest or tuple(x for x in order if x != answered) \
+            or order
+    return order[1:] or order
 
 
 async def _invoke_orchestrator(
@@ -940,7 +941,7 @@ async def _invoke_orchestrator(
             user_message,
             user_id=user_id,
             session_id=session_id,
-            order=order or GRADING_PROVIDER_ORDER,
+            order=order or grading_provider_order(settings),
         )
     except AllProvidersFailedError as exc:
         if sink is not None:

@@ -11,7 +11,7 @@ from typing import Any
 import google.generativeai as genai
 
 from config import settings
-from services import ai_usage_logger
+from services import ai_router, ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -142,23 +142,47 @@ def _normalize_feedback(
 async def grade_rewrites(
     items: list[dict[str, str]], *, user_id: str | None = None,
 ) -> tuple[dict[str, Any], str | None, str | None]:
-    """Make exactly one provider request for the complete unit."""
+    """Grade the complete unit in one request per provider.
+
+    Claude is tried first when services.ai_router says so; its output must
+    pass the same `_normalize_feedback` validation, otherwise the unchanged
+    Gemini request below runs.
+    """
+    payload_json = json.dumps([{
+        "item_id": item["item_id"],
+        "prompt": item["prompt"][:500],
+        "answer": item["answer"][:MAX_ANSWER_CHARS],
+    } for item in items], ensure_ascii=False, separators=(",", ":"))
+    if ai_router.anthropic_first("advanced_vocab_rewrite", "gemini"):
+        try:
+            result, feedback = await ai_router.call_anthropic(
+                "advanced_vocab_rewrite",
+                system=_PROMPT,
+                user=payload_json,
+                max_tokens=8192,
+                operation="grade_unit",
+                validate=lambda text: _normalize_feedback(json.loads(_strip_fences(text)), items),
+                user_id=user_id,
+                usage_context={"metadata": {"item_count": len(items)}},
+                timeout_seconds=_TIMEOUT_SECONDS,
+            )
+        except ai_router.AnthropicAttemptError as exc:
+            logger.warning("[advanced-vocab-rewrite] Claude attempt failed (%s) — Gemini fallback",
+                           exc.error_code)
+        else:
+            logger.info("[ai_router] feature=advanced_vocab_rewrite served_by=anthropic model=%s",
+                        result.model)
+            return feedback, result.model, None
+
     try:
         name, model = _model()
     except Exception as exc:  # noqa: BLE001
         logger.exception("[advanced-vocab-rewrite] cannot create model: %s", exc)
         return _failed(items, "Bộ chấm chưa sẵn sàng; bài của bạn vẫn được lưu."), None, "model_config"
 
-    payload = [{
-        "item_id": item["item_id"],
-        "prompt": item["prompt"][:500],
-        "answer": item["answer"][:MAX_ANSWER_CHARS],
-    } for item in items]
     try:
         response = await asyncio.wait_for(
-            model.generate_content_async(
-                _PROMPT + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-            ),
+            model.generate_content_async(_PROMPT + payload_json),
             timeout=_TIMEOUT_SECONDS,
         )
     except asyncio.TimeoutError:
