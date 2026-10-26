@@ -144,36 +144,57 @@ async def grade_rewrites(
 ) -> tuple[dict[str, Any], str | None, str | None]:
     """Grade the complete unit in one request per provider.
 
-    Claude is tried first when services.ai_router says so; its output must
-    pass the same `_normalize_feedback` validation, otherwise the unchanged
-    Gemini request below runs.
+    services.ai_router places one Claude attempt before the unchanged Gemini
+    request (default) or after a failed one. Claude output must pass the same
+    `_normalize_feedback` validation.
     """
     payload_json = json.dumps([{
         "item_id": item["item_id"],
         "prompt": item["prompt"][:500],
         "answer": item["answer"][:MAX_ANSWER_CHARS],
     } for item in items], ensure_ascii=False, separators=(",", ":"))
-    if ai_router.anthropic_first("advanced_vocab_rewrite", "gemini"):
-        try:
-            result, feedback = await ai_router.call_anthropic(
-                "advanced_vocab_rewrite",
-                system=_PROMPT,
-                user=payload_json,
-                max_tokens=8192,
-                operation="grade_unit",
-                validate=lambda text: _normalize_feedback(json.loads(_strip_fences(text)), items),
-                user_id=user_id,
-                usage_context={"metadata": {"item_count": len(items)}},
-                timeout_seconds=_TIMEOUT_SECONDS,
-            )
-        except ai_router.AnthropicAttemptError as exc:
-            logger.warning("[advanced-vocab-rewrite] Claude attempt failed (%s) — Gemini fallback",
-                           exc.error_code)
-        else:
-            logger.info("[ai_router] feature=advanced_vocab_rewrite served_by=anthropic model=%s",
-                        result.model)
-            return feedback, result.model, None
+    position = ai_router.anthropic_position("advanced_vocab_rewrite", "gemini")
+    if position == "first":
+        claude = await _grade_claude(items, payload_json, user_id=user_id)
+        if claude is not None:
+            return claude
+    gemini = await _grade_gemini(items, payload_json, user_id=user_id)
+    if position == "after" and gemini[2] is not None:
+        # Claude configured as the fallback for a failed Gemini request.
+        claude = await _grade_claude(items, payload_json, user_id=user_id)
+        if claude is not None:
+            return claude
+    return gemini
 
+
+async def _grade_claude(
+    items: list[dict[str, str]], payload_json: str, *, user_id: str | None,
+) -> tuple[dict[str, Any], str | None, str | None] | None:
+    """One Claude attempt validated by `_normalize_feedback`; None on failure."""
+    try:
+        result, feedback = await ai_router.call_anthropic(
+            "advanced_vocab_rewrite",
+            system=_PROMPT,
+            user=payload_json,
+            max_tokens=8192,
+            operation="grade_unit",
+            validate=lambda text: _normalize_feedback(json.loads(_strip_fences(text)), items),
+            user_id=user_id,
+            usage_context={"metadata": {"item_count": len(items)}},
+            timeout_seconds=_TIMEOUT_SECONDS,
+        )
+    except ai_router.AnthropicAttemptError as exc:
+        logger.warning("[advanced-vocab-rewrite] Claude attempt failed (%s)", exc.error_code)
+        return None
+    logger.info("[ai_router] feature=advanced_vocab_rewrite served_by=anthropic model=%s",
+                result.model)
+    return feedback, result.model, None
+
+
+async def _grade_gemini(
+    items: list[dict[str, str]], payload_json: str, *, user_id: str | None,
+) -> tuple[dict[str, Any], str | None, str | None]:
+    """The existing Gemini request (unchanged)."""
     try:
         name, model = _model()
     except Exception as exc:  # noqa: BLE001

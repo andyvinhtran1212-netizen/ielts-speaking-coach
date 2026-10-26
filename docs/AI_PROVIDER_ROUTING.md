@@ -81,6 +81,10 @@ Other platforms need nothing new:
   refuses outbound network.
 - **Supabase edge functions:** none exist.
 
+Putting `anthropic` after the existing provider, for example `gemini,anthropic`,
+reverses the roles. The existing path runs first, unchanged, and Claude runs
+only when that path fails: an exception, a failed batch, or a failed request.
+
 To roll back one feature, set `AI_PROVIDER_ORDER_<FEATURE>=gemini` and restart.
 To roll back everything, set `AI_PROVIDER_ORDER=gemini,openai` or blank
 `ANTHROPIC_API_KEY`. No schema change or migration is involved.

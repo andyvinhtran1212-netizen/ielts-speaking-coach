@@ -60,9 +60,9 @@ GRADING_PROVIDER_ORDER: tuple[str, ...] = (
     "claude_sonnet",
 )
 
-# Anthropic-primary slot (services.ai_router). Prepended to the grader order
-# only when the speaking_grading provider order puts "anthropic" before
-# "gemini"; the existing chain then follows unchanged as the fallback.
+# Anthropic slot (services.ai_router). Prepended to the grader order when the
+# speaking_grading order puts "anthropic" before "gemini" (the existing chain
+# then follows unchanged as the fallback), appended when it comes after.
 ANTHROPIC_PRIMARY_SLOT = "anthropic_primary"
 
 
@@ -70,8 +70,11 @@ def grading_provider_order(settings_obj=None) -> tuple[str, ...]:
     """Effective Speaking grader order for the current configuration."""
     from services import ai_router
 
-    if ai_router.anthropic_first("speaking_grading", "gemini", settings_obj):
+    position = ai_router.anthropic_position("speaking_grading", "gemini", settings_obj)
+    if position == "first":
         return (ANTHROPIC_PRIMARY_SLOT, *GRADING_PROVIDER_ORDER)
+    if position == "after":
+        return (*GRADING_PROVIDER_ORDER, ANTHROPIC_PRIMARY_SLOT)
     return GRADING_PROVIDER_ORDER
 
 
@@ -295,7 +298,7 @@ def build_default(
 
     from services import ai_router
 
-    if feature == "speaking_grading" and ai_router.anthropic_first(
+    if feature == "speaking_grading" and ai_router.anthropic_position(
         "speaking_grading", "gemini", settings_obj,
     ):
         # Room for four Vietnamese feedback blocks + improved_response; the cap

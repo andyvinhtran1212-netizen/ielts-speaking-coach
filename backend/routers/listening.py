@@ -3827,7 +3827,7 @@ def _audit_provider():
         legacy = None
     # A Claude LISTENING_AUDIT_MODEL already is Anthropic; route only a Gemini one.
     if (str(settings.LISTENING_AUDIT_MODEL or "").lower().startswith("gemini")
-            and ai_router.anthropic_first("listening_audit", "gemini")):
+            and ai_router.anthropic_position("listening_audit", "gemini")):
         return _RoutedAuditProvider(legacy)
     return legacy
 

@@ -269,8 +269,7 @@ async def _grade_batch_claude(
             timeout_seconds=_CLAUDE_TIMEOUT_SECONDS,
         )
     except ai_router.AnthropicAttemptError as exc:
-        logger.warning("[course-writing] Claude attempt failed (%s) — Gemini fallback",
-                       exc.error_code)
+        logger.warning("[course-writing] Claude attempt failed (%s)", exc.error_code)
         return None
     logger.info("[ai_router] feature=course_writing served_by=anthropic model=%s",
                 result.model)
@@ -330,12 +329,31 @@ async def _grade_batch(
     payload_json = json.dumps(payload, ensure_ascii=False, indent=1)
     prompt = _PROMPT + payload_json
 
-    if ai_router.anthropic_first("course_writing", "gemini"):
+    position = ai_router.anthropic_position("course_writing", "gemini")
+    if position == "first":
         claude = await _grade_batch_claude(
             batch, payload_json, usage_user_id=usage_user_id,
         )
         if claude is not None:
             return claude
+    gemini = await _grade_batch_gemini(batch, prompt, usage_user_id=usage_user_id)
+    if position == "after" and gemini[2] is not None:
+        # Claude configured as the fallback for a failed Gemini batch.
+        claude = await _grade_batch_claude(
+            batch, payload_json, usage_user_id=usage_user_id,
+        )
+        if claude is not None:
+            return claude
+    return gemini
+
+
+async def _grade_batch_gemini(
+    batch: List[Dict[str, Any]],
+    prompt: str,
+    *,
+    usage_user_id: str | None = None,
+) -> tuple[List[Dict[str, Any]], str | None, str | None]:
+    """The existing Gemini batch request (unchanged)."""
 
     # Dựng client TRONG lớp bảo vệ: thiếu khoá API / tên model sai là lỗi cấu
     # hình, và nó phải thành một lời nhắn đọc được như mọi đường hỏng khác —

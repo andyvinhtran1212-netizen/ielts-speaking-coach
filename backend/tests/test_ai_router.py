@@ -630,3 +630,130 @@ async def test_pinned_sdk_sends_cache_control_and_model_thinking_on_the_wire(usa
     assert seen["beta"] is None
     assert parsed == {"ok": True}
     assert result.usage["cache_read_tokens"] == 7
+
+
+# ── Review round 1 (Codex) regressions ─────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_claude_cue_card_missing_fields_falls_back_before_caching(
+        claude_on, usage_rows, monkeypatch):
+    from services import gemini
+
+    cached = []
+    monkeypatch.setattr(gemini, "_cache_get", lambda **_k: None)
+    monkeypatch.setattr(gemini, "_cache_set", lambda **k: cached.append(k["questions"]))
+    good = {"question_text": "Describe a trip.", "cue_card_bullets": ["Where", "Who", "What"],
+            "cue_card_reflection": "and explain why."}
+    claude_on.results = [_message("{}")]
+    legacy = AsyncMock(return_value=dict(good))
+    monkeypatch.setattr(gemini, "_gemini_generate", legacy)
+    card = await gemini.generate_part2_cuecard("Trips")
+    assert card["question_text"] == "Describe a trip."
+    assert cached == [card]
+    legacy.assert_awaited_once()
+
+
+@pytest.mark.parametrize("payload", [
+    "[]", '[{"question_text": "Q?"}]', '[{"question_text": "", "question_type": "opinion"}]',
+])
+def test_question_list_requires_every_field(payload):
+    from services import gemini
+    with pytest.raises(ValueError):
+        gemini._parse_question_json(payload, list)
+
+
+def test_anthropic_position_reports_first_after_or_absent():
+    s = SimpleNamespace(ANTHROPIC_API_KEY="k", AI_PROVIDER_ORDER="anthropic")
+    assert ai_router.anthropic_position("course_writing", "gemini", s) == "first"
+    s.AI_PROVIDER_ORDER = "gemini,anthropic"
+    assert ai_router.anthropic_position("course_writing", "gemini", s) == "after"
+    s.AI_PROVIDER_ORDER = "gemini"
+    assert ai_router.anthropic_position("course_writing", "gemini", s) is None
+    s.AI_PROVIDER_ORDER, s.ANTHROPIC_API_KEY = "gemini,anthropic", ""
+    assert ai_router.anthropic_position("course_writing", "gemini", s) is None
+
+
+@pytest.mark.asyncio
+async def test_writing_claude_after_gemini_serves_when_the_gemini_loop_fails(
+        claude_on, usage_rows, monkeypatch):
+    from models.writing_feedback import WritingFeedback
+    from services import gemini_writing_grader as gwg
+
+    monkeypatch.setattr(settings, "AI_PROVIDER_ORDER_WRITING_GRADING", "gemini,anthropic")
+    monkeypatch.setattr(gwg, "INITIAL_RETRY_DELAY_S", 0)
+    grader = gwg.GeminiWritingGrader(api_key="test-gemini")
+    raw = _writing_feedback_json()
+    claude_on.results = [_message(raw)]
+    calls = []
+
+    def _boom(*_a, **_k):
+        calls.append("gemini")
+        raise RuntimeError("gemini down")
+
+    with patch("services.gemini_writing_grader.genai.GenerativeModel",
+               return_value=SimpleNamespace(generate_content=_boom)):
+        text, usage = await grader._call_with_retry(
+            "gemini-3.8-flash", "S", "U", parse_schema=WritingFeedback,
+            anthropic_feature="writing_grading",
+        )
+    assert calls == ["gemini"] * gwg.MAX_RETRIES       # Gemini loop ran first, in full
+    assert text == raw and usage["served_model"] == "claude-sonnet-5-5"
+
+
+@pytest.mark.asyncio
+async def test_course_writing_and_rewrite_claude_after_gemini_failure(
+        claude_on, usage_rows, monkeypatch):
+    from services import advanced_vocab_rewrite_grader as av
+    from services import course_writing_grader as cw
+
+    monkeypatch.setattr(settings, "AI_PROVIDER_ORDER_COURSE_WRITING", "gemini,anthropic")
+    monkeypatch.setattr(settings, "AI_PROVIDER_ORDER_ADVANCED_VOCAB_REWRITE", "gemini,anthropic")
+
+    broken = type("M", (), {"generate_content_async": AsyncMock(side_effect=RuntimeError("down"))})()
+    claude_on.results = [_message(_CW_JSON)]
+    with patch.object(cw, "_model", return_value=("gemini-3.5-flash-lite", broken)):
+        out, model = await cw.grade(_CW_ITEMS)
+    assert model == "claude-haiku-5-5" and out[0]["corrected"] == "She goes to school."
+
+    claude_on.results = [_message(_AV_JSON)]
+    with patch.object(av, "_model", return_value=("gemini-3.5-flash-lite", broken)):
+        feedback, model, err = await av.grade_rewrites(_AV_ITEMS)
+    assert (model, err) == ("claude-haiku-5-5", None)
+
+    # A healthy Gemini answer is used without calling Claude.
+    monkeypatch.setattr(ai_router, "_client", lambda *_a, **_k: pytest.fail("Claude not needed"))
+    with patch.object(cw, "_model", return_value=("gemini-3.5-flash-lite", _gemini_model(_CW_JSON))):
+        _, model = await cw.grade(_CW_ITEMS)
+    assert model == "gemini-3.5-flash-lite"
+
+
+def test_speaking_claude_after_gemini_is_appended_to_the_chain():
+    from services.grading_orchestrator import (
+        ANTHROPIC_PRIMARY_SLOT, GRADING_PROVIDER_ORDER, build_default, grading_provider_order,
+    )
+    s = SimpleNamespace(ANTHROPIC_API_KEY="k", GEMINI_API_KEY="g",
+                        SPEAKING_GRADING_MODEL="gemini-3.8-flash", AI_PROVIDER_ORDER="",
+                        AI_PROVIDER_ORDER_SPEAKING_GRADING="gemini,anthropic",
+                        ANTHROPIC_MODEL_GRADING="")
+    assert grading_provider_order(s) == (*GRADING_PROVIDER_ORDER, ANTHROPIC_PRIMARY_SLOT)
+    assert ANTHROPIC_PRIMARY_SLOT in build_default(s).providers
+
+
+@pytest.mark.asyncio
+async def test_degraded_deep_result_is_attributed_to_the_pass1_model(monkeypatch):
+    from models.writing_feedback import GradingResult, GradingTier, WritingFeedback
+    from services.gemini_writing_grader import GeminiWritingGrader
+
+    grader = GeminiWritingGrader(api_key="test-gemini")
+    pass1 = GradingResult(
+        feedback=WritingFeedback(**json.loads(_writing_feedback_json())),
+        model_used="claude-sonnet-5-5", tokens_input=10, tokens_output=5, cost_usd=0.01,
+        grading_duration_ms=5, prompt_version="v2", grading_tier=GradingTier.STANDARD,
+    )
+    monkeypatch.setattr(grader, "_grade_standard", AsyncMock(return_value=pass1))
+    monkeypatch.setattr(grader, "_run_deep_pass2", AsyncMock(side_effect=RuntimeError("pass2 down")))
+    result = await grader._grade_deep(SimpleNamespace(), SimpleNamespace(PROMPT_VERSION="v2"))
+    assert result.prompt_version.endswith("-degraded")
+    assert result.model_used == "claude-sonnet-5-5"
+    assert result.tier_metadata["pass1"]["model"] == "claude-sonnet-5-5"

@@ -125,6 +125,20 @@ def anthropic_first(
     return bool(order) and order[0] == "anthropic"
 
 
+def anthropic_position(
+    feature: str, legacy_provider: str, settings_obj: Any | None = None,
+) -> str | None:
+    """``"first"``, ``"after"`` (fallback for the existing provider) or None.
+
+    For call sites whose existing path reports failure by return value rather
+    than an exception, so they can honour both configured positions.
+    """
+    order = effective_order(feature, legacy_provider, settings_obj)
+    if "anthropic" not in order:
+        return None
+    return "first" if order[0] == "anthropic" else "after"
+
+
 def anthropic_model(feature: str, settings_obj: Any | None = None) -> str:
     s = _settings(settings_obj)
     specific = (getattr(s, f"ANTHROPIC_MODEL_{feature.upper()}", "") or "").strip()

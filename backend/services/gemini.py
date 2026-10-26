@@ -116,7 +116,27 @@ def _parse_question_json(text: str, expect: type | None):
     parsed = json.loads(text)
     if expect is not None and not isinstance(parsed, expect):
         raise ValueError(f"expected JSON {expect.__name__}")
+    # Required fields are checked here, before anything is cached: a Claude
+    # answer that parses but lacks them must fall back to Gemini.
+    if isinstance(parsed, list):
+        if not parsed or not all(_has_question_fields(q) for q in parsed):
+            raise ValueError("question list items need question_text and question_type")
+    elif isinstance(parsed, dict):
+        if not (_nonempty_str(parsed.get("question_text"))
+                and isinstance(parsed.get("cue_card_bullets"), list)
+                and parsed["cue_card_bullets"]
+                and all(_nonempty_str(b) for b in parsed["cue_card_bullets"])):
+            raise ValueError("cue card needs question_text and cue_card_bullets")
     return parsed
+
+
+def _nonempty_str(value) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _has_question_fields(q) -> bool:
+    return (isinstance(q, dict) and _nonempty_str(q.get("question_text"))
+            and _nonempty_str(q.get("question_type")))
 
 
 async def _call_gemini(prompt: str, *, _retry: bool = True,

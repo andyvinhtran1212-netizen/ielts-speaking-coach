@@ -406,7 +406,7 @@ class GeminiWritingGrader:
         # ── Pass 1: Standard grading ──────────────────────────────────
         try:
             pass1_timeout = self.DEEP_PASS_TIMEOUTS_S["pass1"]
-            if ai_router.anthropic_first("writing_grading", "gemini"):
+            if ai_router.anthropic_position("writing_grading", "gemini"):
                 pass1_timeout += CLAUDE_TIMEOUT_S
             pass1 = await asyncio.wait_for(
                 self._grade_standard(config, loader),
@@ -463,6 +463,9 @@ class GeminiWritingGrader:
                 pass3_cost=None,
                 tier_metadata=tier_metadata,
                 stamp=f"{deep_stamp}-degraded",
+                # Only Pass 1 produced this feedback; attribute it to the model
+                # that actually served Pass 1 (Claude or Gemini).
+                model_used=pass1.model_used,
             )
 
         pass2_cost = self._calculate_cost(
@@ -658,6 +661,7 @@ class GeminiWritingGrader:
         pass3_cost: Optional[float],
         tier_metadata: dict,
         stamp: str,
+        model_used: Optional[str] = None,
     ) -> GradingResult:
         """Assemble the GradingResult for a Deep run.
 
@@ -683,7 +687,7 @@ class GeminiWritingGrader:
 
         return GradingResult(
             feedback=feedback,
-            model_used=settings.GEMINI_PRO_MODEL,
+            model_used=model_used or settings.GEMINI_PRO_MODEL,
             tokens_input=total_tokens_in,
             tokens_output=total_tokens_out,
             thinking_tokens=total_thinking_tokens,
@@ -847,11 +851,12 @@ class GeminiWritingGrader:
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
 
-        When ``anthropic_feature`` is set and services.ai_router puts Claude
-        first for it, one Claude attempt runs before the Gemini loop. Its output
-        must pass the SAME schema + grounding validation; any failure (or a
-        missing key) runs the Gemini loop below exactly as before. A Claude
-        success returns usage with ``served_model`` and ``cost_usd``.
+        When ``anthropic_feature`` is set, services.ai_router decides whether one
+        Claude attempt runs before the Gemini loop (default) or after it fails.
+        Claude output must pass the SAME schema + grounding validation; a
+        Claude failure (or missing key) leaves the Gemini loop's behaviour
+        unchanged. A Claude success returns usage with ``served_model`` and
+        ``cost_usd``.
 
         Sprint 19.3.5 — `image` (bytes, mime_type) is sent as a multimodal
         inline Part alongside the text when present (Task 1 Academic chart).
@@ -870,19 +875,58 @@ class GeminiWritingGrader:
 
         if source_essay is not None:
             system_prompt += "\n\n" + GROUNDING_INSTRUCTION
-        if anthropic_feature and ai_router.anthropic_first(anthropic_feature, "gemini"):
-            served = await self._try_claude(
-                anthropic_feature,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                image=image,
-                parse_schema=parse_schema,
-                usage_context=usage_context,
-                source_essay=source_essay,
-                source_task_type=source_task_type,
-            )
+        position = (ai_router.anthropic_position(anthropic_feature, "gemini")
+                    if anthropic_feature else None)
+        claude_kwargs = dict(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            image=image,
+            parse_schema=parse_schema,
+            usage_context=usage_context,
+            source_essay=source_essay,
+            source_task_type=source_task_type,
+        )
+        if position == "first":
+            served = await self._try_claude(anthropic_feature, **claude_kwargs)
             if served is not None:
                 return served
+        gemini_kwargs = dict(
+            parse_schema=parse_schema,
+            usage_context=usage_context,
+            source_essay=source_essay,
+            source_task_type=source_task_type,
+        )
+        if position != "after":
+            return await self._gemini_call_with_retry(
+                model_name, system_prompt, user_prompt, image, **gemini_kwargs,
+            )
+        # AI_PROVIDER_ORDER_<FEATURE> places Claude after Gemini: Claude is the
+        # fallback once the whole Gemini loop has failed.
+        try:
+            return await self._gemini_call_with_retry(
+                model_name, system_prompt, user_prompt, image, **gemini_kwargs,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            served = await self._try_claude(anthropic_feature, **claude_kwargs)
+            if served is not None:
+                return served
+            raise
+
+    async def _gemini_call_with_retry(
+        self,
+        model_name: str,
+        system_prompt: str,
+        user_prompt: str,
+        image: Optional[tuple[bytes, str]] = None,
+        *,
+        parse_schema=None,
+        usage_context: dict | None = None,
+        source_essay: str | None = None,
+        source_task_type: str | None = None,
+    ) -> tuple[str, dict]:
+        """The existing Gemini retry loop (system prompt already grounded)."""
         model = genai.GenerativeModel(
             model_name=model_name,
             system_instruction=system_prompt,
