@@ -178,3 +178,22 @@ test('AUDIT F6/review #762: chrome logout (đường logout THẬT) cũng report
   assert.ok(revokeIdx !== -1 && eventIdx !== -1 && revokeIdx < eventIdx,
     'av-chrome-signed-out must be dispatched AFTER the awaited revoke');
 });
+
+test('chrome logout giữ đích canonical "/": báo signing-out TRƯỚC revoke, redirect "/" SAU signed-out', () => {
+  // Without the intent signal, SIGNED_OUT/av-chrome-signed-out flip Next pages
+  // to signed-out and their fail-closed replace('/login') overrides the
+  // chrome's '/' redirect (staging smoke mobile-navigation.spec.js).
+  const CHROME = readFileSync(
+    path.join(FRONTEND, 'js', 'components', 'aver-chrome.js'), 'utf8');
+  const handler = CHROME.slice(CHROME.indexOf('_bindLogout() {'));
+  const intentIdx = handler.indexOf("CustomEvent('av-chrome-signing-out'");
+  const revokeIdx = handler.indexOf('await sb.auth.signOut()');
+  const eventIdx = handler.indexOf("CustomEvent('av-chrome-signed-out'");
+  const redirectIdx = handler.indexOf("window.location.href = '/';");
+  assert.ok(intentIdx !== -1 && intentIdx < revokeIdx && revokeIdx < eventIdx && eventIdx < redirectIdx,
+    'order must be: signing-out intent → awaited revoke → signed-out → redirect "/"');
+  assert.match(PROVIDER, /addEventListener\('av-chrome-signing-out'/,
+    'provider must receive the chrome logout intent');
+  assert.match(PROVIDER, /setStatus\(chromeSignOutRef\.current \? 'initial-loading' : 'signed-out'\)/,
+    'chrome logout holds pages out of signed-out; every other null session still fails closed');
+});

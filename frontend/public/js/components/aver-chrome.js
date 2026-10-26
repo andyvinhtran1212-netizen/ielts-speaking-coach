@@ -35,6 +35,10 @@
  *     so the auto-fetch path skips (or is overridden if called late).
  *
  * Events:
+ *   av-chrome-signing-out (bubbles, composed)
+ *     Dispatched when the user clicks Đăng xuất, before the awaited revoke.
+ *     The Next AuthProvider holds pages out of their signed-out /login
+ *     redirect so the chrome's own '/' redirect stays the destination.
  *   av-chrome-signed-out (bubbles, composed)
  *     Dispatched right before the post-signOut redirect to /index.html.
  *     Pages can listen for cleanup (cancel polls, close dialogs, etc).
@@ -778,6 +782,17 @@ export class AverChrome extends HTMLElement {
       // mid-revoke, cancelling BOTH the revoke and the storage cleanup:
       // the next page load would restore the session and the logout would
       // silently undo itself.
+      //
+      // av-chrome-signing-out is NOT a sign-out announcement: it only tells
+      // the AuthProvider that this user-initiated logout owns the final
+      // navigation ('/'). Without it, SIGNED_OUT (fired inside signOut()) and
+      // av-chrome-signed-out flip Next pages to signed-out, and their
+      // fail-closed `location.replace('/login')` effect runs after — and
+      // overrides — the `location.href = '/'` below.
+      this.dispatchEvent(new CustomEvent('av-chrome-signing-out', {
+        bubbles: true,
+        composed: true,
+      }));
       try {
         const sb = (typeof window !== 'undefined'
                     && typeof window.getSupabase === 'function')

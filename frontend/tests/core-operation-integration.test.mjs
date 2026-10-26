@@ -226,7 +226,7 @@ test('actual AuthProvider transitions clear account hints without erasing capabi
   const states = [];
   const browser = { sessionStorage: store, name: '' };
   const transition = actualHandler('auth', 'applySession', { clearCoreOperationIntents, window: browser,
-    sessionReadRef: { current: 0 }, confirmedAccountRef: { current: null },
+    sessionReadRef: { current: 0 }, confirmedAccountRef: { current: null }, chromeSignOutRef: { current: false },
     clearLearnerTabDraftAccount: account => clearLearnerTabDraftAccount(account, browser),
     invalidateLearnerTabDraftOwner: () => invalidateLearnerTabDraftOwner(browser),
     setUser() {}, setStatus: value => states.push(value) });
