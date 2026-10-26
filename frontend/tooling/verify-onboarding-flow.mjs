@@ -49,6 +49,11 @@ async function fixture({
   profile,
   ambiguousPatch = false,
   patchDelayMs = 0,
+  persistPatch = true,
+  patchStatus = 200,
+  readbackFails = false,
+  readbackProfile,
+  theme = 'light',
   viewport = { width: 1280, height: 900 },
 }) {
   const context = await browser.newContext({ viewport });
@@ -64,10 +69,14 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
       onAuthStateChange: function () {
         return { data: { subscription: { unsubscribe: function () {} } } };
       },
-      signOut: async function () { return { error: null }; }
+      signOut: async function () {
+        localStorage.setItem('onboarding-fixture-signed-out', 'true');
+        return { error: null };
+      }
     } };`;
 
   await context.addInitScript({ content: supabaseStub });
+  await context.addInitScript((value) => localStorage.setItem('av-theme', value), theme);
 
   await context.route('**/*', async (route) => {
     const request = route.request();
@@ -95,15 +104,18 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers: cors, body: JSON.stringify(body) });
     if (request.method() === 'GET' && url.pathname === '/auth/me') {
       reads.push(url.pathname);
+      if (writes.length && readbackFails) return json({ detail: 'Readback unavailable' }, 503);
+      if (writes.length && readbackProfile) return json(readbackProfile);
       return json(canonical);
     }
     if (request.method() === 'PATCH' && url.pathname === '/auth/profile') {
       const payload = JSON.parse(request.postData() || '{}');
       writes.push(payload);
       if (patchDelayMs) await new Promise((resolve) => setTimeout(resolve, patchDelayMs));
-      canonical = { ...canonical, onboarding_completed: true };
+      if (persistPatch) canonical = { ...canonical, ...payload };
       if (ambiguousPatch) return route.abort('connectionfailed');
-      return json({ ...canonical, ...payload });
+      // The ACK alone is never proof of canonical persistence.
+      return json({ ...canonical, ...payload }, patchStatus);
     }
     if (url.pathname === '/api/error-logs') return json({ ok: true });
     return json({});
@@ -278,6 +290,76 @@ check('mobile không tràn ngang và radio dùng được bằng bàn phím',
   `level=${keyboardLevelChecked}; topic=${keyboardTopicChecked}; scrollWidth=${mobileDimensions.scrollWidth}; innerWidth=${mobileDimensions.innerWidth}`);
 check('wizard không có lỗi JavaScript', wizard.errors.length === 0, wizard.errors.join(' | '));
 await wizard.context.close();
+
+const skipName = 'Bỏ qua, thiết lập sau';
+for (const theme of ['light', 'dark']) {
+  const skip = await fixture({ profile: authMe(), patchDelayMs: 150, theme, viewport: { width: 390, height: 844 } });
+  await skip.page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
+  await skip.page.getByRole('heading', { name: /Chào mừng/ }).waitFor();
+  const header = skip.page.getByRole('banner');
+  check(`header tối giản, không link vào app (${theme})`,
+    await header.getByLabel('Aver Learning').isVisible()
+      && await header.getByRole('button', { name: 'Đăng xuất', exact: true }).isVisible()
+      && await skip.page.locator('aver-chrome, nav, a[href]').count() === 0);
+  const surfaces = await skip.page.evaluate(() => ({
+    theme: document.documentElement.dataset.theme,
+    header: getComputedStyle(document.querySelector('.ob-header')).backgroundColor,
+    card: getComputedStyle(document.querySelector('.ob-card')).backgroundColor,
+    skip: getComputedStyle(document.querySelector('.ob-skip')).color,
+    contained: document.documentElement.scrollWidth <= innerWidth,
+  }));
+  check(`header, card và nút skip có style, mobile không tràn (${theme})`,
+    surfaces.theme === theme && surfaces.header !== 'rgba(0, 0, 0, 0)'
+      && surfaces.card !== 'rgba(0, 0, 0, 0)' && surfaces.contained, JSON.stringify(surfaces));
+  const readsBeforeSkip = skip.reads.length;
+  await skip.page.getByRole('button', { name: skipName }).evaluate((node) => {
+    node.click();
+    node.click();
+  });
+  await skip.page.waitForURL('**/home');
+  check(`skip chỉ PATCH completion flag, đọc lại canonical rồi tới /home (${theme})`,
+    skip.writes.length === 1
+      && JSON.stringify(skip.writes[0]) === JSON.stringify({ onboarding_completed: true })
+      && skip.reads.length === readsBeforeSkip + 1
+      && new URL(skip.page.url()).search === ''
+      && skip.errors.length === 0);
+  await skip.context.close();
+}
+
+const lostSkipAck = await fixture({ profile: authMe(), ambiguousPatch: true });
+await lostSkipAck.page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
+await lostSkipAck.page.getByRole('button', { name: skipName }).click();
+await lostSkipAck.page.waitForURL('**/home');
+check('skip mất ACK vẫn tới home khi canonical đã hoàn tất', lostSkipAck.writes.length === 1);
+await lostSkipAck.context.close();
+
+for (const [name, options] of [
+  ['PATCH thất bại', { persistPatch: false, patchStatus: 503 }],
+  ['ACK thành công nhưng canonical chưa hoàn tất', { persistPatch: false }],
+  ['đọc lại canonical thất bại', { readbackFails: true }],
+  ['canonical sai định dạng', { readbackProfile: { id: 'user-1', is_active: true } }],
+  ['canonical của tài khoản khác', { readbackProfile: authMe({ id: 'other-user', onboarding_completed: true }) }],
+]) {
+  const failedSkip = await fixture({ profile: authMe(), ...options });
+  await failedSkip.page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
+  await failedSkip.page.getByRole('button', { name: skipName }).click();
+  await failedSkip.page.locator('.ob-error-banner[role="alert"]').waitFor();
+  check(`skip fail closed khi ${name}; hiện lỗi và cho thử lại`,
+    new URL(failedSkip.page.url()).pathname === '/onboarding'
+      && await failedSkip.page.getByRole('button', { name: skipName }).isEnabled()
+      && failedSkip.writes.length === 1 && failedSkip.reads.length >= 2
+      && failedSkip.errors.length === 0);
+  await failedSkip.context.close();
+}
+
+const logout = await fixture({ profile: authMe() });
+await logout.page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
+await logout.page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
+await logout.page.waitForURL('**/login');
+check('header đăng xuất qua shared Supabase rồi tới /login',
+  await logout.page.evaluate(() => localStorage.getItem('onboarding-fixture-signed-out') === 'true')
+    && logout.writes.length === 0);
+await logout.context.close();
 
 const completed = await fixture({
   profile: authMe({ onboarding_completed: true }),

@@ -117,7 +117,8 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   useEffect(() => {
     let disposed = false;
     if (!bootPromise) bootPromise = bootstrap();
-    void bootPromise.then((result) => {
+    const pendingBoot = bootPromise;
+    void pendingBoot.then((result) => {
       if (disposed) return;
       clientRef.current = result.client;
       if (result.kind === 'signed-out') setBusyMessage('');
@@ -126,6 +127,9 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
       if (disposed) return;
       setBusyMessage('');
       setError(messageOf(caught, 'Không thể khởi tạo đăng nhập. Vui lòng thử lại.'));
+    }).finally(() => {
+      // Share an in-flight boot across Strict Mode mounts, never a stale profile.
+      if (bootPromise === pendingBoot) bootPromise = null;
     });
 
     const themeButton = document.querySelector<HTMLButtonElement>('.av-theme-toggle');

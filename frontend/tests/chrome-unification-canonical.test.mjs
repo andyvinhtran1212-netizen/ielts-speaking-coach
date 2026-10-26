@@ -119,6 +119,17 @@ describe('Sprint 6.17 foundation — canonical chrome rules (Sprint 7.14: now in
     assert.ok(wrapIdx > mediaIdx && wrapIdx - mediaIdx < 400,
       '.topnav-wrap should be scoped inside the same mobile @media block');
   });
+
+  test('mobile disclosure controls the canonical eight links inside the shadow root', () => {
+    assert.match(chromeJs, /id="mobile-nav-toggle"[\s\S]*?aria-expanded="false" aria-controls="mobile-nav-menu"/);
+    assert.match(chromeJs, /class="nav-links" id="mobile-nav-menu"/);
+    assert.match(chromeJs, /\.mobile-nav-toggle\s*\{\s*display: none/);
+    assert.match(chromeJs, /\.nav-links\.is-open\s*\{\s*display: flex/);
+    assert.match(chromeJs, /event\.composedPath\(\)/);
+    assert.match(chromeJs, /if \(event\.key === 'Escape'\)/);
+    assert.match(chromeJs, /item\.button\.focus\(\)/);
+  });
+
 });
 
 

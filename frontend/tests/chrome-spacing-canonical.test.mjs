@@ -312,3 +312,14 @@ describe('Sprint 7.4/7.5 — flashcards + exercises module templates preserve Ca
     });
   });
 });
+
+
+describe('U-01 mobile disclosure spacing', () => {
+  test('mobile links and profile actions have 44px targets; desktop rhythm stays canonical', () => {
+    const source = readFileSync(path.join(REPO_ROOT, 'frontend/public/js/components/aver-chrome.js'), 'utf8');
+    const mobile = source.slice(source.indexOf('@media (max-width: 720px)'));
+    assert.match(mobile, /\.nav-links a\s*\{[^}]*min-height:\s*44px/);
+    assert.match(mobile, /\.user-menu-item\s*\{[^}]*min-height:\s*44px/);
+    assert.match(mobile, /margin-bottom:\s*var\(--av-space-8\)/);
+  });
+});

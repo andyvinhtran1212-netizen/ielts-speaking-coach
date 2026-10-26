@@ -5,7 +5,7 @@ import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const FIXTURE_API_PREFIX = '/__fixture_api';
-const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
+const SB = process.env.SUPABASE_URL || 'https://zjphffoujxkpltixsbzj.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000123';
 const authSession = { access_token: 'admin-writing-assignments-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-writing-assignments@local' } };
 const session = JSON.stringify(authSession);
@@ -17,7 +17,7 @@ const hostile = '<img src=x onerror="window.__assignmentXss=1">';
 const assignment = (overrides = {}) => ({ id: 'a-old', status: 'pending', prompt_id: 'p1', student_id: 's1', assignment_group_id: 'g-old', name: hostile, deadline: null, instructions: null, created_at: '2026-08-13T00:00:00Z', submitted_at: null, graded_at: null, delivered_at: null, essay_id: null, allow_soft_check: false, is_timed: false, time_limit_minutes: null, auto_submitted: false, writing_prompts: { id: 'p1', title: 'Discuss public transport', task_type: 'task2', difficulty: 'intermediate' }, students: { id: 's1', student_code: 'S001', full_name: 'Lan' }, ...overrides });
 let rows = [assignment()]; let cohortSourceFails = true; const committedRequests = new Map();
 
-const browser = await launch(); const context = await browser.newContext({ viewport: { width: 1440, height: 980 } });
+const browser = await launch(); const context = await browser.newContext({ viewport: { width: 1440, height: 980 }, timezoneId: 'America/New_York' });
 await context.addInitScript(([key, value, injectedSession]) => {
   localStorage.setItem(key, value);
   window.__AVER_SUPABASE_CLIENT__ = { auth: {
@@ -52,7 +52,7 @@ await page.route('**/*', async (route) => {
     const body = request.postDataJSON(); const existing = committedRequests.get(body.request_id);
     if (body.name === 'Invalid request') return json({ detail: 'fixture validation rejected' }, 422);
     if (existing) return json({ ...existing, replayed: true }, 201);
-    const created = assignment({ id: 'a-new', assignment_group_id: 'g-new', name: body.name, allow_soft_check: body.allow_soft_check, is_timed: body.is_timed, time_limit_minutes: body.time_limit_minutes }); rows = [created, ...rows];
+    const created = assignment({ id: 'a-new', assignment_group_id: 'g-new', name: body.name, deadline: body.deadline, allow_soft_check: body.allow_soft_check, is_timed: body.is_timed, time_limit_minutes: body.time_limit_minutes }); rows = [created, ...rows];
     committedRequests.set(body.request_id, { created: [{ id: 'a-new' }], count: 1, group_id: 'g-new', duplicates_warning: ['s1'] });
     return json({ detail: 'fixture response lost after commit' }, 503);
   }
@@ -89,12 +89,15 @@ check('đổi khóa không làm mất đề đã chọn trước đó', await di
 await dialog.getByLabel('Khóa học của đề').selectOption('5');
 check('đề dùng chung vẫn được chọn ở khóa khác', await dialog.getByText('Discuss public transport', { exact: true }).locator('..').locator('..').getByRole('checkbox').isChecked());
 await dialog.getByLabel('Tên nhóm (tuỳ chọn)').fill('Buổi kiểm tra');
+await dialog.getByLabel('Hạn nộp (giờ Việt Nam, tuỳ chọn)').fill('2026-10-27T23:00');
 await dialog.getByRole('button', { name: 'Rà lại trước khi giao' }).click();
 await dialog.getByText('1', { exact: true }).first().waitFor();
+check('New York browser review preserves 23:00 Vietnam', await dialog.getByText('23:00 27/10/26', { exact: true }).count() === 1);
 check('review hiển thị phép tính đề × học viên', await dialog.getByText('1', { exact: true }).count() >= 3 && await dialog.getByText('bài sẽ tạo', { exact: true }).count() === 1);
 await dialog.getByRole('button', { name: 'Xác nhận giao 1 bài' }).click();
 await dialog.getByText(/Chưa nhận được biên nhận hoàn chỉnh/).waitFor();
 check('response mất sau commit giữ request idempotent để retry', requests.filter((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').length === 1 && await page.evaluate((key) => Boolean(sessionStorage.getItem(key)), `awa-pending-request:${adminId}`));
+check('admin payload sends Vietnam offset from a New York browser', requests.find((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').body.deadline === '2026-10-27T23:00:00+07:00');
 const firstRequestId = requests.find((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').body.request_id;
 await dialog.getByRole('button', { name: 'Retry với cùng request_id' }).click();
 // A completed click does not mean the async replay has reached the fixture.

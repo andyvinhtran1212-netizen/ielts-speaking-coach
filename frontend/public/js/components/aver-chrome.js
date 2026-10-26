@@ -311,21 +311,50 @@ const STYLE = /* css */ `
   background: var(--av-error-soft);
 }
 
+.mobile-nav-toggle { display: none; }
+
 @media (max-width: 720px) {
   .topnav-wrap { padding: 0 var(--av-space-4); }
   .topnav { gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-8); }
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: var(--av-surface-card);
+    border: 1px solid var(--av-border-default);
+    border-radius: var(--av-radius-md);
+    color: var(--av-text-primary);
+    cursor: pointer;
+  }
+  .mobile-nav-toggle:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
   .nav-links {
+    display: none;
     width: 100%;
     min-width: 0;
     order: 3;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch;
+    align-items: stretch;
+    flex-direction: column;
   }
-  .nav-links a,
-  .nav-links span { flex: 0 0 auto; }
-  .topnav-right { margin-left: auto; }
+  .nav-links.is-open { display: flex; }
+  .nav-links a {
+    box-sizing: border-box;
+    min-height: 44px;
+    border-radius: var(--av-radius-md);
+  }
+  .nav-links a[aria-current="page"] {
+    color: var(--av-primary);
+    background: var(--av-primary-soft);
+    font-weight: var(--av-fw-bold);
+  }
+  .nav-links a:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+  .topnav-right { margin-left: auto; gap: var(--av-space-2); }
+  .user-pill { padding: var(--av-space-1); }
+  #user-pill-name { display: none; }
+  .user-menu-item { box-sizing: border-box; min-height: 44px; }
+  .user-menu-item[hidden] { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -339,7 +368,7 @@ const TEMPLATE = /* html */ `
   <nav class="topnav" aria-label="Primary">
     <a href="/home" class="brand">Aver<span class="dot">.</span>Learning</a>
 
-    <div class="nav-links">
+    <div class="nav-links" id="mobile-nav-menu">
       <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/writing/dashboard" data-tab="writing">Writing</a>
       <a href="/my-class" data-tab="class">MY CLASS</a>
@@ -351,6 +380,13 @@ const TEMPLATE = /* html */ `
     </div>
 
     <div class="topnav-right">
+      <button class="mobile-nav-toggle" id="mobile-nav-toggle" type="button"
+              aria-label="Mở menu" aria-expanded="false" aria-controls="mobile-nav-menu">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
       <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
         <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="4"></circle>
@@ -654,31 +690,14 @@ export class AverChrome extends HTMLElement {
     if (!root) return;
     const links = root.querySelectorAll('.nav-links a[data-tab]');
     const target = VALID_ACTIVE.includes(value) ? value : null;
-    let activeLink = null;
     links.forEach((a) => {
       const isActive = target && a.dataset.tab === target;
-      if (isActive) {
-        a.classList.add('active');
-        a.setAttribute('aria-current', 'page');
-        activeLink = a;
-      } else {
-        a.classList.remove('active');
-        a.removeAttribute('aria-current');
-      }
+      // Preserve the desktop highlight roster; mark all eight current
+      // destinations semantically and visually in the mobile panel.
+      a.classList.toggle('active', Boolean(isActive));
+      if (a.dataset.tab === value) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
     });
-
-    // The primary nav becomes a horizontal strip on phones. Bring the active
-    // destination into view without moving the page vertically.
-    if (activeLink && typeof window.matchMedia === 'function'
-        && window.matchMedia('(max-width: 720px)').matches) {
-      requestAnimationFrame(() => {
-        if (!this.isConnected) return;
-        const nav = activeLink.closest('.nav-links');
-        if (!nav || !activeLink.offsetWidth) return;
-        const targetLeft = activeLink.offsetLeft - (nav.clientWidth - activeLink.offsetWidth) / 2;
-        nav.scrollLeft = Math.max(0, targetLeft);
-      });
-    }
   }
 
   _bindToggle() {
@@ -696,39 +715,53 @@ export class AverChrome extends HTMLElement {
     this._abortController = new AbortController();
     const { signal } = this._abortController;
 
-    const close = () => {
-      menu.setAttribute('hidden', '');
-      toggle.setAttribute('aria-expanded', 'false');
+    const mobileToggle = root.getElementById('mobile-nav-toggle');
+    const mobileMenu = root.getElementById('mobile-nav-menu');
+    const disclosures = [
+      { button: toggle, panel: menu, mobile: false },
+      { button: mobileToggle, panel: mobileMenu, mobile: true },
+    ];
+    const isOpen = ({ button }) => button.getAttribute('aria-expanded') === 'true';
+    const close = (item, restoreFocus = false) => {
+      if (!isOpen(item)) return;
+      item.button.setAttribute('aria-expanded', 'false');
+      if (item.mobile) item.panel.classList.remove('is-open');
+      else item.panel.hidden = true;
+      if (restoreFocus) item.button.focus();
     };
-    const open = () => {
-      menu.removeAttribute('hidden');
-      toggle.setAttribute('aria-expanded', 'true');
-    };
-    const isOpen = () => !menu.hasAttribute('hidden');
+    disclosures.forEach((item) => {
+      item.button.addEventListener('click', () => {
+        if (isOpen(item)) close(item, true);
+        else {
+          disclosures.forEach((other) => close(other));
+          item.button.setAttribute('aria-expanded', 'true');
+          if (item.mobile) {
+            item.panel.classList.add('is-open');
+            item.panel.querySelector('a')?.focus();
+          }
+          else item.panel.hidden = false;
+        }
+      }, { signal });
+      item.panel.addEventListener('click', (event) => {
+        if (event.target.closest('a')) close(item, true);
+      }, { signal });
+    });
 
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (isOpen()) close(); else open();
-    }, { signal });
-
-    // Outside-click close. Composed events from inside the shadow root
-    // surface on document with composedPath()[0] === shadow target;
-    // we close when the click does NOT pass through this host element.
-    this._docClickHandler = (e) => {
-      if (!isOpen()) return;
-      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
-      if (path.includes(this)) return;
-      close();
+    // composedPath includes shadow targets, unlike the retargeted document event.
+    this._docClickHandler = (event) => {
+      const path = event.composedPath();
+      disclosures.forEach((item) => {
+        if (!path.includes(item.button) && !path.includes(item.panel)) close(item, true);
+      });
     };
     document.addEventListener('click', this._docClickHandler);
-
-    this._docKeydownHandler = (e) => {
-      if (e.key === 'Escape' && isOpen()) {
-        close();
-        toggle.focus();
-      }
+    this._docKeydownHandler = (event) => {
+      if (event.key === 'Escape') disclosures.forEach((item) => close(item, true));
     };
     document.addEventListener('keydown', this._docKeydownHandler);
+    window.matchMedia('(max-width: 720px)').addEventListener('change', () => {
+      close(disclosures[1]);
+    }, { signal });
   }
 
   _bindLogout() {

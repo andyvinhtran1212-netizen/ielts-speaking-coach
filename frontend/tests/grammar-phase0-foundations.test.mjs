@@ -38,10 +38,11 @@ describe('Grammar Wiki Phase 0 foundations', () => {
     assert.match(BEHAVIOR, /#mobile-toc-container a\[href=/);
   });
 
-  test('mobile primary nav scrolls and reveals the active destination', () => {
-    assert.match(CHROME, /\.nav-links a,[\s\S]*?flex:\s*0 0 auto/);
-    assert.match(CHROME, /overflow-x:\s*auto/);
+  test('mobile primary nav uses a vertical disclosure without clipping auto-scroll', () => {
+    assert.match(CHROME, /\.nav-links\s*\{[^}]*display:\s*none;[^}]*flex-direction:\s*column/s);
+    assert.match(CHROME, /\.nav-links\.is-open\s*\{\s*display:\s*flex/);
+    assert.match(CHROME, /min-height:\s*44px/);
     assert.match(CHROME, /setAttribute\('aria-current', 'page'\)/);
-    assert.match(CHROME, /nav\.scrollLeft\s*=\s*Math\.max/);
+    assert.doesNotMatch(CHROME, /overflow-x:\s*auto|nav\.scrollLeft/);
   });
 });

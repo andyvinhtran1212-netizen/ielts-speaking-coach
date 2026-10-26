@@ -22,6 +22,7 @@ from services.question_visibility import redact_questions, should_reveal
 
 logger = logging.getLogger(__name__)
 from routers.auth import get_supabase_user
+from routers.sessions import require_speaking_entitlement
 from services.gemini import (
     generate_part1_questions,
     generate_part2_cuecard,
@@ -276,6 +277,7 @@ async def generate_questions(
     # route below; an expired Legacy client must not use this POST to keep an
     # old player alive or create rows after the canonical hard deadline.
     require_resume_active(session)
+    require_speaking_entitlement(user_id, session)
     part: int  = session["part"]
     topic: str = session["topic"]
     mode: str  = session.get("mode", "practice")
@@ -523,7 +525,7 @@ async def save_custom_questions(
         s_result = (
             supabase_admin.table("sessions")
             .select(
-                "id, part, status, class_assignment_item_id, resume_expires_at"
+                "id, part, mode, status, class_assignment_item_id, resume_expires_at"
             )
             .eq("id", session_id)
             .eq("user_id", user_id)
@@ -537,6 +539,7 @@ async def save_custom_questions(
         raise HTTPException(status_code=404, detail="Session không tồn tại")
 
     require_resume_active(s_result.data[0])
+    require_speaking_entitlement(user_id, s_result.data[0])
 
     # BÀI TẬP LỚP KHÔNG ĐƯỢC TỰ NHẬP CÂU. Endpoint này cho phép chủ phiên chèn
     # câu hỏi bất kỳ; với một phiên đã gắn bài tập lớp, học viên có thể thay đề
@@ -648,6 +651,8 @@ async def generate_cuecard_endpoint(
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+
+    require_speaking_entitlement(user_id, None)
 
     trigger = body.trigger.strip()
     if not trigger:

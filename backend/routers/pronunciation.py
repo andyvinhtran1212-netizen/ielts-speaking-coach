@@ -32,7 +32,7 @@ import math
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from routers.sessions import update_session_bands
+from routers.sessions import require_speaking_entitlement, update_session_bands
 from services import azure_pronunciation
 from services.recording_audio import BUCKET, recording_path
 from services.pronunciation_sampling import (
@@ -241,7 +241,7 @@ async def assess_full_test_pronunciation(
     try:
         s_res = (
             supabase_admin.table("sessions")
-            .select("id")
+            .select("id, mode, class_assignment_item_id")
             .in_("id", all_session_ids)
             .eq("user_id", user_id)
             .execute()
@@ -249,9 +249,11 @@ async def assess_full_test_pronunciation(
     except Exception as e:
         raise HTTPException(500, f"Lỗi khi tải session: {e}")
 
-    found_ids = {r["id"] for r in (s_res.data or [])}
+    owned = {r["id"]: r for r in (s_res.data or [])}
+    found_ids = set(owned)
     if session_id not in found_ids:
         raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
+    require_speaking_entitlement(user_id, owned[session_id])
 
     # ── 2. Load responses from ALL sessions + questions (join in Python) ──────
     try:
