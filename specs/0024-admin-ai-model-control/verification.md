@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_admin_ai_dashboard.py; models endpoint order, slot models and source labels for env, code default and DB override | PENDING |
 | FR-002 | kind=test; ref=backend/tests/test_admin_ai_dashboard.py; Saigon window boundaries and per-feature/provider aggregation including unpriced, legacy and unattributed rows; rollup function on real PostgreSQL | PENDING |
-| FR-003 | kind=test; ref=backend/tests/test_migration_321_ai_model_overrides_postgres.py; tables, CHECKs, RLS, grants, audit trigger, append-only audit, double application | PENDING |
+| FR-003 | kind=test; ref=backend/tests/test_migration_322_ai_model_overrides_postgres.py; tables, CHECKs, RLS, grants, audit trigger, append-only audit, double application | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_admin_ai_dashboard.py; 401/403 for non-admins, 422 allowlist rejections with no write, audit actor, refetched response | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_ai_model_overrides.py; precedence, reorder-only semantics, Speaking slot placement, missing-key rule | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_ai_model_overrides.py; snapshot TTL with a fake clock, background refresh, DB failure/timeout/missing table/invalid value fall back to env/code defaults | PENDING |

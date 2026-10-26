@@ -26,10 +26,10 @@
 
 ## Data and contracts
 
-### Migration `backend/migrations/321_ai_model_overrides_and_failures.sql`
+### Migration `backend/migrations/322_ai_model_overrides_and_failures.sql`
 
-320 is taken by SECWRITE-0022 (#1719, merged 2026-10-26); the number is
-re-checked against `backend/migrations/` and open PRs before merge.
+320 is taken by SECWRITE-0022 (#1719, merged 2026-10-26) and 321 is claimed by
+open PR #1727; the number is re-checked against `backend/migrations/` and open PRs before merge.
 
 ```sql
 ai_model_overrides(
@@ -150,7 +150,7 @@ Single owner (one branch); no parallel file ownership needed.
 
 ## Rollout and rollback
 
-See `rollout.md`. Summary: apply 321 to staging, merge code, verify the panel
+See `rollout.md`. Summary: apply 322 to staging, merge code, verify the panel
 and one override flip on staging, then production migration under the
 advisory lock before promotion. Rollback is code-first (the code tolerates the
 missing tables) and override-first (`DELETE FROM ai_model_overrides` restores
