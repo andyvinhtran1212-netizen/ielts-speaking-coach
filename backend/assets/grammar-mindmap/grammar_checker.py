@@ -472,6 +472,15 @@ VI_LEARNER_RULES: List[Dict[str, Any]] = [
         # anchors present perfect. A bare finished-past marker stays flagged even
         # with have + V3 ("Yesterday I have eaten lunch.").
         "skip_if_match_left": re.compile(r"\b(?:since|(?:in|over|during|for)\s+the)\s+$", re.IGNORECASE),
+        # ...but only when the clause really is present perfect: the matched verb
+        # is "have" + (adverb) + past participle. "Since last year I live here."
+        # and "Since last year I have a dog." stay flagged.
+        "skip_requires_match_from_verb": re.compile(
+            r"have(?:\s+(?:always|never|just|already|ever|not|really|only|also))?"
+            r"\s+(?:[a-z]+(?:ed|en|wn)|been|had|done|gone|got|made|taught|thought|felt"
+            r"|kept|left|met|found|told|said|read|heard|won|lost|built|bought|brought"
+            r"|caught|sung|drunk|run|come|become|sat|stood|understood|slept|spent|put)\b",
+            re.IGNORECASE),
         "point": "Past Simple (with past time markers)",
         "area": "tenses",
         "tip_vi": "Câu có từ chỉ thời gian quá khứ (yesterday, last…, ago) → động từ phải chia QUÁ KHỨ (V2).",
@@ -620,7 +629,12 @@ def run_local_rules(text: str) -> List[Dict[str, Any]]:
             skip_re = rule.get("skip_if_match_left")
             if skip_re:
                 left = text[:m.start()]
-                if skip_re.search(left):
+                # Optional qualifier: the left guard only applies when the text
+                # from the rule's last captured group (the verb) also matches.
+                verb_re = rule.get("skip_requires_match_from_verb")
+                if skip_re.search(left) and (
+                    verb_re is None or verb_re.match(text, m.start(m.lastindex or 0))
+                ):
                     continue
             replacement = None
             if rule.get("fix") is not None:

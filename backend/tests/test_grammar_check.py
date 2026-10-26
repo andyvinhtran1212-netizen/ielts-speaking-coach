@@ -557,6 +557,8 @@ _RULE_PAST_MARKER = "LOCAL_PAST_TIME_MARKER_PRESENT_VERB"
     ("in the last year I have lived here", _RULE_PAST_MARKER),
     ("Over the last year I have worked hard.", _RULE_PAST_MARKER),
     ("For the last week I have studied every day.", _RULE_PAST_MARKER),
+    ("Since last year I have always been busy.", _RULE_PAST_MARKER),
+    ("Since last month we have taken three tests.", _RULE_PAST_MARKER),
 ])
 def test_asset_rules_skip_embedded_if_and_present_perfect(sentence, rule_id):
     assert not [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence
@@ -570,6 +572,12 @@ def test_asset_rules_skip_embedded_if_and_present_perfect(sentence, rule_id):
     # Present perfect is incompatible with a finished-past marker.
     ("Yesterday I have eaten lunch.", _RULE_PAST_MARKER),
     ("Last year I have worked in London.", _RULE_PAST_MARKER),
+    # A since-/in-the-phrase only exempts a real present-perfect clause
+    # (Codex review on #1702).
+    ("Since last year I live here.", _RULE_PAST_MARKER),
+    ("Since last month we work together.", _RULE_PAST_MARKER),
+    ("Since last year I have a dog.", _RULE_PAST_MARKER),
+    ("In the last year I live in Hanoi.", _RULE_PAST_MARKER),
 ])
 def test_asset_rules_still_flag_conditional_will_and_past_marker(sentence, rule_id):
     assert [f for f in _real_local(sentence) if f["ruleId"] == rule_id], sentence

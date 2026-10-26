@@ -28,6 +28,8 @@ INCORRECT = [
     ("Yesterday I go to the market.", "Past time marker"),
     ("Yesterday I have eaten lunch.", "Past time marker"),   # PP + finished-past marker
     ("Last year I have worked in London.", "Past time marker"),
+    ("Since last year I live here.", "Past time marker"),   # since-phrase but not present perfect
+    ("Since last year I have a dog.", "Past time marker"),
     ("I am agree with you.", "be + agree"),
     ("People is happy.", "people are"),
     ("Where you are going?", "Question word order"),
