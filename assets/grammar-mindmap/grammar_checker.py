@@ -463,14 +463,15 @@ VI_LEARNER_RULES: List[Dict[str, Any]] = [
         "name": "Past time marker + present verb",
         # Excludes verbs where base==past (read/put/cut/let/set/hit/cost/shut/spread/burst/hurt/split)
         # so "Yesterday I read a book" (read = past) is NOT flagged.
-        # "have + V3 / have been" is present perfect, not a bare present verb.
         "pattern": re.compile(
             r"\b(yesterday|last\s+(?:week|month|year|night|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|\d+\s+(?:days?|weeks?|months?|years?)\s+ago|in\s+\d{4})\b[^.!?\n]{0,40}?\b(I|you|he|she|it|we|they)\s+"
-            r"(?!have\s+(?:been|\w+ed|done|gone|seen|known|taken|given|made|had|got|gotten|come|become|found|met|written|eaten|spoken|grown|kept|felt|heard|read|built)\b)"
             r"(go|come|do|have|see|eat|drink|run|play|study|live|work|write|cook|sleep|stay|wait|sing|dance|watch|listen|speak|teach|need|want|know|think|feel|seem|look|try|clean)\b",
             re.IGNORECASE),
-        # "Since last year I have lived here." — a since-phrase anchors present perfect.
-        "skip_if_match_left": re.compile(r"\bsince\s+$", re.IGNORECASE),
+        # "Since last year I have lived here." / "In the last year I have been busy." —
+        # the marker sits inside a since- or in/over/during/for-the-phrase, which
+        # anchors present perfect. A bare finished-past marker stays flagged even
+        # with have + V3 ("Yesterday I have eaten lunch.").
+        "skip_if_match_left": re.compile(r"\b(?:since|(?:in|over|during|for)\s+the)\s+$", re.IGNORECASE),
         "point": "Past Simple (with past time markers)",
         "area": "tenses",
         "tip_vi": "Câu có từ chỉ thời gian quá khứ (yesterday, last…, ago) → động từ phải chia QUÁ KHỨ (V2).",

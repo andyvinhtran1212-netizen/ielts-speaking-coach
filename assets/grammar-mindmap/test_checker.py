@@ -26,6 +26,8 @@ INCORRECT = [
     ("I am study English now.", "be + V-ing missing"),
     ("He have lived here for 5 years.", "have/has"),
     ("Yesterday I go to the market.", "Past time marker"),
+    ("Yesterday I have eaten lunch.", "Past time marker"),   # PP + finished-past marker
+    ("Last year I have worked in London.", "Past time marker"),
     ("I am agree with you.", "be + agree"),
     ("People is happy.", "people are"),
     ("Where you are going?", "Question word order"),
@@ -96,7 +98,8 @@ CORRECT = [
     "I wonder if he will come.",               # if = whether (embedded question)
     "I'm not sure if she will agree.",
     "Since last year I have lived here.",      # since-phrase → present perfect
-    "In the last year I have been very busy.", # have been = present perfect
+    "In the last year I have been very busy.", # in the last … → present perfect
+    "in the last year I have lived here",
 ]
 
 
