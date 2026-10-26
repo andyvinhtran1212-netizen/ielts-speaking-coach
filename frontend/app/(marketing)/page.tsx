@@ -60,7 +60,7 @@ export default function LandingPreviewPage() {
           </div>
 
           {/* CTA buttons */}
-          <div className="flex items-center gap-3">
+          <div className="ix-nav-actions flex items-center gap-3">
             <Link
               href="/login"
               className="ix-nav-signin hidden sm:inline-flex text-sm font-medium px-3 py-2"
@@ -86,6 +86,13 @@ export default function LandingPreviewPage() {
                 />
               </svg>
             </Link>
+            <button id="ix-mobile-toggle" className="ix-mobile-toggle" type="button"
+              aria-label="Mở menu" aria-expanded="false" aria-controls="ix-mobile-menu">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <button
               className="av-theme-toggle"
               type="button"
@@ -100,6 +107,12 @@ export default function LandingPreviewPage() {
               </svg>
             </button>
           </div>
+        </div>
+        <div id="ix-mobile-menu" className="ix-mobile-menu" hidden>
+          <Link href="/grammar">Grammar Wiki</Link>
+          <a href="#features">Tính năng</a>
+          <Link href="/login">Đăng nhập</Link>
+          <Link href="/login" className="ix-nav-cta">Dùng thử miễn phí</Link>
         </div>
       </nav>
 
