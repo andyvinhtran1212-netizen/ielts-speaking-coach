@@ -16,6 +16,7 @@ INCORRECT = [
     ("They was happy yesterday.", "was/were"),
     ("Did you went to the party?", "did + base"),
     ("If it will rain, I will stay home.", "Conditional"),
+    ("If it will rain tomorrow, I stay home.", "Conditional"),
     ("I have many informations.", "Uncountable plural"),
     ("She is more taller than him.", "Double comparative"),
     ("I can to swim.", "Modal + to"),
@@ -91,6 +92,11 @@ CORRECT = [
     "She has eaten lunch.",                    # correct PP
     "I am listening to music.",                # correct continuous
     "I am going to the store.",                # correct continuous
+    # Codex review on #1695
+    "I wonder if he will come.",               # if = whether (embedded question)
+    "I'm not sure if she will agree.",
+    "Since last year I have lived here.",      # since-phrase → present perfect
+    "In the last year I have been very busy.", # have been = present perfect
 ]
 
 
