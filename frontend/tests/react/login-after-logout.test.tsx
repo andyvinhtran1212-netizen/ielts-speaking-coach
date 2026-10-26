@@ -127,3 +127,26 @@ it('a genuinely expired session (no logout in this tab) keeps the existing visib
   expect((await screen.findByRole('alert')).textContent).toBe(EXPIRED);
   expect(meCalls()).toHaveLength(1);
 });
+
+it('storage denied by privacy settings: /login neither crashes nor loses its canonical routing', async () => {
+  // The window.sessionStorage getter itself throws SecurityError; the sign-out
+  // record is unreadable, so /login falls back to canonical /auth/me routing.
+  const denied = () => { throw new DOMException('The operation is insecure.', 'SecurityError'); };
+  const proxied = window as any;
+  vi.stubGlobal('window', new Proxy(proxied, {
+    get: (target, key) => (key === 'localStorage' || key === 'sessionStorage'
+      ? denied() : Reflect.get(target, key, target)),
+  }));
+  persist('sid-1');
+  fetchMock.mockImplementation(async () => new Response(JSON.stringify({
+    id: 'A', is_active: true, onboarding_completed: true,
+  }), { status: 200 }));
+  renderLogin();
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/home'));
+  cleanup();
+  replace.mockReset();
+  window.history.replaceState(null, '', '/login?code=abc'); // the callback path forgets the record
+  renderLogin();
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/home'));
+  expect(screen.queryByRole('alert')).toBeNull();
+});

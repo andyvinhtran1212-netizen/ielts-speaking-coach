@@ -95,3 +95,28 @@ it('a successful revoke keeps the review #762 order: revoke settles before the a
   expect(order.at(-1)).toBe('navigate:/');
   expect(sessionStorage.getItem(SIGNED_OUT_SESSION_KEY)).toBe('sid-1');
 });
+
+it('storage denied by privacy settings: logout still revokes, announces sign-out and navigates', async () => {
+  // Blocked Web Storage throws SecurityError from the window.localStorage /
+  // window.sessionStorage getters themselves; the sign-out helpers must not
+  // let that skip the revoke or abort the announcement and navigation.
+  const denied = () => { throw new DOMException('The operation is insecure.', 'SecurityError'); };
+  const realWindow = (window as any);
+  const navigation = { set href(value: string) { order.push(`navigate:${value}`); href = value; } };
+  vi.stubGlobal('window', new Proxy(realWindow, {
+    get: (target, key) => {
+      if (key === 'location') return navigation;
+      if (key === 'localStorage' || key === 'sessionStorage') return denied();
+      return Reflect.get(target, key, target);
+    },
+  }));
+  expect(() => (window as any).sessionStorage).toThrow('insecure');
+  await clickLogout();
+  expect(order).toEqual([
+    'signing-out',
+    'revoke:marker=null',
+    'clear-api-cache',
+    'signed-out:session=kept,verifier=kept',
+    'navigate:/',
+  ]);
+});

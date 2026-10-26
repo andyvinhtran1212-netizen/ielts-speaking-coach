@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import {
   SIGNED_OUT_SESSION_KEY,
   clearPersistedAuthSession,
+  forgetSignedOutSession,
   isSignedOutSession,
   rememberSignedOutSession,
   sessionIdOf,
@@ -51,6 +52,28 @@ test('purges every supabase-js session key and nothing else', () => {
   });
   clearPersistedAuthSession(store);
   assert.deepEqual(store.keys(), ['av-theme', 'sb-unrelated', 'awa-pending-receipt:A']);
+});
+
+test('storage denied by privacy settings: helpers degrade instead of throwing from the storage getters', async () => {
+  // Browsers that block Web Storage throw SecurityError from the
+  // window.localStorage / window.sessionStorage getters themselves, so the
+  // helpers' DEFAULT storage must be resolved inside their guard.
+  const denied = () => { throw new DOMException('The operation is insecure.', 'SecurityError'); };
+  const hadWindow = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  const previous = globalThis.window;
+  globalThis.window = Object.defineProperties({}, {
+    localStorage: { get: denied, configurable: true },
+    sessionStorage: { get: denied, configurable: true },
+  });
+  try {
+    const client = { auth: { getSession: async () => ({ data: { session: { access_token: jwt({ session_id: 'sid-1' }) } } }) } };
+    await assert.doesNotReject(rememberSignedOutSession(client));
+    assert.equal(isSignedOutSession(jwt({ session_id: 'sid-1' })), false);
+    assert.doesNotThrow(() => forgetSignedOutSession());
+    assert.doesNotThrow(() => clearPersistedAuthSession());
+  } finally {
+    if (hadWindow) globalThis.window = previous; else delete globalThis.window;
+  }
 });
 
 test('api.js clearAuthCache drops the keepalive token so no later request reuses it', async () => {

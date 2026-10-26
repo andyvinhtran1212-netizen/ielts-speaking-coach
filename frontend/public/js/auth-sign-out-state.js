@@ -18,6 +18,13 @@ export const SIGNED_OUT_SESSION_KEY = 'aver-signed-out-session';
 // supabase-js default storage keys: sb-<project-ref>-auth-token[-suffix].
 const SUPABASE_AUTH_STORAGE_KEY = /^sb-.+-auth-token(?:-code-verifier|-user)?$/;
 
+// When privacy settings deny Web Storage, the window.sessionStorage /
+// window.localStorage getters themselves throw SecurityError. Every helper
+// therefore resolves its default storage INSIDE its guard (never as a default
+// parameter, which is evaluated before the try) so logout always proceeds.
+const tabStorage = (storage) => storage || window.sessionStorage;
+const persistentStorage = (storage) => storage || window.localStorage;
+
 /** The GoTrue `session_id` claim of an access token, or null. */
 export function sessionIdOf(accessToken) {
   try {
@@ -31,37 +38,38 @@ export function sessionIdOf(accessToken) {
 }
 
 /** Record the session the user is ending. Never throws; never navigates. */
-export async function rememberSignedOutSession(client, storage = window.sessionStorage) {
+export async function rememberSignedOutSession(client, storage) {
   try {
     const result = await client.auth.getSession();
     const sessionId = sessionIdOf(result && result.data && result.data.session
       && result.data.session.access_token);
-    if (sessionId) storage.setItem(SIGNED_OUT_SESSION_KEY, sessionId);
+    if (sessionId) tabStorage(storage).setItem(SIGNED_OUT_SESSION_KEY, sessionId);
   } catch (e) { /* the post-revoke purge still runs */ }
 }
 
 /** True when the token belongs to a session this tab already signed out. */
-export function isSignedOutSession(accessToken, storage = window.sessionStorage) {
+export function isSignedOutSession(accessToken, storage) {
   const sessionId = sessionIdOf(accessToken);
   try {
-    return Boolean(sessionId) && storage.getItem(SIGNED_OUT_SESSION_KEY) === sessionId;
+    return Boolean(sessionId) && tabStorage(storage).getItem(SIGNED_OUT_SESSION_KEY) === sessionId;
   } catch (e) {
     return false;
   }
 }
 
-export function forgetSignedOutSession(storage = window.sessionStorage) {
-  try { storage.removeItem(SIGNED_OUT_SESSION_KEY); } catch (e) { /* best effort */ }
+export function forgetSignedOutSession(storage) {
+  try { tabStorage(storage).removeItem(SIGNED_OUT_SESSION_KEY); } catch (e) { /* best effort */ }
 }
 
 /** Remove every persisted supabase-js session key (idempotent). */
-export function clearPersistedAuthSession(storage = window.localStorage) {
+export function clearPersistedAuthSession(storage) {
   try {
+    const store = persistentStorage(storage);
     const keys = [];
-    for (let i = 0; i < storage.length; i += 1) {
-      const key = storage.key(i);
+    for (let i = 0; i < store.length; i += 1) {
+      const key = store.key(i);
       if (key && SUPABASE_AUTH_STORAGE_KEY.test(key)) keys.push(key);
     }
-    keys.forEach((key) => storage.removeItem(key));
+    keys.forEach((key) => store.removeItem(key));
   } catch (e) { /* storage unavailable: nothing persisted to clear */ }
 }
