@@ -60,11 +60,12 @@ test('mobile landing menu reaches Đăng nhập and restores keyboard focus', as
 
 test('mobile app menu reaches MY CLASS, marks active links and keeps logout working', async ({ context, page }) => {
   await context.addInitScript(() => {
-    const session = { access_token: 'synthetic-u01-token', user: { id: 'u01', email: 'mobile@local' } };
+    let session = sessionStorage.getItem('u01-signout') ? null
+      : { access_token: 'synthetic-u01-token', user: { id: 'u01', email: 'mobile@local' } };
     window.__AVER_SUPABASE_CLIENT__ = { auth: {
       getSession: async () => ({ data: { session } }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
-      signOut: async () => { sessionStorage.setItem('u01-signout', 'called'); return { error: null }; },
+      signOut: async () => { session = null; sessionStorage.setItem('u01-signout', 'called'); return { error: null }; },
     } };
   });
   await page.goto('/home');
