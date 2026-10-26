@@ -77,11 +77,18 @@ MAX_RETRIES = 3
 INITIAL_RETRY_DELAY_S = 1.0
 
 # Anthropic-primary attempt (services.ai_router) for the full-feedback pass.
-# Output cap only bounds length; cost follows the actual response. The time
-# budget is added to Deep pass 1 so a slow Claude call still leaves Gemini its
-# original budget (pass 1 + 2 + 3 stay under the 600 s Deep reaper timeout).
+# Output cap only bounds length; cost follows the actual response. Claude gets
+# one attempt plus, when it cites text the essay does not contain, one repair
+# re-ask (the Gemini loop's grounding repair). Both share CLAUDE_TOTAL_BUDGET_S:
+# each call is capped at CLAUDE_TIMEOUT_S, and the repair starts only with at
+# least CLAUDE_REPAIR_MIN_S left and is cut off when the budget runs out. The
+# total is added to Deep pass 1 so a slow Claude path still leaves Gemini its
+# original budget: 90 + 150 (pass 1) + 90 + 180 = 510 s, under the 600 s Deep
+# reaper timeout (WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS).
 CLAUDE_MAX_TOKENS = 16000
 CLAUDE_TIMEOUT_S = 120.0
+CLAUDE_TOTAL_BUDGET_S = 150.0
+CLAUDE_REPAIR_MIN_S = 30.0
 
 # Stable marker substring for a text-only Task 1 grade. The grader prepends
 # _MISSING_IMAGE_CAVEAT (built from this) to overallBandScoreSummary when it
@@ -407,7 +414,7 @@ class GeminiWritingGrader:
         try:
             pass1_timeout = self.DEEP_PASS_TIMEOUTS_S["pass1"]
             if ai_router.anthropic_position("writing_grading", "gemini"):
-                pass1_timeout += CLAUDE_TIMEOUT_S
+                pass1_timeout += CLAUDE_TOTAL_BUDGET_S
             pass1 = await asyncio.wait_for(
                 self._grade_standard(config, loader),
                 timeout=pass1_timeout,
@@ -851,12 +858,12 @@ class GeminiWritingGrader:
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
 
-        When ``anthropic_feature`` is set, services.ai_router decides whether one
+        When ``anthropic_feature`` is set, services.ai_router decides whether the
         Claude attempt runs before the Gemini loop (default) or after it fails.
-        Claude output must pass the SAME schema + grounding validation; a
-        Claude failure (or missing key) leaves the Gemini loop's behaviour
-        unchanged. A Claude success returns usage with ``served_model`` and
-        ``cost_usd``.
+        Claude output must pass the SAME schema + grounding validation, with
+        one grounding-repair re-ask (see ``_try_claude``); a Claude failure (or
+        missing key) leaves the Gemini loop's behaviour unchanged. A Claude
+        success returns usage with ``served_model`` and ``cost_usd``.
 
         Sprint 19.3.5 — `image` (bytes, mime_type) is sent as a multimodal
         inline Part alongside the text when present (Task 1 Academic chart).
@@ -1063,7 +1070,8 @@ class GeminiWritingGrader:
         source_essay: str | None,
         source_task_type: str | None,
     ) -> tuple[str, dict] | None:
-        """One Claude attempt; None means "run the unchanged Gemini path"."""
+        """Claude attempt (plus one grounding repair); None means "run the
+        unchanged Gemini path"."""
 
         def _validate(text: str):
             if len(text.strip()) < 10:
@@ -1080,28 +1088,57 @@ class GeminiWritingGrader:
         context.pop("feature", None)
         operation = context.pop("operation", None) or "grade"
         event_prefix = context.pop("usage_event_prefix", None)
-        if event_prefix:
-            context["usage_event_id"] = f"{event_prefix}:{operation}:anthropic:1"
-        try:
-            result, _ = await ai_router.call_anthropic(
+        started = time.monotonic()
+        prompt = user_prompt
+        attempt = 1
+        while True:
+            if event_prefix:
+                context["usage_event_id"] = f"{event_prefix}:{operation}:anthropic:{attempt}"
+            call = ai_router.call_anthropic(
                 feature,
                 system=system_prompt,
-                user=user_prompt,
+                user=prompt,
                 max_tokens=CLAUDE_MAX_TOKENS,
                 operation=operation,
                 validate=_validate,
                 images=[image] if image is not None else (),
                 user_id=user_id,
                 session_id=session_id,
-                usage_context=context,
+                usage_context=dict(context),
                 timeout_seconds=CLAUDE_TIMEOUT_S,
             )
-        except ai_router.AnthropicAttemptError as exc:
-            logger.warning(
-                "[ai_router] feature=%s provider=anthropic failed (%s) — falling back to gemini",
-                feature, exc.error_code,
-            )
-            return None
+            try:
+                if attempt == 1:
+                    result, _ = await call
+                else:
+                    remaining = CLAUDE_TOTAL_BUDGET_S - (time.monotonic() - started)
+                    result, _ = await asyncio.wait_for(call, timeout=remaining)
+                break
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "[ai_router] feature=%s provider=anthropic repair exceeded the %.0f s "
+                    "Claude budget — falling back to gemini", feature, CLAUDE_TOTAL_BUDGET_S,
+                )
+                return None
+            except ai_router.AnthropicAttemptError as exc:
+                cause = exc.__cause__
+                remaining = CLAUDE_TOTAL_BUDGET_S - (time.monotonic() - started)
+                repair = (attempt == 1
+                          and isinstance(cause, UngroundedWritingFeedbackError)
+                          and remaining >= CLAUDE_REPAIR_MIN_S)
+                logger.warning(
+                    "[ai_router] feature=%s provider=anthropic attempt %d failed (%s): %s — %s",
+                    feature, attempt, exc.error_code,
+                    str(exc)[:ai_router.ERROR_DETAIL_MAX_CHARS],
+                    "re-asking Claude with the grounding repair" if repair
+                    else "falling back to gemini",
+                )
+                if not repair:
+                    return None
+                # Same repair the Gemini loop applies: original prompt plus
+                # the unsupported citations, never accumulated across tries.
+                prompt = user_prompt + cause.repair_instruction()
+                attempt += 1
         logger.info("[ai_router] feature=%s served_by=anthropic model=%s", feature, result.model)
         cost, _ = estimate_token_cost("anthropic", result.model, **result.usage)
         usage = {
@@ -1196,14 +1233,14 @@ class GeminiWritingGrader:
         callers keep their pre-2.7a behaviour.
         """
         first = response_text.find("{")
-        last = response_text.rfind("}")
-        if first == -1 or last == -1 or last < first:
+        if first == -1 or response_text.rfind("}") < first:
             raise InvalidJSONError("No JSON object found in response")
 
-        json_str = response_text[first:last + 1]
-
+        # Decode one object from the first brace: a ```json fence, preamble or
+        # trailing note (Claude has no JSON response mode) cannot shift its end.
+        # strict=False accepts a raw newline/tab inside a string value.
         try:
-            data = json.loads(json_str)
+            data, _ = json.JSONDecoder(strict=False).raw_decode(response_text, first)
         except json.JSONDecodeError as e:
             raise InvalidJSONError(f"JSON parse failed: {e}") from e
 
@@ -1212,7 +1249,11 @@ class GeminiWritingGrader:
         try:
             return schema(**data)
         except Exception as e:
-            raise InvalidJSONError(f"Schema validation failed: {e}") from e
+            # Field paths and error types only: pydantic's own text echoes
+            # input values, i.e. model output, into logs and the usage ledger.
+            raise InvalidJSONError(
+                f"Schema validation failed: {ai_router.rejection_detail(e)}"
+            ) from e
 
     @staticmethod
     def _usage_from_metadata(um) -> dict:

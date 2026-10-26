@@ -440,3 +440,37 @@ def test_source_only_fields_never_use_proposal_exemptions(field, claim, accepted
         with pytest.raises(UngroundedWritingFeedbackError) as caught:
             validate_writing_grounding(result, ESSAY)
         assert len(caught.value.issues) == 1 and field in caught.value.issues[0][0]
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng “dedicated bus lanes,” rất tự nhiên.",            # punctuation inside the quotes
+    "Em viết “Governments should invest in dedicated bus lanes.” rõ ràng.",
+    'Em viết "Governments should invest […] employment centres" rõ ràng.',
+    "Em viết 'Governments should (...) bus lanes' mạch lạc.",
+    "Em dùng “Discounted tickets can help students!” hợp lý.",
+])
+def test_prose_quoting_conventions_still_cite_the_essay(claim):
+    validate_writing_grounding(feedback(claim), ESSAY)
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng “subsidies,” rất tự nhiên.",
+    "Em dùng “dedicated train lanes.” rất tự nhiên.",
+    'Em viết "Governments should invest […] subsidies" rõ ràng.',
+    "Em viết 'employment centres (...) Governments' mạch lạc.",     # order still enforced
+])
+def test_prose_quoting_conventions_never_admit_fabricated_spans(claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(feedback(claim), ESSAY)
+
+
+def test_strict_original_fields_do_not_take_prose_quote_conventions():
+    from models.writing_feedback import MistakeAnalysis
+
+    data = feedback()
+    data.mistakeAnalysis = [MistakeAnalysis(
+        original="dedicated bus lanes.", mistakeType="Lexis", explanation="...",
+        suggestion="...", criterion="Lexical Resource")]
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        validate_writing_grounding(data, ESSAY)
+    assert err.value.issues == [("mistakeAnalysis[0].original", "dedicated bus lanes.")]
