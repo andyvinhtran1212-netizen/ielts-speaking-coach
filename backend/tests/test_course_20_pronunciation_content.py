@@ -104,4 +104,4 @@ def test_b16_revision_covers_relative_roles_and_invalidates_v1_recordings():
         "omitted object pronoun", "defining relative", "non-defining relative",
         "relative where", "relative when",
     }
-    assert all(10 <= len(WORD_RE.findall(row["text"])) <= 16 for row in sentences)
+    assert all(14 <= len(WORD_RE.findall(row["text"])) <= 16 for row in sentences)
