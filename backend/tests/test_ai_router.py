@@ -119,14 +119,24 @@ def test_per_feature_override_wins_and_empty_inherits_global():
     assert ai_router.provider_order("course_writing", s) == ("gemini", "anthropic")
 
 
-def test_speaking_grading_keeps_the_approved_gemini_primary_by_default():
-    """AI-0004 FR-005: Gemini 3.8 stays primary until that requirement changes."""
-    assert settings.AI_PROVIDER_ORDER_SPEAKING_GRADING == "gemini"
-    bare = SimpleNamespace(ANTHROPIC_API_KEY="k", AI_PROVIDER_ORDER="anthropic,gemini")
-    assert not ai_router.anthropic_first("speaking_grading", "gemini", bare)
-    opted_in = SimpleNamespace(ANTHROPIC_API_KEY="k", AI_PROVIDER_ORDER="",
-                               AI_PROVIDER_ORDER_SPEAKING_GRADING="anthropic")
-    assert ai_router.anthropic_first("speaking_grading", "gemini", opted_in)
+def test_speaking_grading_puts_claude_first_by_default():
+    """AI-0004 FR-005 (revised 2026-10-26): Speaking inherits the global order,
+    so Claude is first; "gemini" restores the Gemini-primary chain."""
+    assert settings.AI_PROVIDER_ORDER_SPEAKING_GRADING == ""
+    assert ai_router.anthropic_first(
+        "speaking_grading", "gemini",
+        SimpleNamespace(ANTHROPIC_API_KEY="k", AI_PROVIDER_ORDER="anthropic,openai,gemini",
+                        AI_PROVIDER_ORDER_SPEAKING_GRADING=""))
+    # A settings object without the attribute behaves like the config default.
+    assert ai_router.anthropic_first(
+        "speaking_grading", "gemini", SimpleNamespace(ANTHROPIC_API_KEY="k", AI_PROVIDER_ORDER=""))
+    rolled_back = SimpleNamespace(ANTHROPIC_API_KEY="k", AI_PROVIDER_ORDER="",
+                                  AI_PROVIDER_ORDER_SPEAKING_GRADING="gemini")
+    assert ai_router.anthropic_position("speaking_grading", "gemini", rolled_back) is None
+    # The global rollback also covers Speaking because it inherits.
+    global_rollback = SimpleNamespace(ANTHROPIC_API_KEY="k", AI_PROVIDER_ORDER="gemini,openai",
+                                      AI_PROVIDER_ORDER_SPEAKING_GRADING="")
+    assert ai_router.anthropic_position("speaking_grading", "gemini", global_rollback) is None
 
 
 def test_existing_provider_is_never_dropped_and_missing_key_skips_anthropic():
@@ -456,25 +466,173 @@ async def test_writing_paths_without_anthropic_feature_never_call_claude(monkeyp
 # ── Speaking grader slot ───────────────────────────────────────────────────────
 
 
-def test_speaking_slot_is_registered_and_ordered_only_when_opted_in():
+def test_speaking_slot_is_registered_first_by_default_and_absent_when_rolled_back():
     from services.grading_orchestrator import (
         ANTHROPIC_PRIMARY_SLOT, GRADING_PROVIDER_ORDER, build_default, grading_provider_order,
     )
 
     base = dict(ANTHROPIC_API_KEY="k", GEMINI_API_KEY="g", SPEAKING_GRADING_MODEL="gemini-3.8-flash",
                 AI_PROVIDER_ORDER="anthropic,openai,gemini", ANTHROPIC_MODEL_GRADING="")
-    default = SimpleNamespace(**base, AI_PROVIDER_ORDER_SPEAKING_GRADING="gemini")
-    assert grading_provider_order(default) == GRADING_PROVIDER_ORDER
-    assert ANTHROPIC_PRIMARY_SLOT not in build_default(default).providers
-
-    opted = SimpleNamespace(**base, AI_PROVIDER_ORDER_SPEAKING_GRADING="anthropic")
-    assert grading_provider_order(opted) == (ANTHROPIC_PRIMARY_SLOT, *GRADING_PROVIDER_ORDER)
-    slot = build_default(opted).providers[ANTHROPIC_PRIMARY_SLOT]
+    default = SimpleNamespace(**base, AI_PROVIDER_ORDER_SPEAKING_GRADING="")
+    assert grading_provider_order(default) == (ANTHROPIC_PRIMARY_SLOT, *GRADING_PROVIDER_ORDER)
+    slot = build_default(default).providers[ANTHROPIC_PRIMARY_SLOT]
     assert slot.model == "claude-sonnet-5-5"
 
+    explicit = SimpleNamespace(**base, AI_PROVIDER_ORDER_SPEAKING_GRADING="anthropic")
+    assert grading_provider_order(explicit) == (ANTHROPIC_PRIMARY_SLOT, *GRADING_PROVIDER_ORDER)
+
+    rolled_back = SimpleNamespace(**base, AI_PROVIDER_ORDER_SPEAKING_GRADING="gemini")
+    assert grading_provider_order(rolled_back) == GRADING_PROVIDER_ORDER
+    assert ANTHROPIC_PRIMARY_SLOT not in build_default(rolled_back).providers
+
     no_key = SimpleNamespace(**{**base, "ANTHROPIC_API_KEY": ""},
-                             AI_PROVIDER_ORDER_SPEAKING_GRADING="anthropic")
+                             AI_PROVIDER_ORDER_SPEAKING_GRADING="")
     assert grading_provider_order(no_key) == GRADING_PROVIDER_ORDER
+
+
+def _speaking_settings(monkeypatch, *, anthropic_key="test-anthropic-key"):
+    """The real config defaults, with test keys so every provider is built."""
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", anthropic_key)
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-gemini-key")
+    for name in ("AI_PROVIDER_ORDER", "AI_PROVIDER_ORDER_SPEAKING_GRADING",
+                 "ANTHROPIC_MODEL_GRADING", "ANTHROPIC_MODEL_SPEAKING_GRADING",
+                 "SPEAKING_GRADING_MODEL"):
+        monkeypatch.setattr(settings, name, type(settings).model_fields[name].default)
+    return settings
+
+
+def test_speaking_default_chain_is_sonnet55_then_gemini38_haiku45_sonnet5(monkeypatch):
+    """FR-005: the code defaults alone give the approved order and models."""
+    from services.grading_orchestrator import build_default, grading_provider_order
+
+    s = _speaking_settings(monkeypatch)
+    order = grading_provider_order(s)
+    assert order == ("anthropic_primary", "grading_primary", "claude_haiku", "claude_sonnet")
+    providers = build_default(s).providers
+    assert [getattr(providers[name], "model", None) or providers[name].model_name
+            for name in order] == [
+        "claude-sonnet-5-5", "gemini-3.8-flash", "claude-haiku-4-5-20251001", "claude-sonnet-5",
+    ]
+
+
+class _ChainProvider:
+    def __init__(self, name, result, calls):
+        self.provider_name, self.result, self.calls = name, result, calls
+        self.retry_attempts = 0
+
+    async def invoke(self, *_a, **_k):
+        self.calls.append(self.provider_name)
+        if isinstance(self.result, BaseException):
+            raise self.result
+        return self.result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("serving_index", [0, 1, 2, 3])
+async def test_speaking_falls_back_through_every_provider_in_order(serving_index):
+    """Each rung serves once every rung before it has failed."""
+    from services.grading_orchestrator import GradingOrchestrator
+    from services.grading_providers.errors import NonRetryableError, RetryableError
+
+    order = ("anthropic_primary", "grading_primary", "claude_haiku", "claude_sonnet")
+    failures = [
+        RetryableError(provider="anthropic_primary", status=429),
+        RetryableError(provider="grading_primary", status=503),
+        NonRetryableError(provider="claude_haiku", status="empty_body", original=None),
+    ]
+    calls: list[str] = []
+    providers = {
+        name: _ChainProvider(
+            name, failures[i] if i < serving_index else f'{{"served_by": "{name}"}}', calls)
+        for i, name in enumerate(order)
+    }
+
+    async def _no_sleep(_s):
+        return None
+
+    raw, events = await GradingOrchestrator(providers).invoke("S", "U", order=order, sleep=_no_sleep)
+    assert json.loads(raw) == {"served_by": order[serving_index]}
+    assert calls == list(order[: serving_index + 1])
+    assert [e.provider for e in events] == list(order[: serving_index + 1])
+    assert events[-1].outcome == "success"
+
+
+def _valid_speaking(mode: str) -> dict:
+    if mode == "practice":
+        return {
+            "grammar_issues": [], "vocabulary_issues": [], "pronunciation_issues": [],
+            "corrections": [],
+            "strengths": ["Ý rõ ràng"],
+            "sample_answer": "I really love reading books because reading helps me relax after work.",
+            "overall_band": 6.0,
+        }
+    return {
+        "band_fc": 6, "band_lr": 6, "band_gra": 6, "overall_band": 6.0,
+        "fc_feedback": "Nói khá trôi chảy.", "lr_feedback": "Từ vựng ổn.",
+        "gra_feedback": "Ngữ pháp ổn.", "strengths": ["Phát triển ý tốt"],
+        "improvements": ["Dùng từ đa dạng hơn"],
+        "improved_response": "I really love reading books because reading helps me relax after work.",
+        "rubric_version": "v3",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["test", "practice"])
+@pytest.mark.parametrize("with_sink", [True, False])
+async def test_malformed_claude_speaking_answer_is_retried_on_gemini(monkeypatch, mode, with_sink):
+    """The corrective retry after a malformed Sonnet 5.5 answer goes to Gemini 3.8,
+    never back to Claude, through the real grader and orchestrator."""
+    from services import claude_grader as cg
+    from services.grading_orchestrator import GradingOrchestrator
+
+    _speaking_settings(monkeypatch)
+    calls: list[str] = []
+    valid = _valid_speaking(mode)
+    providers = {
+        "anthropic_primary": _ChainProvider("anthropic_primary", '{"overall_band": 6.0, "band_fc"', calls),
+        "grading_primary": _ChainProvider("grading_primary", json.dumps(valid), calls),
+        "claude_haiku": _ChainProvider("claude_haiku", "{}", calls),
+        "claude_sonnet": _ChainProvider("claude_sonnet", "{}", calls),
+    }
+    monkeypatch.setattr(cg, "_get_orchestrator", lambda: GradingOrchestrator(providers))
+    monkeypatch.setattr(cg, "_get_client", lambda: None)
+    sink: list = [] if with_sink else None
+
+    result = await cg.grade_response(
+        question="What do you do after work?",
+        transcript="I really love reading books because reading helps me relax after work.",
+        part=1, mode=mode, fallback_events=sink,
+    )
+    assert calls == ["anthropic_primary", "grading_primary"]
+    assert result["overall_band"] == 6.0
+    if mode == "test":
+        assert result["improved_response"] == valid["improved_response"]
+    if with_sink:
+        assert [(e.provider, e.outcome) for e in sink] == [
+            ("anthropic_primary", "success"), ("grading_primary", "success")]
+
+
+@pytest.mark.asyncio
+async def test_missing_anthropic_key_grades_speaking_on_gemini(monkeypatch):
+    """A blank ANTHROPIC_API_KEY drops every Claude slot; Gemini 3.8 grades."""
+    from services.grading_orchestrator import (
+        GRADING_PROVIDER_ORDER, build_default, grading_provider_order,
+    )
+
+    s = _speaking_settings(monkeypatch, anthropic_key="")
+    order = grading_provider_order(s)
+    assert order == GRADING_PROVIDER_ORDER
+    orch = build_default(s)
+    assert not {"anthropic_primary", "claude_haiku", "claude_sonnet"} & set(orch.providers)
+    assert orch.providers["grading_primary"].model_name == "gemini-3.8-flash"
+
+    async def gemini_invoke(*_a, **_k):
+        return '{"from": "gemini"}'
+
+    orch._providers["grading_primary"].invoke = gemini_invoke
+    raw, events = await orch.invoke("S", "U", order=order)
+    assert raw == '{"from": "gemini"}'
+    assert [(e.provider, e.outcome) for e in events] == [("grading_primary", "success")]
 
 
 @pytest.mark.asyncio
@@ -502,7 +660,6 @@ def test_speaking_retry_after_malformed_claude_answer_goes_to_gemini(monkeypatch
     from services.grading_providers.errors import FallbackEvent
 
     monkeypatch.setattr(cg.settings, "ANTHROPIC_API_KEY", "k")
-    monkeypatch.setattr(cg.settings, "AI_PROVIDER_ORDER_SPEAKING_GRADING", "anthropic")
     events = [FallbackEvent(provider="anthropic_primary", attempt=0, outcome="success", latency_ms=1)]
     assert cg._order_after(events)[0] == "grading_primary"
 
