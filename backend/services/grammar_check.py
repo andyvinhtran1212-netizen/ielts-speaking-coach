@@ -1,7 +1,7 @@
 """
 services.grammar_check — Sprint 14.8
 
-Wraps the Sprint 14.x grammar asset (assets/grammar-mindmap/) so the
+Wraps the Sprint 14.x grammar asset (backend/assets/grammar-mindmap/) so the
 grading pipeline can enrich its `grammar_issues` field with structured,
 positional errors:
 
@@ -68,9 +68,11 @@ MAX_DISPLAYED_ERRORS:            int   = 10        # L8
 _CACHE_TABLE:                    str   = "grammar_check_cache"
 
 # Asset path — added to sys.path lazily so import errors don't break
-# the whole backend boot when the asset directory is missing in a
-# stripped-down deployment (e.g. early CI runs before assets/ landed).
-_ASSET_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "grammar-mindmap"
+# the whole backend boot when the asset directory is missing.
+# It lives under backend/ because the Railway service builds only the backend/
+# directory: a repo-root assets/ folder is outside the deployed image (that is
+# why production reported asset_missing after #1690).
+_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets" / "grammar-mindmap"
 _ASSET_MODULES = frozenset({"grammar_checker", "grammar_data"})
 
 
@@ -160,7 +162,7 @@ _CATEGORY_MAP: dict[str, str] = {
     "LOCAL_BARE_INFINITIVE":                  "verb_form",
     # Rule ids the committed asset actually emits (LOCAL_ + slugified rule
     # name, see run_local_rules). Verified 2026-10-25 against
-    # assets/grammar-mindmap/test_checker.py sentences.
+    # backend/assets/grammar-mindmap/test_checker.py sentences.
     "LOCAL_HE_SHE_IT_BASE_VERB_MISSING_S":                      "subject_verb_agreement",
     "LOCAL_HE_SHE_IT_DON_T_DO_NOT_SHOULD_BE_DOESN_T_DOES_NOT":  "subject_verb_agreement",
     "LOCAL_WE_YOU_THEY_WAS_SHOULD_BE_WERE":                     "subject_verb_agreement",
@@ -367,7 +369,7 @@ class GrammarCheckService:
         self._backend: Any | None = None
         self._backend_init_failed: bool = False
         # Why the backend is unavailable, for /health/grammar-check:
-        #   asset_missing                    — assets/grammar-mindmap not importable
+        #   asset_missing                    — backend/assets/grammar-mindmap not importable
         #                                      (nothing runs, not even local rules)
         #   languagetool_offline_unavailable — asset present, but the offline
         #                                      LanguageTool server could not start
@@ -600,7 +602,7 @@ def get_grammar_check_service() -> GrammarCheckService:
 
 _INIT_FAILURE_MESSAGES: dict[str, str] = {
     "asset_missing": (
-        "grammar asset (assets/grammar-mindmap) is not importable — no grammar "
+        "grammar asset (backend/assets/grammar-mindmap) is not importable — no grammar "
         "check runs at all, not even the local VI-learner rules"
     ),
     "languagetool_offline_unavailable": (
@@ -634,8 +636,11 @@ async def grammar_check_health() -> dict:
         "sample_error_count": 0,
         "messages": [],
     }
-    # Subject-verb-agreement errors a working checker must catch.
-    sample = "I goes to school yesterday and I doesn't have time."
+    # Errors a working checker must catch. The first sentence is flagged by
+    # LanguageTool; the second by the asset's VI-learner local rules, so
+    # sample_error_count > 0 also proves the local layer runs when the
+    # offline LanguageTool server is unavailable (CI smoke gate relies on it).
+    sample = "I goes to school yesterday and I doesn't have time. She go to school every day."
     try:
         # Force the lazy (~5s) LTBackend init off the event loop.
         backend = await asyncio.to_thread(svc._ensure_backend)

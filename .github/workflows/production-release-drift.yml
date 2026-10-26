@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: scripts/ci
+
       - name: Production serves current main HEAD
         env:
           GH_TOKEN: ${{ github.token }}
@@ -34,3 +38,8 @@ jobs:
             echo "::error::PRODUCTION RELEASE DRIFT - production serves $SERVING but main is $MAIN_SHA. Check whether Vercel production is rollback-pinned."
             exit 1
           fi
+
+      # Runs even when the drift check fails so both signals are reported.
+      - name: Grammar checker runs on the production backend
+        if: always()
+        run: scripts/ci/check-grammar-health.sh https://ielts-speaking-coach-production.up.railway.app
