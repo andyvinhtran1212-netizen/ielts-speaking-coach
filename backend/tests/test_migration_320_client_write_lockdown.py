@@ -199,6 +199,28 @@ def test_default_privileges_target_the_owner_roles_with_a_guard():
     assert not re.search(r"ON\s+FUNCTIONS", CODE)
 
 
+def test_pg17_maintain_is_revoked_behind_a_server_version_guard():
+    """Staging/production run PG 17, whose `GRANT ALL ON TABLES` default ACL also
+    grants MAINTAIN; the first staging apply aborted on
+    client_default_write_privilege_survives: postgres:r:anon:MAINTAIN. CI runs
+    PG 16, which rejects the keyword, so every MAINTAIN statement is guarded."""
+    guard = "current_setting('server_version_num')::int >= 170000"
+    assert CODE.count(guard) == 3, "steps 1, 2 and 8 each need the PG 17 guard"
+    guarded = re.findall(r"IF has_maintain THEN(.*?)END IF;", CODE, re.S)
+    assert len(guarded) == 2
+    assert "REVOKE MAINTAIN ON %s FROM PUBLIC, anon, authenticated" in guarded[0]
+    assert re.search(r"ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public '\s*"
+                     r"'REVOKE MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated'", guarded[1])
+    unguarded = re.sub(r"IF has_maintain THEN.*?END IF;", "", CODE, flags=re.S)
+    assert "REVOKE MAINTAIN" not in unguarded and "GRANT MAINTAIN" not in unguarded.upper()
+    # The relation postcondition checks MAINTAIN on PG 17 (the learner tables
+    # included); the default-ACL postcondition still rejects every non-SELECT entry.
+    assert re.search(r"THEN ARRAY\['MAINTAIN'\] ELSE ARRAY\[\]::TEXT\[\] END", CODE)
+    assert "CROSS JOIN unnest(checked_privileges) p(priv)" in CODE
+    assert "AND p.priv NOT IN ('TRUNCATE', 'MAINTAIN'))" in CODE
+    assert "(d.defaclobjtype = 'r' AND a.privilege_type <> 'SELECT')" in CODE
+
+
 def test_f14_definer_triggers_and_finalize_functions_are_not_client_rpcs():
     for name in F14_DEFINERS:
         assert name in SQL, f"{name} missing from the F14 note"
@@ -309,6 +331,26 @@ def _client_default_writes(schema: str, owner: str | None = None) -> str:
                       AND pg_get_userbyid(a.grantee) IN ('anon', 'authenticated')
                       AND ((d.defaclobjtype = 'r' AND a.privilege_type <> 'SELECT')
                            OR (d.defaclobjtype = 'S' AND a.privilege_type = 'UPDATE'))""")
+
+
+def _has_maintain() -> bool:
+    """PostgreSQL 17 added the MAINTAIN table privilege (Supabase runs 17, CI 16)."""
+    return int(psql("SHOW server_version_num")) >= 170000
+
+
+def _client_default_maintain(schema: str, owner: str | None = None) -> int:
+    owned = f"AND d.defaclrole = '{owner}'::regrole" if owner else ""
+    return int(psql(f"""SELECT count(*) FROM pg_default_acl d CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+                        WHERE d.defaclnamespace = '{schema}'::regnamespace {owned}
+                          AND d.defaclobjtype = 'r' AND a.privilege_type = 'MAINTAIN'
+                          AND (a.grantee = 0 OR pg_get_userbyid(a.grantee) IN ('anon', 'authenticated'))"""))
+
+
+def _client_relation_maintain(schema: str) -> int:
+    return int(psql(f"""SELECT count(*) FROM pg_class c CROSS JOIN unnest(ARRAY['anon','authenticated']) r
+                        WHERE c.relnamespace = '{schema}'::regnamespace
+                          AND c.relkind IN ('r','p','v','m','f')
+                          AND has_table_privilege(r, c.oid, 'MAINTAIN')"""))
 
 
 @pytest.fixture(scope="module")
@@ -459,9 +501,13 @@ def db():
         psql(f"UPDATE {schema}.users SET role = 'user'; UPDATE {schema}.d1_sessions"
              f" SET correct_count = 0, status = 'active'")
 
+        maintain_before = ((_client_default_maintain(schema), _client_relation_maintain(schema))
+                           if _has_maintain() else None)
+
         psql(_migrated(schema))
         psql(_migrated(schema))  # forward re-application is safe
-        yield {"schema": schema, "student": student, "other": other}
+        yield {"schema": schema, "student": student, "other": other,
+               "maintain_before": maintain_before}
     finally:
         psql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         if created_uid:
@@ -681,6 +727,31 @@ def test_reapplying_restores_a_hand_regranted_default(db):
     assert _client_default_writes(s) == "0"
 
 
+def test_pg17_maintain_is_revoked_from_client_roles_on_relations_and_defaults(db):
+    """Regression for the first staging apply (PG 17.6): the `postgres` and
+    `supabase_admin` default ACLs grant MAINTAIN to anon/authenticated and so
+    does every existing relation created under them."""
+    if not _has_maintain():
+        pytest.skip("PostgreSQL < 17 has no MAINTAIN privilege")
+    s, me = db["schema"], db["student"]
+    defaults_before, relations_before = db["maintain_before"]
+    assert defaults_before >= 4 and relations_before > 0, "fixture no longer mimics Supabase on PG 17"
+    assert (_client_default_maintain(s), _client_relation_maintain(s)) == (0, 0)
+    assert psql(f"""SELECT has_table_privilege('authenticated', '{s}.user_vocabulary', 'MAINTAIN')::text
+                    || has_table_privilege('service_role', '{s}.sessions', 'MAINTAIN')::text""") \
+        == "falsetrue"
+    # MAINTAIN would let a SELECT-only client take an ACCESS EXCLUSIVE lock.
+    assert "permission denied" in _denied(
+        "authenticated", me, f"LOCK TABLE {s}.responses IN ACCESS EXCLUSIVE MODE")
+    for owner in ("postgres", "supabase_admin"):
+        table = f"{s}.maintain_after_320_{owner}"
+        psql(f"SET ROLE {owner}; CREATE TABLE {table} (id BIGINT PRIMARY KEY)")
+        assert psql(f"""SELECT has_table_privilege('anon', '{table}', 'MAINTAIN')::text
+                        || has_table_privilege('authenticated', '{table}', 'MAINTAIN')::text
+                        || has_table_privilege('authenticated', '{table}', 'SELECT')::text""") \
+            == "falsefalsetrue"
+
+
 def test_unrevocable_default_acl_owner_warns_but_existing_relations_stay_strict(db):
     """Hosted Supabase: the runner `postgres` is not superuser and not a member
     of `supabase_admin`, whose default ACL in public still grants client writes
@@ -715,6 +786,11 @@ def test_unrevocable_default_acl_owner_warns_but_existing_relations_stay_strict(
         assert psql(f"""SELECT rolsuper::text || pg_has_role('{runner}', '{platform}', 'MEMBER')::text
                         FROM pg_roles WHERE rolname = '{runner}'""") == "falsefalse"
         assert int(_client_default_writes(s, runner)) > 0 and int(_client_default_writes(s, platform)) > 0
+        maintain = _has_maintain()
+        if maintain:
+            # Staging (PG 17.6): the non-superuser runner's own default ACL
+            # grants MAINTAIN and so do the relations it created.
+            assert _client_default_maintain(s, runner) == 2 and _client_relation_maintain(s) > 0
 
         stderr = _psql_stderr(f"SET ROLE {runner};\n" + _migrated(s))
         stderr += _psql_stderr(f"SET ROLE {runner};\n" + _migrated(s))  # still idempotent
@@ -722,6 +798,9 @@ def test_unrevocable_default_acl_owner_warns_but_existing_relations_stay_strict(
         warned = re.findall(r"not_revocable_by_runner: ([^\n]*)", stderr)[0]
         assert f"{platform}:r:anon:INSERT" in warned and f"{platform}:S:authenticated:UPDATE" in warned
         assert runner not in warned, "the runner's own ACL must be revoked, not warned"
+        if maintain:
+            assert f"{platform}:r:authenticated:MAINTAIN" in warned, warned
+            assert _client_default_maintain(s, runner) == 0 and _client_relation_maintain(s) == 0
         # The runner's own defaults were revoked and verified strictly…
         assert _client_default_writes(s, runner) == "0"
         psql(f"SET ROLE {runner}; CREATE TABLE {s}.created_by_runner (id BIGSERIAL PRIMARY KEY)")
@@ -729,6 +808,8 @@ def test_unrevocable_default_acl_owner_warns_but_existing_relations_stay_strict(
                         || has_sequence_privilege('anon', '{s}.created_by_runner_id_seq', 'UPDATE')::text
                         || has_table_privilege('service_role', '{s}.created_by_runner', 'INSERT')::text""") \
             == "falsefalsetrue"
+        if maintain:
+            assert psql(f"SELECT has_table_privilege('authenticated', '{s}.created_by_runner', 'MAINTAIN')") == "f"
         # …and every existing client write is gone.
         assert psql(f"""SELECT count(*) FROM pg_class c CROSS JOIN unnest(ARRAY['anon','authenticated']) r
                         CROSS JOIN unnest(ARRAY['INSERT','UPDATE','DELETE']) p
