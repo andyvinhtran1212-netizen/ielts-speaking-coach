@@ -14,6 +14,12 @@ Configuration (``config.py``):
 * ``ANTHROPIC_MODEL_GRADING`` / ``ANTHROPIC_MODEL_FAST`` — model per tier;
   ``ANTHROPIC_MODEL_<FEATURE>`` wins when non-empty.
 
+An admin override in ``ai_model_overrides`` (AIOPS-0024, read through the
+in-process snapshot of :mod:`services.ai_model_overrides`) wins over both: its
+preferred provider is placed first and the env/code-default order follows as
+fallback; its Claude model replaces the env/code-default model. Without an
+override, or when the store cannot be read, behaviour is unchanged.
+
 The feature's existing provider is always kept as the last fallback, so a
 misconfigured order can never remove the current behaviour. Every attempt is
 written to the AI usage ledger and logged as ``[ai_router] feature=... provider=...``
@@ -31,7 +37,7 @@ from typing import Any, Awaitable, Callable, Sequence, TypeVar
 
 import anthropic
 
-from services import ai_usage_logger
+from services import ai_failure_log, ai_model_overrides, ai_usage_logger
 from services.claude_compat import json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
@@ -87,16 +93,52 @@ FEATURE_DEFAULT_ORDERS: dict[str, str] = {
 }
 
 
-def provider_order(feature: str, settings_obj: Any | None = None) -> tuple[str, ...]:
-    """Configured order for ``feature`` (per-feature override, then global)."""
-    s = _settings(settings_obj)
-    override = getattr(s, f"AI_PROVIDER_ORDER_{feature.upper()}", None)
+def _configured_order(feature: str, s: Any) -> tuple[tuple[str, ...], str | None]:
+    """Env/code-default order and the setting that supplied it (None = code)."""
+    name = f"AI_PROVIDER_ORDER_{feature.upper()}"
+    override = getattr(s, name, None)
     if override is None:
         override = FEATURE_DEFAULT_ORDERS.get(feature, "")
+        name = None
     order = parse_provider_order(override)
-    if not order:
-        order = parse_provider_order(getattr(s, "AI_PROVIDER_ORDER", "") or "")
-    return order or DEFAULT_PROVIDER_ORDER
+    if order:
+        return order, name
+    order = parse_provider_order(getattr(s, "AI_PROVIDER_ORDER", "") or "")
+    if order:
+        return order, "AI_PROVIDER_ORDER"
+    return DEFAULT_PROVIDER_ORDER, None
+
+
+def provider_order(feature: str, settings_obj: Any | None = None) -> tuple[str, ...]:
+    """Configured order for ``feature``: admin override first, then the
+    per-feature env order, then the global order (AIOPS-0024 FR-005)."""
+    s = _settings(settings_obj)
+    order, _ = _configured_order(feature, s)
+    override = ai_model_overrides.get_override(feature, s)
+    preferred = override.preferred_provider if override else None
+    if preferred:
+        order = (preferred, *(p for p in order if p != preferred))
+    return order
+
+
+def setting_source(s: Any, name: str | None) -> str:
+    """``env`` when the setting was supplied by the environment, else
+    ``code_default`` (pydantic-settings records env values in fields_set)."""
+    if not name:
+        return "code_default"
+    fields_set = getattr(s, "model_fields_set", None)
+    if fields_set is not None:
+        return "env" if name in fields_set else "code_default"
+    return "env" if hasattr(s, name) else "code_default"
+
+
+def provider_order_source(feature: str, settings_obj: Any | None = None) -> str:
+    s = _settings(settings_obj)
+    override = ai_model_overrides.get_override(feature, s)
+    if override and override.preferred_provider:
+        return "db_override"
+    _, name = _configured_order(feature, s)
+    return setting_source(s, name)
 
 
 def effective_order(
@@ -139,14 +181,110 @@ def anthropic_position(
     return "first" if order[0] == "anthropic" else "after"
 
 
+def _configured_anthropic_model(feature: str, s: Any) -> tuple[str, str | None]:
+    """Env/code-default Claude model and the setting that supplied it."""
+    name = f"ANTHROPIC_MODEL_{feature.upper()}"
+    specific = (getattr(s, name, "") or "").strip()
+    if specific:
+        return specific, name
+    tier = FEATURE_TIERS.get(feature, "fast")
+    name = f"ANTHROPIC_MODEL_{tier.upper()}"
+    configured = (getattr(s, name, "") or "").strip()
+    if configured:
+        return configured, name
+    return DEFAULT_MODELS[tier], None
+
+
 def anthropic_model(feature: str, settings_obj: Any | None = None) -> str:
     s = _settings(settings_obj)
-    specific = (getattr(s, f"ANTHROPIC_MODEL_{feature.upper()}", "") or "").strip()
-    if specific:
-        return specific
-    tier = FEATURE_TIERS.get(feature, "fast")
-    configured = (getattr(s, f"ANTHROPIC_MODEL_{tier.upper()}", "") or "").strip()
-    return configured or DEFAULT_MODELS[tier]
+    override = ai_model_overrides.get_override(feature, s)
+    if override and override.anthropic_model:
+        return override.anthropic_model
+    return _configured_anthropic_model(feature, s)[0]
+
+
+def anthropic_model_source(feature: str, settings_obj: Any | None = None) -> str:
+    s = _settings(settings_obj)
+    override = ai_model_overrides.get_override(feature, s)
+    if override and override.anthropic_model:
+        return "db_override"
+    return setting_source(s, _configured_anthropic_model(feature, s)[1])
+
+
+# Existing-provider model per routed feature: (setting name or None for a code
+# constant, note). Display only — the call sites keep reading their settings.
+EXISTING_MODEL_SETTINGS: dict[str, tuple[tuple[str | None, str], ...]] = {
+    "speaking_grading": (("SPEAKING_GRADING_MODEL", ""),),
+    "writing_grading": (),  # level-aware: see _writing_existing_models
+    "course_writing": (("COURSE_WRITING_MODEL", ""),),
+    "advanced_vocab_rewrite": (("ADVANCED_VOCAB_REWRITE_MODEL", ""),),
+    "question_generation": ((None, ""),),
+    "listening_audit": (("LISTENING_AUDIT_MODEL", ""),),
+}
+
+
+def existing_models(feature: str, settings_obj: Any | None = None) -> list[dict[str, str]]:
+    """``[{model, setting, source, note}]`` for the feature's existing provider."""
+    s = _settings(settings_obj)
+    if feature == "writing_grading":
+        return _writing_existing_models(s)
+    models = []
+    for name, note in EXISTING_MODEL_SETTINGS.get(feature, ()):
+        if name is None:  # question_generation: a code constant in services/gemini
+            from services.gemini import _MODEL_NAME
+
+            models.append({"model": _MODEL_NAME, "setting": "",
+                           "source": "code_default", "note": note})
+            continue
+        models.append({
+            "model": str(getattr(s, name, "") or ""),
+            "setting": name,
+            "source": setting_source(s, name),
+            "note": note,
+        })
+    return models
+
+
+def _writing_existing_models(s: Any) -> list[dict[str, str]]:
+    """Student-essay models as essay_service.default_grading_model picks them."""
+    from services.essay_service import default_grading_model
+
+    flash, pro = default_grading_model(1), default_grading_model(10**6)
+    if flash == pro:
+        return [{"model": pro, "setting": "", "source": "code_default", "note": "mọi cấp"}]
+    max_level = getattr(s, "WRITING_FLASH_MAX_LEVEL", None)
+    return [
+        {"model": flash, "setting": "WRITING_FLASH_MODEL",
+         "source": setting_source(s, "WRITING_FLASH_MODEL"),
+         "note": f"L1–L{max_level}" if max_level else "cấp thấp"},
+        {"model": pro, "setting": "", "source": "code_default", "note": "cấp cao hơn"},
+    ]
+
+
+def _failure_outcome(feature: str, s: Any) -> str:
+    """After a Claude failure: does an existing-provider fallback follow?"""
+    order = effective_order(feature, ai_model_overrides.EXISTING_PROVIDERS.get(feature, "gemini"), s)
+    if "anthropic" in order and order.index("anthropic") < len(order) - 1:
+        return "fallback"
+    return "final"
+
+
+def record_fallback(
+    feature: str,
+    *,
+    provider: str,
+    model: str | None,
+    error_code: Any,
+    outcome: str = "fallback",
+) -> None:
+    """Record an existing-provider failure that hands over to Claude (FR-007).
+
+    For call sites whose existing path reports failure by return value.
+    """
+    ai_failure_log.record(
+        feature=feature, provider=ai_failure_log.provider_for(provider, model),
+        model=model, error_code=error_code, outcome=outcome,
+    )
 
 
 # ── Claude attempt ─────────────────────────────────────────────────────────────
@@ -281,8 +419,16 @@ async def call_anthropic(
     s = _settings(settings_obj)
     api_key = getattr(s, "ANTHROPIC_API_KEY", "") or ""
     model = anthropic_model(feature, s)
+
+    def _record(code: str) -> None:
+        ai_failure_log.record(
+            feature=feature, provider="anthropic", model=model, error_code=code,
+            outcome=_failure_outcome(feature, s),
+        )
+
     if client is None:
         if not api_key:
+            _record("missing_api_key")
             raise AnthropicAttemptError("missing_api_key")
         timeout = float(timeout_seconds or getattr(s, "ANTHROPIC_TIMEOUT_SECONDS", 60.0) or 60.0)
         client = _client(api_key, timeout)
@@ -303,22 +449,27 @@ async def call_anthropic(
     except anthropic.RateLimitError as exc:
         code = "rate_limited"
         _log_attempt(status="error", latency_ms=_ms(started), usage=None, error_code=code, **log)
+        _record(code)
         raise AnthropicAttemptError(code, str(exc)) from exc
     except anthropic.APITimeoutError as exc:
         code = "timeout"
         _log_attempt(status="error", latency_ms=_ms(started), usage=None, error_code=code, **log)
+        _record(code)
         raise AnthropicAttemptError(code, str(exc)) from exc
     except anthropic.APIStatusError as exc:
         code = str(getattr(exc, "status_code", None) or "api_status")
         _log_attempt(status="error", latency_ms=_ms(started), usage=None, error_code=code, **log)
+        _record(code)
         raise AnthropicAttemptError(code, str(exc)) from exc
     except anthropic.APIConnectionError as exc:
         code = "network"
         _log_attempt(status="error", latency_ms=_ms(started), usage=None, error_code=code, **log)
+        _record(code)
         raise AnthropicAttemptError(code, str(exc)) from exc
     except Exception as exc:
         code = type(exc).__name__
         _log_attempt(status="error", latency_ms=_ms(started), usage=None, error_code=code, **log)
+        _record(code)
         raise AnthropicAttemptError(code, str(exc)) from exc
 
     usage = _usage_tokens(response)
@@ -336,6 +487,7 @@ async def call_anthropic(
         code = getattr(exc, "error_code", None) or "invalid_response"
         _log_attempt(status="invalid_response", latency_ms=latency, usage=usage,
                      error_code=code, **log)
+        _record(code)
         if isinstance(exc, AnthropicAttemptError):
             raise
         raise AnthropicAttemptError(code, str(exc)) from exc
@@ -371,6 +523,15 @@ async def with_fallback(
             raise
         except Exception as exc:
             last_exc = exc
+            if not (provider == "anthropic" and isinstance(exc, AnthropicAttemptError)):
+                # call_anthropic already recorded its own attempt.
+                model = (anthropic_model(feature, settings_obj) if provider == "anthropic"
+                         else (existing_models(feature, settings_obj) or [{}])[0].get("model"))
+                ai_failure_log.record(
+                    feature=feature, provider=provider, model=model,
+                    error_code=getattr(exc, "error_code", None) or type(exc).__name__,
+                    outcome="final" if index == len(order) - 1 else "fallback",
+                )
             if index == len(order) - 1:
                 raise
             logger.warning(

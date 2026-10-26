@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL_LISTENING_AUDIT: str = ""
     # Bounds one Claude attempt so a slow call still leaves the fallback time.
     ANTHROPIC_TIMEOUT_SECONDS: float = 60.0
+    # AIOPS-0024: how often each backend process re-reads the admin overrides
+    # in ai_model_overrides (DB override > env > code default). Clamped to
+    # 30–60 s; a failed read falls back to the env/code defaults above.
+    AI_MODEL_OVERRIDE_TTL_SECONDS: float = 30.0
 
     # Speaking grader primary model (audit 2026-07-02).
     # The Speaking grader used to be hardcoded to Claude Haiku 4.5 — the weakest

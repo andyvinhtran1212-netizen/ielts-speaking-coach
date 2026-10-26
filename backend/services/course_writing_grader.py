@@ -339,6 +339,10 @@ async def _grade_batch(
     gemini = await _grade_batch_gemini(batch, prompt, usage_user_id=usage_user_id)
     if position == "after" and gemini[2] is not None:
         # Claude configured as the fallback for a failed Gemini batch.
+        ai_router.record_fallback(
+            "course_writing", provider="gemini",
+            model=gemini[1] or settings.COURSE_WRITING_MODEL, error_code=gemini[2],
+        )
         claude = await _grade_batch_claude(
             batch, payload_json, usage_user_id=usage_user_id,
         )

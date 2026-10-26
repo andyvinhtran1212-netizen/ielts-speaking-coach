@@ -161,6 +161,10 @@ async def grade_rewrites(
     gemini = await _grade_gemini(items, payload_json, user_id=user_id)
     if position == "after" and gemini[2] is not None:
         # Claude configured as the fallback for a failed Gemini request.
+        ai_router.record_fallback(
+            "advanced_vocab_rewrite", provider="gemini",
+            model=gemini[1] or settings.ADVANCED_VOCAB_REWRITE_MODEL, error_code=gemini[2],
+        )
         claude = await _grade_claude(items, payload_json, user_id=user_id)
         if claude is not None:
             return claude

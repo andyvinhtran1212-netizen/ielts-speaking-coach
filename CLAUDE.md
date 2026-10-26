@@ -110,7 +110,7 @@ The frontend always uses the `grading.py` route for submitting recordings.
 - `GEMINI_API_KEY` — required for the default Speaking grader, Writing grader and content audits
 - `SPEAKING_GRADING_MODEL` — default `gemini-3.8-flash`; the `gemini-*` / `claude-*` prefix selects the provider, empty string falls back to the Haiku-first chain
 - `ANTHROPIC_API_KEY` — required for the Claude fallback chain, off-topic judge and grammar-check in `claude_grader.py`
-- `AI_PROVIDER_ORDER` (default `anthropic,openai,gemini`), `AI_PROVIDER_ORDER_<FEATURE>`, `ANTHROPIC_MODEL_GRADING` / `ANTHROPIC_MODEL_FAST` — Claude-first routing with automatic fallback (`services/ai_router.py`, `docs/AI_PROVIDER_ROUTING.md`); Speaking stays Gemini-primary unless `AI_PROVIDER_ORDER_SPEAKING_GRADING=anthropic`
+- `AI_PROVIDER_ORDER` (default `anthropic,openai,gemini`), `AI_PROVIDER_ORDER_<FEATURE>`, `ANTHROPIC_MODEL_GRADING` / `ANTHROPIC_MODEL_FAST` — Claude-first routing with automatic fallback (`services/ai_router.py`, `docs/AI_PROVIDER_ROUTING.md`); Speaking stays Gemini-primary unless `AI_PROVIDER_ORDER_SPEAKING_GRADING=anthropic`. An admin override set on `/admin` (AIOPS-0024, table `ai_model_overrides`) wins over env and code defaults and is re-read every `AI_MODEL_OVERRIDE_TTL_SECONDS` (30–60 s)
 
 ---
 

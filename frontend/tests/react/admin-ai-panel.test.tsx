@@ -1,0 +1,243 @@
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { AdminAiFailuresWire, AdminAiModelsWire, AdminAiUsageWire } from '@/lib/admin-ai-api';
+
+const api = vi.hoisted(() => ({
+  getAdminAiModels: vi.fn(),
+  getAdminAiUsage: vi.fn(),
+  getAdminAiFailures: vi.fn(),
+  patchAdminAiModel: vi.fn(),
+}));
+
+vi.mock('client-only', () => ({}));
+vi.mock('@/lib/admin-ai-api', () => api);
+
+import { AdminAiPanel, formatSaigon } from '@/app/(authed-admin-overview)/admin/admin-ai-panel';
+
+function feature(name: string, overrides: Partial<AdminAiModelsWire['features'][number]> = {}) {
+  return {
+    feature: name,
+    label: name === 'writing_grading' ? 'Chấm Writing' : 'Soát bài tự luận theo buổi',
+    existing_provider: 'gemini',
+    allowed_providers: ['anthropic', 'gemini'],
+    effective_order: [
+      { provider: 'anthropic', slot: 'anthropic', model: 'claude-sonnet-5-5', model_source: 'code_default', available: true, note: '' },
+      { provider: 'gemini', slot: 'gemini', model: 'gemini-3.8-flash', model_source: 'env', available: true, note: '' },
+    ],
+    preferred_provider: { value: 'anthropic', source: 'env' },
+    anthropic_model: { value: 'claude-sonnet-5-5', source: 'code_default' },
+    existing_models: [{ model: 'gemini-3.8-flash', setting: 'WRITING_FLASH_MODEL', source: 'env', note: 'L1–L3' }],
+    override: null,
+    ...overrides,
+  } as AdminAiModelsWire['features'][number];
+}
+
+function models(overrides: Partial<AdminAiModelsWire> = {}): AdminAiModelsWire {
+  return {
+    features: [feature('writing_grading'), feature('course_writing')],
+    anthropic_models: ['claude-sonnet-5-5', 'claude-haiku-5-5'],
+    anthropic_key_configured: true,
+    store: { status: 'ok', last_refreshed_at: '2026-10-26T05:00:00Z', last_error: null, ttl_seconds: 30 },
+    recent_changes: [],
+    recent_changes_error: null,
+    computed_at: '2026-10-26T05:00:00Z',
+    ...overrides,
+  } as AdminAiModelsWire;
+}
+
+const zeroTotals = {
+  calls: 0, failed_calls: 0, input_tokens: 0, output_tokens: 0, thinking_tokens: 0,
+  cache_read_tokens: 0, cache_write_tokens: 0, cost_usd: 0, priced_calls: 0, unpriced_calls: 0, legacy_calls: 0,
+};
+const window7 = { key: '7d', start: '2026-10-19T17:00:00Z', end: '2026-10-26T05:00:00Z', timezone: 'Asia/Saigon' };
+
+function usage(totals = zeroTotals): AdminAiUsageWire {
+  return {
+    window: window7,
+    totals,
+    by_feature: totals.calls ? [{ ...totals, feature: 'writing_grading' }] : [],
+    by_provider: totals.calls ? [{ ...totals, provider: 'anthropic' }] : [],
+    meta: { source: 'ai_usage_logs', note: 'Chi phí là ước tính.' },
+  } as AdminAiUsageWire;
+}
+
+function failures(overrides: Partial<AdminAiFailuresWire> = {}): AdminAiFailuresWire {
+  return {
+    window: window7,
+    store_status: 'ok',
+    totals: { total: 0, retry: 0, fallback: 0, final: 0 },
+    by_provider_feature: [],
+    recent: [],
+    ...overrides,
+  } as AdminAiFailuresWire;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
+beforeEach(() => {
+  api.getAdminAiModels.mockResolvedValue(models());
+  api.getAdminAiUsage.mockResolvedValue(usage());
+  api.getAdminAiFailures.mockResolvedValue(failures());
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+describe('AdminAiPanel', () => {
+  it('shows loading, then the effective chain with value sources', async () => {
+    const pending = deferred<AdminAiModelsWire>();
+    api.getAdminAiModels.mockReturnValueOnce(pending.promise);
+    render(<AdminAiPanel />);
+    expect(screen.getByText('Đang tải cấu hình model…')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Model đang dùng theo tính năng' }).getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => pending.resolve(models()));
+    const row = screen.getByRole('row', { name: /Chấm Writing/ });
+    const [first, second] = within(row).getAllByRole('listitem');
+    expect(first.textContent).toContain('Claude · claude-sonnet-5-5');
+    expect(first.textContent).toContain('mặc định code');
+    expect(second.textContent).toContain('Gemini · gemini-3.8-flash');
+    expect(second.textContent).toContain('env');
+    expect(within(row).getAllByText('mặc định code').length).toBeGreaterThan(0);
+    expect(within(row).getAllByText('env').length).toBeGreaterThan(0);
+    expect(screen.getByText(/làm mới mỗi 30s/).getAttribute('role')).toBe('status');
+  });
+
+  it('saves through PATCH, shows pending, then renders the canonical refetch', async () => {
+    render(<AdminAiPanel />);
+    const select = await screen.findByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing');
+    const save = screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+
+    fireEvent.change(select, { target: { value: 'gemini' } });
+    expect(save.disabled).toBe(false);
+
+    const pending = deferred<AdminAiModelsWire>();
+    api.patchAdminAiModel.mockReturnValueOnce(pending.promise);
+    fireEvent.click(save);
+    expect(api.patchAdminAiModel).toHaveBeenCalledWith('writing_grading', {
+      preferred_provider: 'gemini', anthropic_model: null,
+    });
+    expect(save.textContent).toBe('Đang lưu…');
+    expect((select as HTMLSelectElement).disabled).toBe(true);
+
+    const canonical = models({
+      features: [
+        feature('writing_grading', {
+          effective_order: [
+            { provider: 'gemini', slot: 'gemini', model: 'gemini-3.8-flash', model_source: 'env', available: true, note: '' },
+            { provider: 'anthropic', slot: 'anthropic', model: 'claude-sonnet-5-5', model_source: 'code_default', available: true, note: '' },
+          ],
+          preferred_provider: { value: 'gemini', source: 'db_override' },
+          override: { preferred_provider: 'gemini', anthropic_model: null, updated_at: '2026-10-26T05:01:00Z', updated_by: 'a1', updated_by_email: 'owner@example.com', invalid_fields: [] },
+        }),
+        feature('course_writing'),
+      ],
+      recent_changes: [{
+        id: 1, feature: 'writing_grading', action: 'insert', old_preferred_provider: null,
+        new_preferred_provider: 'gemini', old_anthropic_model: null, new_anthropic_model: null,
+        changed_by: 'a1', changed_by_email: 'owner@example.com', changed_at: '2026-10-26T05:01:00Z',
+      }],
+    });
+    await act(async () => pending.resolve(canonical));
+
+    const row = screen.getByRole('row', { name: /Chấm Writing/ });
+    expect(within(row).getByText('DB override')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/owner@example.com/)).toBeTruthy();
+    expect(api.getAdminAiModels).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps canonical values and shows the server message when a save is rejected', async () => {
+    render(<AdminAiPanel />);
+    const select = await screen.findByLabelText('Model Claude cho Soát bài tự luận theo buổi');
+    fireEvent.change(select, { target: { value: 'claude-haiku-5-5' } });
+    api.patchAdminAiModel.mockRejectedValueOnce(Object.assign(new Error('HTTP 503'), {
+      status: 503,
+      detail: { error_code: 'ai_override_store_unavailable', message: 'Chưa áp dụng migration 321 — không lưu được lựa chọn model.' },
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }));
+    const alert = await screen.findByText('Chưa áp dụng migration 321 — không lưu được lựa chọn model.');
+    expect(alert.getAttribute('role')).toBe('alert');
+    const row = screen.getByRole('row', { name: /Soát bài tự luận/ });
+    expect(within(row).queryByText('DB override')).toBeNull();
+  });
+
+  it('shows store problems, permission errors and retries the models panel', async () => {
+    api.getAdminAiModels.mockRejectedValueOnce(Object.assign(new Error('HTTP 403'), { status: 403 }));
+    render(<AdminAiPanel />);
+    expect(await screen.findByText('Không có quyền xem mục AI.')).toBeTruthy();
+
+    api.getAdminAiModels.mockResolvedValueOnce(models({
+      store: { status: 'not_migrated', last_refreshed_at: null, last_error: 'APIError', ttl_seconds: 30 },
+      anthropic_key_configured: false,
+      recent_changes_error: 'not_migrated',
+    }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Thử lại' })[0]);
+    expect(await screen.findByText('Chưa áp dụng migration 321 — đang dùng env/mặc định code.')).toBeTruthy();
+    expect(screen.getByText(/Thiếu ANTHROPIC_API_KEY/)).toBeTruthy();
+    expect(screen.getByText('Chưa áp dụng migration 321 — chưa có lịch sử thay đổi.')).toBeTruthy();
+  });
+
+  it('renders empty usage/failure states and switches windows with the keyboard', async () => {
+    render(<AdminAiPanel />);
+    expect(await screen.findByText('Chưa có lượt gọi AI trong khoảng này.')).toBeTruthy();
+    expect(await screen.findByText('Không có lỗi gọi AI trong khoảng này.')).toBeTruthy();
+    expect(api.getAdminAiUsage).toHaveBeenLastCalledWith('today');
+
+    const today = screen.getByRole('tab', { name: 'Hôm nay' });
+    today.focus();
+    fireEvent.keyDown(today, { key: 'ArrowRight' });
+    await waitFor(() => expect(api.getAdminAiUsage).toHaveBeenLastCalledWith('7d'));
+    expect(api.getAdminAiFailures).toHaveBeenLastCalledWith('7d');
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: '7 ngày' }));
+    expect(screen.getByRole('tab', { name: '7 ngày' }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(document.activeElement!, { key: 'End' });
+    await waitFor(() => expect(api.getAdminAiUsage).toHaveBeenLastCalledWith('30d'));
+  });
+
+  it('renders usage totals, unpriced notes and failure rows in Saigon time', async () => {
+    api.getAdminAiUsage.mockResolvedValue(usage({
+      ...zeroTotals, calls: 12, failed_calls: 2, input_tokens: 1_005_010, output_tokens: 2_700,
+      thinking_tokens: 200, cache_read_tokens: 8_000, cache_write_tokens: 1_000, cost_usd: 0.354,
+      priced_calls: 7, unpriced_calls: 3, legacy_calls: 2,
+    }));
+    api.getAdminAiFailures.mockResolvedValue(failures({
+      totals: { total: 6, retry: 0, fallback: 6, final: 0 },
+      by_provider_feature: [{ provider: 'anthropic', feature: 'course_writing', total: 6, retry: 0, fallback: 6, final: 0, by_error_type: { rate_limit: 5, timeout: 1 } }],
+      recent: [{ id: 9, created_at: '2026-10-26T17:30:00Z', feature: 'course_writing', provider: 'anthropic', model: 'claude-haiku-5-5', route_slot: null, attempt: null, error_type: 'rate_limit', error_code: 'rate_limited', outcome: 'fallback' }],
+    }));
+    render(<AdminAiPanel />);
+    expect((await screen.findAllByText('$0.3540')).length).toBe(3); // totals, feature, provider
+    expect(screen.getByText(/3 lượt chưa có giá/)).toBeTruthy();
+    expect(screen.getByText(/2 lượt cũ được định giá lại/)).toBeTruthy();
+    expect(await screen.findByText('rate_limit × 5, timeout × 1')).toBeTruthy();
+    // 17:30 UTC is 00:30 the next day in Saigon.
+    const time = screen.getByText(formatSaigon('2026-10-26T17:30:00Z'));
+    expect(time.textContent).toContain('00:30');
+    expect(time.textContent).toContain('27');
+  });
+
+  it('shows usage errors with retry and the failure-log migration state independently', async () => {
+    api.getAdminAiUsage.mockRejectedValueOnce(Object.assign(new Error('HTTP 503'), {
+      status: 503, detail: { error_code: 'ai_dashboard_not_migrated', message: 'Chưa áp dụng migration 321 — chưa có tổng hợp token.' },
+    }));
+    api.getAdminAiFailures.mockResolvedValue(failures({ store_status: 'not_migrated' }));
+    render(<AdminAiPanel />);
+    expect(await screen.findByText('Chưa áp dụng migration 321 — chưa có tổng hợp token.')).toBeTruthy();
+    expect(await screen.findByText('Chưa áp dụng migration 321 — chưa có nhật ký lỗi gọi AI.')).toBeTruthy();
+    // The models panel is unaffected by the usage failure.
+    expect(screen.getByRole('row', { name: /Chấm Writing/ })).toBeTruthy();
+
+    fireEvent.click(within(screen.getByRole('region', { name: /Token và chi phí/ })).getByRole('button', { name: 'Thử lại' }));
+    expect(await screen.findByText('Chưa có lượt gọi AI trong khoảng này.')).toBeTruthy();
+  });
+});

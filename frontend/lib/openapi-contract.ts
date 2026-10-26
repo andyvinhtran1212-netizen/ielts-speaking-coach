@@ -12,6 +12,12 @@ export type ApiPostPath = {
     : never;
 }[keyof paths];
 
+export type ApiPatchPath = {
+  [Path in keyof paths]: paths[Path] extends { patch: infer Operation }
+    ? [Operation] extends [never] ? never : Path
+    : never;
+}[keyof paths];
+
 type Json200<Operation> = Operation extends {
   responses: {
     200: { content: { 'application/json': infer Payload } };
@@ -26,4 +32,9 @@ export type ApiGetJson<Path extends ApiGetPath> = Json200<
 /** JSON response declared by FastAPI for a successful POST endpoint. */
 export type ApiPostJson<Path extends ApiPostPath> = Json200<
   paths[Path] extends { post: infer Operation } ? Operation : never
+>;
+
+/** JSON response declared by FastAPI for a successful PATCH endpoint. */
+export type ApiPatchJson<Path extends ApiPatchPath> = Json200<
+  paths[Path] extends { patch: infer Operation } ? Operation : never
 >;

@@ -908,7 +908,11 @@ class GeminiWritingGrader:
             )
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
+            ai_router.record_fallback(
+                anthropic_feature, provider="gemini", model=model_name,
+                error_code=getattr(exc, "error_code", None) or type(exc).__name__,
+            )
             served = await self._try_claude(anthropic_feature, **claude_kwargs)
             if served is not None:
                 return served

@@ -20,8 +20,21 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-25 the highest is `319`, so the next
-new migration is `320`.
+sequence is dense. As of 2026-10-26 the highest is `321`, so the next
+new migration is `322`. `320` is claimed by open PR #1699
+(`320_client_write_privilege_lockdown.sql`); re-check both numbers before
+either PR merges.
+
+Migration `321` (AIOPS-0024) is additive: `ai_model_overrides` (admin
+per-feature preferred provider / Claude model, NULL = env/code default), the
+trigger-written append-only `ai_model_override_audit`, the routing-layer
+`ai_provider_failures` log and two read-only dashboard rollups. RLS is on with
+no policies, nothing is granted to `anon`/`authenticated`, and `service_role`
+gets only the privileges the backend uses. No data is written; with no
+override row routing is unchanged. Apply it to staging before merging the
+dependent code; code deployed first keeps env/code-default routing and the
+dashboard shows "migration not applied". Rollback SQL (destroys audit/failure
+history) is in `specs/0024-admin-ai-model-control/rollout.md`.
 
 Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
 change: the `web_explanation_content_version_unavailable` refusal now names its
