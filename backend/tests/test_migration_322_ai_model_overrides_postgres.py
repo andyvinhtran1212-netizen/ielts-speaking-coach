@@ -239,3 +239,19 @@ def test_usage_rollup_groups_complete_window(schema):
     assert success["pricing_version"] == version
     assert error["calls"] == 1 and error["priced_calls"] == 0 and error["cost_usd"] is None
     assert error["cost_source"] == "unpriced"
+
+
+def test_usage_rollup_never_merges_legacy_rows(schema):
+    insert = f"""INSERT INTO {schema}.ai_usage_logs(
+                     created_at, feature, service, model, status, input_tokens, output_tokens,
+                     cost_usd_est, pricing_version, cost_source)
+                 VALUES ($1::text::timestamptz, 'course_writing', 'claude', 'claude-haiku-5-5',
+                         'success', $2, 10, NULL, NULL, 'catalog_estimate')"""
+    query(insert, "2026-10-26T02:00:00Z", 60_000, role="service_role")
+    query(insert, "2026-10-26T03:00:00Z", 60_000, role="service_role")
+    rows = query(f"""SELECT calls, input_tokens, last_at FROM {schema}.fn_admin_ai_usage_rollup(
+                         '2026-10-25T17:00:00Z', '2026-10-26T17:00:00Z') ORDER BY last_at""",
+                 role="service_role")
+    # One row per legacy ledger row, each with its own timestamp, so pricing
+    # periods and per-request tiers are applied per call.
+    assert [(r["calls"], r["input_tokens"]) for r in rows] == [(1, 60_000), (1, 60_000)]

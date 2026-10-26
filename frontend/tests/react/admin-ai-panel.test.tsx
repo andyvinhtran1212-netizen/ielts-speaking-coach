@@ -268,8 +268,10 @@ describe('AdminAiPanel', () => {
     expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi') as HTMLSelectElement).disabled).toBe(true);
 
     await act(async () => pending.resolve(models()));
-    expect((screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }) as HTMLButtonElement).disabled).toBe(true);
+    // Once settled, the other row's unsaved choice is still there and can be saved.
     expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi') as HTMLSelectElement).disabled).toBe(false);
+    expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi') as HTMLSelectElement).value).toBe('gemini');
+    expect((screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('shows a routing note and disables controls for a feature that bypasses the router', async () => {
@@ -283,5 +285,17 @@ describe('AdminAiPanel', () => {
     expect(await screen.findByText(/được gọi trực tiếp, không qua ai_router/)).toBeTruthy();
     expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi') as HTMLSelectElement).disabled).toBe(true);
     expect((screen.getByLabelText('Model Claude cho Soát bài tự luận theo buổi') as HTMLSelectElement).disabled).toBe(true);
+  });
+
+  it('keeps an unsaved selection on another row when one row is saved', async () => {
+    render(<AdminAiPanel />);
+    fireEvent.change(await screen.findByLabelText('Model Claude cho Soát bài tự luận theo buổi'), { target: { value: 'claude-haiku-5-5' } });
+    fireEvent.change(screen.getByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing'), { target: { value: 'gemini' } });
+    api.patchAdminAiModel.mockResolvedValueOnce(models());
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+    await waitFor(() => expect(api.patchAdminAiModel).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing') as HTMLSelectElement).value).toBe(''));
+    expect((screen.getByLabelText('Model Claude cho Soát bài tự luận theo buổi') as HTMLSelectElement).value).toBe('claude-haiku-5-5');
+    expect((screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

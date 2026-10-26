@@ -138,8 +138,11 @@ CREATE TRIGGER trg_ai_model_override_audit_append_only
 -- ── Dashboard rollups ──────────────────────────────────────────────────────
 
 -- Grouped ledger sums for [p_start, p_end). pricing_version stays in the
--- group key so stored estimates are summed per price period and legacy rows
--- (no pricing_version) can be re-priced by services/ai_pricing.py.
+-- group key so stored estimates are summed per price period. Legacy rows (no
+-- pricing_version, not explicitly unpriced) are NOT merged: each is returned
+-- on its own so services/ai_pricing.effective_logged_cost can re-price it
+-- exactly as per row (price periods and per-request tiers, e.g. the Haiku 5.5
+-- >100k-prompt multiplier, do not survive summing).
 CREATE OR REPLACE FUNCTION public.fn_admin_ai_usage_rollup(p_start timestamptz, p_end timestamptz)
 RETURNS TABLE (
     feature            text,
@@ -178,7 +181,9 @@ AS $$
            max(l.created_at)
       FROM public.ai_usage_logs l
      WHERE l.created_at >= p_start AND l.created_at < p_end
-     GROUP BY l.feature, l.service, l.model, l.status, l.cost_source, l.pricing_version
+     GROUP BY l.feature, l.service, l.model, l.status, l.cost_source, l.pricing_version,
+              CASE WHEN l.pricing_version IS NULL
+                        AND l.cost_source IS DISTINCT FROM 'unpriced' THEN l.id END
 $$;
 
 CREATE OR REPLACE FUNCTION public.fn_admin_ai_failure_rollup(p_start timestamptz, p_end timestamptz)

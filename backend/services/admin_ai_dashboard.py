@@ -306,7 +306,8 @@ def aggregate_usage(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
             cost = float(stored) if stored is not None else None
             priced = min(calls, _int(row.get("priced_calls")))
         else:
-            # Pre-286 legacy rows: re-price the aggregated raw units.
+            # Legacy rows (no pricing_version) arrive one per ledger row from
+            # the rollup, so this is exactly effective_logged_cost per row.
             legacy = calls
             cost, _ = effective_logged_cost({
                 "service": row.get("service"), "model": row.get("model"),

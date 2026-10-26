@@ -594,7 +594,7 @@ async def with_fallback(
                          else (existing_models(feature, settings_obj) or [{}])[0].get("model"))
                 ai_failure_log.record(
                     feature=feature, provider=provider, model=model,
-                    error_code=getattr(exc, "error_code", None) or type(exc).__name__,
+                    error_code=ai_failure_log.error_code_of(exc),
                     outcome="final" if index == len(order) - 1 else "fallback",
                 )
             if index == len(order) - 1:

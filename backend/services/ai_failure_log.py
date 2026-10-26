@@ -65,6 +65,9 @@ _NAMED_TYPES: dict[str, str] = {
     "validationerror": "invalid_json",
     "valueerror": "invalid_json",
     "missing_or_invalid_result": "invalid_json",
+    "invalidjsonerror": "invalid_json",
+    "ungroundedwritingfeedbackerror": "invalid_json",
+    "aisafetyblockerror": "empty_response",
     "empty_body": "empty_response",
     "blocked_or_empty": "empty_response",
     "missing_api_key": "missing_key",
@@ -117,6 +120,31 @@ def normalize_error_type(*codes: Any) -> str:
         if "json" in lowered or "parse" in lowered:
             return "invalid_json"
     return "unknown"
+
+
+def error_code_of(exc: BaseException) -> str:
+    """Short code for an exception, looking through provider wrappers.
+
+    ``RetryableError``/``NonRetryableError`` carry the real code in
+    ``status`` (and the SDK exception in ``original``); retry-loop wrappers
+    chain the last error as ``__cause__``. The first classifiable code wins,
+    else the outermost class name. Never the exception message.
+    """
+    current: BaseException | None = exc
+    for _ in range(5):
+        if current is None:
+            break
+        code = getattr(current, "error_code", None)
+        if code:
+            return str(code)
+        status = getattr(current, "status", None)
+        if status not in (None, ""):
+            return str(status)
+        name = type(current).__name__
+        if normalize_error_type(name) != "unknown":
+            return name
+        current = getattr(current, "original", None) or current.__cause__
+    return type(exc).__name__
 
 
 def provider_for(provider_or_slot: str | None, model: str | None = None) -> str:

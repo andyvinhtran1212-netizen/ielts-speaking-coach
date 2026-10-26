@@ -79,6 +79,28 @@ def test_error_types_are_normalized(codes, expected):
     assert ai_failure_log.normalize_error_type(*codes) == expected
 
 
+def test_error_code_of_looks_through_provider_wrappers():
+    from services.gemini_writing_grader import APIRetryFailedError, InvalidJSONError
+
+    class DeadlineExceeded(Exception):
+        pass
+
+    wrapped = RetryableError(provider="gemini", status="ResourceExhausted", original=ResourceExhausted())
+    assert ai_failure_log.error_code_of(wrapped) == "ResourceExhausted"
+    assert ai_failure_log.error_code_of(NonRetryableError(provider="gemini", status=400)) == "400"
+    try:
+        try:
+            raise DeadlineExceeded(SECRET)
+        except DeadlineExceeded as cause:
+            raise APIRetryFailedError(f"All retries failed: {cause}") from cause
+    except APIRetryFailedError as exc:
+        assert ai_failure_log.error_code_of(exc) == "DeadlineExceeded"
+    assert ai_failure_log.error_code_of(InvalidJSONError(SECRET)) == "InvalidJSONError"
+    assert ai_failure_log.normalize_error_type("InvalidJSONError") == "invalid_json"
+    assert ai_failure_log.error_code_of(ai_router.AnthropicAttemptError("rate_limited")) == "rate_limited"
+    assert ai_failure_log.error_code_of(RuntimeError(SECRET)) == "RuntimeError"
+
+
 def test_row_is_bounded_and_enumerated():
     row = ai_failure_log.build_row(
         feature="course_writing", provider="mistral", model="m" * 300,
@@ -291,6 +313,36 @@ async def test_vocab_rewrite_records_the_real_gemini_error_before_claude(failure
     await vr._grade_gemini([{"item_id": "i1", "prompt": "p", "answer": SECRET}], "[]", user_id="u-1")
     assert [(r["feature"], r["error_type"], r["error_code"], r["outcome"]) for r in failures] == [
         ("advanced_vocab_rewrite", "rate_limit", "ResourceExhausted", "fallback"),
+    ]
+    _assert_no_content(failures)
+
+
+@pytest.mark.parametrize("status, error_type", [
+    ("ResourceExhausted", "rate_limit"),
+    ("DeadlineExceeded", "timeout"),
+])
+@pytest.mark.asyncio
+async def test_listening_audit_records_wrapped_gemini_errors(failures, claude_first, monkeypatch, status, error_type):
+    from types import SimpleNamespace
+
+    from routers import listening
+
+    monkeypatch.setattr(settings, "AI_PROVIDER_ORDER_LISTENING_AUDIT", "gemini,anthropic")
+    monkeypatch.setattr(settings, "LISTENING_AUDIT_MODEL", "gemini-3.8-flash")
+
+    class _Legacy:
+        async def invoke(self, system_prompt, user_message, **_kw):
+            raise RetryableError(provider="grading_primary", status=status, original=None)
+
+    answer = SimpleNamespace(content=[SimpleNamespace(type="text", text="[]")], stop_reason="end_turn",
+                             usage=SimpleNamespace(input_tokens=5, output_tokens=2,
+                                                   cache_read_input_tokens=0, cache_creation_input_tokens=0))
+    monkeypatch.setattr(ai_router, "_client", lambda *_a, **_k: _FakeClaude(answer))
+    text = await listening._RoutedAuditProvider(_Legacy()).invoke(SECRET, SECRET)
+    assert text == "[]"
+    assert [(r["feature"], r["provider"], r["model"], r["error_type"], r["error_code"], r["outcome"])
+            for r in failures] == [
+        ("listening_audit", "gemini", "gemini-3.8-flash", error_type, status, "fallback"),
     ]
     _assert_no_content(failures)
 

@@ -241,10 +241,14 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
   const [saving, setSaving] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
-  const apply = useCallback((next: unknown) => {
+  // `keep` holds unsaved selections on other rows, which a save of one row
+  // must not discard; every other row follows the canonical response.
+  const apply = useCallback((next: unknown, keep: Record<string, Draft> = {}) => {
     if (!isModelsPayload(next)) throw new Error(INVALID_PAYLOAD);
     setData(next);
-    setDrafts(Object.fromEntries(next.features.map((feature) => [feature.feature, draftFor(feature)])));
+    setDrafts(Object.fromEntries(next.features.map((feature) => [
+      feature.feature, keep[feature.feature] ?? draftFor(feature),
+    ])));
     onLabels(Object.fromEntries(next.features.map((feature) => [feature.feature, feature.label])));
   }, [onLabels]);
 
@@ -267,11 +271,19 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
     const draft = drafts[feature.feature] || draftFor(feature);
     setSaving(feature.feature);
     setRowErrors((current) => ({ ...current, [feature.feature]: '' }));
+    const unsaved = Object.fromEntries((data?.features ?? [])
+      .filter((other) => other.feature !== feature.feature)
+      .flatMap((other) => {
+        const pending = drafts[other.feature];
+        const saved = draftFor(other);
+        return pending && (pending.provider !== saved.provider || pending.model !== saved.model)
+          ? [[other.feature, pending] as const] : [];
+      }));
     try {
       apply(await patchAdminAiModel(feature.feature, {
         preferred_provider: draft.provider || null,
         anthropic_model: draft.model || null,
-      }));
+      }), unsaved);
     } catch (caught) {
       setRowErrors((current) => ({ ...current, [feature.feature]: errorMessage(caught) }));
     } finally {

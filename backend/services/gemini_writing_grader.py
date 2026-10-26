@@ -42,7 +42,7 @@ from models.writing_feedback import (
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
 from services.ai_pricing import estimate_token_cost, token_rate
-from services import ai_router, ai_usage_logger
+from services import ai_failure_log, ai_router, ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
 from services.writing_feedback_grounding import (
     GROUNDING_INSTRUCTION,
@@ -918,7 +918,7 @@ class GeminiWritingGrader:
         except Exception as exc:
             ai_router.record_fallback(
                 anthropic_feature, provider="gemini", model=model_name,
-                error_code=getattr(exc, "error_code", None) or type(exc).__name__,
+                error_code=ai_failure_log.error_code_of(exc),
             )
             served = await self._try_claude(anthropic_feature, **claude_kwargs)
             if served is not None:
@@ -1060,7 +1060,7 @@ class GeminiWritingGrader:
         # (→ PR-1 status-reset, so the essay isn't stranded).
         if isinstance(last_error, (InvalidJSONError, UngroundedWritingFeedbackError)):
             raise last_error
-        raise APIRetryFailedError(f"All {MAX_RETRIES} retries failed: {last_error}")
+        raise APIRetryFailedError(f"All {MAX_RETRIES} retries failed: {last_error}") from last_error
 
     async def _try_claude(
         self,

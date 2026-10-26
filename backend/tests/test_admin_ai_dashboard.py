@@ -310,6 +310,35 @@ def test_usage_aggregation_per_feature_and_provider():
     assert providers["gemini"]["calls"] == 6
 
 
+def _rollup_row(row):
+    """A legacy ledger row as the rollup returns it (one row per call)."""
+    return {"feature": row["feature"], "service": row["service"], "model": row["model"],
+            "status": "success", "cost_source": "catalog_estimate", "pricing_version": None,
+            "calls": 1, "input_tokens": row.get("input_tokens", 0), "output_tokens": 0,
+            "thinking_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0,
+            "audio_seconds": 0, "text_chars": row.get("text_chars", 0), "cost_usd": None,
+            "priced_calls": 0, "last_at": row["created_at"]}
+
+
+@pytest.mark.parametrize("ledger", [
+    # Haiku 5.5: two 60k-input calls, each below the 100k-prompt multiplier.
+    [{"feature": "course_writing", "service": "claude", "model": "claude-haiku-5-5",
+      "input_tokens": 60_000, "created_at": f"2026-10-26T0{h}:00:00+00:00"} for h in (2, 3)],
+    # ElevenLabs across a price change (Oct 11 vs Oct 12).
+    [{"feature": None, "service": "elevenlabs", "model": "eleven_multilingual_v2",
+      "text_chars": 1000, "created_at": f"2026-10-{d}T05:00:00+00:00"} for d in (11, 12)],
+])
+def test_legacy_usage_cost_equals_the_per_row_ledger_estimate(ledger):
+    from services.ai_pricing import effective_logged_cost
+
+    expected = sum(effective_logged_cost({**row, "cost_source": "catalog_estimate"})[0]
+                   for row in ledger)
+    result = dashboard.aggregate_usage([_rollup_row(row) for row in ledger])
+    assert result["totals"]["cost_usd"] == pytest.approx(expected)
+    assert result["totals"]["legacy_calls"] == 2
+    assert expected == pytest.approx(0.012 if ledger[0]["service"] == "claude" else 0.18)
+
+
 def test_usage_endpoint_pages_through_the_complete_rollup(db, as_admin, monkeypatch):
     monkeypatch.setattr(dashboard, "RPC_PAGE", 2)
     db.data["fn_admin_ai_usage_rollup"] = USAGE_ROWS
