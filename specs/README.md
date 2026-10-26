@@ -101,3 +101,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
 
 | SECWRITE-0022 | Client roles cannot write privilege, score or session data | approved | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
+
+| REVEXPLAIN-0023 | Bind Cambridge REV papers by marking-equivalent keys and document accepted forms | draft | high | [spec](0023-revision-explanation-key-equivalence/spec.md) |
