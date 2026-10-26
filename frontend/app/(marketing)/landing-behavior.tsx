@@ -30,6 +30,43 @@ export function LandingBehavior() {
       bindToggleButton();
     }
 
+    // Mobile header disclosure; keep links in the normal keyboard tab order.
+    const menuButton = document.getElementById('ix-mobile-toggle');
+    const menu = document.getElementById('ix-mobile-menu');
+    const menuListeners = new AbortController();
+    const { signal } = menuListeners;
+    const closeMenu = (restoreFocus = true) => {
+      if (!menu || menu.hidden) return;
+      menu.hidden = true;
+      menuButton?.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) menuButton?.focus();
+    };
+    menuButton?.addEventListener('click', () => {
+      if (!menu) return;
+      if (!menu.hidden) closeMenu();
+      else {
+        menu.hidden = false;
+        menuButton.setAttribute('aria-expanded', 'true');
+      }
+    }, { signal });
+    menu?.addEventListener('click', (event) => {
+      if ((event.target as Element).closest('a')) {
+        closeMenu();
+        // Fragment navigation moves focus after click's default action.
+        requestAnimationFrame(() => menuButton?.focus({ preventScroll: true }));
+      }
+    }, { signal });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeMenu();
+    }, { signal });
+    document.addEventListener('click', (event) => {
+      if (event.target instanceof Node && !menu?.contains(event.target)
+          && !menuButton?.contains(event.target)) closeMenu();
+    }, { signal });
+    window.matchMedia('(min-width: 768px)').addEventListener('change', () => {
+      closeMenu(false);
+    }, { signal });
+
     // ─── PUBLIC STATS LOADER ────────────────────────────────────
     function formatNum(n: any) {
       if (n == null) return '—';
@@ -119,6 +156,7 @@ export function LandingBehavior() {
     }
 
     return () => {
+      menuListeners.abort();
       document.removeEventListener('DOMContentLoaded', bindToggleButton);
       themeButton?.removeEventListener('click', handleThemeToggle);
       window.removeEventListener('aver:runtime-config-ready', handleRuntimeConfigReady);

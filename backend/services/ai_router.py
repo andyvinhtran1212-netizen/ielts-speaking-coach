@@ -87,10 +87,9 @@ def parse_provider_order(raw: str | None) -> tuple[str, ...]:
 
 
 # Used when a settings object has no per-feature attribute at all; mirrors the
-# config.py defaults. Speaking keeps the AI-0004 FR-005 Gemini-primary chain.
-FEATURE_DEFAULT_ORDERS: dict[str, str] = {
-    "speaking_grading": "gemini",
-}
+# config.py defaults. Every feature, including Speaking grading (AI-0004 FR-005
+# revised 2026-10-26), currently inherits AI_PROVIDER_ORDER.
+FEATURE_DEFAULT_ORDERS: dict[str, str] = {}
 
 
 def _configured_order(feature: str, s: Any) -> tuple[tuple[str, ...], str | None]:

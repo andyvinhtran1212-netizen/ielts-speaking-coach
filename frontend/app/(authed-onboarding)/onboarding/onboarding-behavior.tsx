@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getCurrentUser } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   buildOnboardingPayload,
+  buildSkipPayload,
   normalizeOnboardingProfile,
   onboardingDestination,
   validateOnboardingStep,
@@ -63,6 +65,40 @@ function CheckIcon() {
   );
 }
 
+export function OnboardingHeader() {
+  const [signingOut, setSigningOut] = useState(false);
+  const [error, setError] = useState('');
+
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setError('');
+    try {
+      const ready = await whenGlobalReady(() => Boolean(window.getSupabase?.()), 'window.getSupabase (onboarding)');
+      if (!ready) throw new Error('Không thể kết nối. Vui lòng thử lại.');
+      const client = window.getSupabase() as SupabaseClient;
+      const { error: signOutError } = await client.auth.signOut();
+      if (signOutError) throw signOutError;
+      window.location.replace('/login');
+    } catch (caught) {
+      setError(messageOf(caught, 'Không thể đăng xuất. Vui lòng thử lại.'));
+      setSigningOut(false);
+    }
+  }
+
+  return (
+    <header className="ob-header">
+      <div className="ob-header__row">
+        <span className="ob-wordmark" aria-label="Aver Learning">Aver<span className="ob-wordmark__brand">.</span>Learning</span>
+        <button className="ob-secondary-button" type="button" onClick={signOut} disabled={signingOut}>
+          {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+        </button>
+      </div>
+      {error && <p className="ob-header__error" role="alert">{error}</p>}
+    </header>
+  );
+}
+
 export function OnboardingBehavior() {
   const { status, user } = useAuth();
   const [bootState, setBootState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -116,6 +152,12 @@ export function OnboardingBehavior() {
       setBootState('error');
       setBootError(messageOf(caught, 'Không thể kiểm tra trạng thái tài khoản.'));
     });
+
+    return () => {
+      ++requestRef.current;
+      accountRef.current = null;
+      submitRef.current = null;
+    };
   }, [retryKey, status, user?.id]);
 
   useEffect(() => {
@@ -149,9 +191,9 @@ export function OnboardingBehavior() {
     setError('');
   }
 
-  async function submit() {
+  async function submit(mode: 'complete' | 'skip' = 'complete') {
     if (submitRef.current || submitting || status !== 'signed-in' || !user?.id) return;
-    const built = buildOnboardingPayload(draft);
+    const built = mode === 'skip' ? { payload: buildSkipPayload() } : buildOnboardingPayload(draft);
     if (!('payload' in built)) {
       setStep('step' in built && typeof built.step === 'number' ? built.step : 1);
       setError('error' in built && built.error ? built.error : 'Thông tin thiết lập chưa hợp lệ.');
@@ -193,7 +235,7 @@ export function OnboardingBehavior() {
 
       setSuccess('Đã lưu hồ sơ. Đang mở trang chủ…');
       keepLockedForRedirect = true;
-      window.location.replace(`/home?first_topic=${encodeURIComponent(draft.topic)}`);
+      window.location.replace(mode === 'skip' ? '/home' : `/home?first_topic=${encodeURIComponent(draft.topic)}`);
     } catch (caught) {
       if (accountRef.current === account) {
         setError(messageOf(caught, 'Không thể lưu thông tin. Vui lòng thử lại.'));
@@ -321,6 +363,9 @@ export function OnboardingBehavior() {
               {submitting ? 'Đang lưu…' : step === 3 ? '🚀 Bắt đầu luyện tập ngay' : 'Tiếp theo →'}
             </button>
           </div>
+          <button className="ob-secondary-button ob-skip" type="button" onClick={() => void submit('skip')} disabled={submitting}>
+            Bỏ qua, thiết lập sau
+          </button>
         </section>
       </div>
     </main>

@@ -57,6 +57,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from services.cohort_assignment_service import Deadline, normalize_deadline
 from routers.admin import require_instructor, _gen_code
 from services import essay_service, instructor_workflow
 from services.core_attempt_outcomes import observe_writing_batch
@@ -184,7 +185,7 @@ class FanOutBody(BaseModel):
     cohort_id: UUID
     name: Optional[str] = None
     allow_soft_check: bool = False
-    deadline: Optional[datetime] = None      # ISO string auto-parsed → datetime
+    deadline: Optional[Deadline] = None
     instructions: Optional[str] = None
     analysis_level: int = 3
     grading_tier: Literal["standard", "deep"] = "standard"  # AI pass depth (W-L3)
@@ -194,7 +195,7 @@ class AssignBody(BaseModel):
     """Single-student assign (one prompt → one of MY students)."""
     prompt_id: UUID
     student_id: UUID
-    deadline: Optional[datetime] = None
+    deadline: Optional[Deadline] = None
     instructions: Optional[str] = None
     analysis_level: int = 3
     grading_tier: Literal["standard", "deep"] = "standard"  # AI pass depth (W-L3)
@@ -222,6 +223,12 @@ async def patch_assignment(request: Request, assignment_id: UUID, body: dict, au
     payload = _whitelist(body, ("deadline", "instructions"))
     if not payload:
         raise HTTPException(422, "Không có trường hợp lệ để cập nhật.")
+    if "deadline" in payload:
+        try:
+            deadline = normalize_deadline(payload["deadline"])
+        except ValueError as exc:
+            raise HTTPException(422, "Hạn nộp không hợp lệ.") from exc
+        payload["deadline"] = deadline.isoformat() if deadline else None
     r = instructor_db(me).table("writing_assignments").update(payload).eq("id", str(assignment_id)).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")

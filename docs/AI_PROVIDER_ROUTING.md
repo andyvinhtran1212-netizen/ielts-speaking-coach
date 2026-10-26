@@ -18,7 +18,7 @@ pronunciation assessment have no Claude equivalent, so they are not routed.
 
 | Feature key | Code path | Claude model (default) | Fallback (unchanged) |
 | --- | --- | --- | --- |
-| `speaking_grading` | `grading_orchestrator` slot `anthropic_primary` | `claude-sonnet-5-5` | `SPEAKING_GRADING_MODEL` (Gemini 3.8 Flash), then Haiku 4.5, then Sonnet 5. **Opt-in**: see below |
+| `speaking_grading` | `grading_orchestrator` slot `anthropic_primary` | `claude-sonnet-5-5` | `SPEAKING_GRADING_MODEL` (Gemini 3.8 Flash), then Haiku 4.5, then Sonnet 5. See below |
 | `writing_grading` | `gemini_writing_grader._call_with_retry` (Standard and Instructor grading, Deep pass 1) | `claude-sonnet-5-5` | Same Gemini model and retry loop |
 | `course_writing` | `course_writing_grader._grade_batch` | `claude-haiku-5-5` | `COURSE_WRITING_MODEL` |
 | `advanced_vocab_rewrite` | `advanced_vocab_rewrite_grader.grade_rewrites` | `claude-haiku-5-5` | `ADVANCED_VOCAB_REWRITE_MODEL` |
@@ -49,9 +49,11 @@ Precedence: **DB override > environment variable > code default**. A
 preferred provider is placed first and the env/code-default order follows as
 fallback; a preference never removes a provider. A blank `ANTHROPIC_API_KEY`
 still removes Claude. For `speaking_grading` the Claude preference puts the
-`anthropic_primary` slot before the existing orchestrator chain — the same
-effect as `AI_PROVIDER_ORDER_SPEAKING_GRADING=anthropic`, so the AI-0004 FR-005
-governance below applies to it too.
+`anthropic_primary` slot before the existing orchestrator chain and the Gemini
+preference puts that chain first (the slot follows it only when the env/code
+order includes Claude). A DB preference wins over the production pin
+`AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini`, so choosing Claude for Speaking in
+production is bound by the same constitution §6 gate described below.
 
 Each backend process reads the table into memory at startup and then every
 `AI_MODEL_OVERRIDE_TTL_SECONDS` (default 30, clamped to 30–60) in a background
@@ -77,22 +79,46 @@ Rows hold only feature, provider, model, slot, attempt, normalized error type
 no prompt, output, message text, user or session id. Token and cost figures
 on the dashboard come from `ai_usage_logs`, not from this table.
 
-## Speaking grading opt-in
+## Speaking grading
 
-Approved requirement AI-0004 FR-005 makes Gemini 3.8 Flash the default primary
-Speaking grader. `AI_PROVIDER_ORDER_SPEAKING_GRADING` therefore defaults to
-`gemini`.
+AI-0004 FR-005 (revised 2026-10-26) makes Claude Sonnet 5.5 the default primary
+Speaking grader for practice and test modes. Every earlier option stays behind
+it as an automatic fallback. `AI_PROVIDER_ORDER_SPEAKING_GRADING` is empty by
+default, so it inherits `AI_PROVIDER_ORDER`, and the order is:
 
-After that requirement is revised and approved, set the variable to `anthropic`
-and restart the backend. The order then becomes
-`anthropic_primary → grading_primary → claude_haiku → claude_sonnet`.
+| Slot | Model | Why it is here |
+| --- | --- | --- |
+| `anthropic_primary` | `claude-sonnet-5-5` (`ANTHROPIC_MODEL_SPEAKING_GRADING` / `ANTHROPIC_MODEL_GRADING`) | Primary |
+| `grading_primary` | `SPEAKING_GRADING_MODEL`, default `gemini-3.8-flash` | Different vendor, so it is independent of Anthropic outages and limits |
+| `claude_haiku` | `claude-haiku-4-5-20251001` | Unchanged fallback |
+| `claude_sonnet` | `claude-sonnet-5` | Unchanged last resort |
 
-The Claude slot gets one attempt, with no retry. Its time is added to the
-orchestrator's total budget, so a 429 or timeout does not shorten the existing
-chain.
+- The Claude slot gets one attempt, with no retry. Its time is added to the
+  orchestrator's total budget, so a 429 or timeout does not shorten the
+  existing chain.
+- When an answer fails JSON validation, the single corrective retry goes to the
+  provider *after* the one that answered. A malformed Sonnet 5.5 answer is
+  therefore retried on Gemini 3.8 Flash, never on Sonnet 5.5 again.
+- A blank `ANTHROPIC_API_KEY` drops every Claude slot, and Gemini 3.8 Flash
+  grades alone.
+- The static Speaking system prompt (about 3k tokens) is sent with
+  `cache_control: ephemeral`. Sonnet 5.5 caches prefixes from 512 tokens, so
+  repeat grades read it from cache. Haiku 4.5 needs 4096 tokens, so it does
+  not cache this prompt; that is unchanged from before.
+- The learner result JSON is validated by the same `_parse_and_validate` /
+  `_parse_and_validate_practice` and post-processing whichever provider
+  serves, so its schema is unchanged.
 
-When Claude's answer fails JSON validation, the existing retry path asks the
-next provider instead of retrying Claude.
+To restore the Gemini-primary chain
+(`grading_primary → claude_haiku → claude_sonnet`), set
+`AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini` and restart. Setting
+`gemini,anthropic` puts Claude last instead.
+
+**Production gate:** the Claude default must not serve production learners
+until the constitution §6 Speaking gold-set comparison against the Gemini 3.8
+Flash baseline passes. The gate and its thresholds are in
+`specs/0004-ai-model-usage-observability/spec.md` ("FR-005 revision"). Until
+then, production keeps `AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini`.
 
 ## Environment variables
 
@@ -104,7 +130,7 @@ only through the release flow.
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | empty | Secret. Blank disables every Claude attempt, so all features use their existing provider |
 | `AI_PROVIDER_ORDER` | `anthropic,openai,gemini` | Global order; unknown names are ignored. The feature's existing provider is always kept as the last fallback |
-| `AI_PROVIDER_ORDER_SPEAKING_GRADING` | `gemini` | See the opt-in above |
+| `AI_PROVIDER_ORDER_SPEAKING_GRADING` | empty, so the global order applies (Claude first) | `gemini` restores the Gemini-primary chain; see above |
 | `AI_PROVIDER_ORDER_WRITING_GRADING` | empty, so the global order applies | Per-feature override |
 | `AI_PROVIDER_ORDER_COURSE_WRITING` | empty | Per-feature override |
 | `AI_PROVIDER_ORDER_ADVANCED_VOCAB_REWRITE` | empty | Per-feature override |

@@ -61,10 +61,12 @@ class Settings(BaseSettings):
     # Comma list of "anthropic", "openai", "gemini"; the feature's existing
     # provider is always kept as the final fallback even if omitted.
     AI_PROVIDER_ORDER: str = "anthropic,openai,gemini"
-    # Per-feature overrides ("" → AI_PROVIDER_ORDER). Speaking grading keeps
-    # the approved AI-0004 FR-005 chain (Gemini 3.8 primary) until that
-    # requirement is revised; set "anthropic" to put Claude first.
-    AI_PROVIDER_ORDER_SPEAKING_GRADING: str = "gemini"
+    # Per-feature overrides ("" → AI_PROVIDER_ORDER). AI-0004 FR-005 (revised
+    # 2026-10-26): Speaking grading inherits the global order, so Claude
+    # Sonnet 5.5 grades first and SPEAKING_GRADING_MODEL (Gemini 3.8) →
+    # Haiku 4.5 → Sonnet 5 follow unchanged. Set "gemini" to restore the
+    # Gemini-primary chain.
+    AI_PROVIDER_ORDER_SPEAKING_GRADING: str = ""
     AI_PROVIDER_ORDER_WRITING_GRADING: str = ""
     AI_PROVIDER_ORDER_COURSE_WRITING: str = ""
     AI_PROVIDER_ORDER_ADVANCED_VOCAB_REWRITE: str = ""
@@ -87,7 +89,10 @@ class Settings(BaseSettings):
     # 30–60 s; a failed read falls back to the env/code defaults above.
     AI_MODEL_OVERRIDE_TTL_SECONDS: float = 30.0
 
-    # Speaking grader primary model (audit 2026-07-02).
+    # Speaking grader Gemini rung (audit 2026-07-02). Since the AI-0004 FR-005
+    # revision it is the first fallback behind the Claude primary
+    # (AI_PROVIDER_ORDER_SPEAKING_GRADING), and the primary again when that is
+    # set to "gemini".
     # The Speaking grader used to be hardcoded to Claude Haiku 4.5 — the weakest
     # tier — while the Writing grader already uses Gemini Pro. This knob lets ops
     # point the *grader* at any model without a code change; the fallback chain

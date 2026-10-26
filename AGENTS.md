@@ -9,14 +9,15 @@ IELTS Speaking Coach — a web app for IELTS/English speaking practice:
 - AI services — model choice lives in `backend/config.py`; callers must not
   hardcode a provider:
   - STT: OpenAI Whisper (`WHISPER_STT_MODEL`, default `whisper-1`).
-  - Speaking grading: `SPEAKING_GRADING_MODEL` (default Gemini Flash) routed by
-    `services/grading_orchestrator.py`; Claude Haiku in `claude_grader.py` is
-    the fallback chain, off-topic judge and grammar-check, not the primary grader.
+  - Speaking grading: Claude Sonnet 5.5 primary (AI-0004 FR-005), then
+    `SPEAKING_GRADING_MODEL` (default Gemini 3.8 Flash), Claude Haiku 4.5 and
+    Claude Sonnet 5, routed by `services/grading_orchestrator.py`. Claude Haiku in
+    `claude_grader.py` also runs the off-topic judge and grammar-check.
   - Writing grading and course writing checks: Gemini (`gemini_writing_grader.py`,
     `COURSE_WRITING_MODEL`). Question generation and content audits: Gemini.
   - Anthropic-primary routing: `services/ai_router.py` tries Claude first for
-    Writing grading, course writing, vocabulary rewrite, question generation and
-    Listening audit (Speaking grading is opt-in), then falls back to the
+    Writing grading, course writing, vocabulary rewrite, question generation,
+    Listening audit and Speaking grading, then falls back to the
     providers above unchanged. Env vars: `docs/AI_PROVIDER_ROUTING.md`.
   - TTS: Kokoro is the standard for Vocabulary and Listening audio; ElevenLabs
     and OpenAI TTS remain for other paths. Azure Speech: pronunciation assessment.

@@ -89,8 +89,9 @@ def test_without_overrides_routing_is_unchanged():
     for feature in overrides.EXISTING_PROVIDERS:
         assert ai_router.provider_order(feature, s) == ai_router._configured_order(feature, s)[0]
     assert ai_router.effective_order("writing_grading", "gemini", s) == ("anthropic", "gemini")
-    assert ai_router.effective_order("speaking_grading", "gemini", s) == ("gemini",)
-    assert grading_provider_order(s) == GRADING_PROVIDER_ORDER
+    # AI-0004 FR-005 (revised): Speaking inherits the global Claude-first order.
+    assert ai_router.effective_order("speaking_grading", "gemini", s) == ("anthropic", "gemini")
+    assert grading_provider_order(s) == (ANTHROPIC_PRIMARY_SLOT, *GRADING_PROVIDER_ORDER)
     assert ai_router.anthropic_model("writing_grading", s) == "claude-sonnet-5-5"
 
 
@@ -111,17 +112,18 @@ def test_preferring_claude_adds_it_ahead_of_an_existing_only_order():
 
 
 def test_speaking_slot_placement_follows_the_preference():
-    s = _settings()  # code default order "gemini": no Claude slot
+    pinned = _settings(AI_PROVIDER_ORDER_SPEAKING_GRADING="gemini")  # production pin
+    assert grading_provider_order(pinned) == GRADING_PROVIDER_ORDER
     _install(speaking_grading={"preferred_provider": "anthropic"})
-    assert grading_provider_order(s) == (ANTHROPIC_PRIMARY_SLOT, *GRADING_PROVIDER_ORDER)
+    assert grading_provider_order(pinned) == (ANTHROPIC_PRIMARY_SLOT, *GRADING_PROVIDER_ORDER)
+    assert ai_router.provider_order_source("speaking_grading", pinned) == "db_override"
 
-    s = _settings(AI_PROVIDER_ORDER_SPEAKING_GRADING="anthropic,gemini")
+    s = _settings()  # default inherits Claude first; Gemini preference moves the slot last
     _install(speaking_grading={"preferred_provider": "gemini"})
     assert grading_provider_order(s) == (*GRADING_PROVIDER_ORDER, ANTHROPIC_PRIMARY_SLOT)
 
-    s = _settings()  # Gemini preference never adds a Claude slot by itself
-    _install(speaking_grading={"preferred_provider": "gemini"})
-    assert grading_provider_order(s) == GRADING_PROVIDER_ORDER
+    # A Gemini preference never adds a Claude slot by itself.
+    assert grading_provider_order(pinned) == GRADING_PROVIDER_ORDER
 
 
 def test_missing_anthropic_key_still_removes_claude_from_a_preferred_order():

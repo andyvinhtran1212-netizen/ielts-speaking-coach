@@ -7,7 +7,9 @@ import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
-const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
+const FIXTURE_API_PREFIX = '/__fixture_api';
+const fixtureRuntime = `window.__AVER_RUNTIME_CONFIG__=Object.freeze({environment:'local-test',apiBase:${JSON.stringify(`${BASE}${FIXTURE_API_PREFIX}`)},supabaseUrl:null,supabaseAnonKey:null,release:null,gitRef:null,coreOperationCorrelationEnabled:false,writingAdmissionEnabled:false});`;
+const SB = process.env.SUPABASE_URL || 'https://zjphffoujxkpltixsbzj.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000094';
 const instructorId = 'teacher/id';
 const results = [];
@@ -42,16 +44,22 @@ function fakeSession(userId, email) {
 async function seedSession(context, userId, email) {
   await context.addInitScript(([key, value]) => {
     try { localStorage.setItem(key, value); } catch (_) {}
+    window.__AVER_SUPABASE_CLIENT__ = { auth: {
+      getSession: async () => ({ data: { session: JSON.parse(value) }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      signOut: async () => ({ error: null }),
+    } };
   }, [storageKey(SB), fakeSession(userId, email)]);
 }
 
 const browser = await launchChromium();
-const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'America/New_York' });
 await seedSession(context, adminId, 'admin-instructor@local');
 
 const requests = [];
 const unexpectedWrites = [];
 const cohortPosts = [];
+const assignmentPosts = [];
 const pageErrors = [];
 let failCanonicalReadback = false;
 const cohorts = [{ id: 'c1', name: 'Khóa Writing 1', created_at: '2026-08-01T00:00:00Z' }];
@@ -68,11 +76,13 @@ page.on('pageerror', (error) => pageErrors.push(String(error)));
 await page.route('**/*', async (route) => {
   const request = route.request();
   const url = request.url();
-  if (url.startsWith(BASE) || url.startsWith('data:')) return route.continue();
+  const routedPath = new URL(url).pathname;
+  if (url.startsWith(BASE) && routedPath === '/js/runtime-config.js') return route.fulfill({ status: 200, contentType: 'application/javascript', body: fixtureRuntime });
+  if ((url.startsWith(BASE) && !routedPath.startsWith(FIXTURE_API_PREFIX)) || url.startsWith('data:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
   const parsed = new URL(url);
   const method = request.method();
-  const path = parsed.pathname;
+  const path = parsed.pathname.startsWith(FIXTURE_API_PREFIX) ? parsed.pathname.slice(FIXTURE_API_PREFIX.length) : parsed.pathname;
   requests.push({ method, path, search: parsed.search });
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
@@ -88,6 +98,10 @@ await page.route('**/*', async (route) => {
       stats: { total_essays: 3, graded_count: 2, flagged_count: 1, average_band_last5: 6.5 },
       recent_essays: [{ id: 'e1', task_type: 'task2', status: 'delivered' }],
     });
+  }
+  if (method === 'POST' && ['/instructor/assignments', '/instructor/assignments/fan-out'].includes(path)) {
+    assignmentPosts.push({ path, body: request.postDataJSON() });
+    return json({ id: 'a-new' }, 201);
   }
   if (method === 'POST' && path === '/instructor/cohorts') {
     const body = request.postDataJSON();
@@ -122,6 +136,19 @@ check('drawer hiển thị đúng thống kê', await page.getByRole('complement
 check('drawer giữ target_band dạng số từ backend', await page.getByRole('complementary', { name: 'Hồ sơ học viên' }).getByText('HV-001 · Mục tiêu 7', { exact: true }).count() === 1);
 await page.getByRole('button', { name: 'Đóng', exact: true }).click();
 
+await page.getByRole('button', { name: 'Giao bài', exact: true }).click();
+const assignmentForm = page.locator('form').filter({ has: page.locator('input[name="deadline"]') });
+await assignmentForm.locator('select[name="prompt_id"]').selectOption('p1');
+await assignmentForm.locator('select[name="cohort_id"]').selectOption('c1');
+await assignmentForm.getByLabel('Hạn nộp (giờ Việt Nam)').fill('2026-10-27T23:00');
+await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await page.getByText('Đã giao bài cho lớp.', { exact: true }).waitFor();
+await assignmentForm.locator('input[value="student"]').check();
+await assignmentForm.locator('select[name="student_id"]').selectOption('s1');
+await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await page.getByText('Đã giao bài cho học viên.', { exact: true }).waitFor();
+check('both assignment targets send Vietnam offset from a New York browser', assignmentPosts.length === 2 && assignmentPosts.every(({ body }) => body.deadline === '2026-10-27T23:00:00+07:00'));
+
 await page.getByRole('button', { name: 'Lớp & Mã' }).click();
 await page.getByLabel('Tên lớp mới').fill('Lớp xác minh canonical');
 const readsBeforeMutation = requests.filter((item) => item.method === 'GET' && item.path === '/instructor/cohorts').length;
@@ -149,18 +176,21 @@ check('desktop không tràn ngang', await page.evaluate(() => document.documentE
 check('không có write ngoài mutation fixture', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
 
-const deniedContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const deniedContext = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'America/New_York' });
 await seedSession(deniedContext, 'student-1', 'student@local');
 const deniedPage = await deniedContext.newPage();
 const deniedInstructorReads = [];
 await deniedPage.route('**/*', async (route) => {
   const request = route.request();
   const url = request.url();
-  if (url.startsWith(BASE) || url.startsWith('data:')) return route.continue();
+  const routedPath = new URL(url).pathname;
+  if (url.startsWith(BASE) && routedPath === '/js/runtime-config.js') return route.fulfill({ status: 200, contentType: 'application/javascript', body: fixtureRuntime });
+  if ((url.startsWith(BASE) && !routedPath.startsWith(FIXTURE_API_PREFIX)) || url.startsWith('data:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
   const parsed = new URL(url);
-  if (parsed.pathname.startsWith('/instructor/')) deniedInstructorReads.push(`${request.method()} ${parsed.pathname}`);
-  const body = parsed.pathname === '/auth/me'
+  const path = parsed.pathname.startsWith(FIXTURE_API_PREFIX) ? parsed.pathname.slice(FIXTURE_API_PREFIX.length) : parsed.pathname;
+  if (path.startsWith('/instructor/')) deniedInstructorReads.push(`${request.method()} ${path}`);
+  const body = path === '/auth/me'
     ? { id: 'student-1', email: 'student@local', role: 'student' }
     : {};
   return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });

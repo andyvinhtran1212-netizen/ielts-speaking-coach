@@ -61,6 +61,7 @@ describe('/login native auth entry', () => {
     assert.match(BEHAVIOR, /loginDestination\(profile\)/);
     assert.match(BEHAVIOR, /window\.location\.replace\(destination\)/);
     assert.doesNotMatch(BEHAVIOR, /data\.is_active|data\.onboarding_completed/);
+    assert.match(BEHAVIOR, /\.finally\(\(\) => \{[\s\S]*if \(bootPromise === pendingBoot\) bootPromise = null/);
   });
 
   test('reconciles canonical profile after every activation outcome', () => {

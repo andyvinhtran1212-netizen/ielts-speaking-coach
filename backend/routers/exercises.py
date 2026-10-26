@@ -65,6 +65,18 @@ def _user_sb(token: str):
     return client
 
 
+def _service_sb():
+    """
+    Service-role client for the server-computed D1 results only: attempt rows
+    (is_correct, score, feedback), their finalization, and d1_sessions
+    (snapshot, counts, status). Migration 320 revokes client writes on those
+    tables, so a learner cannot forge them through PostgREST. Every write
+    through this client carries the user_id from the verified JWT; ownership
+    reads stay on `_user_sb` under RLS.
+    """
+    return supabase_admin
+
+
 def _safe_event(event_name: str, payload: dict, user_id: str) -> None:
     try:
         fire_event(event_name, payload, user_id)
@@ -217,13 +229,14 @@ def _prepare_d1_srs_state(
 
 
 def _finalize_d1_attempt(
-    sb,
+    user_id: str,
     attempt_id: str,
     feedback: dict,
     srs_state: dict | None,
 ) -> tuple[dict, bool]:
     """Atomically seal one attempt and report whether this caller claimed it."""
     params = {
+        "p_user_id": user_id,
         "p_attempt_id": attempt_id,
         "p_vocab_id": None,
         "p_interval": None,
@@ -236,7 +249,7 @@ def _finalize_d1_attempt(
     if srs_state:
         params.update(srs_state)
     try:
-        result = sb.rpc("fn_finalize_d1_attempt", params).execute()
+        result = _service_sb().rpc("fn_finalize_d1_attempt_for_user", params).execute()
     except Exception as exc:
         logger.error(
             "[exercises] D1 attempt finalization failed attempt=%s: %s",
@@ -626,7 +639,10 @@ async def submit_d1_attempt(
     replayed = recovered_attempt is not None
     if persisted_attempt is None:
         try:
-            inserted = sb.table("vocabulary_exercise_attempts").insert(attempt_row).execute()
+            inserted = (
+                _service_sb().table("vocabulary_exercise_attempts")
+                .insert(attempt_row).execute()
+            )
         except Exception as e:
             # A connection may fail after PostgreSQL committed the row. Resume
             # post-processing from that row instead of acknowledging it early.
@@ -725,7 +741,7 @@ async def submit_d1_attempt(
     feedback["srs_updated"] = srs_updated
     feedback["srs_rating"] = srs_rating
     persisted_attempt, finalized_here = _finalize_d1_attempt(
-        sb, str(persisted_attempt["id"]), feedback, srs_state,
+        user_id, str(persisted_attempt["id"]), feedback, srs_state,
     )
     canonical_feedback = (
         persisted_attempt.get("feedback")
@@ -998,11 +1014,11 @@ async def start_d1_session(
         requested=len(exercise_ids),
     )
 
-    # Step 5: persist the session row. RLS WITH CHECK on user_id means a
-    # caller cannot create a session for someone else even if they fake
-    # the body.
+    # Step 5: persist the session row with the service role; user_id comes
+    # from the verified JWT, and the snapshot/total are server-built, so the
+    # learner cannot plant their own answer key (migration 320).
     try:
-        sess = sb.table("d1_sessions").insert({
+        sess = _service_sb().table("d1_sessions").insert({
             "user_id":          user_id,
             "exercise_ids":     exercise_ids,
             "exercise_snapshot": exercises,
@@ -1226,11 +1242,11 @@ async def complete_d1_session(
     # once; any unknown state fails closed.
     if session_row.get("status") == "active":
         try:
-            updated = sb.table("d1_sessions").update({
+            updated = _service_sb().table("d1_sessions").update({
                 "completed_at":  datetime.now(timezone.utc).isoformat(),
                 "correct_count": correct_count,
                 "status":        "completed",
-            }).eq("id", session_id).eq("status", "active").execute()
+            }).eq("id", session_id).eq("user_id", user_id).eq("status", "active").execute()
         except Exception as e:
             logger.error("[exercises] complete_session update failed: %s", e)
             raise HTTPException(500, "Could not persist session completion.")

@@ -5,7 +5,7 @@
 - AIOPS-0024 approved by the owner and landed on `staging` before the
   implementation PR (constitution §2).
 - Migration number re-checked against `backend/migrations/` and open PRs
-  (#1699 claims 320) immediately before merge.
+  (320 is SECWRITE-0022, merged) immediately before merge.
 - AI-0004 migration 286 is applied (the rollup reads its columns). Staging and
   production both have it.
 - No new secrets or Railway variables are required. `AI_MODEL_OVERRIDE_TTL_SECONDS`

@@ -109,6 +109,7 @@ async def test_endpoint_replays_receipt_without_regrading_or_leaking_sealed_feed
     monkeypatch.setattr(grading, 'get_supabase_user', auth)
     monkeypatch.setattr(grading, 'aexecute', execute)
     monkeypatch.setattr(grading, 'require_resume_active', lambda session: None)
+    monkeypatch.setattr(grading, 'require_speaking_entitlement', lambda *_args: None)
     monkeypatch.setattr(grading, 'bind_owned_attempt', lambda session: None)
     monkeypatch.setattr(grading, 'load_response', lambda *args: saved)
     monkeypatch.setattr(grading, 'enforce_grading_rate_limit', lambda *args: pytest.fail('replay must not regrade'))
