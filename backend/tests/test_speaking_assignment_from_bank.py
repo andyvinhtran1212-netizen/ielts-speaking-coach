@@ -992,6 +992,7 @@ async def test_a_class_session_cannot_have_custom_questions_saved_into_it():
     }])
 
     with patch.object(qmod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(qmod, "require_speaking_entitlement", lambda *_a: None), \
          patch.object(qmod, "supabase_admin", db):
         with pytest.raises(Exception) as exc:
             await qmod.save_custom_questions(
@@ -1151,6 +1152,7 @@ async def test_the_fast_path_WIRE_rejects_a_tampered_set():
     db.table = lambda n: _T(tables.get(n, []))
 
     with patch.object(qmod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
+         patch.object(qmod, "require_speaking_entitlement", lambda *_a: None), \
          patch.object(qmod, "supabase_admin", db):
         with pytest.raises(Exception) as exc:
             await qmod.generate_questions("sess-1", None)

@@ -16,6 +16,12 @@ from services.core_operation_correlation import operation_hint_scope
 from test_admin_speaking_sessions import _DB
 
 
+@pytest.fixture(autouse=True)
+def _entitled(monkeypatch):
+    """Activation/permission admission is covered by test_speaking_entitlement_guard.py."""
+    monkeypatch.setattr(grading, "require_speaking_entitlement", lambda *_a: None)
+
+
 @pytest.fixture
 def capture(monkeypatch):
     monkeypatch.setattr(obs.settings, "CORE_ATTEMPT_EVIDENCE_ENABLED", True)
