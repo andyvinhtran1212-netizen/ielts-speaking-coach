@@ -9,9 +9,9 @@
 | FR-003 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (scores, sessions, writable view, D1 results, user_d1_questions is_active only) | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (anon writes nothing; sequences lose setval) | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (learner tables under owner RLS; allowlist equals learner-JWT writes; finalize as service role); backend/tests/test_d1_session.py (D1 flow with a read-only learner client) | PENDING |
-| FR-006 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (objects created later by postgres and supabase_admin; re-apply restores a hand re-grant) | PENDING |
+| FR-006 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (objects created later by postgres and supabase_admin; re-apply restores a hand re-grant; non-superuser runner revokes its own defaults and warns about an owner it cannot act for) | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (service role and owner) | PENDING |
-| FR-008 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (applied twice; postcondition rejects a client-executable definer) | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (applied twice; postcondition rejects a client-executable definer, and a client-writable existing relation even when another owner's default ACL only warns) | PENDING |
 | FR-009 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (definer triggers not callable by clients and still fire for authenticated and service_role) | PENDING |
 | FR-010 | kind=test; ref=backend/tests/test_speaking_entitlement_guard.py (guard decisions; generate/custom/cue-card/grading/pronunciation wiring) | PENDING |
 

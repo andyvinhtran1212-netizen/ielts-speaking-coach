@@ -33,8 +33,10 @@ The browser never needs these writes; FastAPI is the only business backend.
 
 - Remove direct client (`anon`, `authenticated`) write privileges from every
   public table, view and sequence (setval), including objects created later by
-  `postgres` or `supabase_admin`, except the learner's own Vocabulary and
-  flashcard rows that FastAPI deliberately writes with the learner's token.
+  `postgres` or another owner role the migration runner can act for, except
+  the learner's own Vocabulary and flashcard rows that FastAPI deliberately
+  writes with the learner's token. A default ACL of an owner the runner cannot
+  act for (`supabase_admin` on hosted Supabase) is reported, not changed.
 - Make D1 results server-written: FastAPI writes `d1_sessions` and
   `vocabulary_exercise_attempts` with the service role and the verified user
   id; the learner may only toggle `user_d1_questions.is_active`.
@@ -88,14 +90,18 @@ The browser never needs these writes; FastAPI is the only business backend.
   flashcards and `fn_apply_srs_review_idempotent`) keep working under their
   owner-scoped RLS; D1 sessions, attempts and finalization keep working through
   the service role with the verified user id.
-- **FR-006:** Tables and sequences created after the migration by `postgres` or
-  `supabase_admin` are not client-writable unless their own migration grants a
-  specific privilege.
+- **FR-006:** Tables and sequences created after the migration by `postgres`,
+  or by another owner role the migration runner can act for, are not
+  client-writable unless their own migration grants a specific privilege. A
+  client-write default ACL of an owner role the runner cannot act for
+  (`supabase_admin` on hosted Supabase) is reported as a migration warning and
+  left to a Supabase-superuser follow-up.
 - **FR-007:** Service-role and database-owner writes, including role and
   activation changes made by FastAPI, are unaffected.
 - **FR-008:** The migration is idempotent and aborts if any client write
-  privilege, client write default privilege, client-executable SECURITY
-  DEFINER function or unhardened users update policy survives.
+  privilege on an existing relation, client write default privilege of an
+  owner role the runner can act for, client-executable SECURITY DEFINER
+  function or unhardened users update policy survives.
 - **FR-009:** No SECURITY DEFINER function in `public` is executable by `anon`
   or `authenticated`; the trigger guards still fire for every writer.
 - **FR-010:** Speaking question generation, custom questions, cue-card
@@ -145,9 +151,13 @@ The browser never needs these writes; FastAPI is the only business backend.
   RLS, so the policy cannot reopen a write.
 - `updated_at` maintained by a database trigger is not treated as a privileged
   change.
-- `supabase_admin` exists but the runner cannot act for it: its default ACL is
-  skipped with a NOTICE, and the postcondition aborts if that ACL still grants
-  client writes in `public`.
+- `supabase_admin` holds a client-write default ACL in `public` but the runner
+  cannot act for it (production, 2026-10-26): the migration revokes and
+  verifies every other owner's defaults, emits the WARNING
+  `client_default_write_privilege_not_revocable_by_runner` listing the
+  `supabase_admin` entries and succeeds; any existing relation that is still
+  client-writable, whoever owns it, still aborts the migration. App migrations
+  never create objects as `supabase_admin`.
 - An account deactivated or whose code is revoked in the middle of a Speaking
   session is refused at the next paid step, consistent with session creation.
 - Between applying 320 and promoting its backend, D1 attempt/session writes
@@ -163,5 +173,8 @@ The browser never needs these writes; FastAPI is the only business backend.
 ## Open questions
 
 - Owner approval of this spec on `staging` before implementation is accepted.
-- Production pre-check: confirm no other client-executable SECURITY DEFINER
-  function and no `supabase_admin` default ACL in `public` (see rollout).
+- Production pre-check (2026-10-26): all 137 public relations are owned by
+  `postgres`, the same seven F14 functions are client-executable, and
+  `supabase_admin` holds a client-write default ACL in `public` that the
+  runner cannot revoke; whether to request the Supabase-superuser follow-up
+  (see rollout) is an owner decision and not a release blocker.

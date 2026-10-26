@@ -4,8 +4,9 @@
 -- Project Coordinator review 2026-10-26).
 --
 -- Root cause. Supabase's schema default privileges (pg_default_acl, owned by
--- `postgres` on staging) grant ALL on every new `public` table to `anon` and
--- `authenticated`, UPDATE on every sequence and EXECUTE on every function.
+-- `postgres` on staging; by `postgres` and `supabase_admin` on production)
+-- grant ALL on every new `public` table to `anon` and `authenticated`, UPDATE
+-- on every sequence and EXECUTE on every function.
 -- Only a few migrations (194, 223, 226, 227, 245/257, 281–283, 288, 295, 296,
 -- 303, 306, 307, 312, 317) revoke them again. RLS is enabled on every table
 -- (197), so the remaining guard was the write policies — and several of them
@@ -45,13 +46,18 @@
 --      learner-owned Vocabulary/flashcard tables (which only lose anon writes
 --      and TRUNCATE/REFERENCES/TRIGGER), and revokes sequence UPDATE (setval)
 --      from the client roles (nextval keeps working through USAGE);
---   2. changes the default privileges of the table owner `postgres`, of
---      `supabase_admin` when it exists and the runner may act for it, and of
---      the runner itself, so tables/sequences created later in public are not
---      client-writable unless a migration grants it explicitly. Function
---      EXECUTE defaults are deliberately unchanged: SECURITY INVOKER RPCs
---      cannot write anything the caller's table privileges deny, RLS helper
---      functions must stay callable, and step 7 guards SECURITY DEFINER;
+--   2. changes the default privileges of the table owner `postgres`, of the
+--      runner itself and of every other role holding a default ACL in public,
+--      for each role the runner may act for (superuser or member), so
+--      tables/sequences created later in public are not client-writable
+--      unless a migration grants it explicitly. A default ACL of a role the
+--      runner cannot act for — `supabase_admin` on hosted Supabase, where the
+--      runner `postgres` is neither superuser nor a member — cannot be changed
+--      by this migration; step 8 reports it as a WARNING instead of failing
+--      (see "Production pre-check" below). Function EXECUTE defaults are
+--      deliberately unchanged: SECURITY INVOKER RPCs cannot write anything the
+--      caller's table privileges deny, RLS helper functions must stay
+--      callable, and step 7 guards SECURITY DEFINER;
 --   3. public.users: no client UPDATE at all (PATCH /auth/profile writes with
 --      service_role and validates self_level / weekly_goal / display_name, so
 --      a direct column grant would only bypass that validation), and the
@@ -71,7 +77,12 @@
 --   7. revokes EXECUTE from PUBLIC, anon and authenticated on every SECURITY
 --      DEFINER trigger function in public (the seven F14 guards). Trigger
 --      firing does not check EXECUTE, so the guards keep running;
---   8. verifies all of the above and fails the transaction otherwise.
+--   8. verifies all of the above and fails the transaction otherwise. The only
+--      exception is the default ACL of an owner role the runner cannot act
+--      for: WARNING `client_default_write_privilege_not_revocable_by_runner`.
+--      It only applies to objects that role creates later, which app
+--      migrations never do, and every EXISTING relation — whoever owns it —
+--      is still checked strictly.
 --
 -- SELECT privileges, RLS read policies and storage are unchanged. No data is
 -- read or rewritten.
@@ -86,7 +97,25 @@
 -- functions are CREATE OR REPLACE and the trigger is dropped/recreated.
 -- Re-applying also restores the intended state after a hand re-grant.
 --
--- Read-only verification (each query must return zero rows):
+-- Production pre-check (2026-10-26, read-only): all 137 public relations are
+-- owned by `postgres`; pg_default_acl in public has client-write entries for
+-- both `postgres` and `supabase_admin`; the runner `postgres` is normally not
+-- superuser and not a member of `supabase_admin`. Expected result: 320
+-- revokes and verifies the `postgres` defaults, and emits one WARNING listing
+-- the `supabase_admin` entries. Confirm before applying:
+--   SELECT rolsuper, pg_has_role(current_user, 'supabase_admin', 'MEMBER')
+--     FROM pg_roles WHERE rolname = current_user;
+-- Optional follow-up (not a release blocker): ask a Supabase superuser /
+-- Supabase support to run, as supabase_admin,
+--   ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+--     REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+--     ON TABLES FROM PUBLIC, anon, authenticated;
+--   ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+--     REVOKE UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated;
+-- after which the second query below returns zero rows.
+--
+-- Read-only verification (each query must return zero rows; on production
+-- the second may list only `supabase_admin` rows until the follow-up above):
 --   -- client writes on relations
 --   SELECT c.relname, r.rolname, p.priv
 --     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -169,18 +198,22 @@ END $$;
 REVOKE UPDATE ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated;
 
 -- ── 2. Objects created later are not client-writable by default ────────────
--- ALTER DEFAULT PRIVILEGES only changes the ACL of the role named in FOR ROLE.
--- The staging default ACL belongs to `postgres`; Supabase may also keep one
--- for `supabase_admin`. Skip a role that is missing or that the runner cannot
--- act for — the postcondition below still fails if its ACL grants writes.
+-- ALTER DEFAULT PRIVILEGES only changes the ACL of the role named in FOR ROLE,
+-- and only a superuser or a member of that role may name it. The staging
+-- default ACL belongs to `postgres`; production also has one for
+-- `supabase_admin`. Revoke for every owner the runner can act for; step 8
+-- verifies those strictly and warns about the others.
 DO $$
 DECLARE
     owner_role TEXT;
 BEGIN
     FOR owner_role IN
-        SELECT DISTINCT r.rolname
+        SELECT r.rolname
           FROM pg_roles r
-         WHERE r.rolname IN ('postgres', 'supabase_admin', current_user)
+         WHERE (r.rolname IN ('postgres', 'supabase_admin', current_user)
+                OR r.oid IN (SELECT d.defaclrole FROM pg_default_acl d
+                              WHERE d.defaclnamespace = (SELECT oid FROM pg_namespace
+                                                          WHERE nspname = 'public')))
            AND ((SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
                 OR pg_has_role(current_user, r.oid, 'MEMBER'))
          ORDER BY r.rolname
@@ -193,12 +226,6 @@ BEGIN
             'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public '
             'REVOKE UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated', owner_role);
     END LOOP;
-    IF EXISTS (SELECT 1 FROM pg_roles r
-                WHERE r.rolname = 'supabase_admin'
-                  AND NOT ((SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
-                           OR pg_has_role(current_user, r.oid, 'MEMBER'))) THEN
-        RAISE NOTICE 'skipped default privileges FOR ROLE supabase_admin: runner % is not a member', current_user;
-    END IF;
 END $$;
 
 -- ── 3. public.users: server-written only ───────────────────────────────────
@@ -409,6 +436,7 @@ DECLARE
         'user_vocabulary', 'flashcard_stacks', 'flashcard_cards',
         'flashcard_reviews', 'flashcard_review_log'];
     leaks TEXT;
+    unrevocable TEXT;
 BEGIN
     SELECT string_agg(format('%s:%s:%s', c.relname, r.rolname, p.priv), ', '
                       ORDER BY c.relname, r.rolname, p.priv)
@@ -457,20 +485,38 @@ BEGIN
         RAISE EXCEPTION 'client_sequence_update_survives: %', leaks;
     END IF;
 
-    SELECT string_agg(format('%s:%s:%s:%s', pg_get_userbyid(d.defaclrole), d.defaclobjtype,
-                             CASE a.grantee WHEN 0 THEN 'PUBLIC'
-                                  ELSE pg_get_userbyid(a.grantee) END,
-                             a.privilege_type), ', ')
-      INTO leaks
-      FROM pg_default_acl d
-     CROSS JOIN LATERAL aclexplode(d.defaclacl) a
-     WHERE (d.defaclnamespace = 0
-            OR d.defaclnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public'))
-       AND (a.grantee = 0 OR pg_get_userbyid(a.grantee) IN ('anon', 'authenticated'))
-       AND ((d.defaclobjtype = 'r' AND a.privilege_type <> 'SELECT')
-            OR (d.defaclobjtype = 'S' AND a.privilege_type = 'UPDATE'));
+    -- Default ACLs of owners the runner can act for were revoked in step 2 and
+    -- must be clean. An owner it cannot act for (supabase_admin on hosted
+    -- Supabase) needs a Supabase superuser; its ACL only affects objects that
+    -- role creates later, and every existing relation was checked above.
+    SELECT string_agg(entry, ', ' ORDER BY entry) FILTER (WHERE can_act),
+           string_agg(entry, ', ' ORDER BY entry) FILTER (WHERE NOT can_act)
+      INTO leaks, unrevocable
+      FROM (SELECT format('%s:%s:%s:%s', pg_get_userbyid(d.defaclrole), d.defaclobjtype,
+                          CASE a.grantee WHEN 0 THEN 'PUBLIC'
+                               ELSE pg_get_userbyid(a.grantee) END,
+                          a.privilege_type) AS entry,
+                   (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+                   OR pg_has_role(current_user, d.defaclrole, 'MEMBER') AS can_act
+              FROM pg_default_acl d
+             CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+             WHERE (d.defaclnamespace = 0
+                    OR d.defaclnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public'))
+               AND (a.grantee = 0 OR pg_get_userbyid(a.grantee) IN ('anon', 'authenticated'))
+               AND ((d.defaclobjtype = 'r' AND a.privilege_type <> 'SELECT')
+                    OR (d.defaclobjtype = 'S' AND a.privilege_type = 'UPDATE'))) acl;
     IF leaks IS NOT NULL THEN
         RAISE EXCEPTION 'client_default_write_privilege_survives: %', leaks;
+    END IF;
+    IF unrevocable IS NOT NULL THEN
+        RAISE WARNING 'client_default_write_privilege_not_revocable_by_runner: %', unrevocable
+            USING DETAIL = format('Runner %s is neither superuser nor a member of these owner roles. '
+                                  'Their default ACLs apply only to objects they create later, which '
+                                  'app migrations never do; existing relations were verified.',
+                                  current_user),
+                  HINT = 'Optional follow-up: a Supabase superuser (support) revokes them for '
+                         'that owner; statements in the migration 320 header and '
+                         'specs/0022-client-write-privilege-lockdown/rollout.md.';
     END IF;
 
     SELECT string_agg(p.oid::regprocedure::text, ', ' ORDER BY p.oid::regprocedure::text)

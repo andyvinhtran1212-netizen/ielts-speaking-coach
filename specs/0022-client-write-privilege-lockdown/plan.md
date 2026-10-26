@@ -28,9 +28,12 @@
   `flashcard_review_log` (owner-scoped RLS with WITH CHECK), plus
   `UPDATE (is_active)` on `user_d1_questions`.
 - Default privileges: `ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA
-  public` for `postgres`, `supabase_admin` (when present and the runner may act
-  for it) and the runner; tables lose client writes, sequences lose client
-  UPDATE. Function EXECUTE defaults stay unchanged (documented).
+  public` for `postgres`, `supabase_admin`, the runner and every other role
+  holding a default ACL in public, when the runner may act for it (superuser
+  or member); tables lose client writes, sequences lose client UPDATE. The
+  postcondition is strict for those owners and raises a WARNING for an owner
+  the runner cannot act for (`supabase_admin` on hosted Supabase). Function
+  EXECUTE defaults stay unchanged (documented).
 - `users`: no client UPDATE; the dashboard policy becomes `TO authenticated`
   with USING/WITH CHECK `auth.uid() = id` when it exists; a SECURITY INVOKER
   BEFORE UPDATE trigger rejects non-profile column changes by client roles.
@@ -55,7 +58,9 @@
   grant, FOR ROLE default privileges, F14 coverage, browser has no PostgREST
   writes) and real PostgreSQL tests that reproduce F01/F03/F14 and the client
   default ACLs before the migration and prove each closed after two
-  applications, with trigger guards still firing.
+  applications, with trigger guards still firing; plus a non-superuser runner
+  with a second default-ACL owner it is not a member of (succeeds with the
+  warning; still aborts on an existing client-writable relation).
 - `backend/tests/test_speaking_entitlement_guard.py`: guard decisions and
   endpoint wiring (ownership 404 first, then 403 before any AI call).
 - `backend/tests/test_d1_session.py`: the D1 flow works with a learner client

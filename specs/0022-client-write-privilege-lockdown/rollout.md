@@ -10,9 +10,16 @@
     `SELECT c.relname, pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('r','p','v','m','f') AND c.relowner <> (SELECT oid FROM pg_roles WHERE rolname = current_user);`
   - Client-executable SECURITY DEFINER functions other than trigger functions:
     `SELECT p.oid::regprocedure FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace AND p.prosecdef AND p.prorettype <> 'trigger'::regtype AND (has_function_privilege('anon', p.oid, 'EXECUTE') OR has_function_privilege('authenticated', p.oid, 'EXECUTE'));`
-  - Default ACLs in public held by a role other than `postgres` (staging
-    2026-10-26: none):
-    `SELECT pg_get_userbyid(defaclrole), defaclobjtype FROM pg_default_acl WHERE defaclnamespace = 'public'::regnamespace AND pg_get_userbyid(defaclrole) <> 'postgres';`
+  - Default ACLs in public held by a role other than `postgres`, and whether
+    the runner can act for it (staging 2026-10-26: none; production
+    2026-10-26: `supabase_admin`, runner not superuser and not a member):
+    `SELECT pg_get_userbyid(defaclrole), defaclobjtype, (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) OR pg_has_role(current_user, defaclrole, 'MEMBER') AS runner_can_act FROM pg_default_acl WHERE defaclnamespace = 'public'::regnamespace AND pg_get_userbyid(defaclrole) <> 'postgres';`
+    Rows with `runner_can_act = true` are revoked and verified strictly. Rows
+    with `false` do not abort 320: it succeeds with
+    `WARNING: client_default_write_privilege_not_revocable_by_runner: <owner>:<r|S>:<grantee>:<privilege>, …`.
+    That ACL only affects objects its owner creates later; app migrations
+    never create objects as `supabase_admin`, and every existing relation is
+    still checked strictly.
 
 ## Staging
 
@@ -33,10 +40,29 @@
 
 ## Production
 
+- Pre-check (read-only, 2026-10-26 results): all 137 public relations owned by
+  `postgres` (first precondition query: zero rows); the same seven F14 trigger
+  functions client-executable (revoked by step 7); "Users can update own data"
+  present with `{public}` and no WITH CHECK (hardened by step 3); default ACLs
+  for `postgres` and `supabase_admin`; latest applied migration 319. Re-run
+  the precondition queries immediately before applying.
 - Under explicit authorization, with the production promotion ready:
   `ALLOW_PROD=1 ./backend/scripts/apply_migrations.sh "$DATABASE_URL"`, then promote.
-- Repeat the read-only queries; spot-check `role`/`is_active` distribution for
+- Expect exactly one `client_default_write_privilege_not_revocable_by_runner`
+  WARNING naming only `supabase_admin` entries; record it in the release
+  evidence. A warning naming `postgres` cannot happen (that would abort as
+  `client_default_write_privilege_survives`).
+- Repeat the read-only queries; the default-ACL query may list only
+  `supabase_admin` rows. Spot-check `role`/`is_active` distribution for
   unexpected admins created before the fix.
+- Optional follow-up (not a release blocker; owner decision): ask a Supabase
+  superuser / Supabase support to run, as `supabase_admin`,
+  `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES FROM PUBLIC, anon, authenticated;`
+  and
+  `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated;`
+  then confirm the default-ACL query returns zero rows. Until then, any table
+  Supabase itself creates in `public` as `supabase_admin` would be
+  client-writable; re-applying 320 (or the relation query) detects it.
 
 ## Rollback and repair
 
