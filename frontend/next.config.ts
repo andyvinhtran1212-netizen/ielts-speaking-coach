@@ -4,6 +4,10 @@ import path from 'node:path';
 import type { NextConfig } from 'next';
 
 import {
+  buildContentSecurityPolicy,
+  sameOriginFramePolicy,
+} from './tooling/content-security-policy.mjs';
+import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
 } from './tooling/legacy-url-redirects.mjs';
@@ -12,23 +16,11 @@ const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
   LEGACY_RETIREMENT_PATHS,
 );
 
-function localTestApiOrigin() {
-  if (process.env.AVER_ENVIRONMENT !== 'test' || !process.env.AVER_API_BASE) return '';
-  try {
-    const api = new URL(process.env.AVER_API_BASE);
-    if (api.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(api.hostname)) return '';
-    return ` ${api.origin}`;
-  } catch {
-    return '';
-  }
-}
-
-const LOCAL_TEST_API_ORIGIN = localTestApiOrigin();
-const CONTENT_SECURITY_POLICY = `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:${LOCAL_TEST_API_ORIGIN}; form-action 'self'`;
-const SAME_ORIGIN_FRAME_POLICY = CONTENT_SECURITY_POLICY.replace(
-  "frame-ancestors 'none'",
-  "frame-ancestors 'self'",
-);
+// F08 / BL-07: connect-src is the runtime-config API + Supabase origins only;
+// vercel.live is allowed on non-production Vercel builds only. Directive
+// inventory and the 'unsafe-inline' decision: docs/CONTENT_SECURITY_POLICY.md.
+const CONTENT_SECURITY_POLICY = buildContentSecurityPolicy(process.env);
+const SAME_ORIGIN_FRAME_POLICY = sameOriginFramePolicy(CONTENT_SECURITY_POLICY);
 const EMBEDDABLE_SAME_ORIGIN_ROUTES = [
   '/core-player/launch',
   '/listening/test/session',

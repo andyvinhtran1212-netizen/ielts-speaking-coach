@@ -14,55 +14,18 @@
 // FAIL-CLOSED: a non-production Vercel build that resolves to any production
 // origin aborts the build (preview must have zero production egress).
 //
-// All values below are PUBLIC (they ship to every browser today).
+// The per-environment origins live in runtime-origins.mjs, shared with the
+// Content-Security-Policy builder so connect-src always matches this output.
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const PROD = {
-  environment: 'production',
-  apiBase: 'https://ielts-speaking-coach-production.up.railway.app',
-  supabaseUrl: 'https://huwsmtubwulikhlmcirx.supabase.co',
-  supabaseAnonKey: 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao',
-};
-
-// NOTE (review 2026-07-13): generated *.vercel.app preview URLs are NOT in
-// the backend CORS allowlist (only *.averlearning.com subdomains are) — API
-// calls from such previews fail in the browser BY DESIGN: plan §7.1 limits
-// random PR previews to public/read-only checks and forbids wildcard
-// *.vercel.app CORS. The authenticated preview surface is the fixed staging
-// host staging.averlearning.com (branch `staging`), which passes CORS today.
-const STAGING = {
-  environment: 'staging',
-  apiBase: 'https://ielts-speaking-coach-staging.up.railway.app',
-  supabaseUrl: 'https://zjphffoujxkpltixsbzj.supabase.co',
-  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcGhmZm91anhrcGx0aXhzYnpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMTA5ODUsImV4cCI6MjA5MjU4Njk4NX0.A8CSIWH-_p8baHBSGDaNJ2kWyQVgZOLlSX3dD1lOuGU',
-};
-
-const UNCONFIGURED = {
-  environment: null,
-  apiBase: null,
-  supabaseUrl: null,
-  supabaseAnonKey: null,
-};
-
-const PRODUCTION_ORIGIN_MARKERS = [
-  'ielts-speaking-coach-production.up.railway.app',
-  'huwsmtubwulikhlmcirx',
-];
+import { PRODUCTION_ORIGIN_MARKERS, resolveRuntimeOrigins } from './runtime-origins.mjs';
 
 const vercelEnv = process.env.VERCEL_ENV || '';
-const base =
-  vercelEnv === 'production' ? PROD :
-  vercelEnv ? STAGING :
-  UNCONFIGURED;
 
 const config = {
-  ...base,
-  ...(process.env.AVER_ENVIRONMENT ? { environment: process.env.AVER_ENVIRONMENT } : {}),
-  ...(process.env.AVER_API_BASE ? { apiBase: process.env.AVER_API_BASE } : {}),
-  ...(process.env.AVER_SUPABASE_URL ? { supabaseUrl: process.env.AVER_SUPABASE_URL } : {}),
-  ...(process.env.AVER_SUPABASE_ANON_KEY ? { supabaseAnonKey: process.env.AVER_SUPABASE_ANON_KEY } : {}),
+  ...resolveRuntimeOrigins(process.env),
   release: process.env.VERCEL_GIT_COMMIT_SHA || null,
   gitRef: process.env.VERCEL_GIT_COMMIT_REF || null,
   // Opt-in only after backend CORS/schema rollout and privacy/load verification.
