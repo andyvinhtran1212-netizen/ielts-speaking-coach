@@ -302,7 +302,8 @@ def build_plan(
                 continue
             added = _policy_added_forms(policy, _flat(answer.get("canonical")) + accepted_raw, listed)
         else:
-            rev_raw = [v for v in [key.get("answer"), *_flat(key.get("alternatives") or [])] if v not in (None, "")]
+            # A Reading primary may be a list of candidates (reading_test_grader); flatten it.
+            rev_raw = [v for v in _flat(key.get("answer")) + _flat(key.get("alternatives") or []) if v not in (None, "")]
             rev_forms = marker_forms(rev_raw)
             if not rev_forms or not canonical:
                 reasons.append(f"Q{q:02d}: đáp án REV {rev_raw} hoặc canonical lời giải rỗng")

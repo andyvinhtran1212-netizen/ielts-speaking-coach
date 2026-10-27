@@ -649,3 +649,14 @@ def test_number_policy_written_alias_already_documented_needs_no_sync():
     inputs["revision_keys"][3] = {"answer": "250", "alternatives": [], "response_policy": pol}
     plan = build_plan(**inputs)
     assert plan["classification"]["3"] == "policy" and plan["answer_sync"] == {}
+
+
+def test_list_valued_revision_primary_is_flattened_for_the_override_union():
+    # Codex on #1745: a Reading primary list must not become one nested "form".
+    inputs = _inputs("reading")
+    _explain(inputs, 11, "gut", ["gut"], override=True)
+    inputs["revision_keys"][11] = {"answer": ["gut", "intestines"], "alternatives": []}
+    inputs["reviewed_answer_sync"] = frozenset({11})
+    plan = build_plan(**inputs)
+    assert plan["rows"][10]["payload"]["item"]["answer"]["accepted_forms"] == ["gut", "intestines"]
+    assert plan["answer_sync"]["11"] == {"added_forms": ["intestines"], "grading_change": False}
