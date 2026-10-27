@@ -170,7 +170,7 @@ def _audit_entitlement(
 
 def _gen_code() -> str:
     """Generate a CSPRNG access code in the format XXXX-XXXX-XXXX (F07).
-    Kept as a shim: routers/instructor.py imports it."""
+    Kept as a shim for existing importers; inserts go through access_code_gen."""
     return generate_access_code()
 
 

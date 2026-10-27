@@ -24,8 +24,8 @@ sequence is dense. As of 2026-10-27 the highest is `326`, so the next
 new migration is `327`. The runner applies any unapplied file regardless of order.
 Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
-STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out of
-order, so do not reuse them.
+STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
+of order, so do not reuse them — unrelated new work takes `331`.
 
 Migration `326` (STUDENTARCHIVE-0029) turns `DELETE /admin/students/{id}` into an
 archive: `students.archived_at/archived_by/archive_reason`, the append-only
@@ -66,6 +66,23 @@ changes; re-applying is a no-op. The backend change is safe before or after
 apply. Rollback (restores CASCADE and reopens the draft-loss hole) is in
 `specs/0027-writing-draft-assignment-delete-guard/research.md` §5 and must ship
 as a new forward migration.
+
+Migration `325` (CODEUNIQ-0028, F07) codifies `access_codes_code_key UNIQUE
+(code)`, which existed only as dashboard drift: no repository migration creates
+`access_codes` (009/062/106 only alter it), so a repo-built database had no
+uniqueness. It also adds `chk_access_codes_code_canonical CHECK (code =
+upper(btrim(code)) AND code <> '')`, matching the `strip().upper()` lookup in
+`/auth/activate`, so plain uniqueness covers every way a code can be typed. It
+has no outer transaction because the index is built `CONCURRENTLY IF NOT EXISTS`
+(a no-op where it already exists, as on staging); the CHECK runs in its own
+transaction with a postcondition. It changes no row: it aborts with counts on
+exact/normalized duplicates or non-canonical codes (any dedupe is a separate,
+reviewed, dry-run-first step — `specs/0028-access-code-unique-canonical/research.md`
+§6), and on an INVALID leftover index (`DROP INDEX CONCURRENTLY
+public.access_codes_code_key;` then re-run). Run the read-only P1–P6 checks in
+that research record before production. Rollback drops only the CHECK; never
+drop `access_codes_code_key` where it predates 325. The drifted `"Admin only"`
+policy on `access_codes` is recorded there and out of scope.
 
 Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
 change: the `web_explanation_content_version_unavailable` refusal now names its

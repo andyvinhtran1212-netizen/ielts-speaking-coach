@@ -58,8 +58,9 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from services.cohort_assignment_service import Deadline, normalize_deadline
-from routers.admin import require_instructor, _gen_code
+from routers.admin import require_instructor
 from services import essay_service, instructor_workflow, student_service
+from services.access_code_gen import insert_with_unique_codes
 from services.core_attempt_outcomes import observe_writing_batch
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.instructor_access import (
@@ -686,9 +687,7 @@ async def mint_codes(request: Request, body: CodeMintBody, authorization: str | 
         if not owned.data:
             raise HTTPException(403, "Lớp không thuộc bạn.")
 
-    codes = [_gen_code() for _ in range(body.count)]
     rows = [{
-        "code":        c,
         "is_used":     False,
         "is_active":   True,
         "permissions": list(_STUDENT_ENROLL_PERMISSIONS),   # NO admin cap
@@ -697,8 +696,11 @@ async def mint_codes(request: Request, body: CodeMintBody, authorization: str | 
         # stamped to `me` by the accessor (never from the body).
         **({"cohort_id": str(body.cohort_id)} if body.cohort_id else {}),
         **({"notes": body.notes} if body.notes else {}),
-    } for c in codes]
-    r = instructor_db(me).table("access_codes").insert(rows).execute()   # stamps issued_by=me
+    } for _ in range(body.count)]
+    # F07 (CODEUNIQ-0028): unique batch, pre-check, retry on a 23505 for `code`.
+    # Through the accessor: the pre-check sees only my codes; the retry is the
+    # authoritative guard. The insert stamps issued_by=me.
+    r, codes = insert_with_unique_codes(lambda: instructor_db(me).table("access_codes"), rows)
     created = r.data or []
     for row in created:
         _audit_code(me, row.get("id"), "code_mint",
