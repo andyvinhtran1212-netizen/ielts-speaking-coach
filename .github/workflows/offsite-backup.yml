@@ -1,0 +1,104 @@
+name: Offsite backup
+
+# Weekly encrypted copy of the database (pg_dump schema+data, roles) and every
+# Storage object to an S3-compatible bucket OUTSIDE the Supabase account.
+# Runbook, secrets and retention: docs/runbooks/offsite-backup.md.
+#
+# Staging runs on the schedule. Production stays off until the repository
+# variable OFFSITE_BACKUP_PRODUCTION_ENABLED is 'true' and the
+# offsite-backup-production environment has its secrets. Scheduled runs only
+# fire from the default branch (main), i.e. after promotion.
+#
+# This repository is public: the scripts log aggregate numbers only, and the
+# bundle is never uploaded as a workflow artifact.
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: "17 19 * * 6" # Saturday 19:17 UTC = Sunday 02:17 Vietnam time
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Project to back up
+        type: choice
+        options: [staging, production]
+        default: staging
+      tier:
+        description: Retention class (destination prefix)
+        type: choice
+        options: [manual, weekly, monthly]
+        default: manual
+
+jobs:
+  plan:
+    name: Select environments
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REQUESTED: ${{ inputs.environment }}
+          PRODUCTION_ENABLED: ${{ vars.OFFSITE_BACKUP_PRODUCTION_ENABLED }}
+        run: |
+          # Project refs are pinned here, not configurable: the scripts refuse
+          # credentials that point at a different project.
+          staging='{"env":"staging","ref":"zjphffoujxkpltixsbzj"}'
+          production='{"env":"production","ref":"huwsmtubwulikhlmcirx"}'
+          if [ "$EVENT" = schedule ]; then
+            items="$staging"
+            if [ "$PRODUCTION_ENABLED" = true ]; then
+              items="$items,$production"
+            else
+              echo "::notice::Production offsite backup is disabled (OFFSITE_BACKUP_PRODUCTION_ENABLED is not 'true')."
+            fi
+          elif [ "$REQUESTED" = production ]; then
+            if [ "$PRODUCTION_ENABLED" != true ]; then
+              echo "::error::Production offsite backup is disabled until OFFSITE_BACKUP_PRODUCTION_ENABLED=true (docs/runbooks/offsite-backup.md)."
+              exit 1
+            fi
+            items="$production"
+          else
+            items="$staging"
+          fi
+          echo "matrix={\"include\":[$items]}" >> "$GITHUB_OUTPUT"
+
+  backup:
+    name: Backup (${{ matrix.env }})
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    environment: offsite-backup-${{ matrix.env }}
+    concurrency:
+      group: offsite-backup-${{ matrix.env }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: scripts/backup
+
+      - name: Install pg_dump 17 and age
+        run: bash scripts/backup/install_tools.sh
+
+      - name: Dump, encrypt and upload
+        env:
+          BACKUP_ENV: ${{ matrix.env }}
+          BACKUP_EXPECTED_REF: ${{ matrix.ref }}
+          BACKUP_SUPABASE_URL: https://${{ matrix.ref }}.supabase.co
+          BACKUP_TIER: ${{ github.event_name == 'workflow_dispatch' && inputs.tier || 'auto' }}
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_SUPABASE_SERVICE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_KEY }}
+          BACKUP_AGE_RECIPIENTS: ${{ vars.BACKUP_AGE_RECIPIENTS }}
+          OFFSITE_S3_ENDPOINT: ${{ secrets.OFFSITE_S3_ENDPOINT }}
+          OFFSITE_S3_BUCKET: ${{ secrets.OFFSITE_S3_BUCKET }}
+          OFFSITE_S3_REGION: ${{ vars.OFFSITE_S3_REGION }}
+          OFFSITE_S3_ACCESS_KEY_ID: ${{ secrets.OFFSITE_S3_ACCESS_KEY_ID }}
+          OFFSITE_S3_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_S3_SECRET_ACCESS_KEY }}
+        run: bash scripts/backup/offsite_backup.sh
