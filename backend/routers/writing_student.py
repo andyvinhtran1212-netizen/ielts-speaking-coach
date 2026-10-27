@@ -123,8 +123,8 @@ async def get_current_student(
 ) -> dict:
     """Resolve the students row owned by the authenticated user.
 
-    Raises 403 when the JWT is valid but the user has not been linked
-    to any students row — that's the case where admin hasn't created
+    Raises a distinct student_archived 403 for an archived profile, or the
+    not-linked 403 when the user has no students row — admin hasn't created
     a student record OR /activate's linking step has not run yet for
     this code. The error message is Vietnamese to match the rest of
     the app's user-facing strings.
@@ -141,6 +141,13 @@ async def get_current_student(
         # (`submitted_by_admin` FK → users(id) — column name reused
         # for student submissions).
         student = fetch_linked_student(supabase_admin, user_id, account_name)
+        # The shared resolver excludes archived rows. Only on a missing active
+        # link, distinguish an archived profile from one that was never linked.
+        archived = False
+        if not student:
+            result = (supabase_admin.table("students").select("archived_at")
+                      .eq("user_id", str(user_id)).limit(1).execute())
+            archived = any(row.get("archived_at") for row in (result.data or []))
     except Exception as e:
         logger.warning("[writing-student] students lookup failed user=%s: %s", user_id, e)
         raise HTTPException(
@@ -148,6 +155,14 @@ async def get_current_student(
             detail="Lỗi khi tra cứu hồ sơ học viên",
         )
 
+    if archived:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "student_archived",
+                "message": "Hồ sơ học viên của bạn đã được lưu trữ. Vui lòng liên hệ giảng viên.",
+            },
+        )
     if not student:
         raise HTTPException(
             status_code=403,
