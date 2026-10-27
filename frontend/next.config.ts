@@ -108,6 +108,13 @@ const nextConfig: NextConfig = {
       { source: '/pages/admin-listening-mcq.html', destination: '/pages/admin/listening/mcq.html', permanent: true },
       // Canonical clean alias; no Legacy rollback renderer remains.
       { source: '/admin/access-codes', destination: '/admin/users?tab=codes', permanent: true },
+      // U-14 / BL-03: section prefixes with no index page. Without these the
+      // bare URL fell through to the root not-found page. Temporary (307) so a
+      // future native index route is not shadowed by cached 308s.
+      { source: '/writing', destination: '/writing/dashboard', permanent: false },
+      // The review route needs a routeId + session from a report; the bare
+      // prefix goes back to the checkup, whose report links each review route.
+      { source: '/grammar-checkup/review', destination: '/grammar-checkup', permanent: false },
     ];
   },
 

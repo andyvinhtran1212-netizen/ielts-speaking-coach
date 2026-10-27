@@ -454,6 +454,8 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | `/pages/admin-listening-tf.html` | `/pages/admin/listening/tf.html` | Permanent | — |
 | `/pages/admin-listening-mcq.html` | `/pages/admin/listening/mcq.html` | Permanent | — |
 | `/admin/access-codes` | `/admin/users?tab=codes` | Temporary during native pilot | Access-code view merged into native users page; rollback-safe |
+| `/writing` | `/writing/dashboard` | Temporary | U-14: section prefix has no index page; previously the root 404 |
+| `/grammar-checkup/review` | `/grammar-checkup` | Temporary | BL-03: review needs `routeId` + `session` from a report |
 | `/pages/admin/access-codes/index.html` | `/pages/admin/users/index.html?tab=codes` | Permanent | (legacy admin path) |
 | `/pages/admin/dashboard/index.html` | `/pages/admin/index.html` | Permanent | Dashboard hub redirected to main admin |
 

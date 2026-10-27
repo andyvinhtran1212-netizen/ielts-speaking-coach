@@ -119,6 +119,13 @@ describe('permanent Next-native browser regression workflow', () => {
     assert.match(RESPONSIVE_RUNNER.slice(finalDecision), /process\.exitCode = 1/);
   });
 
+  test('measures the root not-found as a real 404 whose card fits the viewport', () => {
+    assert.match(RESPONSIVE_RUNNER, /const ROUTES = \[[^\]]*NOT_FOUND_ROUTE\]/);
+    assert.match(RESPONSIVE_RUNNER, /expectNotFound \? response\?\.status\(\) !== 404 : !response\?\.ok\(\)/);
+    assert.match(RESPONSIVE_RUNNER, /layout\.card\.left < 0 \|\| layout\.card\.right > layout\.viewport \+ 1/);
+    assert.match(RESPONSIVE_RUNNER, /layout\.rootHeight > layout\.viewportHeight \+ 1/);
+  });
+
   test('detects production egress while the isolated endpoint is active', () => {
     const isolatedApi = WORKFLOW.indexOf('AVER_API_BASE: http://127.0.0.1:3999');
     const build = WORKFLOW.indexOf('run: npm run build');
