@@ -651,12 +651,15 @@ def test_number_policy_written_alias_already_documented_needs_no_sync():
     assert plan["classification"]["3"] == "policy" and plan["answer_sync"] == {}
 
 
-def test_list_valued_revision_primary_is_flattened_for_the_override_union():
-    # Codex on #1745: a Reading primary list must not become one nested "form".
+def test_set_valued_revision_primary_binds_only_on_literal_agreement():
+    # Codex on #1745 (x2): a Reading list primary is an all-or-nothing set; an
+    # override overlay would turn it into scalar alternatives. Never infer it.
     inputs = _inputs("reading")
-    _explain(inputs, 11, "gut", ["gut"], override=True)
-    inputs["revision_keys"][11] = {"answer": ["gut", "intestines"], "alternatives": []}
+    _explain(inputs, 11, "D", ["D"], override=True)
+    inputs["revision_keys"][11] = {"answer": ["D", "E"], "alternatives": []}
     inputs["reviewed_answer_sync"] = frozenset({11})
-    plan = build_plan(**inputs)
-    assert plan["rows"][10]["payload"]["item"]["answer"]["accepted_forms"] == ["gut", "intestines"]
-    assert plan["answer_sync"]["11"] == {"added_forms": ["intestines"], "grading_change": False}
+    assert "Q11: đáp án REV dạng tập hợp" in _refusal(inputs)
+    inputs = _inputs("reading")
+    _explain(inputs, 11, ["intestines", "gut"], ["intestines", "gut"])
+    inputs["revision_keys"][11] = {"answer": ["intestines", "gut"], "alternatives": []}
+    assert build_plan(**inputs)["classification"]["11"] == "identical"  # 0022 literal path unchanged

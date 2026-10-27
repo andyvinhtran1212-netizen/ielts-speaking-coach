@@ -302,7 +302,13 @@ def build_plan(
                 continue
             added = _policy_added_forms(policy, _flat(answer.get("canonical")) + accepted_raw, listed)
         else:
-            # A Reading primary may be a list of candidates (reading_test_grader); flatten it.
+            # A list primary is a SET answer to the Reading grader (all-or-nothing),
+            # and an override overlay would turn it into scalar alternatives. Only
+            # exact literal agreement (above) may bind it; anything else refuses.
+            if len(_flat(key.get("answer"))) > 1:
+                reasons.append(f"Q{q:02d}: đáp án REV dạng tập hợp {key.get('answer')!r} chỉ gắn được khi khớp "
+                               "nguyên văn lời giải; không suy ra tương đương")
+                continue
             rev_raw = [v for v in _flat(key.get("answer")) + _flat(key.get("alternatives") or []) if v not in (None, "")]
             rev_forms = marker_forms(rev_raw)
             if not rev_forms or not canonical:
