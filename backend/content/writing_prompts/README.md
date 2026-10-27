@@ -31,6 +31,10 @@ and the answer-key draft used when the admin approves the extracted key.
 - A differing image is uploaded as a new object and the answer key is
   cleared, as the admin PATCH does; it must be re-analysed and approved.
   Published objects are never deleted.
+- Live images are read from the private `writing-images` bucket by object
+  path with the service role, and rows store the object path, as the admin
+  routes do. A stored image that cannot be read aborts the run before any
+  write; it is never treated as "differs".
 - A Task 2 item retires any active row whose text equals its 035 seed text.
   The seed shares the replacement's title but is never matched as the
   replacement: the replacement is created first, then the seed is retired.

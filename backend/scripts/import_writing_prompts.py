@@ -13,11 +13,16 @@ ACTIVE rows):
   • present  → PATCH only the fields that differ (title, prompt_text,
                difficulty, tags). ``is_active`` / ``exam_only`` are never
                changed on an existing row: visibility belongs to the admin.
-  • image    → compared by sha256 of the live object. A differing or missing
-               image is uploaded through ``services.writing_prompt_image`` and
-               the answer key is cleared exactly as the admin PATCH does, so it
-               must be re-analysed and re-approved. Published objects are never
-               deleted (essays snapshot their URL).
+  • image    → compared by sha256 of the live object, read from the private
+               ``writing-images`` bucket by object path with the service role
+               (legacy public URLs on our Storage origin resolve to the same
+               path). A differing or missing image is uploaded through
+               ``services.writing_prompt_image`` and the answer key is cleared
+               exactly as the admin PATCH does, so it must be re-analysed and
+               re-approved. The row stores the canonical object path, as the
+               admin routes do. A stored image that cannot be read is an error,
+               never a re-upload. Published objects are never deleted (essays
+               snapshot their ref).
   • archived → an inactive row with the same title is reported and skipped,
                never resurrected or duplicated.
 Task 2 items with ``replaces_seed`` retire (``is_active = false``) any ACTIVE
@@ -170,12 +175,20 @@ class Action:
     detail: str = ""
 
 
+class ImageUnreadable(Exception):
+    """A row references an image the importer cannot read."""
+
+
 def _image_sha(row: dict, fetch_bytes: Callable[[str], Optional[bytes]]) -> Optional[str]:
-    url = row.get("prompt_image_url")
-    if not url:
+    ref = row.get("prompt_image_url")
+    if not ref:
         return None
-    data = fetch_bytes(url)
-    return hashlib.sha256(data).hexdigest() if data is not None else None
+    data = fetch_bytes(ref)
+    if data is None:
+        # Planning an upload here would clear an approved answer key because
+        # of a read failure, not because the chart differs.
+        raise ImageUnreadable(f"stored image {ref!r} could not be read")
+    return hashlib.sha256(data).hexdigest()
 
 
 def plan_import(manifest: dict, live_rows: list[dict],
@@ -214,7 +227,11 @@ def plan_import(manifest: dict, live_rows: list[dict],
         else:
             row = matches[0]
             changes = {f: item[f] for f in SYNCED_FIELDS if row.get(f) != item[f]}
-            upload = bool(item.get("image")) and _image_sha(row, fetch_bytes) != item["image_sha256"]
+            try:
+                upload = bool(item.get("image")) and _image_sha(row, fetch_bytes) != item["image_sha256"]
+            except ImageUnreadable as exc:
+                actions.append(Action(key, "error", row["id"], detail=str(exc)))
+                continue
             kind = "update" if changes or upload else "unchanged"
             actions.append(Action(key, kind, row["id"], changes, upload))
 
@@ -269,7 +286,26 @@ class Store:
         from services.writing_prompt_image import upload_prompt_image
         return upload_prompt_image(data, name)
 
-    def fetch_bytes(self, url: str) -> Optional[bytes]:
+    def fetch_bytes(self, ref: str) -> Optional[bytes]:
+        """Bytes of a stored ``prompt_image_url``, or None when unreadable.
+
+        Refs in our private bucket (object path, or a legacy public/signed URL
+        on our Storage origin) are downloaded with the service role; a foreign
+        http(s) URL is fetched directly.
+        """
+        from services.writing_image_access import _external_url, image_path
+        path = image_path(ref)
+        if path:
+            from config import settings
+            from database import supabase_admin
+            try:
+                return bytes(supabase_admin.storage.from_(settings.WRITING_IMAGES_BUCKET)
+                             .download(path))
+            except Exception:  # storage3 raises provider-specific errors
+                return None
+        url = _external_url(ref)
+        if not url:
+            return None
         import httpx
         r = httpx.get(url, timeout=30, follow_redirects=True)
         return r.content if r.status_code == 200 else None
@@ -290,7 +326,13 @@ def apply_plan(store, manifest: dict, actions: list[Action], *, visible: bool = 
         if a.upload_image:
             uploaded = store.upload_image((root / item["image"]).read_bytes(),
                                           Path(item["image"]).name)
-            image_patch = {"prompt_image_url": uploaded["url"],
+            # The upload returns a short-lived signed URL; persist the object
+            # path exactly as the admin routes do.
+            from services.writing_image_access import canonical_image_ref
+            ref = canonical_image_ref(uploaded["url"])
+            if ref != uploaded["public_id"]:
+                raise RuntimeError(f"{a.key}: uploaded image did not resolve to its object path")
+            image_patch = {"prompt_image_url": ref,
                            "prompt_image_public_id": uploaded["public_id"],
                            **ANALYSIS_CLEAR}
         if a.kind == "create":

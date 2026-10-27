@@ -4,14 +4,19 @@ import copy
 import hashlib
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from config import settings  # noqa: E402
+from services.writing_image_access import image_path  # noqa: E402
 from scripts.import_writing_prompts import (  # noqa: E402
     ANALYSIS_CLEAR,
     CONTENT_DIR,
+    Store,
+    apply_plan,
     assert_staging,
     load_manifest,
     plan_import,
@@ -21,6 +26,8 @@ from scripts.import_writing_prompts import (  # noqa: E402
 )
 
 MIGRATION_035 = Path(__file__).parent.parent / "migrations" / "035_writing_prompts_library.sql"
+ORIGIN = settings.SUPABASE_URL.rstrip("/")
+BUCKET = settings.WRITING_IMAGES_BUCKET
 
 
 @pytest.fixture(scope="module")
@@ -29,7 +36,11 @@ def manifest():
 
 
 class _Store:
-    """In-memory writing_prompts + storage, keyed by public URL."""
+    """In-memory writing_prompts + private bucket, objects keyed by path.
+
+    Mirrors the B10 storage contract: the upload returns a short-lived signed
+    URL plus the object path, and stored refs resolve to the object path.
+    """
 
     def __init__(self, rows=None, objects=None):
         self.rows = list(rows or [])
@@ -54,13 +65,13 @@ class _Store:
 
     def upload_image(self, data, name):
         path = f"prompts/{len(self.objects)}-{name}"
-        url = f"https://example.test/{path}"
-        self.objects[url] = data
+        self.objects[path] = data
         self.writes.append(("upload", path, name))
-        return {"url": url, "public_id": path}
+        return {"url": f"{ORIGIN}/storage/v1/object/sign/{BUCKET}/{path}?token=short-lived",
+                "public_id": path}
 
-    def fetch_bytes(self, url):
-        return self.objects.get(url)
+    def fetch_bytes(self, ref):
+        return self.objects.get(image_path(ref))
 
 
 def _live_copy(manifest):
@@ -72,9 +83,9 @@ def _live_copy(manifest):
                "tags": list(item["tags"]), "is_active": True, "exam_only": False,
                "prompt_image_url": None, "prompt_image_public_id": None}
         if item.get("image"):
-            url = f"https://example.test/live/{n}.png"
-            objects[url] = (CONTENT_DIR / item["image"]).read_bytes()
-            row.update(prompt_image_url=url, prompt_image_public_id=f"live/{n}.png")
+            path = f"prompts/live-{n}.png"
+            objects[path] = (CONTENT_DIR / item["image"]).read_bytes()
+            row.update(prompt_image_url=path, prompt_image_public_id=path)
         rows.append(row)
     return rows, objects
 
@@ -160,6 +171,7 @@ def test_empty_table_creates_held_rows_then_reruns_clean(manifest):
     for row in store.rows:
         item = next(i for i in manifest["items"] if i["title"] == row["title"])
         if item.get("image"):
+            assert row["prompt_image_url"] == row["prompt_image_public_id"]
             assert hashlib.sha256(store.objects[row["prompt_image_url"]]).hexdigest() == item["image_sha256"]
             assert row["prompt_image_analysis_reviewed"] is False
         else:
@@ -215,6 +227,7 @@ def test_changed_image_is_reuploaded_and_answer_key_reset(manifest):
     store = _Store(rows, objects)
     assert run(store, manifest, execute=True, progress=lambda _: None) == 0
     assert a11["prompt_image_url"] != old_url
+    assert a11["prompt_image_url"] == a11["prompt_image_public_id"]
     assert old_url in store.objects  # published objects are never deleted
     assert {k: a11[k] for k in ANALYSIS_CLEAR} == ANALYSIS_CLEAR
 
@@ -283,6 +296,103 @@ def test_original_035_seed_with_replacement_title_is_kept_and_replaced(manifest,
     before = list(store.writes)
     assert run(store, manifest, execute=True, progress=lambda _: None) == 0
     assert store.writes == before
+
+
+# ── Private writing-images bucket (B10) ───────────────────────────────
+
+class _Bucket:
+    def __init__(self, objects):
+        self.objects = objects
+        self.downloads = []
+
+    def download(self, path):
+        self.downloads.append(path)
+        if path not in self.objects:
+            raise RuntimeError("Object not found")
+        return self.objects[path]
+
+
+@pytest.fixture
+def private_bucket(monkeypatch):
+    """Service-role storage client; any plain HTTP fetch fails the test."""
+    bucket = _Bucket({})
+    client = MagicMock()
+    client.storage.from_.side_effect = (
+        lambda name: bucket if name == BUCKET else pytest.fail(f"wrong bucket {name}"))
+    import database
+    import httpx
+    monkeypatch.setattr(database, "supabase_admin", client)
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail(f"HTTP fetch of {a[0]!r}"))
+    return bucket
+
+
+def _with_refs(manifest, private_bucket, ref_for_path):
+    rows, objects = _live_copy(manifest)
+    private_bucket.objects.update(objects)
+    for row in rows:
+        if row["prompt_image_url"]:
+            row["prompt_image_url"] = ref_for_path(row["prompt_image_url"])
+    return rows
+
+
+@pytest.mark.parametrize("ref_for_path", [
+    lambda path: path,                                                       # B10 rows
+    lambda path: f"{ORIGIN}/storage/v1/object/public/{BUCKET}/{path}",       # pre-B10 rows
+], ids=["object-path", "legacy-public-url"])
+def test_stored_images_are_read_from_the_private_bucket(manifest, private_bucket, ref_for_path):
+    rows = _with_refs(manifest, private_bucket, ref_for_path)
+    actions = plan_import(manifest, rows, Store().fetch_bytes)
+    assert summarize(actions) == {"unchanged": 28}
+    assert sorted(private_bucket.downloads) == sorted(
+        r["prompt_image_public_id"] for r in rows if r["prompt_image_public_id"])
+
+
+def test_foreign_image_url_is_fetched_over_http(monkeypatch, private_bucket):
+    foreign = "https://cdn.example.org/chart.png"
+    monkeypatch.setattr("httpx.get", lambda url, **_: MagicMock(status_code=200, content=b"png")
+                        if url == foreign else pytest.fail(url))
+    assert Store().fetch_bytes(foreign) == b"png"
+    assert private_bucket.downloads == []
+
+
+@pytest.mark.parametrize("ref", [
+    "prompts/missing.png",                                                    # object gone
+    f"{ORIGIN}/storage/v1/object/public/{BUCKET}/prompts/missing.png",
+    f"{ORIGIN}/storage/v1/object/public/other-bucket/x.png",                  # unresolvable
+])
+def test_unreadable_stored_image_aborts_instead_of_clearing_the_answer_key(
+        manifest, private_bucket, ref):
+    rows = _with_refs(manifest, private_bucket, lambda path: path)
+    a01 = next(r for r in rows if r["prompt_image_url"])
+    a01["prompt_image_url"] = ref
+    store = _Store(rows)
+    store.fetch_bytes = Store().fetch_bytes
+    out = []
+    assert run(store, manifest, execute=True, progress=out.append) == 3
+    assert store.writes == []
+    assert any(a01["id"] in line and "could not be read" in line for line in out)
+
+
+def test_image_writes_store_the_object_path_not_the_signed_url(manifest):
+    store = _Store()
+    actions = plan_import(manifest, [], store.fetch_bytes)
+    apply_plan(store, manifest, actions, progress=lambda _: None)
+    image_rows = [r for r in store.rows if r["prompt_image_url"]]
+    assert len(image_rows) == 12
+    for row in image_rows:
+        assert row["prompt_image_url"] == row["prompt_image_public_id"]
+        assert row["prompt_image_url"].startswith("prompts/")
+        assert "://" not in row["prompt_image_url"] and "token" not in row["prompt_image_url"]
+
+
+def test_upload_that_does_not_resolve_to_its_path_writes_nothing(manifest):
+    store = _Store()
+    store.upload_image = lambda data, name: {"url": "https://elsewhere.test/x.png?token=t",
+                                             "public_id": "prompts/x.png"}
+    actions = [a for a in plan_import(manifest, [], store.fetch_bytes) if a.upload_image][:1]
+    with pytest.raises(RuntimeError, match="object path"):
+        apply_plan(store, manifest, actions, progress=lambda _: None)
+    assert store.rows == []
 
 
 @pytest.mark.parametrize("url", [
