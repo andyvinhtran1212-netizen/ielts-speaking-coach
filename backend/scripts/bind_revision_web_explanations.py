@@ -144,14 +144,27 @@ def _added_forms(base: frozenset[str], forms: list) -> list:
 def _policy_added_forms(policy: dict, documented: list, listed: list) -> list:
     """Policy forms the explanation does not list, compared by the POLICY's own
     equivalence (it may keep apart forms the legacy normaliser collapses)."""
+    primary = str((policy.get("accepted_answers") or [""])[0])
+
+    def matches(form: str, answers: list[str]) -> bool | None:
+        try:
+            return policy_answer_matches(form, {**policy, "accepted_answers": answers})
+        except (ResponsePolicyError, TypeError, ValueError, KeyError):
+            return None  # e.g. a number policy whose first answer is a written alias
+
+    def same(form: str, other: str) -> bool:
+        alone = matches(form, [other])
+        if alone is not None:
+            return alone
+        # Keep the policy's numeric primary first: a form equal to the primary is
+        # equivalent to `other` only if `other` is too; otherwise `other` decides.
+        if matches(form, [primary]):
+            return bool(matches(other, [primary]))
+        return bool(matches(form, [primary, other]))
+
     covered, added = [str(v) for v in documented], []
     for form in listed:
-        def same(other: str) -> bool:
-            try:
-                return policy_answer_matches(str(form), {**policy, "accepted_answers": [other]})
-            except (ResponsePolicyError, TypeError, ValueError, KeyError):
-                return False
-        if not any(same(other) for other in covered):
+        if not any(same(str(form), other) for other in covered):
             added.append(form)
             covered.append(str(form))
     return added
@@ -243,7 +256,7 @@ def build_plan(
         accepted_raw = [v for v in _flat(answer.get("accepted_forms")) if v is not None]
         documented = marker_forms(_flat(answer.get("canonical")) + accepted_raw)
         canonical = marker_forms(answer.get("canonical"))
-        kind, added, grading_change = "equivalent", [], False
+        kind, added, grading_change, copy_accepted = "equivalent", [], False, None
 
         # Literal agreement (0022) stays the fast path.
         literal_rev = _key_set(key.get("answer"), key.get("alternatives"))
@@ -297,9 +310,14 @@ def build_plan(
             if overridden:
                 # The copy's accepted_forms ARE the runtime key (apply_scoring_overrides).
                 added = _added_forms(documented, rev_raw)
-                runtime = marker_forms(_flat(answer.get("canonical")) + accepted_raw + added)
+                # apply_scoring_overrides stringifies a list canonical, so every
+                # canonical entry must be in the copy's accepted_forms to be marked.
+                copy_accepted = list(dict.fromkeys(
+                    [v for v in _flat(answer.get("canonical")) if v not in (None, "")] + accepted_raw + added))
+                runtime = marker_forms(copy_accepted)
                 grading_change = runtime != rev_forms
-                kind = "grading_change" if grading_change else ("synced" if added else "equivalent")
+                kind = ("grading_change" if grading_change
+                        else "synced" if added or copy_accepted != accepted_raw else "equivalent")
                 if grading_change and q not in approved_grading_changes:
                     reasons.append(f"Q{q:02d}: scoring override {sorted(marker_forms(accepted_raw))} sẽ đổi đáp án "
                                    f"chấm của REV {sorted(rev_forms)} (hợp: {sorted(runtime)}) — cần owner duyệt "
@@ -316,11 +334,12 @@ def build_plan(
         out_payload = o.get("payload")
         # A grading change is recorded on the copy even when the REV adds no form
         # (the override alone widens marking), so the owner's approval is visible.
-        if added or grading_change:
+        if added or grading_change or (copy_accepted is not None and copy_accepted != accepted_raw):
             out_payload = copy.deepcopy(payload)
             item = out_payload.setdefault("item", {})
             item_answer = item.setdefault("answer", {})
-            item_answer["accepted_forms"] = (accepted_raw or _flat(answer.get("canonical"))) + added
+            item_answer["accepted_forms"] = (copy_accepted if copy_accepted is not None
+                                             else (accepted_raw or _flat(answer.get("canonical"))) + added)
             out_payload.setdefault("audit", {})["revision_answer_sync"] = {
                 "spec": "REVEXPLAIN-0023", "revision_test_id": revision["test_id"],
                 "added_forms": added, "grading_change": grading_change,

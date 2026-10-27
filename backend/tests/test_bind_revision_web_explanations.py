@@ -622,3 +622,30 @@ def test_policy_forms_are_compared_by_the_policys_own_equivalence():
     assert "câu cần đồng bộ đáp án là [3]" in _refusal(inputs)
     inputs["reviewed_answer_sync"] = frozenset({3})
     assert build_plan(**inputs)["rows"][2]["payload"]["item"]["answer"]["accepted_forms"] == ["250", "£250"]
+
+
+def test_override_copy_keeps_every_canonical_entry_the_overlay_marks():
+    # Codex on #1745: apply_scoring_overrides stringifies a list canonical.
+    inputs = _inputs("listening")
+    _explain(inputs, 5, ["gut", "intestines"], ["gut"], override=True)
+    inputs["revision_keys"][5] = {"answer": "gut", "alternatives": ["intestines", "bowel"]}
+    inputs["reviewed_answer_sync"] = frozenset({5})
+    plan = build_plan(**inputs)
+    accepted = plan["rows"][4]["payload"]["item"]["answer"]["accepted_forms"]
+    assert accepted == ["gut", "intestines", "bowel"] and plan["classification"]["5"] == "synced"
+    frozen = [{"question_number": r["question_number"], "payload": r["payload"]} for r in plan["rows"]]
+    key = apply_scoring_overrides("listening", "x", [{"q_num": 5, "answer": "gut",
+                                                      "alternatives": ["intestines", "bowel"]}], frozen_rows=frozen)
+    assert all(answer_matches(f, key[0]["answer"], key[0]["alternatives"]) for f in ["gut", "intestines", "bowel"])
+
+
+def test_number_policy_written_alias_already_documented_needs_no_sync():
+    # Codex on #1745: a number policy's first answer must stay numeric.
+    pol = _policy("number", ["250", "two hundred fifty"])
+    pol["max_words"] = 3
+    pol["settings"] = {"locale": "en"}
+    inputs = _inputs("listening")
+    _explain(inputs, 3, "250", ["250", "two hundred fifty"])
+    inputs["revision_keys"][3] = {"answer": "250", "alternatives": [], "response_policy": pol}
+    plan = build_plan(**inputs)
+    assert plan["classification"]["3"] == "policy" and plan["answer_sync"] == {}
