@@ -143,10 +143,17 @@ transaction with `lock_timeout = 5s`.
      `resource_id uuid not null`, `submission_revision text not null`,
      `user_id uuid not null`,
      `status text check (status in ('queued','running','done','failed','superseded'))`,
-     `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `attempts int not null default 0`,
+     `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `persisted_at timestamptz null`, `persist_claims int not null default 0`, `attempts int not null default 0`,
      `lease_until timestamptz`, `enqueued_at timestamptz not null default now()`,
      `finished_at`, `last_error text`.
    - Unique: `(kind, resource_id, submission_revision)`.
+   - Before the canonical result write, the drain claims persistence with
+     `update … set persisted_at = now(), persist_claims = persist_claims + 1
+     where id = $job and persisted_at is null returning id`. If no row
+     comes back, the write is skipped and the job is logged as
+     `duplicate_persist_blocked`. The result write is also conditional on
+     the resource still carrying the job's submission revision; otherwise
+     the job becomes `superseded` (FR-013).
    - Index: `(status, enqueued_at, id) where status='queued'`.
    - `service_role`: SELECT, INSERT, UPDATE.
 4. **`writing_jobs.budget_deferred_at timestamptz null`** (additive), with
@@ -436,19 +443,33 @@ Supabase SQL editor or the runner, and print no secrets.
   where status = 'reserved' and created_at < now() - interval '1 hour';
   ```
 
-- **V5 — exactly-once grading for deferred items** (the expected result is
-  zero rows):
+- **V5 — exactly-once persistence for each deferred revision.** This
+  correlates on the job and its submission revision, never on ledger
+  success rows. One correct grade can produce several successful
+  `speaking_grading` ledger rows (JSON repair, grounded-answer
+  regeneration), and a response can have several revisions. Every query
+  below must return zero rows.
 
   ```sql
-  select j.resource_id, count(*) filter (where l.status = 'success') as successes
-  from ai_deferred_grading_jobs j
-  join ai_usage_logs l on l.resource_id = j.resource_id::text and l.feature = 'speaking_grading'
-  where j.status = 'done'
-  group by 1 having count(*) filter (where l.status = 'success') > 1;
+  -- (a) a done job that never claimed persistence, or a claim without done
+  select id, kind, resource_id, submission_revision, status, persisted_at
+  from ai_deferred_grading_jobs
+  where (status = 'done') <> (persisted_at is not null);
+  -- (b) more than one persistence claim for the same revision
+  select kind, resource_id, submission_revision, sum(persist_claims) as claims
+  from ai_deferred_grading_jobs
+  group by 1, 2, 3 having sum(persist_claims) > 1;
+  -- (c) Writing: more than one feedback row persisted by deferred drains for one job
+  select f.job_id, count(*) from writing_feedback f
+  join writing_jobs w on w.id = f.job_id
+  where w.budget_deferred_at is not null
+  group by 1 having count(*) > 1;
   ```
 
-  The Writing equivalent joins `writing_jobs` to `writing_feedback` per
-  essay.
+  The `writing_feedback.job_id` linkage is confirmed or added in T007.
+  If that column does not exist, T007 records the drain's job id on the
+  feedback row, so (c) keys on the job and not on the essay.
+
 - **V6 — the kill switch:** the `[ai_budget] decision=refuse
   reason=kill_switch` log appears for the first request after the
   deployment with the variable serves. No ledger row is written after that
