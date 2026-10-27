@@ -1,17 +1,18 @@
 // W-03 — client half of the activation gate.
 //
-// The backend (services/activation_gate.py) is the real gate: every learner
-// endpoint answers 403 for an account whose users.is_active is false. This
-// module only keeps an inactive learner from landing on a learner page that
-// would render around those 403s; it sends them to /login, whose own
+// The backend is the real gate: every learner endpoint (services/
+// activation_gate.py) and every staff endpoint (require_admin /
+// require_instructor, Q-13) answers 403 for an account whose users.is_active
+// is false. This module only keeps an inactive account from landing on a page
+// that would render around those 403s; it sends them to /login, whose own
 // /auth/me routing opens the access-code activation dialog.
 //
-// Routes outside the learner surface are never redirected: /login itself (no
-// loop), staff consoles (role-gated, and an inactive staff account cannot get
-// past /login anyway), and hybrid/public layouts, which mount AuthProvider
-// without `activationGate`.
+// Staff consoles (/admin, /instructor) are gated too (Q-13): a staff role does
+// not replace activation, and a direct visit never passes through /login.
+// Only /login itself (no loop) and hybrid/public layouts, which mount
+// AuthProvider without `activationGate`, are never redirected.
 
-export const ACTIVATION_EXEMPT_PREFIXES = Object.freeze(['/login', '/admin', '/instructor']);
+export const ACTIVATION_EXEMPT_PREFIXES = Object.freeze(['/login']);
 
 const CACHE_PREFIX = 'aver-activation-confirmed:';
 

@@ -126,13 +126,33 @@ it('a newer sign-out supersedes a pending probe (no late redirect)', async () =>
   expect(location.replace).not.toHaveBeenCalled();
 });
 
-it.each(['/login', '/admin/users', '/instructor/students'])('does not gate exempt path %s', async (path) => {
-  location.pathname = path;
+it('does not gate the exempt /login path', async () => {
+  location.pathname = '/login';
   const getWith = respond({ is_active: false });
   installApi(getWith);
   mount();
   await screen.findByText('signed-in:A');
   expect(getWith).not.toHaveBeenCalled();
+});
+
+// Q-13 — staff consoles: an inactive instructor/admin is sent to /login
+// (activation) instead of rendering the console around 403s.
+it.each(['/admin/users', '/instructor', '/instructor/students'])('redirects an inactive account away from staff path %s', async (path) => {
+  location.pathname = path;
+  const getWith = respond({ is_active: false });
+  installApi(getWith);
+  mount();
+  await waitFor(() => expect(location.replace).toHaveBeenCalledWith('/login'));
+  expect(getWith).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(/^signed-in:/)).toBeNull();
+});
+
+it('an active staff account still opens the staff console', async () => {
+  location.pathname = '/instructor';
+  installApi(respond({ is_active: true }));
+  mount();
+  await screen.findByText('signed-in:A');
+  expect(location.replace).not.toHaveBeenCalled();
 });
 
 it('hybrid/public layouts (no activationGate) are never redirected', async () => {

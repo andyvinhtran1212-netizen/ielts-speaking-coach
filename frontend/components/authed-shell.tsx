@@ -182,9 +182,10 @@ export function AuthedShell({
         }}
       />
       <BodyClassBridge className={bodyClass} />
-      {/* W-03 — fully signed-in layouts also require an ACTIVATED account; the
-          provider exempts /login, /admin and /instructor paths itself. Hybrid
-          (authGated=false) layouts keep their public modes reachable. */}
+      {/* W-03 — fully signed-in layouts also require an ACTIVATED account,
+          staff consoles included (Q-13); the provider exempts only /login
+          itself. Hybrid (authGated=false) layouts keep their public modes
+          reachable. */}
       <AuthProvider activationGate={authGated}>{children}</AuthProvider>
     </>
   );
