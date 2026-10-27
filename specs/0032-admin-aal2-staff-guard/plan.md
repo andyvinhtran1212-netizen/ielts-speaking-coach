@@ -11,12 +11,19 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
   - `resolve_staff(authorization, *, need: "admin" | "instructor", allow_aal1: bool = False)`:
     1. Verifies the bearer through the existing `routers.auth.get_supabase_user`.
        It reuses the per-request memo, so there is no extra Auth round-trip.
-    2. Makes one `service_role` read, `users.role, users.is_active`. A read
-       failure gives 503.
+    2. Reads `users.role` with `service_role` as today, then `is_active`
+       through `activation_gate.account_is_active`. That is the phase-0
+       (PR #1771) path, memoised per request, and its conftest
+       default-active seam keeps existing staff tests valid. Any read failure
+       gives 503.
     3. Applies the role and `is_active` rule.
     4. For role admin, reads `aal` from the payload of the token that Supabase
        Auth just accepted. It base64url-decodes the payload and requires
        `sub == user.id`. It never decodes a token that has not been accepted.
+       A payload that cannot be decoded, or that has no `aal`, counts as
+       `aal1`: denied under enforcement, logged in report-only. This also
+       keeps the opaque test tokens of existing route tests working while the
+       flag defaults to false.
     5. Applies `ADMIN_AAL2_ENFORCE`: either 403 `mfa_required`, or one
        `admin_aal2_would_block` warning.
   - It returns the auth user dict unchanged. `next_step` is derived from the
@@ -27,7 +34,8 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
   their names, signatures and return value. They become thin wrappers over
   `resolve_staff`, so the 329 call sites need no edit. `require_instructor`
   applies the AAL2 rule only when the caller's role is admin (FR-005). The
-  phase-0 (PR #1771) `ensure_account_active` call is folded into the same single read.
+  phase-0 (PR #1771) `ensure_account_active` call moves inside
+  `resolve_staff`, unchanged.
 - **`backend/routers/sessions.py:585-600`**: the inline admin quota bypass
   calls `staff_guard.is_privileged_admin` instead of reading `users.role`.
   The soft `_is_admin` helpers in `health.py`, `reading_student.py` and
@@ -118,6 +126,15 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
     retry;
   - a "Lịch sử quyền" section from `GET /admin/users/{id}/security-audit`.
   After every mutation it refetches `/admin/users`, with no optimistic state.
+- **Next-native admin verifiers**: all 60
+  `frontend/tooling/verify-admin-*.mjs` stub `/auth/me`, and unknown API paths
+  answer `{}`. The gate validates the status payload and fails closed, so it
+  would show its error state in every verifier. A shared stub module,
+  `frontend/tooling/admin-mfa-stub.mjs`, exports an AAL2 `/admin/mfa/status`
+  route handler, and each verifier registers it next to its `/auth/me` stub
+  (as the W-03 `/auth/check-active` stub was added). A new
+  `verify-admin-mfa-flow.mjs` covers the enforced-AAL1 redirect, the
+  report-only banner and the `/admin/mfa` states.
 - **Route manifest**: register `/admin/mfa` for
   `frontend/tooling/route-ownership-check.mjs --manifest`. Regenerate
   `frontend/types/api.d.ts`.
@@ -128,11 +145,28 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
   the synthetic admin, as that admin through GoTrue REST. It writes the secret
   only to the QA creds store, never to stdout. The step is idempotent: it keeps
   an existing verified factor.
-- **`frontend/tests/staging-e2e/helpers.js`**: `signIn(request, 'admin')`
-  performs `POST /auth/v1/factors/{id}/challenge` and `/verify`, computing the
-  RFC 6238 code with `node:crypto` from the CI secret
-  `STAGING_E2E_ADMIN_TOTP_SECRET`. No new dependency. The secret and tokens are
-  never logged.
+- **`frontend/tests/staging-e2e/helpers.js`** gets a new exported
+  `signInSession(request, role)`. It returns the complete GoTrue session
+  (`access_token`, `refresh_token`, `expires_at`, `user`). For `admin` it
+  runs the password grant, then `POST /auth/v1/factors/{id}/challenge` and
+  `/verify`, and returns the AAL2 session from the verify response. The code
+  is computed with RFC 6238 and `node:crypto` from the CI secret
+  `STAGING_E2E_ADMIN_TOTP_SECRET`, with no new dependency.
+  `signIn(request, role)` returns `signInSession(...).access_token`. The
+  secret and tokens are never logged.
+- **`frontend/tests/staging-e2e/writing-prompt-courses.spec.js:31-38`** does
+  its own admin password grant. It uses that session both for
+  `POST /admin/writing/prompts` and for browser storage injection. It moves
+  to `helpers.signInSession(request, 'admin')`, so the API call and the
+  injected browser session are both AAL2. The learner-role `signInSession`
+  helpers in `core-player-failure-injection`, `pilot-3-profile`,
+  `pilot-4-profile-save` and `speaking-start-flow` never sign in the admin;
+  their admin tokens already come from `helpers.signIn`.
+- **`frontend/tests/staging-e2e-admin-aal2-contract.test.mjs` (new,
+  PR-time node test)** fails when any `frontend/tests/staging-e2e/*.js`
+  file other than `helpers.js` posts `grant_type=password` for the admin
+  identity, or uses an admin token that does not come from
+  `helpers.signIn`/`signInSession`.
 
 ## Data and contracts
 

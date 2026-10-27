@@ -199,7 +199,7 @@ uses that token for admin seams. This gives an AAL1 session:
 - `core-player-failure-injection.spec.js:72`
 - `pilot-4-profile-save.spec.js:63,179`
 - `next-optimization-proof.spec.js:63`
-- `writing-prompt-courses.spec.js:35`
+- `writing-prompt-courses.spec.js:31-38`: its own admin password grant, used for an admin API call and injected into browser storage. It does not go through `helpers.signIn`.
 
 The cleanup seam is `DELETE /admin/e2e/sessions/{id}` in
 `frontend/tests/staging-e2e/helpers.js:148-152`. The admin itself comes from
