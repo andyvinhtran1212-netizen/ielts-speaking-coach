@@ -22291,6 +22291,8 @@ export interface components {
              * Format: uuid
              */
             student_id: string;
+            /** Name */
+            name?: string | null;
             /** Deadline */
             deadline?: string | null;
             /** Instructions */

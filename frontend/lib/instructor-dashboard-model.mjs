@@ -111,8 +111,73 @@ export function normalizeInstructorAssignments(value) {
       status,
       essayId: nullableText(row.essay_id),
       deadline: nullableText(row.deadline),
+      cohortId: nullableText(row.cohort_id),
+      groupId: nullableText(row.assignment_group_id),
+      name: nullableText(row.name),
+      createdAt: nullableText(row.created_at),
     });
   });
+}
+
+function timestamp(value) {
+  const parsed = value ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
+/**
+ * W-06 — the most recent canonical give of `promptId` to the same target:
+ * a cohort give matches rows stamped with that cohort, a single-student give
+ * matches any row of that student. Null when the target has no such give.
+ *
+ * @param {ReadonlyArray<any>} assignments normalized assignments
+ * @param {{ promptId: string, cohortId?: string | null, studentId?: string | null }} target
+ */
+export function findExistingGive(assignments, { promptId, cohortId = null, studentId = null }) {
+  if (!Array.isArray(assignments) || !text(promptId) || (!text(cohortId) && !text(studentId))) return null;
+  let latest = null;
+  for (const assignment of assignments) {
+    if (assignment?.promptId !== promptId) continue;
+    const sameTarget = text(cohortId) ? assignment.cohortId === cohortId : assignment.studentId === studentId;
+    if (sameTarget && (!latest || timestamp(assignment.createdAt) > timestamp(latest.createdAt))) latest = assignment;
+  }
+  return latest;
+}
+
+// User-facing assignment copy, kept together for Content Manager review.
+export const ASSIGNMENT_COPY = Object.freeze({
+  cohortSuccess: 'Đã giao bài cho lớp.',
+  studentSuccess: 'Đã giao bài cho học viên.',
+  confirmCohort: (title, when) => `Lớp này đã được giao đề '${title}' lúc ${when}. Giao thêm một lượt mới?`,
+  confirmStudent: (title, when) => `Học viên này đã được giao đề '${title}' lúc ${when}. Giao thêm một lượt mới?`,
+  duplicatesWarning: (count) => `Đã giao bài cho lớp. Lưu ý: ${count} học viên đã được giao đề này từ trước.`,
+});
+
+function formatGiveTime(value) {
+  const parsed = value ? new Date(value) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) return 'trước đó';
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
+  }).format(parsed);
+}
+
+/**
+ * @param {any} existing result of findExistingGive
+ * @param {string} promptTitle
+ * @param {'cohort' | 'student'} target
+ */
+export function duplicateGiveConfirmMessage(existing, promptTitle, target) {
+  const title = text(promptTitle) || 'Đề bài';
+  const when = formatGiveTime(existing?.createdAt);
+  return target === 'cohort' ? ASSIGNMENT_COPY.confirmCohort(title, when) : ASSIGNMENT_COPY.confirmStudent(title, when);
+}
+
+/** Fan-out success banner: warning tone when the backend reports students who already had the prompt. */
+export function fanOutResultBanner(result) {
+  const duplicates = objectRow(result)?.duplicates_warning;
+  const count = Array.isArray(duplicates) ? duplicates.length : 0;
+  return count > 0
+    ? Object.freeze({ tone: 'warning', message: ASSIGNMENT_COPY.duplicatesWarning(count) })
+    : Object.freeze({ tone: 'success', message: ASSIGNMENT_COPY.cohortSuccess });
 }
 
 export function normalizeInstructorQueue(value) {
