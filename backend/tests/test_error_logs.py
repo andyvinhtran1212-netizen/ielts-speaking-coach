@@ -298,6 +298,17 @@ class TestFrontendIngress:
         )
         assert r.status_code == 422
 
+    def test_rejects_unknown_top_level_field(self, client, fake_db):
+        # F10: anonymous ingress — a caller cannot smuggle columns such as
+        # user_id; unknown fields are a 422 with no INSERT.
+        r = client.post(
+            "/api/error-logs",
+            json={"level": "error", "source": "frontend", "message": "x",
+                  "user_id": str(uuid4())},
+        )
+        assert r.status_code == 422
+        assert fake_db.tables.get("error_logs", []) == []
+
     def test_truncates_long_message(self, client, fake_db):
         long = "x" * 2000  # Pydantic max_length=2000 accepts; router slices to 1000.
         r = client.post(
