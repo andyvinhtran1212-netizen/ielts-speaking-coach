@@ -5,8 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
 
 import {
+  ASSIGNMENT_COPY,
   assignmentTone,
   buildInstructorMatrix,
+  duplicateGiveConfirmMessage,
+  fanOutResultBanner,
+  findExistingGive,
   instructorApiPath,
   instructorGradeHref,
   normalizeInstructorAssignments,
@@ -32,7 +36,7 @@ describe('/instructor native dashboard model', () => {
     assert.deepEqual(normalizeInstructorStudents([{ id: 's1', full_name: 'An', student_code: 'HV1', cohort_id: 'c1', user_id: null }]), [{ id: 's1', fullName: 'An', studentCode: 'HV1', cohortId: 'c1', userId: null }]);
     assert.deepEqual(normalizeInstructorPrompts([{ id: 'p1', title: 'Task', task_type: 'task2' }]), [{ id: 'p1', title: 'Task', taskType: 'task2' }]);
     assert.deepEqual(normalizeInstructorCodes([{ id: 'k1', code: 'ABC', is_used: false, cohort_id: null }]), [{ id: 'k1', code: 'ABC', isUsed: false, cohortId: null }]);
-    assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null }]);
+    assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null, cohortId: null, groupId: null, name: null, createdAt: null }]);
     assert.deepEqual(normalizeInstructorQueue([{ essay_id: 'e1', task_type: 'task2', review: { id: 'r1', status: 'queued' } }]), [{ essayId: 'e1', reviewId: 'r1', status: 'queued', studentEmail: null, taskType: 'task2' }]);
     assert.equal(normalizeInstructorStudents({ rows: [] }), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1' }]), null);
@@ -65,6 +69,50 @@ describe('/instructor native dashboard model', () => {
       instructorGradeHref('essay/a', 'review b', 'gv/c'),
       '/instructor/grade?essay_id=essay%2Fa&review_id=review+b&as_instructor=gv%2Fc',
     );
+  });
+
+  test('keeps the give identity (cohort, group, name, created_at) on assignments', () => {
+    const [row] = normalizeInstructorAssignments([{
+      id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'pending', cohort_id: 'c1',
+      assignment_group_id: 'g1', name: ' Buổi 5 ', created_at: '2026-10-25T12:00:00Z',
+    }]);
+    assert.equal(row.cohortId, 'c1');
+    assert.equal(row.groupId, 'g1');
+    assert.equal(row.name, 'Buổi 5');
+    assert.equal(row.createdAt, '2026-10-25T12:00:00Z');
+  });
+
+  test('findExistingGive returns the latest give of the prompt to the same cohort or student', () => {
+    const assignments = normalizeInstructorAssignments([
+      { id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'pending', cohort_id: 'c1', created_at: '2026-10-20T00:00:00Z' },
+      { id: 'a2', prompt_id: 'p1', student_id: 's2', status: 'pending', cohort_id: 'c1', created_at: '2026-10-25T00:00:00Z' },
+      { id: 'a3', prompt_id: 'p2', student_id: 's1', status: 'pending', cohort_id: 'c1', created_at: '2026-10-26T00:00:00Z' },
+      { id: 'a4', prompt_id: 'p1', student_id: 's3', status: 'pending', cohort_id: null, created_at: '2026-10-27T00:00:00Z' },
+    ]);
+    assert.equal(findExistingGive(assignments, { promptId: 'p1', cohortId: 'c1' }).id, 'a2');
+    assert.equal(findExistingGive(assignments, { promptId: 'p1', cohortId: 'c2' }), null);
+    assert.equal(findExistingGive(assignments, { promptId: 'p3', cohortId: 'c1' }), null);
+    // single-student target matches any earlier give to that student, cohort or not
+    assert.equal(findExistingGive(assignments, { promptId: 'p1', studentId: 's1' }).id, 'a1');
+    assert.equal(findExistingGive(assignments, { promptId: 'p1', studentId: 's3' }).id, 'a4');
+    assert.equal(findExistingGive(assignments, { promptId: 'p2', studentId: 's2' }), null);
+    assert.equal(findExistingGive(assignments, { promptId: 'p1' }), null);
+    assert.equal(findExistingGive(null, { promptId: 'p1', cohortId: 'c1' }), null);
+  });
+
+  test('duplicate-give confirmation and fan-out banner copy', () => {
+    const existing = { createdAt: '2026-10-25T12:30:00Z' };
+    const cohortMessage = duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'cohort');
+    assert.match(cohortMessage, /^Lớp này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
+    assert.match(duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'student'), /^Học viên này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
+    // Missing created_at drops "lúc" entirely (never "lúc trước đó"); missing title gets a neutral placeholder.
+    assert.equal(duplicateGiveConfirmMessage({ createdAt: null }, '', 'cohort'), "Lớp này đã được giao đề '(chưa có tiêu đề)' trước đó. Giao thêm một lượt nữa?");
+    assert.equal(duplicateGiveConfirmMessage({ createdAt: 'not-a-date' }, 'QA TEST Task 2', 'student'), "Học viên này đã được giao đề 'QA TEST Task 2' trước đó. Giao thêm một lượt nữa?");
+    assert.deepEqual(fanOutResultBanner({ duplicates_warning: ['s1', 's2'] }), { tone: 'warning', message: ASSIGNMENT_COPY.duplicatesWarning(2) });
+    assert.match(ASSIGNMENT_COPY.duplicatesWarning(2), /2 học viên đã được giao đề này từ trước/);
+    assert.deepEqual(fanOutResultBanner({ duplicates_warning: [] }), { tone: 'success', message: 'Đã giao bài cho lớp.' });
+    assert.deepEqual(fanOutResultBanner({}), { tone: 'success', message: 'Đã giao bài cho lớp.' });
+    assert.deepEqual(fanOutResultBanner(null), { tone: 'success', message: 'Đã giao bài cho lớp.' });
   });
 
   test('derives truthful assignment tones and matrix coordinates', () => {
@@ -116,4 +164,17 @@ test('assignment requests interpret datetime-local as Vietnam time for both targ
   assert.match(VIEW, /const deadline = deadlineValue \? `\$\{deadlineValue\}:00\+07:00` : null/);
   assert.equal((VIEW.match(/if \(deadline\) body\.deadline = deadline;/g) || []).length, 2);
   assert.match(VIEW, /Hạn nộp \(giờ Việt Nam\)/);
+});
+
+test('assignment form names the give, confirms re-gives, resets and surfaces duplicates_warning (W-06)', () => {
+  assert.match(VIEW, /<input name="name" maxLength=\{200\}/);
+  assert.equal((VIEW.match(/if \(name\) body\.name = name;/g) || []).length, 2);
+  assert.equal((VIEW.match(/if \(!confirmRegive\(findExistingGive\(data\.assignments, \{ promptId, (?:cohortId|studentId) \}\)\)\) return;/g) || []).length, 2);
+  assert.match(VIEW, /window\.confirm\(duplicateGiveConfirmMessage\(/);
+  // the confirm runs before mutate, so cancelling sends no request
+  assert.ok(VIEW.indexOf('confirmRegive(findExistingGive(data.assignments, { promptId, cohortId })') < VIEW.indexOf("'/instructor/assignments/fan-out'"));
+  assert.match(VIEW, /const resetOnSuccess = [^\n]*form\.reset\(\)/);
+  assert.equal((VIEW.match(/\.then\(resetOnSuccess\)/g) || []).length, 2);
+  assert.match(VIEW, /'\/instructor\/assignments\/fan-out'\), body\), fanOutResultBanner\)/);
+  assert.match(VIEW, /typeof success === 'function' \? success\(result\)/);
 });

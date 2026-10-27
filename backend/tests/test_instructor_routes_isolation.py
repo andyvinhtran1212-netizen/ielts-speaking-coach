@@ -571,6 +571,53 @@ def test_assign_own_prompt_and_student_with_deadline():
     assert rows[-1]["deadline"].startswith("2026-12-01")   # deadline persisted
 
 
+def test_assign_single_student_persists_name():
+    # W-06: the single-student give carries the label the student sees.
+    store = _seed()
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/assignments",
+                        json={"prompt_id": PB, "student_id": SB, "name": "Buổi 5 — Task 2"},
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 201, r.text
+    rows = [a for a in st["writing_assignments"] if a.get("prompt_id") == PB and a.get("student_id") == SB]
+    assert rows and rows[-1]["name"] == "Buổi 5 — Task 2"
+    # /writing/dashboard renders `name` on group headers only, so a named
+    # single give carries its own fresh group (never shared with another give).
+    gid = rows[-1]["assignment_group_id"]
+    assert gid and sum(a.get("assignment_group_id") == gid for a in st["writing_assignments"]) == 1
+
+
+def test_assign_without_name_keeps_null_and_rejects_overlong_name():
+    store = _seed()
+    with _as(B, store) as (client, st):
+        ok = client.post("/instructor/assignments", json={"prompt_id": PB, "student_id": SB},
+                         headers={"Authorization": "Bearer x"})
+        before = len(st["writing_assignments"])
+        too_long = client.post("/instructor/assignments",
+                               json={"prompt_id": PB, "student_id": SB, "name": "x" * 201},
+                               headers={"Authorization": "Bearer x"})
+        fan_too_long = client.post("/instructor/assignments/fan-out",
+                                   json={"prompt_ids": [PB], "cohort_id": CB, "name": "x" * 201},
+                                   headers={"Authorization": "Bearer x"})
+    assert ok.status_code == 201, ok.text
+    assert ok.json().get("name") is None
+    assert ok.json().get("assignment_group_id") is None   # unnamed single give renders as before
+    assert too_long.status_code == 422 and fan_too_long.status_code == 422
+    assert len(st["writing_assignments"]) == before     # nothing inserted on 422
+
+
+def test_fanout_persists_name_on_every_row():
+    store = _seed()
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/assignments/fan-out",
+                        json={"prompt_ids": [PB], "cohort_id": CB, "name": "Buổi 5"},
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 201, r.text
+    group = r.json()["group_id"]
+    created = [a for a in st["writing_assignments"] if a.get("assignment_group_id") == group]
+    assert created and all(a["name"] == "Buổi 5" for a in created)
+
+
 def test_assign_cross_tenant_student_403():
     store = _seed()
     with _as(B, store) as (client, st):
