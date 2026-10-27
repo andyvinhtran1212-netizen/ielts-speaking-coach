@@ -20,8 +20,22 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-26 the highest is `320`, so the next
-new migration is `321`. The runner applies any unapplied file regardless of order.
+sequence is dense. As of 2026-10-27 the highest is `323`, so the next
+new migration is `324`. The runner applies any unapplied file regardless of order.
+`321` (#1727) and `322` (#1720) are reserved for open PRs and may land after
+`323`; do not reuse them.
+
+Migration `323` (ROLECHECK-0026, bug A-05) keeps `chk_users_role`
+(`user, student, instructor, admin`, from 106) as the only CHECK on
+`public.users.role` and drops `users_role_check` (`user, admin`, created
+outside the repo), whose intersection blocked every `instructor`/`student`
+write, even by `service_role`. It changes no row, aborts on a role outside the
+four values, re-creates `chk_users_role` only if missing or drifted, and its
+postcondition requires exactly one validated role CHECK and the enabled 320
+trigger `trg_users_guard_privileged_columns`. Grants, policies and the trigger
+are untouched, so clients still cannot change `role`. Run the read-only checks
+in `specs/0026-users-role-single-check/research.md` §5 first; rollback is only
+safe while no `student`/`instructor` row exists (§6.4).
 
 Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
 change: the `web_explanation_content_version_unavailable` refusal now names its
@@ -52,7 +66,8 @@ because the previous backend's D1 writes fail closed in between. On
 `public.users` no client UPDATE remains (PATCH `/auth/profile` writes with the
 service role), the dashboard policy "Users can update own data" becomes
 `TO authenticated` with WITH CHECK, and a trigger rejects any non-profile
-column change by a client role. `users_role_check` is intentionally untouched.
+column change by a client role. `users_role_check` was left in place here and
+is dropped by `323`.
 The browser performs no direct PostgREST writes. A new table that genuinely
 needs a client write must now `GRANT` that exact privilege in its own
 migration. The migration ends with a postcondition over privileges, default
