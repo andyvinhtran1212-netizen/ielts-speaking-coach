@@ -83,6 +83,11 @@ let refreshGenerationOldPosts = 0;
 let resolveRefreshGenerationOld;
 const refreshGenerationOldStarted = new Promise((resolve) => { resolveRefreshGenerationOld = resolve; });
 let initialDispatchRaceArmed = false;
+let resumeOwnerSwitchArmed = false;
+let resolveResumeOwnerSwitch;
+const resumeOwnerSwitchStarted = new Promise((resolve) => { resolveResumeOwnerSwitch = resolve; });
+let resolveResumeOwnerSwitchInstalled;
+const resumeOwnerSwitchInstalled = new Promise((resolve) => { resolveResumeOwnerSwitchInstalled = resolve; });
 let final401Armed = false;
 let resolveFinal401;
 const final401Started = new Promise((resolve) => { resolveFinal401 = resolve; });
@@ -90,17 +95,10 @@ const final401Started = new Promise((resolve) => { resolveFinal401 = resolve; })
 const supabaseStub = `
 window.__AVER_SUPABASE_CLIENT__ = { auth: {
   getSession: async function () {
-    var call = Number(sessionStorage.getItem('d1-auth-session-calls') || '0') + 1;
-    sessionStorage.setItem('d1-auth-session-calls', String(call));
     if (localStorage.getItem('d1-delay-auth-once') === '1') {
       localStorage.removeItem('d1-delay-auth-once');
       window.__d1DelayedAuthStarted = true;
       await new Promise(function (resolve) { setTimeout(resolve, 500); });
-    }
-    var foreignAt = Number(localStorage.getItem('d1-foreign-token-at') || '0');
-    if (foreignAt === call) {
-      await new Promise(function (resolve) { setTimeout(resolve, 120); });
-      return { data: { session: { access_token: 'foreign-token', user: { id: '${FOREIGN_USER}', email: 'other@local' } } }, error: null };
     }
     var currentUser = window.__d1CurrentUser || '${USER}';
     var foreign = currentUser === '${FOREIGN_USER}';
@@ -128,6 +126,13 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
   if (url.pathname === '/auth/me') {
+    if (resumeOwnerSwitchArmed
+      && request.headers().authorization === 'Bearer fixture-token'
+      && request.headers()['x-request-id']) {
+      resumeOwnerSwitchArmed = false;
+      resolveResumeOwnerSwitch();
+      await resumeOwnerSwitchInstalled;
+    }
     if (refresh401Armed
       && request.headers().authorization === 'Bearer fixture-token'
       && request.headers()['x-request-id']) {
@@ -392,17 +397,27 @@ check('singleton legacy chỉ bị claim sau resume user-scoped thành công', a
 
 await page.evaluate(([userId, sessionId]) => {
   localStorage.setItem(`aver:d1:active-session:${userId}`, JSON.stringify([sessionId]));
-  const calls = Number(sessionStorage.getItem('d1-auth-session-calls') || '0');
-  // On reload: AuthProvider owns call +1, /auth/me owns +2, resume owns +3.
-  localStorage.setItem('d1-foreign-token-at', String(calls + 3));
 }, [USER, SESSION]);
+// Switch the token owner while the player's correlated /auth/me is in flight,
+// so its next getSession is the resume lookup. A getSession call ordinal is
+// not stable: aver-chrome and api.js read the session at racy points too.
+resumeOwnerSwitchArmed = true;
+const resumeRequestsBefore = requests.filter(
+  (entry) => entry === `GET /api/exercises/d1/sessions/${SESSION}`,
+).length;
 await page.goto(`${BASE}/d1-exercise?session=${SESSION}`, { waitUntil: 'domcontentloaded' });
+await resumeOwnerSwitchStarted;
+await page.evaluate(([foreignUserId]) => {
+  window.__d1CurrentUser = foreignUserId;
+}, [FOREIGN_USER]);
+resolveResumeOwnerSwitchInstalled();
 await page.getByText(/Tài khoản đã thay đổi trước khi gửi yêu cầu/).waitFor();
 check('token owner đổi trong resume không xóa registry của account cũ', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
-}, [USER, SESSION]));
-await page.evaluate(() => localStorage.removeItem('d1-foreign-token-at'));
+}, [USER, SESSION]) && requests.filter(
+  (entry) => entry === `GET /api/exercises/d1/sessions/${SESSION}`,
+).length === resumeRequestsBefore);
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
 check('account cũ vẫn resume được đúng session sau token race',
