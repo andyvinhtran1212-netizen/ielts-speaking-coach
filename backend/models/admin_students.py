@@ -32,6 +32,10 @@ class AdminStudentDirectoryRowOut(_StrictOut):
     is_under_review: bool
     instructor_id: str | None = None
     cohort_id: str | None = None
+    # STUDENTARCHIVE-0029 (migration 326): NULL archived_at = active learner.
+    archived_at: datetime | None = None
+    archived_by: str | None = None
+    archive_reason: str | None = None
     # Enrichment is canonical list truth from student_service._attach_cohort_memberships.
     cohorts: list[AdminStudentCohortOut]
     cohort_name: str | None = None

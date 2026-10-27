@@ -20,12 +20,25 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-27 the highest is `325`, so the next
-new migration is `326`. The runner applies any unapplied file regardless of order.
+sequence is dense. As of 2026-10-27 the highest is `326`, so the next
+new migration is `327`. The runner applies any unapplied file regardless of order.
 Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
 STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
 of order, so do not reuse them — unrelated new work takes `331`.
+
+Migration `326` (STUDENTARCHIVE-0029) turns `DELETE /admin/students/{id}` into an
+archive: `students.archived_at/archived_by/archive_reason`, the append-only
+`student_lifecycle_audit` and the service-role-only `fn_archive_student` /
+`fn_restore_student`. Archiving ends every active class membership, clears
+`students.cohort_id`, optionally sets `users.is_active = false` and writes one
+audit row; no learner work changes. It re-creates the 227 membership writers
+with an archive guard (`student_archived`) so no class add, direct-code bridge or
+legacy `cohort_id` write can bring an archived learner back. It aborts unless the
+320 users guard is enabled. Apply it, then deploy the 0029 backend right away:
+the previous backend's admin student list rejects the new columns. Rollback is
+guarded (zero archived learners and an empty audit table); see the file header
+and `specs/0029-student-archive/rollout.md`.
 
 Migration `323` (ROLECHECK-0026, bug A-05) keeps `chk_users_role`
 (`user, student, instructor, admin`, from 106) as the only CHECK on

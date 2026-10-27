@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, model_validator
 from database import supabase_admin
 from routers.admin import require_admin
 from services.cohort_assignment_service import Deadline, fan_out_assignment
+from services import student_service
 from services.class_membership_service import active_student_ids_for_cohort
 from services.writing_assignment_delete_guard import delete_unstarted_assignment
 
@@ -135,6 +136,17 @@ def _read_assignment_request_receipt(
     if not isinstance(receipt, dict):
         raise HTTPException(409, "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại.")
     return {**receipt, "replayed": True}
+
+
+def _refuse_archived_students(student_ids: list[str]) -> None:
+    """409 before any write when a requested learner is archived (0029).
+
+    ``fn_create_writing_assignments_idempotent`` checks memberships only for
+    cohort gives, so an individual give must be refused here.
+    """
+    archived = student_service.archived_student_ids(supabase_admin, student_ids)
+    if archived:
+        raise student_service.student_archived_error(archived)
 
 
 def _cohort_assignment_filter(cohort_id: str, active_student_ids: list[str]) -> str:
@@ -329,6 +341,22 @@ async def create_assignments(
     # the established insert path below until they migrate.
     if body.request_id is not None:
         request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
+        # A completed request replays its receipt even if a learner was archived
+        # afterwards; only a NEW give is refused below.
+        replay = _read_assignment_request_receipt(
+            body.request_id,
+            assigned_by=admin["id"],
+            request_payload=request_payload,
+        )
+        if replay is not None:
+            return {
+                "created": replay.get("created", []),
+                "count": replay.get("created_count", 0),
+                "group_id": replay.get("group_id"),
+                "duplicates_warning": replay.get("duplicates_warning", []),
+                "replayed": True,
+            }
+        _refuse_archived_students(student_id_strs)
         try:
             rpc = supabase_admin.rpc("fn_create_writing_assignments_idempotent", {
                 "p_request_id": str(body.request_id),
@@ -365,6 +393,8 @@ async def create_assignments(
             "duplicates_warning": receipt.get("duplicates_warning", []),
             "replayed": bool(receipt.get("replayed")),
         }
+
+    _refuse_archived_students(student_id_strs)
 
     # Detect existing duplicates (any of these prompts + student) for the
     # advisory warning. Best-effort — never blocks the insert.
