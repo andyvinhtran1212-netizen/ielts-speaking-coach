@@ -264,3 +264,67 @@ def test_missing_assignment_404_both_endpoints():
         store["writing_assignments"] = []
         r = call(_FakeSB(store))
         assert r.status_code == 404, (call.__name__, r.text)
+
+
+# ── A-08B: the NO ACTION FK (mig 324) refuses a delete that would erase a draft ─
+
+def _fk_violation():
+    from postgrest.exceptions import APIError
+    return APIError({
+        "code": "23503",
+        "message": 'update or delete on table "writing_assignments" violates foreign key '
+                   'constraint "writing_drafts_assignment_id_fkey" on table "writing_drafts"',
+        "details": f"Key (id)=({ASSIGN}) is still referenced from table \"writing_drafts\".",
+        "hint": None,
+    })
+
+
+def _draft_commits_then_fk_refuses(store):
+    """The learner's draft insert commits after the guard's draft check; the
+    DELETE then fails on the FK and deletes nothing."""
+    store["writing_drafts"].append({"id": DRAFT, "assignment_id": ASSIGN, "student_id": STUDENT,
+                                    "draft_text": "my half-written essay"})
+    raise _fk_violation()
+
+
+def test_fk_violation_on_final_delete_maps_to_409_both_endpoints():
+    for call in (_instructor_delete, _admin_delete):
+        store = _store(_assignment())
+        fake = _FakeSB(store)
+        fake.before_execute[("writing_assignments", "delete")] = _draft_commits_then_fk_refuses
+        r = call(fake)
+        assert r.status_code == 409, (call.__name__, r.text)
+        assert r.json()["detail"] == STARTED
+        assert _ids(store, "writing_assignments") == [ASSIGN]
+        assert store["writing_drafts"][0]["draft_text"] == "my half-written essay"
+
+
+def test_fk_violation_recognized_by_sqlstate_in_every_client_shape():
+    from services.writing_assignment_delete_guard import _is_foreign_key_violation
+
+    assert _is_foreign_key_violation(_fk_violation())
+    assert _is_foreign_key_violation(Exception({"code": "23503", "message": "fk"}))
+    assert _is_foreign_key_violation(RuntimeError("SQLSTATE 23503 foreign key"))
+    assert not _is_foreign_key_violation(Exception({"code": "23505", "message": "dup"}))
+    # Prose alone is not a SQLSTATE.
+    assert not _is_foreign_key_violation(RuntimeError("violates foreign key constraint"))
+
+
+def test_other_delete_errors_are_not_masked_as_409():
+    from postgrest.exceptions import APIError
+
+    def _timeout(store):
+        raise APIError({"code": "57014", "message": "canceling statement due to statement timeout",
+                        "details": None, "hint": None})
+
+    for call in (_instructor_delete, _admin_delete):
+        store = _store(_assignment())
+        fake = _FakeSB(store)
+        fake.before_execute[("writing_assignments", "delete")] = _timeout
+        try:
+            r = call(fake)
+        except APIError as exc:
+            assert exc.code == "57014"
+        else:
+            assert r.status_code == 500, (call.__name__, r.text)
+        assert _ids(store, "writing_assignments") == [ASSIGN]

@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "IELTS Speaking Coach"
     ENVIRONMENT: str = "development"
+    # Serve /openapi.json, /docs, /docs/oauth2-redirect and /redoc only when
+    # truthy (1/true/yes/on). Default closed: staging and production need no
+    # env change. Local development only — see services/api_docs.py.
+    ENABLE_API_DOCS: str = ""
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both
