@@ -70,6 +70,19 @@ These are the call sites in research §1. Each wraps its provider request in
     `grading_status='awaiting_budget'`, enqueue the job, and return
     FR-010.
   - A fallback rung reserves its own line at the moment it is tried.
+  - Any later budget refusal in the same request goes through the same
+    deferral as a refusal before Whisper, for example a refused fallback
+    line or a provider spend-limit response after the grant. The deferral:
+    1. stores the recording;
+    2. persists `awaiting_budget` with any transcript already obtained;
+    3. enqueues the job with the `grading_attempt_id` that request
+       recorded;
+    4. deletes that `grading_attempts` row (FR-012), with the sweeper
+       retrying the delete if it fails;
+    5. releases the unused lines.
+
+    Lines already used stay settled. The drain skips Whisper when the
+    stored transcript belongs to the same submission revision.
   - Unused lines are released when the response is persisted.
 - **`services/essay_service.py` and `gemini_writing_grader.py`**: on
   `AIBudgetRefused`, call `defer_writing_job(job_id)` (FR-011). The reaper
@@ -130,7 +143,7 @@ transaction with `lock_timeout = 5s`.
      `resource_id uuid not null`, `submission_revision text not null`,
      `user_id uuid not null`,
      `status text check (status in ('queued','running','done','failed','superseded'))`,
-     `reason text`, `attempts int not null default 0`,
+     `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `attempts int not null default 0`,
      `lease_until timestamptz`, `enqueued_at timestamptz not null default now()`,
      `finished_at`, `last_error text`.
    - Unique: `(kind, resource_id, submission_revision)`.
@@ -142,12 +155,15 @@ transaction with `lock_timeout = 5s`.
 5. **`ai_budget_alerts`**
    - Columns: `id uuid pk`, `scope`, `period_kind`, `period_start`,
      `threshold int check (threshold in (50,80,100))`,
+     `trigger text check (trigger in ('crossing','cap_refusal','provider_spend_limit'))`,
      `committed_usd`, `cap_usd`, `created_at`,
      `send_status text check (in ('pending','sent','failed')) default 'pending'`,
      `attempts int`, `next_attempt_at`, `sent_at`, `last_error`.
    - Unique: `(scope, period_kind, period_start, threshold)` (FR-015).
    - `service_role`: SELECT and UPDATE of the send columns. Inserts happen
-     only inside the reserve and settle functions.
+     only inside the reserve, settle and close-scope functions. Whichever
+     trigger fires first owns the row, so each scope, period and
+     threshold is emailed once.
 6. **`ai_budget_heartbeat`**: a single row (`id boolean pk default true
    check (id)`), with `last_run_at` and `last_result jsonb`.
 7. **Functions.** Each is `SECURITY DEFINER` with
@@ -183,6 +199,10 @@ transaction with `lock_timeout = 5s`.
      - It refuses the whole request, returning the reason and scope, if
        any `closed_reason` is set or any `settled + reserved + Σestimate`
        would exceed its cap.
+     - On a cap refusal it still commits one thing: a 100% alert row for
+       each refusing scope and period (`trigger = 'cap_refusal'`,
+       `ON CONFLICT DO NOTHING`). No reservation and no counter change are
+       committed, so repeated refusals stay idempotent (FR-015).
      - Otherwise it inserts the reservations, increments `reserved_usd`,
        inserts alert rows for newly crossed thresholds with
        `ON CONFLICT DO NOTHING`, and returns the granted rows.
@@ -197,7 +217,8 @@ transaction with `lock_timeout = 5s`.
      row past `expires_at` at its estimate (status `expired`). It returns
      the count.
    - **`fn_ai_budget_close_scope(p_scope text, p_day date, p_reason text)`**
-     sets `closed_reason` on that scope's day counter (FR-009).
+     sets `closed_reason` on that scope's day counter (FR-009) and inserts
+     the 100% daily alert (`trigger = 'provider_spend_limit'`).
    - **`fn_ai_budget_recompute(p_period_start date)`** is operator-only
      repair. It recomputes `reserved_usd` and `settled_usd` from the
      reservations, and never lowers `settled_usd` below the settled sum.
