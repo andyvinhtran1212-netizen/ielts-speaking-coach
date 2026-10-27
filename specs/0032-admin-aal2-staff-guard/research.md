@@ -19,7 +19,7 @@ Both are plain async functions called at the top of each handler
 `await require_admin(` / `await require_instructor(` call sites in
 `backend/routers/`.
 
-Open PR #1771 (job Q-13) adds `activation_gate.ensure_account_active(user_id)`
+PR #1771 (job Q-13, merged to `staging` as `4c3a192fc` on 2026-10-28, after this survey) adds `activation_gate.ensure_account_active(user_id)`
 after the role check in both guards. It also removes `/admin` and `/instructor`
 from the frontend activation-redirect exemptions
 (`frontend/lib/auth/activation-gate.mjs`, `ACTIVATION_EXEMPT_PREFIXES`), so an
