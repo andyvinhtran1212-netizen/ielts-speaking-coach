@@ -32,6 +32,8 @@ and the answer-key draft used when the admin approves the extracted key.
   cleared, as the admin PATCH does; it must be re-analysed and approved.
   Published objects are never deleted.
 - A Task 2 item retires any active row whose text equals its 035 seed text.
+  The seed shares the replacement's title but is never matched as the
+  replacement: the replacement is created first, then the seed is retired.
   Staging never had the 035 seed, so there this is a no-op.
 
 ```bash

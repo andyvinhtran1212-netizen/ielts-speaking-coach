@@ -21,8 +21,9 @@ ACTIVE rows):
   • archived → an inactive row with the same title is reported and skipped,
                never resurrected or duplicated.
 Task 2 items with ``replaces_seed`` retire (``is_active = false``) any ACTIVE
-task2 row whose prompt_text is byte-identical to the 035 seed text. Nothing is
-deleted or overwritten in place.
+task2 row whose prompt_text is byte-identical to the 035 seed text. Such seed
+rows never count as a title match for their replacement (the replacements keep
+the 035 titles). Nothing is deleted or overwritten in place.
 
 DRY RUN by default. ``--execute`` applies the plan and then re-plans from a
 fresh read; anything left over is a failure (non-zero exit).
@@ -180,9 +181,16 @@ def _image_sha(row: dict, fetch_bytes: Callable[[str], Optional[bytes]]) -> Opti
 def plan_import(manifest: dict, live_rows: list[dict],
                 fetch_bytes: Callable[[str], Optional[bytes]]) -> list[Action]:
     """Diff the manifest against the live table. Does not write."""
+    # The replacements keep their 035 titles. A row still holding the original
+    # seed text is the seed itself, never the replacement: matching it by title
+    # would rewrite it and then retire it below, leaving no active prompt.
+    seed_texts = {i["replaces_seed"]["prompt_text"]
+                  for i in manifest["items"] if i.get("replaces_seed")}
     active: dict[tuple[str, str], list[dict]] = {}
     inactive: dict[tuple[str, str], list[dict]] = {}
     for row in live_rows:
+        if row["task_type"] == "task2" and row.get("prompt_text") in seed_texts:
+            continue
         bucket = active if row.get("is_active") else inactive
         bucket.setdefault((row["task_type"], row["title"]), []).append(row)
 

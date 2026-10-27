@@ -257,6 +257,34 @@ def test_old_035_seed_rows_are_retired_after_replacement(manifest):
     assert store.writes == before
 
 
+@pytest.mark.parametrize("seed_active", [True, False])
+def test_original_035_seed_with_replacement_title_is_kept_and_replaced(manifest, seed_active):
+    # The replacements keep the 035 titles, so an unchanged seed row matches
+    # the replacement by title. It must not be rewritten into the replacement
+    # and then retired as a seed: that left no active prompt for the item.
+    rows, objects = _live_copy(manifest)
+    t2 = next(i for i in manifest["items"] if i["key"] == "T2-01")
+    rows = [r for r in rows if r["title"] != t2["title"]]
+    seed_text = t2["replaces_seed"]["prompt_text"]
+    seed_row = {"id": "seed-1", "task_type": "task2", "title": t2["title"],
+                "prompt_text": seed_text, "difficulty": "intermediate",
+                "tags": ["education", "opinion"], "is_active": seed_active, "exam_only": False,
+                "prompt_image_url": None, "prompt_image_public_id": None}
+    store = _Store(rows + [seed_row], objects)
+    actions = plan_import(manifest, store.list_prompts(), store.fetch_bytes)
+    assert [(a.kind, a.prompt_id) for a in actions if a.key == "T2-01"] == (
+        [("create", None), ("retire_seed", "seed-1")] if seed_active else [("create", None)])
+    assert run(store, manifest, execute=True, progress=lambda _: None) == 0
+    seed_after = next(r for r in store.rows if r["id"] == "seed-1")
+    assert seed_after["prompt_text"] == seed_text
+    assert seed_after["is_active"] is False
+    replacement = [r for r in store.rows if r["title"] == t2["title"] and r["is_active"]]
+    assert [r["prompt_text"] for r in replacement] == [t2["prompt_text"]]
+    before = list(store.writes)
+    assert run(store, manifest, execute=True, progress=lambda _: None) == 0
+    assert store.writes == before
+
+
 @pytest.mark.parametrize("url", [
     "", "https://huwsmtubwulikhlmcirx.supabase.co", "http://localhost:54321",
     "https://zjphffoujxkpltixsbzj.supabase.co.evil.test",
