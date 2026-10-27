@@ -69,7 +69,12 @@ const fixtures = {
   '/instructor/students': [{ id: 's1', full_name: 'An <script>alert(1)</script>', student_code: 'HV-001', cohort_id: 'c1', user_id: 'u1' }],
   '/instructor/prompts': [{ id: 'p1', title: 'Task 2 <img src=x>', task_type: 'task2' }],
   '/instructor/codes': [{ id: 'code1', code: 'JOIN-001', is_used: false, cohort_id: 'c1' }],
-  '/instructor/assignments': [{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'delivered', essay_id: 'e1', deadline: null }],
+  // Newest first, like the backend (created_at desc). A-07: s1 × p1 was given
+  // twice; the older give is overdue, the newer one is delivered.
+  '/instructor/assignments': [
+    { id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'delivered', essay_id: 'e1', deadline: null, created_at: '2026-10-20T00:00:00Z' },
+    { id: 'a0', prompt_id: 'p1', student_id: 's1', status: 'pending', essay_id: null, deadline: '2026-09-08T00:00:00Z', created_at: '2026-09-01T00:00:00Z' },
+  ],
   '/instructor/reviews/queue': [{ essay_id: 'e1', student_email: 'student@example.com', task_type: 'task2', review: { id: 'r1', status: 'queued' } }],
 };
 
@@ -152,6 +157,10 @@ check('drawer giữ target_band dạng số từ backend', await page.getByRole(
 await page.getByRole('button', { name: 'Đóng', exact: true }).click();
 
 await page.getByRole('button', { name: 'Giao bài', exact: true }).click();
+const matrixCard = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Ma trận nộp bài' }) });
+check('A-07: ma trận hiện lượt giao mới nhất, một cột cho mỗi đề', await matrixCard.locator('thead th').count() === 2
+  && (await matrixCard.locator('tbody td').nth(1).innerText()).trim() === 'Đã trả'
+  && await matrixCard.getByText('Trễ', { exact: true }).count() === 0);
 const assignmentForm = page.locator('form').filter({ has: page.locator('input[name="deadline"]') });
 const fillCohortGive = async (name) => {
   await assignmentForm.locator('select[name="prompt_id"]').selectOption('p1');
@@ -212,7 +221,13 @@ check('mutation lỗi không replay và không tuyên bố reload canonical gi�
   && await page.getByText(/Không thể làm mới; đang giữ snapshot trước đó/).count() === 1);
 
 await page.getByRole('button', { name: 'Giao bài' }).click();
-check('ma trận assignment render trạng thái canonical', await page.getByText('Đã trả', { exact: true }).count() === 1 && await page.getByText('Task 2 <img src=x>', { exact: true }).count() >= 1);
+// A-07: the fan-out gives above are now the newest s1 × p1 rows, so the cell
+// follows the latest give (pending, due 2026-10-27 23:00 ICT), not the delivered one.
+const newestGiveLabel = Date.now() > Date.parse('2026-10-27T23:00:00+07:00') ? 'Trễ' : 'Chưa nộp';
+check('ma trận assignment render trạng thái canonical của lượt giao mới nhất', await matrixCard.locator('thead th').count() === 2
+  && (await matrixCard.locator('tbody td').nth(1).innerText()).trim() === newestGiveLabel
+  && await matrixCard.getByText('Đã trả', { exact: true }).count() === 0
+  && await page.getByText('Task 2 <img src=x>', { exact: true }).count() >= 1, newestGiveLabel);
 await page.getByRole('button', { name: 'Chấm bài' }).click();
 check('hàng chờ chấm render đúng review canonical', await page.getByText('student@example.com', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Nhận chấm' }).count() === 1);
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
