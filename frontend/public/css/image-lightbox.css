@@ -14,6 +14,15 @@
   cursor: zoom-in;
   background: var(--av-surface-card);
 }
+/* Private chart that could not be signed (B10): visible, never a silent gap. */
+.prompt-chart-failed {
+  margin: var(--av-space-2) 0 var(--av-space-3);
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-md);
+  color: var(--av-warning);
+  font-size: var(--av-fs-sm);
+}
 .prompt-chart-img:focus-visible {
   outline: 2px solid var(--av-primary);
   outline-offset: 2px;

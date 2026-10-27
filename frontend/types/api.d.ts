@@ -4694,6 +4694,11 @@ export interface paths {
          *     when off it returns {enabled: false} + no prompts (nothing leaked pre-launch).
          *     Classification is the existing structured `task_type` (task1_academic =
          *     graph/chart, task1_general = letter, task2 = essay) — no inferred field.
+         *
+         *     Task 1 charts live in the PRIVATE `writing-images` bucket. Anonymous
+         *     callers get `has_prompt_image` with `prompt_image_url: null` (cacheable);
+         *     a signed-in active account gets short-lived signed URLs in a private,
+         *     non-cacheable response.
          */
         get: operations["get_prompt_bank_api_writing_prompt_bank_get"];
         put?: never;
@@ -21554,8 +21559,8 @@ export interface components {
         };
         /**
          * UploadImageResponse
-         * @description Response shape for `POST .../upload-image`. `url` is the public
-         *     Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
+         * @description Response shape for `POST .../upload-image`. `url` is a short-lived
+         *     signed preview URL (create/PATCH store it as its object path); `public_id`
          *     is the storage path persisted into `prompt_image_public_id`. Published
          *     objects are retained as immutable grading evidence; only unattached
          *     uploads may be discarded. `width`/`height` are null — we don't decode
@@ -30692,7 +30697,9 @@ export interface operations {
             query?: {
                 task_type?: string | null;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };

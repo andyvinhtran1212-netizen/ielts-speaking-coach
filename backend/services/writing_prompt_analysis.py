@@ -11,6 +11,7 @@ no second copy of that logic to keep in sync.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -79,8 +80,14 @@ async def analyze_prompt_image(
     """
     resolved_model = model or settings.WRITING_ANALYSIS_MODEL
 
+    # `image_url` is the stored ref; a private-bucket path is signed for this
+    # fetch only (services/writing_image_access.py).
+    from services.writing_image_access import fetchable_image_url
+    fetch_url = await asyncio.to_thread(fetchable_image_url, image_url)
+    if not fetch_url:
+        raise RuntimeError("prompt image is not fetchable (signing unavailable)")
     async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT_S) as client:
-        resp = await client.get(image_url)
+        resp = await client.get(fetch_url)
     if resp.status_code != 200 or not resp.content:
         raise RuntimeError(f"prompt image fetch failed: HTTP {resp.status_code}")
 

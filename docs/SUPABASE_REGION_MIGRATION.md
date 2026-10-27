@@ -159,7 +159,7 @@ Metadata `storage.objects` nằm trong DB, nhưng **file nhị phân** ở objec
 | `audio-responses` | **Public ✓** | ghi âm speaking (`get_public_url`) |
 | `listening-audio` | (theo project cũ) | `LISTENING_AUDIO_BUCKET` |
 | `vocab-audio` | (theo project cũ) | phát âm từ vựng |
-| `writing-images` | **Public ✓** | ảnh đề Task 1 (optional) |
+| `writing-images` | **Private** (từ B10, xem `WRITING_IMAGE_PRIVATE_BUCKET.md`) | ảnh đề Task 1 (optional) |
 | *(verify reading bucket nếu có)* | — | `routers/reading_student.py` |
 
 > Đối chiếu danh sách bucket + cột `public` + Storage **policies** ở project cũ

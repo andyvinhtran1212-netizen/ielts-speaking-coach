@@ -817,11 +817,16 @@ class GeminiWritingGrader:
                 return got
         return None
 
-    async def _fetch_image_bytes(self, url: str) -> Optional[tuple[bytes, str]]:
-        """Fetch one image URL with retry. Returns (bytes, mime) on success, or
-        None on any failure (logged) — the caller decides whether to try the
-        next candidate or fall back to text-only."""
+    async def _fetch_image_bytes(self, ref: str) -> Optional[tuple[bytes, str]]:
+        """Fetch one stored image ref with retry. Returns (bytes, mime) on
+        success, or None on any failure (logged) — the caller decides whether to
+        try the next candidate or fall back to text-only. A private-bucket ref
+        is signed for this fetch only; the signed URL is never logged."""
+        from services.writing_image_access import fetchable_image_url
         try:
+            url = await asyncio.to_thread(fetchable_image_url, ref)
+            if not url:
+                raise RuntimeError("image ref not fetchable")
             async with httpx.AsyncClient(timeout=self._IMAGE_FETCH_TIMEOUT_S) as client:
                 last: Optional[Exception] = None
                 for attempt in range(self._IMAGE_FETCH_ATTEMPTS):
@@ -839,7 +844,7 @@ class GeminiWritingGrader:
                     raise last
         except Exception as exc:
             logger.warning(
-                "[grader] Task1 image fetch failed url=%s: %s", url, exc,
+                "[grader] Task1 image fetch failed ref=%s: %s", ref, exc,
             )
         return None
 

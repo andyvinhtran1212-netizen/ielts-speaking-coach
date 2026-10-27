@@ -537,6 +537,20 @@ main { position: relative; z-index: 1; }
   font-weight: var(--av-fw-semibold);
   line-height: var(--av-lh-snug);
 }
+.wd-modal-prompt__image-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av-space-2);
+  margin-top: var(--av-space-3);
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-md);
+  color: var(--av-warning);
+  font-size: var(--av-fs-sm);
+}
+.wd-modal-prompt__image-failed.hidden { display: none; }
+
 .wd-modal-prompt__image {
   display: block;
   width: 100%;

@@ -62,6 +62,7 @@ from routers.admin import require_instructor
 from services import essay_service, instructor_workflow, student_service
 from services.access_code_gen import insert_with_unique_codes
 from services.core_attempt_outcomes import observe_writing_batch
+from services.writing_image_access import attach_signed_image_urls
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.instructor_access import (
     instructor_db,
@@ -137,7 +138,9 @@ _PROMPT_FIELDS = ("title", "task_type", "prompt_text", "difficulty", "tags")
 async def list_prompts(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("writing_prompts").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    prompts = r.data or []
+    attach_signed_image_urls(prompts)   # rows already scoped by instructor_db
+    return prompts
 
 
 @router.post("/prompts", status_code=status.HTTP_201_CREATED)
@@ -156,7 +159,9 @@ async def get_prompt(request: Request, prompt_id: UUID, authorization: str | Non
     r = instructor_db(me).table("writing_prompts").select("*").eq("id", str(prompt_id)).limit(1).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
-    return r.data[0]
+    prompt = r.data[0]
+    attach_signed_image_urls([prompt])
+    return prompt
 
 
 @router.patch("/prompts/{prompt_id}")
@@ -168,7 +173,9 @@ async def patch_prompt(request: Request, prompt_id: UUID, body: dict, authorizat
     r = instructor_db(me).table("writing_prompts").update(payload).eq("id", str(prompt_id)).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")     # 0 rows = not owned / not exist
-    return r.data[0]
+    prompt = r.data[0]
+    attach_signed_image_urls([prompt])
+    return prompt
 
 
 @router.delete("/prompts/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)

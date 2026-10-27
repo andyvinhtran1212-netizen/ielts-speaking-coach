@@ -34,6 +34,7 @@ from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, Response, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from config import settings
@@ -41,6 +42,7 @@ from database import supabase_admin
 from services.core_attempt_observation import bind_owned_attempt, observe_operation
 from routers.auth import get_supabase_user
 from services.public_cache import cacheable_json
+from services.writing_image_access import attach_signed_image_urls
 from services import activation_gate
 from services import essay_service
 from services import core_admission
@@ -237,6 +239,7 @@ _PROMPT_BANK_TASK_TYPES = {"task1_academic", "task1_general", "task2"}
 async def get_prompt_bank(
     request: Request,
     task_type: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None),
 ):
     """Public-read writing prompt library for students to browse.
 
@@ -247,6 +250,11 @@ async def get_prompt_bank(
     when off it returns {enabled: false} + no prompts (nothing leaked pre-launch).
     Classification is the existing structured `task_type` (task1_academic =
     graph/chart, task1_general = letter, task2 = essay) — no inferred field.
+
+    Task 1 charts live in the PRIVATE `writing-images` bucket. Anonymous
+    callers get `has_prompt_image` with `prompt_image_url: null` (cacheable);
+    a signed-in active account gets short-lived signed URLs in a private,
+    non-cacheable response.
     """
     if not settings.WRITING_PROMPT_BANK_ENABLED:
         return {"enabled": False, "prompts": []}
@@ -277,6 +285,7 @@ async def get_prompt_bank(
         dt = datetime.now(timezone.utc)
     last_modified = format_datetime(dt, usegmt=True)
 
+    viewer_id = await _prompt_bank_image_viewer(authorization)
     prompts = [
         {
             "id":               r["id"],
@@ -284,11 +293,36 @@ async def get_prompt_bank(
             "prompt_text":      r.get("prompt_text"),
             "task_type":        r.get("task_type"),
             "difficulty":       r.get("difficulty"),
-            "prompt_image_url": r.get("prompt_image_url"),
+            "has_prompt_image": bool(r.get("prompt_image_url")),
+            "prompt_image_url": r.get("prompt_image_url") if viewer_id else None,
         }
         for r in rows
     ]
-    return cacheable_json({"enabled": True, "prompts": prompts}, request, last_modified=last_modified)
+    if viewer_id:
+        attach_signed_image_urls(prompts)
+        return JSONResponse(
+            {"enabled": True, "prompts": prompts},
+            headers={"Cache-Control": "private, no-store", "Vary": "Authorization"},
+        )
+    response = cacheable_json({"enabled": True, "prompts": prompts}, request, last_modified=last_modified)
+    response.headers["Vary"] = "Authorization"
+    return response
+
+
+async def _prompt_bank_image_viewer(authorization: Optional[str]) -> Optional[str]:
+    """User id allowed to view prompt-bank charts, or None (browse anonymously).
+
+    The bank itself stays public, so a missing/invalid token or an inactive
+    account degrades to the anonymous view instead of failing the list.
+    """
+    if not isinstance(authorization, str) or not authorization:
+        return None
+    try:
+        user = await get_supabase_user(authorization)
+        user_id = str(user.get("id") or "")
+        return user_id if user_id and activation_gate.account_is_active(user_id) else None
+    except HTTPException:
+        return None
 
 
 @router.get("/my-essays")
@@ -485,6 +519,7 @@ async def get_my_essay(
                 essay_id, e,
             )
 
+    attach_signed_image_urls([essay])   # ownership checked by the SELECT above
     return {
         "essay":           essay,
         "feedback":        feedback,
@@ -1326,6 +1361,7 @@ async def list_my_assignments(
             "draft_word_count":  (d or {}).get("word_count", 0),
             "draft_updated_at":  (d or {}).get("updated_at"),
         })
+    attach_signed_image_urls([a.get("writing_prompts") for a in annotated])
 
     return {
         "student": _dashboard_student(student),
@@ -1358,10 +1394,12 @@ async def get_my_assignment(
         )
         d = None
 
+    timer = _compute_timer_state(assignment)
+    attach_signed_image_urls([assignment.get("writing_prompts")])
     return {
         "assignment": assignment,
         "draft":      (d.data[0] if (d and d.data) else None),
-        "timer":      _compute_timer_state(assignment),
+        "timer":      timer,
     }
 
 
