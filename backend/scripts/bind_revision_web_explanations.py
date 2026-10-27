@@ -257,8 +257,12 @@ def build_plan(
             # One mcq_multi exercise is graded as an any-order letter set.
             expected = sorted(_expected_letters([revision_keys.get(n) or {} for n in group]))
             kind = "group"
-            if len(group) != len(letters) or expected != letters or overridden:
-                reasons.append(f"Q{q:02d}: nhóm chọn nhiều {list(group)} chấm {expected}, lời giải ghi {letters}")
+            # Every documented form must be one of the group's letters: the grader
+            # credits nothing else (FR-003 applies to groups too).
+            stray = sorted(documented - set(letters))
+            if len(group) != len(letters) or expected != letters or overridden or stray:
+                reasons.append(f"Q{q:02d}: nhóm chọn nhiều {list(group)} chấm {expected}, lời giải ghi {letters}"
+                               + (f" và chấp nhận thêm {stray}" if stray else ""))
                 continue
         else:
             rev_raw = [v for v in [key.get("answer"), *_flat(key.get("alternatives") or [])] if v not in (None, "")]

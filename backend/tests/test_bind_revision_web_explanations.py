@@ -589,3 +589,10 @@ def test_override_wider_than_the_revision_is_a_recorded_grading_change_even_with
     row = plan["rows"][2]["payload"]
     assert row["item"]["answer"]["accepted_forms"] == ["3.30", "3:30"]
     assert row["audit"]["revision_answer_sync"]["grading_change"] is True
+
+
+def test_choose_two_group_refuses_a_documented_letter_the_grader_rejects():
+    # Codex on #1745: canonical D/E but accepted D/E/F; the grader never credits F.
+    inputs = _group_inputs(("D", "E"), ["D", "E"])
+    inputs["source_objects"][20]["payload"]["item"]["answer"]["accepted_forms"] = ["D", "E", "F"]
+    assert "Q21: nhóm chọn nhiều [21, 22]" in _refusal(inputs) and "chấp nhận thêm ['f']" in _refusal(inputs)
