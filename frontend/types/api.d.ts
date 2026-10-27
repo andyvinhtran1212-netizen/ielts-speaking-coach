@@ -16036,7 +16036,11 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
-        /** ErrorReportRequest */
+        /**
+         * ErrorReportRequest
+         * @description Anonymous ingress (F10): reject unknown top-level fields and keep every
+         *     value bounded, the same envelope discipline as /api/analytics/events.
+         */
         ErrorReportRequest: {
             /**
              * Level
