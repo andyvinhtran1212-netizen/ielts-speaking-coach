@@ -8,8 +8,9 @@ Mirrors the test pattern from test_admin_writing_prompts.py:
     with a MagicMock chain so we don't touch the real DB.
   • Status auto-stamp: PATCH status='submitted' must include
     submitted_at in the update payload.
-  • Hard-delete guard: only `pending` rows can be deleted; anything
-    past that → 409.
+  • Hard-delete guard: only unstarted `pending` rows can be deleted;
+    anything past that → 409 (A-08 draft/essay cases live in
+    test_writing_assignment_delete_guard.py).
 """
 
 from __future__ import annotations
@@ -632,13 +633,23 @@ def test_patch_404_when_assignment_missing_for_status_change():
 
 
 def test_delete_pending_assignment_succeeds():
-    """status='pending' is the only state where hard delete is allowed."""
-    mock_db = MagicMock()
-    select_chain = (mock_db.table.return_value
-                    .select.return_value.eq.return_value.limit.return_value)
+    """An unstarted pending row (no draft, no essay) is the only state
+    where hard delete is allowed.  Per-table mocks: the A-08 guard also
+    reads writing_drafts, which a single shared chain would answer with
+    the assignment row (see test_writing_assignment_delete_guard.py)."""
+    assignments = MagicMock()
+    select_chain = assignments.select.return_value.eq.return_value.limit.return_value
     select_chain.execute.return_value = MagicMock(data=[{"status": "pending"}])
-    delete_chain = mock_db.table.return_value.delete.return_value.eq.return_value
-    delete_chain.execute.return_value = MagicMock(data=[])
+    delete_chain = (assignments.delete.return_value.eq.return_value.eq.return_value
+                    .is_.return_value.is_.return_value)
+    delete_chain.execute.return_value = MagicMock(data=[{"id": _ASSIGN_ID}])
+    drafts = MagicMock()
+    drafts_chain = drafts.select.return_value.eq.return_value.limit.return_value
+    drafts_chain.execute.return_value = MagicMock(data=[])
+    mock_db = MagicMock()
+    mock_db.table.side_effect = lambda name: {
+        "writing_assignments": assignments, "writing_drafts": drafts,
+    }[name]
 
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
@@ -649,7 +660,7 @@ def test_delete_pending_assignment_succeeds():
         )
 
     assert r.status_code == 200
-    mock_db.table.return_value.delete.assert_called()
+    assignments.delete.assert_called()
 
 
 def test_delete_non_pending_assignment_blocked():

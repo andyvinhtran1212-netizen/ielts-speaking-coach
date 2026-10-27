@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
+import { useAuth } from '@/lib/auth/auth-provider';
 import {
   buildSpeakingLadders,
   preserveControlledRewriteResult,
@@ -381,6 +382,13 @@ export function AdvancedVocabularyLesson() {
   const [error, setError] = useState('');
   const errorHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const inlineErrorRef = useRef<HTMLDivElement | null>(null);
+  const { status } = useAuth();
+
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
@@ -399,7 +407,14 @@ export function AdvancedVocabularyLesson() {
       setPhase('ready');
     } catch (cause) { setError(errorText(cause)); setPhase('error'); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  // Load once, and only once signed in, so a signed-out visitor never sees
+  // a request error or a lesson before the /login redirect (U-03 / G-01).
+  const loadedOnce = useRef(false);
+  useEffect(() => {
+    if (status !== 'signed-in' || loadedOnce.current) return;
+    loadedOnce.current = true;
+    void load();
+  }, [load, status]);
   useEffect(() => {
     if (phase === 'error') errorHeadingRef.current?.focus();
     else if (error) inlineErrorRef.current?.focus();
@@ -444,7 +459,7 @@ export function AdvancedVocabularyLesson() {
     }) : current);
   };
 
-  if (phase === 'loading') return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state is-loading" role="status" aria-live="polite"><span aria-hidden="true" /> <p>Đang mở bài học…</p></div></main>;
+  if (status !== 'signed-in' || phase === 'loading') return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state is-loading" role="status" aria-live="polite"><span aria-hidden="true" /> <p>Đang mở bài học…</p></div></main>;
   if (phase === 'error' || !data) return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state"><h1 ref={errorHeadingRef} tabIndex={-1}>Chưa mở được bài học</h1><p>{error}</p><div className="avx-state-actions"><button className="av-button av-button-primary" type="button" onClick={() => void load()}>Thử lại</button><a className="av-button av-button-secondary" href="/my-class">Quay lại lớp học</a></div></div></main>;
 
   const base = { bank_id: data.bank.id, item_id: data.assignment.item_id };
