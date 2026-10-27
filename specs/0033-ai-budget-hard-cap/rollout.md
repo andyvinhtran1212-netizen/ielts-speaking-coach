@@ -1,0 +1,139 @@
+# Rollout and rollback
+
+Phases follow `docs/STAGING_FIRST_RELEASE_FLOW.md`. Nothing in this file is
+authorised by the spec PR itself. Production steps need Vinh's explicit
+authorisation at the `staging` → `main` promotion. Commands never print a
+key, token or `.env` value. Evidence records variable **names** and
+"set/unset", never values.
+
+## Preconditions
+
+- AIBUDGET-0033 is approved on `staging`, with Q1–Q9 (`spec.md`) recorded in
+  `approval-decision.md`.
+- The Leader has confirmed migration number 333 (provisional; 327–330 are
+  reserved, 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032). If the number
+  changes, rename the file and every reference in one commit before T002.
+- Every provider/model that can be reserved has a price row in
+  `backend/services/ai_pricing.py`. Azure pronunciation has no row today.
+  Without one, Azure calls are refused once enforcement starts (FR-004).
+  T001 adds the Azure row from the tier Vinh confirms under Q1.
+- Railway variables are set on the target environment **before** the
+  enforcing backend deploys, because a missing or invalid total cap refuses
+  all paid AI (FR-003):
+  `AI_BUDGET_MONTHLY_USD_TOTAL`, `AI_BUDGET_MONTHLY_USD_ANTHROPIC`, the
+  optional per-provider caps from Q1, `AI_KILL_SWITCH=off`, `AI_BUDGET_MODE`,
+  `OWNER_ALERT_EMAILS` and the email-provider key (shared with 0032 when it
+  has landed).
+- The Anthropic Console monthly spend limit is confirmed at $200 for the
+  production workspace by Vinh, with a screenshot naming the workspace and
+  no key. The app cap does not replace the provider cap; both are needed.
+- Hard caps or alerts at the other providers (Google AI Studio/Cloud billing
+  budget, OpenAI project limit, ElevenLabs plan, Azure budget) are recorded
+  as set or explicitly waived by Vinh. This is out-of-app work (FR-019).
+- The Speaking and Writing deferred paths are dark-launched behind
+  `AI_BUDGET_MODE`. `shadow` reserves and logs `would_refuse` but never
+  refuses. `enforce` refuses. Any other value, or no value, means `enforce`.
+
+## Staging
+
+1. **S1. Migration.** Apply `333_ai_budget_hard_cap.sql` with the
+   advisory-locked runner. Run the read-only postcondition queries in
+   `plan.md` §Data (catalog, grants, RLS, the function signatures). The
+   currently deployed backend does not read the new objects, so the
+   migration alone changes nothing (N-1 safe).
+2. **S2. Shadow.** Deploy the merged SHA with `AI_BUDGET_MODE=shadow` and
+   staging caps that match production. Run the E2E Speaking, Writing,
+   Listening gist and TTS journeys. For each feature, compare the reservation
+   estimate with the settled actual cost (`plan.md` V3). Record the
+   estimate/actual ratio for each feature. It must be at least 1.0 at p95 (no
+   under-estimate) and at most 3.0 at median, so the cap is not reached
+   early. Otherwise, tune the estimator before S3.
+3. **S3. Enforce with a low cap.** Set `AI_BUDGET_MODE=enforce` and
+   `AI_BUDGET_MONTHLY_USD_TOTAL` to a test value just above the period's
+   committed spend. Then run AC1–AC9 (`spec.md`) with E2E accounts.
+   - Submit Speaking and Writing work after the cap is reached. Check the
+     "Đang chờ chấm" state, no provider call and no learner quota use.
+   - Raise the cap and restart. Check that the queue drains in order and
+     each item is graded exactly once (queue and ledger queries, `plan.md`
+     V5).
+   - Set `AI_KILL_SWITCH=on`. Within one request after the new deployment
+     serves traffic, no provider call is made (V6).
+   - Stop the budget RPC path by revoking EXECUTE in a staging-only
+     rehearsal, then restore the grant. Paid AI is refused and non-AI pages
+     still load (AC2).
+   - Check that the 50/80/100% and daily alerts reach the staging recipient
+     once each (V7).
+4. **S4. Restore.** Set staging caps back to the production values. Keep
+   `enforce`. Record the SHA, variable names (set/unset), outputs and
+   timings in `verification.md`.
+
+## Production
+
+With Vinh's explicit authorisation at promotion:
+
+1. **P1.** Set the production variables listed under Preconditions with
+   `AI_BUDGET_MODE=enforce` (Q6 default: no production shadow window).
+   Keep `AI_KILL_SWITCH=off`.
+2. **P2.** Apply 333 under the advisory lock before the dependent backend
+   is promoted. Run the read-only postconditions.
+3. **P3.** Promote the staging SHA. Health checks:
+   - `GET /admin/ai/budget` shows `state=open`, the expected caps and
+     period, and `lookup_failed=false`.
+   - One real E2E-account Speaking grading settles a reservation.
+   - The reservation's `actual_usd` matches the ledger row for the same
+     `usage_event_id`.
+4. **P4.** Observe for 7 days.
+   - Each day, compare app-committed spend to the provider consoles.
+   - A gap above 10% for any provider blocks closing the spec and triggers
+     estimator tuning.
+   - Record the comparison in `verification.md`. No synthetic traffic
+     beyond the single P3 check is sent to production.
+
+## Rollback and repair
+
+- **Fast stop (no DB):** set `AI_KILL_SWITCH=on` on Railway. Every provider
+  call is refused once the new deployment serves. Learner work is still
+  saved and queued (FR-010/FR-011).
+- **Code rollback:** reverting the backend restores today's behaviour,
+  including today's fail-open paths. The 333 tables stay and are ignored.
+  Before reverting, export the queued rows. Queued Speaking and Writing items
+  remain saved but are not graded by the old backend. Re-deploy forward to
+  drain them, or re-grade through the existing admin regrade route per item.
+- **Mode rollback:** `AI_BUDGET_MODE=shadow` keeps reservations and alerts
+  but stops refusals. Use it only on Vinh's instruction, because it reopens
+  the cost exposure.
+- **Schema rollback:** the 333 header carries a guarded down script. It
+  aborts unless `ai_deferred_grading_jobs` has no `queued` or `running` rows,
+  so no saved work loses its path to grading. Counters and reservations are
+  operational history. Dropping them loses budget history but no learner
+  data.
+- **Repair: stuck reservations.** The sweeper settles a `reserved` row past
+  `expires_at` at its estimate (conservative). The repair query in `plan.md`
+  V4 lists rows older than 1 hour that are still `reserved`. Any such row
+  means the sweeper is down.
+- **Repair: double grading.** `plan.md` V5 lists any resource with more than
+  one successful grading attempt from deferred jobs. The expected result is
+  zero rows. Investigate any row before the spec is closed.
+- **Repair: counter drift.** `plan.md` V3 recomputes each counter from its
+  reservations. A mismatch is corrected only by the guarded
+  `fn_ai_budget_recompute(period)` run by an operator. It never lowers
+  `spent_usd` below the settled total.
+
+## Observability
+
+- Structured logs, without prompt or learner content:
+  - `[ai_budget] decision=allow|refuse|would_refuse reason=…
+    scope=… feature=… reservation=…`
+  - `[ai_budget] settle reservation=… estimate=… actual=…`
+  - `[ai_budget] sweeper expired=… alerts_sent=… jobs_drained=…`
+- Correlation: the reservation id is the ledger `usage_event_id` prefix,
+  plus the existing `X-Request-ID`.
+- Metrics, read from tables by `GET /admin/ai/budget`: committed vs cap for
+  each scope and period, queue depth and oldest queued age, open
+  reservations, the last alert for each threshold, and the sweeper
+  heartbeat.
+- Alerts go to `OWNER_ALERT_EMAILS` (Q2) at 50/80/100% of each monthly cap
+  and when a daily cap is reached. A sweeper heartbeat older than 15 minutes
+  is shown on the admin panel. Emailing about it is Q4.
+- Owner: Vinh (product, budget). The implementing agent records T010/T011
+  evidence on the PR.

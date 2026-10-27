@@ -1,0 +1,27 @@
+# Tasks
+
+Tasks are listed in dependency order. `[P]` marks work that can run in
+parallel with non-overlapping file ownership (`plan.md` §Work
+decomposition). The implementation PRs use change class `high-risk` (risk
+`critical`).
+
+- [ ] T000 Approve AIBUDGET-0033 with decisions Q1–Q9 recorded in `approval-decision.md` (status → `approved`). Get the Leader's reservation of migration 333 (Q5). Add a cross-reference note to AI-0004 FR-005 saying that budget refusals and provider spend-limit errors do not fall back (FR-008/FR-009). `owns: specs/0033-ai-budget-hard-cap/*, specs/README.md, specs/0004-ai-model-usage-observability/spec.md`
+- [ ] T001 Budget configuration and pricing: parse `AI_BUDGET_*` and `AI_KILL_SWITCH`; validate the existing per-user caps as `config_invalid`; add the Azure Speech price row for the tier confirmed under Q1. `owns: backend/config.py, backend/services/ai_budget_config.py, backend/services/ai_pricing.py` `depends: T000`
+- [ ] T002 Write migration 333: tables, functions, grants, postconditions, the guarded down script, and the README/forward-policy entries. `owns: backend/migrations/333_ai_budget_hard_cap.sql, backend/migrations/README.md, backend/migrations/forward-policy.tsv` `depends: T000`
+- [ ] T003 Budget core: `services/ai_budget.py` (reserve/settle/release, `guard`, the kill switch, the estimator, fail-closed RPC handling, shadow/enforce) and the provider spend-limit classifier, with fixtures for Anthropic 402 `billing_error`, OpenAI `insufficient_quota`, and the Gemini and ElevenLabs equivalents. `owns: backend/services/ai_budget.py, backend/tests/fixtures/provider_spend_limit/*` `depends: T001, T002`
+- [ ] T004 [P] Guard every call site in `research.md` §1 and set SDK `max_retries=0`. Re-raise budget refusals in `ai_router.with_fallback`, the orchestrator, the `claude_grader` JSON-repair rerun and every custom chain. Add the CI inventory gate. `owns: router and provider files in plan.md, backend/tests/test_ai_budget_gate.py, backend/tests/test_ai_budget_fallback.py` `depends: T003`
+- [ ] T005 [P] Make the paid-AI quotas and flags fail closed: grading, TTS and gist counters; caps of zero or less as `config_invalid`; `runtime_flags.is_enabled(on_error=…)`. `owns: backend/services/rate_limit.py, backend/routers/tts.py, backend/routers/listening.py (gist limiter only), backend/services/runtime_flags.py, backend/tests/test_ai_budget_quotas.py` `depends: T003`
+- [ ] T006 Speaking deferred path: bundle reservation before Whisper, save-first on refusal, `awaiting_budget` rows, the job enqueue, the quota move, the regrade pipeline extracted into a shared service, the drain, and the session aggregate recompute. Also the Full Test pending semantics. `owns: backend/routers/grading.py, backend/routers/admin.py (regrade extraction), backend/routers/sessions.py, backend/services/deferred_grading.py, backend/tests/test_ai_budget_speaking_deferred.py` `depends: T002, T003`
+- [ ] T007 Writing deferred path: `budget_deferred_at` on refusal for every trigger; no attempt is used; the reaper skips deferred rows; the drain; read models report `grading_status`. `owns: backend/services/essay_service.py, backend/services/gemini_writing_grader.py, backend/routers/writing_student.py (read model only), backend/tests/test_ai_budget_writing_deferred.py` `depends: T002, T003`
+- [ ] T008 Sweeper and alerts: `scripts/ai_budget_sweep.py` (expire, dispatch, drain, heartbeat), the email transport shared with ADMINAAL2-0032 or an equivalent, and the Railway cron definition (Q8). `owns: backend/scripts/ai_budget_sweep.py, backend/services/owner_alerts.py (shared; sequence with 0032), backend/tests/test_ai_budget_alerts_sweeper.py` `depends: T002, T003, T006, T007`
+- [ ] T009 Status APIs and frontend: `GET /ai/status` and `GET /admin/ai/budget` with OpenAPI schemas and regenerated types; the learner, instructor and admin surfaces in `ui-states.md`; the refuse-before-accept routes (FR-020); vitest and Next-native verifiers. `owns: backend/routers/ai_budget.py, backend/main.py, backend/tests/test_ai_budget_status_api.py, frontend/types/api.d.ts, frontend/lib/ai-status.ts, frontend/lib/browser-api.ts, the frontend files listed in ui-states.md, frontend/tooling/verify-ai-budget-*.mjs` `depends: T003, T006, T007`
+- [ ] T010 Staging (`rollout.md` S1–S4): apply 333, shadow calibration, then enforce with a low cap through AC1–AC9 with E2E accounts. Record the SHA, variable names (set/unset), V2–V7 outputs and the estimate/actual ratios in `verification.md`. `depends: T004, T005, T006, T007, T008, T009`
+- [ ] T011 Production, with Vinh's explicit authorisation at promotion (`rollout.md` P1–P4): set the variables, apply 333 under the advisory lock, promote, run the health checks, and complete the 7-day reconciliation. Vinh records FR-019 provider-side caps or waivers. `depends: T010`
+- [ ] T012 Independent review and convergence audit of the implementation against this spec, not only the diff. `depends: T010`
+
+Follow-ups outside this spec, each a separate change:
+
+- Delete the dead provider code listed in `research.md` §1.
+- Map `recording_storage_unavailable` to `error_code` on the live
+  (non-deferred) path as well.
+- Origin protection and X-Forwarded-For trust (job `q/cx-16-f10-xff-check`).

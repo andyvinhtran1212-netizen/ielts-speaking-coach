@@ -1,0 +1,60 @@
+# Verification
+
+All rows are PENDING. This is a draft spec and nothing has been
+implemented. The tests named below are defined in `plan.md` §Verification
+strategy. V-queries are read-only.
+
+## Requirement coverage
+
+| Requirement | Evidence | Result |
+| --- | --- | --- |
+| FR-001 | kind=test; ref=backend/tests/test_ai_budget_gate.py (every provider SDK call or endpoint in backend/ is inside a guarded wrapper; every SDK client sets max_retries=0; allow-list seeded from research.md §1) | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_migration_333_ai_budget.py (4N racing reservations from two connections grant exactly N; month and day, total and provider scopes; all-or-nothing bundle; PostgreSQL 16 and 17) | PENDING |
+| FR-003 | kind=test; ref=backend/tests/test_ai_budget_service.py (cap parsing, daily = monthly ÷ 30 × 2, unset/0/negative/unparseable → config_invalid refuses; provider without its own cap bounded by total) | PENDING |
+| FR-004 | kind=test; ref=backend/tests/test_ai_budget_service.py (estimate ≥ actual for each catalog model at max_tokens; an unpriced model is refused; release only when not sent; settle at estimate on timeout and cancel) plus kind=query; ref=plan.md V3 ratio on staging | PENDING |
+| FR-005 | kind=test; ref=backend/tests/test_ai_budget_service.py (RPC raise, timeout, bad shape, missing function → refuse with zero stub calls; settle failure leaves the reservation open; ledger outage does not affect decisions) | PENDING |
+| FR-006 | kind=test; ref=backend/tests/test_ai_budget_quotas.py (grading, TTS and gist count errors refuse; caps ≤ 0 → config_invalid; runtime_flags on_error=False for paid-AI gates; non-AI flags unchanged) | PENDING |
+| FR-007 | kind=test; ref=backend/tests/test_ai_budget_service.py (on/true/1/garbage refuse, off/false/0/empty allow, no DB call when on) plus kind=journey; ref=rollout.md S3 kill switch on staging (V6) | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_ai_budget_fallback.py (each refusal reason stops with_fallback, the orchestrator, the JSON-repair rerun and each custom chain with zero further stub calls) | PENDING |
+| FR-009 | kind=test; ref=backend/tests/test_ai_budget_fallback.py (402 billing_error and insufficient_quota fixtures close the scope for the day with no fallback; 429, 529, 5xx and timeout still fall back with their own reservations) | PENDING |
+| FR-010 | kind=test; ref=backend/tests/test_ai_budget_status_api.py (503 detail shape on each synchronous AI route passes safe_detail; reason redacted for non-admins; distinct from 429 rate_limit_exceeded) | PENDING |
+| FR-011 | kind=test; ref=backend/tests/test_ai_budget_speaking_deferred.py and backend/tests/test_ai_budget_writing_deferred.py (recording stored and row awaiting_budget before any provider call; Writing job deferred without using an attempt; reaper skips it; storage failure → recording_storage_unavailable with work_saved false) | PENDING |
+| FR-012 | kind=test; ref=backend/tests/test_ai_budget_speaking_deferred.py (no grading_attempts row for a deferred submission or its drain; same submission_id replay creates no second job, reservation or quota row) | PENDING |
+| FR-013 | kind=test; ref=backend/tests/test_ai_budget_speaking_deferred.py (drain in enqueue order, SKIP LOCKED lease, max 2 concurrent, stops at the first refusal, superseded revision not graded, aggregate recomputed, crash window retried once) plus kind=query; ref=plan.md V5 on staging | PENDING |
+| FR-014 | kind=test; ref=backend/tests/test_ai_budget_alerts_sweeper.py (expiry settles at estimate, dispatch backoff, heartbeat, non-zero exit when the DB is down) plus kind=query; ref=plan.md V4 on staging | PENDING |
+| FR-015 | kind=test; ref=backend/tests/test_migration_333_ai_budget.py and backend/tests/test_ai_budget_alerts_sweeper.py (exactly one alert per scope, period and threshold under concurrent crossing; new period re-arms; email has no learner data) plus kind=query; ref=plan.md V7 on staging | PENDING |
+| FR-016 | kind=test; ref=backend/tests/test_ai_budget_status_api.py (/ai/status false on lookup failure; admin shape including lookup_failed, queue, sweeper; admin refused paid AI; non-AI admin routes unaffected) | PENDING |
+| FR-017 | kind=journey; ref=frontend/tooling/verify-ai-budget-*.mjs (Speaking, results, Writing, AI helpers, instructor banner and admin panel: paused, reload and error states; keyboard, mobile and desktop, light and dark) plus vitest for the Speaking classifier branch | PENDING |
+| FR-018 | kind=test; ref=backend/tests/test_migration_333_ai_budget.py (catalog, RLS, no anon/authenticated privileges, SECURITY DEFINER search_path, idempotent re-apply, N-1 backend unaffected, guarded down script) plus kind=query; ref=plan.md V2 on staging and production | PENDING |
+| FR-019 | kind=check; ref=rollout.md Preconditions (Anthropic Console $200 workspace limit and other provider caps or waivers recorded by Vinh, no key shown) | PENDING |
+| FR-020 | kind=test; ref=backend/tests/test_ai_budget_status_api.py (question generation, course Writing, course pronunciation, Advanced Vocabulary rewrite, gist and TTS refused with no attempt, quota row or session slot used; D1 background generation skipped and logged) | PENDING |
+
+## Contract evidence
+
+- OpenAPI/type drift: new `GET /ai/status` and `GET /admin/ai/budget`
+  schemas, the 503 detail model, and additive `grading_status` and
+  `grading_pending` fields. `frontend/types/api.d.ts` must be regenerated
+  in T009.
+- Backward compatibility: an old frontend treats the new 503 as
+  `ambiguous_commit` and reads back the saved row. Writing submit is
+  unchanged. The 333 objects are unused by the N-1 backend.
+
+## Data evidence
+
+- Migration/schema query: V2 after S1 (staging) and P2 (production).
+  V3/V4 during S2–S4 and P4.
+- Immediate state versus full reload: AC6. A pending item shows
+  "Đang chờ chấm" immediately and after a reload, then the grade after the
+  drain.
+
+## UI evidence
+
+- Viewports/themes/input methods: each `ui-states.md` row at desktop and
+  mobile widths, light and dark, keyboard only (T009 verifiers, S3 manual
+  check).
+
+## Release evidence
+
+- Staging SHA and checks: pending T010.
+- Production verification: pending T011, including the 7-day
+  reconciliation.
