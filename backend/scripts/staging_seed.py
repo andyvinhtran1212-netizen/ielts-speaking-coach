@@ -11,7 +11,8 @@ Identities (password = the REQUIRED env var E2E_PASSWORD; reseeding an
 existing namespace ROTATES every identity's password to the current value):
   * student-activated   — role=user, used access code + ACTIVE assignment
   * user-unactivated    — role=user, no code assignment
-  * instructor          — role=user (promote via grants_role code in E2E)
+  * instructor          — role=user (E2E promotes it via a grants_role code
+                          or the admin role change; see migration 323)
   * admin               — role=admin
 Access codes: E2E-<NS>-UNUSED (active, unused), E2E-<NS>-USED (consumed by
 the student, canonical assignment row), E2E-<NS>-REVOKED (is_active=false).
@@ -106,10 +107,10 @@ def _ensure_user(sb, role: str, ns: str, password: str) -> str:
                     break
             page += 1
         print(f"  ~ {email} (recovered orphan auth user)")
-    # users_role_check only allows 'user' | 'admin' (production truth).
-    # Instructor is granted at runtime via a grants_role='instructor' access
-    # code (routers/auth.py W-2) — the e2e-instructor identity starts as
-    # 'user' and E2E promotes it through that flow when needed.
+    # Migration 323 leaves chk_users_role (user|student|instructor|admin) as
+    # the only role CHECK. The e2e-instructor identity still starts as 'user'
+    # so E2E exercises the real promotion paths: a grants_role='instructor'
+    # access code (routers/auth.py W-2) or PATCH /admin/users/{id}/role.
     sb.table("users").upsert({
         "id": uid, "email": email, "role": db_role, "is_active": is_active,
         "display_name": display_name,
