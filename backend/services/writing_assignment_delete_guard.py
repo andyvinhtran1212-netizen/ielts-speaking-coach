@@ -14,8 +14,10 @@ NULL, essay_id IS NULL and no writing_drafts row exists. The DELETE
 itself repeats the row-level conditions so a concurrent start/submit
 between the read and the delete makes the delete match nothing (→ 409)
 instead of cascading. A draft inserted between the draft check and the
-delete can still be lost; closing that fully needs a schema change
-(FK RESTRICT / soft-delete / locked RPC) — out of scope here.
+delete is protected by migration 324 (A-08B, ASSIGNDRAFT-0027): the FK is
+ON DELETE NO ACTION, so Postgres refuses the DELETE with 23503 and this
+helper maps that to the same 409. Before 324 is applied the 23503 branch
+never fires.
 
 Callers pass builder factories so each router keeps its own access path
 (the instructor router MUST go through the owner-scoped accessor) and
@@ -24,11 +26,21 @@ its own patchable `supabase_admin`.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 from fastapi import HTTPException
 
 ASSIGNMENT_STARTED_DETAIL = "Học viên đã bắt đầu — không xoá được"
+
+
+def _is_foreign_key_violation(exc: Exception) -> bool:
+    """Recognize a Postgres 23503 across PostgREST client exception shapes
+    by SQLSTATE, not prose."""
+    code = getattr(exc, "code", None)
+    if code is None and exc.args and isinstance(exc.args[0], dict):
+        code = exc.args[0].get("code")
+    return str(code or "") == "23503" or bool(re.search(r"\b23503\b", str(exc)))
 
 
 def delete_unstarted_assignment(
@@ -70,15 +82,22 @@ def delete_unstarted_assignment(
     if has_draft.data:
         raise HTTPException(409, ASSIGNMENT_STARTED_DETAIL)
 
-    deleted = (
-        assignments()
-        .delete()
-        .eq("id", assignment_id)
-        .eq("status", "pending")
-        .is_("started_at", "null")
-        .is_("essay_id", "null")
-        .execute()
-    )
+    try:
+        deleted = (
+            assignments()
+            .delete()
+            .eq("id", assignment_id)
+            .eq("status", "pending")
+            .is_("started_at", "null")
+            .is_("essay_id", "null")
+            .execute()
+        )
+    except Exception as exc:
+        # A draft committed after the draft check: the NO ACTION FK (mig 324)
+        # refused the delete and the draft survives.
+        if _is_foreign_key_violation(exc):
+            raise HTTPException(409, ASSIGNMENT_STARTED_DETAIL) from exc
+        raise
     if deleted.data:
         return
 

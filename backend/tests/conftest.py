@@ -18,6 +18,10 @@ import pytest
 os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
 os.environ.setdefault("SUPABASE_ANON_KEY", "test-anon-key")
 os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-service-key")
+# Tests import `main.app` with the staging/production default: docs and the HTTP
+# schema closed. Forced (not setdefault) so a developer's ENABLE_API_DOCS=1 in
+# backend/.env cannot change what tests/test_api_docs_closed.py asserts.
+os.environ["ENABLE_API_DOCS"] = "0"
 
 
 # Sprint 5.2 — Writing permission gate is checked on every Writing

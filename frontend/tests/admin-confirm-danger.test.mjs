@@ -82,7 +82,8 @@ describe('migration — out-of-scope confirms stay NATIVE (no over-reach)', () =
   test('DELETE-frozen confirm (delete student) stays native', () => {
     const STU = read('pages', 'admin', 'classes', 'index.html')
   + read('js', 'admin-students-panel.js');
-    assert.match(STU, /if \(!confirm\('Xóa học viên "/);
+    // STUDENTARCHIVE-0029: the confirm now archives (work kept), still native.
+    assert.match(STU, /if \(!confirm\('Lưu trữ học viên "/);
     assert.doesNotMatch(STU, /confirmDanger/);
   });
 });

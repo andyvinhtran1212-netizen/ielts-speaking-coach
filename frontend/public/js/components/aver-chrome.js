@@ -318,6 +318,10 @@ const STYLE = /* css */ `
 .user-menu-item--danger:focus-visible {
   background: var(--av-error-soft);
 }
+/* U-12: author "display: flex" above beats the UA [hidden] rule, so a
+   role-gated item (#instructor-link) needs this at every width — it used to
+   live only in the <=1024.98px block, leaking the link to students at 1280px. */
+.user-menu-item[hidden] { display: none; }
 
 .mobile-nav-toggle { display: none; }
 
@@ -367,7 +371,6 @@ const STYLE = /* css */ `
   .user-pill { padding: var(--av-space-1); }
   #user-pill-name { display: none; }
   .user-menu-item { box-sizing: border-box; min-height: 44px; }
-  .user-menu-item[hidden] { display: none; }
 }
 
 @media (max-width: 720px) {

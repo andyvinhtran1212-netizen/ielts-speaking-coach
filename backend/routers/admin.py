@@ -39,6 +39,7 @@ from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard, ai_usage_logger
+from services.student_service import student_archived_error
 from services.access_code_gen import (
     generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
 )
@@ -169,7 +170,7 @@ def _audit_entitlement(
 
 def _gen_code() -> str:
     """Generate a CSPRNG access code in the format XXXX-XXXX-XXXX (F07).
-    Kept as a shim: routers/instructor.py imports it."""
+    Kept as a shim for existing importers; inserts go through access_code_gen."""
     return generate_access_code()
 
 
@@ -2657,6 +2658,20 @@ async def generate_and_assign_code(
     if not target:
         raise HTTPException(404, "Không tìm thấy người dùng")
 
+    # STUDENTARCHIVE-0029: resolve the class bridge's roster row BEFORE minting.
+    # An archived profile cannot rejoin a class (migration 326 guard), so refuse
+    # with 409 and mint no code instead of issuing it and logging a warning.
+    bridge_student_id: str | None = None
+    if body.cohort_id:
+        linked = (
+            supabase_admin.table("students").select("id, archived_at")
+            .eq("user_id", body.user_id).limit(20).execute().data
+        ) or []
+        active = [row for row in linked if not row.get("archived_at")]
+        if linked and not active:
+            raise student_archived_error([row["id"] for row in linked if row.get("id")])
+        bridge_student_id = active[0]["id"] if active else None
+
     new_code = _issue_code_and_assign(
         user_id=body.user_id, admin_id=actor, reason="admin tạo + gán trực tiếp",
         code_type=body.code_type, cohort_id=body.cohort_id,
@@ -2668,17 +2683,12 @@ async def generate_and_assign_code(
 
     # A direct cohort-linked code adds that class membership without revoking
     # any class the learner already attends. Entitlement remains independent.
-    if body.cohort_id:
+    if body.cohort_id and bridge_student_id:
         try:
-            srow = (
-                supabase_admin.table("students").select("id")
-                .eq("user_id", body.user_id).limit(1).execute().data
-            ) or []
-            if srow:
-                add_student(
-                    supabase_admin, student_id=srow[0]["id"],
-                    cohort_id=body.cohort_id, added_by=actor,
-                )
+            add_student(
+                supabase_admin, student_id=bridge_student_id,
+                cohort_id=body.cohort_id, added_by=actor,
+            )
         except Exception as e:
             logger.warning(
                 "[admin] cohort bridge failed for user=%s code=%s: %s",

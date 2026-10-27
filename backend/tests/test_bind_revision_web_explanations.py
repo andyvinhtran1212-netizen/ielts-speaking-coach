@@ -4,8 +4,10 @@ import copy
 import pytest
 
 from scripts.bind_revision_web_explanations import (
-    BindingRefused, _paper_questions, build_plan, source_test_id_for,
+    BindingRefused, _mcq_multi_groups, _paper_questions, build_plan, marker_forms, source_test_id_for,
 )
+from services.listening_test_grader import answer_matches, collect_answer_key, grade_attempt
+from services.mock_correction_service import apply_scoring_overrides
 
 VERSION = "cambridge-web-explanations/2026-09-10-v1"
 
@@ -178,10 +180,14 @@ def test_revision_that_would_reject_a_documented_answer_is_refused():
     assert "Q11" in _refusal(inputs)
 
 
-def test_revision_accepting_an_undocumented_answer_is_refused():
+def test_revision_accepting_an_undocumented_answer_is_refused_until_the_sync_is_reviewed():
+    # REVEXPLAIN-0023 FR-003/FR-006: an undocumented form is never accepted silently.
     inputs = _inputs("listening")
     inputs["revision_keys"][3] = {"answer": "a3", "alternatives": ["guess"]}
-    assert "Q03" in _refusal(inputs)
+    assert "câu cần đồng bộ đáp án là [3]" in _refusal(inputs)
+    inputs["reviewed_answer_sync"] = frozenset({3})
+    plan = build_plan(**inputs)
+    assert plan["rows"][2]["payload"]["item"]["answer"]["accepted_forms"] == ["a3", "guess"]
 
 
 @pytest.mark.parametrize("bad", ["a5", ["a5"], None])
@@ -375,3 +381,285 @@ def test_listening_loader_refuses_unreadable_audio_or_missing_test_row():
     db.tables["listening_tests"] = []
     with pytest.raises(BindingRefused):
         _paper_questions(db, "listening", "paper")
+
+
+# ── REVEXPLAIN-0023: agree the way learners are marked ─────────────────────
+
+OVERRIDE = {"release_adjudication": {"override_version": "cambridge-release-overrides/1.0"}}
+
+
+def _explain(inputs, q, canonical, accepted, *, override=False):
+    payload = inputs["source_objects"][q - 1]["payload"]
+    payload["item"]["answer"] = {"canonical": canonical, "accepted_forms": accepted}
+    if override:
+        payload["audit"] = copy.deepcopy(OVERRIDE)
+
+
+@pytest.mark.parametrize(("canonical", "accepted", "rev"), [
+    ("flavour", ["flavour", "flavor"], {"answer": "flavour / flavor", "alternatives": []}),   # C17T2 R
+    ("(food) consumption", ["(food) consumption"],
+     {"answer": "consumption", "alternatives": ["food consumption"]}),                         # C18T1 R
+    ("tail(s)", ["tail(s)"], {"answer": "tail", "alternatives": ["tails"]}),                    # C13T1 L
+    ("jewellery", ["jewellery", "jewelry"], {"answer": "jewellery / jewelry", "alternatives": []}),  # C21T2 R
+    ("B", ["B"], {"answer": "b †", "alternatives": []}),                                       # C14T1 L
+])
+def test_shorthand_and_spelling_forms_are_equivalent_without_sync(canonical, accepted, rev):
+    inputs = _inputs("reading")
+    _explain(inputs, 9, canonical, accepted)
+    inputs["revision_keys"][9] = rev
+    plan = build_plan(**inputs)
+    assert plan["classification"]["9"] == "equivalent" and plan["answer_sync"] == {}
+    assert plan["rows"][8]["payload"] == inputs["source_objects"][8]["payload"]
+
+
+def test_compact_slash_stays_literal_as_at_marking():
+    assert marker_forms("24/04") == {"24/04"}
+    assert marker_forms("24 / 04") == {"24", "04"}
+
+
+def test_marker_forms_match_the_runtime_marker():
+    for raw in ["flavour / flavor", "(Sumatran) orangutan", "tail(s)", "10(th) October", "£250", "20%"]:
+        for form in marker_forms(raw):
+            assert answer_matches(form, raw, [])
+
+
+def test_revision_superset_is_synced_into_the_copy_only():
+    # C14T1 Listening Q10: REV also accepts the unspaced phone number.
+    inputs = _inputs("listening")
+    _explain(inputs, 10, "87954 82361", ["87954 82361"])
+    inputs["revision_keys"][10] = {"answer": "87954 82361", "alternatives": ["8795482361"]}
+    inputs["reviewed_answer_sync"] = frozenset({10})
+    before = copy.deepcopy(inputs["source_objects"][9]["payload"])
+    plan = build_plan(**inputs)
+    row = plan["rows"][9]
+    assert row["payload"]["item"]["answer"] == {"canonical": "87954 82361",
+                                                "accepted_forms": ["87954 82361", "8795482361"]}
+    assert row["payload"]["audit"]["revision_answer_sync"] == {
+        "spec": "REVEXPLAIN-0023", "revision_test_id": inputs["revision"]["test_id"],
+        "added_forms": ["8795482361"], "grading_change": False}
+    assert row["source_hash"] == "h10"
+    assert inputs["source_objects"][9]["payload"] == before  # source never mutated
+    assert plan["classification"]["10"] == "synced" and plan["answer_sync"]["10"]["added_forms"] == ["8795482361"]
+    # An override-free copy never reaches the runtime key: grading is the REV key's.
+    frozen = [{"question_number": r["question_number"], "payload": r["payload"]} for r in plan["rows"]]
+    key = [{"q_num": 10, "answer": "87954 82361", "alternatives": ["8795482361"]}]
+    assert apply_scoring_overrides("listening", "x", key, frozen_rows=frozen) == key
+
+
+def test_extra_reviewed_sync_number_is_refused():
+    inputs = _inputs("reading")
+    inputs["reviewed_answer_sync"] = frozenset({4})
+    assert "--reviewed-answer-sync khai [4]" in _refusal(inputs)
+
+
+def test_sync_changes_the_plan_sha():
+    inputs = _inputs("reading")
+    inputs["revision_keys"][3] = {"answer": "a3", "alternatives": ["a three"]}
+    inputs["reviewed_answer_sync"] = frozenset({3})
+    synced = build_plan(**inputs)["sha256"]
+    assert synced != build_plan(**_inputs("reading"))["sha256"]
+
+
+def test_override_conflict_needs_owner_approval_then_takes_the_union():
+    # C19T3 Listening Q3: REV 3.30/three thirty, adjudicated override 3.30/3:30.
+    inputs = _inputs("listening")
+    _explain(inputs, 3, "3.30", ["3.30", "3:30"], override=True)
+    inputs["revision_keys"][3] = {"answer": "3.30", "alternatives": ["three thirty"]}
+    assert "Q03: scoring override" in _refusal(inputs)
+    inputs["reviewed_answer_sync"] = frozenset({3})
+    assert "--approved-grading-changes khai []" in _refusal(inputs) or "Q03: scoring override" in _refusal(inputs)
+    inputs["approved_grading_changes"] = frozenset({3})
+    plan = build_plan(**inputs)
+    assert plan["classification"]["3"] == "grading_change"
+    assert plan["rows"][2]["payload"]["item"]["answer"]["accepted_forms"] == ["3.30", "3:30", "three thirty"]
+    # The overlay the marker actually uses accepts both sets.
+    frozen = [{"question_number": r["question_number"], "payload": r["payload"]} for r in plan["rows"]]
+    key = apply_scoring_overrides("listening", "x", [{"q_num": 3, "answer": "3.30",
+                                                      "alternatives": ["three thirty"]}], frozen_rows=frozen)
+    assert all(answer_matches(form, key[0]["answer"], key[0]["alternatives"])
+               for form in ["3.30", "3:30", "three thirty"])
+
+
+def test_override_that_marks_like_the_revision_is_a_plain_sync():
+    # C21T3 Listening Q3: override 250/£250 (both mark "250"), REV adds a written form.
+    inputs = _inputs("listening")
+    _explain(inputs, 3, "250", ["250", "£250"], override=True)
+    inputs["revision_keys"][3] = {"answer": "250", "alternatives": ["two hundred and fifty"]}
+    inputs["reviewed_answer_sync"] = frozenset({3})
+    plan = build_plan(**inputs)
+    assert plan["classification"]["3"] == "synced"
+    assert plan["answer_sync"]["3"]["grading_change"] is False
+
+
+def test_approving_a_grading_change_that_is_not_one_is_refused():
+    inputs = _inputs("listening")
+    inputs["approved_grading_changes"] = frozenset({5})
+    assert "--approved-grading-changes khai [5]" in _refusal(inputs)
+
+
+def test_revision_that_rejects_a_documented_form_still_refuses_without_override():
+    inputs = _inputs("reading")
+    _explain(inputs, 11, "intestines", ["intestines", "gut"])
+    inputs["revision_keys"][11] = {"answer": "intestines", "alternatives": ["bowel"]}
+    assert "Q11: đáp án REV" in _refusal(inputs) and "chấm sai dạng lời giải ghi nhận ['gut']" in _refusal(inputs)
+
+
+def _policy(kind, accepted, **settings):
+    return {"kind": kind, "version": 1, "settings": settings or {"case_sensitive": False}, "max_words": 2,
+            "policy_id": "test-policy", "accepted_answers": accepted,
+            "provenance": {"source_item_id": "q1", "reviewer": "test", "item_revision": "r1",
+                           "review_status": "ACCEPTED", "source_sha256": "0" * 64}}
+
+
+def test_policy_question_binds_when_every_documented_form_passes():
+    # C16T4 Listening Q1: literal policy 28th/28; explanation documents 28th.
+    inputs = _inputs("listening")
+    _explain(inputs, 1, "28th", ["28th"])
+    inputs["revision_keys"][1] = {"answer": "28th", "alternatives": ["28"],
+                                  "response_policy": _policy("literal", ["28th", "28"])}
+    inputs["reviewed_answer_sync"] = frozenset({1})
+    plan = build_plan(**inputs)
+    assert plan["classification"]["1"] == "policy"
+    assert plan["rows"][0]["payload"]["item"]["answer"]["accepted_forms"] == ["28th", "28"]
+
+
+def test_policy_question_refuses_when_a_documented_form_fails_or_override_exists():
+    inputs = _inputs("listening")
+    _explain(inputs, 1, "28th", ["28th", "twenty-eighth"])
+    inputs["revision_keys"][1] = {"answer": "28th", "alternatives": [],
+                                  "response_policy": _policy("literal", ["28th"])}
+    assert "Q01: đáp án REV có response_policy" in _refusal(inputs)
+    _explain(inputs, 1, "28th", ["28th"], override=True)
+    assert "scoring override" in _refusal(inputs)
+
+
+def _group_inputs(rev_rows, canonical, slots=(21, 22)):
+    inputs = _inputs("listening")
+    for q, rev in zip(slots, rev_rows):
+        _explain(inputs, q, canonical, canonical)
+        inputs["revision_keys"][q] = {"answer": rev, "alternatives": []}
+    inputs["revision_groups"] = {q: tuple(slots) for q in slots}
+    return inputs
+
+
+@pytest.mark.parametrize("rev_rows", [("D", "E"), ("E", "D"), ("D, E", "D, E"), ("E, D", "D, E")])
+def test_choose_two_group_is_compared_as_the_graders_any_order_set(rev_rows):
+    plan = build_plan(**_group_inputs(rev_rows, ["D", "E"]))
+    assert plan["classification"]["21"] == plan["classification"]["22"] == "group"
+    assert plan["answer_sync"] == {}
+
+
+def test_choose_two_group_with_other_letters_or_wider_exercise_refuses():
+    assert "nhóm chọn nhiều [21, 22]" in _refusal(_group_inputs(("D", "C"), ["D", "E"]))
+    wide = _group_inputs(("A", "E", "C", "E"), ["A", "E"], slots=(17, 18, 19, 20))
+    assert "nhóm chọn nhiều [17, 18, 19, 20]" in _refusal(wide)
+
+
+def test_group_check_matches_grading_of_the_revision_key():
+    rows = [{"payload": {"template_kind": "mcq_multi",
+                         "answers": [{"q_num": 21, "answer": "D"}, {"q_num": 22, "answer": "E"}]}}]
+    graded = grade_attempt([{"q_num": 21, "user_answer": "E"}, {"q_num": 22, "user_answer": "D"}],
+                           collect_answer_key(rows))
+    assert graded["score"] == 2  # any order, as the binder assumes
+
+
+def test_loader_groups_mcq_multi_exercises_only():
+    db = _FakeDB({
+        "listening_content": [{"id": "s1", "test_id": "paper"}],
+        "listening_exercises": [
+            {"id": "e1", "content_id": "s1", "payload": {"template_kind": "mcq_multi",
+                                                         "answers": [{"q_num": 22}, {"q_num": 21}]}},
+            {"id": "e2", "content_id": "s1", "payload": {"template_kind": "form_completion",
+                                                         "answers": [{"q_num": 1}, {"q_num": 2}]}},
+        ],
+    })
+    assert _mcq_multi_groups(db, "listening", "paper") == {21: (21, 22), 22: (21, 22)}
+    assert _mcq_multi_groups(db, "reading", "paper") == {}
+
+
+def test_override_wider_than_the_revision_is_a_recorded_grading_change_even_without_new_forms():
+    # Override 3.30/3:30, REV only 3.30: nothing to add, but marking widens.
+    inputs = _inputs("listening")
+    _explain(inputs, 3, "3.30", ["3.30", "3:30"], override=True)
+    inputs["revision_keys"][3] = {"answer": "3.30", "alternatives": []}
+    inputs["reviewed_answer_sync"] = frozenset({3})
+    inputs["approved_grading_changes"] = frozenset({3})
+    plan = build_plan(**inputs)
+    assert plan["answer_sync"]["3"] == {"added_forms": [], "grading_change": True}
+    row = plan["rows"][2]["payload"]
+    assert row["item"]["answer"]["accepted_forms"] == ["3.30", "3:30"]
+    assert row["audit"]["revision_answer_sync"]["grading_change"] is True
+
+
+def test_choose_two_group_refuses_a_documented_letter_the_grader_rejects():
+    # Codex on #1745: canonical D/E but accepted D/E/F; the grader never credits F.
+    inputs = _group_inputs(("D", "E"), ["D", "E"])
+    inputs["source_objects"][20]["payload"]["item"]["answer"]["accepted_forms"] = ["D", "E", "F"]
+    assert "Q21: nhóm chọn nhiều [21, 22]" in _refusal(inputs) and "chấp nhận thêm ['f']" in _refusal(inputs)
+
+
+def test_grouped_member_with_scalar_canonical_still_uses_group_marking():
+    # Codex on #1745: per-slot canonicals D/E; the group grader ignores slot alternatives.
+    inputs = _inputs("listening")
+    for q, letter in ((21, "D"), (22, "E")):
+        _explain(inputs, q, letter, [letter])
+        inputs["revision_keys"][q] = {"answer": letter, "alternatives": []}
+    inputs["revision_groups"] = {21: (21, 22), 22: (21, 22)}
+    inputs["revision_keys"][21] = {"answer": "D", "alternatives": ["F"]}
+    plan = build_plan(**inputs)
+    assert plan["classification"]["21"] == plan["classification"]["22"] == "group"
+    assert plan["answer_sync"] == {}  # F is never synced: the grader never credits it
+    _explain(inputs, 21, "D", ["D", "F"])
+    assert "Q21: nhóm chọn nhiều [21, 22]" in _refusal(inputs)  # nor may the explanation document it
+
+
+def test_policy_forms_are_compared_by_the_policys_own_equivalence():
+    # Codex on #1745: a literal policy keeps "£250" apart from "250"; the legacy normaliser would not.
+    inputs = _inputs("listening")
+    _explain(inputs, 3, "250", ["250"])
+    inputs["revision_keys"][3] = {"answer": "250", "alternatives": [],
+                                  "response_policy": _policy("literal", ["250", "£250"])}
+    assert "câu cần đồng bộ đáp án là [3]" in _refusal(inputs)
+    inputs["reviewed_answer_sync"] = frozenset({3})
+    assert build_plan(**inputs)["rows"][2]["payload"]["item"]["answer"]["accepted_forms"] == ["250", "£250"]
+
+
+def test_override_copy_keeps_every_canonical_entry_the_overlay_marks():
+    # Codex on #1745: apply_scoring_overrides stringifies a list canonical.
+    inputs = _inputs("listening")
+    _explain(inputs, 5, ["gut", "intestines"], ["gut"], override=True)
+    inputs["revision_keys"][5] = {"answer": "gut", "alternatives": ["intestines", "bowel"]}
+    inputs["reviewed_answer_sync"] = frozenset({5})
+    plan = build_plan(**inputs)
+    accepted = plan["rows"][4]["payload"]["item"]["answer"]["accepted_forms"]
+    assert accepted == ["gut", "intestines", "bowel"] and plan["classification"]["5"] == "synced"
+    frozen = [{"question_number": r["question_number"], "payload": r["payload"]} for r in plan["rows"]]
+    key = apply_scoring_overrides("listening", "x", [{"q_num": 5, "answer": "gut",
+                                                      "alternatives": ["intestines", "bowel"]}], frozen_rows=frozen)
+    assert all(answer_matches(f, key[0]["answer"], key[0]["alternatives"]) for f in ["gut", "intestines", "bowel"])
+
+
+def test_number_policy_written_alias_already_documented_needs_no_sync():
+    # Codex on #1745: a number policy's first answer must stay numeric.
+    pol = _policy("number", ["250", "two hundred fifty"])
+    pol["max_words"] = 3
+    pol["settings"] = {"locale": "en"}
+    inputs = _inputs("listening")
+    _explain(inputs, 3, "250", ["250", "two hundred fifty"])
+    inputs["revision_keys"][3] = {"answer": "250", "alternatives": [], "response_policy": pol}
+    plan = build_plan(**inputs)
+    assert plan["classification"]["3"] == "policy" and plan["answer_sync"] == {}
+
+
+def test_set_valued_revision_primary_binds_only_on_literal_agreement():
+    # Codex on #1745 (x2): a Reading list primary is an all-or-nothing set; an
+    # override overlay would turn it into scalar alternatives. Never infer it.
+    inputs = _inputs("reading")
+    _explain(inputs, 11, "D", ["D"], override=True)
+    inputs["revision_keys"][11] = {"answer": ["D", "E"], "alternatives": []}
+    inputs["reviewed_answer_sync"] = frozenset({11})
+    assert "Q11: đáp án REV dạng tập hợp" in _refusal(inputs)
+    inputs = _inputs("reading")
+    _explain(inputs, 11, ["intestines", "gut"], ["intestines", "gut"])
+    inputs["revision_keys"][11] = {"answer": ["intestines", "gut"], "alternatives": []}
+    assert build_plan(**inputs)["classification"]["11"] == "identical"  # 0022 literal path unchanged

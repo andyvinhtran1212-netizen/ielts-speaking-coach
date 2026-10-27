@@ -27,6 +27,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'instructor', 'page.tsx'), 'utf8');
 const VIEW = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'instructor', 'instructor-dashboard.tsx'), 'utf8');
 const LAYOUT = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'layout.tsx'), 'utf8');
+const CSS = readFileSync(join(ROOT, 'public', 'css', 'instructor-next.css'), 'utf8');
 
 describe('/instructor native dashboard model', () => {
   test('normalizes every canonical owner-scoped collection and rejects malformed envelopes', () => {
@@ -129,6 +130,44 @@ describe('/instructor native dashboard model', () => {
     assert.deepEqual(assignmentTone(matrix.rows[1].cells[0], Date.parse('2026-02-01T00:00:00Z')), { label: 'Trễ', tone: 'danger' });
     assert.deepEqual(assignmentTone(null), { label: '—', tone: 'muted' });
   });
+
+  test('A-07: a re-assigned cell shows the newest give by created_at, not the oldest', () => {
+    const students = normalizeInstructorStudents([{ id: 's1', full_name: 'An' }, { id: 's2', full_name: 'Binh' }]);
+    const prompts = normalizeInstructorPrompts([{ id: 'p1', title: 'Task 2' }, { id: 'p2', title: 'Task 1' }]);
+    const newer = { id: 'a-new', prompt_id: 'p1', student_id: 's1', status: 'pending', created_at: '2026-10-27T00:00:00Z', name: 'Buổi 5' };
+    const older = { id: 'a-old', prompt_id: 'p1', student_id: 's1', status: 'submitted', essay_id: 'e1', created_at: '2026-10-20T00:00:00Z', name: 'Buổi 5' };
+    const single = { id: 'b1', prompt_id: 'p2', student_id: 's2', status: 'delivered', created_at: '2026-10-21T00:00:00Z' };
+    const cellOf = (rows) => buildInstructorMatrix(students, prompts, normalizeInstructorAssignments(rows)).rows[0].cells[0];
+
+    // API order (created_at desc), same name on both gives: newest wins.
+    const desc = buildInstructorMatrix(students, prompts, normalizeInstructorAssignments([newer, single, older]));
+    assert.equal(desc.rows[0].cells[0].id, 'a-new');
+    assert.deepEqual(assignmentTone(desc.rows[0].cells[0]), { label: 'Chưa nộp', tone: 'neutral' });
+    // One column per prompt in first-appearance order, untouched single-give cells.
+    assert.deepEqual(desc.columns.map((column) => column.id), ['p1', 'p2']);
+    assert.equal(desc.rows.length, 2);
+    assert.equal(desc.rows[1].cells[1].id, 'b1');
+    assert.equal(desc.rows[0].cells[1], null);
+    assert.ok(Object.isFrozen(desc) && Object.isFrozen(desc.rows[0].cells));
+
+    // Reversed (asc) input order: still the newest, independent of array order.
+    const asc = buildInstructorMatrix(students, prompts, normalizeInstructorAssignments([older, single, newer]));
+    assert.equal(asc.rows[0].cells[0].id, 'a-new');
+    assert.equal(asc.columns.length, 2);
+
+    // Both names null: still chosen by created_at.
+    assert.equal(cellOf([{ ...older, name: null }, { ...newer, name: null }]).id, 'a-new');
+
+    // Equal created_at: the first-seen row is kept.
+    assert.equal(cellOf([{ ...older, created_at: newer.created_at }, newer]).id, 'a-old');
+    assert.equal(cellOf([newer, { ...older, created_at: newer.created_at }]).id, 'a-new');
+
+    // Missing or invalid created_at on every give: the first-seen row is kept.
+    assert.equal(cellOf([{ ...older, created_at: null }, { ...newer, created_at: undefined }]).id, 'a-old');
+    assert.equal(cellOf([{ ...newer, created_at: 'not-a-date' }, { ...older, created_at: null }]).id, 'a-new');
+    // A dated give beats an undated one regardless of order.
+    assert.equal(cellOf([{ ...older, created_at: null }, newer]).id, 'a-new');
+  });
 });
 
 describe('/instructor native route contracts', () => {
@@ -158,6 +197,19 @@ describe('/instructor native route contracts', () => {
     assert.match(VIEW, /ownerId !== accountRef\.current/);
     assert.match(VIEW, /setDrawerSummary\(null\)/);
   });
+});
+
+test('tab bar keeps all four tabs reachable on 360-390px phones with a visible focus ring', () => {
+  for (const label of ['Học viên', 'Lớp & Mã', 'Giao bài', 'Chấm bài']) assert.ok(VIEW.includes(`'${label}']`), label);
+  // Below 560px the four tabs wrap into a 2x2 grid instead of clipping "Chấm bài" off-screen.
+  const phone = CSS.match(/@media \(max-width: 560px\) \{([\s\S]*?)\n\}/);
+  assert.ok(phone, 'phone tab-bar breakpoint');
+  assert.match(phone[1], /\.ins-tabs \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*overflow-x: visible;/);
+  assert.match(phone[1], /\.ins-tabs button \{[^}]*white-space: normal;/);
+  // Desktop keeps the single scrollable row.
+  assert.match(CSS, /^\.ins-tabs \{[^}]*display: flex;[^}]*overflow-x: auto;/m);
+  // Inset ring so the nav's overflow clipping cannot hide keyboard focus.
+  assert.match(CSS, /\.ins-tabs button:focus-visible \{[^}]*outline: 2px solid var\(--av-border-focus\);[^}]*outline-offset: -2px;/);
 });
 
 test('assignment requests interpret datetime-local as Vietnam time for both targets', () => {

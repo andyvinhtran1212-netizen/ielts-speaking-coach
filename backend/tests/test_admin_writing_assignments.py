@@ -186,6 +186,9 @@ def test_create_with_request_id_uses_atomic_idempotency_rpc():
         "group_id": "00000000-0000-4000-8000-000000000999",
         "duplicates_warning": [], "replayed": False,
     })
+    # No committed receipt yet: the route checks the request ledger first.
+    ledger = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
+    ledger.execute.return_value = MagicMock(data=[])
     request_id = "00000000-0000-4000-8000-000000000123"
     with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_assignments.supabase_admin", mock_db):
@@ -212,6 +215,9 @@ def test_create_request_id_replay_returns_same_receipt():
         "group_id": "00000000-0000-4000-8000-000000000999",
         "duplicates_warning": [_STUDENT_ID], "replayed": True,
     })
+    # No committed receipt yet: the route checks the request ledger first.
+    ledger = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
+    ledger.execute.return_value = MagicMock(data=[])
     with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_assignments.supabase_admin", mock_db):
         r = _client().post(

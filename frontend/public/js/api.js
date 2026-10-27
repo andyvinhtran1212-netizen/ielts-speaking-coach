@@ -88,9 +88,15 @@
       /** @type {any} */ (sdkError).code = 'SUPABASE_SDK_UNAVAILABLE';
       throw sdkError;
     }
+    // F06: no client on any page may use the implicit flow, which puts the
+    // access token in the redirect URL. Next routes never reach this UMD
+    // fallback (the runtime boundary injects its PKCE client, owned with the
+    // /login exchange in lib/supabase-browser.ts); retired HTML pages keep
+    // supabase-js URL detection, which exchanges their `?code=` callback.
     _sb = window.supabase.createClient(
       _RC.supabaseUrl || url,
-      _RC.supabaseAnonKey || anonKey
+      _RC.supabaseAnonKey || anonKey,
+      { auth: { flowType: 'pkce' } }
     );
     return _sb;
   }

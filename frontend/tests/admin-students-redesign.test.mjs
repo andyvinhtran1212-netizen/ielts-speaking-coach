@@ -156,7 +156,8 @@ describe('admin-students.html / table contract preserved', () => {
     for (const en of ['New Essay', 'Edit', 'Delete']) {
       assert.ok(!row.includes(en), `còn nhãn tiếng Anh: ${en}`);
     }
-    for (const vi of ['Giao bài viết', 'Sửa', 'Xoá']) {
+    // STUDENTARCHIVE-0029: the third action archives (work kept) instead of "Xoá".
+    for (const vi of ['Giao bài viết', 'Sửa', 'Lưu trữ']) {
       assert.ok(row.includes(vi), `thiếu nhãn: ${vi}`);
     }
     // Nút tên VẪN phải mở được tổng quan — bỏ nút kia mà quên nó là gỡ mất
@@ -287,8 +288,10 @@ describe('admin-students.html / search debounce + delete confirm preserved', () 
   });
 
   test('Delete confirm uses Vietnamese with embedded student code', () => {
-    assert.match(html, /confirm\(\s*['"]Xóa học viên/);
-    assert.match(html, /Tất cả essays của học viên này cũng sẽ bị xóa/);
+    // STUDENTARCHIVE-0029: DELETE archives; the copy must not claim essays are erased.
+    assert.match(html, /confirm\(\s*['"]Lưu trữ học viên/);
+    assert.match(html, /Bài làm và điểm được giữ nguyên/);
+    assert.doesNotMatch(html, /Tất cả essays của học viên này cũng sẽ bị xóa/);
   });
 });
 
@@ -354,8 +357,8 @@ describe('admin-students.html / Vietnamese microcopy preserved', () => {
     'Chưa có bài giao.',
     'Đã cập nhật học viên.',
     'Đã tạo học viên mới.',
-    'Đã xóa học viên.',
-    'Tất cả essays của học viên này cũng sẽ bị xóa',
+    'Đã lưu trữ học viên.',
+    'Bài làm và điểm được giữ nguyên',
     'Import xong:',
     'Không tải được danh sách:',
     'Không tải được tổng quan:',

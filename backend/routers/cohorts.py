@@ -21,6 +21,7 @@ from models.cohorts import AdminCohortListOut
 from routers.admin import (
     require_admin, _aggregate_usage_for_users, _issue_code_and_assign, _activate_with_issued_code,
 )
+from services import student_service
 from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 from services.cohort_progress_aggregator import cohort_progress
 from services.class_membership_service import (
@@ -318,6 +319,9 @@ async def assign_student_to_cohort(
             added_by=admin.get("id") if isinstance(admin, dict) else None,
         )
     except Exception as exc:
+        # Migration 326 guard: an archived learner cannot rejoin a class.
+        if student_service.is_student_archived_error(exc):
+            raise student_service.student_archived_error([body.student_id]) from exc
         raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
 
     return {"ok": True, "student_id": body.student_id, "cohort_id": cohort_id}
@@ -348,6 +352,14 @@ async def bulk_assign_students_to_cohort(
             added_by=admin.get("id") if isinstance(admin, dict) else None,
         )
     except Exception as exc:
+        # Migration 326 guard refuses the whole batch: nobody was added.
+        if student_service.is_student_archived_error(exc):
+            try:
+                archived = student_service.archived_student_ids(
+                    supabase_admin, body.student_ids)
+            except Exception:
+                archived = []
+            raise student_service.student_archived_error(archived) from exc
         raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
 
     return {"ok": True, "cohort_id": cohort_id, "assigned": assigned}

@@ -90,8 +90,15 @@ def test_health_degrades_for_missing_core_column_and_redacts_details(monkeypatch
     monkeypatch.setattr(health.settings, 'GEMINI_API_KEY', 'fake')
     result = asyncio.run(health.health_ready(None))
     assert result['status'] == 'degraded'
-    assert 'sessions' in result['checks']['migrations']['missing']
+    assert result['checks']['migrations'] == {'status': 'fail'}
+    assert 'sessions' not in str(result)
     assert 'private missing-column detail' not in str(result)
+
+    async def _admin(_authorization):
+        return True
+    monkeypatch.setattr(health, '_is_admin', _admin)
+    admin = asyncio.run(health.health_ready('Bearer admin'))
+    assert any(m.startswith('sessions:') for m in admin['checks']['migrations']['missing'])
 
 
 @pytest.mark.parametrize('enabled,available,expected', [(False, False, 'disabled'), (True, False, 'fail'), (True, True, 'ok')])

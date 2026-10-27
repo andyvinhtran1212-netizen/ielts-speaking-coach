@@ -290,7 +290,11 @@ export function buildInstructorMatrix(students, prompts, assignments) {
       seen.add(assignment.promptId);
       columnIds.push(assignment.promptId);
     }
-    byCell.set(`${assignment.studentId}\u0000${assignment.promptId}`, assignment);
+    const key = `${assignment.studentId}\u0000${assignment.promptId}`;
+    const current = byCell.get(key);
+    // A-07: the newest give wins by created_at (names may repeat or be empty);
+    // ties and missing dates keep the first-seen row (API order is created_at desc).
+    if (!current || timestamp(assignment.createdAt) > timestamp(current.createdAt)) byCell.set(key, assignment);
   }
   return Object.freeze({
     columns: Object.freeze(columnIds.map((id) => Object.freeze({

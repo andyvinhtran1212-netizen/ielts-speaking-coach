@@ -4582,7 +4582,8 @@ export interface paths {
         /**
          * List Students
          * @description List students; optional case-insensitive substring filter on
-         *     student_code or full_name.
+         *     student_code or full_name. Archived learners are listed only with
+         *     ``include_archived=true``.
          */
         get: operations["list_students_admin_students_get"];
         put?: never;
@@ -4633,7 +4634,11 @@ export interface paths {
         post?: never;
         /**
          * Delete Student
-         * @description Hard delete (W2 scope). Soft delete deferred to W3.
+         * @description Archive the learner (STUDENTARCHIVE-0029); no row is deleted.
+         *
+         *     Ends every active class membership, optionally locks the linked account
+         *     (``deactivate_account=true``) and writes an audit row. Idempotent: a repeat
+         *     returns 204 without a second audit row. Unknown id → 404.
          */
         delete: operations["delete_student_admin_students__student_id__delete"];
         options?: never;
@@ -4647,6 +4652,28 @@ export interface paths {
          *     be explicitly cleared.
          */
         patch: operations["update_student_admin_students__student_id__patch"];
+        trace?: never;
+    };
+    "/admin/students/{student_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Student
+         * @description Restore an archived learner and the class memberships the archive ended.
+         *
+         *     409 ``not_archived`` when the learner is not archived; 404 when unknown.
+         */
+        post: operations["restore_student_admin_students__student_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/writing/prompt-bank": {
@@ -12505,6 +12532,8 @@ export interface paths {
          *     image surfaces here instead of silently degrading to regex-only. Always
          *     returns HTTP 200; the ``status`` field (healthy | degraded | error) carries
          *     the verdict, matching /health/ready's convention (no 5xx juggling).
+         *     Results are reused for ``_GRAMMAR_PROBE_TTL_SECONDS``; ``checked_at`` is
+         *     when the live probe ran.
          */
         get: operations["health_grammar_check_health_grammar_check_get"];
         put?: never;
@@ -13491,6 +13520,12 @@ export interface components {
             instructor_id?: string | null;
             /** Cohort Id */
             cohort_id?: string | null;
+            /** Archived At */
+            archived_at?: string | null;
+            /** Archived By */
+            archived_by?: string | null;
+            /** Archive Reason */
+            archive_reason?: string | null;
             /** Cohorts */
             cohorts: components["schemas"]["AdminStudentCohortOut"][];
             /** Cohort Name */
@@ -19916,6 +19951,16 @@ export interface components {
             snapshot_id: string;
             /** Expected Revision */
             expected_revision: number;
+        };
+        /** RestoreStudentRequest */
+        RestoreStudentRequest: {
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Reactivate Account
+             * @default false
+             */
+            reactivate_account: boolean;
         };
         /** RetestBody */
         RetestBody: {
@@ -30397,6 +30442,7 @@ export interface operations {
                 search?: string | null;
                 limit?: number;
                 offset?: number;
+                include_archived?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -30531,7 +30577,10 @@ export interface operations {
     };
     delete_student_admin_students__student_id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                reason?: string | null;
+                deactivate_account?: boolean;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -30574,6 +30623,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateStudentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_student_admin_students__student_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RestoreStudentRequest"] | null;
             };
         };
         responses: {

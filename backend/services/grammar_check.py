@@ -698,9 +698,13 @@ async def grammar_check_health() -> dict:
             out["messages"].append("0 errors detected for a known-bad transcript")
         else:
             out["status"] = "healthy"
-    except Exception as e:  # a health probe must never raise
+    except Exception:  # a health probe must never raise
+        # The probe is public: the exception text (paths, hostnames, JVM
+        # detail) is logged server-side only; callers get a stable code.
+        logger.exception("[grammar_check] health probe failed")
         out["status"] = "error"
-        out["messages"].append(str(e)[:200])
+        out["error_code"] = "probe_failed"
+        out["messages"].append("grammar-check probe failed — see server logs")
     return out
 
 
