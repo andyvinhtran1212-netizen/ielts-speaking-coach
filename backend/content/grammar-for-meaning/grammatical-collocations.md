@@ -286,7 +286,7 @@ Collocations là **memorize**, không phải reason. Strategy:
 1. **Học theo cặp.** Mỗi lần học một verb/adjective/noun mới, ghi luôn preposition đi kèm. Đừng học verb riêng.
 2. **Học theo chunk.** Ghi cả phrase: "depend on the weather", không chỉ "depend on".
 3. **Notebook chuyên collocation.** Một notebook riêng, chia 4 cột: V+prep | Adj+prep | N+prep | V+adv.
-4. **Nghe + repeat.** Listen IELTS samples Band 8+, transcribe các collocation, repeat cho thuộc rhythm.
+4. **Nghe + repeat.** Listen to Band 8+ IELTS samples, transcribe các collocation, repeat cho thuộc rhythm.
 5. **Test bản thân.** Mỗi tuần kiểm tra: che cột preposition, viết lại theo verb.
 
 <!-- anchor: grammatical-collocations.ielts.speaking-application -->

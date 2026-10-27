@@ -87,7 +87,7 @@ anchors:
 >
 > <!-- anchor: discourse-markers.compare-with.discourse-markers-spoken -->
 >
-> Cho discourse markers tự nhiên trong NÓI thường ngày (well, you know, I mean, kind of, anyway), xem bài [Discourse Markers in Speech](/grammar/discourse-markers-spoken).
+> Cho discourse markers tự nhiên trong NÓI thường ngày (well, you know, I mean, kind of, anyway), xem bài [Discourse Markers in Speech](/grammar/grammar-for-meaning/discourse-markers-spoken).
 >
 > Furthermore/moreover thường trang trọng; trong hội thoại có thể chọn and what’s more/well theo chức năng. IELTS đánh giá sự phù hợp, mạch lạc và độ trôi chảy trên toàn bài, không tự trừ Fluency chỉ vì một từ.
 
