@@ -5,7 +5,8 @@ Pins:
   - generation never touches the `random` module (Mersenne Twister);
   - batches are unique; existing DB codes are pre-checked and avoided;
   - a Postgres 23505 on `code` regenerates and retries (bounded) at BOTH admin
-    insert sites — POST /admin/access-codes/generate and _issue_code_and_assign;
+    insert sites — POST /admin/access-codes/generate and _issue_code_and_assign —
+    and at instructor POST /instructor/codes (CODEUNIQ-0028 FR-004);
   - a 23505 on some other column is not retried;
   - legacy 8-char codes (and new 14-char codes) still activate via /auth/activate.
 """
@@ -131,7 +132,7 @@ def test_alphabet_is_31_unambiguous_chars():
 def test_format_matches_regex():
     for _ in range(500):
         assert CODE_RE.fullmatch(generate_access_code())
-    assert CODE_RE.fullmatch(admin_module._gen_code())   # instructor.py imports this shim
+    assert CODE_RE.fullmatch(admin_module._gen_code())   # kept shim
 
 
 def test_generation_does_not_use_random_module(monkeypatch):
@@ -239,6 +240,86 @@ def test_refill_returns_new_format_code(monkeypatch):
     assert CODE_RE.fullmatch(out["new_code"])
 
 
+# ── POST /instructor/codes (CODEUNIQ-0028 FR-004) ────────────────────────────
+
+_INST = "00000000-0000-0000-0000-0000000000cc"
+
+
+def _mint(monkeypatch, fake, count=3, cohort_id=None):
+    import routers.instructor as instructor_module
+    import services.instructor_access as instructor_access
+
+    async def _me(_authz, _request=None):
+        return _INST
+    monkeypatch.setattr(instructor_module, "_me", _me)
+    monkeypatch.setattr(instructor_module, "supabase_admin", fake)    # _audit_code
+    monkeypatch.setattr(instructor_access, "supabase_admin", fake)    # instructor_db
+    body = instructor_module.CodeMintBody(count=count, cohort_id=cohort_id)
+    return _run(instructor_module.mint_codes(None, body, authorization="Bearer x"))
+
+
+def test_instructor_mint_returns_canonical_unique_codes_stamped_to_me(monkeypatch):
+    fake = _FakeSB()
+    out = _mint(monkeypatch, fake, count=5)
+    stored = fake.tables["access_codes"]
+    assert out["created"] == 5 and len(set(out["codes"])) == 5
+    assert all(CODE_RE.fullmatch(c) for c in out["codes"])
+    assert [r["code"] for r in stored] == out["codes"]
+    assert {r["issued_by"] for r in stored} == {_INST}
+    assert all(r.get("grants_role") is None for r in stored)
+    assert fake.prechecks, "existing codes must be pre-checked before insert"
+    audits = [p for (t, p) in fake.inserts if t == "access_code_audit"]
+    assert len(audits) == 5 and {a["action"] for a in audits} == {"code_mint"}
+
+
+def test_instructor_mint_retries_after_unique_violation(monkeypatch):
+    fake = _FakeSB(insert_failures={"access_codes": [_dup_error()]})
+    out = _mint(monkeypatch, fake, count=3)
+    first, second = _code_inserts(fake)
+    assert out["created"] == 3
+    assert out["codes"] == [r["code"] for r in second]
+    assert not {r["code"] for r in first} & set(out["codes"]), "colliding batch must be regenerated"
+    assert all(r["issued_by"] == _INST for r in first + second), "every attempt goes through the accessor"
+    assert len(fake.tables["access_codes"]) == 3
+
+
+def test_instructor_mint_dedupes_batch_and_avoids_own_existing_codes(monkeypatch):
+    fake = _FakeSB(tables={"access_codes": [{"id": "old", "code": "TAKE-NNNN-NNNN", "issued_by": _INST}]})
+    seq = iter(["TAKE-NNNN-NNNN", "FREE-AAAA-AAAA", "FREE-AAAA-AAAA", "FREE-BBBB-BBBB", "FREE-CCCC-CCCC"])
+    monkeypatch.setattr(access_code_gen, "generate_access_code", lambda: next(seq))
+    out = _mint(monkeypatch, fake, count=2)
+    assert out["codes"] == ["FREE-BBBB-BBBB", "FREE-AAAA-AAAA"]
+    assert len(_code_inserts(fake)) == 1
+
+
+def test_instructor_mint_precheck_stays_owner_scoped(monkeypatch):
+    # The accessor scopes the pre-check to issued_by=me (no cross-tenant read);
+    # another instructor's code is only caught by the insert's 23505 retry.
+    fake = _FakeSB(tables={"access_codes": [{"id": "theirs", "code": "TAKE-NNNN-NNNN", "issued_by": "other"}]},
+                   insert_failures={"access_codes": [_dup_error()]})
+    seq = iter(["TAKE-NNNN-NNNN", "FREE-AAAA-AAAA"])
+    monkeypatch.setattr(access_code_gen, "generate_access_code", lambda: next(seq))
+    out = _mint(monkeypatch, fake, count=1)
+    assert out["codes"] == ["FREE-AAAA-AAAA"]
+    assert [p[0]["code"] for p in _code_inserts(fake)] == ["TAKE-NNNN-NNNN", "FREE-AAAA-AAAA"]
+
+
+def test_instructor_mint_gives_up_after_bounded_retries(monkeypatch):
+    errors = [_dup_error() for _ in range(access_code_gen.MAX_INSERT_RETRIES + 1)]
+    fake = _FakeSB(insert_failures={"access_codes": errors})
+    with pytest.raises(APIError):
+        _mint(monkeypatch, fake, count=1)
+    assert len(_code_inserts(fake)) == access_code_gen.MAX_INSERT_RETRIES + 1
+    assert not fake.tables["access_codes"]
+
+
+def test_instructor_mint_does_not_retry_other_unique_violations(monkeypatch):
+    fake = _FakeSB(insert_failures={"access_codes": [_dup_error(column="id")]})
+    with pytest.raises(APIError):
+        _mint(monkeypatch, fake, count=1)
+    assert len(_code_inserts(fake)) == 1
+
+
 # ── /auth/activate: legacy and new codes both resolve by exact match ─────────
 
 _UID = "00000000-0000-0000-0000-0000000000bb"
@@ -267,6 +348,7 @@ def _activate(stored_code, typed):
     ("AB12-CD34", "AB12-CD34"),            # legacy 8-char format
     ("AB12-CD34", "  ab12-cd34 "),          # legacy, typed lower-case with spaces
     ("K7MP-Q2XR-9HTW", "k7mp-q2xr-9htw"),   # new 14-char format
+    ("ABCD-EFGH-JKMN", "  abcd-efgh-jkmn "),  # CODEUNIQ-0028 scenario 3 (FR-005)
 ])
 def test_codes_activate(stored, typed):
     resp, fake = _activate(stored, typed)
