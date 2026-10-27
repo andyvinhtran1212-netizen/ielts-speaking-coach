@@ -171,17 +171,24 @@ def confirmed_active(user_id: str) -> bool:
     return memo is not None and str(user_id) in memo["active"]
 
 
-def ensure_account_active(user_id: str) -> None:
-    """Raise 403 unless the account is active. Reuses a confirmation made
-    earlier in the same request (the router gate) instead of re-querying."""
+def account_is_active(user_id: str) -> bool:
+    """``users.is_active`` for ``user_id``, reusing a confirmation made earlier
+    in the same request (the router gate) instead of re-querying."""
     key = str(user_id)
     if confirmed_active(key):
-        return
+        return True
     if not lookup_is_active(key):
-        raise HTTPException(status_code=403, detail=INACTIVE_DETAIL)
+        return False
     memo = _memo.get()
     if memo is not None:
         memo["active"].add(key)
+    return True
+
+
+def ensure_account_active(user_id: str) -> None:
+    """Raise 403 unless the account is active."""
+    if not account_is_active(user_id):
+        raise HTTPException(status_code=403, detail=INACTIVE_DETAIL)
 
 
 async def _enforce(request: Request) -> None:
