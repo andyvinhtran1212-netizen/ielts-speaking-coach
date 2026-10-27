@@ -18,7 +18,7 @@ for _std in (sys.stdout, sys.stderr):
     except Exception:        # pragma: no cover — non-reconfigurable stream
         pass
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -26,6 +26,7 @@ from services.errors import safe_detail, GENERIC_MESSAGE
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
+from services.activation_gate import require_active_learner
 from routers.mock_attempt_flags import router as mock_attempt_flags_router
 from services.server_timing import (
     format_header as format_server_timing_header,
@@ -242,27 +243,34 @@ app.add_middleware(
     max_age=7200,
 )
 
-app.include_router(auth_router)
-app.include_router(sessions_router)
-app.include_router(questions_router)
+# W-03 — every LEARNER router runs the activation gate (users.is_active).
+# Exemptions (activation bootstrap, public content, share links, probes) and
+# the staff-path skip live in ONE place: services/activation_gate.py.
+# tests/test_activation_gate_inventory.py fails if a learner route is neither
+# gated nor explicitly exempt. Staff-only routers keep their own role guards.
+_ACTIVE_LEARNER = [Depends(require_active_learner)]
+
+app.include_router(auth_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(sessions_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(questions_router, dependencies=_ACTIVE_LEARNER)
 
 # OFFICIAL grading route: POST /sessions/{id}/responses
 #   → full pipeline: Whisper STT + Claude grading, returns band scores + feedback
-app.include_router(grading_router)
-app.include_router(tts_router)
+app.include_router(grading_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(tts_router, dependencies=_ACTIVE_LEARNER)
 # PDF export (GET /sessions/{id}/export/pdf) — ReportLab, pure Python, zero
 # system deps (fonts-dejavu-core via nixpacks.toml). Works on Railway.
-app.include_router(export_router)
+app.include_router(export_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_router)
 app.include_router(admin_core_attempt_evidence_router)
 app.include_router(cohorts_router)
 app.include_router(admin_courses_router)
 app.include_router(admin_class_lessons_router)
 app.include_router(admin_class_assignments_router)
-app.include_router(grammar_lesson_router)
+app.include_router(grammar_lesson_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_lesson_router)
-app.include_router(class_student_router)
-app.include_router(advanced_vocab_router)
+app.include_router(class_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(advanced_vocab_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_advanced_vocab_router)
 app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
@@ -278,46 +286,46 @@ app.include_router(admin_instructor_router)
 app.include_router(instructor_router)
 app.include_router(admin_instructors_router)
 app.include_router(admin_students_router)
-app.include_router(writing_student_router)
-app.include_router(grammar_router)
-app.include_router(grammar_diagnostic_router)
+app.include_router(writing_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(grammar_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)
-app.include_router(pronunciation_router)
+app.include_router(pronunciation_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(sitemap_router)
-app.include_router(vocabulary_router)
-app.include_router(vocab_units_router)
-app.include_router(analytics_router)
-app.include_router(vocabulary_bank_router)
-app.include_router(exercises_user_router)
+app.include_router(vocabulary_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(vocab_units_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(analytics_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(vocabulary_bank_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(exercises_user_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(exercises_admin_router)
-app.include_router(flashcards_user_router)
-app.include_router(listening_user_router)
-app.include_router(listening_source_collection_router)
+app.include_router(flashcards_user_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(listening_user_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(listening_source_collection_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(listening_admin_router)
 app.include_router(admin_reading_content_router)
 app.include_router(admin_reading_questions_router)
 app.include_router(admin_vocab_content_router)
-app.include_router(vocabulary_sets_router)
+app.include_router(vocabulary_sets_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_vocabulary_sets_router)
 app.include_router(admin_topics_router)
 app.include_router(admin_quiz_router)
-app.include_router(quiz_player_router)
-app.include_router(course_pronunciation_router)
-app.include_router(reading_student_router)
-app.include_router(mock_attempt_flags_router)
-app.include_router(feedback_router)
-app.include_router(kp_router)
-app.include_router(exams_router)
+app.include_router(quiz_player_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(course_pronunciation_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(reading_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(mock_attempt_flags_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(feedback_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(kp_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(exams_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_exams_router)
-app.include_router(mock_exams_router)
+app.include_router(mock_exams_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_exam_content_router)
 app.include_router(admin_mock_exams_router)
 app.include_router(admin_mock_reviews_router)
-app.include_router(mock_corrections_router)
+app.include_router(mock_corrections_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_mock_corrections_router)
 app.include_router(health_router)
-app.include_router(dashboard_router)
-app.include_router(student_home_router)
+app.include_router(dashboard_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(student_home_router, dependencies=_ACTIVE_LEARNER)
 
 
 # ── Public stats — no auth, for the marketing landing page ────────────
@@ -357,6 +365,10 @@ async def access_perm_memo_middleware(request: Request, call_next):
         begin_request_permission_memo,
         reset_request_permission_memo,
     )
+    from services.activation_gate import (
+        begin_request_memo as begin_activation_memo,
+        reset_request_memo as reset_activation_memo,
+    )
     # A CORS preflight carries no auth and reaches no route — CORSMiddleware
     # answers it below us. Setting up a per-request permission memo for it is
     # pure risk: this middleware sits OUTSIDE CORSMiddleware, so anything it
@@ -365,9 +377,13 @@ async def access_perm_memo_middleware(request: Request, call_next):
     if request.method == "OPTIONS" and request.headers.get("access-control-request-method"):
         return await call_next(request)
     token = begin_request_permission_memo()
+    # W-03 — same per-request lifetime for the activation gate's memo (verified
+    # bearer + confirmed-active ids), so a request never re-verifies its token.
+    gate_token = begin_activation_memo()
     try:
         return await call_next(request)
     finally:
+        reset_activation_memo(gate_token)
         reset_request_permission_memo(token)
 
 
@@ -728,7 +744,7 @@ async def shutdown_event():
     close_supabase_http_client()
 
 
-@app.get("/topics")
+@app.get("/topics", dependencies=_ACTIVE_LEARNER)
 async def get_topics(
     part: int | None = None,
     authorization: str | None = Header(default=None),

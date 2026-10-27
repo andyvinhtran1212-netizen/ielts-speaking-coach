@@ -18,7 +18,9 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from models.cohorts import AdminCohortListOut
-from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
+from routers.admin import (
+    require_admin, _aggregate_usage_for_users, _issue_code_and_assign, _activate_with_issued_code,
+)
 from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 from services.cohort_progress_aggregator import cohort_progress
 from services.class_membership_service import (
@@ -230,10 +232,20 @@ async def add_cohort_member(
     if not cohort:
         raise HTTPException(404, "Không tìm thấy lớp")
 
+    # W-03 — mirror generate-and-assign: the target must be a real user, and the
+    # admin-granted code activates the account (compensated on failure), so the
+    # learner can sign in and pass the activation gate without a code of their own.
+    target = (
+        supabase_admin.table("users").select("id").eq("id", body.user_id).limit(1).execute().data
+    ) or []
+    if not target:
+        raise HTTPException(404, "Không tìm thấy người dùng")
+
     new_code = _issue_code_and_assign(
         user_id=body.user_id, admin_id=admin_id, reason=body.reason or "cohort add",
         code_type="direct", cohort_id=cohort_id, permissions=["all"],
     )
+    _activate_with_issued_code(body.user_id, new_code)
     return {"ok": True, "user_id": body.user_id,
             "new_code": new_code.get("code"), "new_code_id": new_code.get("id")}
 
