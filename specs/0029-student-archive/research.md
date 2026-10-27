@@ -138,6 +138,9 @@ riêng, giai đoạn 2.
 -- append-only audit row — all in one locked transaction. No learner evidence is
 -- changed. Functions are service_role-only (320 left function EXECUTE defaults
 -- open, so this migration revokes them explicitly).
+-- The 227 membership writers are re-created with an archive guard so that no
+-- later class add or legacy cohort_id write can reactivate a membership of an
+-- archived learner.
 
 BEGIN;
 
@@ -338,6 +341,135 @@ BEGIN
 END;
 $$;
 
+-- 4b. Archive guards on the 227 membership writers (FR-002). Ending memberships
+-- at archive time is not enough: fn_add_student(s)_cohort_membership (cohorts.py
+-- single/bulk add, admin.py direct-code bridge) and the legacy cohort_id trigger
+-- (/auth/activate fold, rolling backends) would otherwise reactivate a class
+-- membership and let fan-out reach an archived learner. Bodies are the 227
+-- bodies plus the guard; signatures, SECURITY DEFINER, search_path and the 227
+-- grants are unchanged (CREATE OR REPLACE keeps the ACL). The student row lock
+-- conflicts with fn_archive_student's FOR UPDATE, so an add either commits
+-- before the archive (and the archive then ends that membership) or sees
+-- archived_at and refuses.
+CREATE OR REPLACE FUNCTION public.fn_add_student_cohort_membership(
+    p_student_id uuid,
+    p_cohort_id  uuid,
+    p_added_by   uuid DEFAULT NULL
+) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    v_archived_at timestamptz;
+BEGIN
+    SELECT archived_at INTO v_archived_at
+      FROM students WHERE id = p_student_id FOR NO KEY UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'student_not_found';
+    END IF;
+    IF v_archived_at IS NOT NULL THEN
+        RAISE EXCEPTION 'student_archived';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM cohorts WHERE id = p_cohort_id) THEN
+        RAISE EXCEPTION 'cohort_not_found';
+    END IF;
+
+    INSERT INTO student_cohort_memberships (
+        student_id, cohort_id, is_active, left_at, added_by, updated_at
+    ) VALUES (p_student_id, p_cohort_id, true, NULL, p_added_by, now())
+    ON CONFLICT (student_id, cohort_id) DO UPDATE
+          SET is_active = true,
+              left_at = NULL,
+              added_by = COALESCE(EXCLUDED.added_by,
+                                  student_cohort_memberships.added_by),
+              updated_at = now();
+
+    UPDATE students
+       SET cohort_id = COALESCE(cohort_id, p_cohort_id)
+     WHERE id = p_student_id;
+    RETURN true;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.fn_add_students_cohort_membership(
+    p_student_ids uuid[],
+    p_cohort_id   uuid,
+    p_added_by    uuid DEFAULT NULL
+) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    v_count    integer;
+    v_archived uuid[];
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM cohorts WHERE id = p_cohort_id) THEN
+        RAISE EXCEPTION 'cohort_not_found';
+    END IF;
+
+    -- Lock in id order (no deadlock between bulk calls), then refuse the whole
+    -- batch if any requested learner is archived: no partial add.
+    PERFORM 1 FROM students
+      WHERE id = ANY (COALESCE(p_student_ids, '{}'::uuid[]))
+      ORDER BY id FOR NO KEY UPDATE;
+    SELECT array_agg(id ORDER BY id) INTO v_archived
+      FROM students
+     WHERE id = ANY (COALESCE(p_student_ids, '{}'::uuid[]))
+       AND archived_at IS NOT NULL;
+    IF v_archived IS NOT NULL THEN
+        RAISE EXCEPTION 'student_archived'
+            USING DETAIL = array_to_string(v_archived, ',');
+    END IF;
+
+    WITH wanted AS (
+        SELECT DISTINCT unnest(COALESCE(p_student_ids, '{}'::uuid[])) AS id
+    ), valid AS (
+        SELECT s.id, EXISTS (
+            SELECT 1 FROM student_cohort_memberships current
+             WHERE current.student_id = s.id
+               AND current.cohort_id = p_cohort_id AND current.is_active
+        ) AS was_active
+          FROM students s JOIN wanted w ON w.id = s.id
+    ), upserted AS (
+        INSERT INTO student_cohort_memberships (
+            student_id, cohort_id, is_active, left_at, added_by, updated_at
+        )
+        SELECT id, p_cohort_id, true, NULL, p_added_by, now() FROM valid
+        ON CONFLICT (student_id, cohort_id) DO UPDATE
+              SET is_active = true,
+                  left_at = NULL,
+                  added_by = COALESCE(EXCLUDED.added_by,
+                                      student_cohort_memberships.added_by),
+                  updated_at = now()
+        RETURNING student_id
+    )
+    SELECT count(*) FILTER (WHERE NOT was_active) INTO v_count FROM valid;
+
+    UPDATE students s
+       SET cohort_id = p_cohort_id
+     WHERE s.cohort_id IS NULL
+       AND s.id = ANY(COALESCE(p_student_ids, '{}'::uuid[]));
+    RETURN v_count;
+END;
+$$;
+
+-- The trigger fires inside the UPDATE that already holds the row lock.
+-- fn_archive_student writes cohort_id = NULL and fn_restore_student clears
+-- archived_at in the same UPDATE, so neither trips the guard.
+CREATE OR REPLACE FUNCTION public.fn_sync_legacy_student_cohort_membership()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF NEW.cohort_id IS NOT NULL THEN
+        IF NEW.archived_at IS NOT NULL THEN
+            RAISE EXCEPTION 'student_archived';
+        END IF;
+        INSERT INTO student_cohort_memberships (
+            student_id, cohort_id, is_active, left_at, updated_at
+        ) VALUES (NEW.id, NEW.cohort_id, true, NULL, now())
+        ON CONFLICT (student_id, cohort_id) DO UPDATE
+              SET is_active = true, left_at = NULL, updated_at = now();
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
 REVOKE ALL ON FUNCTION public.fn_archive_student(uuid, uuid, text, boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.fn_restore_student(uuid, uuid, text, boolean, boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_archive_student(uuid, uuid, text, boolean) TO service_role;
@@ -365,6 +497,12 @@ BEGIN
        OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.student_lifecycle_audit'::regclass) THEN
         RAISE EXCEPTION 'student_lifecycle_audit_privileges_wrong';
     END IF;
+    IF has_function_privilege('authenticated', 'public.fn_add_student_cohort_membership(uuid,uuid,uuid)', 'EXECUTE')
+       OR has_function_privilege('authenticated', 'public.fn_add_students_cohort_membership(uuid[],uuid,uuid)', 'EXECUTE')
+       OR has_function_privilege('anon', 'public.fn_add_student_cohort_membership(uuid,uuid,uuid)', 'EXECUTE')
+       OR has_function_privilege('anon', 'public.fn_add_students_cohort_membership(uuid[],uuid,uuid)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'membership_functions_client_executable';   -- 227 grants kept
+    END IF;
     IF has_table_privilege('authenticated', 'public.students', 'UPDATE') THEN
         RAISE EXCEPTION 'students_client_update_privilege';   -- 320 invariant
     END IF;
@@ -377,7 +515,17 @@ Ghi chú:
 - `UPDATE students SET cohort_id = NULL` kích hoạt `trg_sync_legacy_student_cohort_membership`
   (AFTER UPDATE OF cohort_id) — cùng đường mà `fn_remove_student_cohort_membership`
   đã dùng (227: `UPDATE students SET cohort_id = v_primary`, v_primary có thể NULL).
-  **Chưa đọc thân hàm trigger** để xác nhận hành vi với NULL — T004 phải test.
+  Thân hàm trong repo (`227_student_cohort_memberships.sql:57–73`) chỉ ghi khi
+  `NEW.cohort_id IS NOT NULL` → với NULL là no-op; T002a vẫn đối chiếu bản live
+  và T004 phải test.
+- Guard §4b (FR-002): lưu trữ chỉ kết thúc membership hiện có; nếu không chặn,
+  thêm lớp đơn/hàng loạt (`routers/cohorts.py:283–311`, `:318–341` →
+  `fn_add_student(s)_cohort_membership`), cầu nối mã direct
+  (`routers/admin.py:2636–2653` → `add_student`) và trigger legacy (fold
+  `cohort_id` ở `/auth/activate`, `routers/auth.py:610–623`) sẽ bật lại membership
+  (`ON CONFLICT … SET is_active = true`, 227:99–108, 145–155) và fan-out lớp lại tới
+  học viên đã lưu trữ. Guard khoá dòng `students` (xung đột với `FOR UPDATE` của
+  `fn_archive_student`) rồi `RAISE 'student_archived'`; bulk từ chối cả lô.
 - `students_self_read` vẫn cho học viên đọc dòng của chính mình (kể cả khi đã
   lưu trữ) — chấp nhận được (không lộ dữ liệu người khác); app chặn ở backend.
 - Trigger 320 (`trg_users_guard_privileged_columns`) chỉ trên `users`, cấm client
@@ -400,6 +548,11 @@ BEGIN
         RAISE EXCEPTION 'rollback_unsafe_audit_rows_exist';
     END IF;
 END $$;
+-- Restore the unguarded 227 bodies FIRST: the §4b bodies reference
+-- students.archived_at and would fail at runtime once the column is dropped.
+-- Copy fn_sync_legacy_student_cohort_membership, fn_add_student_cohort_membership
+-- and fn_add_students_cohort_membership verbatim from
+-- 227_student_cohort_memberships.sql:57–165 (CREATE OR REPLACE keeps the grants).
 DROP FUNCTION IF EXISTS public.fn_restore_student(uuid, uuid, text, boolean, boolean);
 DROP FUNCTION IF EXISTS public.fn_archive_student(uuid, uuid, text, boolean);
 DROP TABLE IF EXISTS public.student_lifecycle_audit;
@@ -418,6 +571,18 @@ abort). Nếu đã có học viên lưu trữ: khôi phục từng người bằ
 danh sách (dù membership đã kết thúc) và mất audit. Code backend phải rollback
 **trước** schema (code mới gọi RPC/cột). Rollback = migration forward mới.
 
+Rollback backend **không** chỉ là "code cũ bỏ qua cột mới": backend trước 0029
+gọi lại xoá cứng (`routers/admin_students.py:129–136` →
+`student_service.delete_student`, cascade xoá bài làm của học viên đã lưu trữ —
+trái FR-005/FR-006) và `fetch_linked_student` cũ cho học viên đã lưu trữ vào
+Writing (trái FR-002); guard schema không chặn được hai điều này và bảng audit
+append-only không thể làm rỗng. Vì vậy: chỉ revert nguyên trạng backend khi
+`SELECT count(*) FROM public.students WHERE archived_at IS NOT NULL` = 0; nếu > 0
+thì rollback bằng bản build tương thích lưu trữ (commit revert forward chỉ gỡ phần
+lỗi, giữ DELETE → `fn_archive_student`, lọc `fetch_linked_student`, chặn
+`/auth/activate`, 409 `student_archived`) và kiểm tra lại AC-2, AC-7, AC-8, AC-14 trên
+bản đó trước khi chuyển traffic. Xem `rollout.md`.
+
 ## 5. Code thay đổi
 
 | File / hàm | Thay đổi |
@@ -429,6 +594,7 @@ danh sách (dù membership đã kết thúc) và mất audit. Code backend phả
 | `GET /admin/students/{id}` (`admin_students.py:99`, `get_student_with_history`:253) | Trả kèm trạng thái lưu trữ (admin vẫn xem được). |
 | `routers/instructor.py:587–600` roster & detail | Lọc `archived_at IS NULL` (instructor không thấy học viên đã lưu trữ). |
 | `services/student_service.py:445` `fetch_linked_student` (dùng ở `routers/writing_student.py:142` `get_current_student`) | Bỏ dòng đã lưu trữ → học viên nhận 403 hiện có ở Writing/lớp. |
+| Thêm lớp: `routers/cohorts.py:283` (đơn), `:319` (hàng loạt); cầu nối mã direct `routers/admin.py:2636–2653` | DB guard §4b từ chối học viên đã lưu trữ (`student_archived`). Route đơn/hàng loạt trả 409 `student_archived` thay vì 500 (bulk: cả lô bị từ chối, không thêm phần nào). Cầu nối mã direct kiểm hồ sơ liên kết đã lưu trữ **trước** khi tạo mã → 409, không nuốt lỗi bằng `logger.warning`. |
 | `routers/auth.py:568–572` (`/auth/activate`, by_user/by_code) | Nếu hồ sơ khớp đã lưu trữ → 403 "Hồ sơ học viên đã được lưu trữ — liên hệ admin", **trước** khi kích hoạt/claim mã (không đổi `users.is_active`, mã không bị tiêu). |
 | Giao bài Writing cá nhân (`routers/admin_writing_assignments.py` tạo bài; `fn_create_writing_assignments_idempotent`) và instructor tạo bài (`routers/instructor.py` `create_assignment`) | Từ chối `student_id` đã lưu trữ (422/409). Hàm SQL `fn_create_writing_assignments_idempotent` — **chưa đọc thân hàm**; nếu nó nhận danh sách student_id, cần thêm kiểm trong migration riêng hoặc ở Python trước khi gọi. |
 | Fan-out lớp (`fn_create_class_assignment(…, uuid[])` và các hàm roster) | Không cần sửa nếu chúng đọc roster qua membership active — **cần xác nhận** bằng đọc thân hàm live trước khi implement (T002a). |
@@ -439,7 +605,12 @@ Test: `backend/tests/test_migration_326_student_archive.py` (tĩnh + PG): archiv
 → membership kết thúc, dữ liệu bài làm không đổi (đếm trước/sau), audit 1 dòng,
 idempotent; restore trả lớp; `SET ROLE authenticated` + claims không gọi được RPC
 và không đổi được `users.is_active` (42501); rollback block abort khi có archived.
-Test route: DELETE → 204 không gọi `.delete()`; activate với hồ sơ archived → 403.
+PG cũng test guard §4b: thêm đơn/hàng loạt/`UPDATE students SET cohort_id` cho
+học viên đã lưu trữ → `student_archived`, membership không đổi, bulk không thêm
+phần nào; hai phiên đồng thời (archive vs thêm lớp) không bao giờ kết thúc với
+học viên đã lưu trữ có membership active; restore không vấp guard.
+Test route: DELETE → 204 không gọi `.delete()`; activate với hồ sơ archived → 403;
+thêm lớp đơn/hàng loạt và mã direct cho học viên archived → 409.
 
 ## 6. Kiểm tra production — **chờ anh Vinh cho phép chạy chỉ đọc**
 
@@ -494,6 +665,7 @@ essay đã chấm, 1 membership lớp.
 | AC-11 | `POST /admin/students/{id}/restore` | Học viên trở lại danh sách, membership lớp cũ active, `students.cohort_id` = lớp chính cũ; audit `restore`; dữ liệu bài làm vẫn đủ. |
 | AC-12 | Học viên khác không bị ảnh hưởng | Danh sách/roster/lớp của 8 học viên còn lại không đổi. |
 | AC-13 | Dọn E2E | `staging_seed.py --cleanup` vẫn chạy (đường xoá cứng chỉ trong script). |
+| AC-14 | Với học viên E2E đã lưu trữ: `POST /admin/cohorts/{lớp cũ}/students` và `POST /admin/cohorts/{lớp cũ}/students/bulk` (kèm 1 học viên E2E khác chưa lưu trữ); `POST /admin/access-codes/generate-and-assign` mã direct có `cohort_id` cho user của học viên; rồi giao bài lớp | Đơn/hàng loạt/mã direct đều 409 `student_archived`; không membership nào bật lại (bulk không thêm cả học viên kia), không mã nào được tạo; bài giao lớp không tạo item cho học viên đã lưu trữ. |
 
 ## 8. Rủi ro & phân loại
 
@@ -518,7 +690,7 @@ essay đã chấm, 1 membership lớp.
 - [ ] T002 Viết 326. - [ ] T003 Backend §5. - [ ] T004 Tests (PG + route).
 - [ ] T005 UI Next lưu trữ/khôi phục; gỡ panel cũ. - [ ] T006 README migrations.
 - [ ] T007 P1–P6 production (chờ anh Vinh cho phép chạy chỉ đọc).
-- [ ] T008 Staging AC-1…AC-13; T009 production sau duyệt.
+- [ ] T008 Staging AC-1…AC-14; T009 production sau duyệt.
 - [ ] T010 (giai đoạn 2) Spec purge GDPR.
 
 ## 10. Chưa kiểm chứng
