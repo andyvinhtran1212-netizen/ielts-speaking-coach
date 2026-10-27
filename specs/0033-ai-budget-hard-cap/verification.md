@@ -9,7 +9,7 @@ strategy. V-queries are read-only.
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_ai_budget_gate.py (every provider SDK call or endpoint in backend/ is inside a guarded wrapper; every SDK client sets max_retries=0; allow-list seeded from research.md §1) | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_migration_333_ai_budget.py (4N racing reservations from two connections grant exactly N; month and day, total and provider scopes; all-or-nothing bundle; PostgreSQL 16 and 17) | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_migration_333_ai_budget.py (4N racing reservations from two connections grant exactly N; month and day, total and provider scopes; all-or-nothing bundle; two concurrent calls with the same request key → one granted, one replay, exactly one provider stub call; replay of a settled, released or expired key grants nothing; PostgreSQL 16 and 17) | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_ai_budget_service.py (cap parsing, daily = monthly ÷ 30 × 2, unset/0/negative/unparseable → config_invalid refuses; provider without its own cap bounded by total) | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_ai_budget_service.py (estimate ≥ actual for each catalog model at max_tokens; an unpriced model is refused; release only when not sent; settle at estimate on timeout and cancel) plus kind=query; ref=plan.md V3 ratio on staging | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_ai_budget_service.py (RPC raise, timeout, bad shape, missing function → refuse with zero stub calls; settle failure leaves the reservation open; ledger outage does not affect decisions) | PENDING |

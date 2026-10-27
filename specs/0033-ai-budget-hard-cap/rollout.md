@@ -45,9 +45,12 @@ key, token or `.env` value. Evidence records variable **names** and
    staging caps that match production. Run the E2E Speaking, Writing,
    Listening gist and TTS journeys. For each feature, compare the reservation
    estimate with the settled actual cost (`plan.md` V3). Record the
-   estimate/actual ratio for each feature. It must be at least 1.0 at p95 (no
-   under-estimate) and at most 3.0 at median, so the cap is not reached
-   early. Otherwise, tune the estimator before S3.
+   estimate/actual ratio for each feature. The lower tail is the safety
+   check, so the **minimum** ratio must be at least 1.0. Zero settled
+   reservations may have `actual_usd > estimate_usd`, because FR-004 makes
+   the estimate an upper bound. The median must be at most 3.0, so the cap
+   is not reached early. Investigate any underestimate (V3
+   `underestimated` count) and tune the estimator before S3.
 3. **S3. Enforce with a low cap.** Set `AI_BUDGET_MODE=enforce` and
    `AI_BUDGET_MONTHLY_USD_TOTAL` to a test value just above the period's
    committed spend. Then run AC1–AC9 (`spec.md`) with E2E accounts.

@@ -161,7 +161,22 @@ transaction with `lock_timeout = 5s`.
        FR-003 validation happens before the call; the function also
        rejects caps of zero or less.
      - First, if rows for `p_request_key` already exist, the function
-       returns them unchanged (idempotent replay, FR-012 and AC3).
+       does not grant anything. It returns `{granted: false, replay: true,
+       lines: [{provider, status}]}` without changing a counter (FR-012,
+       AC3). A replay **never authorises a provider request**, whatever
+       the existing status (`reserved`, `settled`, `released` or
+       `expired`). Only the transaction that inserted the rows gets
+       `granted: true` and the reservation ids that `guard` needs to send.
+       A concurrent duplicate blocks on the unique index until the first
+       transaction commits, then sees a replay.
+     - Callers derive `request_key` from the logical attempt: for
+       Speaking, `submission_id` plus the attempt number; for a deferred
+       job, the job id plus `attempts`. A true retry after a failure uses
+       the next attempt number, and so gets a new reservation. A duplicate
+       of the same attempt (a client retry, or a concurrent request with
+       the same `submission_id`) gets a replay. It must then return the
+       canonical stored state, through the existing `check_submission`
+       readback or the deferred state, and never call the provider.
      - Then it upserts the counter rows for every touched scope and
        period and locks them `FOR UPDATE` in `(scope, period_kind)`
        order.
@@ -386,8 +401,10 @@ Supabase SQL editor or the runner, and print no secrets.
      or (c.period_kind = 'day' and r.day_start = c.period_start))
   group by 1, 2, 3, 4, 5;
   -- ratio per feature
-  select feature, percentile_cont(0.5) within group (order by estimate_usd / nullif(actual_usd, 0)) as median_ratio,
-         percentile_cont(0.05) within group (order by estimate_usd / nullif(actual_usd, 0)) as p05_ratio
+  select feature,
+         min(estimate_usd / actual_usd) as min_ratio,              -- must be >= 1.0
+         count(*) filter (where actual_usd > estimate_usd) as underestimated,  -- must be 0
+         percentile_cont(0.5) within group (order by estimate_usd / actual_usd) as median_ratio  -- must be <= 3.0
   from ai_budget_reservations where status = 'settled' and actual_usd > 0 group by 1;
   ```
 
