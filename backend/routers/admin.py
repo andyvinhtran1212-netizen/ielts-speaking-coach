@@ -43,6 +43,7 @@ from services.student_service import student_archived_error
 from services.access_code_gen import (
     generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
 )
+from services import activation_gate
 from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
@@ -100,6 +101,9 @@ async def require_admin(authorization: str | None) -> dict:
     if not r.data or r.data[0].get("role") != "admin":
         raise HTTPException(403, "Bạn không có quyền truy cập trang này")
 
+    # Q-13 — a staff role does not replace activation: the learner gate skips
+    # staff paths, so this guard owns the users.is_active check for them.
+    activation_gate.ensure_account_active(user_id)
     return auth_user
 
 
@@ -129,6 +133,8 @@ async def require_instructor(authorization: str | None) -> dict:
     if not r.data or r.data[0].get("role") not in ("instructor", "admin"):
         raise HTTPException(403, "Bạn không có quyền truy cập trang giảng viên")
 
+    # Q-13 — same activation requirement as require_admin.
+    activation_gate.ensure_account_active(user_id)
     return auth_user
 
 
