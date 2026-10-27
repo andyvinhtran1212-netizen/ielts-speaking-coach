@@ -17,6 +17,7 @@ from models.auth import (
     AuthProfileResponse,
     AuthProfileUpdateResponse,
 )
+from services import activation_gate
 from services.server_timing import record_stage
 from services.feature_flags import is_flashcard_enabled
 from services import runtime_flags
@@ -139,6 +140,13 @@ async def get_supabase_user(authorization: str | None):
             detail="Invalid Authorization header",
         )
 
+    # W-03 — the router-level activation gate verifies the same bearer first;
+    # reuse that verification instead of a second Supabase Auth round-trip.
+    # The memo lives for one request only (see services.activation_gate).
+    remembered = activation_gate.remembered_user(token)
+    if remembered is not None:
+        return remembered
+
     auth_start = perf_counter()
     try:
         client = _get_auth_http_client()
@@ -166,7 +174,9 @@ async def get_supabase_user(authorization: str | None):
     if response.status_code != 200:
         raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
 
-    return response.json()
+    user = response.json()
+    activation_gate.remember_user(token, user)
+    return user
 
 
 # ── GET /auth/me ──────────────────────────────────────────────────────────────

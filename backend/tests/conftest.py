@@ -63,6 +63,55 @@ def _no_live_error_log_insert(monkeypatch):
         pass
 
 
+# W-03 — the learner activation gate (services/activation_gate.py) runs on every
+# learner router and verifies the bearer through routers.auth.get_supabase_user.
+# Hundreds of pre-W-03 tests patch get_supabase_user per ROUTER module (or not
+# at all) and seed no `users` row, so a live gate would 401/403 them for a
+# reason unrelated to what they test. Same approach as the Writing permission
+# default above: tests run as an ACTIVE account by default, and the gate's own
+# tests opt back into the real implementation with the `live_activation_gate`
+# fixture below (tests/test_activation_gate*.py).
+_ACTIVATION_GATE_ORIGINALS: dict = {}
+
+
+@pytest.fixture(autouse=True)
+def _activation_gate_defaults_active(monkeypatch):
+    try:
+        from services import activation_gate
+    except Exception:
+        return
+    _ACTIVATION_GATE_ORIGINALS.setdefault("_enforce", activation_gate._enforce)
+    _ACTIVATION_GATE_ORIGINALS.setdefault("lookup_is_active", activation_gate.lookup_is_active)
+
+    async def _gate_passes(_request):
+        return None
+
+    monkeypatch.setattr(activation_gate, "_enforce", _gate_passes)
+    monkeypatch.setattr(activation_gate, "lookup_is_active", lambda _user_id: True)
+
+
+@pytest.fixture
+def live_activation_gate(monkeypatch):
+    """Run the REAL activation gate (and is_active lookup) in this test."""
+    from services import activation_gate
+    monkeypatch.setattr(activation_gate, "_enforce", _ACTIVATION_GATE_ORIGINALS["_enforce"])
+    monkeypatch.setattr(activation_gate, "lookup_is_active",
+                        _ACTIVATION_GATE_ORIGINALS["lookup_is_active"])
+    return activation_gate
+
+
+@pytest.fixture(autouse=True)
+def _reset_listening_gist_burst_window():
+    """W-03 — Listening gist grading keeps a module-global per-user minute
+    window; clear it so one test's attempts never throttle another's."""
+    try:
+        from routers import listening
+        listening._gist_attempts.clear()
+    except Exception:
+        pass
+    yield
+
+
 @pytest.fixture(autouse=True)
 def _reset_activate_rate_limit():
     """B4 — /auth/activate uses a module-global per-user attempt window. Reset it

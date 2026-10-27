@@ -205,6 +205,12 @@ class Settings(BaseSettings):
     # per-worker, per-IP sliding minute window. <= 0 disables either cap.
     TTS_DAILY_LIMIT_PER_USER: int = 200
     TTS_IP_MAX_PER_MINUTE: int = 60
+    # W-03 — Listening gist grading (POST /api/listening/attempts mode=gist,
+    # one Claude Haiku call per attempt). Daily per-user count of
+    # ai_usage_logs feature="listening_gist" rows since UTC midnight, plus a
+    # per-worker, per-user sliding minute window. <= 0 disables either cap.
+    LISTENING_GIST_DAILY_LIMIT_PER_USER: int = 60
+    LISTENING_GIST_MAX_PER_MINUTE: int = 6
 
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False

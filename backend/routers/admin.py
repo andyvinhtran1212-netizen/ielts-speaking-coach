@@ -2471,6 +2471,46 @@ def _issue_code_and_assign(*, user_id: str, admin_id: str | None, reason: str | 
     return new_code
 
 
+def _activate_user_for_code(user_id: str, code: str | None, permissions) -> None:
+    """Admin-granted access == activation (W-03). Login and the learner gate
+    read users.is_active independently of code entitlements, so every admin
+    path that hands a user an ACTIVE code assignment activates the account the
+    way self-service /auth/activate does: is_active + the access_code_used /
+    permissions snapshot. Never changes role or onboarding. Raises 404 when the
+    user row does not exist."""
+    activated = (
+        supabase_admin.table("users").update({
+            "is_active": True,
+            "access_code_used": code,
+            "permissions": permissions,
+        }).eq("id", user_id).execute()
+    )
+    if not activated.data:
+        raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
+
+
+def _activate_with_issued_code(user_id: str, new_code: dict) -> None:
+    """Activate the holder of a code `_issue_code_and_assign` just minted; on
+    failure, revoke that issuance (generate-and-assign, refill, cohort add)."""
+    # Login gates on users.is_active, independently of code entitlements. Match
+    # self-service activation so an admin-assigned learner can sign in without
+    # entering the already-claimed code. Never change their role or onboarding.
+    try:
+        _activate_user_for_code(user_id, new_code["code"], new_code["permissions"])
+    except Exception:
+        # Compensate this issuance only: a failed activation must not leave a
+        # live grant that a retry could duplicate. Revoke the code first so
+        # even a later assignment-cleanup failure cannot keep granting access.
+        # Retain its immutable redemption history instead of deleting records.
+        supabase_admin.table("access_codes").update({
+            "is_revoked": True, "is_active": False,
+        }).eq("id", new_code["id"]).eq("used_by", user_id).execute()
+        supabase_admin.table("user_code_assignments").update({
+            "is_active": False, "revoked_at": _now_iso(),
+        }).eq("code_id", new_code["id"]).eq("user_id", user_id).execute()
+        raise
+
+
 class ReassignRequest(BaseModel):
     from_user_id: str
     to_user_id: str
@@ -2495,7 +2535,8 @@ async def reassign_code(code_id: str, body: ReassignRequest,
         raise HTTPException(400, "Người nhận trùng với người hiện tại.")
 
     code = (
-        supabase_admin.table("access_codes").select("id, is_revoked").eq("id", code_id).limit(1).execute().data
+        supabase_admin.table("access_codes").select("id, code, permissions, is_revoked")
+        .eq("id", code_id).limit(1).execute().data
     ) or []
     if not code:
         raise HTTPException(404, "Mã không tồn tại")
@@ -2509,7 +2550,22 @@ async def reassign_code(code_id: str, body: ReassignRequest,
     if not existing:
         raise HTTPException(404, "Người dùng nguồn không có assignment đang hoạt động cho mã này")
 
+    target_held = (
+        supabase_admin.table("user_code_assignments").select("id")
+        .eq("code_id", code_id).eq("user_id", body.to_user_id).eq("is_active", True).execute().data
+    ) or []
     _assign_user_to_code(code_id, body.to_user_id, admin_id, body.reason)   # activate target first
+    # W-03 — the transferred grant must be usable: activate the target account
+    # like generate-and-assign. On failure undo ONLY the grant this call added
+    # (never one the target already held) and leave the source untouched.
+    try:
+        _activate_user_for_code(body.to_user_id, code[0].get("code"), code[0].get("permissions"))
+    except Exception:
+        if not target_held:
+            supabase_admin.table("user_code_assignments").update({
+                "is_active": False, "revoked_at": _now_iso(),
+            }).eq("code_id", code_id).eq("user_id", body.to_user_id).execute()
+        raise
     supabase_admin.table("user_code_assignments").update({
         "is_active": False, "revoked_at": _now_iso(), "assigned_by": admin_id, "reason": body.reason,
     }).eq("code_id", code_id).eq("user_id", body.from_user_id).eq("is_active", True).execute()
@@ -2548,6 +2604,7 @@ async def refill_code(code_id: str, body: RefillRequest,
         permissions=src.get("permissions"), session_limit=src.get("session_limit"),
         expires_at=src.get("expires_at"),
     )
+    _activate_with_issued_code(target, new_code)   # W-03 — usable grant (may be a new user)
     # Audit both the refill on the source code and the creation of the new code.
     _audit_entitlement(
         admin_id, "refill", code_id, target_user_id=target,
@@ -2622,31 +2679,7 @@ async def generate_and_assign_code(
         expires_at=body.expires_at,
     )
 
-    # Login gates on users.is_active, independently of code entitlements. Match
-    # self-service activation so an admin-assigned learner can sign in without
-    # entering the already-claimed code. Never change their role or onboarding.
-    try:
-        activated = (
-            supabase_admin.table("users").update({
-                "is_active": True,
-                "access_code_used": new_code["code"],
-                "permissions": new_code["permissions"],
-            }).eq("id", body.user_id).execute()
-        )
-        if not activated.data:
-            raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
-    except Exception:
-        # Compensate this issuance only: a failed activation must not leave a
-        # live grant that a retry could duplicate. Revoke the code first so
-        # even a later assignment-cleanup failure cannot keep granting access.
-        # Retain its immutable redemption history instead of deleting records.
-        supabase_admin.table("access_codes").update({
-            "is_revoked": True, "is_active": False,
-        }).eq("id", new_code["id"]).eq("used_by", body.user_id).execute()
-        supabase_admin.table("user_code_assignments").update({
-            "is_active": False, "revoked_at": _now_iso(),
-        }).eq("code_id", new_code["id"]).eq("user_id", body.user_id).execute()
-        raise
+    _activate_with_issued_code(body.user_id, new_code)
 
     # A direct cohort-linked code adds that class membership without revoking
     # any class the learner already attends. Entitlement remains independent.
