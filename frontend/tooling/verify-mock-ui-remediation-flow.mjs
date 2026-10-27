@@ -57,6 +57,7 @@ try {
     const json = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
     requests.push({ path, method: request.method() });
     if (path === '/auth/me' || path === '/auth/v1/user') return json(user);
+    if (path === '/auth/check-active') return json({ is_active: true }); // W-03 learner activation probe
     if (path === '/admin/cohorts') return json({ cohorts: [{ id: 'class-1', name: 'Fixture class' }] });
     if (path === '/admin/mock-exams') return json({ exams: [] });
     if (path === '/admin/exam-content/page') {

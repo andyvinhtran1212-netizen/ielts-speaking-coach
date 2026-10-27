@@ -42,6 +42,7 @@ async function fixture(width, theme, missing = false) {
     // The existing student chrome resolves its profile through this shared
     // endpoint. This synthetic owned profile is not a history/API projection.
     if (method === 'GET' && url.pathname === '/auth/me') return json({ id: 'history-fixture-user', email: 'history@example.com', display_name: 'History Fixture', role: 'student', is_active: true, onboarding_completed: true });
+    if (method === 'GET' && url.pathname === '/auth/check-active') return json({ is_active: true }); // W-03 probe
     if (method === 'GET' && entry.path === progress.path) return json(progress.response, progress.status);
     if (method === 'GET' && entry.path === mistakes.path) {
       const row = missing && ++mistakeReads === 1 ? unavailable : mistakes;

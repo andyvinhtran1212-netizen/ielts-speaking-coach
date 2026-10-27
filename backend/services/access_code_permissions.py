@@ -180,6 +180,27 @@ def get_user_permissions_summary(code_permissions: Optional[list[str]]) -> dict:
     }
 
 
+def get_account_permissions_summary(
+    user_id: UUID | str, display_name: Optional[str] = None,
+) -> dict:
+    """W-03 — the per-skill flag map for an ACCOUNT (GET /api/student/permissions).
+
+    An account whose ``users.is_active`` is false gets every flag false —
+    including ``is_admin_override`` — even while it holds an ``['all']`` code or
+    a writing assignment: a grant on an account that never activated grants
+    nothing. Otherwise: live code permissions plus the WF writing-assignment
+    bridge (c), consistent with the backend request-time gates."""
+    from services import activation_gate  # local — keeps this module import-light
+    if not activation_gate.account_is_active(str(user_id)):
+        return get_user_permissions_summary([])
+    summary = get_user_permissions_summary(get_user_access_code_permissions(user_id))
+    if not summary["writing"] and student_has_writing_assignment(
+        student_id_for_user(user_id, display_name)
+    ):
+        summary["writing"] = True
+    return summary
+
+
 def validate_permissions_or_raise(permissions: list[str]) -> None:
     """Fail-loud guard for admin create/update. Raises ValueError listing
     every offending value so the admin UI's error toast can surface them
