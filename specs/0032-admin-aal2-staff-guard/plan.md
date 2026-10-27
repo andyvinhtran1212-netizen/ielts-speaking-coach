@@ -203,7 +203,7 @@ Additive and forward-only, in one transaction.
 1. **`public.staff_security_audit`**
    - Columns: `id uuid pk default gen_random_uuid()`,
      `occurred_at timestamptz not null default now()`,
-     `event text not null check (event in ('role_changed','active_changed','staff_row_inserted','sessions_revoked','sessions_revoke_failed','mfa_factor_enrolled','mfa_factor_verified','mfa_factor_deleted'))`,
+     `event text not null check (event in ('role_changed','active_changed','staff_row_inserted','sessions_revoked','sessions_revoke_failed','mfa_factor_enrolled','mfa_factor_verified','mfa_factor_deleted','bootstrap_recovery'))`,
      `target_user_id uuid not null`, `actor_user_id uuid`,
      `source text not null check (source in ('admin_api','service','out_of_band','auth'))`,
      `before jsonb`, `after jsonb`, `reason text`, `request_id text`, `detail jsonb`.
@@ -264,8 +264,25 @@ Additive and forward-only, in one transaction.
       `is_active = true` in the same `UPDATE`.
    6. Returns `(changed boolean, audit_id uuid, before jsonb, after jsonb)`.
       A no-op returns `changed = false` and writes no row.
+5b. **`public.fn_bootstrap_admin_recovery(p_target uuid, p_operator text, p_reason text)`**
+   is the control-plane-only path for path (e) in `rollout.md`.
+   - SECURITY INVOKER, owned by the migration owner. `EXECUTE` is revoked from
+     `PUBLIC`, `anon`, `authenticated` **and `service_role`**, so neither the
+     app nor a leaked service key can call it. Only the database owner role
+     can, from the SQL editor or the runner.
+   - It locks every `role = 'admin'` row and raises `admins_exist` unless no
+     admin is `is_active` and unsuspended. It therefore cannot bypass
+     FR-006's actor rule while any eligible admin exists.
+   - It sets `aver.staff_privilege = on`, then makes `p_target` `role = 'admin'`,
+     `is_active = true` and clears its suspension marker in one `UPDATE`.
+   - In addition to the trigger's own `role_changed` / `active_changed` rows
+     (FR-009), it writes one `bootstrap_recovery` audit row (`source = out_of_band`,
+     `actor_user_id = NULL`, `detail.operator = p_operator`, before and
+     after) and an outbox row, so the owner is emailed.
+   - It returns the audit id. Unbanning and the target's MFA factor stay in
+     the Supabase dashboard (runbook (e)).
 6. **Postcondition block**: the columns and CHECK, tables, grants, both
-   triggers and function `EXECUTE` grants as above. The block aborts the transaction on mismatch. The
+   triggers and function `EXECUTE` grants as above, including that `service_role` cannot execute `fn_bootstrap_admin_recovery`. The block aborts the transaction on mismatch. The
    `backend/migrations/README.md` numbering note and a
    `forward-policy.tsv` row (`pending_feature`, group `admin_aal2`) are
    updated with the migration.

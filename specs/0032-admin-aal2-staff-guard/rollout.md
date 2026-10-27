@@ -55,6 +55,8 @@ code deploy.
     is false;
   - both triggers on `public.users` exist (`trg_users_privilege_audit`, `trg_users_suspension_guard`), and the suspension columns and CHECK exist;
   - `has_function_privilege('authenticated', 'public.fn_set_staff_privilege(uuid,uuid,text,boolean,text,text)', 'EXECUTE')`
+    is false;
+  - `has_function_privilege('service_role', 'public.fn_bootstrap_admin_recovery(uuid,text,text)', 'EXECUTE')`
     is false.
 - **S3.** Deploy the merged staging SHA with `ADMIN_AAL2_ENFORCE=false` and
   start the cron service. Confirm that `admin_aal2_would_block` lines appear
@@ -79,7 +81,12 @@ code deploy.
   - (a) flag off and on again;
   - (b) delete a synthetic admin's factor through the Supabase dashboard, then
     that admin re-enrolls;
-  - (c) sign in with the backup factor only.
+  - (c) sign in with the backup factor only;
+  - (e) bootstrap from zero eligible admins, with Vinh present in an agreed
+    window. Suspend every staging admin through the RPC, including a
+    synthetic one. Show that path (d) and the app cannot restore access.
+    Run `fn_bootstrap_admin_recovery` for Vinh's staging account, check the
+    audit row and the email, then restore the others through path (d).
 
 ## Production
 
@@ -108,7 +115,8 @@ in `verification.md`.
 | **(a) Turn enforcement off** | Any lock-out, broken challenge, GoTrue MFA outage | Vinh, or a delegate with Railway project access | Railway → backend service → Variables → `ADMIN_AAL2_ENFORCE=false` → the service restarts with the same image. Admin works at AAL1 again (report-only). `is_active` and role checks stay on | ≤ 10 min |
 | **(b) Reset one admin's factor** | An admin lost the phone and has no backup | Vinh as Supabase organization owner, after confirming the admin's identity out of band (phone or in person, never only by email) | Supabase dashboard → Authentication → Users → user → MFA factors → delete. Alternatively, the Auth admin API `DELETE /auth/v1/admin/users/{id}/factors/{factor_id}` with service_role from a trusted machine. The admin then re-enrolls at `/admin/mfa`. The sweep records `mfa_factor_deleted` (`source = auth`) from the Auth audit log and emails within 5 minutes | ≤ 30 min |
 | **(c) Backup** | The owner's primary device is lost | Vinh | Sign in with the offline backup factor, or have the second MFA admin perform (b) for Vinh | ≤ 15 min |
-| **(d) No clean admin left** | Both admins compromised or locked | Vinh with control-plane access | Path (a), then, as owner in the SQL editor, run `SELECT * FROM public.fn_set_staff_privilege(<clean admin id>, <target id>, <role or NULL>, <is_active or NULL>, '<reason>', 'runbook-d')` with the clean admin as actor, so a suspension carries its marker and cannot be undone by an access code. Never use a bare `UPDATE users SET is_active`. The change is audited and alerted. Revoke the attacker's sessions through the Supabase dashboard (sign out the user, ban). Follow `dr-tabletop-1027.md` §5 recovery | ≤ 120 min |
+| **(d) Clean admin left** | Some admins compromised, one clean admin remains | Vinh, with control-plane access, as the clean admin | Path (a) if needed. Then, as owner in the SQL editor, run `SELECT * FROM public.fn_set_staff_privilege(<clean admin id>, <target id>, <role or NULL>, <is_active or NULL>, '<reason>', 'runbook-d')` for each compromised account, so a suspension carries its marker and cannot be undone by an access code. Never use a bare `UPDATE users SET is_active`. Revoke the attackers' sessions in the Supabase dashboard (sign out, ban). Follow `dr-tabletop-1027.md` §5 recovery | ≤ 60 min |
+| **(e) No eligible admin left** | Every admin is suspended, demoted or untrusted, including out of band | Vinh as Supabase organization owner (control plane), never through the app | 1. Path (a). 2. In the Supabase dashboard, confirm the identity of the account to restore (Vinh's own), unban it, and delete its MFA factors if they are untrusted. 3. As owner in the SQL editor: `SELECT public.fn_bootstrap_admin_recovery('<target id>', '<operator name>', '<reason>')`. It refuses while any eligible admin exists. 4. Sign in, re-enroll at `/admin/mfa`, then use path (d) from the restored admin for every other account. 5. Turn enforcement back on after P4 passes. The bootstrap is audited (`bootstrap_recovery`) and emailed | ≤ 120 min |
 
 Code rollback: the previous backend SHA ignores the new tables. Migration 332
 is additive and stays, and the trigger keeps auditing. If the trigger itself
@@ -122,6 +130,7 @@ DROP TRIGGER IF EXISTS trg_users_suspension_guard ON public.users;
 DROP FUNCTION IF EXISTS public.fn_users_suspension_guard();
 DROP FUNCTION IF EXISTS public.fn_users_privilege_audit();
 DROP FUNCTION IF EXISTS public.fn_set_staff_privilege(uuid, uuid, text, boolean, text, text);
+-- Keep fn_bootstrap_admin_recovery while any account is suspended: it is the zero-admin recovery path.
 -- Tables are kept: the audit is evidence. Never DROP staff_security_audit.
 ```
 
