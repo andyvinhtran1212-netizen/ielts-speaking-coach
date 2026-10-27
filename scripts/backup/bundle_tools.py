@@ -100,6 +100,9 @@ CREATE_ROLE_RE = re.compile(rf"^CREATE ROLE ({IDENT});\s*$")
 ALTER_ROLE_RE = re.compile(rf"^ALTER ROLE ({IDENT}) ")
 PRELOAD_RE = re.compile(r'\bSET "?(?:session|local|shared)_preload_libraries"? ', re.IGNORECASE)
 GRANTED_BY_RE = re.compile(rf"^(GRANT .*) GRANTED BY {IDENT};\s*$")
+GRANT_ROLE_RE = re.compile(rf"^GRANT ({IDENT}) TO ({IDENT})")
+ALTER_ROLE_WITH_RE = re.compile(rf"^ALTER ROLE ({IDENT}) WITH ([A-Z ]+);\s*$")
+SUPERUSER_ATTRS = {"SUPERUSER", "REPLICATION", "BYPASSRLS"}
 
 
 def _unquote(ident: str) -> str:
@@ -123,9 +126,22 @@ def cmd_roles_filter(args: argparse.Namespace) -> int:
         line.strip() for line in Path(args.existing_roles).read_text(encoding="utf-8").splitlines()
     }
     current = args.current_user
-    skipped = {"existing": 0, "current_user": 0, "preload": 0, "grantor": 0}
+    skipped = {"existing": 0, "current_user": 0, "preload": 0, "grantor": 0, "not_missing": 0}
+    lines = sys.stdin.readlines()
+    # --only-missing (restore into a new Supabase project, as non-superuser
+    # `postgres`): Supabase-reserved roles already exist there and cannot be
+    # altered, so keep only statements about roles the target lacks.
+    missing = {
+        _unquote(m.group(1)) for line in lines if (m := CREATE_ROLE_RE.match(line))
+    } - existing
     out = []
-    for line in sys.stdin:
+    for line in lines:
+        if args.only_missing and (line.startswith(("CREATE ROLE ", "ALTER ROLE ", "GRANT "))):
+            m = CREATE_ROLE_RE.match(line) or ALTER_ROLE_RE.match(line) or GRANT_ROLE_RE.match(line)
+            names = {_unquote(g) for g in (m.groups() if m else ()) if g}
+            if not names & missing:
+                skipped["not_missing"] += 1
+                continue
         m = CREATE_ROLE_RE.match(line)
         if m and _unquote(m.group(1)) in existing:
             skipped["existing"] += 1
@@ -141,6 +157,14 @@ def cmd_roles_filter(args: argparse.Namespace) -> int:
         if m:
             skipped["grantor"] += 1
             line = m.group(1) + ";\n"
+        if args.only_missing and (m := ALTER_ROLE_WITH_RE.match(line)):
+            # A non-superuser may not even name these attributes (PG16+).
+            attrs = m.group(2).split()
+            kept = [a for a in attrs if a.upper().removeprefix("NO") not in SUPERUSER_ATTRS]
+            needed = [a for a in attrs if a.upper() in SUPERUSER_ATTRS]
+            if needed:
+                eprint(f"::warning::role {_unquote(m.group(1))} needs {' '.join(needed)}; ask Supabase support")
+            line = f"ALTER ROLE {m.group(1)} WITH {' '.join(kept)};\n" if kept else ""
         out.append(line)
     sys.stdout.write("".join(out))
     eprint(
@@ -149,6 +173,7 @@ def cmd_roles_filter(args: argparse.Namespace) -> int:
         f"{skipped['current_user']} drill-superuser ALTER, "
         f"{skipped['preload']} preload-library settings; "
         f"dropped GRANTED BY on {skipped['grantor']} memberships"
+        + (f"; kept only {len(missing)} missing roles" if args.only_missing else "")
     )
     return 0
 
@@ -303,6 +328,46 @@ def cmd_toc_filter(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# project-toc
+# --------------------------------------------------------------------------- #
+PLATFORM_LEDGERS = ("auth schema_migrations", "storage migrations")
+
+
+def cmd_project_toc(args: argparse.Namespace) -> int:
+    """TOC lists for restore_into_project.sh (a NEW Supabase project).
+      data:     TABLE DATA / SEQUENCE SET of the app schemas plus auth and
+                storage rows, minus the platform's own migration ledgers.
+      platform: app-defined TRIGGER / POLICY entries on auth/storage tables
+                (e.g. migration 309's trigger on auth.users) that the target
+                does not already have. --existing lists 'schema table name'."""
+    schemas = set(args.app_schemas.split(",")) | {"auth", "storage"}
+    existing = []
+    if args.existing:
+        existing = [l for l in Path(args.existing).read_text(encoding="utf-8").splitlines() if l.strip()]
+    out = []
+    picked = 0
+    for line in sys.stdin:
+        m = TOC_ENTRY_RE.match(line.rstrip("\n"))
+        if not m:
+            continue
+        desc, ns, tag = _toc_parts(m.group(1))
+        rest = m.group(1)[len(desc) + 1 :]
+        if args.mode == "data":
+            if desc in ("TABLE DATA", "SEQUENCE SET") and ns in schemas:
+                if desc == "TABLE DATA" and any(rest.startswith(x + " ") for x in PLATFORM_LEDGERS):
+                    continue
+                out.append(line)
+                picked += 1
+        elif desc in ("TRIGGER", "POLICY") and ns in ("auth", "storage"):
+            if not any(rest == e or rest.startswith(e + " ") for e in existing):
+                out.append(line)
+                picked += 1
+    sys.stdout.write("".join(out))
+    eprint(f"project-toc {args.mode}: {picked} entries")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # verify-storage
 # --------------------------------------------------------------------------- #
 def load_objects(storage_dir: Path) -> list[dict]:
@@ -401,6 +466,12 @@ def cmd_db_checks(args: argparse.Namespace) -> int:
     mismatch_names: list[str] = []
     to_query = []
     skipped_idents = {s.replace(" ", ".", 1) for s in skipped_data}
+    include = {x for x in (args.include_schemas or "").split(",") if x}
+    exclude = {x for x in (args.exclude_tables or "").split(",") if x}
+    for ident in list(expected):
+        plain = ident.replace('"', "")
+        if (include and plain.split(".", 1)[0] not in include) or plain in exclude:
+            del expected[ident]
     for ident in expected:
         if ident.replace('"', "") in skipped_idents:
             not_restored_rows += expected[ident]
@@ -506,6 +577,7 @@ def main() -> int:
     p = sub.add_parser("roles-filter")
     p.add_argument("--existing-roles", required=True)
     p.add_argument("--current-user", required=True)
+    p.add_argument("--only-missing", action="store_true")
     p.set_defaults(func=cmd_roles_filter)
 
     p = sub.add_parser("toc-filter")
@@ -515,6 +587,12 @@ def main() -> int:
     p.add_argument("--skip-extensions", help="comma list treated as unavailable in the target")
     p.add_argument("--report")
     p.set_defaults(func=cmd_toc_filter)
+
+    p = sub.add_parser("project-toc")
+    p.add_argument("--mode", choices=("data", "platform"), required=True)
+    p.add_argument("--app-schemas", default="public")
+    p.add_argument("--existing", help="'schema table name' of triggers/policies already in the target")
+    p.set_defaults(func=cmd_project_toc)
 
     p = sub.add_parser("verify-storage")
     p.add_argument("--dir", required=True)
@@ -527,6 +605,8 @@ def main() -> int:
     p.add_argument("--expect-users", action="store_true")
     p.add_argument("--drift-ratio", type=float, default=0.005)
     p.add_argument("--min-drift", type=int, default=10)
+    p.add_argument("--include-schemas", help="comma list; compare only these schemas")
+    p.add_argument("--exclude-tables", help="comma list of schema.table to skip")
     p.set_defaults(func=cmd_db_checks)
 
     p = sub.add_parser("pick-latest")

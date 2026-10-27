@@ -72,6 +72,13 @@ class StorageApi:
                 # Storage answers a missing object with 400 + statusCode "404".
                 if exc.code == 404 or (exc.code == 400 and ("not_found" in text or '"404"' in text)):
                     raise NotFound() from None
+                if method == "POST" and path.startswith("/object/") and (
+                    exc.code == 409 or "Duplicate" in text or "already exists" in text
+                ):
+                    raise Fatal(
+                        "object already exists in the target; rerun with --upsert (required after a "
+                        "database restore, which recreates storage.objects rows without bytes)"
+                    ) from None
                 if exc.code in (429, 500, 502, 503, 504) and attempt < RETRIES:
                     time.sleep(delay + random.random())
                     delay *= 2
@@ -335,7 +342,11 @@ def main() -> int:
     p.add_argument("--confirm-target-ref", help="project ref of --supabase-url, as a typo guard")
     p.add_argument("--allow-unconfirmed-target", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--bucket", action="append", help="restore only this bucket (repeatable)")
-    p.add_argument("--upsert", action="store_true", help="overwrite objects that already exist")
+    p.add_argument(
+        "--upsert",
+        action="store_true",
+        help="overwrite existing objects; required after a database restore (storage.objects rows exist)",
+    )
     p.add_argument("--no-verify", dest="verify", action="store_false", help="skip re-download checksum")
     p.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()

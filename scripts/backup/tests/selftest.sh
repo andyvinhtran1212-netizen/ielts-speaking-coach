@@ -149,6 +149,43 @@ diff -q "$T/src.sha" "$T/dst.sha" > /dev/null || fail "restored storage differs 
 python3 -c "import json,sys; b={x['id']:x for x in json.load(open(sys.argv[1]))}; assert b['vocab-audio']['public'] is True and b['vocab-audio']['allowed_mime_types']==['audio/mpeg'] and b['audio-responses']['public'] is False and 'empty-bucket' in b" "$DST_ROOT/_buckets.json" \
   || fail "bucket config not restored"
 pass "storage restore (bytes + bucket config)"
+# After a DB restore the target already has every storage.objects row, so
+# uploads collide unless --upsert is given; the error must say so.
+expect_fail "storage restore over existing objects demands --upsert" 'rerun with --upsert' \
+  env SUPABASE_SERVICE_KEY="$MOCK_KEY" python3 "$BK/storage_tool.py" restore \
+  --supabase-url "http://127.0.0.1:$DST_PORT" --from "$T/x/storage" --allow-unconfirmed-target
+SUPABASE_SERVICE_KEY="$MOCK_KEY" python3 "$BK/storage_tool.py" restore --upsert \
+  --supabase-url "http://127.0.0.1:$DST_PORT" --from "$T/x/storage" --allow-unconfirmed-target > /dev/null \
+  || fail "storage restore --upsert over existing objects"
+pass "storage restore --upsert over existing objects"
+
+# --- 2b. DR rehearsal: database into a fresh Supabase-shaped project ----------
+# The target holds only what a new project has (seed_platform.sql); the
+# restore runs as the non-superuser postgres role, like on Supabase.
+DST_HOSTPORT="${SELFTEST_DST_URL#*@}"; DST_HOSTPORT="${DST_HOSTPORT%%/*}"
+# A custom role the new project does not have: the restore must create it.
+psql -X -q -d "$SELFTEST_DST_URL" -c "DROP DATABASE IF EXISTS restore_drill WITH (FORCE)" -c "DROP ROLE read_only"
+psql -X -q -d "$SELFTEST_DST_URL" -c "DROP DATABASE IF EXISTS newproject WITH (FORCE)" -c "CREATE DATABASE newproject"
+psql -X -q -d "${SELFTEST_DST_URL%/*}/newproject" -f "$HERE/seed_platform.sql" > /dev/null 2>&1 \
+  || fail "platform seed of the fresh project"
+NEWPROJECT="postgres://postgres@$DST_HOSTPORT/newproject"
+RESTORE_BUNDLE_DIR="$T/x" RESTORE_TARGET_URL="$NEWPROJECT" RESTORE_CONFIRM_REF=newproject \
+  RESTORE_DATA_URL="${SELFTEST_DST_URL%/*}/newproject" \
+  bash "$BK/restore_into_project.sh" > "$T/project.log" 2>&1 || { cat "$T/project.log"; fail "restore into a new project"; }
+grep -v -E "wal_level|HINT" "$T/project.log"
+grep -q 'kept only 1 missing roles' "$T/project.log" || fail "project restore should recreate the read_only role"
+PROJECT_FLAGS="$(psql -X -At -d "$NEWPROJECT" -c "SELECT concat(
+  (SELECT count(*) FROM pg_trigger WHERE tgname = 'app_erasure_gate' AND tgrelid = 'auth.users'::regclass),
+  (SELECT count(*) FROM pg_policies WHERE schemaname = 'storage' AND policyname = 'Own audio objects'),
+  (SELECT count(*) FROM pg_constraint WHERE contype = 'f' AND conrelid = 'public.users'::regclass AND confrelid = 'auth.users'::regclass),
+  (SELECT count(*) FROM pg_policies WHERE policyname = 'own_sessions'),
+  (SELECT count(*) FROM pg_trigger WHERE tgname = 'update_objects_updated_at'),
+  has_table_privilege('read_only', 'public.session_bands', 'SELECT')::int)")"
+[ "$PROJECT_FLAGS" = 111111 ] || { cat "$T/project.log"; fail "new-project restore flags: $PROJECT_FLAGS (want 111111)"; }
+pass "restore into a new project (FKs to auth.users, app trigger/policy on platform tables, exact row counts)"
+expect_fail "project restore refuses a non-empty target" 'already has tables' \
+  env RESTORE_BUNDLE_DIR="$T/x" RESTORE_TARGET_URL="$NEWPROJECT" RESTORE_CONFIRM_REF=newproject \
+  bash "$BK/restore_into_project.sh"
 
 # --- 3. negative cases -----------------------------------------------------------
 expect_fail "backup refuses a project that is not the expected ref" 'does not point at the expected' \

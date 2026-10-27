@@ -11,7 +11,7 @@ plus a monthly restore drill. No PITR.
 | Weekly backup workflow | `.github/workflows/offsite-backup.yml` |
 | Monthly restore drill workflow | `.github/workflows/offsite-restore-drill.yml` |
 | PR self-test (local services, no secrets) | `.github/workflows/offsite-backup-selftest.yml` |
-| Scripts | `scripts/backup/` (`offsite_backup.sh`, `restore_drill.sh`, `storage_tool.py`, `bundle_tools.py`) |
+| Scripts | `scripts/backup/` (`offsite_backup.sh`, `restore_drill.sh`, `restore_into_project.sh`, `storage_tool.py`, `bundle_tools.py`) |
 
 Every production step, including enabling the production job, reading a
 production backup and restoring one, needs Vinh's approval ("cần anh Vinh
@@ -290,37 +290,57 @@ necessarily clean.
    sha256sum ./restore/db/full.dump   # equals manifest.json db.dump_sha256
    ```
 
-2. **Database into a new Supabase project.** (Not yet rehearsed; rehearse it
-   on a scratch project before an incident.) The new project already contains
-   Supabase's roles and the auth, storage and realtime schemas. Restore only
-   what the app owns, as `postgres` over the new project's session pooler:
+2. **Database into a new Supabase project** with
+   `scripts/backup/restore_into_project.sh`, as `postgres` over the new
+   project's session pooler. The new project already has Supabase's roles,
+   extensions and the auth/storage/realtime schemas, so the script restores
+   only what the app owns, in this order:
+   1. extensions the dump used, and custom roles the project lacks;
+   2. pre-data of the app schemas (tables, types, functions, views, grants);
+   3. rows of `auth`, `storage` and the app schemas, in one transaction with
+      `session_replication_role = replica`, skipping the platform's own
+      migration ledgers;
+   4. post-data of the app schemas: indexes, constraints, triggers, RLS
+      policies. Foreign keys to `auth.users` (e.g. migration 019) are created
+      and validated only now, after its rows exist;
+   5. app-defined triggers/policies on `auth`/`storage` tables that the
+      project does not already have (e.g. migration 309's
+      `grammar_quiz_account_erasure_gate` on `auth.users`);
+   6. exact row counts of every restored table against the dump.
+
+   It refuses a target that already has app tables or auth users.
 
    ```bash
-   # custom roles only (e.g. read_only); Supabase-reserved roles already exist
-   grep -E '^(CREATE|ALTER) ROLE "?read_only"?' restore/db/roles.sql | psql "$NEW_DB_URL"
-   # app schema: tables, functions, RLS policies, grants, data
-   pg_restore --dbname="$NEW_DB_URL" --no-owner --schema=public --exit-on-error restore/db/full.dump
-   # auth + storage rows (not their DDL or migration ledgers)
-   pg_restore --list restore/db/full.dump \
-     | grep -E 'TABLE DATA (auth|storage) ' \
-     | grep -v -E 'TABLE DATA (auth schema_migrations|storage migrations) ' > data.list
-   PGOPTIONS='-c session_replication_role=replica' \
-     pg_restore --dbname="$NEW_DB_URL" --data-only --use-list=data.list restore/db/full.dump
+   read -rs RESTORE_TARGET_URL; export RESTORE_TARGET_URL   # session pooler, postgres.<new ref>
+   RESTORE_BUNDLE_DIR=./restore RESTORE_CONFIRM_REF=<new ref> \
+     bash scripts/backup/restore_into_project.sh
    ```
 
-   If the new project's auth or storage schema is a newer version than the
-   backup, compare columns before loading. Then re-apply any repo migrations
-   newer than the newest `_schema_migrations` filename shown by the drill.
-3. **Storage into the target project** (creates missing buckets with the saved
-   public flag, size limit and MIME list; re-downloads each object to verify
-   its sha256):
+   Rehearsed by the self-test against a fresh, Supabase-shaped target (plain
+   Postgres 17 with the platform schemas and a non-superuser `postgres`). It
+   has not been run against a real new Supabase project; do that on a scratch
+   project before relying on it. Two known differences from a real project:
+   - if the new project's auth or storage schema version lacks a column that
+     the backup has, step 3 fails (its error output stays local because it can
+     quote rows); compare
+     `\d auth.users` in both;
+   - a custom role that needs SUPERUSER, REPLICATION or BYPASSRLS gets a
+     warning, because `postgres` cannot grant those.
+
+   Then re-apply any repo migrations newer than the newest `_schema_migrations`
+   filename the script prints.
+3. **Storage into the target project.** This creates missing buckets with the
+   saved public flag, size limit and MIME list, and re-downloads each object to
+   verify its sha256. `--upsert` is **required** after step 2: the database
+   restore already recreated every `storage.objects` row, so without it every
+   upload is rejected as already existing.
 
    ```bash
    read -rs SUPABASE_SERVICE_KEY; export SUPABASE_SERVICE_KEY
    python3 scripts/backup/storage_tool.py restore --supabase-url https://<ref>.supabase.co \
-     --from ./restore/storage --confirm-target-ref <ref> --dry-run
-   # then without --dry-run; add --upsert to overwrite existing objects,
-   # --bucket <id> (repeatable) to restore selected buckets only
+     --from ./restore/storage --confirm-target-ref <ref> --upsert --dry-run
+   # then the same command without --dry-run;
+   # --bucket <id> (repeatable) restores selected buckets only
    ```
 
 4. **Verify before reopening writes** (tabletop step 5): session → response →
@@ -362,5 +382,5 @@ current provider prices before committing.
 - `auth` passwords are kept as hashes inside `auth.users`. `roles.sql` has no
   role passwords; set new ones on restore.
 - The new-Supabase-project database restore (step 2) and Storage restore
-  against a real project are documented but have only been exercised against
-  local Postgres and a mock Storage API.
+  have been rehearsed only against a Supabase-shaped local Postgres and a mock
+  Storage API, not a real Supabase project.
