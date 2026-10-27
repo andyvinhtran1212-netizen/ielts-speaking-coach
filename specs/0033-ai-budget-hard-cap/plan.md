@@ -144,7 +144,7 @@ transaction with `lock_timeout = 5s`.
      `user_id uuid not null`,
      `status text check (status in ('queued','running','done','failed','superseded'))`,
      `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `persisted_at timestamptz null`, `commit_count int not null default 0`, `attempts int not null default 0`,
-     `lease_until timestamptz`, `enqueued_at timestamptz not null default now()`,
+     `lease_until timestamptz`, `lease_token uuid null`, `enqueued_at timestamptz not null default now()`,
      `finished_at`, `last_error text`.
    - Unique: `(kind, resource_id, submission_revision)`.
    - The marker, the canonical result and the job completion commit in
@@ -153,7 +153,8 @@ transaction with `lock_timeout = 5s`.
      commit leaves the job reclaimable when its lease expires, with no
      marker set. A crash after the commit leaves a complete result and a
      `done` job.
-   - Index: `(status, enqueued_at, id) where status='queued'`.
+   - Indexes: `(status, enqueued_at, id) where status='queued'`, and
+     `(lease_until) where status='running'` for lease reclamation.
    - `service_role`: SELECT, INSERT, UPDATE.
 4. **`writing_jobs.budget_deferred_at timestamptz null`** (additive), with
    a partial index for rows where it is not null and status is `queued`.
@@ -250,8 +251,19 @@ transaction with `lock_timeout = 5s`.
        transaction.
    - **`fn_ai_deferred_claim(p_limit int, p_lease_seconds int)`** claims
      queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order.
-     It also reclaims `running` jobs whose lease has expired, and sets a
-     new lease and lease token.
+     It also reclaims `running` jobs whose `lease_until` has passed, so a
+     job left `running` by a dead worker is resumed by a later sweep.
+     - Every claim, first or reclaim, sets `status = 'running'`, a new
+       `lease_token`, `lease_until = now() + p_lease_seconds` and
+       `attempts = attempts + 1`.
+     - The new `attempts` gives the reclaimed run a new `request_key`
+       (job id plus `attempts`). The dead worker's reservation is
+       therefore never replayed as a grant. It is settled at its estimate
+       by `fn_ai_budget_expire` (FR-004), unless the dead worker settled
+       it first.
+     - A stale worker that outlives its lease still holds the old token.
+       Its `fn_ai_deferred_commit` returns `lease_lost` and writes
+       nothing, so only the current lease holder can persist.
 8. **Postconditions.** A `DO` block raises if any of the following does not
    hold:
    - every table exists with RLS enabled;
@@ -471,7 +483,7 @@ Supabase SQL editor or the runner, and print no secrets.
   below must return zero rows.
 
   ```sql
-  -- (a) a done job that never claimed persistence, or a claim without done
+  -- (a) a done job without the persistence marker, or a marker without done
   select id, kind, resource_id, submission_revision, status, persisted_at
   from ai_deferred_grading_jobs
   where (status = 'done') <> (persisted_at is not null);

@@ -57,8 +57,8 @@ key, token or `.env` value. Evidence records variable **names** and
    - Submit Speaking and Writing work after the cap is reached. Check the
      "Đang chờ chấm" state, no provider call and no learner quota use.
    - Raise the cap and restart. Check that the queue drains in order and
-     each item is graded exactly once (queue and ledger queries, `plan.md`
-     V5).
+     each submission revision is committed exactly once (`plan.md` V5,
+     which keys on the job and revision, not on ledger rows).
    - Set `AI_KILL_SWITCH=on`. Within one request after the new deployment
      serves traffic, no provider call is made (V6).
    - Stop the budget RPC path by revoking EXECUTE in a staging-only
@@ -114,9 +114,13 @@ With Vinh's explicit authorisation at promotion:
   `expires_at` at its estimate (conservative). The repair query in `plan.md`
   V4 lists rows older than 1 hour that are still `reserved`. Any such row
   means the sweeper is down.
-- **Repair: double grading.** `plan.md` V5 lists any resource with more than
-  one successful grading attempt from deferred jobs. The expected result is
-  zero rows. Investigate any row before the spec is closed.
+- **Repair: double grading.** `plan.md` V5 lists any deferred job marked
+  `done` without its persistence marker (or the reverse), any submission
+  revision committed more than once, and any deferred Writing job with
+  more than one feedback row. Several successful ledger rows for one grade
+  (JSON repair, grounded-answer regeneration) are not double grading. The
+  expected result is zero rows. Investigate any row before the spec is
+  closed.
 - **Repair: counter drift.** `plan.md` V3 recomputes each counter from its
   reservations. A mismatch is corrected only by the guarded
   `fn_ai_budget_recompute(period)` run by an operator. It never lowers
