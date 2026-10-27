@@ -110,6 +110,16 @@ AAL1 admin must not get it (FR-005).
 | Student archive with account lock | `backend/migrations/326_student_archive.sql:172-176` (`fn_archive_student`) | `student_lifecycle_audit` |
 | Supabase SQL editor / dashboard (out of band) | — | **None** |
 
+Paths that set `is_active = true` (each would undo a suspension expressed
+only as `is_active = false`; Codex review round 3 on #1772):
+
+- `activate_account` Step 3, `backend/routers/auth.py:565-580`. This runs
+  before Step 4 marks the code used, after the archived-profile refusal at
+  lines 511-533.
+- `_activate_user_for_code`, `backend/routers/admin.py:2473-2487`.
+- `fn_restore_student` with `p_reactivate_account`,
+  `backend/migrations/326_student_archive.sql:248-250`.
+
 There is **no** admin API that sets `users.is_active = false` for a staff
 account. Suspending an admin today needs SQL, and the admin keeps full power
 because `require_admin` never reads `is_active`. This is the dr-tabletop §5

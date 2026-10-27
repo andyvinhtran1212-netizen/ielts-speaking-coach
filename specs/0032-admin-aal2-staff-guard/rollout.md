@@ -53,7 +53,7 @@ code deploy.
     is false;
   - `has_table_privilege('service_role', 'public.staff_security_audit', 'UPDATE')`
     is false;
-  - the trigger on `public.users` exists;
+  - both triggers on `public.users` exist (`trg_users_privilege_audit`, `trg_users_suspension_guard`), and the suspension columns and CHECK exist;
   - `has_function_privilege('authenticated', 'public.fn_set_staff_privilege(uuid,uuid,text,boolean,text,text)', 'EXECUTE')`
     is false.
 - **S3.** Deploy the merged staging SHA with `ADMIN_AAL2_ENFORCE=false` and
@@ -72,7 +72,7 @@ code deploy.
   One email arrives per admin event (AC6).
 - **S6.** Set `ADMIN_AAL2_ENFORCE=true` on the staging backend service.
   Railway restarts the service; this is not a code deploy. Run AC1–AC6 with
-  synthetic accounts. Run live Staging E2E at the same SHA, which must be
+  synthetic accounts, plus AC9 with revocation and ban forced to fail for one synthetic instructor. Run live Staging E2E at the same SHA, which must be
   green with AAL2 admin sign-in.
 - **S7.** Recovery drill (AC8). Time each path from the start of the action to
   restored admin access, and record it in `verification.md`:
@@ -108,7 +108,7 @@ in `verification.md`.
 | **(a) Turn enforcement off** | Any lock-out, broken challenge, GoTrue MFA outage | Vinh, or a delegate with Railway project access | Railway → backend service → Variables → `ADMIN_AAL2_ENFORCE=false` → the service restarts with the same image. Admin works at AAL1 again (report-only). `is_active` and role checks stay on | ≤ 10 min |
 | **(b) Reset one admin's factor** | An admin lost the phone and has no backup | Vinh as Supabase organization owner, after confirming the admin's identity out of band (phone or in person, never only by email) | Supabase dashboard → Authentication → Users → user → MFA factors → delete. Alternatively, the Auth admin API `DELETE /auth/v1/admin/users/{id}/factors/{factor_id}` with service_role from a trusted machine. The admin then re-enrolls at `/admin/mfa`. The sweep records `mfa_factor_deleted` (`source = auth`) from the Auth audit log and emails within 5 minutes | ≤ 30 min |
 | **(c) Backup** | The owner's primary device is lost | Vinh | Sign in with the offline backup factor, or have the second MFA admin perform (b) for Vinh | ≤ 15 min |
-| **(d) No clean admin left** | Both admins compromised or locked | Vinh with control-plane access | Path (a), then reset with the SQL editor as owner: `role`/`is_active` (audited as `out_of_band`, alerted). Revoke the attacker's sessions through the Supabase dashboard (sign out the user, ban). Follow `dr-tabletop-1027.md` §5 recovery | ≤ 120 min |
+| **(d) No clean admin left** | Both admins compromised or locked | Vinh with control-plane access | Path (a), then, as owner in the SQL editor, run `SELECT * FROM public.fn_set_staff_privilege(<clean admin id>, <target id>, <role or NULL>, <is_active or NULL>, '<reason>', 'runbook-d')` with the clean admin as actor, so a suspension carries its marker and cannot be undone by an access code. Never use a bare `UPDATE users SET is_active`. The change is audited and alerted. Revoke the attacker's sessions through the Supabase dashboard (sign out the user, ban). Follow `dr-tabletop-1027.md` §5 recovery | ≤ 120 min |
 
 Code rollback: the previous backend SHA ignores the new tables. Migration 332
 is additive and stays, and the trigger keeps auditing. If the trigger itself
@@ -116,6 +116,10 @@ must go (it should never block an update; see `plan.md`), the owner runs:
 
 ```sql
 DROP TRIGGER IF EXISTS trg_users_privilege_audit ON public.users;
+-- Keep trg_users_suspension_guard unless no account is suspended:
+--   SELECT count(*) FROM public.users WHERE suspended_at IS NOT NULL;  -- must be 0 first
+DROP TRIGGER IF EXISTS trg_users_suspension_guard ON public.users;
+DROP FUNCTION IF EXISTS public.fn_users_suspension_guard();
 DROP FUNCTION IF EXISTS public.fn_users_privilege_audit();
 DROP FUNCTION IF EXISTS public.fn_set_staff_privilege(uuid, uuid, text, boolean, text, text);
 -- Tables are kept: the audit is evidence. Never DROP staff_security_audit.

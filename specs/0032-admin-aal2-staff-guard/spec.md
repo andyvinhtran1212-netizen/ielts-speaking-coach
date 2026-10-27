@@ -23,7 +23,8 @@ Leader reserves it (Q8).
   2 bước vẫn làm việc bình thường và chỉ thấy một banner nhắc.
 - **Admin hoặc giảng viên bị tắt tài khoản, hoặc bị hạ quyền**, mất quyền ngay ở
   thao tác kế tiếp, kể cả khi trình duyệt vẫn còn phiên. Phiên đăng nhập bị thu
-  hồi.
+  hồi. Tài khoản bị tạm khóa không thể tự mở lại bằng mã kích hoạt; chỉ admin
+  khác mở khóa được.
 - **Giảng viên chưa kích hoạt / bị tắt** mở `/instructor` sẽ được chuyển về
   `/login` để nhập mã kích hoạt, và không thấy dữ liệu (lỗi production đang gặp,
   sửa ở PR #1771). Nếu tài khoản bị tắt khi đang mở trang, trang hiện "Tài
@@ -74,7 +75,8 @@ compromised admin out is not possible from the product.
   factor removal from an AAL2 session only.
 - Staff suspension and reactivation API and UI. On demotion or suspension,
   revoke the target's sessions and refresh tokens, with a visible failure and
-  retry.
+  retry. A durable suspension marker that no access code, restore or SQL
+  update can undo.
 - An append-only `staff_security_audit` for every change of `users.role` or
   `users.is_active` by any path, and for admin MFA factor changes.
 - An owner-email alert outbox for the admin events in FR-011.
@@ -122,7 +124,7 @@ compromised admin out is not possible from the product.
 - **FR-003:** With `ADMIN_AAL2_ENFORCE` unset or false, admin behaviour is unchanged from phase 0, except that each request that enforcement would block emits exactly one structured warning `admin_aal2_would_block`. The warning carries user id (UUID only), HTTP method, route template, `aal` and `next_step`. It contains no email, token or request body.
 - **FR-004:** `GET /admin/mfa/status` is the only admin route an AAL1 admin may call. It requires role admin and `is_active`. It returns only the caller's own `{aal, enforce, verified_factor_count, next_step}` and exposes no other user's or domain data. An inventory test fails if any other route accepts an AAL1 admin while enforcement is on.
 - **FR-005:** Every `/instructor/*` route requires role `instructor` or `admin` and `is_active = true`. An inactive caller gets 403 with detail "Tài khoản chưa được kích hoạt" and no data. A caller whose role is admin must also satisfy the FR-001/FR-002 AAL2 rule on these routes, including `?as_instructor` impersonation. An instructor with an AAL1 session is not asked for MFA in this phase.
-- **FR-006:** `PATCH /admin/users/{user_id}/active` with `{is_active: bool, reason: string (3–500 chars)}` suspends or reactivates an account whose role is `admin` or `instructor`. It returns 404 for an unknown user, 422 for any other role, 400 for the caller's own account, and 409 `last_admin` when the change would leave no active admin. Suspension sets `is_active = false`, revokes every session and refresh token of the target, and blocks new sign-in until reactivation. Reactivation restores sign-in. Repeating the same request is idempotent and produces no second audit row.
+- **FR-006:** `PATCH /admin/users/{user_id}/active` with `{is_active: bool, reason: string (3–500 chars)}` suspends or reactivates an account whose role is `admin` or `instructor`. It returns 404 for an unknown user, 422 for any other role, 400 for the caller's own account, and 409 `last_admin` when the change would leave no active admin. Suspension sets `is_active = false` and records a durable suspension marker (`suspended_at`, `suspended_by`, `suspension_reason`) that is distinct from "never activated". It revokes every session and refresh token of the target and blocks new sign-in until reactivation. Only this route, run by a different active AAL2 admin, clears the marker. It also restores sign-in, and a failure to restore sign-in is reported as `sign_in_restored: false` with a retry, never silently. The actor's own admin status and activity are re-checked under the same row locks, so an admin suspended mid-request cannot complete a privilege change. Repeating the same request is idempotent and produces no second audit row.
 - **FR-007:** `PATCH /admin/users/{user_id}/role` keeps its path, allow-list, self-demotion refusal and success fields (`ok`, `id`, `role`). It additionally refuses with 409 `last_admin` a change that would leave no active admin. It revokes the target's sessions whenever the change removes admin or instructor privilege. The response adds `sessions_revoked` (bool or null when not applicable) and `audit_id`.
 - **FR-008:** A revocation failure is never silent. The committed role or `is_active` change stands and the guard still blocks the target. The response carries `sessions_revoked: false` and a `revoke_error` code. An audit row `sessions_revoke_failed` and an owner alert are written. `POST /admin/users/{user_id}/revoke-sessions` retries idempotently and reports the outcome.
 - **FR-009:** Every change of `users.role` or `users.is_active`, and every insert of a `users` row with role admin or instructor, writes exactly one row to the append-only `staff_security_audit` in the same database transaction. This applies to every path: admin API, service code, RPC, or SQL editor. The row holds `target_user_id`, `actor_user_id` (null when unknown), `source` (`admin_api`, `service`, `out_of_band`), `before`, `after`, `reason`, `request_id` and `occurred_at`. `anon` and `authenticated` cannot read or write the table. `service_role` may only insert and select. No role used by the application may update, delete or truncate it.
@@ -134,6 +136,7 @@ compromised admin out is not possible from the product.
 - **FR-015:** `GET /admin/users/{user_id}/security-audit` (AAL2 admin) returns that user's audit rows newest first, including alert delivery status. The admin users panel shows them as "Lịch sử quyền". A lookup failure renders "⚠ không tải được lịch sử", never an empty list.
 - **FR-016:** The synthetic staging admin created by `backend/scripts/staging_seed.py` holds a verified TOTP factor. Every live Staging E2E admin sign-in completes challenge and verify through one shared helper to obtain an AAL2 session, including the browser session injected by the Writing course journey. A PR-time test fails if any staging spec signs in the admin another way. The TOTP secret lives only in CI secrets and the QA creds store and is never printed in logs or artifacts.
 - **FR-017:** Enforcement is enabled in an environment only after a read-only query shows every active admin with at least one verified TOTP factor, and either at least two such admins or one admin with an offline backup factor. The recovery runbook (`rollout.md` §Rollback and repair: flag off, factor reset, backup factor) has been executed on staging with measured durations.
+- **FR-018:** No other path can make a suspended account active again: self-service `/auth/activate` with any access code, admin-issued codes, student restore (`fn_restore_student`), or a direct SQL update. The database refuses any `is_active` change from false to true while `suspended_at` is set, unless the change comes through the FR-006 reactivation. This holds under concurrent requests. `/auth/activate` refuses a suspended account with 403 `{"code": "account_suspended"}` before the access code is claimed, so the code stays unused. `/auth/me` and `/auth/check-active` report `suspended: true`, and `/login` shows "Tài khoản đang bị tạm khóa — liên hệ admin" instead of the activation dialog. This holds even when session revocation or the sign-in ban failed.
 
 ## Acceptance scenarios
 
@@ -186,11 +189,24 @@ compromised admin out is not possible from the product.
 - **When** the operator runs each runbook path (flag off; delete a synthetic admin's factor; sign in with the backup factor)
 - **Then** each path restores admin access within the target time recorded in `rollout.md`, and each step leaves the expected audit and alert
 
+### AC9 — Activation cannot undo a suspension (FR-006, FR-018)
+
+- **Given** a suspended instructor whose session revocation and ban were forced to fail, and who holds a valid unused access code
+- **When** they call `/auth/activate` with that code, and in parallel an admin issues them a code
+- **Then** both are refused with `account_suspended`, the code stays unused, `users.is_active` stays false with `suspended_at` set, every `/instructor/*` call returns 403, and `/login` shows the suspended message
+
 ## Edge cases
 
 - **Last admin.** Demoting or suspending the only active admin is refused with
   409. The check locks the admin rows, so two concurrent demotions cannot both
-  pass.
+  pass. Two admins suspending each other concurrently is the same case: the
+  second request finds its own actor suspended and is refused.
+- **Suspended vs never activated.** `suspended_at` is set only by FR-006, so a
+  new instructor who has not redeemed a code still activates normally.
+  Learner archive (0029) keeps its own `account_deactivated` meaning.
+- **Out-of-band suspension.** An `is_active = false` written in the SQL editor
+  sets no marker, so the runbook suspends through the RPC (`rollout.md` path
+  (d)) rather than a bare update.
 - **Concurrent suspension and request.** A request that passed the guard before
   the suspension committed may finish. The next one fails. This is accepted
   (the guard is per request).
@@ -252,7 +268,7 @@ approval, the default stands.
   code entered in the last 15 minutes? *Default:* not in phase 1. AAL2 is
   required for every admin action; factor removal alone needs a fresh code.
 - **Q6: Production enforcement date.** *Default:* enable on production within
-  7 days after staging enforcement passes AC1–AC8 and the FR-017 query is
+  7 days after staging enforcement passes AC1–AC9 and the FR-017 query is
   green on production, on Vinh's explicit go.
 - **Q7: Soft admin privileges.** Should the admin session-quota bypass and the
   admin-only views on learner routes also need AAL2? *Default:* yes (FR-001);

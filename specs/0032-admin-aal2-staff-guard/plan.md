@@ -50,7 +50,17 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
     `fn_set_staff_privilege`.
   - `revoke_sessions(user_id, *, ban: bool)` uses the mechanism chosen by
     gate R2.
-  - Both enqueue alerts and return `{audit_id, changed, sessions_revoked, revoke_error}`.
+  - `restore_sign_in(user_id)` unbans the account on reactivation.
+  - Both enqueue alerts and return `{audit_id, changed, sessions_revoked, revoke_error, sign_in_restored}`.
+- **`backend/routers/auth.py`**:
+  - `activate_account` gains a Step 1d, beside the archived-profile Step 1c:
+    it refuses a suspended account with 403 `{"code":"account_suspended"}`
+    before the code is claimed, and maps the trigger's `account_suspended`
+    at Step 3 to the same 403. Step 4 never runs, so the code stays unused.
+  - `/auth/me` and `/auth/check-active` add `suspended: bool`.
+  - Admin code issuance maps the trigger error to 409 `account_suspended`
+    and compensates the issued code through the existing
+    `_activate_with_issued_code` revoke path.
 - **`backend/routers/admin_staff_security.py` (new)**, registered in
   `backend/main.py`:
   - `GET /admin/mfa/status` (`allow_aal1=True`, FR-004)
@@ -174,6 +184,22 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
 
 Additive and forward-only, in one transaction.
 
+0. **`public.users` suspension marker**: nullable `suspended_at timestamptz`,
+   `suspended_by uuid`, `suspension_reason text`, with a CHECK that the three
+   are set or cleared together and `suspended_at IS NULL OR NOT is_active`.
+   Migration 320's client guard already rejects client changes to any column
+   added later. A `BEFORE UPDATE OF is_active, suspended_at, suspended_by, suspension_reason ON public.users`
+   trigger, `fn_users_suspension_guard`, raises SQLSTATE `P0001` with message
+   prefix `account_suspended` in two cases: when `NEW.is_active AND NOT OLD.is_active AND OLD.suspended_at IS NOT NULL`,
+   or when any marker column changes, unless the transaction-local
+   `aver.staff_privilege` setting is `on`. Only `fn_set_staff_privilege` sets
+   that setting. Under READ COMMITTED a concurrent activation `UPDATE` waits
+   for the suspension's row lock, re-reads the committed row and is refused.
+   This covers `activate_account` (`backend/routers/auth.py:565-580`),
+   `_activate_user_for_code` (`backend/routers/admin.py:2473-2487`),
+   `fn_restore_student` (`backend/migrations/326_student_archive.sql:248-250`)
+   and SQL-editor updates.
+
 1. **`public.staff_security_audit`**
    - Columns: `id uuid pk default gen_random_uuid()`,
      `occurred_at timestamptz not null default now()`,
@@ -223,17 +249,23 @@ Additive and forward-only, in one transaction.
 5. **`public.fn_set_staff_privilege(p_actor uuid, p_target uuid, p_role text, p_is_active boolean, p_reason text, p_request_id text)`**
    (SECURITY DEFINER; `EXECUTE` revoked from `PUBLIC`, `anon`,
    `authenticated` and granted to `service_role` only).
-   1. Locks the target row and every `role = 'admin' AND is_active` row
+   1. Locks the actor row, the target row and every `role = 'admin' AND is_active` row
       `FOR UPDATE` in id order.
-   2. Raises `last_admin` (SQLSTATE `P0001`, message prefix `last_admin`)
+   2. Raises `actor_not_admin` unless the actor is still `role = 'admin'`,
+      `is_active` and not suspended under that lock, and differs from the
+      target for any suspension change. A request whose actor was suspended
+      after its guard check therefore fails.
+   3. Raises `last_admin` (SQLSTATE `P0001`, message prefix `last_admin`)
       when the result leaves zero active admins.
-   3. Sets `aver.actor_id`, `aver.reason` and `aver.request_id` with
-      `set_config(..., true)`.
-   4. Updates only the fields that change.
-   5. Returns `(changed boolean, audit_id uuid, before jsonb, after jsonb)`.
+   4. Sets `aver.actor_id`, `aver.reason`, `aver.request_id` and
+      `aver.staff_privilege = on` with `set_config(..., true)`.
+   5. Updates only the fields that change. Suspension sets `is_active = false`
+      and the marker; reactivation clears the marker and sets
+      `is_active = true` in the same `UPDATE`.
+   6. Returns `(changed boolean, audit_id uuid, before jsonb, after jsonb)`.
       A no-op returns `changed = false` and writes no row.
-6. **Postcondition block**: tables, grants, triggers and function `EXECUTE`
-   grants as above. The block aborts the transaction on mismatch. The
+6. **Postcondition block**: the columns and CHECK, tables, grants, both
+   triggers and function `EXECUTE` grants as above. The block aborts the transaction on mismatch. The
    `backend/migrations/README.md` numbering note and a
    `forward-policy.tsv` row (`pending_feature`, group `admin_aal2`) are
    updated with the migration.
@@ -252,8 +284,10 @@ trigger first, then the function, and keeps the tables.
 | any admin route (enforced, AAL1) | — | — | 403 `{"detail": {"code":"mfa_required","next_step":"enroll"\|"challenge","message":…}}` |
 | any staff route, inactive | — | — | 403 `{"detail":"Tài khoản chưa được kích hoạt"}` (existing `INACTIVE_DETAIL`) |
 | `GET /admin/mfa/status` | — | `{aal:"aal1"\|"aal2", enforce:bool, verified_factor_count:int, next_step:"none"\|"enroll"\|"challenge"}` | 401, 403 non-admin/inactive, 503 |
-| `PATCH /admin/users/{id}/active` | `{is_active:bool, reason:str}` | `{ok:true, id, is_active, changed, audit_id, sessions_revoked:bool\|null, revoke_error:str\|null}` | 400 self, 404, 409 `{"code":"last_admin"}`, 422 non-staff/reason |
+| `PATCH /admin/users/{id}/active` | `{is_active:bool, reason:str}` | `{ok:true, id, is_active, suspended_at, changed, audit_id, sessions_revoked:bool\|null, revoke_error:str\|null, sign_in_restored:bool\|null}` | 400 self, 403 `actor_not_admin`, 404, 409 `{"code":"last_admin"}`, 422 non-staff/reason |
 | `PATCH /admin/users/{id}/role` | `{role}` (unchanged) | `{ok, id, role}` **plus** `changed, audit_id, sessions_revoked, revoke_error` | existing 400/404/500, new 409 `last_admin` |
+| `POST /auth/activate` (existing) | unchanged | unchanged | new 403 `{"code":"account_suspended","message":"Tài khoản đang bị tạm khóa — liên hệ admin"}`; code not consumed |
+| `GET /auth/me`, `GET /auth/check-active` (existing) | — | additive `suspended: bool` | unchanged |
 | `POST /admin/users/{id}/revoke-sessions` | `{reason?:str}` | `{ok:bool, sessions_revoked:bool, revoke_error:str\|null, audit_id}` | 404 |
 | `GET /admin/users/{id}/security-audit` | `?limit=1..200` (default 50) | `{rows:[{id, occurred_at, event, source, actor_user_id, actor_email, before, after, reason, alert_status}], lookup_failed:false}` | 503 → frontend `⚠` |
 
