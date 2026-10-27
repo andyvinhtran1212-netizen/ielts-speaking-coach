@@ -581,6 +581,10 @@ def test_assign_single_student_persists_name():
     assert r.status_code == 201, r.text
     rows = [a for a in st["writing_assignments"] if a.get("prompt_id") == PB and a.get("student_id") == SB]
     assert rows and rows[-1]["name"] == "Buổi 5 — Task 2"
+    # /writing/dashboard renders `name` on group headers only, so a named
+    # single give carries its own fresh group (never shared with another give).
+    gid = rows[-1]["assignment_group_id"]
+    assert gid and sum(a.get("assignment_group_id") == gid for a in st["writing_assignments"]) == 1
 
 
 def test_assign_without_name_keeps_null_and_rejects_overlong_name():
@@ -597,6 +601,7 @@ def test_assign_without_name_keeps_null_and_rejects_overlong_name():
                                    headers={"Authorization": "Bearer x"})
     assert ok.status_code == 201, ok.text
     assert ok.json().get("name") is None
+    assert ok.json().get("assignment_group_id") is None   # unnamed single give renders as before
     assert too_long.status_code == 422 and fan_too_long.status_code == 422
     assert len(st["writing_assignments"]) == before     # nothing inserted on 422
 

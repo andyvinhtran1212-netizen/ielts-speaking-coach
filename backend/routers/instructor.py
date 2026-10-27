@@ -48,7 +48,7 @@ from __future__ import annotations
 import io
 from datetime import datetime, timezone
 from typing import Literal, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import logging
 
@@ -269,6 +269,9 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
         "prompt_id":      str(body.prompt_id),
         "student_id":     str(body.student_id),
         "name":           body.name,
+        # A named give gets its own group (as admin gives do) so the learner
+        # dashboard, which shows `name` only on group headers, displays it.
+        "assignment_group_id": str(uuid4()) if body.name else None,
         "deadline":       body.deadline.isoformat() if body.deadline else None,
         "instructions":   body.instructions,
         "analysis_level": body.analysis_level,
