@@ -173,7 +173,7 @@ dialogAnswers.push(false);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
 await page.waitForTimeout(200);
 check('giao lại cùng đề cho lớp hỏi xác nhận; hủy thì không gửi request', dialogs.length === 1
-  && /^Lớp này đã được giao đề 'Task 2 <img src=x>' lúc .+\. Giao thêm một lượt mới\?$/.test(dialogs[0])
+  && /^Lớp này đã được giao đề 'Task 2 <img src=x>' lúc .+\. Giao thêm một lượt nữa\?$/.test(dialogs[0])
   && assignmentPosts.length === 1
   && await assignmentForm.locator('input[name="name"]').inputValue() === 'Buổi 6 — Task 2', dialogs[0]);
 dialogAnswers.push(true);

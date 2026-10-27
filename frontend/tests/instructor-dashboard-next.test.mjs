@@ -103,9 +103,11 @@ describe('/instructor native dashboard model', () => {
   test('duplicate-give confirmation and fan-out banner copy', () => {
     const existing = { createdAt: '2026-10-25T12:30:00Z' };
     const cohortMessage = duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'cohort');
-    assert.match(cohortMessage, /^Lớp này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt mới\?$/);
-    assert.match(duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'student'), /^Học viên này đã được giao đề 'QA TEST Task 2'/);
-    assert.match(duplicateGiveConfirmMessage({ createdAt: null }, '', 'cohort'), /đề 'Đề bài' lúc trước đó\./);
+    assert.match(cohortMessage, /^Lớp này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
+    assert.match(duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'student'), /^Học viên này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
+    // Missing created_at drops "lúc" entirely (never "lúc trước đó"); missing title gets a neutral placeholder.
+    assert.equal(duplicateGiveConfirmMessage({ createdAt: null }, '', 'cohort'), "Lớp này đã được giao đề '(chưa có tiêu đề)' trước đó. Giao thêm một lượt nữa?");
+    assert.equal(duplicateGiveConfirmMessage({ createdAt: 'not-a-date' }, 'QA TEST Task 2', 'student'), "Học viên này đã được giao đề 'QA TEST Task 2' trước đó. Giao thêm một lượt nữa?");
     assert.deepEqual(fanOutResultBanner({ duplicates_warning: ['s1', 's2'] }), { tone: 'warning', message: ASSIGNMENT_COPY.duplicatesWarning(2) });
     assert.match(ASSIGNMENT_COPY.duplicatesWarning(2), /2 học viên đã được giao đề này từ trước/);
     assert.deepEqual(fanOutResultBanner({ duplicates_warning: [] }), { tone: 'success', message: 'Đã giao bài cho lớp.' });

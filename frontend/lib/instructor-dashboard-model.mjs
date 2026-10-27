@@ -147,17 +147,17 @@ export function findExistingGive(assignments, { promptId, cohortId = null, stude
 export const ASSIGNMENT_COPY = Object.freeze({
   cohortSuccess: 'Đã giao bài cho lớp.',
   studentSuccess: 'Đã giao bài cho học viên.',
-  confirmCohort: (title, when) => `Lớp này đã được giao đề '${title}' lúc ${when}. Giao thêm một lượt mới?`,
-  confirmStudent: (title, when) => `Học viên này đã được giao đề '${title}' lúc ${when}. Giao thêm một lượt mới?`,
+  confirmCohort: (title, when) => `Lớp này đã được giao đề '${title}' ${when}. Giao thêm một lượt nữa?`,
+  confirmStudent: (title, when) => `Học viên này đã được giao đề '${title}' ${when}. Giao thêm một lượt nữa?`,
   duplicatesWarning: (count) => `Đã giao bài cho lớp. Lưu ý: ${count} học viên đã được giao đề này từ trước.`,
 });
 
 function formatGiveTime(value) {
   const parsed = value ? new Date(value) : null;
   if (!parsed || Number.isNaN(parsed.getTime())) return 'trước đó';
-  return new Intl.DateTimeFormat('vi-VN', {
+  return `lúc ${new Intl.DateTimeFormat('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
-  }).format(parsed);
+  }).format(parsed)}`;
 }
 
 /**
@@ -166,7 +166,7 @@ function formatGiveTime(value) {
  * @param {'cohort' | 'student'} target
  */
 export function duplicateGiveConfirmMessage(existing, promptTitle, target) {
-  const title = text(promptTitle) || 'Đề bài';
+  const title = text(promptTitle) || '(chưa có tiêu đề)';
   const when = formatGiveTime(existing?.createdAt);
   return target === 'cohort' ? ASSIGNMENT_COPY.confirmCohort(title, when) : ASSIGNMENT_COPY.confirmStudent(title, when);
 }
