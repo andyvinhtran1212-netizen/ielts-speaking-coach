@@ -334,8 +334,20 @@ app.include_router(student_home_router, dependencies=_ACTIVE_LEARNER)
 
 
 # ── Public stats — no auth, for the marketing landing page ────────────
+# Two exact COUNT queries per anonymous hit is a cheap amplification lever,
+# so the per-process result is reused for a few minutes (failures briefly,
+# so an outage isn't hammered either). Error detail stays in the server log.
+_PUBLIC_STATS_TTL_SECONDS = 300.0
+_PUBLIC_STATS_FAILURE_TTL_SECONDS = 30.0
+_public_stats_cache: tuple[float, dict] | None = None
+
+
 @app.get("/api/public-stats")
 def public_stats():
+    global _public_stats_cache
+    now = perf_counter()
+    if _public_stats_cache is not None and now < _public_stats_cache[0]:
+        return dict(_public_stats_cache[1])
     try:
         users_res = (
             supabase_admin.table("users")
@@ -350,12 +362,17 @@ def public_stats():
             .limit(0)
             .execute()
         )
-        return {
+        stats = {
             "total_users": users_res.count or 0,
             "sessions_completed": sessions_res.count or 0,
         }
+        ttl = _PUBLIC_STATS_TTL_SECONDS
     except Exception:
-        return {"total_users": None, "sessions_completed": None}
+        logger.exception("[public-stats] count query failed")
+        stats = {"total_users": None, "sessions_completed": None}
+        ttl = _PUBLIC_STATS_FAILURE_TTL_SECONDS
+    _public_stats_cache = (perf_counter() + ttl, stats)
+    return dict(stats)
 
 
 # ── PR1 single-source — per-request access-permission memo ────────────
