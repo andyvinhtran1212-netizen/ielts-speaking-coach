@@ -46,7 +46,8 @@ compromised admin out is not possible from the product.
   authenticator assurance level, so a password-only (AAL1) session is a full
   admin. TOTP is enabled in Supabase Auth on both projects, but no admin is
   required to use it.
-- Neither `require_admin` nor `require_instructor` (`admin.py:106-131`) reads
+- Before phase 0 (PR #1771, merged 2026-10-28), neither `require_admin` nor
+  `require_instructor` (`admin.py:106-131` at `5cdb93953`) read
   `users.is_active`. The learner activation gate deliberately skips staff paths
   (`backend/services/activation_gate.py:49, 194-204`). Two consequences follow:
   an inactive instructor can open `/instructor` (production report, job Q-13, fix in PR #1771),
