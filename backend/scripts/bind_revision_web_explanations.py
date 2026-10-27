@@ -26,6 +26,17 @@ audio fields — (listening), since explanations quote that text. Any disagreeme
 refuses the whole paper. A human-adjudicated scoring override that would change the
 revision's runtime key is also a refusal, because binding would change grading.
 
+REVEXPLAIN-0023: "agree" means agree the way learners are MARKED. Forms are
+compared after the runtime marker's own expansion (normalize_answer, spaced
+" / " alternatives, optional parenthesised words), and a Listening mcq_multi
+exercise is compared as the grader's any-order letter set. When the revision
+marks right forms the explanation does not list, the revision's COPY lists
+them (item.answer.accepted_forms + audit.revision_answer_sync); the reviewer
+names every such question in --reviewed-answer-sync. Where the explanation
+carries an adjudicated override, the copy holds the union of both sets; if
+that union marks differently from the revision key, the owner must approve the
+question in --approved-grading-changes. Answer keys are never written.
+
 Default is a read-only dry run that prints the plan and its SHA-256. `--commit`
 requires `--plan-sha` equal to the reviewed dry-run SHA and inserts all 40 rows
 in ONE insert statement, then reads them back.
@@ -39,6 +50,7 @@ in ONE insert statement, then reads them back.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import re
@@ -48,6 +60,11 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from services.listening_test_grader import _expected_letters, normalize_answer  # noqa: E402
+from services.mock_response_policy import (  # noqa: E402
+    ResponsePolicyError, policy_answer_matches, validate_response_policy,
+)
 
 # Production MOCK0016 copies, and the staging Cam19 QA copies used to rehearse
 # the same binding before production.
@@ -82,6 +99,77 @@ def _key_set(answer: Any, alternatives: Any) -> frozenset[str]:
     return frozenset(_norm(v) for v in _flat(answer) + _flat(alternatives or []))
 
 
+def marker_forms(values: Any) -> frozenset[str]:
+    """Normalised forms the runtime marker accepts for these key entries.
+
+    Mirrors listening_test_grader.answer_matches (also used by Reading): a
+    spaced " / " separates alternatives, a parenthesised word is optional, and
+    every variant goes through normalize_answer. Compact slashes stay literal.
+    """
+    out: set[str] = set()
+    for value in _flat(values):
+        text = str(value).strip()
+        parts = [text]
+        if re.search(r"\s/\s", text):
+            parts = [part.strip() for part in re.split(r"\s+/\s+", text) if part.strip()]
+        for part in parts:
+            variants = [part]
+            if re.search(r"\([^()]+\)", part):
+                variants = [re.sub(r"\s*\([^()]+\)\s*", " ", part), part.replace("(", "").replace(")", "")]
+            out.update(form for form in (normalize_answer(v) for v in variants) if form)
+    return frozenset(out)
+
+
+_LETTER = re.compile(r"^[A-Ha-h]$")
+
+
+def _letters(values: Any) -> list[str] | None:
+    items = _flat(values)
+    if len(items) < 2 or not all(_LETTER.match(str(v).strip()) for v in items):
+        return None
+    return sorted(str(v).strip().lower() for v in items)
+
+
+def _added_forms(base: frozenset[str], forms: list) -> list:
+    """Raw revision forms (in key order) whose marked forms the base lacks."""
+    added, covered = [], set(base)
+    for form in forms:
+        expanded = marker_forms(form)
+        if expanded and not expanded <= covered:
+            added.append(form)
+            covered |= expanded
+    return added
+
+
+def _policy_added_forms(policy: dict, documented: list, listed: list) -> list:
+    """Policy forms the explanation does not list, compared by the POLICY's own
+    equivalence (it may keep apart forms the legacy normaliser collapses)."""
+    primary = str((policy.get("accepted_answers") or [""])[0])
+
+    def matches(form: str, answers: list[str]) -> bool | None:
+        try:
+            return policy_answer_matches(form, {**policy, "accepted_answers": answers})
+        except (ResponsePolicyError, TypeError, ValueError, KeyError):
+            return None  # e.g. a number policy whose first answer is a written alias
+
+    def same(form: str, other: str) -> bool:
+        alone = matches(form, [other])
+        if alone is not None:
+            return alone
+        # Keep the policy's numeric primary first: a form equal to the primary is
+        # equivalent to `other` only if `other` is too; otherwise `other` decides.
+        if matches(form, [primary]):
+            return bool(matches(other, [primary]))
+        return bool(matches(form, [primary, other]))
+
+    covered, added = [str(v) for v in documented], []
+    for form in listed:
+        if not any(same(str(form), other) for other in covered):
+            added.append(form)
+            covered.append(str(form))
+    return added
+
+
 def fingerprint(value: Any) -> str:
     """Stable content hash used to find questions the revision changed."""
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
@@ -108,6 +196,9 @@ def build_plan(
     source_fingerprints: dict[int, str],
     reviewed_changes: frozenset[int] | set[int],
     expected_source_version: str,
+    reviewed_answer_sync: frozenset[int] | set[int] = frozenset(),
+    approved_grading_changes: frozenset[int] | set[int] = frozenset(),
+    revision_groups: dict[int, tuple[int, ...]] | None = None,
 ) -> dict:
     """Pure: decide the exact 40 rows to insert, or refuse with every reason."""
     reasons: list[str] = []
@@ -147,40 +238,125 @@ def build_plan(
                        f"{sorted(set(reviewed_changes))} — người duyệt phải xác nhận đúng tập này")
 
     rows: list[dict] = []
+    classification: dict[str, str] = {}
+    answer_sync: dict[str, dict] = {}
+    groups = revision_groups or {}
+    explained = {o["question_number"]: (((o.get("payload") or {}).get("item") or {}).get("answer") or {})
+                 for o in current}
     for o in sorted(current, key=lambda row: row["question_number"]):
         q = o["question_number"]
         key = revision_keys.get(q)
         if not isinstance(key, dict):
             reasons.append(f"Q{q:02d}: đáp án REV không đọc được ({type(key).__name__})")
             continue
-        # An authored response policy replaces answer/alternatives at marking
-        # (mock_paper_policy.frozen_answer_key). This tool cannot yet compare a
-        # policy with the explanation's accepted forms, so it refuses instead of
-        # approving a key learners are not actually marked against.
-        if "response_policy" in key:
-            reasons.append(f"Q{q:02d}: đáp án REV có response_policy — chưa hỗ trợ đối chiếu "
-                           "policy với lời giải, không gắn")
-            continue
-        item = (o.get("payload") or {}).get("item") or {}
-        answer = item.get("answer") or {}
-        accepted = _key_set(answer.get("canonical"), answer.get("accepted_forms"))
-        rev_set = _key_set(key.get("answer"), key.get("alternatives"))
-        canonical = frozenset(_norm(v) for v in _flat(answer.get("canonical")))
-        # Equal both ways: the revision must accept exactly what the explanation
-        # tells the learner is accepted — no fewer (a documented answer marked
-        # wrong) and no more (an undocumented answer marked right).
-        if not rev_set or not canonical or rev_set != accepted or not canonical <= rev_set:
-            reasons.append(f"Q{q:02d}: đáp án REV {sorted(rev_set)} không khớp lời giải "
-                           f"(canonical {answer.get('canonical')!r}, accepted {sorted(accepted)})")
-        adjudication = ((o.get("payload") or {}).get("audit") or {}).get("release_adjudication") or {}
-        if adjudication.get("override_version") == OVERRIDE_VERSION:
-            override = frozenset(_norm(v) for v in answer.get("accepted_forms") or [] if v is not None)
-            if override != rev_set:
-                reasons.append(f"Q{q:02d}: scoring override {sorted(override)} sẽ đổi đáp án chấm của REV "
-                               f"{sorted(rev_set)}")
+        payload = o.get("payload") or {}
+        answer = (payload.get("item") or {}).get("answer") or {}
+        adjudication = (payload.get("audit") or {}).get("release_adjudication") or {}
+        overridden = adjudication.get("override_version") == OVERRIDE_VERSION
+        accepted_raw = [v for v in _flat(answer.get("accepted_forms")) if v is not None]
+        documented = marker_forms(_flat(answer.get("canonical")) + accepted_raw)
+        canonical = marker_forms(answer.get("canonical"))
+        kind, added, grading_change, copy_accepted = "equivalent", [], False, None
+
+        # Literal agreement (0022) stays the fast path.
+        literal_rev = _key_set(key.get("answer"), key.get("alternatives"))
+        literal_ok = ("response_policy" not in key and literal_rev
+                      and _key_set(answer.get("canonical"), answer.get("accepted_forms")) == literal_rev
+                      and frozenset(_norm(v) for v in _flat(answer.get("canonical"))) <= literal_rev
+                      and not (overridden and frozenset(_norm(v) for v in accepted_raw) != literal_rev))
+        group = groups.get(q) or ()
+        if len(group) > 1:
+            # A Listening mcq_multi exercise is graded as one any-order letter set
+            # and ignores per-slot alternatives, so every member is checked against
+            # that set, whatever shape its explanation canonical takes.
+            expected = sorted(_expected_letters([revision_keys.get(n) or {} for n in group]))
+            kind = "group"
+            shapes = [_letters(explained.get(n, {}).get("canonical"))
+                      or [str(c).strip().lower() for c in _flat(explained.get(n, {}).get("canonical"))]
+                      for n in group]
+            letters = sorted({x for shape in shapes for x in shape})
+            stray = sorted(documented - set(letters))
+            bad_shape = any(len(shape) not in (1, len(group)) or not all(_LETTER.match(x) for x in shape)
+                            or (len(shape) > 1 and shape != letters) for shape in shapes)
+            if (len(letters) != len(group) or expected != letters or overridden or stray or bad_shape
+                    or any("response_policy" in (revision_keys.get(n) or {}) for n in group)):
+                reasons.append(f"Q{q:02d}: nhóm chọn nhiều {list(group)} chấm {expected}, lời giải ghi {letters}"
+                               + (f" và chấp nhận thêm {stray}" if stray else ""))
+                continue
+        elif literal_ok:
+            kind = "identical"
+        elif "response_policy" in key:
+            # Marking uses the authored policy alone; every form the explanation
+            # documents must pass it, and the copy lists the policy's forms.
+            kind = "policy"
+            try:
+                policy = validate_response_policy(key["response_policy"])
+                failing = [v for v in _flat(answer.get("canonical")) + accepted_raw
+                           if not policy_answer_matches(str(v), policy)]
+                listed = [v for v in policy.get("accepted_answers") or [] if policy_answer_matches(str(v), policy)]
+            except (ResponsePolicyError, TypeError, ValueError, KeyError) as exc:
+                failing, listed = [f"policy không hợp lệ: {exc}"], []
+            if failing or overridden or not documented:
+                reasons.append(f"Q{q:02d}: đáp án REV có response_policy — lời giải ghi nhận dạng policy chấm sai "
+                               f"{failing}" + (" và có scoring override" if overridden else ""))
+                continue
+            added = _policy_added_forms(policy, _flat(answer.get("canonical")) + accepted_raw, listed)
+        else:
+            # A list primary is a SET answer to the Reading grader (all-or-nothing),
+            # and an override overlay would turn it into scalar alternatives. Only
+            # exact literal agreement (above) may bind it; anything else refuses.
+            if len(_flat(key.get("answer"))) > 1:
+                reasons.append(f"Q{q:02d}: đáp án REV dạng tập hợp {key.get('answer')!r} chỉ gắn được khi khớp "
+                               "nguyên văn lời giải; không suy ra tương đương")
+                continue
+            rev_raw = [v for v in _flat(key.get("answer")) + _flat(key.get("alternatives") or []) if v not in (None, "")]
+            rev_forms = marker_forms(rev_raw)
+            if not rev_forms or not canonical:
+                reasons.append(f"Q{q:02d}: đáp án REV {rev_raw} hoặc canonical lời giải rỗng")
+                continue
+            if overridden:
+                # The copy's accepted_forms ARE the runtime key (apply_scoring_overrides).
+                added = _added_forms(documented, rev_raw)
+                # apply_scoring_overrides stringifies a list canonical, so every
+                # canonical entry must be in the copy's accepted_forms to be marked.
+                copy_accepted = list(dict.fromkeys(
+                    [v for v in _flat(answer.get("canonical")) if v not in (None, "")] + accepted_raw + added))
+                runtime = marker_forms(copy_accepted)
+                grading_change = runtime != rev_forms
+                kind = ("grading_change" if grading_change
+                        else "synced" if added or copy_accepted != accepted_raw else "equivalent")
+                if grading_change and q not in approved_grading_changes:
+                    reasons.append(f"Q{q:02d}: scoring override {sorted(marker_forms(accepted_raw))} sẽ đổi đáp án "
+                                   f"chấm của REV {sorted(rev_forms)} (hợp: {sorted(runtime)}) — cần owner duyệt "
+                                   "trong --approved-grading-changes")
+                    continue
+            else:
+                if not documented <= rev_forms or not canonical <= rev_forms:
+                    reasons.append(f"Q{q:02d}: đáp án REV {sorted(rev_forms)} chấm sai dạng lời giải ghi nhận "
+                                   f"{sorted(documented - rev_forms)} (canonical {answer.get('canonical')!r})")
+                    continue
+                added = _added_forms(documented, rev_raw)
+                kind = "synced" if added else "equivalent"
+
+        out_payload = o.get("payload")
+        # A grading change is recorded on the copy even when the REV adds no form
+        # (the override alone widens marking), so the owner's approval is visible.
+        if added or grading_change or (copy_accepted is not None and copy_accepted != accepted_raw):
+            out_payload = copy.deepcopy(payload)
+            item = out_payload.setdefault("item", {})
+            item_answer = item.setdefault("answer", {})
+            item_answer["accepted_forms"] = (copy_accepted if copy_accepted is not None
+                                             else (accepted_raw or _flat(answer.get("canonical"))) + added)
+            out_payload.setdefault("audit", {})["revision_answer_sync"] = {
+                "spec": "REVEXPLAIN-0023", "revision_test_id": revision["test_id"],
+                "added_forms": added, "grading_change": grading_change,
+            }
+            answer_sync[str(q)] = {"added_forms": added, "grading_change": grading_change}
+        classification[str(q)] = kind
         object_id = f"mock-{revision['id']}-{skill}-q{q:02d}"
         rows.append({
             **{field: o.get(field) for field in COPIED},
+            "payload": out_payload,
             "object_id": object_id,
             # Same version as the source, like 315/316 draft copies, so a mock
             # pairing a bound REV paper with another paper still resolves to one
@@ -196,6 +372,14 @@ def build_plan(
             "binding_status": "BOUND",
             "is_current": True,
         })
+    synced = sorted(int(q) for q in answer_sync)
+    if synced != sorted(set(reviewed_answer_sync)):
+        reasons.append(f"câu cần đồng bộ đáp án là {synced}; --reviewed-answer-sync khai "
+                       f"{sorted(set(reviewed_answer_sync))} — người duyệt phải xác nhận đúng tập này")
+    changes = sorted(int(q) for q, v in answer_sync.items() if v["grading_change"])
+    if changes != sorted(set(approved_grading_changes)):
+        reasons.append(f"câu đổi cách chấm là {changes}; --approved-grading-changes khai "
+                       f"{sorted(set(approved_grading_changes))}")
     if reasons:
         raise BindingRefused(reasons)
 
@@ -207,6 +391,10 @@ def build_plan(
                    "object_ids": [o["object_id"] for o in sorted(current, key=lambda r: r["question_number"])]},
         "changed_questions": changed,
         "reviewed_changes": sorted(set(reviewed_changes)),
+        "classification": classification,
+        "answer_sync": answer_sync,
+        "reviewed_answer_sync": sorted(set(reviewed_answer_sync)),
+        "approved_grading_changes": sorted(set(approved_grading_changes)),
         # The SHA covers the reviewed content itself: any edit to the revision
         # between dry run and commit changes it and blocks the commit.
         "revision_fingerprints": {str(q): revision_fingerprints.get(q) for q in range(1, 41)},
@@ -250,7 +438,28 @@ def load_inputs(db, skill: str, revision_test_id: str) -> dict:
     _, source_fp = _paper_questions(db, skill, source["id"])
     return {"revision": revision, "source": source, "source_objects": source_objects,
             "revision_objects": revision_objects, "revision_keys": keys,
-            "revision_fingerprints": revision_fp, "source_fingerprints": source_fp}
+            "revision_fingerprints": revision_fp, "source_fingerprints": source_fp,
+            "revision_groups": _mcq_multi_groups(db, skill, revision["id"])}
+
+
+def _mcq_multi_groups(db, skill: str, paper_id: str) -> dict[int, tuple[int, ...]]:
+    """q -> every slot of its Listening mcq_multi exercise, exactly as
+    listening_test_grader.collect_answer_key groups them for marking."""
+    if skill != "listening":
+        return {}
+    sections = [s["id"] for s in _all(lambda: db.table("listening_content").select("id")
+                                      .eq("test_id", paper_id).order("id"))]
+    groups: dict[int, tuple[int, ...]] = {}
+    for exercise in _all(lambda: db.table("listening_exercises").select("id,payload")
+                         .in_("content_id", sections).order("id")):
+        payload = exercise.get("payload") if isinstance(exercise.get("payload"), dict) else {}
+        if payload.get("template_kind") != "mcq_multi":
+            continue
+        slots = tuple(sorted(a["q_num"] for a in payload.get("answers") or []
+                             if isinstance(a, dict) and isinstance(a.get("q_num"), int)))
+        for q in slots:
+            groups[q] = slots
+    return groups
 
 
 # Learner-facing worked solutions are not part of what an explanation object
@@ -401,6 +610,10 @@ def main() -> int:
     parser.add_argument("--expected-source-version", required=True)
     parser.add_argument("--reviewed-changes", default="",
                         help="danh sách câu REV khác bản gốc đã được người duyệt xác nhận, vd 11,20,21")
+    parser.add_argument("--reviewed-answer-sync", default="",
+                        help="REVEXPLAIN-0023: câu mà bản lời giải của REV được bổ sung dạng đáp án REV chấm đúng")
+    parser.add_argument("--approved-grading-changes", default="",
+                        help="REVEXPLAIN-0023: câu có scoring override mà owner duyệt lấy hợp hai bộ đáp án")
     parser.add_argument("--plan-out", type=Path)
     parser.add_argument("--commit", action="store_true")
     parser.add_argument("--plan-sha", help="SHA-256 của dry-run đã duyệt; bắt buộc khi --commit")
@@ -410,9 +623,12 @@ def main() -> int:
     from database import supabase_admin  # noqa: WPS433 — needs env only when run
 
     try:
-        reviewed = frozenset(int(x) for x in args.reviewed_changes.split(",") if x.strip())
+        def numbers(raw: str) -> frozenset[int]:
+            return frozenset(int(x) for x in raw.split(",") if x.strip())
         plan = build_plan(skill=args.skill, expected_source_version=args.expected_source_version,
-                          reviewed_changes=reviewed,
+                          reviewed_changes=numbers(args.reviewed_changes),
+                          reviewed_answer_sync=numbers(args.reviewed_answer_sync),
+                          approved_grading_changes=numbers(args.approved_grading_changes),
                           **load_inputs(supabase_admin, args.skill, args.revision))
     except BindingRefused as refused:
         print(json.dumps({"refused": refused.reasons}, ensure_ascii=False, indent=2))
@@ -420,6 +636,8 @@ def main() -> int:
     summary = {"sha256": plan["sha256"], "revision": plan["revision"], "source": {
         k: v for k, v in plan["source"].items() if k != "object_ids"},
         "rows": len(plan["rows"]), "changed_questions": plan["changed_questions"],
+        "answer_sync": plan["answer_sync"],
+        "classification": {k: v for k, v in plan["classification"].items() if v != "identical"},
         "content_version": plan["rows"][0]["content_version"],
         "first_object_id": plan["rows"][0]["object_id"]}
     if args.plan_out:
