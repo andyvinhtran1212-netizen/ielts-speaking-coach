@@ -72,6 +72,10 @@ cd backend
 python -m uvicorn main:app --reload --port 8000
 ```
 
+`/docs`, `/redoc` and `/openapi.json` return 404 unless `ENABLE_API_DOCS=1`
+is set in `backend/.env` (local development only; staging and production
+leave it unset). CI builds the schema in process with `app.openapi()`.
+
 Frontend, in a separate terminal from the repository root:
 
 ```bash

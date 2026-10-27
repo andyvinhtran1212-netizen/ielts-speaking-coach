@@ -27,6 +27,7 @@ from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
 from services.activation_gate import require_active_learner
+from services.api_docs import api_docs_kwargs
 from routers.mock_attempt_flags import router as mock_attempt_flags_router
 from services.server_timing import (
     format_header as format_server_timing_header,
@@ -134,9 +135,13 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 install_supabase_timing()
 
+# /openapi.json, /docs, /docs/oauth2-redirect and /redoc are closed (404)
+# unless ENABLE_API_DOCS is truthy — local development only. app.openapi()
+# still builds the full schema for CI drift checks. See services/api_docs.py.
 app = FastAPI(
     title="IELTS Speaking Coach",
-    version="1.0.0"
+    version="1.0.0",
+    **api_docs_kwargs(settings.ENABLE_API_DOCS),
 )
 
 origins = [
