@@ -111,6 +111,8 @@ class _Query:
         return self
 
     def execute(self):
+        if self.db.before_write and self.action != "select":
+            self.db.before_write(self.db, self.table, self.action, self.payload)
         self.db.calls.append((self.table, self.action, self.payload))
         rows = self.db.tables.setdefault(self.table, [])
         matched = [r for r in rows if all(f(r) for f in self.filters)]
@@ -149,6 +151,7 @@ class FakeDB:
         self.rpc_results = rpc_results or {}
         self.calls: list[tuple[str, str, Any]] = []
         self.rpcs: list[tuple[str, dict]] = []
+        self.before_write = None   # hook(db, table, action, payload): simulate a concurrent commit
 
     def table(self, name): return _Query(self, name)
     def rpc(self, name, params): return _Rpc(self, name, params)
@@ -501,3 +504,39 @@ def test_activation_of_an_archived_profile_is_403_and_consumes_nothing(students)
     assert db.writes() == [], "no users.is_active change, no code claim, no enroll"
     assert db.tables["access_codes"][0]["is_used"] is False
     assert db.tables["users"][0]["is_active"] is False
+
+
+@pytest.mark.parametrize("was_active,locked,final_active", [
+    (False, False, False),   # this request's fresh activation is reverted
+    (True, True, False),     # the archive's account lock is re-applied
+    (True, False, True),     # an account the archive left active stays active
+])
+def test_activation_refuses_an_archive_committed_between_the_profile_lookups(was_active, locked, final_active):
+    """Codex P2 on #1746: Step 1c sees an active profile, then an archive commits
+    before Step 3b. No replacement profile, no claim, and the archive's account
+    state wins over Step 3's activation."""
+    db = FakeDB({"access_codes": [_code_row()],
+                 "users": [{"id": USER_ID, "is_active": was_active}],
+                 "students": [_row(ACTIVE_ID, archived=False, user_id=USER_ID)],
+                 "cohorts": [{"id": COHORT_ID, "created_by": None}],
+                 "student_lifecycle_audit": []})
+
+    def archive_commits(db, table, action, payload):
+        if table == "users" and action == "update" and payload.get("is_active") is True \
+                and not db.tables["students"][0]["archived_at"]:
+            db.tables["students"][0]["archived_at"] = ARCHIVED_AT
+            db.tables["student_lifecycle_audit"].append({
+                "student_id": ACTIVE_ID, "action": "archive", "created_at": ARCHIVED_AT,
+                "detail": {"account_deactivated": locked}})
+            if locked:
+                db.tables["users"][0]["is_active"] = False
+    db.before_write = archive_commits
+
+    with pytest.raises(HTTPException) as error:
+        _activate(db)
+    assert error.value.status_code == 403
+    assert len(db.tables["students"]) == 1, "no replacement profile"
+    assert db.writes("insert") == []
+    assert [c for c in db.writes() if c[0] in ("access_codes", "students", "user_code_assignments")] == []
+    assert db.tables["access_codes"][0]["is_used"] is False
+    assert db.tables["users"][0]["is_active"] is final_active
