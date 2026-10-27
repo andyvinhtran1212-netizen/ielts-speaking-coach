@@ -380,6 +380,11 @@ def _rate_limit_activate(user_id: str) -> None:
     _activate_attempts[user_id] = window
 
 
+_ARCHIVED_PROFILE_DETAIL = (
+    "Hồ sơ học viên đã được lưu trữ — liên hệ admin. Mã CHƯA được sử dụng."
+)
+
+
 @router.post("/activate", response_model=AuthActivateResponse)
 async def activate_account(
     payload: ActivateRequest,
@@ -459,6 +464,30 @@ async def activate_account(
                        "dụng — đăng nhập bằng đúng email được cấp, hoặc liên hệ admin.",
             )
         promote_role = "instructor"
+
+    # ── Step 1c (STUDENTARCHIVE-0029): archived roster profile ───────────────
+    # An archived learner must not re-activate through a new code. Refuse BEFORE
+    # Step 3 touches users.is_active and before the code is claimed, so the
+    # account state is unchanged and the code stays unused. The profile is the
+    # one Step 3b would fold into: the user's linked rows (archived only when
+    # every linked row is), else the unlinked/self-linked row of this code.
+    try:
+        linked_profiles = (supabase_admin.table("students").select("id, user_id, archived_at")
+                           .eq("user_id", user_id).limit(20).execute().data or [])
+        code_profiles = (supabase_admin.table("students").select("id, user_id, archived_at")
+                         .eq("student_code", code).limit(1).execute().data or [])
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi tra cứu hồ sơ học viên: {e}")
+    if linked_profiles:
+        profile_archived = all(row.get("archived_at") for row in linked_profiles)
+    else:
+        code_owner = code_profiles[0].get("user_id") if code_profiles else None
+        profile_archived = bool(
+            code_profiles and code_profiles[0].get("archived_at")
+            and (not code_owner or str(code_owner) == str(user_id))
+        )
+    if profile_archived:
+        raise HTTPException(status_code=403, detail=_ARCHIVED_PROFILE_DETAIL)
 
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
     # Select `role` too so the promote below is upgrade-only / idempotent.
@@ -565,9 +594,13 @@ async def activate_account(
         if cohort_owner:
             enroll_owner = str(cohort_owner)
     try:
-        by_user = (supabase_admin.table("students").select("id, user_id, instructor_id, cohort_id")
-                   .eq("user_id", user_id).limit(1).execute().data or [])
-        by_code = (supabase_admin.table("students").select("id, user_id, instructor_id, cohort_id")
+        by_user = (supabase_admin.table("students")
+                   .select("id, user_id, instructor_id, cohort_id, archived_at")
+                   .eq("user_id", user_id).limit(20).execute().data or [])
+        # Fold into an active profile only; an archived one stays archived.
+        by_user = [row for row in by_user if not row.get("archived_at")][:1]
+        by_code = (supabase_admin.table("students")
+                   .select("id, user_id, instructor_id, cohort_id, archived_at")
                    .eq("student_code", code).limit(1).execute().data or [])
     except Exception as e:
         raise HTTPException(500, f"Lỗi khi tra cứu hồ sơ học viên: {e}")
@@ -579,6 +612,10 @@ async def activate_account(
         target = by_code[0]                              # admin-precreated unlinked bridge
     elif by_code and str(by_code[0].get("user_id")) == str(user_id):
         target = by_code[0]                              # already linked to me (idempotent)
+
+    # Archived between Step 1c and here: still refuse before the code is claimed.
+    if target and target.get("archived_at"):
+        raise HTTPException(status_code=403, detail=_ARCHIVED_PROFILE_DETAIL)
 
     # 2nd-code cross-instructor block: an already-owned student can NOT be moved to
     # a different instructor by another GV's enroll-code → REJECT 403, leave is_used

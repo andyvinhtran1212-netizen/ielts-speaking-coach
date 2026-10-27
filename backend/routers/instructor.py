@@ -59,7 +59,7 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from services.cohort_assignment_service import Deadline, normalize_deadline
 from routers.admin import require_instructor, _gen_code
-from services import essay_service, instructor_workflow
+from services import essay_service, instructor_workflow, student_service
 from services.core_attempt_outcomes import observe_writing_batch
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.instructor_access import (
@@ -261,10 +261,12 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
          .eq("id", str(body.prompt_id)).limit(1).execute())
     if not p.data:
         raise HTTPException(403, "Đề bài không thuộc bạn.")
-    s = (instructor_db(me).table("students").select("id")
+    s = (instructor_db(me).table("students").select("id, archived_at")
          .eq("id", str(body.student_id)).limit(1).execute())
     if not s.data:
         raise HTTPException(403, "Học viên không thuộc bạn.")
+    if s.data[0].get("archived_at"):
+        raise student_service.student_archived_error([str(body.student_id)])
     payload = {
         "prompt_id":      str(body.prompt_id),
         "student_id":     str(body.student_id),
@@ -598,14 +600,17 @@ async def get_cohort(request: Request, cohort_id: UUID, authorization: str | Non
 @router.get("/students")
 async def list_students(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
-    r = instructor_db(me).table("students").select("*").order("created_at", desc=True).execute()
+    # Archived learners (STUDENTARCHIVE-0029) leave the roster.
+    r = (instructor_db(me).table("students").select("*").is_("archived_at", "null")
+         .order("created_at", desc=True).execute())
     return r.data or []
 
 
 @router.get("/students/{student_id}")
 async def get_student(request: Request, student_id: UUID, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
-    r = instructor_db(me).table("students").select("*").eq("id", str(student_id)).limit(1).execute()
+    r = (instructor_db(me).table("students").select("*").eq("id", str(student_id))
+         .is_("archived_at", "null").limit(1).execute())
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
     return r.data[0]
@@ -617,7 +622,7 @@ async def student_summary(request: Request, student_id: UUID, authorization: str
     scope) BEFORE the shared aggregation runs → non-owned student → 404 (empty)."""
     me = await _me(authorization, request)
     owned = (instructor_db(me).table("students").select("id")
-             .eq("id", str(student_id)).limit(1).execute())
+             .eq("id", str(student_id)).is_("archived_at", "null").limit(1).execute())
     if not owned.data:
         raise HTTPException(404, "Không tìm thấy.")     # not my student (uniform w/ non-existent)
     return essay_service.get_student_summary(str(student_id))

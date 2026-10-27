@@ -47,6 +47,7 @@ let failWritingSummary = true;
 let openedAssignedProfile = false;
 let failNextStudentRead = false;
 let delayNextBulkWrite = false;
+let restoreConflictOnce = false;
 
 const requests = [];
 const unexpectedWrites = [];
@@ -55,6 +56,9 @@ const allowedWrites = [
   /^PATCH \/admin\/students\/[^/]+$/,
   /^POST \/admin\/students\/import$/,
   /^POST \/admin\/cohorts\/[^/]+\/students\/bulk$/,
+  // STUDENTARCHIVE-0029: DELETE archives; restore undoes it.
+  /^DELETE \/admin\/students\/[^/]+$/,
+  /^POST \/admin\/students\/[^/]+\/restore$/,
   /^POST \/api\/(analytics\/events|error-logs)$/,
 ];
 
@@ -91,8 +95,9 @@ await page.route('**/*', async (route) => {
       return json([students[0]]);
     }
     if (query === 'fast') return json([students[2]]);
-    if (query) return json(students.filter((student) => `${student.student_code} ${student.full_name}`.toLowerCase().includes(query)));
-    return json(students);
+    const listed = parsed.searchParams.get('include_archived') === 'true' ? students : students.filter((student) => !student.archived_at);
+    if (query) return json(listed.filter((student) => `${student.student_code} ${student.full_name}`.toLowerCase().includes(query)));
+    return json(listed);
   }
   if (parsed.pathname === '/admin/students' && method === 'POST') {
     const body = JSON.parse(request.postData() || '{}');
@@ -113,6 +118,29 @@ await page.route('**/*', async (route) => {
     if (!row) return json({ detail: 'not found' }, 404);
     Object.assign(row, body);
     return json(row);
+  }
+  if (studentMatch && method === 'DELETE') {
+    const row = students.find((student) => student.id === studentMatch[1]);
+    if (!row) return json({ detail: 'Student not found' }, 404);
+    if (!row.archived_at) {
+      row.archived_at = '2026-10-27T01:00:00Z'; row.archive_reason = parsed.searchParams.get('reason');
+      row.ended = row.cohorts || []; row.cohorts = []; row.cohort_id = null; row.cohort_name = null;
+    }
+    return route.fulfill({ status: 204, body: '' });
+  }
+  const restoreMatch = parsed.pathname.match(/^\/admin\/students\/([^/]+)\/restore$/);
+  if (restoreMatch && method === 'POST') {
+    const row = students.find((student) => student.id === restoreMatch[1]);
+    if (!row) return json({ detail: 'Student not found' }, 404);
+    if (restoreConflictOnce) {
+      restoreConflictOnce = false;
+      row.archived_at = null; row.archive_reason = null;
+      return json({ detail: { code: 'not_archived', message: 'Học viên này chưa được lưu trữ.' } }, 409);
+    }
+    const restored = row.ended || [];
+    row.archived_at = null; row.archive_reason = null; row.cohorts = restored; row.ended = [];
+    row.cohort_id = restored[0]?.id || null; row.cohort_name = restored[0]?.name || null;
+    return json({ status: 'restored', restored_cohort_ids: restored.map((item) => item.id), account_reactivated: false });
   }
   const writingMatch = parsed.pathname.match(/^\/admin\/writing\/students\/([^/]+)\/summary$/);
   if (writingMatch && method === 'GET') {
@@ -248,6 +276,66 @@ check('hồ sơ partial failure vẫn giữ dữ liệu profile chuẩn',
   await page.getByRole('dialog').getByText('Chưa kích hoạt', { exact: true }).count() >= 1
   && await page.getByRole('dialog').getByText('Không tải được tổng quan Writing.', { exact: true }).count() === 1);
 await page.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).last().click();
+
+// ── STUDENTARCHIVE-0029: archive → archived filter → restore ────────────────
+await page.locator('tr').filter({ hasText: 'Chi' }).getByRole('button', { name: 'Lưu trữ Chi' }).click();
+const archiveDialog = page.getByRole('dialog', { name: 'Lưu trữ Chi' });
+await archiveDialog.waitFor({ state: 'visible' });
+check('dialog lưu trữ nói rõ bài làm được giữ nguyên',
+  await archiveDialog.getByText(/Bài làm, điểm và lịch sử được giữ nguyên/).count() === 1);
+await archiveDialog.getByLabel('Lý do (tuỳ chọn)').fill('Chuyển trường');
+await archiveDialog.getByLabel(/Khoá luôn tài khoản đăng nhập/).check();
+// Keyboard-only confirm: Tab from the last field lands on Hủy, then Lưu trữ.
+await archiveDialog.getByRole('button', { name: 'Lưu trữ', exact: true }).focus();
+await page.keyboard.press('Enter');
+await page.getByText('Đã lưu trữ Chi và khoá tài khoản đăng nhập. Bài làm và điểm được giữ nguyên.', { exact: true }).waitFor({ state: 'visible' });
+const archiveCall = requests.find((item) => item.method === 'DELETE' && item.path === '/admin/students/st-c');
+check('lưu trữ gửi DELETE kèm lý do + khoá tài khoản rồi canonical reload',
+  Boolean(archiveCall) && new URLSearchParams(archiveCall.search).get('reason') === 'Chuyển trường'
+  && new URLSearchParams(archiveCall.search).get('deactivate_account') === 'true'
+  && writeHasLaterCanonicalRead('DELETE', /^\/admin\/students\/st-c$/));
+check('học viên đã lưu trữ rời danh sách mặc định',
+  await page.locator('tr').filter({ hasText: 'Chi' }).count() === 0);
+
+await page.getByLabel('Trạng thái hồ sơ').selectOption('archived');
+await page.getByRole('button', { name: 'Khôi phục Chi' }).waitFor({ state: 'visible' });
+check('bộ lọc đã lưu trữ đọc include_archived=true và chỉ hiện hồ sơ lưu trữ',
+  requests.some((item) => item.path === '/admin/students' && new URLSearchParams(item.search).get('include_archived') === 'true')
+  && await page.locator('tbody tr').count() === 1
+  && await page.locator('tr').filter({ hasText: 'Chi' }).getByText(/Đã lưu trữ/).count() === 1
+  && await page.locator('tr').filter({ hasText: 'Chi' }).getByRole('checkbox').isDisabled());
+
+await page.setViewportSize({ width: 390, height: 844 });
+await page.emulateMedia({ colorScheme: 'dark' });
+await page.getByRole('button', { name: 'Khôi phục Chi' }).click();
+const restoreDialog = page.getByRole('dialog', { name: 'Khôi phục Chi' });
+await restoreDialog.waitFor({ state: 'visible' });
+const restoreBox = await restoreDialog.getByRole('button', { name: 'Khôi phục', exact: true }).boundingBox();
+check('dialog khôi phục vừa màn hình mobile (dark)', Boolean(restoreBox) && restoreBox.x >= 0 && restoreBox.x + restoreBox.width <= 390);
+await restoreDialog.getByRole('button', { name: 'Khôi phục', exact: true }).click();
+await page.getByText('Đã khôi phục Chi; 1 lớp cũ được trả lại.', { exact: true }).waitFor({ state: 'visible' });
+check('khôi phục rồi canonical reload; view lưu trữ trống',
+  writeHasLaterCanonicalRead('POST', /^\/admin\/students\/st-c\/restore$/)
+  && await page.getByText('Không có học viên đã lưu trữ', { exact: true }).count() === 1);
+await page.setViewportSize({ width: 1365, height: 900 });
+await page.emulateMedia({ colorScheme: 'light' });
+
+await page.getByLabel('Trạng thái hồ sơ').selectOption('active');
+await page.locator('tr').filter({ hasText: 'Chi' }).getByText('Lớp Nền Tảng', { exact: true }).waitFor({ state: 'visible' });
+check('học viên khôi phục trở lại với lớp cũ', true);
+
+await page.locator('tr').filter({ hasText: 'Bình' }).getByRole('button', { name: 'Lưu trữ Bình' }).click();
+await page.getByRole('dialog', { name: 'Lưu trữ Bình' }).getByRole('button', { name: 'Lưu trữ', exact: true }).click();
+await page.getByText(/^Đã lưu trữ Bình\. Bài làm/).waitFor({ state: 'visible' });
+await page.getByLabel('Trạng thái hồ sơ').selectOption('archived');
+await page.getByRole('button', { name: 'Khôi phục Bình' }).click();
+restoreConflictOnce = true;
+await page.getByRole('dialog', { name: 'Khôi phục Bình' }).getByRole('button', { name: 'Khôi phục', exact: true }).click();
+await page.getByText('Bình không còn ở trạng thái lưu trữ. Đã tải lại danh sách.', { exact: true }).waitFor({ state: 'visible' });
+check('409 not_archived tải lại hàng thay vì báo thành công',
+  await page.getByRole('dialog').count() === 0 && await page.locator('tr').filter({ hasText: 'Bình' }).count() === 0);
+await page.getByLabel('Trạng thái hồ sơ').selectOption('active');
+await page.getByText('Bình', { exact: true }).waitFor({ state: 'visible' });
 
 failStudentReads = true;
 await page.reload({ waitUntil: 'domcontentloaded' });

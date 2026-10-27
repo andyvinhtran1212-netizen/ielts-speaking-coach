@@ -144,7 +144,7 @@
           '<td><div class="st-row-actions">' +
             '<button class="adm-btn-secondary" data-act="essay" data-id="' + esc(r.id) + '">Giao bài viết</button>' +
             '<button class="adm-btn-secondary" data-act="edit" data-id="' + esc(r.id) + '">Sửa</button>' +
-            '<button class="adm-btn-danger" data-act="delete" data-id="' + esc(r.id) + '" data-code="' + code + '">Xoá</button>' +
+            '<button class="adm-btn-danger" data-act="delete" data-id="' + esc(r.id) + '" data-code="' + code + '">Lưu trữ</button>' +
           '</div></td>' +
         '</tr>';
       }).join('');
@@ -304,10 +304,11 @@
       }
       if (act === 'delete') {
         var code = btn.dataset.code;
-        if (!confirm('Xóa học viên "' + code + '"? Tất cả essays của học viên này cũng sẽ bị xóa.')) return;
+        // STUDENTARCHIVE-0029: DELETE archives; essays and grades are kept.
+        if (!confirm('Lưu trữ học viên "' + code + '"? Bài làm và điểm được giữ nguyên; học viên rời mọi lớp và có thể được khôi phục.')) return;
         try {
           await window.api.delete('/admin/students/' + id);
-          setAlert('success', 'Đã xóa học viên.');
+          setAlert('success', 'Đã lưu trữ học viên.');
           loadStudents();
         } catch (e) { setAlert('error', e.message); }
       }

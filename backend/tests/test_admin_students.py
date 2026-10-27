@@ -136,8 +136,12 @@ def test_list_students_passes_query_params():
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 200
-    assert mock_list.call_args.kwargs == {"search": "nguyen", "limit": 10, "offset": 20}
-    assert r.json() == [_STUDENT_ROW]
+    # STUDENTARCHIVE-0029: archived learners are excluded unless requested.
+    assert mock_list.call_args.kwargs == {"search": "nguyen", "limit": 10, "offset": 20,
+                                          "include_archived": False}
+    # The directory row now publishes the (NULL = active) archive state.
+    assert r.json() == [{**_STUDENT_ROW, "archived_at": None, "archived_by": None,
+                         "archive_reason": None}]
 
 
 def test_list_students_rejects_oversized_limit():
@@ -201,15 +205,19 @@ def test_update_student_rejects_null_identity_fields():
 
 
 def test_delete_student_returns_204():
+    """STUDENTARCHIVE-0029: DELETE archives (no hard delete); see
+    test_admin_students_archive.py for the full contract."""
     with patch("routers.admin_students.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_students.student_service.delete_student",
-               return_value=None) as mock_del:
+         patch("routers.admin_students.student_service.archive_student",
+               return_value={"status": "archived"}) as mock_archive:
         r = _client().delete(
             f"/admin/students/{_STUDENT_ROW['id']}",
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 204
-    mock_del.assert_called_once_with(_STUDENT_ROW["id"])
+    mock_archive.assert_called_once_with(
+        student_id=_STUDENT_ROW["id"], actor_id=_ADMIN_USER["id"],
+        reason=None, deactivate_account=False)
 
 
 def test_import_csv_happy_path():
@@ -259,6 +267,7 @@ def test_list_students_attaches_cohort_name(monkeypatch):
         def range(self, *a, **k): return self
         def in_(self, col, vals): self._in = (col, vals); return self
         def eq(self, col, val): self._eqs.append((col, val)); return self
+        def is_(self, col, val): self._eqs.append((col, None)); return self  # archived_at IS NULL
         def execute(self):
             rows = list(self.t.get(self.name, []))
             if self._in:
@@ -303,6 +312,7 @@ def test_list_students_exposes_cohort_lookup_failure(monkeypatch):
         def select(self, *a, **k): return self
         def order(self, *a, **k): return self
         def range(self, *a, **k): return self
+        def is_(self, *a, **k): return self  # archived_at IS NULL (0029)
         def execute(self):
             if self.name == "cohorts":
                 raise RuntimeError("lookup unavailable")
