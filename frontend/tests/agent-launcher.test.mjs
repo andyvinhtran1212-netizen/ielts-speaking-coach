@@ -17,8 +17,9 @@ function launch(overrides, check, command = launcher.runtimeArgs) {
     const frontend = path.join(root, 'frontend');
     mkdirSync(path.join(frontend, 'tooling'), { recursive: true });
     mkdirSync(path.join(frontend, 'public/js'), { recursive: true });
-    copyFileSync(path.join(ROOT, 'frontend/tooling/generate-runtime-config.mjs'),
-      path.join(frontend, 'tooling/generate-runtime-config.mjs'));
+    for (const file of ['generate-runtime-config.mjs', 'runtime-origins.mjs']) {
+      copyFileSync(path.join(ROOT, 'frontend/tooling', file), path.join(frontend, 'tooling', file));
+    }
     const bin = path.join(root, 'bin');
     mkdirSync(bin);
     symlinkSync(process.execPath, path.join(bin, 'node'));
