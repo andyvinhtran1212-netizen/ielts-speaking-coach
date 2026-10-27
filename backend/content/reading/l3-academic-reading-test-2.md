@@ -28,7 +28,11 @@ time_limit_minutes: 60
 passage_count: 3
 total_questions: 40
 band_target: 7.0
-published: true
+# Unpublished 2026-10-27 (team content plan B3/P1): this functional sample is
+# below learner standard. Kept as an importer/renderer fixture; an import of
+# this file writes status='draft', which hides it from /api/reading/test and
+# 404s its detail/boot/start. Publish only after replacing the content.
+published: false
 passages:
   # ── Passage 1 — Qs 1–13 ─────────────────────────────────────────
   - passage_order: 1
