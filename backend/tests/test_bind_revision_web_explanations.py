@@ -596,3 +596,29 @@ def test_choose_two_group_refuses_a_documented_letter_the_grader_rejects():
     inputs = _group_inputs(("D", "E"), ["D", "E"])
     inputs["source_objects"][20]["payload"]["item"]["answer"]["accepted_forms"] = ["D", "E", "F"]
     assert "Q21: nhóm chọn nhiều [21, 22]" in _refusal(inputs) and "chấp nhận thêm ['f']" in _refusal(inputs)
+
+
+def test_grouped_member_with_scalar_canonical_still_uses_group_marking():
+    # Codex on #1745: per-slot canonicals D/E; the group grader ignores slot alternatives.
+    inputs = _inputs("listening")
+    for q, letter in ((21, "D"), (22, "E")):
+        _explain(inputs, q, letter, [letter])
+        inputs["revision_keys"][q] = {"answer": letter, "alternatives": []}
+    inputs["revision_groups"] = {21: (21, 22), 22: (21, 22)}
+    inputs["revision_keys"][21] = {"answer": "D", "alternatives": ["F"]}
+    plan = build_plan(**inputs)
+    assert plan["classification"]["21"] == plan["classification"]["22"] == "group"
+    assert plan["answer_sync"] == {}  # F is never synced: the grader never credits it
+    _explain(inputs, 21, "D", ["D", "F"])
+    assert "Q21: nhóm chọn nhiều [21, 22]" in _refusal(inputs)  # nor may the explanation document it
+
+
+def test_policy_forms_are_compared_by_the_policys_own_equivalence():
+    # Codex on #1745: a literal policy keeps "£250" apart from "250"; the legacy normaliser would not.
+    inputs = _inputs("listening")
+    _explain(inputs, 3, "250", ["250"])
+    inputs["revision_keys"][3] = {"answer": "250", "alternatives": [],
+                                  "response_policy": _policy("literal", ["250", "£250"])}
+    assert "câu cần đồng bộ đáp án là [3]" in _refusal(inputs)
+    inputs["reviewed_answer_sync"] = frozenset({3})
+    assert build_plan(**inputs)["rows"][2]["payload"]["item"]["answer"]["accepted_forms"] == ["250", "£250"]

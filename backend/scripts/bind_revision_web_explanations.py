@@ -141,6 +141,22 @@ def _added_forms(base: frozenset[str], forms: list) -> list:
     return added
 
 
+def _policy_added_forms(policy: dict, documented: list, listed: list) -> list:
+    """Policy forms the explanation does not list, compared by the POLICY's own
+    equivalence (it may keep apart forms the legacy normaliser collapses)."""
+    covered, added = [str(v) for v in documented], []
+    for form in listed:
+        def same(other: str) -> bool:
+            try:
+                return policy_answer_matches(str(form), {**policy, "accepted_answers": [other]})
+            except (ResponsePolicyError, TypeError, ValueError, KeyError):
+                return False
+        if not any(same(other) for other in covered):
+            added.append(form)
+            covered.append(str(form))
+    return added
+
+
 def fingerprint(value: Any) -> str:
     """Stable content hash used to find questions the revision changed."""
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
@@ -212,6 +228,8 @@ def build_plan(
     classification: dict[str, str] = {}
     answer_sync: dict[str, dict] = {}
     groups = revision_groups or {}
+    explained = {o["question_number"]: (((o.get("payload") or {}).get("item") or {}).get("answer") or {})
+                 for o in current}
     for o in sorted(current, key=lambda row: row["question_number"]):
         q = o["question_number"]
         key = revision_keys.get(q)
@@ -233,9 +251,26 @@ def build_plan(
                       and _key_set(answer.get("canonical"), answer.get("accepted_forms")) == literal_rev
                       and frozenset(_norm(v) for v in _flat(answer.get("canonical"))) <= literal_rev
                       and not (overridden and frozenset(_norm(v) for v in accepted_raw) != literal_rev))
-        letters = _letters(answer.get("canonical"))
         group = groups.get(q) or ()
-        if literal_ok:
+        if len(group) > 1:
+            # A Listening mcq_multi exercise is graded as one any-order letter set
+            # and ignores per-slot alternatives, so every member is checked against
+            # that set, whatever shape its explanation canonical takes.
+            expected = sorted(_expected_letters([revision_keys.get(n) or {} for n in group]))
+            kind = "group"
+            shapes = [_letters(explained.get(n, {}).get("canonical"))
+                      or [str(c).strip().lower() for c in _flat(explained.get(n, {}).get("canonical"))]
+                      for n in group]
+            letters = sorted({x for shape in shapes for x in shape})
+            stray = sorted(documented - set(letters))
+            bad_shape = any(len(shape) not in (1, len(group)) or not all(_LETTER.match(x) for x in shape)
+                            or (len(shape) > 1 and shape != letters) for shape in shapes)
+            if (len(letters) != len(group) or expected != letters or overridden or stray or bad_shape
+                    or any("response_policy" in (revision_keys.get(n) or {}) for n in group)):
+                reasons.append(f"Q{q:02d}: nhóm chọn nhiều {list(group)} chấm {expected}, lời giải ghi {letters}"
+                               + (f" và chấp nhận thêm {stray}" if stray else ""))
+                continue
+        elif literal_ok:
             kind = "identical"
         elif "response_policy" in key:
             # Marking uses the authored policy alone; every form the explanation
@@ -252,18 +287,7 @@ def build_plan(
                 reasons.append(f"Q{q:02d}: đáp án REV có response_policy — lời giải ghi nhận dạng policy chấm sai "
                                f"{failing}" + (" và có scoring override" if overridden else ""))
                 continue
-            added = _added_forms(documented, listed)
-        elif letters and len(group) > 1:
-            # One mcq_multi exercise is graded as an any-order letter set.
-            expected = sorted(_expected_letters([revision_keys.get(n) or {} for n in group]))
-            kind = "group"
-            # Every documented form must be one of the group's letters: the grader
-            # credits nothing else (FR-003 applies to groups too).
-            stray = sorted(documented - set(letters))
-            if len(group) != len(letters) or expected != letters or overridden or stray:
-                reasons.append(f"Q{q:02d}: nhóm chọn nhiều {list(group)} chấm {expected}, lời giải ghi {letters}"
-                               + (f" và chấp nhận thêm {stray}" if stray else ""))
-                continue
+            added = _policy_added_forms(policy, _flat(answer.get("canonical")) + accepted_raw, listed)
         else:
             rev_raw = [v for v in [key.get("answer"), *_flat(key.get("alternatives") or [])] if v not in (None, "")]
             rev_forms = marker_forms(rev_raw)
