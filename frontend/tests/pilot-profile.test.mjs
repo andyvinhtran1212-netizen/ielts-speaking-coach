@@ -61,7 +61,8 @@ test('layout: legacy head parity + body classes pre-paint, không render <body>'
     for (const asset of ['/js/api.js', '/js/runtime-config.js', 'aver-chrome.js']) {
       assert.ok(EFFECTIVE.includes(asset), `missing legacy asset: ${asset}`);
     }
-    assert.match(EFFECTIVE, /<AuthProvider>/, 'authed route group must mount the AuthProvider');
+    // W-03: the shell passes `activationGate` (activated-account gate) to it.
+    assert.match(EFFECTIVE, /<AuthProvider(?: activationGate=\{authGated\})?>/, 'authed route group must mount the AuthProvider');
 });
 
 test('shell: skeleton legacy nguyên bản — các id mà profile.css/behavior nhắm tới', () => {

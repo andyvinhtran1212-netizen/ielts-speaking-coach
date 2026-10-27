@@ -184,7 +184,7 @@ def test_permissions_endpoint_returns_summary_for_speaking_only_user():
         "routers.student_home.get_supabase_user",
         new=AsyncMock(return_value=_USER),
     ), patch(
-        "routers.student_home.get_user_access_code_permissions",
+        "services.access_code_permissions.get_user_access_code_permissions",
         return_value=["practice_single"],
     ):
         r = _client().get("/api/student/permissions", headers=_USER_AUTH)
@@ -200,7 +200,7 @@ def test_permissions_endpoint_writing_true_with_admin_override():
         "routers.student_home.get_supabase_user",
         new=AsyncMock(return_value=_USER),
     ), patch(
-        "routers.student_home.get_user_access_code_permissions",
+        "services.access_code_permissions.get_user_access_code_permissions",
         return_value=["all"],
     ):
         r = _client().get("/api/student/permissions", headers=_USER_AUTH)
@@ -513,13 +513,13 @@ def test_permissions_summary_writing_true_when_assignment_exists_no_code_perm():
         "routers.student_home.get_supabase_user",
         new=AsyncMock(return_value={"id": "user-1"}),
     ), patch(
-        "routers.student_home.get_user_access_code_permissions",
+        "services.access_code_permissions.get_user_access_code_permissions",
         return_value=["practice_single"],          # no writing
     ), patch(
-        "routers.student_home.student_id_for_user",
+        "services.access_code_permissions.student_id_for_user",
         return_value="student-1",
     ), patch(
-        "routers.student_home.student_has_writing_assignment",
+        "services.access_code_permissions.student_has_writing_assignment",
         return_value=True,
     ):
         r = _client().get("/api/student/permissions", headers={"Authorization": "Bearer x"})
@@ -534,13 +534,13 @@ def test_permissions_summary_writing_false_when_no_perm_and_no_assignment():
         "routers.student_home.get_supabase_user",
         new=AsyncMock(return_value={"id": "user-1"}),
     ), patch(
-        "routers.student_home.get_user_access_code_permissions",
+        "services.access_code_permissions.get_user_access_code_permissions",
         return_value=["practice_single"],
     ), patch(
-        "routers.student_home.student_id_for_user",
+        "services.access_code_permissions.student_id_for_user",
         return_value="student-1",
     ), patch(
-        "routers.student_home.student_has_writing_assignment",
+        "services.access_code_permissions.student_has_writing_assignment",
         return_value=False,
     ):
         r = _client().get("/api/student/permissions", headers={"Authorization": "Bearer x"})

@@ -287,7 +287,8 @@ def test_course_tables_revoke_every_direct_client_role_privilege():
 def test_router_is_mounted_on_the_backend_app():
     main_source = (ROOT / "main.py").read_text(encoding="utf-8")
     assert "course_pronunciation_router" in main_source
-    assert "app.include_router(course_pronunciation_router)" in main_source
+    # W-03: mounted behind the learner activation gate (paid Azure scoring).
+    assert "app.include_router(course_pronunciation_router, dependencies=_ACTIVE_LEARNER)" in main_source
 
 
 def test_public_attempt_returns_idempotency_key_without_provider_payloads():

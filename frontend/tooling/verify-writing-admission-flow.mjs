@@ -125,6 +125,7 @@ async function fixture(browser, options = {}) {
         }
         if (url.pathname === PATH + '/entry') { state.classifications++; return route.fulfill(json(entry())); }
         if (url.pathname === '/auth/me') return route.fulfill(json({ id: USER, role: 'student' }));
+        if (url.pathname === '/auth/check-active') return route.fulfill(json({ is_active: true })); // W-03 probe
         if (url.pathname === '/api/student/permissions') return route.fulfill(json({ writing: true }));
         if (url.pathname === '/api/writing/my-assignments') return route.fulfill(json({
           student: { display_name: 'Fixture learner', student_code: 'LOCAL', target_band: 6.5 },

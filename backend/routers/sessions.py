@@ -23,6 +23,7 @@ from services.core_attempt_observation import (
     admit_start, bind_owned_attempt, observe_operation,
 )
 from services.core_attempt_outcomes import observe_speaking_background
+from services import activation_gate
 from services.recording_audio import attach_playback_urls, PLAYBACK_TTL
 from services.speaking_submission import submission_id, submission_revision
 from services.question_visibility import redact_questions, should_reveal
@@ -301,6 +302,10 @@ def _require_permission(user_id: str, mode: str) -> None:
     if not required:
         return  # unknown mode — field_validator above will reject it first
 
+    # W-03 — permission means "active account AND holds the scope": a code or
+    # assignment on an account that never activated grants nothing.
+    activation_gate.ensure_account_active(user_id)
+
     try:
         perms = get_user_access_code_permissions_cached(user_id)
     except Exception as e:
@@ -316,6 +321,10 @@ def _require_permission(user_id: str, mode: str) -> None:
 
 
 def _require_active(user_id: str) -> None:
+    # W-03 — the router gate already confirmed this account in this request;
+    # don't re-query (the memo never outlives the request).
+    if activation_gate.confirmed_active(user_id):
+        return
     try:
         r = (
             supabase_admin.table("users")
