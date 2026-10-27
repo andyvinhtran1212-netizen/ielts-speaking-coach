@@ -58,6 +58,7 @@ from services.listening_test_grader import answer_matches
 from services.reading_diagnostic_engine import build_reading_diagnostic
 from services import reading_solution
 from services import kp_registry
+from services import test_data_visibility
 from services.reading_practice_support import (
     ReadingPracticeCheck, ReadingPracticeDetail, checked_evidence,
     validated_support, word_count, digest,
@@ -873,11 +874,16 @@ async def list_reading_tests(
       - "full" or omitted (default) → ONLY full tests.
     A mini is just a full test the admin flagged at import; the rest of the
     pipeline (passages/questions/grader) is identical."""
-    await _require_auth(authorization)
+    user = await _require_auth(authorization)
     if module is not None and module not in _READING_MODULES:
         raise HTTPException(422, f"module must be one of {sorted(_READING_MODULES)}")
     if test_type is not None and test_type not in ("mini", "full"):
         raise HTTPException(422, "test_type must be 'mini' or 'full'")
+    hidden_ids = (
+        test_data_visibility.hidden_title_ids("reading_public_practice_catalog")
+        if test_data_visibility.hide_for(email=user.get("email"), user_id=user.get("id"))
+        else []
+    )
 
     q = (
         supabase_admin.table("reading_public_practice_catalog")
@@ -897,6 +903,9 @@ async def list_reading_tests(
         q = q.eq("test_type", "full")
     # Visibility is an explicit admin choice, independent from mock/class use.
     q = q.eq("is_public", True)
+    if hidden_ids:
+        # Staging test data (TASK B2) — excluded in SQL so total/paging hold.
+        q = q.not_.in_("id", hidden_ids)
     res = q.execute()
     return {
         "items":  res.data or [],

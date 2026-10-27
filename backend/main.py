@@ -177,7 +177,8 @@ _CORS_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
 # X-Reading-Anon (reading lock + share-link flows) and X-Request-ID
 # (error-reporter). They MUST stay allowed or those flows' CORS preflight breaks.
 _CORS_HEADERS = ["Authorization", "Content-Type",
-                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID", CORE_OPERATION_HEADER]
+                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID", CORE_OPERATION_HEADER,
+                 "X-Show-Test-Data"]
 
 
 def _cors_headers_for_origin(origin: str | None) -> dict:
@@ -374,6 +375,11 @@ async def access_perm_memo_middleware(request: Request, call_next):
         begin_request_memo as begin_activation_memo,
         reset_request_memo as reset_activation_memo,
     )
+    from services.test_data_visibility import (
+        SHOW_TEST_DATA_HEADER,
+        begin_request as begin_test_data_request,
+        reset_request as reset_test_data_request,
+    )
     # A CORS preflight carries no auth and reaches no route — CORSMiddleware
     # answers it below us. Setting up a per-request permission memo for it is
     # pure risk: this middleware sits OUTSIDE CORSMiddleware, so anything it
@@ -385,9 +391,12 @@ async def access_perm_memo_middleware(request: Request, call_next):
     # W-03 — same per-request lifetime for the activation gate's memo (verified
     # bearer + confirmed-active ids), so a request never re-verifies its token.
     gate_token = begin_activation_memo()
+    # TASK B2 — the admin "show test data" opt-in, read by list routes.
+    test_data_token = begin_test_data_request(request.headers.get(SHOW_TEST_DATA_HEADER))
     try:
         return await call_next(request)
     finally:
+        reset_test_data_request(test_data_token)
         reset_activation_memo(gate_token)
         reset_request_permission_memo(token)
 

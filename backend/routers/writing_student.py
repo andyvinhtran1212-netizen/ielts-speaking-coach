@@ -44,6 +44,7 @@ from services.public_cache import cacheable_json
 from services import activation_gate
 from services import essay_service
 from services import core_admission
+from services import test_data_visibility
 from services.access_code_permissions import (
     get_user_access_code_permissions,
     has_writing_permission,
@@ -252,6 +253,10 @@ async def get_prompt_bank(
     if task_type:
         q = q.eq("task_type", task_type)
     rows = q.execute().data or []
+    # Anonymous browse has no viewer, so staging test prompts are always
+    # dropped here when hiding is on; admins manage them in /admin/writing.
+    if test_data_visibility.hide_for():
+        rows = [r for r in rows if not test_data_visibility.is_test_label(r.get("title"))]
 
     # Last-Modified for ETag/304 validation: newest prompt updated_at as HTTP-date
     # (DB-backed, so derived from the rows — not file mtimes like grammar).

@@ -93,14 +93,18 @@ def list_students(
     limit: int = 50,
     offset: int = 0,
     include_archived: bool = False,
+    exclude_ids: Optional[list[str]] = None,
 ) -> list[dict]:
     """List students; optionally filter by case-insensitive substring match
     against student_code or full_name. Archived learners are excluded unless
-    ``include_archived`` (STUDENTARCHIVE-0029).
+    ``include_archived`` (STUDENTARCHIVE-0029). ``exclude_ids`` (staging test
+    data, TASK B2) is applied in SQL so pages stay full.
     """
     q = supabase_admin.table("students").select("*").order("created_at", desc=True)
     if not include_archived:
         q = q.is_("archived_at", "null")
+    if exclude_ids:
+        q = q.not_.in_("id", exclude_ids)
     if search:
         # F2 — PostgREST-safe or_(): the value is double-quoted so commas/parens
         # in the term don't break the logic tree, and LIKE wildcards are escaped.
