@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import hashlib
+import http.client
 import json
 import os
 import random
@@ -50,6 +51,10 @@ class Fatal(Exception):
 
 class NotFound(Exception):
     pass
+
+
+class TruncatedDownload(Exception):
+    """Fewer body bytes than the response's Content-Length."""
 
 
 class StorageApi:
@@ -183,7 +188,7 @@ def cmd_export(api: StorageApi, args: argparse.Namespace) -> int:
     )
 
     lock = threading.Lock()
-    stats = {"objects": 0, "bytes": 0, "vanished": 0}
+    stats = {"objects": 0, "bytes": 0, "vanished": 0, "retried": 0}
     manifest = open(out / "objects.jsonl", "w", encoding="utf-8")
 
     def fetch(bucket: str, entry: dict) -> None:
@@ -198,6 +203,7 @@ def cmd_export(api: StorageApi, args: argparse.Namespace) -> int:
                 with api.download(bucket, name) as resp, open(dest, "wb") as fh:
                     content_type = resp.headers.get("Content-Type", "")
                     cache_control = resp.headers.get("Cache-Control")
+                    advertised = resp.headers.get("Content-Length")
                     while True:
                         chunk = resp.read(CHUNK)
                         if not chunk:
@@ -205,6 +211,10 @@ def cmd_export(api: StorageApi, args: argparse.Namespace) -> int:
                         digest.update(chunk)
                         size += len(chunk)
                         fh.write(chunk)
+                # A connection that closes early can end the read loop without
+                # an exception; a short body must never reach the manifest.
+                if advertised is not None and size != int(advertised):
+                    raise TruncatedDownload()
                 break
             except NotFound:
                 dest.unlink(missing_ok=True)
@@ -215,9 +225,11 @@ def cmd_export(api: StorageApi, args: argparse.Namespace) -> int:
                 with lock:
                     stats["vanished"] += 1
                 return
-            except (OSError, urllib.error.URLError, TimeoutError) as exc:
+            except (OSError, urllib.error.URLError, TimeoutError, http.client.HTTPException, TruncatedDownload) as exc:
                 if attempt == RETRIES:
                     raise Fatal(f"bucket {bucket}: download failed ({type(exc).__name__})") from None
+                with lock:
+                    stats["retried"] += 1
                 time.sleep(attempt)
         meta = entry.get("metadata") or {}
         record = {
@@ -251,7 +263,8 @@ def cmd_export(api: StorageApi, args: argparse.Namespace) -> int:
     print(json.dumps(stats))
     eprint(
         f"storage export: {stats['buckets']} buckets, {stats['objects']} objects, "
-        f"{stats['bytes']} bytes, {stats['vanished']} deleted during export"
+        f"{stats['bytes']} bytes, {stats['vanished']} deleted during export, "
+        f"{stats['retried']} downloads retried"
     )
     return 0
 

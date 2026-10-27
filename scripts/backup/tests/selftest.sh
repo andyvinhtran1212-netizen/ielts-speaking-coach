@@ -59,11 +59,14 @@ free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",
 SRC_PORT=$(free_port)
 # --page-cap 2 forces paging; the ghost is listed once and then 404s.
 python3 "$HERE/mock_storage.py" --root "$SRC_ROOT" --port "$SRC_PORT" --key "$MOCK_KEY" \
-  --page-cap 2 --ghost vocab-audio/gone.mp3 & PIDS+=($!)
+  --page-cap 2 --ghost vocab-audio/gone.mp3 --truncate audio-responses/0b5c-user/s1/1.webm:1 & PIDS+=($!)
+BAD_PORT=$(free_port)
+python3 "$HERE/mock_storage.py" --root "$SRC_ROOT" --port "$BAD_PORT" --key "$MOCK_KEY" \
+  --truncate audio-responses/0b5c-user/s1/1.webm:99 & PIDS+=($!)
 DST_ROOT="$T/storage-dst"; mkdir -p "$DST_ROOT"
 DST_PORT=$(free_port)
 python3 "$HERE/mock_storage.py" --root "$DST_ROOT" --port "$DST_PORT" --key "$MOCK_KEY" & PIDS+=($!)
-for port in "$SRC_PORT" "$DST_PORT"; do
+for port in "$SRC_PORT" "$DST_PORT" "$BAD_PORT"; do
   for _ in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$port/" && break; sleep 0.1; done
 done
 
@@ -89,8 +92,13 @@ else
 fi
 
 # --- 1. backup + drill happy path ---------------------------------------------
-BACKUP_TIER=weekly bash "$BK/offsite_backup.sh"
-pass "backup to $OFFSITE_DEST_KIND"
+BACKUP_TIER=weekly bash "$BK/offsite_backup.sh" 2> "$T/backup.log" || { cat "$T/backup.log"; fail "backup"; }
+cat "$T/backup.log"
+grep -q '1 downloads retried' "$T/backup.log" || fail "a truncated download should have been retried"
+pass "backup to $OFFSITE_DEST_KIND (truncated download retried; drill verifies the full bytes)"
+expect_fail "export fails when a download stays truncated" 'download failed \(TruncatedDownload' \
+  env SUPABASE_SERVICE_KEY="$MOCK_KEY" python3 "$BK/storage_tool.py" export \
+  --supabase-url "http://127.0.0.1:$BAD_PORT" --out "$T/bad-export"
 DRILL_AGE_IDENTITY="$(cat "$T/drill.key")" DRILL_KEEP_DB=1 bash "$BK/restore_drill.sh" 2> "$T/drill.log" \
   || { cat "$T/drill.log"; fail "drill on a good backup"; }
 grep -q 'restore drill passed' "$T/drill.log" || fail "drill did not report success"

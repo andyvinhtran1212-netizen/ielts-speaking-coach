@@ -8,6 +8,8 @@ Serves the endpoints storage_tool.py uses, backed by a directory:
   --page-cap N   return at most N entries per list call (exercises paging)
   --ghost B/N    list B/N until its first download, which answers 404 and
                  removes it (an object deleted between listing and download)
+  --truncate B/N:K  the first K downloads of B/N advertise the full
+                 Content-Length, send half the body and close the connection
 """
 from __future__ import annotations
 
@@ -21,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 
-def build(root: Path, key: str, page_cap: int, ghosts: set[tuple[str, str]]):
+def build(root: Path, key: str, page_cap: int, ghosts: set[tuple[str, str]], truncate: dict):
     lock = threading.Lock()
     ghost_deleted: set[tuple[str, str]] = set()
 
@@ -71,7 +73,21 @@ def build(root: Path, key: str, page_cap: int, ghosts: set[tuple[str, str]]):
                 if not f.is_file():
                     return self._not_found()
                 ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"
-                return self._send(200, body=f.read_bytes(), ctype=ctype)
+                data = f.read_bytes()
+                with lock:
+                    cut = truncate.get((bucket, name), 0) > 0
+                    if cut:
+                        truncate[(bucket, name)] -= 1
+                if cut:
+                    self.send_response(200)
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data[: len(data) // 2])
+                    self.wfile.flush()
+                    self.close_connection = True
+                    return
+                return self._send(200, body=data, ctype=ctype)
             self._send(404, {"error": "route"})
 
         def do_POST(self):
@@ -142,9 +158,16 @@ def main() -> None:
     parser.add_argument("--key", required=True)
     parser.add_argument("--page-cap", type=int, default=1000)
     parser.add_argument("--ghost", action="append", default=[])
+    parser.add_argument("--truncate", action="append", default=[])
     args = parser.parse_args()
     ghosts = {tuple(g.split("/", 1)) for g in args.ghost}
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), build(Path(args.root), args.key, args.page_cap, ghosts))
+    truncate = {}
+    for t in args.truncate:
+        target, _, times = t.rpartition(":")
+        truncate[tuple(target.split("/", 1))] = int(times)
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", args.port), build(Path(args.root), args.key, args.page_cap, ghosts, truncate)
+    )
     server.serve_forever()
 
 
