@@ -22,9 +22,10 @@ and must not be "filled in" by tooling:
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-10-27 the highest is `326`, so the next
 new migration is `327`. The runner applies any unapplied file regardless of order.
-Numbers are also reserved ahead of their files: `321` (PR #1727), `322` (PR #1720),
-`323`–`325` (specs 0026–0028), `327`–`329` and `330` (A-10); do not reuse them,
-take the next unreserved number.
+Numbers are also reserved ahead of their files: `321` (#1727) and `322` (#1720)
+are open PRs and may land after `323`/`326`; `324`–`325` (specs 0027–0028),
+`327`–`329` and `330` (A-10) are taken too. Do not reuse them; take the next
+unreserved number.
 
 Migration `326` (STUDENTARCHIVE-0029) turns `DELETE /admin/students/{id}` into an
 archive: `students.archived_at/archived_by/archive_reason`, the append-only
@@ -38,6 +39,18 @@ legacy `cohort_id` write can bring an archived learner back. It aborts unless th
 the previous backend's admin student list rejects the new columns. Rollback is
 guarded (zero archived learners and an empty audit table); see the file header
 and `specs/0029-student-archive/rollout.md`.
+
+Migration `323` (ROLECHECK-0026, bug A-05) keeps `chk_users_role`
+(`user, student, instructor, admin`, from 106) as the only CHECK on
+`public.users.role` and drops `users_role_check` (`user, admin`, created
+outside the repo), whose intersection blocked every `instructor`/`student`
+write, even by `service_role`. It changes no row, aborts on a role outside the
+four values, re-creates `chk_users_role` only if missing or drifted, and its
+postcondition requires exactly one validated role CHECK and the enabled 320
+trigger `trg_users_guard_privileged_columns`. Grants, policies and the trigger
+are untouched, so clients still cannot change `role`. Run the read-only checks
+in `specs/0026-users-role-single-check/research.md` §5 first; rollback is only
+safe while no `student`/`instructor` row exists (§6.4).
 
 Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
 change: the `web_explanation_content_version_unavailable` refusal now names its
@@ -68,7 +81,8 @@ because the previous backend's D1 writes fail closed in between. On
 `public.users` no client UPDATE remains (PATCH `/auth/profile` writes with the
 service role), the dashboard policy "Users can update own data" becomes
 `TO authenticated` with WITH CHECK, and a trigger rejects any non-profile
-column change by a client role. `users_role_check` is intentionally untouched.
+column change by a client role. `users_role_check` was left in place here and
+is dropped by `323`.
 The browser performs no direct PostgREST writes. A new table that genuinely
 needs a client write must now `GRANT` that exact privilege in its own
 migration. The migration ends with a postcondition over privileges, default
