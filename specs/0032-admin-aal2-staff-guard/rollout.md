@@ -37,6 +37,10 @@ code deploy.
   come from the Auth admin API if the runner cannot read `auth.mfa_factors`.
 - **P5.** The synthetic staging admin has a TOTP factor, and
   `STAGING_E2E_ADMIN_TOTP_SECRET` is in GitHub Actions secrets (FR-016).
+- **P6.** Supabase Auth's "write audit logs to the database" setting is on
+  in the environment (Auth config read, read-only), and the sweep's cursor
+  read of `auth.audit_log_entries` succeeds (gate R5). Without it FR-010
+  cannot be met and enforcement does not start.
 
 ## Staging
 
@@ -102,7 +106,7 @@ in `verification.md`.
 | Path | When | Who | Steps | Target time |
 | --- | --- | --- | --- | --- |
 | **(a) Turn enforcement off** | Any lock-out, broken challenge, GoTrue MFA outage | Vinh, or a delegate with Railway project access | Railway → backend service → Variables → `ADMIN_AAL2_ENFORCE=false` → the service restarts with the same image. Admin works at AAL1 again (report-only). `is_active` and role checks stay on | ≤ 10 min |
-| **(b) Reset one admin's factor** | An admin lost the phone and has no backup | Vinh as Supabase organization owner, after confirming the admin's identity out of band (phone or in person, never only by email) | Supabase dashboard → Authentication → Users → user → MFA factors → delete. Alternatively, the Auth admin API `DELETE /auth/v1/admin/users/{id}/factors/{factor_id}` with service_role from a trusted machine. The admin then re-enrolls at `/admin/mfa`. The sweep records `mfa_factor_deleted` (`source = auth`) and emails within 5 minutes | ≤ 30 min |
+| **(b) Reset one admin's factor** | An admin lost the phone and has no backup | Vinh as Supabase organization owner, after confirming the admin's identity out of band (phone or in person, never only by email) | Supabase dashboard → Authentication → Users → user → MFA factors → delete. Alternatively, the Auth admin API `DELETE /auth/v1/admin/users/{id}/factors/{factor_id}` with service_role from a trusted machine. The admin then re-enrolls at `/admin/mfa`. The sweep records `mfa_factor_deleted` (`source = auth`) from the Auth audit log and emails within 5 minutes | ≤ 30 min |
 | **(c) Backup** | The owner's primary device is lost | Vinh | Sign in with the offline backup factor, or have the second MFA admin perform (b) for Vinh | ≤ 15 min |
 | **(d) No clean admin left** | Both admins compromised or locked | Vinh with control-plane access | Path (a), then reset with the SQL editor as owner: `role`/`is_active` (audited as `out_of_band`, alerted). Revoke the attacker's sessions through the Supabase dashboard (sign out the user, ban). Follow `dr-tabletop-1027.md` §5 recovery | ≤ 120 min |
 

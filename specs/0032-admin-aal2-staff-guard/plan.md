@@ -58,19 +58,31 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
     service every 5 minutes, also:
     1. dispatches `pending` rows, and `failed` rows below 5 attempts, with
        backoff;
-    2. reconciles the MFA factors of every admin through the Auth admin API
-       (`GET /auth/v1/admin/users/{id}/factors`) against
-       `staff_mfa_factor_snapshot`, and writes `mfa_factor_verified` /
-       `mfa_factor_deleted` audit rows for differences (FR-010).
-  - `GET /admin/mfa/status` also triggers a reconcile of the caller's own
-    factors, so an admin's own enroll or removal is audited at once.
+    2. reads Supabase Auth's append-only audit log (`auth.audit_log_entries`,
+       read-only, over the backend's existing direct DB connection) after the
+       cursor stored in `staff_security_sweep_cursor`. For each factor event
+       of an admin account, it writes one audit row in the same transaction
+       that advances the cursor: enroll, verify or unenroll, keyed by the
+       Auth log entry id (unique, so a re-run cannot duplicate). This is the
+       durable event source. A factor verified and deleted between two runs
+       still yields two rows (FR-010);
+    3. as a backstop only, diffs every admin's factors from the Auth admin
+       API (`GET /auth/v1/admin/users/{id}/factors`) against
+       `staff_mfa_factor_snapshot`. A net difference that has no matching
+       log-sourced row produces an audit row with `detail.detected_by =
+       'snapshot'` and an error-level log, because it means the log missed an
+       event.
+  - `GET /admin/mfa/status` also runs the sweep steps for the caller only, so
+    an admin's own enroll or removal is audited at once.
   - The cron is the only new long-running component. Approving this spec
     approves it.
 - **Why no trigger on `auth.mfa_factors`**: Supabase owns the `auth` schema
   and its upgrades may replace those tables. A failing trigger there would
   also block MFA enrollment, which is the lock-out this rollout must avoid.
-  Reconciling through the admin API reads the same truth without touching the
-  `auth` schema.
+  Reading the Auth audit log and the admin API gets the same truth without
+  writing to the `auth` schema. Gate R5 must confirm the event names and
+  traits, the read privilege, and that "write Auth audit logs to the database"
+  is enabled on both projects (rollout P6).
 
 ### Frontend
 
@@ -131,7 +143,7 @@ Additive and forward-only, in one transaction.
 1. **`public.staff_security_audit`**
    - Columns: `id uuid pk default gen_random_uuid()`,
      `occurred_at timestamptz not null default now()`,
-     `event text not null check (event in ('role_changed','active_changed','staff_row_inserted','sessions_revoked','sessions_revoke_failed','mfa_factor_verified','mfa_factor_deleted'))`,
+     `event text not null check (event in ('role_changed','active_changed','staff_row_inserted','sessions_revoked','sessions_revoke_failed','mfa_factor_enrolled','mfa_factor_verified','mfa_factor_deleted'))`,
      `target_user_id uuid not null`, `actor_user_id uuid`,
      `source text not null check (source in ('admin_api','service','out_of_band','auth'))`,
      `before jsonb`, `after jsonb`, `reason text`, `request_id text`, `detail jsonb`.
@@ -155,6 +167,10 @@ Additive and forward-only, in one transaction.
    - Columns: `user_id uuid`, `factor_id uuid`, `factor_type text`,
      `status text`, `seen_at timestamptz`, primary key `(user_id, factor_id)`.
    - `service_role` gets `SELECT, INSERT, UPDATE, DELETE`; clients get nothing.
+   - **`public.staff_security_sweep_cursor`** (`name text pk`,
+     `last_created_at timestamptz`, `last_entry_id uuid`, `updated_at`) has
+     the same grants. `staff_security_audit` gets a partial unique index on
+     `(detail->>'auth_log_entry_id')` where it is not null.
 4. **`public.fn_users_privilege_audit()`** (SECURITY DEFINER,
    `search_path = public, pg_temp`), attached as an `AFTER INSERT OR UPDATE OF role, is_active ON public.users`
    row trigger. On update it fires only when `role` or `is_active` is
@@ -272,7 +288,7 @@ leaves the additive tables in place.
     wrong code, rate-limited, remove-with-fresh-code), with the GoTrue MFA
     endpoints stubbed.
 - **Staging**:
-  - gates R1–R3 (`research.md` §8) before T002/T003/T006;
+  - gates R1–R3 and R5 (`research.md` §8) before T003/T006/T007;
   - AC1–AC8 with synthetic accounts;
   - the recovery drill with timings;
   - live Staging E2E green with enforcement on.

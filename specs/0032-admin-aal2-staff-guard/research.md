@@ -3,7 +3,7 @@
 Survey of `origin/staging` at `5cdb93953` (2026-10-27). Read-only code reading;
 no database, Auth or provider call was made for this spec. Statements marked
 **verify** are Supabase Auth (GoTrue) behaviours that must be confirmed on
-staging with a synthetic account before implementation (gate R1–R4, below).
+staging with a synthetic account before implementation (gates R1–R3 and R5, below; R4 was dropped with the auth-schema trigger).
 
 ## 1. Backend guards
 
@@ -158,10 +158,13 @@ refresh and every non-staff surface fail (AC3).
   **verify** R3. This is the server-side half of "an admin cannot remove their
   own factor without re-auth".
 - Factor changes go straight from the browser to GoTrue; the backend never sees
-  them. Audit therefore needs either a trigger on `auth.mfa_factors` or a
-  reconciliation read through the Auth admin API. The plan picks
-  reconciliation (`plan.md` §Architecture impact): Supabase owns the `auth`
-  schema, and a failing trigger there would block MFA enrollment itself.
+  them. Audit therefore needs an event source outside the backend. A trigger
+  on `auth.mfa_factors` is rejected (`plan.md` §Architecture impact): Supabase
+  owns the `auth` schema, and a failing trigger there would block MFA
+  enrollment itself. A snapshot diff alone is also rejected: it misses a factor
+  verified and deleted between two sweeps (Codex review on #1772). The plan
+  reads GoTrue's own append-only audit log (`auth.audit_log_entries`), which
+  records factor actions (**verify** R5), by a durable cursor.
 
 ## 5. Frontend guards
 
@@ -210,3 +213,4 @@ FR-016 would break the promotion gate.
 | R1 | Supabase access tokens carry `aal`, `amr`, `session_id`; `aal` becomes `aal2` after challenge+verify and survives refresh | Synthetic staging admin: enroll, challenge, decode the payload locally (never print the token) | T002 |
 | R2 | Which revocation (ban, `auth.sessions` delete, or both) makes (a) an unexpired access token fail at `/auth/v1/user` and (b) the refresh-token grant fail; and does unban restore sign-in | Synthetic staging instructor | T003 |
 | R3 | Unenroll of a verified factor from an AAL1 session is refused; a second factor can be enrolled; the factor limit; `GET /auth/v1/admin/users/{id}/factors` lists factors with status | Synthetic staging admin | T006, T007 |
+| R5 | `auth.audit_log_entries` records factor enroll, verify and unenroll for a synthetic admin, with factor id and user id. The backend DB role can `SELECT` it. "Write Auth audit logs to the database" is on in both projects (Auth config, read-only) | Synthetic staging admin; read-only SQL and Auth config read | T007; if it fails, FR-010 returns for re-approval |
