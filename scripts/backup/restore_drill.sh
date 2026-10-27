@@ -16,6 +16,7 @@
 #   DRILL_MAX_AGE_DAYS    fail when the newest backup is older (default 8, 0=off)
 #   DRILL_EXPECT_USERS    1 (default) requires auth.users to be non-empty
 #   DRILL_JOBS            pg_restore parallelism (default 4)
+#   DRILL_SKIP_EXTENSIONS comma list of extensions to treat as unavailable
 set -euo pipefail
 umask 077
 # shellcheck source=scripts/backup/lib.sh
@@ -115,8 +116,15 @@ psql -X -q -v ON_ERROR_STOP=1 -d "$DRILL_TARGET_URL" -f "$WORK/roles.sql" > /dev
 q "$DRILL_TARGET_URL" "DROP DATABASE IF EXISTS \"$DB\" WITH (FORCE)"
 q "$DRILL_TARGET_URL" "CREATE DATABASE \"$DB\" TEMPLATE template0"
 q "$TARGET_DB_URL" "SELECT name FROM pg_available_extensions" > "$WORK/available-ext.txt"
-python3 "$BUNDLE_TOOLS" toc-filter --available-extensions "$WORK/available-ext.txt" \
-  < "$BUNDLE/db/toc.txt" > "$WORK/toc.pre"
+# The CREATE EXTENSION statements tell toc-filter which schema each extension
+# owns, so grants on members of a missing extension can be skipped too.
+grep -E '^[0-9]+; [0-9]+ [0-9]+ EXTENSION ' "$BUNDLE/db/toc.txt" > "$WORK/ext.list" || true
+pg_restore --file="$WORK/ext.sql" --use-list="$WORK/ext.list" "$BUNDLE/db/full.dump"
+toc_filter() {
+  python3 "$BUNDLE_TOOLS" toc-filter --available-extensions "$WORK/available-ext.txt" \
+    --extension-sql "$WORK/ext.sql" --skip-extensions "${DRILL_SKIP_EXTENSIONS:-}" "$@" < "$BUNDLE/db/toc.txt"
+}
+toc_filter > "$WORK/toc.pre"
 
 JOBS="${DRILL_JOBS:-4}"
 run_restore() {
@@ -133,9 +141,7 @@ run_restore() {
 run_restore pre-data "$WORK/toc.pre"
 q "$TARGET_DB_URL" "SELECT n.nspname || ' ' || c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r','p')" \
   > "$WORK/tables.txt"
-python3 "$BUNDLE_TOOLS" toc-filter --available-extensions "$WORK/available-ext.txt" \
-  --existing-tables "$WORK/tables.txt" --report "$WORK/toc-report.json" \
-  < "$BUNDLE/db/toc.txt" > "$WORK/toc.rest"
+toc_filter --existing-tables "$WORK/tables.txt" --report "$WORK/toc-report.json" > "$WORK/toc.rest"
 run_restore data "$WORK/toc.rest" parallel
 run_restore post-data "$WORK/toc.rest" parallel
 restored=$(date +%s)
@@ -161,6 +167,7 @@ rows = [
     ("Storage bytes", f"{st['objects']} objects, all sha256 verified"),
     ("storage.objects vs bytes", f"{db.get('db_rows_without_bytes', '?')} rows without bytes, {db.get('bytes_without_db_row', '?')} bytes without row (tolerance {db.get('drift_tolerance', '?')})"),
     ("Not restorable in plain Postgres", ", ".join(toc["skipped_extensions"] + toc["skipped_data"]) or "none"),
+    ("Grants/comments on their member objects skipped", str(len(toc["skipped_member_attributes"]))),
     ("Failures", "; ".join(db.get("failures", [])) or "none"),
 ]
 print("| Check | Result |\n|---|---|")

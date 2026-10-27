@@ -237,8 +237,11 @@ containing `supabase.co` / `supabase.com`.
    superuser, and the `GRANTED BY` grantor on memberships.
 5. `pg_restore --exit-on-error` in three passes (pre-data, data, post-data).
    Supabase extensions missing from plain Postgres (today: `supabase_vault`,
-   0 secrets on staging) and their config-table data are skipped and **listed
-   in the summary**. Everything else must restore without error, including
+   0 secrets on staging) are skipped, together with their config-table data
+   and the platform GRANTs on their member objects (staging has such grants on
+   `vault.secrets`, `vault.decrypted_secrets` and 3 vault functions). All of
+   this is **listed in the summary**. `DRILL_SKIP_EXTENSIONS` forces the same
+   treatment for an extension the target does have. Everything else must restore without error, including
    every foreign key, index, RLS policy, trigger and grant.
 6. Every table's `count(*)` equals the rows written in the dump.
 7. `_schema_migrations` is non-empty (newest filename shown) and `auth.users`

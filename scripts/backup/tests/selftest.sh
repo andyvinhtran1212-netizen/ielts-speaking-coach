@@ -99,9 +99,17 @@ grep -q '| storage.objects vs bytes | 1 rows without bytes, 0 bytes without row'
 cat "$T/drill.log"
 pass "restore drill (drill key)"
 
-# The offline key decrypts the same bundle (second recipient).
-DRILL_AGE_IDENTITY_FILE="$T/offline.key" DRILL_KEEP_DB=1 bash "$BK/restore_drill.sh" 2> /dev/null || fail "drill with offline key"
-pass "restore drill (offline key)"
+# The offline key decrypts the same bundle (second recipient). This run also
+# treats pg_trgm as missing, the way plain Postgres lacks supabase_vault: the
+# extension and the grants on its members must be skipped, the rest strict.
+DRILL_AGE_IDENTITY_FILE="$T/offline.key" DRILL_KEEP_DB=1 DRILL_SKIP_EXTENSIONS=pg_trgm \
+  bash "$BK/restore_drill.sh" 2> "$T/drill2.log" || { cat "$T/drill2.log"; fail "drill with offline key"; }
+grep -q '| Not restorable in plain Postgres | pg_trgm |' "$T/drill2.log" \
+  && grep -q '| Grants/comments on their member objects skipped | 2 |' "$T/drill2.log" \
+  || { cat "$T/drill2.log"; fail "drill did not skip exactly pg_trgm and its 2 member grants"; }
+[ "$(psql -X -At -d "${SELFTEST_DST_URL%/*}/restore_drill" -c "SELECT count(*) FROM pg_extension WHERE extname = 'pg_trgm'")" = 0 ] \
+  || fail "pg_trgm should not be restored when skipped"
+pass "restore drill (offline key; missing extension and its member grants skipped)"
 
 # Schema fidelity beyond row counts: RLS, grants, triggers, platform objects.
 RESTORED="${SELFTEST_DST_URL%/*}/restore_drill"
@@ -174,10 +182,28 @@ expect_fail "drill rejects a corrupted bundle" 'failed|checksum' \
 printf 'x/selftest/weekly/20261001T000000Z-1/meta.json\nx/selftest/monthly/20261020T000000Z-2/meta.json\nx/selftest/weekly/20261020T000000Z-3/bundle.tar.age\n' \
   | python3 "$BK/bundle_tools.py" pick-latest | grep -q '20261020T000000Z-2/meta.json' || fail "pick-latest"
 pass "pick-latest ignores incomplete backups"
-printf ';\n4; 3079 16384 EXTENSION - supabase_vault \n5; 0 0 COMMENT - EXTENSION supabase_vault \n6; 3079 1 EXTENSION - pgcrypto \n9; 0 1 TABLE DATA vault secrets supabase_admin\n10; 0 2 TABLE DATA public users postgres\n' > "$T/toc"
-printf 'pgcrypto\n' > "$T/ext"; printf 'public users\n' > "$T/tables"
-python3 "$BK/bundle_tools.py" toc-filter --available-extensions "$T/ext" --existing-tables "$T/tables" < "$T/toc" 2> /dev/null > "$T/toc.out"
-[ "$(grep -c '^;[0-9]' "$T/toc.out")" = 3 ] && grep -q '^10; 0 2 TABLE DATA public users' "$T/toc.out" && grep -q '^6; ' "$T/toc.out" \
+# Staging's real shape: supabase_vault in schema vault, platform GRANTs on its
+# member table/function, a regular table in vault (kept), plus vault's config data.
+cat > "$T/toc" <<'TOC'
+;
+3; 2615 16400 SCHEMA - vault supabase_admin
+4; 3079 16384 EXTENSION - supabase_vault
+5; 0 0 COMMENT - EXTENSION supabase_vault
+6; 3079 1 EXTENSION - pgcrypto
+7; 1259 16500 TABLE vault own_table postgres
+8; 0 0 ACL - SCHEMA vault supabase_admin
+11; 0 0 ACL vault TABLE secrets supabase_admin
+12; 0 0 ACL vault FUNCTION create_secret(new_secret text, new_name text) supabase_admin
+13; 0 0 ACL vault TABLE own_table postgres
+14; 0 0 ACL extensions FUNCTION digest(text, text) supabase_admin
+9; 0 1 TABLE DATA vault secrets supabase_admin
+10; 0 2 TABLE DATA public users postgres
+TOC
+printf 'CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;\nCREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;\n' > "$T/ext.sql"
+printf 'pgcrypto\n' > "$T/ext"; printf 'public users\nvault own_table\n' > "$T/tables"
+python3 "$BK/bundle_tools.py" toc-filter --available-extensions "$T/ext" --extension-sql "$T/ext.sql" \
+  --existing-tables "$T/tables" < "$T/toc" 2> /dev/null > "$T/toc.out"
+[ "$(grep -o '^;[0-9][0-9]*' "$T/toc.out" | tr '\n' ' ')" = ';4 ;5 ;11 ;12 ;9 ' ] \
   || { cat "$T/toc.out"; fail "toc-filter"; }
 pass "toc-filter drops only unavailable extensions and their config data"
 

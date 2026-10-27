@@ -59,6 +59,14 @@ CREATE FUNCTION extensions.selftest_ddl_watch() RETURNS event_trigger LANGUAGE p
   AS $$ BEGIN PERFORM 1; END $$;
 CREATE EVENT TRIGGER selftest_ddl_watch ON ddl_command_end EXECUTE FUNCTION extensions.selftest_ddl_watch();
 CREATE PUBLICATION supabase_realtime;
+-- Like supabase_vault: an extension in its own schema whose member objects
+-- carry platform grants, so pg_dump writes GRANTs for objects that only
+-- CREATE EXTENSION creates. The drill skips it via DRILL_SKIP_EXTENSIONS.
+CREATE SCHEMA trgm;
+CREATE EXTENSION pg_trgm WITH SCHEMA trgm;
+GRANT USAGE ON SCHEMA trgm TO postgres, service_role;
+GRANT EXECUTE ON FUNCTION trgm.similarity(text, text) TO service_role;
+REVOKE EXECUTE ON FUNCTION trgm.show_trgm(text) FROM PUBLIC;
 
 SET ROLE postgres;
 CREATE TABLE public._schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());

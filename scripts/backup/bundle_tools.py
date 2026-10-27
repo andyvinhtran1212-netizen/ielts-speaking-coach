@@ -156,17 +156,67 @@ def cmd_roles_filter(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- #
 # toc-filter
 # --------------------------------------------------------------------------- #
+TOC_ENTRY_RE = re.compile(r"^\d+; \d+ \d+ (.*)$")
 TOC_EXT_RE = re.compile(r"^\d+; \d+ \d+ EXTENSION - (\S+)")
 TOC_EXT_COMMENT_RE = re.compile(r"^\d+; \d+ \d+ COMMENT - EXTENSION (\S+)")
 TOC_DATA_RE = re.compile(r"^\d+; \d+ \d+ TABLE DATA (.+)$")
+CREATE_EXT_RE = re.compile(r'^CREATE EXTENSION IF NOT EXISTS ("?[^" ]+"?) WITH SCHEMA ("?[^" ;]+"?);', re.MULTILINE)
+# Multi-word TOC descriptions, longest first; anything else is one word.
+TOC_DESCS = sorted(
+    """TABLE DATA|SEQUENCE SET|SEQUENCE OWNED BY|DEFAULT ACL|FK CONSTRAINT|CHECK CONSTRAINT
+    |MATERIALIZED VIEW DATA|MATERIALIZED VIEW|PUBLICATION TABLES IN SCHEMA|PUBLICATION TABLE
+    |EVENT TRIGGER|ROW SECURITY|SECURITY LABEL|FOREIGN TABLE|FOREIGN DATA WRAPPER|FOREIGN SERVER
+    |USER MAPPING|TEXT SEARCH CONFIGURATION|TEXT SEARCH DICTIONARY|TEXT SEARCH PARSER
+    |TEXT SEARCH TEMPLATE|LARGE OBJECT|TABLE ATTACH|INDEX ATTACH|STATISTICS DATA
+    |PROCEDURAL LANGUAGE|OPERATOR CLASS|OPERATOR FAMILY|ACCESS METHOD|SUBSCRIPTION TABLE""".replace("\n", "")
+    .replace("    ", "")
+    .split("|"),
+    key=len,
+    reverse=True,
+)
+MEMBER_ATTRIBUTE_DESCS = {"ACL", "COMMENT", "SECURITY LABEL"}
+# Data entries exist for extension config tables too; they define nothing.
+DATA_DESCS = {"TABLE DATA", "SEQUENCE SET", "MATERIALIZED VIEW DATA", "STATISTICS DATA"}
+
+
+def _toc_parts(entry: str) -> tuple[str, str, str]:
+    """(desc, namespace, tag) of a TOC entry body 'DESC NS TAG OWNER'."""
+    desc = next((d for d in TOC_DESCS if entry.startswith(d + " ")), entry.split(" ", 1)[0])
+    rest = entry[len(desc) + 1 :]
+    ns, _, rest = rest.partition(" ")
+    tag = rest.rsplit(" ", 1)[0] if " " in rest else rest
+    return desc, ns, tag.strip()
+
+
+def _object_base(tag: str) -> str:
+    """'FUNCTION f(a int)' -> 'f', 'TABLE t' -> 't', 'COLUMN t.c' -> 't'."""
+    name = tag.split(" ", 1)[1] if " " in tag else tag
+    if tag.startswith("COLUMN "):
+        name = name.split(".", 1)[0]
+    return name.split("(", 1)[0].strip('"')
 
 
 def cmd_toc_filter(args: argparse.Namespace) -> int:
+    """Drop what a plain-Postgres drill target cannot restore, and nothing else:
+      * EXTENSION / COMMENT ON EXTENSION for extensions the target lacks (or
+        listed in --skip-extensions);
+      * ACL / COMMENT entries on member objects of those extensions. Supabase
+        grants on e.g. vault.secrets, so pg_dump writes GRANTs for objects that
+        only CREATE EXTENSION would create. A member object is one in the
+        extension's schema that the dump itself does not define;
+      * with --existing-tables, TABLE DATA for tables the target lacks after
+        pre-data (extension config tables such as vault.secrets).
+    Every skipped entry is reported."""
     available = {
         line.strip()
         for line in Path(args.available_extensions).read_text(encoding="utf-8").splitlines()
         if line.strip()
     }
+    available -= {e.strip() for e in (args.skip_extensions or "").split(",") if e.strip()}
+    ext_schema: dict[str, str] = {}
+    if args.extension_sql:
+        for name, schema in CREATE_EXT_RE.findall(Path(args.extension_sql).read_text(encoding="utf-8")):
+            ext_schema[name.strip('"')] = schema.strip('"')
     tables: list[str] | None = None
     if args.existing_tables:
         tables = [
@@ -174,20 +224,49 @@ def cmd_toc_filter(args: argparse.Namespace) -> int:
             for line in Path(args.existing_tables).read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
+    lines = sys.stdin.readlines()
+
+    entries = []
+    for line in lines:
+        m = TOC_ENTRY_RE.match(line.rstrip("\n"))
+        entries.append(_toc_parts(m.group(1)) if m else None)
+    dumped_exts = {m.group(1) for line in lines if (m := TOC_EXT_RE.match(line))}
+    missing_exts = {e for e in dumped_exts if e not in available}
+    member_schemas = {ext_schema[e] for e in missing_exts if e in ext_schema} - {"public", "pg_catalog"}
+    defined = {
+        (ns, tag.split("(", 1)[0].strip('"'))
+        for parts in entries
+        if parts
+        for desc, ns, tag in [parts]
+        if desc not in MEMBER_ATTRIBUTE_DESCS and desc not in DATA_DESCS
+    }
+    schemas_defined = {tag for parts in entries if parts for desc, ns, tag in [parts] if desc == "SCHEMA"}
+
     skipped_ext: list[str] = []
+    skipped_member: list[str] = []
     skipped_data: list[str] = []
     out = []
-    for line in sys.stdin:
+    for line, parts in zip(lines, entries):
         stripped = line.rstrip("\n")
-        if stripped.startswith(";") or not stripped:
+        if parts is None:
             out.append(line)
             continue
+        desc, ns, tag = parts
         m = TOC_EXT_RE.match(stripped) or TOC_EXT_COMMENT_RE.match(stripped)
-        if m and m.group(1) not in available:
-            if TOC_EXT_RE.match(stripped):
+        if m and m.group(1) in missing_exts:
+            if desc == "EXTENSION":
                 skipped_ext.append(m.group(1))
             out.append(";" + line)
             continue
+        if desc in MEMBER_ATTRIBUTE_DESCS:
+            if ns in member_schemas and (ns, _object_base(tag)) not in defined:
+                skipped_member.append(f"{desc} {ns}.{_object_base(tag)}")
+                out.append(";" + line)
+                continue
+            if ns == "-" and tag.startswith("SCHEMA ") and tag[7:] in member_schemas and tag[7:] not in schemas_defined:
+                skipped_member.append(f"{desc} {tag}")
+                out.append(";" + line)
+                continue
         m = TOC_DATA_RE.match(stripped)
         if m and tables is not None:
             rest = m.group(1)
@@ -200,10 +279,9 @@ def cmd_toc_filter(args: argparse.Namespace) -> int:
         out.append(line)
     sys.stdout.write("".join(out))
     if skipped_ext:
-        eprint(
-            "toc-filter: extensions not available in the drill target (not restored): "
-            + ", ".join(sorted(set(skipped_ext)))
-        )
+        eprint("toc-filter: extensions not restored in the drill target: " + ", ".join(sorted(set(skipped_ext))))
+    if skipped_member:
+        eprint(f"toc-filter: {len(skipped_member)} ACL/COMMENT entries on those extensions' member objects skipped")
     if skipped_data:
         eprint(
             "toc-filter: table data without a table in the drill target "
@@ -211,7 +289,13 @@ def cmd_toc_filter(args: argparse.Namespace) -> int:
         )
     if args.report:
         Path(args.report).write_text(
-            json.dumps({"skipped_extensions": sorted(set(skipped_ext)), "skipped_data": sorted(skipped_data)})
+            json.dumps(
+                {
+                    "skipped_extensions": sorted(set(skipped_ext)),
+                    "skipped_member_attributes": sorted(skipped_member),
+                    "skipped_data": sorted(skipped_data),
+                }
+            )
             + "\n",
             encoding="utf-8",
         )
@@ -427,6 +511,8 @@ def main() -> int:
     p = sub.add_parser("toc-filter")
     p.add_argument("--available-extensions", required=True)
     p.add_argument("--existing-tables", help="'schema table' per line; filters TABLE DATA")
+    p.add_argument("--extension-sql", help="pg_restore SQL of the EXTENSION entries (gives their schemas)")
+    p.add_argument("--skip-extensions", help="comma list treated as unavailable in the target")
     p.add_argument("--report")
     p.set_defaults(func=cmd_toc_filter)
 
