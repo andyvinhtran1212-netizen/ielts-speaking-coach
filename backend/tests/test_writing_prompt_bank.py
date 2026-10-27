@@ -75,7 +75,13 @@ def test_flag_on_returns_browse_safe_prompts(monkeypatch):
     assert body["enabled"] is True
     assert len(body["prompts"]) == 2
     p = body["prompts"][0]
-    assert set(p) == {"id", "title", "prompt_text", "task_type", "difficulty", "prompt_image_url"}
+    assert set(p) == {
+        "id", "title", "prompt_text", "task_type", "difficulty",
+        "has_prompt_image", "prompt_image_url",
+    }
+    # Private bucket: anonymous browse learns a chart exists but gets no URL.
+    assert p["has_prompt_image"] is True and p["prompt_image_url"] is None
+    assert body["prompts"][1]["has_prompt_image"] is False
     # task_type is the structured categorization (no inferred field)
     assert p["task_type"] == "task1_academic"
     # sensitive / internal fields are NOT leaked even though the row carried them

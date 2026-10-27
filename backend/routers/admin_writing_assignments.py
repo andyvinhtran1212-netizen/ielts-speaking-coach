@@ -36,6 +36,7 @@ from services.cohort_assignment_service import Deadline, fan_out_assignment
 from services import student_service
 from services.class_membership_service import active_student_ids_for_cohort
 from services.writing_assignment_delete_guard import delete_unstarted_assignment
+from services.writing_image_access import attach_signed_image_urls
 
 
 router = APIRouter(
@@ -620,7 +621,9 @@ async def get_assignment(
     )
     if not r.data:
         raise HTTPException(404, "Assignment not found")
-    return r.data[0]
+    assignment = r.data[0]
+    attach_signed_image_urls([assignment.get("writing_prompts")])
+    return assignment
 
 
 @router.patch("/{assignment_id}")

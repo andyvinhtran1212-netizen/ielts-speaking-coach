@@ -31,6 +31,7 @@ from routers.auth import get_supabase_user
 from services import essay_service
 from services import mock_exam_service as svc
 from services import mock_review_workflow as review_wf
+from services.writing_image_access import attach_signed_image_urls
 
 router = APIRouter(prefix="/api/mock-exams", tags=["mock-exams"])
 
@@ -138,9 +139,12 @@ async def get_sitting_state(
         # review, 2026-07-26).
         if (exam or {}).get("collected_section") == active:
             time_left = None
+    content = svc.get_exam_content_for_sitting(sitting)
+    # Owner checked above; Task 1 chart refs become short-lived signed URLs.
+    attach_signed_image_urls([content.get("writing_task1"), content.get("writing_task2")])
     return {
         "sitting": sitting,
-        "exam": svc.get_exam_content_for_sitting(sitting),
+        "exam": content,
         "exam_mode": (exam or {}).get("exam_mode") or "sequential",
         "assigned_skills": assigned,
         "active_section": active,

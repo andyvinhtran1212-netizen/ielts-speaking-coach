@@ -42,6 +42,7 @@ from services.gemini_writing_grader import (
     summary_flags_missing_image,
 )
 from services.writing_feedback_grounding import UngroundedWritingFeedbackError
+from services.writing_image_access import attach_signed_image_urls, canonical_image_ref
 from services.writing_history import (
     get_band_trajectory,
     get_recurring_patterns,
@@ -340,7 +341,8 @@ def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
     # callers that don't pass the field get pre-2.7a Pro+12-section
     # behaviour. Migration 044 backfilled existing rows the same way.
     grading_tier     = data.get("grading_tier",     "standard")
-    prompt_image_url = data.get("prompt_image_url")
+    # Persist the private-bucket object path, never a (signed/public) URL.
+    prompt_image_url = canonical_image_ref(data.get("prompt_image_url"))
     status           = data.get("status",           "pending")
 
     _ensure_student_exists(student_id)
@@ -1706,6 +1708,8 @@ def get_essay_with_feedback(essay_id: str) -> dict:
         fallback = current_prompt_image_for_essay(essay_id)
         if fallback:
             essay["prompt_image_url_fallback"] = fallback
+    # Callers authorize the reader first (admin / owning instructor).
+    attach_signed_image_urls([essay], ("prompt_image_url", "prompt_image_url_fallback"))
 
     fr = (
         supabase_admin.table("writing_feedback_current")   # GV-1a: current version

@@ -760,7 +760,7 @@ function renderPromptBank(ps: PageState) {
   list.innerHTML = filtered.map((p: any) => {
     const taskPill = '<span class="pill pill-wait">' + escapeHtml(PB_TASK_LABELS[p.task_type] || p.task_type) + '</span>';
     const diff = p.difficulty ? '<span class="tip-card__cat">' + escapeHtml(p.difficulty) + '</span>' : '';
-    const imgFlag = p.prompt_image_url ? ' 🖼️' : '';
+    const imgFlag = p.prompt_image_url || p.has_prompt_image ? ' 🖼️' : '';
     return (
       '<div class="essay-card tip-card clickable" role="button" aria-haspopup="dialog" tabindex="0"' +
           ' data-pb-id="' + escapeHtml(p.id) + '">' +
@@ -817,7 +817,13 @@ function renderPromptModal(p: any) {
   if (p.difficulty) meta.push(p.difficulty);
   const metaEl = $('tip-modal-meta');
   if (metaEl) metaEl.textContent = meta.join(' · ');
-  const img = p.prompt_image_url ? '<img src="' + escapeHtml(p.prompt_image_url) + '" alt="Đề Task 1" class="pb-modal-img" />' : '';
+  // Charts are private: the backend signs them only for a signed-in active
+  // account. Say so instead of silently dropping the chart from a Task 1 prompt.
+  const img = p.prompt_image_url
+    ? '<img src="' + escapeHtml(p.prompt_image_url) + '" alt="Đề Task 1" class="pb-modal-img" />'
+    : p.has_prompt_image
+      ? '<p class="pb-modal-text text-sm text-gray-400" role="status">Không tải được hình đề. Tải lại trang để thử lại.</p>'
+      : '';
   const bodyEl = $('tip-modal-body');
   if (bodyEl) bodyEl.innerHTML = img + '<p class="pb-modal-text">' + escapeHtml(p.prompt_text || '') + '</p>';
 }

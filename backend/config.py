@@ -177,9 +177,9 @@ class Settings(BaseSettings):
     # images (chart/graph). Mirrors READING_IMAGES_BUCKET /
     # LISTENING_IMAGES_BUCKET — created out-of-band BEFORE the first
     # admin upload works (Supabase dashboard → Storage → New bucket →
-    # name `writing-images` → Public ✓). PUBLIC so the persisted
-    # prompt_image_url renders directly as <img src> with no signed-URL
-    # minting on the read side. (Replaced the Cloudinary integration.)
+    # name `writing-images`, Public OFF). PRIVATE: rows persist object
+    # paths and readers mint short-lived signed URLs after authorizing
+    # the viewer (services/writing_image_access.py).
     WRITING_IMAGES_BUCKET: str = "writing-images"
 
     # Task 1 verified "answer key" (docs/WRITING_TASK1_ANALYSIS_SPEC.md).
