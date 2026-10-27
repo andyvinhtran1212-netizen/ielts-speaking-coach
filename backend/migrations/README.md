@@ -26,6 +26,18 @@ Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
 323 ROLECHECK-0026, 325 CODEUNIQ-0028, 326 STUDENTARCHIVE-0029, 327–329
 reserved, 330 A-10); files for them may land after `324`, so do not reuse them.
 
+Migration `323` (ROLECHECK-0026, bug A-05) keeps `chk_users_role`
+(`user, student, instructor, admin`, from 106) as the only CHECK on
+`public.users.role` and drops `users_role_check` (`user, admin`, created
+outside the repo), whose intersection blocked every `instructor`/`student`
+write, even by `service_role`. It changes no row, aborts on a role outside the
+four values, re-creates `chk_users_role` only if missing or drifted, and its
+postcondition requires exactly one validated role CHECK and the enabled 320
+trigger `trg_users_guard_privileged_columns`. Grants, policies and the trigger
+are untouched, so clients still cannot change `role`. Run the read-only checks
+in `specs/0026-users-role-single-check/research.md` §5 first; rollback is only
+safe while no `student`/`instructor` row exists (§6.4).
+
 Migration `324` (A-08B, ASSIGNDRAFT-0027) changes
 `writing_drafts_assignment_id_fkey` from `ON DELETE CASCADE` (037) to
 `ON DELETE NO ACTION`, so Postgres refuses to delete a `writing_assignments`
@@ -70,7 +82,8 @@ because the previous backend's D1 writes fail closed in between. On
 `public.users` no client UPDATE remains (PATCH `/auth/profile` writes with the
 service role), the dashboard policy "Users can update own data" becomes
 `TO authenticated` with WITH CHECK, and a trigger rejects any non-profile
-column change by a client role. `users_role_check` is intentionally untouched.
+column change by a client role. `users_role_check` was left in place here and
+is dropped by `323`.
 The browser performs no direct PostgREST writes. A new table that genuinely
 needs a client write must now `GRANT` that exact privilege in its own
 migration. The migration ends with a postcondition over privileges, default
