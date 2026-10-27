@@ -29,18 +29,38 @@ console lives in admin_mock_reviews.py.
 """
 from __future__ import annotations
 
-from typing import Literal
+from datetime import timezone
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from routers.admin import require_admin
+from services.cohort_assignment_service import normalize_deadline
 from services import essay_service
 from services import mock_exam_assignment_service as assign_svc
 from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
 router = APIRouter(prefix="/admin/mock-exams", tags=["admin-mock-exams"])
+
+
+def _window_instant(value) -> str | None:
+    """open_from/open_until input → UTC ISO string, as Writing deadlines.
+
+    A naive value is Vietnam wall time (not the server's or Postgres session
+    zone), a date-only value gets the class default time, an aware value keeps
+    its instant. Malformed/blank input is a 422 instead of reaching the
+    timestamptz column as free text."""
+    if value is None:
+        return None
+    try:
+        return normalize_deadline(value).astimezone(timezone.utc).isoformat()
+    except OverflowError as exc:
+        raise ValueError("Thời điểm nằm ngoài khoảng hợp lệ") from exc
+
+
+WindowInstant = Annotated[str | None, BeforeValidator(_window_instant)]
 
 
 class AdminMockExamListRow(BaseModel):
@@ -93,8 +113,8 @@ class ExamCreate(BaseModel):
     total_minutes: int | None = None
     reading_minutes: int | None = None
     writing_minutes: int | None = None
-    open_from: str | None = None
-    open_until: str | None = None
+    open_from: WindowInstant = None
+    open_until: WindowInstant = None
     cohort_id: str | None = None
     review_sla_days: int | None = None
     web_explanation_mode: str = Field(
@@ -115,8 +135,8 @@ class ExamPatch(BaseModel):
     total_minutes: int | None = None
     reading_minutes: int | None = None
     writing_minutes: int | None = None
-    open_from: str | None = None
-    open_until: str | None = None
+    open_from: WindowInstant = None
+    open_until: WindowInstant = None
     cohort_id: str | None = None
     review_sla_days: int | None = None
     status: str | None = None      # draft | published | archived
@@ -130,7 +150,7 @@ class ExamPatch(BaseModel):
 class AssignRow(BaseModel):
     user_id: str
     skills: list[str] = Field(default_factory=list)
-    open_from: str | None = None
+    open_from: WindowInstant = None
     # Optional AT THE SCHEMA LEVEL, required by the service for any row that is
     # actually written. `assign()` documents that a row with no valid skill is
     # SKIPPED, and a skipped row has no window to validate — making this
@@ -138,7 +158,7 @@ class AssignRow(BaseModel):
     # could skip it, so one skill-less row aborted every valid assignment
     # alongside it (Codex review, PR #839). Rows that do carry skills still get
     # a 400 from _validate_window when the deadline is missing.
-    open_until: str | None = Field(
+    open_until: WindowInstant = Field(
         default=None,
         description=("Hạn đóng của bài test lại (ISO 8601). Bắt buộc với mọi "
                      "dòng CÓ kỹ năng; dòng không kỹ năng bị bỏ qua nên không cần."),
