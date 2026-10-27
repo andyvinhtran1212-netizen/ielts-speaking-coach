@@ -3,7 +3,11 @@ import Link from 'next/link';
 import styles from './error-screen.module.css';
 
 export default function NotFound() {
-  return <main className={styles.page}>
+  // The root layout loads no design tokens (route-group shells do), so an
+  // unmatched URL rendered here without any `--av-*` values — an unstyled
+  // page (U-14 / BL-03). Load the tokens the module CSS reads, as
+  // global-error.tsx does.
+  return <><link rel="stylesheet" href="/css/aver-design/tokens.css" /><main className={styles.page}>
     <section className={styles.card} aria-labelledby="not-found-title">
       <p className={styles.eyebrow}>404 · Không tìm thấy</p>
       <h1 className={styles.title} id="not-found-title">Trang này không còn ở đây</h1>
@@ -13,5 +17,5 @@ export default function NotFound() {
         <Link className={styles.secondary} href="/grammar">Mở Grammar Wiki</Link>
       </div>
     </section>
-  </main>;
+  </main></>;
 }
