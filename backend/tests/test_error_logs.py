@@ -309,6 +309,21 @@ class TestFrontendIngress:
         assert r.status_code == 422
         assert fake_db.tables.get("error_logs", []) == []
 
+    @pytest.mark.parametrize("raw", [
+        b'{"message":"x","extra":{"ms":1e309}}',        # overflows to inf
+        b'{"message":"x","extra":{"ms":[-Infinity]}}',
+        b'{"message":NaN}',                             # wrong type, echoed as input
+    ])
+    def test_non_finite_number_is_a_serializable_422(self, client, fake_db, raw):
+        # F10 (Codex, PR #1754): the 422 body echoes the rejected input; a
+        # non-finite number in it must not turn the response into a 500 that
+        # lands in the backend exception log.
+        r = client.post("/api/error-logs", content=raw,
+                        headers={"content-type": "application/json"})
+        assert r.status_code == 422
+        assert r.json()["detail"]
+        assert fake_db.tables.get("error_logs", []) == []
+
     def test_truncates_long_message(self, client, fake_db):
         long = "x" * 2000  # Pydantic max_length=2000 accepts; router slices to 1000.
         r = client.post(

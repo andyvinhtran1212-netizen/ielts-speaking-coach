@@ -1,4 +1,5 @@
 import logging
+import math
 import re
 import sys
 from time import perf_counter
@@ -19,6 +20,8 @@ for _std in (sys.stdout, sys.stderr):
         pass
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -589,6 +592,27 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         },
         headers=headers,
     )
+
+
+def _json_safe_numbers(value):
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)  # 'inf' / '-inf' / 'nan'
+    if isinstance(value, dict):
+        return {key: _json_safe_numbers(child) for key, child in value.items()}
+    if isinstance(value, list):
+        return [_json_safe_numbers(child) for child in value]
+    return value
+
+
+# F10 (Codex, PR #1754): FastAPI's default 422 echoes the rejected `input`.
+# Python's JSON parser turns 1e309 / NaN / Infinity into non-finite floats,
+# which JSONResponse refuses to serialize, so a malformed (often anonymous)
+# body became a 500 and a backend error_logs row. Same shape as the default
+# handler; only non-finite numbers are rendered as strings.
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=422,
+                        content={"detail": _json_safe_numbers(jsonable_encoder(exc.errors()))})
 
 
 # ── P0-5 / C-1.3 — sanitize EXPLICIT HTTPExceptions before they reach the client.
