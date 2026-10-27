@@ -48,7 +48,7 @@ from __future__ import annotations
 import io
 from datetime import datetime, timezone
 from typing import Literal, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import logging
 
@@ -184,7 +184,7 @@ async def delete_prompt(request: Request, prompt_id: UUID, authorization: str | 
 class FanOutBody(BaseModel):
     prompt_ids: list[UUID]
     cohort_id: UUID
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=200)   # matches admin fan-out
     allow_soft_check: bool = False
     deadline: Optional[Deadline] = None
     instructions: Optional[str] = None
@@ -196,6 +196,7 @@ class AssignBody(BaseModel):
     """Single-student assign (one prompt → one of MY students)."""
     prompt_id: UUID
     student_id: UUID
+    name: Optional[str] = Field(None, max_length=200)   # W-06: label the student sees
     deadline: Optional[Deadline] = None
     instructions: Optional[str] = None
     analysis_level: int = 3
@@ -267,6 +268,10 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
     payload = {
         "prompt_id":      str(body.prompt_id),
         "student_id":     str(body.student_id),
+        "name":           body.name,
+        # A named give gets its own group (as admin gives do) so the learner
+        # dashboard, which shows `name` only on group headers, displays it.
+        "assignment_group_id": str(uuid4()) if body.name else None,
         "deadline":       body.deadline.isoformat() if body.deadline else None,
         "instructions":   body.instructions,
         "analysis_level": body.analysis_level,

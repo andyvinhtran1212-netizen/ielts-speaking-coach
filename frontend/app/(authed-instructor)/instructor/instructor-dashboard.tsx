@@ -5,8 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
+  ASSIGNMENT_COPY,
   assignmentTone,
   buildInstructorMatrix,
+  duplicateGiveConfirmMessage,
+  fanOutResultBanner,
+  findExistingGive,
   instructorApiPath,
   instructorGradeHref,
   normalizeInstructorAssignments,
@@ -173,13 +177,13 @@ export function InstructorDashboard() {
     if (ownerId === accountRef.current) setPending(null);
   };
 
-  const mutate = async (key: string, action: () => Promise<unknown>, success: string) => {
+  const mutate = async (key: string, action: () => Promise<unknown>, success: string | ((result: unknown) => NonNullable<Banner>)) => {
     if (pending) return;
     const ownerId = accountRef.current;
     setPending(key);
     setBanner(null);
     try {
-      await action();
+      const result = await action();
       if (ownerId !== accountRef.current) return false;
       const refreshed = await loadAll(asInstructor, undefined, ownerId);
       if (!refreshed) {
@@ -189,7 +193,7 @@ export function InstructorDashboard() {
         });
         return false;
       }
-      setBanner({ tone: 'success', message: success });
+      setBanner(typeof success === 'function' ? success(result) : { tone: 'success', message: success });
       return true;
     } catch (caught) {
       if (ownerId !== accountRef.current) return false;
@@ -239,27 +243,37 @@ export function InstructorDashboard() {
 
   const createAssignment = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const values = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const values = new FormData(form);
     const promptId = String(values.get('prompt_id') || '');
+    const name = String(values.get('name') || '').trim().slice(0, 200);
     const target = String(values.get('target') || 'cohort');
     const deadlineValue = String(values.get('deadline') || '');
     const deadline = deadlineValue ? `${deadlineValue}:00+07:00` : null;
     const analysisLevel = Number(values.get('analysis_level')) || 3;
     const gradingTier = String(values.get('grading_tier') || 'standard');
     if (!promptId) return setBanner({ tone: 'danger', message: 'Chưa chọn đề bài.' });
+    const promptTitle = data.prompts.find((prompt) => prompt.id === promptId)?.title || '';
+    // W-06: re-giving is allowed (ALLOW + WARN) but must be a deliberate choice.
+    const confirmRegive = (existing: unknown) => !existing || window.confirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
+    const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { form.reset(); setAssignmentTarget('cohort'); } };
     if (target === 'cohort') {
       const cohortId = String(values.get('cohort_id') || '');
       if (!cohortId) return setBanner({ tone: 'danger', message: 'Chưa chọn lớp.' });
+      if (!confirmRegive(findExistingGive(data.assignments, { promptId, cohortId }))) return;
       const body: Record<string, unknown> = { prompt_ids: [promptId], cohort_id: cohortId, analysis_level: analysisLevel, grading_tier: gradingTier };
       if (deadline) body.deadline = deadline;
-      void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), 'Đã giao bài cho lớp.');
+      if (name) body.name = name;
+      void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), fanOutResultBanner).then(resetOnSuccess);
       return;
     }
     const studentId = String(values.get('student_id') || '');
     if (!studentId) return setBanner({ tone: 'danger', message: 'Chưa chọn học viên.' });
+    if (!confirmRegive(findExistingGive(data.assignments, { promptId, studentId }))) return;
     const body: Record<string, unknown> = { prompt_id: promptId, student_id: studentId, analysis_level: analysisLevel, grading_tier: gradingTier };
     if (deadline) body.deadline = deadline;
-    void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), 'Đã giao bài cho học viên.');
+    if (name) body.name = name;
+    void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess).then(resetOnSuccess);
   };
 
   const openStudent = async (studentId: string) => {
@@ -383,7 +397,7 @@ export function InstructorDashboard() {
         {tab === 'assign' && <section aria-labelledby="assign-title">
           <div className="ins-heading"><div><p>Writing workflow</p><h1 id="assign-title">Giao bài</h1></div></div>
           <div className="ins-grid">
-            <article className="ins-card"><h2>Giao một đề bài</h2>{!data.prompts.length && <p className="ins-empty">Tạo đề bài nhanh trước khi giao.</p>}<form className="ins-form" onSubmit={createAssignment}><label><span>Đề bài</span><select name="prompt_id" required><option value="">Chọn đề bài</option>{data.prompts.map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.title}</option>)}</select></label><fieldset><legend>Giao cho</legend><label className="ins-radio"><input type="radio" name="target" value="cohort" checked={assignmentTarget === 'cohort'} onChange={() => setAssignmentTarget('cohort')} /> Cả lớp</label><label className="ins-radio"><input type="radio" name="target" value="student" checked={assignmentTarget === 'student'} onChange={() => setAssignmentTarget('student')} /> Học viên lẻ</label></fieldset>{assignmentTarget === 'cohort' ? <label><span>Lớp</span><select name="cohort_id"><option value="">Chọn lớp</option>{data.cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label> : <label><span>Học viên lẻ</span><select name="student_id"><option value="">Chọn học viên</option>{data.students.map((student) => <option key={student.id} value={student.id}>{student.fullName} ({student.studentCode})</option>)}</select></label>}<label><span>Hạn nộp (giờ Việt Nam)</span><input name="deadline" type="datetime-local" /></label><label><span>Độ sâu phản hồi</span><select name="analysis_level" defaultValue="3">{[1,2,3,4,5].map((level) => <option key={level} value={level}>L{level}</option>)}</select></label><label><span>Tier chấm AI</span><select name="grading_tier" defaultValue="standard"><option value="standard">Standard — 1 lượt AI</option><option value="deep">Deep — 3 lượt AI</option></select></label><button type="submit" disabled={!!pending}>{pending === 'assignment' ? 'Đang giao…' : 'Giao bài'}</button></form></article>
+            <article className="ins-card"><h2>Giao một đề bài</h2>{!data.prompts.length && <p className="ins-empty">Tạo đề bài nhanh trước khi giao.</p>}<form className="ins-form" onSubmit={createAssignment}><label><span>Đề bài</span><select name="prompt_id" required><option value="">Chọn đề bài</option>{data.prompts.map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.title}</option>)}</select></label><label><span>Tên bài (học viên sẽ thấy)</span><input name="name" maxLength={200} placeholder="VD: Buổi 5 — Task 2" /></label><fieldset><legend>Giao cho</legend><label className="ins-radio"><input type="radio" name="target" value="cohort" checked={assignmentTarget === 'cohort'} onChange={() => setAssignmentTarget('cohort')} /> Cả lớp</label><label className="ins-radio"><input type="radio" name="target" value="student" checked={assignmentTarget === 'student'} onChange={() => setAssignmentTarget('student')} /> Học viên lẻ</label></fieldset>{assignmentTarget === 'cohort' ? <label><span>Lớp</span><select name="cohort_id"><option value="">Chọn lớp</option>{data.cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label> : <label><span>Học viên lẻ</span><select name="student_id"><option value="">Chọn học viên</option>{data.students.map((student) => <option key={student.id} value={student.id}>{student.fullName} ({student.studentCode})</option>)}</select></label>}<label><span>Hạn nộp (giờ Việt Nam)</span><input name="deadline" type="datetime-local" /></label><label><span>Độ sâu phản hồi</span><select name="analysis_level" defaultValue="3">{[1,2,3,4,5].map((level) => <option key={level} value={level}>L{level}</option>)}</select></label><label><span>Tier chấm AI</span><select name="grading_tier" defaultValue="standard"><option value="standard">Standard — 1 lượt AI</option><option value="deep">Deep — 3 lượt AI</option></select></label><button type="submit" disabled={!!pending}>{pending === 'assignment' ? 'Đang giao…' : 'Giao bài'}</button></form></article>
             <article className="ins-card"><h2>Tạo đề bài nhanh</h2><form className="ins-form" onSubmit={createPrompt}><label><span>Tiêu đề</span><input name="title" required placeholder="VD: Task 2 — Technology" /></label><label><span>Dạng</span><select name="task_type" defaultValue="task2"><option value="task2">Task 2</option><option value="task1_academic">Task 1 (Academic)</option><option value="task1_general">Task 1 (General)</option></select></label><label><span>Đề bài</span><textarea name="prompt_text" rows={7} required /></label><button type="submit" disabled={!!pending}>{pending === 'prompt' ? 'Đang tạo…' : 'Tạo đề bài'}</button></form></article>
           </div>
           <article className="ins-card"><h2>Ma trận nộp bài</h2><div className="ins-table-wrap"><table className="ins-table"><thead>{matrix.columns.length ? <tr><th>Học viên</th>{matrix.columns.map((column: any) => <th key={column.id}>{column.title}</th>)}</tr> : null}</thead><tbody>{matrix.columns.length ? matrix.rows.map((row: any) => <tr key={row.student.id}><td>{row.student.fullName}</td>{row.cells.map((cell: any, index: number) => { const status = assignmentTone(cell); return <td key={matrix.columns[index].id}><StatusPill tone={status.tone}>{status.label}</StatusPill></td>; })}</tr>) : <EmptyRow columns={1}>Chưa giao bài nào.</EmptyRow>}</tbody></table></div><p className="ins-note">Trạng thái lấy từ assignment canonical; “Trễ” chỉ áp dụng khi chưa nộp và deadline đã qua.</p></article>

@@ -187,6 +187,7 @@ async function run(lessonId, width = 1366, theme = 'light', keyboard = false) {
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
     trace.push({ method, path: url.pathname });
     if (url.pathname === '/auth/me') return json({ id: 'synthetic-grammar-user', email: 'grammar@fixture.invalid', role: 'user', is_active: true, onboarding_completed: true });
+    if (url.pathname === '/auth/check-active') return json({ is_active: true }); // W-03 probe
     if (url.pathname === '/api/analytics/events' || url.pathname === '/api/error-logs') return json({});
     if (method === 'GET' && url.pathname === '/api/grammar/lessons/items/fixture-item') {
       if (failNextRead) { failNextRead = false; return json({ detail: 'Không thể tải bài. Thử lại.' }, 503); }

@@ -20,12 +20,7 @@ from fastapi import APIRouter, Header
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from services.access_code_permissions import (
-    get_user_access_code_permissions,
-    get_user_permissions_summary,
-    student_has_writing_assignment,
-    student_id_for_user,
-)
+from services.access_code_permissions import get_account_permissions_summary
 from services.student_home_aggregator import get_home_summary
 from services.student_service import account_display_name
 
@@ -61,14 +56,8 @@ async def my_permissions(authorization: str | None = Header(default=None)):
     re-checked at request time on the relevant POST.
     """
     auth_user = await get_supabase_user(authorization)
-    user_id = auth_user["id"]
-    permissions = get_user_access_code_permissions(user_id)
-    summary = get_user_permissions_summary(permissions)
-    # WF entitlement bridge (c): if the code doesn't grant Writing but the
-    # student has a writing assignment, surface writing=true so the Writing
-    # card + dashboard unlock — consistent with the backend request-time gates.
-    if not summary["writing"] and student_has_writing_assignment(
-        student_id_for_user(user_id, account_display_name(auth_user))
-    ):
-        summary["writing"] = True
-    return summary
+    # W-03 — the router gate already 403s an inactive account here; the helper
+    # also answers all-false for one, so no caller can leak an unactivated grant.
+    # It keeps the WF entitlement bridge (c): a writing assignment surfaces
+    # writing=true, consistent with the backend request-time gates.
+    return get_account_permissions_summary(auth_user["id"], account_display_name(auth_user))
