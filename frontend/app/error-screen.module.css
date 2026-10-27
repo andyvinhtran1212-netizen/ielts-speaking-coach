@@ -4,6 +4,16 @@
   margin: 0;
 }
 
+/* Nor a box-sizing reset: without it the card's padding and border add to
+   `width: min(100%, …)` and overflow narrow viewports, and the page's padding
+   adds to its 100vh. Scoped to the error screen like the margin rule. */
+.page,
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
 .page {
   min-height: 100vh;
   display: grid;

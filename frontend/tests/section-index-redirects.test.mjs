@@ -69,4 +69,10 @@ test('root not-found loads the design tokens its module CSS reads', () => {
   assert.match(notFound, /className=\{styles\.page\}/);
   // No reset in the root layout: the UA body margin is dropped, scoped to error screens.
   assert.match(css, /:global\(body\):has\(\.page\) \{\n  margin: 0;/);
+  // Nor a box-sizing reset: the padded/bordered card and the padded 100vh page
+  // need border-box, scoped to the error screen and its descendants.
+  assert.match(
+    css,
+    /\.page,\n\.page \*,\n\.page \*::before,\n\.page \*::after \{\n  box-sizing: border-box;\n\}/,
+  );
 });
