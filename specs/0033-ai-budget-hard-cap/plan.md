@@ -144,7 +144,9 @@ transaction with `lock_timeout = 5s`.
      `user_id uuid not null`,
      `status text check (status in ('queued','running','done','failed','superseded'))`,
      `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `persisted_at timestamptz null`, `commit_count int not null default 0`, `attempts int not null default 0`,
-     `lease_until timestamptz`, `lease_token uuid null`, `enqueued_at timestamptz not null default now()`,
+     `lease_until timestamptz`, `lease_token uuid null`,
+     `aggregate_pending boolean not null default false`,
+     `aggregate_refreshed_at timestamptz null`, `enqueued_at timestamptz not null default now()`,
      `finished_at`, `last_error text`.
    - Unique: `(kind, resource_id, submission_revision)`.
    - The marker, the canonical result and the job completion commit in
@@ -153,12 +155,31 @@ transaction with `lock_timeout = 5s`.
      commit leaves the job reclaimable when its lease expires, with no
      marker set. A crash after the commit leaves a complete result and a
      `done` job.
+   - `aggregate_pending` is the durable obligation to refresh the session
+     aggregate. `fn_ai_deferred_commit` sets it in the same transaction as
+     the result (item 7). It is cleared only after the refresh has
+     written the session, so a crash between the commit and the refresh
+     leaves it set and a later sweep repeats the refresh.
    - Indexes: `(status, enqueued_at, id) where status='queued'`, and
      `(lease_until) where status='running'` for lease reclamation.
    - `service_role`: SELECT, INSERT, UPDATE.
-4. **`writing_jobs.budget_deferred_at timestamptz null`** (additive), with
-   a partial index for rows where it is not null and status is `queued`.
-   No CHECK change.
+4. **`writing_jobs` budget-drain columns** (additive, nullable or with a
+   constant default, no CHECK change):
+   - `budget_deferred_at timestamptz null`;
+   - `budget_lease_token uuid null` and `budget_lease_until timestamptz
+     null`, which hold drain ownership;
+   - `budget_drain_count int not null default 0`, which numbers the drain
+     runs for the reservation `request_key`;
+   - `budget_persisted_at timestamptz null` and `budget_commit_count int
+     not null default 0`, which are the drain's persistence marker.
+
+   These are separate from `attempt_count` and `max_attempts`. The live
+   worker fences ownership with `attempt_count`
+   (`essay_service.py:171-204`), and that counter is the Writing retry
+   allowance, which a budget deferral must not use (FR-011). A drain
+   never reads or writes `attempt_count`. There is a partial index on
+   `(budget_deferred_at, id)` for rows where `budget_deferred_at` is not
+   null and the status is `queued` or `running`.
 5. **`ai_budget_alerts`**
    - Columns: `id uuid pk`, `scope`, `period_kind`, `period_start`,
      `threshold int check (threshold in (50,80,100))`,
@@ -244,11 +265,27 @@ transaction with `lock_timeout = 5s`.
        5. otherwise updates the response (`grading_status = 'completed'`
           and scores), replaces that response's grammar recommendations,
           sets `persisted_at = now()`, `commit_count = commit_count + 1`
-          and `status = 'done'`, and returns `committed`.
-     - Writing uses `fn_ai_deferred_commit_writing(p_job_id, p_lease_token,
-       p_result)` with the same rules. It inserts the `writing_feedback`
-       row, updates the essay and completes `writing_jobs` in one
-       transaction.
+          and `status = 'done'`. It sets `aggregate_pending = true` when
+          the response's session is `completed`. Then it returns
+          `committed`.
+     - Writing uses `fn_ai_deferred_commit_writing(p_writing_job_id,
+       p_lease_token, p_result)`. It validates ownership against the
+       item 4 columns, not against `attempt_count`. In one transaction it:
+       1. locks the `writing_jobs` row and its essay;
+       2. returns `duplicate` with no write when `budget_persisted_at` is
+          set or the job is `completed`;
+       3. returns `lease_lost` when `budget_lease_token` is null or does
+          not match;
+       4. returns `superseded`, with no write, when the essay is no longer
+          `pending` or `grading`, or the job is no longer budget-deferred;
+       5. otherwise inserts the `writing_feedback` row (with `job_id`),
+          updates the essay, sets the job `completed`,
+          `budget_persisted_at = now()` and `budget_commit_count + 1`, and
+          returns `committed`.
+   - **`fn_ai_deferred_aggregate_done(p_job_id uuid)`** sets
+     `aggregate_pending = false` and `aggregate_refreshed_at = now()`.
+     The drain calls it only after the session aggregate has been
+     written (see the sweeper order below).
    - **`fn_ai_deferred_claim(p_limit int, p_lease_seconds int)`** claims
      queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order.
      It also reclaims `running` jobs whose `lease_until` has passed, so a
@@ -264,19 +301,49 @@ transaction with `lock_timeout = 5s`.
      - A stale worker that outlives its lease still holds the old token.
        Its `fn_ai_deferred_commit` returns `lease_lost` and writes
        nothing, so only the current lease holder can persist.
+   - **`fn_ai_deferred_claim_writing(p_limit int, p_lease_seconds int)`**
+     works the same way on `writing_jobs` rows where `budget_deferred_at`
+     is not null. It claims `queued` rows, and `running` rows whose
+     `budget_lease_until` has passed, `FOR UPDATE SKIP LOCKED` in
+     `budget_deferred_at, id` order.
+     - Each claim sets `status = 'running'`, a new `budget_lease_token`,
+       `budget_lease_until` and `budget_drain_count + 1`. It leaves
+       `attempt_count`, `max_attempts` and `started_at` unchanged. The
+       drain's `request_key` is the Writing job id plus
+       `budget_drain_count`.
+     - A crashed drain is reclaimed after its lease expires, by the same
+       rule as Speaking. The in-process reaper skips every row with
+       `budget_deferred_at` set, so it never competes with the drain.
+       A stale drain's commit returns `lease_lost`.
+     - A drain refused again for budget returns the row to `queued` and
+       clears the lease, leaving `budget_deferred_at` set.
+   - **Sweeper drain order.** First, for every `done` job with
+     `aggregate_pending`, the drain recomputes the session aggregate. It
+     calls the canonical band computation (`_compute_session_bands`)
+     through a shared helper that always writes the result. It does not
+     call `PATCH /complete`, whose early return keeps an existing
+     non-null band (`routers/sessions.py:2094-2102`). Then the drain
+     calls `fn_ai_deferred_aggregate_done`. This step makes no provider
+     call and needs no reservation, so it runs even while the scopes are
+     closed. Second, after each `committed` result, the drain runs the
+     same refresh for that job straight away. Third, it claims new jobs.
+     The recompute derives everything from the responses, so running it
+     twice is harmless.
 8. **Postconditions.** A `DO` block raises if any of the following does not
    hold:
    - every table exists with RLS enabled;
    - `anon` and `authenticated` hold no privilege on any of the objects;
    - each function exists with `prosecdef` and the pinned `search_path`;
    - the unique indexes exist;
-   - `writing_jobs.budget_deferred_at` exists.
+   - the item 4 `writing_jobs` columns exist.
 9. **Down script** (in the header, guarded). It aborts unless
    `ai_deferred_grading_jobs` has no `queued` or `running` rows and no
-   `writing_jobs` row has `budget_deferred_at` set while `queued`.
+   `aggregate_pending` rows, and no `writing_jobs` row has
+   `budget_deferred_at` set while `queued` or `running`.
 
 N-1 compatibility: the deployed backend does not read these objects, and
-the `writing_jobs` column is nullable with no default.
+the `writing_jobs` columns are nullable or have a constant default, so
+the live Writing worker and reaper are unaffected.
 
 ### API contract
 
@@ -408,13 +475,17 @@ These run in CI with fake providers; no network.
   - a replay with the same `submission_id`;
   - a superseding revision;
   - the drain grading once in order;
-  - the aggregate recomputed;
+  - the aggregate recomputed, including after a worker is killed just
+    after `fn_ai_deferred_commit`: the next sweep refreshes the band
+    from `aggregate_pending`;
   - a crash between the provider response and persistence (FR-011 to
     FR-013, AC6).
 - **`backend/tests/test_ai_budget_writing_deferred.py`**: a refused job
   stays `queued` with `budget_deferred_at`; no attempt is used, the reaper
-  skips it, and the drain grades it once. This covers mock-exam and admin
-  regrade triggers.
+  skips it, and the drain grades it once. A drain killed after claim is
+  reclaimed after `budget_lease_until`, the stale drain's commit returns
+  `lease_lost`, and `attempt_count` is unchanged throughout. This covers
+  mock-exam and admin regrade triggers.
 - **`backend/tests/test_ai_budget_quotas.py`**: grading, TTS and gist
   counters fail closed, and a value of zero or less is `config_invalid`.
   It also covers `runtime_flags` `on_error` (FR-006, AC9).
@@ -491,6 +562,14 @@ Supabase SQL editor or the runner, and print no secrets.
   select kind, resource_id, submission_revision, sum(commit_count) as commits
   from ai_deferred_grading_jobs
   group by 1, 2, 3 having sum(commit_count) > 1;
+  -- (d) a committed Speaking result whose session aggregate was never refreshed
+  select id, resource_id, persisted_at from ai_deferred_grading_jobs
+  where aggregate_pending and persisted_at < now() - interval '15 minutes';
+  -- (e) Writing: drain marker and completion disagree, or more than one drain commit
+  select id, status, budget_persisted_at, budget_commit_count from writing_jobs
+  where budget_deferred_at is not null
+    and (budget_commit_count > 1
+      or (budget_persisted_at is not null and status <> 'completed'));
   -- (c) Writing: more than one feedback row persisted by deferred drains for one job
   select f.job_id, count(*) from writing_feedback f
   join writing_jobs w on w.id = f.job_id
