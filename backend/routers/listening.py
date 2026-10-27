@@ -5985,6 +5985,10 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
             questions = []
             for raw_question in payload.get("questions") or []:
                 question = dict(raw_question) if isinstance(raw_question, dict) else {}
+                if source_required:
+                    # After native binding: digests stay on the original options.
+                    from services.listening_source_text_overrides import override_question_options
+                    question = override_question_options(question, manifest_sha256=source_manifest)
                 question.pop("visual_url", None)
                 storage_path = question.pop("visual_storage_path", None)
                 if storage_path and not source_required:

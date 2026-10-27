@@ -88,3 +88,17 @@ python backend/scripts/upload_listening_source_audio.py --audio-root /path/to/ko
 The CLI checks all 80 final hashes before any write, requires an existing
 private bucket, and reuses the canonical immutable upload/readback helper.
 It neither overwrites original objects nor changes package/attempt rows.
+
+# 80-day source text overrides
+
+`80-days-text-overrides-v1.json` removes stray Chinese fragments from 7 learner-
+visible strings of the trigger-protected package rows: the Day 1 synonym gloss,
+the Day 37 q-07 option D watermark, the Day 48 study note and the Day 63/64/66/68
+story heading. Each row binds the source manifest above, the block (and item)
+identity, the field and the SHA-256 of the exact original text, and replaces one
+fragment. Any other manifest or text is served unchanged. Source-block
+instructions and study descriptions are corrected in `sign_source_block`;
+options are corrected in the player after the native question binding, which is
+always computed on the original rows. Package rows, answer keys and digests are
+unchanged. The Day 55 printed key keeps the book's CJK enumeration comma as
+printed; it is the book's own record and has no override.
