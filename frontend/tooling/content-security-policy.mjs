@@ -38,7 +38,11 @@ function browserOrigin(value, { allowLocalHttp }) {
 function connectSources(env) {
   const vercelEnv = env.VERCEL_ENV || '';
   const origins = resolveRuntimeOrigins(env);
-  const allowLocalHttp = !vercelEnv;
+  // Loopback http is for local machines only: no VERCEL_ENV, or the
+  // documented local dev setup (README / agent launcher) that sets
+  // VERCEL_ENV=development. Vercel deployments are only ever `preview` or
+  // `production`, and those stay https-only.
+  const allowLocalHttp = !vercelEnv || vercelEnv === 'development';
 
   // Local fixture builds only (never a Vercel build): browser verifiers swap
   // runtime-config.js for arbitrary fixture origins and intercept them, and

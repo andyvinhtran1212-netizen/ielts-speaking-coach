@@ -98,6 +98,35 @@ test('a Vercel build fails closed instead of silently dropping an unusable origi
   assert.ok(!connect.includes('https:'));
 });
 
+test('local development (VERCEL_ENV=development) admits a loopback http API; deployments never do', () => {
+  // The README / agent-launcher local dev environment.
+  const LOCAL_DEV = { VERCEL_ENV: 'development', AVER_ENVIRONMENT: 'test', AVER_API_BASE: 'http://localhost:8000', NODE_ENV: 'development' };
+  const connect = directives(buildContentSecurityPolicy(LOCAL_DEV))['connect-src'];
+  assert.deepEqual(connect.slice(0, 3), [
+    "'self'",
+    'http://localhost:8000',
+    'https://zjphffoujxkpltixsbzj.supabase.co',
+  ]);
+  assert.ok(!connect.includes('https:') && !connect.includes('wss:'), connect.join(' '));
+  assert.ok(directives(buildContentSecurityPolicy({ ...LOCAL_DEV, AVER_API_BASE: 'http://127.0.0.1:8000' }))['connect-src']
+    .includes('http://127.0.0.1:8000'));
+  // Only loopback hosts, even in development.
+  assert.throws(() => buildContentSecurityPolicy({ ...LOCAL_DEV, AVER_API_BASE: 'http://evil.example:8000' }),
+    /non-https browser origin/);
+  assert.throws(() => buildContentSecurityPolicy({ ...LOCAL_DEV, AVER_SUPABASE_URL: 'http://dev.supabase.co' }),
+    /non-https browser origin/);
+  // Deployed builds stay https-only, whatever NODE_ENV or AVER_ENVIRONMENT says.
+  for (const VERCEL_ENV of ['production', 'preview']) {
+    for (const host of ['localhost', '127.0.0.1']) {
+      assert.throws(() => buildContentSecurityPolicy({ ...LOCAL_DEV, VERCEL_ENV, AVER_API_BASE: `http://${host}:8000` }),
+        /non-https browser origin/);
+      assert.throws(() => buildContentSecurityPolicy({ VERCEL_ENV, AVER_SUPABASE_URL: `http://${host}:54321` }),
+        /non-https browser origin/);
+    }
+  }
+  assert.doesNotMatch(buildContentSecurityPolicy(PRODUCTION_BUILD), /http:/);
+});
+
 test('local builds keep legacy inference; only local fixture builds may reach arbitrary https origins', () => {
   assert.deepEqual(directives(buildContentSecurityPolicy({}))['connect-src'], [
     "'self'",

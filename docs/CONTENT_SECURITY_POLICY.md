@@ -50,6 +50,13 @@ Fail-closed rules:
 
 - A Vercel build throws if a configured API or Supabase value is not a valid
   `https://` URL. The build fails loudly; an origin is never dropped silently.
+  Vercel deployments are only `preview` or `production`; both stay https-only.
+- Loopback `http://127.0.0.1|localhost` origins are accepted only on a local
+  machine: with no `VERCEL_ENV`, or with `VERCEL_ENV=development`, which the
+  README local setup and the agent launcher export together with
+  `AVER_API_BASE=http://localhost:8000`. That development policy lists the
+  exact loopback API and stays narrow (no `https:`/`wss:`). Any other `http:`
+  host still throws.
 - `AVER_ENVIRONMENT=test` widens `connect-src` to `https: wss:` (plus a local
   `http://127.0.0.1|localhost` API) **only when `VERCEL_ENV` is unset**. The
   local browser verifiers replace `runtime-config.js` with fixture origins such
