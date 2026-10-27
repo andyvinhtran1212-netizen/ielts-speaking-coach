@@ -28,6 +28,7 @@ from uuid import UUID, uuid4
 from pydantic import BeforeValidator
 from services.class_assignment_service import CLASS_TZ, DEFAULT_DUE_TIME
 from services.class_membership_service import active_students_for_cohort
+from services.student_service import raise_if_student_archived
 
 logger = logging.getLogger(__name__)
 
@@ -154,8 +155,13 @@ def fan_out_assignment(
         for pid in prompt_strs
     ]
 
-    # Single bulk insert = atomic (no partial fan-out).
-    r = db.table("writing_assignments").insert(payload).execute()
+    # Single bulk insert = atomic (no partial fan-out). A learner archived after
+    # the roster read is refused by the 331 trigger → the whole give fails (409).
+    try:
+        r = db.table("writing_assignments").insert(payload).execute()
+    except Exception as exc:
+        raise_if_student_archived(db, exc, student_ids)
+        raise
     created = r.data or []
 
     logger.info(
@@ -352,7 +358,12 @@ def backfill_cohort_writing_assignments(
         }
         for (_group, prompt_id), tmpl in templates.items()
     ]
-    created = (db.table("writing_assignments").insert(payload).execute()).data or []
+    try:
+        created = (db.table("writing_assignments").insert(payload).execute()).data or []
+    except Exception as exc:
+        # 331: the student was archived meanwhile → 409, nothing created.
+        raise_if_student_archived(db, exc, [sid])
+        raise
 
     logger.info(
         "[cohort-backfill] student=%s cohort=%s open_templates=%d created=%d at=%s",

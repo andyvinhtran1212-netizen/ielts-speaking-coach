@@ -398,6 +398,29 @@ def is_student_archived_error(exc: Exception) -> bool:
     return "student_archived" in str(exc)
 
 
+def raise_if_student_archived(db, exc: Exception,
+                              candidate_ids: Optional[list[str]] = None) -> None:
+    """Re-raise a ``student_archived`` DB refusal as the 0029 409.
+
+    Migration 331 (GIVEARCHIVE-0031) refuses a Writing give whose learner was
+    archived after the route's pre-check; its DETAIL is the student id (the 326
+    bulk guard sends a comma list). Without a DETAIL the archived ids are re-read
+    from ``candidate_ids``. A no-op for every other error, so the caller
+    re-raises it unchanged.
+    """
+    if isinstance(exc, HTTPException) or not is_student_archived_error(exc):
+        return
+    details = getattr(exc, "details", None)
+    ids = [part.strip() for part in details.split(",") if part.strip()] \
+        if isinstance(details, str) else []
+    if not ids and candidate_ids:
+        try:
+            ids = archived_student_ids(db, candidate_ids)
+        except Exception:
+            ids = []
+    raise student_archived_error(ids or None) from exc
+
+
 def archived_student_ids(db, student_ids: list[str]) -> list[str]:
     """Ids among ``student_ids`` whose roster row is archived."""
     ids = sorted({str(s) for s in student_ids if s})
