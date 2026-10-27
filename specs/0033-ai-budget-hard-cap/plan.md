@@ -145,8 +145,7 @@ transaction with `lock_timeout = 5s`.
      `status text check (status in ('queued','running','done','failed','superseded'))`,
      `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `persisted_at timestamptz null`, `commit_count int not null default 0`, `attempts int not null default 0`,
      `lease_until timestamptz`, `lease_token uuid null`,
-     `aggregate_pending boolean not null default false`,
-     `aggregate_refreshed_at timestamptz null`, `enqueued_at timestamptz not null default now()`,
+     `enqueued_at timestamptz not null default now()`,
      `finished_at`, `last_error text`.
    - Unique: `(kind, resource_id, submission_revision)`.
    - The marker, the canonical result and the job completion commit in
@@ -155,11 +154,23 @@ transaction with `lock_timeout = 5s`.
      commit leaves the job reclaimable when its lease expires, with no
      marker set. A crash after the commit leaves a complete result and a
      `done` job.
-   - `aggregate_pending` is the durable obligation to refresh the session
-     aggregate. `fn_ai_deferred_commit` sets it in the same transaction as
-     the result (item 7). It is cleared only after the refresh has
-     written the session, so a crash between the commit and the refresh
-     leaves it set and a later sweep repeats the refresh.
+   - Companion table **`ai_deferred_session_refresh`** holds the durable,
+     session-scoped obligation to refresh a completed session's aggregate.
+     - Columns: `session_id uuid pk`, `generation bigint not null default
+       0`, `refreshed_generation bigint not null default 0`,
+       `updated_at timestamptz`. A refresh is owed while
+       `refreshed_generation < generation`.
+     - `fn_ai_deferred_commit` increments `generation` in the same
+       transaction as the result (item 7). Every response change that a
+       drain makes in a session therefore moves that session's
+       generation.
+     - The obligation is acknowledged only by
+       `fn_ai_deferred_aggregate_write`, in the same transaction as the
+       session write and under the same generation check. A crash between
+       the commit and the refresh leaves it owed, and a later sweep
+       repeats the refresh.
+     - RLS is enabled. `service_role` has SELECT only; writes go through
+       the functions.
    - Indexes: `(status, enqueued_at, id) where status='queued'`, and
      `(lease_until) where status='running'` for lease reclamation.
    - `service_role`: SELECT, INSERT, UPDATE.
@@ -265,9 +276,10 @@ transaction with `lock_timeout = 5s`.
        5. otherwise updates the response (`grading_status = 'completed'`
           and scores), replaces that response's grammar recommendations,
           sets `persisted_at = now()`, `commit_count = commit_count + 1`
-          and `status = 'done'`. It sets `aggregate_pending = true` when
-          the response's session is `completed`. Then it returns
-          `committed`.
+          and `status = 'done'`. When the response's session is
+          `completed`, it upserts that session's
+          `ai_deferred_session_refresh` row with `generation + 1`. Then it
+          returns `committed`.
      - Writing uses `fn_ai_deferred_commit_writing(p_writing_job_id,
        p_lease_token, p_result)`. It validates ownership against the
        item 4 columns, not against `attempt_count`. In one transaction it:
@@ -282,10 +294,24 @@ transaction with `lock_timeout = 5s`.
           updates the essay, sets the job `completed`,
           `budget_persisted_at = now()` and `budget_commit_count + 1`, and
           returns `committed`.
-   - **`fn_ai_deferred_aggregate_done(p_job_id uuid)`** sets
-     `aggregate_pending = false` and `aggregate_refreshed_at = now()`.
-     The drain calls it only after the session aggregate has been
-     written (see the sweeper order below).
+   - **`fn_ai_deferred_aggregate_write(p_session_id uuid, p_generation bigint, p_bands jsonb)`**
+     writes a refreshed aggregate under a generation check. In one
+     transaction it:
+     1. locks the session's `ai_deferred_session_refresh` row
+        `FOR UPDATE`, which serialises every aggregate write for that
+        session;
+     2. returns `stale`, with no write, when `generation <> p_generation`;
+     3. otherwise writes `overall_band` and the criteria bands from
+        `p_bands` to the session, sets `refreshed_generation =
+        p_generation`, and returns `written`.
+
+     The caller reads `generation` **before** it reads the responses.
+     Suppose a commit lands for the session after that snapshot, while
+     another refresh is computing. The commit moves `generation`, so the
+     computation that missed it gets `stale`, writes nothing and leaves
+     the obligation owed. A refresh that read the newer generation then
+     writes the band covering both results. Bands are therefore never
+     written from a response set older than the latest drain commit.
    - **`fn_ai_deferred_claim(p_limit int, p_lease_seconds int)`** claims
      queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order.
      It also reclaims `running` jobs whose `lease_until` has passed, so a
@@ -317,18 +343,19 @@ transaction with `lock_timeout = 5s`.
        A stale drain's commit returns `lease_lost`.
      - A drain refused again for budget returns the row to `queued` and
        clears the lease, leaving `budget_deferred_at` set.
-   - **Sweeper drain order.** First, for every `done` job with
-     `aggregate_pending`, the drain recomputes the session aggregate. It
-     calls the canonical band computation (`_compute_session_bands`)
-     through a shared helper that always writes the result. It does not
-     call `PATCH /complete`, whose early return keeps an existing
-     non-null band (`routers/sessions.py:2094-2102`). Then the drain
-     calls `fn_ai_deferred_aggregate_done`. This step makes no provider
-     call and needs no reservation, so it runs even while the scopes are
-     closed. Second, after each `committed` result, the drain runs the
-     same refresh for that job straight away. Third, it claims new jobs.
-     The recompute derives everything from the responses, so running it
-     twice is harmless.
+   - **Sweeper drain order.** A refresh has four steps:
+     1. read the session's `generation`;
+     2. compute the bands with the canonical `_compute_session_bands`;
+     3. call `fn_ai_deferred_aggregate_write` with that generation;
+     4. on `stale`, start again from step 1, at most 3 times in this
+        sweep. Anything still owed is left for the next sweep.
+
+     It does not call `PATCH /complete`, whose early return keeps an
+     existing non-null band (`routers/sessions.py:2094-2102`). A refresh
+     makes no provider call and needs no reservation, so it runs even
+     while scopes are closed. The sweeper runs one for every session
+     with `refreshed_generation < generation` first. It runs another
+     after each `committed` result. Then it claims new jobs.
 8. **Postconditions.** A `DO` block raises if any of the following does not
    hold:
    - every table exists with RLS enabled;
@@ -337,8 +364,8 @@ transaction with `lock_timeout = 5s`.
    - the unique indexes exist;
    - the item 4 `writing_jobs` columns exist.
 9. **Down script** (in the header, guarded). It aborts unless
-   `ai_deferred_grading_jobs` has no `queued` or `running` rows and no
-   `aggregate_pending` rows, and no `writing_jobs` row has
+   `ai_deferred_grading_jobs` has no `queued` or `running` rows,
+   `ai_deferred_session_refresh` owes no refresh, and no `writing_jobs` row has
    `budget_deferred_at` set while `queued` or `running`.
 
 N-1 compatibility: the deployed backend does not read these objects, and
@@ -476,8 +503,11 @@ These run in CI with fake providers; no network.
   - a superseding revision;
   - the drain grading once in order;
   - the aggregate recomputed, including after a worker is killed just
-    after `fn_ai_deferred_commit`: the next sweep refreshes the band
-    from `aggregate_pending`;
+    after `fn_ai_deferred_commit` (the next sweep refreshes the band
+    from the owed generation). Two jobs for one completed session are
+    interleaved so that refresh A reads before B commits and writes
+    after B's refresh: A gets `stale`, and the final band includes both
+    results once nothing is owed;
   - a crash between the provider response and persistence (FR-011 to
     FR-013, AC6).
 - **`backend/tests/test_ai_budget_writing_deferred.py`**: a refused job
@@ -562,9 +592,11 @@ Supabase SQL editor or the runner, and print no secrets.
   select kind, resource_id, submission_revision, sum(commit_count) as commits
   from ai_deferred_grading_jobs
   group by 1, 2, 3 having sum(commit_count) > 1;
-  -- (d) a committed Speaking result whose session aggregate was never refreshed
-  select id, resource_id, persisted_at from ai_deferred_grading_jobs
-  where aggregate_pending and persisted_at < now() - interval '15 minutes';
+  -- (d) a completed session whose aggregate refresh has been owed for over 15 minutes
+  select session_id, generation, refreshed_generation, updated_at
+  from ai_deferred_session_refresh
+  where refreshed_generation < generation
+    and updated_at < now() - interval '15 minutes';
   -- (e) Writing: drain marker and completion disagree, or more than one drain commit
   select id, status, budget_persisted_at, budget_commit_count from writing_jobs
   where budget_deferred_at is not null
