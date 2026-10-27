@@ -84,6 +84,39 @@
   cursor: pointer;
 }
 
+/* ── Staging test-data toggle (TASK B2) ─────────────────────────── */
+.adm-test-data-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-2) var(--av-space-4);
+  margin: 0 0 var(--av-space-4);
+  padding: var(--av-space-2) var(--av-space-4);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-md);
+  background: var(--av-warning-soft);
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-sm);
+}
+
+.adm-test-data-bar__action {
+  min-height: 36px;
+  padding: 0 var(--av-space-3);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-page);
+  color: var(--av-text-primary);
+  font: inherit;
+  font-weight: var(--av-fw-semibold);
+  cursor: pointer;
+}
+
+.adm-test-data-bar__action:focus-visible {
+  outline: 2px solid var(--av-primary);
+  outline-offset: 2px;
+}
+
 /* ── Page hierarchy ─────────────────────────────────────────────── */
 :where(.av-admin-surface h1) {
   margin-top: 0;

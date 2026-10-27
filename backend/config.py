@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     READING_ANON_SALT: str = ""
 
     # Feature flags
+    # TASK B2 — hide E2E/QA test data from normal list views. Honoured only when
+    # ENVIRONMENT=staging (services/test_data_visibility.py); never set it in
+    # production. Admins can still opt in per browser with X-Show-Test-Data.
+    HIDE_TEST_DATA: bool = False
     # Private outcome-evidence foundation. Requires migration 240 and explicit
     # rollout/coverage verification; never enabled implicitly by a code deploy.
     CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False

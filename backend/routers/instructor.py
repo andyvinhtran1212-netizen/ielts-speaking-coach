@@ -59,7 +59,7 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from services.cohort_assignment_service import Deadline, normalize_deadline
 from routers.admin import require_instructor
-from services import essay_service, instructor_workflow, student_service
+from services import essay_service, instructor_workflow, student_service, test_data_visibility
 from services.access_code_gen import insert_with_unique_codes
 from services.core_attempt_outcomes import observe_writing_batch
 from services.writing_image_access import attach_signed_image_urls
@@ -581,7 +581,10 @@ async def revoke_delivery(request: Request, essay_id: UUID, authorization: str |
 async def list_cohorts(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("cohorts").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    rows = r.data or []
+    if test_data_visibility.hide_for(user_id=me):
+        rows = [c for c in rows if not test_data_visibility.is_test_label(c.get("name"))]
+    return rows
 
 
 @router.post("/cohorts", status_code=status.HTTP_201_CREATED)
@@ -611,7 +614,10 @@ async def list_students(request: Request, authorization: str | None = Header(Non
     # Archived learners (STUDENTARCHIVE-0029) leave the roster.
     r = (instructor_db(me).table("students").select("*").is_("archived_at", "null")
          .order("created_at", desc=True).execute())
-    return r.data or []
+    rows = r.data or []
+    if test_data_visibility.hide_for(user_id=me):
+        rows = test_data_visibility.drop_test_students(rows)
+    return rows
 
 
 @router.get("/students/{student_id}")

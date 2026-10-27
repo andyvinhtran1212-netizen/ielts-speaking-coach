@@ -29,6 +29,7 @@ import time
 import uuid
 from collections import deque
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, Literal, Optional
 
 from fastapi import (
@@ -83,6 +84,7 @@ from services.listening_grader import (
     split_sentences,
 )
 from services import listening_fulltest_import
+from services import test_data_visibility
 from services import listening_drill_import
 from services import listening_audit as listening_audit_svc
 from services.active_player_lifecycle import (
@@ -2040,7 +2042,7 @@ async def list_listening_content(
     only (no signed URL) — user clicks a card to open the dictation/gist
     /tf/mcq page with `?content_id=...`.
     """
-    await _require_auth(authorization)
+    user = await _require_auth(authorization)
 
     if accent_tag is not None and accent_tag not in _ACCENT_VALUES:
         raise HTTPException(
@@ -2057,6 +2059,8 @@ async def list_listening_content(
         _published_content_rows, accent_tag=accent_tag, cefr_level=cefr_level,
         ielts_section=ielts_section, newest_first=True,
     )
+    content_rows = _drop_hidden_content(
+        content_rows, await run_in_threadpool(_hidden_listening_ids, user))
     # Standalone modes sign the section's own audio. A public parent can use
     # assembled audio even when the section is only a render placeholder.
     audio_content_ids = [row["id"] for row in content_rows
@@ -5373,7 +5377,31 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
     return cards, resume, recent, partial
 
 
-def _published_test_counts() -> tuple[dict[str, int], dict[str, int], set[str]]:
+_NO_HIDDEN: tuple[frozenset, frozenset] = (frozenset(), frozenset())
+
+
+def _hidden_listening_ids(user: dict) -> tuple[frozenset, frozenset]:
+    """TASK B2 — (test ids, content ids) of staging test data this viewer's
+    catalogue drops. Content is matched by its own title or its parent test's,
+    since section rows carry codes ("GATE-E-…") rather than the marked title."""
+    if not test_data_visibility.hide_for(email=user.get("email"), user_id=user.get("id")):
+        return _NO_HIDDEN
+    return (frozenset(test_data_visibility.hidden_title_ids("listening_tests")),
+            frozenset(test_data_visibility.hidden_title_ids("listening_content")))
+
+
+def _drop_hidden_content(rows: list[dict], hidden: tuple[frozenset, frozenset]) -> list[dict]:
+    hidden_tests, hidden_content = hidden
+    if not hidden_tests and not hidden_content:
+        return rows
+    return [row for row in rows
+            if str(row.get("id")) not in hidden_content
+            and str(row.get("test_id") or "") not in hidden_tests]
+
+
+def _published_test_counts(
+    hidden_test_ids: frozenset = frozenset(),
+) -> tuple[dict[str, int], dict[str, int], set[str]]:
     """Count all diagnostic shelves in one paged metadata read, without keys."""
     tests = {kind: 0 for kind in ("full", "mini", "drill", "practice")}
     groups: dict[str, int] = {}
@@ -5393,7 +5421,7 @@ def _published_test_counts() -> tuple[dict[str, int], dict[str, int], set[str]]:
         )
         for row in rows:
             kind = row.get("test_type")
-            if kind not in tests:
+            if kind not in tests or str(row["id"]) in hidden_test_ids:
                 continue
             tests[kind] += 1
             public_test_ids.add(str(row["id"]))
@@ -5457,8 +5485,10 @@ def _published_content_modes(content_ids: list[str]) -> tuple[dict[str, list[str
     return by_content, modes
 
 
-def _published_library_counts() -> tuple[list[dict], dict[str, int], set[str]]:
-    content_rows = _published_content_rows()
+def _published_library_counts(
+    hidden: tuple[frozenset, frozenset] = _NO_HIDDEN,
+) -> tuple[list[dict], dict[str, int], set[str]]:
+    content_rows = _drop_hidden_content(_published_content_rows(), hidden)
     audio_content_ids = [row["id"] for row in content_rows
                          if str(row.get("audio_storage_path") or "").strip()]
     by_content, modes = _published_content_modes(audio_content_ids)
@@ -5477,9 +5507,14 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     must not block the application event loop or unrelated learner pages.
     """
     user = await _require_auth(authorization)
+    hidden = await run_in_threadpool(_hidden_listening_ids, user)
+    test_counts = (partial(_published_test_counts, hidden[0]) if hidden[0]
+                   else _published_test_counts)
+    library_counts = (partial(_published_library_counts, hidden) if hidden != _NO_HIDDEN
+                      else _published_library_counts)
     (tests, practice_groups, public_test_ids), (content_rows, modes, runnable_ids), programme_data = await asyncio.gather(
-        run_in_threadpool(_published_test_counts),
-        run_in_threadpool(_published_library_counts),
+        run_in_threadpool(test_counts),
+        run_in_threadpool(library_counts),
         run_in_threadpool(_load_programme_overview, user["id"]),
     )
     programmes, resume, recent, partial_data = programme_data
@@ -5732,6 +5767,7 @@ async def list_published_listening_tests(
     explicit_programme = programme_id if isinstance(programme_id, str) else None
     if explicit_programme not in {None, "ielts", *_PROGRAMME_COPY}:
         raise HTTPException(422, "programme_id is not supported")
+    hidden_test_ids = (await run_in_threadpool(_hidden_listening_ids, user))[0]
 
     q = (
         supabase_admin.table("listening_public_practice_catalog")
@@ -5773,6 +5809,9 @@ async def list_published_listening_tests(
     # paged result would shed rows and shorten pages).
     if selected_type == "practice" and isinstance(practice_group, str) and practice_group:
         q = q.eq("metadata->>practice_group", practice_group)
+    if hidden_test_ids:
+        # Staging test data (TASK B2) — excluded in SQL so total/paging hold.
+        q = q.not_.in_("id", sorted(hidden_test_ids))
     res = q.execute()
     # Audio-readiness is already applied in SQL above; this repeat is a cheap
     # backstop so a row could never reach a student with no file to play, even
