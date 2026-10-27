@@ -22,6 +22,8 @@ export interface WritingPrompt {
   examOnly: boolean;
   imageUrl: string | null;
   imagePublicId: string | null;
+  /** Stored chart exists but the backend could not sign a viewable URL. */
+  imageLookupFailed: boolean;
   analysis: PromptAnalysis | null;
   analysisStatus: AnalysisStatus;
   analysisReviewed: boolean;

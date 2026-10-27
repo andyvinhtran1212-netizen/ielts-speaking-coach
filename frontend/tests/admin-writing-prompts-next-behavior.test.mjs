@@ -64,6 +64,22 @@ describe('Admin Writing Prompts native model', () => {
     assert.equal(normalizeWritingPromptList({ prompts: [raw, raw] }), null);
   });
 
+  test('keeps a prompt whose private chart could not be signed, flagged for repair', () => {
+    const failed = normalizeWritingPrompt({ ...raw, prompt_image_url: null, prompt_image_lookup_failed: true });
+    assert.equal(failed.imageUrl, null);
+    assert.equal(failed.imagePublicId, 'prompts/chart.png');
+    assert.equal(failed.imageLookupFailed, true);
+    assert.equal(normalizeWritingPrompt(raw).imageLookupFailed, false);
+    assert.equal(normalizeWritingPromptList({ prompts: [{ ...raw, prompt_image_url: null, prompt_image_lookup_failed: true }] }).malformedCount, 0);
+    // Without the backend's explicit flag a half pair is still a broken contract.
+    assert.equal(normalizeWritingPrompt({ ...raw, prompt_image_url: null }), null);
+    assert.equal(normalizeWritingPrompt({ ...raw, task_type: 'task2', prompt_image_url: null, prompt_image_lookup_failed: true }), null);
+    // The page warns instead of a silent placeholder and keeps the stored image on save.
+    assert.match(CSS, /\.awp-card__image-failed\{/);
+    assert.match(COMPONENT, /prompt\.imageLookupFailed \? <p className="awp-card__image-failed" role="status">/);
+    assert.match(COMPONENT, /uploaded\?\.url \|\| draft\.imageUrl \|\| draft\.imagePublicId \|\| null/);
+  });
+
   test('degrades inconsistent optional analysis instead of trusting it', () => {
     const stale = normalizeWritingPrompt({ ...raw, prompt_image_analysis_public_id: 'prompts/old.png' });
     assert.equal(stale.analysisReviewed, false);
