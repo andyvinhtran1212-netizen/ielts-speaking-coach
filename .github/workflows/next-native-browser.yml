@@ -752,8 +752,9 @@ jobs:
         run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$TEST_PORT"
 
       # Login needs interaction evidence beyond the signed-out parity frame:
-      # implicit callback cleanup, backend-canonical activation truth and the
-      # lost-ACK reconciliation path are all exercised with a fake backend.
+      # PKCE callback cleanup, backend-canonical activation truth and the
+      # lost-ACK reconciliation path are all exercised with a fake backend,
+      # plus a real supabase-js PKCE sign-in → logout journey (F06).
       - name: Kiểm luồng Login/Auth native
         run: node tooling/verify-login-flow.mjs "http://localhost:$TEST_PORT"
 
