@@ -10,6 +10,7 @@ on:
       - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
       - 'frontend/app/(public-auth)/**'
       - 'frontend/lib/login-model.mjs'
+      - 'frontend/public/js/auth-sign-out-state.js'
       - 'frontend/public/login.html'
       - 'frontend/public/css/login-next.css'
       - 'frontend/public/js/exam-player.js'
@@ -105,6 +106,10 @@ on:
       - 'frontend/public/css/ds.css'
       - 'frontend/public/js/vocab-modules/**'
       - 'frontend/app/(authed-vocab-exam)/**'
+      - 'frontend/app/(authed)/grammar-checkup/**'
+      - 'frontend/app/(authed)/course-exercises/**'
+      - 'frontend/app/(authed-advanced-vocab)/**'
+      - 'frontend/tooling/verify-learner-route-auth-boot-flow.mjs'
       - 'frontend/app/(authed-exam)/**'
       - 'frontend/lib/exam-player-model.mjs'
       - 'frontend/public/pages/exam.html'
@@ -559,6 +564,7 @@ on:
       - 'frontend/public/css/vocab-wiki.css'
       - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
+      - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
       - 'frontend/public/js/theme-toggle.js'
       - 'frontend/public/js/user-pill.js'
       - 'frontend/public/js/components/perf-hints.js'
@@ -810,6 +816,12 @@ jobs:
       - name: Kiểm layout Next ở desktop và điện thoại
         run: node tooling/verify-next-responsive-flow.mjs "http://localhost:$TEST_PORT"
 
+      # U-20: từ 721px tới ~1180px menu đầy đủ từng gãy thành 2-3 hàng và hero
+      # /home làm trang cuộn ngang. Runner này đo nav một hàng hoặc hamburger,
+      # không cuộn ngang ở 720-1280px, và menu tablet vẫn mở/Escape đúng.
+      - name: Kiểm nav chrome không gãy hàng ở bề rộng tablet
+        run: node tooling/verify-chrome-nav-width-flow.mjs "http://localhost:$TEST_PORT"
+
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
       # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,
       # request filter bị supersede hay nút reset. Runner này dùng browser thật,
@@ -837,6 +849,12 @@ jobs:
 
       - name: Kiểm luồng Advanced Vocabulary self-paced
         run: node tooling/verify-advanced-vocabulary-flow.mjs "http://localhost:$TEST_PORT"
+
+      # G-01: guarded learner routes boot only once signed in (api.js is
+      # delayed to force the direct-load race) and show nothing private before
+      # the signed-out /login redirect.
+      - name: Kiểm route học viên chờ đăng nhập trước khi khởi động
+        run: node tooling/verify-learner-route-auth-boot-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.

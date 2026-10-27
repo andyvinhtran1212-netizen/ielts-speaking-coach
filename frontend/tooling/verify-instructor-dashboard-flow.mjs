@@ -61,6 +61,8 @@ const unexpectedWrites = [];
 const cohortPosts = [];
 const assignmentPosts = [];
 const pageErrors = [];
+const dialogs = [];
+const dialogAnswers = [];
 let failCanonicalReadback = false;
 const cohorts = [{ id: 'c1', name: 'Khóa Writing 1', created_at: '2026-08-01T00:00:00Z' }];
 const fixtures = {
@@ -73,6 +75,11 @@ const fixtures = {
 
 const page = await context.newPage();
 page.on('pageerror', (error) => pageErrors.push(String(error)));
+page.on('dialog', async (dialog) => {
+  dialogs.push(dialog.message());
+  if (dialogAnswers.shift()) await dialog.accept();
+  else await dialog.dismiss();
+});
 await page.route('**/*', async (route) => {
   const request = route.request();
   const url = request.url();
@@ -100,8 +107,16 @@ await page.route('**/*', async (route) => {
     });
   }
   if (method === 'POST' && ['/instructor/assignments', '/instructor/assignments/fan-out'].includes(path)) {
-    assignmentPosts.push({ path, body: request.postDataJSON() });
-    return json({ id: 'a-new' }, 201);
+    const body = request.postDataJSON();
+    assignmentPosts.push({ path, body });
+    if (path === '/instructor/assignments') return json({ id: 'a-new', prompt_id: body.prompt_id, student_id: body.student_id, name: body.name ?? null }, 201);
+    // Fan-out: the canonical list (newest first, like the backend) gains the
+    // give; a re-give reports the overlap as duplicates_warning (ALLOW + WARN).
+    const rows = fixtures['/instructor/assignments'];
+    const duplicates = rows.some((row) => row.cohort_id === body.cohort_id && body.prompt_ids.includes(row.prompt_id)) ? ['s1'] : [];
+    const groupId = `g${assignmentPosts.length}`;
+    rows.unshift({ id: `a-${groupId}`, prompt_id: body.prompt_ids[0], student_id: 's1', status: 'pending', essay_id: null, deadline: body.deadline ?? null, cohort_id: body.cohort_id, assignment_group_id: groupId, name: body.name ?? null, created_at: '2026-10-25T12:30:00Z' });
+    return json({ student_count: 1, created_count: 1, group_id: groupId, duplicates_warning: duplicates, assignment_ids: [`a-${groupId}`] }, 201);
   }
   if (method === 'POST' && path === '/instructor/cohorts') {
     const body = request.postDataJSON();
@@ -138,16 +153,46 @@ await page.getByRole('button', { name: 'Đóng', exact: true }).click();
 
 await page.getByRole('button', { name: 'Giao bài', exact: true }).click();
 const assignmentForm = page.locator('form').filter({ has: page.locator('input[name="deadline"]') });
-await assignmentForm.locator('select[name="prompt_id"]').selectOption('p1');
-await assignmentForm.locator('select[name="cohort_id"]').selectOption('c1');
-await assignmentForm.getByLabel('Hạn nộp (giờ Việt Nam)').fill('2026-10-27T23:00');
+const fillCohortGive = async (name) => {
+  await assignmentForm.locator('select[name="prompt_id"]').selectOption('p1');
+  await assignmentForm.getByLabel('Tên bài (học viên sẽ thấy)').fill(name);
+  await assignmentForm.locator('select[name="cohort_id"]').selectOption('c1');
+  await assignmentForm.getByLabel('Hạn nộp (giờ Việt Nam)').fill('2026-10-27T23:00');
+};
+await fillCohortGive('Buổi 5 — Task 2');
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
 await page.getByText('Đã giao bài cho lớp.', { exact: true }).waitFor();
+check('lần giao đầu không hỏi xác nhận và gửi name', dialogs.length === 0 && assignmentPosts.length === 1 && assignmentPosts[0].body.name === 'Buổi 5 — Task 2');
+check('form giao bài reset sau khi thành công', await assignmentForm.locator('select[name="prompt_id"]').inputValue() === ''
+  && await assignmentForm.locator('input[name="name"]').inputValue() === ''
+  && await assignmentForm.locator('select[name="cohort_id"]').inputValue() === ''
+  && await assignmentForm.locator('input[name="deadline"]').inputValue() === '');
+
+await fillCohortGive('Buổi 6 — Task 2');
+dialogAnswers.push(false);
+await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await page.waitForTimeout(200);
+check('giao lại cùng đề cho lớp hỏi xác nhận; hủy thì không gửi request', dialogs.length === 1
+  && /^Lớp này đã được giao đề 'Task 2 <img src=x>' lúc .+\. Giao thêm một lượt nữa\?$/.test(dialogs[0])
+  && assignmentPosts.length === 1
+  && await assignmentForm.locator('input[name="name"]').inputValue() === 'Buổi 6 — Task 2', dialogs[0]);
+dialogAnswers.push(true);
+await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await page.getByText('Đã giao bài cho lớp. Lưu ý: 1 học viên đã được giao đề này từ trước.', { exact: true }).waitFor();
+check('đồng ý thì gửi đúng một request và banner cảnh báo duplicates_warning', dialogs.length === 2 && assignmentPosts.length === 2
+  && assignmentPosts[1].body.name === 'Buổi 6 — Task 2'
+  && await page.locator('.ins-banner.is-warning', { hasText: '1 học viên đã được giao đề này từ trước' }).count() === 1);
+
 await assignmentForm.locator('input[value="student"]').check();
+await assignmentForm.locator('select[name="prompt_id"]').selectOption('p1');
 await assignmentForm.locator('select[name="student_id"]').selectOption('s1');
+await assignmentForm.getByLabel('Hạn nộp (giờ Việt Nam)').fill('2026-10-27T23:00');
+dialogAnswers.push(true);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
 await page.getByText('Đã giao bài cho học viên.', { exact: true }).waitFor();
-check('both assignment targets send Vietnam offset from a New York browser', assignmentPosts.length === 2 && assignmentPosts.every(({ body }) => body.deadline === '2026-10-27T23:00:00+07:00'));
+check('giao lẻ cho học viên đã có đề cũng hỏi xác nhận', dialogs.length === 3 && /^Học viên này đã được giao đề /.test(dialogs[2]));
+check('both assignment targets send Vietnam offset from a New York browser', assignmentPosts.length === 3 && assignmentPosts.every(({ body }) => body.deadline === '2026-10-27T23:00:00+07:00'));
+check('giao lẻ không gửi name khi bỏ trống', !Object.hasOwn(assignmentPosts[2].body, 'name'));
 
 await page.getByRole('button', { name: 'Lớp & Mã' }).click();
 await page.getByLabel('Tên lớp mới').fill('Lớp xác minh canonical');

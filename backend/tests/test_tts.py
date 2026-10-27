@@ -39,6 +39,9 @@ def _patch(monkeypatch, *, key="sk-test", synth=b"MP3", raises=None):
     _synth.calls = []
 
     monkeypatch.setattr(tts_module, "get_supabase_user", _user)
+    # F05 guards are pinned in test_tts_entitlement.py; entitle u1 here.
+    monkeypatch.setattr(tts_module, "require_speaking_entitlement", lambda _u, _s: None)
+    monkeypatch.setattr(tts_module, "_count_tts_today", lambda _u: 0)
     monkeypatch.setattr(tts_module.settings, "OPENAI_API_KEY", key)
     monkeypatch.setattr(tts_module, "synthesize_mp3", _synth)
     logged = {}

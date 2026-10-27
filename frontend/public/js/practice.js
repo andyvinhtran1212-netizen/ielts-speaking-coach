@@ -2733,6 +2733,15 @@
     });
   }
 
+  // /tts body. session_id lets the backend admit a class-assignment session
+  // without a Speaking access-code scope; without it any Speaking scope is
+  // required.
+  function _ttsRequestBody(text) {
+    var body = { text: text, voice: 'nova' };
+    if (_sessionId) body.session_id = _sessionId;
+    return JSON.stringify(body);
+  }
+
   // Track whether the user has performed a gesture on this document.
   // Browsers block HTMLAudioElement.play() until a gesture occurs.
   // Web Speech API (browser TTS) is not subject to this restriction.
@@ -2837,7 +2846,7 @@
       return fetch(base + '/tts', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ text: text, voice: 'nova' }),
+        body: _ttsRequestBody(text),
       });
     })
       .then(function (res) {
@@ -2902,7 +2911,7 @@
         return fetch(base + '/tts', {
           method: 'POST',
           headers: headers,
-          body: JSON.stringify({ text: seg, voice: 'nova' }),
+          body: _ttsRequestBody(seg),
         });
       })
         .then(function (res) {

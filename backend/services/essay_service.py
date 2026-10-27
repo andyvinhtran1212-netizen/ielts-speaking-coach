@@ -52,6 +52,7 @@ from services.mistake_authenticity import drop_noncorrection_mistakes
 from services.class_membership_service import active_student_ids_for_cohort
 from services.core_attempt_outcomes import observe_writing_background, observe_writing_batch
 from services.core_writing_observation import note_writing_mutation
+from services import writing_assignment_status_sync
 
 logger = logging.getLogger(__name__)
 
@@ -509,6 +510,10 @@ def deliver_reviewed_essay(essay_id: str) -> bool:
         .eq("status", "reviewed")
         .execute()
     )
+    if r.data:
+        # W-ASSIGN-STATUS — best-effort; a mock-exam essay usually has no
+        # writing_assignments row, which is a 0-row no-op.
+        writing_assignment_status_sync.mark_assignment_delivered(essay_id)
     return bool(r.data)
 
 
@@ -1100,6 +1105,14 @@ async def _bg_grade_essay(
             "status":       "completed",
             "completed_at": _now(),
         }).eq("id", job_id).execute()
+
+        # W-ASSIGN-STATUS — the linked assignment follows the essay to
+        # 'graded' (+ graded_at). Called only after every grade write above
+        # committed, so a failed pointer/job write cannot leave the assignment
+        # 'graded' over an essay that is then marked failed. Best-effort,
+        # idempotent and forward-only (WHERE status='submitted'): a re-run or a
+        # regrade of a delivered essay never moves the assignment backwards.
+        writing_assignment_status_sync.mark_assignment_graded(essay_id)
 
         # Sprint 2.7d.1 — Instructor tier: post-grading hook creates
         # an instructor_reviews queue row so the admin queue page

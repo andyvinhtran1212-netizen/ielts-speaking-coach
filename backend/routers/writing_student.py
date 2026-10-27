@@ -41,6 +41,7 @@ from database import supabase_admin
 from services.core_attempt_observation import bind_owned_attempt, observe_operation
 from routers.auth import get_supabase_user
 from services.public_cache import cacheable_json
+from services import activation_gate
 from services import essay_service
 from services import core_admission
 from services.access_code_permissions import (
@@ -196,6 +197,8 @@ async def require_writing_permission(
         a handler-level Depends(get_current_student) coexist.
     """
     user_id = student.get("user_id") or student.get("id")
+    # W-03 — Writing permission = ACTIVE account AND (code or assignment).
+    activation_gate.ensure_account_active(user_id)
     # WF entitlement bridge (approach c): code grants Writing OR the student has
     # a writing assignment (being given writing = may do it). Live, additive.
     if (not has_writing_permission(get_user_access_code_permissions(user_id))

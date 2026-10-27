@@ -150,7 +150,7 @@ test('permission denial can retry and survive parallel-tab pressure', async ({
   await expect(page.locator('#rec-recording')).toBeVisible();
 
   const foreground = await context.newPage();
-  await foreground.goto('/next-probe');
+  await foreground.goto('/login'); // public Next page; /next-probe is a 404 since U-03
   await foreground.bringToFront();
   await page.waitForTimeout(500);
   await page.bringToFront();

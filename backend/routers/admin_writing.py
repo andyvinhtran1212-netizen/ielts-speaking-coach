@@ -25,7 +25,7 @@ from database import supabase_admin
 from models.admin_writing_queue import AdminWritingQueuePageOut, AdminWritingQueueRowOut
 from models.writing_feedback import WritingFeedback
 from routers.admin import require_admin
-from services import essay_service, instructor_workflow
+from services import essay_service, instructor_workflow, writing_assignment_status_sync
 from services.core_attempt_outcomes import observe_writing_batch
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.file_extract_service import (
@@ -165,6 +165,9 @@ def _deliver_essay(essay_id: str, method: str, hide_subbands: bool = False) -> d
     if not isinstance(result, dict):
         raise HTTPException(500, "Database returned an invalid delivery result")
     if result.get("ok"):
+        # W-ASSIGN-STATUS — linked assignment → 'delivered'. Shared by
+        # mark_delivered and bulk_mark_delivered; best-effort, never raises.
+        writing_assignment_status_sync.mark_assignment_delivered(essay_id)
         return {"essay_id": essay_id, "ok": True, "status": "delivered", "reason": None}
     reason = result.get("reason")
     return {

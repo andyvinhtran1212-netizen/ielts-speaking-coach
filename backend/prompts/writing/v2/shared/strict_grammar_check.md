@@ -80,14 +80,23 @@ inventing errors**.
 | 5.0 – 5.5    | typically 8 – 12              | Modest User — noticeable errors       |
 | 6.0 – 6.5    | typically 5 – 8               | Competent — frequent errors           |
 | 7.0          | typically 3 – 5               | Good User — occasional errors         |
-| 7.5+         | typically 0 – 3               | Very Good — rare errors               |
+| 7.5 – 8.0    | typically 1 – 3 (at least 1)  | Very Good — rare errors               |
+| 8.5+         | typically 0 – 2               | Expert — very rare errors             |
+
+**Minimum: below overall band 8.5, `mistakeAnalysis` MUST contain at least
+one real entry.** Band 7.5–8.0 descriptors themselves describe "occasional"
+or "rare" errors and inaccuracies, so a script at those bands always has
+something real to report. At high bands, minor real issues count: word choice,
+collocation, article, preposition, punctuation, awkward or wordy phrasing.
 
 **CRITICAL ANTI-FABRICATION RULE — read carefully:**
 
-1. **DO NOT fabricate errors to meet the typical count.** If the essay has
-   fewer real errors than the band would predict, the *band* is what should
-   be reconsidered (likely revised upward). Inventing errors is never the
-   correct response to a count mismatch.
+1. **DO NOT fabricate errors to meet the typical count.** If, after a careful
+   sentence-by-sentence re-scan, the essay genuinely has fewer real errors
+   than typical, report only the real ones — never pad the list. Set every
+   band from the band descriptors; never raise the band just to justify a
+   short or empty list. Inventing errors is never the correct response to a
+   count mismatch.
 
 2. **Every reported mistake MUST have a real, verifiable difference between
    `original` and `corrected`** — meaning the two strings differ in actual
@@ -99,14 +108,20 @@ inventing errors**.
    If `original == corrected` after this normalisation, the entry is **not**
    a mistake — DO NOT include it.
 
-3. **An empty `mistakeAnalysis` IS acceptable when both:**
-   (a) the essay is genuinely error-free at the structural level, **AND**
-   (b) the band score is **7.5 or higher**.
+3. **An empty `mistakeAnalysis` is acceptable ONLY when both:**
+   (a) the essay is genuinely error-free — including word choice,
+   collocation, articles, punctuation and phrasing — **AND**
+   (b) the overall band is **8.5 or higher**.
 
-4. **For bands ≤ 7.0 with empty `mistakeAnalysis`, re-examine. Either:**
-   (a) you missed real errors → find them, **or**
-   (b) the band should actually be higher → adjust the band.
-   Do **not** invent errors as a third option.
+4. **Below band 8.5, an empty `mistakeAnalysis` is invalid output.** Re-scan
+   the essay: you missed real errors → find and list them. Do **not** invent
+   errors, and do **not** raise the band to escape the rule.
+
+5. **Each `original` is copied verbatim** from one contiguous stretch of the
+   essay, INCLUDING the learner's spelling and grammar errors. Quoting a
+   faulty sentence exactly is what the source-grounding rule requires — it
+   never discourages reporting an error. The correction goes only in
+   `suggestion`.
 
 **Background:** A Band-5 essay with zero mistakes is mathematically
 impossible (production bug 0caf5e59). But a Band-6.5 essay with a fabricated

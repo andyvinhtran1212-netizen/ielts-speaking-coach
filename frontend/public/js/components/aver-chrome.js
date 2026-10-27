@@ -35,6 +35,10 @@
  *     so the auto-fetch path skips (or is overridden if called late).
  *
  * Events:
+ *   av-chrome-signing-out (bubbles, composed)
+ *     Dispatched when the user clicks Đăng xuất, before the awaited revoke.
+ *     The Next AuthProvider holds pages out of their signed-out /login
+ *     redirect so the chrome's own '/' redirect stays the destination.
  *   av-chrome-signed-out (bubbles, composed)
  *     Dispatched right before the post-signOut redirect to /index.html.
  *     Pages can listen for cleanup (cancel polls, close dialogs, etc).
@@ -48,6 +52,7 @@
 import { bindToggleButton } from '/js/theme-toggle.js';
 import { canonicalInitials } from '/js/user-pill.js';
 import { installPerfResourceHints } from '/js/components/perf-hints.js';
+import { clearPersistedAuthSession, rememberSignedOutSession } from '/js/auth-sign-out-state.js';
 
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -63,6 +68,9 @@ const VALID_ACTIVE = ['home', 'writing', 'class', 'speaking', 'listening', 'gram
 // pattern. 50ms tick × 60 tries.
 const POLL_INTERVAL_MS = 50;
 const POLL_MAX_TRIES = 60;
+
+// U-20 — must equal the disclosure @media query in STYLE below.
+const MOBILE_NAV_QUERY = '(max-width: 1024.98px)';
 
 installPerfResourceHints();
 
@@ -313,9 +321,14 @@ const STYLE = /* css */ `
 
 .mobile-nav-toggle { display: none; }
 
-@media (max-width: 720px) {
-  .topnav-wrap { padding: 0 var(--av-space-4); }
-  .topnav { gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-8); }
+/* U-20: the full eight-link row needs ~1045px beside the brand and the named
+   user pill, so it wrapped to 2-3 rows anywhere from 721px to ~1180px. Below
+   1025px the links move behind the disclosure; 1025-1279.98px keeps the row
+   but compacts it; >=1280px is the untouched desktop layout. The .98 upper
+   bounds keep zoomed fractional widths (e.g. 1024.5px) inside a block. Keep
+   the disclosure query in sync with MOBILE_NAV_QUERY. */
+@media (max-width: 1024.98px) {
+  .topnav { gap: var(--av-space-3); flex-wrap: wrap; }
   .mobile-nav-toggle {
     display: inline-flex;
     align-items: center;
@@ -355,6 +368,24 @@ const STYLE = /* css */ `
   #user-pill-name { display: none; }
   .user-menu-item { box-sizing: border-box; min-height: 44px; }
   .user-menu-item[hidden] { display: none; }
+}
+
+@media (max-width: 720px) {
+  .topnav-wrap { padding: 0 var(--av-space-4); }
+  .topnav { margin-bottom: var(--av-space-8); }
+}
+
+@media (min-width: 1025px) and (max-width: 1279.98px) {
+  .topnav { gap: var(--av-space-4); }
+  .nav-links { flex-wrap: nowrap; }
+  .nav-links a,
+  .nav-links span {
+    padding-left: var(--av-space-2);
+    padding-right: var(--av-space-2);
+    white-space: nowrap;
+  }
+  .user-pill { padding: var(--av-space-1); }
+  #user-pill-name { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -759,7 +790,7 @@ export class AverChrome extends HTMLElement {
       if (event.key === 'Escape') disclosures.forEach((item) => close(item, true));
     };
     document.addEventListener('keydown', this._docKeydownHandler);
-    window.matchMedia('(max-width: 720px)').addEventListener('change', () => {
+    window.matchMedia(MOBILE_NAV_QUERY).addEventListener('change', () => {
       close(disclosures[1]);
     }, { signal });
   }
@@ -778,12 +809,26 @@ export class AverChrome extends HTMLElement {
       // mid-revoke, cancelling BOTH the revoke and the storage cleanup:
       // the next page load would restore the session and the logout would
       // silently undo itself.
+      //
+      // av-chrome-signing-out is NOT a sign-out announcement: it only tells
+      // the AuthProvider that this user-initiated logout owns the final
+      // navigation ('/'). Without it, SIGNED_OUT (fired inside signOut()) and
+      // av-chrome-signed-out flip Next pages to signed-out, and their
+      // fail-closed `location.replace('/login')` effect runs after — and
+      // overrides — the `location.href = '/'` below.
+      this.dispatchEvent(new CustomEvent('av-chrome-signing-out', {
+        bubbles: true,
+        composed: true,
+      }));
       try {
         const sb = (typeof window !== 'undefined'
                     && typeof window.getSupabase === 'function')
                    ? window.getSupabase()
                    : null;
         if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
+          // U-07: record the session being ended BEFORE the revoke, so /login
+          // does not boot it if this page dies mid-revoke.
+          await rememberSignedOutSession(sb);
           // AUDIT F6 / review #762: v2 signOut() does NOT throw on a failed
           // revoke — it RESOLVES with { error }. Discarding it made a
           // still-valid refresh token look identical to a real sign-out.
@@ -810,6 +855,11 @@ export class AverChrome extends HTMLElement {
           );
         } catch (e) { /* reporting must never block logout */ }
       }
+      // U-07: a failed revoke (signOut resolves { error }) leaves the session
+      // persisted — possibly already revoked server-side. Fail closed locally
+      // before announcing, so no page can boot it and send it to /auth/me.
+      clearPersistedAuthSession();
+      try { window.api && window.api.clearAuthCache && window.api.clearAuthCache(); } catch (e) { /* page is leaving */ }
       this.dispatchEvent(new CustomEvent('av-chrome-signed-out', {
         bubbles: true,
         composed: true,

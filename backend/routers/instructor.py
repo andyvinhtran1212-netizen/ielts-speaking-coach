@@ -48,7 +48,7 @@ from __future__ import annotations
 import io
 from datetime import datetime, timezone
 from typing import Literal, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import logging
 
@@ -69,6 +69,7 @@ from services.instructor_access import (
     assert_essay_owned,
 )
 from services.instructor_workflow import ConflictError, NotFoundError
+from services.writing_assignment_delete_guard import delete_unstarted_assignment
 from services.writing_render import render_feedback_html, render_plain_text
 from services.writing_word_exporter import render_essay_to_docx
 
@@ -183,7 +184,7 @@ async def delete_prompt(request: Request, prompt_id: UUID, authorization: str | 
 class FanOutBody(BaseModel):
     prompt_ids: list[UUID]
     cohort_id: UUID
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=200)   # matches admin fan-out
     allow_soft_check: bool = False
     deadline: Optional[Deadline] = None
     instructions: Optional[str] = None
@@ -195,6 +196,7 @@ class AssignBody(BaseModel):
     """Single-student assign (one prompt → one of MY students)."""
     prompt_id: UUID
     student_id: UUID
+    name: Optional[str] = Field(None, max_length=200)   # W-06: label the student sees
     deadline: Optional[Deadline] = None
     instructions: Optional[str] = None
     analysis_level: int = 3
@@ -237,10 +239,15 @@ async def patch_assignment(request: Request, assignment_id: UUID, body: dict, au
 
 @router.delete("/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_assignment(request: Request, assignment_id: UUID, authorization: str | None = Header(None)):
+    """Delete only while the student has not started (A-08): pending, no
+    started_at / essay_id / draft — else 409, the draft would cascade away."""
     me = await _me(authorization, request)
-    r = instructor_db(me).table("writing_assignments").delete().eq("id", str(assignment_id)).execute()
-    if not r.data:
-        raise HTTPException(404, "Không tìm thấy.")
+    delete_unstarted_assignment(
+        str(assignment_id),
+        assignments=lambda: instructor_db(me).table("writing_assignments"),
+        drafts=lambda: supabase_admin.table("writing_drafts"),
+        not_found_detail="Không tìm thấy.",
+    )
     return None
 
 
@@ -261,6 +268,10 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
     payload = {
         "prompt_id":      str(body.prompt_id),
         "student_id":     str(body.student_id),
+        "name":           body.name,
+        # A named give gets its own group (as admin gives do) so the learner
+        # dashboard, which shows `name` only on group headers, displays it.
+        "assignment_group_id": str(uuid4()) if body.name else None,
         "deadline":       body.deadline.isoformat() if body.deadline else None,
         "instructions":   body.instructions,
         "analysis_level": body.analysis_level,
