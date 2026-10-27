@@ -143,17 +143,16 @@ transaction with `lock_timeout = 5s`.
      `resource_id uuid not null`, `submission_revision text not null`,
      `user_id uuid not null`,
      `status text check (status in ('queued','running','done','failed','superseded'))`,
-     `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `persisted_at timestamptz null`, `persist_claims int not null default 0`, `attempts int not null default 0`,
+     `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `persisted_at timestamptz null`, `commit_count int not null default 0`, `attempts int not null default 0`,
      `lease_until timestamptz`, `enqueued_at timestamptz not null default now()`,
      `finished_at`, `last_error text`.
    - Unique: `(kind, resource_id, submission_revision)`.
-   - Before the canonical result write, the drain claims persistence with
-     `update … set persisted_at = now(), persist_claims = persist_claims + 1
-     where id = $job and persisted_at is null returning id`. If no row
-     comes back, the write is skipped and the job is logged as
-     `duplicate_persist_blocked`. The result write is also conditional on
-     the resource still carrying the job's submission revision; otherwise
-     the job becomes `superseded` (FR-013).
+   - The marker, the canonical result and the job completion commit in
+     **one transaction**, through `fn_ai_deferred_commit` (item 7). There
+     is no separate claim step, so a crash or writer failure before that
+     commit leaves the job reclaimable when its lease expires, with no
+     marker set. A crash after the commit leaves a complete result and a
+     `done` job.
    - Index: `(status, enqueued_at, id) where status='queued'`.
    - `service_role`: SELECT, INSERT, UPDATE.
 4. **`writing_jobs.budget_deferred_at timestamptz null`** (additive), with
@@ -229,9 +228,30 @@ transaction with `lock_timeout = 5s`.
    - **`fn_ai_budget_recompute(p_period_start date)`** is operator-only
      repair. It recomputes `reserved_usd` and `settled_usd` from the
      reservations, and never lowers `settled_usd` below the settled sum.
+   - **`fn_ai_deferred_commit(p_job_id uuid, p_lease_token uuid, p_result jsonb)`**
+     commits a deferred result atomically.
+     - `p_result` holds the Speaking `responses` column patch and the
+       `grammar_recommendations` rows. The live route's mapper produces
+       both, so the canonical shape is unchanged.
+     - In one transaction the function:
+       1. locks the job row and the target `responses` row;
+       2. returns `duplicate` with no write when the job is already
+          `done` or `persisted_at` is set;
+       3. returns `lease_lost` when the lease token does not match;
+       4. marks the job `superseded` and returns `superseded` when the
+          response no longer carries the job's submission revision;
+       5. otherwise updates the response (`grading_status = 'completed'`
+          and scores), replaces that response's grammar recommendations,
+          sets `persisted_at = now()`, `commit_count = commit_count + 1`
+          and `status = 'done'`, and returns `committed`.
+     - Writing uses `fn_ai_deferred_commit_writing(p_job_id, p_lease_token,
+       p_result)` with the same rules. It inserts the `writing_feedback`
+       row, updates the essay and completes `writing_jobs` in one
+       transaction.
    - **`fn_ai_deferred_claim(p_limit int, p_lease_seconds int)`** claims
-     queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order and
-     sets the lease.
+     queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order.
+     It also reclaims `running` jobs whose lease has expired, and sets a
+     new lease and lease token.
 8. **Postconditions.** A `DO` block raises if any of the following does not
    hold:
    - every table exists with RLS enabled;
@@ -455,10 +475,10 @@ Supabase SQL editor or the runner, and print no secrets.
   select id, kind, resource_id, submission_revision, status, persisted_at
   from ai_deferred_grading_jobs
   where (status = 'done') <> (persisted_at is not null);
-  -- (b) more than one persistence claim for the same revision
-  select kind, resource_id, submission_revision, sum(persist_claims) as claims
+  -- (b) more than one committed result for the same revision
+  select kind, resource_id, submission_revision, sum(commit_count) as commits
   from ai_deferred_grading_jobs
-  group by 1, 2, 3 having sum(persist_claims) > 1;
+  group by 1, 2, 3 having sum(commit_count) > 1;
   -- (c) Writing: more than one feedback row persisted by deferred drains for one job
   select f.job_id, count(*) from writing_feedback f
   join writing_jobs w on w.id = f.job_id
