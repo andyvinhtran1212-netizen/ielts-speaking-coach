@@ -54,8 +54,10 @@ describe('/pricing pre-launch native ownership', () => {
     });
   });
 
-  test('native landing enters the clean canonical route', () => {
-    assert.match(NEXT_LANDING, /href="\/pricing"/);
+  test('native landing does not link the closed route', () => {
+    // The only /pricing link sat inside the hidden pre-launch price block,
+    // removed from the landing; /pricing itself still redirects to `/`.
+    assert.doesNotMatch(NEXT_LANDING, /href="\/pricing"/);
     assert.doesNotMatch(NEXT_LANDING, /href="\/pricing\.html"/);
   });
 
