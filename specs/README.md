@@ -101,3 +101,11 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
 
 | SECWRITE-0022 | Client roles cannot write privilege, score or session data | approved | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
+
+| ROLECHECK-0026 | Admins can make a user an instructor because users.role has one correct CHECK | approved | high | [spec](0026-users-role-single-check/spec.md) |
+
+| ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | approved | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |
+
+| CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | approved | high | [spec](0028-access-code-unique-canonical/spec.md) |
+
+| STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | approved | critical | [spec](0029-student-archive/spec.md) |
