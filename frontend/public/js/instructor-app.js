@@ -276,6 +276,11 @@ async function loadAssign() {
   await renderMatrix();
 }
 
+function _createdAtMs(a) {
+  const parsed = a && a.created_at ? Date.parse(a.created_at) : NaN;
+  return Number.isFinite(parsed) ? parsed : -Infinity;
+}
+
 function cellFor(a) {
   // a = the writing_assignments row for (student, prompt), or undefined.
   if (!a) return '<span class="ins-muted">—</span>';
@@ -316,7 +321,10 @@ async function renderMatrix() {
   const byStudentPrompt = {};   // student_id → prompt_id → assignment
   assignments.forEach((a) => {
     if (!colIds.includes(a.prompt_id)) colIds.push(a.prompt_id);
-    (byStudentPrompt[a.student_id] = byStudentPrompt[a.student_id] || {})[a.prompt_id] = a;
+    const row = (byStudentPrompt[a.student_id] = byStudentPrompt[a.student_id] || {});
+    // A-07: keep the newest give by created_at; ties/missing dates keep the first-seen row.
+    const current = row[a.prompt_id];
+    if (!current || _createdAtMs(a) > _createdAtMs(current)) row[a.prompt_id] = a;
   });
   // rows = my students who appear in assignments (fallback: full roster)
   const rowStudents = _students.length ? _students
