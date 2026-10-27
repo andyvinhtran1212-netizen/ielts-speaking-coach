@@ -287,15 +287,48 @@ def test_fetch_linked_student_ignores_archived_profiles():
     assert fetch_linked_student(db, USER_ID)["id"] == ACTIVE_ID
 
 
-def test_archived_learner_gets_the_writing_403():
+@pytest.mark.parametrize("path", ["my-essays", "my-assignments"])
+def test_archived_learner_gets_the_writing_403(path):
     from routers import writing_student
     db = FakeDB({"students": [_row(ARCHIVED_ID, archived=True, user_id=USER_ID)]})
     with patch.object(writing_student, "get_supabase_user",
                       new=AsyncMock(return_value={"id": USER_ID, "user_metadata": {}})), \
          patch.object(writing_student, "supabase_admin", db):
-        with pytest.raises(HTTPException) as error:
-            asyncio.run(writing_student.get_current_student("Bearer x"))
-    assert error.value.status_code == 403
+        response = _client().get(f"/api/writing/{path}", headers=AUTH)
+    assert response.status_code == 403
+    assert response.json()["detail"] == {
+        "code": "student_archived",
+        "message": "Hồ sơ học viên của bạn đã được lưu trữ. Vui lòng liên hệ giảng viên.",
+    }
+    assert db.writes() == []
+
+
+@pytest.mark.parametrize("path", ["my-essays", "my-assignments"])
+def test_unlinked_writing_learner_keeps_the_not_linked_403(path):
+    from routers import writing_student
+    # Another user's archived profile must not change this user's message.
+    db = FakeDB({"students": [_row(ARCHIVED_ID, archived=True, user_id="other-user")]})
+    with patch.object(writing_student, "get_supabase_user",
+                      new=AsyncMock(return_value={"id": USER_ID, "user_metadata": {}})), \
+         patch.object(writing_student, "supabase_admin", db):
+        response = _client().get(f"/api/writing/{path}", headers=AUTH)
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Bạn chưa được link với tài khoản học viên. Vui lòng liên hệ giảng viên."
+    )
+    assert db.writes() == []
+
+
+def test_writing_uses_active_link_when_user_also_has_an_archived_profile():
+    from routers import writing_student
+    db = FakeDB({"students": [_row(ARCHIVED_ID, archived=True, user_id=USER_ID),
+                              _row(ACTIVE_ID, archived=False, user_id=USER_ID)]})
+    with patch.object(writing_student, "get_supabase_user",
+                      new=AsyncMock(return_value={"id": USER_ID, "user_metadata": {}})), \
+         patch.object(writing_student, "supabase_admin", db):
+        student = asyncio.run(writing_student.get_current_student("Bearer x"))
+    assert student["id"] == ACTIVE_ID
+    assert len(db.calls) == 1
 
 
 # ── FR-002: instructor roster and individual give ──────────────────────────
