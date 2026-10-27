@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from models.admin_students import AdminStudentDirectoryRowOut
 from routers.admin import require_admin
-from services import student_service
+from services import student_service, test_data_visibility
 
 
 router = APIRouter(
@@ -95,9 +95,14 @@ async def list_students(
     """List students; optional case-insensitive substring filter on
     student_code or full_name. Archived learners are listed only with
     ``include_archived=true``."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
+    hidden = {}
+    if test_data_visibility.hide_for(email=admin.get("email"), is_admin=True):
+        # Staging test data (TASK B2); excluded in SQL so pages stay full.
+        hidden["exclude_ids"] = test_data_visibility.hidden_student_ids()
     return student_service.list_students(
-        search=search, limit=limit, offset=offset, include_archived=include_archived)
+        search=search, limit=limit, offset=offset, include_archived=include_archived,
+        **hidden)
 
 
 @router.get("/{student_id}")

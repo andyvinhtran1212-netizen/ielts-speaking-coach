@@ -108,7 +108,7 @@ test('navigation seam: Next → redirected legacy alias → Next keeps query/has
   expect(prodRequests, `production egress during seam: ${prodRequests.join(', ')}`).toEqual([]);
   const realErrors = consoleErrors.filter(
     (e) => !/favicon|fonts\.gstatic|net::ERR_FAILED/i.test(e)
-      && !isVercelToolbarCspNoise(e), // Vercel staging injects this before request interception; strict CSP must keep blocking it
+      && !isVercelToolbarCspNoise(e), // pre-F08 staging builds blocked the injected toolbar; F08 allows vercel.live on non-production builds and installToolbarSkip stubs it
   );
   expect(realErrors, `console errors during seam: ${realErrors.join(' | ')}`).toEqual([]);
 });

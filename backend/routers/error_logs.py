@@ -24,10 +24,11 @@ from __future__ import annotations
 
 import logging
 import json
+import math
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from database import supabase_admin
 from routers.admin import require_admin
@@ -42,13 +43,18 @@ router = APIRouter(tags=["error-logs"])
 
 
 class ErrorReportRequest(BaseModel):
-    level: str = Field(default="error")
-    source: str = Field(default="frontend")
+    """Anonymous ingress (F10): reject unknown top-level fields and keep every
+    value bounded, the same envelope discipline as /api/analytics/events."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    level: str = Field(default="error", max_length=16)
+    source: str = Field(default="frontend", max_length=16)
     message: str = Field(min_length=1, max_length=2000)
     stack: str | None = Field(default=None, max_length=10000)
     url: str | None = Field(default=None, max_length=1000)
     user_agent: str | None = Field(default=None, max_length=500)
-    request_id: str | None = Field(default=None, max_length=64)
+    request_id: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9_.:-]+$")
     extra: dict | None = None
 
     @field_validator('extra')
@@ -67,10 +73,14 @@ class ErrorReportRequest(BaseModel):
             if depth > 6 or nodes > 256:
                 raise ValueError('extra exceeds structural limits')
             if isinstance(item, dict):
+                if any(len(str(key)) > 64 for key in item):
+                    raise ValueError('extra key is too long')
                 return {key: '[redacted]' if str(key).lower() in sensitive else visit(child, depth + 1)
                         for key, child in item.items()}
             if isinstance(item, list):
                 return [visit(child, depth + 1) for child in item]
+            if isinstance(item, float) and not math.isfinite(item):
+                raise ValueError('extra number must be finite')
             return item
 
         clean = visit(value)

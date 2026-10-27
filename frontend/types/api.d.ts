@@ -504,6 +504,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/test-data/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Test Data Visibility
+         * @description TASK B2 — lets the admin UI show its "show test data" toggle only where
+         *     staging hiding is active, and report what this request saw.
+         */
+        get: operations["get_test_data_visibility_admin_test_data_visibility_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/stats": {
         parameters: {
             query?: never;
@@ -4694,6 +4715,11 @@ export interface paths {
          *     when off it returns {enabled: false} + no prompts (nothing leaked pre-launch).
          *     Classification is the existing structured `task_type` (task1_academic =
          *     graph/chart, task1_general = letter, task2 = essay) — no inferred field.
+         *
+         *     Task 1 charts live in the PRIVATE `writing-images` bucket. Anonymous
+         *     callers get `has_prompt_image` with `prompt_image_url: null` (cacheable);
+         *     a signed-in active account gets short-lived signed URLs in a private,
+         *     non-cacheable response.
          */
         get: operations["get_prompt_bank_api_writing_prompt_bank_get"];
         put?: never;
@@ -12532,6 +12558,8 @@ export interface paths {
          *     image surfaces here instead of silently degrading to regex-only. Always
          *     returns HTTP 200; the ``status`` field (healthy | degraded | error) carries
          *     the verdict, matching /health/ready's convention (no 5xx juggling).
+         *     Results are reused for ``_GRAMMAR_PROBE_TTL_SECONDS``; ``checked_at`` is
+         *     when the live probe ran.
          */
         get: operations["health_grammar_check_health_grammar_check_get"];
         put?: never;
@@ -13572,6 +13600,13 @@ export interface components {
             ok: true;
             /** Sessions */
             sessions: components["schemas"]["AdminSummaryRebuildItem"][];
+        };
+        /** AdminTestDataVisibilityOut */
+        AdminTestDataVisibilityOut: {
+            /** Hiding Enabled */
+            hiding_enabled: boolean;
+            /** Showing Test Data */
+            showing_test_data: boolean;
         };
         /** AdminUserCodeSummaryOut */
         AdminUserCodeSummaryOut: {
@@ -16034,7 +16069,11 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
-        /** ErrorReportRequest */
+        /**
+         * ErrorReportRequest
+         * @description Anonymous ingress (F10): reject unknown top-level fields and keep every
+         *     value bounded, the same envelope discipline as /api/analytics/events.
+         */
         ErrorReportRequest: {
             /**
              * Level
@@ -21548,8 +21587,8 @@ export interface components {
         };
         /**
          * UploadImageResponse
-         * @description Response shape for `POST .../upload-image`. `url` is the public
-         *     Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
+         * @description Response shape for `POST .../upload-image`. `url` is a short-lived
+         *     signed preview URL (create/PATCH store it as its object path); `public_id`
          *     is the storage path persisted into `prompt_image_public_id`. Published
          *     objects are retained as immutable grading evidence; only unattached
          *     uploads may be discarded. `width`/`height` are null — we don't decode
@@ -23195,6 +23234,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminUserDirectoryRowOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_test_data_visibility_admin_test_data_visibility_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTestDataVisibilityOut"];
                 };
             };
             /** @description Validation Error */
@@ -30686,7 +30756,9 @@ export interface operations {
             query?: {
                 task_type?: string | null;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };

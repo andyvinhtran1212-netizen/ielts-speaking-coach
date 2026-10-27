@@ -5,12 +5,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { messageOf } from '@/components/admin-directory-ui';
 import { useDialogFocus } from '@/lib/use-dialog-focus';
 import {
-  localDateTimeIn,
-  localToIso,
+  formatVietnamDateTime,
   mergeRetestCandidates,
   normalizeAssignments,
   normalizeRetestSummary,
   retakeServableSkills,
+  vietnamDateTimeIn,
+  vietnamLocalToIso,
 } from '@/lib/admin-mock-exams-model.mjs';
 
 type Exam = {
@@ -37,7 +38,7 @@ const SKILLS = [
 export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChanged }: Props) {
   const [sourceId, setSourceId] = useState('');
   const [openFrom, setOpenFrom] = useState('');
-  const [openUntil, setOpenUntil] = useState(() => localDateTimeIn(7));
+  const [openUntil, setOpenUntil] = useState(() => vietnamDateTimeIn(7));
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [picked, setPicked] = useState<Record<string, string[]>>({});
@@ -134,9 +135,10 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
   };
 
   const assign = async () => {
-    const until = localToIso(openUntil);
-    const from = localToIso(openFrom);
+    const until = vietnamLocalToIso(openUntil);
+    const from = vietnamLocalToIso(openFrom);
     if (!until) return setError('Phải đặt hạn đóng hợp lệ để bài vắng mặt được thu.');
+    if (openFrom.trim() && !from) return setError('Giờ mở không hợp lệ.');
     if (from && new Date(until) < new Date(from)) return setError('Hạn đóng không được sớm hơn giờ mở.');
     const rows = Object.entries(picked).filter(([, skills]) => skills.length).map(([userId, skills]) => ({ user_id: userId, skills, open_from: from, open_until: until }));
     if (!rows.length) return setError('Chọn ít nhất một học viên và kỹ năng.');
@@ -183,8 +185,8 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
         {warning && <div className="mex-alert is-warning" role="alert">{warning}</div>}
         <div className="mex-dialog-grid">
           <label><span>Đề gốc</span><select value={sourceId} onChange={(event) => void chooseSource(event.target.value)} disabled={busy}><option value="">Chọn đề có kết quả cần test lại</option>{sources.map((row) => <option key={row.id} value={row.id}>{row.code} · {row.title}{row.cohortId ? ` · ${cohortNames.get(row.cohortId) || row.cohortId}` : ''}</option>)}</select></label>
-          <label><span>Mở từ</span><input type="datetime-local" value={openFrom} onChange={(event) => setOpenFrom(event.target.value)} /></label>
-          <label><span>Đóng lúc *</span><input type="datetime-local" value={openUntil} onChange={(event) => setOpenUntil(event.target.value)} required /></label>
+          <label><span>Mở từ (giờ Việt Nam)</span><input type="datetime-local" value={openFrom} onChange={(event) => setOpenFrom(event.target.value)} /></label>
+          <label><span>Đóng lúc * (giờ Việt Nam)</span><input type="datetime-local" value={openUntil} onChange={(event) => setOpenUntil(event.target.value)} required /></label>
         </div>
         <p className="mex-help">Kỹ năng phục vụ được: {servable.join(', ')}. Kỹ năng thiếu đề bị khóa trước khi gửi.</p>
         <div className="mex-table-wrap">
@@ -196,7 +198,7 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
           )}
         </div>
         <div className="mex-dialog-actions"><button className="adm-btn-primary" type="button" onClick={() => void assign()} disabled={busy || loadingAssignments || Boolean(assignmentError) || loadingCandidates || !sourceId}>{busy ? 'Đang ghi…' : 'Gán assignment đã chọn'}</button></div>
-        <div className="mex-current"><h3>Assignment hiện tại</h3>{loadingAssignments ? <p role="status">Đang tải assignment…</p> : assignmentError ? <div className="mex-alert is-error" role="alert"><span>Không đọc được assignment hiện tại: {assignmentError}</span><button className="adm-btn-secondary" type="button" onClick={() => void retryAssignments()} disabled={busy}>Thử lại</button></div> : !assignments.length ? <p>Chưa gán học viên nào.</p> : <ul>{assignments.map((row) => <li key={row.userId}><span><strong>{row.studentName}</strong><small>{row.skills.join(', ')}{row.openUntil ? ` · hạn ${new Date(row.openUntil).toLocaleString('vi-VN')}` : ''}</small></span><button className="adm-btn-secondary" type="button" onClick={() => void unassign(row)} disabled={busy}>Gỡ</button></li>)}</ul>}</div>
+        <div className="mex-current"><h3>Assignment hiện tại</h3>{loadingAssignments ? <p role="status">Đang tải assignment…</p> : assignmentError ? <div className="mex-alert is-error" role="alert"><span>Không đọc được assignment hiện tại: {assignmentError}</span><button className="adm-btn-secondary" type="button" onClick={() => void retryAssignments()} disabled={busy}>Thử lại</button></div> : !assignments.length ? <p>Chưa gán học viên nào.</p> : <ul>{assignments.map((row) => <li key={row.userId}><span><strong>{row.studentName}</strong><small>{row.skills.join(', ')}{row.openUntil ? ` · hạn ${formatVietnamDateTime(row.openUntil)} (giờ VN)` : ''}</small></span><button className="adm-btn-secondary" type="button" onClick={() => void unassign(row)} disabled={busy}>Gỡ</button></li>)}</ul>}</div>
       </section>
     </div>
   );

@@ -12,6 +12,10 @@ const API = 'https://api.chrome-nav-width.invalid';
 // 1280px is the untouched desktop layout.
 const WIDTHS = [720, 721, 800, 900, 1024, 1025, 1100, 1279, 1280];
 const HAMBURGER_MAX = 1024;
+// U-12: the avatar dropdown's "Trang giảng viên" link must follow the
+// /auth/me role at both the desktop and phone layouts.
+const ROLE_WIDTHS = [1280, 390];
+const ROLES = [['user', false], ['instructor', true], ['admin', true]];
 const results = [];
 
 const check = (name, ok, detail = '') => {
@@ -37,7 +41,7 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
   signOut: async function () { return { error: null }; }
 } };`;
 
-async function openHome(browser, width) {
+async function openHome(browser, width, role = 'user') {
   const context = await browser.newContext({ viewport: { width, height: 900 } });
   await context.addInitScript({ content: supabaseStub });
   await context.route('**/*', async (route) => {
@@ -66,7 +70,7 @@ async function openHome(browser, width) {
       status: 200, contentType: 'application/json', headers, body: JSON.stringify(body),
     });
     if (url.pathname === '/auth/me') {
-      return json({ id: 'u20', email: 'u20@example.test', display_name: 'Vinh Tran', role: 'user', is_active: true, onboarding_completed: true });
+      return json({ id: 'u20', email: 'u20@example.test', display_name: 'Vinh Tran', role, is_active: true, onboarding_completed: true });
     }
     if (url.pathname === '/api/student/home-summary') {
       // Mirrors the audited staging account: streak 2, zero Speaking/Writing.
@@ -151,6 +155,33 @@ try {
     }
     await context.close();
   }
+
+  for (const width of ROLE_WIDTHS) {
+    for (const [role, expected] of ROLES) {
+      const { context, page } = await openHome(browser, width, role);
+      const chrome = page.locator('aver-chrome');
+      await chrome.locator('#user-pill').click();
+      const link = chrome.locator('#instructor-link');
+      const read = () => link.evaluate((a) => ({
+        hidden: a.hasAttribute('hidden'),
+        display: getComputedStyle(a).display,
+        width: a.getBoundingClientRect().width,
+      }));
+      // The chrome applies the /auth/me role asynchronously: wait for the
+      // un-hide on staff roles, and give a student the same window to leak.
+      let state = await read();
+      const isVisible = (st) => st.display !== 'none' && st.width > 0;
+      for (let i = 0; i < 20 && isVisible(state) !== expected; i += 1) {
+        await page.waitForTimeout(100);
+        state = await read();
+      }
+      if (!expected) { await page.waitForTimeout(500); state = await read(); }
+      const visible = isVisible(state);
+      check(`${width}px ${role}: "Trang giảng viên" ${expected ? 'shown' : 'hidden'}`,
+        visible === expected, `hidden attr ${state.hidden}, display ${state.display}`);
+      await context.close();
+    }
+  }
 } finally {
   await browser.close();
 }
@@ -160,5 +191,5 @@ if (failed.length) {
   console.error(`✗ ${failed.length}/${results.length} chrome width checks failed`);
   process.exitCode = 1;
 } else {
-  console.log(`✓ ${results.length} chrome width checks across ${WIDTHS.length} viewports`);
+  console.log(`✓ ${results.length} chrome width + role checks across ${WIDTHS.length + ROLE_WIDTHS.length} viewports`);
 }

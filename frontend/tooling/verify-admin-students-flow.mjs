@@ -281,6 +281,12 @@ await page.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true
 await page.locator('tr').filter({ hasText: 'Chi' }).getByRole('button', { name: 'Lưu trữ Chi' }).click();
 const archiveDialog = page.getByRole('dialog', { name: 'Lưu trữ Chi' });
 await archiveDialog.waitFor({ state: 'visible' });
+check('lưu trữ đưa focus vào dialog ngay khi mở', await archiveDialog.evaluate(el => el.contains(document.activeElement)));
+await page.keyboard.press('Escape');
+await archiveDialog.waitFor({ state: 'hidden' });
+check('Escape đóng lưu trữ và trả focus về nút mở', await page.getByRole('button', { name: 'Lưu trữ Chi' }).evaluate(el => el === document.activeElement));
+await page.keyboard.press('Enter');
+await archiveDialog.waitFor({ state: 'visible' });
 check('dialog lưu trữ nói rõ bài làm được giữ nguyên',
   await archiveDialog.getByText(/Bài làm, điểm và lịch sử được giữ nguyên/).count() === 1);
 await archiveDialog.getByLabel('Lý do (tuỳ chọn)').fill('Chuyển trường');
@@ -309,6 +315,12 @@ await page.setViewportSize({ width: 390, height: 844 });
 await page.emulateMedia({ colorScheme: 'dark' });
 await page.getByRole('button', { name: 'Khôi phục Chi' }).click();
 const restoreDialog = page.getByRole('dialog', { name: 'Khôi phục Chi' });
+await restoreDialog.waitFor({ state: 'visible' });
+check('khôi phục đưa focus vào dialog ngay khi mở', await restoreDialog.evaluate(el => el.contains(document.activeElement)));
+await page.keyboard.press('Escape');
+await restoreDialog.waitFor({ state: 'hidden' });
+check('Escape đóng khôi phục và trả focus về nút mở', await page.getByRole('button', { name: 'Khôi phục Chi' }).evaluate(el => el === document.activeElement));
+await page.keyboard.press('Enter');
 await restoreDialog.waitFor({ state: 'visible' });
 const restoreBox = await restoreDialog.getByRole('button', { name: 'Khôi phục', exact: true }).boundingBox();
 check('dialog khôi phục vừa màn hình mobile (dark)', Boolean(restoreBox) && restoreBox.x >= 0 && restoreBox.x + restoreBox.width <= 390);

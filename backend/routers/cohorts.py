@@ -21,7 +21,7 @@ from models.cohorts import AdminCohortListOut
 from routers.admin import (
     require_admin, _aggregate_usage_for_users, _issue_code_and_assign, _activate_with_issued_code,
 )
-from services import student_service
+from services import student_service, test_data_visibility
 from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 from services.cohort_progress_aggregator import cohort_progress
 from services.class_membership_service import (
@@ -81,18 +81,24 @@ async def list_cohorts(
 
     Pass `is_active=false` to see archived classes; omit it for everything.
     """
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     try:
         if with_rollup:
-            return list_cohorts_with_rollup(
+            result = list_cohorts_with_rollup(
                 supabase_admin, is_active=is_active, course_id=course_id
             )
-        return list_cohorts_basic(
-            supabase_admin, is_active=is_active, course_id=course_id
-        )
+        else:
+            result = list_cohorts_basic(
+                supabase_admin, is_active=is_active, course_id=course_id
+            )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải danh sách lớp: {exc}")
+    if test_data_visibility.hide_for(email=admin.get("email"), is_admin=True):
+        result["cohorts"] = [
+            c for c in result["cohorts"] if not test_data_visibility.is_test_label(c.get("name"))
+        ]
+    return result
 
 
 @router.post("")

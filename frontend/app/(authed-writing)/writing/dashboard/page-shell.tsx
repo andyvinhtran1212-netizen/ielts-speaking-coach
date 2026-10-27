@@ -302,6 +302,10 @@ export function WritingShell() {
                   <p className="wd-modal-prompt__body whitespace-pre-line" id="modal-prompt-text">—</p>
                   <img id="modal-prompt-image" className="wd-modal-prompt__image hidden"
                        alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1" loading="lazy" />
+                  <div id="modal-prompt-image-failed" className="wd-modal-prompt__image-failed hidden" role="alert">
+                    <span>Không tải được hình đề Task 1. Bạn cần hình để làm bài — hãy thử tải lại hình.</span>
+                    <button id="modal-prompt-image-retry" type="button" className="wd-retry-btn">Tải lại hình</button>
+                  </div>
                 </div>
 
                 {/* Optional admin instructions */}

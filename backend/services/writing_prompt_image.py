@@ -13,17 +13,16 @@ Design (mirrors reading_image.py):
     declared requirement, so no server-side resize: images are stored
     as-is, bounded by the 5 MB cap.)
   • Size floor 100 B (rejects empty / corrupted), ceiling 5 MB.
-  • Storage: PUBLIC Supabase bucket `writing-images`
+  • Storage: PRIVATE Supabase bucket `writing-images`
     (config.WRITING_IMAGES_BUCKET) under `prompts/<uuid>-<ts>.<ext>`.
     The bucket is a one-time deploy precondition (Supabase dashboard →
-    Storage → New bucket → name `writing-images` → Public ✓), exactly
-    like reading-images / listening-images.
+    Storage → New bucket → name `writing-images`, Public OFF).
 
-The public URL is persisted straight into `writing_prompts.prompt_image_url`
-and rendered directly as `<img src>` by the admin prompts page, the
-student assignment modal, and the "Kho đề" tab (#467) — so a PUBLIC
-bucket keeps that read contract unchanged (no signed-URL minting on
-the read side).
+The object path is what gets persisted (`writing_prompts.prompt_image_url`
+/ `prompt_image_public_id`, `writing_essays.prompt_image_url`); readers
+sign it per authorized request via `services/writing_image_access.py`.
+The upload response carries a short-lived signed `url` for the admin
+preview only — routes normalize it back to the path before writing.
 
 Public API (signatures match the retired cloudinary_service so the
 router + its tests are unaffected):
@@ -71,10 +70,10 @@ def upload_prompt_image(
     file_bytes: bytes,
     filename_hint: Optional[str] = None,   # accepted for signature parity; unused
 ) -> dict[str, Any]:
-    """Upload ``file_bytes`` to the writing-images bucket and return the
-    public URL + storage path.
+    """Upload ``file_bytes`` to the writing-images bucket and return a
+    short-lived preview URL + storage path.
 
-    Returns ``{"url": <public url>, "public_id": <storage path>,
+    Returns ``{"url": <signed preview url>, "public_id": <storage path>,
     "width": None, "height": None}``. ``public_id`` carries the storage
     path stored in ``writing_prompts.prompt_image_public_id``. Once attached,
     an object is retained as immutable historical grading evidence; deletion
@@ -127,7 +126,13 @@ def upload_prompt_image(
         )
         raise
 
-    url = supabase_admin.storage.from_(bucket).get_public_url(storage_path)
+    from services.writing_image_access import sign_image_paths
+    url = sign_image_paths([storage_path]).get(storage_path)
+    if not url:
+        # The object exists but cannot be previewed; fail loudly rather than
+        # hand the editor a URL that will not render.
+        delete_prompt_image(storage_path)
+        raise RuntimeError("signed preview URL unavailable for uploaded image")
     return {"url": url, "public_id": storage_path, "width": None, "height": None}
 
 

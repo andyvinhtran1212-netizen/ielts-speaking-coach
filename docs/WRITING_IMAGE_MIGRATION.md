@@ -82,8 +82,8 @@ python -m scripts.migrate_writing_images --execute
 
 Requires the **current** project's `SUPABASE_URL` + service-role key in the
 environment (already in `backend/.env`). The `writing-images` bucket must exist
-and be **public** on the current project (a one-time deploy precondition — see
-`SUPABASE_REGION_MIGRATION.md` §6.1).
+on the current project. It is **private**: the script stores object paths and
+readers sign them (see `WRITING_IMAGE_PRIVATE_BUCKET.md`).
 
 ## Verification after `--execute`
 

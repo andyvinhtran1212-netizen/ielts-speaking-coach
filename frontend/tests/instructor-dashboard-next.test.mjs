@@ -27,6 +27,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'instructor', 'page.tsx'), 'utf8');
 const VIEW = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'instructor', 'instructor-dashboard.tsx'), 'utf8');
 const LAYOUT = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'layout.tsx'), 'utf8');
+const CSS = readFileSync(join(ROOT, 'public', 'css', 'instructor-next.css'), 'utf8');
 
 describe('/instructor native dashboard model', () => {
   test('normalizes every canonical owner-scoped collection and rejects malformed envelopes', () => {
@@ -196,6 +197,19 @@ describe('/instructor native route contracts', () => {
     assert.match(VIEW, /ownerId !== accountRef\.current/);
     assert.match(VIEW, /setDrawerSummary\(null\)/);
   });
+});
+
+test('tab bar keeps all four tabs reachable on 360-390px phones with a visible focus ring', () => {
+  for (const label of ['Học viên', 'Lớp & Mã', 'Giao bài', 'Chấm bài']) assert.ok(VIEW.includes(`'${label}']`), label);
+  // Below 560px the four tabs wrap into a 2x2 grid instead of clipping "Chấm bài" off-screen.
+  const phone = CSS.match(/@media \(max-width: 560px\) \{([\s\S]*?)\n\}/);
+  assert.ok(phone, 'phone tab-bar breakpoint');
+  assert.match(phone[1], /\.ins-tabs \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*overflow-x: visible;/);
+  assert.match(phone[1], /\.ins-tabs button \{[^}]*white-space: normal;/);
+  // Desktop keeps the single scrollable row.
+  assert.match(CSS, /^\.ins-tabs \{[^}]*display: flex;[^}]*overflow-x: auto;/m);
+  // Inset ring so the nav's overflow clipping cannot hide keyboard focus.
+  assert.match(CSS, /\.ins-tabs button:focus-visible \{[^}]*outline: 2px solid var\(--av-border-focus\);[^}]*outline-offset: -2px;/);
 });
 
 test('assignment requests interpret datetime-local as Vietnam time for both targets', () => {

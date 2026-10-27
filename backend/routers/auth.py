@@ -164,9 +164,12 @@ async def get_supabase_user(authorization: str | None):
             },
         )
     except httpx.RequestError as e:
+        # Reachable before authentication: the transport error (upstream host,
+        # resolver/TLS detail) is logged, never returned to the caller.
+        logger.warning("[auth] Supabase token verification transport error: %r", e)
         raise HTTPException(
             status_code=502,
-            detail=f"Không thể kết nối Supabase để xác thực: {e}",
+            detail="Không thể kết nối dịch vụ xác thực. Vui lòng thử lại.",
         )
     finally:
         record_stage("auth", (perf_counter() - auth_start) * 1000)

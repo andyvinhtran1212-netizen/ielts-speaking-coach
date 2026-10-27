@@ -15,6 +15,7 @@ type Session = { access_token?: string };
 type SupabaseClient = {
   auth: {
     getSession(): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
+    exchangeCodeForSession(code: string): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
     signInWithOAuth(input: unknown): Promise<{ error?: { message?: string } | null }>;
     signOut(): Promise<unknown>;
   };
@@ -62,14 +63,19 @@ async function canonicalProfile(token: string) {
   return profile;
 }
 
-function hasAuthCallbackMaterial() {
+// The OAuth redirect lands here as `/login?code=` (PKCE) or with an error.
+// Implicit-flow material (`#access_token=`…) is never honored: the shared
+// client runs PKCE only, so such a fragment is stale or forged.
+function readAuthCallback(): { code: string | null } | null {
   const query = new URLSearchParams(window.location.search);
   const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const errorKeys = ['error', 'error_code', 'error_description'];
-  return query.has('code')
-    || errorKeys.some((key) => query.has(key))
-    || ['access_token', 'refresh_token', 'expires_in', 'token_type', ...errorKeys]
-      .some((key) => fragment.has(key));
+  const failed = errorKeys.some((key) => query.has(key) || fragment.has(key));
+  const implicit = ['access_token', 'refresh_token', 'expires_in', 'token_type']
+    .some((key) => fragment.has(key));
+  const code = query.get('code');
+  if (!failed && !implicit && !query.has('code')) return null;
+  return { code: failed || implicit ? null : code };
 }
 
 // U-07: a session this tab already signed out (its page died mid-revoke, or
@@ -83,25 +89,26 @@ async function discardSignedOutSession(client: SupabaseClient) {
 }
 
 async function bootstrap(): Promise<BootResult> {
+  // Callback material leaves the address bar and the history entry before any
+  // network work can stall or reject; the code is held only in memory.
+  const callback = readAuthCallback();
+  if (callback) window.history.replaceState(null, '', '/login');
   const client = await sharedClient();
-  const callback = hasAuthCallbackMaterial();
-  // Supabase must inspect the implicit fragment first, but callback material
-  // must leave the address bar before an exchange can stall or reject.
-  let sessionRead: ReturnType<SupabaseClient['auth']['getSession']>;
-  try {
-    sessionRead = client.auth.getSession();
-  } finally {
-    if (callback) window.history.replaceState(null, '', '/login');
-  }
-  const { data, error } = await sessionRead;
-  const session = data?.session;
-  if (error || (callback && !session?.access_token)) {
-    throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
-  }
-  if (!session?.access_token) return { kind: 'signed-out', client };
   if (callback) {
+    if (!callback.code) throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
+    // One explicit exchange (the client's URL detection is off): the verifier
+    // stored by signInWithOAuth in this browser proves the code is ours.
+    const { data, error } = await client.auth.exchangeCodeForSession(callback.code);
+    const token = data?.session?.access_token;
+    if (error || !token) throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
     forgetSignedOutSession(); // a fresh sign-in supersedes the last logout
-  } else if (isSignedOutSession(session.access_token)) {
+    return { kind: 'profile', client, profile: await canonicalProfile(token) };
+  }
+  const { data, error } = await client.auth.getSession();
+  const session = data?.session;
+  if (error) throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
+  if (!session?.access_token) return { kind: 'signed-out', client };
+  if (isSignedOutSession(session.access_token)) {
     await discardSignedOutSession(client);
     return { kind: 'signed-out', client };
   }
