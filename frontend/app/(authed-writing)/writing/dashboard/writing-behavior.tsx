@@ -1375,7 +1375,8 @@ function trapSubmitModalFocus(ev: KeyboardEvent) {
 // Task 1 charts are private and signed per request. When signing failed the
 // backend sends prompt_image_lookup_failed: say so and offer a retry (a
 // side-effect-free re-read of the assignment) instead of a chartless prompt.
-function applyModalPromptImage(prompt: any, ms: ModalState, assignmentId: string) {
+// Exported for the jsdom regression test only.
+export function applyModalPromptImage(prompt: any, ms: Pick<ModalState, 'dead' | 'assignmentId'>, assignmentId: string) {
   const url = prompt?.prompt_image_url || '';
   const failed = !url && prompt?.prompt_image_lookup_failed === true;
   const workspaceEl = $('modal-workspace');
