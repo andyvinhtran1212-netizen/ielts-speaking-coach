@@ -29,6 +29,8 @@ Idempotent:
     owner; re-running is a no-op.
   • E1 reuses backfill_cohort_writing_assignments() (skip-existing), so re-running
     creates nothing new.
+  • E1 logs "E1 skipped archived" and continues when migration 331 refuses a
+    learner archived after the roster read (GIVEARCHIVE-0031).
 
 Output: a per-phase summary. Exit code 0 unless the initial fetch fails.
 """
@@ -59,6 +61,8 @@ def main() -> int:
     )
     args = parser.parse_args()
     dry = not args.apply
+
+    from fastapi import HTTPException
 
     from database import supabase_admin
     from services.class_membership_service import (
@@ -125,6 +129,7 @@ def main() -> int:
 
     e1_students = 0
     e1_created = 0
+    e1_skipped_archived = 0
     for cohort_id in sorted(cohort_set):
         for sid in active_student_ids_for_cohort(supabase_admin, cohort_id):
             if dry:
@@ -133,8 +138,18 @@ def main() -> int:
                 logger.info("E1 would backfill student=%s cohort=%s", sid, cohort_id)
                 e1_students += 1
                 continue
-            res = backfill_cohort_writing_assignments(
-                supabase_admin, student_id=sid, cohort_id=cohort_id)
+            try:
+                res = backfill_cohort_writing_assignments(
+                    supabase_admin, student_id=sid, cohort_id=cohort_id)
+            except HTTPException as exc:
+                # GIVEARCHIVE-0031: archived after the roster read (331
+                # trigger) — nothing was created for them; keep going.
+                if not (isinstance(exc.detail, dict)
+                        and exc.detail.get("code") == "student_archived"):
+                    raise
+                e1_skipped_archived += 1
+                logger.warning("E1 skipped archived student=%s cohort=%s", sid, cohort_id)
+                continue
             if res["created_count"]:
                 e1_students += 1
                 e1_created += res["created_count"]
@@ -142,9 +157,9 @@ def main() -> int:
                             sid, cohort_id, res["created_count"])
 
     logger.info(
-        "DONE (%s): E6 stamped=%d orphan_no_owner=%d | E1 students=%d rows=%d",
+        "DONE (%s): E6 stamped=%d orphan_no_owner=%d | E1 students=%d rows=%d skipped_archived=%d",
         "DRY-RUN" if dry else "APPLIED",
-        e6_stamped, e6_orphan_no_owner, e1_students, e1_created,
+        e6_stamped, e6_orphan_no_owner, e1_students, e1_created, e1_skipped_archived,
     )
     if dry:
         logger.info("Dry-run only — re-run with --apply to write.")

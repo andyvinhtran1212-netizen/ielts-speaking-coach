@@ -20,12 +20,29 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-27 the highest is `326`, so the next
-new migration is `327`. The runner applies any unapplied file regardless of order.
+sequence is dense. As of 2026-10-27 the highest is `331`, so the next
+new migration is `332`. The runner applies any unapplied file regardless of order.
 Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
 STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
-of order, so do not reuse them — unrelated new work takes `331`.
+of order, so do not reuse them. 331 is GIVEARCHIVE-0031.
+
+Migration `331` (GIVEARCHIVE-0031) adds the `BEFORE INSERT OR UPDATE OF
+student_id` trigger `archive_guard_writing_assignment_student` on
+`writing_assignments`. It locks the learner row `FOR KEY SHARE` (the lock the
+FK check already takes) and raises `student_archived` (DETAIL = student id) for
+an archived learner, so a give can no longer slip in between the 0029 Python
+pre-check and the insert: it either commits before `fn_archive_student` takes
+its `FOR UPDATE` (kept as history) or is refused as a whole statement (no
+partial bulk insert, no idempotency ledger row). It covers the idempotent RPC,
+every PostgREST insert (admin/instructor individual, class fan-out, late-joiner
+backfill) and manual SQL; updates that keep `student_id` are untouched. It
+changes no row, aborts unless 326 is applied and both lifecycle functions still
+lock `FOR UPDATE`, and is re-runnable. The 0031 backend maps the refusal to the
+existing 409 `student_archived`; without it a refused give is a 500 with no
+row. Migration 330 (A-10) and later files must not drop, replace or disable the
+trigger or `fn_guard_writing_assignment_student_archived()`. Rollback (drop the
+trigger, then the function; reopens the race only) is in the file header.
 
 Migration `326` (STUDENTARCHIVE-0029) turns `DELETE /admin/students/{id}` into an
 archive: `students.archived_at/archived_by/archive_reason`, the append-only
