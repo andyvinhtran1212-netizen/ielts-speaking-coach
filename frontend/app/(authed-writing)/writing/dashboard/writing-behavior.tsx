@@ -127,11 +127,17 @@ const TASK_LABELS: Record<string, string> = {
   task2:          'Task 2',
 };
 
+// W-ASSIGN-STATUS: an assignment is now `graded` as soon as AI grading
+// finishes, but the student can only open the result once it is returned
+// (`delivered`). Until then keep showing a submitted state — never "Đã chấm".
+// Wording pending Content Manager approval; edit it only here.
+const ASSIGNMENT_AWAITING_RETURN_TEXT = '📥 Đã nộp · đang chờ trả bài';
+
 const ASSIGNMENT_STATUS: Record<string, { text: string; pill: string }> = {
   pending:     { text: '⏳ Chờ làm',       pill: 'pill-gray'   },
   in_progress: { text: '📝 Đang làm',      pill: 'pill-blue'   },
   submitted:   { text: '📥 Đã nộp',        pill: 'pill-amber'  },
-  graded:      { text: '✓ Đã chấm',       pill: 'pill-purple' },
+  graded:      { text: ASSIGNMENT_AWAITING_RETURN_TEXT, pill: 'pill-amber' },
   delivered:   { text: '📨 Đã nhận xét',   pill: 'pill-green'  },
 };
 
