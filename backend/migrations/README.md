@@ -20,8 +20,26 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-26 the highest is `320`, so the next
-new migration is `321`. The runner applies any unapplied file regardless of order.
+sequence is dense. As of 2026-10-27 the highest is `324`, so the next
+new migration is `325`. The runner applies any unapplied file regardless of order.
+Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
+323 ROLECHECK-0026, 325 CODEUNIQ-0028, 326 STUDENTARCHIVE-0029, 327–329
+reserved, 330 A-10); files for them may land after `324`, so do not reuse them.
+
+Migration `324` (A-08B, ASSIGNDRAFT-0027) changes
+`writing_drafts_assignment_id_fkey` from `ON DELETE CASCADE` (037) to
+`ON DELETE NO ACTION`, so Postgres refuses to delete a `writing_assignments`
+row while a learner's draft references it (23503, for every role and path);
+`services/writing_assignment_delete_guard.py` maps that to the existing 409
+"Học viên đã bắt đầu — không xoá được". NO ACTION rather than RESTRICT keeps a
+single-statement student delete, which cascades to both rows, working. One
+transaction with `lock_timeout = 5s`: it aborts on orphan drafts or an
+unexpected FK action, adds the FK `NOT VALID` then validates it, and its
+postcondition requires no cascading child FK on `writing_assignments`. No row
+changes; re-applying is a no-op. The backend change is safe before or after
+apply. Rollback (restores CASCADE and reopens the draft-loss hole) is in
+`specs/0027-writing-draft-assignment-delete-guard/research.md` §5 and must ship
+as a new forward migration.
 
 Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
 change: the `web_explanation_content_version_unavailable` refusal now names its
