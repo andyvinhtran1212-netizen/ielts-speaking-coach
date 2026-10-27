@@ -77,8 +77,34 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /caught\?\.status === 429[\s\S]{0,80}break/);
     assert.match(player, /setAttemptRateLimited\(rateLimited\)/);
     assert.match(player, /attemptRateLimited \? <a className="btn-ghost" href="\/exercises">Rời phiên<\/a>/);
-    assert.match(player, /phase === 'rate_limited'[\s\S]{0,500}>Thử lại<[\s\S]{0,300}>Về Exercises</);
+    // D1-UX: Content Manager approved 'Exercises' → 'Bài luyện' for the back link.
+    assert.match(player, /phase === 'rate_limited'[\s\S]{0,500}>Thử lại<[\s\S]{0,300}>Về Bài luyện</);
     assert.match(player, /detail\?\.reset_at[\s\S]{0,180}toLocaleString\('vi-VN'\)/);
+  });
+
+  test('D1-FILL: start label and request size share one constant; thin sessions explain themselves', () => {
+    assert.match(player, /const D1_SESSION_SIZE = 10;/);
+    assert.match(player, /body: JSON\.stringify\(\{ size: D1_SESSION_SIZE \}\)/);
+    assert.doesNotMatch(player, /size: 10\b/);
+    assert.match(player, /const D1_START_KICKER = `Tự nhớ từ · tối đa \$\{D1_SESSION_SIZE\} câu`/);
+    assert.match(player, /<span className="d1x-kicker">\{D1_START_KICKER\}<\/span>/);
+    assert.doesNotMatch(player, /10 câu/);
+    // Only a live (non-review) session smaller than the requested size shows the notice.
+    assert.match(player, /const shortSession = !reviewMode && !!session && session\.exercises\.length < D1_SESSION_SIZE;/);
+    assert.match(player, /<section className="d1x-player">\{shortSession \? <p className="d1x-alert" role="status">\{shortSessionNotice\(session\.exercises\.length\)\}<\/p> : null\}/);
+  });
+
+  test('D1-UX: learner-facing copy uses the four Content Manager approved terms', () => {
+    for (const source of [page, player, hub]) {
+      assert.doesNotMatch(source, /Fill the blank|Productive recall|PRODUCTIVE RECALL|đủ attempt|>Exercises<|Về Exercises|← Exercises/);
+    }
+    assert.match(page, /title: 'Điền từ — Aver Learning'/);
+    assert.match(page, /← Bài luyện<\/a>/);
+    assert.match(page, /<h1>Điền từ<\/h1>/);
+    assert.equal((player.match(/>Về Bài luyện<\/a>/g) || []).length, 3);
+    assert.match(player, /Hệ thống đang đối chiếu đủ số lượt làm đã lưu\./);
+    assert.match(hub, /<h1 class="subpage-header__title">Bài luyện<\/h1>/);
+    assert.match(hub, /<a data-card="d1" href="\/d1-exercise"[\s\S]{0,240}<h3>Điền từ<\/h3>/);
   });
 
   test('exercise hub sends new sessions to Next while retaining HTML rollback', () => {

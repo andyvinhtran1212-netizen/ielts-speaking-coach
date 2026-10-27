@@ -41,7 +41,7 @@ const HTML = /* html */ `
           <span>Vocabulary</span>
         </button>
         <span class="subpage-header__sep">|</span>
-        <h1 class="subpage-header__title">Exercises</h1>
+        <h1 class="subpage-header__title">Bài luyện</h1>
       </div>
     </header>
 
@@ -75,7 +75,7 @@ const HTML = /* html */ `
             <div class="icon"><i data-lucide="pencil"></i></div>
             <span class="ex-pill pill-live">Live</span>
           </div>
-          <h3>Fill the blank</h3>
+          <h3>Điền từ</h3>
           <p class="lede">
             A short sentence with one word missing. Pick the word that fits.
           </p>
