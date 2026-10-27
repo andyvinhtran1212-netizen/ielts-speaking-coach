@@ -46,21 +46,21 @@ const HTML = /* html */ `
     </header>
 
     <div data-state="loading" class="text-center py-16 empty-state">
-      <p class="text-sm">Loading…</p>
+      <p class="text-sm">Đang tải…</p>
     </div>
 
     <div data-state="disabled" class="hidden text-center py-16 empty-state">
-      <p class="text-lg font-medium mb-2">Exercises are not enabled</p>
-      <p class="text-sm">This feature is rolling out. Check back soon.</p>
+      <p class="text-lg font-medium mb-2">Bài luyện chưa được bật</p>
+      <p class="text-sm">Tính năng đang được mở dần. Bạn quay lại sau nhé.</p>
     </div>
 
     <div data-state="error" class="hidden text-center py-16 empty-state">
-      <p class="text-sm">Could not load exercise hub. Please refresh.</p>
+      <p class="text-sm">Không tải được trang bài luyện. Bạn hãy tải lại trang.</p>
     </div>
 
     <div data-state="hub" class="hidden">
-      <h2 class="ex-hub-title text-lg font-semibold mb-1">Pick a drill</h2>
-      <p class="ex-hub-sub text-sm mb-6">Short, targeted vocab practice tied to your bank.</p>
+      <h2 class="ex-hub-title text-lg font-semibold mb-1">Chọn dạng bài luyện</h2>
+      <p class="ex-hub-sub text-sm mb-6">Bài luyện từ vựng ngắn, bám sát vốn từ của bạn.</p>
 
       <!-- Sprint 9.1 — drill cards adopted .mode-card shared primitive
            (components.css). Inner-class skeleton matches Sprint 8.1 +
@@ -73,11 +73,11 @@ const HTML = /* html */ `
         <a data-card="d1" href="/d1-exercise" class="mode-card">
           <div class="head">
             <div class="icon"><i data-lucide="pencil"></i></div>
-            <span class="ex-pill pill-live">Live</span>
+            <span class="ex-pill pill-live">Đang mở</span>
           </div>
           <h3>Điền từ</h3>
           <p class="lede">
-            A short sentence with one word missing. Pick the word that fits.
+            Một câu ngắn bị thiếu một từ. Chọn từ phù hợp để điền vào.
           </p>
         </a>
 
@@ -85,7 +85,7 @@ const HTML = /* html */ `
         <a data-card="flashcards" href="/flashcards" class="mode-card hidden">
           <div class="head">
             <div class="icon"><i data-lucide="layers"></i></div>
-            <span class="ex-pill pill-live">Live</span>
+            <span class="ex-pill pill-live">Đang mở</span>
           </div>
           <h3>Flashcards</h3>
           <p class="lede">
