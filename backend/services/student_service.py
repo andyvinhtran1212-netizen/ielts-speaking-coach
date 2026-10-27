@@ -544,8 +544,8 @@ def fetch_linked_student(db, user_id, account_name: str = "") -> Optional[dict]:
         db.table("students")
         .select(_LINKED_STUDENT_COLUMNS)
         .eq("user_id", str(user_id))
-        # An archived profile is not a link: Writing/class access answers the
-        # existing "not linked" 403 / no-class state (STUDENTARCHIVE-0029).
+        # An archived profile is not an active link (STUDENTARCHIVE-0029).
+        # Writing distinguishes this absence from a never-linked profile.
         .is_("archived_at", "null")
         .order("updated_at", desc=True)
         .limit(20)

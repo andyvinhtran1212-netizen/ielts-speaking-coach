@@ -253,8 +253,8 @@ function statusCode(err: any): number | null {
 function loadFailureMessage(err: any, fallback: string): string {
   const status = statusCode(err);
   const message = typeof err?.message === 'string' ? err.message.trim() : '';
-  // These two list endpoints use 403 for the one actionable learner-facing
-  // explanation (account not linked / Writing permission missing). Do not echo
+  // These two list endpoints use 403 for actionable learner-facing
+  // explanations (archived profile / not linked / Writing permission). Do not echo
   // arbitrary 4xx/5xx details: validation or transport text may be internal.
   if (status === 403 && message) return message;
   return fallback;
