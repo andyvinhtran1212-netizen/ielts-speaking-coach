@@ -290,10 +290,18 @@ export function filterContentByLevel(rows, level) {
   return rows.filter((row) => row.courseLevel === level);
 }
 
-export function localDateTimeIn(days, now = Date.now()) {
-  const date = new Date(now + days * 86_400_000);
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+// Mock windows are Vietnam wall time regardless of the admin's browser zone
+// (Vietnam has no DST, so the offset is a fixed +07:00 as in Writing).
+const VIETNAM_DATE_TIME_PARTS = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+export function vietnamDateTimeIn(days, now = Date.now()) {
+  const parts = Object.fromEntries(VIETNAM_DATE_TIME_PARTS
+    .formatToParts(new Date(now + days * 86_400_000))
+    .filter(({ type }) => type !== 'literal').map(({ type, value }) => [type, value]));
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
 export function vietnamDateIn(days, now = Date.now()) {
@@ -305,9 +313,19 @@ export function vietnamDateIn(days, now = Date.now()) {
   return date.toISOString().slice(0, 10);
 }
 
-export function localToIso(value) {
+export function vietnamLocalToIso(value) {
   const text = TEXT(value);
-  if (!text) return null;
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(text)) return null;
+  const iso = `${text.length === 16 ? `${text}:00` : text}+07:00`;
+  return Number.isNaN(Date.parse(iso)) ? null : iso;
+}
+
+const VIETNAM_DISPLAY = new Intl.DateTimeFormat('vi-VN', {
+  timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+export function formatVietnamDateTime(value) {
+  const date = new Date(TEXT(value));
+  return Number.isNaN(date.getTime()) ? '' : VIETNAM_DISPLAY.format(date);
 }

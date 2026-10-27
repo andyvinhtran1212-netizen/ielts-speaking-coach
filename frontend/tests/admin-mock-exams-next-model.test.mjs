@@ -10,8 +10,7 @@ import {
   examContentStatusLabel,
   filterContentByLevel,
   legacyExamContentPage,
-  localDateTimeIn,
-  localToIso,
+  formatVietnamDateTime,
   mergeRetestCandidates,
   nextExamSection,
   normalizeAssignments,
@@ -21,6 +20,8 @@ import {
   normalizeRetestSummary,
   retakeServableSkills,
   vietnamDateIn,
+  vietnamDateTimeIn,
+  vietnamLocalToIso,
 } from '../lib/admin-mock-exams-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -126,10 +127,25 @@ describe('Admin Mock Exams native model', () => {
     assert.equal(examContentStatusLabel('future-state'), 'Không rõ trạng thái');
   });
 
-  test('converts retake windows deterministically', () => {
-    assert.equal(localDateTimeIn(1, new Date(2026, 0, 1, 8, 5).getTime()), '2026-01-02T08:05');
-    assert.equal(localToIso('not-a-date'), null);
-    assert.match(localToIso('2026-01-02T08:05'), /^2026-01-02T/);
+  test('retake windows are Vietnam wall time whatever the browser zone is', () => {
+    // 2026-01-01 23:30 UTC is already 2026-01-02 06:30 in Vietnam.
+    assert.equal(vietnamDateTimeIn(1, Date.parse('2026-01-01T23:30:00Z')), '2026-01-03T06:30');
+    assert.equal(vietnamDateTimeIn(0, Date.parse('2026-01-01T17:00:00Z')), '2026-01-02T00:00');
+    assert.equal(vietnamLocalToIso('2026-01-02T08:05'), '2026-01-02T08:05:00+07:00');
+    assert.equal(Date.parse(vietnamLocalToIso('2026-01-02T08:05')), Date.parse('2026-01-02T01:05:00Z'));
+    assert.equal(vietnamLocalToIso('2026-01-02T08:05:30'), '2026-01-02T08:05:30+07:00');
+    for (const bad of ['', '  ', 'not-a-date', '2026-01-02', '2026-01-02T08:05Z', null, undefined]) {
+      assert.equal(vietnamLocalToIso(bad), null);
+    }
+  });
+
+  test('stored UTC window instants display in Vietnam time', () => {
+    const shown = formatVietnamDateTime('2026-01-01T17:30:00Z');
+    assert.match(shown, /00:30/);
+    assert.match(shown, /02\/01\/2026/);
+    assert.equal(formatVietnamDateTime('2026-01-02T00:30:00+07:00'), shown);
+    assert.equal(formatVietnamDateTime(''), '');
+    assert.equal(formatVietnamDateTime('garbage'), '');
   });
 
   test('defaults assignment dates from the Vietnam calendar day', () => {
