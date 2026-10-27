@@ -13,16 +13,26 @@ const jwt = (claims: object) => `h.${btoa(JSON.stringify(claims)).replace(/=+$/,
 const fetchMock = vi.fn();
 const replace = vi.fn();
 const signOut = vi.fn();
+const exchangeCodeForSession = vi.fn();
+const getSession = vi.fn();
 let session: any;
 
 beforeEach(() => {
   fetchMock.mockReset();
   replace.mockReset();
   signOut.mockReset();
+  exchangeCodeForSession.mockReset();
+  getSession.mockReset();
   localStorage.clear();
   sessionStorage.clear();
   window.history.replaceState(null, '', '/login');
   session = null;
+  getSession.mockImplementation(async () => ({ data: { session }, error: null }));
+  // supabase-js persists the session that a verified PKCE exchange returns.
+  exchangeCodeForSession.mockImplementation(async () => {
+    persist('sid-fresh');
+    return { data: { session }, error: null };
+  });
   signOut.mockImplementation(async () => {
     localStorage.removeItem(STORE_KEY); // an already-revoked session is signed out locally
     return { error: null };
@@ -48,7 +58,8 @@ beforeEach(() => {
   Object.assign(realWindow, {
     api: { base: 'https://api.test' },
     getSupabase: () => ({ auth: {
-      getSession: async () => ({ data: { session }, error: null }),
+      getSession,
+      exchangeCodeForSession,
       signInWithOAuth: async () => ({ error: null }),
       signOut,
     } }),
@@ -116,9 +127,38 @@ it('an OAuth callback is a fresh sign-in: it reaches /auth/me and clears the log
   }), { status: 200 }));
   renderLogin();
   await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/onboarding'));
+  expect(exchangeCodeForSession).toHaveBeenCalledTimes(1);
+  expect(exchangeCodeForSession).toHaveBeenCalledWith('abc');
+  expect(getSession).not.toHaveBeenCalled();
   expect(meCalls()).toHaveLength(1);
+  expect(meCalls()[0][1].headers.Authorization).toBe(`Bearer ${session.access_token}`);
   expect(sessionStorage.getItem(SIGNED_OUT_SESSION_KEY)).toBeNull();
   expect(window.location.search).toBe('');
+});
+
+// F06: the client is PKCE-only, so implicit-flow fragments are stale or forged.
+it('an implicit #access_token callback is scrubbed and rejected, never exchanged or sent to /auth/me', async () => {
+  persist('sid-1');
+  window.history.replaceState(null, '', '/login#access_token=forged&refresh_token=r&expires_in=3600&token_type=bearer');
+  renderLogin();
+  expect((await screen.findByRole('alert')).textContent).toBe('Đăng nhập thất bại. Vui lòng thử lại.');
+  expect(window.location.hash).toBe('');
+  expect(document.location.href).not.toContain('access_token');
+  expect(exchangeCodeForSession).not.toHaveBeenCalled();
+  expect(meCalls()).toHaveLength(0);
+});
+
+it('a failed PKCE exchange shows the error and does not fall back to a stored session', async () => {
+  persist('sid-1');
+  exchangeCodeForSession.mockImplementation(async () => ({
+    data: { session: null }, error: { message: 'PKCE code verifier not found in storage' },
+  }));
+  window.history.replaceState(null, '', '/login?code=reused');
+  renderLogin();
+  expect((await screen.findByRole('alert')).textContent).toBe('Đăng nhập thất bại. Vui lòng thử lại.');
+  expect(window.location.search).toBe('');
+  expect(getSession).not.toHaveBeenCalled();
+  expect(meCalls()).toHaveLength(0);
 });
 
 it('a genuinely expired session (no logout in this tab) keeps the existing visible error', async () => {
