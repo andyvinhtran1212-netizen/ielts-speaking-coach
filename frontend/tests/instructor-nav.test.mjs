@@ -47,6 +47,31 @@ describe('W-6b — instructor nav item (aver-chrome)', () => {
     assert.match(CHROME, /if \(role !== undefined\) this\.setRole\(role\)/);
   });
 
+  // U-12: `.user-menu-item { display: flex }` overrides the UA [hidden] rule, so
+  // the hide must be re-asserted OUTSIDE every @media block. It used to live only
+  // in the <=1024.98px block, so a student saw the link in the 1280px dropdown.
+  it('keeps the hidden link hidden at every viewport width', () => {
+    const style = CHROME.match(/const STYLE = \/\* css \*\/ `([\s\S]*?)`;/)[1];
+    let topLevel = '';
+    let depth = 0;
+    let inMedia = false;
+    for (let i = 0; i < style.length; i += 1) {
+      if (depth === 0 && style.startsWith('@media', i)) inMedia = true;
+      const ch = style[i];
+      if (!inMedia) topLevel += ch;
+      if (ch === '{') depth += 1;
+      if (ch === '}') {
+        depth -= 1;
+        if (depth === 0 && inMedia) inMedia = false;
+      }
+    }
+    assert.match(
+      topLevel,
+      /\.user-menu-item\[hidden\]\s*\{\s*display:\s*none;?\s*\}/,
+      '.user-menu-item[hidden] { display: none } must apply outside any @media query',
+    );
+  });
+
   it('applies role on connect (pre-connect setRole survives upgrade)', () => {
     assert.match(CHROME, /this\._applyRole\(\);/);
   });
