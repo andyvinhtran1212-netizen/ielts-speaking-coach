@@ -83,10 +83,31 @@ code deploy.
     that admin re-enrolls;
   - (c) sign in with the backup factor only;
   - (e) bootstrap from zero eligible admins, with Vinh present in an agreed
-    window. Suspend every staging admin through the RPC, including a
-    synthetic one. Show that path (d) and the app cannot restore access.
-    Run `fn_bootstrap_admin_recovery` for Vinh's staging account, check the
-    audit row and the email, then restore the others through path (d).
+    window. First show the bootstrap refuses `admins_exist`. The RPC cannot
+    reach zero admins (`actor_not_admin`, `last_admin`), so set up the start
+    state out of band, **on staging only** (check the project ref first;
+    never production), as owner in the SQL editor. Record the returned ids
+    (ids only) in `verification.md`:
+
+    ```sql
+    UPDATE public.users SET is_active = false
+     WHERE role = 'admin' AND is_active AND suspended_at IS NULL
+    RETURNING id;
+    ```
+
+    It leaves the marker untouched, so the suspension guard allows it, and
+    the trigger audits it as `out_of_band`. Show that path (d) fails with
+    `actor_not_admin` and the app returns 403. Run `fn_bootstrap_admin_recovery`
+    for Vinh's staging account and check the `bootstrap_recovery` row and the
+    email. Restore one synthetic admin through path (d) from Vinh. Revert the
+    rest with the matching owner update on staging, then run P4. It must show
+    the pre-drill `active_admins`:
+
+    ```sql
+    UPDATE public.users SET is_active = true
+     WHERE id IN (<ids recorded at setup>) AND role = 'admin'
+       AND NOT is_active AND suspended_at IS NULL;
+    ```
 
 ## Production
 
