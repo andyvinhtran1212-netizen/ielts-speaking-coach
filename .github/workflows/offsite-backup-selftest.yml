@@ -1,0 +1,70 @@
+name: Offsite backup self-test
+
+# Runs the backup and restore-drill scripts end to end against local services
+# only: a Supabase-shaped Postgres 17 source (non-superuser `postgres`, auth/
+# storage schemas, RLS, event trigger, publication), a mock Storage API, an
+# S3-compatible store (moto) and a throwaway drill cluster. No secrets.
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/backup/**'
+      - '.github/workflows/offsite-backup.yml'
+      - '.github/workflows/offsite-restore-drill.yml'
+      - '.github/workflows/offsite-backup-selftest.yml'
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    name: Offsite backup self-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      source:
+        image: postgres:17
+        env:
+          POSTGRES_USER: supabase_admin
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U supabase_admin"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      drill:
+        image: postgres:17
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U drill"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      s3:
+        image: motoserver/moto:5.2.4
+        ports:
+          - 5000:5000
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: scripts/backup
+
+      - name: Install pg_dump 17 and age
+        run: bash scripts/backup/install_tools.sh
+
+      - name: Backup, drill, storage restore and negative cases
+        env:
+          SELFTEST_SRC_ADMIN_URL: postgres://supabase_admin@127.0.0.1:5433/postgres
+          SELFTEST_SRC_HOSTPORT: 127.0.0.1:5433
+          SELFTEST_DST_URL: postgres://drill@127.0.0.1:5434/postgres
+          SELFTEST_S3_ENDPOINT: http://127.0.0.1:5000
+        run: bash scripts/backup/tests/selftest.sh
