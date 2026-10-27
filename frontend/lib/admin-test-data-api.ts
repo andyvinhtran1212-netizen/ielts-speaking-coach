@@ -8,6 +8,15 @@ export type AdminTestDataVisibilityWire = ApiGetJson<'/admin/test-data/visibilit
 /** Read by public/js/api.js, which then sends `X-Show-Test-Data: 1`. */
 export const SHOW_TEST_DATA_STORAGE_KEY = 'aver.showTestData';
 
+/**
+ * The backend hides test data only when ENVIRONMENT is staging, so any other
+ * build (production, local/fixture `test`) never asks — admin pages there make
+ * no extra request and the toggle stays absent.
+ */
+export function isStagingRuntime() {
+  return window.__AVER_RUNTIME_CONFIG__?.environment === 'staging';
+}
+
 export function getAdminTestDataVisibility() {
   return getBrowserJson('/admin/test-data/visibility');
 }

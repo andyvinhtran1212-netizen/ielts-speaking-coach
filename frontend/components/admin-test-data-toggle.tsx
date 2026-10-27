@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 import {
   getAdminTestDataVisibility,
+  isStagingRuntime,
   normalizeTestDataVisibility,
   SHOW_TEST_DATA_STORAGE_KEY,
   type AdminTestDataVisibilityWire,
@@ -12,14 +13,15 @@ import {
 /**
  * TASK B2 — staging only. The backend hides E2E/QA test data from list views
  * when HIDE_TEST_DATA is on; this bar lets an admin opt in to see it. Renders
- * nothing unless the backend reports hiding as active. The state shown is the
- * server's answer for this browser, and a change reloads so every panel
- * refetches canonical data with the new header.
+ * nothing (and asks nothing) off staging, or unless the backend reports hiding
+ * as active. The state shown is the server's answer for this browser, and a
+ * change reloads so every panel refetches canonical data with the new header.
  */
 export function AdminTestDataToggle() {
   const [visibility, setVisibility] = useState<AdminTestDataVisibilityWire | null>(null);
 
   useEffect(() => {
+    if (!isStagingRuntime()) return;
     let dead = false;
     getAdminTestDataVisibility()
       .then((payload) => { if (!dead) setVisibility(normalizeTestDataVisibility(payload)); })

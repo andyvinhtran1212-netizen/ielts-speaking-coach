@@ -13,9 +13,10 @@ const reload = vi.fn();
 
 beforeEach(() => {
   window.localStorage.clear();
+  window.__AVER_RUNTIME_CONFIG__ = { environment: 'staging' };
   Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, reload } });
 });
-afterEach(() => { cleanup(); reload.mockReset(); });
+afterEach(() => { cleanup(); reload.mockReset(); vi.mocked(getBrowserJson).mockClear(); delete window.__AVER_RUNTIME_CONFIG__; });
 
 describe('TASK B2 staging test-data toggle', () => {
   it('renders nothing unless the backend reports hiding as active', async () => {
@@ -27,6 +28,18 @@ describe('TASK B2 staging test-data toggle', () => {
     const view = render(<AdminTestDataToggle />);
     await waitFor(() => expect(getBrowserJson).toHaveBeenCalledWith('/admin/test-data/visibility'));
     expect(view.container.innerHTML).toBe('');
+  });
+
+  it('asks nothing outside a staging runtime (production, local/fixture test)', async () => {
+    visibility.payload = { hiding_enabled: true, showing_test_data: false };
+    for (const environment of ['production', 'test', null]) {
+      window.__AVER_RUNTIME_CONFIG__ = { environment };
+      const view = render(<AdminTestDataToggle />);
+      await Promise.resolve();
+      expect(view.container.innerHTML).toBe('');
+      cleanup();
+    }
+    expect(getBrowserJson).not.toHaveBeenCalled();
   });
 
   it('opts this browser in, then reloads so panels refetch with the header', async () => {
