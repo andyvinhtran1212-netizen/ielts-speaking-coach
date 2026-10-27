@@ -12532,6 +12532,8 @@ export interface paths {
          *     image surfaces here instead of silently degrading to regex-only. Always
          *     returns HTTP 200; the ``status`` field (healthy | degraded | error) carries
          *     the verdict, matching /health/ready's convention (no 5xx juggling).
+         *     Results are reused for ``_GRAMMAR_PROBE_TTL_SECONDS``; ``checked_at`` is
+         *     when the live probe ran.
          */
         get: operations["health_grammar_check_health_grammar_check_get"];
         put?: never;
