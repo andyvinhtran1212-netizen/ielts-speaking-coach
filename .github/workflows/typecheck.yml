@@ -8,10 +8,12 @@ name: Typecheck + OpenAPI drift
 #   1. tsc --noEmit over the strict Next app plus the opt-in legacy
 #      `// @ts-check` surface — catches a FE call-site using a field the
 #      generated api.d.ts no longer has.
-#   2. Regenerate frontend/types/api.d.ts from the LIVE app's /openapi.json and
+#   2. Regenerate frontend/types/api.d.ts from the in-process app.openapi() and
 #      git-diff it — catches a BE response_model change that wasn't re-committed
 #      (spec↔type drift). Generated from the in-process app (not a deployment) so
-#      it reflects THIS PR's models, not what's currently shipped.
+#      it reflects THIS PR's models, not what's currently shipped. The HTTP
+#      /openapi.json route is closed by default (ENABLE_API_DOCS); app.openapi()
+#      does not depend on it.
 
 on:
   pull_request:
