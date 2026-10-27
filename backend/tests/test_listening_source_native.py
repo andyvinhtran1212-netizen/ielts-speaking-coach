@@ -92,7 +92,8 @@ def test_native_crop_directions_are_source_bound_and_preserve_word_limits(block_
     delivered = collection.sign_source_block(block, lambda _: pytest.fail('No crop'), manifest_sha256=SOURCE_MANIFEST)
     assert delivered['instruction']['student_vi'] == native.revision()['blocks'][block_id]['instruction_vi']
     assert delivered['instruction']['word_limit'] == before['instruction'].get('word_limit')
-    assert delivered['instruction']['source_en'] == before['instruction']['source_en']
+    # Only the reviewed text override (80-days-text-overrides-v1.json) may touch source_en.
+    assert delivered['instruction']['source_en'] == before['instruction']['source_en'].replace('(同义词)', '(từ đồng nghĩa)')
     assert block == before
     block['instruction']['student_vi'] += ' Changed source.'
     assert native.native_instruction_vi(block, manifest_sha256=SOURCE_MANIFEST) is None

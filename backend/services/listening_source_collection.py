@@ -127,6 +127,12 @@ def sign_source_block(block: dict, signer: Callable[[str], str | None], *, study
             block.update(display_kind="practice", description="", instruction=SourceInstruction.model_validate(raw_instruction).model_dump())
         if instruction_vi is not None:
             block["instruction"]["student_vi"] = instruction_vi
+        from services.listening_source_text_overrides import override_text
+        block["instruction"]["source_en"] = override_text(block["instruction"]["source_en"], field="instruction.source_en",
+                                                          block_id=block["block_id"], manifest_sha256=manifest_sha256)
+        if "description" in block:
+            block["description"] = override_text(block["description"], field="description",
+                                                 block_id=block["block_id"], manifest_sha256=manifest_sha256)
     except (ValidationError, ValueError, KeyError, TypeError) as exc:
         raise HTTPException(503, "Thông tin bài nguồn chưa hợp lệ.") from exc
     # Archival PDF crops remain source evidence, never learner question content.
