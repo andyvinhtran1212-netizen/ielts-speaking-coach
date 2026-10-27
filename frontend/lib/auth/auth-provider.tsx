@@ -28,6 +28,13 @@ import {
 import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '@/lib/learner-tab-drafts.mjs';
 import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
+import { getCurrentActiveStatus } from '@/lib/auth-api';
+import {
+  activationDecision,
+  isRememberedActive,
+  rememberActive,
+  requiresActivation,
+} from '@/lib/auth/activation-gate.mjs';
 
 export type AuthStatus = 'initial-loading' | 'signed-in' | 'signed-out';
 
@@ -71,7 +78,33 @@ function waitForSupabase(): Promise<any | null> {
   });
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function sessionStore(): Storage | null {
+  try { return window.sessionStorage; } catch { return null; }
+}
+
+// W-03 — ask the backend whether this account is activated, through the shared
+// authenticated transport (typed /auth/check-active consumer). Any failure —
+// transport missing, network, non-2xx, malformed reply — is 'unknown'.
+async function probeActivation() {
+  try {
+    return activationDecision(true, await getCurrentActiveStatus());
+  } catch {
+    return activationDecision(false, null);
+  }
+}
+
+export function AuthProvider({
+  children,
+  activationGate = false,
+}: {
+  children: ReactNode;
+  /**
+   * W-03 — learner layouts: an inactive account is sent to /login (activation
+   * dialog) before `signed-in` is ever exposed, so the page never renders or
+   * calls learner APIs first. Exempt paths: see lib/auth/activation-gate.mjs.
+   */
+  activationGate?: boolean;
+}) {
   const [status, setStatus] = useState<AuthStatus>('initial-loading');
   const [user, setUser] = useState<AuthUser | null>(null);
   const sbRef = useRef<any>(null);
@@ -79,6 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sessionReadRef = useRef(0);
   // Set while the user-initiated <aver-chrome> logout owns the navigation.
   const chromeSignOutRef = useRef(false);
+  // W-03 — the account whose activation this provider already settled (active
+  // or fail-open). Token refreshes for it never re-enter initial-loading.
+  const activationSettledRef = useRef<string | null>(null);
 
   // Single transition point: every signal (initial getSession, refresh events,
   // cross-tab storage sync, chrome sign-out) funnels through here, so a null
@@ -92,7 +128,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     confirmedAccountRef.current = nextAccount;
     try { clearCoreOperationIntents(window.sessionStorage, session?.user?.id || null); } catch { /* auth must proceed */ }
     if (session && session.user) {
-      setUser({ id: session.user.id, email: session.user.email ?? null });
+      const signedIn = { id: session.user.id, email: session.user.email ?? null };
+      const accountId: string = session.user.id;
+      if (
+        activationGate
+        && activationSettledRef.current !== accountId
+        && requiresActivation(window.location.pathname)
+        && !isRememberedActive(sessionStore(), accountId)
+      ) {
+        // Hold the private-data-free loading state until the backend answers;
+        // a newer auth signal (logout, account switch) supersedes this probe.
+        const read = sessionReadRef.current;
+        const store = sessionStore();
+        setUser(null);
+        setStatus('initial-loading');
+        void probeActivation().then((decision) => {
+          if (read !== sessionReadRef.current) return;
+          if (decision === 'inactive') {
+            // Stay in initial-loading: nothing private renders before /login.
+            window.location.replace('/login');
+            return;
+          }
+          if (decision === 'active') rememberActive(store, accountId);
+          activationSettledRef.current = accountId;
+          setUser(signedIn);
+          setStatus('signed-in');
+        });
+        return;
+      }
+      setUser(signedIn);
       setStatus('signed-in');
     } else {
       setUser(null);
@@ -102,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // private-data-free loading state bfcache re-validation uses.
       setStatus(chromeSignOutRef.current ? 'initial-loading' : 'signed-out');
     }
-  }, []);
+  }, [activationGate]);
 
   useEffect(() => {
     let disposed = false;

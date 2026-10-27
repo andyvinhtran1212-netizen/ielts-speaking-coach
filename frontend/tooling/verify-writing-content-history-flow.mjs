@@ -61,6 +61,7 @@ async function fixture(options = {}) {
       if (method === 'POST' && ['/api/analytics/events', '/api/error-logs'].includes(url.pathname)) return route.fulfill({ status: 204, headers: cors });
       if (method === 'GET') {
         if (url.pathname === '/auth/me') return route.fulfill(reply({ id: USER, role: 'student', is_active: true }));
+        if (url.pathname === '/auth/check-active') return route.fulfill(reply({ is_active: true })); // W-03 probe
         if (url.pathname === '/api/student/permissions') return route.fulfill(reply({ writing: options.permitted !== false }));
         if (url.pathname === '/api/writing/my-assignments') return route.fulfill(reply({ assignments: [], student: {} }));
         if (url.pathname === '/api/writing/my-essays') return route.fulfill(reply({ essays: [] }));
