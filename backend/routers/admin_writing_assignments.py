@@ -142,7 +142,9 @@ def _refuse_archived_students(student_ids: list[str]) -> None:
     """409 before any write when a requested learner is archived (0029).
 
     ``fn_create_writing_assignments_idempotent`` checks memberships only for
-    cohort gives, so an individual give must be refused here.
+    cohort gives, so an individual give must be refused here. This is the fast
+    path; an archive committing after it is refused by the 331 trigger and
+    mapped by ``student_service.raise_if_student_archived``.
     """
     archived = student_service.archived_student_ids(supabase_admin, student_ids)
     if archived:
@@ -373,6 +375,8 @@ async def create_assignments(
                 "p_analysis_level": body.analysis_level,
             }).execute()
         except Exception as exc:
+            # 331: archived after the pre-check → the whole RPC rolled back.
+            student_service.raise_if_student_archived(supabase_admin, exc, student_id_strs)
             message = str(exc)
             if "payload_mismatch" in message:
                 raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
@@ -433,7 +437,12 @@ async def create_assignments(
         for pid in prompt_id_strs
     ]
 
-    r = supabase_admin.table("writing_assignments").insert(payload).execute()
+    try:
+        r = supabase_admin.table("writing_assignments").insert(payload).execute()
+    except Exception as exc:
+        # 331: archived after the pre-check → the bulk insert created no row.
+        student_service.raise_if_student_archived(supabase_admin, exc, student_id_strs)
+        raise
     if not r.data:
         raise HTTPException(500, "Failed to create assignments")
 
@@ -537,6 +546,8 @@ async def fan_out_to_cohort(
                 "p_analysis_level": body.analysis_level,
             }).execute()
         except Exception as exc:
+            # 331 backstop (archive ends memberships, so roster_changed is usual).
+            student_service.raise_if_student_archived(supabase_admin, exc, student_ids)
             message = str(exc)
             if "payload_mismatch" in message:
                 raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc

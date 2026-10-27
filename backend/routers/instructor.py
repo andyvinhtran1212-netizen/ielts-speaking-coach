@@ -280,7 +280,12 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
         "analysis_level": body.analysis_level,
         "grading_tier":   body.grading_tier,
     }
-    r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
+    try:
+        r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
+    except Exception as exc:
+        # 331: archived after the check above → no row was created.
+        student_service.raise_if_student_archived(supabase_admin, exc, [str(body.student_id)])
+        raise
     return (r.data or [{}])[0]
 
 
