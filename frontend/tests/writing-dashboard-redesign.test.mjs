@@ -1052,10 +1052,16 @@ describe('writing-dashboard / W-ASSIGN-STATUS student assignment label', () => {
     assert.match(graded, /pill:\s*'pill-amber'/);
   });
 
+  test('submitted shares the awaiting-return label with graded (same state to the student)', () => {
+    const submitted = entry('submitted');
+    assert.match(submitted, /text:\s*ASSIGNMENT_AWAITING_RETURN_TEXT/);
+    assert.match(submitted, /pill:\s*'pill-amber'/);
+  });
+
   test('no assignment state renders "Đã chấm"; only delivered shows the returned result', () => {
     assert.doesNotMatch(assignmentStatus(), /Đã chấm/);
     assert.match(entry('delivered'), /text:\s*'📨 Đã nhận xét'/);
-    assert.match(entry('submitted'), /text:\s*'📥 Đã nộp'/);
+    assert.match(entry('submitted'), /text:\s*ASSIGNMENT_AWAITING_RETURN_TEXT/);
   });
 
   test('essay pill keeps "Đã chấm" (clickable) for delivered only', () => {
