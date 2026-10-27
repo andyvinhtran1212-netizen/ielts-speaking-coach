@@ -83,6 +83,7 @@ interface Prompt {
   title: string;
   promptText: string;
   promptImageUrl: string | null;
+  promptImageLookupFailed: boolean;
 }
 
 interface WritingBridge {
@@ -591,6 +592,7 @@ function WritingWorkspace({ state, register, remaining, locked = false }: {
             {prompt?.promptText || `(No question available for ${task === 'task1' ? 'Task 1' : 'Task 2'})`}
           </div>
           {task === 'task1' && prompt?.promptImageUrl ? <img className="me-prompt-image" src={prompt.promptImageUrl} alt="Task 1 chart or illustration" /> : null}
+          {task === 'task1' && prompt?.promptImageLookupFailed ? <p className="me-prompt-image-failed" role="alert">The Task 1 chart could not be loaded. Retrying automatically — tell your invigilator if it does not appear.</p> : null}
         </section>
         <div
           aria-label="Resize question and answer panels"

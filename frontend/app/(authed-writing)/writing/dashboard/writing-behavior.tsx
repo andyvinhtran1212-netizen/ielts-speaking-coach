@@ -1372,6 +1372,41 @@ function trapSubmitModalFocus(ev: KeyboardEvent) {
   }
 }
 
+// Task 1 charts are private and signed per request. When signing failed the
+// backend sends prompt_image_lookup_failed: say so and offer a retry (a
+// side-effect-free re-read of the assignment) instead of a chartless prompt.
+function applyModalPromptImage(prompt: any, ms: ModalState, assignmentId: string) {
+  const url = prompt?.prompt_image_url || '';
+  const failed = !url && prompt?.prompt_image_lookup_failed === true;
+  const workspaceEl = $('modal-workspace');
+  if (workspaceEl) workspaceEl.classList.toggle('has-prompt-image', !!url);
+  const imgEl = $('modal-prompt-image') as HTMLImageElement | null;
+  if (imgEl) {
+    if (url) {
+      imgEl.src = url;
+      imgEl.classList.remove('hidden');
+    } else {
+      imgEl.src = '';
+      imgEl.classList.add('hidden');
+    }
+  }
+  const failedEl = $('modal-prompt-image-failed');
+  if (failedEl) failedEl.classList.toggle('hidden', !failed);
+  const retryBtn = $('modal-prompt-image-retry') as HTMLButtonElement | null;
+  if (!retryBtn) return;
+  retryBtn.disabled = false;
+  retryBtn.onclick = !failed || !assignmentId ? null : async () => {
+    retryBtn.disabled = true;
+    try {
+      const fresh = await window.api.get<any>('/api/writing/my-assignments/' + encodeURIComponent(assignmentId));
+      if (ms.dead || ms.assignmentId !== assignmentId) return;
+      applyModalPromptImage(fresh?.assignment?.writing_prompts || {}, ms, assignmentId);
+    } catch {
+      retryBtn.disabled = false;
+    }
+  };
+}
+
 function renderModal(data: any, ms: ModalState, freshTimer: any) {
   const assignment = data.assignment || {};
   const prompt = assignment.writing_prompts || {};
@@ -1391,18 +1426,7 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
   const promptTextEl = $('modal-prompt-text');
   if (promptTextEl) promptTextEl.textContent = prompt.prompt_text || '';
 
-  const workspaceEl = $('modal-workspace');
-  if (workspaceEl) workspaceEl.classList.toggle('has-prompt-image', !!prompt.prompt_image_url);
-  const imgEl = $('modal-prompt-image') as HTMLImageElement | null;
-  if (imgEl) {
-    if (prompt.prompt_image_url) {
-      imgEl.src = prompt.prompt_image_url;
-      imgEl.classList.remove('hidden');
-    } else {
-      imgEl.src = '';
-      imgEl.classList.add('hidden');
-    }
-  }
+  applyModalPromptImage(prompt, ms, String(assignment.id || ms.assignmentId || ''));
 
   const instrEl = $('modal-instructions');
   if (assignment.instructions) {
