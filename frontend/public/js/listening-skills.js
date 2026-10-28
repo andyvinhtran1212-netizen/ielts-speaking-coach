@@ -106,7 +106,7 @@ function drillSort(a, b) {
 }
 
 function displayDrillTitle(t) {
-  const raw = String(t.title || t.test_id || 'Skill drill').trim();
+  const raw = String(t.title || t.test_id || 'Bài luyện kỹ năng').trim();
   const parts = raw.split(/\s+[—·]\s+/).filter(Boolean);
   return parts.length > 1 ? parts[parts.length - 1] : raw;
 }

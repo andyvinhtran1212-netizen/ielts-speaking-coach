@@ -134,18 +134,18 @@ export function GrammarCheckup() {
     <main className="gd-shell">
       <a className="gd-back" href="/grammar">← Grammar Wiki</a>
       <header className="gd-hero">
-        <div><p className="gd-eyebrow">MASTER30 · BETA</p><h1>Grammar Diagnostic & Adaptive Review</h1><p>Nhận diện điểm nghẽn ngữ pháp theo 14 năng lực, rồi đề xuất tuyến ôn phù hợp. Kết quả là hồ sơ sẵn sàng, không phải band IELTS.</p></div>
-        <span className="gd-beta">Structural alpha</span>
+        <div><p className="gd-eyebrow">MASTER30 · BETA</p><h1>Chẩn đoán ngữ pháp & ôn tập thích ứng</h1><p>Nhận diện điểm nghẽn ngữ pháp theo 14 năng lực, rồi đề xuất tuyến ôn phù hợp. Kết quả là hồ sơ sẵn sàng, không phải band IELTS.</p></div>
+        <span className="gd-beta">Bản thử nghiệm</span>
       </header>
       <section className="gd-setup" aria-labelledby="gd-start-title">
         <div><p className="gd-kicker">Bắt đầu</p><h2 id="gd-start-title">Chọn độ sâu phù hợp</h2></div>
         <div className="gd-choice-grid" role="radiogroup" aria-label="Độ dài bài kiểm tra">
-          <button type="button" role="radio" className={length === 'QUICK' ? 'is-selected' : ''} aria-checked={length === 'QUICK'} onClick={() => setLength('QUICK')}><strong>Quick Check-up</strong><span>28 câu · khoảng 15–20 phút</span><small>18 câu sàng lọc + 10 câu xác nhận</small></button>
-          <button type="button" role="radio" className={length === 'FULL' ? 'is-selected' : ''} aria-checked={length === 'FULL'} onClick={() => setLength('FULL')}><strong>Full Diagnostic</strong><span>54 câu · có thể tạm dừng</span><small>34 câu diện rộng + 20 câu xác nhận</small></button>
+          <button type="button" role="radio" className={length === 'QUICK' ? 'is-selected' : ''} aria-checked={length === 'QUICK'} onClick={() => setLength('QUICK')}><strong>Kiểm tra nhanh</strong><span>28 câu · khoảng 15–20 phút</span><small>18 câu sàng lọc + 10 câu xác nhận</small></button>
+          <button type="button" role="radio" className={length === 'FULL' ? 'is-selected' : ''} aria-checked={length === 'FULL'} onClick={() => setLength('FULL')}><strong>Chẩn đoán đầy đủ</strong><span>54 câu · có thể tạm dừng</span><small>34 câu diện rộng + 20 câu xác nhận</small></button>
         </div>
         <div className="gd-fields">
           <label>Điểm xuất phát<select value={mode} onChange={(event) => setMode(event.target.value as 'ENTRY' | 'REVIEW')}><option value="ENTRY">Kiểm tra nền tảng phổ thông</option><option value="REVIEW">Ôn theo chương trình MASTER30</option></select></label>
-          <label>Hướng học<select value={module} onChange={(event) => setModule(event.target.value as 'GENERAL' | 'ACADEMIC')}><option value="GENERAL">General English / IELTS chung</option><option value="ACADEMIC">IELTS Academic</option></select></label>
+          <label>Hướng học<select value={module} onChange={(event) => setModule(event.target.value as 'GENERAL' | 'ACADEMIC')}><option value="GENERAL">Tiếng Anh tổng quát / IELTS chung</option><option value="ACADEMIC">IELTS Academic</option></select></label>
         </div>
         <div className="gd-note"><strong>Tự chấm phần trắc nghiệm.</strong> Bài tạo câu không tự chấm và chỉ xuất hiện khi giáo viên giao riêng.</div>
         {error && <div className="gd-inline-error" role="alert">{error}</div>}

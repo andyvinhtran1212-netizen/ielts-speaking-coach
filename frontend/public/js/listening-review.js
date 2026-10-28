@@ -175,7 +175,7 @@
   // the player accepts but this map does not silently lands the student in the
   // Full Test library instead of where they started.
   var BACK_TARGETS = {
-    full:     { href: '/listening/tests',     label: '← Listening tests' },
+    full:     { href: '/listening/tests',     label: '← Bài thi Listening' },
     mini:     { href: '/listening/mini-test', label: '← Mini tests' },
     drill:    { href: '/listening/skills',    label: '← Luyện kĩ năng' },
     practice: { href: '/listening/practice',  label: '← Luyện nhanh' },

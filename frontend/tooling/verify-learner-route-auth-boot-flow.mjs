@@ -106,7 +106,7 @@ try {
     page.on('pageerror', (error) => pageErrors.push(error.message));
     await page.goto(`${BASE}/grammar-checkup`);
     try {
-      await page.getByRole('heading', { name: 'Grammar Diagnostic & Adaptive Review' }).waitFor({ timeout: 15_000 });
+      await page.getByRole('heading', { name: 'Chẩn đoán ngữ pháp & ôn tập thích ứng' }).waitFor({ timeout: 15_000 });
     } catch (error) {
       throw new Error(`/grammar-checkup did not boot (requests=${requests.join(', ') || 'none'}, pageErrors=${pageErrors.join(' | ') || 'none'}, body=${await bodyText(page)})`, { cause: error });
     }
