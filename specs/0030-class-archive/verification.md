@@ -12,7 +12,7 @@
 | FR-006 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (RPC atomicity, idempotence, counts, no audit on name edit, client denied) plus AC-1, AC-11 on staging | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (restore-student skips archived class with negative control, archive committing mid-restore → 200 and skipped, candidate-class FOR SHARE lock, FOR UPDATE literal, no 331 names) plus AC-10 on staging | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_class_archive_routes.py (pre-check, mid-flight archive between Step 3 and 3b, revert-failure 503, re-claim, rate limit, no DB text) plus AC-4 on staging | PENDING |
-| FR-009 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (legacy inactive class stays legacy, postcondition count) plus AC-12 snapshot equality on staging | PENDING |
+| FR-009 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (legacy inactive class stays legacy, postcondition count) plus AC-12 snapshot comparison on staging | PENDING |
 | FR-010 | kind=journey; ref=AC-14 admin dialogs on staging plus frontend admin classes tests | PENDING |
 | FR-011 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (old-backend PATCH both ways after apply, light and full rollback, re-apply, refusals) | PENDING |
 
@@ -39,7 +39,7 @@ Preconditions:
 | AC-9 | Restore E2E-B | back on `/my-class`; gives reopen; drafts intact; `restore` audit row; class code enrolls |
 | AC-10 | 0029-archive a learner of E2E-A and archived E2E-B, then restore the learner | 200; E2E-A active; E2E-B in `skipped_archived_cohort_ids`; `students.cohort_id` = E2E-A |
 | AC-11 | With learner and instructor JWTs: PATCH `/rest/v1/cohorts`, POST `/rest/v1/student_cohort_memberships`, GET `/rest/v1/class_lifecycle_audit`, POST `/rest/v1/rpc/fn_archive_cohort` and `/rpc/fn_restore_cohort` | all refused; DB unchanged |
-| AC-12 | FR-009: before apply and after deploy, the `/my-class` and `/writing/my-assignments` responses of the 3 learners of "QA Course 1 Resume 20261010" | byte-identical; the class still has `archived_at IS NULL`; its 4 open gives keep their status and stay workable; admin shows "Lưu trữ cũ — chưa áp dụng" |
+| AC-12 | FR-009: before apply and after deploy, the `/my-class` and `/writing/my-assignments` responses of the 3 learners of "QA Course 1 Resume 20261010" | `/my-class` byte-identical; `/writing/my-assignments` identical once `class_archived` and `archive_finish_allowed` are removed from every row, and both are `false` on the 4 legacy gives; the class still has `archived_at IS NULL`; its 4 open gives keep their status and stay workable; admin shows "Lưu trữ cũ — chưa áp dụng" |
 | AC-13 | Timed give in E2E-B started before the archive | autosave and auto-submit succeed |
 | AC-14 | Admin confirm dialogs (archive, restore, apply to legacy) at desktop and mobile, light and dark | copy as in `ui-states.md`; counts equal `archive-preview`; reason optional |
 

@@ -48,7 +48,7 @@
 | Write paths W2–W13 into an archived class | 2xx | 409 `{"code":"cohort_archived","message":…}` |
 | `POST /auth/activate` with an archived class's code | 200, enrolled | 400 generic, code unused; a race gives the same. A failed revert gives 503 `activation_incomplete`. |
 | `GET /class/me`, `/class/my-assignments` | all memberships | archived classes omitted |
-| `GET /writing/my-assignments` (+ detail) | rows | plus `class_archived`, `archive_finish_allowed` |
+| `GET /writing/my-assignments` (+ detail) | rows | plus `class_archived`, `archive_finish_allowed` on every row; both `false` unless the class is archived (Definitions), so a legacy inactive class's gives carry `false`/`false` |
 | Learner work in an archived class | 2xx | 409 `cohort_archived`, except the D3 timed case |
 | `POST /admin/students/{id}/restore` (0029) | 500 when a former class is archived | 200; receipt and audit include `skipped_archived_cohort_ids` |
 

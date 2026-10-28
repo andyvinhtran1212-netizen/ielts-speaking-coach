@@ -182,7 +182,7 @@ resolved in this version:
   - its postcondition fails if the number of archived classes (Definitions) after apply differs from the number before. That is 0 on a first apply and unchanged on a re-apply;
   - legacy inactive classes keep today's behaviour for learners, enrollment and work, and admin surfaces label them "Lưu trữ cũ — chưa áp dụng";
   - an admin applies the rules only by an explicit "Áp dụng lưu trữ" (`fn_archive_cohort`, audit `detail.legacy_upgrade = true`) or clears the state with "Khôi phục".
-  - On staging, the 3 learners of "QA Course 1 Resume 20261010" keep their class, and its 4 open Writing gives keep accepting work. Their `/my-class` and `/writing/my-assignments` responses are byte-identical before and after deploy.
+  - On staging, the 3 learners of "QA Course 1 Resume 20261010" keep their class, and its 4 open Writing gives keep accepting work. Their `/my-class` responses are byte-identical before and after deploy. Their `/writing/my-assignments` responses are identical except for the two fields A-10 adds to every row, `class_archived` and `archive_finish_allowed`, which are both `false` for the legacy class's gives.
 - **FR-010:** Admin copy is truthful:
   - the archive confirm dialog states that learners will no longer see the class, cannot join it, and that open work stops accepting submissions. It shows the counts from `fn_cohort_archive_counts` (active members, open Writing gives, open class items, unused class codes) and an optional reason field;
   - the restore dialog states that learners see the class again and work reopens under the existing deadlines;
@@ -233,7 +233,8 @@ resolved in this version:
 - **Given** staging's legacy inactive class with 3 learners and 4 open Writing gives
 - **When** 337 is applied and the A-10 backend and frontend are deployed
 - **Then**:
-  - the 3 learners' `/my-class` and `/writing/my-assignments` responses are byte-identical to the pre-deploy snapshot;
+  - the 3 learners' `/my-class` responses are byte-identical to the pre-deploy snapshot;
+  - their `/writing/my-assignments` responses equal the snapshot once `class_archived` and `archive_finish_allowed` are removed from every row, and both fields are `false` on the legacy class's 4 gives;
   - no class has `archived_at` set;
   - admin sees the class as "Lưu trữ cũ — chưa áp dụng".
 
@@ -292,7 +293,7 @@ resolved in this version:
 
 ## Success criteria
 
-- Zero learner-visible changes at deploy (FR-009 snapshot equality on staging).
+- Zero learner-visible changes at deploy (FR-009 snapshot comparison on staging, AC-12).
 - Zero 500s on `/auth/activate`, `PATCH /admin/cohorts/{id}` and the 0029
   restore caused by an archived class.
 - Every archive and restore performed through the app has exactly one audit

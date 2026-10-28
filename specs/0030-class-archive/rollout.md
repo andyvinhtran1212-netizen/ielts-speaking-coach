@@ -22,8 +22,11 @@
 2. Apply 337 with the advisory-locked runner. Do not archive or restore classes
    until step 3 is done.
 3. Deploy the merged SHA (backend and frontend).
-4. Compare the step-1 snapshot (AC-12). Any difference stops the rollout:
-   report it and roll back the backend.
+4. Compare the step-1 snapshot (AC-12). `/my-class` must be byte-identical.
+   `/writing/my-assignments` is compared after removing `class_archived` and
+   `archive_finish_allowed` from every row; both fields must be `false` on the
+   legacy class's 4 gives. Any other difference, a missing field or a `true`
+   value stops the rollout: report it and roll back the backend.
 5. Run AC-1…AC-11, AC-13 and AC-14 on a fresh `staging_seed.py --ns`
    namespace.
 6. Leave the legacy staging class alone unless Vinh asks otherwise.
