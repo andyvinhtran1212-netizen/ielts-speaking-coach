@@ -184,6 +184,34 @@ _WORDING_VERB = re.compile(
     r"\b(?:sử dụng|dùng|vận dụng|viết|gọi|chứa|lồng ghép|use[sd]?|using|wrote|write|writes|written|"
     r"calls?|called|employ(?:s|ed|ing)?|includ(?:e|es|ed|ing)|contain(?:s|ed|ing)?)\b", re.I,
 )
+# A coordinated predicate in the quote's sentence ("... 'Q' and contains a
+# clear position", Codex #1796). A conjunction next to a quote (masked as
+# \x00) joins a quoted list instead ("'extended' và 'supported' được em dùng").
+_COORDINATION = re.compile(
+    r"(?:\s*,)?\s+(?:and|but|while|whereas|và|nhưng|trong khi|đồng thời)\b(?!\s*(?:\x00|$))", re.I,
+)
+# Verbs that govern the quoted task question in its own clause ("... and
+# answers the question 'Q'"); without one, an earlier verb may govern it
+# ("contains clear ideas and the question 'Q'").
+_ANSWER_VERB = re.compile(
+    r"\b(?:answer(?:s|ed|ing)?|address(?:es|ed|ing)?|respond(?:s|ed|ing)? to|tackl(?:e|es|ed|ing)|"
+    r"(?<!câu )(?<!bài )trả lời|đáp ứng|giải quyết|bám sát)\b", re.I,
+)
+# A coordinated predicate still describes the quote when it refers back to it
+# ("and uses it", "và dùng cụm này"), names wording ("and uses linking words"),
+# is passive ("và được em dùng"), or leaves the wording verb without an object
+# of its own ("và dùng rất hiệu quả", "and keeps using that").
+_BACK_REFERENCE = re.compile(
+    r"\b(?:it|its|itself|them|their|this|these|those|same|such|original|verbatim|"
+    r"nó|chúng|này|đó|ấy|nguyên văn)\b", re.I,
+)
+_PASSIVE_BEFORE = re.compile(r"\b(?:is|are|was|were|be|been|being|gets?|got|được|bị)(?:\s+\S+){0,2}\s*$",
+                             re.I)
+_NO_OBJECT = re.compile(
+    r"\s*(?:$|[\x00,:()]|(?:that|well|very|really|effectively|clearly|accurately|correctly|naturally|"
+    r"appropriately|precisely|properly|skil?fully|nicely|again|directly|exactly|throughout|here|"
+    r"tốt|rất|khá|hiệu quả|chính xác|hợp lý|tự nhiên|linh hoạt|phù hợp|đúng|lại|khéo|hay)\b)", re.I,
+)
 _NEGATIONS = {"not", "no", "never", "cannot", "nor", "none", "nothing", "neither"}
 _SIBILANT_ENDINGS = ("s", "x", "z", "ch", "sh")
 _NEAR_MISS_GAP = 2
@@ -510,6 +538,29 @@ def _drop_plan(feedback, issues) -> dict | None:
     return plan
 
 
+def _describes_quote(part: str) -> bool:
+    """Whether a coordinated predicate can still credit the quote's wording."""
+    plain = _ESSAY_NOUN.sub(" ", part)
+    if (_USAGE_CLAIM.search(plain) or _LEXIS_CLAIM.search(plain) or _BACK_REFERENCE.search(plain)
+            or _PROMPT_REFERENCE.search(plain)):
+        return True
+    verbs = [m for pattern in (_WORDING_VERB, _ATTRIBUTION, _CONTINUATION) for m in pattern.finditer(plain)]
+    return any(_PASSIVE_BEFORE.search(plain[:m.start()]) or _NO_OBJECT.match(plain, m.end()) for m in verbs)
+
+
+def _quote_clause(prefix: str, after: str) -> tuple[str, str]:
+    """Prefix and after text (quotes masked as \\x00) that can make claims
+    about the quote: coordinated predicates with an object of their own drop
+    out ("'Q' and contains a clear position"). Earlier predicates drop out
+    only when the quote's own clause has a verb that governs it."""
+    before = _COORDINATION.split(prefix)
+    if len(before) > 1 and _ANSWER_VERB.search(before[-1]):
+        prefix = " ".join([p for p in before[:-1] if _describes_quote(p)] + before[-1:])
+    first, *rest = _COORDINATION.split(after)
+    after = " ".join([first] + [p for p in rest if _describes_quote(p)])
+    return prefix.replace("\x00", " "), after.replace("\x00", " ")
+
+
 def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | None = None,
                                prompt_text: str | None = None) -> GroundingReport:
     """Reject unsupported essay citations; return non-fatal findings.
@@ -535,24 +586,28 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
         else:
             issues.append((path, excerpt[:240]))
 
-    def credits_wording(prefix: str, after: str) -> bool:
+    def credits_wording(prefix: str, scope: tuple[str, str]) -> bool:
         # Any learner-wording or vocabulary credit on EITHER side of the quote
         # ("Vốn từ đạt Band 7 nhờ các từ 'extended'", "'X' được em dùng",
         # "Your answer uses 'X'"). Reference exemptions never apply then, so a
         # quote absent from the essay cannot pass as the learner's language.
-        clause = _QUOTES.sub(" ", prefix + " " + after)
+        # A wording verb counts only within the quote's clause (_quote_clause):
+        # "... 'Q' and contains a clear position" credits nothing (Codex #1796).
+        governing, after = scope
+        clause = prefix + " " + after
         plain = _ESSAY_NOUN.sub(" ", clause)
         return bool(_ATTRIBUTION.search(clause) or _CONTINUATION.search(clause)
-                    or _USAGE_CLAIM.search(clause) or _WORDING_VERB.search(plain)
+                    or _USAGE_CLAIM.search(clause)
+                    or _WORDING_VERB.search(_ESSAY_NOUN.sub(" ", governing + " " + after))
                     or _LEXIS_CLAIM.search(plain) or _WORD_NOUN.search(prefix))
 
-    def task_question(excerpt: str, prefix: str, after: str) -> bool:
+    def task_question(excerpt: str, prefix: str, scope: tuple[str, str]) -> bool:
         # The task question quoted as the question it answers ("Em trả lời trực
         # tiếp câu hỏi 'To what extent ...?'"), never its wording credited as
         # the learner's. Strengths use it too (owner decision 2026-10-28).
         return bool(prompt and _PROMPT_REFERENCE.search(prefix)
                     and _in_essay(excerpt, prompt, allow_ellipsis=True)
-                    and not credits_wording(prefix, after))
+                    and not credits_wording(prefix, scope))
 
     def observations(path: str, text: str, *, allow_proposals: bool = True,
                      allow_grammar: bool = False, allow_task_question: bool = False):
@@ -564,7 +619,9 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             preceding = text[:match.start()]
             masked_prefix = _QUOTES.sub("", preceding)
             prefix = re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", masked_prefix))[-1]
-            after = _QUOTES.sub("", re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", text[match.end():]))[0])
+            scope = _quote_clause(
+                re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", _QUOTES.sub("\x00", preceding)))[-1],
+                re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", _QUOTES.sub("\x00", text[match.end():])))[0])
             # Abstract grammar notation is a structural description, not a
             # verbatim citation, including in strengths/current observations.
             # Strict source excerpts, original ideas and locations never opt in.
@@ -573,7 +630,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                 continue
             # Source-only fields cannot turn invented evidence into a proposal.
             if not allow_proposals:
-                if not (allow_task_question and task_question(excerpt, prefix, after)):
+                if not (allow_task_question and task_question(excerpt, prefix, scope)):
                     unsupported(path, excerpt)
                 continue
             # A clearly proposed/absent expression is not a claim of usage.
@@ -599,7 +656,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             # 'subsidies'") still rejects.
             claims_usage = last_attribution >= 0 or _USAGE_CLAIM.search(prefix) is not None
             if not claims_usage:
-                if task_question(excerpt, prefix, after):
+                if task_question(excerpt, prefix, scope):
                     continue
                 if _TERM_LABEL.search(prefix):
                     continue
@@ -608,7 +665,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             words = set(_tokens(_normalize(excerpt)))
             if (not claims_usage and words & _DESCRIPTOR_CORE and words <= _DESCRIPTOR_WORDS
                     and _DESCRIPTOR_CONTEXT.search(_QUOTES.sub("", sentence))
-                    and not credits_wording(prefix, after)):
+                    and not credits_wording(prefix, scope)):
                 continue
             # A Vietnamese paraphrase of an idea ("Em nêu rằng 'khuyến khích
             # ...'") is not a wording claim; "em đã dùng 'quay lại'" is.
