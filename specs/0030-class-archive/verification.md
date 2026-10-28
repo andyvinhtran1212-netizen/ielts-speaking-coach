@@ -5,12 +5,12 @@
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_class_archive_routes.py (helper drops archived classes in both branches, include_archived mode, caller grep) plus AC-2, AC-3 on staging | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (membership guard matrix, precedence, archive-first race) plus backend/tests/test_class_archive_routes.py (W1, W3–W7, W13) plus AC-4, AC-5 on staging | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (membership guard matrix incl. already-active upsert and removal to an archived next class, AFTER trigger, precedence, archive-first race) plus backend/tests/test_class_archive_routes.py (W1, W3–W7, W13) plus AC-4, AC-5 on staging | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (assignment, item, give guards) plus backend/tests/test_class_archive_routes.py (W2, W8–W10, fan-out replay, individual give allowed) plus AC-6 on staging | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_class_archive_routes.py (every research.md §5 entry point, D3 save/submit/auto-submit, reaper finalise, mock message) plus AC-7, AC-8, AC-13 on staging | PENDING |
 | FR-005 | kind=journey; ref=AC-9 on staging (class returns, gives reopen, drafts intact, class code enrolls) | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (RPC atomicity, idempotence, counts, no audit on name edit, client denied) plus AC-1, AC-11 on staging | PENDING |
-| FR-007 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (restore-student skips archived class with negative control, FOR UPDATE literal, no 331 names) plus AC-10 on staging | PENDING |
+| FR-007 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (restore-student skips archived class with negative control, archive committing mid-restore → 200 and skipped, candidate-class FOR SHARE lock, FOR UPDATE literal, no 331 names) plus AC-10 on staging | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_class_archive_routes.py (pre-check, mid-flight archive between Step 3 and 3b, revert-failure 503, re-claim, rate limit, no DB text) plus AC-4 on staging | PENDING |
 | FR-009 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (legacy inactive class stays legacy, postcondition count) plus AC-12 snapshot equality on staging | PENDING |
 | FR-010 | kind=journey; ref=AC-14 admin dialogs on staging plus frontend admin classes tests | PENDING |

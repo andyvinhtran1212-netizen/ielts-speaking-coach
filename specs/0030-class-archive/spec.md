@@ -145,7 +145,7 @@ resolved in this version:
 - **FR-002:** No path adds a learner to an archived class:
   - **Class-code activation:** refused before Step 2 and Step 3 of `/auth/activate` with the existing generic 400 message (D4=a). The code is not consumed, no `students` or membership row is written, and `access_code_audit` gets action `enroll_rejected_cohort_archived`.
   - **Admin and instructor writes:** single add, bulk add, add by issuing a code, generating a class code, changing a code's or a learner's `cohort_id`, and instructor minting all return 409 `{"code":"cohort_archived","message":…}`.
-  - **Database:** refuses any membership becoming active in an archived class with `cohort_archived`. The check runs in a SECURITY DEFINER guard that locks the class row `FOR SHARE`.
+  - **Database:** refuses any membership becoming active in an archived class with `cohort_archived`. The check runs in a SECURITY DEFINER `AFTER` row guard that locks the class row `FOR SHARE`. It judges the row transition that actually happened, so an upsert that touches an already-active membership (for example the sync trigger after a removal moves `students.cohort_id`) is not an enrollment and passes.
   - **Precedence:** an archived learner in an archived class gets `student_archived` first.
 - **FR-003:** An archived class receives no new work:
   - no class assignment, class item, cohort Writing give or class lesson can be created for it (409; the database guards cover assignments, items and gives);
@@ -167,7 +167,7 @@ resolved in this version:
   - the reason is optional, trimmed, at most 500 characters, and empty becomes NULL (D5=a);
   - clients (`anon`, `authenticated`) cannot read the audit, write the archive columns or execute any new function.
 - **FR-007:** STUDENTARCHIVE-0029 and the existing guards keep working:
-  - `fn_restore_student` skips memberships in archived classes, records them as `skipped_archived_cohort_ids` in its audit row and receipt, never points `students.cohort_id` at an archived class, and keeps `students WHERE id = p_student_id FOR UPDATE`, `SECURITY DEFINER`, its `search_path`, its signature and its ACL (D2=a; 0029 FR-003 amended);
+  - `fn_restore_student` locks its candidate classes `FOR SHARE` in id order before reading their archive state, skips memberships in archived classes, records them as `skipped_archived_cohort_ids` in its audit row and receipt, never points `students.cohort_id` at an archived class, never fails because an archive committed during the restore, and keeps `students WHERE id = p_student_id FOR UPDATE`, `SECURITY DEFINER`, its `search_path`, its signature and its ACL (D2=a; 0029 FR-003 amended);
   - 337 adds no client grant;
   - 337 does not name, drop, replace or bypass any migration-331 object;
   - the trigger name `trg_guard_writing_give_cohort_active` is kept.
@@ -260,6 +260,16 @@ resolved in this version:
   write is refused. If the write commits first, it is kept and counted. The
   lock order is students (326 functions), then cohorts, and no path takes them
   in reverse.
+- **Archive during a learner restore (0029):** `fn_restore_student` locks the
+  candidate classes `FOR SHARE` before it reads their state. An archive that
+  commits first makes the restore skip that class (200, listed in
+  `skipped_archived_cohort_ids`); an archive that starts later waits for the
+  restore and counts the restored membership.
+- **Removing a learner whose next class is archived:** removing a learner from
+  E2E-A while they are still an active member of archived E2E-B succeeds as
+  today. `fn_remove_student_cohort_membership` may move `students.cohort_id` to
+  E2E-B; the sync trigger's upsert of that already-active membership passes
+  the guard, and the read filter hides E2E-B.
 - **Archive during an activation, after Step 3b committed:** the enrollment
   stands, the Step 6 backfill refusal is logged as a warning, and activation
   returns 200.

@@ -97,8 +97,12 @@ race tests.
 2. **Behaviour:**
    - guard matrix:
      - refused: INSERT, inactive→active, `cohort_id` change;
-     - allowed: active→inactive, an already-active upsert, name edits,
-       legacy inactive classes;
+     - allowed: active→inactive, an already-active upsert (`INSERT … ON
+       CONFLICT DO UPDATE` on an active row), name edits, legacy inactive
+       classes;
+     - removal from A when the next primary class B is archived and still
+       active for the learner: succeeds, `students.cohort_id` = B;
+     - the membership guard is an `AFTER` row trigger;
      - a bulk add is refused as a whole;
      - `student_archived` takes precedence;
    - metadata trigger:
@@ -111,7 +115,12 @@ race tests.
      500 without the fix;
    - rollback (light and full) then re-apply, and the full-rollback refusals.
 3. **Races:**
-   - archive-first then enroll, give or restore-student: refused;
+   - archive-first then enroll or give: refused; archive-first then
+     restore-student: 200 with the class skipped;
+   - archive committing between restore-student's candidate read and its
+     membership reactivation (lock-observed): restore 200, class in
+     `skipped_archived_cohort_ids`, no 500; archive starting after the
+     restore's class lock waits and counts the membership;
    - enroll first then archive: kept and counted, with a measured wait;
    - activation archive mid-flight (FR-008).
 4. **Routes** (`test_class_archive_routes.py`):

@@ -168,7 +168,7 @@ test and records which mode each one uses.
 | W10 | Class lessons | `admin_class_lessons.py` POST :123 / PATCH :151 | 409. GET and DELETE stay allowed. |
 | W11 | Direct membership writers | the 227 functions, the sync trigger, `fn_restore_student` | DB guard (§7). `fn_restore_student` skips archived classes (D2). |
 | W12 | Learner work | §5 | Variant A gates. |
-| W13 | Admin edit of a learner's `cohort_id` | `PATCH /admin/students/{id}` | The DB guard refuses it with 409. A name-only edit is unaffected. |
+| W13 | Admin edit of a learner's `cohort_id` | `PATCH /admin/students/{id}` | A change to an archived class is refused with 409 before the write (`raise_if_cohort_archived`); the DB guard is the backstop when the learner is not already an active member. A name-only edit is unaffected. |
 | W14 | Archive/restore itself | `PATCH /admin/cohorts/{id}` | An `is_active` change calls `fn_archive_cohort` / `fn_restore_cohort` **first**. If that fails, nothing else is written. Name and description are then updated in a plain UPDATE. New `GET /admin/cohorts/{id}/archive-preview` → `fn_cohort_archive_counts`. |
 
 Unchanged: removing a member, grading/returning work, export, and renaming an
@@ -362,12 +362,25 @@ GRANT SELECT, INSERT ON public.class_lifecycle_audit TO service_role;
 
 -- 5. Guards (SECURITY DEFINER; lock the class row FOR SHARE, then test)
 --   fn_guard_membership_cohort_active — trigger trg_guard_membership_cohort_active
---     BEFORE INSERT OR UPDATE OF is_active, cohort_id ON student_cohort_memberships:
+--     AFTER INSERT OR UPDATE OF is_active, cohort_id ON student_cohort_memberships
+--     FOR EACH ROW:
 --     IF NEW.is_active AND (TG_OP = 'INSERT' OR NOT OLD.is_active
 --                           OR NEW.cohort_id IS DISTINCT FROM OLD.cohort_id) THEN
 --         SELECT is_active, archived_at INTO v FROM cohorts WHERE id = NEW.cohort_id FOR SHARE;
 --         IF FOUND AND NOT v.is_active AND v.archived_at IS NOT NULL THEN
 --             RAISE EXCEPTION 'cohort_archived' USING DETAIL = NEW.cohort_id::text;
+--     AFTER, not BEFORE: for INSERT … ON CONFLICT DO UPDATE, PostgreSQL fires
+--     BEFORE INSERT before it resolves the conflict, but AFTER INSERT only for a
+--     row actually inserted and AFTER UPDATE (with the real OLD) for the conflict
+--     update. So an upsert of an already-active membership is judged as
+--     active→active and passes, while a new row or an inactive→active conflict
+--     update is refused. This keeps removal unchanged (§4 "Unchanged"):
+--     fn_remove_student_cohort_membership may move students.cohort_id to an
+--     archived class B the learner is still active in, and the sync trigger's
+--     upsert of that already-active row must not abort the removal. Raising in an
+--     AFTER ROW trigger still aborts the whole statement (bulk add refused as a
+--     whole); student_archived still wins because the 326 checks raise before
+--     the membership row is written.
 --   fn_guard_class_assignment_cohort_active — BEFORE INSERT ON class_assignments (same test on NEW.cohort_id)
 --   fn_guard_class_item_cohort_active       — BEFORE INSERT ON class_assignment_items (via assignment_id)
 --   fn_guard_writing_give_cohort_active     — trigger trg_guard_writing_give_cohort_active
@@ -376,10 +389,21 @@ GRANT SELECT, INSERT ON public.class_lifecycle_audit TO service_role;
 --   Each: REVOKE ALL ON FUNCTION … FROM PUBLIC, anon, authenticated.
 
 -- 6. fn_restore_student (326) — CREATE OR REPLACE with the 326 body verbatim except:
+--     after v_cohorts is read and before the back CTE, lock the candidate classes
+--     in a deterministic order:
+--                PERFORM 1 FROM public.cohorts c WHERE c.id = ANY (v_cohorts)
+--                 ORDER BY c.id FOR SHARE;
 --     back CTE:  AND EXISTS (SELECT 1 FROM public.cohorts c WHERE c.id = m.cohort_id
 --                            AND (c.is_active OR c.archived_at IS NULL))
 --     v_skipped := cohorts in v_cohorts that exist and are archived;
 --     audit detail and receipt gain 'skipped_archived_cohort_ids'.
+--   The lock is what makes the predicate and the membership guard agree. Without
+--   it, an archive committing between the EXISTS read and the guard's FOR SHARE
+--   would make the guard raise and abort the whole restore (500). With it,
+--   fn_archive_cohort (FOR UPDATE on the class) either committed before the lock
+--   — the back CTE, a later statement with a fresh READ COMMITTED snapshot, sees
+--   the class archived and skips it — or waits until the restore commits, and
+--   then counts the restored membership. Lock order stays students → cohorts.
 --   Signature, SECURITY DEFINER, search_path, the literal
 --   "students WHERE id = p_student_id FOR UPDATE" and the ACL are unchanged.
 
@@ -388,7 +412,10 @@ GRANT SELECT, INSERT ON public.class_lifecycle_audit TO service_role;
 --     and bound to their functions;
 --   - every new function and fn_restore_student: prosecdef, proconfig has
 --     search_path=public, pg_temp, no EXECUTE for PUBLIC/anon/authenticated;
---   - fn_restore_student body contains the FOR UPDATE literal and the archived-class predicate;
+--   - fn_restore_student body contains the FOR UPDATE literal, the candidate-class
+--     FOR SHARE lock and the archived-class predicate;
+--   - trg_guard_membership_cohort_active is an AFTER row trigger (tgtype) on
+--     INSERT and UPDATE OF is_active, cohort_id;
 --   - class_lifecycle_audit: RLS on; anon/authenticated no privilege; service_role no UPDATE/DELETE;
 --   - authenticated/anon: no INSERT/UPDATE on cohorts, no privilege on student_cohort_memberships;
 --   - FR-009: (SELECT count(*) FROM cohorts WHERE NOT is_active AND archived_at IS NOT NULL)
