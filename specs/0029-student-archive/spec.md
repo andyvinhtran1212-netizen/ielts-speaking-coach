@@ -9,7 +9,8 @@ owner: product
 # Admin student delete archives the learner with an audit trail instead of erasing their work
 
 Approval: approved by Vinh 2026-10-27 07:14 UTC+7 (see
-[`approval-decision.md`](approval-decision.md)). Locked migration number:
+[`approval-decision.md`](approval-decision.md)). Revision 1 (FR-003, archived
+classes skipped on restore) approved by Vinh 2026-10-28 21:23 UTC+7 (t259u, D2=a). Locked migration number:
 **326** (`326_student_archive.sql`). Evidence record with citations, staging
 queries and full SQL: [`research.md`](research.md).
 
@@ -62,7 +63,7 @@ memberships; no archive columns or audit table exist yet.
 
 - **FR-001:** `DELETE /admin/students/{id}` deletes no row; it archives the learner (204), is idempotent (a repeat adds no audit row), returns 404 for an unknown id, and writes an audit row with actor, reason and the classes left.
 - **FR-002:** Archived learners are excluded by default from `GET /admin/students` and the instructor roster, receive no new class or individual writing assignments, get 403 in Writing/class areas, and cannot re-activate through an access code (403 before the code is consumed).
-- **FR-003:** Admins can list archived learners with `?include_archived=true`, see their history, and restore them with `POST /admin/students/{id}/restore`, which re-activates the memberships ended by the archive and writes a restore audit row; restoring a non-archived learner returns 409.
+- **FR-003:** Admins can list archived learners with `?include_archived=true`, see their history, and restore them with `POST /admin/students/{id}/restore`, which re-activates the memberships ended by the archive except those in classes archived under CLASSARCHIVE-0030 (skipped, never made the learner's primary class, and listed as `skipped_archived_cohort_ids` in the restore receipt and audit row) and writes a restore audit row; restoring a non-archived learner returns 409.
 - **FR-004:** With `deactivate_account=true` the linked `users.is_active` becomes false; clients cannot re-enable it, update archive columns or execute the archive functions (migration 320 trigger and grants unchanged; function EXECUTE revoked from `anon`/`authenticated`).
 - **FR-005:** Archiving and restoring change no assignment, draft, essay, feedback, class item or evidence row; only memberships, the archive columns, the optional account flag and the audit table change.
 - **FR-006:** A true erase is not reachable through `DELETE /admin/students/{id}`; it is reserved for a later explicit admin action limited to archived learners with typed confirmation and audit-before-delete.
@@ -91,6 +92,7 @@ memberships; no archive columns or audit table exist yet.
 
 - Concurrent archive and restore: both lock the student row `FOR UPDATE`.
 - A class deleted while the learner was archived: restore skips it.
+- A class archived (CLASSARCHIVE-0030) while the learner was archived: restore skips it and records it in `skipped_archived_cohort_ids` (Revision 1); an admin can add the learner back after restoring the class.
 - `trg_sync_legacy_student_cohort_membership` on `cohort_id = NULL` must be tested (body not yet read).
 - The learner may still read their own `students` row (`students_self_read`); the backend enforces the lockout.
 - E2E cleanup scripts keep their own hard delete.
