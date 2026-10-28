@@ -340,25 +340,54 @@ The staging backend's `DATABASE_URL` connects as `postgres.<ref>` (the
 `postgres` role) through the session pooler. Only the user name was read from
 the Railway variables.
 
-**Chosen mechanism (FR-006/FR-007/FR-008, Q3 default):**
+**Chosen mechanism (FR-006/FR-007/FR-008, Q3 default).** It has two modes,
+matching plan.md's `revoke_sessions(user_id, *, ban: bool)`. Only a suspension
+bans. FR-006 and Q3 ("a suspended staff member cannot sign in even as a
+learner") require that. FR-007 asks only that a demotion revokes sessions. A
+ban on a demoted account would block the learner sign-in that the new role
+allows, and nothing could lift it, because FR-006 reactivation accepts only a
+current admin or instructor.
 
-1. **Ban first:** `auth.admin.update_user_by_id(uid, {"ban_duration": "876000h"})`.
-   Once this succeeds, no new session can appear (sign-in and refresh are
-   both refused).
-2. **Then delete every session:** `DELETE FROM auth.sessions WHERE user_id = $1`.
+1. **Session delete (both modes):** `DELETE FROM auth.sessions WHERE user_id = $1`.
    Refresh tokens cascade. This makes the unexpired access token fail at
-   `/auth/v1/user` at once. Banning alone is not enough: unbanning would
-   revive the old sessions. Deleting alone is not enough either: the user can
-   sign in again. `service_role` cannot reach `auth.sessions` through
-   PostgREST. The delete must therefore run either on the backend's direct
-   `postgres` connection, or in a `SECURITY DEFINER` function owned by
-   `postgres` and executable only by `service_role`. That choice belongs to
-   T002/T006.
-3. **Reactivation:** `ban_duration: "none"`. Old tokens stay dead and a new
-   sign-in works.
-4. `sessions_revoked: true` only when both steps succeeded. A failure in
-   either step is FR-008's `revoke_error`, and the retry repeats both steps.
-   Both are idempotent.
+   `/auth/v1/user` at once and the refresh grant fail. `service_role` cannot
+   reach `auth.sessions` through PostgREST. The delete must therefore run
+   either on the backend's direct `postgres` connection, or in a
+   `SECURITY DEFINER` function owned by `postgres` and executable only by
+   `service_role`. That choice belongs to T002/T006.
+2. **Suspension (FR-006, `ban=True`): ban first, then step 1.** The ban is
+   `auth.admin.update_user_by_id(uid, {"ban_duration": "876000h"})`. Once it
+   succeeds, no new session can appear, because sign-in and refresh are both
+   refused. Then step 1 deletes the existing sessions. Banning alone is not
+   enough: unbanning would revive the old sessions. Deleting alone is not
+   enough either: the user can sign in again (row 3 of the table).
+3. **Demotion (FR-007) and every other non-suspension revocation
+   (`ban=False`): step 1 only.** This includes the rollout path (b) factor
+   reset (§9.6). The R2 row "Session delete only" shows the old access token
+   and refresh token are refused while a new password sign-in succeeds. For a
+   demoted account that new session is an ordinary sign-in under the new
+   role, which the guard reads from `public.users`. This mode never bans and
+   never unbans. A demotion therefore leaves a suspension's ban in place if
+   one exists.
+4. **Reactivation (FR-006):** `ban_duration: "none"`. Old tokens stay dead and
+   a new sign-in works (row 5).
+5. `sessions_revoked: true` only when every step of the mode succeeded. A
+   failure in any step is FR-008's `revoke_error`. The FR-008 retry route takes
+   `ban` from the target's committed row at retry time: `ban=True` exactly
+   when `suspended_at` is set. A failed suspension therefore retries ban and
+   delete. A failed demotion retries the delete only, and so does a suspension
+   that was reactivated before the retry, which is never re-banned. All steps
+   are idempotent.
+
+**Evidence still owed by the implementation (T008, AC3/AC4 staging journeys).**
+R2 used a GoTrue-only account with no `public.users` row. The new session from
+the delete-only row was not probed on its own, because the next row banned it.
+T008 and the staging journeys must therefore show both outcomes end to end:
+
+- a demotion to `student` makes the old access token fail at `/auth/v1/user`
+  and the old refresh token fail at the refresh grant, while a fresh password
+  sign-in succeeds and reaches a learner surface;
+- a suspension still refuses the fresh sign-in with `user_banned`.
 
 **Residual risk (does not block):** PostgREST, and by the same JWT-only check
 Storage, verify the access token's signature and expiry, not the session. A
@@ -487,12 +516,14 @@ unverified factor.
   limit of 10. A successful verify signs out the user's other AAL1
   tabs and devices (`session_not_found` → `/login`). This is expected and
   should not be shown as an error.
-- **Lot 06 (T006):** use the §9.2 mechanism (ban, then delete
-  `auth.sessions`; unban on reactivation). Lot 02 or lot 06 must choose
-  between a direct `postgres` connection and a `SECURITY DEFINER` function in
-  332. Wording must not claim REST/Storage fail at once (≤ 1 h residual).
-  Rollout path (b), the admin-API factor reset, should also revoke sessions,
-  because a live AAL2 token survives the reset.
+- **Lot 06 (T006):** use the §9.2 mechanism. A suspension bans, then deletes
+  `auth.sessions`, and reactivation unbans. A demotion or any other
+  non-suspension revocation only deletes `auth.sessions`. Lot 02 or lot 06
+  must choose between a direct `postgres` connection and a `SECURITY DEFINER`
+  function in 332. Wording must not claim REST/Storage fail at once (≤ 1 h
+  residual). Rollout path (b), the admin-API factor reset, should also revoke
+  sessions (delete only, no ban), because a live AAL2 token survives the
+  reset.
 - **Lot 08 (T007):** use the event mapping above. The snapshot backstop must
   ignore unverified factors that disappear, because GoTrue removes them
   without a log row. Read `payload::jsonb`. Rollout P6 needs the production
