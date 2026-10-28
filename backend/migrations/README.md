@@ -20,12 +20,47 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-27 the highest is `331`, so the next
-new migration is `332`. The runner applies any unapplied file regardless of order.
+sequence is dense. As of 2026-10-28 the highest is `332`, so the next
+new migration is `333`. The runner applies any unapplied file regardless of order.
 Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
 STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
-of order, so do not reuse them. 331 is GIVEARCHIVE-0031.
+of order, so do not reuse them. 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032.
+333–337 are reserved by the Leader for open work (333 AIBUDGET-0033); ask the
+Leader before taking any number above 332.
+
+Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
+back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, on staging
+first (`specs/0032-admin-aal2-staff-guard/rollout.md` S1/S2), before the 0032
+backend. It adds:
+
+- the `public.users` suspension marker (`suspended_at`, `suspended_by`,
+  `suspension_reason`, set and cleared together and never on an active row);
+- the `trg_users_suspension_guard` trigger. It refuses (`account_suspended`)
+  any `is_active` false → true while suspended, and any marker change, except
+  inside `fn_set_staff_privilege` or `fn_bootstrap_admin_recovery`. This
+  covers `/auth/activate`, admin-issued codes, `fn_restore_student` and SQL
+  updates, including an activation that waits on the suspension's row lock;
+- the append-only `staff_security_audit`. UPDATE, DELETE and TRUNCATE are
+  refused by triggers, even for the owner. `service_role` gets SELECT and
+  INSERT only;
+- `owner_alert_outbox`, `staff_mfa_factor_snapshot` and
+  `staff_security_sweep_cursor`;
+- the `trg_users_privilege_audit` trigger. It writes exactly one audit row per
+  change of `role`, `is_active` or the marker, and per inserted admin or
+  instructor row, from every path (`admin_api`, `service`, `out_of_band`).
+  Admin events also get one email-safe outbox row;
+- the service-role-only RPC `fn_set_staff_privilege`. It locks the actor, the
+  target and the active admins in id order, then re-checks the actor
+  (`actor_not_admin`, `self_change_forbidden`, `target_not_staff`,
+  `last_admin`). A repeated call is a no-op that writes no row;
+- the owner-only `fn_bootstrap_admin_recovery` (rollout path (e)). Not even
+  `service_role` can execute it. It refuses `admins_exist`.
+
+The deployed backend keeps working: its role/`is_active` writes just gain an
+audit row. Rollback (in the file header and rollout.md) drops the triggers and
+functions and keeps the tables. It refuses while any account is suspended.
 
 Migration `331` (GIVEARCHIVE-0031) adds the `BEFORE INSERT OR UPDATE OF
 student_id` trigger `archive_guard_writing_assignment_student` on
