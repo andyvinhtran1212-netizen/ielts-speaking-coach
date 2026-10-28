@@ -152,7 +152,7 @@ export const ASSIGNMENT_COPY = Object.freeze({
   confirmStudent: (title, when) => `Học viên này đã được giao đề '${title}' ${when}. Giao thêm một lượt nữa?`,
   duplicatesWarning: (count) => `Đã giao bài cho lớp. Lưu ý: ${count} học viên đã được giao đề này từ trước.`,
   // BL-18: asked before the give, from the same overlap the banner reports.
-  confirmCohortOverlap: (title, count) => `${count} học viên trong lớp đã được giao đề '${title}' từ trước. Giao thêm một lượt nữa?`,
+  confirmCohortOverlap: (title, count) => `${count} học viên trong lớp đã từng được giao đề '${title}'. Giao thêm một lượt cho cả lớp? (Các học viên này sẽ có thêm một lượt.)`,
   // In-app dialog chrome around the confirm messages above (replaces window.confirm).
   confirmTitle: 'Đề đã được giao trước đó',
   confirmCancel: 'Hủy',
@@ -195,9 +195,14 @@ export function matrixDeadlineLabel(assignment) {
 function formatGiveTime(value) {
   const parsed = value ? new Date(value) : null;
   if (!parsed || Number.isNaN(parsed.getTime())) return 'trước đó';
-  return `lúc ${new Intl.DateTimeFormat('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
-  }).format(parsed)}`;
+  // "lúc dd/mm/yyyy HH:mm", Vietnam time.
+  const day = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+  }).format(parsed);
+  const time = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(parsed);
+  return `lúc ${day} ${time}`;
 }
 
 /**

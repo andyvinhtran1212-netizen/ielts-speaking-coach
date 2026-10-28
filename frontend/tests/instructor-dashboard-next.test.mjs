@@ -108,8 +108,11 @@ describe('/instructor native dashboard model', () => {
   test('duplicate-give confirmation and fan-out banner copy', () => {
     const existing = { createdAt: '2026-10-25T12:30:00Z' };
     const cohortMessage = duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'cohort');
-    assert.match(cohortMessage, /^Lớp này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
-    assert.match(duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'student'), /^Học viên này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
+    // 12:30Z is 19:30 in Asia/Ho_Chi_Minh, dd/mm/yyyy HH:mm.
+    assert.equal(cohortMessage, "Lớp này đã được giao đề 'QA TEST Task 2' lúc 25/10/2026 19:30. Giao thêm một lượt nữa?");
+    assert.equal(duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'student'), "Học viên này đã được giao đề 'QA TEST Task 2' lúc 25/10/2026 19:30. Giao thêm một lượt nữa?");
+    // Two-digit day/month, four-digit year, 24-hour clock.
+    assert.equal(duplicateGiveConfirmMessage({ createdAt: '2026-09-08T00:00:00Z' }, 'Task 2', 'cohort'), "Lớp này đã được giao đề 'Task 2' lúc 08/09/2026 07:00. Giao thêm một lượt nữa?");
     // Missing created_at drops "lúc" entirely (never "lúc trước đó"); missing title gets a neutral placeholder.
     assert.equal(duplicateGiveConfirmMessage({ createdAt: null }, '', 'cohort'), "Lớp này đã được giao đề '(chưa có tiêu đề)' trước đó. Giao thêm một lượt nữa?");
     assert.equal(duplicateGiveConfirmMessage({ createdAt: 'not-a-date' }, 'QA TEST Task 2', 'student'), "Học viên này đã được giao đề 'QA TEST Task 2' trước đó. Giao thêm một lượt nữa?");
@@ -288,7 +291,7 @@ describe('PC-J10 — /instructor give flow (W-12, BL-18, BL-19)', () => {
     assert.equal(normalizeDuplicatesPreview({}), null);
     assert.equal(cohortOverlapConfirmMessage({ studentCount: 3, duplicateStudentIds: [] }, 'Task 2'), null);
     assert.equal(cohortOverlapConfirmMessage(preview, 'Task 2'),
-      "2 học viên trong lớp đã được giao đề 'Task 2' từ trước. Giao thêm một lượt nữa?");
+      "2 học viên trong lớp đã từng được giao đề 'Task 2'. Giao thêm một lượt cho cả lớp? (Các học viên này sẽ có thêm một lượt.)");
     // The preview is read before the fan-out POST and cancelling stops it.
     const ask = VIEW.indexOf('await confirmCohortOverlap(promptId, cohortId, promptTitle)');
     assert.ok(ask >= 0 && ask < VIEW.indexOf("'/instructor/assignments/fan-out'"));

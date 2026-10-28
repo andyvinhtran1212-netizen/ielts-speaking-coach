@@ -207,7 +207,7 @@ await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).cli
 await answerConfirm('cancel');
 await page.waitForFunction(() => !document.querySelector('form.ins-form button[type="submit"]')?.disabled);
 check('BL-18: giao cho lớp có học viên đã nhận đề → hỏi trước khi gửi; hủy thì không gửi', dialogs.length === 1
-  && dialogs[0] === "1 học viên trong lớp đã được giao đề 'Task 2 <img src=x>' từ trước. Giao thêm một lượt nữa?"
+  && dialogs[0] === "1 học viên trong lớp đã từng được giao đề 'Task 2 <img src=x>'. Giao thêm một lượt cho cả lớp? (Các học viên này sẽ có thêm một lượt.)"
   && previewPosts.length === 1 && previewPosts[0].cohort_id === 'c1' && JSON.stringify(previewPosts[0].prompt_ids) === '["p1"]'
   && new URLSearchParams(requests.filter((item) => item.path === '/instructor/assignments/duplicates-preview').at(-1)?.search).get('as_instructor') === instructorId
   && assignmentPosts.length === 0
@@ -228,7 +228,7 @@ await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).cli
 await answerConfirm('escape');
 await page.waitForTimeout(200);
 check('giao lại cùng đề cho lớp hỏi xác nhận; Esc hủy và không gửi request', dialogs.length === 3
-  && /^Lớp này đã được giao đề 'Task 2 <img src=x>' lúc .+\. Giao thêm một lượt nữa\?$/.test(dialogs[2])
+  && dialogs[2] === "Lớp này đã được giao đề 'Task 2 <img src=x>' lúc 25/10/2026 19:30. Giao thêm một lượt nữa?"
   && assignmentPosts.length === 1
   && await assignmentForm.locator('input[name="name"]').inputValue() === 'Buổi 6 — Task 2', dialogs[2]);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
