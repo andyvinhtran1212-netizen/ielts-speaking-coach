@@ -120,6 +120,8 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | ADMINAAL2-0032 | Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request | approved | critical | [spec](0032-admin-aal2-staff-guard/spec.md) |
 
+| ACTIVATELIMIT-0034 | Access-code activation attempts are limited per learner across every backend worker, and the limit fails closed | approved | high | [spec](0034-activate-attempt-rate-limit/spec.md) |
+
 | INACTIVEWRITE-0035 | An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST | approved | high | [spec](0035-inactive-learner-rest-write-guard/spec.md) |
 
 | ASYNCAUTH-0036 | Per-request auth and permission checks can run on the async DB client behind USE_ASYNC_DB without changing any access decision | approved | high | [spec](0036-async-db-auth-layer/spec.md) |
