@@ -31,9 +31,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ── Perf (B) — shared keep-alive httpx client for token verification ──────────
 # get_supabase_user() runs on EVERY authenticated request. It used to open a
 # fresh `httpx.AsyncClient` per call, so every verify paid a full TLS handshake
-# to Supabase Auth. Backend (Railway, Singapore) ↔ Supabase (ap-south-1, Mumbai)
-# is ~56ms RTT, so a fresh handshake costs ~2-3 RTT (~110-170ms) on top of the
-# request — on the hottest path in the app. A module-level client reuses ONE
+# to Supabase Auth. Backend (Railway, Singapore) ↔ Supabase (prod ap-southeast-1,
+# Singapore; staging ap-northeast-1, Tokyo), so a fresh handshake costs ~2-3 RTT
+# on top of the request — on the hottest path in the app, and several times
+# dearer on staging's cross-region hop. A module-level client reuses ONE
 # keep-alive connection pool, collapsing that to ~1 RTT after the first call.
 # Built lazily (must live on the running loop) and closed on app shutdown.
 _auth_http_client: httpx.AsyncClient | None = None

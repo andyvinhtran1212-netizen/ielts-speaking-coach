@@ -2,7 +2,7 @@
 
 get_supabase_user() runs on every authenticated request. Opening a fresh
 httpx.AsyncClient per call paid a full TLS handshake to Supabase Auth each time
-— ~2-3 RTT (~110-170ms) across the Railway(SG) ↔ Supabase(Mumbai) ~56ms hop.
+— ~2-3 RTT across the Railway(SG) ↔ Supabase hop (prod Singapore, staging Tokyo).
 These pin the shared-client contract so a refactor can't silently revert to the
 per-call `async with httpx.AsyncClient(...)`.
 """
