@@ -52,10 +52,25 @@ class _Query:
         return self
 
     def eq(self, col, val):
-        self.filters.append((col, val))
+        self.filters.append(lambda r, c=col, v=val: r.get(c) == v)
+        return self
+
+    def or_(self, expr):
+        # Only the shapes the logger sends: col.is.null / col.lt.<number>.
+        def match(r, terms=[t.split(".", 2) for t in expr.split(",")]):
+            for col, op, val in terms:
+                cur = r.get(col)
+                if op == "is" and val == "null" and cur is None:
+                    return True
+                if op == "lt" and cur is not None and Decimal(str(cur)) < Decimal(val):
+                    return True
+            return False
+        self.filters.append(match)
         return self
 
     def _run(self):
+        if self.op == "update":
+            self.db.before_update(self)
         self.db.calls.append((self.table, self.op))
         if self.db.fail_on == (self.table, self.op):
             raise RuntimeError("db unavailable")
@@ -66,7 +81,7 @@ class _Query:
                 return _Result([])  # ON CONFLICT DO NOTHING
             rows.append(dict(self.payload))
             return _Result([self.payload])
-        matched = [r for r in rows if all(r.get(c) == v for c, v in self.filters)]
+        matched = [r for r in rows if all(f(r) for f in self.filters)]
         if self.op == "update":
             for r in matched:
                 r.update(self.payload)
@@ -79,7 +94,13 @@ class _Query:
 
 class _AsyncQuery(_Query):
     async def execute(self):
+        if self.op == "update":
+            await self.db.before_update_async(self)
         return self._run()
+
+
+async def _noop_async(_q):
+    return None
 
 
 class _FakeDb:
@@ -88,6 +109,8 @@ class _FakeDb:
         self.calls: list[tuple[str, str]] = []
         self.fail_on = None
         self.after_update = lambda _q: None
+        self.before_update = lambda _q: None
+        self.before_update_async = _noop_async
         self._query_cls = query_cls
 
     def table(self, name):
@@ -225,6 +248,75 @@ def test_stale_write_from_a_concurrent_sibling_is_corrected(db):
         user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
     )
     assert db.session_cost == pytest.approx(0.04)
+
+
+def test_sibling_refresh_before_each_update_cannot_leave_a_stale_total(db):
+    """Codex P2 on #1862: four $0.01 rows. Before each of the first writer's
+    three UPDATEs a sibling inserts and finishes its own refresh, so every
+    total the first writer holds is stale. The column must still end at the
+    ledger sum ($0.04), not the first writer's last read ($0.03)."""
+    siblings = iter(range(3))
+
+    def sibling_lands_and_refreshes(query):
+        if query.table != "sessions" or getattr(db, "_in_sibling", False):
+            return
+        if next(siblings, None) is None:
+            return
+        db._in_sibling = True
+        try:
+            ai_usage_logger.log_whisper(
+                user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+            )
+        finally:
+            db._in_sibling = False
+
+    db.before_update = sibling_lands_and_refreshes
+    ai_usage_logger.log_whisper(
+        user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+    )
+
+    assert len(db.tables["ai_usage_logs"]) == 4
+    assert _ledger_sum(db) == Decimal("0.04")
+    assert db.session_cost == pytest.approx(0.04)
+
+
+@pytest.mark.asyncio
+async def test_async_sibling_refresh_before_each_update_cannot_leave_a_stale_total(adb):
+    """Async twin of the Codex P2 interleaving."""
+    siblings = iter(range(3))
+    in_sibling = []
+
+    async def sibling_lands_and_refreshes(query):
+        if query.table != "sessions" or in_sibling:
+            return
+        if next(siblings, None) is None:
+            return
+        in_sibling.append(True)
+        try:
+            await ai_usage_logger.log_whisper_async(
+                user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+            )
+        finally:
+            in_sibling.clear()
+
+    adb.before_update_async = sibling_lands_and_refreshes
+    await ai_usage_logger.log_whisper_async(
+        user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+    )
+
+    assert len(adb.tables["ai_usage_logs"]) == 4
+    assert _ledger_sum(adb) == Decimal("0.04")
+    assert adb.session_cost == pytest.approx(0.04)
+
+
+def test_stale_total_never_lowers_the_column(db):
+    """The UPDATE only raises: a refresh holding a total below the column's
+    value leaves the column alone."""
+    db.tables["sessions"][0]["estimated_cost_usd"] = 0.05
+    ai_usage_logger.log_whisper(
+        user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+    )
+    assert db.session_cost == pytest.approx(0.05)
 
 
 def test_session_cost_refresh_failure_warns_without_breaking_the_flow(db, caplog):

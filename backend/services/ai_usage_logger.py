@@ -524,15 +524,24 @@ def _session_cost_total(rows: list[dict[str, Any]] | None) -> Decimal:
     return total.quantize(_SESSION_COST_QUANTUM, rounding=ROUND_HALF_UP)
 
 
+def _session_cost_raise_filter(total: Decimal) -> str:
+    # PostgREST or=(): the UPDATE only ever raises the column.
+    return f"estimated_cost_usd.is.null,estimated_cost_usd.lt.{total:f}"
+
+
 def _refresh_session_cost(session_id: str) -> None:
     """Set sessions.estimated_cost_usd to the sum of the session's ledger rows.
 
     The total is recomputed, never incremented, so a duplicate upsert cannot
-    double-count. Sibling rows (STT, judge, Azure, grader) land concurrently: a
-    pass may read the sum before a sibling's insert and write it after that
-    sibling's refresh. Each pass therefore re-reads after writing and repeats
-    on a mismatch. The refresh for the last insert reads after it, and any
-    stale write landing later is corrected by its own writer's re-read.
+    double-count. Sibling rows (STT, judge, Azure, grader) land concurrently, so
+    a pass may read the sum before a sibling's insert and reach its UPDATE after
+    that sibling's refresh. Ledger rows are only ever added and priced >= 0, so
+    the true total only grows and a stale total is always lower. The UPDATE
+    therefore only raises the column (WHERE it IS NULL OR < total). PostgreSQL
+    re-checks that WHERE against the newest row version, so a stale total can
+    never overwrite a newer one. The refresh for the last insert reads every
+    row, so the column ends at the full sum. The re-read repeats a pass for a
+    sibling row whose own refresh failed.
     """
     def read() -> Decimal:
         res = (supabase_admin.table("ai_usage_logs").select("cost_usd_est")
@@ -544,11 +553,10 @@ def _refresh_session_cost(session_id: str) -> None:
         for _ in range(_SESSION_COST_PASSES):
             (supabase_admin.table("sessions")
              .update({"estimated_cost_usd": float(total)})
-             .eq("id", session_id).execute())
+             .eq("id", session_id).or_(_session_cost_raise_filter(total)).execute())
             settled, total = total, read()
             if total == settled:
                 return
-        logger.warning("[ai_usage] session cost did not settle session=%s", session_id)
     except Exception as exc:
         logger.warning("[ai_usage] session cost refresh failed session=%s: %s", session_id, exc)
 
@@ -567,11 +575,11 @@ async def _refresh_session_cost_async(session_id: str) -> None:
             client = await get_supabase_async()
             await (client.table("sessions")
                    .update({"estimated_cost_usd": float(total)})
-                   .eq("id", session_id).execute())
+                   .eq("id", session_id).or_(_session_cost_raise_filter(total))
+                   .execute())
             settled, total = total, await read()
             if total == settled:
                 return
-        logger.warning("[ai_usage] session cost did not settle session=%s", session_id)
     except Exception as exc:
         logger.warning("[ai_usage] session cost refresh failed session=%s: %s", session_id, exc)
 
