@@ -136,6 +136,9 @@ def adb(monkeypatch):
         return fake
 
     monkeypatch.setattr(ai_usage_logger, "get_supabase_async", client)
+    # Tests gather the pending set; a task left by another test belongs to a
+    # closed loop and would make gather() raise.
+    monkeypatch.setattr(ai_usage_logger, "_PENDING_USAGE_TASKS", set())
     return fake
 
 
