@@ -781,11 +781,6 @@ export default function LandingPreviewPage() {
                     Đăng ký
                   </Link>
                 </li>
-                <li>
-                  <Link href="/" className="ix-footer__link text-sm">
-                    Trang chủ
-                  </Link>
-                </li>
               </ul>
             </div>
           </div>

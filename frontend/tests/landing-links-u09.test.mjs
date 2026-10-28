@@ -1,6 +1,7 @@
 // U-09 — landing links: the logo goes home (it was a dead `#`), and the footer
-// "Trang chủ" link no longer sends anonymous visitors to the sign-in-gated
-// /home. /signup → /login is pinned in section-index-redirects.test.mjs.
+// no longer has a "Trang chủ" link (it sent anonymous visitors to the
+// sign-in-gated /home; pointed at `/` it only linked back to this page — U-10).
+// /signup → /login is pinned in section-index-redirects.test.mjs.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -28,5 +29,5 @@ test('footer links only to public destinations', () => {
     assert.ok(['/', '/login', '/grammar'].includes(href) || href.startsWith('#'),
       `footer link ${href} is not a public landing destination`);
   }
-  assert.match(footer, /<Link href="\/" className="ix-footer__link text-sm">\s*Trang chủ\s*<\/Link>/);
+  assert.doesNotMatch(footer, /Trang chủ/, 'footer "Trang chủ" only linked back to the landing itself');
 });

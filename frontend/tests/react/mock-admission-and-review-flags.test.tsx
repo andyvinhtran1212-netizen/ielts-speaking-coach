@@ -100,7 +100,7 @@ it('failed Review save stays visible, explicit retry saves it, and reload does n
   const review = await screen.findByRole('checkbox', { name: 'Review', exact: true });
   await waitFor(() => expect((review as HTMLInputElement).checked).toBe(true));
   failFlag = true; fireEvent.click(review); expect((review as HTMLInputElement).checked).toBe(false);
-  expect(await screen.findByText(/review marks could not be saved/)).toBeTruthy();
+  expect(await screen.findByText(/Chưa lưu được đánh dấu xem lại của 1 câu\. Thay đổi của bạn vẫn đang hiển thị trong tab này\./)).toBeTruthy();
   expect((screen.getByRole('textbox', { name: 'Answer 1', exact: true }) as HTMLInputElement).value).toBe('saved answer');
   failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
   await waitFor(() => expect(savedFlag.flagged).toBe(false));
