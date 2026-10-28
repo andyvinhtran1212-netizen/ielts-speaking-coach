@@ -17,6 +17,7 @@ import {
   normalizeReviewRoster,
   normalizeSkillReview,
   overallPreview,
+  retestFlagConfirmed,
   reviewBandSkills,
 } from '@/lib/admin-mock-reviews-model.mjs';
 
@@ -227,9 +228,12 @@ export function AdminMockReviews({ examId, embedded }: { examId: string; embedde
     MOCK_REVIEW_SKILLS.forEach((key: string) => { flags[key] = key === skill ? value : row.retestFlags[key] === true; });
     setBusy(`flags:${row.sittingId}`); setNotice(null);
     try {
-      await window.api.post(`/admin/mock-exams/sittings/${encodeURIComponent(row.sittingId)}/retest-flags`, { retest_flags: flags });
+      const ack = await window.api.post<Record<string, unknown> | null>(`/admin/mock-exams/sittings/${encodeURIComponent(row.sittingId)}/retest-flags`, { retest_flags: flags });
       const canonical = await loadRoster(); await loadSummary();
-      const saved = canonical?.find((item) => item.sittingId === row.sittingId)?.retestFlags[skill] === value;
+      // A superseded or failed readback (null) is not a refusal: fall back to the
+      // backend's own UPDATE … RETURNING row. A row we did read back stays the truth.
+      const canonicalRow = canonical?.find((item) => item.sittingId === row.sittingId);
+      const saved = retestFlagConfirmed(canonicalRow ? canonicalRow.retestFlags : ack?.retest_flags, skill, value);
       setNotice(saved ? { kind: 'success', message: value ? `Đã đánh dấu ${LABEL[skill]} cần test lại.` : `Đã bỏ đánh dấu ${LABEL[skill]}.` } : { kind: 'error', message: 'Backend không xác nhận cờ test lại vừa chọn.' });
     } catch (caught) { await loadRoster(); await loadSummary(); setNotice({ kind: 'error', message: `Không cập nhật được: ${messageOf(caught)} Bảng đã được đọc lại từ backend.` }); }
     finally { setBusy(''); }
@@ -302,7 +306,7 @@ export function AdminMockReviews({ examId, embedded }: { examId: string; embedde
 
   return <main className={`mrr-shell${embedded ? ' is-embedded' : ''}`}>
     {!embedded && <><header className="mrr-hero"><div><p className="mrr-kicker">Mock Test · Bàn chấm</p><h1>Nhận bài, chấm nháp & trả kết quả</h1><p>Claim hồ sơ cho giám khảo, đối chiếu từng kỹ năng, chốt band và chỉ trả kết quả sau khi backend xác nhận.</p></div></header><nav className="aop-workflow" aria-label="Quy trình vận hành đề thi"><div className="aop-workflow__step"><b>01</b><span><strong>Soạn đề</strong><small>Nội dung & thời lượng</small></span></div><div className="aop-workflow__step"><b>02</b><span><strong>Giao đề</strong><small>Publish & gán lớp</small></span></div><div className="aop-workflow__step"><b>03</b><span><strong>Phòng live</strong><small>Mở phần & theo dõi</small></span></div><div className="aop-workflow__step"><b>04</b><span><strong>Thu bài</strong><small>Sweep & đối chiếu</small></span></div><div className="aop-workflow__step is-current"><b>05</b><span><strong>Chấm nháp</strong><small>Nhận hồ sơ & chốt band</small></span></div><div className="aop-workflow__step is-current"><b>06</b><span><strong>Trả kết quả</strong><small>Công bố canonical</small></span></div></nav></>}
-    <section className="mrr-context"><div><span>Kỳ thi đang duyệt</span><strong>{examTitle || (examId ? 'Đang tải định danh…' : 'Chưa chọn')}</strong></div><button className="adm-btn-secondary" type="button" disabled={!examId || loading || Boolean(busy)} onClick={() => { void loadRoster(); void loadSummary(); }}>{loading ? 'Đang tải…' : '↻ Tải lại'}</button></section>
+    <section className="mrr-context"><div><span>Kỳ thi đang duyệt</span><strong>{examTitle || (examId ? 'Đang tải định danh…' : 'Chưa chọn')}</strong></div><button className="adm-btn-secondary" type="button" disabled={!examId || loading || Boolean(busy)} onClick={() => { setNotice(null); void loadRoster(); void loadSummary(); }}>{loading ? 'Đang tải…' : '↻ Tải lại'}</button></section>
     {notice && <div className={`mrr-alert is-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.message}</div>}
     {detailError && <div className="mrr-state is-error" role="alert">{detailError}<button className="adm-btn-secondary" type="button" onClick={() => setDetailError('')}>Đóng</button></div>}
     {!detail && <>

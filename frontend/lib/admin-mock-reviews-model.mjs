@@ -106,6 +106,14 @@ export function normalizeReviewRoster(raw) {
   return { rows, malformedCount };
 }
 
+// PC-J28: roster rows and the retest-flags ACK carry only `true` flags, so an
+// unticked skill is absent rather than `false`. A missing/non-object source is
+// never a confirmation.
+export function retestFlagConfirmed(raw, skill, value) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  return (raw[skill] === true) === value;
+}
+
 export function normalizeRetestSummary(raw) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.students) || typeof raw.per_skill !== 'object') return null;
   const totalSittings = count(raw.total_sittings);
