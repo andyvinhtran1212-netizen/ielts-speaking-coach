@@ -5,6 +5,9 @@ category: "technology"
 level: "C1"
 part_of_speech: "adjective"
 pronunciation: "/ˌɒb.səˈliːt/"
+definition_en: "no longer used or useful because a newer alternative has taken its place."
+gloss_vi: "lỗi thời, không còn hữu ích hoặc được sử dụng"
+example: "Training programmes should help workers update their skills before the equipment they use becomes obsolete."
 synonyms: ["outdated", "outmoded", "antiquated", "redundant"]
 antonyms: ["current", "cutting-edge", "modern", "state-of-the-art"]
 collocations: ["become obsolete", "render obsolete", "rapidly obsolete", "obsolete technology", "obsolete skills"]
