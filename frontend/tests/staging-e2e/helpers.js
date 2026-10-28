@@ -121,12 +121,60 @@ const STAGING_ANON = process.env.STAGING_SUPABASE_ANON ||
 const E2E_NS = process.env.E2E_NS || 'smoke';
 const identityEmail = (role) => `e2e-${role}-${E2E_NS}@staging-e2e.averlearning.com`;
 
-/** Password sign-in on staging Supabase; returns a bearer access token. */
-async function signIn(request, role) {
-  const password = process.env.E2E_PASSWORD || '';
-  if (!password) {
-    throw new Error('E2E_PASSWORD is required (must match staging_seed.py).');
+// ADMINAAL2-0032 FR-016: the synthetic admin signs in ONLY through
+// signInSession/signIn below (frontend/tests/staging-e2e-admin-aal2-contract
+// pins that). With STAGING_E2E_ADMIN_TOTP_SECRET set, the admin's password
+// session is stepped up to AAL2 with the TOTP factor enrolled by
+// backend/scripts/staging_seed.py. Unset keeps the AAL1 password session,
+// which is valid only while ADMIN_AAL2_ENFORCE is off. The secret, the codes
+// and the tokens are never logged or put into an error message.
+const ADMIN_TOTP_ENV = 'STAGING_E2E_ADMIN_TOTP_SECRET';
+// A successful TOTP verify deletes every other AAL1 session of the admin
+// (research.md §9.3), so a half-finished admin sign-in elsewhere can lose its
+// session between the password grant and the verify. Retry only that case.
+const ADMIN_STEP_UP_ATTEMPTS = 3;
+
+function base32Decode(input) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const clean = String(input).toUpperCase().replace(/[\s=-]/g, '');
+  let bits = 0;
+  let value = 0;
+  const out = [];
+  for (const char of clean) {
+    const index = alphabet.indexOf(char);
+    if (index < 0) throw new Error(`${ADMIN_TOTP_ENV} is not valid base32.`);
+    value = (value << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
   }
+  if (!out.length) throw new Error(`${ADMIN_TOTP_ENV} is not valid base32.`);
+  return Buffer.from(out);
+}
+
+/** RFC 6238 TOTP (HMAC-SHA1, 30 s step, 6 digits), as GoTrue verifies it. */
+function totpCode(secretBase32, nowMs = Date.now(), { step = 30, digits = 6 } = {}) {
+  const { createHmac } = require('node:crypto');
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(nowMs / 1000 / step)));
+  const mac = createHmac('sha1', base32Decode(secretBase32)).update(counter).digest();
+  const offset = mac[mac.length - 1] & 0x0f;
+  const binary = mac.readUInt32BE(offset) & 0x7fffffff;
+  return String(binary % 10 ** digits).padStart(digits, '0');
+}
+
+async function gotrueError(res) {
+  // GoTrue error bodies carry codes and messages only; never echo a request.
+  let body = {};
+  try { body = await res.json(); } catch { /* non-JSON body */ }
+  const code = body.error_code || body.code || body.error || '';
+  const msg = body.msg || body.message || body.error_description || '';
+  return { status: res.status(), code: String(code), text: `HTTP ${res.status()} ${code} ${msg}`.trim() };
+}
+
+async function passwordSession(request, role, password) {
   const res = await request.post(
     `${STAGING_SUPABASE}/auth/v1/token?grant_type=password`,
     {
@@ -135,9 +183,71 @@ async function signIn(request, role) {
     },
   );
   if (res.status() !== 200) {
-    throw new Error(`sign-in failed for ${role}: HTTP ${res.status()} ${await res.text()}`);
+    throw new Error(`sign-in failed for ${role}: ${(await gotrueError(res)).text}`);
   }
-  return (await res.json()).access_token;
+  return res.json();
+}
+
+/** Challenge + verify the admin's TOTP factor; returns the AAL2 session. */
+async function stepUpAdmin(request, session, secret) {
+  const factor = (session.user?.factors || []).find(
+    (f) => f.factor_type === 'totp' && f.status === 'verified',
+  );
+  if (!factor) {
+    throw new Error(
+      `${ADMIN_TOTP_ENV} is set but the staging admin has no verified TOTP factor; `
+        + 'run backend/scripts/staging_seed.py (ADMINAAL2-0032 T009).',
+    );
+  }
+  const headers = {
+    apikey: STAGING_ANON,
+    Authorization: `Bearer ${session.access_token}`,
+    'Content-Type': 'application/json',
+  };
+  const factorUrl = `${STAGING_SUPABASE}/auth/v1/factors/${encodeURIComponent(factor.id)}`;
+  const challenge = await request.post(`${factorUrl}/challenge`, { headers, data: {} });
+  if (challenge.status() !== 200) return { error: await gotrueError(challenge), step: 'challenge' };
+  const { id: challengeId } = await challenge.json();
+  const verify = await request.post(`${factorUrl}/verify`, {
+    headers, data: { challenge_id: challengeId, code: totpCode(secret) },
+  });
+  if (verify.status() !== 200) return { error: await gotrueError(verify), step: 'verify' };
+  return { session: await verify.json() };
+}
+
+/**
+ * Password sign-in on staging Supabase; returns the complete GoTrue session
+ * (`access_token`, `refresh_token`, `expires_at`, `user`). For `admin` with
+ * STAGING_E2E_ADMIN_TOTP_SECRET set, the returned session is AAL2.
+ */
+async function signInSession(request, role) {
+  const password = process.env.E2E_PASSWORD || '';
+  if (!password) {
+    throw new Error('E2E_PASSWORD is required (must match staging_seed.py).');
+  }
+  const secret = role === 'admin' ? (process.env[ADMIN_TOTP_ENV] || '') : '';
+  let session;
+  if (!secret) {
+    session = await passwordSession(request, role, password);
+  } else {
+    let last;
+    for (let attempt = 1; attempt <= ADMIN_STEP_UP_ATTEMPTS && !session; attempt += 1) {
+      const result = await stepUpAdmin(request, await passwordSession(request, role, password), secret);
+      session = result.session;
+      last = result;
+      if (!session && result.error.code !== 'session_not_found') break;
+    }
+    if (!session) {
+      throw new Error(`admin AAL2 ${last.step} failed: ${last.error.text}`);
+    }
+  }
+  session.expires_at ||= Math.floor(Date.now() / 1000) + (session.expires_in || 3600);
+  return session;
+}
+
+/** Bearer access token for `role`; AAL2 for the admin when the secret is set. */
+async function signIn(request, role) {
+  return (await signInSession(request, role)).access_token;
 }
 
 /**
@@ -163,5 +273,8 @@ module.exports.STAGING_API = STAGING_API;
 module.exports.STAGING_SUPABASE = STAGING_SUPABASE;
 module.exports.STAGING_ANON = STAGING_ANON;
 module.exports.signIn = signIn;
+module.exports.signInSession = signInSession;
+module.exports.totpCode = totpCode;
+module.exports.ADMIN_TOTP_ENV = ADMIN_TOTP_ENV;
 module.exports.identityEmail = identityEmail;
 module.exports.cleanupE2ESession = cleanupE2ESession;
