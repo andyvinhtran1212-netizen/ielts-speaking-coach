@@ -21,6 +21,7 @@ import {
   normalizeMyClassResponse,
   remainingLabel,
   rhythmDays,
+  writingReviewCopy,
 } from '@/lib/my-class-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -34,6 +35,9 @@ type Assignment = {
   writingExpected: boolean | null;
   isLate: boolean;
   isMissing: boolean;
+  reviewState: 'not_submitted' | 'submitted' | 'graded' | 'returned' | null;
+  band: number | null;
+  resultPath: string | null;
   assignment: {
     id: string;
     cohortId: string | null;
@@ -140,6 +144,10 @@ function calendarDate(value: string | null) {
 
 function submittedCopy(row: Assignment) {
   const prefix = row.isLate ? 'Nộp trễ lúc' : 'Đã nộp lúc';
+  const writing = writingReviewCopy(row);
+  if (writing) {
+    return `${prefix} ${formatDateTime(row.submittedAt)}${writing.result ? ` · ${writing.result}` : ''}`;
+  }
   const score = row.score == null ? '' : row.assignment.skill === 'course'
     ? ` · ${Math.round(row.score)}%${row.passedAt ? ' · đã đạt' : ''}`
     : ` · Band ${row.score}`;
@@ -177,8 +185,10 @@ function TaskCard({
     start: 'Cần hoàn thành', continue: 'Chưa hoàn tất', retake: 'Chưa đạt · cần revision',
     retry_full: 'Chưa đạt · làm lại toàn bộ',
   };
+  const writing = writingReviewCopy(row);
   const stateLabel = needsCourseAction && courseStateLabel[row.courseAction || '']
     ? courseStateLabel[row.courseAction || '']
+    : writing ? writing.label
     : row.submittedAt ? (row.isLate ? 'Đã nộp trễ' : 'Đã nộp')
       : row.isMissing ? 'Đã quá hạn' : partial ? 'Còn phần tự luận' : 'Cần hoàn thành';
   const subtitle = assignmentSubtitle(row);
@@ -189,7 +199,8 @@ function TaskCard({
         <div className="mc-item-meta">
           <span className="mc-item-kind">{row.assignment.content?.assignmentType === 'grammar_lesson' ? 'Grammar lesson' : SKILL_LABEL[row.assignment.skill]}</span>
           {row.assignment.cohortName && <span className="mc-item-class">{row.assignment.cohortName}</span>}
-          <span className="mc-item-state" data-state={state}>{stateLabel}</span>
+          <span className="mc-item-state" data-state={state} data-review={writing?.state}>{stateLabel}</span>
+          {writing && row.isLate && <span className="mc-item-state" data-state="late">Nộp trễ</span>}
         </div>
         <p className="mc-item-title">{row.assignment.title}</p>
         {subtitle && <p className="mc-item-sub">{subtitle}</p>}
@@ -217,7 +228,7 @@ function TaskCard({
         </button>
       ) : action && (
         <button
-          className={`av-button ${action.kind === 'review' ? 'av-button-secondary' : 'av-button-primary'}`}
+          className={`av-button ${action.kind === 'review' || action.kind === 'result' ? 'av-button-secondary' : 'av-button-primary'}`}
           type="button"
           disabled={starting}
           onClick={() => onStart(row)}
@@ -567,7 +578,11 @@ export function MyClassWorkspace() {
     // resolve it. Its lifecycle (draft, timer, submit, grading) lives on the
     // Writing dashboard — send the learner there to do the task.
     if (row.assignment.skill === 'writing') {
-      window.location.assign('/writing/dashboard');
+      // A returned essay opens its result directly; the path is the server's,
+      // already pinned to /writing/result by the strict boundary.
+      const action = assignmentAction(row);
+      window.location.assign(action?.kind === 'result' && row.resultPath
+        ? row.resultPath : '/writing/dashboard');
       return;
     }
     const owner = accountKey;

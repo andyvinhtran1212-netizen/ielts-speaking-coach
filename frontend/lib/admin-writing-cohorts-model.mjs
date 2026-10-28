@@ -47,7 +47,7 @@ function cellOf(raw) {
   if (!assignmentId || !STATUSES.has(status)) return null;
   const band = row?.band == null ? null : Number(row.band);
   if (band != null && (!Number.isFinite(band) || band < 0 || band > 9)) return null;
-  return { assignmentId, status, essayId: optionalText(row?.essay_id), deadline: dateOf(row?.deadline), updatedAt: dateOf(row?.updated_at), band };
+  return { assignmentId, status, essayId: optionalText(row?.essay_id), deadline: dateOf(row?.deadline), updatedAt: dateOf(row?.updated_at), band, isLate: row?.is_late === true };
 }
 
 export function normalizeCohortDetail(raw) {
