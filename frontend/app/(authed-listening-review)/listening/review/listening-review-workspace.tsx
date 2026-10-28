@@ -17,8 +17,10 @@ import {
   listeningBandLabel,
   listeningReviewAnswerState,
   listeningReviewBackTarget,
+  listeningReviewMatchesFilter,
   listeningReviewParams,
   listeningReviewSection,
+  listeningReviewTotals,
   listeningSkillsToPractise,
   listeningTranscriptDisplayText,
   listeningTranscriptParagraphs,
@@ -28,7 +30,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { ReviewContextNotice, ReviewQuestionContext } from '@/components/review-attempt-context';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
-type Filter = 'wrong' | 'all' | 'correct';
+type Filter = 'wrong' | 'blank' | 'all' | 'correct';
 type AudioPlayerElement = HTMLElement & { seekTo?(seconds: number): void; getCurrentTime?(): number };
 
 const K_LABELS: Record<string, string> = {
@@ -366,7 +368,7 @@ export function ListeningReviewWorkspace() {
           setPhase('empty');
           return;
         }
-        const wrong = normalized.review.filter((item: any) => !item.correct).length;
+        const wrong = normalized.review.filter((item: any) => listeningReviewMatchesFilter(item, 'wrong')).length;
         setSnapshot({ ownerKey: ownerKey!, data: normalized });
         setActiveSection(normalized.sections[0].section_num);
         setCurrentQuestion(normalized.review[0].q_num);
@@ -409,11 +411,10 @@ export function ListeningReviewWorkspace() {
     return () => { disposed = true; };
   }, [data]);
 
-  const wrongCount = data?.review.filter((item: any) => !item.correct).length || 0;
+  const totals = useMemo(() => listeningReviewTotals(data?.review), [data]);
+  const wrongCount = totals.incorrect + totals.unanswered;
   const skills = useMemo(() => listeningSkillsToPractise(data?.review, K_LABELS), [data]);
-  const visibleItems = useMemo(() => (data?.review || []).filter((item: any) => (
-    filter === 'wrong' ? !item.correct : filter === 'correct' ? item.correct : true
-  )), [data, filter]);
+  const visibleItems = useMemo(() => (data?.review || []).filter((item: any) => listeningReviewMatchesFilter(item, filter)), [data, filter]);
 
   const locate = useCallback((item: any, continuously = false) => {
     const win = item.audio_window;
@@ -435,7 +436,7 @@ export function ListeningReviewWorkspace() {
   }, [data]);
 
   const jump = useCallback((item: any) => {
-    if (filter !== 'all' && ((filter === 'wrong') === item.correct)) setFilter('all');
+    if (filter !== 'all' && !listeningReviewMatchesFilter(item, filter)) setFilter('all');
     setCurrentQuestion(item.q_num);
     setExpanded((previous) => new Set(previous).add(item.q_num));
     requestAnimationFrame(() => document.getElementById(`listening-review-q-${item.q_num}`)
@@ -464,9 +465,9 @@ export function ListeningReviewWorkspace() {
           <header className="lr-review-header"><div><p className="lr-review-header__eyebrow">BÀN CHỮA BÀI</p><h1>Nghe lại, nhận ra tín hiệu</h1><p className="lr-review-header__copy">
             {data.preview
               ? `${data.review.length} câu trong đề · Xem đáp án, transcript và lời giải trước khi xuất bản.`
-              : `${wrongCount} câu cần xem lại · ${data.review.length - wrongCount} câu đúng. ${wrongCount ? 'Bắt đầu từ các câu sai, nghe lại rồi mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}
+              : `${totals.incorrect} câu sai · ${totals.unanswered} câu bỏ trống · ${totals.correct} câu đúng. ${wrongCount ? 'Bắt đầu từ các câu sai, nghe lại rồi mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}
           </p></div>{!data.preview ? <div className="lr-filter" role="group" aria-label="Lọc kết quả câu hỏi">{([
-            ['wrong', 'Cần xem lại'], ['all', 'Tất cả'], ['correct', 'Đúng'],
+            ['wrong', 'Cần xem lại'], ['blank', 'Bỏ trống'], ['all', 'Tất cả'], ['correct', 'Đúng'],
           ] as [Filter, string][]).map(([value, label]) => <button type="button" className={`lr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}</div> : null}</header>
           <div className="lr-review">
             {!data.preview ? <div className="exam-review-guide" aria-label="Cách chữa bài hiệu quả"><span><b>1</b><span><small>Nghe</small>Đúng đoạn đáp án</span></span><span><b>2</b><span><small>Đối chiếu</small>Transcript và tín hiệu</span></span><span><b>3</b><span><small>Rút kinh nghiệm</small>Paraphrase và bẫy</span></span></div> : null}
