@@ -370,7 +370,7 @@ MẪU SPEAKING:
 | **Because of this / Due to this** | **Because of this**, many families struggle to afford housing. |
 | **As a consequence** | **As a consequence**, the company had to lay off staff. |
 
-> **Thang độ trang trọng:** as a result ≈ consequently > therefore > hence > thus
+> **Thang độ trang trọng:** thus ≈ hence > consequently > therefore > as a result
 > 
 > "Hence" và "thus" rất trang trọng — phù hợp IELTS Writing hơn Speaking.
 
@@ -434,7 +434,7 @@ MẪU SPEAKING:
 [Cause]. Consequently, [Result].
 ```
 
-"Consequently" là dạng formal nhất — phù hợp nhất cho IELTS Writing Task 2:
+"Consequently" trang trọng, rất hợp với Writing Task 2:
 
 - The population is ageing rapidly. **Consequently**, the demand for healthcare and social services is projected to increase dramatically over the next two decades.
 - Deforestation has accelerated. **Consequently**, many species face the threat of extinction.
@@ -739,7 +739,7 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 5. In conclusion / Overall / To sum up
 
 **Đoạn văn mẫu:**
-*In this hypothetical dataset, people reported spending more time on social media and less time meeting face to face. Loneliness also increased. These observations alone do not establish causation. Features encouraging real-world meetings could be explored.*
+People are spending more time on social media. **As a result**, they have less time for face-to-face interactions. **This may partly explain why** loneliness and depression rates have increased. **Since** social connection is fundamental to mental health, apps and platforms **should therefore** design features that encourage real-world meetings.
 
 Từ nối không chứng minh quan hệ nhân quả; cần thêm bằng chứng trước khi viết as a result/consequently.
 

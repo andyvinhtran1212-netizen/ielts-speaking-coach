@@ -52,10 +52,10 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: comparison.comparative.regular-er
-    location: "### Tính từ/Trạng từ ngắn (1 âm tiết, hoặc 2 âm tiết kết thúc -y)"
+    location: "### Tính từ/trạng từ ngắn (1 âm tiết; tính từ 2 âm tiết tận cùng -y)"
     type: structure
   - id: comparison.comparative.more-than
-    location: "### Tính từ/Trạng từ dài (2+ âm tiết, không kết thúc -y)"
+    location: "### Tính từ dài (phần lớn tính từ từ 2 âm tiết trở lên) và trạng từ đuôi -ly"
     type: structure
   - id: comparison.superlative.the-est
     location: "### Tính từ ngắn"
@@ -95,7 +95,7 @@ So sánh xuất hiện liên tục trong IELTS:
 ## Cấu trúc Comparative
 
 <!-- anchor: comparison.comparative.regular-er -->
-### Tính từ/Trạng từ ngắn (1 âm tiết, hoặc 2 âm tiết kết thúc -y)
+### Tính từ/trạng từ ngắn (1 âm tiết; tính từ 2 âm tiết tận cùng -y)
 
 ```
 Adjective + -er + than
@@ -114,7 +114,7 @@ Adjective + -er + than
 - My new job is **easier** than the old one.
 
 <!-- anchor: comparison.comparative.more-than -->
-### Tính từ/Trạng từ dài (2+ âm tiết, không kết thúc -y)
+### Tính từ dài (phần lớn tính từ từ 2 âm tiết trở lên) và trạng từ đuôi -ly
 
 ```
 more + Adjective + than
@@ -123,6 +123,8 @@ more + Adjective + than
 - This solution is **more efficient** than the previous one.
 - She speaks **more fluently** than I do.
 - Online shopping is **more convenient** than going to the store.
+
+> Một số tính từ 2 âm tiết dùng được cả hai cách (simpler / more simple); khi không chắc, hãy tra từ điển.
 
 ### Bất quy tắc
 
@@ -369,7 +371,7 @@ Tiếng Việt "hơn" có thể đi với mọi tính từ. Người học VN b�
 ❌ "Hanoi is **more bigger** than Da Nang." → ✅ "Hanoi is **bigger** than Da Nang."
 ❌ "This problem is **more more** difficult." → ✅ "This problem is **more** difficult."
 
-**Quy tắc:** Adjective ngắn (1 syllable, hoặc 2 syllables ending in -y) → -er. Adjective dài → more + adj. KHÔNG đi cùng nhau.
+**Quy tắc:** Tính từ/trạng từ ngắn (1 âm tiết; tính từ 2 âm tiết tận cùng -y) → -er. Tính từ dài (phần lớn tính từ từ 2 âm tiết trở lên) và trạng từ đuôi -ly → more + adj. KHÔNG đi cùng nhau.
 
 ### Lỗi 2: Bỏ "than"
 

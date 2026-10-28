@@ -229,8 +229,8 @@ a little + uncountable noun = "có một ít — đủ dùng"
 - ❌ A lot of studies show that exercise is beneficial.
 - ✅ **A considerable number of** studies demonstrate that exercise yields significant health benefits.
 
-- ❌ Many countries have this problem.
-- ✅ **The majority of** countries experience this issue to varying degrees.
+- Ít trang trọng: Many countries have this problem.
+- ✅ **A large number of** countries experience this issue to varying degrees.
 
 <!-- anchor: quantifiers.quantifiers-quan-trong-khac -->
 ## Quantifiers quan trọng khác
@@ -347,7 +347,7 @@ Dùng với countable plural, động từ số nhiều:
 ### Đáp án
 
 **Quantifier đúng:**
-1. much | 2. Few | 3. a little | 4. Much / A great deal of | 5. several
+1. much | 2. A few | 3. a little | 4. Much / A great deal of | 5. several
 
 **Sửa lỗi:**
 1. There is **much / a great deal of** evidence... (evidence = uncountable)

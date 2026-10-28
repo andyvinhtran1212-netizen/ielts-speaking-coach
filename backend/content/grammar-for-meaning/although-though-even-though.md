@@ -275,7 +275,7 @@ While / Whereas [clause A], [clause B].
 ### Lỗi 4: Dùng "even though" khi tương phản không đủ mạnh
 
 - ❌ "**Even though** it was raining, I took an umbrella." *(mang ô khi mưa là bình thường — không bất ngờ)*
-- ✅ "**Although** it was raining, I took an umbrella."
+- ✅ "**Because** it was raining, I took an umbrella." *(không có tương phản → không dùng although/even though)*
 - ✅ "**Even though** it was raining heavily, she walked all the way to school." *(bất ngờ hơn)*
 
 ### Lỗi 5: Quên dấu phẩy sau mệnh đề phụ đứng đầu câu
