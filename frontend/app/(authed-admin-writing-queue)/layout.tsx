@@ -9,3 +9,6 @@ export default function AdminWritingQueueLayout({ children }: { children: ReactN
     '/css/admin-writing-queue-next.css',
   ]}>{children}</AuthedShell>;
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

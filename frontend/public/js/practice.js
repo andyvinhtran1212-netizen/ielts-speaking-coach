@@ -2101,11 +2101,45 @@
       + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
   }
 
+  // The click PATCH and the card hover are delegated listeners (below), not
+  // inline on* attributes: a nonce-based CSP blocks those (PC-J38).
   function _grammarRecTelemetryAttrs(rec) {
     if (!rec || !rec.rec_id) return '';
-    return ' data-rec-id="' + _esc(rec.rec_id) + '"'
-      + ' onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})"';
+    return ' data-rec-id="' + _esc(rec.rec_id) + '"';
   }
+
+  var _GR_CARD_HOVER = {
+    primary: {
+      over: { background: 'rgba(20,184,166,0.12)' },
+      out: { background: 'rgba(20,184,166,0.07)' },
+    },
+    secondary: {
+      over: { borderColor: 'rgba(20,184,166,0.25)', background: 'rgba(20,184,166,0.05)' },
+      out: { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' },
+    },
+  };
+
+  function _closestFromEvent(event, selector) {
+    var target = event.target;
+    return target && typeof target.closest === 'function' ? target.closest(selector) : null;
+  }
+
+  function _bindGrammarCardEvents() {
+    if (typeof document === 'undefined' || window.__averGrammarCardEventsBound) return;
+    window.__averGrammarCardEventsBound = true;
+    document.addEventListener('click', function (event) {
+      var link = _closestFromEvent(event, 'a[data-rec-id]');
+      if (link && link.dataset.recId) _trackGrammarResource(link.dataset.recId, null);
+    });
+    ['mouseover', 'mouseout'].forEach(function (type) {
+      document.addEventListener(type, function (event) {
+        var card = _closestFromEvent(event, 'a[data-gr-card]');
+        var hover = card && _GR_CARD_HOVER[card.dataset.grCard];
+        if (hover) Object.assign(card.style, type === 'mouseover' ? hover.over : hover.out);
+      });
+    });
+  }
+  _bindGrammarCardEvents();
 
   // Card HTML: primary = full treatment with summary, secondary = compact muted
   function _grammarCardHtml(match, isPrimary) {
@@ -2120,12 +2154,11 @@
 
     if (isPrimary) {
       return '<a href="' + href + '" target="_blank" rel="noopener"' + telemetryAttrs
+        + ' data-gr-card="primary"'
         + ' style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;'
         + 'background:rgba(20,184,166,0.07);border:1px solid rgba(20,184,166,0.28);'
         + 'border-left:3px solid #14b8a6;border-radius:14px;text-decoration:none;'
-        + 'transition:background 0.15s;"'
-        + ' onmouseover="this.style.background=\'rgba(20,184,166,0.12)\'"'
-        + ' onmouseout="this.style.background=\'rgba(20,184,166,0.07)\'">'
+        + 'transition:background 0.15s;">'
         + '<div style="flex:1;min-width:0;">'
         + '<p style="font-size:13px;font-weight:600;color:var(--ds-text);margin:0 0 3px;'
         + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
@@ -2139,11 +2172,10 @@
         + '</a>';
     }
     return '<a href="' + href + '" target="_blank" rel="noopener"' + telemetryAttrs
+      + ' data-gr-card="secondary"'
       + ' style="display:flex;align-items:center;gap:10px;padding:10px 14px;'
       + 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
-      + 'border-radius:12px;text-decoration:none;transition:border-color 0.15s,background 0.15s;"'
-      + ' onmouseover="this.style.borderColor=\'rgba(20,184,166,0.25)\';this.style.background=\'rgba(20,184,166,0.05)\'"'
-      + ' onmouseout="this.style.borderColor=\'rgba(255,255,255,0.07)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
+      + 'border-radius:12px;text-decoration:none;transition:border-color 0.15s,background 0.15s;">'
       + '<div style="flex:1;min-width:0;">'
       + '<p style="font-size:12px;font-weight:600;color:var(--ds-text);margin:0 0 2px;'
       + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
@@ -3038,7 +3070,7 @@
     if (playBtn) playBtn.textContent = '🔊 Nghe câu hỏi';
   }
 
-  // Called by mode toggle buttons (onclick="PracticeApp.setQMode(...)").
+  // Called by mode toggle buttons (onclick="PracticeApp.setQMode(...)).
   function _setQMode(mode) {
     _qMode = mode;
     try { sessionStorage.setItem('ielts_qmode', mode); } catch (e) { /* storage not available */ }

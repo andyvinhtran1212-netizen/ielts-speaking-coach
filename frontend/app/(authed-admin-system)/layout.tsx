@@ -26,3 +26,6 @@ export default function AdminSystemLayout({ children }: { children: ReactNode })
     </AuthedShell>
   );
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

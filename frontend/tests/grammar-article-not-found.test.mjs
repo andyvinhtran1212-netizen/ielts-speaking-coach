@@ -77,7 +77,10 @@ describe('grammar article 404 wiring', () => {
   const proxy = read('proxy.ts');
 
   test('proxy only intercepts /grammar/:category/:slug and rewrites misses to the 404 route', () => {
-    assert.match(proxy, /matcher: '\/grammar\/:category\/:slug'/);
+    // The matcher also lists the CSP-nonce route groups (PC-J38,
+    // csp-nonce-report-only.test.mjs); only /grammar/* reaches this branch.
+    assert.match(proxy, /matcher: \[\n\s*'\/grammar\/:category\/:slug',/);
+    assert.match(proxy, /pathname\.startsWith\('\/grammar\/'\)\n\s*\? grammarArticle\(request\)/);
     assert.match(proxy, /\/api\/grammar\/categories/);
     assert.match(proxy, /const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '\/grammar\/article-not-found'/);
     assert.match(proxy, /=== false;/, 'only a definite miss (false) is a 404; null passes through');

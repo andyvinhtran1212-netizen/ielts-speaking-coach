@@ -676,6 +676,8 @@ on:
       - 'frontend/public/js/analytics-beacon.js'
       - 'frontend/public/**/*.html'
       - 'frontend/next.config.ts'
+      - 'frontend/proxy.ts'
+      - 'frontend/tooling/content-security-policy.mjs'
       - 'frontend/package-lock.json'
       - 'frontend/package.json'
       - 'frontend/tsconfig.json'
@@ -893,6 +895,12 @@ jobs:
       # the signed-out /login redirect.
       - name: Kiểm route học viên chờ đăng nhập trước khi khởi động
         run: node tooling/verify-learner-route-auth-boot-flow.mjs "http://localhost:$TEST_PORT"
+
+      # PC-J38: signed-in routes carry a nonce Report-Only CSP next to the
+      # unchanged enforced one, load with 0 Report-Only violations, and an
+      # injected <img onerror> is reported. CSP is not bypassed here.
+      - name: Kiểm CSP nonce Report-Only trên route đã đăng nhập
+        run: node tooling/verify-csp-nonce-report-only-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.

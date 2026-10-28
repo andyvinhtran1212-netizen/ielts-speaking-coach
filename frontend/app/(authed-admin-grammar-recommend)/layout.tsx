@@ -6,3 +6,6 @@ export default function Layout({ children }: { children: ReactNode }) {
     '/css/aver-design/admin-buttons.css', '/css/aver-design/admin-status.css', '/css/admin-grammar-recommend-next.css',
   ]}>{children}</AuthedShell>;
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;
