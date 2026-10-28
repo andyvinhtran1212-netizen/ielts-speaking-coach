@@ -45,7 +45,7 @@ questions:
 
   - q_num: 2
     question_type: mcq_single
-    prompt: "For an IELTS Task 2 essay, which sentence demonstrates a COMPLEX structure suitable for Band 7+?"
+    prompt: "For an IELTS Task 2 essay, which sentence combines a concession clause and a relative clause?"
     options:
       - {label: A, text: "Technology is good. Technology helps people. People use it every day."}
       - {label: B, text: "Although technology has revolutionized many aspects of daily life, it simultaneously creates new social challenges that require careful policy intervention."}
@@ -57,25 +57,25 @@ questions:
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "Câu B kết hợp mệnh đề nhượng bộ ('Although...') + mệnh đề phụ thuộc ('that require...') vào cấu trúc chính, tạo tính phức tạp và độc lập cần thiết cho Task 2. Câu A là danh sách đơn giản; C và D thiếu mối liên hệ phức tạp."
+          instruction_vi: "Câu B có mệnh đề nhượng bộ ('Although technology has revolutionized...') và mệnh đề quan hệ ('that require careful policy intervention', bổ nghĩa cho 'challenges'), gắn vào mệnh đề chính 'it simultaneously creates new social challenges'. Câu A gồm ba câu đơn; câu C có mệnh đề chỉ lý do ('because...') nhưng không có nhượng bộ hay mệnh đề quan hệ; câu D là câu đơn."
           kp_refs:
             - {type: grammar, slug: complex-sentences-for-task2, anchor: complex-sentences-for-task2.types}
           microcheck:
             prompt: "Câu 'Although...simultaneously creates...that require' sử dụng loại cấu trúc nào để thể hiện lập luận Task 2?"
             options:
-              - "mệnh đề nhượng bộ + mệnh đề phụ thuộc quan hệ"
+              - "mệnh đề nhượng bộ + mệnh đề quan hệ"
               - "hai mệnh đề độc lập nối bằng 'and'"
               - "câu đơn với một danh từ"
             answer: "A"
         - action: confirm
-          instruction_vi: "Cấu trúc phức tạp (complex sentences) với liên từ phụ thuộc và mệnh đề quan hệ giúp thể hiện mối nhân quả, thương lượng — đặc trưng Task 2 Band 7+. Đáp án B."
+          instruction_vi: "Chỉ câu B có cả mệnh đề nhượng bộ (Although...) và mệnh đề quan hệ (that...). Đáp án B."
       distractor_analysis:
         - option: A
-          why_wrong_vi: "Ba câu đơn cạnh nhau (parataxis) không cho thấy logic phức tạp; sử dụng từ từ ('technology', 'people') lặp lại thay vì tổng hợp ý."
+          why_wrong_vi: "Ba câu đơn cạnh nhau (parataxis), không có mệnh đề nhượng bộ hay mệnh đề quan hệ; từ 'technology', 'people' còn bị lặp lại thay vì tổng hợp ý."
           kp_refs:
             - {type: grammar, slug: complex-sentences-for-task2, anchor: complex-sentences-for-task2.pitfall}
         - option: C
-          why_wrong_vi: "Câu đơn 'I think X because Y' không đủ mức độ phức tạp; thiếu các mệnh đề phụ thuộc hay mệnh đề chêm để phát triển luận điểm."
+          why_wrong_vi: "'I think X because Y' là câu phức với mệnh đề chỉ lý do ('because I use my phone'), nhưng không có mệnh đề nhượng bộ và không có mệnh đề quan hệ như câu hỏi yêu cầu."
           kp_refs:
             - {type: grammar, slug: complex-sentences-for-task2, anchor: complex-sentences-for-task2.control}
 
@@ -83,17 +83,17 @@ questions:
     question_type: mcq_single
     prompt: "In an IELTS essay, a writer used a comma between two independent clauses: 'Education is a fundamental right, all citizens deserve access to quality schools.' This error is called ____."
     options:
-      - {label: A, text: "comma splice (mệnh đề nối sai)"}
+      - {label: A, text: "comma splice (nối hai mệnh đề độc lập chỉ bằng dấu phẩy)"}
       - {label: B, text: "semicolon error"}
       - {label: C, text: "fragment"}
-      - {label: D, text: "run-on sentence (nối riêng lẻ)"}
+      - {label: D, text: "dangling modifier (bổ ngữ treo)"}
     answer: "A"
     kp_focus: grammar
     grammar_slug: punctuation-for-writing
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "Hai mệnh đề độc lập ('Education is...' và 'all citizens deserve...') không được nối bằng dấu phẩy đơn độc. Đây là comma splice (mệnh đề nối sai). Cách sửa: dùng dấu chấm phẩy, liên từ, hoặc tách thành hai câu."
+          instruction_vi: "Hai mệnh đề độc lập ('Education is...' và 'all citizens deserve...') không được nối bằng dấu phẩy đơn độc. Đây là comma splice (nối hai mệnh đề độc lập chỉ bằng dấu phẩy). Cách sửa: dùng dấu chấm phẩy, liên từ, hoặc tách thành hai câu."
           kp_refs:
             - {type: grammar, slug: punctuation-for-writing, anchor: punctuation-for-writing.splice}
           microcheck:
@@ -111,13 +111,13 @@ questions:
           kp_refs:
             - {type: grammar, slug: punctuation-for-writing, anchor: punctuation-for-writing.pitfall}
         - option: D
-          why_wrong_vi: "'Run-on sentence' thường chỉ nối mà không dấu gì; ở đây có dấu phẩy nên được gọi là comma splice cụ thể hơn."
+          why_wrong_vi: "Dangling modifier là bổ ngữ (thường là cụm phân từ đầu câu) không gắn được với chủ ngữ hợp lý, vd 'Walking to school, the rain started.' Câu này không có bổ ngữ như vậy; lỗi nằm ở dấu phẩy nối hai mệnh đề độc lập."
           kp_refs:
             - {type: grammar, slug: punctuation-for-writing, anchor: punctuation-for-writing.splice}
 
   - q_num: 4
     question_type: mcq_single
-    prompt: "Read these two sentences: (1) 'Renewable energy reduces carbon emissions.' (2) 'It creates new jobs in the energy sector.' How would a writer use cohesion devices to link them in a Task 2 essay?"
+    prompt: "Read these two sentences: (1) 'Renewable energy reduces carbon emissions.' (2) 'It creates new jobs in the energy sector.' Which option begins sentence (2) with a linking adverb that adds a further point?"
     options:
       - {label: A, text: "Moreover / Furthermore, renewable energy creates new jobs..."}
       - {label: B, text: "Renewable energy reduces emissions and it creates jobs."}
@@ -129,7 +129,7 @@ questions:
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "Trong Task 2, khi hai ý cùng HƯỚNG (cùng hỗ trợ một lập luận), dùng linking adverbs như 'Moreover'/'Furthermore' để thể hiện mối liên kết LOGIC. Câu A sử dụng công cụ liên kết rõ ràng."
+          instruction_vi: "Hai ý cùng HƯỚNG (cùng hỗ trợ một lập luận), nên câu (2) cần mở đầu bằng trạng từ nối bổ sung ý như 'Moreover'/'Furthermore'. Chỉ phương án A mở đầu câu (2) bằng trạng từ nối; B và D dùng liên từ ('and', 'because') để gộp thành một câu, C không có từ nối."
           kp_refs:
             - {type: grammar, slug: cohesion-devices-in-writing, anchor: cohesion-devices-in-writing.tools}
           microcheck:
@@ -140,14 +140,14 @@ questions:
               - "chỉ ra nguyên nhân của câu trước"
             answer: "A"
         - action: confirm
-          instruction_vi: "Liên từ adding (Moreover, Furthermore) giúp liên kết các ý bổ sung trong bài luận Task 2. Đáp án A."
+          instruction_vi: "Trạng từ nối bổ sung ý (Moreover, Furthermore) đứng đầu câu (2), theo sau là dấu phẩy. Đáp án A."
       distractor_analysis:
         - option: B
-          why_wrong_vi: "Nối 'and it' là cấu trúc bề mặt; không rõ mối quan hệ logic giữa hai ý. 'Moreover' tường minh hơn."
+          why_wrong_vi: "'and' là liên từ nối hai mệnh đề trong cùng một câu, không phải trạng từ nối mở đầu câu (2)."
           kp_refs:
             - {type: grammar, slug: cohesion-devices-in-writing, anchor: cohesion-devices-in-writing.pitfall}
         - option: D
-          why_wrong_vi: "'because' sai logic: việc tạo việc làm là hệ quả THÊM, chứ không NGUYÊN NHÂN của việc giảm phát thải."
+          why_wrong_vi: "'because' là liên từ chỉ nguyên nhân, không phải trạng từ nối bổ sung ý; câu D còn sai logic vì việc giảm phát thải không phải NGUYÊN NHÂN của việc tạo việc làm."
           kp_refs:
             - {type: grammar, slug: cohesion-devices-in-writing, anchor: cohesion-devices-in-writing.tools}
 
