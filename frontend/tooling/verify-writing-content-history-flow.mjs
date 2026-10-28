@@ -92,7 +92,7 @@ async function fixture(options = {}) {
 try {
   for (const studentError of [
     { code: 'student_archived', message: 'Hồ sơ học viên của bạn đã được lưu trữ. Vui lòng liên hệ giảng viên.' },
-    'Bạn chưa được link với tài khoản học viên. Vui lòng liên hệ giảng viên.',
+    'Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài',
   ]) {
     const f = await fixture({ studentError });
     const message = typeof studentError === 'string' ? studentError : studentError.message;
@@ -108,7 +108,7 @@ try {
       check(`Writing 403 shows canonical ${typeof studentError === 'string' ? 'not-linked' : 'archived'} message${reload ? ' after reload' : ''}`,
         !await f.page.locator('#error').isVisible()
         && await f.page.locator('#assignments-list, #essays-list').getByText(
-          typeof studentError === 'string' ? /đã được lưu trữ/ : /chưa được link/).count() === 0);
+          typeof studentError === 'string' ? /đã được lưu trữ/ : /chưa được xếp lớp/).count() === 0);
     }
     await f.finish();
   }
