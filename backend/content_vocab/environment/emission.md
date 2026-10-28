@@ -5,6 +5,9 @@ category: "environment"
 level: "B2"
 part_of_speech: "noun"
 pronunciation: "/ɪˈmɪʃ.ən/"
+definition_en: "the release of gas, heat, light or other substances into the air or environment; an amount that is released."
+gloss_vi: "sự phát thải; khí thải"
+example: "Improving bus services could help cities reduce emissions by making public transport a practical alternative to driving."
 synonyms: ["discharge", "release", "output"]
 antonyms: []
 collocations: ["carbon emission", "greenhouse gas emission", "reduce emissions", "emission targets", "zero-emission"]

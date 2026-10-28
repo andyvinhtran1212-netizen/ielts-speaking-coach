@@ -434,6 +434,38 @@ def test_reading_test_list_excludes_test_papers_before_paging(staging, monkeypat
     assert out["total"] == 2
 
 
+@pytest.mark.parametrize("library", ["l1_vocab", "l2_skill"])
+def test_reading_passage_lists_exclude_test_passages_before_paging(staging, monkeypatch, library):
+    import asyncio
+    from routers import reading_student as rs
+    passages = [
+        # Real staging L1 rows seen 2026-10-28.
+        {"id": "p-qa", "slug": "qa-aver-reading-food-20261005", "title": "QA — Food and Sharing",
+         "library": library, "status": "published"},
+        {"id": "p-real", "slug": "urban-farming", "title": "Urban Farming",
+         "library": library, "status": "published"},
+    ]
+    db = _DB(reading_passages=passages)
+    monkeypatch.setattr(rs, "supabase_admin", db)
+    monkeypatch.setattr(tdv, "supabase_admin", db)
+
+    def run(email):
+        monkeypatch.setattr(rs, "_require_auth", AsyncMock(return_value={"id": "u", "email": email}))
+        lister = rs.list_vocab_passages if library == "l1_vocab" else rs.list_skill_exercises
+        kwargs = {"skill": None} if library == "l2_skill" else {"tag": None}
+        return asyncio.run(lister(difficulty=None, search=None, limit=1, offset=0,
+                                  authorization="Bearer x", **kwargs))
+
+    out = run("learner@gmail.com")
+    assert [i["id"] for i in out["items"]] == ["p-real"] and out["total"] == 1
+    assert run(_TEST_EMAIL)["total"] == 2
+
+    staging(flag=False)
+    db.log.clear()
+    assert run("learner@gmail.com")["total"] == 2
+    assert "not.in.id" not in db.ops("reading_passages")
+
+
 def test_listening_helpers_drop_tests_and_their_sections(staging, monkeypatch):
     from routers import listening as ls
     db = _DB(

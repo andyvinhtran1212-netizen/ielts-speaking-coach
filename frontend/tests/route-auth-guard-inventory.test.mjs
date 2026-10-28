@@ -41,6 +41,7 @@ const PUBLIC_BY_DESIGN = Object.freeze([
   '/login',
   '/grammar',
   '/grammar/[category]/[slug]',
+  '/grammar/article-not-found', // proxy.ts rewrite target for unknown articles (prerendered 404)
   '/grammar/compare',
   '/grammar/exercises',
   '/grammar/roadmap',

@@ -5,6 +5,9 @@ category: "work-career"
 level: "C1"
 part_of_speech: "noun"
 pronunciation: "/ˌpriːˈrek.wɪ.zɪt/"
+definition_en: "something that must be in place or completed before another action or stage can begin."
+gloss_vi: "điều kiện tiên quyết"
+example: "Reliable internet access is a prerequisite for taking part in live online courses."
 synonyms: ["requirement", "precondition", "necessity", "qualification"]
 antonyms: []
 collocations: ["prerequisite for success", "essential prerequisite", "entry prerequisite", "prerequisite skills", "a prerequisite for the job"]

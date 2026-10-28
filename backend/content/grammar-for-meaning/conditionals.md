@@ -533,6 +533,7 @@ Unless có thể đi với phủ định khi ý ngoại lệ cần phủ định
 
 - "Would" → chắc chắn hơn: **If** she tried, she **would** succeed.
 - "Could/Might" → ít chắc hơn: **If** she tried, she **might** succeed.
+- If she tried, she **could** succeed. (có khả năng/năng lực)
 
 ## Ứng dụng trong IELTS
 

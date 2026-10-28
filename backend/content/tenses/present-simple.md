@@ -228,8 +228,8 @@ Với các động từ trạng thái (stative verbs), dùng Present Simple khi 
 
 **Ví dụ cặp so sánh:**
 
-- I **work** at the hospital. (thường xuyên) vs. I **'m working** from home today. (tạm thời)
-- She **studies** medicine. (chuyên ngành của cô) vs. She **'s studying** for an exam now. (đang chuẩn bị)
+- I **work** at the hospital. (thường xuyên) vs. I**'m working** from home today. (tạm thời)
+- She **studies** medicine. (chuyên ngành của cô) vs. She**'s studying** for an exam now. (đang chuẩn bị)
 - **Do** you **play** football? (thường xuyên) vs. **Are** you **playing** football now? (lúc này)
 
 ## Lỗi thường gặp
@@ -262,7 +262,7 @@ Với các động từ trạng thái (stative verbs), dùng Present Simple khi 
 ### Lỗi 5: Dùng Present Simple với "now" hay "right now"
 
 - ❌ SAI: I **study** right now.
-- ✅ ĐÚNG: I **'m studying** right now.
+- ✅ ĐÚNG: I**'m studying** right now.
 - **TẠI SAO:** Nếu study là hoạt động đang diễn ra, **I'm studying right now** phù hợp. Now không tự buộc mọi động từ dùng tiếp diễn: **Now I understand**, **I need help right now** dùng dạng đơn.
 
 ## Lưu ý cho người học Việt Nam

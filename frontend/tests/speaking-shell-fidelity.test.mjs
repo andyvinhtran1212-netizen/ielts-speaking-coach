@@ -59,6 +59,14 @@ const INTENTIONAL_COPY = new Map([
   ['Part simulator', 'Luyện theo từng Part'],
   ['Exam simulation', 'Mô phỏng phòng thi'],
   ['1 cue card', '1 thẻ đề (cue card)'],
+  // Q-91 (owner duyệt 2026-10-28): "session(s)" → "buổi" ở /speaking.
+  ['Hoàn thành ít nhất một session để xem thống kê và biểu đồ tiến độ.',
+    'Hoàn thành ít nhất một buổi luyện để xem thống kê và biểu đồ tiến độ.'],
+  ['Cần ít nhất 2 sessions để hiện biểu đồ', 'Cần ít nhất 2 buổi luyện để hiện biểu đồ'],
+  ['5 sessions gần nhất', '5 buổi gần nhất'],
+  ['Lịch sử sessions', 'Lịch sử buổi luyện'],
+  ['0 sessions', '0 buổi'],
+  ['Bạn chưa có session nào.', 'Bạn chưa có buổi luyện nào.'],
 ]);
 
 describe('vỏ Speaking — trung thực với bản legacy', () => {

@@ -270,6 +270,8 @@ Dùng với countable plural, động từ số nhiều:
 <!-- anchor: quantifiers.loi-thuong-gap -->
 ## Lỗi thường gặp
 
+Tiếng Việt 'nhiều' dùng cho mọi danh từ nên người học hay viết 'many information/much students'; 'thông tin, bằng chứng, nghiên cứu' đếm được trong tiếng Việt nhưng là uncountable trong tiếng Anh.
+
 ### Lỗi 1: Dùng "many" với uncountable
 
 - ❌ There is **many** evidence to support this.
