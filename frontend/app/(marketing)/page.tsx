@@ -38,7 +38,7 @@ export default function LandingPreviewPage() {
       <nav className="ix-nav fixed top-0 inset-x-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
-          <a href="#" className="ix-logo flex items-center gap-2">
+          <Link href="/" className="ix-logo flex items-center gap-2">
             <div className="ix-logo__mark w-8 h-8 rounded-lg flex items-center justify-center">
               <svg viewBox="0 0 24 24" className="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
@@ -47,7 +47,7 @@ export default function LandingPreviewPage() {
             <span className="ix-logo__text font-bold text-lg tracking-tight">
               Aver Learning
             </span>
-          </a>
+          </Link>
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
@@ -779,11 +779,6 @@ export default function LandingPreviewPage() {
                 <li>
                   <Link href="/login" className="ix-footer__link text-sm">
                     Đăng ký
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/home" className="ix-footer__link text-sm">
-                    Trang chủ
                   </Link>
                 </li>
               </ul>

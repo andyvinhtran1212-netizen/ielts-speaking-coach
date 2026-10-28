@@ -116,17 +116,30 @@ def _reset_listening_gist_burst_window():
     yield
 
 
+# F09 — /auth/activate records every attempt through the Postgres RPC
+# fn_activate_attempt_check (migration 334) and fails closed when it cannot.
+# Activation tests drive fake Supabase clients that know nothing about that
+# RPC, so the limiter allows by default; its own tests opt back into the real
+# implementation with the `live_activate_rate_limit` fixture below.
+_ACTIVATE_RATE_LIMIT_ORIGINAL: dict = {}
+
+
 @pytest.fixture(autouse=True)
-def _reset_activate_rate_limit():
-    """B4 — /auth/activate uses a module-global per-user attempt window. Reset it
-    before each test so accumulated attempts don't leak across tests (many tests
-    activate with the same fake user id and would otherwise trip the 429 cap)."""
+def _activate_rate_limit_allows(monkeypatch):
     try:
         from routers import auth
-        auth._activate_attempts.clear()
     except Exception:
-        pass
-    yield
+        return
+    _ACTIVATE_RATE_LIMIT_ORIGINAL.setdefault("fn", auth._rate_limit_activate)
+    monkeypatch.setattr(auth, "_rate_limit_activate", lambda _user_id: None)
+
+
+@pytest.fixture
+def live_activate_rate_limit(monkeypatch):
+    """Run the REAL /auth/activate rate limit (the RPC call) in this test."""
+    from routers import auth
+    monkeypatch.setattr(auth, "_rate_limit_activate", _ACTIVATE_RATE_LIMIT_ORIGINAL["fn"])
+    return auth
 
 
 # ── CỔNG CHO TEST TỐN TIỀN: MỘT CỜ RIÊNG, KHÔNG PHẢI BIỂU THỨC MARKER ───────

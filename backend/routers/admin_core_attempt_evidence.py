@@ -41,6 +41,13 @@ async def _require_private_admin(authorization: str | None) -> dict:
     try:
         return await require_admin(authorization)
     except HTTPException as exc:
+        if isinstance(exc.detail, dict) and exc.detail.get("code") == "mfa_required":
+            # ADMINAAL2-0032 FR-002 — the admin console needs the structured
+            # code to send the admin to /admin/mfa.
+            raise HTTPException(
+                exc.status_code, exc.detail,
+                headers={**(exc.headers or {}), "Cache-Control": "no-store"},
+            ) from None
         raise HTTPException(
             exc.status_code,
             {401: "Vui lòng đăng nhập", 403: "Chỉ admin mới có quyền truy cập"}.get(

@@ -269,7 +269,7 @@ test('assignment form names the give, confirms re-gives, resets and surfaces dup
 describe('PC-J10 — /instructor give flow (W-12, BL-18, BL-19)', () => {
   test('W-12: each matrix cell shows its own give deadline in Vietnam time', () => {
     // 00:00Z is 07:00 in Asia/Ho_Chi_Minh, whatever the browser timezone.
-    assert.equal(matrixDeadlineLabel({ deadline: '2026-09-08T00:00:00Z' }), 'Hạn 07:00 8/9/26');
+    assert.equal(matrixDeadlineLabel({ deadline: '2026-09-08T00:00:00Z' }), 'Hạn 08/09/2026 07:00');
     assert.equal(matrixDeadlineLabel({ deadline: null }), null);
     assert.equal(matrixDeadlineLabel({ deadline: 'not-a-date' }), null);
     assert.equal(matrixDeadlineLabel(null), null);

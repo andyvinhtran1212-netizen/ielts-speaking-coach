@@ -187,8 +187,11 @@ python -m scripts.pregen_vocab_audio --commit # prepare missing/outdated word + 
 The default batch compares each text's current Kokoro hash, including examples
 on rows already marked final. Re-running reuses matching objects; optional
 `--regen` rechecks every row. No other Vocabulary engine or voice is accepted.
-After a local batch, refresh the deployed vocabulary cache through its normal
-admin update/redeployment path and verify the public URLs before acceptance.
+After stamping rows, `--commit` invalidates Next's `public:vocabulary` cache tag
+with the target environment's revalidation config (`--no-invalidate` skips it and
+prints the manual command; a failed invalidation is a warning, not a batch
+failure). The deployed backend's in-memory index still needs a no-op admin
+`PATCH /admin/vocabulary/{id}` or a redeploy; verify the public URLs before acceptance.
 
 Kokoro cache keys and synthesis use the spoken text with paired Markdown emphasis
 removed; stored examples keep their display formatting. Prepare and verify audio

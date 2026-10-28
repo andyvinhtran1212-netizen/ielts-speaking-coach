@@ -187,9 +187,13 @@ export function cohortOverlapConfirmMessage(preview, promptTitle) {
 export function matrixDeadlineLabel(assignment) {
   const parsed = assignment?.deadline ? new Date(assignment.deadline) : null;
   if (!parsed || Number.isNaN(parsed.getTime())) return null;
-  return ASSIGNMENT_COPY.deadline(new Intl.DateTimeFormat('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
-  }).format(parsed));
+  const day = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+  }).format(parsed);
+  const time = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(parsed);
+  return ASSIGNMENT_COPY.deadline(`${day} ${time}`);
 }
 
 function formatGiveTime(value) {

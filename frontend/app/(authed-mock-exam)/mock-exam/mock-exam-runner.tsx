@@ -166,7 +166,7 @@ function LoadingCard({ children }: { children: string }) {
 }
 
 export function MockExamRunnerLoading() {
-  return <LoadingCard>Loading test session…</LoadingCard>;
+  return <LoadingCard>Đang tải bài thi…</LoadingCard>;
 }
 
 function ErrorCard({ message, retry, back }: { message: string; retry?: () => void; back?: { href: string; label: string } }) {

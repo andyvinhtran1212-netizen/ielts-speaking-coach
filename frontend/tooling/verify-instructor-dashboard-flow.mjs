@@ -277,7 +277,7 @@ check('ma trận assignment render trạng thái canonical của lượt giao m�
   && await matrixCard.getByText('Đã trả', { exact: true }).count() === 0
   && await page.getByText('Task 2 <img src=x>', { exact: true }).count() >= 1, newestGiveLabel);
 // W-12: the cell carries its give's deadline (23:00 ICT entered from a New York browser).
-check('W-12: ma trận hiện hạn nộp của lượt giao trong ô', (await matrixCard.locator('tbody td').nth(1).locator('.ins-cell-deadline').innerText()).trim() === 'Hạn 23:00 27/10/26');
+check('W-12: ma trận hiện hạn nộp của lượt giao trong ô', (await matrixCard.locator('tbody td').nth(1).locator('.ins-cell-deadline').innerText()).trim() === 'Hạn 27/10/2026 23:00');
 
 // BL-18: nobody holds p2 yet → the preview is read, nothing is asked.
 failCanonicalReadback = false; // the backend recovered from the "Lớp lỗi" case above

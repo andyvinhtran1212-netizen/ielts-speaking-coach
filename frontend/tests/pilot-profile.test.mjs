@@ -78,6 +78,27 @@ test('shell: skeleton legacy nguyên bản — các id mà profile.css/behavior 
   assert.ok(!SHELL.includes("'use server'"));
 });
 
+test('PC-J24: ô Email chỉ đọc xuống dòng được — không phải input một dòng cắt mất đuôi địa chỉ', () => {
+  const CSS = readFileSync(path.join(FRONTEND, 'public', 'css', 'profile.css'), 'utf8');
+  const code = stripComments(SHELL);
+  const field = code.match(/<(\w+)\s[^>]*\bid="inp-email"[^>]*>/);
+  assert.ok(field, 'missing #inp-email');
+  // An <input> is a single line: a long address is cut off at 360–390px.
+  // <output> is labelable (the label's htmlFor stays valid) and has `.value`,
+  // so ProfileBehavior's setVal keeps filling it.
+  assert.equal(field[1], 'output', '#inp-email must be a wrapping, labelable element');
+  assert.match(field[0], /className="[^"]*\bfield-input--static\b/);
+  assert.match(field[0], /aria-live="off"/, '<output> is a status region by default — do not announce the email');
+  assert.match(code, /<label className="field-label" htmlFor="inp-email">Email<\/label>/);
+  const rule = CSS.match(/\.field-input--static\s*\{([^}]*)\}/);
+  assert.ok(rule, 'missing .field-input--static rule');
+  assert.match(rule[1], /overflow-wrap:\s*anywhere/);
+  assert.match(rule[1], /display:\s*block/);
+  assert.match(rule[1], /min-height:/, 'keeps the field height while the value is empty');
+  assert.match(BEHAVIOR, /setVal\('inp-email', p\.email \|\| ''\)/);
+  assert.match(BEHAVIOR, /setVal\('inp-email', ''\)/, 'account switch still clears the previous email');
+});
+
 test('behavior: read qua /auth/profile với fallback /auth/me (ADR-011)', () => {
   assert.match(BEHAVIOR, /^'use client';/);
   assert.match(BEHAVIOR, /'\/auth\/profile'/);

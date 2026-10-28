@@ -1219,7 +1219,7 @@ export function ReadingExamSession() {
         </select></label>
       </aside> : null}
 
-      {phase === 'loading' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Loading test…</p></main> : null}
+      {phase === 'loading' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Đang tải bài thi…</p></main> : null}
       {phase === 'error' ? <main className="exam-state-shell reading-next-state">
         <p className="exam-state-msg exam-state-msg--error" role="alert">{error}</p>
         <div className="reading-next-error-actions"><button className="exam-btn exam-btn--primary" type="button" onClick={() => void bootWithRecovery()}>Retry</button><a className="exam-btn" href={backHref}>← Back to tests</a></div>
