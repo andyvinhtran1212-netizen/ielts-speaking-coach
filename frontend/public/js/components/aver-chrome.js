@@ -515,8 +515,14 @@ export class AverChrome extends HTMLElement {
     // that embeds <aver-chrome> automatically captures uncaught
     // exceptions + Promise rejections. error-reporter.js is idempotent
     // (self-guarded against double-load) so re-injection is safe.
+    // PC-J06 — the chrome can now connect before runtime-config.js, and a
+    // reporter loaded then posts to the PRODUCTION API fallback. Next routes
+    // get the reporter from SupabaseRuntimeBoundary right after the config,
+    // so self-inject only once the config is known.
     try {
-      if (typeof document !== 'undefined' && !document.querySelector('script[data-aver-error-reporter]')) {
+      if (typeof document !== 'undefined'
+          && window.__AVER_RUNTIME_CONFIG__
+          && !document.querySelector('script[data-aver-error-reporter]')) {
         const s = document.createElement('script');
         s.src = '/js/error-reporter.js';
         s.setAttribute('data-aver-error-reporter', '1');

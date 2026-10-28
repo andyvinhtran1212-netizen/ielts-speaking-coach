@@ -138,3 +138,14 @@ it('a page that passes its own role does not trigger a second /auth/me', async (
   await new Promise((resolve) => setTimeout(resolve, 100));
   expect(fetchRole).not.toHaveBeenCalled();
 });
+
+it('does not load the error reporter before runtime-config (it would post to the production fallback)', () => {
+  delete (window as any).__AVER_RUNTIME_CONFIG__;
+  document.head.querySelectorAll('script[data-aver-error-reporter]').forEach((s) => s.remove());
+  mount(true);
+  expect(document.head.querySelector('script[data-aver-error-reporter]')).toBeNull();
+
+  (window as any).__AVER_RUNTIME_CONFIG__ = { apiBase: 'https://staging-api.example.test' };
+  document.body.appendChild(document.createElement('aver-chrome'));
+  expect(document.head.querySelector('script[data-aver-error-reporter]')).not.toBeNull();
+});
