@@ -20,8 +20,9 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-28 the highest is `335`, so by that rule the
-next new migration is `336`, but it is reserved (below): ask the Leader first.
+sequence is dense. As of 2026-10-28 the highest is `338`, so by that rule the
+next new migration is `339`; 336 and 337 are taken by open work (below), so ask
+the Leader first.
 The runner applies any unapplied file regardless of order.
 Numbers 321–330 are already locked to open work (321 WRITINGRATE-0025, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
@@ -30,7 +31,19 @@ of order, so do not reuse them. 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032,
 334 is ACTIVATELIMIT-0034. 333–337 are reserved by the Leader for open work
 (333 AIBUDGET-0033, 335 INACTIVEWRITE-0035, assigned on 2026-10-28); files for
 them may land out of order, so ask the Leader before taking any number above
-332.
+332. 336 is the suspended-role guard (#1853), 337 is A-10 CLASSARCHIVE-0030
+(job q-13f) and 338 is PAPERUPDATEDAT-0037.
+
+Migration `338` (PAPERUPDATEDAT-0037) adds `update_<table>_updated_at` BEFORE
+UPDATE row triggers on `reading_tests`, `listening_tests`, `reading_passages`,
+`reading_questions` and `listening_content`, so every UPDATE advances
+`updated_at` (it only had `DEFAULT now()`; the AVR-READ-002 visibility flip on
+2026-10-28 left it unchanged). The triggers call the existing
+`update_updated_at_column()` and sort after `trg_mock_paper_*` /
+`trg_protect_listening_package_child`, which already ignore `updated_at`, so
+policy revisions, release events and `mock_content_revision` are unchanged.
+`listening_exercises` keeps 208's trigger. No data change; later files must not
+drop these triggers or add a BEFORE row trigger that sorts after them.
 
 Migration `335` (INACTIVEWRITE-0035, SEC-20261028-02) closes the direct-REST
 write path for inactive accounts. 320 kept `authenticated` writes on the five
