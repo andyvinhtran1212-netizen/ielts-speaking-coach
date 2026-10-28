@@ -297,6 +297,27 @@ row in the same transaction. The trigger function is SECURITY DEFINER, so
 caller grants cannot make it fail. Rollback SQL (in `rollout.md`) drops the
 trigger first, then the function, and keeps the tables.
 
+### Migration 336, `backend/migrations/336_suspended_account_role_guard.sql` (FR-019)
+
+Forward-only, one transaction, no data change, re-runnable. Same forward-policy
+group as 332 (`pending_feature`, `admin_aal2`), applied after it.
+
+- **Preconditions.** 332 is applied: the marker columns and
+  `fn_set_staff_privilege` exist. No suspended row holds a non-staff role. Such
+  a row could not be reactivated by FR-006 once its role is frozen, so the
+  operator repairs it out of band first (`suspended_non_staff_account_exists`).
+- **`fn_users_suspension_role_guard`** (SECURITY INVOKER, no client EXECUTE)
+  and the trigger `BEFORE UPDATE OF role ON public.users`, named
+  `trg_users_suspension_role_guard`. It raises P0001 `account_suspended_role_change`
+  (DETAIL = user id) when `NEW.role IS DISTINCT FROM OLD.role AND OLD.suspended_at IS NOT NULL`.
+  It ignores `aver.staff_privilege`, so the RPC's own UPDATE is refused too. The only
+  bypass is `aver.bootstrap = 'on'`, which only `fn_bootstrap_admin_recovery`
+  sets. The trigger name sorts after `trg_users_suspension_guard`, so an
+  activation that also changes the role still fails with `account_suspended`.
+- **Postconditions.** The function exists with the expected security, search_path
+  and EXECUTE privileges, and the trigger is enabled. Rollback (header) drops
+  the trigger, then the function.
+
 ### Wire contracts (all new response models are published in OpenAPI)
 
 | Route | Request | Success | Errors |
@@ -305,7 +326,7 @@ trigger first, then the function, and keeps the tables.
 | any staff route, inactive | — | — | 403 `{"detail":"Tài khoản chưa được kích hoạt"}` (existing `INACTIVE_DETAIL`) |
 | `GET /admin/mfa/status` | — | `{aal:"aal1"\|"aal2", enforce:bool, verified_factor_count:int, next_step:"none"\|"enroll"\|"challenge"}` | 401, 403 non-admin/inactive, 503 |
 | `PATCH /admin/users/{id}/active` | `{is_active:bool, reason:str}` | `{ok:true, id, is_active, suspended_at, changed, audit_id, sessions_revoked:bool\|null, revoke_error:str\|null, sign_in_restored:bool\|null}` | 400 self, 403 `actor_not_admin`, 404, 409 `{"code":"last_admin"}`, 422 non-staff/reason |
-| `PATCH /admin/users/{id}/role` | `{role}` (unchanged) | `{ok, id, role}` **plus** `changed, audit_id, sessions_revoked, revoke_error` | existing 400/404/500, new 409 `last_admin` |
+| `PATCH /admin/users/{id}/role` | `{role}` (unchanged) | `{ok, id, role}` **plus** `changed, audit_id, sessions_revoked, revoke_error` | existing 400/404/500, new 409 `last_admin`, 409 `{"code":"account_suspended_role_change","message":…}` (FR-019, migration 336) |
 | `POST /auth/activate` (existing) | unchanged | unchanged | new 403 `{"code":"account_suspended","message":"Tài khoản đang bị tạm khóa — liên hệ admin"}`; code not consumed |
 | `GET /auth/me`, `GET /auth/check-active` (existing) | — | additive `suspended: bool` | unchanged |
 | `POST /admin/users/{id}/revoke-sessions` | `{reason?:str}` | `{ok:bool, sessions_revoked:bool, revoke_error:str\|null, audit_id}` | 404 |
