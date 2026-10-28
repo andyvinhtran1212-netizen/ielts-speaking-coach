@@ -6,13 +6,17 @@ import { describe, test } from 'node:test';
 
 import {
   ASSIGNMENT_COPY,
+  AUTH_SETTLE_TIMEOUT_MS,
   assignmentTone,
   buildInstructorMatrix,
+  cohortOverlapConfirmMessage,
   duplicateGiveConfirmMessage,
   fanOutResultBanner,
   findExistingGive,
   instructorApiPath,
   instructorGradeHref,
+  matrixDeadlineLabel,
+  normalizeDuplicatesPreview,
   normalizeInstructorAssignments,
   normalizeInstructorCodes,
   normalizeInstructorCohorts,
@@ -243,12 +247,54 @@ test('assignment requests interpret datetime-local as Vietnam time for both targ
 test('assignment form names the give, confirms re-gives, resets and surfaces duplicates_warning (W-06)', () => {
   assert.match(VIEW, /<input name="name" maxLength=\{200\}/);
   assert.equal((VIEW.match(/if \(name\) body\.name = name;/g) || []).length, 2);
-  assert.equal((VIEW.match(/if \(!confirmRegive\(findExistingGive\(data\.assignments, \{ promptId, (?:cohortId|studentId) \}\)\)\) return;/g) || []).length, 2);
+  // Single-student give: inline. Class give: the same W-06 check, kept so BL-18 can skip its second ask.
+  assert.match(VIEW, /if \(!confirmRegive\(findExistingGive\(data\.assignments, \{ promptId, studentId \}\)\)\) return;/);
+  assert.match(VIEW, /const sameClassGive = findExistingGive\(data\.assignments, \{ promptId, cohortId \}\);\s*if \(!confirmRegive\(sameClassGive\)\) return;/);
   assert.match(VIEW, /window\.confirm\(duplicateGiveConfirmMessage\(/);
   // the confirm runs before mutate, so cancelling sends no request
-  assert.ok(VIEW.indexOf('confirmRegive(findExistingGive(data.assignments, { promptId, cohortId })') < VIEW.indexOf("'/instructor/assignments/fan-out'"));
+  const classConfirm = VIEW.indexOf('if (!confirmRegive(sameClassGive)) return;');
+  assert.ok(classConfirm >= 0 && classConfirm < VIEW.indexOf("'/instructor/assignments/fan-out'"));
   assert.match(VIEW, /const resetOnSuccess = [^\n]*form\.reset\(\)/);
   assert.equal((VIEW.match(/\.then\(resetOnSuccess\)/g) || []).length, 2);
   assert.match(VIEW, /'\/instructor\/assignments\/fan-out'\), body\), fanOutResultBanner\)/);
   assert.match(VIEW, /typeof success === 'function' \? success\(result\)/);
+});
+
+describe('PC-J10 — /instructor give flow (W-12, BL-18, BL-19)', () => {
+  test('W-12: each matrix cell shows its own give deadline in Vietnam time', () => {
+    // 00:00Z is 07:00 in Asia/Ho_Chi_Minh, whatever the browser timezone.
+    assert.equal(matrixDeadlineLabel({ deadline: '2026-09-08T00:00:00Z' }), 'Hạn 07:00 8/9/26');
+    assert.equal(matrixDeadlineLabel({ deadline: null }), null);
+    assert.equal(matrixDeadlineLabel({ deadline: 'not-a-date' }), null);
+    assert.equal(matrixDeadlineLabel(null), null);
+    assert.match(VIEW, /const deadline = matrixDeadlineLabel\(cell\); return <td[^>]*><StatusPill[^]*?\{deadline && <small className="ins-cell-deadline">\{deadline\}<\/small>\}<\/td>/);
+    assert.match(CSS, /\.ins-cell-deadline \{[^}]*display: block;/);
+  });
+
+  test('W-12: an auth state that never settles fails closed to /login', () => {
+    assert.equal(AUTH_SETTLE_TIMEOUT_MS, 15_000);
+    assert.match(VIEW, /if \(status !== 'initial-loading'\) return undefined;\s*const timer = window\.setTimeout\(\(\) => window\.location\.replace\('\/login'\), AUTH_SETTLE_TIMEOUT_MS\);\s*return \(\) => window\.clearTimeout\(timer\);\s*\}, \[status\]\);/);
+  });
+
+  test('BL-18: the duplicates preview is validated, and only a real overlap asks', () => {
+    const preview = normalizeDuplicatesPreview({ student_count: 3, duplicate_student_ids: ['s1', 's2', 's1'] });
+    assert.deepEqual(preview, { studentCount: 3, duplicateStudentIds: ['s1', 's2'] });
+    assert.equal(normalizeDuplicatesPreview({ student_count: 3 }), null);
+    assert.equal(normalizeDuplicatesPreview({ student_count: '3', duplicate_student_ids: [] }), null);
+    assert.equal(normalizeDuplicatesPreview({ student_count: 3, duplicate_student_ids: [null] }), null);
+    assert.equal(normalizeDuplicatesPreview({}), null);
+    assert.equal(cohortOverlapConfirmMessage({ studentCount: 3, duplicateStudentIds: [] }, 'Task 2'), null);
+    assert.equal(cohortOverlapConfirmMessage(preview, 'Task 2'),
+      "2 học viên trong lớp đã được giao đề 'Task 2' từ trước. Giao thêm một lượt nữa?");
+    // The preview is read before the fan-out POST and cancelling stops it.
+    const ask = VIEW.indexOf('await confirmCohortOverlap(promptId, cohortId, promptTitle)');
+    assert.ok(ask >= 0 && ask < VIEW.indexOf("'/instructor/assignments/fan-out'"));
+    assert.match(VIEW, /requestPath\('\/instructor\/assignments\/duplicates-preview'\), \{ prompt_ids: \[promptId\], cohort_id: cohortId \}/);
+    assert.match(VIEW, /if \(!sameClassGive && !\(await confirmCohortOverlap\(promptId, cohortId, promptTitle\)\)\) return false;/);
+  });
+
+  test('BL-19: a missing prompt shows the app message, not the browser validation bubble', () => {
+    assert.match(VIEW, /<form className="ins-form" onSubmit=\{createAssignment\} noValidate>/);
+    assert.match(VIEW, /if \(!promptId\) return missing\('prompt_id', 'Chưa chọn đề bài\.'\);/);
+  });
 });

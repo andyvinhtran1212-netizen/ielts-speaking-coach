@@ -3922,6 +3922,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/writing/assignments/duplicates-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Duplicates
+         * @description BL-18 — read-only. Which target students already hold any of these
+         *     prompts, computed like the give's own `duplicates_warning`, so the UI can
+         *     ask for confirmation BEFORE the give instead of only warning after it.
+         *     Writes nothing; the give itself stays allow + warn.
+         */
+        post: operations["preview_duplicates_admin_writing_assignments_duplicates_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/writing/assignments/requests/{request_id}": {
         parameters: {
             query?: never;
@@ -4168,6 +4191,28 @@ export interface paths {
         put?: never;
         /** Fan Out */
         post: operations["fan_out_instructor_assignments_fan_out_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/instructor/assignments/duplicates-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fan Out Duplicates Preview
+         * @description BL-18 — read-only. Class members who already hold any of these prompts,
+         *     computed like the fan-out's own `duplicates_warning`, so the UI can confirm
+         *     a re-give BEFORE writing. Same ownership gates as the fan-out (403).
+         */
+        post: operations["fan_out_duplicates_preview_instructor_assignments_duplicates_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15935,6 +15980,30 @@ export interface components {
                 [key: string]: number;
             } | null;
         };
+        /**
+         * DuplicatesPreview
+         * @description The target of a give that has not been sent yet: N prompts plus
+         *     exactly one of `cohort_id` (fan-out) or `student_ids` (individual).
+         */
+        DuplicatesPreview: {
+            /** Prompt Ids */
+            prompt_ids: string[];
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** Student Ids */
+            student_ids?: string[] | null;
+        };
+        /**
+         * DuplicatesPreviewOut
+         * @description Target students of a give that has not been sent yet, and which of them
+         *     already hold one of its prompts (the give's future `duplicates_warning`).
+         */
+        DuplicatesPreviewOut: {
+            /** Student Count */
+            student_count: number;
+            /** Duplicate Student Ids */
+            duplicate_student_ids: string[];
+        };
         /** EducatorReport */
         EducatorReport: {
             /** Attempt Id */
@@ -16384,6 +16453,16 @@ export interface components {
              * @default 3
              */
             analysis_level: number;
+        };
+        /** FanOutPreviewBody */
+        FanOutPreviewBody: {
+            /** Prompt Ids */
+            prompt_ids: string[];
+            /**
+             * Cohort Id
+             * Format: uuid
+             */
+            cohort_id: string;
         };
         /** FeedbackIn */
         FeedbackIn: {
@@ -29039,6 +29118,41 @@ export interface operations {
             };
         };
     };
+    preview_duplicates_admin_writing_assignments_duplicates_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicatesPreview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicatesPreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     verify_assignment_request_admin_writing_assignments_requests__request_id__get: {
         parameters: {
             query?: never;
@@ -29678,6 +29792,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fan_out_duplicates_preview_instructor_assignments_duplicates_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FanOutPreviewBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicatesPreviewOut"];
                 };
             };
             /** @description Validation Error */

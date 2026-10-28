@@ -54,6 +54,73 @@ def _verify_fanout_ownership(db, owner: str, prompt_strs: list[str], cohort_str:
         raise PermissionError(f"fan_out: prompt(s) không thuộc instructor {owner}: {sorted(bad)}")
 
 
+def _fan_out_roster(db, cohort_str: str, owner_id: Optional[str]) -> list[str]:
+    """Student ids a fan-out to `cohort_str` gives to (active memberships).
+
+    Instructor mode (owner_id set) raises PermissionError when a member is
+    owned by another instructor (W-3 student-branch gate)."""
+    student_rows = active_students_for_cohort(db, cohort_str, "id, instructor_id")
+    if not student_rows:
+        # Rolling compatibility with a backend/test fixture that predates
+        # migration 227. The migration backfill makes this branch dormant in
+        # production after rollout.
+        legacy = (db.table("students").select("id, instructor_id")
+                  .eq("cohort_id", cohort_str).execute().data) or []
+        student_rows = legacy if isinstance(legacy, list) else []
+
+    # W-3 — student-branch gate. Cohort ownership (above) is the primary gate; here
+    # we reject ONLY if a cohort member is owned by ANOTHER instructor
+    # (instructor_id SET ≠ owner). NULL (unowned in my own cohort) is allowed —
+    # claiming it (instructor_id = me) is an enroll/assign flow (W-5/W-6), not a
+    # W-3 gate. Cross-tenant student in my cohort = anomaly → reject loud.
+    if owner_id is not None:
+        foreign = sorted(
+            s["id"] for s in student_rows
+            if s.get("instructor_id") not in (None, str(owner_id))
+        )
+        if foreign:
+            raise PermissionError(
+                f"fan_out: cohort {cohort_str} chứa học viên thuộc instructor khác: {foreign}"
+            )
+    return [s["id"] for s in student_rows]
+
+
+def existing_give_student_ids(db, prompt_strs: list[str], student_ids: list[str]) -> set[str]:
+    """Students in `student_ids` who already hold any of `prompt_strs` (any
+    status, any assigner) — the overlap a give reports as `duplicates_warning`.
+    Raises on a read error; the give paths treat the overlap as best-effort."""
+    if not prompt_strs or not student_ids:
+        return set()
+    existing = (
+        db.table("writing_assignments")
+        .select("student_id")
+        .in_("prompt_id", prompt_strs)
+        .in_("student_id", student_ids)
+        .execute()
+    )
+    return {row["student_id"] for row in (existing.data or []) if row.get("student_id")}
+
+
+def preview_fan_out_overlap(
+    db,
+    *,
+    prompt_ids: list[UUID],
+    cohort_id: UUID,
+    owner_id: Optional[str] = None,
+) -> dict:
+    """BL-18 — read-only twin of fan_out_assignment's roster + overlap step,
+    so a UI can confirm a re-give BEFORE writing. Same ownership gates as the
+    give (PermissionError); a failed overlap read raises instead of reporting
+    "no overlap"."""
+    prompt_strs = [str(p) for p in prompt_ids]
+    cohort_str = str(cohort_id)
+    if owner_id is not None:
+        _verify_fanout_ownership(db, str(owner_id), prompt_strs, cohort_str)
+    student_ids = _fan_out_roster(db, cohort_str, owner_id)
+    already = existing_give_student_ids(db, prompt_strs, student_ids)
+    return {"student_count": len(student_ids), "duplicate_student_ids": sorted(already)}
+
+
 def fan_out_assignment(
     db,
     *,
@@ -89,30 +156,7 @@ def fan_out_assignment(
     if owner_id is not None:
         _verify_fanout_ownership(db, str(owner_id), prompt_strs, cohort_str)
 
-    student_rows = active_students_for_cohort(db, cohort_str, "id, instructor_id")
-    if not student_rows:
-        # Rolling compatibility with a backend/test fixture that predates
-        # migration 227. The migration backfill makes this branch dormant in
-        # production after rollout.
-        legacy = (db.table("students").select("id, instructor_id")
-                  .eq("cohort_id", cohort_str).execute().data) or []
-        student_rows = legacy if isinstance(legacy, list) else []
-    student_ids = [s["id"] for s in student_rows]
-
-    # W-3 — student-branch gate. Cohort ownership (above) is the primary gate; here
-    # we reject ONLY if a cohort member is owned by ANOTHER instructor
-    # (instructor_id SET ≠ owner). NULL (unowned in my own cohort) is allowed —
-    # claiming it (instructor_id = me) is an enroll/assign flow (W-5/W-6), not a
-    # W-3 gate. Cross-tenant student in my cohort = anomaly → reject loud.
-    if owner_id is not None:
-        foreign = sorted(
-            s["id"] for s in student_rows
-            if s.get("instructor_id") not in (None, str(owner_id))
-        )
-        if foreign:
-            raise PermissionError(
-                f"fan_out: cohort {cohort_str} chứa học viên thuộc instructor khác: {foreign}"
-            )
+    student_ids = _fan_out_roster(db, cohort_str, owner_id)
 
     if not student_ids:
         return {"student_count": 0, "created_count": 0,
@@ -121,14 +165,7 @@ def fan_out_assignment(
     # Advisory overlap (allow + warn): students who already had any of
     # these prompts. We still create their new rows.
     try:
-        existing = (
-            db.table("writing_assignments")
-            .select("student_id")
-            .in_("prompt_id", prompt_strs)
-            .in_("student_id", student_ids)
-            .execute()
-        )
-        already = {row["student_id"] for row in (existing.data or []) if row.get("student_id")}
+        already = existing_give_student_ids(db, prompt_strs, student_ids)
     except Exception:
         already = set()
 

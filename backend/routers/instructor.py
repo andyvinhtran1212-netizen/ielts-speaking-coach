@@ -57,6 +57,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from models.writing_give_preview import DuplicatesPreviewOut
 from services.cohort_assignment_service import Deadline, normalize_deadline
 from routers.admin import require_instructor
 from services import essay_service, instructor_workflow, student_service, test_data_visibility
@@ -67,6 +68,7 @@ from services.core_writing_observation import note_writing_mutation, observe_wri
 from services.instructor_access import (
     instructor_db,
     instructor_fan_out,
+    instructor_fan_out_preview,
     instructor_list_essays,
     assert_essay_owned,
 )
@@ -314,6 +316,22 @@ async def fan_out(request: Request, body: FanOutBody, authorization: str | None 
     if result["student_count"] == 0:
         raise HTTPException(400, "Lớp này chưa có học viên nào.")
     return result
+
+
+class FanOutPreviewBody(BaseModel):
+    prompt_ids: list[UUID] = Field(..., min_length=1, max_length=20)
+    cohort_id: UUID
+
+
+@router.post("/assignments/duplicates-preview", response_model=DuplicatesPreviewOut)
+async def fan_out_duplicates_preview(request: Request, body: FanOutPreviewBody,
+                                     authorization: str | None = Header(None)):
+    """BL-18 — read-only. Class members who already hold any of these prompts,
+    computed like the fan-out's own `duplicates_warning`, so the UI can confirm
+    a re-give BEFORE writing. Same ownership gates as the fan-out (403)."""
+    me = await _me(authorization, request)
+    return instructor_fan_out_preview(me, supabase_admin,
+                                      prompt_ids=body.prompt_ids, cohort_id=body.cohort_id)
 
 
 # ── Essays (DERIVED owner — assert_essay_owned per single-essay op) ───────────
