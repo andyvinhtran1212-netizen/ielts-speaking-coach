@@ -1,6 +1,8 @@
 import logging
 import sys
 import threading
+import time
+from contextvars import ContextVar
 import httpx
 from supabase import create_client, Client
 from config import settings
@@ -50,6 +52,41 @@ def _build_supabase_http_client() -> httpx.Client:
     )
 
 
+# PC-J55: the async pool carries every per-request auth check once
+# USE_ASYNC_DB is on, so one wedged connection must not hold a request for
+# 120 s — longer than any caller waits, which hides the failure from the
+# server log. A PostgREST auth read takes ~0.1–0.3 s cross-region; 15 s read
+# leaves a wide margin. connect/pool fail fast so a dead upstream or a full
+# pool surfaces as an error, not a silent queue. Limits are httpx's defaults,
+# made explicit so /health/async-db can report capacity against them.
+ASYNC_POSTGREST_TIMEOUT = httpx.Timeout(15.0, connect=5.0, pool=5.0)
+ASYNC_POSTGREST_LIMITS = httpx.Limits(
+    max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0,
+)
+
+# Per-call timing for services.db_async.aexecute: the facade sets a dict here
+# around each attempt, and the httpcore trace hook stamps when the request got
+# a connection, so a slow call splits into pool wait / connect / server time.
+async_call_trace: ContextVar[dict | None] = ContextVar("async_call_trace", default=None)
+
+_TRACE_STAMPS = {
+    "connection.connect_tcp.started": "connect_at",
+    "http11.send_request_headers.started": "sent_at",
+}
+
+
+async def _stamp_httpcore_event(name: str, _info: dict) -> None:
+    rec = async_call_trace.get()
+    key = _TRACE_STAMPS.get(name)
+    if rec is not None and key is not None:
+        rec.setdefault(key, time.perf_counter())
+
+
+async def _attach_call_trace(request: httpx.Request) -> None:
+    if async_call_trace.get() is not None:
+        request.extensions["trace"] = _stamp_httpcore_event
+
+
 def _build_supabase_async_http_client() -> httpx.AsyncClient:
     """Async twin of :func:`_build_supabase_http_client` for the opt-in
     ``USE_ASYNC_DB`` client. postgrest's ``AsyncPostgrestClient`` also defaults
@@ -59,7 +96,9 @@ def _build_supabase_async_http_client() -> httpx.AsyncClient:
         http1=True,
         http2=False,
         follow_redirects=True,
-        timeout=httpx.Timeout(120.0),
+        timeout=ASYNC_POSTGREST_TIMEOUT,
+        limits=ASYNC_POSTGREST_LIMITS,
+        event_hooks={"request": [_attach_call_trace]},
     )
 
 
@@ -149,6 +188,29 @@ async def get_supabase_async():
 
 def async_client_initialised() -> bool:
     return _supabase_async is not None
+
+
+def async_pool_snapshot() -> dict | None:
+    """Connection counts of the async PostgREST pool for /health/async-db, or
+    ``None`` when the async client was never built (flag off). Reads httpcore
+    internals, so any shape drift degrades to ``{"unavailable": True}``."""
+    transport = _supabase_async_postgrest_http_client
+    if transport is None or transport.is_closed:
+        return None
+    try:
+        pool = transport._transport._pool
+        conns = list(pool.connections)
+        waiting = sum(1 for r in list(pool._requests) if r.connection is None)
+        idle = sum(1 for c in conns if c.is_idle())
+    except Exception:
+        return {"unavailable": True}
+    return {
+        "connections": len(conns),
+        "idle": idle,
+        "active": len(conns) - idle,
+        "waiting_for_connection": waiting,
+        "max_connections": ASYNC_POSTGREST_LIMITS.max_connections,
+    }
 
 
 async def close_supabase_async() -> None:

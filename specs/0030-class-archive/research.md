@@ -531,3 +531,251 @@ column) and a branch in `cohort_accepts_work`.
 | F14 overlap | `plan.md` |
 | F16 tests | `plan.md` Verification strategy |
 | Risk 6: learners lose a class at deploy | FR-009 |
+
+## 11. T002a — kết quả staging 2026-10-29 02:49–02:53 (UTC+7), `origin/staging` @ `c8293ba97`
+
+Read-only run against staging (`zjphffoujxkpltixsbzj`) only, through the
+Management API `/database/query/read-only`. The session ran as
+`supabase_read_only_user` with `transaction_read_only = on` (PostgreSQL 17.6).
+Every statement was a SELECT on the catalog or on data. Nothing was written,
+and production was not queried. Repo references are to `c8293ba97`. Staging
+ledger at the time of the run: … 320, 321, 322, 323–326, 331, 332, 334, 335,
+336, 338. 333 and 337 are absent, and none of the 337 objects exist yet
+(`cohorts` has its 9 original columns, 0 of the 8 planned functions,
+`to_regclass('public.class_lifecycle_audit')` is NULL).
+
+### 11.1 Does any reaper or timed-course retry path INSERT `class_assignment_items` after a start?
+
+**No.** The only writers are the two admin fan-out functions. The reaper and
+every retry/retake path only UPDATE an existing item.
+
+Catalog evidence:
+
+```sql
+-- Q1a: every function in a non-system schema that inserts items, directly or via EXECUTE
+SELECT n.nspname, p.oid::regprocedure::text, md5(p.prosrc),
+       p.prosrc ~* 'insert\s+into\s+(public\.)?class_assignment_items' AS inserts_items,
+       (p.prosrc ~* 'execute' AND p.prosrc ~* 'class_assignment_items') AS dynamic_mention
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+   AND p.prosrc ~* 'class_assignment_items'
+   AND (p.prosrc ~* 'insert\s+into\s+(public\.)?class_assignment_items'
+        OR (p.prosrc ~* 'execute' AND p.prosrc ~* 'class_assignment_items'));
+-- → exactly 2 rows, both inserts_items = true, dynamic_mention = false:
+--   fn_backfill_assignment_items(uuid,uuid[])                 md5 d5c79ba4…
+--   fn_create_class_assignment(uuid,text,…,uuid[])            md5 cec8a909…
+
+-- Q1b: user triggers on the tables involved
+SELECT t.tgname, c.relname, t.tgenabled, pg_get_triggerdef(t.oid)
+  FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+ WHERE NOT t.tgisinternal
+   AND c.relname IN ('class_assignment_items','class_assignments','student_cohort_memberships',
+                     'cohorts','quiz_sessions','students');
+-- class_assignment_items: trg_mark_timed_course_assignment_started (AFTER UPDATE OF opened_at),
+--   trg_protect_advanced_vocab_item_evidence (BEFORE DELETE),
+--   trg_snapshot_timed_course_item_cutoff (BEFORE INSERT OR UPDATE),
+--   update_class_assignment_items_updated_at (BEFORE UPDATE).
+-- student_cohort_memberships, cohorts: no user trigger (no "auto-backfill on join").
+-- None of the trigger functions on these tables inserts into class_assignment_items (Q1c below).
+
+-- Q1c: insert / cohorts / membership reads in the relevant live bodies
+SELECT p.proname, p.prosrc ~* 'insert\s+into' AS has_insert,
+       p.prosrc ~* '\mcohorts\M' AS reads_cohorts,
+       p.prosrc ~* 'student_cohort_memberships' AS reads_memberships
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public' AND p.proname IN (…14 names…);
+-- snapshot_timed_course_item_cutoff, mark_timed_course_assignment_started: has_insert = false.
+-- reads_cohorts = false for all 14, including every learner RPC below.
+
+SELECT extname FROM pg_extension;
+-- pg_stat_statements, pgcrypto, plpgsql, supabase_vault, uuid-ossp: no pg_cron, so no in-DB schedule.
+```
+
+Code evidence:
+
+- Python has no `.insert`/`.upsert` on `class_assignment_items`. The only
+  calls to the two functions are in `services/class_assignment_service.py`:
+  `fn_create_class_assignment` at :214, the scoped-exam wrapper at :209, and
+  `fn_backfill_assignment_items` at :267. The scoped wrapper calls
+  `fn_create_class_assignment` (`260_…:249`) and inserts no items itself.
+- Those services are reached only from two admin routes in
+  `routers/admin_class_assignments.py`. Both call `require_admin` and are
+  triggered from the admin homework UI:
+  - `POST /{cohort_id}/assignments` (:2592, call :2727);
+  - `POST /{cohort_id}/assignments/{assignment_id}/backfill` (:2770, call
+    :2795).
+- **Course timer reaper.** `main.py:783` `_course_timer_reaper_loop` →
+  `quiz_service.reap_expired_course_assessments` (:5200).
+  - It reads items with `opened_at IS NOT NULL` and `passed_at IS NULL`.
+  - It finalises them through `course_verdict(..., _allow_reaper_finalize=True)`
+    (:5551), which writes by UPDATE/CAS on the existing item.
+  - The other two loops do not touch items: `_writing_reaper_loop` (stuck
+    essay grading) and `_retake_reaper_loop` (mock retake sittings).
+- **Full retry.** `begin_course_full_retry` (:4173) UPDATEs `mastery` on the
+  existing item with a CAS on `updated_at` (:4207–4209).
+- **Timed start/retry/retake.** The live `quiz_start_timed_course_session`
+  (`270_…:13`) INSERTs `quiz_sessions` and UPDATEs the item's `opened_at`/
+  `state` (:156–166). Its `p_create_if_missing` retry branch only INSERTs a
+  `quiz_sessions` row (:195). `quiz_insert_timed_course_attempts` (`279_…:11`)
+  INSERTs `quiz_attempts`.
+- **Advanced Vocabulary and grammar lessons.**
+  `finalize_advanced_vocab_assignment` and
+  `record_assigned_grammar_lesson_answer` only UPDATE the item.
+  `create_assigned_grammar_lesson_attempt` and `start_advanced_vocab_practice`
+  insert into their own tables.
+
+Staging data agrees:
+
+```sql
+SELECT count(*) AS items_total,
+       count(*) FILTER (WHERE i.created_at > a.created_at + interval '60 seconds') AS items_inserted_after_assignment,
+       count(*) FILTER (WHERE i.created_at > a.created_at + interval '60 seconds'
+                          AND i.created_at > i2.first_open) AS inserted_after_a_start_in_same_assignment
+  FROM class_assignment_items i JOIN class_assignments a ON a.id = i.assignment_id
+  LEFT JOIN LATERAL (SELECT min(x.opened_at) AS first_open FROM class_assignment_items x
+                      WHERE x.assignment_id = a.id) i2 ON true;
+-- 7 | 0 | 0   (2 timed Course assignments exist, both in reaper scope; 0 late items)
+```
+
+**Impact on §7.** `fn_guard_class_item_cohort_active` as **BEFORE INSERT
+only** cannot block a reaper finalise or a retry/retake of a session started
+before the archive. Those paths UPDATE the item or INSERT `quiz_sessions`/
+`quiz_attempts`, which the guard never sees. §5 "Timed course session" holds
+without an exemption. Two items to add when T002 writes 337:
+
+1. Keep the item guard INSERT-only. Add a §7 step 7 postcondition: `tgtype`
+   of `trg_guard_class_item_cohort_active` (and of the `class_assignments`
+   guard) is BEFORE ROW INSERT with no UPDATE bit. If a later edit widened it
+   to `INSERT OR UPDATE`, it would abort the reaper (`course_verdict` UPDATE),
+   `begin_course_full_retry`, the `opened_at` UPDATE of a session already
+   admitted by the Python gate, and both Advanced Vocabulary/grammar
+   finalisers. That would turn D3/§5's "finalised by the reaper" into a
+   silent `failed` count in `[course-timer-reaper]`.
+2. The only late item insert is the admin backfill (W8), which the guard
+   refuses by design. `trg_snapshot_timed_course_item_cutoff` is also BEFORE
+   INSERT on the same table. Trigger order does not matter here: the
+   snapshot trigger only fills `NEW` fields, and the guard reads only
+   `NEW.assignment_id`.
+
+### 11.2 Live bodies vs. repo migrations
+
+**No drift.** All 22 live bodies are byte-identical (`md5(prosrc)`) to the
+last definition of the same function in the repo, in numeric migration order.
+Signature, `prosecdef`, `search_path` and ACL also match. For several
+functions the last definition is in a **later** file than 264/265/270/282/312.
+T002 must read the file in the "repo source" column, not the original number.
+
+```sql
+SELECT p.oid::regprocedure::text, p.proname, md5(p.prosrc), p.prosecdef, p.proconfig,
+       p.proacl::text, p.prosrc
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public' AND p.proname IN (…22 names below…);
+-- compared locally with md5 of the text between the dollar quotes of the
+-- last CREATE [OR REPLACE] FUNCTION in backend/migrations/NNN_*.sql (rollback files excluded)
+```
+
+| Function | Repo source (last definition) | live md5 = repo md5 | DEFINER | EXECUTE |
+| --- | --- | --- | --- | --- |
+| `fn_create_writing_assignments_idempotent` (12 args) | `228_writing_idempotency_optional_cohort.sql:10` | `1cf19d87…` ✓ | yes | service_role |
+| `quiz_start_timed_course_session(uuid,uuid,uuid,text,text,boolean)` | `270_atomic_timed_course_session_creation.sql:13` | `1ca01b7b…` ✓ | yes | service_role |
+| `quiz_insert_timed_course_attempts(uuid,uuid,jsonb)` | `279_reject_superseded_timed_course_progress.sql:11` (265 superseded) | `d28d632e…` ✓ | yes | service_role |
+| `start_advanced_vocab_practice` | `292_advanced_vocab_practice_rollout_compatibility.sql:99` (282 superseded) | `ec4a95b7…` ✓ | yes | service_role |
+| `advanced_vocab_lock_open_item` | `282_…:50` | `b0b4c892…` ✓ | yes | service_role |
+| `advanced_vocab_validate_selection` | `282_…:136` | `9fae894d…` ✓ | no | service_role |
+| `advanced_vocab_canonical_practice_qids` | `292_…:12` | `9d3fe5c8…` ✓ | yes | service_role |
+| `advanced_vocab_guard_selection` | `292_…:47` | `cf8bbf3e…` ✓ | yes | service_role |
+| `advanced_vocab_guard_stage_progress` | `290_align_advanced_vocab_rewrite_evidence.sql:6` | `4037eff1…` ✓ | yes | service_role |
+| `advanced_vocab_guard_question_attempt` | `292_…:209` | `e6017ef5…` ✓ | yes | service_role |
+| `advanced_vocab_complete_practice_after_answer` | `282_…:452` | `f61627e9…` ✓ | yes | service_role |
+| `advanced_vocab_guard_listening_attempt` | `282_…:490` | `b723a25f…` ✓ | yes | service_role |
+| `advanced_vocab_guard_course_section` | `282_…:522` | `d7269ba7…` ✓ | yes | service_role |
+| `finalize_advanced_vocab_assignment` | `282_…:587` | `d7c80650…` ✓ | yes | service_role |
+| `guard_advanced_vocab_assignment_snapshot` | `282_…:672` | `34eec0c8…` ✓ | yes | service_role |
+| `protect_advanced_vocab_bank` | `282_…:650` | `6df93cbf…` ✓ | no | PUBLIC (trigger fn; repo has no REVOKE) |
+| `protect_advanced_vocab_item_evidence` | `291_repair_advanced_vocab_evidence_guard.sql:8` | `afce8e6a…` ✓ | no | PUBLIC (trigger fn; repo has no REVOKE) |
+| `create_assigned_grammar_lesson_attempt` | `313_master30_original_full_banks.sql:191` (312 superseded) | `357a5f0b…` ✓ | yes | service_role |
+| `record_assigned_grammar_lesson_answer` | `313_…:431` (312 superseded) | `b0995a5a…` ✓ | yes | service_role |
+| `fn_create_class_assignment` (13 args) | `269_serialize_course_assignment_bank_revision.sql:49` | `cec8a909…` ✓ | yes | service_role |
+| `fn_backfill_assignment_items(uuid,uuid[])` | `227_student_cohort_memberships.sql:406` | `d5c79ba4…` ✓ | yes | service_role |
+| `fn_create_scoped_exam_class_assignment` (14 args) | `260_approve_web_explanation_paper.sql:179` | `ae935d20…` ✓ | yes | service_role |
+
+The §7 preconditions were also run read-only:
+
+- `trg_users_guard_privileged_columns` has `tgenabled = 'O'`;
+- `fn_restore_student(uuid,uuid,text,boolean,boolean)` exists and contains
+  the `students WHERE id = p_student_id FOR UPDATE` literal;
+- its `md5(prosrc) = bf721ebc664d8875de2b9b91ac4a878f` equals the 326 body
+  (`326_student_archive.sql:194`), which the §7.1 full rollback re-creates
+  verbatim.
+
+`writing_assignments` has exactly three user triggers:
+`archive_guard_writing_assignment_student` (331, BEFORE INSERT OR UPDATE OF
+student_id), `trg_guard_writing_assignment_terminal_mutation` and
+`update_writing_assignments_updated_at`. The planned
+`trg_guard_writing_give_cohort_active` sorts after the 331 trigger, as §7
+step 5 requires.
+
+**Impact on §7/§7.1:**
+
+- 337 replaces none of these 22 functions. Variant A stays in the Python
+  gates (§2, §5).
+- No live learner RPC reads `cohorts` (Q1c). A session admitted before the
+  archive therefore keeps answering and finalising at the SQL level, as §5
+  requires, with no change to these bodies.
+- `fn_create_writing_assignments_idempotent` behaves as §4.2 W9 and FR-003
+  assume, so 337 needs no change to it:
+  - The **replay** branch returns the stored receipt (`228_…:61–76`) before
+    any `writing_assignments` INSERT. The BEFORE INSERT give guard therefore
+    never fires on a replay, and a completed request still replays after the
+    archive.
+  - A guard raise in a new fan-out aborts the whole RPC transaction,
+    including the `writing_assignment_requests` row inserted at `228_…:57`.
+    No `writing_assignment_request_incomplete` orphan is left behind.
+  - Individual gives keep `cohort_id` NULL (`228_…:80–81`, :112), so the
+    guard does not refuse them.
+- **Lock order:**
+  - The fan-out takes `FOR SHARE OF` the membership rows (`228_…:82–87`)
+    before the give guard takes `FOR SHARE` on the class.
+  - The membership guard (AFTER ROW) also locks membership → class.
+  - `fn_archive_cohort` takes the class `FOR UPDATE` first. So
+    `fn_cohort_archive_counts` must stay a plain, non-locking SELECT over
+    memberships, gives and items. A `FOR SHARE`/`FOR UPDATE` there would
+    create a class → membership order that can deadlock with a concurrent
+    fan-out or enroll. Add this as a review note on §7 step 4; no SQL change
+    is needed beyond keeping it lock-free.
+
+### 11.3 Staging data relevant to AC planning (counts only)
+
+```sql
+SELECT c.id, c.name, c.is_active, c.updated_at,
+       (SELECT count(*) FROM class_assignments a WHERE a.cohort_id = c.id)                       AS assignments,
+       (… items …), (… items created after c.updated_at …), (… opened, unsubmitted items …),
+       (SELECT count(*) FROM writing_assignments w WHERE w.cohort_id = c.id
+           AND w.status IN ('pending','in_progress'))                                            AS open_writing_gives,
+       (SELECT count(*) FROM writing_assignments w WHERE w.cohort_id = c.id
+           AND w.created_at > c.updated_at)                                                      AS gives_after_cohort_updated_at
+  FROM cohorts c ORDER BY c.created_at;
+SELECT w.status, w.is_timed, count(*), min(w.created_at), max(w.created_at), count(*) FILTER (WHERE w.started_at IS NOT NULL)
+  FROM writing_assignments w
+ WHERE w.cohort_id = 'a8e68c89-7dee-40a6-bd90-4e37f143d1b6' AND w.created_at > '2026-10-10 13:29:05.583381+00'
+ GROUP BY 1, 2;
+```
+
+- The legacy inactive class "QA Course 1 Resume 20261010" (`a8e68c89…`) has:
+  - 3 assignments and 3 items, with 0 items created after it went inactive
+    and 0 opened-but-unsubmitted items;
+  - 4 open Writing gives, all `pending`, untimed and unstarted (§1.1 confirmed);
+  - **9 cohort Writing gives created on 2026-10-25/26, after the class went
+    inactive on 2026-10-10**: 4 pending, 4 graded, 1 delivered.
+
+  This is the W-10 behaviour (an inactive class still receives gives). Under
+  FR-009 the class stays legacy, so 337 does not change this until an admin
+  presses "Áp dụng lưu trữ".
+- Staging has no timed Writing give and no open timed Course item in an
+  inactive class. The D3 check (AC-13) and the FR-004 reaper-finalise check
+  therefore need seeded data on the fresh `staging_seed.py --ns` namespace,
+  as T011 already says. Existing rows cannot exercise them.
+
+Raw outputs and the compare script are kept outside the repo in
+`/workspace/qa/q14l-t002a/` (`live_funcs.json`, `compare.json`, `q1a.out`,
+`q1b.out`, `*.sql`).
