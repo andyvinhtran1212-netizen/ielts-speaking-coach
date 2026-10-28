@@ -542,6 +542,56 @@ class TestReactivate:
         assert r.status_code == 403 and r.json()["detail"]["code"] == "actor_not_admin"
         assert INSTRUCTOR in db.auth.admin.banned and db.user(INSTRUCTOR)["suspended_at"]
 
+    def test_lost_rpc_response_after_commit_does_not_reban(self, client, db):
+        # The RPC commits the reactivation, then its HTTP response is lost
+        # (Codex P2 on #1885): the marker is cleared, so no ban goes back.
+        _active(client, INSTRUCTOR, False)
+        original = db._set_staff_privilege
+
+        def committed_then_lost(**params):
+            original(**params)
+            raise RuntimeError("read timed out")
+
+        db._set_staff_privilege = committed_then_lost
+        r = _active(client, INSTRUCTOR, True)
+        assert r.status_code == 500
+        assert db.user(INSTRUCTOR)["suspended_at"] is None and db.user(INSTRUCTOR)["is_active"] is True
+        assert INSTRUCTOR not in db.auth.admin.banned
+        assert db.auth.admin.calls[-1] == (INSTRUCTOR, "none")
+        db._set_staff_privilege = original
+        again = _active(client, INSTRUCTOR, True)
+        assert again.status_code == 200 and again.json()["ok"] is True and again.json()["changed"] is False
+        assert INSTRUCTOR not in db.auth.admin.banned
+
+    def test_lost_rpc_request_before_commit_puts_the_ban_back(self, client, db):
+        _active(client, INSTRUCTOR, False)
+
+        def lost(**_params):
+            raise RuntimeError("connection reset")
+
+        db._set_staff_privilege = lost
+        assert _active(client, INSTRUCTOR, True).status_code == 500
+        assert db.user(INSTRUCTOR)["suspended_at"] and INSTRUCTOR in db.auth.admin.banned
+
+    def test_unreadable_marker_after_rpc_error_is_not_rebanned_and_retry_rebans(self, client, db, engine):
+        # A ban must never outlive the marker, so an unconfirmed marker is not
+        # re-banned; the still-suspended account is re-banned by the retry route.
+        _active(client, INSTRUCTOR, False)
+        original = db._set_staff_privilege
+
+        def lost_and_db_down(**_params):
+            db.fail_tables.add("users")
+            raise RuntimeError("connection reset")
+
+        db._set_staff_privilege = lost_and_db_down
+        assert _active(client, INSTRUCTOR, True).status_code == 500
+        assert INSTRUCTOR not in db.auth.admin.banned and db.user(INSTRUCTOR)["suspended_at"]
+        db.fail_tables.discard("users")
+        db._set_staff_privilege = original
+        retry = client.post(f"/admin/users/{INSTRUCTOR}/revoke-sessions", json={}, headers=AUTH)
+        assert retry.status_code == 200 and retry.json()["sessions_revoked"] is True
+        assert INSTRUCTOR in db.auth.admin.banned
+
     def test_reactivating_a_never_suspended_account_does_not_touch_gotrue(self, client, db):
         r = _active(client, NEVER_ACTIVATED, True)
         assert r.status_code == 200 and r.json()["changed"] is True

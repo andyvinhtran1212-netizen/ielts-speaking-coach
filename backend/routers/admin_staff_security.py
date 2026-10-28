@@ -127,13 +127,7 @@ async def admin_set_staff_active(
             )
         except HTTPException:
             if unbanned:
-                # The marker still stands; put the ban back (best effort — the
-                # account is inactive and suspended, so every surface denies it).
-                try:
-                    staff_security.set_auth_ban(_auth_admin(), target, banned=True)
-                except Exception as exc:
-                    logger.error("[staff_security] re-ban after refused reactivation failed target=%s: %r",
-                                 target, exc)
+                _reban_if_still_suspended(db, target)
             raise
 
         if change.suspended:
@@ -221,6 +215,32 @@ async def admin_staff_security_audit(
             503, {"error_code": "lookup_failed", "message": staff_security.HISTORY_LOOKUP_FAILED_MESSAGE},
         ) from None
     return {"rows": rows, "lookup_failed": False}
+
+
+def _reban_if_still_suspended(db, target: str) -> None:
+    """Put the ban back after the reactivation RPC raised — but only when the
+    committed row still carries the marker. A lost RPC response can follow a
+    committed reactivation; banning then would leave an active, banned account
+    that a repeat (which skips the unban once the marker is gone) cannot fix.
+    An unreadable row is not re-banned either: a ban must never outlive the
+    marker, and a marker that does still stand keeps every surface denying the
+    account while ``POST …/revoke-sessions`` re-bans it. Best effort; the
+    caller still gets the RPC's error."""
+    try:
+        row = staff_security.read_privilege_row(db, target)
+    except Exception as exc:
+        logger.error("[staff_security] marker re-read after reactivation error failed target=%s: %r",
+                     target, exc)
+        return
+    if not (row and row.get("suspended_at")):
+        logger.warning("[staff_security] reactivation RPC errored but the marker is cleared target=%s",
+                       target)
+        return
+    try:
+        staff_security.set_auth_ban(_auth_admin(), target, banned=True)
+    except Exception as exc:
+        logger.error("[staff_security] re-ban after refused reactivation failed target=%s: %r",
+                     target, exc)
 
 
 def _actor(admin: dict) -> str:
