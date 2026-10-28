@@ -9,8 +9,10 @@ owner: product
 # Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request
 
 Approval: approved by Vinh on 2026-10-28 09:11 (UTC+7), relayed by the
-Leader, with every default answer to Q1–Q10 accepted and the Q2 alert address
-set to `andyvinhtran1212@gmail.com` (see
+Leader, with every default answer to Q1–Q10 accepted and the Q2 alert recipient
+set to `andyvinhtran1212@gmail.com`. By Vinh's decision (a) of 09:35, alerts
+are sent from `alerts@averlearning.com` through Resend once the domain's DNS
+is verified (see
 [`approval-decision.md`](approval-decision.md) and
 [Owner decisions](#owner-decisions)). Source: product brief ADMIN-AAL2
 (Feature Developer, 2026-10-27 23:10, approved for spec writing 23:01 via
@@ -264,11 +266,14 @@ the wording of the default that was approved.
   today. *Default:* a single HTTPS transactional email provider (Resend, one
   new Railway secret) with recipients in `OWNER_ALERT_EMAILS`. Vinh supplies
   the owner address at approval. AI-BUDGET reuses the same channel and
-  recipients. *Owner address (2026-10-28):* `andyvinhtran1212@gmail.com` is
-  both the alert sender and the recipient, so `OWNER_ALERT_EMAILS` is set to
-  that one address. The provider must accept that address as the sender. If
-  it does not (for example, it only sends from a verified domain), the
-  implementer stops and asks Vinh; the sender is never changed silently.
+  recipients. *Owner address (2026-10-28, sender set by decision (a) at
+  09:35):* the recipient is `andyvinhtran1212@gmail.com`, the single value
+  of `OWNER_ALERT_EMAILS`. Alerts are sent FROM `alerts@averlearning.com`
+  through Resend, once the `averlearning.com` domain's DNS is verified.
+  Gmail SMTP is not used. While the domain is unverified, a Resend
+  rejection leaves the outbox row unsent and retried; no other transport or
+  sender is tried, and the implementer does not choose another sender. This
+  matches AIBUDGET-0033 (#1773).
 - **Q3: Suspension strength.** *Decided: default accepted.* Ban sign-in until reactivation, or only revoke
   sessions? *Default:* ban and revoke (a suspended staff member cannot sign in
   even as a learner).
