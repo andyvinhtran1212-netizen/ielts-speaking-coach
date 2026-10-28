@@ -40,7 +40,7 @@ describe('pacing — a cleared field is activity, not an answer', () => {
   });
 
   test('the tooltip says which one it was', () => {
-    assert.match(JS, /\(isClear \? 'XOÁ ô' : 'lưu đáp án'\)/);
+    assert.match(JS, /\(isClear \? 'XÓA ô' : 'lưu đáp án'\)/);
   });
 
   test('the legend only mentions clears when there are some', () => {

@@ -476,7 +476,7 @@
     if (!locked.length && !failed.length) { box.hidden = true; box.innerHTML = ''; return; }
     var html = '';
     if (locked.length) {
-      html += '<div style="color:var(--av-warning);margin-bottom:6px">⚠ ĐANG LÀM BÀI — giữ nguyên kĩ năng/khung giờ cũ (huỷ lượt của họ nếu cần áp thay đổi): ' +
+      html += '<div style="color:var(--av-warning);margin-bottom:6px">⚠ ĐANG LÀM BÀI — giữ nguyên kĩ năng/khung giờ cũ (hủy lượt của họ nếu cần áp thay đổi): ' +
         locked.map(function (u) { return esc(studentName(u)); }).join(', ') + '</div>';
     }
     if (failed.length) {

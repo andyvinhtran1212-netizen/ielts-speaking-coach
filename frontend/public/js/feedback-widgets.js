@@ -208,7 +208,7 @@
           '<p class="fb-modal__msg" role="status" aria-live="polite" hidden></p>' +
         '</div>' +
         '<div class="fb-modal__foot">' +
-          '<button type="button" class="fb-btn fb-btn--ghost" data-act="close">Huỷ</button>' +
+          '<button type="button" class="fb-btn fb-btn--ghost" data-act="close">Hủy</button>' +
           '<button type="button" class="fb-btn fb-btn--flag" data-act="send">Gửi báo lỗi</button>' +
         '</div>' +
       '</div>';
@@ -315,7 +315,7 @@
         '<textarea id="' + noteId + '" class="fb-textarea" placeholder="VD: giải thích chưa khớp transcript, link nghe-lại sai đoạn…"></textarea>' +
         '<p class="fb-pop__msg" role="status" aria-live="polite" hidden></p>' +
         '<div class="fb-pop__foot">' +
-          '<button type="button" class="fb-btn fb-btn--ghost fb-btn--sm" data-act="cancel">Huỷ</button>' +
+          '<button type="button" class="fb-btn fb-btn--ghost fb-btn--sm" data-act="cancel">Hủy</button>' +
           '<button type="button" class="fb-btn fb-btn--flag fb-btn--sm" data-act="send">Gửi</button>' +
         '</div>';
       card.appendChild(pop);
