@@ -34,6 +34,7 @@ export function normalizeAssignment(raw) {
     deadline: dateOf(row.deadline),
     instructions: optionalText(row.instructions),
     createdAt: dateOf(row.created_at),
+    startedAt: dateOf(row.started_at),
     submittedAt: dateOf(row.submitted_at),
     gradedAt: dateOf(row.graded_at),
     deliveredAt: dateOf(row.delivered_at),
@@ -48,6 +49,24 @@ export function normalizeAssignment(raw) {
     studentName: optionalText(student?.full_name),
     studentCode: optionalText(student?.student_code),
   };
+}
+
+/**
+ * BL-05 — the guarded DELETE (A-08) only accepts a give the student has not
+ * started: pending, no started_at, no essay. A draft can still make it 409,
+ * so this only decides whether to offer the action, never the outcome.
+ */
+export function isAssignmentDeletable(row) {
+  return Boolean(row) && row.status === 'pending' && !row.startedAt && !row.essayId;
+}
+
+/** BL-18 — `POST …/duplicates-preview` → { studentCount, duplicateStudentIds } or null. */
+export function normalizeDuplicatesPreview(raw) {
+  const payload = objectOf(raw);
+  const count = payload?.student_count;
+  const ids = payload?.duplicate_student_ids;
+  if (!Number.isInteger(count) || count < 0 || !Array.isArray(ids) || !ids.every((id) => textOf(id))) return null;
+  return { studentCount: count, duplicateStudentIds: [...new Set(ids.map(textOf))] };
 }
 
 export function normalizeAssignmentList(raw) {

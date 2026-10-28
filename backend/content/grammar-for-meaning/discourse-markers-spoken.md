@@ -96,13 +96,13 @@ Discourse markers (DMs) trong nói tiếng Anh là những từ và cụm từ n
 
 ## Tại sao quan trọng
 
-IELTS Speaking chấm Fluency and Coherence (FC) — 25% tổng điểm. [IELTS Speaking band descriptors](https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf), Band 7 FC, nêu: "Flexible use of spoken discourse markers, connectives and cohesive features." Cần dùng phương tiện liên kết linh hoạt theo ngữ cảnh. Danh sách hoặc số lượng từ nối không tự xác định band; phải đánh giá độ mạch lạc, phù hợp và sự trôi chảy của toàn bài.
+IELTS Speaking chấm Fluency and Coherence (FC) — 1/4 điểm Speaking. [IELTS Speaking band descriptors](https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf), Band 7 FC, nêu: "Flexible use of spoken discourse markers, connectives and cohesive features." Cần dùng phương tiện liên kết linh hoạt theo ngữ cảnh. Danh sách hoặc số lượng từ nối không tự xác định band; phải đánh giá độ mạch lạc, phù hợp và sự trôi chảy của toàn bài.
 
 Người Việt học IELTS gặp ba vấn đề riêng:
 
-1. Được dạy DM **viết** ở trường (Furthermore, Moreover, In addition) → bê vào Speaking → nghe gượng và non-natural.
-2. Quen dùng "thật ra" mở thoại → tự dịch thành "actually" → dùng sai chức năng (actually có thể đính chính, thêm chi tiết, làm mềm lời nói hoặc chuyển chủ đề theo ngữ cảnh; không chỉ có một chức năng).
-3. Không có thói quen dùng DM để **câu giờ** trong khi VN trong nói thường dùng "ờ", "à", "thì", "kiểu" — rất tự nhiên trong VN nhưng không transfer sang English fillers.
+1. Được dạy DM **viết** ở trường (Furthermore, Moreover, In addition) → bê vào Speaking → nghe gượng, thiếu tự nhiên.
+2. Quen dùng "thật ra" mở thoại → tự dịch thành "actually" → dùng sai chức năng (actually có thể đính chính, thêm chi tiết hoặc làm mềm lời nói theo ngữ cảnh; không chỉ có một chức năng).
+3. Không có thói quen dùng DM để **câu giờ** trong khi VN trong nói thường dùng "ờ", "à", "thì", "kiểu" — rất tự nhiên trong VN nhưng không chuyển thành từ đệm tiếng Anh.
 
 ## 6 nhóm DM trong nói
 
@@ -148,7 +148,7 @@ Dùng để giảm độ tuyệt đối của phát biểu — rất tự nhiên
 <!-- anchor: discourse-markers-spoken.connecting.anyway-by-the-way -->
 ### Nhóm 4 — Kết nối / chuyển chủ đề: *anyway, by the way, speaking of which, that reminds me*
 
-Dùng để chuyển ý hoặc quay lại main topic sau digression — quan trọng cho Part 2 (long turn 1–2 phút).
+Dùng để chuyển ý hoặc quay lại ý chính sau khi lan man — quan trọng cho Part 2 (long turn 1–2 phút).
 
 - "*Anyway*, going back to my main point, what really stood out about that trip was..."
 - "*By the way*, I should mention that my best friend was with me on that trip."
@@ -160,11 +160,11 @@ Dùng để chuyển ý hoặc quay lại main topic sau digression — quan tr�
 
 Dùng để nhấn mạnh hoặc đánh dấu thông tin quan trọng.
 
-- "*Actually*, I find it more interesting than I expected." (báo hiệu surprise vs expectation)
-- "*Basically*, it's about helping people learn English." (báo hiệu summary)
+- "*Actually*, I find it more interesting than I expected." (báo hiệu điều trái với mong đợi)
+- "*Basically*, it's about helping people learn English." (báo hiệu tóm lại)
 - "*In fact*, I've been doing it for over five years." (nhấn mạnh)
-- "*The thing is*, I never really enjoyed maths in school." (báo hiệu key information)
-- "*To be honest*, I'm not a huge fan of pop music." (báo hiệu candid opinion)
+- "*The thing is*, I never really enjoyed maths in school." (báo hiệu ý then chốt)
+- "*To be honest*, I'm not a huge fan of pop music." (báo hiệu ý kiến thẳng thắn)
 
 <!-- anchor: discourse-markers-spoken.response.exactly-absolutely -->
 ### Nhóm 6 — Phản hồi / xác nhận: *exactly, absolutely, definitely, sure, I see*
@@ -186,19 +186,19 @@ Dùng để xác nhận hoặc đáp lại câu hỏi của examiner. Đặc bi�
 <!-- anchor: discourse-markers-spoken.common-mistake.actually-misuse -->
 ### Lỗi 1: Lạm dụng "actually" như topic-opener
 
-Người Việt translate "thật ra..." → "actually..." và dùng để mở mọi ý mới. Trong English, "actually" báo hiệu **correction** hoặc **surprising contrast** với expectation đã được set up. Dùng làm topic-opener nghe lỗi.
+Người Việt translate "thật ra..." → "actually..." và dùng để mở mọi ý mới. Actually thường báo hiệu ý đính chính hoặc điều trái với mong đợi. Nếu dùng nó để mở đầu mọi câu trả lời, người nghe sẽ chờ một ý đối lập nhưng không thấy.
 
 - ❌ "*Actually*, my hometown is Hanoi." (không có gì để correct)
 - ❌ "*Actually*, I love coffee." (không có expectation đối lập)
 - ✅ "I love coffee. *Actually*, I drink three cups a day." (báo hiệu detail vượt quá expected)
 - ✅ "Most people think Hanoi is loud, but *actually* there are many quiet corners." (correct expectation)
 
-**Cách fix:** Dùng "well", "so", hoặc bỏ qua DM khi mở topic mới. Để "actually" cho moments thật sự có contrast.
+**Cách sửa:** Dùng "well", "so", hoặc bỏ qua DM khi mở topic mới. Để "actually" cho moments thật sự có contrast.
 
 <!-- anchor: discourse-markers-spoken.common-mistake.overuse-and-but-so -->
 ### Lỗi 2: Lạm dụng "and / but / so" — không có DM khác
 
-Bài nói toàn nối bằng "and / but / so" nghe trẻ em.
+Bài nói toàn nối bằng "and / but / so" nghe như trẻ con / đơn điệu.
 
 - ❌ "I went to Da Nang and I tried the food and it was good and I also went to the beach and the beach was beautiful and..."
 - ✅ "I went to Da Nang. *Well*, *the first thing* I did was try the local food, *which* was incredible. *After that*, I went to the beach. *To be honest*, the beach was even better than the food..."
@@ -245,7 +245,7 @@ Dùng DM ở chỗ chúng giúp người nghe theo dõi: mở ý (well/so), làm
 
 ### Part 3 — discussion
 
-Dùng softening DM nhiều hơn (kind of, I suppose, I guess, sort of) và evidence-marking DM (actually, in fact, the thing is) khi cần justify opinion.
+Dùng softening DM nhiều hơn (kind of, I suppose, I guess, sort of) và evidence-marking DM (actually, in fact, the thing is) để bảo vệ quan điểm.
 
 > *Q: Do you think social media is making people less social?*
 >

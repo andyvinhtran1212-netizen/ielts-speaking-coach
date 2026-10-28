@@ -11,6 +11,7 @@ the top of every handler):
 
   GET    /admin/writing/assignments              — list (filterable)
   POST   /admin/writing/assignments              — create (single OR bulk)
+  POST   /admin/writing/assignments/duplicates-preview — read-only: who already has these prompts (BL-18)
   GET    /admin/writing/assignments/{id}         — single (with prompt + student joined)
   PATCH  /admin/writing/assignments/{id}         — partial update
   DELETE /admin/writing/assignments/{id}         — hard delete (only while unstarted: pending, no draft/essay)
@@ -31,8 +32,14 @@ from fastapi import APIRouter, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
+from models.writing_give_preview import DuplicatesPreviewOut
 from routers.admin import require_admin
-from services.cohort_assignment_service import Deadline, fan_out_assignment
+from services.cohort_assignment_service import (
+    Deadline,
+    existing_give_student_ids,
+    fan_out_assignment,
+    preview_fan_out_overlap,
+)
 from services import student_service
 from services.class_membership_service import active_student_ids_for_cohort
 from services.writing_assignment_delete_guard import delete_unstarted_assignment
@@ -580,6 +587,39 @@ async def fan_out_to_cohort(
     if result["student_count"] == 0:
         raise HTTPException(400, "Lớp này chưa có học viên nào.")
     return result
+
+
+class DuplicatesPreview(BaseModel):
+    """The target of a give that has not been sent yet: N prompts plus
+    exactly one of `cohort_id` (fan-out) or `student_ids` (individual)."""
+    prompt_ids:  list[UUID]           = Field(..., min_length=1, max_length=20)
+    cohort_id:   Optional[UUID]       = None
+    student_ids: Optional[list[UUID]] = Field(None, min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def _one_target(self):
+        if (self.cohort_id is None) == (self.student_ids is None):
+            raise ValueError("provide exactly one of cohort_id or student_ids")
+        return self
+
+
+@router.post("/duplicates-preview", response_model=DuplicatesPreviewOut)
+async def preview_duplicates(
+    body: DuplicatesPreview,
+    authorization: str | None = Header(None),
+):
+    """BL-18 — read-only. Which target students already hold any of these
+    prompts, computed like the give's own `duplicates_warning`, so the UI can
+    ask for confirmation BEFORE the give instead of only warning after it.
+    Writes nothing; the give itself stays allow + warn."""
+    await require_admin(authorization)
+    prompt_strs = [str(p) for p in body.prompt_ids]
+    if body.cohort_id is not None:
+        return preview_fan_out_overlap(
+            supabase_admin, prompt_ids=body.prompt_ids, cohort_id=body.cohort_id)
+    student_strs = list(dict.fromkeys(str(s) for s in body.student_ids or []))
+    already = existing_give_student_ids(supabase_admin, prompt_strs, student_strs)
+    return {"student_count": len(student_strs), "duplicate_student_ids": sorted(already)}
 
 
 @router.get("/requests/{request_id}")

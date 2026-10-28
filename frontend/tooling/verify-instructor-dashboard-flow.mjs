@@ -60,6 +60,11 @@ const requests = [];
 const unexpectedWrites = [];
 const cohortPosts = [];
 const assignmentPosts = [];
+const previewPosts = [];
+// Like the backend: a give's overlap is every class member who already holds
+// one of the prompts, from any earlier give (individual, other class, admin).
+const holders = (promptIds) => [...new Set(fixtures['/instructor/assignments']
+  .filter((row) => promptIds.includes(row.prompt_id)).map((row) => row.student_id))].filter((id) => id === 's1');
 const pageErrors = [];
 const dialogs = [];
 const dialogAnswers = [];
@@ -67,7 +72,7 @@ let failCanonicalReadback = false;
 const cohorts = [{ id: 'c1', name: 'Khóa Writing 1', created_at: '2026-08-01T00:00:00Z' }];
 const fixtures = {
   '/instructor/students': [{ id: 's1', full_name: 'An <script>alert(1)</script>', student_code: 'HV-001', cohort_id: 'c1', user_id: 'u1' }],
-  '/instructor/prompts': [{ id: 'p1', title: 'Task 2 <img src=x>', task_type: 'task2' }],
+  '/instructor/prompts': [{ id: 'p1', title: 'Task 2 <img src=x>', task_type: 'task2' }, { id: 'p2', title: 'Task 1 mới', task_type: 'task1_academic' }],
   '/instructor/codes': [{ id: 'code1', code: 'JOIN-001', is_used: false, cohort_id: 'c1' }],
   // Newest first, like the backend (created_at desc). A-07: s1 × p1 was given
   // twice; the older give is overdue, the newer one is delivered.
@@ -111,6 +116,11 @@ await page.route('**/*', async (route) => {
       recent_essays: [{ id: 'e1', task_type: 'task2', status: 'delivered' }],
     });
   }
+  if (method === 'POST' && path === '/instructor/assignments/duplicates-preview') {
+    const body = request.postDataJSON();
+    previewPosts.push(body);
+    return json({ student_count: 1, duplicate_student_ids: holders(body.prompt_ids) });
+  }
   if (method === 'POST' && ['/instructor/assignments', '/instructor/assignments/fan-out'].includes(path)) {
     const body = request.postDataJSON();
     assignmentPosts.push({ path, body });
@@ -118,7 +128,7 @@ await page.route('**/*', async (route) => {
     // Fan-out: the canonical list (newest first, like the backend) gains the
     // give; a re-give reports the overlap as duplicates_warning (ALLOW + WARN).
     const rows = fixtures['/instructor/assignments'];
-    const duplicates = rows.some((row) => row.cohort_id === body.cohort_id && body.prompt_ids.includes(row.prompt_id)) ? ['s1'] : [];
+    const duplicates = holders(body.prompt_ids);
     const groupId = `g${assignmentPosts.length}`;
     rows.unshift({ id: `a-${groupId}`, prompt_id: body.prompt_ids[0], student_id: 's1', status: 'pending', essay_id: null, deadline: body.deadline ?? null, cohort_id: body.cohort_id, assignment_group_id: groupId, name: body.name ?? null, created_at: '2026-10-25T12:30:00Z' });
     return json({ student_count: 1, created_count: 1, group_id: groupId, duplicates_warning: duplicates, assignment_ids: [`a-${groupId}`] }, 201);
@@ -168,27 +178,51 @@ const fillCohortGive = async (name) => {
   await assignmentForm.locator('select[name="cohort_id"]').selectOption('c1');
   await assignmentForm.getByLabel('Hạn nộp (giờ Việt Nam)').fill('2026-10-27T23:00');
 };
-await fillCohortGive('Buổi 5 — Task 2');
+// BL-19: with nothing chosen the app's own message shows (the form is
+// noValidate), focus moves to the missing field and nothing is sent.
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
-await page.getByText('Đã giao bài cho lớp.', { exact: true }).waitFor();
-check('lần giao đầu không hỏi xác nhận và gửi name', dialogs.length === 0 && assignmentPosts.length === 1 && assignmentPosts[0].body.name === 'Buổi 5 — Task 2');
+await page.locator('.ins-banner.is-danger', { hasText: 'Chưa chọn đề bài.' }).waitFor();
+check('BL-19: bấm Giao bài khi chưa chọn đề hiện thông báo của app, focus vào ô đề', await assignmentForm.locator('select[name="prompt_id"]').evaluate((element) => element === document.activeElement)
+  && dialogs.length === 0 && assignmentPosts.length === 0 && previewPosts.length === 0);
+
+// BL-18: s1 already holds p1 from individual gives (no class stamp), so the
+// first class give asks before writing — the old flow only warned afterwards.
+await fillCohortGive('Buổi 5 — Task 2');
+dialogAnswers.push(false);
+await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+for (let tries = 0; tries < 100 && dialogs.length < 1; tries += 1) await page.waitForTimeout(50);
+await page.waitForFunction(() => !document.querySelector('form.ins-form button[type="submit"]')?.disabled);
+check('BL-18: giao cho lớp có học viên đã nhận đề → hỏi trước khi gửi; hủy thì không gửi', dialogs.length === 1
+  && dialogs[0] === "1 học viên trong lớp đã được giao đề 'Task 2 <img src=x>' từ trước. Giao thêm một lượt nữa?"
+  && previewPosts.length === 1 && previewPosts[0].cohort_id === 'c1' && JSON.stringify(previewPosts[0].prompt_ids) === '["p1"]'
+  && new URLSearchParams(requests.filter((item) => item.path === '/instructor/assignments/duplicates-preview').at(-1)?.search).get('as_instructor') === instructorId
+  && assignmentPosts.length === 0
+  && await assignmentForm.locator('input[name="name"]').inputValue() === 'Buổi 5 — Task 2', dialogs[0]);
+dialogAnswers.push(true);
+await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await page.getByText('Đã giao bài cho lớp. Lưu ý: 1 học viên đã được giao đề này từ trước.', { exact: true }).waitFor();
+check('BL-18: đồng ý thì gửi đúng một request kèm name, banner sau vẫn khớp số đã hỏi', dialogs.length === 2 && assignmentPosts.length === 1 && assignmentPosts[0].body.name === 'Buổi 5 — Task 2');
 check('form giao bài reset sau khi thành công', await assignmentForm.locator('select[name="prompt_id"]').inputValue() === ''
   && await assignmentForm.locator('input[name="name"]').inputValue() === ''
   && await assignmentForm.locator('select[name="cohort_id"]').inputValue() === ''
   && await assignmentForm.locator('input[name="deadline"]').inputValue() === '');
 
 await fillCohortGive('Buổi 6 — Task 2');
+// The class itself was given p1 above: the W-06 confirm covers it, so no preview read.
+const previewsBeforeRegive = previewPosts.length;
 dialogAnswers.push(false);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
 await page.waitForTimeout(200);
-check('giao lại cùng đề cho lớp hỏi xác nhận; hủy thì không gửi request', dialogs.length === 1
-  && /^Lớp này đã được giao đề 'Task 2 <img src=x>' lúc .+\. Giao thêm một lượt nữa\?$/.test(dialogs[0])
+check('giao lại cùng đề cho lớp hỏi xác nhận; hủy thì không gửi request', dialogs.length === 3
+  && /^Lớp này đã được giao đề 'Task 2 <img src=x>' lúc .+\. Giao thêm một lượt nữa\?$/.test(dialogs[2])
   && assignmentPosts.length === 1
-  && await assignmentForm.locator('input[name="name"]').inputValue() === 'Buổi 6 — Task 2', dialogs[0]);
+  && await assignmentForm.locator('input[name="name"]').inputValue() === 'Buổi 6 — Task 2', dialogs[2]);
 dialogAnswers.push(true);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+// The first give left the same warning banner up; wait for this give's POST + readback.
+for (let tries = 0; tries < 100 && assignmentPosts.length < 2; tries += 1) await page.waitForTimeout(50);
 await page.getByText('Đã giao bài cho lớp. Lưu ý: 1 học viên đã được giao đề này từ trước.', { exact: true }).waitFor();
-check('đồng ý thì gửi đúng một request và banner cảnh báo duplicates_warning', dialogs.length === 2 && assignmentPosts.length === 2
+check('đồng ý thì gửi đúng một request và banner cảnh báo duplicates_warning; không hỏi lần hai', dialogs.length === 4 && assignmentPosts.length === 2 && previewPosts.length === previewsBeforeRegive
   && assignmentPosts[1].body.name === 'Buổi 6 — Task 2'
   && await page.locator('.ins-banner.is-warning', { hasText: '1 học viên đã được giao đề này từ trước' }).count() === 1);
 
@@ -199,7 +233,7 @@ await assignmentForm.getByLabel('Hạn nộp (giờ Việt Nam)').fill('2026-10-
 dialogAnswers.push(true);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
 await page.getByText('Đã giao bài cho học viên.', { exact: true }).waitFor();
-check('giao lẻ cho học viên đã có đề cũng hỏi xác nhận', dialogs.length === 3 && /^Học viên này đã được giao đề /.test(dialogs[2]));
+check('giao lẻ cho học viên đã có đề cũng hỏi xác nhận', dialogs.length === 5 && /^Học viên này đã được giao đề /.test(dialogs[4]));
 check('both assignment targets send Vietnam offset from a New York browser', assignmentPosts.length === 3 && assignmentPosts.every(({ body }) => body.deadline === '2026-10-27T23:00:00+07:00'));
 check('giao lẻ không gửi name khi bỏ trống', !Object.hasOwn(assignmentPosts[2].body, 'name'));
 
@@ -225,9 +259,23 @@ await page.getByRole('button', { name: 'Giao bài' }).click();
 // follows the latest give (pending, due 2026-10-27 23:00 ICT), not the delivered one.
 const newestGiveLabel = Date.now() > Date.parse('2026-10-27T23:00:00+07:00') ? 'Trễ' : 'Chưa nộp';
 check('ma trận assignment render trạng thái canonical của lượt giao mới nhất', await matrixCard.locator('thead th').count() === 2
-  && (await matrixCard.locator('tbody td').nth(1).innerText()).trim() === newestGiveLabel
+  && (await matrixCard.locator('tbody td').nth(1).locator('.ins-pill').innerText()).trim() === newestGiveLabel
   && await matrixCard.getByText('Đã trả', { exact: true }).count() === 0
   && await page.getByText('Task 2 <img src=x>', { exact: true }).count() >= 1, newestGiveLabel);
+// W-12: the cell carries its give's deadline (23:00 ICT entered from a New York browser).
+check('W-12: ma trận hiện hạn nộp của lượt giao trong ô', (await matrixCard.locator('tbody td').nth(1).locator('.ins-cell-deadline').innerText()).trim() === 'Hạn 23:00 27/10/26');
+
+// BL-18: nobody holds p2 yet → the preview is read, nothing is asked.
+failCanonicalReadback = false; // the backend recovered from the "Lớp lỗi" case above
+const dialogsBeforeFreshGive = dialogs.length; const previewsBeforeFreshGive = previewPosts.length;
+await assignmentForm.locator('input[value="cohort"]').check();
+await assignmentForm.locator('select[name="prompt_id"]').selectOption('p2');
+await assignmentForm.locator('select[name="cohort_id"]').selectOption('c1');
+await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await page.getByText('Đã giao bài cho lớp.', { exact: true }).waitFor();
+check('BL-18: đề chưa ai nhận thì không hỏi xác nhận', dialogs.length === dialogsBeforeFreshGive && previewPosts.length === previewsBeforeFreshGive + 1
+  && JSON.stringify(previewPosts.at(-1)?.prompt_ids) === '["p2"]' && assignmentPosts.at(-1)?.body.prompt_ids?.[0] === 'p2', `${dialogs.length - dialogsBeforeFreshGive} dialogs, ${previewPosts.length - previewsBeforeFreshGive} previews`);
+
 await page.getByRole('button', { name: 'Chấm bài' }).click();
 check('hàng chờ chấm render đúng review canonical', await page.getByText('student@example.com', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Nhận chấm' }).count() === 1);
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -260,6 +308,37 @@ await deniedPage.getByRole('alert').getByText('Bạn không có quyền truy c�
 check('student bị chặn trước mọi instructor read', deniedInstructorReads.length === 0, deniedInstructorReads.join(', '));
 
 await deniedContext.close();
+
+// W-12: a token refresh that never answers keeps the auth provider loading;
+// the dashboard must fail closed to /login instead of waiting forever. The
+// main page is closed first: a second open page can be timer-throttled to
+// ~1 wake-up/minute by Chromium, which delays the bound past the wait below.
+await context.close();
+const stuckContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+await stuckContext.addInitScript(() => {
+  window.__AVER_SUPABASE_CLIENT__ = { auth: {
+    getSession: () => new Promise(() => {}),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    signOut: async () => ({ error: null }),
+  } };
+});
+const stuckPage = await stuckContext.newPage();
+await stuckPage.route('**/*', async (route) => {
+  const url = route.request().url();
+  const routedPath = new URL(url).pathname;
+  if (url.startsWith(BASE) && routedPath === '/js/runtime-config.js') return route.fulfill({ status: 200, contentType: 'application/javascript', body: fixtureRuntime });
+  if ((url.startsWith(BASE) && !routedPath.startsWith(FIXTURE_API_PREFIX)) || url.startsWith('data:')) return route.continue();
+  if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
+  return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+});
+await stuckPage.goto(`${BASE}/instructor`, { waitUntil: 'domcontentloaded' });
+await stuckPage.getByText('Đang kiểm tra quyền và tải workspace…', { exact: true }).waitFor();
+const stuckVisibility = await stuckPage.evaluate(() => document.visibilityState);
+const stuckStarted = Date.now();
+const reachedLogin = await stuckPage.waitForURL(/\/login(?:[?#]|$)/, { timeout: 45_000 }).then(() => true, () => false);
+const waitedMs = Date.now() - stuckStarted;
+check('W-12: phiên không xác nhận được → về /login thay vì treo ở màn tải', reachedLogin && waitedMs >= 10_000, `${waitedMs} ms → ${stuckPage.url()} (${stuckVisibility})`);
+await stuckContext.close();
 await browser.close();
 const failed = results.filter((item) => !item.ok);
 console.log(`\nInstructor dashboard native flow: ${results.length - failed.length}/${results.length} checks passed`);

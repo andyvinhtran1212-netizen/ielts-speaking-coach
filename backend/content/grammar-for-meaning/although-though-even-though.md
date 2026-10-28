@@ -88,7 +88,7 @@ anchors:
 
 ## Tại sao quan trọng
 
-Concession + counter-argument là một lựa chọn khi phù hợp lập trường. Bạn có thể hoàn toàn đồng ý hoặc đồng ý có điều kiện; không phải mọi Task 2 đều cần khuôn nhượng bộ rồi phản bác. Band được đánh giá trên toàn bài.
+Although/though/even though giúp bạn thừa nhận ý đối lập trước khi nêu lập trường, nên rất hữu ích ở Task 2 và Speaking Part 3. Tuy vậy, đây là một lựa chọn chứ không bắt buộc.
 
 ---
 
@@ -233,7 +233,7 @@ While / Whereas [clause A], [clause B].
 <!-- anchor: although-though-even-though.phan-5-concession-counter-argument-ky-thuat-ielts -->
 ## PHẦN 5: CONCESSION + COUNTER-ARGUMENT (Kỹ thuật IELTS)
 
-Đây là cấu trúc quan trọng nhất — thừa nhận ý đối lập, sau đó phản bác:
+Đây là cấu trúc hữu ích khi bạn muốn thừa nhận ý đối lập rồi phản bác:
 
 ### Pattern 1: Although/Though + concession, counter-argument
 

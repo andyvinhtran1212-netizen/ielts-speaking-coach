@@ -242,6 +242,15 @@ def instructor_fan_out(me: Any, db=None, **kwargs):
     return fan_out_assignment(client, assigned_by=me, owner_id=me, **kwargs)
 
 
+def instructor_fan_out_preview(me: Any, db=None, *, prompt_ids, cohort_id):
+    """BL-18 — read-only preview_fan_out_overlap scoped to `me`: same ownership
+    gates as instructor_fan_out (PermissionError on any cross-owner target)."""
+    me = _require_me(me)
+    from services.cohort_assignment_service import preview_fan_out_overlap
+    client = db if db is not None else supabase_admin
+    return preview_fan_out_overlap(client, prompt_ids=prompt_ids, cohort_id=cohort_id, owner_id=me)
+
+
 def instructor_list_essays(me: Any, **kwargs):
     """list_essays scoped to `me` — owned-essay (2-branch) result + ownership checks
     on any student_id/cohort_id filter. Ignores any caller-supplied owner_id."""
