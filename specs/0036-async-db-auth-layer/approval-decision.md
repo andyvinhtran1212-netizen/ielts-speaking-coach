@@ -22,3 +22,24 @@ This approves the intent in `spec.md` (FR-001…FR-007) and the rollout in
 implementing agent: the Leader enables `USE_ASYNC_DB` on staging after the
 implementation merges. Production keeps the flag off until Vinh gives a
 separate go after the staging evidence.
+
+## Revision 1 — FR-001 insert-if-absent provisioning (option 2A)
+
+**State: APPROVED by the human owner.** Vinh approved option 2A for PR #1835
+on 2026-10-28 17:53 (UTC+7), relayed by the Leader: update the spec text so
+FR-001 describes the actual behaviour. This is a docs/spec change only; no code
+changes with it.
+
+- Commit `31ba3f406924` on #1835 (Codex P2 on #1805) made `/auth/me`
+  first-visit provisioning conflict-safe: `INSERT … ON CONFLICT (id) DO NOTHING`
+  (PostgREST `upsert(on_conflict="id", ignore_duplicates=True)`) followed by
+  the existing re-SELECT, in both flag states.
+- The approved FR-001 said every converted path runs "its existing sync
+  query" with the flag off. Provisioning no longer sends the plain INSERT, so
+  FR-001 now names the insert-if-absent exception. The edge case on first
+  `/auth/me` was aligned with it.
+- Unchanged: risk `high`, FR-002…FR-007, flag default off, parity of the
+  query sequence between flag states, and the rollout. The only behaviour
+  change is the race outcome: a concurrent first visit gets 200 instead of
+  500, and an existing row's role, activation and profile fields are never
+  overwritten.

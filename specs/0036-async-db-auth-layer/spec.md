@@ -15,6 +15,11 @@ reclassifies PR #1805 (PC-J05 D1, first filed as `small` / `Spec: N/A`) as
 Origin: the PC-J05 investigation (#1795), decision D1 (a)+(b), approved
 2026-10-28 10:49; D2 (worker count) is explicitly unchanged.
 
+Revision: on 2026-10-28 17:53 (UTC+7) Vinh approved option 2A for PR #1835:
+FR-001 now describes the implemented insert-if-absent first-visit
+provisioning instead of the existing sync query, see
+[`approval-decision.md`](approval-decision.md).
+
 ## Tóm tắt (tiếng Việt)
 
 Backend chỉ có một event loop, và mọi lần kiểm tra quyền trên **mỗi** request
@@ -80,7 +85,7 @@ on staging and production.
 
 ## Requirements
 
-- **FR-001:** `USE_ASYNC_DB` defaults to off (`config.Settings.USE_ASYNC_DB = False`, unset env means off); with the flag off every converted auth and permission path runs its existing sync query on the calling module's own `supabase_admin` client in the same order, the async client is never created, and responses, status codes and test seams are unchanged.
+- **FR-001:** `USE_ASYNC_DB` defaults to off (`config.Settings.USE_ASYNC_DB = False`, unset env means off); with the flag off every converted auth and permission path runs its existing sync query on the calling module's own `supabase_admin` client in the same order, except that `/auth/me` first-visit provisioning in both flag states sends an insert-if-absent (`INSERT … ON CONFLICT (id) DO NOTHING`) and then re-selects the row, so a concurrent first visit reads the winner's row instead of failing on the primary key and an existing row's role, activation and profile fields are never overwritten; the async client is never created, and responses, status codes and test seams are unchanged.
 - **FR-002:** With the flag on, the learner activation gate, `require_admin` / `require_instructor`, `/auth/me` (including first-visit provisioning, the throttled `last_seen_at` update and live permissions), `/auth/check-active` and `/api/student/permissions` return the same body, HTTP status and error detail, and send the same PostgREST query sequence, as with the flag off for every user, role, activation state and lookup-failure case; the gate keeps its fail-closed 503 and per-request memo, and no access decision changes.
 - **FR-003:** With the flag on, those reads await the shared async Supabase client and do not run sync `.execute()` on the event loop; the async PostgREST pool uses HTTP/1.1 and is closed on shutdown, and the converted paths never touch the sync singleton.
 - **FR-004:** `/api/student/home-summary` builds its independent sections concurrently in worker threads, each with its own service-role client created and reused within that thread and never shared across threads, and returns a payload identical to the sequential builder in both flag states.
@@ -112,7 +117,7 @@ on staging and production.
 
 - A gate `is_active` lookup error or timeout: 503 in both flag states, never treated as active.
 - A staff role lookup error: 500 in both flag states, never a role downgrade or upgrade.
-- First `/auth/me` for a new auth user: the same provisioning insert and the same error contract in both states.
+- First `/auth/me` for a new auth user: the same insert-if-absent provisioning and the same error contract in both states; two concurrent first visits both succeed with one `users` row.
 - HTTP/2 on the async pool would hit the 19,999-stream GOAWAY cap; FR-003 pins HTTP/1.1.
 - Flag on also switches the `grading.py` reads already wired to the facade; Speaking grading is watched in the measurement window (`rollout.md`).
 - A Railway variable change alone does not affect a running process: the flag is read at startup, so both enabling and rollback need a restart.
