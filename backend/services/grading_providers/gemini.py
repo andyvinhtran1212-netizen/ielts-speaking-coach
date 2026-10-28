@@ -39,7 +39,7 @@ from google.api_core import exceptions as google_exceptions
 from services import ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
 
-from .base import AbstractGradingProvider
+from .base import AbstractGradingProvider, CallTelemetry
 from .errors import NonRetryableError, RetryableError
 
 logger = logging.getLogger(__name__)
@@ -130,18 +130,19 @@ class GeminiProvider(AbstractGradingProvider):
             + user_message
         )
 
+        call = CallTelemetry.start(self._usage_feature, self.provider_name)
         try:
             response = await self._model.generate_content_async(
                 prompt, request_options={"timeout": _SDK_TIMEOUT_SECONDS},
             )
         except asyncio.CancelledError:
             await self._log_failure(
-                user_id=user_id, session_id=session_id, error_code="cancelled",
+                call, user_id=user_id, session_id=session_id, error_code="cancelled",
             )
             raise
         except _NON_RETRYABLE_EXCEPTIONS as exc:
             await self._log_failure(
-                user_id=user_id, session_id=session_id,
+                call, user_id=user_id, session_id=session_id,
                 error_code=type(exc).__name__,
             )
             raise NonRetryableError(
@@ -151,7 +152,7 @@ class GeminiProvider(AbstractGradingProvider):
             )
         except _RETRYABLE_EXCEPTIONS as exc:
             await self._log_failure(
-                user_id=user_id, session_id=session_id,
+                call, user_id=user_id, session_id=session_id,
                 error_code=type(exc).__name__,
             )
             raise RetryableError(
@@ -161,7 +162,7 @@ class GeminiProvider(AbstractGradingProvider):
             )
         except google_exceptions.GoogleAPIError as exc:
             await self._log_failure(
-                user_id=user_id, session_id=session_id,
+                call, user_id=user_id, session_id=session_id,
                 error_code=type(exc).__name__,
             )
             # Unknown Google API error → treat as retryable; orchestrator
@@ -173,7 +174,7 @@ class GeminiProvider(AbstractGradingProvider):
             )
         except Exception as exc:
             await self._log_failure(
-                user_id=user_id, session_id=session_id,
+                call, user_id=user_id, session_id=session_id,
                 error_code=type(exc).__name__,
             )
             raise NonRetryableError(
@@ -190,7 +191,7 @@ class GeminiProvider(AbstractGradingProvider):
             text = response.text
         except Exception as exc:
             await self._log_usage(
-                response, user_id=user_id, session_id=session_id,
+                response, call, user_id=user_id, session_id=session_id,
                 status="invalid_response",
             )
             raise NonRetryableError(
@@ -201,7 +202,7 @@ class GeminiProvider(AbstractGradingProvider):
 
         if not text or not text.strip():
             await self._log_usage(
-                response, user_id=user_id, session_id=session_id,
+                response, call, user_id=user_id, session_id=session_id,
                 status="invalid_response",
             )
             raise NonRetryableError(
@@ -210,13 +211,14 @@ class GeminiProvider(AbstractGradingProvider):
                 original=None,
             )
         await self._log_usage(
-            response, user_id=user_id, session_id=session_id, status="success",
+            response, call, user_id=user_id, session_id=session_id, status="success",
         )
         return text
 
     async def _log_usage(
         self,
         response: object,
+        call: CallTelemetry,
         *,
         user_id: str | None,
         session_id: str | None,
@@ -231,6 +233,7 @@ class GeminiProvider(AbstractGradingProvider):
                 session_id=session_id,
                 feature=self._usage_feature,
                 operation=self._usage_operation,
+                **call.fields(),
                 status=status,
                 error_code=("missing_usage" if status != "success" else None),
                 metadata={"provider": self.provider_name},
@@ -254,6 +257,7 @@ class GeminiProvider(AbstractGradingProvider):
                 thinking_tokens=thinking_tok,
                 feature=self._usage_feature,
                 operation=self._usage_operation,
+                **call.fields(),
                 status=status,
             ))
         except Exception as exc:
@@ -262,6 +266,7 @@ class GeminiProvider(AbstractGradingProvider):
 
     async def _log_failure(
         self,
+        call: CallTelemetry,
         *,
         user_id: str | None,
         session_id: str | None,
@@ -274,6 +279,7 @@ class GeminiProvider(AbstractGradingProvider):
             session_id=session_id,
             feature=self._usage_feature,
             operation=self._usage_operation,
+            **call.fields(),
             status="error",
             error_code=error_code,
             metadata={"provider": self.provider_name},

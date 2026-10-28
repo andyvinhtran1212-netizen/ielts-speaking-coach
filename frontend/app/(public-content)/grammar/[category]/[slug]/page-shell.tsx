@@ -307,7 +307,7 @@ export function ArticleShell({ article, source = '' }: { article: GrammarArticle
           </p>
           <Link
             href="/login"
-            className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors whitespace-nowrap"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold gw-cta-solid transition-colors whitespace-nowrap"
           >
             Dùng thử miễn phí →
           </Link>
@@ -343,7 +343,7 @@ export function ArticleShell({ article, source = '' }: { article: GrammarArticle
           <div className="flex flex-col gap-2">
             <Link
               href="/login"
-              className="block w-full py-2.5 rounded-xl text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors"
+              className="block w-full py-2.5 rounded-xl text-sm font-semibold gw-cta-solid transition-colors"
             >
               Luyện Speaking ngay
             </Link>

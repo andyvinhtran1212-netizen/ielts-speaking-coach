@@ -76,7 +76,9 @@ describe('/login native auth entry', () => {
     assert.match(BEHAVIOR, /destination === 'activate'/);
     assert.match(BEHAVIOR, /activateInFlight\.current/);
     assert.match(BEHAVIOR, /if \(activateInFlight\.current\) return/);
-    assert.match(BEHAVIOR, /disabled=\{activateBusy\}/);
+    // BL-13: the dialog's sign-out also locks the activation controls.
+    assert.match(BEHAVIOR, /disabled=\{activateBusy \|\| signingOut\}/);
+    assert.match(BEHAVIOR, /if \(signOutInFlight\.current \|\| activateInFlight\.current\) return;/);
     assert.match(BEHAVIOR, /keepLockedForRedirect = true/);
     assert.match(BEHAVIOR, /event\.key !== 'Tab'/);
     assert.match(BEHAVIOR, /document\.activeElement === first/);
