@@ -147,20 +147,25 @@ These are the call sites in research §1. Each wraps its provider request in
     uses the same function, so a drained grade can also skip P.
   - Move `record_grading_attempt` after the bundle is granted (FR-012).
   - On refusal: upload the recording (`storage_upload` moves ahead of
-    Whisper only on this branch), persist the `responses` row with
-    `grading_status='awaiting_budget'`, enqueue the job, and return
-    FR-010.
+    Whisper only on this branch), then save the `responses` row with
+    `grading_status='awaiting_budget'` and its job together through
+    `fn_ai_deferred_save` (item 7), and return FR-010. The row and the
+    job are one transaction, so a crash leaves both or neither. With
+    neither, a retry with the same `submission_id` is a fresh submission;
+    with both, `check_submission` reports a replay and the readback finds
+    `awaiting_budget` with a job that the sweeper drains (Codex round 11
+    on #1773).
   - A fallback rung reserves its own line at the moment it is tried.
   - Any later budget refusal in the same request goes through the same
     deferral as a refusal before Whisper, for example a refused fallback
     line or a provider spend-limit response after the grant. The deferral:
     1. stores the recording;
-    2. persists `awaiting_budget` with any transcript already obtained;
-    3. enqueues the job with the `grading_attempt_id` that request
-       recorded;
-    4. deletes that `grading_attempts` row (FR-012), with the sweeper
+    2. persists `awaiting_budget` with any transcript already obtained
+       and enqueues the job with the `grading_attempt_id` that request
+       recorded, both in one `fn_ai_deferred_save` call;
+    3. deletes that `grading_attempts` row (FR-012), with the sweeper
        retrying the delete if it fails;
-    5. releases the unused lines.
+    4. releases the unused lines.
 
     Lines already used stay settled. The drain skips Whisper when the
     stored transcript belongs to the same submission revision.
@@ -261,9 +266,15 @@ transaction with `lock_timeout = 5s`.
      session-scoped obligation to refresh a session's aggregate.
      - Columns: `session_id uuid pk`, `generation bigint not null default
        0`, `refreshed_generation bigint not null default 0`,
+       `class_synced_generation bigint not null default 0`,
        `updated_at timestamptz`. `refreshed_generation` is the generation
        that the persisted band reflects. A refresh is owed while
        `refreshed_generation < generation`.
+     - `class_synced_generation` is the generation whose band has reached
+       `class_assignment_items.score` through `sync_class_item_score`.
+       A class-score sync is owed while `class_synced_generation <
+       refreshed_generation` (Codex round 11 on #1773). The sync is a
+       separate write, so acknowledging the band does not discharge it.
      - The `responses` trigger (item 11, FR-024) increments `generation`
        in the same transaction as any band-bearing response write,
        whatever the session's status and whoever the writer is: the
@@ -518,7 +529,25 @@ transaction with `lock_timeout = 5s`.
 
      `sync_class_item_score` runs only after `written`. A writer that
      still writes unacknowledged also syncs, and the sweeper's later
-     refresh syncs again.
+     refresh syncs again. After a sync succeeds, the caller calls
+     `fn_ai_class_sync_ack(p_session_id, p_generation)` with the generation
+     it wrote, which sets `class_synced_generation =
+     greatest(class_synced_generation, p_generation)`. A crash or a sync
+     error between the band write and the ack leaves the sync owed, and
+     the sweeper repeats it. `sync_class_item_score` is idempotent for a
+     given session band, so repeating it is safe. A session with no linked
+     class item is acked at once.
+   - **`fn_ai_deferred_save(p_response jsonb, p_job jsonb)`** saves a
+     deferred Speaking submission in one transaction. It writes the
+     `responses` row with `grading_status='awaiting_budget'` under the
+     same baseline, token and revision checks as `save_response`
+     (`services/speaking_submission.py`), and inserts the job with
+     `on conflict (kind, resource_id, submission_revision) do nothing`. It
+     returns `saved`, `replay` (row and job already present) or
+     `superseded`/`audio_changed` with no write, mapped to today's 409s.
+     No path writes an `awaiting_budget` row without its job.
+   - **`fn_ai_class_sync_ack(p_session_id uuid, p_generation bigint)`**
+     records a completed class-score sync (item 3).
    - **`fn_ai_deferred_claim(p_limit int, p_lease_seconds int)`** claims
      queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order.
      It also reclaims `running` jobs whose `lease_until` has passed, so a
@@ -561,7 +590,9 @@ transaction with `lock_timeout = 5s`.
      existing non-null band (`routers/sessions.py:2094-2102`). A refresh
      makes no provider call and needs no reservation, so it runs even
      while scopes are closed. The sweeper runs one for every `completed`
-     session with `refreshed_generation < generation` first. It runs
+     session with `refreshed_generation < generation` first, then
+     repeats `sync_class_item_score` and the ack for every session with
+     `class_synced_generation < refreshed_generation`. It runs
      another after each `committed` result whose session is `completed`.
      Then it claims new jobs. `not_completed` ends the refresh for that
      session; `PATCH /complete` owns the band of an `in_progress`
@@ -899,6 +930,16 @@ These run in CI with fake providers; no network.
     and the sweeper does not refresh that session;
   - a crash between the provider response and persistence (FR-011 to
     FR-013, AC6);
+  - atomic deferral: a failure injected inside `fn_ai_deferred_save` after
+    the response write leaves neither the row nor the job, and a retry
+    with the same `submission_id` defers normally; after a successful
+    save, a killed request still leaves a job that the next sweep grades
+    with no further submission; a replay returns the existing job;
+  - class-score sync: the worker is killed between the band write
+    (`written`, acknowledged) and `sync_class_item_score` for a session
+    linked to an already-submitted class item; the next sweep finds the
+    sync owed, updates `class_assignment_items.score` to the drained band
+    and acks it, and a further sweep does nothing;
   - the Azure line refused (cap, missing price row, `budget_unavailable`
     on its own request): the grade completes without a 503 or a job,
     `pronunciation_status = 'skipped_budget'`, `band_p` null, the test-mode
