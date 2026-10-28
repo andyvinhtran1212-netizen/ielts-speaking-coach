@@ -5,7 +5,7 @@ slug: a-short-history-of-tea
 difficulty_level: foundation
 topic_tags: [culture, food-and-drink]
 estimated_minutes: 4
-word_count: 150
+word_count: 107
 published: true
 glossary:
   - term: beverage

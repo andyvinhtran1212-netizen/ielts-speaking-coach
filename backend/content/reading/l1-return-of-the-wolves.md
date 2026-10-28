@@ -5,7 +5,7 @@ slug: return-of-the-wolves
 difficulty_level: intermediate
 topic_tags: [environment, animals]
 estimated_minutes: 6
-word_count: 180
+word_count: 137
 published: true
 glossary:
   - term: apex predator
