@@ -205,6 +205,8 @@ Worked hard nhấn nỗ lực, hard work chỉ công việc vất vả; không t
 <!-- anchor: so-vs-such.loi-thuong-gap -->
 ## Lỗi thường gặp
 
+Tiếng Việt chỉ dùng 'quá/rất' trước cả tính từ lẫn cụm danh từ nên người học hay viết 'so a good student' hoặc 'such difficult'.
+
 ### Lỗi 1: "Such" không có danh từ
 
 - ❌ It was **such difficult**.

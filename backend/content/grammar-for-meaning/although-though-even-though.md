@@ -256,6 +256,8 @@ While / Whereas [clause A], [clause B].
 
 ### Lỗi 1: Dùng "although" và "but" cùng một câu
 
+Lỗi này do dịch cặp 'Mặc dù… nhưng…' của tiếng Việt: trong tiếng Anh chỉ dùng một trong hai từ.
+
 - ❌ "**Although** the policy is costly, **but** it is necessary."
 - ✅ "**Although** the policy is costly, it is necessary."
 - ✅ "The policy is costly, **but** it is necessary."
@@ -277,6 +279,7 @@ While / Whereas [clause A], [clause B].
 - ❌ "**Even though** it was raining, I took an umbrella." *(mang ô khi mưa là bình thường — không bất ngờ)*
 - ✅ "**Because** it was raining, I took an umbrella." *(không có tương phản → không dùng although/even though)*
 - ✅ "**Even though** it was raining heavily, she walked all the way to school." *(bất ngờ hơn)*
+- ✅ "Although it was raining, I didn't take an umbrella."
 
 ### Lỗi 5: Quên dấu phẩy sau mệnh đề phụ đứng đầu câu
 
