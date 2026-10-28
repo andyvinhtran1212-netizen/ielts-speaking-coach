@@ -35,7 +35,6 @@ const SHARED_STRINGS = [
   'Vui lòng chọn hoặc nhập chủ đề.',
   'Server không trả về session hợp lệ.',
   'Đang tạo cue card...',
-  'Đang tạo session...',
   'Đang chuẩn bị...',
   '✍️ Bắt đầu luyện tập',
   '🚀 Bắt đầu tạo câu hỏi',
@@ -60,6 +59,12 @@ const SHARED_STRINGS = [
 const NEXT_SIDE = JSON.stringify(copy, (_k, v) => v) + '\n' + BEHAVIOR + '\n'
   + readFileSync(path.join(FRONTEND, 'lib/speaking-start-intent.mjs'), 'utf8');
 
+// Q-91 (owner duyệt 2026-10-28): nhãn nút lúc đang tạo đổi "session" → "buổi
+// luyện", nên KHÔNG còn trùng legacy; bản Next được ghim riêng bên dưới.
+const RENAMED_STRINGS = new Map([
+  ['Đang tạo session...', 'Đang tạo buổi luyện...'],
+]);
+
 // CỐ Ý KHÔNG có ở bản Next: `'Không thể tạo session: '` là thông báo `alert()`
 // của `startPractice()` — hàm mà KHÔNG nút nào trong markup legacy gọi (quét:
 // 0 handler). Bỏ nó đi là bỏ mã chết, không phải mất tính năng; chốt chặn
@@ -73,6 +78,14 @@ describe('chuỗi hiển thị Speaking — Next khớp legacy', () => {
       'chuỗi không còn trong legacy ⇒ danh sách này đã cũ, cập nhật lại');
     assert.deepEqual(onlyLegacy, [],
       'bản Next thiếu chuỗi legacy có ⇒ cổng parity sẽ báo line-missing');
+  });
+
+  test('chuỗi đổi có chủ ý: chữ cũ có trong legacy, chữ mới thay chỗ trong bản Next', () => {
+    for (const [before, after] of RENAMED_STRINGS) {
+      assert.ok(LEGACY.includes(before), `"${before}" không còn trong legacy — bỏ mục thừa`);
+      assert.ok(NEXT_SIDE.includes(after), `bản Next phải hiện "${after}"`);
+      assert.ok(!NEXT_SIDE.includes(before), `bản Next vẫn còn chữ cũ "${before}"`);
+    }
   });
 
   test('ngưỡng cảnh báo cue card trùng legacy', () => {

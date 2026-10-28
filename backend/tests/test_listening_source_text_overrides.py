@@ -25,7 +25,7 @@ DAY1 = '80-days:day-01:part-1:block-2'
 DAY37 = '80-days:day-37:part-1:block-1'
 DAY48 = '80-days:day-48:resource:part-time-story'
 STORIES = [f'80-days:day-{day}:story-1' for day in (63, 64, 66, 68)]
-HEADING = 'IELTS Authentic Listening — Story Edition'
+HEADING = 'Story-based listening practice'
 BLOCKS = {**SOURCES['blocks'], DAY1: BINDINGS['blocks'][DAY1]}
 
 
@@ -61,7 +61,7 @@ def test_each_audited_text_loses_only_its_cjk_fragment(block_id, item_id, field,
 def test_reviewed_wording():
     texts = {block_id: overrides.override_text(original, field=field, block_id=block_id, item_id=item_id, manifest_sha256=MANIFEST)
              for block_id, item_id, field, original in audited_sources()}
-    assert texts[DAY1].endswith('connect the number of the word you hear with its synonym (từ đồng nghĩa).')
+    assert texts[DAY1].endswith('connect the number of the word you hear with its synonym.')
     assert texts[DAY37] == 'The room is full of people.'
     assert 'không cho người dưới năm hai làm việc bán thời gian. Có việc Sports Center' in texts[DAY48]
     assert all(texts[block_id] == HEADING for block_id in STORIES)
@@ -159,7 +159,7 @@ def test_player_corrects_text_after_binding_native_to_the_original_questions(mon
     source_en = BLOCKS[block_id]['instruction']['source_en']
     if block_id == DAY1:
         assert delivered == original_questions
-        assert body['source_blocks'][0]['instruction']['source_en'] == (source_en.replace('(同义词)', '(từ đồng nghĩa)') if bound else source_en)
+        assert body['source_blocks'][0]['instruction']['source_en'] == (source_en.replace(' (同义词)', '') if bound else source_en)
     else:
         assert body['source_blocks'][0]['instruction']['source_en'] == source_en
         expected = deepcopy(original_questions)

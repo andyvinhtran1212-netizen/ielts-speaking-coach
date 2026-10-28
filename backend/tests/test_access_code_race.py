@@ -242,6 +242,25 @@ def test_already_used_code_rejected_up_front(monkeypatch):
     assert not claims, "must not attempt to claim an already-used code"
 
 
+@pytest.mark.parametrize("cohort_id", [None, "cohort-uuid"])
+def test_second_account_reusing_a_used_code_changes_nothing(monkeypatch, cohort_id):
+    """BL-06: a second account entering a code another account already redeemed
+    gets the clear generic 400 and the request writes NOTHING — the code keeps
+    its owner (is_used/used_by/used_at are immutable), the caller is not
+    activated, no roster/class row is created and no assignment row appears.
+    Holds for a class (cohort) code as well as a mass code."""
+    client = _patch(monkeypatch, update_claims=False, first_is_used=True,
+                    first_used_by=_OTHER_USER, cohort_id=cohort_id)
+
+    with pytest.raises(HTTPException) as ei:
+        _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
+    assert ei.value.status_code == 400
+    assert ei.value.detail.startswith("Access code không hợp lệ hoặc không thể sử dụng")
+
+    writes = [c for c in client.calls if c["action"] != "select"]
+    assert writes == [], f"a rejected reuse must not write anything: {writes}"
+
+
 def test_indeterminate_claim_fails_closed(monkeypatch):
     """PR #589 comment 1: conditional claim matched 0 rows AND the ownership
     re-read raises → we cannot confirm ownership → FAIL CLOSED. Must reject with

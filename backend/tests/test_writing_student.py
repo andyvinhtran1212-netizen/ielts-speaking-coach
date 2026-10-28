@@ -180,8 +180,8 @@ def _student_row(**overrides) -> dict:
 
 
 def test_my_essays_403_when_user_not_linked_to_student(monkeypatch):
-    """Authenticated JWT but no students row ⇒ 403 with Vietnamese
-    error so the frontend can render a clear "contact instructor" CTA."""
+    """Authenticated JWT but no students row ⇒ 403 with the Vietnamese
+    not-in-a-class message, which the dashboard renders verbatim."""
     _patch(monkeypatch, students_data=[])
 
     with pytest.raises(HTTPException) as exc:
@@ -189,7 +189,7 @@ def test_my_essays_403_when_user_not_linked_to_student(monkeypatch):
             ws_module.get_current_student(authorization="Bearer x")
         )))
     assert exc.value.status_code == 403
-    assert "chưa được link" in exc.value.detail
+    assert exc.value.detail == "Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
 
 
 def test_dashboard_greeting_uses_account_name_and_keeps_roster_code(monkeypatch):

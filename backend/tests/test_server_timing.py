@@ -58,10 +58,11 @@ def test_timing_allow_origin_reflects_ALLOWED_caller_so_browser_can_read_it():
     # Server-Timing unless Timing-Allow-Origin opts them in. Reflect the Origin
     # ONLY when it's in the CORS allowlist.
     with _server_timing_enabled():
-        r = _client().get("/api/reading/test", headers={"Origin": "https://averlearning.com"})
+        # pytest imports main as the development tier → localhost is allowed.
+        r = _client().get("/api/reading/test", headers={"Origin": "http://localhost:3000"})
     assert r.status_code == 401
     assert r.headers.get("server-timing"), "Server-Timing must be present"
-    assert r.headers.get("timing-allow-origin") == "https://averlearning.com"
+    assert r.headers.get("timing-allow-origin") == "http://localhost:3000"
 
 
 def test_timing_allow_origin_NOT_set_for_disallowed_origin():

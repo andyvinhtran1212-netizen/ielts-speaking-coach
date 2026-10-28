@@ -204,7 +204,7 @@ export function HomeShell() {
           Cần trợ giúp?{' '}
           <a className="aver-link" href="mailto:hello@averlearning.com">Liên hệ giảng viên →</a>
         </span>
-        <span className="version">Aver Learning · Light theme default</span>
+        <span className="version">Aver Learning</span>
       </footer>
     </div>
   );

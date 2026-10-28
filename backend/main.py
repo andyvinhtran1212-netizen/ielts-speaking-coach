@@ -1,6 +1,6 @@
 import logging
 import math
-import re
+import os
 import sys
 from time import perf_counter
 
@@ -31,6 +31,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
 from services.activation_gate import require_active_learner
 from services.api_docs import api_docs_kwargs
+from services.cors_policy import allowed_origins as cors_allowed_origins
 from routers.mock_attempt_flags import router as mock_attempt_flags_router
 from services.server_timing import (
     format_header as format_server_timing_header,
@@ -46,6 +47,7 @@ from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.admin_core_attempt_evidence import router as admin_core_attempt_evidence_router
 from services.core_operation_correlation import HEADER_NAME as CORE_OPERATION_HEADER, operation_hint_scope
+from services.request_context import request_id_scope
 from routers.cohorts import router as cohorts_router
 from routers.admin_courses import router as admin_courses_router
 from routers.admin_class_lessons import router as admin_class_lessons_router
@@ -147,29 +149,17 @@ app = FastAPI(
     **api_docs_kwargs(settings.ENABLE_API_DOCS),
 )
 
-origins = [
-    # Local development
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    # Production — explicit list as primary
-    "https://averlearning.com",
-    "https://www.averlearning.com",
-    "https://ielts-speaking-coach-sage.vercel.app",
-]
-
-# Sprint 20.10 D1 — belt-and-suspenders against subdomain drift.
-# Andy's prod dogfood hit "No 'Access-Control-Allow-Origin' header" from
-# https://www.averlearning.com even though both apex and www were already
-# in the explicit list (commit 4c9fc1e9, 2026-04-08). The most likely
-# remaining single-point-of-failure is the explicit list itself going
-# stale as new subdomains roll out (staging.averlearning.com, app.…, etc.).
-# This regex matches the apex + any direct subdomain of averlearning.com
-# over HTTPS — orthogonal to the explicit list, so either match grants
-# the request. The explicit list still wins for fast-path matching;
-# the regex is the safety net.
-_AVERLEARNING_ORIGIN_REGEX = r"^https://(?:[a-z0-9-]+\.)?averlearning\.com$"
+# Exact, per-deployment allowlist (F11 + follow-up): production, staging and
+# local development each accept only their own origins, and localhost is never
+# allowed in production. Tier resolution and the lists live in
+# services/cors_policy.py. No regex: a new frontend host must be added there
+# explicitly. Generated *.vercel.app previews stay rejected by design (plan §7.1).
+origins = cors_allowed_origins(
+    settings.ENVIRONMENT,
+    os.environ.get("RAILWAY_ENVIRONMENT_NAME"),
+    settings.CORS_ALLOW_LOCALHOST,
+)
+logger.info("[cors] allowed origins: %s", ", ".join(origins) or "(none)")
 
 # ONE definition, used by the CORSMiddleware below AND by the unhandled-exception
 # handler. They were separate, and the handler simply had no methods/headers —
@@ -186,7 +176,7 @@ _CORS_HEADERS = ["Authorization", "Content-Type",
 
 def _cors_headers_for_origin(origin: str | None) -> dict:
     """CORS headers to attach to a response when the request Origin is allowed —
-    reuses the SAME allowlist + regex as the CORSMiddleware below (no duplication).
+    reuses the SAME allowlist as the CORSMiddleware below (no duplication).
 
     Used by the unhandled-exception handler: an unhandled 500 unwinds OUTSIDE the
     CORSMiddleware (ServerErrorMiddleware is outermost), so its response would have
@@ -211,7 +201,7 @@ def _cors_headers_for_origin(origin: str | None) -> dict:
     SECURITY: only echo an ALLOWED origin — never reflect an arbitrary one. Returns
     {} for a missing / non-allowed origin.
     """
-    if origin and (origin in origins or re.match(_AVERLEARNING_ORIGIN_REGEX, origin)):
+    if origin and origin in origins:
         return {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
@@ -230,10 +220,9 @@ app.add_middleware(RequestSafetyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=_AVERLEARNING_ORIGIN_REGEX,
     allow_credentials=True,
     # C-4.2 hardening — tighten from "*" to the methods/headers the app actually
-    # uses (regex + credentials kept; see the intentional-regex note above).
+    # uses (exact per-deployment origin allowlist + credentials; see above).
     allow_methods=_CORS_METHODS,
     allow_headers=_CORS_HEADERS,
     # Cache the CORS preflight (OPTIONS) response. Without this the browser
@@ -449,7 +438,7 @@ async def server_timing_middleware(request: Request, call_next):
         # Perf P3.3 — the frontend (Vercel) and API (Railway) are cross-origin,
         # so the browser's PerformanceResourceTiming.serverTiming stays EMPTY
         # unless we opt the caller in with Timing-Allow-Origin. Reflect the
-        # request Origin ONLY when it passes the SAME allowlist/regex as CORS —
+        # request Origin ONLY when it passes the SAME allowlist as CORS —
         # never echo an arbitrary origin (that would let a site CORS rejects opt
         # itself into reading our timings) and never fall back to `*`. A
         # same-origin caller has no Origin and can read timings without TAO.
@@ -469,10 +458,19 @@ async def request_id_middleware(request: Request, call_next):
     import uuid as _uuid
     request_id = request.headers.get("x-request-id") or str(_uuid.uuid4())
     request.state.request_id = request_id
-    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)):
+    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)), \
+            request_id_scope(request_id):
         response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
+
+
+# SEC-20261028-01 — registered LAST so it is the outermost middleware: every
+# layer below (incl. the router's trailing-slash 307) sees the public https
+# scheme reported by the Railway edge instead of the internal http hop.
+from services.forwarded_proto import ForwardedProtoMiddleware
+
+app.add_middleware(ForwardedProtoMiddleware)
 
 
 # ── Sprint 12.3 — fire-and-forget error_logs INSERT ───────────────────
@@ -785,6 +783,35 @@ async def startup_event():
             "[course-timer-reaper] started (interval=%ss, grace=%ss)",
             settings.COURSE_TIMER_REAPER_INTERVAL_SECONDS,
             settings.COURSE_TIMER_REAPER_GRACE_SECONDS,
+        )
+
+    # INACTIVEWRITE-0035 follow-up — daily row-growth alert. Learners write
+    # Vocabulary/flashcard rows through Supabase REST with no rate limit; this
+    # flags abnormal per-user growth into error_logs for admins only. The first
+    # run follows startup (deploys restart the process more often than daily);
+    # the check itself de-duplicates per user/table/UTC day.
+    if settings.ROW_GROWTH_ALERT_ENABLED:
+        import asyncio as _asyncio_row_growth
+        from services import row_growth_alert as _row_growth
+
+        async def _row_growth_alert_loop():
+            await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_STARTUP_DELAY_SECONDS)
+            while True:
+                try:
+                    res = await _asyncio_row_growth.to_thread(
+                        _row_growth.run_row_growth_check,
+                        threshold=settings.ROW_GROWTH_ALERT_THRESHOLD,
+                    )
+                    logger.info("[row-growth] check %s", res)
+                except Exception:
+                    logger.exception("[row-growth] check failed")
+                await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS)
+
+        _asyncio_row_growth.create_task(_row_growth_alert_loop())
+        logger.info(
+            "[row-growth] started (interval=%ss, threshold=%s)",
+            settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS,
+            settings.ROW_GROWTH_ALERT_THRESHOLD,
         )
 
 

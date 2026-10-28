@@ -866,6 +866,180 @@ def test_task_question_exemption_never_covers_wording_claims(claim):
     assert [p for p, _ in err.value.issues] == ["keyTakeaways.strengths[0]"]
 
 
+def _task_question_fields(claim):
+    yield rt_feedback(lexicalResource=claim)
+    yield rt_feedback(mainCriterion=claim)
+    yield rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+
+
+# Codex #1796 (line 547): a usage verb in a coordinated predicate with an
+# object of its own describes the essay, not the quoted task question.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and contains a clear position.",
+    "The essay contains a clear position and answers the question 'To what extent do you agree or disagree?'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and includes a clear thesis.",
+    "The essay answers the question 'To what extent do you agree or disagree?' but uses few examples.",
+    "Em trả lời trực tiếp câu hỏi 'To what extent do you agree or disagree?' và chứa lập trường rõ ràng.",
+    "Bài viết chứa lập trường rõ và trả lời đúng câu hỏi 'To what extent do you agree or disagree?'.",
+    "Bài viết trả lời câu hỏi 'To what extent do you agree or disagree?', đồng thời vận dụng ví dụ cụ thể.",
+])
+def test_task_question_reference_survives_an_unrelated_usage_verb(claim):
+    for result in _task_question_fields(claim):
+        before = result.model_dump()
+        report = rt_validate(result)
+        assert report.dropped == [] and report.warnings == []
+        assert result.model_dump() == before
+
+
+# Codex #1796 (line 213): an adverb after the coordinated verb is not "no
+# object" when an object follows it ("contains very clear ideas").
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and contains very clear ideas.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and presents a really strong argument.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and includes really strong arguments.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very specific examples.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và có lập luận rất rõ ràng.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng rất nhiều ví dụ cụ thể.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và vận dụng khá tốt các ví dụ cụ thể.",
+])
+def test_task_question_reference_survives_an_adverb_before_an_unrelated_object(claim):
+    for result in _task_question_fields(claim):
+        before = result.model_dump()
+        report = rt_validate(result)
+        assert report.dropped == [] and report.warnings == []
+        assert result.model_dump() == before
+
+
+# Adverbs or a preposition with no object of the verb's own still leave the
+# quote as what the learner used.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very effectively.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses really well throughout.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses it very effectively.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very well in the introduction.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng rất hiệu quả trong mở bài.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và viết lại rất tốt.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng khá tự nhiên, rõ ràng.",
+])
+def test_adverb_only_wording_claims_about_the_task_question_still_reject(claim):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
+
+
+# A coordinated predicate that still takes the quote (back-reference, passive,
+# no object of its own, any wording noun) or a verb that governs it across
+# the conjunction keeps crediting learner wording.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses it as its thesis.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses the same wording.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and includes the question early.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and other key words fit well.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and keeps using that phrasing.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses linking words like it.",
+    "The essay answers the question 'To what extent do you agree or disagree?', which the essay contains.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' mà em viết lại trong mở bài.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng rất hiệu quả.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và đã được em viết lại tốt.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng cụm này hiệu quả.",
+    "Câu hỏi 'To what extent do you agree or disagree?' và từ vựng liên quan được dùng tốt.",
+    "The essay contains clear ideas and the question 'To what extent do you agree or disagree?'.",
+    "The essay uses and answers the question 'To what extent do you agree or disagree?'.",
+])
+def test_coordinated_wording_claims_about_the_task_question_still_reject(claim):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
+
+
+# Codex #1796 (line 219): a coordinated wording verb followed by its own,
+# separately quoted expression (past adverbs, ":"/"(" or a wording label) is
+# about that second quote, not the task question. RT_ESSAY contains
+# "reduce inequality".
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' accurately.",
+    'The essay answers the question "To what extent do you agree or disagree?" and uses "reduce inequality" accurately.',
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses accurately 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses: 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses the phrase 'reduce inequality' well.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses accurate collocations such as 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses precise collocations (e.g. 'reduce inequality').",
+    "The essay answers the question 'To what extent do you agree or disagree?' and makes good use of 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng 'reduce inequality' chính xác.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?', đồng thời dùng rất chính xác 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng chính xác cụm từ 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ học thuật như 'reduce inequality'.",
+    "Uses 'reduce inequality' accurately and answers the question 'To what extent do you agree or disagree?' directly.",
+    "Dùng chính xác 'reduce inequality' và trả lời đúng câu hỏi 'To what extent do you agree or disagree?'.",
+])
+def test_task_question_reference_survives_a_separately_quoted_object(claim):
+    for result in _task_question_fields(claim):
+        before = result.model_dump()
+        report = rt_validate(result)
+        assert report.dropped == [] and report.warnings == []
+        assert result.model_dump() == before
+
+
+# The second quote is still validated on its own: absent from the essay, or
+# re-quoting the prompt as learner wording, it rejects (and only it).
+@pytest.mark.parametrize("claim, span", [
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses 'cut inequality' accurately.",
+     "cut inequality"),
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses 'to what extent' accurately.",
+     "to what extent"),
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses the phrase 'cut inequality' well.",
+     "cut inequality"),
+    ("Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng 'cut inequality' chính xác.",
+     "cut inequality"),
+    ("Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ học thuật như 'cut inequality'.",
+     "cut inequality"),
+    ("Uses 'cut inequality' accurately and answers the question 'To what extent do you agree or disagree?' directly.",
+     "cut inequality"),
+])
+def test_separately_quoted_object_absent_from_the_essay_still_rejects(claim, span):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [s for _, s in err.value.issues] == [span]
+
+
+# A second quote that a label relates to the first ("other/similar/the same
+# wording", "question words"), a predicate that still refers back, the quoted
+# list shape, or punctuation in place of an object keep crediting the
+# quoted task question as learner wording.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses other phrases like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses similar phrases like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses the same wording as 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses question words like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' to paraphrase it.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' instead of the question wording.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and 'reduce inequality' is used accurately.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses — very effectively.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ khác như 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng … rất hiệu quả.",
+])
+def test_related_second_quotes_keep_crediting_the_task_question(claim):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
+
+
+# The band-descriptor exemption shares the same clause scope.
+def test_band_descriptor_reference_survives_a_separately_quoted_object():
+    claim = "Các ý dừng ở mức 'stated' theo Band 6 và em dùng 'reduce inequality' chính xác."
+    for criterion in ("lexicalResource", "mainCriterion"):
+        assert rt_validate(rt_feedback(**{criterion: claim})).warnings == []
+    twin = "Các ý dừng ở mức 'stated' theo Band 6 và em dùng 'extended' chính xác."
+    for criterion in ("lexicalResource", "mainCriterion"):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(rt_feedback(**{criterion: twin}))
+        assert [span for _, span in err.value.issues] == ["extended"]
+
+
 @pytest.mark.parametrize("field", ["originalIdea", "location", "current_essay_observation"])
 def test_other_source_only_fields_still_reject_task_question_quotes(field):
     claim = "Em trả lời câu hỏi 'to what extent'."

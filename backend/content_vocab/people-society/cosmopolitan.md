@@ -5,6 +5,9 @@ category: "people-society"
 level: "C1"
 part_of_speech: "adjective"
 pronunciation: "/ˌkɒz.məˈpɒl.ɪ.tən/"
+definition_en: "including people and influences from many countries, or showing an openness to different cultures."
+gloss_vi: "đa văn hóa, mang tính quốc tế; cởi mở với nhiều nền văn hóa"
+example: "A cosmopolitan city should make public information accessible to residents who speak a wide range of languages."
 synonyms: ["multicultural", "diverse", "international", "worldly"]
 antonyms: ["parochial", "provincial", "narrow-minded"]
 collocations: ["cosmopolitan city", "cosmopolitan culture", "cosmopolitan society", "cosmopolitan atmosphere", "cosmopolitan outlook"]

@@ -162,7 +162,7 @@ questions:
     prompt: "If the budget ____ larger, we would hire two additional data analysts."
     options:
       - {label: A, text: "is"}
-      - {label: B, text: "was"}
+      - {label: B, text: "are"}
       - {label: C, text: "were"}
       - {label: D, text: "will be"}
     answer: "C"
@@ -185,7 +185,7 @@ questions:
           instruction_vi: "Điều kiện loại 2 dùng 'were' cho mọi ngôi → 'were'. Đáp án C."
       distractor_analysis:
         - option: B
-          why_wrong_vi: "Trong văn phong chuẩn, câu điều kiện loại 2 dùng 'were' (subjunctive), không phải 'was'."
+          why_wrong_vi: "'are' là thì hiện tại số nhiều: không hòa hợp với chủ ngữ số ít 'the budget' và không đi với 'would hire' của câu điều kiện loại 2."
 ---
 
 TOEIC Part 5 — Incomplete Sentences (Set 2). Đề tự soạn theo format ETS (không sao chép đề gốc có bản quyền).

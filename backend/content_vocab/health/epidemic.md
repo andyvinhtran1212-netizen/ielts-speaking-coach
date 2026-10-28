@@ -5,6 +5,9 @@ category: "health"
 level: "B2"
 part_of_speech: "noun / adjective"
 pronunciation: "/ˌep.ɪˈdem.ɪk/"
+definition_en: "a disease outbreak affecting unusually many people in a community; also, a widespread problem; (adjective) spreading widely within a community."
+gloss_vi: "dịch bệnh; (nghĩa bóng) nạn lan tràn; (tính từ) lan rộng thành dịch"
+example: "During an epidemic, local authorities should provide clear information that residents can understand and act on."
 synonyms: ["outbreak", "surge", "widespread occurrence"]
 antonyms: []
 collocations: ["obesity epidemic", "mental health epidemic", "global epidemic", "epidemic of + noun", "tackle an epidemic"]

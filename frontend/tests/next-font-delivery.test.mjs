@@ -16,6 +16,10 @@ test('root owns the sanctioned fonts through next/font variables', () => {
   assert.match(root, /className=\{`\$\{plusJakarta\.variable\}/);
   assert.match(root, /preload: false,[\s\S]*variable: '--font-lora'/,
     'long-form serif must not preload on every product route');
+  assert.match(root, /JetBrains_Mono\(\{[^}]*preload: false,[^}]*variable: '--font-jetbrains-mono'/,
+    'incidental mono must not preload on every product route (/grammar never renders it)');
+  assert.doesNotMatch(root, /Plus_Jakarta_Sans\(\{[^}]*preload: false/,
+    'the body font stays preloaded');
 });
 
 test('Next layouts no longer make runtime requests to Google Fonts', () => {

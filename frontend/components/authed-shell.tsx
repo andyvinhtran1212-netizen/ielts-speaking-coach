@@ -157,15 +157,20 @@ export function AuthedShell({
           Lucide is independent; auth/API globals below remain strictly
           ordered and fail closed before route-specific scripts are exposed. */}
       {lucideRuntime && <Script src="/vendor/lucide.min.js" strategy="afterInteractive" />}
+      {/* U-21 — the student header must not wait for runtime-config → client →
+          api.js (4–8s on slow mobile, hamburger dead meanwhile). The chrome
+          renders on its own and fills the account pill once the boundary
+          announces `aver:supabase-runtime-ready`. crossOrigin makes the SSR
+          preload match the module fetch, so the file downloads once. */}
+      {chrome === 'student' && (
+        <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" crossOrigin="anonymous" />
+      )}
       <SupabaseRuntimeBoundary
         supabaseUrl={SUPABASE_URL}
         supabaseAnonKey={SUPABASE_ANON}
       >
         {extraScripts}
         <NextPageViewBeacon />
-        {chrome === 'student' && (
-          <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" />
-        )}
         {chrome === 'admin' && (
           <Script type="module" src="/js/components/aver-admin-chrome.js" strategy="afterInteractive" />
         )}

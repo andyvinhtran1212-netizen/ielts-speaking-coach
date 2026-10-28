@@ -65,17 +65,21 @@ it('G-U04 resets rating to the second essay identity while preserving unsaved ta
   const runtime = { window: {} as { WritingRenderers?: unknown } };
   runInNewContext(readFileSync(resolve(process.cwd(), 'public/js/writing-renderers.js'), 'utf8'), runtime);
   Object.defineProperty(window, 'WritingRenderers', { configurable: true, value: runtime.window.WritingRenderers });
+  // Each essay's grading model doubles as the "this essay has loaded" sentinel.
   const essays = {
-    'essay-1': { id: 'essay-1', selected_model: 'model-essay-1', grade_rating: { rating: 2, note: 'Persisted first essay' } },
-    'essay-2': { id: 'essay-2', selected_model: 'model-essay-2', grade_rating: { rating: 5, note: 'Persisted second essay' } },
+    'essay-1': { id: 'essay-1', model_used: 'model-essay-1', grade_rating: { rating: 2, note: 'Persisted first essay' } },
+    'essay-2': { id: 'essay-2', model_used: 'model-essay-2', grade_rating: { rating: 5, note: 'Persisted second essay' } },
   };
   const original = JSON.stringify(essays);
-  const get = vi.fn(async (path: string) => ({
-    ...structuredClone(essays[path.endsWith('essay-2') ? 'essay-2' : 'essay-1']),
-    status: 'graded', task_type: 'task2', grading_tier: 'standard', analysis_level: 3,
-    essay_text: 'Owned synthetic essay fixture.', student: { full_name: 'Fixture student' },
-    feedback: { overall_band_score: 6.5, feedback_json: {} },
-  }));
+  const get = vi.fn(async (path: string) => {
+    const { model_used, ...essay } = structuredClone(essays[path.endsWith('essay-2') ? 'essay-2' : 'essay-1']);
+    return {
+      ...essay,
+      status: 'graded', task_type: 'task2', grading_tier: 'standard', analysis_level: 3,
+      essay_text: 'Owned synthetic essay fixture.', student: { full_name: 'Fixture student' },
+      feedback: { overall_band_score: 6.5, model_used, feedback_json: {} },
+    };
+  });
   const post = vi.fn(), patch = vi.fn(), remove = vi.fn();
   Object.defineProperty(window, 'api', { configurable: true, value: { get, post, patch, delete: remove } });
   const view = render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);

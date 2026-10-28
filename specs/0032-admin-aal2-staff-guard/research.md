@@ -197,7 +197,7 @@ Mailgun client, and no alert webhook. `services/runtime_flags.py` documents that
 env flags apply on Railway variable change + restart, and that DB runtime flags
 fail open. The AI-BUDGET brief (`/workspace/specs-drafts/AI-BUDGET-brief.md`)
 needs the same owner-email channel. The channel in this spec is meant to be
-reused (open question Q2).
+reused (Q2, decided 2026-10-28: same channel and recipients).
 
 ## 7. Staging E2E depends on a password-only admin
 

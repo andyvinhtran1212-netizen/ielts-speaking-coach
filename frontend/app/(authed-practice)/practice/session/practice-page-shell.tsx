@@ -187,7 +187,7 @@ function GrammarIssues({ issues }: { issues: any[] }) {
   if (!issues?.length) return null;
   return (
     <div style={{ marginBottom: 14 }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 6px' }}>Grammar Issues</p>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 6px' }}>Lỗi ngữ pháp</p>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {issues.map((issue, index) => (
           <li key={`${index}:${issue.text}`} style={{ fontSize: 13, color: 'var(--ds-text)', marginBottom: 5 }}>
@@ -220,7 +220,7 @@ function GrammarCheck({ groups, moreCount }: { groups: any[]; moreCount: number 
   if (!groups?.length) return null;
   return (
     <div className="ds-grammar-section">
-      <p className="ds-grammar-section-head">Grammar Issues (LanguageTool)</p>
+      <p className="ds-grammar-section-head">Lỗi ngữ pháp (LanguageTool)</p>
       {groups.map((group) => (
         <div className="ds-grammar-category" key={group.category}>
           <p className="ds-grammar-category-title">{group.label}</p>
@@ -243,7 +243,7 @@ function Corrections({ corrections }: { corrections: any[] }) {
   if (!corrections?.length) return null;
   return (
     <div style={{ marginBottom: 14 }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>Corrections</p>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>Sửa lỗi</p>
       {corrections.map((correction, index) => <div key={`${index}:${correction.original}`} style={{ marginBottom: 10, padding: '10px 12px', background: 'var(--ds-surface)', borderRadius: 8 }}><div style={{ fontSize: 12, color: '#f87171', marginBottom: 3 }}><span style={{ opacity: .6 }}>❌ </span>{correction.original}</div><div style={{ fontSize: 12, color: '#4ade80', marginBottom: 4 }}><span style={{ opacity: .6 }}>✓ </span>{correction.corrected}</div><div style={{ fontSize: 12, color: 'var(--ds-muted)', fontStyle: 'italic' }}>{correction.explanation}</div></div>)}
     </div>
   );
@@ -269,11 +269,11 @@ function FeedbackDetails({ feedback, confidenceId }: { feedback: any; confidence
       ) : <p style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--ds-faint)' }}>Câu trả lời đã được ghi lại nhưng chưa thể chấm điểm ngay lúc này.{feedback.stub?.error ? ` (${feedback.stub.error})` : ''}</p> : null}
       {feedback.kind === 'practice' || feedback.kind === 'formal' ? <ReliabilityNote note={feedback.reliability} id={confidenceId} /> : null}
       {feedback.kind === 'formal' ? feedback.criteria.map((criterion: any) => <div style={{ marginBottom: 14 }} key={criterion.title}><p style={{ fontSize: 11, fontWeight: 700, color: '#14b8a6', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 5px' }}>{criterion.title}</p><p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--ds-text)', margin: 0 }}>{criterion.text}</p></div>) : null}
-      {feedback.kind === 'practice' ? <FeedbackList title="Strengths" items={feedback.strengths} color="#4ade80" /> : null}
+      {feedback.kind === 'practice' ? <FeedbackList title="Điểm mạnh" items={feedback.strengths} color="#4ade80" /> : null}
       {feedback.kind === 'formal' ? <FeedbackList title="Điểm mạnh" items={feedback.strengths} color="#4ade80" /> : null}
       <GrammarIssues issues={feedback.grammarIssues} />
       <GrammarCheck groups={feedback.grammarGroups} moreCount={feedback.grammarMoreCount} />
-      {feedback.kind === 'practice' ? <FeedbackList title="Vocabulary Issues" items={feedback.vocabularyIssues} color="#fb923c" /> : null}
+      {feedback.kind === 'practice' ? <FeedbackList title="Lỗi từ vựng" items={feedback.vocabularyIssues} color="#fb923c" /> : null}
       {feedback.kind === 'practice' ? <VocabRecommendations recommendations={feedback.vocabRecommendations} /> : null}
       {feedback.kind === 'formal' ? <FeedbackList title="Cần cải thiện" items={feedback.improvements} color="#fb923c" /> : null}
       <Corrections corrections={feedback.corrections} />
@@ -571,7 +571,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <div className="card p-5 mb-4"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-3">Nhận xét</p><div id="feedback-comments"><FeedbackDetails feedback={view.feedback} confidenceId="score-confidence-note" /></div></div></div>
           <div className="practice-feedback-evidence"><div id="feedback-transcript" className="card p-4 mb-4" style={{ display: view.feedback.transcriptVisible ? '' : 'none' }}><p className="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p><p id="feedback-transcript-text" className="practice-transcript-text text-xs leading-relaxed"><Transcript segments={view.feedback.transcriptSegments} /></p></div>
           <div id="feedback-audio-section" className="practice-feedback-audio" style={{ display: view.feedback.audioVisible ? '' : 'none' }}><p className="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Bài nói của bạn</p><div className="flex gap-2"><button type="button" className="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold" style={{ flex: 1 }} onClick={() => callPractice('replayAudio')}><Icon name="volume-2" />Nghe lại</button><button type="button" className="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold" style={{ flex: 1 }} onClick={() => callPractice('downloadAudio')}><Icon name="download" />Tải audio</button></div></div></div>
-          <div id="grammar-resources" className="practice-feedback-divider" style={{ display: view.feedback.grammarResource ? '' : 'none' }}><div className="practice-feedback-divider__inner"><p className="practice-feedback-eyebrow text-xs font-bold uppercase tracking-wider mb-1">Quick Grammar Tip</p><p className="practice-feedback-sub text-xs mb-3">Dựa trên lỗi ngữ pháp trong câu trả lời vừa rồi</p><div id="grammar-resources-cards" className="flex flex-col gap-2.5"><GrammarResource resource={view.feedback.grammarResource} /></div></div></div>
+          <div id="grammar-resources" className="practice-feedback-divider" style={{ display: view.feedback.grammarResource ? '' : 'none' }}><div className="practice-feedback-divider__inner"><p className="practice-feedback-eyebrow text-xs font-bold uppercase tracking-wider mb-1">Mẹo ngữ pháp nhanh</p><p className="practice-feedback-sub text-xs mb-3">Dựa trên lỗi ngữ pháp trong câu trả lời vừa rồi</p><div id="grammar-resources-cards" className="flex flex-col gap-2.5"><GrammarResource resource={view.feedback.grammarResource} /></div></div></div>
           <div id="pronunciation-section" className="practice-feedback-divider" style={{ display: view.feedback.pronunciation.visible ? '' : 'none' }}><div className="practice-feedback-divider__inner"><p className="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p><p className="practice-feedback-sub practice-feedback-sub--xs">Ngoài nhận xét chung ở trên, hệ thống cũng phân tích kỹ hơn phần phát âm để bạn biết nên luyện thêm ở đâu.</p><div id="pron-loading-block" className="practice-pron-loading" style={{ display: 'none' }}><div className="spinner practice-pron-loading__spinner" /><p className="practice-pron-loading__text">Đang phân tích bài nói của bạn...</p></div><div id="pron-result-block" style={{ display: view.feedback.pronunciation.visible ? '' : 'none' }}><PronunciationPanel pronunciation={view.feedback.pronunciation} /></div></div></div>
           <div className="practice-feedback-actions flex flex-col gap-3"><button id="btn-back-sheet" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: view.feedback.backToSheetVisible ? '' : 'none' }} onClick={() => callPractice('backToSheet')}><Icon name="arrow-left" />Quay lại phiếu làm bài</button><button id="btn-next-q" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: view.feedback.nextVisible ? '' : 'none' }} onClick={() => callPractice('nextQuestion')}>Câu tiếp theo<Icon name="arrow-right" /></button><button id="btn-finish" type="button" className="btn-primary practice-icon-btn w-full py-3.5 text-sm" style={{ display: view.feedback.finishVisible ? '' : 'none' }} onClick={() => callPractice('finishSession')}><Icon name="check" />{view.feedback.finishLabel}</button></div>
         </div>

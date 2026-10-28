@@ -23,7 +23,7 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const accountKey = status === 'signed-in'/);
     assert.match(player, /accountRef\.current/);
     assert.match(player, /mutationLock\.current = false/);
-    assert.match(player, /requestForAccount\(expectedAccount, '\/auth\/me', ownsGeneration\)/);
+    assert.match(player, /requestForAccount\(expectedAccount, '\/auth\/me', ownsGeneration, \{ signal: controller\.signal \}\)/);
     assert.match(player, /normalizeD1Resume/);
     assert.match(player, /firstUnansweredIndex/);
     assert.match(player, /aver:d1:active-session/);
@@ -32,10 +32,19 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const candidates = \[\.\.\.new Set\(\[[\s\S]{0,160}queryId,[\s\S]{0,120}\.\.\.\[\.\.\.storedIds\]\.reverse\(\),[\s\S]{0,120}\.\.\.\[\.\.\.legacyIds\]\.reverse\(\)/);
     assert.match(player, /for \(const candidate of candidates\)[\s\S]{0,500}caught\?\.status !== 404[\s\S]{0,100}clearResume\([\s\S]{0,80}expectedAccount,[\s\S]{0,80}candidate/);
     assert.match(player, /legacyIds\.includes\(resumedId\)[\s\S]{0,80}removeItem\(LEGACY_STORAGE_KEY\)/);
-    assert.match(player, /resumeSessionForAccount\(expectedAccount, candidate, ownsGeneration\)/);
+    assert.match(player, /resumeSessionForAccount\(expectedAccount, candidate, ownsGeneration, controller\.signal\)/);
     assert.match(player, /async function resumeSessionForAccount\([\s\S]{0,180}isCurrent: \(\) => boolean[\s\S]{0,180}requestForAccount\([\s\S]{0,100}isCurrent/);
     assert.doesNotMatch(player, /window\.api\.get\(`\/api\/exercises\/d1\/sessions\/\$\{encodeURIComponent\(candidate\)\}`\)/);
     assert.match(player, /clearResume\([\s\S]{0,100}expectedAccount,[\s\S]{0,100}candidate,[\s\S]{0,100}!disposed && accountRef\.current === expectedAccount/);
+  });
+
+  test('BL-17: the opening read is bounded and revokes its own ownership on timeout', () => {
+    // Rendered proof: tests/react/vocabulary-read-timeout.test.tsx.
+    assert.match(player, /export const D1_LOAD_TIMEOUT_MS = 15000;/);
+    assert.match(player, /const ownsGeneration = \(\) => !disposed && !timedOut/);
+    assert.match(player, /timedOut = true;\s*controller\.abort\(\);\s*setMessage\(D1_LOAD_TIMEOUT_MESSAGE\);\s*setPhase\('error'\);/);
+    assert.match(player, /if \(!me \|\| typeof me !== 'object'\) throw/);
+    assert.match(player, /return \(\) => \{ disposed = true; clearTimeout\(timer\); controller\.abort\(\); \};/);
   });
 
   test('account changes reset question state and retain a late start ACK for its owner', () => {

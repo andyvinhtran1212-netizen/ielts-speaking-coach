@@ -3,10 +3,16 @@ import { notFound } from 'next/navigation';
 
 import { diagnosticRoutesEnabled } from '@/lib/diagnostic-routes.mjs';
 
-export const metadata: Metadata = {
-  title: 'Next runtime probe',
-  robots: { index: false, follow: false },
-};
+// BL-01: gate the metadata too. With a static `metadata` export the disabled
+// route's 404 still carried this debug title (hoisted after hydration);
+// failing here gives it the same head as any unknown URL ("Aver Learning").
+export function generateMetadata(): Metadata {
+  if (!diagnosticRoutesEnabled()) notFound();
+  return {
+    title: 'Next runtime probe',
+    robots: { index: false, follow: false },
+  };
+}
 
 // Engineering diagnostics only (U-03): not-found on every deployment unless
 // `next dev` or AVER_ENABLE_DIAGNOSTIC_ROUTES=1 (not set on staging).

@@ -1350,7 +1350,8 @@ export interface paths {
          *     or whose Gemini call failed during Phase B extraction).
          *
          *     Caps at 500/call so an admin can't accidentally fan out across the
-         *     whole bank in one click.  Re-run the endpoint to process the next
+         *     whole bank in one click.  Within a call, one owner contributes at most
+         *     50 rows and inactive owners are skipped (INACTIVEWRITE-0035 follow-up).  Re-run the endpoint to process the next
          *     batch — the WHERE clause naturally moves forward as rows get filled.
          *
          *     Cost estimate is best-effort: Gemini Flash batch is ~$0.0005 per
