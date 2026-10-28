@@ -20,7 +20,7 @@ unreserved billable request. Only `services/ai_router.py:223` and
 | `services/claude_grader.py:1450` | Haiku 4.5; client `:417` with SDK retries=2 | `speaking_grading` / `regenerate_grounded_answer` | inside Speaking grading | learner, admin | none; returns None on failure | grading cap |
 | `services/off_topic_judge.py:287` | orchestrator: Haiku → Gemini → Sonnet (`grading_orchestrator.py:44-48`) | `off_topic_judge` | runs in parallel inside grading (`routers/grading.py:799`) | learner | chain | grading cap |
 | `services/whisper.py:240` | OpenAI `WHISPER_STT_MODEL` (`config.py:142`); client `:120` with SDK retries=2 | `speaking_stt` | `routers/grading.py:600`; admin regrade `routers/admin.py:4303` | learner, admin | none | grading cap |
-| `services/azure_pronunciation.py:369` | Azure Speech pronunciation assessment (**unpriced** in `ai_pricing.py`) | `pronunciation` | `routers/grading.py:314`; `POST /sessions/{id}/pronunciation/full` (`routers/pronunciation.py:213`); course pronunciation submit (`routers/course_pronunciation.py:36` → `services/course_pronunciation.py:351`) | learner | none | grading cap on the first route only |
+| `services/azure_pronunciation.py:369` | Azure Speech pronunciation assessment (**unpriced** in `ai_pricing.py` today; tier S0, §7) | `pronunciation` | `routers/grading.py:314`; `POST /sessions/{id}/pronunciation/full` (`routers/pronunciation.py:213`); course pronunciation submit (`routers/course_pronunciation.py:36` → `services/course_pronunciation.py:351`) | learner | none | grading cap on the first route only |
 | `services/tts_audio.py:62` | OpenAI `tts-1`, SDK retries=2 | `question_tts` | `POST /tts` (`routers/tts.py:171`) | learner | none (502) | `TTS_DAILY_LIMIT_PER_USER`, `TTS_IP_MAX_PER_MINUTE` |
 | `services/tts_audio.py:181,208` | OpenAI `tts-1` / ElevenLabs | `speaking_question_tts`, `vocab_tts` | admin render-audio (`routers/admin.py:3227` → `services/speaking_question_audio.py:187`); scripts | admin, script | none; skipped when the content hash already exists | none |
 | `services/listening_renderer.py:103` (`:160` unreachable) | ElevenLabs `eleven_multilingual_v2` | `listening_tts` | `POST /admin/listening/tests/{id}/audio/assemble` (`routers/listening.py:4457` → `services/listening_audio.py:248`) | admin | none | none |
@@ -141,7 +141,7 @@ lookups.
 ## 5. Existing pieces to reuse
 
 - `services/ai_pricing.py`: the effective-dated token and unit price
-  catalog. It has no Azure row.
+  catalog. It has no Azure row yet; T001 adds the S0 row (§7).
 - `ai_usage_logs`, idempotent through `usage_event_id`
   (`migrations/286_ai_usage_ledger.sql:21-28`). The reservation id becomes
   the `usage_event_id` prefix, so settlement and ledger rows join.
@@ -178,3 +178,44 @@ lookups.
 - **Gemini and ElevenLabs:** the billing and quota-exhausted signals are
   captured as fixtures in T003. An unclassified error stays transient. That
   is safe because the app's own caps still bound it.
+
+## 7. Azure Speech pricing tier: S0 (owner decision, 2026-10-28 16:26)
+
+Vinh confirmed that the Azure Speech resource is on the **S0** tier
+(standard, paid). Azure cost estimation and reservation sizing use S0
+pricing. The free F0 tier is not assumed anywhere, and there is no longer a
+caveat that Speaking is graded without P until the tier is known.
+
+- **What is billed.** `services/azure_pronunciation.py` calls the
+  real-time REST endpoint (`{region}.stt.speech.microsoft.com`) with
+  Pronunciation Assessment enabled. Prosody is requested for `en-US`,
+  except for course pronunciation (`services/course_pronunciation.py:358`,
+  `enable_prosody=False`). S0 bills real-time speech to text per hour of
+  audio sent, in one-second increments, and Pronunciation Assessment as an
+  add-on per hour of audio per feature.
+- **Catalog row (T001).** One effective-dated `ai_pricing` unit row for
+  `azure` pronunciation, priced per audio second. It is the S0 real-time
+  speech-to-text rate plus the Pronunciation Assessment add-on rate for the
+  resource's region, copied from the Azure Speech price page on the day
+  T001 lands. If that page bills prosody as a separate add-on feature, the
+  row for prosody-enabled calls includes it as well. The `pricing_version`
+  names the S0 tier and the source date.
+- **Working figures for sizing.** These come from the public US list price
+  and are not a decided value, because the T001 row is authoritative. S0
+  real-time speech to text is about $1.00 per audio hour, and the
+  Pronunciation Assessment add-on about $0.30 per audio hour per feature.
+  That gives about $1.30 per hour, or $1.60 if prosody counts as a second
+  feature.
+- **Reservation sizing.** FR-004 reserves at `MAX_AUDIO_DURATION_SECONDS`
+  (300 s), so one Azure line costs about $0.11 at $1.30 per hour, or $0.13
+  at $1.60. Settlement uses the real audio duration (`audio_seconds`), so a
+  one-minute answer settles at about $0.02. With the $1.33 daily cap, about
+  10–12 maximum-length estimates fit open at once, and about 50–60
+  one-minute answers settle in a day. The $20 monthly cap covers about
+  12.5–15 audio hours. The Full Test `POST /sessions/{id}/pronunciation/full`
+  route assesses up to three samples, one per part, and reserves each
+  sample as its own Azure line.
+- **Spend-limit signal.** An S0 resource has no free-quota exhaustion
+  response. FR-009 classifies only an Azure spend or quota refusal that a
+  T003 fixture has captured, and every other error stays transient under
+  the app's own cap.

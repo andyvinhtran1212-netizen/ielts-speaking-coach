@@ -117,7 +117,7 @@ These are the call sites in research §1. Each wraps its provider request in
     null-pronunciation branch. It sets `pronunciation_source =
     'budget_skipped'`, `p_feedback` to P5 (test mode) and the response's
     `pronunciation_status = 'skipped_budget'`. The overall band is the
-    existing mean of the criteria present (Q10 default). The deferred drain
+    existing mean of the criteria present (Q10 = A). The deferred drain
     uses the same function, so a drained grade can also skip P.
   - Move `record_grading_attempt` after the bundle is granted (FR-012).
   - On refusal: upload the recording (`storage_upload` moves ahead of

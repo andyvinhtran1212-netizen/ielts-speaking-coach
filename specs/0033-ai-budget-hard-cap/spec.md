@@ -10,7 +10,8 @@ owner: product
 
 Status: **approved by Vinh** on 2026-10-28 (09:11, decisions updated 09:13,
 UTC+7), relayed by the Leader. Vinh approved further decisions (a)–(f) in
-chat at **09:35** the same day (UTC+7). The decisions are in
+chat at **09:35** the same day (UTC+7), and answered Q10, Q11 and the Azure
+price tier under Q1 at **16:26** (UTC+7). The decisions are in
 [`approval-decision.md`](approval-decision.md) and
 [Owner decisions](#owner-decisions). Together they change the draft as
 follows:
@@ -21,7 +22,10 @@ follows:
 - Missing budget variables fall back to the spec defaults and never block
   all AI (FR-003).
 - When the Azure cap is reached, Speaking is graded **without the
-  pronunciation score** instead of being deferred (FR-023).
+  pronunciation score** instead of being deferred. The overall band is then
+  the mean of FC, LR and GRA, and pronunciation is not re-graded
+  automatically (FR-023, Q10 and Q11 of 16:26).
+- Azure Speech is priced at the **S0** (standard, paid) tier (Q1, 16:26).
 - A temporary budget-raise button that requires AAL2 is in phase 1
   (FR-022).
 - Alert email is sent through Resend from `alerts@averlearning.com`
@@ -46,7 +50,8 @@ Hiện nay chi phí AI không có trần cứng chung. Một số bộ đếm c�
 database lỗi: đếm ra 0, hoặc đặt giới hạn 0 là bỏ giới hạn. Khi Anthropic báo
 lỗi, hệ thống tự chuyển sang Gemini/OpenAI, nên chạm trần $200 của Anthropic
 vẫn có thể tiêu tiếp ở nhà cung cấp khác. Spec này (anh Vinh đã duyệt
-28/10/2026 lúc 09:11/09:13, bổ sung quyết định (a)–(f) lúc 09:35) quy định:
+28/10/2026 lúc 09:11/09:13, bổ sung quyết định (a)–(f) lúc 09:35, chốt Q10,
+Q11 và gói giá Azure lúc 16:26) quy định:
 
 - **Claude/Anthropic: ngân sách mềm $100/tháng.** Chỉ gửi email cảnh báo ở
   80% ($80) và 100%; **không bao giờ chặn** Claude vì ngân sách, kể cả khi
@@ -63,9 +68,12 @@ vẫn có thể tiêu tiếp ở nhà cung cấp khác. Spec này (anh Vinh đã
   gọi và chốt theo chi phí thật sau khi gọi. Với trần cứng: không giữ được
   chỗ thì không gọi, database lỗi cũng không gọi.
 - **Hết trần Azure:** bài Speaking vẫn được chấm ngay, chỉ thiếu điểm Phát
-  âm, kèm một ghi chú ngắn bằng tiếng Việt. Không hoãn chấm. Cách tính điểm
-  tổng khi thiếu Phát âm và việc có chấm bù Phát âm sau hay không đang chờ
-  anh Vinh chốt (Q10, Q11); spec ghi mặc định và một phương án thay thế.
+  âm, kèm một ghi chú ngắn bằng tiếng Việt. Không hoãn chấm. Điểm tổng là
+  trung bình của FC, LR và GRA, ghi "Điểm tổng tính trên 3 tiêu chí" (Q10).
+  Giai đoạn 1 không tự động chấm bù Phát âm; riêng Full Test, lần gọi chấm
+  phát âm sẵn có của trang kết quả vẫn có thể bổ sung P sau (Q11).
+- **Azure Speech dùng gói S0** (trả phí, tiêu chuẩn). Ước tính chi phí và
+  mức giữ chỗ cho Azure tính theo giá S0.
 - **Nút tăng ngân sách tạm thời** trên trang admin: chỉ admin, **bắt buộc
   xác thực 2 bước (AAL2)**, mỗi lần tăng tối đa 100% trần gốc, kéo dài tối
   đa 24 giờ, tối đa 3 lần mỗi tháng cho mỗi trần. Mỗi lần dùng được ghi
@@ -259,17 +267,18 @@ exist today.
   - **Email:** the grant, early end and expiry each create exactly one owner alert row in the same transaction as the event. The row is emailed to `OWNER_ALERT_EMAILS` with the scope, amount, base and effective cap, expiry, actor email and reason. A grant whose alert row cannot be written is not granted.
   - **Auto-expiry:** the reserve function counts a raise only while `now() < expires_at` and it has not been ended, so the cap returns to the base value at `expires_at` without any sweeper run. Spend committed during the raise stays committed; if it is above the base cap, the scope refuses again at once. The sweeper records the expiry event and email within one run after `expires_at`.
   - **Failure:** a raise or end RPC error, timeout or unexpected shape returns 503 and changes nothing; it never reports a raise as granted. After any mutation the panel refetches `GET /admin/ai/budget` instead of updating local state.
-- **FR-023:** When only the Azure line is refused, Speaking grading continues without the pronunciation score. It is not deferred (owner decision (c), 2026-10-28 09:35; the band, label and re-grade rules come from the Feature Developer addendum approved through (c)).
+- **FR-023:** When only the Azure line is refused, Speaking grading continues without the pronunciation score. It is not deferred (owner decision (c), 2026-10-28 09:35; the band, label and re-grade rules come from the Feature Developer addendum approved through (c), and Vinh chose them as Q10 = A and Q11 = A at 16:26).
+  - **Pricing:** the Azure line is priced at the Azure Speech **S0** tier (standard, paid; Q1, 16:26). T001 adds an effective-dated `ai_pricing` row with the S0 per-audio-hour rate for real-time speech to text plus the Pronunciation Assessment add-on, billed per second of audio sent. The estimate is taken at `MAX_AUDIO_DURATION_SECONDS` (FR-004), and settlement uses the real audio duration (`research.md` §7). Once that row exists, a missing price row is only a defensive refusal case, not the expected state.
   - **Reservation:** Azure pronunciation is not part of the all-or-nothing Speaking bundle. It is reserved as its own request (the `azure` line plus its `total` line) after the bundle is granted, and on the deferred drain in the same way. A refusal of that request skips the Azure call. The refusal can be for any FR-008 reason. That includes `monthly_cap`, `daily_cap`, `config_invalid`, `budget_unavailable`, a missing price row (FR-004), a kill switch turned on after the bundle was granted, and `provider_spend_limit` (also a spend-limit response from Azure after the reservation). The rest of the grade goes ahead with no 503, no deferral and no extra quota use. A kill switch that is on at submission refuses the whole bundle first, so the submission is deferred under FR-011 as before.
   - **Persisted marker:** the response stores `pronunciation_status = 'skipped_budget'`, the feedback stores `pronunciation_source = 'budget_skipped'`, and `band_p` is null. No Azure scores are stored. The marker is the canonical source for every label below. No surface infers it from a null `band_p`, because older rows and the existing `unavailable` and `error` sources also have a null `band_p`.
-  - **Band (default, pending Q10):** the grade uses the rule today's code already applies when Azure is unavailable (`_merge_pronunciation_into_grading`, `routers/grading.py`). This spec does not add a new formula.
+  - **Band (decided, Q10 = A, 16:26):** the overall band is the mean of FC, LR and GRA, labelled "Điểm tổng tính trên 3 tiêu chí". The grade uses the rule today's code already applies when Azure is unavailable (`_merge_pronunciation_into_grading`, `routers/grading.py`). This spec does not add a new formula.
     - In test mode and Full Test, the response's `overall_band` is the mean of the criteria that have a value (FC, LR and GRA), rounded with `ielts_round`. The three remaining criteria keep equal weight, and pronunciation's quarter weight is not reassigned to any single criterion.
     - The session aggregate (`_compute_session_bands`) averages each criterion over the responses that have it. So `sessions.band_p` is the mean of the P values present, or null when no response has one. `sessions.overall_band` is the mean of the session criteria that are not null.
     - In practice mode there is no P criterion in the band today, so the band is unchanged. Only the pronunciation card is missing.
     - The off-topic and reliability caps apply afterwards, as today.
-  - **Alternative (Q10):** withhold the overall band. FC, LR and GRA are shown, and the overall band of the response and of the session stays null and is labelled "chưa đủ 4 tiêu chí". This affects test mode and Full Test only. Under this alternative, no class-assignment score is pushed for that session.
-  - **Labels:** the learner sees note P5 (test mode and Full Test) or P5b (practice) from `ui-states.md`. That note is placed in the P criterion card (`p_feedback`) and next to the overall band, and it says the band was computed on three criteria. The result and Full Test result read models carry an additive `pronunciation_skipped: true` on the response and `pronunciation_incomplete: true` on the session when any test-mode response is skipped. Teacher views (the instructor dashboard matrix cell for that assignment, and the admin Speaking session view) show the band with the label "Chưa có Phát âm" and the tooltip "Điểm tổng tính trên 3 tiêu chí". The admin view also shows the reason, "Bỏ qua phát âm: hết ngân sách Azure". Learners and instructors never see the budget reason (FR-010).
-  - **Re-grading later (default, pending Q11):** the pronunciation score is not filled in automatically when Azure reopens, and P5 promises nothing. Two existing paths stay as they are. For a Full Test, the result page's existing `POST /sessions/{id}/pronunciation/full` call can add P on a later view, once its own Azure reservation is granted, and the session bands are then re-aggregated through FR-024. Admin regrade re-scores FC, LR and GRA and only re-attaches stored Azure scores, so it does not add a missing P. *Alternative (Q11):* the drain gets a P-only deferred job per skipped test-mode response. When Azure reopens, it writes `final_band_p`, recomputes the bands through FR-024, and replaces the P5 label.
+  - **Not chosen (Q10 alternative B):** withholding the overall band ("chưa đủ 4 tiêu chí") is out of scope. The band is always computed as above.
+  - **Labels:** the learner sees note P5 (test mode and Full Test) or P5b (practice) from `ui-states.md`. That note is placed in the P criterion card (`p_feedback`) and next to the overall band, and it says the band was computed on three criteria. In test mode and Full Test, the overall band also carries the label "Điểm tổng tính trên 3 tiêu chí" (Q10 = A). The result and Full Test result read models carry an additive `pronunciation_skipped: true` on the response and `pronunciation_incomplete: true` on the session when any test-mode response is skipped. Teacher views (the instructor dashboard matrix cell for that assignment, and the admin Speaking session view) show the band with the label "Chưa có Phát âm" and the tooltip "Điểm tổng tính trên 3 tiêu chí". The admin view also shows the reason, "Bỏ qua phát âm: hết ngân sách Azure". Learners and instructors never see the budget reason (FR-010).
+  - **Re-grading later (decided, Q11 = A, 16:26):** phase 1 has no automatic pronunciation re-grade. The pronunciation score is not filled in when Azure reopens, and P5 promises nothing. Two existing paths stay as they are. For a Full Test, the result page's existing `POST /sessions/{id}/pronunciation/full` call can add P on a later view, once its own Azure reservation is granted, and the session bands are then re-aggregated through FR-024. Admin regrade re-scores FC, LR and GRA and only re-attaches stored Azure scores, so it does not add a missing P. The Q11 alternative (a P-only deferred job per skipped test-mode response) is not in phase 1.
 - **FR-024:** Every write that can change a Speaking session's bands is fenced by the session's refresh generation (FR-013), not only the deferred drain and `PATCH /complete` (Codex round 8 on #1773).
   - **Generation:** a trigger on `responses` advances the session's `generation` in the same transaction as any insert, delete or update of a band-bearing column (`overall_band`, `final_band_p`, `final_overall_band`, `feedback`, `grading_status`). This covers the live route, the drain, admin regrade, the pronunciation routes and any future writer.
   - **Session writers:** every writer of `sessions` band columns saves through the one generation-checked function `fn_ai_session_bands_write` (`plan.md` item 7). The writers are `PATCH /sessions/{id}/complete`, `_complete_session_internal` (Full Test finalisation), `update_session_bands` (after pronunciation), admin regrade-response, admin regrade-session, admin rebuild-summary, and the sweeper refresh. Each one reads `generation` before it reads the responses, computes, and writes only if no response has changed since. On `stale` it recomputes, at most 3 times, and then writes unacknowledged, so the row stays owed and the sweeper refreshes a `completed` session.
@@ -430,8 +439,9 @@ counts calls). No real traffic is needed.
 
 ### AC13 — Azure cap: Speaking graded without pronunciation
 
-- **Given** the `azure` scope at its monthly or daily cap (or without a
-  price row), and every other scope open
+- **Given** the `azure` scope at its monthly or daily cap (or, as a
+  defensive case, with its S0 price row removed), and every other scope
+  open
 - **When** a learner submits a test-mode Speaking answer, and separately a
   practice-mode answer
 - **Then** Whisper, the grader and the judge are each called once, and the
@@ -440,7 +450,7 @@ counts calls). No real traffic is needed.
   stores `pronunciation_status = 'skipped_budget'`, `pronunciation_source =
   'budget_skipped'` and a null `band_p`.
 - **And** in test mode, `overall_band` equals `ielts_round` of the mean of
-  FC, LR and GRA (Q10 default), and the session aggregate follows FR-023.
+  FC, LR and GRA (Q10 = A), and the session aggregate follows FR-023.
   In practice mode the band is the same as with a null pronunciation
   result today.
 - **And** the learner result shows P5 (test) or P5b (practice) exactly,
@@ -507,14 +517,14 @@ counts calls). No real traffic is needed.
   base cap does. Whisper is reserved at `MAX_AUDIO_DURATION_SECONDS` (300 s,
   $0.03) and settled at the real duration. So $1.33 a day covers roughly
   220 one-minute answers, less whatever TTS spends from the same OpenAI
-  scope. Azure pronunciation is outside the bundle (FR-023). Until the Azure
-  price tier is confirmed (Q1), FR-004 refuses the Azure line, so Speaking
-  is graded without pronunciation, not deferred. The Gemini fallback is
+  scope. Azure pronunciation is outside the bundle (FR-023) and is priced at
+  the S0 tier (Q1, 16:26). When its line is refused, Speaking is graded
+  without pronunciation, not deferred. The Gemini fallback is
   reserved only when that rung runs, so the Gemini cap defers a grade only
   when the Claude primary has already failed.
 - **Pronunciation skipped in part of a session.** The Azure cap can be
   reached in the middle of a test session. The session then mixes
-  responses with and without P. Under the Q10 default, `sessions.band_p`
+  responses with and without P. Under Q10 = A, `sessions.band_p`
   averages the P values present, and the session is labelled
   `pronunciation_incomplete` (FR-023).
 - **Learner status during a budget DB outage.** `GET /ai/status` reports
@@ -568,7 +578,22 @@ relayed by the Leader. Vinh then approved decisions (a)–(f) in chat at
 update this PR, and they are recorded below as written. Where a 09:35
 decision changes an earlier answer, the 09:35 decision wins, and the
 superseded text is noted. Q4 and Q6–Q9 were not overridden, so their
-recommended defaults stand as written. Q10 and Q11 are open.
+recommended defaults stand as written. Vinh answered Q10, Q11 and the
+Azure price tier under Q1 at **16:26** the same day (UTC+7), relayed with
+the instruction to update this PR.
+
+### Decisions of 16:26 (2026-10-28, UTC+7)
+
+- **Q10 = A.** When Azure is skipped for budget reasons, the overall band
+  is the mean of FC, LR and GRA, labelled "Điểm tổng tính trên 3 tiêu
+  chí". This was already the default. → FR-023, AC13, `ui-states.md` P5
+  and T1.
+- **Q11 = A.** No automatic re-grade of pronunciation in phase 1. A Full
+  Test's result-page pronunciation call can still add P later. → FR-023.
+- **Q1, Azure tier.** The Azure Speech pricing tier is **S0** (standard,
+  paid). Azure cost estimation and reservation sizing use S0 pricing. This
+  removes the earlier caveat that Speaking is graded without P until the
+  tier is confirmed. → FR-004, FR-023, T001, `research.md` §7.
 
 ### Decisions of 09:35 (2026-10-28, UTC+7)
 
@@ -588,8 +613,8 @@ recommended defaults stand as written. Q10 and Q11 are open.
   CONTINUES without the pronunciation score. The learner sees a short note
   in Vietnamese. Grading is not deferred. → FR-023, AC13, `ui-states.md`
   P5/P5b. The Feature Developer addendum approved through (c) asks for the
-  band rule, the labels and the re-grade rule. FR-023 gives each one as a
-  default plus an alternative, under Q10 and Q11.
+  band rule, the labels and the re-grade rule. Vinh decided them as Q10
+  and Q11 at 16:26, and FR-023 records the result.
 - **(d) Daily caps.** Keep the $1.33/day cap for Gemini and Azure, as
   protection against runaway loops. → FR-003 (monthly ÷ 30 × 2, which also
   gives OpenAI and ElevenLabs $1.33 a day).
@@ -627,9 +652,9 @@ recommended defaults stand as written. Q10 and Q11 are open.
     enforcement.
   - Vinh revisits these values. They change through the Railway variables
     or, for at most 24 hours, the raise in FR-022.
-  - *Still outstanding:* Vinh confirms the Azure Speech price tier, so a
-    catalog row can be added. Without it, the Azure line is refused under
-    FR-004 and Speaking is graded without pronunciation (FR-023).
+  - **Azure Speech tier: S0** (standard, paid), decided at 16:26. T001
+    adds the S0 catalog row, and Azure estimates and reservations are
+    sized from it (FR-023, `research.md` §7).
 - **Q2: Alert email.** *Decided (09:13, sender set by (a) at 09:35):* the
   recipient is `andyvinhtran1212@gmail.com` (confirmed by Vinh), kept in the
   one config value `OWNER_ALERT_EMAILS`, the same variable and address as
@@ -673,21 +698,17 @@ recommended defaults stand as written. Q10 and Q11 are open.
   learner's input stays in the page and no attempt is used. Queuing them
   would need a deferred contract for each flow. That can be a later spec
   if pauses turn out to be frequent.
-- **Q10: Speaking band when pronunciation is skipped for budget (open,
-  owner).** *Default, used until Vinh decides:* keep today's rule for a
+- **Q10: Speaking band when pronunciation is skipped for budget.**
+  *Decided (16:26): A, the default.* Keep today's rule for a
   missing Azure score. In test mode and Full Test, the overall band is the
   mean of the criteria present (FC, LR, GRA), rounded with `ielts_round`,
   and labelled as computed on three criteria. The session aggregate
   averages the criteria present. Practice mode is unchanged (FR-023).
-  *Alternative:* withhold the overall band (null, "chưa đủ 4 tiêu chí")
-  while still showing FC, LR and GRA, and push no class-assignment score.
-  The default keeps a usable band, but a three-criterion mean is not an
-  IELTS overall band. The alternative is stricter, but it leaves a test
-  without an overall result.
-- **Q11: Re-grade the pronunciation later? (open, owner).** *Default, used
-  until Vinh decides:* no automatic P re-grade. A Full Test can get P from
+  The label is "Điểm tổng tính trên 3 tiêu chí". *Not chosen:* alternative
+  B, withholding the overall band (null, "chưa đủ 4 tiêu chí").
+- **Q11: Re-grade the pronunciation later?** *Decided (16:26): A, the
+  default.* No automatic P re-grade in phase 1. A Full Test can get P from
   its existing result-page pronunciation call once Azure is open again.
-  Admin regrade does not add P (FR-023). *Alternative:* a P-only deferred
-  job per skipped test-mode response. When Azure reopens, it fills
-  `final_band_p` and recomputes the bands through FR-024, so a learner's
-  band can change after they have seen it.
+  Admin regrade does not add P (FR-023). *Not chosen:* a P-only deferred
+  job per skipped test-mode response, which would fill `final_band_p`
+  after the learner has seen the band.

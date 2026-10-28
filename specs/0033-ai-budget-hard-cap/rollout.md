@@ -10,15 +10,15 @@ key, token or `.env` value. Evidence records variable **names** and
 
 - AIBUDGET-0033 is approved on `staging`, with Q1–Q9 and decisions (a)–(f)
   (`spec.md`) recorded in `approval-decision.md` (approved by Vinh
-  2026-10-28 at 09:11/09:13 and 09:35). The Azure tier under Q1 and Q10/Q11
-  are still outstanding. The FR-023 defaults apply until Vinh answers.
+  2026-10-28 at 09:11/09:13 and 09:35). Q10 = A, Q11 = A and the Azure
+  tier (S0) under Q1 were decided at 16:26.
 - Migration number 333 is confirmed for AI-BUDGET lot 02 (Q5, 09:35).
   327–330 are reserved, 331 is GIVEARCHIVE-0031 and 332 is ADMINAAL2-0032.
 - Every provider/model that can be reserved has a price row in
   `backend/services/ai_pricing.py`. Azure pronunciation has no row today.
-  Without one, Azure calls are refused once enforcement starts (FR-004),
-  and Speaking is graded without pronunciation (FR-023). T001 adds the
-  Azure row from the tier Vinh confirms under Q1.
+  T001 adds the S0 row (Q1, 16:26) before enforcement starts. A missing
+  row would refuse every Azure call (FR-004), so Speaking would lose its
+  pronunciation score (FR-023).
 - Railway variables are reviewed on the target environment **before** the
   enforcing backend deploys. A missing budget variable never blocks AI,
   because it takes its spec default (FR-003, decision (b)). A set but
@@ -91,7 +91,8 @@ key, token or `.env` value. Evidence records variable **names** and
      only 80% and 100% arrive.
    - **Azure skip (AC13).** Set the staging Azure cap just above committed
      spend. A test-mode and a practice Speaking answer are graded at once
-     without pronunciation, with P5 and P5b shown, the instructor matrix
+     without pronunciation, with P5, P5b and the "Điểm tổng tính trên 3
+     tiêu chí" band label shown, the instructor matrix
      labelled "Chưa có Phát âm", and no deferred job.
    - **Soft Anthropic budget (AC10).** Set a staging Anthropic budget just
      above committed spend. A Claude-primary feature keeps working past

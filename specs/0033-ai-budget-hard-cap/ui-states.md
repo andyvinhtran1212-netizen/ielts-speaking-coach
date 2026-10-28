@@ -33,16 +33,16 @@ These are the exact Vietnamese strings, so they can be tested.
 - **P5b (the same, practice mode, in the pronunciation card):** "Lần này
   chưa có phần phân tích phát âm. Điểm và các nhận xét khác của bạn vẫn
   đầy đủ nhé!"
-- **P5 under the Q10 alternative (only if Vinh chooses it):** "Lần này hệ
-  thống chưa chấm được phần Phát âm, nên bài này chưa có điểm tổng. Điểm
-  từng tiêu chí khác của bạn vẫn đầy đủ nhé!"
+- **P5 label (next to the overall band, test mode and Full Test, Q10 = A
+  of 16:26):** "Điểm tổng tính trên 3 tiêu chí".
 - **T1 (teacher label, FR-023):** "Chưa có Phát âm", with the tooltip
   "Điểm tổng tính trên 3 tiêu chí". The admin view adds the reason "Bỏ qua
   phát âm: hết ngân sách Azure". Instructors never see the reason.
 
 P5 and P5b address the learner as "bạn", like P1 and the existing
 pronunciation copy (`_PRON_UNAVAILABLE_FEEDBACK` in `routers/grading.py`).
-They promise no later pronunciation score, because Q11's default adds none.
+They promise no later pronunciation score, because Q11 = A (16:26) adds no
+automatic re-grade in phase 1.
 Neither one names the budget.
 
 `GET /ai/status` is read on mount after sign-in (see the hydration gate in
