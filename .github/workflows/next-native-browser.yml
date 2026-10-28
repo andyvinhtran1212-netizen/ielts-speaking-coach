@@ -566,6 +566,10 @@ on:
       - 'frontend/public/js/components/aver-chrome.js'
       - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
       - 'frontend/tooling/verify-chrome-early-render-flow.mjs'
+      - 'frontend/app/(authed)/profile/**'
+      - 'frontend/public/css/profile.css'
+      - 'frontend/public/css/grammar-wiki.css'
+      - 'frontend/tooling/verify-mobile-layout-flow.mjs'
       - 'frontend/components/authed-shell.tsx'
       - 'frontend/components/supabase-runtime-boundary.tsx'
       - 'frontend/public/js/theme-toggle.js'
@@ -832,6 +836,12 @@ jobs:
       # điền sau khi api.js về, khách ở Grammar không thấy "·" / "…".
       - name: Kiểm header hiện ngay, không chờ runtime Supabase
         run: node tooling/verify-chrome-early-render-flow.mjs "http://localhost:$TEST_PORT"
+
+      # PC-J13 (U-05/U-08/U-18): ở 360/390px breadcrumb sticky + thanh CTA khách
+      # che ~1/5 bài grammar, nút CTA teal mất tương phản ở theme sáng, /profile
+      # tràn ngang (chip band), email bị cắt và toast "Đã lưu" có sẵn trong DOM.
+      - name: Kiểm bài grammar và /profile ở bề rộng điện thoại
+        run: node tooling/verify-mobile-layout-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
       # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,
